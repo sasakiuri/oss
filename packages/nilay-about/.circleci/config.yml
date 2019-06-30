@@ -1,0 +1,28 @@
+version: 2.1 # use CircleCi 2.1
+orbs: # specify all orbs you want to use.
+  aws-code-deploy: circleci/aws-code-deploy@0.0.9
+jobs:
+  build: # job name
+    docker: # specify docker images
+      - image: circleci/node:10.16.0
+    steps: # steps
+      - checkout # check out source code
+      - run:
+          name: update-npm
+          command: 'sudo npm install -g npm@latest'
+workflows:
+  deploy_application:
+    jobs:
+       - build
+       - aws-code-deploy/deploy:
+           requires: 
+             - build
+           application-name: nilay-about
+           deployment-group: nilay-about
+           service-role-arn: arn:aws:iam::601207993370:role/CodeDeployNilayBuckman
+           bundle-bucket: nilay-buckman-deploy
+           bundle-key: nilay-about
+           filters:
+             branches:
+               only:
+                 - master
