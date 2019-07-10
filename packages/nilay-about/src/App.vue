@@ -31,17 +31,17 @@
               <i class="fab fa-instagram"></i>
             </a>
           </div>
-          <hr class="col-12 divider" />
-          <div class="col-3">
+          <hr class="divider" />
+          <div class="col-6 col-sm-3 text-left">
             <h5>Nilay/About</h5>
           </div>
-          <div class="col-3">
+          <div class="col-6 col-sm-3 text-left">
             <h5>サービス</h5>
             <div class="pl-3">Knowledge</div>
             <div class="pl-3">E-commerce</div>
             <div class="pl-3">Gunman</div>
           </div>
-          <hr class="col-12 divider" />
+          <hr class="divider" />
           <div class="col-12 small">
             <small>© 2019 Nilay</small>
           </div>

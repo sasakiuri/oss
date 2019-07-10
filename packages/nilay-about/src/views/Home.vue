@@ -4,11 +4,11 @@
     <div class="h1">ようこそ！！</div>
     <div class="container">
 
-      <div class="row my-5">
+      <div class="row">
         <div class="col-12">
           <h2>サービス</h2>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-4 my-5">
           <div>
             <i class="fas fa-book text-black-50"></i>
           </div>
@@ -16,7 +16,7 @@
           <p class="text-left">銃・射撃・狩猟に関する知識を紹介しています。</p>
           <b-button variant="outline-dark" href="https://knowledge.nilay.jp" target="_blank">読む</b-button>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-4 my-5">
           <div>
             <i class="fas fa-shopping-cart text-black-50"></i>
           </div>
@@ -24,7 +24,7 @@
           <p class="text-left">射撃用品・狩猟用品・鳥獣被害対策用品を販売しています。</p>
           <b-button variant="outline-dark" href="https://www.nilay.jp" target="_blank">買う</b-button>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-4 my-5">
           <div>
             <i class="fas fa-cloud text-black-50"></i>
           </div>
