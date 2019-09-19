@@ -1,0 +1,10 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /data/file/static/about
+hooks:
+  AfterInstall:
+    - location: scripts/AfterInstall.sh
+      runas: root
+      timeout: 300
