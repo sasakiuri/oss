@@ -33,7 +33,6 @@ class NewsDetail extends React.Component<Props, State> {
             )
             .then(
                 response => {
-                    console.log(response)
                     this.setState(
                         {
                             news: response.data
@@ -41,7 +40,7 @@ class NewsDetail extends React.Component<Props, State> {
                     )
 
                     if (this.state.news !== null) {
-                        document.title = `${this.state.news.title}：お知らせ：Nilay/Knowledge`
+                        document.title = `${this.state.news.title}：お知らせ：Nilay/About`
                     }
 
                 }
