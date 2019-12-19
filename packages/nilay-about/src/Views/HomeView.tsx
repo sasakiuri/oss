@@ -5,7 +5,7 @@ import tanuki from '../Resources/0db7cad9ab39158b8ca1e2c3dd3e144dfa67c852.26a463
 class HomeView extends React.Component {
 
     public componentDidMount(): void {
-        document.title = "Nilay/Knowledge";
+        document.title = "Nilay/About";
     }
 
     public render(): React.ReactNode {
