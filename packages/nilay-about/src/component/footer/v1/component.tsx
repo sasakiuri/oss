@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Container, Grid, Link } from "@material-ui/core";
+import { Container, Grid } from "@material-ui/core";
 import styled from "styled-components";
 import { Twitter, Facebook, YouTube, Instagram } from "@material-ui/icons";
 
