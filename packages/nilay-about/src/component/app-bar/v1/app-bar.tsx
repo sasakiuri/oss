@@ -31,16 +31,7 @@ const StyledTabs = styled(({ className, ...other }) => {
 
 const StyledTab = styled(({ ...props }) => (
     <Tab {...props} classes={{ selected: "selected" }} />
-))`
-    // &.selected {
-    //   color: rgb(232, 118, 0);
-    // }
-    &:hover: {
-        backgroundColor: red
-      }
-  `;
-
-
+))``;
 
 class Component extends React.Component<Props, State> {
 
@@ -54,7 +45,7 @@ class Component extends React.Component<Props, State> {
     public render(): React.ReactNode {
         return (
             <StyledAppBar position="sticky">
-                <Container maxWidth="md">
+                <Container maxWidth="lg">
                     <StyledTabs
                         value={this.state.value}
                         onChange={this.handleChange}
@@ -72,6 +63,5 @@ class Component extends React.Component<Props, State> {
         );
     }
 }
-
 
 export default Component
