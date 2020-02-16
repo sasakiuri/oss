@@ -3,6 +3,8 @@ import axios from 'axios'
 import { Link } from 'react-router-dom'
 import Loader from 'react-loader-spinner'
 
+import NewsList from "../scene/news-list/v1/container"
+
 interface News {
     id: string
     title: string
@@ -50,6 +52,7 @@ class NewsView extends React.Component<Props, State> {
     public render(): React.ReactNode {
         return (
             <div id="NewsView">
+            <NewsList />
                 <div className="h2">お知らせ</div>
                 <div className="container mt-5">
                     <Loader

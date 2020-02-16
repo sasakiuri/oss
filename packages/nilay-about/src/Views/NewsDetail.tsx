@@ -2,6 +2,7 @@ import * as React from 'react'
 import { RouteComponentProps } from 'react-router-dom'
 import axios from 'axios'
 import { Link } from 'react-router-dom';
+import Scene from "../scene/news-detail/v1/container"
 
 interface News {
     id: string
