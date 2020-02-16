@@ -3,6 +3,8 @@ import { BrowserRouter, Route, Link } from 'react-router-dom';
 import AppBar from "./component/app-bar/v1/app-bar"
 import Footer from "./component/footer/v1/component"
 import HomeScene from "./scene/home/v1/container"
+import NewsListScene from "./scene/news-list/v1/container"
+import NewsDetailScene from "./scene/news-detail/v1/container"
 import ContactView from './Views/ContactView';
 import NewsView from './Views/NewsView';
 import NewsDetail from './Views/NewsDetail';
@@ -18,9 +20,9 @@ const App: React.FC = () => {
         <AppBar />
         <div className="App">
           <Route exact path='/' component={HomeScene} />
+          <Route exact path='/news' component={NewsListScene} />
+          <Route path='/news/:id' component={NewsDetailScene} />
           <Route path='/contact' component={ContactView} />
-          <Route exact path='/news' component={NewsView} />
-          <Route path='/news/:id' component={NewsDetail} />
         </div>
         <Footer />
       </BrowserRouter>
