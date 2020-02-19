@@ -97,9 +97,9 @@ class Component extends React.Component {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <FooterListTitle>Services</FooterListTitle>
-              <FooterListItem href="">Knowledge</FooterListItem>
-              <FooterListItem href="">E-commerce</FooterListItem>
-              <FooterListItem href="">Gunman</FooterListItem>
+              <FooterListItem href="https://www.nilay.jp/" target="_blank" rel="noopener noreferrer">Knowledge</FooterListItem>
+              <FooterListItem href="https://knowledge.nilay.jp/" target="_blank" rel="noopener noreferrer">E-commerce</FooterListItem>
+              <FooterListItem href="https://gunman.nilay.jp/" target="_blank" rel="noopener noreferrer">Gunman</FooterListItem>
             </Grid>
             <Grid item xs={12}>
               <SocialLink
