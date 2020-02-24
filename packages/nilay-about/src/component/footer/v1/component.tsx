@@ -104,6 +104,7 @@ class Component extends React.Component {
             <Grid item xs={12}>
               <SocialLink
                 href="https://twitter.com/NilayJP"
+                aria-label="Twitter"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -111,6 +112,7 @@ class Component extends React.Component {
               </SocialLink>
               <SocialLink
                 href="https://www.facebook.com/NilaySport/"
+                aria-label="Facebook"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -118,6 +120,7 @@ class Component extends React.Component {
               </SocialLink>
               <SocialLink
                 href="https://www.youtube.com/channel/UC03yJGn_rZV2MTpr-ZrMZrA"
+                aria-label="YouTube"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -125,6 +128,7 @@ class Component extends React.Component {
               </SocialLink>
               <SocialLink
                 href="https://www.instagram.com/NilayJP/"
+                aria-label="Instagram"
                 target="_blank"
                 rel="noopener noreferrer"
               >
