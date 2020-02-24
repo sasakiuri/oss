@@ -12,6 +12,7 @@ import BasicTitle from "../../../component/basic-title/v1/component";
 interface Props {
   className?: string;
 }
+
 class Component extends React.Component<Props> {
   public constructor(props: Props) {
     super(props);
