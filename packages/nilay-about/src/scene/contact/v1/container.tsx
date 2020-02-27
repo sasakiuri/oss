@@ -89,9 +89,9 @@ class Component extends React.Component<Props> {
         <Container maxWidth="sm">
           <BasicTitle title="お問い合わせ" subtitle="Contact" />
         </Container>
-        {/* <Container maxWidth="sm">
+        <Container maxWidth="sm">
           <ContactForm />
-        </Container> */}
+        </Container>
         <Container maxWidth="sm">
           <Scene>
             <Grid container spacing={3}>

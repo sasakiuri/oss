@@ -8,14 +8,26 @@ import {
   TextField,
   Card,
   CardContent,
-  FormControlLabel
+  FormControlLabel,
+  IconButton
 } from "@material-ui/core";
-import { Send } from "@material-ui/icons";
+import { Alert, AlertTitle } from '@material-ui/lab';
+import { Send, Close } from "@material-ui/icons";
+import Query from "../../../interface-adapter/query/contact-message-send-query/v1/web-api-query"
+import Request from "../../../use-case/contact-message-send/v1/request"
+import Response from "../../../use-case/contact-message-send/v1/response"
+import styled from "styled-components";
+import SuccessMessage from "./success-message";
+import ErrorMessage from "./error-message";
+import * as EmailValidator from "email-validator";
 
 interface Props {
   className?: string;
 }
 interface State {
+  uuid: string;
+  successMessage: boolean;
+  hasError: boolean;
   requiresReply: boolean;
   isLoading: boolean;
   emailAddress: string;
@@ -26,12 +38,23 @@ interface State {
     title: string;
     body: string;
   };
+  error: {
+    title: string;
+    message: string;
+  };
 }
 
+
 class Component extends React.Component<Props, State> {
+  private _query: Query;
+
   public constructor(props: Props) {
     super(props);
+
     this.state = {
+      uuid: "",
+      successMessage: false,
+      hasError: false,
       requiresReply: false,
       isLoading: false,
       emailAddress: "",
@@ -41,46 +64,84 @@ class Component extends React.Component<Props, State> {
         emailAddress: "",
         title: "",
         body: ""
+      },
+      error: {
+        title: "",
+        message: ""
       }
     };
+
+    this._query = new Query();
   }
 
-  checkReplyRequirement = () => (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  checkReplyRequirement = () => (event: React.ChangeEvent<HTMLInputElement>) => {
     this.setState({ requiresReply: !this.state.requiresReply });
   };
 
   gotoNext = () => (e: React.MouseEvent<HTMLElement>) => {
     (async () => {
-      this.setState({ isLoading: true });
-      const requiresReply: boolean = this.state.requiresReply;
-      const emailAddress: string = this.state.emailAddress;
-      const title: string = this.state.title;
-      const body: string = this.state.body;
 
+      console.log(this.refs.myField);
+
+      this.setState({ isLoading: true, successMessage: false, hasError: false });
+      const error = this.state.error;
       const errorMessages = this.state.errorMessages;
-
-      if (title.trim() === "") {
-        errorMessages.title = "タイトルは必須です。";
-      }
-
-      if (body.trim() === "") {
-        errorMessages.body = "お問い合わせ内容は必須です。";
-      }
-
-      if (requiresReply && !this._validateEmailAddress(emailAddress)) {
-        errorMessages.emailAddress = "Ｅメールアドレスの形式が不正です。";
-      }
+      errorMessages.title = "";
+      errorMessages.body = "";
+      errorMessages.emailAddress = "";
 
       await this._timeout(750);
 
-      this.setState({ errorMessages: errorMessages });
+      if (this.state.title.trim() === "") {
+        errorMessages.title = "タイトルは必須です。";
+      }
+
+      if (this.state.body.trim() === "") {
+        errorMessages.body = "お問い合わせ内容は必須です。";
+      }
+
+      if (this.state.requiresReply && !this._validateEmailAddress(this.state.emailAddress)) {
+        errorMessages.emailAddress = "Ｅメールアドレスの形式が不正です。";
+      }
 
       if (this._hasError()) {
-        this.setState({ isLoading: false });
+        error.message = "入力値が不正です。入力された値を修正の上、もう一度送信ボタンを押してください。";
+        this.setState({
+          isLoading: false,
+          hasError: true,
+          error: error
+        });
         return;
       }
+
+      const req: Request = {
+        email: this.state.emailAddress.trim(),
+        message: this.state.body.trim(),
+        title: this.state.title.trim(),
+        requiresReply: this.state.requiresReply
+      };
+
+      try {
+        const res: Response = await this._query.write(req);
+        this.setState({
+          isLoading: false,
+          successMessage: true,
+          uuid: res.uuid,
+          requiresReply: false,
+          emailAddress: "",
+          title: "",
+          body: "",
+        });
+        return;
+      } catch (error) {
+        error.message = "何らかのエラーが発生しました。しばらく時間をおいてから送信するか、Ｅメールなどで直接お問い合わせください。";
+        this.setState({
+          isLoading: false,
+          hasError: true,
+          error: error
+        });
+      }
+
     })();
   };
 
@@ -89,7 +150,7 @@ class Component extends React.Component<Props, State> {
       return false;
     }
 
-    return true;
+    return EmailValidator.validate(emailAddress.trim());
   }
 
   private _hasError(): boolean {
@@ -104,13 +165,14 @@ class Component extends React.Component<Props, State> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  closeSuccessMessage = () => (e: React.MouseEvent<HTMLElement>) => {
+    this.setState({ successMessage: false });
+  };
+
   public render(): React.ReactNode {
     return (
       <React.Fragment>
         <Card variant="outlined" style={{ textAlign: "left" }}>
-          <Fade in={this.state.isLoading}>
-            <LinearProgress />
-          </Fade>
           <CardContent>
             <FormControlLabel
               style={{ marginBottom: "1.5rem" }}
@@ -129,12 +191,13 @@ class Component extends React.Component<Props, State> {
               <TextField
                 required
                 fullWidth
+                error={this.state.errorMessages.emailAddress.length > 0}
                 id="emailAddress"
                 type="email"
                 label="Ｅメールアドレス"
-                defaultValue=""
+                value={this.state.emailAddress}
                 style={{ marginBottom: "1rem" }}
-                helperText=""
+                helperText={this.state.errorMessages.emailAddress}
                 InputLabelProps={{
                   shrink: true
                 }}
@@ -146,11 +209,12 @@ class Component extends React.Component<Props, State> {
             <TextField
               required
               fullWidth
+              error={this.state.errorMessages.title.length > 0}
               id="title"
               label="タイトル"
-              defaultValue=""
+              value={this.state.title}
               style={{ marginBottom: "1rem" }}
-              helperText=""
+              helperText={this.state.errorMessages.title}
               InputLabelProps={{
                 shrink: true
               }}
@@ -162,11 +226,12 @@ class Component extends React.Component<Props, State> {
               required
               fullWidth
               id="body"
+              error={this.state.errorMessages.body.length > 0}
               label="お問い合わせ内容"
               multiline
               rows="4"
-              defaultValue=""
-              helperText=""
+              value={this.state.body}
+              helperText={this.state.errorMessages.body}
               InputLabelProps={{
                 shrink: true
               }}
@@ -184,7 +249,19 @@ class Component extends React.Component<Props, State> {
             >
               送信
             </Button>
+            <SuccessMessage visibility={this.state.successMessage}
+              onClick={this.closeSuccessMessage()}
+              uuid={this.state.uuid}
+            />
+            <ErrorMessage visibility={this.state.hasError}
+              onClick={this.closeSuccessMessage()}
+              title="エラー"
+              message={this.state.error.message}
+            />
           </CardContent>
+          <Fade in={this.state.isLoading}>
+            <LinearProgress />
+          </Fade>
         </Card>
       </React.Fragment>
     );
