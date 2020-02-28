@@ -1,11 +1,5 @@
 import React from "react";
 import styled from "styled-components";
-import {
-    ListItem,
-    ListItemAvatar,
-    ListItemText,
-    Typography
-} from "@material-ui/core";
 import { Skeleton } from '@material-ui/lab';
 
 type Props = {

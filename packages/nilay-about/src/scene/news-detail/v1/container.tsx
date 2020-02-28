@@ -10,7 +10,7 @@ import Response from "../../../use-case/news-get/v1/response";
 import Req from "../../../use-case/news-get/v1/request";
 import Skelton from "./skelton";
 
-interface Props extends RouteComponentProps<{ id: string }> { }
+interface Props extends RouteComponentProps<{ id: string }> {}
 
 interface State {
   isLoading: boolean;
@@ -162,8 +162,6 @@ class Component extends React.Component<Props, State> {
   }
 
   public render(): React.ReactNode {
-
-
     return (
       <React.Fragment>
         {(() => {
