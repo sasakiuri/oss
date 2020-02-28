@@ -8,15 +8,12 @@ import {
   TextField,
   Card,
   CardContent,
-  FormControlLabel,
-  IconButton
+  FormControlLabel
 } from "@material-ui/core";
-import { Alert, AlertTitle } from '@material-ui/lab';
-import { Send, Close } from "@material-ui/icons";
+import { Send } from "@material-ui/icons";
 import Query from "../../../interface-adapter/query/contact-message-send-query/v1/web-api-query"
 import Request from "../../../use-case/contact-message-send/v1/request"
 import Response from "../../../use-case/contact-message-send/v1/response"
-import styled from "styled-components";
 import SuccessMessage from "./success-message";
 import ErrorMessage from "./error-message";
 import * as EmailValidator from "email-validator";
