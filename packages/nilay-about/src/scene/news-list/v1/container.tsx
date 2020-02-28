@@ -17,6 +17,7 @@ import InputPort from "../../../use-case/news-list/v1/input-port";
 import News from "../../../use-case/news-list/v1/news";
 import Response from "../../../use-case/news-list/v1/response";
 import BasicTitle from "../../../component/basic-title/v1/component";
+import Skelton from "./skelton";
 
 interface Props {
   className?: string;
@@ -70,51 +71,64 @@ class Component extends React.Component<Props, State> {
         <Container maxWidth="lg">
           <BasicTitle title="お知らせ" subtitle="News" />
           <List>
-            {this.state.newsList.map(
-              (news: News, index: number, newsList: Array<News>) => {
+            {(() => {
+              if (this.state.isLoading) {
+                return <Skelton />;
+              } else {
                 return (
-                  <ListItem
-                    button
-                    divider={index !== newsList.length - 1}
-                    alignItems="flex-start"
-                    component={Link}
-                    to={`news/${news.id}`}
-                    key={news.id}
-                  >
-                    <ListItemAvatar style={{ color: "#2c3e50" }}>
-                      <Announcement />
-                    </ListItemAvatar>
-                    <ListItemText
-                      style={{ color: "#2c3e50" }}
-                      primary={
-                        <React.Fragment>
-                          <Typography style={{ marginBottom: "0.5rem" }}>
-                            {news.title}
-                          </Typography>
-                        </React.Fragment>
-                      }
-                      secondary={
-                        <React.Fragment>
-                          <Typography
-                            component="span"
-                            variant="body2"
-                            color="textPrimary"
-                          >
-                            {news.date.getFullYear()}年
-                            {news.date.getMonth() + 1}月{news.date.getDate()}日
-                          </Typography>
-                          &nbsp;—&nbsp;
-                          {news.summary.replace(
-                            /<("[^"]*"|'[^']*'|[^'">])*>/g,
-                            ""
-                          )}
-                        </React.Fragment>
-                      }
-                    />
-                  </ListItem>
+                  <>
+                    {
+                      this.state.newsList.map(
+                        (news: News, index: number, newsList: Array<News>) => {
+                          return (
+                            <ListItem
+                              button
+                              divider={index !== newsList.length - 1}
+                              alignItems="flex-start"
+                              component={Link}
+                              to={`news/${news.id}`}
+                              key={news.id}
+                            >
+                              <ListItemAvatar style={{ color: "#2c3e50" }}>
+                                <Announcement />
+                              </ListItemAvatar>
+                              <ListItemText
+                                style={{ color: "#2c3e50" }}
+                                primary={
+                                  <React.Fragment>
+                                    <Typography style={{ marginBottom: "0.5rem" }}>
+                                      {news.title}
+                                    </Typography>
+                                  </React.Fragment>
+                                }
+                                secondary={
+                                  <React.Fragment>
+                                    <Typography
+                                      component="span"
+                                      variant="body2"
+                                      color="textPrimary"
+                                    >
+                                      {news.date.getFullYear()}年
+                                {news.date.getMonth() + 1}月{news.date.getDate()}日
+                              </Typography>
+                                    &nbsp;—&nbsp;
+                              {news.summary.replace(
+                                      /<("[^"]*"|'[^']*'|[^'">])*>/g,
+                                      ""
+                                    )}
+                                  </React.Fragment>
+                                }
+                              />
+                            </ListItem>
+                          );
+                        }
+                      )
+                    }
+                  </>
                 );
               }
-            )}
+            })()}
+
           </List>
         </Container>
       </React.Fragment>
