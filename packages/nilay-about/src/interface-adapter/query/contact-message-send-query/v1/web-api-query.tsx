@@ -27,7 +27,6 @@ class WebApiQuery implements Query {
       const sendContactMessage: firebase.functions.HttpsCallable = firebase.functions().httpsCallable("sendContactMessage");
 
       const result = await sendContactMessage(req);
-      console.log(result);
 
       const data: Response = {
         hasError: result.data.hasError,

@@ -81,8 +81,6 @@ class Component extends React.Component<Props, State> {
   gotoNext = () => (e: React.MouseEvent<HTMLElement>) => {
     (async () => {
 
-      console.log(this.refs.myField);
-
       this.setState({ isLoading: true, successMessage: false, hasError: false });
       const error = this.state.error;
       const errorMessages = this.state.errorMessages;
