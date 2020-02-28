@@ -132,6 +132,8 @@ class Component extends React.Component<Props, State> {
         });
         return;
       } catch (error) {
+        console.error(error);
+        console.log(error);
         error.message = "何らかのエラーが発生しました。しばらく時間をおいてから送信するか、Ｅメールなどで直接お問い合わせください。";
         this.setState({
           isLoading: false,
