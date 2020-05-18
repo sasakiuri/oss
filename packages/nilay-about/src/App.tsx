@@ -1,7 +1,6 @@
 import React from "react";
 import { BrowserRouter, Route } from "react-router-dom";
 import { StylesProvider } from "@material-ui/styles";
-
 import AppBar from "./component/app-bar/v1/app-bar";
 import Footer from "./component/footer/v1/component";
 
@@ -9,6 +8,7 @@ import HomeScene from "./scene/home/v1/container";
 import NewsListScene from "./scene/news-list/v1/container";
 import NewsDetailScene from "./scene/news-detail/v1/container";
 import ContactScene from "./scene/contact/v1/container";
+import LabsHomeTarget from "./scene/labs/home-target/index";
 
 import "./App.css";
 
@@ -22,6 +22,7 @@ const App: React.FC = () => {
           <Route exact path="/news" component={NewsListScene} />
           <Route path="/news/:id" component={NewsDetailScene} />
           <Route path="/contact" component={ContactScene} />
+          <Route exact path="/labs/home-target" component={LabsHomeTarget} />
         </div>
         <Footer />
       </BrowserRouter>
