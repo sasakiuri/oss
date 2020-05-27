@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { Container, Grid } from "@material-ui/core";
 import styled from "styled-components";
-import { Twitter, Facebook, YouTube, Instagram } from "@material-ui/icons";
+import { GitHub, Twitter, Facebook, YouTube, Instagram } from "@material-ui/icons";
 
 const Footer = styled.div`
   margin-top: 3rem;
@@ -133,6 +133,14 @@ class Component extends React.Component {
                 rel="noopener noreferrer"
               >
                 <Instagram style={{ fontSize: "32px" }} />
+              </SocialLink>
+              <SocialLink
+                href="https://github.com/nilay-jp"
+                aria-label="GitHub"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <GitHub style={{ fontSize: "32px" }} />
               </SocialLink>
             </Grid>
             <Grid item xs={12}>
