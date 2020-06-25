@@ -15,7 +15,7 @@ jobs:
           name: Install npm
           command: "sudo npm install -g npm@latest"
       - run:
-          name: Install gatsby-cli
+          name: Install create-react-app
           command: "sudo npm install -g create-react-app"
       - restore_cache:
           key: dependency-cache-{{ checksum "package-lock.json" }}

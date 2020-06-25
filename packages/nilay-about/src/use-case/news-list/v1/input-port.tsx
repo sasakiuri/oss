@@ -1,7 +1,0 @@
-import Response from "./response";
-
-interface InputPort {
-  handle(): Promise<Response>;
-}
-
-export default InputPort;
