@@ -14,7 +14,7 @@
         "@types/styled-components": "^4.4.3",
         "email-validator": "^2.0.4",
         "file-saver": "^2.0.2",
-        "firebase": "^7.13.0",
+        "firebase": "^7.15.4",
         "js-file-download": "^0.4.12",
         "react": "^16.13.1",
         "react-dom": "^16.13.1",
