@@ -1,5 +1,5 @@
-import { Request, Response } from "./";
+import { Request, Response } from "./"
 
 export interface InputPort {
-  interact(uReq: Request): Promise<Response>;
+  interact(uReq: Request): Promise<Response>
 }

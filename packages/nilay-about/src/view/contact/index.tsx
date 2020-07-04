@@ -1,11 +1,8 @@
-import * as React from "react";
-import { Container, Grid } from "@material-ui/core";
-import styled from "styled-components";
-import { Twitter, Facebook, YouTube, Instagram } from "@material-ui/icons";
-import BasicTitle from "../../component/basic-title/v1/component";
-import ContactForm from "./contact-form";
+import React, { useState } from "react"
+import styled from "styled-components"
 
-const Scene = styled.div`
+export * from "./form"
+export const Scene = styled.div`
   text-align: left;
   margin-top: 2rem;
   @font-face {
@@ -37,9 +34,9 @@ const Scene = styled.div`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
-const SocialLink = styled.a`
+export const SocialLink = styled.a`
   diplay: inline-block;
   line-height: 48px;
   height: 48px;
@@ -52,9 +49,9 @@ const SocialLink = styled.a`
   &: hover {
     color: #2c3e50;
   }
-`;
+`
 
-const ContactAddress = styled.a`
+export const ContactAddress = styled.a`
   display: block;
   line-height: 36px;
   height: 36px;
@@ -68,73 +65,16 @@ const ContactAddress = styled.a`
   &: hover {
     color: #2c3e50;
   }
-`;
+`
 
-interface Props {
-  className?: string;
+const Component: React.FC<Props> = (props: Props) => {
+  const [count, setCount] = useState(0)
+  return (
+    <div>
+      <p>You clicked {count} times</p>
+      <button onClick={() => setCount(count + 1)}>Click me</button>
+    </div>
+  )
 }
 
-export class Contact extends React.Component<Props> {
-  public constructor(props: Props) {
-    super(props);
-  }
-
-  public componentDidMount(): void {
-    document.title = "お問い合わせ：Nilay/About";
-  }
-
-  public render(): React.ReactNode {
-    return (
-      <React.Fragment>
-        <Container maxWidth="sm">
-          <BasicTitle title="お問い合わせ" subtitle="Contact" />
-        </Container>
-        <Container maxWidth="sm">
-          <ContactForm />
-        </Container>
-        <Container maxWidth="sm">
-          <Scene>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <ContactAddress>
-                  Ｅメールアドレス：contact@mail.nilay.jp
-                </ContactAddress>
-                <ContactAddress>電話番号：080-7059-1382</ContactAddress>
-              </Grid>
-              <Grid item xs={12}>
-                <SocialLink
-                  href="https://twitter.com/NilayJP"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Twitter style={{ fontSize: "32px" }} />
-                </SocialLink>
-                <SocialLink
-                  href="https://www.facebook.com/NilaySport/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Facebook style={{ fontSize: "32px" }} />
-                </SocialLink>
-                <SocialLink
-                  href="https://www.youtube.com/channel/UC03yJGn_rZV2MTpr-ZrMZrA"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <YouTube style={{ fontSize: "32px" }} />
-                </SocialLink>
-                <SocialLink
-                  href="https://www.instagram.com/NilayJP/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Instagram style={{ fontSize: "32px" }} />
-                </SocialLink>
-              </Grid>
-            </Grid>
-          </Scene>
-        </Container>
-      </React.Fragment>
-    );
-  }
-}
+export const Test = Component

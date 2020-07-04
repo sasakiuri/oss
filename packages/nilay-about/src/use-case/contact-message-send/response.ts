@@ -1,5 +1,5 @@
 export type Response = {
-  hasError: boolean;
-  errorMessage: string;
-  uuid: string;
+  hasError: boolean
+  errorMessage: string
+  uuid: string
 }

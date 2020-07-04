@@ -1,5 +1,5 @@
-import { Request, Response } from "./";
+import { Request, Response } from "./"
 
 export interface ContactMessageGateway {
-  write(gwReq: Request): Promise<Response>;
+  write(gwReq: Request): Promise<Response>
 }

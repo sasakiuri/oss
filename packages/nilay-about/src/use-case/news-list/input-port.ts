@@ -1,5 +1,5 @@
-import { Response } from "./response";
+import { Response } from "./response"
 
 export interface InputPort {
-  interact(): Promise<Response>;
+  interact(): Promise<Response>
 }
