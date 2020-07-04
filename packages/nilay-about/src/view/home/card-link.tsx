@@ -1,5 +1,5 @@
-import styled from "styled-components";
-import Link from "@material-ui/core/Link";
+import styled from "styled-components"
+import Link from "@material-ui/core/Link"
 
 const StyledComponent = styled(Link)`
   display: block;
@@ -38,6 +38,6 @@ const StyledComponent = styled(Link)`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
-export default StyledComponent;
+export const CardLink = StyledComponent

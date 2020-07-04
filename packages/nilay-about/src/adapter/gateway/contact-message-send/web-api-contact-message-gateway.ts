@@ -1,14 +1,15 @@
-import {Request, Response, ContactMessageGateway} from "../../../use-case/contact-message-send"
-import * as firebase from "firebase/app";
-import "firebase/functions";
-import "firebase/analytics";
+import {
+  Request,
+  Response,
+  ContactMessageGateway,
+} from "../../../use-case/contact-message-send"
+import * as firebase from "firebase/app"
+import "firebase/functions"
+import "firebase/analytics"
 
 export class WebApiContactMessageGateway implements ContactMessageGateway {
-
   async write(req: Request): Promise<Response> {
-
     try {
-
       if (!firebase.apps.length) {
         firebase.initializeApp({
           apiKey: "REDACTED_FIREBASE_API_KEY",
@@ -18,28 +19,26 @@ export class WebApiContactMessageGateway implements ContactMessageGateway {
           storageBucket: "nilay-about.appspot.com",
           messagingSenderId: "501712650959",
           appId: "1:501712650959:web:191a29b977cad3f2472dba",
-          measurementId: "G-C3KJX5WQEM"
-        });
-        firebase.analytics();
+          measurementId: "G-C3KJX5WQEM",
+        })
+        firebase.analytics()
       }
 
       const sendContactMessage: firebase.functions.HttpsCallable = firebase
         .functions()
-        .httpsCallable("sendContactMessage");
+        .httpsCallable("sendContactMessage")
 
-      const result = await sendContactMessage(req);
+      const result = await sendContactMessage(req)
 
       const data: Response = {
         hasError: result.data.hasError,
         errorMessage: result.data.errorMessage,
-        uuid: result.data.uuid
-      };
+        uuid: result.data.uuid,
+      }
 
-      return data;
-
+      return data
     } catch (ex) {
-
-      throw ex;
+      throw ex
     }
   }
 }

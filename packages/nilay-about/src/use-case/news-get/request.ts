@@ -1,3 +1,3 @@
-export type  Request = {
-  id: string;
+export type Request = {
+  id: string
 }

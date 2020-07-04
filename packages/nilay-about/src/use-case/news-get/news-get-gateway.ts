@@ -1,6 +1,5 @@
-import { Request, Response } from ".";
+import { Request, Response } from "."
 
 export interface NewsGetGateway {
-  read(req: Request): Promise<Response>;
+  read(req: Request): Promise<Response>
 }
-

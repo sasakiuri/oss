@@ -1,20 +1,19 @@
-import React from "react";
-import styled from "styled-components";
+import React from "react"
+import styled from "styled-components"
 import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Typography
-} from "@material-ui/core";
-import { Skeleton } from '@material-ui/lab';
-import { Announcement } from "@material-ui/icons";
-
+  Typography,
+} from "@material-ui/core"
+import { Skeleton } from "@material-ui/lab"
+import { Announcement } from "@material-ui/icons"
 
 type Props = {
-  className?: string;
-};
+  className?: string
+}
 
-const Component: React.FC<Props> = (props) => {
+const Component: React.FC<Props> = props => {
   return (
     <React.Fragment>
       {[0, 1, 2, 3, 4, 5, 6].map((_, index: number, array: Array<number>) => {
@@ -46,15 +45,12 @@ const Component: React.FC<Props> = (props) => {
               }
             />
           </ListItem>
-
-        );
+        )
       })}
-
     </React.Fragment>
-  );
-};
+  )
+}
 
-const StyledComponent = styled(Component)`
-`;
+const StyledComponent = styled(Component)``
 
-export default StyledComponent;
+export default StyledComponent

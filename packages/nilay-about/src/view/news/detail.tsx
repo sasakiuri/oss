@@ -1,18 +1,19 @@
-import React from "react";
-import { RouteComponentProps } from "react-router-dom";
-import { Container, LinearProgress } from "@material-ui/core";
-import styled from "styled-components";
+import React, { useState, useEffect } from "react"
+import { useStaticQuery, graphql } from "gatsby"
+import { RouteComponentProps } from "@reach/router"
+import { CssBaseline, Container, LinearProgress } from "@material-ui/core"
+import { IndexNewsDetail } from "../../../types/graphql-types"
+import styled from "styled-components"
+import { AppBar, Layout, Footer, SEO, ShareButton } from "../../component"
 import { News } from "../../domain/model"
-import { InputPort, Interactor, Request, Response } from "../../use-case/news-get"
+import {
+  InputPort,
+  Interactor,
+  Request,
+  Response,
+} from "../../use-case/news-get"
 import { WebApiNewsGetGateway as NewsGetGateway } from "../../adapter/gateway/news-get"
-import Skelton from "./detail-skelton";
-
-interface Props extends RouteComponentProps<{ id: string }> { }
-
-interface State {
-  isLoading: boolean;
-  news: News | null;
-}
+import Skelton from "./detail-skelton"
 
 const Title = styled.h1`
   font-size: 2rem;
@@ -48,10 +49,10 @@ const Title = styled.h1`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
 const Date = styled.div`
-  padding-top: 3rem;
+  padding-top: 1rem;
   font-size: 0.9rem;
   margin-bottom: 1rem;
   text-align: left;
@@ -84,7 +85,7 @@ const Date = styled.div`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
 const Text = styled.div`
   font-size: 1rem;
@@ -120,82 +121,115 @@ const Text = styled.div`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
-const StyledLinearProgress = styled(LinearProgress)`
-  background: #abbed1;
-  & > .MuiLinearProgress-barColorPrimary {
-    background: #56799c;
-  }
-`;
+const StyledShareButton = styled(ShareButton)`
+  padding-top: 3rem;
+  text-align: right;
+`
 
-class Component extends React.Component<Props, State> {
-  private _useCase: InputPort;
+type SeoProps = {
+  title?: string
+  lang?: string
+  charSet?: string
+  description?: string
+  slug?: string
+  featuredImage?: string
+}
+type Props = {} & RouteComponentProps<{ id: string }>
 
-  public constructor(props: Props) {
-    super(props);
-    this._useCase = new Interactor(new NewsGetGateway());
+const Component: React.FC<Props> = (props: Props) => {
+  const data: IndexNewsDetail = useStaticQuery<IndexNewsDetail>(
+    graphql`
+      query IndexNewsDetail {
+        site {
+          siteMetadata {
+            title
+            description
+            siteUrl
+            image
+            phoneNumber
+            emailAddress
+            social {
+              twitter
+              facebook
+              facebookAppId
+              youtube
+              instagram
+              github
+            }
+          }
+        }
+      }
+    `
+  )
 
-    document.title = "...：お知らせ：Nilay/About";
-    this.state = {
-      isLoading: true,
-      news: null
-    };
-  }
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [news, setNews] = useState<News | null>(null)
+  const [seoProps, setSeoProps] = useState<SeoProps>({
+    title: `……：お知らせ`,
+    description: `Nilay からのお知らせです。商品の入荷情報やアップデート情報をお届けします。`,
+    slug: `news/${props.id}`,
+  })
+  const useCase: InputPort = new Interactor(new NewsGetGateway())
 
-  public componentDidMount(): void {
-    document.title = "......：お知らせ：Nilay/About";
-    (async () => {
-      const uReq: Request = { id: this.props.match.params.id };
-      const uRes: Response = await this._useCase.interact(uReq);
-      await this.timeout(500);
-      this.setState({
-        isLoading: false,
-        news: uRes.news
-      });
+  useEffect(() => {
+    ;(async () => {
+      const uReq: Request = { id: props.id }
+      const uRes: Response = await useCase.interact(uReq)
+      setNews(uRes.news)
+      setIsLoading(false)
+      setSeoProps({
+        ...seoProps,
+        title: `${uRes.news.title}：お知らせ`,
+        description: uRes.news.summary.substring(0, 144),
+      })
+    })()
+  }, [])
 
-      document.title = `${uRes.news.title}：お知らせ：Nilay/About`;
-    })();
-  }
+  const slug: string = `news/${props.id}`
 
-  public render(): React.ReactNode {
-    return (
-      <React.Fragment>
+  return (
+    <Layout>
+      <CssBaseline />
+      <AppBar value={1} />
+      <SEO
+        slug={slug}
+        title={seoProps.title}
+        description={seoProps.description}
+      />
+
+      <Container maxWidth="md">
         {(() => {
-          if (this.state.isLoading) {
-            return <StyledLinearProgress />;
+          if (isLoading) {
+            return <Skelton />
+          } else if (news !== null) {
+            return (
+              <React.Fragment>
+                <StyledShareButton
+                  title={seoProps.title}
+                  twitter={data.site.siteMetadata.social.twitter}
+                  url={`${data.site.siteMetadata.siteUrl}/${slug}`}
+                />
+                <Date>
+                  {`${news.date.getFullYear()}年${
+                    news.date.getMonth() + 1
+                  }月${news.date.getDate()}日`}
+                </Date>
+                <Title>{news.title}</Title>
+                <Text
+                  dangerouslySetInnerHTML={{
+                    __html: news.summary,
+                  }}
+                ></Text>
+              </React.Fragment>
+            )
           }
         })()}
-
-        <Container maxWidth="lg">
-          {(() => {
-            if (this.state.isLoading) {
-              return <Skelton />;
-            } else if (this.state.news !== null) {
-              return (
-                <React.Fragment>
-                  <Date>
-                    {`${this.state.news.date.getFullYear()}年${this.state.news.date.getMonth() +
-                      1}月${this.state.news.date.getDate()}日`}
-                  </Date>
-                  <Title>{this.state.news.title}</Title>
-                  <Text
-                    dangerouslySetInnerHTML={{
-                      __html: this.state.news.summary
-                    }}
-                  ></Text>
-                </React.Fragment>
-              );
-            }
-          })()}
-        </Container>
-      </React.Fragment>
-    );
-  }
-
-  private timeout(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+      </Container>
+      <Footer />
+    </Layout>
+  )
 }
 
-export default Component;
+export default Component

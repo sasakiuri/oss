@@ -1,18 +1,13 @@
-import * as React from "react";
-import styled from "styled-components";
+import * as React from "react"
+import styled from "styled-components"
 
-interface Props {
-  className?: string;
+type Props = {
+  className?: string
+  children?: React.ReactNode
 }
 
-class Component extends React.Component<Props> {
-  public constructor(props: Props) {
-    super(props);
-  }
-
-  public render(): React.ReactNode {
-    return <div className={this.props.className}>{this.props.children}</div>;
-  }
+const Component: React.FC<Props> = (props: Props) => {
+  return <div className={props.className}>{props.children}</div>
 }
 
 const StyledComponent = styled(Component)`
@@ -50,6 +45,6 @@ const StyledComponent = styled(Component)`
     "Hiragino Sans", "Noto Sans CJK JP", "Original Yu Gothic", "Yu Gothic",
     sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Noto Sans Emoji";
-`;
+`
 
-export default StyledComponent;
+export const CardIcon = StyledComponent

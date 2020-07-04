@@ -1,5 +1,5 @@
-import { News } from "../../domain/model";
+import { News } from "../../domain/model"
 
 export type Response = {
-    newsList: Array<News>
+  newsList: Array<News>
 }
