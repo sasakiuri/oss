@@ -31,6 +31,21 @@ module.exports = {
   },
   plugins: [
     {
+      resolve: "gatsby-plugin-firebase",
+      options: {
+        credentials: {
+          apiKey: "REDACTED_FIREBASE_API_KEY",
+          authDomain: "nilay-about.firebaseapp.com",
+          databaseURL: "https://nilay-about.firebaseio.com",
+          projectId: "nilay-about",
+          storageBucket: "nilay-about.appspot.com",
+          messagingSenderId: "501712650959",
+          appId: "1:501712650959:web:191a29b977cad3f2472dba",
+          measurementId: "G-C3KJX5WQEM",
+        }
+      }
+    },
+    {
       resolve: "gatsby-plugin-graphql-codegen",
       options: {
         fileName: `types/graphql-types.d.ts`,
