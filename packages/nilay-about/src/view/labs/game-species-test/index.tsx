@@ -123,6 +123,7 @@ const Component: React.FC<Props> = (props: Props) => {
           <CardMedia
             image={quizList[number].image}
             title={quizList[number].answer}
+            style={{ height: 0, paddingTop: "100%" }}
           />
           <CardActions>
             <FormControlLabel
@@ -137,7 +138,6 @@ const Component: React.FC<Props> = (props: Props) => {
             />
           </CardActions>
         </Card>
-        <img src={quizList[number].image} />
       </Container>
       <AppBar
         position="fixed"
