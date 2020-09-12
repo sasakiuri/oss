@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react"
-import { Router, Link } from "@reach/router"
+import React from "react"
+import { Router } from "@reach/router"
 import { List, Detail } from "../view/news"
 
 type Props = {}
