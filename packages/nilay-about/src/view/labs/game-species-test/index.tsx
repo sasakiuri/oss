@@ -38,9 +38,7 @@ const shuffleArray = function <T>(arr: Array<T>): Array<T> {
 type Props = {}
 
 const Component: React.FC<Props> = (props: Props) => {
-  const [quizList, setQuizList] = useState<Array<Quiz>>(
-    shuffleArray(quizListOrg)
-  )
+  const [quizList, setQuizList] = useState<Array<Quiz>>(new Array<Quiz>())
   const [showingAnswer, setShowingAnswer] = useState<boolean>(false)
   const [number, setNumber] = useState<number>(0)
   const [autoPlay, setAutoPlay] = useState<boolean>(false)
@@ -125,11 +123,15 @@ const Component: React.FC<Props> = (props: Props) => {
               )
             }
           />
-          <CardMedia
-            image={quizList[number].image}
-            title={quizList[number].answer}
-            style={{ height: 0, paddingTop: "100%" }}
-          />
+          {quizList.length === 0 ? (
+            <Skeleton animation="wave" variant="rect" height="243px" />
+          ) : (
+            <CardMedia
+              image={quizList[number].image}
+              title={quizList[number].answer}
+              style={{ height: 0, paddingTop: "100%" }}
+            />
+          )}
           <CardActions>
             <FormControlLabel
               control={
