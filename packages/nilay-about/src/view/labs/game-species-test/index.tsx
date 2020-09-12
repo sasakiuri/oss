@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 
 import Container from "@material-ui/core/Container"
 import Toolbar from "@material-ui/core/Toolbar"
@@ -44,7 +44,6 @@ const Component: React.FC<Props> = (props: Props) => {
   const [showingAnswer, setShowingAnswer] = useState<boolean>(false)
   const [number, setNumber] = useState<number>(0)
   const [autoPlay, setAutoPlay] = useState<boolean>(false)
-  const [timer, setTimer] = useState(null)
 
   const setUpNextQuiz = () => {
     if (number === quizList.length - 1) {
@@ -55,8 +54,7 @@ const Component: React.FC<Props> = (props: Props) => {
       return
     }
 
-    const nextNumber: number = number + 1
-    setNumber(nextNumber)
+    setNumber(number + 1)
     setShowingAnswer(false)
   }
 
@@ -75,8 +73,22 @@ const Component: React.FC<Props> = (props: Props) => {
   }
 
   const handleAutoPlayClick = (e: React.ChangeEvent<HTMLButtonElement>) => {
-
+    setAutoPlay(!autoPlay)
   }
+
+  useEffect(() => {
+    let interval = null
+
+    if (autoPlay) {
+      interval = setInterval(() => {
+        setUpNextQuiz()
+      }, 3000)
+    } else {
+      clearInterval(interval)
+    }
+
+    return () => clearInterval(interval)
+  }, [autoPlay, number, showingAnswer, quizList])
 
   return (
     <React.Fragment>
