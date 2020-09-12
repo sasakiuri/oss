@@ -77,6 +77,11 @@ const Component: React.FC<Props> = (props: Props) => {
   }
 
   useEffect(() => {
+    setQuizList(shuffleArray(quizListOrg))
+    setNumber(0)
+  }, [])
+
+  useEffect(() => {
     let interval = null
 
     if (autoPlay) {
