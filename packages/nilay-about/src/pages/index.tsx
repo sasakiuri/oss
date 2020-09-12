@@ -1,10 +1,16 @@
 import React from "react"
 import { graphql } from "gatsby"
 import { IndexHomeQuery } from "../../types/graphql-types"
-import { CssBaseline, Container, Grid } from "@material-ui/core"
-import { Cloud, MenuBook, ShoppingCart } from "@material-ui/icons"
+import CssBaseline from "@material-ui/core/CssBaseline"
+import Container from "@material-ui/core/Container"
+import Grid from "@material-ui/core/Grid"
+import Cloud from "@material-ui/icons/Cloud"
+import MenuBook from "@material-ui/icons/MenuBook"
+import ShoppingCart from "@material-ui/icons/ShoppingCart"
+import { config } from "@fortawesome/fontawesome-svg-core"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faFlask } from "@fortawesome/free-solid-svg-icons"
+import "@fortawesome/fontawesome-svg-core/styles.css"
 import { AppBar, BasicTitle, Footer, Layout, SEO } from "../component"
 import {
   HomeImage,
@@ -13,6 +19,8 @@ import {
   CardIcon,
   CardLink,
 } from "../view/home"
+
+config.autoAddCss = false
 
 type Props = {
   data: IndexHomeQuery
@@ -85,7 +93,7 @@ const Component: React.FC<Props> = (props: Props) => {
           <Grid container spacing={3} style={{ marginTop: "3rem" }}>
             <Grid item xs={12} sm={4}>
               <CardIcon>
-                <FontAwesomeIcon icon={faFlask} style={{ fontSize: "64px" }} />
+                <FontAwesomeIcon icon={faFlask} size="2x" />
               </CardIcon>
               <CardTitle>Labs</CardTitle>
               <CardLink href="labs">Labs に移動</CardLink>

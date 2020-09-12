@@ -48,6 +48,29 @@ const Component: React.FC<Props> = (props: Props) => {
               </CardActions>
             </Card>
           </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography
+                  color="textSecondary"
+                  variant="h5"
+                  component="h2"
+                  gutterBottom
+                >
+                  狩猟鳥獣スライドショー
+                </Typography>
+                <Typography variant="body2" component="p">
+                  狩猟鳥獣の画像と名前をスライドショーでご覧いただけます。
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Button component={Link} to={`game-species-test`} size="small">
+                  Learn More
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
         </Grid>
       </Container>
       <Footer />
