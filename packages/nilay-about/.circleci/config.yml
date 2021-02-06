@@ -13,7 +13,7 @@ jobs:
       - checkout
       - run:
           name: Install npm
-          command: "sudo npm install -g npm@latest"
+          command: "sudo npm install -g npm@6"
       - run:
           name: Install gatsby-cli
           command: "sudo npm install -g gatsby"
