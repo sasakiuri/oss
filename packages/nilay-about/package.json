@@ -27,7 +27,7 @@
     "@types/material-ui": "^0.21.9",
     "@types/node": "^16.0.1",
     "@types/react-fontawesome": "^1.6.4",
-    "@types/react-helmet": "^6.1.1",
+    "@types/react-helmet": "^6.1.2",
     "@types/react-loader-spinner": "^4.0.0",
     "@types/styled-components": "^5.1.11",
     "email-validator": "^2.0.4",
