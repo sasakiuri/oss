@@ -50,7 +50,7 @@
     "react-helmet": "^6.1.0",
     "react-loader-spinner": "^4.0.0",
     "styled-components": "^5.3.1",
-    "ts-node": "^10.2.0",
+    "ts-node": "^10.2.1",
     "typescript": "^3.9.10"
   },
   "devDependencies": {
