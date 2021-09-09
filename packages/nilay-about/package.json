@@ -29,7 +29,7 @@
     "@types/react-fontawesome": "^1.6.5",
     "@types/react-helmet": "^6.1.2",
     "@types/react-loader-spinner": "^4.0.0",
-    "@types/styled-components": "^5.1.12",
+    "@types/styled-components": "^5.1.14",
     "email-validator": "^2.0.4",
     "file-saver": "^2.0.5",
     "firebase": "^9.0.0",
