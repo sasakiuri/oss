@@ -46,19 +46,19 @@
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  /* Early web used Times New Roman / serif fonts */
-  --font-sans: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  /* Modern sans-serif font stack */
+  --font-sans: -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
   --font-mono: "Courier New", "Monaco", monospace;
 }
 
 body {
   background: var(--background) !important;
   color: var(--foreground) !important;
-  font-family: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji' !important;
   font-size: 16px;
   line-height: 1.4;
-  -webkit-font-smoothing: auto;
-  -moz-osx-font-smoothing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Authentic early web link styling */
