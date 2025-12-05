@@ -6,6 +6,13 @@
 
 Nilay About Website - 射撃・狩猟・有害鳥獣駆除に関するサービス紹介サイト
 
+### デザインコンセプト
+
+**「2025年の技術で実装された、1990年のWebサイト」**
+
+- **メインサイト**: 1990年代CERN Webサイト風のレトロデザイン（グレー背景、青リンク、Times New Roman）
+- **Labsアプリ**: 独立したモダンマテリアルデザインUI（白背景、Interフォント）
+
 ## 技術スタック
 
 - **フレームワーク**: Next.js 16 (App Router)
@@ -20,22 +27,40 @@ Nilay About Website - 射撃・狩猟・有害鳥獣駆除に関するサービ�
 
 ```
 about.website/
-├── app/                    # Next.js App Router ページ
-│   ├── contact/           # お問い合わせページ
-│   ├── labs/              # Labs ツール
-│   │   ├── game-species-test/
-│   │   └── home-target/
-│   └── news/              # ニュースページ
-├── components/            # React コンポーネント
-│   ├── layout/            # レイアウトコンポーネント
-│   └── ui/                # UIプリミティブ
-├── hooks/                 # カスタムフック
-├── store/                 # Zustand ストア
-├── lib/                   # ユーティリティ
-│   ├── api/               # APIクライアント
-│   ├── firebase/          # Firebase設定
-│   └── schemas/           # Zodスキーマ
-└── public/                # 静的アセット
+├── app/
+│   ├── (standalone)/           # 独立したLabsアプリ (Route Group)
+│   │   ├── layout.tsx         # Standalone専用レイアウト (Header/Footerなし)
+│   │   ├── standalone.css     # モダンマテリアルデザインCSS
+│   │   └── labs/
+│   │       ├── game-species-test/
+│   │       │   ├── _store/    # 機能専用Zustandストア
+│   │       │   └── ...
+│   │       └── home-target/
+│   │           ├── _store/    # 機能専用Zustandストア
+│   │           └── ...
+│   ├── layout.tsx              # メインレイアウト (RetroHeader/RetroFooter)
+│   ├── globals.css             # レトロCERNスタイルCSS
+│   ├── contact/
+│   ├── labs/                   # Labs インデックスページ
+│   └── news/
+├── components/
+│   ├── layout/
+│   │   ├── retro-header.tsx   # レトロスタイルヘッダー
+│   │   ├── retro-footer.tsx   # レトロスタイルフッター
+│   │   ├── header.tsx         # モダンヘッダー (未使用)
+│   │   ├── footer.tsx         # モダンフッター (未使用)
+│   │   └── ...
+│   ├── ui/                     # UIプリミティブ
+│   └── providers.tsx           # TanStack Query Provider
+├── hooks/                      # カスタムフック
+├── store/                      # グローバルZustandストア
+│   └── ui-store.ts            # アラート、ローディング状態
+├── lib/
+│   ├── api/                    # APIクライアント
+│   ├── firebase/               # Firebase設定
+│   ├── schemas/                # Zodスキーマ
+│   └── utils/                  # ユーティリティ
+└── public/
     └── images/
 ```
 
@@ -74,18 +99,41 @@ docker compose up node-about
 - 型定義は Zod スキーマから推論
 - API 呼び出しは TanStack Query のフックを経由
 
+## 重要なアーキテクチャパターン
+
+### Route Groups による分離
+
+```
+app/
+├── (standalone)/    # モダンUI、独自レイアウト
+│   └── labs/       # home-target, game-species-test
+└── [その他]/        # レトロUI、共通レイアウト
+```
+
+- `(standalone)` は独自の `standalone.css` を使用
+- メインサイトは `globals.css` のレトロスタイルを使用
+
+### 機能別ストア配置
+
+Labs アプリは機能ごとに `_store` ディレクトリを持ち、状態管理を分離:
+
+```
+app/(standalone)/labs/home-target/
+├── _store/
+│   └── index.ts     # Zustand ストア + セレクター
+├── home-target-client.tsx
+└── page.tsx
+```
+
+### データフェッチング
+
+1. **API関数**: `lib/api/` に配置
+2. **TanStack Query フック**: `hooks/` に配置
+3. **Server Components**: メタデータ設定、静的コンテンツ
+4. **Client Components**: インタラクティブUI、フォーム
+
 ## Firebase 設定
 
 - プロジェクト ID: `nilay-about`
 - Firestore コレクション: `news`
 - Cloud Functions: `sendContactMessage`
-
-## 主要なパターン
-
-1. **データフェッチング**: `lib/api/` に API 関数、`hooks/` に TanStack Query フック
-2. **フォームバリデーション**: `lib/schemas/` に Zod スキーマ、React Hook Form で使用
-3. **コンポーネント設計**: Server Components をデフォルトとし、必要な場合のみ Client Components を使用
-4. **状態管理**: サーバー状態は TanStack Query、クライアント状態は Zustand で管理
-   - `store/ui-store.ts`: グローバル UI 状態（アラート、ローディング）
-   - `store/game-species-store.ts`: 狩猟鳥獣クイズ状態
-   - `store/home-target-store.ts`: 射撃標的計算状態
