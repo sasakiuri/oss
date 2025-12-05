@@ -48,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body>
+      <body className="min-h-screen">
         <Providers>
           <RetroHeader />
           <main id="main-content" tabIndex={-1}>
