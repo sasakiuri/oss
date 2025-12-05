@@ -1,10 +1,14 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
 import { LuDownload, LuPencil, LuLanguages, LuLoader } from "react-icons/lu";
 import * as Dialog from "@radix-ui/react-dialog";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useHomeTargetStore } from "@/store";
+import {
+  useHomeTargetStore,
+  calculateHeightOfTarget,
+  calculateBlackAreaSize,
+} from "@/store";
 
 type Text = {
   title: string;
@@ -126,6 +130,22 @@ const disciplineMap = new Map([
 ]);
 
 export function HomeTargetClient() {
+  // Language dropdown state
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
+        setIsLanguageMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Get all state from store
   const {
     language,
     heightOfEye,
@@ -141,19 +161,22 @@ export function HomeTargetClient() {
     setIsReadonly,
     setIsDownloading,
     setIsDisciplineDialogOpen,
-    getCalculatedHeightOfTarget,
-    getCalculatedBlackAreaSize,
   } = useHomeTargetStore();
 
+  // Calculate derived values
+  const heightOfTarget = calculateHeightOfTarget(heightOfEye, distanceToTarget, discipline);
+  const blackAreaSize = calculateBlackAreaSize(distanceToTarget, discipline);
+
   const text = language === "ja" ? jaText : enText;
-  const heightOfTarget = getCalculatedHeightOfTarget();
-  const blackAreaSize = getCalculatedBlackAreaSize();
 
   const handleLanguageChange = (newLang: "ja" | "en") => {
+    console.log("handleLanguageChange called:", newLang);
     setLanguage(newLang);
+    setIsLanguageMenuOpen(false);
   };
 
   const handleDisciplineChange = (key: string) => {
+    console.log("handleDisciplineChange called:", key);
     if (key === "CUSTOM") {
       setIsReadonly(false);
       setDiscipline({ ...discipline, name: "Custom", key: "CUSTOM" });
@@ -169,6 +192,11 @@ export function HomeTargetClient() {
 
     setIsReadonly(true);
     setDiscipline({ ...newDiscipline });
+  };
+
+  const handleOpenDisciplineDialog = () => {
+    console.log("handleOpenDisciplineDialog called");
+    setIsDisciplineDialogOpen(true);
   };
 
   const handleSaveClick = async () => {
@@ -208,29 +236,33 @@ export function HomeTargetClient() {
         <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
           <h1 className="text-lg font-medium">{text.title}</h1>
           <div className="flex items-center gap-2">
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary/80">
-                  <LuLanguages className="h-5 w-5" />
-                </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className="min-w-[120px] rounded-md border bg-background p-1 shadow-md">
-                  <DropdownMenu.Item
-                    className="cursor-pointer rounded px-3 py-2 text-sm outline-none hover:bg-secondary"
+            {/* Custom language dropdown */}
+            <div className="relative" ref={languageMenuRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary/80"
+                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
+              >
+                <LuLanguages className="h-5 w-5" />
+              </Button>
+              {isLanguageMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-md border bg-background p-1 shadow-md">
+                  <button
+                    className="w-full cursor-pointer rounded px-3 py-2 text-left text-sm hover:bg-secondary"
                     onClick={() => handleLanguageChange("en")}
                   >
                     {language === "en" && "✓ "}English
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    className="cursor-pointer rounded px-3 py-2 text-sm outline-none hover:bg-secondary"
+                  </button>
+                  <button
+                    className="w-full cursor-pointer rounded px-3 py-2 text-left text-sm hover:bg-secondary"
                     onClick={() => handleLanguageChange("ja")}
                   >
                     {language === "ja" && "✓ "}日本語
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+                  </button>
+                </div>
+              )}
+            </div>
             <Button
               variant="ghost"
               onClick={handleSaveClick}
@@ -333,7 +365,7 @@ export function HomeTargetClient() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsDisciplineDialogOpen(true)}
+              onClick={handleOpenDisciplineDialog}
             >
               <LuPencil className="h-4 w-4" />
             </Button>
@@ -346,8 +378,8 @@ export function HomeTargetClient() {
         onOpenChange={setIsDisciplineDialogOpen}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[90vh] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg bg-background p-6 shadow-lg">
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] max-h-[90vh] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg bg-background p-6 shadow-lg">
             <Dialog.Title className="text-lg font-medium">
               {text.discipline}
             </Dialog.Title>
@@ -356,7 +388,7 @@ export function HomeTargetClient() {
               <div className="space-y-2">
                 <Label>{text.discipline}</Label>
                 <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
                   value={discipline.key}
                   onChange={(e) => handleDisciplineChange(e.target.value)}
                 >
