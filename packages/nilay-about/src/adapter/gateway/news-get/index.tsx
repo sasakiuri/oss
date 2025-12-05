@@ -1,1 +1,0 @@
-export * from "./web-api-news-get-gateway"

@@ -1,5 +1,0 @@
-export * from "./input-port"
-export * from "./interactor"
-export * from "./request"
-export * from "./response"
-export * from "./contact-message"
