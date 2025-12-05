@@ -1,13 +1,16 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { useShallow } from "zustand/react/shallow";
 
-type LengthUnit = "mm" | "cm" | "m";
+// Types
+export type LengthUnit = "mm" | "cm" | "m";
 
-interface Length {
+export interface Length {
   number: number;
   unit: LengthUnit;
 }
 
-interface Discipline {
+export interface Discipline {
   name: string;
   key: string;
   distance: Length;
@@ -15,17 +18,25 @@ interface Discipline {
   blackAreaSize: Length;
 }
 
-type Language = "ja" | "en";
+export type Language = "ja" | "en";
 
+// State interface (persisted data)
 interface HomeTargetState {
   language: Language;
   heightOfEye: Length;
   distanceToTarget: Length;
   discipline: Discipline;
   isReadonly: boolean;
+}
+
+// UI state (not persisted)
+interface HomeTargetUIState {
   isDownloading: boolean;
   isDisciplineDialogOpen: boolean;
+}
 
+// Actions interface
+interface HomeTargetActions {
   setLanguage: (lang: Language) => void;
   setHeightOfEye: (height: Length) => void;
   setDistanceToTarget: (distance: Length) => void;
@@ -33,12 +44,14 @@ interface HomeTargetState {
   setIsReadonly: (readonly: boolean) => void;
   setIsDownloading: (downloading: boolean) => void;
   setIsDisciplineDialogOpen: (open: boolean) => void;
-
-  getCalculatedHeightOfTarget: () => number;
-  getCalculatedBlackAreaSize: () => number;
+  reset: () => void;
 }
 
-export const useHomeTargetStore = create<HomeTargetState>((set, get) => ({
+// Combined store type
+type HomeTargetStore = HomeTargetState & HomeTargetUIState & HomeTargetActions;
+
+// Initial state (useful for testing and reset)
+export const initialHomeTargetState: HomeTargetState = {
   language: "ja",
   heightOfEye: { number: 170, unit: "cm" },
   distanceToTarget: { number: 5, unit: "m" },
@@ -50,33 +63,113 @@ export const useHomeTargetStore = create<HomeTargetState>((set, get) => ({
     blackAreaSize: { number: 11.24, unit: "cm" },
   },
   isReadonly: false,
+};
+
+const initialUIState: HomeTargetUIState = {
   isDownloading: false,
   isDisciplineDialogOpen: false,
+};
 
-  setLanguage: (language) => set({ language }),
-  setHeightOfEye: (heightOfEye) => set({ heightOfEye }),
-  setDistanceToTarget: (distanceToTarget) => set({ distanceToTarget }),
-  setDiscipline: (discipline) => set({ discipline }),
-  setIsReadonly: (isReadonly) => set({ isReadonly }),
-  setIsDownloading: (isDownloading) => set({ isDownloading }),
-  setIsDisciplineDialogOpen: (isDisciplineDialogOpen) =>
-    set({ isDisciplineDialogOpen }),
+// Store with persistence for user preferences
+export const useHomeTargetStore = create<HomeTargetStore>()(
+  persist(
+    (set) => ({
+      ...initialHomeTargetState,
+      ...initialUIState,
 
-  getCalculatedHeightOfTarget: () => {
-    const { heightOfEye, distanceToTarget, discipline } = get();
-    return (
-      discipline.heightOfTarget.number *
-      (1 -
-        (1 - heightOfEye.number / discipline.heightOfTarget.number) *
-          (1 - distanceToTarget.number / discipline.distance.number))
-    );
-  },
+      setLanguage: (language) => set({ language }),
+      setHeightOfEye: (heightOfEye) => set({ heightOfEye }),
+      setDistanceToTarget: (distanceToTarget) => set({ distanceToTarget }),
+      setDiscipline: (discipline) => set({ discipline }),
+      setIsReadonly: (isReadonly) => set({ isReadonly }),
+      setIsDownloading: (isDownloading) => set({ isDownloading }),
+      setIsDisciplineDialogOpen: (isDisciplineDialogOpen) =>
+        set({ isDisciplineDialogOpen }),
+      reset: () => set({ ...initialHomeTargetState, ...initialUIState }),
+    }),
+    {
+      name: "home-target-storage",
+      // Only persist user preferences, not UI state
+      partialize: (state) => ({
+        language: state.language,
+        heightOfEye: state.heightOfEye,
+        distanceToTarget: state.distanceToTarget,
+        discipline: state.discipline,
+        isReadonly: state.isReadonly,
+      }),
+    }
+  )
+);
 
-  getCalculatedBlackAreaSize: () => {
-    const { distanceToTarget, discipline } = get();
-    return (
-      (discipline.blackAreaSize.number * distanceToTarget.number) /
-      discipline.distance.number
-    );
-  },
-}));
+// Computed values as pure functions (testable, memoizable)
+export function calculateHeightOfTarget(
+  heightOfEye: Length,
+  distanceToTarget: Length,
+  discipline: Discipline
+): number {
+  return (
+    discipline.heightOfTarget.number *
+    (1 -
+      (1 - heightOfEye.number / discipline.heightOfTarget.number) *
+        (1 - distanceToTarget.number / discipline.distance.number))
+  );
+}
+
+export function calculateBlackAreaSize(
+  distanceToTarget: Length,
+  discipline: Discipline
+): number {
+  return (
+    (discipline.blackAreaSize.number * distanceToTarget.number) /
+    discipline.distance.number
+  );
+}
+
+// Selectors
+export const useHomeTargetCalculations = () =>
+  useHomeTargetStore(
+    useShallow((state) => ({
+      heightOfTarget: calculateHeightOfTarget(
+        state.heightOfEye,
+        state.distanceToTarget,
+        state.discipline
+      ),
+      blackAreaSize: calculateBlackAreaSize(
+        state.distanceToTarget,
+        state.discipline
+      ),
+    }))
+  );
+
+export const useHomeTargetActions = () =>
+  useHomeTargetStore(
+    useShallow((state) => ({
+      setLanguage: state.setLanguage,
+      setHeightOfEye: state.setHeightOfEye,
+      setDistanceToTarget: state.setDistanceToTarget,
+      setDiscipline: state.setDiscipline,
+      setIsReadonly: state.setIsReadonly,
+      setIsDownloading: state.setIsDownloading,
+      setIsDisciplineDialogOpen: state.setIsDisciplineDialogOpen,
+      reset: state.reset,
+    }))
+  );
+
+export const useHomeTargetSettings = () =>
+  useHomeTargetStore(
+    useShallow((state) => ({
+      language: state.language,
+      heightOfEye: state.heightOfEye,
+      distanceToTarget: state.distanceToTarget,
+      discipline: state.discipline,
+      isReadonly: state.isReadonly,
+    }))
+  );
+
+export const useHomeTargetUIState = () =>
+  useHomeTargetStore(
+    useShallow((state) => ({
+      isDownloading: state.isDownloading,
+      isDisciplineDialogOpen: state.isDisciplineDialogOpen,
+    }))
+  );
