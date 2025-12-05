@@ -2,18 +2,13 @@
 
 import { useNews } from "@/hooks";
 import { ShareButtons } from "@/components/share-buttons";
-import { Skeleton } from "@/components/ui";
 import { siteConfig } from "@/lib/config";
 import { format } from "date-fns";
 
 function NewsDetailSkeleton() {
   return (
-    <div className="pt-4 space-y-4">
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-10 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-2/3" />
+    <div>
+      <p>読み込み中...</p>
     </div>
   );
 }
@@ -31,8 +26,8 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
 
   if (error || !data) {
     return (
-      <div className="pt-8 text-center text-destructive">
-        ニュースの取得に失敗しました。
+      <div className="mt-4">
+        <p className="text-destructive">ニュースの取得に失敗しました。</p>
       </div>
     );
   }
@@ -42,24 +37,23 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
   const url = `${siteConfig.siteUrl}/news/${id}`;
 
   return (
-    <article className="pt-4">
+    <article className="mt-4">
+      <h1>{news.title}</h1>
+
+      <p>
+        <time dateTime={news.date.toISOString()}>{dateStr}</time>
+      </p>
+
       <ShareButtons
         title={`${news.title}：お知らせ`}
         url={url}
         twitter={siteConfig.social.twitter}
-        className="mb-4"
+        className="my-4"
       />
 
-      <time className="block text-sm text-muted-foreground">{dateStr}</time>
+      <hr />
 
-      <h1 className="mt-4 text-2xl font-bold text-foreground mb-12">
-        {news.title}
-      </h1>
-
-      <div
-        className="prose prose-lg max-w-none text-foreground leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: news.summary }}
-      />
+      <div dangerouslySetInnerHTML={{ __html: news.summary }} />
     </article>
   );
 }

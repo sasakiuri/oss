@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Container, PageTitle } from "@/components/layout";
 import { ContactForm } from "./contact-form";
 import { ContactInfo } from "./contact-info";
 
@@ -11,12 +10,22 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <Container size="sm">
-      <PageTitle title="お問い合わせ" subtitle="Contact" />
-      <div className="mt-8 space-y-8">
-        <ContactForm />
-        <ContactInfo />
-      </div>
-    </Container>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h1>お問い合わせ (Contact)</h1>
+      <p>
+        お気軽にお問い合わせください。Ｅメール、電話、各種 SNS
+        でもお問い合わせいただけます。
+      </p>
+
+      <hr />
+
+      <h2>お問い合わせフォーム</h2>
+      <ContactForm />
+
+      <hr />
+
+      <h2>その他の連絡方法</h2>
+      <ContactInfo />
+    </div>
   );
 }

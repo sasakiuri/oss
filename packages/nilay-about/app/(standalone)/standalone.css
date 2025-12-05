@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/*
+ * Modern Material Design Theme for Standalone Apps
+ * Used by home-target and game-species-test
+ */
+
+:root {
+  /* Modern color palette */
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1a1a1a;
+  --muted: #9ca3af;
+  --muted-foreground: #6b7280;
+  --border: #e5e7eb;
+  --ring: #3b82f6;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  /* Link colors */
+  --link: #3b82f6;
+  --link-visited: #8b5cf6;
+  --link-active: #2563eb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  /* Modern sans-serif fonts */
+  --font-sans: "Inter", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+    sans-serif;
+  --font-mono: "JetBrains Mono", "Menlo", "Monaco", monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Modern link styling */
+a {
+  color: var(--link);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--link-active);
+  text-decoration: underline;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Modern heading styles */
+h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 2.25rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.75rem;
+}
+
+/* Modern form elements */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+textarea,
+select {
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Modern button styling - override retro styles */
+button,
+input[type="submit"] {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover,
+input[type="submit"]:hover {
+  background: #e5e7eb;
+}
+
+button:focus-visible,
+input[type="submit"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+button:active,
+input[type="submit"]:active {
+  background: #d1d5db;
+}
+
+button:disabled,
+input[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Reset list styles for modern UI */
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Reset margins */
+p {
+  margin: 0;
+}
+
+/* Reset hr */
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}

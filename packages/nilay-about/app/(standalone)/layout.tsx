@@ -1,5 +1,5 @@
 import { Providers } from "@/components/providers";
-import "../globals.css";
+import "./standalone.css";
 
 /**
  * Standalone layout for independent apps (home-target, game-species-test)

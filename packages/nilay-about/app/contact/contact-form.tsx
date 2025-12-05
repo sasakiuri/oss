@@ -4,22 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useContactForm } from "@/hooks";
 import { useUIStore } from "@/store";
-import {
-  Button,
-  Input,
-  Textarea,
-  Label,
-  Checkbox,
-  Card,
-  CardContent,
-  Alert,
-  AlertTitle,
-  AlertDescription,
-  Progress,
-} from "@/components/ui";
-import { LuSend, LuX } from "react-icons/lu";
 import { contactFormSchema, type ContactFormData } from "@/lib/schemas";
-import { cn } from "@/lib/utils";
 
 export function ContactForm() {
   const { alert, showSuccess, showError, clearAlert } = useUIStore();
@@ -68,101 +53,91 @@ export function ContactForm() {
   const isLoading = isSubmitting || mutation.isPending;
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="requiresReply"
-              disabled={isLoading}
-              {...register("requiresReply")}
-            />
-            <Label htmlFor="requiresReply" className="cursor-pointer">
-              返信を希望する
-            </Label>
-          </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="mt-4">
+      <p>
+        <input
+          type="checkbox"
+          id="requiresReply"
+          disabled={isLoading}
+          {...register("requiresReply")}
+        />{" "}
+        <label htmlFor="requiresReply">返信を希望する</label>
+      </p>
 
-          {requiresReply && (
-            <div className="space-y-2">
-              <Label htmlFor="email">
-                Ｅメールアドレス <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                disabled={isLoading}
-                className={cn(errors.email && "border-destructive")}
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+      {requiresReply && (
+        <p>
+          <label htmlFor="email">Ｅメールアドレス *</label>
+          <br />
+          <input
+            id="email"
+            type="email"
+            disabled={isLoading}
+            className="w-full max-w-md"
+            {...register("email")}
+          />
+          {errors.email && (
+            <>
+              <br />
+              <span className="text-destructive">{errors.email.message}</span>
+            </>
           )}
+        </p>
+      )}
 
-          <div className="space-y-2">
-            <Label htmlFor="title">
-              タイトル <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="title"
-              disabled={isLoading}
-              className={cn(errors.title && "border-destructive")}
-              {...register("title")}
-            />
-            {errors.title && (
-              <p className="text-sm text-destructive">{errors.title.message}</p>
-            )}
-          </div>
+      <p>
+        <label htmlFor="title">タイトル *</label>
+        <br />
+        <input
+          id="title"
+          type="text"
+          disabled={isLoading}
+          className="w-full max-w-md"
+          {...register("title")}
+        />
+        {errors.title && (
+          <>
+            <br />
+            <span className="text-destructive">{errors.title.message}</span>
+          </>
+        )}
+      </p>
 
-          <div className="space-y-2">
-            <Label htmlFor="message">
-              お問い合わせ内容 <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="message"
-              rows={4}
-              disabled={isLoading}
-              className={cn(errors.message && "border-destructive")}
-              {...register("message")}
-            />
-            {errors.message && (
-              <p className="text-sm text-destructive">
-                {errors.message.message}
-              </p>
-            )}
-          </div>
+      <p>
+        <label htmlFor="message">お問い合わせ内容 *</label>
+        <br />
+        <textarea
+          id="message"
+          rows={6}
+          disabled={isLoading}
+          className="w-full max-w-md"
+          {...register("message")}
+        />
+        {errors.message && (
+          <>
+            <br />
+            <span className="text-destructive">{errors.message.message}</span>
+          </>
+        )}
+      </p>
 
-          <Button type="submit" disabled={isLoading}>
-            送信
-            <LuSend className="ml-2 h-4 w-4" />
-          </Button>
+      <p>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? "送信中..." : "送信"}
+        </button>
+      </p>
 
-          {alert && (
-            <Alert
-              variant={alert.type === "success" ? "success" : "destructive"}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <AlertTitle>{alert.title}</AlertTitle>
-                  <AlertDescription>{alert.message}</AlertDescription>
-                </div>
-                <button
-                  type="button"
-                  onClick={clearAlert}
-                  className="shrink-0 p-1 hover:bg-secondary rounded"
-                >
-                  <LuX className="h-4 w-4" />
-                </button>
-              </div>
-            </Alert>
-          )}
-        </form>
-
-        {isLoading && <Progress indeterminate className="mt-4" />}
-      </CardContent>
-    </Card>
+      {alert && (
+        <p
+          className={
+            alert.type === "success" ? "text-foreground" : "text-destructive"
+          }
+        >
+          <strong>{alert.title}</strong>: {alert.message}{" "}
+          <button type="button" onClick={clearAlert}>
+            [閉じる]
+          </button>
+        </p>
+      )}
+    </form>
   );
 }

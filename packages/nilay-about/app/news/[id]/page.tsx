@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Container } from "@/components/layout";
+import Link from "next/link";
 import { NewsDetailClient } from "./news-detail-client";
 
 interface Props {
@@ -22,8 +22,12 @@ export default async function NewsDetailPage({ params }: Props) {
   const { id } = await params;
 
   return (
-    <Container size="md">
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <p>
+        <Link href="/news">&lt; お知らせ一覧に戻る</Link>
+      </p>
+      <hr />
       <NewsDetailClient id={id} />
-    </Container>
+    </div>
   );
 }
