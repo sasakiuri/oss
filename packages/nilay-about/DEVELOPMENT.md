@@ -49,13 +49,6 @@ docker compose up node-about
 
 ## アーキテクチャ
 
-### デザインコンセプト
-
-**「2025年の技術で実装された、1990年のWebサイト」**
-
-- **メインサイト**: 1990年代CERN風レトロデザイン
-- **Labsアプリ**: モダンマテリアルデザイン
-
 ### ディレクトリ構成
 
 ```
@@ -74,8 +67,8 @@ about.website/
 │   │           ├── _store/      # 機能専用Zustandストア
 │   │           ├── home-target-client.tsx
 │   │           └── page.tsx
-│   ├── layout.tsx                # メインレイアウト (RetroHeader/Footer)
-│   ├── globals.css               # レトロCERNスタイルCSS
+│   ├── layout.tsx                # メインレイアウト (Header/Footer)
+│   ├── globals.css               # グローバルスタイルCSS
 │   ├── page.tsx                  # ホームページ
 │   ├── contact/                  # お問い合わせ
 │   ├── news/                     # ニュース
@@ -84,10 +77,8 @@ about.website/
 │   └── labs/                     # Labs インデックス
 ├── components/
 │   ├── layout/
-│   │   ├── retro-header.tsx     # レトロスタイルヘッダー
-│   │   ├── retro-footer.tsx     # レトロスタイルフッター
-│   │   ├── header.tsx           # モダンヘッダー (参照用)
-│   │   ├── footer.tsx           # モダンフッター (参照用)
+│   │   ├── header.tsx           # ヘッダー
+│   │   ├── footer.tsx           # フッター
 │   │   ├── container.tsx
 │   │   └── page-title.tsx
 │   ├── ui/                       # UIプリミティブ
@@ -124,38 +115,36 @@ about.website/
 
 ### Route Groups による UI 分離
 
-Next.js の Route Groups を使用して、異なるデザインシステムを分離しています。
+Next.js の Route Groups を使用して、異なるレイアウトを分離しています。
 
 ```
 app/
-├── (standalone)/        # モダンUI - standalone.css
+├── (standalone)/        # 独立したLabsアプリ - standalone.css
 │   └── labs/           # home-target, game-species-test
-├── layout.tsx          # レトロUI - globals.css
-└── [その他ページ]/      # レトロUIを継承
+├── layout.tsx          # メインサイト - globals.css
+└── [その他ページ]/      # メインサイトを継承
 ```
 
-#### メインサイト（レトロUI）
+#### メインサイト
 
-`globals.css` で定義されたCERN風スタイル:
+`globals.css` で定義されたスタイル:
 
 ```css
 :root {
-  --background: #c0c0c0;    /* グレー背景 */
-  --link: #0000ee;          /* 青リンク */
-}
-body {
-  font-family: "Times New Roman", serif;
+  --background: #ffffff;
+  --foreground: #2c3e50;
+  --primary: #e27600;
 }
 ```
 
-#### Standalone（モダンUI）
+#### Standalone（独立したLabsアプリ）
 
-`standalone.css` で定義されたマテリアルデザイン:
+`standalone.css` で定義されたモダンマテリアルデザイン:
 
 ```css
 :root {
-  --background: #ffffff;    /* 白背景 */
-  --primary: #3b82f6;       /* 青プライマリ */
+  --background: #ffffff;
+  --primary: #3b82f6;
 }
 body {
   font-family: "Inter", sans-serif;
@@ -285,30 +274,41 @@ const { register, handleSubmit, formState: { errors } } = useForm({
 
 ## スタイリング
 
-### レトロスタイル（メインサイト）
+### メインサイト
 
 ```tsx
-// シンプルなHTML構造
-<div className="max-w-3xl mx-auto px-4 py-8">
-  <h1>お知らせ (News)</h1>
-  <hr />
-  <ul>
-    <li>...</li>
-  </ul>
-</div>
+// UIコンポーネントとレイアウトコンポーネント使用
+import { Container, PageTitle } from "@/components/layout";
+import { Card, CardContent, Button } from "@/components/ui";
+
+<Container>
+  <PageTitle title="お知らせ" subtitle="News" />
+  <Card>
+    <CardContent className="pt-6">
+      <Button>詳細を見る</Button>
+    </CardContent>
+  </Card>
+</Container>
 ```
 
-### モダンスタイル（Standalone）
+### Standalone
 
 ```tsx
-// UIコンポーネント使用
+// UIコンポーネント使用（独自レイアウト）
 import { Button, Card, CardContent } from "@/components/ui";
 
-<Card>
-  <CardContent className="pt-6">
-    <Button variant="primary">送信</Button>
-  </CardContent>
-</Card>
+<div className="fixed inset-0 flex flex-col bg-background">
+  <header className="bg-primary text-primary-foreground">
+    <h1>アプリタイトル</h1>
+  </header>
+  <main>
+    <Card>
+      <CardContent className="pt-6">
+        <Button variant="default">送信</Button>
+      </CardContent>
+    </Card>
+  </main>
+</div>
 ```
 
 ## Firebase 連携

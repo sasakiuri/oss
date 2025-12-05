@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
-import { LuDownload, LuPencil, LuLanguages, LuLoader } from "react-icons/lu";
+import { LuDownload, LuPencil, LuLoader } from "react-icons/lu";
 import * as Dialog from "@radix-ui/react-dialog";
+import {
+  AppHeader,
+  AppLayout,
+  LanguageMenu,
+} from "@/app/(standalone)/_components";
 import {
   useHomeTargetStore,
   calculateHeightOfTarget,
@@ -130,22 +134,6 @@ const disciplineMap = new Map([
 ]);
 
 export function HomeTargetClient() {
-  // Language dropdown state
-  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
-        setIsLanguageMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Get all state from store
   const {
     language,
     heightOfEye,
@@ -163,20 +151,12 @@ export function HomeTargetClient() {
     setIsDisciplineDialogOpen,
   } = useHomeTargetStore();
 
-  // Calculate derived values
   const heightOfTarget = calculateHeightOfTarget(heightOfEye, distanceToTarget, discipline);
   const blackAreaSize = calculateBlackAreaSize(distanceToTarget, discipline);
 
   const text = language === "ja" ? jaText : enText;
 
-  const handleLanguageChange = (newLang: "ja" | "en") => {
-    console.log("handleLanguageChange called:", newLang);
-    setLanguage(newLang);
-    setIsLanguageMenuOpen(false);
-  };
-
   const handleDisciplineChange = (key: string) => {
-    console.log("handleDisciplineChange called:", key);
     if (key === "CUSTOM") {
       setIsReadonly(false);
       setDiscipline({ ...discipline, name: "Custom", key: "CUSTOM" });
@@ -192,11 +172,6 @@ export function HomeTargetClient() {
 
     setIsReadonly(true);
     setDiscipline({ ...newDiscipline });
-  };
-
-  const handleOpenDisciplineDialog = () => {
-    console.log("handleOpenDisciplineDialog called");
-    setIsDisciplineDialogOpen(true);
   };
 
   const handleSaveClick = async () => {
@@ -230,148 +205,117 @@ export function HomeTargetClient() {
     }
   };
 
+  const headerActions = (
+    <>
+      <LanguageMenu language={language} onLanguageChange={setLanguage} />
+      <Button
+        variant="ghost"
+        onClick={handleSaveClick}
+        disabled={isDownloading}
+        className="text-primary-foreground hover:bg-primary/80"
+      >
+        {isDownloading ? (
+          <LuLoader className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <LuDownload className="mr-2 h-4 w-4" />
+        )}
+        Get Target
+      </Button>
+    </>
+  );
+
   return (
-    <div className="fixed inset-0 flex flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-primary text-primary-foreground">
-        <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
-          <h1 className="text-lg font-medium">{text.title}</h1>
-          <div className="flex items-center gap-2">
-            {/* Custom language dropdown */}
-            <div className="relative" ref={languageMenuRef}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-primary-foreground hover:bg-primary/80"
-                onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
-              >
-                <LuLanguages className="h-5 w-5" />
-              </Button>
-              {isLanguageMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-md border bg-background p-1 shadow-md">
-                  <button
-                    className="w-full cursor-pointer rounded px-3 py-2 text-left text-sm hover:bg-secondary"
-                    onClick={() => handleLanguageChange("en")}
-                  >
-                    {language === "en" && "✓ "}English
-                  </button>
-                  <button
-                    className="w-full cursor-pointer rounded px-3 py-2 text-left text-sm hover:bg-secondary"
-                    onClick={() => handleLanguageChange("ja")}
-                  >
-                    {language === "ja" && "✓ "}日本語
-                  </button>
-                </div>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              onClick={handleSaveClick}
-              disabled={isDownloading}
-              className="text-primary-foreground hover:bg-primary/80"
-            >
-              {isDownloading ? (
-                <LuLoader className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <LuDownload className="mr-2 h-4 w-4" />
-              )}
-              Get Target
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 overflow-auto pb-20">
-        <div className="mx-auto max-w-xl space-y-6 p-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {text.heightOfTargetCenter}
-                  </p>
-                  <p className="text-2xl font-medium">
-                    {Math.round(heightOfTarget * 100) / 100}&nbsp;cm
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {text.blackAreaSize}
-                  </p>
-                  <p className="text-2xl font-medium">
-                    {Math.round(blackAreaSize * 100) / 100}&nbsp;cm
-                  </p>
-                </div>
+    <AppLayout header={<AppHeader title={text.title} actions={headerActions} />}>
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {text.heightOfTargetCenter}
+                </p>
+                <p className="text-2xl font-medium">
+                  {Math.round(heightOfTarget * 100) / 100}&nbsp;cm
+                </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-2">
-            <Label htmlFor="eyeHeight">{text.eyeHeight}</Label>
-            <div className="relative">
-              <Input
-                id="eyeHeight"
-                type="number"
-                value={heightOfEye.number}
-                onChange={(e) =>
-                  setHeightOfEye({
-                    ...heightOfEye,
-                    number: Number(e.target.value),
-                  })
-                }
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                {heightOfEye.unit}
-              </span>
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {text.blackAreaSize}
+                </p>
+                <p className="text-2xl font-medium">
+                  {Math.round(blackAreaSize * 100) / 100}&nbsp;cm
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">{text.eyeHeightDesc}</p>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-2">
+          <Label htmlFor="eyeHeight">{text.eyeHeight}</Label>
+          <div className="relative">
+            <Input
+              id="eyeHeight"
+              type="number"
+              value={heightOfEye.number}
+              onChange={(e) =>
+                setHeightOfEye({
+                  ...heightOfEye,
+                  number: Number(e.target.value),
+                })
+              }
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {heightOfEye.unit}
+            </span>
           </div>
+          <p className="text-sm text-muted-foreground">{text.eyeHeightDesc}</p>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="distanceToTarget">{text.desiredDistance}</Label>
-            <div className="relative">
-              <Input
-                id="distanceToTarget"
-                type="number"
-                value={distanceToTarget.number}
-                onChange={(e) =>
-                  setDistanceToTarget({
-                    ...distanceToTarget,
-                    number: Number(e.target.value),
-                  })
-                }
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                {distanceToTarget.unit}
-              </span>
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="distanceToTarget">{text.desiredDistance}</Label>
+          <div className="relative">
+            <Input
+              id="distanceToTarget"
+              type="number"
+              value={distanceToTarget.number}
+              onChange={(e) =>
+                setDistanceToTarget({
+                  ...distanceToTarget,
+                  number: Number(e.target.value),
+                })
+              }
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {distanceToTarget.unit}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {text.desiredDistanceDesc}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between rounded-md border p-4">
+          <div className="space-y-1">
+            <p className="font-medium">{discipline.name}</p>
             <p className="text-sm text-muted-foreground">
-              {text.desiredDistanceDesc}
+              {text.distance}: {discipline.distance.number} m
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {text.heightOfTargetCenter}: {discipline.heightOfTarget.number} cm
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {text.blackAreaSize}: {discipline.blackAreaSize.number} cm
             </p>
           </div>
-
-          <div className="flex items-center justify-between rounded-md border p-4">
-            <div className="space-y-1">
-              <p className="font-medium">{discipline.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {text.distance}: {discipline.distance.number} m
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {text.heightOfTargetCenter}: {discipline.heightOfTarget.number} cm
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {text.blackAreaSize}: {discipline.blackAreaSize.number} cm
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleOpenDisciplineDialog}
-            >
-              <LuPencil className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsDisciplineDialogOpen(true)}
+          >
+            <LuPencil className="h-4 w-4" />
+          </Button>
         </div>
-      </main>
+      </div>
 
       <Dialog.Root
         open={isDisciplineDialogOpen}
@@ -480,6 +424,6 @@ export function HomeTargetClient() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-    </div>
+    </AppLayout>
   );
 }

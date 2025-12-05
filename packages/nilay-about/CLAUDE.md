@@ -31,6 +31,12 @@ about.website/
 │   ├── (standalone)/           # 独立したLabsアプリ (Route Group)
 │   │   ├── layout.tsx         # Standalone専用レイアウト (Header/Footerなし)
 │   │   ├── standalone.css     # モダンマテリアルデザインCSS
+│   │   ├── _components/       # Standalone共通コンポーネント
+│   │   │   ├── app-header.tsx
+│   │   │   ├── app-footer.tsx
+│   │   │   ├── app-layout.tsx
+│   │   │   ├── language-menu.tsx
+│   │   │   └── index.ts
 │   │   └── labs/
 │   │       ├── game-species-test/
 │   │       │   ├── _store/    # 機能専用Zustandストア
@@ -106,12 +112,22 @@ docker compose up node-about
 ```
 app/
 ├── (standalone)/    # モダンUI、独自レイアウト
+│   ├── _components/ # Standalone共通コンポーネント
 │   └── labs/       # home-target, game-species-test
 └── [その他]/        # レトロUI、共通レイアウト
 ```
 
 - `(standalone)` は独自の `standalone.css` を使用
 - メインサイトは `globals.css` のレトロスタイルを使用
+
+### Standalone共通コンポーネント
+
+`app/(standalone)/_components/` に配置:
+
+- `AppHeader` - アプリヘッダー
+- `AppFooter` - アプリフッター（ツールバー）
+- `AppLayout` - フルスクリーンレイアウト
+- `LanguageMenu` - 言語選択メニュー
 
 ### 機能別ストア配置
 
