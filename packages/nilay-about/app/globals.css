@@ -52,11 +52,13 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  font-family: "Times New Roman", "Hiragino Mincho ProN", "Yu Mincho", serif !important;
   font-size: 16px;
   line-height: 1.4;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
 }
 
 /* Authentic early web link styling */
@@ -104,10 +106,28 @@ h3 {
 ul, ol {
   margin: 1em 0;
   padding-left: 40px;
+  list-style: disc;
+}
+
+ol {
+  list-style: decimal;
 }
 
 li {
   margin: 0.5em 0;
+  display: list-item;
+}
+
+/* Navigation lists should not have list styling */
+nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+nav li {
+  margin: 0;
+  display: inline;
 }
 
 /* Classic paragraph */
