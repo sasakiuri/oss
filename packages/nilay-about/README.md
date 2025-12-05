@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nilay About Website
 
-## Getting Started
+Nilay のサービス紹介ウェブサイト。射撃・狩猟・有害鳥獣駆除に関する情報を提供します。
 
-First, run the development server:
+## 技術スタック
+
+| カテゴリ | 技術 |
+|----------|------|
+| フレームワーク | Next.js 16 (App Router) |
+| 言語 | TypeScript 5 |
+| スタイリング | Tailwind CSS 4 |
+| UIコンポーネント | Radix UI |
+| 状態管理 | Zustand v5 + TanStack Query v5 |
+| フォーム | React Hook Form + Zod |
+| アイコン | React Icons (Lucide) |
+| バックエンド | Firebase (Firestore, Cloud Functions) |
+| 日付処理 | date-fns |
+
+## 機能
+
+- **ホーム**: サービス紹介（Knowledge, E-commerce, Gunman, Labs）
+- **ニュース**: お知らせ一覧・詳細
+- **お問い合わせ**: コンタクトフォーム
+- **Labs**:
+  - home-target: 射撃標的計算ツール
+  - game-species-test: 狩猟鳥獣スライドショー
+
+## 開発
+
+詳細な開発手順は [DEVELOPMENT.md](./DEVELOPMENT.md) を参照してください。
+
+### クイックスタート
 
 ```bash
+# 依存関係インストール
+npm install
+
+# 開発サーバー起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# ビルド
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Docker 環境
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd docker
+docker compose up node-about
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+開発サーバーは `http://127.100.0.11:80` でアクセス可能です。
 
-## Learn More
+## ディレクトリ構造
 
-To learn more about Next.js, take a look at the following resources:
+```
+├── app/                    # Next.js ページ
+├── components/             # React コンポーネント
+│   ├── layout/            # Header, Footer など
+│   └── ui/                # Button, Card などのプリミティブ
+├── hooks/                  # カスタムフック
+├── store/                  # Zustand ストア
+├── lib/                    # ユーティリティ
+│   ├── api/               # API クライアント
+│   ├── firebase/          # Firebase 設定
+│   └── schemas/           # Zod スキーマ
+└── public/                 # 静的ファイル
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## ライセンス
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private
