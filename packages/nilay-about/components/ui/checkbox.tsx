@@ -5,10 +5,20 @@ import { cn } from "@/lib/utils";
 import { LuCheck } from "react-icons/lu";
 
 export interface CheckboxProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> {
+  /** Callback when checked state changes (Radix-compatible API) */
+  onCheckedChange?: (checked: boolean) => void;
+  /** Standard onChange handler */
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+}
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, onCheckedChange, onChange, ...props }, ref) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange?.(e);
+      onCheckedChange?.(e.target.checked);
+    };
+
     return (
       <div className="relative inline-flex items-center">
         <input
@@ -18,6 +28,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             className
           )}
           ref={ref}
+          onChange={handleChange}
           {...props}
         />
         <LuCheck className="absolute h-3 w-3 text-primary-foreground pointer-events-none left-0.5 hidden peer-checked:block" />
