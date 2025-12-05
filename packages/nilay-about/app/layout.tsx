@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Header, Footer } from "@/components/layout";
+import { RetroHeader, RetroFooter } from "@/components/layout";
 import { Providers } from "@/components/providers";
 import { siteConfig } from "@/lib/config";
 import "./globals.css";
@@ -48,15 +48,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="min-h-screen bg-background antialiased">
+      <body>
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main id="main-content" className="flex-1" tabIndex={-1}>
-              {children}
-            </main>
-            <Footer />
-          </div>
+          <RetroHeader />
+          <main id="main-content" tabIndex={-1}>
+            {children}
+          </main>
+          <RetroFooter />
         </Providers>
       </body>
     </html>

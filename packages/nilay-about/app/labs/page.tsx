@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Container, PageTitle } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { Button } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Labs",
@@ -25,28 +22,24 @@ const tools = [
 
 export default function LabsPage() {
   return (
-    <Container>
-      <PageTitle title="ツール" subtitle="Labs" />
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h1>Labs</h1>
+      <p>試験的に作成したツールなどを公開しています。</p>
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <hr />
+
+      <h2>Available Tools</h2>
+
+      <dl>
         {tools.map((tool) => (
-          <Card key={tool.slug} className="flex flex-col">
-            <CardHeader>
-              <CardTitle className="text-xl text-muted-foreground">
-                {tool.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col justify-between">
-              <p className="text-sm text-foreground">{tool.description}</p>
-              <div className="mt-4">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/labs/${tool.slug}`}>Learn More</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div key={tool.slug} className="mb-4">
+            <dt className="font-bold">
+              <Link href={`/labs/${tool.slug}`}>{tool.title}</Link>
+            </dt>
+            <dd className="ml-8">{tool.description}</dd>
+          </div>
         ))}
-      </div>
-    </Container>
+      </dl>
+    </div>
   );
 }

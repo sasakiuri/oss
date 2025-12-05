@@ -49,61 +49,123 @@ docker compose up node-about
 
 ## アーキテクチャ
 
+### デザインコンセプト
+
+**「2025年の技術で実装された、1990年のWebサイト」**
+
+- **メインサイト**: 1990年代CERN風レトロデザイン
+- **Labsアプリ**: モダンマテリアルデザイン
+
 ### ディレクトリ構成
 
 ```
 about.website/
-├── app/                      # Next.js App Router
-│   ├── layout.tsx           # ルートレイアウト
-│   ├── page.tsx             # ホームページ
-│   ├── contact/             # お問い合わせ
-│   ├── news/                # ニュース
-│   │   ├── page.tsx        # 一覧
-│   │   └── [id]/           # 詳細
-│   └── labs/                # Labs
-│       ├── game-species-test/
-│       └── home-target/
+├── app/
+│   ├── (standalone)/             # 独立したLabsアプリ (Route Group)
+│   │   ├── layout.tsx           # Standalone専用レイアウト
+│   │   ├── standalone.css       # モダンマテリアルデザインCSS
+│   │   └── labs/
+│   │       ├── game-species-test/
+│   │       │   ├── _store/      # 機能専用Zustandストア
+│   │       │   ├── quiz-data.ts
+│   │       │   ├── game-species-test-client.tsx
+│   │       │   └── page.tsx
+│   │       └── home-target/
+│   │           ├── _store/      # 機能専用Zustandストア
+│   │           ├── home-target-client.tsx
+│   │           └── page.tsx
+│   ├── layout.tsx                # メインレイアウト (RetroHeader/Footer)
+│   ├── globals.css               # レトロCERNスタイルCSS
+│   ├── page.tsx                  # ホームページ
+│   ├── contact/                  # お問い合わせ
+│   ├── news/                     # ニュース
+│   │   ├── page.tsx             # 一覧
+│   │   └── [id]/                # 詳細
+│   └── labs/                     # Labs インデックス
 ├── components/
-│   ├── layout/              # レイアウトコンポーネント
-│   │   ├── header.tsx
-│   │   ├── footer.tsx
+│   ├── layout/
+│   │   ├── retro-header.tsx     # レトロスタイルヘッダー
+│   │   ├── retro-footer.tsx     # レトロスタイルフッター
+│   │   ├── header.tsx           # モダンヘッダー (参照用)
+│   │   ├── footer.tsx           # モダンフッター (参照用)
 │   │   ├── container.tsx
 │   │   └── page-title.tsx
-│   ├── ui/                  # UIプリミティブ
+│   ├── ui/                       # UIプリミティブ
 │   │   ├── button.tsx
 │   │   ├── card.tsx
 │   │   ├── input.tsx
 │   │   └── ...
-│   ├── providers.tsx        # TanStack Query Provider
+│   ├── providers.tsx             # TanStack Query Provider
 │   └── share-buttons.tsx
 ├── hooks/
-│   ├── use-news.ts          # ニュース取得フック
-│   └── use-contact.ts       # お問い合わせ送信フック
+│   ├── use-news.ts               # ニュース取得フック
+│   └── use-contact.ts            # お問い合わせ送信フック
 ├── store/
-│   ├── index.ts             # エクスポート
-│   ├── ui-store.ts          # UI状態（アラート、ローディング）
-│   ├── game-species-store.ts # 狩猟鳥獣クイズ状態
-│   └── home-target-store.ts  # 射撃標的計算状態
+│   ├── index.ts                  # エクスポート
+│   └── ui-store.ts               # グローバルUI状態
 ├── lib/
-│   ├── api/                 # API クライアント
-│   │   ├── news.ts         # Firestore からニュース取得
-│   │   └── contact.ts      # Cloud Functions 呼び出し
-│   ├── firebase/
-│   │   └── config.ts       # Firebase 初期化
-│   ├── schemas/             # Zod スキーマ
+│   ├── api/                      # API クライアント
 │   │   ├── news.ts
 │   │   └── contact.ts
-│   ├── config.ts            # サイト設定
-│   └── utils.ts             # ユーティリティ (cn関数)
+│   ├── firebase/
+│   │   └── config.ts
+│   ├── schemas/                  # Zod スキーマ
+│   │   ├── news.ts
+│   │   └── contact.ts
+│   ├── utils/
+│   │   └── array.ts             # 配列ユーティリティ (shuffle等)
+│   ├── config.ts                 # サイト設定
+│   └── utils.ts                  # cn関数など
 └── public/
     └── images/
         ├── home-tanuki.png
-        └── game-species/    # 狩猟鳥獣画像
+        └── game-species/         # 狩猟鳥獣画像
+```
+
+### Route Groups による UI 分離
+
+Next.js の Route Groups を使用して、異なるデザインシステムを分離しています。
+
+```
+app/
+├── (standalone)/        # モダンUI - standalone.css
+│   └── labs/           # home-target, game-species-test
+├── layout.tsx          # レトロUI - globals.css
+└── [その他ページ]/      # レトロUIを継承
+```
+
+#### メインサイト（レトロUI）
+
+`globals.css` で定義されたCERN風スタイル:
+
+```css
+:root {
+  --background: #c0c0c0;    /* グレー背景 */
+  --link: #0000ee;          /* 青リンク */
+}
+body {
+  font-family: "Times New Roman", serif;
+}
+```
+
+#### Standalone（モダンUI）
+
+`standalone.css` で定義されたマテリアルデザイン:
+
+```css
+:root {
+  --background: #ffffff;    /* 白背景 */
+  --primary: #3b82f6;       /* 青プライマリ */
+}
+body {
+  font-family: "Inter", sans-serif;
+}
 ```
 
 ### コンポーネント設計
 
 #### Server Components (デフォルト)
+
 - メタデータ設定
 - 静的コンテンツ
 - レイアウト
@@ -116,15 +178,16 @@ export const metadata: Metadata = {
 
 export default function NewsPage() {
   return (
-    <Container>
-      <PageTitle title="お知らせ" subtitle="News" />
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h1>お知らせ (News)</h1>
       <NewsListClient />
-    </Container>
+    </div>
   );
 }
 ```
 
 #### Client Components
+
 - インタラクティブな UI
 - データフェッチング（TanStack Query）
 - フォーム
@@ -137,6 +200,40 @@ export function NewsListClient() {
   const { data, isLoading } = useNewsList();
   // ...
 }
+```
+
+### 状態管理
+
+#### グローバルストア (store/)
+
+アプリ全体で共有する状態:
+
+```ts
+// store/ui-store.ts
+export const useUIStore = create<UIState>((set) => ({
+  alert: null,
+  showSuccess: (title, message) =>
+    set({ alert: { type: "success", title, message } }),
+  showError: (title, message) =>
+    set({ alert: { type: "error", title, message } }),
+  clearAlert: () => set({ alert: null }),
+}));
+```
+
+#### 機能別ストア (_store/)
+
+Labs アプリは機能ごとにストアを持つ:
+
+```ts
+// app/(standalone)/labs/home-target/_store/index.ts
+export const useHomeTargetStore = create<HomeTargetStore>((set) => ({
+  language: "ja",
+  setLanguage: (language) => set({ language }),
+  // ...
+}));
+
+// 計算関数は純粋関数として分離
+export function calculateHeightOfTarget(...) { ... }
 ```
 
 ### データフェッチング
@@ -164,47 +261,6 @@ export function useNewsList() {
 }
 ```
 
-### 状態管理
-
-#### Zustand ストア (クライアント状態)
-
-```ts
-// store/ui-store.ts
-import { create } from "zustand";
-
-interface UIState {
-  alert: AlertState | null;
-  showSuccess: (title: string, message: string) => void;
-  showError: (title: string, message: string) => void;
-  clearAlert: () => void;
-}
-
-export const useUIStore = create<UIState>((set) => ({
-  alert: null,
-  showSuccess: (title, message) =>
-    set({ alert: { type: "success", title, message } }),
-  showError: (title, message) =>
-    set({ alert: { type: "error", title, message } }),
-  clearAlert: () => set({ alert: null }),
-}));
-```
-
-#### 使用例
-
-```tsx
-"use client";
-import { useUIStore } from "@/store";
-
-function MyComponent() {
-  const { showSuccess, clearAlert } = useUIStore();
-
-  const handleClick = () => {
-    showSuccess("完了", "処理が完了しました");
-  };
-  // ...
-}
-```
-
 ### フォームバリデーション
 
 #### Zod スキーマ
@@ -229,30 +285,30 @@ const { register, handleSubmit, formState: { errors } } = useForm({
 
 ## スタイリング
 
-### Tailwind CSS
+### レトロスタイル（メインサイト）
 
 ```tsx
-<div className="flex items-center gap-4 p-4 rounded-lg bg-secondary">
+// シンプルなHTML構造
+<div className="max-w-3xl mx-auto px-4 py-8">
+  <h1>お知らせ (News)</h1>
+  <hr />
+  <ul>
+    <li>...</li>
+  </ul>
+</div>
 ```
 
-### CSS 変数 (globals.css)
-
-```css
-:root {
-  --primary: #e27600;
-  --foreground: #2c3e50;
-  --secondary: #f8f9fa;
-}
-```
-
-### UIコンポーネント (Radix UI ベース)
+### モダンスタイル（Standalone）
 
 ```tsx
-import { Button } from "@/components/ui";
+// UIコンポーネント使用
+import { Button, Card, CardContent } from "@/components/ui";
 
-<Button variant="primary" size="lg">
-  送信
-</Button>
+<Card>
+  <CardContent className="pt-6">
+    <Button variant="primary">送信</Button>
+  </CardContent>
+</Card>
 ```
 
 ## Firebase 連携
@@ -295,6 +351,12 @@ npm run build
 # 型チェック
 npx tsc --noEmit
 ```
+
+### スタイルが反映されない
+
+- Route Group のレイアウトが正しいCSSをインポートしているか確認
+- `(standalone)` は `standalone.css`
+- その他は `globals.css`
 
 ### Firestore 接続エラー
 
