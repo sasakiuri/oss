@@ -12,6 +12,22 @@ export interface CheckboxProps
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
 
+/**
+ * Material Design 3 Checkbox
+ *
+ * M3 Specifications:
+ * - Container size: 18dp x 18dp
+ * - Corner radius: 2dp
+ * - Touch target: 48dp x 48dp (handled by parent)
+ * - Unchecked: outline border
+ * - Checked: primary fill with checkmark
+ *
+ * States:
+ * - Unchecked/Checked
+ * - Hover: 8% state layer
+ * - Focus: focus ring
+ * - Disabled: 38% opacity
+ */
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, onCheckedChange, onChange, ...props }, ref) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -20,18 +36,43 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
     };
 
     return (
-      <div className="relative inline-flex items-center">
+      <div className="relative inline-flex items-center justify-center h-12 w-12 -m-3">
+        {/* State layer for hover/focus */}
+        <div className="absolute h-10 w-10 rounded-full peer-hover:bg-primary/8 peer-focus-visible:bg-primary/12 transition-colors" />
+
         <input
           type="checkbox"
           className={cn(
-            "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none bg-background checked:bg-primary checked:border-primary",
+            "peer",
+            "h-[18px] w-[18px] shrink-0", // M3: 18dp size
+            "rounded-sm", // M3: 2dp corner radius
+            "border-2 border-outline", // M3: outline border
+            "appearance-none bg-transparent",
+            "transition-colors duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+            // Checked state
+            "checked:bg-primary checked:border-primary",
+            // Focus state
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            // Disabled state
+            "disabled:cursor-not-allowed disabled:opacity-[0.38]",
             className
           )}
           ref={ref}
           onChange={handleChange}
           {...props}
         />
-        <LuCheck className="absolute h-3 w-3 text-primary-foreground pointer-events-none left-0.5 hidden peer-checked:block" />
+
+        {/* Checkmark icon */}
+        <LuCheck
+          className={cn(
+            "absolute h-3.5 w-3.5 pointer-events-none",
+            "text-on-primary",
+            "opacity-0 scale-50",
+            "peer-checked:opacity-100 peer-checked:scale-100",
+            "transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]"
+          )}
+          strokeWidth={3}
+        />
       </div>
     );
   }
