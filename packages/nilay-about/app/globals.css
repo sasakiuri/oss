@@ -46,15 +46,15 @@
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  /* Modern sans-serif font stack */
-  --font-sans: -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
+  /* Serif font stack */
+  --font-sans: 'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN', P052, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
   --font-mono: "Courier New", "Monaco", monospace;
 }
 
 body {
-  background: var(--background) !important;
-  color: var(--foreground) !important;
-  font-family: -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji' !important;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN', P052, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
   font-size: 16px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
