@@ -1,4 +1,3 @@
-import { Providers } from "@/components/providers";
 import "./standalone.css";
 
 /**
@@ -6,6 +5,9 @@ import "./standalone.css";
  *
  * This layout does NOT include the main site's Header/Footer,
  * allowing these apps to have their own unique design.
+ *
+ * Note: This is a Route Group layout, so it inherits <html> and <body>
+ * from the root layout. We only apply standalone-specific CSS here.
  */
 export default function StandaloneLayout({
   children,
@@ -13,12 +15,8 @@ export default function StandaloneLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
-      <body className="min-h-screen bg-background antialiased">
-        <Providers>
-          {children}
-        </Providers>
-      </body>
-    </html>
+    <div className="standalone-app min-h-screen bg-background antialiased">
+      {children}
+    </div>
   );
 }
