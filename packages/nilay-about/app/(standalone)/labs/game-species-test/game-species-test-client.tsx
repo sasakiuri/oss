@@ -17,7 +17,7 @@ import {
   useGameSpeciesStore,
   useCurrentQuiz,
   useQuizProgress,
-} from "@/store";
+} from "./_store";
 import { shuffleArray } from "@/lib/utils/array";
 import { quizList } from "./quiz-data";
 
