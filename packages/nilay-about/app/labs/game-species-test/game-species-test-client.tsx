@@ -1,72 +1,91 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { Button, Card, CardContent, CardHeader, Progress, Skeleton } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Progress,
+  Skeleton,
+  Checkbox,
+  Label,
+} from "@/components/ui";
 import { LuSkipForward, LuEye, LuRefreshCw } from "react-icons/lu";
-import { useGameSpeciesStore } from "@/store";
+import {
+  useGameSpeciesStore,
+  useCurrentQuiz,
+  useQuizProgress,
+} from "@/store";
+import { shuffleArray } from "@/lib/utils/array";
 import { quizList } from "./quiz-data";
 
-function shuffleArray<T>(arr: T[]): T[] {
-  const resArr = [...arr];
-  for (let i = resArr.length - 1; i > 0; i--) {
-    const r = Math.floor(Math.random() * (i + 1));
-    [resArr[i], resArr[r]] = [resArr[r], resArr[i]];
-  }
-  return resArr;
-}
+// Constants
+const AUTO_PLAY_INTERVAL_MS = 3000;
+
+// Keyboard shortcuts
+const KEYBOARD_SHORTCUTS = {
+  NEXT: ["ArrowRight", " "],
+  SHOW_ANSWER: ["Enter"],
+  RESET: ["r", "R"],
+} as const;
 
 export function GameSpeciesTestClient() {
-  const {
-    quizList: shuffledList,
-    currentIndex,
-    showingAnswer,
-    autoPlay,
-    setShowingAnswer,
-    setAutoPlay,
-    nextQuiz,
-    reset,
-  } = useGameSpeciesStore();
+  const { showingAnswer, autoPlay, setShowingAnswer, setAutoPlay, nextQuiz, reset } =
+    useGameSpeciesStore();
+  const currentQuiz = useCurrentQuiz();
+  const { percentage } = useQuizProgress();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const setupNextQuiz = useCallback(() => {
-    if (currentIndex === shuffledList.length - 1) {
+    const state = useGameSpeciesStore.getState();
+    if (state.currentIndex === state.quizList.length - 1) {
       reset(shuffleArray(quizList));
       return;
     }
     nextQuiz();
-  }, [currentIndex, shuffledList.length, nextQuiz, reset]);
+  }, [nextQuiz, reset]);
 
+  // Initialize quiz
   useEffect(() => {
     reset(shuffleArray(quizList));
   }, [reset]);
 
+  // Auto-play interval
   useEffect(() => {
     if (!autoPlay) return;
 
-    const interval = setInterval(() => {
-      setupNextQuiz();
-    }, 3000);
-
+    const interval = setInterval(setupNextQuiz, AUTO_PLAY_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [autoPlay, setupNextQuiz]);
 
-  const handleNextClick = () => {
-    setupNextQuiz();
-  };
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (KEYBOARD_SHORTCUTS.NEXT.includes(e.key)) {
+        e.preventDefault();
+        setupNextQuiz();
+      } else if (KEYBOARD_SHORTCUTS.SHOW_ANSWER.includes(e.key)) {
+        e.preventDefault();
+        setShowingAnswer(true);
+      } else if (KEYBOARD_SHORTCUTS.RESET.includes(e.key)) {
+        e.preventDefault();
+        reset(shuffleArray(quizList));
+      }
+    };
 
-  const handleShowAnswerClick = () => {
-    setShowingAnswer(true);
-  };
-
-  const handleResetClick = () => {
-    reset(shuffleArray(quizList));
-  };
-
-  const currentQuiz = shuffledList[currentIndex];
-  const progress = shuffledList.length > 0 ? (100 * currentIndex) / shuffledList.length : 0;
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [setupNextQuiz, setShowingAnswer, reset]);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-background">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 flex flex-col bg-background"
+      role="application"
+      aria-label="狩猟鳥獣スライドショー"
+    >
       <header className="sticky top-0 z-50 border-b border-border bg-primary text-primary-foreground">
         <div className="mx-auto flex h-14 max-w-xl items-center px-4">
           <h1 className="text-lg font-medium">狩猟鳥獣スライドショー</h1>
@@ -76,69 +95,82 @@ export function GameSpeciesTestClient() {
       <main className="flex-1 overflow-auto pb-20">
         <div className="mx-auto max-w-xl p-4">
           <Card>
-            <Progress value={progress} className="rounded-none" />
+            <Progress
+              value={percentage}
+              className="rounded-none"
+              aria-label="進捗"
+            />
             <CardHeader>
               {showingAnswer && currentQuiz ? (
-                <h2 className="text-xl font-medium">{currentQuiz.answer}</h2>
+                <h2 className="text-xl font-medium" aria-live="polite">
+                  {currentQuiz.answer}
+                </h2>
               ) : (
-                <Skeleton className="h-7 w-1/3" />
+                <Skeleton className="h-7 w-1/3" aria-label="正解を隠しています" />
               )}
             </CardHeader>
             <CardContent>
               {!currentQuiz ? (
-                <Skeleton className="aspect-square w-full" />
+                <Skeleton className="aspect-square w-full" aria-label="読み込み中" />
               ) : (
-                <div className="relative aspect-square w-full overflow-hidden rounded-md">
+                <figure className="relative aspect-square w-full overflow-hidden rounded-md">
                   <Image
                     src={currentQuiz.image}
-                    alt={showingAnswer ? currentQuiz.answer : "Quiz image"}
+                    alt={showingAnswer ? currentQuiz.answer : "鳥獣の画像"}
                     fill
                     className="object-cover"
                     sizes="(max-width: 640px) 100vw, 576px"
+                    priority
                   />
-                </div>
+                </figure>
               )}
 
               <div className="mt-4 flex items-center gap-2">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={autoPlay}
-                    onChange={() => setAutoPlay(!autoPlay)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">自動再生</span>
-                </label>
+                <Checkbox
+                  id="autoPlay"
+                  checked={autoPlay}
+                  onCheckedChange={(checked) => setAutoPlay(checked === true)}
+                />
+                <Label htmlFor="autoPlay" className="cursor-pointer text-sm">
+                  自動再生 ({AUTO_PLAY_INTERVAL_MS / 1000}秒)
+                </Label>
               </div>
             </CardContent>
           </Card>
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 border-t border-border bg-background">
+      <footer
+        className="fixed bottom-0 left-0 right-0 border-t border-border bg-background"
+        role="toolbar"
+        aria-label="操作ボタン"
+      >
         <div className="mx-auto flex max-w-xl items-stretch">
           <Button
             variant="ghost"
             className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
-            onClick={handleNextClick}
+            onClick={setupNextQuiz}
+            aria-label="次へ（右矢印キーまたはスペースキー）"
           >
-            <LuSkipForward className="h-5 w-5" />
+            <LuSkipForward className="h-5 w-5" aria-hidden="true" />
             <span className="text-xs">次へ</span>
           </Button>
           <Button
             variant="ghost"
             className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
-            onClick={handleShowAnswerClick}
+            onClick={() => setShowingAnswer(true)}
+            aria-label="正解を表示（Enterキー）"
           >
-            <LuEye className="h-5 w-5" />
+            <LuEye className="h-5 w-5" aria-hidden="true" />
             <span className="text-xs">正解を表示</span>
           </Button>
           <Button
             variant="ghost"
             className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
-            onClick={handleResetClick}
+            onClick={() => reset(shuffleArray(quizList))}
+            aria-label="リセット（Rキー）"
           >
-            <LuRefreshCw className="h-5 w-5" />
+            <LuRefreshCw className="h-5 w-5" aria-hidden="true" />
             <span className="text-xs">リセット</span>
           </Button>
         </div>
