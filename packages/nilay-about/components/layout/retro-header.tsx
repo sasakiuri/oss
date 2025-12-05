@@ -42,7 +42,7 @@ export function RetroHeader() {
             <Link href={ROUTES.HOME}>Nilay/About</Link>
           </h1>
           <nav aria-label="メインナビゲーション">
-            <ul className="flex flex-wrap gap-x-4 gap-y-1">
+            <ul className="list-none flex flex-wrap gap-x-4 gap-y-1 m-0 p-0">
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
