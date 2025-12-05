@@ -2,14 +2,6 @@
 
 Nilay のサービス紹介ウェブサイト。射撃・狩猟・有害鳥獣駆除に関する情報を提供します。
 
-## デザインコンセプト
-
-**「2025年の技術で実装された、1990年のWebサイト」**
-
-メインサイトは初期のCERN Webサイトを彷彿とさせるレトロなデザインを採用しています。見た目はクラシックですが、内部はモダンなNext.js 16で実装されています。
-
-Labs アプリ（home-target、game-species-test）は独立したモダンなマテリアルデザインUIを使用しています。
-
 ## 技術スタック
 
 | カテゴリ | 技術 |
@@ -63,21 +55,21 @@ docker compose up node-about
 
 ```
 ├── app/
-│   ├── (standalone)/          # 独立したLabsアプリ (モダンUI)
+│   ├── (standalone)/          # 独立したLabsアプリ
 │   │   ├── layout.tsx        # Standalone専用レイアウト
 │   │   ├── standalone.css    # モダンマテリアルデザインCSS
 │   │   └── labs/
 │   │       ├── game-species-test/
 │   │       └── home-target/
-│   ├── layout.tsx             # メインレイアウト (レトロUI)
-│   ├── globals.css            # レトロCERNスタイルCSS
+│   ├── layout.tsx             # メインレイアウト
+│   ├── globals.css            # グローバルスタイルCSS
 │   ├── contact/               # お問い合わせ
 │   ├── labs/                  # Labs インデックス
 │   └── news/                  # ニュース
 ├── components/
 │   ├── layout/                # レイアウトコンポーネント
-│   │   ├── retro-header.tsx  # レトロスタイルヘッダー
-│   │   ├── retro-footer.tsx  # レトロスタイルフッター
+│   │   ├── header.tsx        # ヘッダー
+│   │   ├── footer.tsx        # フッター
 │   │   └── ...
 │   └── ui/                    # UIプリミティブ
 ├── hooks/                     # カスタムフック
