@@ -83,35 +83,62 @@ export function GameSpeciesTestClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setupNextQuiz, setShowingAnswer, reset]);
 
+  /**
+   * M3 Bottom App Bar Actions
+   * - Icon size: 24dp
+   * - Touch target: 48dp
+   * - Label: Label Medium (12sp)
+   */
   const footer = (
     <AppFooter>
-      <Button
-        variant="ghost"
-        className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
+      <button
+        type="button"
+        className={[
+          "flex flex-1 flex-col items-center justify-center gap-1",
+          "min-h-[48px] py-2",
+          "text-on-surface-variant",
+          "transition-colors duration-200",
+          "hover:text-on-surface",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+        ].join(" ")}
         onClick={setupNextQuiz}
         aria-label="次へ（右矢印キーまたはスペースキー）"
       >
-        <LuSkipForward className="h-5 w-5" aria-hidden="true" />
-        <span className="text-xs">次へ</span>
-      </Button>
-      <Button
-        variant="ghost"
-        className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
+        <LuSkipForward className="h-6 w-6" aria-hidden="true" />
+        <span className="text-xs font-medium">次へ</span>
+      </button>
+      <button
+        type="button"
+        className={[
+          "flex flex-1 flex-col items-center justify-center gap-1",
+          "min-h-[48px] py-2",
+          "text-on-surface-variant",
+          "transition-colors duration-200",
+          "hover:text-on-surface",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+        ].join(" ")}
         onClick={() => setShowingAnswer(true)}
         aria-label="正解を表示（Enterキー）"
       >
-        <LuEye className="h-5 w-5" aria-hidden="true" />
-        <span className="text-xs">正解を表示</span>
-      </Button>
-      <Button
-        variant="ghost"
-        className="flex-1 flex-col gap-1 rounded-none py-4 h-auto"
+        <LuEye className="h-6 w-6" aria-hidden="true" />
+        <span className="text-xs font-medium">正解を表示</span>
+      </button>
+      <button
+        type="button"
+        className={[
+          "flex flex-1 flex-col items-center justify-center gap-1",
+          "min-h-[48px] py-2",
+          "text-on-surface-variant",
+          "transition-colors duration-200",
+          "hover:text-on-surface",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+        ].join(" ")}
         onClick={() => reset(shuffleArray(quizList))}
         aria-label="リセット（Rキー）"
       >
-        <LuRefreshCw className="h-5 w-5" aria-hidden="true" />
-        <span className="text-xs">リセット</span>
-      </Button>
+        <LuRefreshCw className="h-6 w-6" aria-hidden="true" />
+        <span className="text-xs font-medium">リセット</span>
+      </button>
     </AppFooter>
   );
 

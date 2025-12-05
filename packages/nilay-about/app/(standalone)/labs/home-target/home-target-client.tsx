@@ -212,12 +212,12 @@ export function HomeTargetClient() {
         variant="ghost"
         onClick={handleSaveClick}
         disabled={isDownloading}
-        className="text-primary-foreground hover:bg-primary/80"
+        className="text-on-surface"
       >
         {isDownloading ? (
-          <LuLoader className="mr-2 h-4 w-4 animate-spin" />
+          <LuLoader className="h-[18px] w-[18px] animate-spin" />
         ) : (
-          <LuDownload className="mr-2 h-4 w-4" />
+          <LuDownload className="h-[18px] w-[18px]" />
         )}
         Get Target
       </Button>
@@ -317,14 +317,30 @@ export function HomeTargetClient() {
         </div>
       </div>
 
+      {/* M3 Dialog: 28dp corner radius, elevation 3, scrim overlay */}
       <Dialog.Root
         open={isDisciplineDialogOpen}
         onOpenChange={setIsDisciplineDialogOpen}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] max-h-[90vh] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-lg bg-background p-6 shadow-lg">
-            <Dialog.Title className="text-lg font-medium">
+          {/* M3 Scrim: 32% black overlay */}
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-scrim/[0.32] animate-in fade-in duration-200" />
+          {/* M3 Dialog container: 28dp corner radius, elevation 3 */}
+          <Dialog.Content
+            className={[
+              "fixed left-1/2 top-1/2 z-[101]",
+              "-translate-x-1/2 -translate-y-1/2",
+              "max-h-[90vh] w-[90vw] max-w-md",
+              "overflow-auto",
+              "rounded-[28px]", // M3: extra-large corner radius
+              "bg-surface-container-high",
+              "p-6",
+              "shadow-[0_4px_8px_3px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.3)]", // elevation 3
+              "animate-in fade-in zoom-in-95 duration-200",
+            ].join(" ")}
+          >
+            {/* M3 Dialog headline: Headline Small (24sp) */}
+            <Dialog.Title className="text-2xl leading-8 font-normal text-on-surface">
               {text.discipline}
             </Dialog.Title>
 
