@@ -8,7 +8,7 @@ import {
   useHomeTargetStore,
   calculateHeightOfTarget,
   calculateBlackAreaSize,
-} from "@/store";
+} from "./_store";
 
 type Text = {
   title: string;
