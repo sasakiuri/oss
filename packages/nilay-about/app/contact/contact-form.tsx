@@ -1,10 +1,9 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useContactForm } from "@/hooks";
 import { useUIStore } from "@/store";
-import { contactFormSchema, type ContactFormData } from "@/lib/schemas";
+import type { ContactFormData } from "@/lib/schemas";
 
 export function ContactForm() {
   const { alert, showSuccess, showError, clearAlert } = useUIStore();
@@ -17,7 +16,6 @@ export function ContactForm() {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ContactFormData>({
-    resolver: zodResolver(contactFormSchema),
     defaultValues: {
       requiresReply: false,
       email: "",
@@ -75,7 +73,13 @@ export function ContactForm() {
             className="w-full max-w-md"
             aria-describedby={errors.email ? "email-error" : undefined}
             aria-invalid={errors.email ? "true" : undefined}
-            {...register("email")}
+            {...register("email", {
+              required: "返信を希望する場合はＥメールアドレスが必要です。",
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: "Ｅメールアドレスの形式が不正です。",
+              },
+            })}
           />
           {errors.email && (
             <span
@@ -100,7 +104,9 @@ export function ContactForm() {
           aria-describedby={errors.title ? "title-error" : undefined}
           aria-invalid={errors.title ? "true" : undefined}
           aria-required="true"
-          {...register("title")}
+          {...register("title", {
+            required: "タイトルは必須です。",
+          })}
         />
         {errors.title && (
           <span
@@ -124,7 +130,9 @@ export function ContactForm() {
           aria-describedby={errors.message ? "message-error" : undefined}
           aria-invalid={errors.message ? "true" : undefined}
           aria-required="true"
-          {...register("message")}
+          {...register("message", {
+            required: "お問い合わせ内容は必須です。",
+          })}
         />
         {errors.message && (
           <span

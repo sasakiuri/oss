@@ -26,6 +26,7 @@ export function validateResponse<T>(
 
     throw new ValidationError(
       `Invalid response from ${context}`,
+      undefined,
       Object.fromEntries(issues.map((i) => [i.path || "root", i.message]))
     );
   }

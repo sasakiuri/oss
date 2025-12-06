@@ -45,7 +45,8 @@ export function AccessibleImage({
 /**
  * Avatar image with accessibility defaults
  */
-interface AvatarImageProps extends Omit<AccessibleImageProps, "width" | "height"> {
+interface AvatarImageProps
+  extends Omit<AccessibleImageProps, "width" | "height" | "alt"> {
   size?: number;
   name: string;
 }

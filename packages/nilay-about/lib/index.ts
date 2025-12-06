@@ -9,7 +9,6 @@ export * from "./utils";
 export * from "./constants";
 export * from "./env";
 export * from "./config";
-export * from "./types";
 
 // API and data
 export * from "./api";
@@ -18,8 +17,14 @@ export * from "./schemas";
 // Error handling
 export * from "./errors";
 
-// Security
-export * from "./security";
+// Security (explicitly exclude escapeHtml which is already in utils)
+export {
+  stripHtml,
+  sanitizeForDisplay,
+  sanitizeUrl,
+  sanitizeForLogging,
+  createRateLimiter,
+} from "./security";
 
 // Performance
 export * from "./performance";
