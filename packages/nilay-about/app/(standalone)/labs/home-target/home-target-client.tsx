@@ -177,44 +177,37 @@ export function HomeTargetClient() {
   const handleSaveClick = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch(
-        "https://gunman.nilay.jp/api/v1/home-targets",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/pdf",
-          },
-          body: JSON.stringify({
-            blackAreaSize: { number: blackAreaSize, unit: "cm" },
-          }),
-        }
-      );
+      const response = await fetch("/api/home-targets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          blackAreaSize: { number: blackAreaSize, unit: "cm" },
+        }),
+      });
 
       // Validate response status
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
         const errorMessage =
-          language === "ja"
+          errorData.error ||
+          (language === "ja"
             ? "PDF の生成に失敗しました。しばらく時間をおいてから再度お試しください。"
-            : "Failed to generate PDF. Please try again later.";
+            : "Failed to generate PDF. Please try again later.");
         throw new Error(errorMessage);
       }
 
-      // Validate content type
-      const contentType = response.headers.get("content-type");
-      if (!contentType?.includes("application/pdf")) {
-        const errorMessage =
-          language === "ja"
-            ? "サーバーから不正なレスポンスが返されました。"
-            : "Invalid response received from server.";
-        throw new Error(errorMessage);
-      }
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get("content-disposition");
+      const filenameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/);
+      const filename = filenameMatch?.[1] || "Home_Target.pdf";
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Home_Target.pdf";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -227,7 +220,6 @@ export function HomeTargetClient() {
           : language === "ja"
             ? "エラーが発生しました。"
             : "An error occurred.";
-      // Using window.alert for simplicity; could be replaced with toast/modal
       window.alert(message);
     } finally {
       setIsDownloading(false);
