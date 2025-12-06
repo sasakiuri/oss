@@ -32,8 +32,8 @@ export * from "./performance";
 // Logging
 export * from "./logging";
 
-// Firebase
-export * from "./firebase";
-
 // DI
 export * from "./di";
+
+// Prisma
+export * from "./prisma";
