@@ -1,37 +1,23 @@
-import { httpsCallable } from "firebase/functions";
-import { getFirebaseFunctions } from "@/lib/firebase";
 import { NetworkError } from "@/lib/errors";
 import type { ContactFormData, ContactResponse } from "@/lib/schemas";
 import type { ContactService } from "./types";
 
-interface SendContactMessageRequest {
-  requiresReply: boolean;
-  email: string;
-  title: string;
-  message: string;
-}
-
 /**
- * Firebase Functions実装のコンタクトサービス
+ * API Route経由のコンタクトサービス
  */
-class FirebaseContactService implements ContactService {
+class ApiContactService implements ContactService {
   async send(data: ContactFormData): Promise<ContactResponse> {
     try {
-      const functions = getFirebaseFunctions();
-      const sendContactMessageFn = httpsCallable<
-        SendContactMessageRequest,
-        ContactResponse
-      >(functions, "sendContactMessage");
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
-      const request: SendContactMessageRequest = {
-        requiresReply: data.requiresReply,
-        email: data.email || "",
-        title: data.title,
-        message: data.message,
-      };
-
-      const result = await sendContactMessageFn(request);
-      return result.data;
+      const result: ContactResponse = await response.json();
+      return result;
     } catch (cause) {
       throw new NetworkError("お問い合わせの送信に失敗しました", cause);
     }
@@ -39,7 +25,7 @@ class FirebaseContactService implements ContactService {
 }
 
 // Singleton instance
-const contactService = new FirebaseContactService();
+const contactService = new ApiContactService();
 
 // Public API function (facade pattern)
 export async function sendContactMessage(
@@ -49,5 +35,5 @@ export async function sendContactMessage(
 }
 
 // Export for testing and DI
-export { contactService, FirebaseContactService };
+export { contactService, ApiContactService };
 export type { ContactService };
