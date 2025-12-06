@@ -191,7 +191,7 @@ export async function POST(request: Request) {
       .slice(0, 19);
     const filename = `Home_Target_${timestamp}.pdf`;
 
-    return new Response(pdfData, {
+    return new Response(Buffer.from(pdfData), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
