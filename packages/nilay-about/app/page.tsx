@@ -41,7 +41,7 @@ export default function HomePage() {
         では射撃・狩猟・有害鳥獣駆除に関するサービスを提供しています。少しでも使いやすいサービスにしていきたいと思っておりますのでよろしくお願いいたします。
       </p>
 
-      <div className="my-8 text-center">
+      <div className="my-8">
         <a
           href="https://www.irasutoya.com/2015/03/blog-post_346.html"
           target="_blank"
