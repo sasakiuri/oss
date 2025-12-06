@@ -54,36 +54,36 @@ interface UseContactFormWithUIOptions {
  * Automatically shows alerts on success/error
  */
 export function useContactFormWithUI(options?: UseContactFormWithUIOptions) {
-  const showAlert = useUIStore((state) => state.showAlert);
+  const { showError, showSuccess } = useUIStore();
 
   const handleSuccess = useCallback(
     (data: ContactResponse) => {
       if (data.hasError) {
-        showAlert(
-          data.errorMessage || options?.errorMessage || "送信に失敗しました",
-          "error"
+        showError(
+          "送信エラー",
+          data.errorMessage || options?.errorMessage || "送信に失敗しました"
         );
         return;
       }
 
-      showAlert(
-        options?.successMessage || "お問い合わせを送信しました。",
-        "success"
+      showSuccess(
+        "送信完了",
+        options?.successMessage || "お問い合わせを送信しました。"
       );
       options?.onSuccess?.(data);
     },
-    [showAlert, options]
+    [showError, showSuccess, options]
   );
 
   const handleError = useCallback(
     (error: Error) => {
-      showAlert(
-        options?.errorMessage || error.message || "送信に失敗しました",
-        "error"
+      showError(
+        "送信エラー",
+        options?.errorMessage || error.message || "送信に失敗しました"
       );
       options?.onError?.(error);
     },
-    [showAlert, options]
+    [showError, options]
   );
 
   return useMutation({
