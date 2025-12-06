@@ -135,9 +135,7 @@ export const container = new DIContainer();
 
 // Service keys
 export const ServiceKeys = {
-  FIRESTORE: "firestore",
-  FIREBASE_FUNCTIONS: "firebaseFunctions",
-  FIREBASE_ANALYTICS: "firebaseAnalytics",
+  PRISMA: "prisma",
   NEWS_REPOSITORY: "newsRepository",
   CONTACT_SERVICE: "contactService",
 } as const;

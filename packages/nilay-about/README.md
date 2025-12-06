@@ -13,7 +13,8 @@ Nilay のサービス紹介ウェブサイト。射撃・狩猟・有害鳥獣�
 | 状態管理 | Zustand v5 + TanStack Query v5 |
 | フォーム | React Hook Form + Zod |
 | アイコン | React Icons (Lucide) |
-| バックエンド | Firebase (Firestore, Cloud Functions) |
+| データベース | Supabase (PostgreSQL) |
+| ORM | Prisma |
 | 日付処理 | date-fns |
 
 ## 機能
@@ -76,8 +77,12 @@ docker compose up node-about
 ├── store/                     # Zustand ストア
 ├── lib/                       # ユーティリティ
 │   ├── api/                   # API クライアント
-│   ├── firebase/              # Firebase 設定
+│   ├── prisma.ts             # Prisma クライアント
+│   ├── generated/prisma/     # Prisma 生成コード
 │   └── schemas/               # Zod スキーマ
+├── prisma/
+│   ├── schema.prisma         # Prisma スキーマ
+│   └── seed.sql              # 初期データ
 └── public/                    # 静的ファイル
 ```
 
