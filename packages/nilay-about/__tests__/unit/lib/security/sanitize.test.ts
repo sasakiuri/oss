@@ -6,9 +6,96 @@ import {
   sanitizeUrl,
   createRateLimiter,
   sanitizeForLogging,
+  sanitizeHtml,
 } from "@/lib/security/sanitize";
 
 describe("Security Sanitization", () => {
+  describe("sanitizeHtml", () => {
+    it("should remove script tags", () => {
+      const input = '<p>Hello</p><script>alert("xss")</script>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("<script>");
+      expect(result).toContain("<p>Hello</p>");
+    });
+
+    it("should remove event handlers with double quotes", () => {
+      const input = '<div onclick="alert(1)">Click me</div>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("onclick");
+      expect(result).toContain("Click me");
+    });
+
+    it("should remove event handlers with single quotes", () => {
+      const input = "<img onerror='alert(1)' src='x'>";
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("onerror");
+    });
+
+    it("should remove javascript: URLs", () => {
+      const input = '<a href="javascript:alert(1)">Link</a>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("javascript:");
+    });
+
+    it("should remove data: URLs", () => {
+      const input = '<a href="data:text/html,<script>alert(1)</script>">Link</a>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("data:");
+    });
+
+    it("should remove style tags", () => {
+      const input = "<style>body { display: none; }</style><p>Text</p>";
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("<style>");
+      expect(result).toContain("<p>Text</p>");
+    });
+
+    it("should remove iframe tags", () => {
+      const input = '<iframe src="evil.com"></iframe><p>Safe</p>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("<iframe");
+      expect(result).toContain("<p>Safe</p>");
+    });
+
+    it("should remove form and input tags", () => {
+      const input = '<form action="evil.com"><input type="text"></form>';
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("<form");
+      expect(result).not.toContain("<input");
+    });
+
+    it("should preserve safe HTML content", () => {
+      const input = "<p><strong>Bold</strong> and <em>italic</em></p>";
+      const result = sanitizeHtml(input);
+      expect(result).toBe(input);
+    });
+
+    it("should preserve links with safe href", () => {
+      const input = '<a href="https://example.com">Link</a>';
+      const result = sanitizeHtml(input);
+      expect(result).toBe(input);
+    });
+
+    it("should handle empty string", () => {
+      expect(sanitizeHtml("")).toBe("");
+    });
+
+    it("should handle complex XSS attempts", () => {
+      const input = `
+        <div onmouseover="alert(1)">
+          <img src="x" onerror="alert(2)">
+          <script>document.cookie</script>
+          <a href="javascript:void(0)">Click</a>
+        </div>
+      `;
+      const result = sanitizeHtml(input);
+      expect(result).not.toContain("onmouseover");
+      expect(result).not.toContain("onerror");
+      expect(result).not.toContain("<script>");
+      expect(result).not.toContain("javascript:");
+    });
+  });
+
   describe("escapeHtml", () => {
     it("should escape HTML special characters", () => {
       expect(escapeHtml("<script>alert('xss')</script>")).toBe(
