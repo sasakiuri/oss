@@ -8,6 +8,9 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().optional(),
 
+  // External Services
+  SLACK_WEBHOOK_URL: z.string().url().optional(),
+
   // App
   NEXT_PUBLIC_SITE_URL: z.string().url().default("https://about.nilay.jp"),
   NODE_ENV: z
@@ -23,6 +26,7 @@ type Env = z.infer<typeof envSchema>;
 function getEnv(): Env {
   const envVars = {
     DATABASE_URL: process.env.DATABASE_URL,
+    SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "https://about.nilay.jp",
     NODE_ENV: process.env.NODE_ENV || "development",
   };

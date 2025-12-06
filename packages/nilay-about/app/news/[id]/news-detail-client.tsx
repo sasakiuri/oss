@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { useNews } from "@/hooks";
 import { ShareButtons } from "@/components/share-buttons";
 import { siteConfig } from "@/lib/config";
+import { sanitizeHtml } from "@/lib/security/sanitize";
 import { format } from "date-fns";
 
 function NewsDetailSkeleton() {
@@ -36,6 +38,12 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
   const dateStr = format(news.date, "yyyy年M月d日");
   const url = `${siteConfig.siteUrl}/news/${id}`;
 
+  // Sanitize HTML content to prevent XSS attacks
+  const sanitizedContent = useMemo(
+    () => sanitizeHtml(news.summary),
+    [news.summary]
+  );
+
   return (
     <article className="mt-4">
       <h1>{news.title}</h1>
@@ -53,7 +61,8 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
 
       <hr />
 
-      <div dangerouslySetInnerHTML={{ __html: news.summary }} />
+      {/* Content is sanitized to remove XSS vectors */}
+      <div dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
     </article>
   );
 }
