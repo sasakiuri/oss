@@ -1,24 +1,15 @@
 import { z } from "zod";
 
-export const contactFormSchema = z
-  .object({
-    requiresReply: z.boolean().default(false),
-    email: z.string().email("Ｅメールアドレスの形式が不正です。").optional().or(z.literal("")),
-    title: z.string().min(1, "タイトルは必須です。"),
-    message: z.string().min(1, "お問い合わせ内容は必須です。"),
-  })
-  .refine(
-    (data) => {
-      if (data.requiresReply) {
-        return data.email && data.email.length > 0;
-      }
-      return true;
-    },
-    {
-      message: "返信を希望する場合はＥメールアドレスが必要です。",
-      path: ["email"],
-    }
-  );
+export const contactFormSchema = z.object({
+  requiresReply: z.boolean().default(false),
+  email: z
+    .string()
+    .email("Ｅメールアドレスの形式が不正です。")
+    .optional()
+    .or(z.literal("")),
+  title: z.string().min(1, "タイトルは必須です。"),
+  message: z.string().min(1, "お問い合わせ内容は必須です。"),
+});
 
 export type ContactFormData = z.infer<typeof contactFormSchema>;
 

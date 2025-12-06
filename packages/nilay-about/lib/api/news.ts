@@ -24,14 +24,31 @@ function handleFirestoreError(error: unknown, operation: string): never {
     switch (error.code) {
       case "unavailable":
       case "deadline-exceeded":
-        throw new NetworkError(`Firestore ${operation} failed: network unavailable`, error);
+        throw new NetworkError(
+          `Firestore ${operation} failed: network unavailable`,
+          undefined,
+          undefined,
+          error
+        );
       case "permission-denied":
-        throw new ExternalServiceError("Firestore", `Permission denied for ${operation}`, error);
+        throw new ExternalServiceError(
+          "Firestore",
+          `Permission denied for ${operation}`,
+          error
+        );
       default:
-        throw new ExternalServiceError("Firestore", `${operation} failed: ${error.message}`, error);
+        throw new ExternalServiceError(
+          "Firestore",
+          `${operation} failed: ${error.message}`,
+          error
+        );
     }
   }
-  throw new ExternalServiceError("Firestore", `Unknown error during ${operation}`, error);
+  throw new ExternalServiceError(
+    "Firestore",
+    `Unknown error during ${operation}`,
+    error
+  );
 }
 
 /**
