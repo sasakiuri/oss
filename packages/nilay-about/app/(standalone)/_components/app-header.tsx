@@ -39,7 +39,7 @@ export function AppHeader({
         "transition-shadow duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
         isColored
           ? "bg-primary text-primary-foreground"
-          : "bg-surface text-on-surface",
+          : "bg-surface-container text-on-surface",
       ].join(" ")}
       role="banner"
     >

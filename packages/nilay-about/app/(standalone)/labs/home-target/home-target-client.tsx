@@ -324,7 +324,7 @@ export function HomeTargetClient() {
       >
         <Dialog.Portal>
           {/* M3 Scrim: 32% black overlay */}
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-scrim/[0.32] animate-in fade-in duration-200" />
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/[0.32] animate-in fade-in duration-200" />
           {/* M3 Dialog container: 28dp corner radius, elevation 3 */}
           <Dialog.Content
             className={[
@@ -332,23 +332,35 @@ export function HomeTargetClient() {
               "-translate-x-1/2 -translate-y-1/2",
               "max-h-[90vh] w-[90vw] max-w-md",
               "overflow-auto",
-              "rounded-[28px]", // M3: extra-large corner radius
-              "bg-surface-container-high",
+              "rounded-[28px]",
+              "bg-[#ebedeb]", // surface-container-high
               "p-6",
-              "shadow-[0_4px_8px_3px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.3)]", // elevation 3
+              "shadow-[0_4px_8px_3px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.3)]",
               "animate-in fade-in zoom-in-95 duration-200",
+              "font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]",
+              "text-[#1f1f1f]", // on-surface
             ].join(" ")}
           >
             {/* M3 Dialog headline: Headline Small (24sp) */}
-            <Dialog.Title className="text-2xl leading-8 font-normal text-on-surface">
+            <Dialog.Title className="text-2xl leading-8 font-normal">
               {text.discipline}
             </Dialog.Title>
 
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
-                <Label>{text.discipline}</Label>
+                <Label className="text-sm font-medium text-[#444746]">
+                  {text.discipline}
+                </Label>
                 <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  className={[
+                    "w-full h-14 px-4",
+                    "rounded",
+                    "border border-[#747775] bg-white",
+                    "text-base text-[#1f1f1f]",
+                    "font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]",
+                    "focus:outline-none focus:border-[#1a73e8] focus:border-2",
+                    "transition-colors duration-200",
+                  ].join(" ")}
                   value={discipline.key}
                   onChange={(e) => handleDisciplineChange(e.target.value)}
                 >
@@ -359,18 +371,21 @@ export function HomeTargetClient() {
                   ))}
                   <option value="CUSTOM">Custom</option>
                 </select>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[#444746]">
                   {text.disciplineDesc}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>{text.shootingDistance}</Label>
+                <Label className="text-sm font-medium text-[#444746]">
+                  {text.shootingDistance}
+                </Label>
                 <div className="relative">
                   <Input
                     type="number"
                     value={discipline.distance.number}
                     readOnly={isReadonly}
+                    className="font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]"
                     onChange={(e) =>
                       setDiscipline({
                         ...discipline,
@@ -381,19 +396,22 @@ export function HomeTargetClient() {
                       })
                     }
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#444746]">
                     {discipline.distance.unit}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>{text.heightOfTargetCenter}</Label>
+                <Label className="text-sm font-medium text-[#444746]">
+                  {text.heightOfTargetCenter}
+                </Label>
                 <div className="relative">
                   <Input
                     type="number"
                     value={discipline.heightOfTarget.number}
                     readOnly={isReadonly}
+                    className="font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]"
                     onChange={(e) =>
                       setDiscipline({
                         ...discipline,
@@ -404,19 +422,22 @@ export function HomeTargetClient() {
                       })
                     }
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#444746]">
                     {discipline.heightOfTarget.unit}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>{text.blackAimingAreaSize}</Label>
+                <Label className="text-sm font-medium text-[#444746]">
+                  {text.blackAimingAreaSize}
+                </Label>
                 <div className="relative">
                   <Input
                     type="number"
                     value={discipline.blackAreaSize.number}
                     readOnly={isReadonly}
+                    className="font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]"
                     onChange={(e) =>
                       setDiscipline({
                         ...discipline,
@@ -427,7 +448,7 @@ export function HomeTargetClient() {
                       })
                     }
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#444746]">
                     {discipline.blackAreaSize.unit}
                   </span>
                 </div>
