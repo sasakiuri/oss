@@ -3,7 +3,7 @@ import { z } from "zod";
 export const newsSchema = z.object({
   id: z.string(),
   title: z.string(),
-  date: z.date(),
+  date: z.coerce.date(),
   summary: z.string(),
 });
 
