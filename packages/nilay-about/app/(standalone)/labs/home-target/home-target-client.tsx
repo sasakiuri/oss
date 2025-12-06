@@ -191,6 +191,25 @@ export function HomeTargetClient() {
         }
       );
 
+      // Validate response status
+      if (!response.ok) {
+        const errorMessage =
+          language === "ja"
+            ? "PDF の生成に失敗しました。しばらく時間をおいてから再度お試しください。"
+            : "Failed to generate PDF. Please try again later.";
+        throw new Error(errorMessage);
+      }
+
+      // Validate content type
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/pdf")) {
+        const errorMessage =
+          language === "ja"
+            ? "サーバーから不正なレスポンスが返されました。"
+            : "Invalid response received from server.";
+        throw new Error(errorMessage);
+      }
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -200,6 +219,16 @@ export function HomeTargetClient() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch (error) {
+      // Show user-friendly error message
+      const message =
+        error instanceof Error
+          ? error.message
+          : language === "ja"
+            ? "エラーが発生しました。"
+            : "An error occurred.";
+      // Using window.alert for simplicity; could be replaced with toast/modal
+      window.alert(message);
     } finally {
       setIsDownloading(false);
     }

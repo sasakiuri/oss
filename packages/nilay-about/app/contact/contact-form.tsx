@@ -73,13 +73,18 @@ export function ContactForm() {
             type="email"
             disabled={isLoading}
             className="w-full max-w-md"
+            aria-describedby={errors.email ? "email-error" : undefined}
+            aria-invalid={errors.email ? "true" : undefined}
             {...register("email")}
           />
           {errors.email && (
-            <>
-              <br />
-              <span className="text-destructive">{errors.email.message}</span>
-            </>
+            <span
+              id="email-error"
+              role="alert"
+              className="block text-destructive mt-1"
+            >
+              {errors.email.message}
+            </span>
           )}
         </p>
       )}
@@ -92,13 +97,19 @@ export function ContactForm() {
           type="text"
           disabled={isLoading}
           className="w-full max-w-md"
+          aria-describedby={errors.title ? "title-error" : undefined}
+          aria-invalid={errors.title ? "true" : undefined}
+          aria-required="true"
           {...register("title")}
         />
         {errors.title && (
-          <>
-            <br />
-            <span className="text-destructive">{errors.title.message}</span>
-          </>
+          <span
+            id="title-error"
+            role="alert"
+            className="block text-destructive mt-1"
+          >
+            {errors.title.message}
+          </span>
         )}
       </p>
 
@@ -110,13 +121,19 @@ export function ContactForm() {
           rows={6}
           disabled={isLoading}
           className="w-full max-w-md"
+          aria-describedby={errors.message ? "message-error" : undefined}
+          aria-invalid={errors.message ? "true" : undefined}
+          aria-required="true"
           {...register("message")}
         />
         {errors.message && (
-          <>
-            <br />
-            <span className="text-destructive">{errors.message.message}</span>
-          </>
+          <span
+            id="message-error"
+            role="alert"
+            className="block text-destructive mt-1"
+          >
+            {errors.message.message}
+          </span>
         )}
       </p>
 
