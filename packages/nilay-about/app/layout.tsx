@@ -51,7 +51,12 @@ export default function RootLayout({
       <body className="min-h-screen">
         <Providers>
           <RetroHeader />
-          <main id="main-content" tabIndex={-1}>
+          <main
+            id="main-content"
+            role="main"
+            tabIndex={-1}
+            aria-label="メインコンテンツ"
+          >
             {children}
           </main>
           <RetroFooter />
