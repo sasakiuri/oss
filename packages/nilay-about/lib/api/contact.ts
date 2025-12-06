@@ -19,7 +19,12 @@ class ApiContactService implements ContactService {
       const result: ContactResponse = await response.json();
       return result;
     } catch (cause) {
-      throw new NetworkError("お問い合わせの送信に失敗しました", cause);
+      throw new NetworkError(
+        "お問い合わせの送信に失敗しました",
+        "/api/contact",
+        undefined,
+        cause
+      );
     }
   }
 }
