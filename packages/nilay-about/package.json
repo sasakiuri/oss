@@ -50,7 +50,7 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "prettier": "^3.4.2",
-    "prettier-plugin-tailwindcss": "^0.6.9",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "vitest": "^2.1.8",
     "@vitejs/plugin-react": "^4.3.4",
     "@testing-library/react": "^16.1.0",
