@@ -1,121 +1,91 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  orderBy,
-  query,
-  Timestamp,
-  type DocumentData,
-  FirestoreError,
-} from "firebase/firestore";
-import { getFirestoreDb } from "@/lib/firebase";
 import { NotFoundError, NetworkError, ExternalServiceError } from "@/lib/errors";
-import { newsSchema, newsListResponseSchema, newsGetResponseSchema } from "@/lib/schemas";
-import type { News, NewsListResponse, NewsGetResponse } from "@/lib/schemas";
+import { newsListResponseSchema, newsGetResponseSchema } from "@/lib/schemas";
+import type { NewsListResponse, NewsGetResponse } from "@/lib/schemas";
 import type { NewsRepository } from "./types";
 import { validateResponse } from "./validation";
 
 /**
- * Map Firestore error to domain error
+ * API経由でニュースを取得するリポジトリ
+ * クライアントコンポーネントから使用可能
  */
-function handleFirestoreError(error: unknown, operation: string): never {
-  if (error instanceof FirestoreError) {
-    switch (error.code) {
-      case "unavailable":
-      case "deadline-exceeded":
-        throw new NetworkError(
-          `Firestore ${operation} failed: network unavailable`,
-          undefined,
-          undefined,
-          error
-        );
-      case "permission-denied":
-        throw new ExternalServiceError(
-          "Firestore",
-          `Permission denied for ${operation}`,
-          error
-        );
-      default:
-        throw new ExternalServiceError(
-          "Firestore",
-          `${operation} failed: ${error.message}`,
-          error
-        );
-    }
+class ApiNewsRepository implements NewsRepository {
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = typeof window !== "undefined" ? "" : process.env.NEXT_PUBLIC_SITE_URL || "";
   }
-  throw new ExternalServiceError(
-    "Firestore",
-    `Unknown error during ${operation}`,
-    error
-  );
-}
 
-/**
- * Firestoreドキュメントからニュースエンティティを変換
- * Zodスキーマでランタイムバリデーションを実行
- */
-function mapDocumentToNews(id: string, data: DocumentData): News {
-  const timestamp = data.date as Timestamp;
-  const rawNews = {
-    id,
-    title: data.title,
-    date: timestamp?.toDate?.() ?? new Date(),
-    summary: data.message,
-  };
-
-  return validateResponse(newsSchema, rawNews, `news document ${id}`);
-}
-
-/**
- * Firestore実装のニュースリポジトリ
- */
-class FirestoreNewsRepository implements NewsRepository {
   async findAll(): Promise<NewsListResponse> {
     try {
-      const db = getFirestoreDb();
-      const newsCollection = collection(db, "news");
-      const q = query(newsCollection, orderBy("date", "desc"));
-      const snapshot = await getDocs(q);
+      const response = await fetch(`${this.baseUrl}/api/news`, {
+        cache: "no-store",
+      });
 
-      const newsList: News[] = snapshot.docs.map((docSnapshot) =>
-        mapDocumentToNews(docSnapshot.id, docSnapshot.data())
-      );
+      if (!response.ok) {
+        throw new ExternalServiceError(
+          "API",
+          `Failed to fetch news list: ${response.status}`,
+          undefined
+        );
+      }
 
-      return validateResponse(newsListResponseSchema, { newsList }, "news list");
+      const data = await response.json();
+      return validateResponse(newsListResponseSchema, data, "news list");
     } catch (error) {
-      if (error instanceof NotFoundError || error instanceof NetworkError || error instanceof ExternalServiceError) {
+      if (
+        error instanceof NotFoundError ||
+        error instanceof NetworkError ||
+        error instanceof ExternalServiceError
+      ) {
         throw error;
       }
-      handleFirestoreError(error, "findAll");
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new NetworkError("Failed to connect to API", undefined, undefined, error);
+      }
+      throw new ExternalServiceError("API", "Unknown error fetching news list", error);
     }
   }
 
   async findById(id: string): Promise<NewsGetResponse> {
     try {
-      const db = getFirestoreDb();
-      const docRef = doc(db, "news", id);
-      const docSnapshot = await getDoc(docRef);
+      const response = await fetch(`${this.baseUrl}/api/news/${id}`, {
+        cache: "no-store",
+      });
 
-      if (!docSnapshot.exists()) {
+      if (response.status === 404) {
         throw new NotFoundError("News", id);
       }
 
-      const news = mapDocumentToNews(docSnapshot.id, docSnapshot.data());
-      return validateResponse(newsGetResponseSchema, { news }, `news ${id}`);
+      if (!response.ok) {
+        throw new ExternalServiceError(
+          "API",
+          `Failed to fetch news: ${response.status}`,
+          undefined
+        );
+      }
+
+      const data = await response.json();
+      return validateResponse(newsGetResponseSchema, data, `news ${id}`);
     } catch (error) {
-      if (error instanceof NotFoundError || error instanceof NetworkError || error instanceof ExternalServiceError) {
+      if (
+        error instanceof NotFoundError ||
+        error instanceof NetworkError ||
+        error instanceof ExternalServiceError
+      ) {
         throw error;
       }
-      handleFirestoreError(error, `findById(${id})`);
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new NetworkError("Failed to connect to API", undefined, undefined, error);
+      }
+      throw new ExternalServiceError("API", `Unknown error fetching news ${id}`, error);
     }
   }
 }
 
 // Singleton instance
-const newsRepository = new FirestoreNewsRepository();
+const newsRepository = new ApiNewsRepository();
 
-// Public API functions (facade pattern for backward compatibility)
+// Public API functions (facade pattern)
 export async function fetchNewsList(): Promise<NewsListResponse> {
   return newsRepository.findAll();
 }
@@ -124,6 +94,5 @@ export async function fetchNewsById(id: string): Promise<NewsGetResponse> {
   return newsRepository.findById(id);
 }
 
-// Export for testing and DI
-export { newsRepository, FirestoreNewsRepository };
-export type { NewsRepository };
+// Export for DI
+export { newsRepository, ApiNewsRepository };
