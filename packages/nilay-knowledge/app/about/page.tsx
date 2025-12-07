@@ -4,6 +4,8 @@ import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { siteConfig } from '@/lib/config';
 
+export const dynamic = 'force-static';
+
 const title = 'このサイトについて';
 const slug = 'about';
 

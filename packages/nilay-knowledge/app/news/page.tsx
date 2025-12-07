@@ -5,6 +5,8 @@ import { SnsShare } from '@/components/sns-share';
 import { getNewsByTag, type NewsItem } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
 
+export const dynamic = 'force-static';
+
 const title = '銃・射撃・狩猟ニュース';
 const slug = 'news';
 
