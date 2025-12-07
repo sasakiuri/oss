@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme {
+  --font-sans: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+    Meiryo, sans-serif;
+}
+
+/* Prism.js code highlighting - Solarized Dark */
+code[class*='language-'],
+pre[class*='language-'] {
+  color: #839496;
+  background: none;
+  font-family:
+    Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.5;
+  tab-size: 4;
+  hyphens: none;
+}
+
+pre[class*='language-'] {
+  padding: 1rem;
+  margin: 0.5rem 0;
+  overflow: auto;
+  border-radius: 0.375rem;
+}
+
+:not(pre) > code[class*='language-'],
+pre[class*='language-'] {
+  background: #002b36;
+}
+
+:not(pre) > code[class*='language-'] {
+  padding: 0.1em;
+  border-radius: 0.3em;
+  white-space: normal;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #657b83;
+}
+
+.token.punctuation {
+  color: #839496;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #268bd2;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.url,
+.token.inserted {
+  color: #2aa198;
+}
+
+.token.entity {
+  color: #839496;
+  background: #073642;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #859900;
+}
+
+.token.function,
+.token.class-name {
+  color: #b58900;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #cb4b16;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+/* Code block title */
+.code-title {
+  background: #073642;
+  color: #839496;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  border-radius: 0.375rem 0.375rem 0 0;
+  margin-bottom: -0.5rem;
+}
+
+.code-title + pre[class*='language-'] {
+  border-radius: 0 0 0.375rem 0.375rem;
+  margin-top: 0;
+}
+
+/* Line numbers */
+.line-number::before {
+  display: inline-block;
+  width: 1rem;
+  margin-right: 1rem;
+  text-align: right;
+  color: #657b83;
+  content: attr(data-line-number);
+}
+
+/* Prose enhancements */
+.prose img {
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+}
+
+.prose img:hover {
+  transform: scale(1.02);
+}
+
+.prose a {
+  text-decoration-color: rgb(59 130 246 / 0.5);
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  text-decoration-color: rgb(59 130 246);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
