@@ -45,7 +45,11 @@ function TableOfContents({ items }: { items: TocItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <nav className="sticky top-4 hidden w-64 shrink-0 self-start md:block">
+    <nav
+      aria-label="目次"
+      className="sticky top-20 hidden w-64 shrink-0 self-start md:block"
+    >
+      <h2 className="mb-3 text-sm font-bold text-slate-700">目次</h2>
       <ul className="space-y-1 text-sm">
         {items.map((item) => (
           <li

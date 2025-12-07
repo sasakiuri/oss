@@ -40,8 +40,8 @@ export function Header() {
             </Dialog.Trigger>
 
             <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-              <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+              <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+              <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg data-[state=open]:animate-slide-in-from-left data-[state=closed]:animate-slide-out-to-left">
                 <VisuallyHidden.Root>
                   <Dialog.Title>ナビゲーションメニュー</Dialog.Title>
                   <Dialog.Description>

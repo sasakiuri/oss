@@ -33,8 +33,8 @@ function MainCard({
           className="aspect-[3/2] w-full object-cover"
           priority={priority}
         />
-        <div className="absolute bottom-0 left-0 p-4">
-          <h3 className="text-lg font-bold text-white [text-shadow:1px_1px_0_#666,-1px_-1px_0_#666,-1px_1px_0_#666,1px_-1px_0_#666]">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-8">
+          <h3 className="text-lg font-bold text-white drop-shadow-md">
             {title}
           </h3>
         </div>
@@ -105,7 +105,7 @@ function SearchBanner() {
             name="q"
             placeholder="サイト内検索"
             aria-label="サイト内検索"
-            className="w-full rounded-full bg-white/60 py-2 pl-4 pr-10 text-center text-slate-800 placeholder:text-slate-600 focus:bg-white focus:outline-none"
+            className="w-full rounded-full bg-white/60 py-2 pl-4 pr-10 text-center text-slate-800 placeholder:text-slate-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
           />
           <button
             type="submit"
@@ -190,7 +190,7 @@ export default function HomePage() {
         </div>
 
         {/* Sub cards */}
-        <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
           {subCards.map((card) => (
             <SubCard key={card.slug} {...card} />
           ))}
