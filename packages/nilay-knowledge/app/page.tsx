@@ -185,7 +185,7 @@ export default function HomePage() {
         {/* Main cards */}
         <div className="grid gap-6 sm:grid-cols-3">
           {mainCards.map((card, index) => (
-            <MainCard key={card.slug} {...card} priority={index === 0} />
+            <MainCard key={`main-${index}`} {...card} priority={index === 0} />
           ))}
         </div>
 
