@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
+import { createWebSiteSchema } from '@/lib/schema';
 
 interface MainCardProps {
   title: string;
@@ -11,7 +12,13 @@ interface MainCardProps {
   slug: string;
 }
 
-function MainCard({ title, description, image, slug }: MainCardProps) {
+function MainCard({
+  title,
+  description,
+  image,
+  slug,
+  priority = false,
+}: MainCardProps & { priority?: boolean }) {
   return (
     <Link
       href={`/${slug}`}
@@ -24,6 +31,7 @@ function MainCard({ title, description, image, slug }: MainCardProps) {
           width={370}
           height={247}
           className="aspect-[3/2] w-full object-cover"
+          priority={priority}
         />
         <div className="absolute bottom-0 left-0 p-4">
           <h3 className="text-lg font-bold text-white [text-shadow:1px_1px_0_#666,-1px_-1px_0_#666,-1px_1px_0_#666,1px_-1px_0_#666]">
@@ -113,6 +121,17 @@ function SearchBanner() {
   );
 }
 
+function WebSiteSchemaScript() {
+  const jsonLd = createWebSiteSchema();
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
 export default function HomePage() {
   const mainCards: MainCardProps[] = [
     {
@@ -157,6 +176,7 @@ export default function HomePage() {
 
   return (
     <>
+      <WebSiteSchemaScript />
       <Breadcrumb items={[{ name: 'トップ', slug: '' }]} showNav={false} />
       <SnsShare />
       <SearchBanner />
@@ -164,8 +184,8 @@ export default function HomePage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         {/* Main cards */}
         <div className="grid gap-6 sm:grid-cols-3">
-          {mainCards.map((card) => (
-            <MainCard key={card.slug} {...card} />
+          {mainCards.map((card, index) => (
+            <MainCard key={card.slug} {...card} priority={index === 0} />
           ))}
         </div>
 

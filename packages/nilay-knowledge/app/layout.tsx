@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
+import { SkipLink } from '@/components/skip-link';
 import { GoogleAnalytics } from '@/components/google-analytics';
 import { siteConfig } from '@/lib/config';
 import './globals.css';
@@ -58,9 +59,12 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${notoSansJP.variable} font-sans antialiased`}>
+        <SkipLink />
         <GoogleAnalytics />
         <Header />
-        <main className="min-h-screen">{children}</main>
+        <main id="main-content" className="min-h-screen">
+          {children}
+        </main>
         <Footer />
       </body>
     </html>
