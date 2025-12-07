@@ -25,9 +25,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: '記事が見つかりません' };
   }
 
-  const image = article.frontmatter.image
-    ? `/content/articles/${slug}/${article.frontmatter.image}`
-    : '/ogp.png';
+  // Use custom image if provided, otherwise generate dynamic OGP
+  const ogImageUrl = article.frontmatter.image
+    ? `${siteConfig.siteUrl}/content/articles/${slug}/${article.frontmatter.image}`
+    : `${siteConfig.siteUrl}/api/og/?title=${encodeURIComponent(article.frontmatter.title)}`;
 
   return {
     title: article.frontmatter.title,
@@ -35,9 +36,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: article.frontmatter.title,
       type: 'article',
       url: `${siteConfig.siteUrl}/articles/${slug}/`,
-      images: [{ url: image }],
+      images: [{ url: ogImageUrl, width: 1200, height: 630 }],
       publishedTime: article.frontmatter.published,
       modifiedTime: article.frontmatter.updated,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: article.frontmatter.title,
+      images: [ogImageUrl],
     },
   };
 }

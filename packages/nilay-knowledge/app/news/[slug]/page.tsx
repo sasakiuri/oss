@@ -24,13 +24,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: 'ニュースが見つかりません' };
   }
 
+  const ogImageUrl = `${siteConfig.siteUrl}/api/og/?title=${encodeURIComponent(news.frontmatter.title)}`;
+
   return {
     title: news.frontmatter.title,
     openGraph: {
       title: news.frontmatter.title,
       type: 'article',
       url: `${siteConfig.siteUrl}/news/${slug}/`,
+      images: [{ url: ogImageUrl, width: 1200, height: 630 }],
       publishedTime: news.frontmatter.published,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: news.frontmatter.title,
+      images: [ogImageUrl],
     },
   };
 }
