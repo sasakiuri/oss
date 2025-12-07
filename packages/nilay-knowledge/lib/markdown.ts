@@ -1,50 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-import { Marked, type RendererObject } from 'marked';
-import { gfmHeadingId } from 'marked-gfm-heading-id';
-import { markedHighlight } from 'marked-highlight';
-import hljs from 'highlight.js';
 
 const contentDirectory = path.join(process.cwd(), 'content');
-
-// Link icon SVG for heading anchors
-const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-
-// Custom renderer for Zenn-style headings with anchor links
-const renderer: RendererObject = {
-  heading({ tokens, depth }) {
-    const text = this.parser.parseInline(tokens);
-    const id = text
-      .toLowerCase()
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s-]/g, '')
-      .replace(/\s+/g, '-');
-
-    const anchor = `<a href="#${id}" class="heading-anchor" aria-label="この見出しへのリンク">${linkIconSvg}</a>`;
-
-    return `<h${depth} id="${id}" class="heading-with-anchor">${anchor}${text}</h${depth}>\n`;
-  },
-};
-
-// Configure marked with extensions
-const marked = new Marked(
-  gfmHeadingId(),
-  markedHighlight({
-    langPrefix: 'hljs language-',
-    highlight(code, lang) {
-      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-      return hljs.highlight(code, { language }).value;
-    },
-  })
-);
-
-marked.use({ renderer });
-
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
 
 export interface ArticleFrontmatter {
   title: string;
@@ -64,7 +22,6 @@ export interface Article {
   slug: string;
   frontmatter: ArticleFrontmatter;
   content: string;
-  html: string;
   tableOfContents: TocItem[];
 }
 
@@ -72,7 +29,6 @@ export interface NewsItem {
   slug: string;
   frontmatter: NewsFrontmatter;
   content: string;
-  html: string;
 }
 
 export interface TocItem {
@@ -167,13 +123,11 @@ export function getArticleBySlug(slug: string): Article | null {
 
   const processedContent = rewriteRelativePaths(content, 'articles', slug);
   const tableOfContents = extractTableOfContents(content);
-  const html = marked.parse(processedContent) as string;
 
   return {
     slug,
     frontmatter: data as ArticleFrontmatter,
     content: processedContent,
-    html,
     tableOfContents,
   };
 }
@@ -189,13 +143,11 @@ export function getNewsBySlug(slug: string): NewsItem | null {
   const { data, content } = matter(fileContents);
 
   const processedContent = rewriteRelativePaths(content, 'news', slug);
-  const html = marked.parse(processedContent) as string;
 
   return {
     slug,
     frontmatter: data as NewsFrontmatter,
     content: processedContent,
-    html,
   };
 }
 

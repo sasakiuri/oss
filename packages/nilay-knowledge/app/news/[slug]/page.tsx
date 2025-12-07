@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ImageZoom } from '@/components/image-zoom';
+import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { SnsShare } from '@/components/sns-share';
 import { getNewsBySlug, getNewsSlugs } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
@@ -53,7 +54,7 @@ export default async function NewsDetailPage({ params }: Props) {
     notFound();
   }
 
-  const { frontmatter, html } = news;
+  const { frontmatter, content } = news;
 
   return (
     <>
@@ -87,10 +88,9 @@ export default async function NewsDetailPage({ params }: Props) {
             </div>
           </header>
 
-          <div
-            className="prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          <div className="prose max-w-none">
+            <MarkdownRenderer content={content} />
+          </div>
         </article>
       </div>
 
