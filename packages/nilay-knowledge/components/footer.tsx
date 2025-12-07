@@ -177,10 +177,11 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
       {/* Scroll to top */}
       <button
         onClick={handleScrollToTop}
-        className="flex w-full items-center justify-center bg-slate-800 py-3 text-white hover:bg-slate-700"
+        className="flex w-full items-center justify-center gap-2 bg-slate-800 py-3 text-sm text-white hover:bg-slate-700"
         aria-label="ページの先頭へスクロール"
       >
-        <ChevronUp className="h-6 w-6" />
+        <ChevronUp className="h-5 w-5" />
+        <span>トップへ戻る</span>
       </button>
     </footer>
   );

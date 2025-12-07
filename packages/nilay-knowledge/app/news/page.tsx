@@ -57,6 +57,7 @@ export default async function NewsPage() {
       <SnsShare title={title} slug={slug} />
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
         <NewsList title="事件・事故" newsList={incidentNews} />
         <NewsList title="法令・制度" newsList={lawNews} />
       </div>

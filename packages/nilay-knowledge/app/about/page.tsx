@@ -41,7 +41,8 @@ export default function AboutPage() {
       <SnsShare title={title} slug={slug} />
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <Card title="このサイトについて">
+        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+        <Card title="概要">
           <div className="p-4">
             <p className="leading-relaxed">
               Nilay/Knowledge

@@ -159,6 +159,7 @@ export default function ArticlesPage() {
       <SnsShare title={title} slug={dir} />
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
         {categoryList.map((category) => (
           <div
             key={category.title}
