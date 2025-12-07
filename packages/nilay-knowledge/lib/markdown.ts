@@ -1,8 +1,57 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import remarkMath from 'remark-math';
+import remarkGithubAlerts from 'remark-github-alerts';
+import remarkRehype from 'remark-rehype';
+import rehypeSlug from 'rehype-slug';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeStringify from 'rehype-stringify';
 
 const contentDirectory = path.join(process.cwd(), 'content');
+
+// Link icon SVG for heading anchors
+const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+
+// Create unified processor
+const processor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkBreaks)
+  .use(remarkMath)
+  .use(remarkGithubAlerts)
+  .use(remarkRehype, {
+    allowDangerousHtml: true,
+    footnoteLabel: '脚注',
+    footnoteLabelTagName: 'h2',
+  })
+  .use(rehypeRaw)
+  .use(rehypeSlug)
+  .use(rehypeHighlight)
+  .use(rehypeKatex)
+  .use(rehypeStringify);
+
+function addHeadingAnchors(html: string): string {
+  // Add anchor links to h1-h6 headings
+  return html.replace(
+    /<h([1-6])\s+id="([^"]+)"([^>]*)>([^<]*)<\/h\1>/g,
+    (_, level, id, attrs, text) => {
+      const anchor = `<a href="#${id}" class="heading-anchor" aria-label="この見出しへのリンク">${linkIconSvg}</a>`;
+      return `<h${level} id="${id}"${attrs} class="heading-with-anchor">${anchor}${text}</h${level}>`;
+    }
+  );
+}
+
+async function processMarkdown(content: string): Promise<string> {
+  const result = await processor.process(content);
+  return addHeadingAnchors(String(result));
+}
 
 export interface ArticleFrontmatter {
   title: string;
@@ -22,6 +71,7 @@ export interface Article {
   slug: string;
   frontmatter: ArticleFrontmatter;
   content: string;
+  html: string;
   tableOfContents: TocItem[];
 }
 
@@ -29,6 +79,7 @@ export interface NewsItem {
   slug: string;
   frontmatter: NewsFrontmatter;
   content: string;
+  html: string;
 }
 
 export interface TocItem {
@@ -111,7 +162,7 @@ export function getNewsSlugs(): string[] {
   });
 }
 
-export function getArticleBySlug(slug: string): Article | null {
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const articlePath = path.join(contentDirectory, 'articles', slug, 'index.md');
 
   if (!fs.existsSync(articlePath)) {
@@ -123,16 +174,18 @@ export function getArticleBySlug(slug: string): Article | null {
 
   const processedContent = rewriteRelativePaths(content, 'articles', slug);
   const tableOfContents = extractTableOfContents(content);
+  const html = await processMarkdown(processedContent);
 
   return {
     slug,
     frontmatter: data as ArticleFrontmatter,
     content: processedContent,
+    html,
     tableOfContents,
   };
 }
 
-export function getNewsBySlug(slug: string): NewsItem | null {
+export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   const newsPath = path.join(contentDirectory, 'news', slug, 'index.md');
 
   if (!fs.existsSync(newsPath)) {
@@ -143,42 +196,42 @@ export function getNewsBySlug(slug: string): NewsItem | null {
   const { data, content } = matter(fileContents);
 
   const processedContent = rewriteRelativePaths(content, 'news', slug);
+  const html = await processMarkdown(processedContent);
 
   return {
     slug,
     frontmatter: data as NewsFrontmatter,
     content: processedContent,
+    html,
   };
 }
 
-export function getAllArticles(): Article[] {
+export async function getAllArticles(): Promise<Article[]> {
   const slugs = getArticleSlugs();
-  const articles = slugs
-    .map((slug) => getArticleBySlug(slug))
-    .filter((article): article is Article => article !== null);
+  const articles = await Promise.all(slugs.map((slug) => getArticleBySlug(slug)));
+  const validArticles = articles.filter((article): article is Article => article !== null);
 
-  return articles.sort(
+  return validArticles.sort(
     (a, b) =>
       new Date(b.frontmatter.published).getTime() -
       new Date(a.frontmatter.published).getTime()
   );
 }
 
-export function getAllNews(): NewsItem[] {
+export async function getAllNews(): Promise<NewsItem[]> {
   const slugs = getNewsSlugs();
-  const newsItems = slugs
-    .map((slug) => getNewsBySlug(slug))
-    .filter((news): news is NewsItem => news !== null);
+  const newsItems = await Promise.all(slugs.map((slug) => getNewsBySlug(slug)));
+  const validNewsItems = newsItems.filter((news): news is NewsItem => news !== null);
 
-  return newsItems.sort(
+  return validNewsItems.sort(
     (a, b) =>
       new Date(b.frontmatter.published).getTime() -
       new Date(a.frontmatter.published).getTime()
   );
 }
 
-export function getNewsByTag(tag: string): NewsItem[] {
-  const allNews = getAllNews();
+export async function getNewsByTag(tag: string): Promise<NewsItem[]> {
+  const allNews = await getAllNews();
   return allNews.filter((news) => news.frontmatter.tags.includes(tag));
 }
 
