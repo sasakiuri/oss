@@ -173,7 +173,7 @@ export default function ArticlesPage() {
                 <li key={article.slug}>
                   <Link
                     href={`/${article.slug}`}
-                    className="block px-4 py-3 text-blue-600 hover:bg-slate-50"
+                    className="block px-4 py-3 text-[rgb(3,125,186)] hover:bg-slate-50"
                   >
                     <span className="font-medium">{article.title}</span>
                     {article.description && (

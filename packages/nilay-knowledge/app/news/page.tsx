@@ -33,7 +33,7 @@ function NewsList({ title, newsList }: NewsListProps) {
               <time className="shrink-0 text-sm text-slate-500">
                 {formatDate(news.frontmatter.published)}
               </time>
-              <span className="text-blue-600">{news.frontmatter.title}</span>
+              <span className="text-[rgb(3,125,186)]">{news.frontmatter.title}</span>
             </Link>
           </li>
         ))}

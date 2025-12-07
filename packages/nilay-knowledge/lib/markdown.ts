@@ -1,16 +1,50 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import remarkRehype from 'remark-rehype';
-import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
-import rehypePrismPlus from 'rehype-prism-plus';
-import rehypeStringify from 'rehype-stringify';
+import { Marked, type RendererObject } from 'marked';
+import { gfmHeadingId } from 'marked-gfm-heading-id';
+import { markedHighlight } from 'marked-highlight';
+import hljs from 'highlight.js';
 
 const contentDirectory = path.join(process.cwd(), 'content');
+
+// Link icon SVG for heading anchors
+const linkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+
+// Custom renderer for Zenn-style headings with anchor links
+const renderer: RendererObject = {
+  heading({ tokens, depth }) {
+    const text = this.parser.parseInline(tokens);
+    const id = text
+      .toLowerCase()
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s-]/g, '')
+      .replace(/\s+/g, '-');
+
+    const anchor = `<a href="#${id}" class="heading-anchor" aria-label="この見出しへのリンク">${linkIconSvg}</a>`;
+
+    return `<h${depth} id="${id}" class="heading-with-anchor">${anchor}${text}</h${depth}>\n`;
+  },
+};
+
+// Configure marked with extensions
+const marked = new Marked(
+  gfmHeadingId(),
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      return hljs.highlight(code, { language }).value;
+    },
+  })
+);
+
+marked.use({ renderer });
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
 export interface ArticleFrontmatter {
   title: string;
@@ -59,7 +93,7 @@ function rewriteRelativePaths(
   // Match markdown images and links with relative paths (not starting with http, https, /, or #)
   return markdown.replace(
     /(!?\[([^\]]*)\])\(([^)]+)\)/g,
-    (match, bracketPart, altText, url) => {
+    (match, bracketPart, _altText, url) => {
       // Skip absolute URLs, root-relative paths, and anchor links
       if (
         url.startsWith('http://') ||
@@ -74,28 +108,6 @@ function rewriteRelativePaths(
       return `${bracketPart}(${basePath}/${normalizedUrl})`;
     }
   );
-}
-
-async function markdownToHtml(
-  markdown: string,
-  type?: 'articles' | 'news',
-  slug?: string
-): Promise<string> {
-  // Rewrite relative paths if type and slug are provided
-  const processedMarkdown =
-    type && slug ? rewriteRelativePaths(markdown, type, slug) : markdown;
-
-  const result = await unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeSlug)
-    .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
-    .use(rehypePrismPlus)
-    .use(rehypeStringify, { allowDangerousHtml: true })
-    .process(processedMarkdown);
-
-  return String(result);
 }
 
 function extractTableOfContents(markdown: string): TocItem[] {
@@ -143,7 +155,7 @@ export function getNewsSlugs(): string[] {
   });
 }
 
-export async function getArticleBySlug(slug: string): Promise<Article | null> {
+export function getArticleBySlug(slug: string): Article | null {
   const articlePath = path.join(contentDirectory, 'articles', slug, 'index.md');
 
   if (!fs.existsSync(articlePath)) {
@@ -153,19 +165,20 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const fileContents = fs.readFileSync(articlePath, 'utf8');
   const { data, content } = matter(fileContents);
 
-  const html = await markdownToHtml(content, 'articles', slug);
+  const processedContent = rewriteRelativePaths(content, 'articles', slug);
   const tableOfContents = extractTableOfContents(content);
+  const html = marked.parse(processedContent) as string;
 
   return {
     slug,
     frontmatter: data as ArticleFrontmatter,
-    content,
+    content: processedContent,
     html,
     tableOfContents,
   };
 }
 
-export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
+export function getNewsBySlug(slug: string): NewsItem | null {
   const newsPath = path.join(contentDirectory, 'news', slug, 'index.md');
 
   if (!fs.existsSync(newsPath)) {
@@ -175,46 +188,45 @@ export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   const fileContents = fs.readFileSync(newsPath, 'utf8');
   const { data, content } = matter(fileContents);
 
-  const html = await markdownToHtml(content, 'news', slug);
+  const processedContent = rewriteRelativePaths(content, 'news', slug);
+  const html = marked.parse(processedContent) as string;
 
   return {
     slug,
     frontmatter: data as NewsFrontmatter,
-    content,
+    content: processedContent,
     html,
   };
 }
 
-export async function getAllArticles(): Promise<Article[]> {
+export function getAllArticles(): Article[] {
   const slugs = getArticleSlugs();
-  const articles = await Promise.all(
-    slugs.map((slug) => getArticleBySlug(slug))
+  const articles = slugs
+    .map((slug) => getArticleBySlug(slug))
+    .filter((article): article is Article => article !== null);
+
+  return articles.sort(
+    (a, b) =>
+      new Date(b.frontmatter.published).getTime() -
+      new Date(a.frontmatter.published).getTime()
   );
-
-  return articles
-    .filter((article): article is Article => article !== null)
-    .sort(
-      (a, b) =>
-        new Date(b.frontmatter.published).getTime() -
-        new Date(a.frontmatter.published).getTime()
-    );
 }
 
-export async function getAllNews(): Promise<NewsItem[]> {
+export function getAllNews(): NewsItem[] {
   const slugs = getNewsSlugs();
-  const newsItems = await Promise.all(slugs.map((slug) => getNewsBySlug(slug)));
+  const newsItems = slugs
+    .map((slug) => getNewsBySlug(slug))
+    .filter((news): news is NewsItem => news !== null);
 
-  return newsItems
-    .filter((news): news is NewsItem => news !== null)
-    .sort(
-      (a, b) =>
-        new Date(b.frontmatter.published).getTime() -
-        new Date(a.frontmatter.published).getTime()
-    );
+  return newsItems.sort(
+    (a, b) =>
+      new Date(b.frontmatter.published).getTime() -
+      new Date(a.frontmatter.published).getTime()
+  );
 }
 
-export async function getNewsByTag(tag: string): Promise<NewsItem[]> {
-  const allNews = await getAllNews();
+export function getNewsByTag(tag: string): NewsItem[] {
+  const allNews = getAllNews();
   return allNews.filter((news) => news.frontmatter.tags.includes(tag));
 }
 
