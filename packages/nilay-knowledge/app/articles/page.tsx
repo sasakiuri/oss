@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 
+export const dynamic = 'force-static';
+
 const title = '記事一覧';
 const dir = 'articles';
 

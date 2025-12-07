@@ -7,6 +7,8 @@ import { getNewsBySlug, getNewsSlugs } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
 import { siteConfig } from '@/lib/config';
 
+export const dynamic = 'force-static';
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

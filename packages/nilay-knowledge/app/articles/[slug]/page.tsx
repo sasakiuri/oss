@@ -8,6 +8,8 @@ import { formatDate } from '@/lib/utils';
 import { siteConfig } from '@/lib/config';
 import { createArticleSchema } from '@/lib/schema';
 
+export const dynamic = 'force-static';
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

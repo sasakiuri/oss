@@ -5,6 +5,8 @@ import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { createWebSiteSchema } from '@/lib/schema';
 
+export const dynamic = 'force-static';
+
 interface MainCardProps {
   title: string;
   description: string;
