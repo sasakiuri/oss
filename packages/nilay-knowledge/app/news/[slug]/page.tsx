@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { ImageZoom } from '@/components/image-zoom';
 import { SnsShare } from '@/components/sns-share';
 import { getNewsBySlug, getNewsSlugs } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
@@ -77,11 +78,13 @@ export default async function NewsDetailPage({ params }: Props) {
           </header>
 
           <div
-            className="prose prose-slate max-w-none prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline"
+            className="prose max-w-none"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         </article>
       </div>
+
+      <ImageZoom />
     </>
   );
 }

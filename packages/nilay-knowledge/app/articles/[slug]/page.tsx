@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { ImageZoom } from '@/components/image-zoom';
 import { SnsShare } from '@/components/sns-share';
 import { getArticleBySlug, getArticleSlugs, type TocItem } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
@@ -156,13 +157,15 @@ export default async function ArticlePage({ params }: Props) {
           </header>
 
           <div
-            className="prose prose-slate max-w-none prose-headings:font-bold prose-headings:[font-feature-settings:palt] prose-h1:border-b prose-h1:border-slate-200 prose-h1:pb-3 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-img:rounded-lg"
+            className="prose max-w-none"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         </article>
 
         <TableOfContents items={tableOfContents} />
       </div>
+
+      <ImageZoom />
     </>
   );
 }
