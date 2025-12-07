@@ -2,16 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import RSS from 'rss';
 import matter from 'gray-matter';
+import { siteConfig } from '../lib/config';
 
 const contentDirectory = path.join(process.cwd(), 'content');
 const publicDirectory = path.join(process.cwd(), 'public');
-
-const siteConfig = {
-  title: 'Nilay/Knowledge',
-  description:
-    '実銃・射撃・狩猟の情報を紹介するサイト。所持許可（免許）の取得方法、狩猟免許の取得方法、狩猟鳥獣の図鑑、クレー・ライフル射撃のルール、猟銃・空気銃の掃除の仕方などを掲載しています。',
-  siteUrl: 'https://knowledge.nilay.jp',
-};
 
 interface FrontMatter {
   title: string;
@@ -57,12 +51,13 @@ function getContentItems(type: 'articles' | 'news'): ContentItem[] {
 
 function generateFeed() {
   const feed = new RSS({
-    title: `${siteConfig.title} Feed`,
+    title: siteConfig.title,
     description: siteConfig.description,
     site_url: siteConfig.siteUrl,
     feed_url: `${siteConfig.siteUrl}/feed.xml`,
     language: 'ja',
     pubDate: new Date(),
+    copyright: `© ${new Date().getFullYear()} ${siteConfig.author.name}`,
   });
 
   const articles = getContentItems('articles');
