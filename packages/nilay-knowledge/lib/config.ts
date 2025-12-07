@@ -9,7 +9,7 @@ export const siteConfig = {
   social: {
     twitter: 'NilayJP',
     facebook: 'NilaySport',
-    facebookAppId: 'test',
+    facebookAppId: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? '',
     youtube: 'UC03yJGn_rZV2MTpr-ZrMZrA',
     instagram: 'NilayJP',
     github: 'nilay-jp',

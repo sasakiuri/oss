@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { siteConfig } from '@/lib/config';
+import { createBreadcrumbSchema } from '@/lib/schema';
 
 export interface BreadcrumbItem {
   name: string;
@@ -13,16 +13,7 @@ interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ items, showNav = true }: BreadcrumbProps) {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: item.name,
-      item: `${siteConfig.siteUrl}/${item.slug}`,
-    })),
-  };
+  const jsonLd = createBreadcrumbSchema(items);
 
   return (
     <>

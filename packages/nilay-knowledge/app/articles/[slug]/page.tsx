@@ -5,6 +5,7 @@ import { SnsShare } from '@/components/sns-share';
 import { getArticleBySlug, getArticleSlugs, type TocItem } from '@/lib/markdown';
 import { formatDate } from '@/lib/utils';
 import { siteConfig } from '@/lib/config';
+import { createArticleSchema } from '@/lib/schema';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -64,7 +65,7 @@ function TableOfContents({ items }: { items: TocItem[] }) {
   );
 }
 
-function ArticleSchema({
+function ArticleSchemaScript({
   title,
   description,
   published,
@@ -79,24 +80,14 @@ function ArticleSchema({
   slug: string;
   image?: string;
 }) {
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: title,
+  const jsonLd = createArticleSchema({
+    title,
     description,
-    datePublished: published,
-    dateModified: updated || published,
-    url: `${siteConfig.siteUrl}/articles/${slug}/`,
-    image: image ? `${siteConfig.siteUrl}${image}` : undefined,
-    author: {
-      '@type': 'Organization',
-      name: siteConfig.author.name,
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: siteConfig.author.name,
-    },
-  };
+    published,
+    updated,
+    slug,
+    image,
+  });
 
   return (
     <script
@@ -122,7 +113,7 @@ export default async function ArticlePage({ params }: Props) {
 
   return (
     <>
-      <ArticleSchema
+      <ArticleSchemaScript
         title={frontmatter.title}
         description={article.content.slice(0, 160)}
         published={frontmatter.published}
