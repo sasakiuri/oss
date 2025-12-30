@@ -2,14 +2,17 @@
   "name": "@acme/knowledge.website",
   "version": "0.1.0",
   "private": true,
+  "prettier": "@acme/prettier-config",
   "scripts": {
     "dev": "next dev --turbopack",
     "prebuild": "npx tsx scripts/generate-feed.ts && npx tsx scripts/generate-sitemap.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "format": "prettier --write .",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "new:article": "npx tsx scripts/new-article.ts",
     "new:news": "npx tsx scripts/new-news.ts"
@@ -57,6 +60,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "jsdom": "^25.0.1",
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^2.1.8"
