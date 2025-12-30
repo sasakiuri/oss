@@ -2,6 +2,7 @@
   "name": "@acme/about.website",
   "version": "0.1.0",
   "private": true,
+  "prettier": "@acme/prettier-config",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
@@ -9,8 +10,9 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "test": "vitest",
+    "test:run": "vitest run",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
