@@ -31,11 +31,16 @@ function generateNonce(): string {
 
 /**
  * Build Content Security Policy header
+ *
+ * Note: 'unsafe-inline' is required for Next.js RSC inline scripts.
+ * Nonce-based CSP requires dynamic rendering for all pages, which is not
+ * practical for this application. See: https://nextjs.org/docs/app/guides/content-security-policy
  */
-function buildCSPHeader(nonce: string): string {
+function buildCSPHeader(_nonce: string): string {
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com`,
+    // 'unsafe-inline' is required for Next.js hydration scripts
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
     "img-src 'self' blob: data: https://cdn.nilay.jp https://www.irasutoya.com",
     "font-src 'self' https://fonts.gstatic.com",
