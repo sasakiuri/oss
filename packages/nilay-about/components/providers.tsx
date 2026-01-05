@@ -3,7 +3,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { queryConfig } from "@/lib/api/query-config";
-import { isProduction } from "@/lib/env";
+
+// NOTE: lib/env.ts は server-only のため、クライアント側では直接 process.env を参照
+const isProduction = process.env.NODE_ENV === "production";
 
 interface ProvidersProps {
   children: ReactNode;

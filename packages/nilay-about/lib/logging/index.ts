@@ -146,3 +146,34 @@ export function logAndRethrow(
   logger.error(message, err, context);
   throw err;
 }
+
+/**
+ * Extract request context for structured logging
+ */
+export function getRequestContext(request: Request): LogContext {
+  const headers = request.headers;
+  const url = new URL(request.url);
+
+  return {
+    requestId: headers.get("x-request-id") ?? headers.get("x-vercel-id") ?? crypto.randomUUID(),
+    method: request.method,
+    path: url.pathname,
+    query: Object.fromEntries(url.searchParams.entries()),
+    userAgent: headers.get("user-agent") ?? undefined,
+    // 信頼できるヘッダを優先（rate-limit.ts の getClientIp と同じ順序）
+    ip:
+      headers.get("x-vercel-forwarded-for")?.split(",")[0].trim() ??
+      headers.get("cf-connecting-ip") ??
+      headers.get("x-real-ip") ??
+      headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      "unknown",
+  };
+}
+
+/**
+ * Create a logger with request context
+ */
+export function createRequestLogger(request: Request) {
+  const requestContext = getRequestContext(request);
+  return createLogger(requestContext);
+}

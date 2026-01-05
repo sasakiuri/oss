@@ -8,10 +8,19 @@ interface ErrorProps {
 }
 
 /**
+ * Check if running in development mode
+ * Note: This check happens at build time for static optimization
+ */
+const isDevelopment = process.env.NODE_ENV === "development";
+
+/**
  * Global Error Boundary for the application
  *
  * This component catches runtime errors in the app and displays
  * a user-friendly error message with recovery options.
+ *
+ * Security: Error details are only shown in development mode to prevent
+ * leaking internal implementation details or sensitive information.
  *
  * @see https://nextjs.org/docs/app/building-your-application/routing/error-handling
  */
@@ -19,11 +28,18 @@ export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log error to monitoring service in production
     // TODO: Integrate with Sentry, LogRocket, or similar
-    console.error("[App Error]", {
-      message: error.message,
-      digest: error.digest,
-      stack: error.stack,
-    });
+    if (isDevelopment) {
+      console.error("[App Error]", {
+        message: error.message,
+        digest: error.digest,
+        stack: error.stack,
+      });
+    } else {
+      // In production, log only the digest for correlation
+      console.error("[App Error]", {
+        digest: error.digest,
+      });
+    }
   }, [error]);
 
   return (
@@ -53,14 +69,19 @@ export default function Error({ error, reset }: ErrorProps) {
         </a>
       </div>
 
-      <hr className="my-8" />
-
-      <details className="text-sm">
-        <summary className="cursor-pointer">技術的な詳細</summary>
-        <pre className="mt-2 p-4 bg-muted overflow-auto text-xs">
-          {error.message}
-        </pre>
-      </details>
+      {/* 開発環境でのみ技術的な詳細を表示 */}
+      {isDevelopment && (
+        <>
+          <hr className="my-8" />
+          <details className="text-sm">
+            <summary className="cursor-pointer">技術的な詳細（開発環境のみ）</summary>
+            <pre className="mt-2 p-4 bg-muted overflow-auto text-xs">
+              {error.message}
+              {error.stack && `\n\nStack trace:\n${error.stack}`}
+            </pre>
+          </details>
+        </>
+      )}
     </div>
   );
 }
