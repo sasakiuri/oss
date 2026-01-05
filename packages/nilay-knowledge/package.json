@@ -15,7 +15,8 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "new:article": "npx tsx scripts/new-article.ts",
-    "new:news": "npx tsx scripts/new-news.ts"
+    "new:news": "npx tsx scripts/new-news.ts",
+    "analyze": "ANALYZE=true npm run build"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@acme/typescript-config": "*",
+    "@next/bundle-analyzer": "^16.1.1",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.9.1",
