@@ -6,6 +6,10 @@ import { z } from "zod";
  * This is evaluated before schema creation to enable conditional validation
  */
 const isProductionEnv = process.env.NODE_ENV === "production";
+// ビルドフェーズかどうかを検出（next build 実行時）
+const isBuildingEnv = process.env.NEXT_PHASE === "phase-production-build";
+// 実際のプロダクションランタイムかどうか（ビルド時は除外）
+const isProductionRuntime = isProductionEnv && !isBuildingEnv;
 
 /**
  * Server-side environment variable schema
@@ -27,8 +31,8 @@ const envSchema = z.object({
 
   // Security
   // PIIログマスキング用の秘密鍵（HMAC-SHA256で使用）
-  // 本番環境では必須（16文字以上）、開発/テスト環境では任意
-  LOG_MASKING_SECRET: isProductionEnv
+  // 本番環境ランタイムでは必須（16文字以上）、開発/テスト/ビルド時は任意
+  LOG_MASKING_SECRET: isProductionRuntime
     ? z.string().min(16, "LOG_MASKING_SECRET must be at least 16 characters in production")
     : z.string().min(16).optional(),
 
@@ -48,11 +52,10 @@ type Env = z.infer<typeof envSchema>;
  */
 function getEnv(): Env {
   const nodeEnv = process.env.NODE_ENV || "development";
-  const isProduction = nodeEnv === "production";
 
-  // 本番環境では NEXT_PUBLIC_SITE_URL が必須
+  // 本番環境では NEXT_PUBLIC_SITE_URL が必須（ビルド時はスキップ）
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (isProduction && !siteUrl) {
+  if (isProductionRuntime && !siteUrl) {
     throw new Error(
       "NEXT_PUBLIC_SITE_URL is required in production. " +
       "Please set this environment variable to prevent API calls to wrong environments."

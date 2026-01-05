@@ -129,7 +129,12 @@ export function createBatcher<TInput, TOutput>(
       const outputs = await batchFn(inputs);
 
       currentBatch.forEach((item, index) => {
-        item.resolve(outputs[index]);
+        const output = outputs[index];
+        if (output !== undefined) {
+          item.resolve(output);
+        } else {
+          item.reject(new Error("Batch function returned fewer outputs than inputs"));
+        }
       });
     } catch (error) {
       currentBatch.forEach((item) => {

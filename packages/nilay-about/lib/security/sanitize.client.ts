@@ -81,7 +81,7 @@ export function escapeHtml(str: string): string {
     "'": "&#39;",
   };
 
-  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char] ?? char);
 }
 
 /**
@@ -127,8 +127,10 @@ export function createRateLimiter(maxRequests: number, windowMs: number) {
       const windowStart = now - windowMs;
 
       // Remove old requests
-      while (requests.length > 0 && requests[0] < windowStart) {
+      let firstRequest = requests[0];
+      while (firstRequest !== undefined && firstRequest < windowStart) {
         requests.shift();
+        firstRequest = requests[0];
       }
 
       return requests.length < maxRequests;

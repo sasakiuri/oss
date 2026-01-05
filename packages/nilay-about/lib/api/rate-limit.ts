@@ -257,7 +257,8 @@ export function getClientIp(request: Request): string {
   // Vercel-specific header (trusted, set by Vercel)
   const vercelForwardedFor = headers.get("x-vercel-forwarded-for");
   if (vercelForwardedFor) {
-    return vercelForwardedFor.split(",")[0].trim();
+    const firstIp = vercelForwardedFor.split(",")[0];
+    if (firstIp) return firstIp.trim();
   }
 
   // Cloudflare-specific header (trusted, set by Cloudflare)
@@ -277,7 +278,8 @@ export function getClientIp(request: Request): string {
   const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
     // Take the first IP in the list (original client)
-    return forwardedFor.split(",")[0].trim();
+    const firstIp = forwardedFor.split(",")[0];
+    if (firstIp) return firstIp.trim();
   }
 
   // Fallback for development

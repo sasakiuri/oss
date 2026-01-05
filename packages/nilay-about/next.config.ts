@@ -52,7 +52,10 @@ const nextConfig: NextConfig = {
 
 export default async () => {
   if (process.env.ANALYZE === "true") {
-    const bundleAnalyzer = (await import("@next/bundle-analyzer")).default;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const bundleAnalyzer = (await import("@next/bundle-analyzer" as string)).default as (
+      options: { enabled: boolean }
+    ) => (config: NextConfig) => NextConfig;
     return bundleAnalyzer({ enabled: true })(nextConfig);
   }
   return nextConfig;
