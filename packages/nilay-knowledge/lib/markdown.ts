@@ -123,8 +123,11 @@ function extractTableOfContents(markdown: string): TocItem[] {
   let match;
 
   while ((match = headingRegex.exec(markdown)) !== null) {
-    const level = match[1].length;
+    const hashes = match[1];
     const title = match[2];
+    if (!hashes || !title) continue;
+
+    const level = hashes.length;
     const id = title
       .toLowerCase()
       .replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s-]/g, '')
