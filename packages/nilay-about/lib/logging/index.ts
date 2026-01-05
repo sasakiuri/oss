@@ -4,7 +4,8 @@
  * Provides consistent, structured logging across the application
  */
 
-import { sanitizeForLogging } from "@/lib/security";
+// Import directly to avoid loading DOMPurify in serverless environment
+import { sanitizeForLogging } from "@/lib/security/sanitize-logging";
 import { isDevelopment, isProduction } from "@/lib/env";
 
 type LogLevel = "debug" | "info" | "warn" | "error";

@@ -17,14 +17,9 @@ export * from "./schemas";
 // Error handling
 export * from "./errors";
 
-// Security (explicitly exclude escapeHtml which is already in utils)
-export {
-  stripHtml,
-  sanitizeForDisplay,
-  sanitizeUrl,
-  sanitizeForLogging,
-  createRateLimiter,
-} from "./security";
+// Security - only server-safe exports (no DOMPurify dependency)
+// For DOMPurify-based functions, import directly from lib/security/sanitize.ts
+export { sanitizeForLogging, sanitizeForSlack } from "./security";
 
 // Performance
 export * from "./performance";
