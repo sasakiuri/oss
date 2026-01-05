@@ -5,6 +5,41 @@ import type { NewsRepository } from "./types";
 import { validateResponse } from "./validation";
 
 /**
+ * Get base URL for API calls
+ *
+ * - Client-side: use relative path (empty string)
+ * - Server-side: use NEXT_PUBLIC_SITE_URL (required in production)
+ *
+ * NOTE: 本番環境では NEXT_PUBLIC_SITE_URL が必須です。
+ * 未設定の場合、lib/env.ts の検証で起動時にエラーになります。
+ */
+function getBaseUrl(): string {
+  // Client-side: use relative path
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  // Server-side: lib/env.ts が本番環境では NEXT_PUBLIC_SITE_URL を必須としているため、
+  // ここでは process.env を直接参照して安全にフォールバック
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) {
+    return siteUrl;
+  }
+
+  // 開発環境のフォールバック
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:3000";
+  }
+
+  // 本番環境で NEXT_PUBLIC_SITE_URL が未設定の場合は即座にエラー
+  // （lib/env.ts のチェックをすり抜けた場合のセーフガード）
+  throw new Error(
+    "[news] CRITICAL: NEXT_PUBLIC_SITE_URL is not set in production. " +
+    "SSR/Server Components からの API 呼び出しには絶対 URL が必要です。"
+  );
+}
+
+/**
  * API経由でニュースを取得するリポジトリ
  * クライアントコンポーネントから使用可能
  */
@@ -12,7 +47,7 @@ class ApiNewsRepository implements NewsRepository {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = typeof window !== "undefined" ? "" : process.env.NEXT_PUBLIC_SITE_URL || "";
+    this.baseUrl = getBaseUrl();
   }
 
   async findAll(): Promise<NewsListResponse> {

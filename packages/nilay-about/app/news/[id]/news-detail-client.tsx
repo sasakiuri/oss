@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useNews } from "@/hooks";
 import { ShareButtons } from "@/components/share-buttons";
 import { siteConfig } from "@/lib/config";
-import { sanitizeHtml } from "@/lib/security/sanitize";
+import { sanitizeHtml } from "@/lib/security/sanitize.client";
 import { format } from "date-fns";
 
 function NewsDetailSkeleton() {
