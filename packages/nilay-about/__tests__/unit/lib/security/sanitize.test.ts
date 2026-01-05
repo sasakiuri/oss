@@ -5,10 +5,12 @@ import {
   sanitizeForDisplay,
   sanitizeUrl,
   createRateLimiter,
-  sanitizeForLogging,
   sanitizeHtml,
-  sanitizeForSlack,
 } from "@/lib/security/sanitize";
+import {
+  sanitizeForLogging,
+  sanitizeForSlack,
+} from "@/lib/security/sanitize-logging";
 
 describe("Security Sanitization", () => {
   describe("sanitizeHtml", () => {

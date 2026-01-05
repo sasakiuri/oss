@@ -7,7 +7,8 @@ import {
   rateLimitPresets,
 } from "@/lib/api/rate-limit";
 import { createRequestLogger } from "@/lib/logging";
-import { sanitizeForSlack } from "@/lib/security/sanitize";
+// Import directly to avoid loading DOMPurify in serverless environment
+import { sanitizeForSlack } from "@/lib/security/sanitize-logging";
 
 export async function POST(request: Request) {
   const log = createRequestLogger(request);
