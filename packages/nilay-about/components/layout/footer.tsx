@@ -82,7 +82,7 @@ export function Footer() {
             ))}
           </div>
 
-          <div className="text-center text-sm text-foreground">
+          <div className="text-center text-sm text-foreground" suppressHydrationWarning>
             &copy; {new Date().getFullYear()} Nilay
           </div>
         </div>

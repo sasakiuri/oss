@@ -48,7 +48,7 @@ export function RetroFooter() {
           </a>
         </address>
 
-        <p className="mt-4">
+        <p className="mt-4" suppressHydrationWarning>
           &copy; {new Date().getFullYear()} Nilay. All rights reserved.
         </p>
 
