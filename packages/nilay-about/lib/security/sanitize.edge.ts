@@ -119,7 +119,8 @@ export async function hashForLoggingAsync(value: string): Promise<string> {
 function truncateUserAgent(ua: string): string {
   // Extract only the browser and OS information
   const match = ua.match(/^([^(]+\([^)]+\)[^\s]*)/u);
-  return match ? `${match[1].slice(0, 50)}...` : "[TRUNCATED]";
+  const captured = match?.[1];
+  return captured ? `${captured.slice(0, 50)}...` : "[TRUNCATED]";
 }
 
 /**

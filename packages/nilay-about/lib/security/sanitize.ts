@@ -83,7 +83,7 @@ export function escapeHtml(str: string): string {
     "'": "&#39;",
   };
 
-  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char] ?? char);
 }
 
 /**
@@ -176,7 +176,8 @@ function hashForLogging(value: string): string {
 function truncateUserAgent(ua: string): string {
   // Extract only the browser and OS information
   const match = ua.match(/^([^(]+\([^)]+\)[^\s]*)/u);
-  return match ? `${match[1].slice(0, 50)}...` : "[TRUNCATED]";
+  const captured = match?.[1];
+  return captured ? `${captured.slice(0, 50)}...` : "[TRUNCATED]";
 }
 
 /**
@@ -197,8 +198,10 @@ function sanitizePiiValue(key: string, value: unknown): unknown {
 
   if (lowerKey === "email" || lowerKey.includes("email")) {
     // Mask email: show first 2 chars and domain
-    const [local, domain] = value.split("@");
-    if (domain) {
+    const atIndex = value.indexOf("@");
+    if (atIndex > 0) {
+      const local = value.slice(0, atIndex);
+      const domain = value.slice(atIndex + 1);
       return `${local.slice(0, 2)}***@${domain}`;
     }
     return "[REDACTED]";
@@ -288,8 +291,10 @@ export function createRateLimiter(maxRequests: number, windowMs: number) {
       const windowStart = now - windowMs;
 
       // Remove old requests
-      while (requests.length > 0 && requests[0] < windowStart) {
+      let firstRequest = requests[0];
+      while (firstRequest !== undefined && firstRequest < windowStart) {
         requests.shift();
+        firstRequest = requests[0];
       }
 
       return requests.length < maxRequests;

@@ -26,12 +26,13 @@ function getBaseUrl(): string {
     return siteUrl;
   }
 
-  // 開発環境のフォールバック
-  if (process.env.NODE_ENV !== "production") {
+  // 開発環境またはビルド時のフォールバック
+  const isBuilding = process.env.NEXT_PHASE === "phase-production-build";
+  if (process.env.NODE_ENV !== "production" || isBuilding) {
     return "http://localhost:3000";
   }
 
-  // 本番環境で NEXT_PUBLIC_SITE_URL が未設定の場合は即座にエラー
+  // 本番環境ランタイムで NEXT_PUBLIC_SITE_URL が未設定の場合は即座にエラー
   // （lib/env.ts のチェックをすり抜けた場合のセーフガード）
   throw new Error(
     "[news] CRITICAL: NEXT_PUBLIC_SITE_URL is not set in production. " +
