@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createRequestLogger } from "@/lib/logging";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitPresets,
+} from "@/lib/api/rate-limit";
 
 const DOCUMENT_TITLE = "Home Target";
 const DOCUMENT_AUTHOR = "Nilay Sport";
@@ -27,41 +33,10 @@ function generateTargetPdf(blackAreaSizeMm: number): Uint8Array {
   const centerX = paperSizePt / 2;
   const centerY = paperSizePt / 2;
 
-  // Build PDF content manually (minimal PDF structure)
-  const objects: string[] = [];
-  let objectCount = 0;
+  // Generate content stream for the circle
+  const contentStreamData = generateCircleContent(centerX, centerY, radius);
 
-  const addObject = (content: string): number => {
-    objectCount++;
-    objects.push(`${objectCount} 0 obj\n${content}\nendobj\n`);
-    return objectCount;
-  };
-
-  // Catalog (root object)
-  const catalogId = addObject(`<< /Type /Catalog /Pages 2 0 R >>`);
-
-  // Pages
-  const pagesId = addObject(
-    `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`
-  );
-
-  // Content stream - draw black circle
-  // PDF uses bottom-left origin, so Y coordinate is from bottom
-  const circleContent = generateCircleContent(centerX, centerY, radius);
-  const contentStreamData = circleContent;
-
-  // Content stream object
-  const contentId = addObject(
-    `<< /Length ${contentStreamData.length} >>\nstream\n${contentStreamData}\nendstream`
-  );
-
-  // Page object (must be added after content to reference it)
-  // Insert at position 2 (index 2) to be object 3
-  const pageObj = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${paperSizePt.toFixed(2)} ${paperSizePt.toFixed(2)}] /Contents ${contentId} 0 R >>`;
-  objects.splice(2, 0, `3 0 obj\n${pageObj}\nendobj\n`);
-
-  // Fix object numbers after insertion
-  // Actually, let's rebuild this more carefully
+  // Build PDF objects (minimal PDF structure)
   const pdfObjects: { id: number; content: string }[] = [];
 
   // 1: Catalog
@@ -158,11 +133,44 @@ function generateCircleContent(cx: number, cy: number, r: number): string {
 }
 
 export async function POST(request: Request) {
+  const log = createRequestLogger(request);
+
   try {
-    const body = await request.json();
+    // Rate limiting check (apiWrite: 20 requests per minute)
+    const clientIp = getClientIp(request);
+    const rateLimit = await checkRateLimit(clientIp, rateLimitPresets.apiWrite);
+
+    if (!rateLimit.allowed) {
+      log.warn("Rate limit exceeded", { clientIp, resetIn: rateLimit.resetIn });
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)),
+            "X-RateLimit-Remaining": String(rateLimit.remaining),
+          },
+        }
+      );
+    }
+
+    // Parse JSON body with explicit error handling
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      log.warn("Invalid JSON in request body");
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
     const result = requestSchema.safeParse(body);
 
     if (!result.success) {
+      log.warn("Invalid request body", {
+        errors: result.error.flatten(),
+      });
       return NextResponse.json(
         { error: "Invalid request body" },
         { status: 400 }
@@ -175,6 +183,7 @@ export async function POST(request: Request) {
     const blackAreaSizeMm = blackAreaSize.number * 10;
 
     if (blackAreaSizeMm > 1000) {
+      log.warn("Target size too large", { sizeMm: blackAreaSizeMm });
       return NextResponse.json(
         { error: "Target size too large (max 100cm)" },
         { status: 400 }
@@ -191,6 +200,11 @@ export async function POST(request: Request) {
       .slice(0, 19);
     const filename = `Home_Target_${timestamp}.pdf`;
 
+    log.info("PDF generated successfully", {
+      sizeMm: blackAreaSizeMm,
+      filename,
+    });
+
     return new Response(Buffer.from(pdfData), {
       status: 200,
       headers: {
@@ -200,7 +214,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[Home Targets API] Error:", error);
+    log.error(
+      "Failed to generate PDF",
+      error instanceof Error ? error : new Error(String(error))
+    );
     return NextResponse.json(
       { error: "Failed to generate PDF" },
       { status: 500 }

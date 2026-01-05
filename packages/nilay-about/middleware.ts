@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { sanitizeForLogging } from "@/lib/security/sanitize.edge";
 
 /**
  * Next.js Middleware
@@ -13,13 +14,19 @@ import type { NextRequest } from "next/server";
  * For now, we prepare the infrastructure.
  */
 
+const isProduction = process.env.NODE_ENV === "production";
+
 /**
  * Generate a random nonce for CSP
+ *
+ * Note: Uses Web Crypto API only for Edge Runtime compatibility.
+ * Buffer is not available in Edge Runtime.
  */
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return Buffer.from(array).toString("base64");
+  // Edge Runtime では Buffer が使えないため、Web API で base64 エンコード
+  return btoa(String.fromCharCode(...array));
 }
 
 /**
@@ -40,7 +47,34 @@ function buildCSPHeader(nonce: string): string {
     "upgrade-insecure-requests",
   ];
 
+  // 本番環境では report-uri を追加（違反レポートの収集用）
+  // TODO: Sentry CSP レポート URL などを設定する
+  // if (isProduction && process.env.CSP_REPORT_URI) {
+  //   directives.push(`report-uri ${process.env.CSP_REPORT_URI}`);
+  // }
+
   return directives.join("; ");
+}
+
+/**
+ * 構造化ログ形式でリクエストをログ出力（開発環境用）
+ *
+ * PII/トークンはマスキングされます。
+ */
+function logRequest(request: NextRequest): void {
+  const { pathname } = request.nextUrl;
+  const searchParams = Object.fromEntries(request.nextUrl.searchParams.entries());
+
+  // 構造化ログ形式で出力（マスキング適用）
+  const logEntry = sanitizeForLogging({
+    timestamp: new Date().toISOString(),
+    level: "info",
+    method: request.method,
+    path: pathname,
+    query: Object.keys(searchParams).length > 0 ? searchParams : undefined,
+  });
+
+  console.log(JSON.stringify(logEntry));
 }
 
 export function middleware(request: NextRequest) {
@@ -54,17 +88,19 @@ export function middleware(request: NextRequest) {
   // For production, consider using hash-based or nonce-based approach.
   const cspHeader = buildCSPHeader(nonce);
 
-  // Set CSP header (Report-Only mode for testing)
-  // Change to "Content-Security-Policy" when ready for enforcement
-  response.headers.set("Content-Security-Policy-Report-Only", cspHeader);
+  // 本番環境では CSP を強制、それ以外は Report-Only モード
+  if (isProduction) {
+    response.headers.set("Content-Security-Policy", cspHeader);
+  } else {
+    response.headers.set("Content-Security-Policy-Report-Only", cspHeader);
+  }
 
   // Store nonce for potential use in Server Components
   response.headers.set("x-nonce", nonce);
 
-  // Log requests in development
-  if (process.env.NODE_ENV === "development") {
-    const { pathname, search } = request.nextUrl;
-    console.log(`[${new Date().toISOString()}] ${request.method} ${pathname}${search}`);
+  // Log requests in development (構造化ログ、PIIマスキング済み)
+  if (!isProduction) {
+    logRequest(request);
   }
 
   return response;
