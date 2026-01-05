@@ -162,10 +162,10 @@ export function getRequestContext(request: Request): LogContext {
     userAgent: headers.get("user-agent") ?? undefined,
     // 信頼できるヘッダを優先（rate-limit.ts の getClientIp と同じ順序）
     ip:
-      headers.get("x-vercel-forwarded-for")?.split(",")[0].trim() ??
+      headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ??
       headers.get("cf-connecting-ip") ??
       headers.get("x-real-ip") ??
-      headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown",
   };
 }
