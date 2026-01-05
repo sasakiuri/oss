@@ -187,22 +187,19 @@ export async function checkRateLimit(
   identifier: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  const isProduction = process.env.NODE_ENV === "production";
-
   // Upstash が設定されていない場合
   if (!hasUpstashConfig || !redis) {
-    if (isProduction) {
-      // 本番環境では Upstash 必須 - リクエストを拒否
-      console.error(
-        "[rate-limit] CRITICAL: Upstash is not configured in production. " +
-          "Rate limiting is disabled. Rejecting request for security. " +
-          "Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."
+    if (process.env.NODE_ENV === "production") {
+      // 本番環境では警告のみ出力し、レートリミットをスキップ（パフォーマンス優先）
+      console.warn(
+        "[rate-limit] WARNING: Upstash is not configured. " +
+          "Rate limiting is disabled. " +
+          "For distributed rate limiting, set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."
       );
       return {
-        allowed: false,
-        remaining: 0,
-        resetIn: 60000, // 1 minute
-        error: "Rate limiting service unavailable",
+        allowed: true,
+        remaining: config.maxRequests,
+        resetIn: 0,
       };
     }
     // 開発/テスト環境ではインメモリにフォールバック
@@ -221,18 +218,15 @@ export async function checkRateLimit(
   } catch (error) {
     console.error("[rate-limit] Upstash error:", error);
 
-    if (isProduction) {
-      // 本番環境では Redis エラー時もリクエストを拒否
-      // セキュリティを優先し、レートリミットなしでの通過を許可しない
+    if (process.env.NODE_ENV === "production") {
+      // 本番環境ではサービス継続性を優先してスキップ
       return {
-        allowed: false,
-        remaining: 0,
-        resetIn: 60000, // 1 minute
-        error: "Rate limiting service error",
+        allowed: true,
+        remaining: config.maxRequests,
+        resetIn: 0,
       };
     }
-
-    // 開発/テスト環境ではインメモリにフォールバック（サービス継続性を優先）
+    // 開発/テスト環境ではインメモリにフォールバック
     return checkRateLimitInMemory(identifier, config);
   }
 }
