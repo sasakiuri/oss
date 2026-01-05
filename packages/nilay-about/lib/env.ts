@@ -8,8 +8,10 @@ import { z } from "zod";
 const isProductionEnv = process.env.NODE_ENV === "production";
 // ビルドフェーズかどうかを検出（next build 実行時）
 const isBuildingEnv = process.env.NEXT_PHASE === "phase-production-build";
-// 実際のプロダクションランタイムかどうか（ビルド時は除外）
-const isProductionRuntime = isProductionEnv && !isBuildingEnv;
+// Vercel Preview 環境かどうか
+const isVercelPreview = process.env.VERCEL_ENV === "preview";
+// 実際のプロダクションランタイムかどうか（ビルド時・Preview時は除外）
+const isProductionRuntime = isProductionEnv && !isBuildingEnv && !isVercelPreview;
 
 /**
  * Server-side environment variable schema
@@ -48,19 +50,41 @@ const envSchema = z.object({
 type Env = z.infer<typeof envSchema>;
 
 /**
+ * Get the site URL with Vercel fallback
+ *
+ * Priority:
+ * 1. NEXT_PUBLIC_SITE_URL (explicitly set)
+ * 2. VERCEL_URL (auto-set by Vercel for preview deployments)
+ * 3. localhost (development only)
+ */
+function getSiteUrl(): string {
+  // 明示的に設定された URL を優先
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+
+  // Vercel 環境では VERCEL_URL を使用（Preview デプロイ用）
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // 開発環境のフォールバック
+  if (!isProductionRuntime) {
+    return "http://localhost:3000";
+  }
+
+  // 本番環境で URL が見つからない場合はエラー
+  throw new Error(
+    "NEXT_PUBLIC_SITE_URL is required in production. " +
+    "Please set this environment variable to prevent API calls to wrong environments."
+  );
+}
+
+/**
  * Get validated environment variables
  */
 function getEnv(): Env {
   const nodeEnv = process.env.NODE_ENV || "development";
-
-  // 本番環境では NEXT_PUBLIC_SITE_URL が必須（ビルド時はスキップ）
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (isProductionRuntime && !siteUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_SITE_URL is required in production. " +
-      "Please set this environment variable to prevent API calls to wrong environments."
-    );
-  }
 
   const envVars = {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -68,8 +92,7 @@ function getEnv(): Env {
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     LOG_MASKING_SECRET: process.env.LOG_MASKING_SECRET,
-    // 開発環境ではローカルホストをデフォルトとして使用
-    NEXT_PUBLIC_SITE_URL: siteUrl || "http://localhost:3000",
+    NEXT_PUBLIC_SITE_URL: getSiteUrl(),
     NODE_ENV: nodeEnv,
   };
 
