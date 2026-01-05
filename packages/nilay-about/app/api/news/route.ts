@@ -42,10 +42,13 @@ export async function GET(request: NextRequest) {
     }
 
     // クエリパラメータのバリデーション
+    // null を除外して、未指定時はスキーマのデフォルト値を使用
     const searchParams = request.nextUrl.searchParams;
+    const limitParam = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
     const queryResult = querySchema.safeParse({
-      limit: searchParams.get("limit"),
-      offset: searchParams.get("offset"),
+      ...(limitParam !== null && { limit: limitParam }),
+      ...(offsetParam !== null && { offset: offsetParam }),
     });
 
     if (!queryResult.success) {
