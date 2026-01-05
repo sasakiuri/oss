@@ -160,7 +160,7 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
             </a>
             」の下で公開しています。
           </p>
-          <p className="mt-2">
+          <p className="mt-2" suppressHydrationWarning>
             &copy; {currentYear}{' '}
             <a
               href={`${siteConfig.siteUrl}/${slug}`}
