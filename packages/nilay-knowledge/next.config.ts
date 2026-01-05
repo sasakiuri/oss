@@ -1,9 +1,4 @@
 import type { NextConfig } from "next";
-import bundleAnalyzer from "@next/bundle-analyzer";
-
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === "true",
-});
 
 /**
  * Security headers for the application
@@ -51,4 +46,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default async () => {
+  if (process.env.ANALYZE === "true") {
+    const bundleAnalyzer = (await import("@next/bundle-analyzer")).default;
+    return bundleAnalyzer({ enabled: true })(nextConfig);
+  }
+  return nextConfig;
+};
