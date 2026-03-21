@@ -1,0 +1,30 @@
+name: Security
+
+on:
+  push:
+    branches: [1.x]
+  pull_request:
+    branches: [1.x]
+  schedule:
+    - cron: "0 16 * * 0"
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  osv-scan-push:
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2
+    with:
+      scan-args: |-
+        --recursive
+        ./
+
+  osv-scan-pr:
+    if: github.event_name == 'pull_request'
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2

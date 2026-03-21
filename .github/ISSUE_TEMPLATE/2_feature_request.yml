@@ -1,0 +1,19 @@
+name: "\U0001F680 Feature Request"
+description: Suggest a new feature or improvement.
+labels: ["Cat: Feature \U0001F680", "Status: Needs Triage \U0001F4A1"]
+
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: Provide a clear and concise description of the feature or improvement.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Use Case
+      description: Describe the use case or motivation behind this feature request.
+  - type: textarea
+    attributes:
+      label: Examples
+      description: Provide examples such as before/after comparisons to illustrate the feature or improvement.

@@ -1,0 +1,55 @@
+# ── Category ────────────────────────────────────────────────────────
+- name: "Cat: Bug 🐛"
+  color: "d73a4a"
+  description: "Bug reports"
+
+- name: "Cat: Feature 🚀"
+  color: "0075ca"
+  description: "New feature requests"
+
+- name: "Cat: Dependencies 🤖"
+  color: "0366d6"
+  description: "Dependency updates"
+
+- name: "Cat: CI/CD ⚙️"
+  color: "e4e669"
+  description: "CI/CD pipeline changes"
+
+- name: "Cat: Documentation 📝"
+  color: "0075ca"
+  description: "Documentation updates"
+
+- name: "breaking"
+  color: "b60205"
+  description: "Breaking changes"
+
+# ── Package ─────────────────────────────────────────────────────────
+- name: "Package: saika-lane 📦"
+  color: "c5def5"
+  description: "saika-lane package"
+
+- name: "Package: shared-config 📦"
+  color: "c5def5"
+  description: "Shared config packages"
+
+# ── Status ──────────────────────────────────────────────────────────
+- name: "Status: Needs Triage 💡"
+  color: "fbca04"
+  description: "Needs triage"
+
+- name: "Status: Stale"
+  color: "cccccc"
+  description: "Stale issue or PR"
+
+- name: "Status: Pinned"
+  color: "006b75"
+  description: "Pinned issue or PR"
+
+# ── Other ───────────────────────────────────────────────────────────
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+- name: "needs-template"
+  color: "e4e669"
+  description: "Issue was not created using a template"

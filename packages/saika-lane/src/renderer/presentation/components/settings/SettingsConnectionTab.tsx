@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: MIT
+/**
+ * SettingsConnectionTab component
+ *
+ * @description
+ * Connection tab component of the settings modal.
+ * Manages connection and disconnection to USB target devices.
+ * - Port selection
+ * - Manufacturer and device selection
+ * - Connect/Disconnect buttons
+ * - Error display
+ *
+ * Directly uses useConnection / usePortList / useDeviceList.
+ */
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
+import type { SelectOption } from '@/renderer/presentation/components/common/Select';
+import { DeviceSelector } from '@/renderer/presentation/components/DeviceSelector';
+import { PortSelector } from '@/renderer/presentation/components/PortSelector';
+import { useConnection } from '@/renderer/presentation/hooks/useConnection';
+import { useDeviceList } from '@/renderer/presentation/hooks/useDeviceList';
+import { usePortList } from '@/renderer/presentation/hooks/usePortList';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { settingsService } from '@/renderer/services/settingsService';
+import type { Discipline, TargetManufacturer } from '@/shared/ipc/contracts';
+
+/**
+ * Manufacturer options
+ */
+const MANUFACTURER_OPTIONS: SelectOption[] = [{ value: 'KOHTO', label: 'Kohto Electronics' }];
+
+/**
+ * SettingsConnectionTab component
+ */
+export const SettingsConnectionTab: React.FC = () => {
+  const { status, connect, disconnect, isConnecting, isDisconnecting, error, clearError } = useConnection();
+
+  const isConnected = status === 'connected';
+
+  const [selectedPort, setSelectedPort] = useState('');
+  const [selectedManufacturer, setSelectedManufacturer] = useState<TargetManufacturer>('KOHTO');
+
+  const { portOptions, isLoadingPorts, portError, refreshPorts } = usePortList();
+
+  const {
+    deviceOptions,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    isLoadingDevices,
+    deviceError,
+    fetchDevices,
+    setDiscipline,
+  } = useDeviceList(selectedManufacturer);
+
+  // Ref to capture current manufacturer for mount-only effect
+  const selectedManufacturerRef = useRef(selectedManufacturer);
+  selectedManufacturerRef.current = selectedManufacturer;
+
+  // Mount effect: fetch device list and restore saved connection settings
+  useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    (async () => {
+      await fetchDevices(selectedManufacturerRef.current, signal, true);
+      if (signal.aborted) return;
+
+      try {
+        const settings = await settingsService.getConnectionSettings();
+        if (signal.aborted) return;
+
+        if (settings.portName) {
+          setSelectedPort(settings.portName);
+        }
+        if (settings.manufacturer === 'KOHTO') {
+          setSelectedManufacturer(settings.manufacturer);
+        }
+        if (settings.deviceId) {
+          setSelectedDeviceId(settings.deviceId);
+        }
+      } catch {
+        // Settings restore failure is non-critical
+      }
+    })();
+
+    return () => controller.abort();
+  }, [fetchDevices, setSelectedPort, setSelectedManufacturer, setSelectedDeviceId]);
+
+  const handlePortChange = useCallback(
+    (value: string) => {
+      setSelectedPort(value);
+      clearError();
+    },
+    [clearError],
+  );
+
+  const handleManufacturerChange = useCallback(
+    (value: string) => {
+      setSelectedManufacturer(value as TargetManufacturer);
+      clearError();
+    },
+    [clearError],
+  );
+
+  const handleDeviceChange = useCallback(
+    (value: string) => {
+      setSelectedDeviceId(value);
+      const selectedDevice = deviceOptions.find((d) => d.id === value);
+      if (selectedDevice && selectedDevice.supportedDisciplines.length > 0) {
+        const firstDiscipline = selectedDevice.supportedDisciplines[0];
+        if (firstDiscipline) {
+          setDiscipline(firstDiscipline as Discipline);
+        }
+      }
+      clearError();
+    },
+    [deviceOptions, setSelectedDeviceId, setDiscipline, clearError],
+  );
+
+  const handleConnect = useCallback(async () => {
+    if (!selectedPort) return;
+
+    const selectedDevice = deviceOptions.find((d) => d.id === selectedDeviceId);
+    const baudRate = selectedDevice?.baudRate;
+
+    await connect(selectedPort, selectedManufacturer, selectedDeviceId || undefined, baudRate);
+
+    // Save connection settings
+    try {
+      await settingsService.saveConnectionSettings({
+        portName: selectedPort,
+        manufacturer: selectedManufacturer,
+        deviceId: selectedDeviceId || undefined,
+      });
+    } catch {
+      // Settings save failure is non-critical
+    }
+
+    // Save discipline to userPreferences
+    const { discipline } = useSessionStore.getState();
+    if (discipline) {
+      try {
+        await settingsService.saveUserPreferences({ discipline });
+      } catch {
+        // Save failure is non-critical
+      }
+    }
+  }, [selectedPort, selectedManufacturer, selectedDeviceId, deviceOptions, connect]);
+
+  const handleDisconnect = useCallback(async () => {
+    await disconnect();
+  }, [disconnect]);
+
+  const isConnectDisabled = !selectedPort || isConnecting || (deviceOptions.length > 1 && !selectedDeviceId);
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <PortSelector
+        selectedPort={selectedPort}
+        portOptions={portOptions}
+        isLoadingPorts={isLoadingPorts}
+        portError={portError}
+        onPortChange={handlePortChange}
+        onRefresh={refreshPorts}
+      />
+
+      <DeviceSelector
+        selectedManufacturer={selectedManufacturer}
+        selectedDeviceId={selectedDeviceId}
+        manufacturerOptions={MANUFACTURER_OPTIONS}
+        deviceOptions={deviceOptions}
+        isLoadingDevices={isLoadingDevices}
+        deviceError={deviceError}
+        onManufacturerChange={handleManufacturerChange}
+        onDeviceChange={handleDeviceChange}
+      />
+
+      {error && (
+        <div
+          className="rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
+          role="alert"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="mt-2 flex justify-end gap-3">
+        {isConnected ? (
+          <button
+            type="button"
+            onClick={handleDisconnect}
+            disabled={isDisconnecting}
+            className="rounded bg-red-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={isConnectDisabled}
+            className="rounded bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isConnecting ? 'Connecting...' : 'Connect'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};

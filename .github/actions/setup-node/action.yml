@@ -1,0 +1,54 @@
+name: "Setup Node.js Environment"
+description: "Setup Node.js, install dependencies, and optionally configure caches"
+
+inputs:
+  node-version:
+    description: "Node.js version"
+    required: false
+    default: "22"
+  enable-turbo-cache:
+    description: "Enable Turborepo cache"
+    required: false
+    default: "false"
+  enable-electron-cache:
+    description: "Enable Electron binary cache"
+    required: false
+    default: "false"
+  registry-url:
+    description: "npm registry URL (for publish workflows)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        registry-url: ${{ inputs.registry-url }}
+
+    - name: Cache Turborepo
+      if: inputs.enable-turbo-cache == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ hashFiles('turbo.json', 'packages/*/package.json') }}
+        restore-keys: |
+          turbo-${{ runner.os }}-
+
+    - name: Cache Electron binaries
+      if: inputs.enable-electron-cache == 'true'
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/Library/Caches/electron
+          ~/AppData/Local/electron/Cache
+        key: electron-${{ runner.os }}-${{ hashFiles('packages/saika-lane/package.json') }}
+        restore-keys: electron-${{ runner.os }}-
+
+    - name: Install dependencies
+      run: npm ci
+      shell: bash

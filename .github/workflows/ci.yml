@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [1.x]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/DISCUSSION_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".github/SUPPORT.md"
+      - ".github/FUNDING.yml"
+      - ".github/labels.yml"
+      - "LICENSE"
+      - ".editorconfig"
+  pull_request:
+    branches: [1.x, canary]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/DISCUSSION_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".github/SUPPORT.md"
+      - ".github/FUNDING.yml"
+      - ".github/labels.yml"
+      - "LICENSE"
+      - ".editorconfig"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-turbo-cache: "true"
+
+      - name: Type check
+        run: cd packages/saika-lane && npx tsc --noEmit
+
+      - name: Lint
+        run: npx turbo lint
+
+      - name: Architecture validation
+        run: npx turbo depcruise
+
+      # Validates dependency license compatibility against allowed SPDX list
+      # in .licensee.json. Does not perform deep transitive-dependency analysis
+      # beyond what npm installs (i.e., optional/peer deps not installed are not checked).
+      - name: License check
+        run: npm run license-check
+
+      - name: Spell check
+        run: npm run cspell
+
+      - name: Unused exports check
+        run: npm run knip
+
+      - name: Dependency version check
+        run: npm run syncpack
+
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-turbo-cache: "true"
+          enable-electron-cache: "true"
+
+      - name: Build
+        run: npx turbo build
+
+      - name: Test
+        run: cd packages/saika-lane && npx vitest run --coverage
+
+      - name: E2E test (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npx turbo test:e2e
+
+      - name: E2E test (non-Linux)
+        if: runner.os != 'Linux'
+        run: npx turbo test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: |
+            packages/saika-lane/playwright-report/
+            packages/saika-lane/test-results/
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            packages/saika-lane/test-results/vitest-junit.xml
+            packages/saika-lane/test-results/playwright-junit.xml
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Bundle size check
+        run: npx turbo size-limit
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        with:
+          directory: packages/saika-lane/coverage
+          flags: saika-lane
+          token: ${{ secrets.CODECOV_TOKEN }}

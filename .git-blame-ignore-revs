@@ -1,0 +1,11 @@
+# git-blame-ignore-revs
+#
+# This file lists commits that should be ignored by `git blame`.
+# Typically bulk formatting changes (Prettier runs, ESLint --fix, etc.).
+#
+# Local setup:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# VSCode users: this is configured automatically via .vscode/settings.json.
+#
+# Add commit hashes below, one per line, with a comment describing the change.

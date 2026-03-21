@@ -1,0 +1,59 @@
+name: Issue Check
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check issue template compliance
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            // Skip bot-created issues
+            if (issue.user.type === 'Bot') return;
+
+            // YAML form templates render fields as "### Label\n\nValue" pairs.
+            // Count the number of H3 headings as a proxy for form fields.
+            const h3Matches = body.match(/^### /gm) || [];
+            const hasMultipleFormFields = h3Matches.length >= 2;
+
+            // Skip if the issue appears to use a template
+            if (hasMultipleFormFields) return;
+
+            // Skip if body is empty (GitHub's issue chooser should prevent this,
+            // but blank_issues_enabled: false in config.yml handles it)
+            if (body.trim().length === 0) return;
+
+            // Label and comment on non-compliant issues
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: issue.number,
+              labels: ['needs-template']
+            });
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: [
+                'Thank you for opening this issue!',
+                '',
+                'It looks like this issue was not created using one of our issue templates.',
+                'Please close this issue and create a new one using the appropriate template:',
+                '',
+                `- [Bug Report](https://github.com/${owner}/${repo}/issues/new?template=3_bug_report.yml)`,
+                `- [Feature Request](https://github.com/${owner}/${repo}/issues/new?template=2_feature_request.yml)`,
+                `- [General Report](https://github.com/${owner}/${repo}/issues/new?template=1_generic_report.md)`,
+              ].join('\n')
+            });

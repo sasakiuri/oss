@@ -1,0 +1,141 @@
+version: 2
+
+updates:
+  # ── Root npm dependencies ──────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 10
+    labels:
+      - "Cat: Dependencies 🤖"
+    commit-message:
+      prefix: "chore(root):"
+    groups:
+      major-updates:
+        update-types:
+          - major
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── saika-lane ─────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /packages/saika-lane
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 10
+    labels:
+      - "Cat: Dependencies 🤖"
+      - "Package: saika-lane 📦"
+    commit-message:
+      prefix: "chore(saika-lane):"
+    groups:
+      major-updates:
+        update-types:
+          - major
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── eslint-config ──────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /packages/eslint-config
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 5
+    labels:
+      - "Cat: Dependencies 🤖"
+      - "Package: shared-config 📦"
+    commit-message:
+      prefix: "chore(eslint-config):"
+    groups:
+      all-updates:
+        patterns:
+          - "*"
+
+  # ── prettier-config ────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /packages/prettier-config
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 5
+    labels:
+      - "Cat: Dependencies 🤖"
+      - "Package: shared-config 📦"
+    commit-message:
+      prefix: "chore(prettier-config):"
+    groups:
+      all-updates:
+        patterns:
+          - "*"
+
+  # ── stylelint-config ───────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /packages/stylelint-config
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 5
+    labels:
+      - "Cat: Dependencies 🤖"
+      - "Package: shared-config 📦"
+    commit-message:
+      prefix: "chore(stylelint-config):"
+    groups:
+      all-updates:
+        patterns:
+          - "*"
+
+  # ── typescript-config ──────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /packages/typescript-config
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 5
+    labels:
+      - "Cat: Dependencies 🤖"
+      - "Package: shared-config 📦"
+    commit-message:
+      prefix: "chore(typescript-config):"
+    groups:
+      all-updates:
+        patterns:
+          - "*"
+
+  # ── GitHub Actions ─────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "02:00"
+      timezone: Asia/Tokyo
+    target-branch: 1.x
+    open-pull-requests-limit: 10
+    labels:
+      - "Cat: Dependencies 🤖"
+    commit-message:
+      prefix: "chore(root):"
+    groups:
+      github-actions-updates:
+        patterns:
+          - "*"

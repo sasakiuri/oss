@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+#
+# Repository settings managed by the repository-settings/app GitHub App.
+# https://github.com/repository-settings/app
+#
+# Changes to this file on the default branch will be synced to GitHub automatically.
+# Do NOT add a `labels` section — labels are managed by sync-labels.yml + labels.yml.
+
+repository:
+  name: oss
+  description: "Open-source monorepo for Saika Lane (electronic target display system for shooting ranges) and shared configuration packages."
+  homepage: https://github.com/sasakiuri/oss
+  topics: electron, typescript, shooting-sports, serial-port, mqtt, monorepo, eslint-config, prettier-config
+  private: false
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_downloads: true
+  default_branch: 1.x
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  delete_branch_on_merge: true
+  enable_automated_security_fixes: true
+  enable_vulnerability_alerts: true
+
+branches:
+  - name: 1.x
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        dismissal_restrictions:
+          users: []
+          teams: []
+      required_status_checks:
+        strict: true
+        contexts:
+          - "Lint & Checks"
+          - "Build & Test (ubuntu-latest)"
+          - "Build & Test (windows-latest)"
+          - "Build & Test (macos-latest)"
+      enforce_admins: true
+      required_linear_history: true
+      restrictions: null

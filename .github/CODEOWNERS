@@ -1,0 +1,17 @@
+# CODEOWNERS — default reviewers for pull requests
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @sasakiuri
+
+# Application packages
+packages/saika-lane/ @sasakiuri
+
+# Shared configuration packages
+packages/eslint-config/ @sasakiuri
+packages/prettier-config/ @sasakiuri
+packages/stylelint-config/ @sasakiuri
+packages/typescript-config/ @sasakiuri
+
+# CI/CD and GitHub configuration
+.github/ @sasakiuri

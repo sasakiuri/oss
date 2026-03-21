@@ -1,0 +1,456 @@
+// SPDX-License-Identifier: MIT
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { settingsService } from '@/renderer/services/settingsService';
+
+// Mock settingsService
+vi.mock('@/renderer/services/settingsService', () => ({
+  settingsService: {
+    saveUserPreferences: vi.fn().mockResolvedValue(undefined),
+    getUserPreferences: vi.fn().mockResolvedValue({ laneNumber: 1 }),
+    saveConnectionSettings: vi.fn().mockResolvedValue(undefined),
+    getConnectionSettings: vi.fn().mockResolvedValue({}),
+  },
+}));
+
+const mockSaveUserPreferences = vi.mocked(settingsService.saveUserPreferences);
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  X: ({ size, ...props }: { size?: number } & Record<string, unknown>) => (
+    <svg data-testid="x-icon" width={size} height={size} {...props} />
+  ),
+  Volume2: ({ size, ...props }: { size?: number } & Record<string, unknown>) => (
+    <svg data-testid="volume2-icon" width={size} height={size} {...props} />
+  ),
+}));
+
+// Mock useAudioPlayback
+const mockPlayTestSound = vi.fn();
+vi.mock('@/renderer/presentation/hooks/useAudioPlayback', () => ({
+  useAudioPlayback: () => ({
+    playShotSound: vi.fn(),
+    playTestSound: mockPlayTestSound,
+  }),
+}));
+
+// Mock SettingsConnectionTab
+vi.mock('@/renderer/presentation/components/settings/SettingsConnectionTab', () => ({
+  SettingsConnectionTab: () => <div data-testid="settings-connection-tab">ConnectionTab</div>,
+}));
+
+// Mock SettingsTargetTab
+vi.mock('@/renderer/presentation/components/settings/SettingsTargetTab', () => ({
+  SettingsTargetTab: () => <div data-testid="settings-target-tab">TargetTab</div>,
+}));
+
+describe('SettingsModal', () => {
+  const mockOnClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset store
+    useSessionStore.getState().resetSession();
+  });
+
+  describe('show/hide', () => {
+    it('renders nothing when isOpen=false', () => {
+      const { container } = render(<SettingsModal isOpen={false} onClose={mockOnClose} />);
+
+      expect(container.innerHTML).toBe('');
+    });
+
+    it('renders the modal when isOpen=true', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('displays the Settings title', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('Settings')).toBeInTheDocument();
+    });
+  });
+
+  describe('tab structure', () => {
+    it('displays 3 tabs: "General", "Target", "Connection"', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('General')).toBeInTheDocument();
+      expect(screen.getByText('Target')).toBeInTheDocument();
+      expect(screen.getByText('Connection')).toBeInTheDocument();
+    });
+
+    it('General tab is active by default', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const generalTab = screen.getByText('General');
+      expect(generalTab).toHaveClass('text-blue-400');
+
+      const targetTab = screen.getByText('Target');
+      expect(targetTab).toHaveClass('text-zinc-400');
+
+      const connectionTab = screen.getByText('Connection');
+      expect(connectionTab).toHaveClass('text-zinc-400');
+    });
+
+    it('clicking the Target tab displays SettingsTargetTab', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Target'));
+
+      expect(screen.getByTestId('settings-target-tab')).toBeInTheDocument();
+      // General content should not be visible
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+    });
+
+    it('clicking the Connection tab displays Connection content', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Connection'));
+
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+      // General content should not be visible
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+    });
+
+    it('clicking the General tab returns to General content', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      // Switch to Connection
+      fireEvent.click(screen.getByText('Connection'));
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+
+      // Switch back to General
+      fireEvent.click(screen.getByText('General'));
+      expect(screen.getByLabelText('Lane Number')).toBeInTheDocument();
+    });
+
+    it('Target tab is active when initialTab="target"', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="target" />);
+
+      const targetTab = screen.getByText('Target');
+      expect(targetTab).toHaveClass('text-blue-400');
+
+      expect(screen.getByTestId('settings-target-tab')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+    });
+
+    it('Connection tab is active when initialTab="connection"', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="connection" />);
+
+      const connectionTab = screen.getByText('Connection');
+      expect(connectionTab).toHaveClass('text-blue-400');
+
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+    });
+
+    it('General tab is the default when initialTab is not specified', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const generalTab = screen.getByText('General');
+      expect(generalTab).toHaveClass('text-blue-400');
+
+      expect(screen.getByLabelText('Lane Number')).toBeInTheDocument();
+    });
+
+    it('resets to initialTab when the modal is reopened', () => {
+      const { rerender } = render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="target" />);
+
+      // Switch to Connection tab
+      fireEvent.click(screen.getByText('Connection'));
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+
+      // Close and reopen
+      rerender(<SettingsModal isOpen={false} onClose={mockOnClose} initialTab="target" />);
+      rerender(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="target" />);
+
+      // Should be back on Target tab (per initialTab)
+      const targetTab = screen.getByText('Target');
+      expect(targetTab).toHaveClass('text-blue-400');
+      expect(screen.getByTestId('settings-target-tab')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-connection-tab')).not.toBeInTheDocument();
+    });
+
+    it('SettingsConnectionTab is rendered when the Connection tab is displayed', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Connection'));
+
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+      expect(screen.getByText('ConnectionTab')).toBeInTheDocument();
+    });
+  });
+
+  describe('lane number input', () => {
+    it('displays the Lane Number label', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByLabelText('Lane Number')).toBeInTheDocument();
+    });
+
+    it('displays the current lane number as the input value', () => {
+      useSessionStore.getState().setLaneNumber(5);
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      expect(input.value).toBe('5');
+    });
+
+    it('can change the input value', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '3' } });
+
+      expect(input.value).toBe('3');
+    });
+
+    it('displays help text', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('Please enter an integer of 1 or greater')).toBeInTheDocument();
+    });
+  });
+
+  describe('test sound button', () => {
+    it('displays the Test sound button', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByLabelText('Test sound')).toBeInTheDocument();
+    });
+
+    it('clicking the Test sound button calls playTestSound with the current volume', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByLabelText('Test sound'));
+
+      // Default audioVolume is 50
+      expect(mockPlayTestSound).toHaveBeenCalledWith(50);
+    });
+
+    it('clicking the Test sound button after changing the volume slider calls with the updated volume', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const slider = screen.getByLabelText('Shot Sound Volume') as HTMLInputElement;
+      fireEvent.change(slider, { target: { value: '80' } });
+
+      fireEvent.click(screen.getByLabelText('Test sound'));
+
+      expect(mockPlayTestSound).toHaveBeenCalledWith(80);
+    });
+  });
+
+  describe('save', () => {
+    it('clicking Save saves the lane number', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '7' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(useSessionStore.getState().laneNumber).toBe(7);
+      });
+    });
+
+    it('clicking Save persists to settingsService', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '3' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockSaveUserPreferences).toHaveBeenCalledWith({ laneNumber: 3, audioVolume: 50 });
+      });
+    });
+
+    it('calls onClose after Save', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('does not save lane number for invalid values (0 or less), but saves volume', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '0' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockSaveUserPreferences).toHaveBeenCalledWith({ audioVolume: 50 });
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('does not save lane number for invalid values (string), but saves volume', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'abc' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockSaveUserPreferences).toHaveBeenCalledWith({ audioVolume: 50 });
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('displays an error and does not close the modal when persistence fails', async () => {
+      mockSaveUserPreferences.mockRejectedValueOnce(new Error('Save failed'));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '5' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Save failed');
+        expect(mockOnClose).not.toHaveBeenCalled();
+        // Store should NOT be updated on failure
+        expect(useSessionStore.getState().laneNumber).toBe(1);
+      });
+    });
+
+    it('closes the modal when saving succeeds after a persistence failure', async () => {
+      mockSaveUserPreferences.mockRejectedValueOnce(new Error('Save failed'));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '5' } });
+
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Save failed');
+      });
+
+      // Fix the mock to succeed on retry
+      mockSaveUserPreferences.mockResolvedValueOnce(undefined);
+      fireEvent.click(screen.getByText('Save'));
+
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+        expect(useSessionStore.getState().laneNumber).toBe(5);
+      });
+    });
+  });
+
+  describe('cancel/close', () => {
+    it('calls onClose when the Cancel button is clicked', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Cancel'));
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onClose when the X button is clicked', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByLabelText('Close'));
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onClose when the backdrop is clicked', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const backdrop = screen.getByRole('dialog');
+      fireEvent.click(backdrop);
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call onClose when clicking inside the modal', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      // Click on the settings title inside the modal (not the backdrop)
+      fireEvent.click(screen.getByText('Settings'));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('accessibility', () => {
+    it('has the dialog role', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('has aria-modal=true', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('aria-labelledby references the title', () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const dialog = screen.getByRole('dialog');
+      const titleId = dialog.getAttribute('aria-labelledby');
+      expect(titleId).toBe('settings-title');
+
+      const title = document.getElementById(titleId!);
+      expect(title?.textContent).toBe('Settings');
+    });
+  });
+
+  describe('state reset on reopen', () => {
+    it('maintains the active tab when laneNumber changes while the modal is open', () => {
+      const { rerender } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      // Switch to Connection tab
+      fireEvent.click(screen.getByText('Connection'));
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+
+      // Simulate laneNumber change in store (triggers re-render)
+      act(() => {
+        useSessionStore.getState().setLaneNumber(99);
+      });
+      rerender(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      // Active tab should still be Connection, not reset to General
+      expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Lane Number')).not.toBeInTheDocument();
+    });
+
+    it('resets input value to store value when the modal is reopened', () => {
+      useSessionStore.getState().setLaneNumber(10);
+
+      const { rerender } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      // Change the value
+      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '99' } });
+      expect(input.value).toBe('99');
+
+      // Close and reopen
+      rerender(<SettingsModal isOpen={false} onClose={mockOnClose} />);
+      rerender(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const resetInput = screen.getByLabelText('Lane Number') as HTMLInputElement;
+      expect(resetInput.value).toBe('10');
+    });
+  });
+});
