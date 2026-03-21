@@ -1,0 +1,53 @@
+name: Test Report
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  checks: write
+  actions: read
+
+jobs:
+  report:
+    if: github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download test results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Vitest test report
+        if: hashFiles('test-results/vitest-junit.xml') != ''
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2
+        with:
+          name: "Vitest (${{ matrix.os }})"
+          path: test-results/vitest-junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Playwright test report
+        if: hashFiles('test-results/playwright-junit.xml') != ''
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2
+        with:
+          name: "Playwright (${{ matrix.os }})"
+          path: test-results/playwright-junit.xml
+          reporter: java-junit
+          fail-on-error: false

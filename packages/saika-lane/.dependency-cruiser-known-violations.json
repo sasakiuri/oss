@@ -1,0 +1,21 @@
+[
+  {
+    "type": "cycle",
+    "from": "src/renderer/presentation/utils/zoomCalculator.ts",
+    "to": "src/renderer/presentation/utils/zoomFixed.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-circular-runtime"
+    },
+    "cycle": [
+      {
+        "name": "src/renderer/presentation/utils/zoomFixed.ts",
+        "dependencyTypes": ["local", "export"]
+      },
+      {
+        "name": "src/renderer/presentation/utils/zoomCalculator.ts",
+        "dependencyTypes": ["local", "import"]
+      }
+    ]
+  }
+]

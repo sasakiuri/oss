@@ -1,0 +1,49 @@
+{
+  "name": "@sasakiuri/stylelint-config",
+  "version": "1.0.0",
+  "description": "Shared Stylelint configuration",
+  "author": "sasakiuri",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "stylelint",
+    "stylelint-config"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasakiuri/oss.git",
+    "directory": "packages/stylelint-config"
+  },
+  "bugs": {
+    "url": "https://github.com/sasakiuri/oss/issues"
+  },
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/stylelint-config#readme",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "lint": "prettier --check .",
+    "lint:prettier": "prettier --check .",
+    "fix": "prettier --write ."
+  },
+  "dependencies": {
+    "stylelint-config-recess-order": "^7.6.1",
+    "stylelint-config-standard": "^39.0.1",
+    "stylelint-config-standard-scss": "^16.0.0"
+  },
+  "peerDependencies": {
+    "stylelint": "^16"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "@sasakiuri/typescript-config",
+  "version": "1.0.0",
+  "description": "Shared TypeScript configuration",
+  "author": "sasakiuri",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "typescript",
+    "tsconfig"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasakiuri/oss.git",
+    "directory": "packages/typescript-config"
+  },
+  "bugs": {
+    "url": "https://github.com/sasakiuri/oss/issues"
+  },
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/typescript-config#readme",
+  "exports": {
+    "./base.json": "./base.json",
+    "./nextjs.json": "./nextjs.json",
+    "./vite.json": "./vite.json",
+    "./laravel.json": "./laravel.json"
+  },
+  "files": [
+    "*.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "lint": "prettier --check .",
+    "lint:prettier": "prettier --check .",
+    "fix": "prettier --write ."
+  }
+}

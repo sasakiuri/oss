@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Electron: Main Process",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/saika-lane",
+      "runtimeExecutable": "${workspaceFolder}/packages/saika-lane/node_modules/.bin/electron",
+      "runtimeArgs": ["--remote-debugging-port=9223", "."],
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/packages/saika-lane/node_modules/.bin/electron.cmd"
+      },
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/packages/saika-lane/dist/main/**/*.js"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Electron: Renderer Process",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9223,
+      "webRoot": "${workspaceFolder}/packages/saika-lane/src/renderer",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:///./src/*": "${webRoot}/*"
+      }
+    },
+    {
+      "name": "Electron: Attach to Main Process",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/packages/saika-lane/dist/main/**/*.js"],
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Electron: All",
+      "configurations": ["Electron: Main Process", "Electron: Renderer Process"]
+    }
+  ]
+}

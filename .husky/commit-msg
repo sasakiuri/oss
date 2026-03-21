@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Volta support: add to PATH if installed
+if [ -d "$HOME/.volta" ]; then
+  export VOLTA_HOME="$HOME/.volta"
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+
+set +e
+echo "[husky/commit-msg] Execute -> commitlint"
+
+npx --no -- commitlint --edit "$1"
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  echo "[husky/commit-msg] commitlint passed"
+else
+  echo "[husky/commit-msg] commitlint failed (exit code: $exit_code)"
+fi
+
+exit $exit_code

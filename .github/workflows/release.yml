@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  ci-check:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+
+    steps:
+      - name: Wait for lint checks to complete
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: Lint & Checks
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Wait for build and test to complete (Ubuntu)
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: Build & Test (ubuntu-latest)
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Wait for build and test to complete (Windows)
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: Build & Test (windows-latest)
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Wait for build and test to complete (macOS)
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: Build & Test (macos-latest)
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+  build:
+    needs: ci-check
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_cmd: build:win
+          - os: macos-latest
+            build_cmd: build:mac
+          - os: ubuntu-latest
+            build_cmd: build:linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/saika-lane/package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package version $PKG_VERSION"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-electron-cache: "true"
+
+      - name: Type check
+        run: cd packages/saika-lane && npx tsc --noEmit
+
+      - name: Test
+        run: cd packages/saika-lane && npx vitest run
+
+      - name: Build Electron app
+        run: cd packages/saika-lane && npm run ${{ matrix.build_cmd }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing secrets (configure in GitHub Settings > Secrets):
+          # - MAC_CSC_LINK: Base64-encoded .p12 certificate for macOS
+          # - MAC_CSC_KEY_PASSWORD: Password for the macOS .p12 certificate
+          # - WIN_CSC_LINK: Base64-encoded .pfx certificate for Windows
+          # - WIN_CSC_KEY_PASSWORD: Password for the Windows .pfx certificate
+          # - APPLE_ID: Apple Developer account email
+          # - APPLE_APP_SPECIFIC_PASSWORD: App-specific password for notarization
+          # - APPLE_TEAM_ID: Apple Developer Team ID
+          # When secrets are not configured, builds proceed unsigned.
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Smoke test build artifacts
+        run: |
+          cd packages/saika-lane/release
+          echo "=== Artifact inventory ==="
+          ls -lh *.exe *.zip *.dmg *.AppImage *.deb 2>/dev/null || true
+
+          # Verify at least one artifact exists
+          shopt -s nullglob
+          artifacts=(*.exe *.zip *.dmg *.AppImage *.deb)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "::error::No build artifacts found"
+            exit 1
+          fi
+
+          # Verify minimum file sizes (> 10MB for real Electron apps)
+          MIN_SIZE=$((10 * 1024 * 1024))
+          for f in "${artifacts[@]}"; do
+            size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
+            if [ "$size" -lt "$MIN_SIZE" ]; then
+              echo "::error::Artifact $f is suspiciously small (${size} bytes)"
+              exit 1
+            fi
+            echo "OK $f ($(numfmt --to=iec "$size" 2>/dev/null || echo "${size} bytes"))"
+          done
+        shell: bash
+
+      - name: Smoke test app launch (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd packages/saika-lane/release
+          chmod +x *.AppImage
+          xvfb-run -a ./"Saika Lane"-*-linux-x64.AppImage --no-sandbox &
+          APP_PID=$!
+          sleep 5
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "OK App launched successfully (PID: $APP_PID)"
+            kill $APP_PID
+            wait $APP_PID 2>/dev/null || true
+          else
+            echo "::error::App failed to start"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            packages/saika-lane/release/*.exe
+            packages/saika-lane/release/*.zip
+            packages/saika-lane/release/*.dmg
+            packages/saika-lane/release/*.AppImage
+            packages/saika-lane/release/*.deb
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            packages/saika-lane/release/*.exe
+            packages/saika-lane/release/*.zip
+            packages/saika-lane/release/*.dmg
+            packages/saika-lane/release/*.AppImage
+            packages/saika-lane/release/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Restore execute permission on AppImage
+        run: chmod +x artifacts/*.AppImage 2>/dev/null || true
+        shell: bash
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          files: |
+            artifacts/*.exe
+            artifacts/*.zip
+            artifacts/*.dmg
+            artifacts/*.AppImage
+            artifacts/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          shopt -s nullglob
+          files=(*.exe *.zip *.dmg *.AppImage *.deb)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No artifacts found" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS.txt
+        shell: bash
+
+      - name: Upload checksums
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          files: artifacts/SHA256SUMS.txt
+
+      - name: Attest checksums provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: artifacts/SHA256SUMS.txt

@@ -1,0 +1,34 @@
+# Auto-generated release notes configuration
+# https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - "Status: Stale"
+      - "needs-template"
+    authors:
+      - dependabot
+      - dependabot[bot]
+      - github-actions[bot]
+  categories:
+    - title: "⚠️ Breaking Changes"
+      labels:
+        - "breaking"
+    - title: "🚀 Features"
+      labels:
+        - "Cat: Feature 🚀"
+    - title: "🐛 Bug Fixes"
+      labels:
+        - "Cat: Bug 🐛"
+    - title: "⚙️ CI/CD"
+      labels:
+        - "Cat: CI/CD ⚙️"
+    - title: "📝 Documentation"
+      labels:
+        - "Cat: Documentation 📝"
+    - title: "🤖 Dependencies"
+      labels:
+        - "Cat: Dependencies 🤖"
+    - title: "Other Changes"
+      labels:
+        - "*"

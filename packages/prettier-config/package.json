@@ -1,0 +1,52 @@
+{
+  "name": "@sasakiuri/prettier-config",
+  "version": "1.0.0",
+  "description": "Shared Prettier configuration",
+  "author": "sasakiuri",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "prettier",
+    "prettier-config"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./tailwind": "./tailwind.js"
+  },
+  "files": [
+    "index.js",
+    "tailwind.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasakiuri/oss.git",
+    "directory": "packages/prettier-config"
+  },
+  "bugs": {
+    "url": "https://github.com/sasakiuri/oss/issues"
+  },
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/prettier-config#readme",
+  "scripts": {
+    "lint": "prettier --check .",
+    "lint:prettier": "prettier --check .",
+    "fix": "prettier --write ."
+  },
+  "peerDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": ">=0.5.0"
+  },
+  "peerDependenciesMeta": {
+    "prettier-plugin-tailwindcss": {
+      "optional": true
+    }
+  }
+}
