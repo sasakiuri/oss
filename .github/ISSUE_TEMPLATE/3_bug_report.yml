@@ -1,0 +1,42 @@
+name: "\U0001F41B Bug Report"
+description: Report a bug.
+labels: ["Cat: Bug \U0001F41B", "Status: Needs Triage \U0001F4A1"]
+
+body:
+  - type: input
+    attributes:
+      label: Package
+      placeholder: "Package: xxx"
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Environment
+      description: Select the operating system where the issue occurs.
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Description
+      description: Clearly describe the issue. Include the current behavior and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to Reproduce
+      description: Provide detailed steps so that others can easily reproduce the issue.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Suggested Solution
+      description: "Optional: If you have identified the cause or a potential fix, please describe it."
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: "Optional: Attach any relevant logs, screenshots, or other resources."

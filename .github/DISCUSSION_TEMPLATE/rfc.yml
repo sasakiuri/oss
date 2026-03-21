@@ -1,0 +1,45 @@
+title: "[RFC] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Request for Comments (RFC)
+
+        Use this template to propose significant changes to the project architecture, APIs, or workflows.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the proposal
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this change needed? What problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: detailed-design
+    attributes:
+      label: Detailed Design
+      description: Explain the design in detail. Include code examples if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches were considered and why were they not chosen?
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What is the impact of this change? Breaking changes, migration steps, etc.

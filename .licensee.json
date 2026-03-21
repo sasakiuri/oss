@@ -1,0 +1,44 @@
+{
+  "licenses": {
+    "spdx": [
+      "MIT",
+      "MIT-0",
+      "ISC",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "Apache-2.0",
+      "0BSD",
+      "CC0-1.0",
+      "CC-BY-3.0",
+      "CC-BY-4.0",
+      "CC-BY-SA-4.0",
+      "Unlicense",
+      "WTFPL",
+      "Python-2.0",
+      "BlueOak-1.0.0"
+    ]
+  },
+  "corrections": true,
+  "ignore": [
+    {
+      "scope": "@sasakiuri",
+      "reason": "Own packages — not third-party dependencies"
+    },
+    {
+      "prefix": "spawndamnit",
+      "reason": "MIT license but declared as 'SEE LICENSE IN LICENSE' — licensee cannot detect SPDX identifier"
+    },
+    {
+      "prefix": "@cspell/dict-en-common-misspellings",
+      "reason": "CC-BY-SA-4.0 — already in the allowed SPDX list but licensee fails to match the non-standard identifier 'CC BY-SA 4.0'"
+    },
+    {
+      "prefix": "@axe-core",
+      "reason": "MPL-2.0 — compatible with MIT for bundled use; not modified or distributed as a library"
+    },
+    {
+      "prefix": "axe-core",
+      "reason": "MPL-2.0 — compatible with MIT for bundled use; not modified or distributed as a library"
+    }
+  ]
+}

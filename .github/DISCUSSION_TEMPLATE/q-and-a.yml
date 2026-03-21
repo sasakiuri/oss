@@ -1,0 +1,23 @@
+title: "[Q&A] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Question
+
+        Ask questions about the project, its architecture, or how to contribute.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any additional context that might help answer your question (e.g., what you've already tried, related issues or docs).

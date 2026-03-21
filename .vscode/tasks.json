@@ -1,0 +1,75 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "npx turbo build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "dev",
+      "type": "shell",
+      "command": "npx turbo dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "npx turbo lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "fix",
+      "type": "shell",
+      "command": "npx turbo fix",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "npx turbo test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "test:e2e",
+      "type": "shell",
+      "command": "npx turbo test:e2e",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "npx turbo typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "cspell",
+      "type": "shell",
+      "command": "npm run cspell",
+      "problemMatcher": []
+    },
+    {
+      "label": "knip",
+      "type": "shell",
+      "command": "npm run knip",
+      "problemMatcher": []
+    },
+    {
+      "label": "syncpack",
+      "type": "shell",
+      "command": "npm run syncpack",
+      "problemMatcher": []
+    },
+    {
+      "label": "license-check",
+      "type": "shell",
+      "command": "npm run license-check",
+      "problemMatcher": []
+    }
+  ]
+}

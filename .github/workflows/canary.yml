@@ -1,0 +1,122 @@
+name: Canary Release
+
+on:
+  push:
+    branches: [canary]
+
+concurrency:
+  group: canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_cmd: build:win
+          - os: macos-latest
+            build_cmd: build:mac
+          - os: ubuntu-latest
+            build_cmd: build:linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-electron-cache: "true"
+
+      - name: Type check
+        run: cd packages/saika-lane && npx tsc --noEmit
+
+      - name: Lint
+        run: npx turbo lint
+
+      - name: Test
+        run: cd packages/saika-lane && npx vitest run
+
+      - name: Build Electron app
+        run: cd packages/saika-lane && npm run ${{ matrix.build_cmd }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing secrets (configure in GitHub Settings > Secrets):
+          # - MAC_CSC_LINK: Base64-encoded .p12 certificate for macOS
+          # - MAC_CSC_KEY_PASSWORD: Password for the macOS .p12 certificate
+          # - WIN_CSC_LINK: Base64-encoded .pfx certificate for Windows
+          # - WIN_CSC_KEY_PASSWORD: Password for the Windows .pfx certificate
+          # - APPLE_ID: Apple Developer account email
+          # - APPLE_APP_SPECIFIC_PASSWORD: App-specific password for notarization
+          # - APPLE_TEAM_ID: Apple Developer Team ID
+          # When secrets are not configured, builds proceed unsigned.
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: canary-${{ matrix.os }}
+          path: |
+            packages/saika-lane/release/*.exe
+            packages/saika-lane/release/*.zip
+            packages/saika-lane/release/*.dmg
+            packages/saika-lane/release/*.AppImage
+            packages/saika-lane/release/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Determine canary version tag
+        id: version
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/saika-lane/package.json').version")
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TAG="v${PKG_VERSION}-canary.${SHORT_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          pattern: canary-*
+          merge-multiple: true
+
+      - name: Restore execute permission on AppImage
+        run: chmod +x artifacts/*.AppImage 2>/dev/null || true
+        shell: bash
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            artifacts/*.exe
+            artifacts/*.zip
+            artifacts/*.dmg
+            artifacts/*.AppImage
+            artifacts/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

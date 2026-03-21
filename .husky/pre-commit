@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Volta support: add to PATH if installed
+if [ -d "$HOME/.volta" ]; then
+  export VOLTA_HOME="$HOME/.volta"
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+
+set +e
+echo "[husky/pre-commit] Execute -> lint-staged"
+
+npx lint-staged
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  echo "[husky/pre-commit] lint-staged passed"
+else
+  echo "[husky/pre-commit] lint-staged failed (exit code: $exit_code)"
+fi
+
+exit $exit_code

@@ -1,0 +1,51 @@
+name: Publish Packages
+
+# NOTE: This workflow publishes shared config packages to npm.
+# All shared packages have "private": false and .changeset/config.json has
+# "access": "public".
+#
+# Authentication: Currently uses NPM_TOKEN (automation token) with OIDC
+# provenance via id-token:write + --provenance. Once npm Trusted Publishers
+# is fully supported for GitHub Actions OIDC, remove NPM_TOKEN and rely
+# solely on id-token:write for authentication.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/1.x'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build
+        run: npx turbo build
+
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
+        with:
+          publish: npx changeset publish --provenance
+          version: npx changeset version
+          title: "chore(root): version packages"
+          commit: "chore(root): version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true

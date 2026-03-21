@@ -1,0 +1,52 @@
+{
+  "name": "@sasakiuri/eslint-config",
+  "version": "1.0.0",
+  "description": "Shared ESLint configuration",
+  "author": "sasakiuri",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "eslint",
+    "eslint-config",
+    "flat-config"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasakiuri/oss.git",
+    "directory": "packages/eslint-config"
+  },
+  "bugs": {
+    "url": "https://github.com/sasakiuri/oss/issues"
+  },
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/eslint-config#readme",
+  "scripts": {
+    "lint": "prettier --check .",
+    "lint:prettier": "prettier --check .",
+    "fix": "prettier --write ."
+  },
+  "dependencies": {
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "typescript-eslint": "^8.19.1"
+  },
+  "peerDependencies": {
+    "eslint": "^9"
+  }
+}

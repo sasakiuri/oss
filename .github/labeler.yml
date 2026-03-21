@@ -1,0 +1,29 @@
+"Package: saika-lane 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-lane/**
+
+"Package: shared-config 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/eslint-config/**
+          - packages/prettier-config/**
+          - packages/stylelint-config/**
+          - packages/typescript-config/**
+
+"Cat: CI/CD ⚙️":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+
+"Cat: Documentation 📝":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - docs/**
+
+"Cat: Dependencies 🤖":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/package.json"
+          - package-lock.json

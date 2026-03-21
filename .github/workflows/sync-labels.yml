@@ -1,0 +1,89 @@
+name: Sync Labels
+
+on:
+  push:
+    branches: [1.x]
+    paths: [.github/labels.yml]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install yq
+        # NOTE: yq version is not managed by Dependabot. Update manually when needed.
+        run: |
+          YQ_VERSION="v4.45.4"
+          YQ_CHECKSUM="b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69"
+          wget -qO /tmp/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_CHECKSUM}  /tmp/yq" | sha256sum -c -
+          sudo install /tmp/yq /usr/local/bin/yq
+
+      - name: Migrate legacy label names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # One-time migration: rename labels without emoji to emoji versions
+          # Safe to re-run: fails silently if old label doesn't exist
+          gh label edit "Cat: CI/CD"        --name "Cat: CI/CD ⚙️"          2>/dev/null || true
+          gh label edit "Cat: Documentation" --name "Cat: Documentation 📝" 2>/dev/null || true
+          gh label edit "Cat: Dependencies"  --name "Cat: Dependencies 🤖"  2>/dev/null || true
+          gh label edit "Package: saika-lane"    --name "Package: saika-lane 📦"    2>/dev/null || true
+          gh label edit "Package: shared-config" --name "Package: shared-config 📦" 2>/dev/null || true
+
+      - name: Sync labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LABELS_FILE=".github/labels.yml"
+
+          # Collect defined label names
+          defined_labels=()
+          count=$(yq '. | length' "$LABELS_FILE")
+
+          for ((i = 0; i < count; i++)); do
+            name=$(yq ".[$i].name" "$LABELS_FILE")
+            color=$(yq ".[$i].color" "$LABELS_FILE")
+            description=$(yq ".[$i].description" "$LABELS_FILE")
+            defined_labels+=("$name")
+
+            # Create or update
+            if gh label create "$name" --color "$color" --description "$description" 2>/dev/null; then
+              echo "Created: $name"
+            else
+              gh label edit "$name" --color "$color" --description "$description"
+              echo "Updated: $name"
+            fi
+          done
+
+          # Delete managed labels not in YAML (only Cat:/Package:/Status: prefixes)
+          MANAGED_PREFIXES=("Cat: " "Package: " "Status: ")
+          gh label list --limit 200 --json name -q '.[].name' | while IFS= read -r label; do
+            managed=false
+            for prefix in "${MANAGED_PREFIXES[@]}"; do
+              if [[ "$label" == "$prefix"* ]]; then
+                managed=true
+                break
+              fi
+            done
+            if [[ "$managed" == false ]]; then
+              continue
+            fi
+
+            found=false
+            for defined in "${defined_labels[@]}"; do
+              if [[ "$defined" == "$label" ]]; then
+                found=true
+                break
+              fi
+            done
+            if [[ "$found" == false ]]; then
+              gh label delete "$label" --yes
+              echo "Deleted: $label"
+            fi
+          done

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "build/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "lint:eslint": {
+      "dependsOn": ["^build"]
+    },
+    "lint:prettier": {},
+    "fix": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "outputs": ["test-results/**", "playwright-report/**"],
+      "cache": false
+    },
+    "depcruise": {
+      "dependsOn": [],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        ".dependency-cruiser.cjs",
+        ".dependency-cruiser-known-violations.json",
+        "tsconfig.json"
+      ]
+    },
+    "size-limit": {
+      "dependsOn": ["build"]
+    },
+    "analyze": {
+      "dependsOn": ["build"],
+      "outputs": ["stats.html"],
+      "env": ["ANALYZE"]
+    },
+    "typecheck": {
+      "dependsOn": [],
+      "outputs": []
+    }
+  },
+  "globalDependencies": [".env", ".env.local", "package.json"],
+  "globalPassThroughEnv": ["CI", "NODE_ENV"]
+}

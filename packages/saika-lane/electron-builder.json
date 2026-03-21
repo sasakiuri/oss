@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "jp.nilay.saika.lane",
+  "productName": "Saika Lane",
+  "directories": {
+    "output": "release"
+  },
+  "asar": true,
+  "files": [
+    "dist/**/*",
+    "package.json",
+    "node_modules/**/*",
+    "!node_modules/**/test",
+    "!node_modules/**/tests",
+    "!node_modules/**/*.test.*",
+    "!node_modules/**/docs",
+    "!node_modules/**/*.md",
+    "!node_modules/**/*.map",
+    "!node_modules/**/CHANGELOG*",
+    "!node_modules/**/LICENSE*",
+    "!node_modules/**/README*"
+  ],
+  "asarUnpack": ["**/*.node", "**/serialport/**", "**/@serialport/**", "**/better-sqlite3/**"],
+  "npmRebuild": true,
+  "extraResources": [
+    {
+      "from": "THIRD-PARTY-LICENSES.txt",
+      "to": "THIRD-PARTY-LICENSES.txt"
+    }
+  ],
+  "icon": "resources/appIcon.png",
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "perMachine": false,
+    "allowElevation": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] },
+      { "target": "zip", "arch": ["x64", "arm64"] }
+    ],
+    "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+    "category": "public.app-category.utilities"
+  },
+  "dmg": {
+    "title": "${productName} ${version}"
+  },
+  "linux": {
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] }
+    ],
+    "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+    "category": "Utility"
+  }
+}

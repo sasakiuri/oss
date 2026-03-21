@@ -1,0 +1,33 @@
+# ============================================
+# Lock files (tracked but not human-authored)
+# ============================================
+package-lock.json
+pnpm-lock.yaml
+
+# ============================================
+# Auto-generated changelogs
+# ============================================
+CHANGELOG.md
+**/CHANGELOG.md
+
+# ============================================
+# Changeset internals
+# ============================================
+.changeset/
+
+# ============================================
+# License files (verbatim legal text)
+# ============================================
+LICENSE
+**/LICENSE
+THIRD-PARTY-LICENSES.txt
+
+# ============================================
+# Husky git hooks (shell scripts, not formattable)
+# ============================================
+.husky/
+
+# ============================================
+# Editor / IDE settings (managed by tools)
+# ============================================
+.vscode/

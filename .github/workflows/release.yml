@@ -1,0 +1,224 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  preflight:
+    name: Preflight Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-turbo-cache: "true"
+
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/saika-lane/package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package version $PKG_VERSION"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Type check
+        run: cd packages/saika-lane && npx tsc --noEmit
+
+      - name: Lint
+        run: npx turbo lint
+
+      - name: Architecture validation
+        run: npx turbo depcruise
+
+      - name: License check
+        run: npm run license-check
+
+      - name: Spell check
+        run: npm run cspell
+
+      - name: Unused exports check
+        run: npm run knip
+
+      - name: Dependency version check
+        run: npm run syncpack
+
+  build:
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-node
+        with:
+          enable-electron-cache: "true"
+
+      - name: Build Electron app
+        run: cd packages/saika-lane && npm run build && npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing is not configured. electron-builder treats CSC_LINK='' as a file
+          # path ("not a file" error), so we must NOT set CSC_LINK at all.
+          # To enable signing, add MAC_CSC_LINK/WIN_CSC_LINK secrets and split this step
+          # into signed/unsigned variants with conditional env injection.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Smoke test build artifacts
+        run: |
+          cd packages/saika-lane/release
+          echo "=== Artifact inventory ==="
+          ls -lh *.exe *.zip *.dmg *.AppImage *.deb 2>/dev/null || true
+
+          # Verify at least one artifact exists
+          shopt -s nullglob
+          artifacts=(*.exe *.zip *.dmg *.AppImage *.deb)
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "::error::No build artifacts found"
+            exit 1
+          fi
+
+          # Verify minimum file sizes (> 10MB for real Electron apps)
+          MIN_SIZE=$((10 * 1024 * 1024))
+          for f in "${artifacts[@]}"; do
+            size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
+            if [ -z "$size" ]; then
+              echo "::error::Could not determine size of $f"
+              exit 1
+            fi
+            if [ "$size" -lt "$MIN_SIZE" ]; then
+              echo "::error::Artifact $f is suspiciously small (${size} bytes)"
+              exit 1
+            fi
+            echo "OK $f ($(numfmt --to=iec "$size" 2>/dev/null || echo "${size} bytes"))"
+          done
+        shell: bash
+
+      - name: Install libfuse2 (AppImage dependency)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
+
+      - name: Smoke test app launch (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd packages/saika-lane/release
+          chmod +x *.AppImage
+          xvfb-run -a ./"Saika Lane"-*-linux-x86_64.AppImage --no-sandbox &
+          APP_PID=$!
+          sleep 5
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "OK App launched successfully (PID: $APP_PID)"
+            kill $APP_PID
+            wait $APP_PID 2>/dev/null || true
+          else
+            echo "::error::App failed to start"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            packages/saika-lane/release/*.exe
+            packages/saika-lane/release/*.zip
+            packages/saika-lane/release/*.dmg
+            packages/saika-lane/release/*.AppImage
+            packages/saika-lane/release/*.deb
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            packages/saika-lane/release/*.exe
+            packages/saika-lane/release/*.zip
+            packages/saika-lane/release/*.dmg
+            packages/saika-lane/release/*.AppImage
+            packages/saika-lane/release/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Restore execute permission on AppImage
+        run: chmod +x artifacts/*.AppImage 2>/dev/null || true
+        shell: bash
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          files: |
+            artifacts/*.exe
+            artifacts/*.zip
+            artifacts/*.dmg
+            artifacts/*.AppImage
+            artifacts/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          shopt -s nullglob
+          files=(*.exe *.zip *.dmg *.AppImage *.deb)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No artifacts found" >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS.txt
+        shell: bash
+
+      - name: Upload checksums
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          files: artifacts/SHA256SUMS.txt
+
+      - name: Attest checksums provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: artifacts/SHA256SUMS.txt

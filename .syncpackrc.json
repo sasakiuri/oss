@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/syncpack@14.2.0/schema.json",
+  "source": ["package.json", "packages/*/package.json"],
+  "versionGroups": [
+    {
+      "label": "Internal packages use workspace wildcard",
+      "dependencies": ["@sasakiuri/**"],
+      "dependencyTypes": ["dev", "prod"],
+      "pinVersion": "*"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Use exact versions for TypeScript tooling",
+      "packages": ["**"],
+      "dependencies": ["typescript"],
+      "range": ""
+    }
+  ]
+}
