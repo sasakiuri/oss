@@ -33,6 +33,8 @@ jobs:
             stylelint-config
             typescript-config
             repo
+            root
+            monorepo
           requireScope: true
           subjectPattern: ^.+$
           subjectPatternError: "PR title subject must not be empty"
