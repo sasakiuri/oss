@@ -20,9 +20,9 @@ let cleanupFn: (() => void) | null = null;
 
 function ensureInitialized(): void {
   if (initialized) return;
-  initialized = true;
 
   const ctx = new AudioContext({ latencyHint: 'interactive' });
+  initialized = true;
   sharedCtx = ctx;
 
   // Immediately resume on app startup (attempt even before user gesture)
