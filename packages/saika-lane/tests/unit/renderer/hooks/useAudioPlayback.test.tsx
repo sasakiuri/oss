@@ -2,7 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useAudioPlayback } from '@/renderer/presentation/hooks/useAudioPlayback';
+import { _resetAudioPlaybackForTest, useAudioPlayback } from '@/renderer/presentation/hooks/useAudioPlayback';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
 vi.mock('@/assets/sounds/shot.wav', () => ({
@@ -96,6 +96,7 @@ async function flushAudioLoad() {
 
 describe('useAudioPlayback', () => {
   beforeEach(() => {
+    _resetAudioPlaybackForTest();
     useSessionStore.setState({ deviceId: null, audioVolume: 50 });
     vi.clearAllMocks();
     capturedGainValue = undefined;
@@ -142,13 +143,22 @@ describe('useAudioPlayback', () => {
       expect(warmupSource.connect).toHaveBeenCalledWith(mockCtxInstance.destination);
     });
 
-    it('calls AudioContext.close() on unmount', async () => {
+    it('does not close the singleton AudioContext on unmount (persists for app lifetime)', async () => {
       const { unmount } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
 
       unmount();
 
-      expect(mockClose).toHaveBeenCalledTimes(1);
+      expect(mockClose).not.toHaveBeenCalled();
+    });
+
+    it('shares a single AudioContext across multiple hook instances', async () => {
+      renderHook(() => useAudioPlayback());
+      renderHook(() => useAudioPlayback());
+      await flushAudioLoad();
+
+      // Only one AudioContext should be created despite two hook instances
+      expect(MockAudioContext).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -247,9 +257,29 @@ describe('useAudioPlayback', () => {
       expect(capturedGainValue).toBe(1);
     });
 
-    it('plays without calling resume when AudioContext is suspended (resume is handled by gesture handler)', async () => {
+    it('calls resume() before playback when AudioContext is suspended', async () => {
       useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
       mockCtxState = 'suspended';
+
+      const { result } = renderHook(() => useAudioPlayback());
+      await flushAudioLoad();
+
+      // Clear the resume call from initialization
+      mockResume.mockClear();
+
+      await act(async () => {
+        result.current.playShotSound();
+      });
+
+      // playBuffer detects suspended state and calls resume before playing
+      expect(mockResume).toHaveBeenCalledTimes(1);
+      expect(mockStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('plays even if resume() rejects (best-effort)', async () => {
+      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      mockCtxState = 'suspended';
+      mockResume.mockRejectedValueOnce(new Error('resume failed'));
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -258,8 +288,7 @@ describe('useAudioPlayback', () => {
         result.current.playShotSound();
       });
 
-      // resume is called only once during mount initialization (not called within playBuffer)
-      expect(mockResume).toHaveBeenCalledTimes(1);
+      // Even though resume failed, playback is still attempted (best-effort)
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 

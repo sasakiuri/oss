@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { _resetAudioPlaybackForTest } from '@/renderer/presentation/hooks/useAudioPlayback';
 import { useEventSubscriptions } from '@/renderer/presentation/hooks/useEventSubscriptions';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
@@ -69,6 +70,7 @@ const mockOnShotRecorded = vi.fn();
 
 describe('useEventSubscriptions', () => {
   beforeEach(() => {
+    _resetAudioPlaybackForTest();
     useSessionStore.getState().resetSession();
     useConnectionStore.getState().disconnect();
     vi.clearAllMocks();
@@ -109,6 +111,7 @@ describe('useEventSubscriptions', () => {
   });
 
   afterEach(() => {
+    _resetAudioPlaybackForTest();
     delete (window as any).electronAPI;
     vi.unstubAllGlobals();
   });

@@ -2,6 +2,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { _resetAudioPlaybackForTest } from '@/renderer/presentation/hooks/useAudioPlayback';
 import { useShotEvents } from '@/renderer/presentation/hooks/useShotEvents';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ShotRecordedEventPayload } from '@/shared/ipc/contracts';
@@ -57,6 +58,7 @@ const mockOnShotReceived = vi.fn();
 
 describe('useShotEvents', () => {
   beforeEach(() => {
+    _resetAudioPlaybackForTest();
     useSessionStore.getState().resetSession();
     vi.clearAllMocks();
 
@@ -79,6 +81,7 @@ describe('useShotEvents', () => {
   });
 
   afterEach(() => {
+    _resetAudioPlaybackForTest();
     Reflect.deleteProperty(window, 'electronAPI');
     vi.unstubAllGlobals();
   });
