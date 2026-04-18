@@ -38,7 +38,6 @@ export interface MainScreenProps {
  * MainScreen component
  */
 export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
-  const isDev = import.meta.env.DEV;
   const { currentSessionId } = useSession();
   const { shots } = useShot();
   const { discipline } = useSessionStore();
@@ -81,7 +80,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
           setSettingsInitialTab('general');
           setIsSettingsModalOpen(true);
         }}
-        onDebugPanelToggle={isDev ? () => setIsDebugPaneOpen((prev) => !prev) : undefined}
+        onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)}
         onZoomIn={handleZoomClick}
         onZoomOut={handleZoomClick}
       />
@@ -112,12 +111,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
         </main>
       </div>
 
-      {isDev && isDebugPaneOpen && <DebugPane onClose={() => setIsDebugPaneOpen(false)} className="h-64" />}
+      {isDebugPaneOpen && <DebugPane onClose={() => setIsDebugPaneOpen(false)} className="h-64" />}
 
-      <StatusBar
-        isConnected={isConnected}
-        onDebugPanelToggle={isDev ? () => setIsDebugPaneOpen((prev) => !prev) : undefined}
-      />
+      <StatusBar isConnected={isConnected} onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)} />
 
       <SettingsModal
         isOpen={isSettingsModalOpen}

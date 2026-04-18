@@ -89,7 +89,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ isConnected, onDebugPanelT
           </div>
         </div>
 
-        {/* S3: Debug Button (dev only) */}
+        {/* S3: Debug Button */}
         {onDebugPanelToggle && (
           <button
             onClick={onDebugPanelToggle}
