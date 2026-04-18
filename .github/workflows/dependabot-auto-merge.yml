@@ -1,14 +1,21 @@
-name: "Dependabot Auto-merge"
-on: pull_request
+name: Dependabot Auto-merge
+
+on:
+  pull_request:
+    branches:
+      - 1.x
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 concurrency:
-  group: dependabot-${{ github.ref }}
+  group: dependabot-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
-  checks: read
 
 jobs:
   dependabot:
@@ -18,24 +25,38 @@ jobs:
       - name: Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
-
-      - name: Wait for CI checks
-        if: |
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
-        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          check-name: Lint & Checks
-          wait-interval: 30
-          allowed-conclusions: success,skipped
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for Dependabot PRs
-        if: |
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+      - name: Decide auto-merge policy
+        id: policy
+        shell: bash
+        run: |
+          AUTO_MERGE=false
+          GROUP="${{ steps.metadata.outputs.dependency-group }}"
+
+          # Phased rollout. Initially only the safest groups are auto-merged.
+          # Expand the allowlist once the pipeline has proven stable (e.g. 10
+          # consecutive successful merges with zero regressions).
+          case "$GROUP" in
+            minor-and-patch|security-dev-safe)
+              AUTO_MERGE=true
+              ;;
+          esac
+
+          echo "auto-merge=$AUTO_MERGE" >> "$GITHUB_OUTPUT"
+          echo "Resolved policy auto-merge=$AUTO_MERGE for group=$GROUP"
+
+      - name: Approve PR
+        if: steps.policy.outputs.auto-merge == 'true'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: steps.policy.outputs.auto-merge == 'true'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{github.event.pull_request.html_url}}
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

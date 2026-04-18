@@ -8,20 +8,43 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 10
     labels:
       - "Cat: Dependencies 🤖"
     commit-message:
       prefix: "chore(root):"
     groups:
-      major-updates:
-        update-types:
-          - major
       minor-and-patch:
+        applies-to: version-updates
         update-types:
           - minor
           - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── saika-lane ─────────────────────────────────────────────────────
   - package-ecosystem: npm
@@ -30,7 +53,6 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 10
     labels:
       - "Cat: Dependencies 🤖"
@@ -38,13 +60,37 @@ updates:
     commit-message:
       prefix: "chore(saika-lane):"
     groups:
-      major-updates:
-        update-types:
-          - major
       minor-and-patch:
+        applies-to: version-updates
         update-types:
           - minor
           - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── eslint-config ──────────────────────────────────────────────────
   - package-ecosystem: npm
@@ -53,7 +99,6 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 5
     labels:
       - "Cat: Dependencies 🤖"
@@ -61,9 +106,37 @@ updates:
     commit-message:
       prefix: "chore(eslint-config):"
     groups:
-      all-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── prettier-config ────────────────────────────────────────────────
   - package-ecosystem: npm
@@ -72,7 +145,6 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 5
     labels:
       - "Cat: Dependencies 🤖"
@@ -80,9 +152,37 @@ updates:
     commit-message:
       prefix: "chore(prettier-config):"
     groups:
-      all-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── stylelint-config ───────────────────────────────────────────────
   - package-ecosystem: npm
@@ -91,7 +191,6 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 5
     labels:
       - "Cat: Dependencies 🤖"
@@ -99,9 +198,37 @@ updates:
     commit-message:
       prefix: "chore(stylelint-config):"
     groups:
-      all-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── typescript-config ──────────────────────────────────────────────
   - package-ecosystem: npm
@@ -110,7 +237,6 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 5
     labels:
       - "Cat: Dependencies 🤖"
@@ -118,9 +244,37 @@ updates:
     commit-message:
       prefix: "chore(typescript-config):"
     groups:
-      all-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
+      security-prod-safe:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - patch
+          - minor
+      security-dev-safe:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - patch
+          - minor
+      security-prod-major:
+        applies-to: security-updates
+        dependency-type: production
+        update-types:
+          - major
+      security-dev-major:
+        applies-to: security-updates
+        dependency-type: development
+        update-types:
+          - major
 
   # ── GitHub Actions ─────────────────────────────────────────────────
   - package-ecosystem: github-actions
@@ -129,13 +283,18 @@ updates:
       interval: daily
       time: "02:00"
       timezone: Asia/Tokyo
-    target-branch: 1.x
     open-pull-requests-limit: 10
     labels:
       - "Cat: Dependencies 🤖"
     commit-message:
       prefix: "chore(root):"
     groups:
-      github-actions-updates:
-        patterns:
-          - "*"
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      major-updates:
+        applies-to: version-updates
+        update-types:
+          - major
