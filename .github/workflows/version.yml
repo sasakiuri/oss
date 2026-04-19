@@ -15,6 +15,11 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      # Husky's commit-msg/pre-commit hooks run commitlint against fixed strings
+      # like "Version Packages" which are not Conventional Commits. Disable husky
+      # hooks in CI — they exist to guard developer commits, not automated flows.
+      HUSKY: "0"
 
     steps:
       - name: Checkout code
@@ -30,6 +35,8 @@ jobs:
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           version: npx changeset version
+          commit: "chore(saika-lane): version packages"
+          title: "chore(saika-lane): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
