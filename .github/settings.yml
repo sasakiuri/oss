@@ -30,7 +30,13 @@ branches:
       required_pull_request_reviews:
         required_approving_review_count: 1
         dismiss_stale_reviews: true
-        require_code_owner_reviews: true
+        # Disabled so Dependabot auto-merge (approving via
+        # secrets.GITHUB_TOKEN as github-actions[bot]) is not permanently
+        # blocked by the CODEOWNERS gate. Practically equivalent to "true"
+        # while @sasakiuri is the sole write-access user. See
+        # scripts/setup-branch-protection.sh for the full rationale and the
+        # re-enable plan if a second maintainer is ever added.
+        require_code_owner_reviews: false
         dismissal_restrictions:
           users: []
           teams: []
