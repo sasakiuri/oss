@@ -4,15 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { settingsModule } from '@/main/modules/settings/settings.module';
 import { settingsContract } from '@/shared/ipc/contracts';
 
-import { createMockIpcRouter, createMockStorage } from '../../../helpers/mockDependencies';
+import { createMockIpcRouter, createMockSettingsStore } from '../../../helpers/mockDependencies';
+
+interface SettingsHandlers {
+  saveConnectionSettings: (input: Record<string, unknown>) => Promise<void>;
+  getConnectionSettings: () => Promise<unknown>;
+  saveUserPreferences: (input: Record<string, unknown>) => Promise<void>;
+  getUserPreferences: () => Promise<unknown>;
+}
 
 describe('settings.module', () => {
   let ipcRouter: ReturnType<typeof createMockIpcRouter>;
-  let storage: ReturnType<typeof createMockStorage>;
+  let settingsStore: ReturnType<typeof createMockSettingsStore>;
 
   beforeEach(() => {
     ipcRouter = createMockIpcRouter();
-    storage = createMockStorage();
+    settingsStore = createMockSettingsStore();
   });
 
   describe('metadata', () => {
@@ -21,31 +28,34 @@ describe('settings.module', () => {
     });
 
     it('should declare correct dependencies', () => {
-      expect(settingsModule.deps).toEqual(['ipcRouter', 'storage']);
+      expect(settingsModule.deps).toEqual(['ipcRouter', 'settingsStore']);
     });
   });
 
   describe('register', () => {
     it('should register IPC handlers with settingsContract', () => {
-      settingsModule.register({ ipcRouter, storage });
+      settingsModule.register({ ipcRouter, settingsStore });
 
       expect(ipcRouter.register).toHaveBeenCalledTimes(1);
       expect(ipcRouter.register).toHaveBeenCalledWith(settingsContract, expect.any(Object));
     });
 
-    it('should register handlers with all 4 settings methods', () => {
-      settingsModule.register({ ipcRouter, storage });
+    it('should register handlers with all settings methods', () => {
+      settingsModule.register({ ipcRouter, settingsStore });
 
       const registeredHandlers = (ipcRouter.register as ReturnType<typeof vi.fn>).mock.calls[0]![1];
       expect(registeredHandlers).toHaveProperty('saveConnectionSettings');
       expect(registeredHandlers).toHaveProperty('getConnectionSettings');
       expect(registeredHandlers).toHaveProperty('saveUserPreferences');
       expect(registeredHandlers).toHaveProperty('getUserPreferences');
+      expect(registeredHandlers).toHaveProperty('saveAppSettings');
+      expect(registeredHandlers).toHaveProperty('getAppSettings');
+      expect(registeredHandlers).toHaveProperty('getSettingsFileInfo');
     });
 
     it('should not register command or query bus handlers', () => {
-      // settings module only uses ipcRouter, not commandBus/queryBus
-      settingsModule.register({ ipcRouter, storage });
+      // settings module only uses ipcRouter/settingsStore, not commandBus/queryBus
+      settingsModule.register({ ipcRouter, settingsStore });
 
       // Only ipcRouter.register was called
       expect(ipcRouter.register).toHaveBeenCalledTimes(1);
@@ -53,15 +63,8 @@ describe('settings.module', () => {
   });
 
   describe('IPC handlers', () => {
-    interface SettingsHandlers {
-      saveConnectionSettings: (input: Record<string, unknown>) => Promise<void>;
-      getConnectionSettings: () => Promise<unknown>;
-      saveUserPreferences: (input: Record<string, unknown>) => Promise<void>;
-      getUserPreferences: () => Promise<unknown>;
-    }
-
     function getHandlers(): SettingsHandlers {
-      settingsModule.register({ ipcRouter, storage });
+      settingsModule.register({ ipcRouter, settingsStore });
       return (ipcRouter.register as ReturnType<typeof vi.fn>).mock.calls[0]![1] as SettingsHandlers;
     }
 
@@ -71,13 +74,13 @@ describe('settings.module', () => {
 
       await handlers.saveConnectionSettings({ settings });
 
-      expect(storage.set).toHaveBeenCalledWith('connectionSettings', settings);
+      expect(settingsStore.saveConnectionSettings).toHaveBeenCalledWith(settings);
     });
 
     it('getConnectionSettings should return stored settings', async () => {
       const handlers = getHandlers();
       const settings = { portName: 'COM3', manufacturer: 'KOHTO' };
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue(settings);
+      (settingsStore.getConnectionSettings as ReturnType<typeof vi.fn>).mockReturnValue(settings);
 
       const result = await handlers.getConnectionSettings();
 
@@ -86,26 +89,24 @@ describe('settings.module', () => {
 
     it('getConnectionSettings should throw SETTINGS_NOT_FOUND when no settings', async () => {
       const handlers = getHandlers();
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+      (settingsStore.getConnectionSettings as ReturnType<typeof vi.fn>).mockReturnValue(null);
 
       await expect(handlers.getConnectionSettings()).rejects.toThrow();
     });
 
     it('saveUserPreferences should merge with existing preferences', async () => {
       const handlers = getHandlers();
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue({ laneNumber: 1 });
 
       await handlers.saveUserPreferences({ preferences: { discipline: 'AIR_RIFLE_10M' } });
 
-      expect(storage.set).toHaveBeenCalledWith('userPreferences', {
-        laneNumber: 1,
+      expect(settingsStore.saveUserPreferences).toHaveBeenCalledWith({
         discipline: 'AIR_RIFLE_10M',
       });
     });
 
     it('getUserPreferences should return empty object when no preferences', async () => {
       const handlers = getHandlers();
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+      (settingsStore.getUserPreferences as ReturnType<typeof vi.fn>).mockReturnValue({});
 
       const result = await handlers.getUserPreferences();
 
@@ -113,46 +114,41 @@ describe('settings.module', () => {
     });
   });
 
-  describe('laneId auto-generation', () => {
-    it('should generate laneId when not present in storage', () => {
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+  describe('document-level APIs', () => {
+    interface ExtendedSettingsHandlers extends SettingsHandlers {
+      saveAppSettings: (input: Record<string, unknown>) => Promise<void>;
+      getAppSettings: () => Promise<unknown>;
+      getSettingsFileInfo: () => Promise<unknown>;
+    }
 
-      settingsModule.register({ ipcRouter, storage });
+    function getExtendedHandlers(): ExtendedSettingsHandlers {
+      settingsModule.register({ ipcRouter, settingsStore });
+      return (ipcRouter.register as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ExtendedSettingsHandlers;
+    }
 
-      expect(storage.get).toHaveBeenCalledWith('mqtt.laneId');
-      expect(storage.set).toHaveBeenCalledWith(
-        'mqtt.laneId',
-        expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
-      );
+    it('getAppSettings returns the full settings document', async () => {
+      const handlers = getExtendedHandlers();
+
+      const result = await handlers.getAppSettings();
+
+      expect(result).toEqual(settingsStore.getAll());
     });
 
-    it('should preserve existing laneId', () => {
-      const existingId = '550e8400-e29b-41d4-a716-446655440000';
-      (storage.get as ReturnType<typeof vi.fn>).mockImplementation((key: string) => {
-        if (key === 'mqtt.laneId') return existingId;
-        return undefined;
-      });
+    it('saveAppSettings stores the full settings document', async () => {
+      const handlers = getExtendedHandlers();
+      const appSettings = settingsStore.getAll();
 
-      settingsModule.register({ ipcRouter, storage });
+      await handlers.saveAppSettings({ settings: appSettings });
 
-      // storage.set should NOT have been called with mqtt.laneId
-      const setCalls = (storage.set as ReturnType<typeof vi.fn>).mock.calls;
-      const laneIdSetCalls = setCalls.filter((call: unknown[]) => call[0] === 'mqtt.laneId');
-      expect(laneIdSetCalls).toHaveLength(0);
+      expect(settingsStore.replaceAll).toHaveBeenCalledWith(appSettings);
     });
 
-    it('should generate a valid UUID v4 format', () => {
-      (storage.get as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
+    it('getSettingsFileInfo returns the settings path', async () => {
+      const handlers = getExtendedHandlers();
 
-      settingsModule.register({ ipcRouter, storage });
+      const result = await handlers.getSettingsFileInfo();
 
-      const setCalls = (storage.set as ReturnType<typeof vi.fn>).mock.calls;
-      const laneIdCall = setCalls.find((call: unknown[]) => call[0] === 'mqtt.laneId');
-      expect(laneIdCall).toBeDefined();
-
-      const generatedId = laneIdCall![1] as string;
-      // UUID v4 format: 8-4-4-4-12 hex chars, version 4, variant 1
-      expect(generatedId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(result).toEqual({ path: '/tmp/settings.json' });
     });
   });
 });

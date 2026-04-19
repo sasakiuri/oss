@@ -35,11 +35,20 @@ export type {
   TargetManufacturer,
 } from './connection.contract';
 
-export { ConnectionSettingsSchema, settingsContract } from './settings.contract';
+export {
+  AppSettingsDraftSchema,
+  AppSettingsSchema,
+  ConnectionSettingsSchema,
+  settingsContract,
+} from './settings.contract';
 export type {
+  AppSettingsDraftDto,
+  AppSettingsDto,
   ConnectionSettingsDto,
+  SaveAppSettingsInput,
   SaveConnectionSettingsInput,
   SaveUserPreferencesInput,
+  SettingsFileInfoDto,
   UserPreferencesDto,
 } from './settings.contract';
 

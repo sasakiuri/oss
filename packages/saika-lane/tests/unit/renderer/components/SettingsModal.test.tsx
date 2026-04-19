@@ -13,10 +13,25 @@ vi.mock('@/renderer/services/settingsService', () => ({
     getUserPreferences: vi.fn().mockResolvedValue({ laneNumber: 1 }),
     saveConnectionSettings: vi.fn().mockResolvedValue(undefined),
     getConnectionSettings: vi.fn().mockResolvedValue({}),
+    saveAppSettings: vi.fn().mockResolvedValue(undefined),
+    getAppSettings: vi.fn().mockResolvedValue({
+      connection: { portName: '', manufacturer: 'KOHTO', deviceId: '' },
+      userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
+      mqtt: {
+        enabled: false,
+        brokerUrl: '',
+        laneAlias: '',
+        autoConnect: false,
+        laneId: '550e8400-e29b-41d4-a716-446655440000',
+      },
+    }),
+    getSettingsFileInfo: vi.fn().mockResolvedValue({ path: '/tmp/settings.json' }),
   },
 }));
 
 const mockSaveUserPreferences = vi.mocked(settingsService.saveUserPreferences);
+const mockSaveAppSettings = vi.mocked(settingsService.saveAppSettings);
+const mockGetAppSettings = vi.mocked(settingsService.getAppSettings);
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
@@ -77,12 +92,14 @@ describe('SettingsModal', () => {
   });
 
   describe('tab structure', () => {
-    it('displays 3 tabs: "General", "Target", "Connection"', () => {
+    it('displays all tabs including JSON', () => {
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
       expect(screen.getByText('General')).toBeInTheDocument();
       expect(screen.getByText('Target')).toBeInTheDocument();
       expect(screen.getByText('Connection')).toBeInTheDocument();
+      expect(screen.getByText('MQTT')).toBeInTheDocument();
+      expect(screen.getByText('JSON')).toBeInTheDocument();
     });
 
     it('General tab is active by default', () => {
@@ -184,6 +201,15 @@ describe('SettingsModal', () => {
 
       expect(screen.getByTestId('settings-connection-tab')).toBeInTheDocument();
       expect(screen.getByText('ConnectionTab')).toBeInTheDocument();
+    });
+
+    it('JSON tab displays settings document metadata', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      expect(await screen.findByText('/tmp/settings.json')).toBeInTheDocument();
+      expect(screen.getByLabelText('Settings Document')).toBeInTheDocument();
     });
   });
 
@@ -351,6 +377,46 @@ describe('SettingsModal', () => {
       await waitFor(() => {
         expect(mockOnClose).toHaveBeenCalledTimes(1);
         expect(useSessionStore.getState().laneNumber).toBe(5);
+      });
+    });
+  });
+
+  describe('json editing', () => {
+    it('saves the full settings document from the JSON tab', async () => {
+      const updatedSettings = {
+        connection: { portName: 'COM9', manufacturer: 'KOHTO' as const, deviceId: 'MT201' },
+        userPreferences: {
+          laneNumber: 9,
+          discipline: null,
+          competitionTypeId: 'standard',
+          audioVolume: 60,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+      mockGetAppSettings.mockResolvedValueOnce(updatedSettings).mockResolvedValueOnce(updatedSettings);
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      fireEvent.change(textarea, {
+        target: {
+          value: JSON.stringify(updatedSettings, null, 2),
+        },
+      });
+
+      fireEvent.click(screen.getByText('Save JSON'));
+
+      await waitFor(() => {
+        expect(mockSaveAppSettings).toHaveBeenCalled();
+        expect(useSessionStore.getState().laneNumber).toBe(9);
       });
     });
   });

@@ -54,6 +54,9 @@ describe('buildPreloadAPI', () => {
       expect(typeof api.settings.getConnectionSettings).toBe('function');
       expect(typeof api.settings.saveUserPreferences).toBe('function');
       expect(typeof api.settings.getUserPreferences).toBe('function');
+      expect(typeof api.settings.saveAppSettings).toBe('function');
+      expect(typeof api.settings.getAppSettings).toBe('function');
+      expect(typeof api.settings.getSettingsFileInfo).toBe('function');
     });
 
     it('should wrap saveConnectionSettings payload with settings key', async () => {
@@ -72,6 +75,25 @@ describe('buildPreloadAPI', () => {
       await api.settings.saveUserPreferences(prefs);
 
       expect(mockInvoke).toHaveBeenCalledWith(expect.any(String), { preferences: prefs });
+    });
+
+    it('should wrap saveAppSettings payload with settings key', async () => {
+      mockInvoke.mockResolvedValue({ success: true });
+      const settingsData = {
+        connection: { portName: '', manufacturer: 'KOHTO' as const, deviceId: '' },
+        userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+
+      await api.settings.saveAppSettings(settingsData);
+
+      expect(mockInvoke).toHaveBeenCalledWith(expect.any(String), { settings: settingsData });
     });
   });
 

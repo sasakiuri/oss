@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT
-import type { ConnectionSettingsDto, UserPreferencesDto } from '@/shared/ipc/contracts';
+import type {
+  AppSettingsDto,
+  ConnectionSettingsDto,
+  SettingsFileInfoDto,
+  UserPreferencesDto,
+} from '@/shared/ipc/contracts';
 
 import { createCommandMethod, createVoidServiceMethod } from './createServiceMethod';
 
@@ -18,5 +23,15 @@ export const settingsService = {
 
   getUserPreferences: createVoidServiceMethod<UserPreferencesDto>(() =>
     window.electronAPI.settings.getUserPreferences(),
+  ),
+
+  saveAppSettings: createCommandMethod<AppSettingsDto>((settings) =>
+    window.electronAPI.settings.saveAppSettings(settings),
+  ),
+
+  getAppSettings: createVoidServiceMethod<AppSettingsDto>(() => window.electronAPI.settings.getAppSettings()),
+
+  getSettingsFileInfo: createVoidServiceMethod<SettingsFileInfoDto>(() =>
+    window.electronAPI.settings.getSettingsFileInfo(),
   ),
 };

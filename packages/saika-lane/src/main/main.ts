@@ -18,6 +18,8 @@ import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowServi
 import { reportModule } from '@/main/modules/report/report.module';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { sessionModule } from '@/main/modules/session/session.module';
+import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
+import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { settingsModule } from '@/main/modules/settings/settings.module';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
@@ -30,9 +32,7 @@ import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger, initializeLogger } from '@/main/shared-infra/logging';
 import { ModuleLoader } from '@/main/shared-infra/module';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import { windowContract } from '@/shared/ipc/contracts';
-import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 
@@ -107,6 +107,11 @@ function initializeApplication(mainWindow: BrowserWindow): void {
 
   // 1. Create infrastructure components
   const storage = new LocalStorageAdapter({ name: 'saika-lane' });
+  const settingsStore = new AppSettingsStore({
+    filePath: join(app.getPath('userData'), 'settings.json'),
+    storage,
+  });
+  settingsStore.getAll();
   const eventBus = new TypedEventBus();
   const db = createSqliteDb(join(app.getPath('userData'), 'saika-lane.db'));
   const sessionRepository = new SqliteSessionRepository(db);
@@ -143,6 +148,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       eventBus,
       ipcRouter,
       storage,
+      settingsStore,
       usbManager: usbConnectionManager,
       sessionRepository,
       connectionRepository,
@@ -186,7 +192,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   eventForwarder.start();
 
   // Auto-connect on renderer load
-  scheduleAutoConnect(mainWindow, storage, commandBus);
+  scheduleAutoConnect(mainWindow, settingsStore, commandBus);
 
   // 5. Register close confirmation dialog
   mainWindow.on('close', (event) => {
@@ -208,10 +214,14 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   });
 }
 
-function scheduleAutoConnect(mainWindow: BrowserWindow, storage: ILocalStorage, commandBus: CommandBus): void {
+function scheduleAutoConnect(
+  mainWindow: BrowserWindow,
+  settingsStore: IAppSettingsStore,
+  commandBus: CommandBus,
+): void {
   mainWindow.webContents.once('did-finish-load', () => {
     const logger = getLogger();
-    const settings = storage.get<ConnectionSettingsDto>('connectionSettings');
+    const settings = settingsStore.getConnectionSettings();
 
     if (!settings) {
       logger.info('Auto-connect: no saved connection settings found, skipping.', 'main');

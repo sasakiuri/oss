@@ -26,6 +26,9 @@ export interface MockedElectronAPI {
     getConnectionSettings: ReturnType<typeof vi.fn>;
     saveUserPreferences: ReturnType<typeof vi.fn>;
     getUserPreferences: ReturnType<typeof vi.fn>;
+    saveAppSettings: ReturnType<typeof vi.fn>;
+    getAppSettings: ReturnType<typeof vi.fn>;
+    getSettingsFileInfo: ReturnType<typeof vi.fn>;
   };
   competition: {
     startCompetition: ReturnType<typeof vi.fn>;
@@ -102,6 +105,22 @@ export function createMockElectronAPI(): MockedElectronAPI {
       getConnectionSettings: vi.fn().mockResolvedValue({ success: true, data: {} }),
       saveUserPreferences: vi.fn().mockResolvedValue(undefined),
       getUserPreferences: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      saveAppSettings: vi.fn().mockResolvedValue(undefined),
+      getAppSettings: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          connection: { portName: '', manufacturer: 'KOHTO', deviceId: '' },
+          userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
+          mqtt: {
+            enabled: false,
+            brokerUrl: '',
+            laneAlias: '',
+            autoConnect: false,
+            laneId: '550e8400-e29b-41d4-a716-446655440000',
+          },
+        },
+      }),
+      getSettingsFileInfo: vi.fn().mockResolvedValue({ success: true, data: { path: '/tmp/settings.json' } }),
     },
     competition: {
       startCompetition: vi.fn(),

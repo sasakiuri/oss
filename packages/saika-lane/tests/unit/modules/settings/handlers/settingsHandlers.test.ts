@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import { settingsModule } from '@/main/modules/settings/settings.module';
+import type { AppSettingsDto } from '@/shared/ipc/contracts';
 import { settingsContract } from '@/shared/ipc/contracts';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
-import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,26 +17,85 @@ type CapturedHandlers = InferHandlers<typeof settingsContract>;
 // Mock factories
 // ---------------------------------------------------------------------------
 
-function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>();
+function createMockSettingsStore(): IAppSettingsStore {
+  let settings: AppSettingsDto = {
+    connection: {
+      portName: '',
+      manufacturer: 'KOHTO' as const,
+      deviceId: '',
+    },
+    userPreferences: {
+      laneNumber: 1,
+      discipline: null,
+      competitionTypeId: '',
+      audioVolume: 50,
+    },
+    mqtt: {
+      enabled: false,
+      brokerUrl: '',
+      laneAlias: '',
+      autoConnect: false,
+      laneId: '550e8400-e29b-41d4-a716-446655440000',
+    },
+  };
+
   return {
-    get: vi.fn((key: string) => store.get(key) ?? undefined) as ILocalStorage['get'],
-    set: vi.fn((key: string, value: unknown) => {
-      store.set(key, value);
+    getAll: vi.fn(() => settings),
+    replaceAll: vi.fn((nextSettings) => {
+      settings = nextSettings;
+      return settings;
     }),
-    setMany: vi.fn((entries: Record<string, unknown>) => {
-      for (const [key, value] of Object.entries(entries)) {
-        store.set(key, value);
-      }
+    getConnectionSettings: vi.fn(() =>
+      settings.connection.portName
+        ? {
+            portName: settings.connection.portName,
+            manufacturer: settings.connection.manufacturer,
+            ...(settings.connection.deviceId ? { deviceId: settings.connection.deviceId } : {}),
+          }
+        : null,
+    ),
+    saveConnectionSettings: vi.fn((connection) => {
+      settings = {
+        ...settings,
+        connection: {
+          portName: connection.portName,
+          manufacturer: connection.manufacturer,
+          deviceId: connection.deviceId ?? '',
+        },
+      };
+      return settings;
     }),
-    has: vi.fn((key: string) => store.has(key)),
-    delete: vi.fn((key: string) => {
-      store.delete(key);
+    getUserPreferences: vi.fn(() => ({
+      ...(settings.userPreferences.laneNumber !== 1 ? { laneNumber: settings.userPreferences.laneNumber } : {}),
+      ...(settings.userPreferences.audioVolume !== 50 ? { audioVolume: settings.userPreferences.audioVolume } : {}),
+      ...(settings.userPreferences.discipline ? { discipline: settings.userPreferences.discipline } : {}),
+      ...(settings.userPreferences.competitionTypeId
+        ? { competitionTypeId: settings.userPreferences.competitionTypeId }
+        : {}),
+    })),
+    saveUserPreferences: vi.fn((preferences) => {
+      settings = {
+        ...settings,
+        userPreferences: {
+          ...settings.userPreferences,
+          ...(preferences.laneNumber !== undefined ? { laneNumber: preferences.laneNumber } : {}),
+          ...(preferences.audioVolume !== undefined ? { audioVolume: preferences.audioVolume } : {}),
+          ...(preferences.discipline !== undefined ? { discipline: preferences.discipline } : {}),
+          ...(preferences.competitionTypeId !== undefined ? { competitionTypeId: preferences.competitionTypeId } : {}),
+        },
+      };
+      return settings;
     }),
-    getAll: vi.fn(() => Object.fromEntries(store)),
-    clear: vi.fn(() => {
-      store.clear();
+    getMqttSettings: vi.fn(() => settings.mqtt),
+    saveMqttSettings: vi.fn((mqttSettings) => {
+      settings = {
+        ...settings,
+        mqtt: mqttSettings,
+      };
+      return settings;
     }),
+    getLaneId: vi.fn(() => settings.mqtt.laneId),
+    getFilePath: vi.fn(() => '/tmp/settings.json'),
   };
 }
 
@@ -54,16 +114,16 @@ function createMockIpcRouter() {
 // ---------------------------------------------------------------------------
 
 describe('settings module handlers', () => {
-  let storage: ILocalStorage;
+  let settingsStore: IAppSettingsStore;
   let handlers: CapturedHandlers;
 
   beforeEach(() => {
-    storage = createMockStorage();
+    settingsStore = createMockSettingsStore();
     const ipcRouter = createMockIpcRouter();
 
     settingsModule.register({
       ipcRouter: ipcRouter as unknown as Parameters<typeof settingsModule.register>[0]['ipcRouter'],
-      storage,
+      settingsStore,
     });
 
     handlers = ipcRouter.getHandlers();

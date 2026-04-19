@@ -24,6 +24,12 @@ const DisciplineSchema = z.union([
   z.literal('BEAM_RIFLE_10M'),
 ]);
 
+/** Regex for validating MQTT broker URLs (mqtt:// or mqtts://) */
+const mqttUrlPattern = /^mqtts?:\/\//;
+
+/** Regex to detect userinfo (username:password@) in a URL */
+const mqttUserinfoPattern = /^mqtts?:\/\/[^@/]+@/;
+
 // ============================================================
 // Settings data schemas
 // ============================================================
@@ -41,6 +47,65 @@ const UserPreferencesSchema = z.object({
   audioVolume: z.number().int().min(0).max(100).optional(),
 });
 
+const PersistedConnectionSettingsSchema = z.object({
+  portName: z.string().default(''),
+  manufacturer: TargetManufacturerSchema.default('KOHTO'),
+  deviceId: z.string().default(''),
+});
+
+const PersistedUserPreferencesSchema = z.object({
+  laneNumber: z.number().int().min(1).default(1),
+  discipline: DisciplineSchema.nullable().default(null),
+  competitionTypeId: z.string().default(''),
+  audioVolume: z.number().int().min(0).max(100).default(50),
+});
+
+const PersistedMqttSettingsDraftSchema = z.object({
+  enabled: z.boolean().default(false),
+  brokerUrl: z
+    .string()
+    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
+    .refine((v) => !mqttUserinfoPattern.test(v), {
+      message: 'Broker URL must not contain credentials (username:password@)',
+    })
+    .default(''),
+  laneAlias: z.string().default(''),
+  autoConnect: z.boolean().default(false),
+  laneId: z.string().uuid().optional(),
+});
+
+export const AppSettingsDraftSchema = z.object({
+  connection: PersistedConnectionSettingsSchema.default(() => ({
+    portName: '',
+    manufacturer: 'KOHTO' as const,
+    deviceId: '',
+  })),
+  userPreferences: PersistedUserPreferencesSchema.default(() => ({
+    laneNumber: 1,
+    discipline: null,
+    competitionTypeId: '',
+    audioVolume: 50,
+  })),
+  mqtt: PersistedMqttSettingsDraftSchema.default(() => ({
+    enabled: false,
+    brokerUrl: '',
+    laneAlias: '',
+    autoConnect: false,
+  })),
+});
+
+export const AppSettingsSchema = z.object({
+  connection: PersistedConnectionSettingsSchema,
+  userPreferences: PersistedUserPreferencesSchema,
+  mqtt: PersistedMqttSettingsDraftSchema.extend({
+    laneId: z.string().uuid(),
+  }),
+});
+
+const SettingsFileInfoSchema = z.object({
+  path: z.string(),
+});
+
 // ============================================================
 // Command input schemas
 // ============================================================
@@ -51,6 +116,10 @@ const SaveConnectionSettingsInputSchema = z.object({
 
 const SaveUserPreferencesInputSchema = z.object({
   preferences: UserPreferencesSchema,
+});
+
+const SaveAppSettingsInputSchema = z.object({
+  settings: AppSettingsSchema,
 });
 
 // ============================================================
@@ -70,6 +139,15 @@ export const settingsContract = defineContract('settings', {
   getUserPreferences: query(queryResponseSchema(UserPreferencesSchema), {
     channel: 'settings:get-user-preferences',
   }),
+  saveAppSettings: command(SaveAppSettingsInputSchema, CommandResponseSchema, {
+    channel: 'settings:save-app-settings',
+  }),
+  getAppSettings: query(queryResponseSchema(AppSettingsSchema), {
+    channel: 'settings:get-app-settings',
+  }),
+  getSettingsFileInfo: query(queryResponseSchema(SettingsFileInfoSchema), {
+    channel: 'settings:get-settings-file-info',
+  }),
 });
 
 // ============================================================
@@ -78,5 +156,9 @@ export const settingsContract = defineContract('settings', {
 
 export type ConnectionSettingsDto = z.infer<typeof ConnectionSettingsSchema>;
 export type UserPreferencesDto = z.infer<typeof UserPreferencesSchema>;
+export type AppSettingsDto = z.infer<typeof AppSettingsSchema>;
+export type AppSettingsDraftDto = z.infer<typeof AppSettingsDraftSchema>;
+export type SettingsFileInfoDto = z.infer<typeof SettingsFileInfoSchema>;
 export type SaveConnectionSettingsInput = z.infer<typeof SaveConnectionSettingsInputSchema>;
 export type SaveUserPreferencesInput = z.infer<typeof SaveUserPreferencesInputSchema>;
+export type SaveAppSettingsInput = z.infer<typeof SaveAppSettingsInputSchema>;

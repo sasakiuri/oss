@@ -62,7 +62,7 @@ interface SessionActions {
    * Set discipline
    * @param discipline - Shooting discipline
    */
-  setDiscipline: (discipline: Discipline) => void;
+  setDiscipline: (discipline: Discipline | null) => void;
 
   /**
    * Set lane number

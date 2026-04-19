@@ -69,6 +69,9 @@ export function buildPreloadAPI(): ElectronAPI {
       getConnectionSettings: settings.getConnectionSettings,
       saveUserPreferences: (preferences) => settings.saveUserPreferences({ preferences }),
       getUserPreferences: settings.getUserPreferences,
+      saveAppSettings: (settingsData) => settings.saveAppSettings({ settings: settingsData }),
+      getAppSettings: settings.getAppSettings,
+      getSettingsFileInfo: settings.getSettingsFileInfo,
     },
 
     report: {

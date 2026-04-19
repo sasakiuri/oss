@@ -14,6 +14,7 @@ import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -28,6 +29,7 @@ export interface ServiceRegistry {
   eventBus: IEventBus;
   ipcRouter: IpcRouter;
   storage: ILocalStorage;
+  settingsStore: IAppSettingsStore;
   usbManager: IUSBConnectionManager;
   sessionRepository: ISessionRepository;
   connectionRepository: IConnectionRepository;

@@ -21,7 +21,10 @@
 import { Volume2, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { settingsService } from '@/renderer/services/settingsService';
+import type { AppSettingsDto } from '@/shared/ipc/contracts';
 
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useSessionStore } from '../stores/sessionStore';
@@ -39,7 +42,7 @@ export interface SettingsModalProps {
   /** Close callback */
   onClose: () => void;
   /** Initial tab to display */
-  initialTab?: 'general' | 'target' | 'connection' | 'mqtt';
+  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'json';
   /** Optional CSS class name */
   className?: string;
 }
@@ -57,8 +60,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const { playTestSound } = useAudioPlayback();
   const [inputValue, setInputValue] = useState(laneNumber.toString());
   const [volumeValue, setVolumeValue] = useState(audioVolume);
-  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'json'>(initialTab);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [jsonDraft, setJsonDraft] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [settingsFilePath, setSettingsFilePath] = useState('');
+
+  const applySettingsToStores = (settings: AppSettingsDto) => {
+    useSessionStore.getState().setLaneNumber(settings.userPreferences.laneNumber);
+    useSessionStore.getState().setAudioVolume(settings.userPreferences.audioVolume);
+    useSessionStore.getState().setDiscipline(settings.userPreferences.discipline);
+
+    useCompetitionStore.getState().setSavedCompetitionTypeId(settings.userPreferences.competitionTypeId || null);
+    useMqttStore.getState().setSettings(settings.mqtt);
+  };
+
+  const readSettingsDocument = async () => {
+    const [settings, metadata] = await Promise.all([
+      settingsService.getAppSettings(),
+      settingsService.getSettingsFileInfo(),
+    ]);
+
+    return { settings, metadata };
+  };
 
   // Sync input values with store when modal opens or values change
   useEffect(() => {
@@ -66,6 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setInputValue(laneNumber.toString());
       setVolumeValue(audioVolume);
       setSaveError(null);
+      setJsonError(null);
     }
   }, [isOpen, laneNumber, audioVolume]);
 
@@ -75,6 +100,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'json') {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        setJsonError(null);
+        const { settings, metadata } = await readSettingsDocument();
+        if (cancelled) {
+          return;
+        }
+
+        setJsonDraft(JSON.stringify(settings, null, 2));
+        setSettingsFilePath(metadata.path);
+      } catch (err) {
+        if (!cancelled) {
+          setJsonError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, isOpen]);
 
   if (!isOpen) return null;
 
@@ -101,6 +155,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     onClose();
+  };
+
+  const handleReloadJson = async () => {
+    try {
+      setJsonError(null);
+      const { settings, metadata } = await readSettingsDocument();
+      setJsonDraft(JSON.stringify(settings, null, 2));
+      setSettingsFilePath(metadata.path);
+      applySettingsToStores(settings);
+    } catch (err) {
+      setJsonError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleSaveJson = async () => {
+    try {
+      setJsonError(null);
+      const parsed = JSON.parse(jsonDraft) as AppSettingsDto;
+      await settingsService.saveAppSettings(parsed);
+      const normalized = await settingsService.getAppSettings();
+      setJsonDraft(JSON.stringify(normalized, null, 2));
+      applySettingsToStores(normalized);
+    } catch (err) {
+      setJsonError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -163,6 +242,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }`}
           >
             MQTT
+          </button>
+          <button
+            onClick={() => setActiveTab('json')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'json' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            JSON
           </button>
         </div>
 
@@ -256,6 +343,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {activeTab === 'connection' && <SettingsConnectionTab />}
 
         {activeTab === 'mqtt' && <MqttSettingsTab />}
+
+        {activeTab === 'json' && (
+          <>
+            <div className="flex flex-col gap-3 p-4">
+              <div className="rounded border border-zinc-700 bg-zinc-900/60 p-3">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">settings.json</p>
+                <p className="mt-1 break-all font-mono text-xs text-zinc-300">{settingsFilePath || 'Loading...'}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label htmlFor="settings-json" className="text-sm font-medium text-zinc-300">
+                  Settings Document
+                </label>
+                <textarea
+                  id="settings-json"
+                  value={jsonDraft}
+                  onChange={(e) => setJsonDraft(e.target.value)}
+                  spellCheck={false}
+                  className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-zinc-400">
+                  GUI からの保存と同じ検証を通して、設定全体をまとめて更新します。
+                </span>
+              </div>
+            </div>
+
+            {jsonError && (
+              <div
+                className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {jsonError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
+              <button
+                onClick={handleReloadJson}
+                className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
+              >
+                Reload
+              </button>
+              <button
+                onClick={handleSaveJson}
+                className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
+              >
+                Save JSON
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { settingsContract } from '@/shared/ipc/contracts/settings.contract';
 
 describe('settingsContract', () => {
-  it('has 2 commands and 2 queries', () => {
+  it('has 3 commands and 4 queries', () => {
     const procs = settingsContract.procedures;
     const commands = Object.values(procs).filter((p) => p.kind === 'command');
     const queries = Object.values(procs).filter((p) => p.kind === 'query');
 
-    expect(commands).toHaveLength(2);
-    expect(queries).toHaveLength(2);
+    expect(commands).toHaveLength(3);
+    expect(queries).toHaveLength(4);
   });
 
   it('has the expected channel names configured', () => {
@@ -18,6 +18,9 @@ describe('settingsContract', () => {
     expect(settingsContract.channels.getConnectionSettings).toBe('settings:get-connection-settings');
     expect(settingsContract.channels.saveUserPreferences).toBe('settings:save-user-preferences');
     expect(settingsContract.channels.getUserPreferences).toBe('settings:get-user-preferences');
+    expect(settingsContract.channels.saveAppSettings).toBe('settings:save-app-settings');
+    expect(settingsContract.channels.getAppSettings).toBe('settings:get-app-settings');
+    expect(settingsContract.channels.getSettingsFileInfo).toBe('settings:get-settings-file-info');
   });
 
   it('saveConnectionSettings input schema accepts valid data', () => {
@@ -70,5 +73,33 @@ describe('settingsContract', () => {
       const result = schema.safeParse({ preferences: { audioVolume: 50.5 } });
       expect(result.success).toBe(false);
     });
+  });
+
+  it('saveAppSettings input schema accepts a valid settings document', () => {
+    const schema = settingsContract.procedures.saveAppSettings.input;
+    const result = schema.safeParse({
+      settings: {
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO',
+          deviceId: '',
+        },
+        userPreferences: {
+          laneNumber: 1,
+          discipline: null,
+          competitionTypeId: '',
+          audioVolume: 50,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
   });
 });

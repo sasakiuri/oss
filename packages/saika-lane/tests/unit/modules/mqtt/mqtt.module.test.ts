@@ -5,11 +5,14 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
+
+import { createMockSettingsStore } from '../../../helpers/mockDependencies';
 
 // ── mock electron ──────────────────────────────────────────────
 vi.mock('electron', () => ({
@@ -113,6 +116,7 @@ describe('mqtt.module', () => {
   let eventBus: IEventBus;
   let ipcRouter: IpcRouter;
   let storage: ILocalStorage;
+  let settingsStore: IAppSettingsStore;
   let commandBus: CommandBus;
   let queryBus: QueryBus;
   let competitionRepository: ICompetitionRepository;
@@ -123,6 +127,7 @@ describe('mqtt.module', () => {
     eventBus = createMockEventBus();
     ipcRouter = createMockIpcRouter();
     storage = createMockStorage();
+    settingsStore = createMockSettingsStore();
     commandBus = createMockCommandBus();
     queryBus = createMockQueryBus();
     competitionRepository = createMockCompetitionRepository();
@@ -139,6 +144,7 @@ describe('mqtt.module', () => {
       'eventBus',
       'ipcRouter',
       'storage',
+      'settingsStore',
       'queryBus',
       'commandBus',
       'competitionRepository',
@@ -153,6 +159,7 @@ describe('mqtt.module', () => {
         eventBus,
         ipcRouter,
         storage,
+        settingsStore,
         queryBus,
         commandBus,
         competitionRepository,
@@ -167,6 +174,7 @@ describe('mqtt.module', () => {
       eventBus,
       ipcRouter,
       storage,
+      settingsStore,
       queryBus,
       commandBus,
       competitionRepository,
@@ -183,6 +191,7 @@ describe('mqtt.module', () => {
       eventBus,
       ipcRouter,
       storage,
+      settingsStore,
       queryBus,
       commandBus,
       competitionRepository,
@@ -199,6 +208,7 @@ describe('mqtt.module', () => {
       eventBus,
       ipcRouter,
       storage,
+      settingsStore,
       queryBus,
       commandBus,
       competitionRepository,

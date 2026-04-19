@@ -31,6 +31,7 @@
 import type {
   competitionContract,
   connectionContract,
+  AppSettingsDto,
   ConnectionSettingsDto,
   eventsContract,
   mqttContract,
@@ -61,6 +62,7 @@ type MqttBridge = InferBridge<typeof mqttContract>;
 
 type SaveConnectionSettingsOutput = InferOutput<(typeof settingsContract)['procedures']['saveConnectionSettings']>;
 type SaveUserPreferencesOutput = InferOutput<(typeof settingsContract)['procedures']['saveUserPreferences']>;
+type SaveAppSettingsOutput = InferOutput<(typeof settingsContract)['procedures']['saveAppSettings']>;
 
 // ---------------------------------------------------------------------------
 // ElectronAPI interface
@@ -103,6 +105,12 @@ export interface ElectronAPI {
     saveUserPreferences: (preferences: UserPreferencesDto) => Promise<SaveUserPreferencesOutput>;
     /** Get saved user preferences */
     getUserPreferences: SettingsBridge['getUserPreferences'];
+    /** Save the full settings document */
+    saveAppSettings: (settings: AppSettingsDto) => Promise<SaveAppSettingsOutput>;
+    /** Get the full settings document */
+    getAppSettings: SettingsBridge['getAppSettings'];
+    /** Get settings file metadata */
+    getSettingsFileInfo: SettingsBridge['getSettingsFileInfo'];
   };
 
   /** Report/print methods */

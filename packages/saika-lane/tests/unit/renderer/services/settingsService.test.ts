@@ -7,6 +7,9 @@ const mockSaveConnectionSettings = vi.fn();
 const mockGetConnectionSettings = vi.fn();
 const mockSaveUserPreferences = vi.fn();
 const mockGetUserPreferences = vi.fn();
+const mockSaveAppSettings = vi.fn();
+const mockGetAppSettings = vi.fn();
+const mockGetSettingsFileInfo = vi.fn();
 
 vi.stubGlobal('window', {
   electronAPI: {
@@ -15,6 +18,9 @@ vi.stubGlobal('window', {
       getConnectionSettings: mockGetConnectionSettings,
       saveUserPreferences: mockSaveUserPreferences,
       getUserPreferences: mockGetUserPreferences,
+      saveAppSettings: mockSaveAppSettings,
+      getAppSettings: mockGetAppSettings,
+      getSettingsFileInfo: mockGetSettingsFileInfo,
     },
   },
 });
@@ -187,6 +193,54 @@ describe('settingsService', () => {
         expect((err as ServiceError).code).toBe('IPC_ERROR');
         expect((err as ServiceError).message).toBe('Channel closed');
       }
+    });
+  });
+
+  describe('app settings document', () => {
+    const appSettings = {
+      connection: {
+        portName: '/dev/ttyUSB0',
+        manufacturer: 'KOHTO' as const,
+        deviceId: 'MT201',
+      },
+      userPreferences: {
+        laneNumber: 3,
+        discipline: 'AIR_PISTOL_10M' as const,
+        competitionTypeId: 'standard',
+        audioVolume: 80,
+      },
+      mqtt: {
+        enabled: true,
+        brokerUrl: 'mqtt://broker.example.com:1883',
+        laneAlias: 'Lane 1',
+        autoConnect: true,
+        laneId: '550e8400-e29b-41d4-a716-446655440000',
+      },
+    };
+
+    it('saveAppSettings returns void on success', async () => {
+      mockSaveAppSettings.mockResolvedValue({ success: true });
+
+      await expect(settingsService.saveAppSettings(appSettings)).resolves.toBeUndefined();
+      expect(mockSaveAppSettings).toHaveBeenCalledWith(appSettings);
+    });
+
+    it('getAppSettings returns the full document on success', async () => {
+      mockGetAppSettings.mockResolvedValue({
+        success: true,
+        data: appSettings,
+      });
+
+      await expect(settingsService.getAppSettings()).resolves.toEqual(appSettings);
+    });
+
+    it('getSettingsFileInfo returns file metadata', async () => {
+      mockGetSettingsFileInfo.mockResolvedValue({
+        success: true,
+        data: { path: '/tmp/settings.json' },
+      });
+
+      await expect(settingsService.getSettingsFileInfo()).resolves.toEqual({ path: '/tmp/settings.json' });
     });
   });
 });

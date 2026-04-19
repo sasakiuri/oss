@@ -31,6 +31,7 @@ type MqttDeps =
   | 'eventBus'
   | 'ipcRouter'
   | 'storage'
+  | 'settingsStore'
   | 'queryBus'
   | 'commandBus'
   | 'competitionRepository'
@@ -43,6 +44,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'eventBus',
     'ipcRouter',
     'storage',
+    'settingsStore',
     'queryBus',
     'commandBus',
     'competitionRepository',
@@ -53,6 +55,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     eventBus,
     ipcRouter,
     storage,
+    settingsStore,
     queryBus,
     commandBus,
     competitionRepository,
@@ -95,7 +98,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const competitionStateSubscriber = new CompetitionStateSubscriber(mqttClient);
 
     // Initialize command handlers (laneId is read dynamically via getter)
-    const getLaneId = (): string => storage.get<string>('mqtt.laneId') ?? '';
+    const getLaneId = (): string => settingsStore.getLaneId();
     const competitionId = ''; // Set when joining a competition
 
     const broadcastHandler = new BroadcastCommandHandler(
@@ -130,8 +133,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const handlers: InferHandlers<typeof mqttContract> = {
       connectMqtt: async (input) => {
         const logger = getLogger();
-        const currentLaneId = storage.get<string>('mqtt.laneId') ?? '';
-        const savedSettings = storage.get<MqttSettings>('mqtt.settings');
+        const currentLaneId = settingsStore.getLaneId();
+        const savedSettings = settingsStore.getMqttSettings();
         const laneAlias = input.laneAlias ?? savedSettings?.laneAlias ?? '';
 
         // Set Will message on MqttClientService before connecting
@@ -161,7 +164,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
             autoConnect: true,
             laneId: currentLaneId,
           };
-          storage.set('mqtt.settings', settings);
+          settingsStore.saveMqttSettings(settings);
         }
 
         // Emit MqttConnected event for ContractEventForwarder
@@ -190,8 +193,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       },
 
       getMqttStatus: async () => {
-        const currentLaneId = storage.get<string>('mqtt.laneId') ?? '';
-        const settings = storage.get<MqttSettings>('mqtt.settings');
+        const currentLaneId = settingsStore.getLaneId();
+        const settings = settingsStore.getMqttSettings();
 
         return {
           status: mqttClient.isConnected() ? ('connected' as const) : ('disconnected' as const),
@@ -201,23 +204,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       },
 
       saveMqttSettings: async (input) => {
-        storage.set('mqtt.settings', input);
+        settingsStore.saveMqttSettings(input);
       },
 
-      getMqttSettings: async () => {
-        const currentLaneId = storage.get<string>('mqtt.laneId') ?? '';
-        const settings = storage.get<MqttSettings>('mqtt.settings');
-
-        return (
-          settings ?? {
-            enabled: false,
-            brokerUrl: '',
-            laneAlias: '',
-            autoConnect: false,
-            laneId: currentLaneId,
-          }
-        );
-      },
+      getMqttSettings: async () => settingsStore.getMqttSettings(),
     };
 
     ipcRouter.register(mqttContract, handlers);
