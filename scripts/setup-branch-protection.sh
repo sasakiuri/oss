@@ -122,8 +122,25 @@ upsert_ruleset() {
 # 1. 1.x  (default / release branch)
 # ---------------------------------------------------------------------------
 # Ruleset name matches the existing deployed ruleset so `upsert_ruleset` finds
-# and updates it in place. The pull_request policy is aligned with
-# .github/settings.yml so the two sources of truth do not drift.
+# and updates it in place.
+#
+# require_code_owner_review is intentionally false here. Rationale:
+#
+# 1. The Dependabot auto-merge workflow approves via secrets.GITHUB_TOKEN
+#    (actor: github-actions[bot]), which satisfies
+#    required_approving_review_count but cannot act as a CODEOWNERS
+#    reviewer. Enforcing code-owner review would permanently block
+#    auto-merge for the safe dependency groups that are supposed to be
+#    hands-off.
+# 2. This repository currently has a single write-access user (@sasakiuri)
+#    who is also the sole code owner (see .github/CODEOWNERS). With only
+#    one eligible code owner, the practical difference between "any
+#    approving review" and "code-owner approving review" is zero for
+#    human PRs.
+#
+# If a second maintainer is ever granted write access, re-enable this and
+# solve Dependabot approval via a GitHub App that is listed in CODEOWNERS.
+#
 # No bypass_actors: break-glass should be an explicit, auditable action taken
 # via the GitHub UI rather than a permanent role-based bypass.
 # ===========================================================================
@@ -147,7 +164,7 @@ upsert_ruleset "1.x" '{
       "parameters": {
         "required_approving_review_count": 1,
         "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": true,
+        "require_code_owner_review": false,
         "require_last_push_approval": false,
         "required_review_thread_resolution": true,
         "allowed_merge_methods": ["squash"]
