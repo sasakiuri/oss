@@ -37,10 +37,9 @@ branches:
       required_status_checks:
         strict: true
         contexts:
-          - "Lint & Checks"
-          - "Build & Test (ubuntu-latest)"
-          - "Build & Test (windows-latest)"
-          - "Build & Test (macos-latest)"
+          - "CI Required"
+          - "validate"
+          - "dependency-review"
           - "Analyze (javascript-typescript)"
           - "gitleaks"
       enforce_admins: true
