@@ -184,8 +184,19 @@ upsert_ruleset "1.x" '{
       }
     }
   ],
-  "bypass_actors": []
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ]
 }'
+# NOTE: actor_id 5 is the built-in Admin repository role. Granting it
+# "always" bypass preserves break-glass merges for the sole maintainer
+# (see require_code_owner_review rationale above). Remove this block the
+# moment a second maintainer joins and a dedicated GitHub App handles bot
+# approvals.
 
 # Clean up the legacy ruleset name from an earlier revision of this script.
 # Runs AFTER the replacement above is confirmed so the default branch is
