@@ -40,7 +40,7 @@
 ## GitHub Repository Settings
 
 - [ ] Branch protection rules configured on default branch (`1.x`) — run `scripts/setup-branch-protection.sh`
-- [ ] Required status checks enabled: `Lint & Checks`, `Build & Test (ubuntu-latest)`, `Build & Test (windows-latest)`, `Build & Test (macos-latest)`, `validate`, `dependency-review`, `Analyze (javascript-typescript)`, `gitleaks`
+- [ ] Required status checks enabled: `CI Required`, `validate`, `dependency-review`, `Analyze (javascript-typescript)`, `gitleaks`
 - [ ] Merge strategy configured (squash-merge only recommended)
 - [ ] Auto-delete head branches enabled
 - [ ] Dependabot alerts and security updates enabled
