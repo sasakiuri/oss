@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: MIT
-import type { AppSettingsDto, ConnectionSettingsDto, MqttSettings, UserPreferencesDto } from '@/shared/ipc/contracts';
+import type {
+  AppSettingsInputDto,
+  AppSettingsDto,
+  ConnectionSettingsDto,
+  MqttSettings,
+  UserPreferencesDto,
+} from '@/shared/ipc/contracts';
 
 export interface IAppSettingsStore {
   getAll(): AppSettingsDto;
-  replaceAll(settings: AppSettingsDto): AppSettingsDto;
+  replaceAll(settings: AppSettingsInputDto): AppSettingsDto;
   getConnectionSettings(): ConnectionSettingsDto | null;
   saveConnectionSettings(settings: ConnectionSettingsDto): AppSettingsDto;
   getUserPreferences(): UserPreferencesDto;

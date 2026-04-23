@@ -205,9 +205,6 @@ export class USBConnectionLifecycle {
           this.connection = this.connection.disconnect();
         }
 
-        // Emit disconnected event
-        this.emitter.emit('disconnected');
-
         resolve();
       });
     });

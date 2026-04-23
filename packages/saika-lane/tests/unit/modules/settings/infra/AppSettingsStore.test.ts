@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,6 +29,9 @@ describe('AppSettingsStore', () => {
       portName: 'COM3',
       manufacturer: 'KOHTO',
       deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
     });
     storage.set('userPreferences', {
       laneNumber: 4,
@@ -50,6 +53,9 @@ describe('AppSettingsStore', () => {
       portName: 'COM3',
       manufacturer: 'KOHTO',
       deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
     });
     expect(settings.userPreferences).toEqual({
       laneNumber: 4,
@@ -63,12 +69,65 @@ describe('AppSettingsStore', () => {
     expect(persisted).toEqual(settings);
   });
 
+  it('rebuilds settings from legacy storage when settings.json exists but is empty', () => {
+    storage.set('connectionSettings', {
+      portName: 'COM3',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+    storage.set('userPreferences', {
+      laneNumber: 4,
+      audioVolume: 70,
+    });
+    writeFileSync(filePath, '', 'utf8');
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: 'COM3',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+    expect(settings.userPreferences).toEqual({
+      laneNumber: 4,
+      discipline: null,
+      competitionTypeId: '',
+      audioVolume: 70,
+    });
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<AppSettingsStore['getAll']>;
+    expect(persisted.connection.portName).toBe('COM3');
+    expect(persisted.userPreferences.laneNumber).toBe(4);
+  });
+
   it('generates and mirrors laneId when legacy storage does not have one', () => {
     const store = new AppSettingsStore({ filePath, storage });
     const settings = store.getAll();
 
     expect(settings.mqtt.laneId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(storage.set).toHaveBeenCalledWith('mqtt.laneId', settings.mqtt.laneId);
+  });
+
+  it('preserves legacy mqtt.settings.laneId when the mirrored mqtt.laneId key is missing', () => {
+    storage.set('mqtt.settings', {
+      enabled: true,
+      brokerUrl: 'mqtt://broker.example.com:1883',
+      laneAlias: 'Lane 4',
+      autoConnect: true,
+      laneId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.mqtt.laneId).toBe('550e8400-e29b-41d4-a716-446655440000');
   });
 
   it('persists document updates and keeps legacy mirrors in sync', () => {
@@ -97,6 +156,325 @@ describe('AppSettingsStore', () => {
       laneNumber: 8,
       competitionTypeId: 'final',
       audioVolume: 65,
+    });
+  });
+
+  it('persists USB identity fields with connection settings', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    expect(store.getConnectionSettings()).toEqual({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<typeof store.getAll>;
+    expect(persisted.connection).toEqual({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+  });
+
+  it('backs up and restores settings when settings.json is corrupted', () => {
+    storage.set('userPreferences', {
+      laneNumber: 4,
+      audioVolume: 70,
+    });
+    writeFileSync(filePath, '{"broken": ', 'utf8');
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.userPreferences).toEqual({
+      laneNumber: 4,
+      discipline: null,
+      competitionTypeId: '',
+      audioVolume: 70,
+    });
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<typeof store.getAll>;
+    expect(persisted.userPreferences.laneNumber).toBe(4);
+
+    const backupFiles = readdirSync(tempDir).filter((name) => name.startsWith('settings.json.corrupted-'));
+    expect(backupFiles).toHaveLength(1);
+    expect(readFileSync(join(tempDir, backupFiles[0]!), 'utf8')).toBe('{"broken": ');
+  });
+
+  it('backs up and restores settings when settings.json has a non-object root', () => {
+    storage.set('userPreferences', {
+      laneNumber: 4,
+      audioVolume: 70,
+    });
+    writeFileSync(filePath, '[]\n', 'utf8');
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.userPreferences).toEqual({
+      laneNumber: 4,
+      discipline: null,
+      competitionTypeId: '',
+      audioVolume: 70,
+    });
+
+    const backupFiles = readdirSync(tempDir).filter((name) => name.startsWith('settings.json.corrupted-'));
+    expect(backupFiles).toHaveLength(1);
+    expect(readFileSync(join(tempDir, backupFiles[0]!), 'utf8')).toBe('[]\n');
+  });
+
+  it('normalizes invalid fields without discarding unrelated settings from settings.json', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify(
+        {
+          connection: {
+            portName: 'COM7',
+            manufacturer: 'KOHTO',
+            deviceId: 'MT201',
+            serialNumber: 'ABC123',
+            vendorId: '0403',
+            productId: '6001',
+          },
+          userPreferences: {
+            laneNumber: 7,
+            discipline: 'AIR_RIFLE_10M',
+            competitionTypeId: 'qualification',
+            audioVolume: 101,
+          },
+          mqtt: {
+            enabled: true,
+            brokerUrl: 'mqtt://broker.example.com:1883',
+            laneAlias: 'Lane 7',
+            autoConnect: true,
+            laneId: 'not-a-uuid',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: 'COM7',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+    expect(settings.userPreferences).toEqual({
+      laneNumber: 7,
+      discipline: 'AIR_RIFLE_10M',
+      competitionTypeId: 'qualification',
+      audioVolume: 50,
+    });
+    expect(settings.mqtt).toMatchObject({
+      enabled: true,
+      brokerUrl: 'mqtt://broker.example.com:1883',
+      laneAlias: 'Lane 7',
+      autoConnect: true,
+    });
+    expect(settings.mqtt.laneId).toMatch(/^[0-9a-f-]{36}$/i);
+
+    const backupFiles = readdirSync(tempDir).filter((name) => name.startsWith('settings.json.corrupted-'));
+    expect(backupFiles).toHaveLength(0);
+  });
+
+  it('drops an incomplete saved connection when the legacy manufacturer is invalid during migration', () => {
+    storage.set('connectionSettings', {
+      portName: 'COM7',
+      manufacturer: 'INVALID_MANUFACTURER',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+    storage.set('userPreferences', {
+      laneNumber: 7,
+      discipline: 'AIR_RIFLE_10M',
+      competitionTypeId: 'qualification',
+      audioVolume: 101,
+    });
+    storage.set('mqtt.settings', {
+      enabled: true,
+      brokerUrl: 'not-a-mqtt-url',
+      laneAlias: 'Lane 7',
+      autoConnect: true,
+    });
+    storage.set('mqtt.laneId', '550e8400-e29b-41d4-a716-446655440000');
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: '',
+      manufacturer: 'KOHTO',
+      deviceId: '',
+      serialNumber: '',
+      vendorId: '',
+      productId: '',
+    });
+    expect(settings.userPreferences).toEqual({
+      laneNumber: 7,
+      discipline: 'AIR_RIFLE_10M',
+      competitionTypeId: 'qualification',
+      audioVolume: 50,
+    });
+    expect(settings.mqtt).toEqual({
+      enabled: true,
+      brokerUrl: '',
+      laneAlias: 'Lane 7',
+      autoConnect: true,
+      laneId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+  });
+
+  it('drops an incomplete saved connection when the legacy manufacturer is missing during migration', () => {
+    storage.set('connectionSettings', {
+      portName: 'COM7',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: '',
+      manufacturer: 'KOHTO',
+      deviceId: '',
+      serialNumber: '',
+      vendorId: '',
+      productId: '',
+    });
+    expect(store.getConnectionSettings()).toBeNull();
+  });
+
+  it('preserves the existing laneId when replacing the full settings document', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+    const current = store.getAll();
+    const replacementLaneId = '660e8400-e29b-41d4-a716-446655440000';
+
+    const updated = store.replaceAll({
+      ...current,
+      userPreferences: {
+        ...current.userPreferences,
+        laneNumber: 9,
+      },
+      mqtt: {
+        ...current.mqtt,
+        laneId: replacementLaneId,
+      },
+    });
+
+    expect(updated.userPreferences.laneNumber).toBe(9);
+    expect(updated.mqtt.laneId).toBe(current.mqtt.laneId);
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<typeof store.getAll>;
+    expect(persisted.mqtt.laneId).toBe(current.mqtt.laneId);
+  });
+
+  it('preserves saved USB identity fields when later saves omit them', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+    });
+
+    expect(store.getConnectionSettings()).toEqual({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+  });
+
+  it('clears a stale deviceId when later saves omit it for the same port', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    expect(store.getConnectionSettings()).toEqual({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+  });
+
+  it('clears saved USB identity fields when the selected port changes without fresh identifiers', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB1',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
+    });
+
+    store.saveConnectionSettings({
+      portName: '/dev/ttyUSB2',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
+    });
+
+    expect(store.getConnectionSettings()).toEqual({
+      portName: '/dev/ttyUSB2',
+      manufacturer: 'KOHTO',
+      deviceId: 'MT201',
     });
   });
 });

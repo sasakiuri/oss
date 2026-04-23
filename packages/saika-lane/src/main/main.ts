@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 import '@/main/shared-infra/compat/setupCjsCompat';
 
+import { release } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 import { app, BrowserWindow, dialog, Menu } from 'electron';
 
 import { ConnectToTargetToken } from '@/main/composition/tokens';
+import { createMainWindowOptions } from '@/main/createMainWindowOptions';
 import { competitionModule } from '@/main/modules/competition/competition.module';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
@@ -25,6 +27,7 @@ import { settingsModule } from '@/main/modules/settings/settings.module';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
+import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ContractEventForwarder } from '@/main/shared-infra/ipc';
@@ -35,19 +38,23 @@ import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { windowContract } from '@/shared/ipc/contracts';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
+const isWsl =
+  process.platform === 'linux' &&
+  (Boolean(process.env.WSL_DISTRO_NAME) || release().toLowerCase().includes('microsoft'));
+process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = isWsl ? '1' : '0';
+
+if (isWsl) {
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
+}
 
 function createWindow(): BrowserWindow {
-  const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    frame: false,
-    webPreferences: {
-      preload: join(appDir, '../preload/preload.mjs'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
+  const window = new BrowserWindow(
+    createMainWindowOptions({
+      isPackaged: app.isPackaged,
+      preloadPath: join(appDir, '../preload/preload.mjs'),
+      useNativeWindowFrame: isWsl,
+    }),
+  );
 
   // Capture renderer console.log and write to file
   window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
@@ -73,7 +80,7 @@ function createWindow(): BrowserWindow {
   if (process.env.VITE_DEV_SERVER_URL) {
     window.loadURL(process.env.VITE_DEV_SERVER_URL);
     if (!app.isPackaged && process.env.OPEN_DEVTOOLS !== '0' && process.env.OPEN_DEVTOOLS !== 'false') {
-      window.webContents.openDevTools();
+      window.webContents.openDevTools({ mode: 'detach' });
     }
   } else {
     window.loadFile(join(appDir, '../renderer/index.html'));
@@ -192,7 +199,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   eventForwarder.start();
 
   // Auto-connect on renderer load
-  scheduleAutoConnect(mainWindow, settingsStore, commandBus);
+  scheduleAutoConnect(mainWindow, settingsStore, usbConnectionManager, commandBus);
 
   // 5. Register close confirmation dialog
   mainWindow.on('close', (event) => {
@@ -217,43 +224,83 @@ function initializeApplication(mainWindow: BrowserWindow): void {
 function scheduleAutoConnect(
   mainWindow: BrowserWindow,
   settingsStore: IAppSettingsStore,
+  usbManager: USBConnectionManager,
   commandBus: CommandBus,
 ): void {
   mainWindow.webContents.once('did-finish-load', () => {
-    const logger = getLogger();
-    const settings = settingsStore.getConnectionSettings();
+    void (async () => {
+      const logger = getLogger();
+      let settings = settingsStore.getConnectionSettings();
 
-    if (!settings) {
-      logger.info('Auto-connect: no saved connection settings found, skipping.', 'main');
-      return;
-    }
+      if (!settings) {
+        logger.info('Auto-connect: no saved connection settings found, skipping.', 'main');
+        return;
+      }
 
-    let manufacturer: TargetManufacturer;
-    try {
-      manufacturer = TargetManufacturer.fromValue(settings.manufacturer);
-    } catch (err) {
-      logger.warn('Auto-connect: invalid manufacturer in saved settings, skipping.', 'main', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return;
-    }
+      try {
+        const ports = await usbManager.listPorts();
+        const resolvedSettings = resolveAutoConnectSettings(settings, ports);
 
-    logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
-
-    commandBus
-      .execute(ConnectToTargetToken, {
-        portName: settings.portName,
-        manufacturer,
-        deviceId: settings.deviceId,
-      })
-      .then(() => {
-        logger.info('Auto-connect: connection established successfully.', 'main');
-      })
-      .catch((err: unknown) => {
-        logger.warn('Auto-connect: connection failed, manual connection required.', 'main', {
+        if (!resolvedSettings) {
+          if (ports.length === 0) {
+            logger.warn('Auto-connect: current port scan returned no ports, falling back to saved port.', 'main', {
+              savedPortName: settings.portName,
+            });
+          } else {
+            logger.warn('Auto-connect: saved device could not be resolved among current ports, skipping.', 'main', {
+              savedPortName: settings.portName,
+              serialNumber: settings.serialNumber,
+              vendorId: settings.vendorId,
+              productId: settings.productId,
+            });
+            return;
+          }
+        } else if (resolvedSettings.shouldPersist) {
+          const previousPortName = settings.portName;
+          settings = resolvedSettings.settings;
+          settingsStore.saveConnectionSettings(settings);
+          logger.info('Auto-connect: refreshed saved device settings from current ports.', 'main', {
+            previousPortName,
+            resolvedPortName: resolvedSettings.settings.portName,
+            matchedBy: resolvedSettings.resolvedPort.matchedBy,
+            identityUpdated: resolvedSettings.identityUpdated,
+          });
+        } else {
+          settings = resolvedSettings.settings;
+        }
+      } catch (err) {
+        logger.warn('Auto-connect: failed to inspect current ports, falling back to saved port.', 'main', {
           error: err instanceof Error ? err.message : String(err),
         });
-      });
+      }
+
+      let manufacturer: TargetManufacturer;
+      try {
+        manufacturer = TargetManufacturer.fromValue(settings.manufacturer);
+      } catch (err) {
+        logger.warn('Auto-connect: invalid manufacturer in saved settings, skipping.', 'main', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return;
+      }
+
+      logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
+
+      commandBus
+        .execute(ConnectToTargetToken, {
+          portName: settings.portName,
+          manufacturer,
+          deviceId: settings.deviceId,
+        })
+        .then(() => {
+          logger.info('Auto-connect: connection established successfully.', 'main');
+        })
+        .catch((err: unknown) => {
+          logger.warn('Auto-connect: connection failed, manual connection required.', 'main', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+    })();
   });
 }
 

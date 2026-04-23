@@ -23,6 +23,9 @@ function createMockSettingsStore(): IAppSettingsStore {
       portName: '',
       manufacturer: 'KOHTO' as const,
       deviceId: '',
+      serialNumber: '',
+      vendorId: '',
+      productId: '',
     },
     userPreferences: {
       laneNumber: 1,
@@ -51,6 +54,9 @@ function createMockSettingsStore(): IAppSettingsStore {
             portName: settings.connection.portName,
             manufacturer: settings.connection.manufacturer,
             ...(settings.connection.deviceId ? { deviceId: settings.connection.deviceId } : {}),
+            ...(settings.connection.serialNumber ? { serialNumber: settings.connection.serialNumber } : {}),
+            ...(settings.connection.vendorId ? { vendorId: settings.connection.vendorId } : {}),
+            ...(settings.connection.productId ? { productId: settings.connection.productId } : {}),
           }
         : null,
     ),
@@ -61,6 +67,9 @@ function createMockSettingsStore(): IAppSettingsStore {
           portName: connection.portName,
           manufacturer: connection.manufacturer,
           deviceId: connection.deviceId ?? '',
+          serialNumber: connection.serialNumber ?? '',
+          vendorId: connection.vendorId ?? '',
+          productId: connection.productId ?? '',
         },
       };
       return settings;
@@ -187,6 +196,9 @@ describe('settings module handlers', () => {
         portName: 'COM3',
         manufacturer: 'KOHTO' as const,
         deviceId: 'MT201-001',
+        serialNumber: 'ABC123',
+        vendorId: '0403',
+        productId: '6001',
       };
 
       await handlers.saveConnectionSettings({ settings });

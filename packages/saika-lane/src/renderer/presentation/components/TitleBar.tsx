@@ -18,6 +18,7 @@ export interface TitleBarProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
+  useNativeControlsOverlay?: boolean;
   onSettingsOpen?: () => void;
   onDebugPanelToggle?: () => void;
   onZoomIn?: () => void;
@@ -41,6 +42,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onMinimize,
   onMaximize,
   onClose,
+  useNativeControlsOverlay = false,
   onSettingsOpen,
   onDebugPanelToggle,
   onZoomIn,
@@ -48,6 +50,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuBarRef = useRef<HTMLDivElement>(null);
+  const isEmbeddedMenuBar = useNativeControlsOverlay;
 
   const menus: MenuDefinition[] = [
     {
@@ -133,7 +136,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   return (
     <header
       role="banner"
-      className="app-drag relative flex h-8 select-none items-center border-b border-[#3E3E42] bg-[#252526] text-xs text-[#CCCCCC]"
+      className={`relative flex h-8 select-none items-center border-b border-[#3E3E42] bg-[#252526] text-xs text-[#CCCCCC] ${
+        isEmbeddedMenuBar ? 'app-no-drag' : 'app-drag'
+      }`.trim()}
     >
       {/* App icon */}
       <div className="flex items-center px-2">
@@ -182,32 +187,34 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       </nav>
 
       {/* Centered title */}
-      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2">Saika Lane</div>
+      {!isEmbeddedMenuBar && <div className="pointer-events-none absolute left-1/2 -translate-x-1/2">Saika Lane</div>}
 
       {/* Window controls */}
-      <div className="app-no-drag ml-auto flex items-center">
-        <button
-          aria-label="Minimize"
-          className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-[#2A2D2E]"
-          onClick={onMinimize}
-        >
-          <Minus size={16} />
-        </button>
-        <button
-          aria-label={isMaximized ? 'Restore' : 'Maximize'}
-          className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-[#2A2D2E]"
-          onClick={onMaximize}
-        >
-          {isMaximized ? <Copy size={14} /> : <Square size={14} />}
-        </button>
-        <button
-          aria-label="Close"
-          className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-red-600 hover:text-white"
-          onClick={onClose}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      {!isEmbeddedMenuBar && (
+        <div className="app-no-drag ml-auto flex items-center">
+          <button
+            aria-label="Minimize"
+            className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-[#2A2D2E]"
+            onClick={onMinimize}
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+            className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-[#2A2D2E]"
+            onClick={onMaximize}
+          >
+            {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+          </button>
+          <button
+            aria-label="Close"
+            className="flex h-8 w-12 items-center justify-center transition-colors hover:bg-red-600 hover:text-white"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
     </header>
   );
 };

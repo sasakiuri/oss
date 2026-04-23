@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useConnectionEvents } from '@/renderer/presentation/hooks/useConnectionEvents';
+import { useConnectionNotificationStore } from '@/renderer/presentation/stores/connectionNotificationStore';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ConnectionStatusChangedEventPayload } from '@/shared/ipc/contracts';
@@ -13,6 +14,7 @@ describe('useConnectionEvents', () => {
   beforeEach(() => {
     useSessionStore.getState().resetSession();
     useConnectionStore.getState().disconnect();
+    useConnectionNotificationStore.getState().dismiss();
     vi.clearAllMocks();
 
     mockOnConnectionStatusChanged.mockReturnValue(vi.fn());
@@ -118,6 +120,68 @@ describe('useConnectionEvents', () => {
       const sessState = useSessionStore.getState();
       expect(sessState.manufacturer).toBeNull();
       expect(sessState.deviceId).toBeNull();
+    });
+
+    it('shows a warning notification for unexpected disconnects', () => {
+      renderHook(() => useConnectionEvents());
+
+      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
+        event: ConnectionStatusChangedEventPayload,
+      ) => void;
+
+      callback({
+        connectionId: 'conn-1',
+        status: 'disconnected',
+        reason: 'USB device disconnected unexpectedly',
+      });
+
+      expect(useConnectionNotificationStore.getState().notification).toMatchObject({
+        title: 'Target Disconnected',
+        message: 'USB device disconnected unexpectedly',
+      });
+    });
+
+    it('clears an unexpected disconnect warning after a later reconnection succeeds', () => {
+      renderHook(() => useConnectionEvents());
+
+      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
+        event: ConnectionStatusChangedEventPayload,
+      ) => void;
+
+      callback({
+        connectionId: 'conn-1',
+        status: 'disconnected',
+        reason: 'USB device disconnected unexpectedly',
+      });
+
+      expect(useConnectionNotificationStore.getState().notification).toMatchObject({
+        title: 'Target Disconnected',
+      });
+
+      callback({
+        connectionId: 'conn-2',
+        status: 'connected',
+        manufacturer: 'KOHTO',
+        portPath: '/dev/ttyUSB1',
+      });
+
+      expect(useConnectionNotificationStore.getState().notification).toBeNull();
+    });
+
+    it('does not show a warning notification for user-requested disconnects', () => {
+      renderHook(() => useConnectionEvents());
+
+      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
+        event: ConnectionStatusChangedEventPayload,
+      ) => void;
+
+      callback({
+        connectionId: 'conn-1',
+        status: 'disconnected',
+        reason: 'User requested disconnection',
+      });
+
+      expect(useConnectionNotificationStore.getState().notification).toBeNull();
     });
   });
 });

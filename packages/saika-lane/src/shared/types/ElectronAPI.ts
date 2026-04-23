@@ -31,7 +31,7 @@
 import type {
   competitionContract,
   connectionContract,
-  AppSettingsDto,
+  AppSettingsInputDto,
   ConnectionSettingsDto,
   eventsContract,
   mqttContract,
@@ -74,6 +74,8 @@ type SaveAppSettingsOutput = InferOutput<(typeof settingsContract)['procedures']
 export interface ElectronAPI {
   /** Current platform information */
   readonly platform: NodeJS.Platform;
+  /** Whether the current window uses native OS chrome */
+  readonly hasNativeWindowFrame: boolean;
 
   /** Application version from package.json */
   readonly appVersion: string;
@@ -106,7 +108,7 @@ export interface ElectronAPI {
     /** Get saved user preferences */
     getUserPreferences: SettingsBridge['getUserPreferences'];
     /** Save the full settings document */
-    saveAppSettings: (settings: AppSettingsDto) => Promise<SaveAppSettingsOutput>;
+    saveAppSettings: (settings: AppSettingsInputDto) => Promise<SaveAppSettingsOutput>;
     /** Get the full settings document */
     getAppSettings: SettingsBridge['getAppSettings'];
     /** Get settings file metadata */

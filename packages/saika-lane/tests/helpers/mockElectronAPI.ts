@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 // Electron API type definition (new format - via preload)
 export interface MockedElectronAPI {
   platform: string;
+  hasNativeWindowFrame: boolean;
   appVersion: string;
   commands: {
     startSession: ReturnType<typeof vi.fn>;
@@ -73,6 +74,7 @@ export interface MockedElectronAPI {
 export function createMockElectronAPI(): MockedElectronAPI {
   return {
     platform: 'linux',
+    hasNativeWindowFrame: false,
     appVersion: '0.1.0',
     commands: {
       startSession: vi.fn(),

@@ -38,6 +38,9 @@ export const ConnectionSettingsSchema = z.object({
   portName: z.string(),
   manufacturer: TargetManufacturerSchema,
   deviceId: z.string().optional(),
+  serialNumber: z.string().optional(),
+  vendorId: z.string().optional(),
+  productId: z.string().optional(),
 });
 
 const UserPreferencesSchema = z.object({
@@ -47,10 +50,48 @@ const UserPreferencesSchema = z.object({
   audioVolume: z.number().int().min(0).max(100).optional(),
 });
 
+const AppSettingsInputConnectionSchema = z.object({
+  portName: z.string(),
+  manufacturer: TargetManufacturerSchema,
+  deviceId: z.string(),
+  serialNumber: z.string(),
+  vendorId: z.string(),
+  productId: z.string(),
+});
+
+const AppSettingsInputUserPreferencesSchema = z.object({
+  laneNumber: z.number().int().min(1),
+  discipline: DisciplineSchema.nullable(),
+  competitionTypeId: z.string(),
+  audioVolume: z.number().int().min(0).max(100),
+});
+
+const AppSettingsInputMqttSchema = z.object({
+  enabled: z.boolean(),
+  brokerUrl: z
+    .string()
+    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
+    .refine((v) => !mqttUserinfoPattern.test(v), {
+      message: 'Broker URL must not contain credentials (username:password@)',
+    }),
+  laneAlias: z.string(),
+  autoConnect: z.boolean(),
+  laneId: z.string().uuid().optional(),
+});
+
+export const AppSettingsInputSchema = z.object({
+  connection: AppSettingsInputConnectionSchema,
+  userPreferences: AppSettingsInputUserPreferencesSchema,
+  mqtt: AppSettingsInputMqttSchema,
+});
+
 const PersistedConnectionSettingsSchema = z.object({
   portName: z.string().default(''),
   manufacturer: TargetManufacturerSchema.default('KOHTO'),
   deviceId: z.string().default(''),
+  serialNumber: z.string().default(''),
+  vendorId: z.string().default(''),
+  productId: z.string().default(''),
 });
 
 const PersistedUserPreferencesSchema = z.object({
@@ -79,6 +120,9 @@ export const AppSettingsDraftSchema = z.object({
     portName: '',
     manufacturer: 'KOHTO' as const,
     deviceId: '',
+    serialNumber: '',
+    vendorId: '',
+    productId: '',
   })),
   userPreferences: PersistedUserPreferencesSchema.default(() => ({
     laneNumber: 1,
@@ -119,7 +163,7 @@ const SaveUserPreferencesInputSchema = z.object({
 });
 
 const SaveAppSettingsInputSchema = z.object({
-  settings: AppSettingsSchema,
+  settings: AppSettingsInputSchema,
 });
 
 // ============================================================
@@ -156,6 +200,7 @@ export const settingsContract = defineContract('settings', {
 
 export type ConnectionSettingsDto = z.infer<typeof ConnectionSettingsSchema>;
 export type UserPreferencesDto = z.infer<typeof UserPreferencesSchema>;
+export type AppSettingsInputDto = z.infer<typeof AppSettingsInputSchema>;
 export type AppSettingsDto = z.infer<typeof AppSettingsSchema>;
 export type AppSettingsDraftDto = z.infer<typeof AppSettingsDraftSchema>;
 export type SettingsFileInfoDto = z.infer<typeof SettingsFileInfoSchema>;

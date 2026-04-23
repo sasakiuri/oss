@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { settingsService } from '@/renderer/services/settingsService';
+import { settingsContract } from '@/shared/ipc/contracts';
 
 // Mock settingsService
 vi.mock('@/renderer/services/settingsService', () => ({
@@ -15,7 +16,14 @@ vi.mock('@/renderer/services/settingsService', () => ({
     getConnectionSettings: vi.fn().mockResolvedValue({}),
     saveAppSettings: vi.fn().mockResolvedValue(undefined),
     getAppSettings: vi.fn().mockResolvedValue({
-      connection: { portName: '', manufacturer: 'KOHTO', deviceId: '' },
+      connection: {
+        portName: '',
+        manufacturer: 'KOHTO',
+        deviceId: '',
+        serialNumber: '',
+        vendorId: '',
+        productId: '',
+      },
       userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
       mqtt: {
         enabled: false,
@@ -384,7 +392,14 @@ describe('SettingsModal', () => {
   describe('json editing', () => {
     it('saves the full settings document from the JSON tab', async () => {
       const updatedSettings = {
-        connection: { portName: 'COM9', manufacturer: 'KOHTO' as const, deviceId: 'MT201' },
+        connection: {
+          portName: 'COM9',
+          manufacturer: 'KOHTO' as const,
+          deviceId: 'MT201',
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
+        },
         userPreferences: {
           laneNumber: 9,
           discipline: null,
@@ -417,6 +432,347 @@ describe('SettingsModal', () => {
       await waitFor(() => {
         expect(mockSaveAppSettings).toHaveBeenCalled();
         expect(useSessionStore.getState().laneNumber).toBe(9);
+      });
+    });
+
+    it('reloads the JSON editor without applying settings to stores', async () => {
+      const reloadedSettings = {
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO' as const,
+          deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
+        },
+        userPreferences: {
+          laneNumber: 9,
+          discipline: null,
+          competitionTypeId: '',
+          audioVolume: 60,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+      mockGetAppSettings.mockResolvedValueOnce({
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO',
+          deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
+        },
+        userPreferences: {
+          laneNumber: 1,
+          discipline: null,
+          competitionTypeId: '',
+          audioVolume: 50,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      });
+      mockGetAppSettings.mockResolvedValueOnce(reloadedSettings);
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      expect(textarea.value).toContain('"laneNumber": 1');
+
+      fireEvent.click(screen.getByText('Reload'));
+
+      await waitFor(() => {
+        expect(textarea.value).toContain('"laneNumber": 9');
+      });
+      expect(useSessionStore.getState().laneNumber).toBe(1);
+    });
+
+    it('allows saving a JSON document without mqtt.laneId', async () => {
+      const editableSettings = {
+        connection: {
+          portName: 'COM9',
+          manufacturer: 'KOHTO' as const,
+          deviceId: 'MT201',
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
+        },
+        userPreferences: {
+          laneNumber: 9,
+          discipline: null,
+          competitionTypeId: 'standard',
+          audioVolume: 60,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+        },
+      };
+      const normalizedSettings = {
+        ...editableSettings,
+        mqtt: {
+          ...editableSettings.mqtt,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+      mockGetAppSettings.mockResolvedValueOnce(normalizedSettings).mockResolvedValueOnce(normalizedSettings);
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      fireEvent.change(textarea, {
+        target: {
+          value: JSON.stringify(editableSettings, null, 2),
+        },
+      });
+
+      fireEvent.click(screen.getByText('Save JSON'));
+
+      await waitFor(() => {
+        expect(mockSaveAppSettings).toHaveBeenCalledWith(editableSettings);
+        expect(useSessionStore.getState().laneNumber).toBe(9);
+      });
+    });
+
+    it('treats an empty mqtt.laneId as auto-managed when saving JSON', async () => {
+      const editableSettings = {
+        connection: {
+          portName: 'COM9',
+          manufacturer: 'KOHTO' as const,
+          deviceId: 'MT201',
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
+        },
+        userPreferences: {
+          laneNumber: 9,
+          discipline: null,
+          competitionTypeId: 'standard',
+          audioVolume: 60,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '',
+        },
+      };
+      const normalizedSettings = {
+        ...editableSettings,
+        mqtt: {
+          ...editableSettings.mqtt,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      };
+      mockGetAppSettings.mockResolvedValueOnce(normalizedSettings).mockResolvedValueOnce(normalizedSettings);
+      mockSaveAppSettings.mockImplementationOnce(async (settings) => {
+        const result = settingsContract.procedures.saveAppSettings.input.safeParse({ settings });
+        if (!result.success) {
+          throw new Error(result.error.issues[0]?.message ?? 'Validation failed');
+        }
+      });
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      fireEvent.change(textarea, {
+        target: {
+          value: JSON.stringify(editableSettings, null, 2),
+        },
+      });
+
+      fireEvent.click(screen.getByText('Save JSON'));
+
+      await waitFor(() => {
+        expect(mockSaveAppSettings).toHaveBeenCalledWith({
+          ...editableSettings,
+          mqtt: {
+            enabled: false,
+            brokerUrl: '',
+            laneAlias: '',
+            autoConnect: false,
+          },
+        });
+        expect(useSessionStore.getState().laneNumber).toBe(9);
+      });
+    });
+
+    it('routes parseable but incomplete JSON documents through settings validation instead of crashing in the editor', async () => {
+      mockSaveAppSettings.mockImplementationOnce(async (settings) => {
+        const result = settingsContract.procedures.saveAppSettings.input.safeParse({ settings });
+        if (!result.success) {
+          throw new Error(result.error.issues[0]?.message ?? 'Validation failed');
+        }
+      });
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('JSON'));
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      fireEvent.change(textarea, {
+        target: {
+          value: JSON.stringify(
+            {
+              connection: {
+                portName: '',
+                manufacturer: 'KOHTO',
+                deviceId: '',
+                serialNumber: '',
+                vendorId: '',
+                productId: '',
+              },
+              userPreferences: {
+                laneNumber: 1,
+                discipline: null,
+                competitionTypeId: '',
+                audioVolume: 50,
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      });
+
+      fireEvent.click(screen.getByText('Save JSON'));
+
+      await waitFor(() => {
+        expect(mockSaveAppSettings).toHaveBeenCalledTimes(1);
+        expect(screen.getByRole('alert')).not.toHaveTextContent('Cannot read properties of undefined');
+      });
+    });
+
+    it('clears the previous JSON document when reopening the tab and the next load fails', async () => {
+      const { rerender } = render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      expect(textarea.value).toContain('"laneNumber": 1');
+      expect(screen.getByText('/tmp/settings.json')).toBeInTheDocument();
+
+      rerender(<SettingsModal isOpen={false} onClose={mockOnClose} initialTab="json" />);
+
+      mockGetAppSettings.mockRejectedValueOnce(new Error('Load failed'));
+
+      rerender(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('Load failed');
+      });
+
+      expect(screen.getByLabelText('Settings Document')).toHaveValue('');
+      expect(screen.getByText('Loading...')).toBeInTheDocument();
+    });
+
+    it('does not overwrite user edits when the initial JSON load resolves after typing starts', async () => {
+      let resolveSettings: ((value: Awaited<ReturnType<typeof settingsService.getAppSettings>>) => void) | undefined;
+      let resolveMetadata:
+        | ((value: Awaited<ReturnType<typeof settingsService.getSettingsFileInfo>>) => void)
+        | undefined;
+
+      mockGetAppSettings.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSettings = resolve;
+          }),
+      );
+      vi.mocked(settingsService.getSettingsFileInfo).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveMetadata = resolve;
+          }),
+      );
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+      fireEvent.change(textarea, {
+        target: {
+          value: '{\n  "userPreferences": {\n    "laneNumber": 9\n  }\n}',
+        },
+      });
+
+      await act(async () => {
+        resolveSettings?.({
+          connection: {
+            portName: '',
+            manufacturer: 'KOHTO',
+            deviceId: '',
+            serialNumber: '',
+            vendorId: '',
+            productId: '',
+          },
+          userPreferences: {
+            laneNumber: 1,
+            discipline: null,
+            competitionTypeId: '',
+            audioVolume: 50,
+          },
+          mqtt: {
+            enabled: false,
+            brokerUrl: '',
+            laneAlias: '',
+            autoConnect: false,
+            laneId: '550e8400-e29b-41d4-a716-446655440000',
+          },
+        });
+        resolveMetadata?.({ path: '/tmp/settings.json' });
+      });
+
+      expect(textarea).toHaveValue('{\n  "userPreferences": {\n    "laneNumber": 9\n  }\n}');
+    });
+
+    it('still loads the JSON document when settings file metadata lookup fails', async () => {
+      mockGetAppSettings.mockResolvedValueOnce({
+        connection: {
+          portName: 'COM9',
+          manufacturer: 'KOHTO',
+          deviceId: 'MT201',
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
+        },
+        userPreferences: {
+          laneNumber: 9,
+          discipline: null,
+          competitionTypeId: '',
+          audioVolume: 60,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+          laneId: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      });
+      vi.mocked(settingsService.getSettingsFileInfo).mockRejectedValueOnce(new Error('Path unavailable'));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+
+      const textarea = (await screen.findByLabelText('Settings Document')) as HTMLTextAreaElement;
+
+      await waitFor(() => {
+        expect(textarea.value).toContain('"laneNumber": 9');
       });
     });
   });

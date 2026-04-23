@@ -29,9 +29,11 @@ export function buildPreloadAPI(): ElectronAPI {
   const report = createBridgeNamespace(reportContract);
   const window = createBridgeNamespace(windowContract);
   const mqtt = createBridgeNamespace(mqttContract);
+  const hasNativeWindowFrame = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1';
 
   return {
     platform: process.platform,
+    hasNativeWindowFrame,
     appVersion: __APP_VERSION__,
 
     commands: {

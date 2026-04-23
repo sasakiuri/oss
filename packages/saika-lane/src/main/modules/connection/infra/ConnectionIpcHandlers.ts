@@ -38,6 +38,18 @@ export function createConnectionIpcHandlers(deps: ConnectionIpcHandlersDeps): In
         const eventPromise = new Promise<string>((resolve, reject) => {
           rejectEvent = reject;
           unsubscribe = eventBus.on('ConnectionEstablished', (event) => {
+            if (event.portPath !== input.portName) {
+              return;
+            }
+
+            if (event.manufacturer.value !== input.manufacturer) {
+              return;
+            }
+
+            if (input.deviceId !== undefined && (event.deviceId ?? null) !== input.deviceId) {
+              return;
+            }
+
             resolve(event.aggregateId);
           });
         });

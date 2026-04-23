@@ -7,6 +7,7 @@
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
+import type { Connection } from '@/main/modules/connection/domain/Connection';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
@@ -70,12 +71,57 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // Subscribe to session events for cache updates + shot counter reset
     sessionContextCache.subscribeEvents(() => usbManager.resetShotCounter());
 
+    const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus);
+
+    let pendingUnexpectedDisconnect: Promise<Connection | null> | null = null;
+
+    const takePendingUnexpectedDisconnect = async (): Promise<Connection | null> => {
+      const pending = pendingUnexpectedDisconnect;
+      pendingUnexpectedDisconnect = null;
+      return pending ? await pending : null;
+    };
+
+    const flushPendingUnexpectedDisconnect = async (): Promise<void> => {
+      try {
+        const disconnectedConnection = await takePendingUnexpectedDisconnect();
+        if (!disconnectedConnection) {
+          return;
+        }
+
+        await connectionRepository.save(disconnectedConnection);
+        eventBus.emit({
+          type: 'ConnectionLost',
+          timestamp: Date.now(),
+          aggregateId: disconnectedConnection.id,
+          reason: 'USB device disconnected unexpectedly',
+        });
+      } catch (err: unknown) {
+        getLogger().warn('Failed to finalize pending unexpected USB disconnect before manual connect', 'main', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    };
+
+    const discardPendingUnexpectedDisconnect = async (): Promise<void> => {
+      try {
+        await takePendingUnexpectedDisconnect();
+      } catch (err: unknown) {
+        getLogger().warn('Failed to discard pending unexpected USB disconnect before manual disconnect', 'main', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    };
+
     // Register CQRS handlers
-    commandBus.register(ConnectToTargetToken, createConnectToTargetHandler(connectionRepository, usbManager, eventBus));
-    commandBus.register(
-      DisconnectFromTargetToken,
-      createDisconnectFromTargetHandler(connectionRepository, usbManager, eventBus),
-    );
+    commandBus.register(ConnectToTargetToken, async (input) => {
+      await flushPendingUnexpectedDisconnect();
+      await connectToTarget(input);
+    });
+    const disconnectFromTarget = createDisconnectFromTargetHandler(connectionRepository, usbManager, eventBus);
+    commandBus.register(DisconnectFromTargetToken, async (input) => {
+      await discardPendingUnexpectedDisconnect();
+      await disconnectFromTarget(input);
+    });
 
     // Register IPC handlers via IpcRouter
     const connectionHandlers = createConnectionIpcHandlers({ commandBus, eventBus, usbManager });
@@ -84,6 +130,89 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // Register shot ingestion handler: USB data → RecordShot command
     const handleShotIngestion = createShotIngestionHandler({ commandBus, sessionRepository, competitionRepository });
     usbManager.on('data', handleShotIngestion);
+
+    const getReconnectMode = (): Mode => {
+      try {
+        return sessionContextCache.getContext().mode;
+      } catch {
+        return Mode.sighting();
+      }
+    };
+
+    usbManager.on('disconnected', () => {
+      pendingUnexpectedDisconnect = (async () => {
+        try {
+          const activeConnection = await connectionRepository.findActive();
+          if (!activeConnection || activeConnection.isDisconnected) {
+            return null;
+          }
+
+          return activeConnection.disconnect();
+        } catch (err: unknown) {
+          getLogger().warn('Failed to propagate unexpected USB disconnect', 'main', {
+            err: err instanceof Error ? err.message : String(err),
+          });
+          return null;
+        }
+      })();
+    });
+
+    usbManager.on('connected', (reconnectedConnection) => {
+      void (async () => {
+        try {
+          const disconnectedConnection = await takePendingUnexpectedDisconnect();
+          if (!disconnectedConnection) {
+            return;
+          }
+
+          await connectionRepository.save(disconnectedConnection);
+          await connectionRepository.save(reconnectedConnection);
+
+          eventBus.emit({
+            type: 'ConnectionEstablished',
+            timestamp: Date.now(),
+            aggregateId: reconnectedConnection.id,
+            manufacturer: reconnectedConnection.manufacturer,
+            portPath: reconnectedConnection.portPath,
+            deviceId: reconnectedConnection.deviceId,
+          });
+
+          usbManager.sendMode(getReconnectMode()).catch((err: unknown) => {
+            getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
+              err: err instanceof Error ? err.message : String(err),
+            });
+          });
+        } catch (err: unknown) {
+          getLogger().warn('Failed to propagate automatic USB reconnect', 'main', {
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      })();
+    });
+
+    usbManager.on('reconnectFailed', () => {
+      void (async () => {
+        try {
+          const disconnectedConnection = await takePendingUnexpectedDisconnect();
+          if (!disconnectedConnection) {
+            return;
+          }
+
+          await connectionRepository.save(disconnectedConnection);
+
+          eventBus.emit({
+            type: 'ConnectionLost',
+            timestamp: Date.now(),
+            aggregateId: disconnectedConnection.id,
+            reason: 'USB device disconnected unexpectedly',
+          });
+        } catch (err: unknown) {
+          getLogger().warn('Failed to finalize unexpected USB disconnect', 'main', {
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      })();
+    });
 
     // Subscribe to ModeSwitched events → send mode byte to device
     eventBus.on('ModeSwitched', (event) => {

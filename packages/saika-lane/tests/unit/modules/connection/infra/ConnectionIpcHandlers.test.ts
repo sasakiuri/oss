@@ -78,6 +78,7 @@ describe('ConnectionIpcHandlers', () => {
           aggregateId: 'conn-456',
           manufacturer: { value: 'KOHTO' },
           portPath: 'COM3',
+          deviceId: 'MT201',
           timestamp: Date.now(),
         });
       });
@@ -146,6 +147,33 @@ describe('ConnectionIpcHandlers', () => {
       });
 
       expect(unsubscribe).toHaveBeenCalled();
+    });
+
+    it('should ignore unrelated ConnectionEstablished events while waiting for the requested connection', async () => {
+      (commandBus.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        (eventBus.emit as ReturnType<typeof vi.fn>)({
+          type: 'ConnectionEstablished',
+          aggregateId: 'auto-reconnect-conn',
+          manufacturer: { value: 'KOHTO' },
+          portPath: '/dev/ttyUSB9',
+          timestamp: Date.now(),
+        });
+        (eventBus.emit as ReturnType<typeof vi.fn>)({
+          type: 'ConnectionEstablished',
+          aggregateId: 'manual-connect-conn',
+          manufacturer: { value: 'KOHTO' },
+          portPath: '/dev/ttyUSB0',
+          timestamp: Date.now(),
+        });
+      });
+
+      const handlers = createConnectionIpcHandlers(deps);
+      const result = await handlers.connect({
+        portName: '/dev/ttyUSB0',
+        manufacturer: 'KOHTO',
+      });
+
+      expect(result).toEqual({ connectionId: 'manual-connect-conn' });
     });
   });
 

@@ -209,7 +209,7 @@ describe('USBConnectionLifecycle', () => {
       expect(status.equals(ConnectionStatus.disconnected())).toBe(true);
     });
 
-    it('should emit a disconnected event', async () => {
+    it('should not emit a disconnected event for an explicit disconnect', async () => {
       const callback = vi.fn();
       emitter.on('disconnected', callback);
 
@@ -218,7 +218,7 @@ describe('USBConnectionLifecycle', () => {
 
       await lifecycle.disconnect();
 
-      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).not.toHaveBeenCalled();
     });
 
     it('should do nothing when port is not open', async () => {

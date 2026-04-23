@@ -65,6 +65,13 @@ describe('TitleBar', () => {
       expect(screen.getByLabelText('Close')).toBeInTheDocument();
     });
 
+    it('hides custom window control buttons when using native controls overlay', () => {
+      render(<TitleBar {...defaultProps({ useNativeControlsOverlay: true })} />);
+      expect(screen.queryByLabelText('Minimize')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Maximize')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Close')).not.toBeInTheDocument();
+    });
+
     it('displays the app title', () => {
       render(<TitleBar {...defaultProps()} />);
       expect(screen.getByText('Saika Lane')).toBeInTheDocument();

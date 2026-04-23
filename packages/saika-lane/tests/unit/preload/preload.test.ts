@@ -43,6 +43,11 @@ describe('Preload Script', () => {
       expect(typeof exposedApi.platform).toBe('string');
     });
 
+    it('should expose native frame capability flag', () => {
+      expect(exposedApi).toHaveProperty('hasNativeWindowFrame');
+      expect(typeof exposedApi.hasNativeWindowFrame).toBe('boolean');
+    });
+
     it('should expose commands object', () => {
       expect(exposedApi).toHaveProperty('commands');
       expect(exposedApi.commands).toHaveProperty('startSession');

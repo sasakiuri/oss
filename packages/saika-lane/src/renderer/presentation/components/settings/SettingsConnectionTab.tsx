@@ -23,7 +23,8 @@ import { useDeviceList } from '@/renderer/presentation/hooks/useDeviceList';
 import { usePortList } from '@/renderer/presentation/hooks/usePortList';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { settingsService } from '@/renderer/services/settingsService';
-import type { Discipline, TargetManufacturer } from '@/shared/ipc/contracts';
+import type { ConnectionSettingsDto, Discipline, TargetManufacturer } from '@/shared/ipc/contracts';
+import { resolveSavedConnectionPort } from '@/shared/settings/resolveSavedConnectionPort';
 
 /**
  * Manufacturer options
@@ -40,8 +41,9 @@ export const SettingsConnectionTab: React.FC = () => {
 
   const [selectedPort, setSelectedPort] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState<TargetManufacturer>('KOHTO');
+  const [savedConnectionSettings, setSavedConnectionSettings] = useState<ConnectionSettingsDto | null>(null);
 
-  const { portOptions, isLoadingPorts, portError, refreshPorts } = usePortList();
+  const { ports, portOptions, isLoadingPorts, portError, refreshPorts } = usePortList();
 
   const {
     deviceOptions,
@@ -56,6 +58,7 @@ export const SettingsConnectionTab: React.FC = () => {
   // Ref to capture current manufacturer for mount-only effect
   const selectedManufacturerRef = useRef(selectedManufacturer);
   selectedManufacturerRef.current = selectedManufacturer;
+  const hasUserSelectedPortRef = useRef(false);
 
   // Mount effect: fetch device list and restore saved connection settings
   useEffect(() => {
@@ -70,6 +73,7 @@ export const SettingsConnectionTab: React.FC = () => {
         const settings = await settingsService.getConnectionSettings();
         if (signal.aborted) return;
 
+        setSavedConnectionSettings(settings);
         if (settings.portName) {
           setSelectedPort(settings.portName);
         }
@@ -87,8 +91,19 @@ export const SettingsConnectionTab: React.FC = () => {
     return () => controller.abort();
   }, [fetchDevices, setSelectedPort, setSelectedManufacturer, setSelectedDeviceId]);
 
+  useEffect(() => {
+    if (hasUserSelectedPortRef.current || isLoadingPorts || !savedConnectionSettings?.portName) {
+      return;
+    }
+
+    const resolvedPort = resolveSavedConnectionPort(savedConnectionSettings, ports);
+    const nextPort = resolvedPort?.portName ?? savedConnectionSettings.portName;
+    setSelectedPort((currentPort) => (currentPort === nextPort ? currentPort : nextPort));
+  }, [isLoadingPorts, ports, savedConnectionSettings]);
+
   const handlePortChange = useCallback(
     (value: string) => {
+      hasUserSelectedPortRef.current = true;
       setSelectedPort(value);
       clearError();
     },
@@ -122,6 +137,7 @@ export const SettingsConnectionTab: React.FC = () => {
     if (!selectedPort) return;
 
     const selectedDevice = deviceOptions.find((d) => d.id === selectedDeviceId);
+    const selectedPortInfo = ports.find((port) => port.path === selectedPort);
     const baudRate = selectedDevice?.baudRate;
 
     await connect(selectedPort, selectedManufacturer, selectedDeviceId || undefined, baudRate);
@@ -132,6 +148,9 @@ export const SettingsConnectionTab: React.FC = () => {
         portName: selectedPort,
         manufacturer: selectedManufacturer,
         deviceId: selectedDeviceId || undefined,
+        serialNumber: selectedPortInfo?.serialNumber,
+        vendorId: selectedPortInfo?.vendorId,
+        productId: selectedPortInfo?.productId,
       });
     } catch {
       // Settings save failure is non-critical
@@ -146,13 +165,21 @@ export const SettingsConnectionTab: React.FC = () => {
         // Save failure is non-critical
       }
     }
-  }, [selectedPort, selectedManufacturer, selectedDeviceId, deviceOptions, connect]);
+  }, [selectedPort, selectedManufacturer, selectedDeviceId, deviceOptions, ports, connect]);
 
   const handleDisconnect = useCallback(async () => {
     await disconnect();
   }, [disconnect]);
 
-  const isConnectDisabled = !selectedPort || isConnecting || (deviceOptions.length > 1 && !selectedDeviceId);
+  const isRestoredSavedPort = selectedPort !== '' && savedConnectionSettings?.portName === selectedPort;
+  const isSelectedPortAvailable =
+    selectedPort !== '' &&
+    (hasUserSelectedPortRef.current ||
+      isLoadingPorts ||
+      portError !== null ||
+      isRestoredSavedPort ||
+      ports.some((port) => port.path === selectedPort));
+  const isConnectDisabled = !isSelectedPortAvailable || isConnecting || (deviceOptions.length > 1 && !selectedDeviceId);
 
   return (
     <div className="flex flex-col gap-4 p-4">

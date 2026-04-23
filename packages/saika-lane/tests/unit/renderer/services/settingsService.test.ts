@@ -37,6 +37,9 @@ describe('settingsService', () => {
       portName: '/dev/ttyUSB0',
       manufacturer: 'KOHTO' as const,
       deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
       discipline: 'AIR_RIFLE_10M' as const,
     };
 
@@ -90,6 +93,9 @@ describe('settingsService', () => {
       portName: '/dev/ttyUSB0',
       manufacturer: 'KOHTO' as const,
       deviceId: 'MT201',
+      serialNumber: 'ABC123',
+      vendorId: '0403',
+      productId: '6001',
       discipline: 'AIR_RIFLE_10M' as const,
     };
 
@@ -202,6 +208,9 @@ describe('settingsService', () => {
         portName: '/dev/ttyUSB0',
         manufacturer: 'KOHTO' as const,
         deviceId: 'MT201',
+        serialNumber: 'ABC123',
+        vendorId: '0403',
+        productId: '6001',
       },
       userPreferences: {
         laneNumber: 3,
@@ -223,6 +232,23 @@ describe('settingsService', () => {
 
       await expect(settingsService.saveAppSettings(appSettings)).resolves.toBeUndefined();
       expect(mockSaveAppSettings).toHaveBeenCalledWith(appSettings);
+    });
+
+    it('saveAppSettings accepts a document without mqtt.laneId', async () => {
+      mockSaveAppSettings.mockResolvedValue({ success: true });
+
+      const editableSettings = {
+        ...appSettings,
+        mqtt: {
+          enabled: true,
+          brokerUrl: 'mqtt://broker.example.com:1883',
+          laneAlias: 'Lane 1',
+          autoConnect: true,
+        },
+      };
+
+      await expect(settingsService.saveAppSettings(editableSettings)).resolves.toBeUndefined();
+      expect(mockSaveAppSettings).toHaveBeenCalledWith(editableSettings);
     });
 
     it('getAppSettings returns the full document on success', async () => {

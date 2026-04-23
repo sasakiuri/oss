@@ -37,7 +37,11 @@ vi.mock('@/renderer/presentation/hooks/useConnection', () => ({
 }));
 
 const mockRefreshPorts = vi.fn();
-const defaultPortListResult = {
+const defaultPortListResult: ReturnType<typeof usePortList> = {
+  ports: [
+    { path: '/dev/ttyUSB0', manufacturer: 'FTDI', serialNumber: 'ABC123', vendorId: '0403', productId: '6001' },
+    { path: '/dev/ttyUSB1', manufacturer: 'FTDI', serialNumber: 'DEF456', vendorId: '0403', productId: '6001' },
+  ],
   portOptions: [
     { value: '/dev/ttyUSB0', label: '/dev/ttyUSB0 (FTDI)' },
     { value: '/dev/ttyUSB1', label: '/dev/ttyUSB1' },
@@ -80,7 +84,7 @@ vi.mock('@/renderer/presentation/hooks/useDeviceList', () => ({
 vi.mock('@/renderer/services/settingsService', () => ({
   settingsService: {
     saveConnectionSettings: vi.fn().mockResolvedValue(undefined),
-    getConnectionSettings: vi.fn().mockResolvedValue({}),
+    getConnectionSettings: vi.fn(() => new Promise<never>(() => {})),
     saveUserPreferences: vi.fn().mockResolvedValue(undefined),
     getUserPreferences: vi.fn().mockResolvedValue({ laneNumber: 1 }),
   },
@@ -135,6 +139,7 @@ const mockSaveUserPreferences = vi.mocked(settingsService.saveUserPreferences);
 const mockUseConnection = vi.mocked(useConnection);
 const mockUsePortList = vi.mocked(usePortList);
 const mockUseDeviceList = vi.mocked(useDeviceList);
+let portListState: ReturnType<typeof usePortList> = { ...defaultPortListResult };
 
 // ============================================================
 // Tests
@@ -144,7 +149,8 @@ describe('SettingsConnectionTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseConnection.mockReturnValue({ ...defaultConnectionResult });
-    mockUsePortList.mockReturnValue({ ...defaultPortListResult });
+    portListState = { ...defaultPortListResult };
+    mockUsePortList.mockImplementation(() => portListState);
     mockUseDeviceList.mockReturnValue({ ...defaultDeviceListResult });
     useSessionStore.getState().resetSession();
   });
@@ -262,6 +268,38 @@ describe('SettingsConnectionTab', () => {
 
       const connectButton = screen.getByText('Connect');
       expect(connectButton).not.toBeDisabled();
+    });
+
+    it('keeps Connect enabled for a user-selected port after a later port scan returns empty', () => {
+      const { rerender } = render(<SettingsConnectionTab />);
+
+      fireEvent.click(screen.getByTestId('port-select-trigger'));
+      expect(screen.getByText('Connect')).not.toBeDisabled();
+
+      portListState = {
+        ...defaultPortListResult,
+        ports: [],
+        portOptions: [],
+      };
+      rerender(<SettingsConnectionTab />);
+
+      expect(screen.getByText('Connect')).not.toBeDisabled();
+    });
+
+    it('Connect button stays enabled for the restored saved port even when the current port scan is empty', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB9',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+      });
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB9');
+      });
+
+      expect(screen.getByText('Connect')).not.toBeDisabled();
     });
   });
 
@@ -382,6 +420,9 @@ describe('SettingsConnectionTab', () => {
           portName: '/dev/ttyUSB0',
           manufacturer: 'KOHTO',
           deviceId: undefined,
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
         });
       });
     });
@@ -494,6 +535,165 @@ describe('SettingsConnectionTab', () => {
       });
       expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('KOHTO');
       expect(mockSetSelectedDeviceId).toHaveBeenCalledWith('MT201');
+    });
+
+    it('resolves a moved saved device to the current port using serial number', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB9',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+        serialNumber: 'DEF456',
+      });
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(mockGetConnectionSettings).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+    });
+
+    it('retries saved device resolution after the port list becomes available', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB9',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+        serialNumber: 'DEF456',
+      });
+      portListState = {
+        ...defaultPortListResult,
+        ports: [],
+        portOptions: [],
+      };
+
+      const { rerender } = render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(mockGetConnectionSettings).toHaveBeenCalled();
+      });
+
+      expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB9');
+
+      portListState = { ...defaultPortListResult };
+      rerender(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+    });
+
+    it('shows the saved port immediately while the port list is still loading', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB1',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+      });
+      portListState = {
+        ...defaultPortListResult,
+        ports: [],
+        portOptions: [],
+        isLoadingPorts: true,
+      };
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(mockGetConnectionSettings).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+    });
+
+    it('keeps Connect enabled while the saved port is shown and the port list is still loading', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB1',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+      });
+      portListState = {
+        ...defaultPortListResult,
+        ports: [],
+        portOptions: [],
+        isLoadingPorts: true,
+      };
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(mockGetConnectionSettings).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+
+      expect(screen.getByText('Connect')).not.toBeDisabled();
+    });
+
+    it('keeps Connect enabled when the saved port is shown but a port refresh fails', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB1',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+      });
+      portListState = {
+        ...defaultPortListResult,
+        ports: [],
+        portOptions: [],
+        portError: 'Failed to fetch port list' as string | null,
+      };
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(mockGetConnectionSettings).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+
+      expect(screen.getByText('Connect')).not.toBeDisabled();
+    });
+
+    it('keeps the user-selected port when the port list refreshes', async () => {
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB1',
+        manufacturer: 'KOHTO',
+        deviceId: 'MT201',
+      });
+
+      const { rerender } = render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
+      });
+
+      fireEvent.click(screen.getByTestId('port-select-trigger'));
+      expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB0');
+
+      portListState = {
+        ...portListState,
+        ports: [
+          { path: '/dev/ttyUSB0', manufacturer: 'FTDI', serialNumber: 'ABC123', vendorId: '0403', productId: '6001' },
+          { path: '/dev/ttyUSB1', manufacturer: 'FTDI', serialNumber: 'DEF456', vendorId: '0403', productId: '6001' },
+          { path: '/dev/ttyUSB2', manufacturer: 'FTDI', serialNumber: 'GHI789', vendorId: '0403', productId: '6001' },
+        ],
+        portOptions: [
+          { value: '/dev/ttyUSB0', label: '/dev/ttyUSB0 (FTDI)' },
+          { value: '/dev/ttyUSB1', label: '/dev/ttyUSB1' },
+          { value: '/dev/ttyUSB2', label: '/dev/ttyUSB2' },
+        ],
+      };
+
+      rerender(<SettingsConnectionTab />);
+
+      expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB0');
     });
 
     it('laneNumber is not restored from connectionSettings on mount', async () => {

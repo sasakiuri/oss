@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockInvoke = vi.hoisted(() => vi.fn());
 const mockOn = vi.hoisted(() => vi.fn());
@@ -17,10 +17,30 @@ import { buildPreloadAPI } from '@/preload/buildPreloadAPI';
 
 describe('buildPreloadAPI', () => {
   const api = buildPreloadAPI();
+  const originalNativeWindowFrameEnv = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME;
+
+  afterEach(() => {
+    if (originalNativeWindowFrameEnv === undefined) {
+      delete process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME;
+      return;
+    }
+
+    process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = originalNativeWindowFrameEnv;
+  });
 
   describe('top-level structure', () => {
     it('should have platform property', () => {
       expect(api.platform).toBe(process.platform);
+    });
+
+    it('should expose whether the window uses native frame chrome', () => {
+      expect(api.hasNativeWindowFrame).toBeTypeOf('boolean');
+    });
+
+    it('reads native frame capability from the preload environment', () => {
+      process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = '1';
+
+      expect(buildPreloadAPI().hasNativeWindowFrame).toBe(true);
     });
 
     it('should contain all expected namespaces', () => {
@@ -80,7 +100,14 @@ describe('buildPreloadAPI', () => {
     it('should wrap saveAppSettings payload with settings key', async () => {
       mockInvoke.mockResolvedValue({ success: true });
       const settingsData = {
-        connection: { portName: '', manufacturer: 'KOHTO' as const, deviceId: '' },
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO' as const,
+          deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
+        },
         userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
         mqtt: {
           enabled: false,

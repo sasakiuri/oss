@@ -37,12 +37,14 @@ export type {
 
 export {
   AppSettingsDraftSchema,
+  AppSettingsInputSchema,
   AppSettingsSchema,
   ConnectionSettingsSchema,
   settingsContract,
 } from './settings.contract';
 export type {
   AppSettingsDraftDto,
+  AppSettingsInputDto,
   AppSettingsDto,
   ConnectionSettingsDto,
   SaveAppSettingsInput,

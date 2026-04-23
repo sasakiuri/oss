@@ -25,6 +25,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html.cursor-hidden,
+html.cursor-hidden * {
+  cursor: none !important;
+}
+
 #root {
   width: 100vw;
   height: 100vh;

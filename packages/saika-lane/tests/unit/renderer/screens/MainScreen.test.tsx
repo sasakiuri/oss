@@ -7,6 +7,7 @@ import * as useSessionModule from '@/renderer/presentation/hooks/useSession';
 import type { UseShotResult } from '@/renderer/presentation/hooks/useShot';
 import * as useShotModule from '@/renderer/presentation/hooks/useShot';
 import { MainScreen } from '@/renderer/presentation/screens/MainScreen';
+import { useConnectionNotificationStore } from '@/renderer/presentation/stores/connectionNotificationStore';
 import * as useConnectionStoreModule from '@/renderer/presentation/stores/connectionStore';
 import * as useSessionStoreModule from '@/renderer/presentation/stores/sessionStore';
 import type { ShotDto } from '@/shared/ipc/contracts';
@@ -43,6 +44,12 @@ const filterProps = (props: Record<string, unknown>) => {
     }
   }
   return safe;
+};
+
+const setMockWindowChrome = (platform: string, hasNativeWindowFrame: boolean) => {
+  (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).platform = platform;
+  (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).hasNativeWindowFrame =
+    hasNativeWindowFrame;
 };
 
 // Mock hooks and stores
@@ -167,7 +174,9 @@ describe('MainScreen', () => {
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks();
+    useConnectionNotificationStore.getState().dismiss();
     capturedSideMenuProps = {};
+    setMockWindowChrome('linux', false);
     vi.mocked(useSessionModule.useSession).mockReturnValue(defaultMockSession);
     vi.mocked(useShotModule.useShot).mockReturnValue(defaultMockShot);
 
@@ -227,6 +236,38 @@ describe('MainScreen', () => {
 
       const statusBar = screen.getByTestId('status-bar');
       expect(statusBar).toHaveTextContent('Connected');
+    });
+
+    it('opens connection settings from the disconnect toast action', () => {
+      useConnectionNotificationStore.getState().showUnexpectedDisconnect('USB device disconnected unexpectedly');
+
+      render(<MainScreen />);
+
+      fireEvent.click(screen.getByText('Open Connection Settings'));
+
+      expect(screen.getByTestId('settings-modal-open')).toHaveAttribute('data-initial-tab', 'connection');
+    });
+  });
+
+  describe('platform-specific window chrome', () => {
+    it('shows custom window controls when the window is frameless', () => {
+      setMockWindowChrome('linux', false);
+
+      render(<MainScreen />);
+
+      expect(screen.getByLabelText('Minimize')).toBeInTheDocument();
+      expect(screen.getByLabelText('Maximize')).toBeInTheDocument();
+      expect(screen.getByLabelText('Close')).toBeInTheDocument();
+    });
+
+    it('hides custom window controls when using the native window frame', () => {
+      setMockWindowChrome('linux', true);
+
+      render(<MainScreen />);
+
+      expect(screen.queryByLabelText('Minimize')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Maximize')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Close')).not.toBeInTheDocument();
     });
   });
 
@@ -672,6 +713,30 @@ describe('MainScreen', () => {
       // Now closed
       expect(screen.getByTestId('settings-modal-closed')).toBeInTheDocument();
       expect(screen.queryByTestId('settings-modal-open')).not.toBeInTheDocument();
+    });
+
+    it('does not auto-hide the cursor while SettingsModal is open', () => {
+      vi.useFakeTimers();
+
+      try {
+        render(<MainScreen />);
+
+        act(() => {
+          fireEvent.keyDown(window, { code: 'NumpadDecimal' });
+        });
+
+        expect(screen.getByTestId('settings-modal-open')).toBeInTheDocument();
+
+        act(() => {
+          vi.advanceTimersByTime(5000);
+        });
+
+        expect(document.documentElement).not.toHaveClass('cursor-hidden');
+      } finally {
+        vi.runOnlyPendingTimers();
+        vi.useRealTimers();
+        document.documentElement.classList.remove('cursor-hidden');
+      }
     });
   });
 

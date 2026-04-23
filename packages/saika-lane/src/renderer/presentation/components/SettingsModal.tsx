@@ -19,12 +19,12 @@
  */
 
 import { Volume2, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { settingsService } from '@/renderer/services/settingsService';
-import type { AppSettingsDto } from '@/shared/ipc/contracts';
+import type { AppSettingsDto, AppSettingsInputDto, SettingsFileInfoDto } from '@/shared/ipc/contracts';
 
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useSessionStore } from '../stores/sessionStore';
@@ -47,6 +47,10 @@ export interface SettingsModalProps {
   className?: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * SettingsModal component
  */
@@ -65,6 +69,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [jsonDraft, setJsonDraft] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [settingsFilePath, setSettingsFilePath] = useState('');
+  const jsonDraftDirtyRef = useRef(false);
 
   const applySettingsToStores = (settings: AppSettingsDto) => {
     useSessionStore.getState().setLaneNumber(settings.userPreferences.laneNumber);
@@ -76,10 +81,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const readSettingsDocument = async () => {
-    const [settings, metadata] = await Promise.all([
-      settingsService.getAppSettings(),
-      settingsService.getSettingsFileInfo(),
-    ]);
+    const settings = await settingsService.getAppSettings();
+    let metadata: SettingsFileInfoDto | null = null;
+
+    try {
+      metadata = await settingsService.getSettingsFileInfo();
+    } catch {
+      metadata = null;
+    }
 
     return { settings, metadata };
   };
@@ -91,6 +100,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setVolumeValue(audioVolume);
       setSaveError(null);
       setJsonError(null);
+      jsonDraftDirtyRef.current = false;
     }
   }, [isOpen, laneNumber, audioVolume]);
 
@@ -111,13 +121,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     void (async () => {
       try {
         setJsonError(null);
+        setJsonDraft('');
+        setSettingsFilePath('');
+        jsonDraftDirtyRef.current = false;
         const { settings, metadata } = await readSettingsDocument();
         if (cancelled) {
           return;
         }
 
-        setJsonDraft(JSON.stringify(settings, null, 2));
-        setSettingsFilePath(metadata.path);
+        setSettingsFilePath(metadata?.path ?? 'Unavailable');
+        if (!jsonDraftDirtyRef.current) {
+          setJsonDraft(JSON.stringify(settings, null, 2));
+        }
       } catch (err) {
         if (!cancelled) {
           setJsonError(err instanceof Error ? err.message : String(err));
@@ -160,10 +175,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleReloadJson = async () => {
     try {
       setJsonError(null);
+      setJsonDraft('');
+      setSettingsFilePath('');
+      jsonDraftDirtyRef.current = false;
       const { settings, metadata } = await readSettingsDocument();
-      setJsonDraft(JSON.stringify(settings, null, 2));
-      setSettingsFilePath(metadata.path);
-      applySettingsToStores(settings);
+      setSettingsFilePath(metadata?.path ?? 'Unavailable');
+      if (!jsonDraftDirtyRef.current) {
+        setJsonDraft(JSON.stringify(settings, null, 2));
+      }
     } catch (err) {
       setJsonError(err instanceof Error ? err.message : String(err));
     }
@@ -172,9 +191,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSaveJson = async () => {
     try {
       setJsonError(null);
-      const parsed = JSON.parse(jsonDraft) as AppSettingsDto;
-      await settingsService.saveAppSettings(parsed);
+      const parsed = JSON.parse(jsonDraft) as unknown;
+      const normalizedSettings =
+        isRecord(parsed) &&
+        isRecord(parsed.mqtt) &&
+        typeof parsed.mqtt.laneId === 'string' &&
+        parsed.mqtt.laneId.trim() === ''
+          ? {
+              ...parsed,
+              mqtt: {
+                enabled: parsed.mqtt.enabled,
+                brokerUrl: parsed.mqtt.brokerUrl,
+                laneAlias: parsed.mqtt.laneAlias,
+                autoConnect: parsed.mqtt.autoConnect,
+              },
+            }
+          : parsed;
+
+      await settingsService.saveAppSettings(normalizedSettings as AppSettingsInputDto);
       const normalized = await settingsService.getAppSettings();
+      jsonDraftDirtyRef.current = false;
       setJsonDraft(JSON.stringify(normalized, null, 2));
       applySettingsToStores(normalized);
     } catch (err) {
@@ -359,12 +395,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <textarea
                   id="settings-json"
                   value={jsonDraft}
-                  onChange={(e) => setJsonDraft(e.target.value)}
+                  onChange={(e) => {
+                    jsonDraftDirtyRef.current = true;
+                    setJsonDraft(e.target.value);
+                  }}
                   spellCheck={false}
                   className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-xs text-zinc-400">
-                  GUI からの保存と同じ検証を通して、設定全体をまとめて更新します。
+                  GUI からの保存と同じ検証を通して設定全体を更新します。mqtt.laneId
+                  は自動管理され、保存時に現在値が維持されます。
                 </span>
               </div>
             </div>

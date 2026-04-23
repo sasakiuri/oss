@@ -296,7 +296,7 @@ describe('USBConnectionManager', () => {
     });
 
     describe('on("disconnected")', () => {
-      it('should invoke callback on disconnect', async () => {
+      it('should not invoke callback for an explicit disconnect', async () => {
         const config: USBConnectionConfig = {
           portName: 'COM3',
           manufacturer: TargetManufacturer.custom(),
@@ -308,7 +308,7 @@ describe('USBConnectionManager', () => {
         await manager.connect(config);
         await manager.disconnect();
 
-        expect(callback).toHaveBeenCalled();
+        expect(callback).not.toHaveBeenCalled();
       });
     });
 

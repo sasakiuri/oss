@@ -8,6 +8,7 @@ import type { SessionContextProvider } from './USBDataPipeline';
 
 export interface USBConnectionEvents {
   connected: Connection;
+  /** Fired when the underlying port closes unexpectedly. */
   disconnected: void;
   data: ShotData;
   error: { error: Error; recoverable: boolean };

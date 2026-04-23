@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type {
+  AppSettingsInputDto,
   AppSettingsDto,
   ConnectionSettingsDto,
   SettingsFileInfoDto,
@@ -25,7 +26,7 @@ export const settingsService = {
     window.electronAPI.settings.getUserPreferences(),
   ),
 
-  saveAppSettings: createCommandMethod<AppSettingsDto>((settings) =>
+  saveAppSettings: createCommandMethod<AppSettingsInputDto>((settings) =>
     window.electronAPI.settings.saveAppSettings(settings),
   ),
 

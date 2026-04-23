@@ -149,6 +149,9 @@ export function createMockSettingsStore(): IAppSettingsStore {
       portName: '',
       manufacturer: 'KOHTO' as const,
       deviceId: '',
+      serialNumber: '',
+      vendorId: '',
+      productId: '',
     },
     userPreferences: {
       laneNumber: 1,
@@ -168,7 +171,29 @@ export function createMockSettingsStore(): IAppSettingsStore {
   return {
     getAll: vi.fn(() => settings),
     replaceAll: vi.fn((nextSettings) => {
-      settings = nextSettings;
+      settings = {
+        connection: {
+          portName: nextSettings.connection.portName ?? '',
+          manufacturer: nextSettings.connection.manufacturer ?? 'KOHTO',
+          deviceId: nextSettings.connection.deviceId ?? '',
+          serialNumber: nextSettings.connection.serialNumber ?? '',
+          vendorId: nextSettings.connection.vendorId ?? '',
+          productId: nextSettings.connection.productId ?? '',
+        },
+        userPreferences: {
+          laneNumber: nextSettings.userPreferences.laneNumber ?? 1,
+          discipline: nextSettings.userPreferences.discipline ?? null,
+          competitionTypeId: nextSettings.userPreferences.competitionTypeId ?? '',
+          audioVolume: nextSettings.userPreferences.audioVolume ?? 50,
+        },
+        mqtt: {
+          enabled: nextSettings.mqtt.enabled ?? false,
+          brokerUrl: nextSettings.mqtt.brokerUrl ?? '',
+          laneAlias: nextSettings.mqtt.laneAlias ?? '',
+          autoConnect: nextSettings.mqtt.autoConnect ?? false,
+          laneId: nextSettings.mqtt.laneId ?? settings.mqtt.laneId,
+        },
+      };
       return settings;
     }),
     getConnectionSettings: vi.fn(() =>
@@ -177,6 +202,9 @@ export function createMockSettingsStore(): IAppSettingsStore {
             portName: settings.connection.portName,
             manufacturer: settings.connection.manufacturer,
             ...(settings.connection.deviceId ? { deviceId: settings.connection.deviceId } : {}),
+            ...(settings.connection.serialNumber ? { serialNumber: settings.connection.serialNumber } : {}),
+            ...(settings.connection.vendorId ? { vendorId: settings.connection.vendorId } : {}),
+            ...(settings.connection.productId ? { productId: settings.connection.productId } : {}),
           }
         : null,
     ),
@@ -187,6 +215,9 @@ export function createMockSettingsStore(): IAppSettingsStore {
           portName: connection.portName,
           manufacturer: connection.manufacturer,
           deviceId: connection.deviceId ?? '',
+          serialNumber: connection.serialNumber ?? '',
+          vendorId: connection.vendorId ?? '',
+          productId: connection.productId ?? '',
         },
       };
       return settings;

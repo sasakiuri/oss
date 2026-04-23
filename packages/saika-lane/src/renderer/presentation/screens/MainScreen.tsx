@@ -9,6 +9,7 @@
 
 import React, { useCallback, useState } from 'react';
 
+import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
@@ -16,6 +17,7 @@ import { SidePanel } from '@/renderer/presentation/components/SidePanel';
 import { StatusBar } from '@/renderer/presentation/components/StatusBar';
 import { TargetDisplay } from '@/renderer/presentation/components/TargetDisplay';
 import { TitleBar } from '@/renderer/presentation/components/TitleBar';
+import { useAutoHideCursor } from '@/renderer/presentation/hooks/useAutoHideCursor';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useSession } from '@/renderer/presentation/hooks/useSession';
@@ -34,10 +36,13 @@ export interface MainScreenProps {
   className?: string;
 }
 
+const CURSOR_IDLE_TIMEOUT_MS = 5000;
+
 /**
  * MainScreen component
  */
 export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
+  const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
   const { currentSessionId } = useSession();
   const { shots } = useShot();
   const { discipline } = useSessionStore();
@@ -59,6 +64,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
   const { handlePreparationClick, handleMatchClick, handleNextStageClick } = useModeSwitchActions();
 
+  useAutoHideCursor(!isSettingsModalOpen, CURSOR_IDLE_TIMEOUT_MS);
+
   const handleZoomClick = () => {
     setZoomMode((prev) => getNextZoomMode(prev));
   };
@@ -76,6 +83,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onClose={handleClose}
+        useNativeControlsOverlay={useNativeControlsOverlay}
         onSettingsOpen={() => {
           setSettingsInitialTab('general');
           setIsSettingsModalOpen(true);
@@ -112,6 +120,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
       </div>
 
       {isDebugPaneOpen && <DebugPane onClose={() => setIsDebugPaneOpen(false)} className="h-64" />}
+
+      <ConnectionWarningToast
+        onOpenSettings={() => {
+          setSettingsInitialTab('connection');
+          setIsSettingsModalOpen(true);
+        }}
+      />
 
       <StatusBar isConnected={isConnected} onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)} />
 

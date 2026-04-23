@@ -41,6 +41,9 @@ describe('settingsContract', () => {
         portName: 'COM1',
         manufacturer: 'DISAG',
         deviceId: 'dev-1',
+        serialNumber: 'ABC123',
+        vendorId: '0403',
+        productId: '6001',
       },
     });
     expect(result.success).toBe(true);
@@ -83,6 +86,9 @@ describe('settingsContract', () => {
           portName: '',
           manufacturer: 'KOHTO',
           deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
         },
         userPreferences: {
           laneNumber: 1,
@@ -101,5 +107,64 @@ describe('settingsContract', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('saveAppSettings input schema accepts a settings document without mqtt.laneId', () => {
+    const schema = settingsContract.procedures.saveAppSettings.input;
+    const result = schema.safeParse({
+      settings: {
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO',
+          deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
+        },
+        userPreferences: {
+          laneNumber: 1,
+          discipline: null,
+          competitionTypeId: '',
+          audioVolume: 50,
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('saveAppSettings input schema rejects documents missing required persisted fields other than mqtt.laneId', () => {
+    const schema = settingsContract.procedures.saveAppSettings.input;
+    const result = schema.safeParse({
+      settings: {
+        connection: {
+          portName: '',
+          manufacturer: 'KOHTO',
+          deviceId: '',
+          serialNumber: '',
+          vendorId: '',
+          productId: '',
+        },
+        userPreferences: {
+          laneNumber: 1,
+          discipline: null,
+          competitionTypeId: '',
+        },
+        mqtt: {
+          enabled: false,
+          brokerUrl: '',
+          laneAlias: '',
+          autoConnect: false,
+        },
+      },
+    });
+
+    expect(result.success).toBe(false);
   });
 });
