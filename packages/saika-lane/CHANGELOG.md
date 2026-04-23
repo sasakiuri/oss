@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.1
+
+### Patch Changes
+
+- Stabilize settings persistence by unifying storage around `settings.json`, improving reconnect and legacy settings recovery, and preserving explicit default user preferences.
+
 ## 0.2.0
 
 ### Minor Changes
