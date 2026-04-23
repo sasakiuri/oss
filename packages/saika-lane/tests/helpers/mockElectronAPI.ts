@@ -52,6 +52,11 @@ export interface MockedElectronAPI {
     close: ReturnType<typeof vi.fn>;
     getWindowState: ReturnType<typeof vi.fn>;
   };
+  updates: {
+    getUpdateState: ReturnType<typeof vi.fn>;
+    checkForUpdates: ReturnType<typeof vi.fn>;
+    quitAndInstall: ReturnType<typeof vi.fn>;
+  };
   on: {
     shotReceived: ReturnType<typeof vi.fn>;
     shotRecorded: ReturnType<typeof vi.fn>;
@@ -70,6 +75,7 @@ export interface MockedElectronAPI {
     competitionFinished: ReturnType<typeof vi.fn>;
     mqttStatusChanged: ReturnType<typeof vi.fn>;
     fullscreenChanged: ReturnType<typeof vi.fn>;
+    updateStateChanged: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -147,6 +153,47 @@ export function createMockElectronAPI(): MockedElectronAPI {
       close: vi.fn().mockResolvedValue({ success: true }),
       getWindowState: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } }),
     },
+    updates: {
+      getUpdateState: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          status: 'idle',
+          currentVersion: '0.1.0',
+          targetVersion: null,
+          releaseName: null,
+          releaseDate: null,
+          releaseNotes: null,
+          downloadPercent: null,
+          transferredBytes: null,
+          totalBytes: null,
+          bytesPerSecond: null,
+          lastCheckedAt: null,
+          errorMessage: null,
+          canCheckForUpdates: true,
+          canInstallUpdate: false,
+        },
+      }),
+      checkForUpdates: vi.fn().mockResolvedValue({
+        success: true,
+        data: {
+          status: 'checking',
+          currentVersion: '0.1.0',
+          targetVersion: null,
+          releaseName: null,
+          releaseDate: null,
+          releaseNotes: null,
+          downloadPercent: null,
+          transferredBytes: null,
+          totalBytes: null,
+          bytesPerSecond: null,
+          lastCheckedAt: null,
+          errorMessage: null,
+          canCheckForUpdates: false,
+          canInstallUpdate: false,
+        },
+      }),
+      quitAndInstall: vi.fn().mockResolvedValue({ success: true }),
+    },
     on: {
       shotReceived: vi.fn().mockReturnValue(() => {}),
       shotRecorded: vi.fn().mockReturnValue(() => {}),
@@ -165,6 +212,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       competitionFinished: vi.fn().mockReturnValue(() => {}),
       mqttStatusChanged: vi.fn().mockReturnValue(() => {}),
       fullscreenChanged: vi.fn().mockReturnValue(() => {}),
+      updateStateChanged: vi.fn().mockReturnValue(() => {}),
     },
   };
 }

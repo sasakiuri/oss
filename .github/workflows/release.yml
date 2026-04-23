@@ -163,6 +163,8 @@ jobs:
             packages/saika-lane/release/*.dmg
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
+            packages/saika-lane/release/latest*.yml
+            packages/saika-lane/release/*.blockmap
           if-no-files-found: error
           retention-days: 1
 
@@ -197,6 +199,8 @@ jobs:
             artifacts/*.dmg
             artifacts/*.AppImage
             artifacts/*.deb
+            artifacts/latest*.yml
+            artifacts/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

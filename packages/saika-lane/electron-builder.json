@@ -28,6 +28,14 @@
       "to": "THIRD-PARTY-LICENSES.txt"
     }
   ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "sasakiuri",
+      "repo": "oss",
+      "releaseType": "release"
+    }
+  ],
   "icon": "resources/appIcon.png",
   "win": {
     "target": [

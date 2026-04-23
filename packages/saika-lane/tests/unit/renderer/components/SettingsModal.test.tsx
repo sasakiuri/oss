@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { settingsService } from '@/renderer/services/settingsService';
+import { updateService } from '@/renderer/services/updateService';
 import { settingsContract } from '@/shared/ipc/contracts';
 
 // Mock settingsService
@@ -37,9 +39,49 @@ vi.mock('@/renderer/services/settingsService', () => ({
   },
 }));
 
+vi.mock('@/renderer/services/updateService', () => ({
+  updateService: {
+    getUpdateState: vi.fn().mockResolvedValue({
+      status: 'idle',
+      currentVersion: '0.2.1',
+      targetVersion: null,
+      releaseName: null,
+      releaseDate: null,
+      releaseNotes: null,
+      downloadPercent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      bytesPerSecond: null,
+      lastCheckedAt: null,
+      errorMessage: null,
+      canCheckForUpdates: true,
+      canInstallUpdate: false,
+    }),
+    checkForUpdates: vi.fn().mockResolvedValue({
+      status: 'checking',
+      currentVersion: '0.2.1',
+      targetVersion: null,
+      releaseName: null,
+      releaseDate: null,
+      releaseNotes: null,
+      downloadPercent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      bytesPerSecond: null,
+      lastCheckedAt: null,
+      errorMessage: null,
+      canCheckForUpdates: false,
+      canInstallUpdate: false,
+    }),
+    quitAndInstall: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const mockSaveUserPreferences = vi.mocked(settingsService.saveUserPreferences);
 const mockSaveAppSettings = vi.mocked(settingsService.saveAppSettings);
 const mockGetAppSettings = vi.mocked(settingsService.getAppSettings);
+const mockCheckForUpdates = vi.mocked(updateService.checkForUpdates);
+const mockQuitAndInstall = vi.mocked(updateService.quitAndInstall);
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
@@ -77,6 +119,7 @@ describe('SettingsModal', () => {
     vi.clearAllMocks();
     // Reset store
     useSessionStore.getState().resetSession();
+    useUpdateStore.getState().reset();
   });
 
   describe('show/hide', () => {
@@ -218,6 +261,73 @@ describe('SettingsModal', () => {
 
       expect(await screen.findByText('/tmp/settings.json')).toBeInTheDocument();
       expect(screen.getByLabelText('Settings Document')).toBeInTheDocument();
+    });
+  });
+
+  describe('application update section', () => {
+    it('displays the application update section on the General tab', async () => {
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('Application Update')).toBeInTheDocument();
+      expect(screen.getByText('Current Version: 0.1.0')).toBeInTheDocument();
+    });
+
+    it('triggers an update check from the General tab', async () => {
+      mockCheckForUpdates.mockResolvedValueOnce({
+        status: 'checking',
+        currentVersion: '0.2.1',
+        targetVersion: null,
+        releaseName: null,
+        releaseDate: null,
+        releaseNotes: null,
+        downloadPercent: null,
+        transferredBytes: null,
+        totalBytes: null,
+        bytesPerSecond: null,
+        lastCheckedAt: null,
+        errorMessage: null,
+        canCheckForUpdates: false,
+        canInstallUpdate: false,
+      });
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const button = await screen.findByText('Check for Updates');
+      await waitFor(() => {
+        expect(button).not.toBeDisabled();
+      });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('shows Restart & Install when a downloaded update is available', async () => {
+      useUpdateStore.getState().setState({
+        status: 'downloaded',
+        currentVersion: '0.2.1',
+        targetVersion: '0.2.2',
+        releaseName: 'Saika Lane 0.2.2',
+        releaseDate: '2026-04-23T00:00:00.000Z',
+        releaseNotes: 'Fixes',
+        downloadPercent: 100,
+        transferredBytes: 4096,
+        totalBytes: 4096,
+        bytesPerSecond: 1024,
+        lastCheckedAt: '2026-04-23T00:00:00.000Z',
+        errorMessage: null,
+        canCheckForUpdates: false,
+        canInstallUpdate: true,
+      });
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(await screen.findByText('Restart & Install'));
+
+      await waitFor(() => {
+        expect(mockQuitAndInstall).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

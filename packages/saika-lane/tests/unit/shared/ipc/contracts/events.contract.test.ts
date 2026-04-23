@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 
 describe('eventsContract', () => {
-  it('has 17 events', () => {
+  it('has 18 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
-    expect(eventKeys).toHaveLength(17);
+    expect(eventKeys).toHaveLength(18);
   });
 
   it('all events have kind=event', () => {
@@ -33,6 +33,7 @@ describe('eventsContract', () => {
     expect(eventsContract.channels.competitionFinished).toBe('event:competitionFinished');
     expect(eventsContract.channels.mqttStatusChanged).toBe('event:mqttStatusChanged');
     expect(eventsContract.channels.fullscreenChanged).toBe('event:fullscreenChanged');
+    expect(eventsContract.channels.updateStateChanged).toBe('event:updateStateChanged');
   });
 
   it('shotReceived schema accepts valid data', () => {
@@ -101,6 +102,27 @@ describe('eventsContract', () => {
   it('fullscreenChanged schema accepts valid data', () => {
     const schema = eventsContract.events.fullscreenChanged.schema;
     const result = schema.safeParse({ isFullscreen: true });
+    expect(result.success).toBe(true);
+  });
+
+  it('updateStateChanged schema accepts valid data', () => {
+    const schema = eventsContract.events.updateStateChanged.schema;
+    const result = schema.safeParse({
+      status: 'downloaded',
+      currentVersion: '0.2.1',
+      targetVersion: '0.2.2',
+      releaseName: 'Saika Lane 0.2.2',
+      releaseDate: '2026-04-23T00:00:00.000Z',
+      releaseNotes: 'Fixes and improvements',
+      downloadPercent: 100,
+      transferredBytes: 4096,
+      totalBytes: 4096,
+      bytesPerSecond: 1024,
+      lastCheckedAt: '2026-04-23T00:00:00.000Z',
+      errorMessage: null,
+      canCheckForUpdates: false,
+      canInstallUpdate: true,
+    });
     expect(result.success).toBe(true);
   });
 });

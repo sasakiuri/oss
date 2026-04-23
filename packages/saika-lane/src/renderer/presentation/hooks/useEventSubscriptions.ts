@@ -5,6 +5,7 @@ import { usePhaseEvents } from './usePhaseEvents';
 import { useSessionEvents } from './useSessionEvents';
 import { useShotEvents } from './useShotEvents';
 import { useTimerEvents } from './useTimerEvents';
+import { useUpdateEvents } from './useUpdateEvents';
 
 /**
  * Unified hook that subscribes to all IPC events and reflects them in stores.
@@ -18,4 +19,5 @@ export function useEventSubscriptions(): void {
   usePhaseEvents();
   useTimerEvents();
   useLogEvents();
+  useUpdateEvents();
 }

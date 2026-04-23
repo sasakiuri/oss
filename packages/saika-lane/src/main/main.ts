@@ -35,7 +35,8 @@ import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger, initializeLogger } from '@/main/shared-infra/logging';
 import { ModuleLoader } from '@/main/shared-infra/module';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import { eventsContract, windowContract } from '@/shared/ipc/contracts';
+import { AppUpdater } from '@/main/updater/AppUpdater';
+import { eventsContract, updaterContract, windowContract } from '@/shared/ipc/contracts';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const isWsl =
@@ -106,6 +107,8 @@ function createWindow(): BrowserWindow {
  * @param mainWindow - Main browser window for IPC communication
  */
 function initializeApplication(mainWindow: BrowserWindow): void {
+  let skipCloseConfirmation = false;
+
   // 0. Initialize Logger (first to enable logging for all subsequent operations)
   const logger = initializeLogger(mainWindow);
   Menu.setApplicationMenu(null);
@@ -139,6 +142,12 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   const commandBus = new CommandBus();
   const queryBus = new QueryBus();
   const ipcRouter = new IpcRouter();
+  const appUpdater = new AppUpdater({
+    mainWindow,
+    onBeforeQuitForInstall: () => {
+      skipCloseConfirmation = true;
+    },
+  });
 
   // Add middleware
   commandBus.use(new CommandLoggingMiddleware());
@@ -198,6 +207,14 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     }),
   });
 
+  ipcRouter.register(updaterContract, {
+    getUpdateState: async () => appUpdater.getState(),
+    checkForUpdates: async () => appUpdater.checkForUpdates(),
+    quitAndInstall: async () => {
+      await appUpdater.quitAndInstall();
+    },
+  });
+
   const sendFullscreenChanged = () => {
     if (mainWindow.isDestroyed()) return;
     mainWindow.webContents.send(eventsContract.channels.fullscreenChanged, {
@@ -212,11 +229,19 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   const eventForwarder = new ContractEventForwarder(eventBus, mainWindow);
   eventForwarder.start();
 
-  // Auto-connect on renderer load
-  scheduleAutoConnect(mainWindow, settingsStore, usbConnectionManager, commandBus);
+  // Run renderer-load initialization from a single did-finish-load hook.
+  mainWindow.webContents.once('did-finish-load', () => {
+    scheduleAutoConnect(settingsStore, usbConnectionManager, commandBus);
+    appUpdater.emitCurrentState();
+    void appUpdater.checkForUpdates();
+  });
 
   // 5. Register close confirmation dialog
   mainWindow.on('close', (event) => {
+    if (skipCloseConfirmation) {
+      return;
+    }
+
     event.preventDefault();
     dialog
       .showMessageBox(mainWindow, {
@@ -236,86 +261,83 @@ function initializeApplication(mainWindow: BrowserWindow): void {
 }
 
 function scheduleAutoConnect(
-  mainWindow: BrowserWindow,
   settingsStore: IAppSettingsStore,
   usbManager: USBConnectionManager,
   commandBus: CommandBus,
 ): void {
-  mainWindow.webContents.once('did-finish-load', () => {
-    void (async () => {
-      const logger = getLogger();
-      let settings = settingsStore.getConnectionSettings();
+  void (async () => {
+    const logger = getLogger();
+    let settings = settingsStore.getConnectionSettings();
 
-      if (!settings) {
-        logger.info('Auto-connect: no saved connection settings found, skipping.', 'main');
-        return;
-      }
+    if (!settings) {
+      logger.info('Auto-connect: no saved connection settings found, skipping.', 'main');
+      return;
+    }
 
-      try {
-        const ports = await usbManager.listPorts();
-        const resolvedSettings = resolveAutoConnectSettings(settings, ports);
+    try {
+      const ports = await usbManager.listPorts();
+      const resolvedSettings = resolveAutoConnectSettings(settings, ports);
 
-        if (!resolvedSettings) {
-          if (ports.length === 0) {
-            logger.warn('Auto-connect: current port scan returned no ports, falling back to saved port.', 'main', {
-              savedPortName: settings.portName,
-            });
-          } else {
-            logger.warn('Auto-connect: saved device could not be resolved among current ports, skipping.', 'main', {
-              savedPortName: settings.portName,
-              serialNumber: settings.serialNumber,
-              vendorId: settings.vendorId,
-              productId: settings.productId,
-            });
-            return;
-          }
-        } else if (resolvedSettings.shouldPersist) {
-          const previousPortName = settings.portName;
-          settings = resolvedSettings.settings;
-          settingsStore.saveConnectionSettings(settings);
-          logger.info('Auto-connect: refreshed saved device settings from current ports.', 'main', {
-            previousPortName,
-            resolvedPortName: resolvedSettings.settings.portName,
-            matchedBy: resolvedSettings.resolvedPort.matchedBy,
-            identityUpdated: resolvedSettings.identityUpdated,
+      if (!resolvedSettings) {
+        if (ports.length === 0) {
+          logger.warn('Auto-connect: current port scan returned no ports, falling back to saved port.', 'main', {
+            savedPortName: settings.portName,
           });
         } else {
-          settings = resolvedSettings.settings;
-        }
-      } catch (err) {
-        logger.warn('Auto-connect: failed to inspect current ports, falling back to saved port.', 'main', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-
-      let manufacturer: TargetManufacturer;
-      try {
-        manufacturer = TargetManufacturer.fromValue(settings.manufacturer);
-      } catch (err) {
-        logger.warn('Auto-connect: invalid manufacturer in saved settings, skipping.', 'main', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return;
-      }
-
-      logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
-
-      commandBus
-        .execute(ConnectToTargetToken, {
-          portName: settings.portName,
-          manufacturer,
-          deviceId: settings.deviceId,
-        })
-        .then(() => {
-          logger.info('Auto-connect: connection established successfully.', 'main');
-        })
-        .catch((err: unknown) => {
-          logger.warn('Auto-connect: connection failed, manual connection required.', 'main', {
-            error: err instanceof Error ? err.message : String(err),
+          logger.warn('Auto-connect: saved device could not be resolved among current ports, skipping.', 'main', {
+            savedPortName: settings.portName,
+            serialNumber: settings.serialNumber,
+            vendorId: settings.vendorId,
+            productId: settings.productId,
           });
+          return;
+        }
+      } else if (resolvedSettings.shouldPersist) {
+        const previousPortName = settings.portName;
+        settings = resolvedSettings.settings;
+        settingsStore.saveConnectionSettings(settings);
+        logger.info('Auto-connect: refreshed saved device settings from current ports.', 'main', {
+          previousPortName,
+          resolvedPortName: resolvedSettings.settings.portName,
+          matchedBy: resolvedSettings.resolvedPort.matchedBy,
+          identityUpdated: resolvedSettings.identityUpdated,
         });
-    })();
-  });
+      } else {
+        settings = resolvedSettings.settings;
+      }
+    } catch (err) {
+      logger.warn('Auto-connect: failed to inspect current ports, falling back to saved port.', 'main', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    let manufacturer: TargetManufacturer;
+    try {
+      manufacturer = TargetManufacturer.fromValue(settings.manufacturer);
+    } catch (err) {
+      logger.warn('Auto-connect: invalid manufacturer in saved settings, skipping.', 'main', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
+
+    commandBus
+      .execute(ConnectToTargetToken, {
+        portName: settings.portName,
+        manufacturer,
+        deviceId: settings.deviceId,
+      })
+      .then(() => {
+        logger.info('Auto-connect: connection established successfully.', 'main');
+      })
+      .catch((err: unknown) => {
+        logger.warn('Auto-connect: connection failed, manual connection required.', 'main', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+  })();
 }
 
 // Relax autoplay policy (required for impact sound playback)

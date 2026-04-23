@@ -93,3 +93,6 @@ export type { FullscreenStateDto, ToggleFullscreenResponse, WindowStateDto } fro
 
 export { mqttContract } from './mqtt.contract';
 export type { ConnectMqttInput, MqttSettings, MqttStatus } from './mqtt.contract';
+
+export { AppUpdateStateSchema, AppUpdateStatusSchema, updaterContract } from './updater.contract';
+export type { AppUpdateStateDto, AppUpdateStatus } from './updater.contract';

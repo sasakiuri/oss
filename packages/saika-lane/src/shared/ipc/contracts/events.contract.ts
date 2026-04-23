@@ -14,6 +14,8 @@ import { PHASE_VALUES } from '@/shared/types/Phase';
 import { defineEvent, defineEventContract } from '../defineContract';
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
 
+import { AppUpdateStateSchema } from './updater.contract';
+
 // ============================================================
 // Shared enums / literals
 // ============================================================
@@ -164,6 +166,8 @@ const FullscreenChangedEventSchema = z.object({
   isFullscreen: z.boolean(),
 });
 
+const UpdateStateChangedEventSchema = AppUpdateStateSchema;
+
 // ============================================================
 // Event contract definition
 // ============================================================
@@ -220,6 +224,9 @@ export const eventsContract = defineEventContract('events', {
   fullscreenChanged: defineEvent(FullscreenChangedEventSchema, {
     channel: 'event:fullscreenChanged',
   }),
+  updateStateChanged: defineEvent(UpdateStateChangedEventSchema, {
+    channel: 'event:updateStateChanged',
+  }),
 });
 
 // ============================================================
@@ -245,3 +252,4 @@ export type StageAdvancedEventPayload = z.infer<typeof StageAdvancedEventSchema>
 export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinishedEventSchema>;
 export type MqttStatusChangedEventPayload = z.infer<typeof MqttStatusChangedEventSchema>;
 export type FullscreenChangedEventPayload = z.infer<typeof FullscreenChangedEventSchema>;
+export type UpdateStateChangedEventPayload = z.infer<typeof UpdateStateChangedEventSchema>;

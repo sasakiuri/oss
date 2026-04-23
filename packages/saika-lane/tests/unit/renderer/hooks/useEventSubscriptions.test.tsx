@@ -67,6 +67,7 @@ const mockOnSessionReset = vi.fn();
 const mockOnConnectionStatusChanged = vi.fn();
 const mockOnShotReceived = vi.fn();
 const mockOnShotRecorded = vi.fn();
+const mockOnUpdateStateChanged = vi.fn();
 
 describe('useEventSubscriptions', () => {
   beforeEach(() => {
@@ -82,11 +83,17 @@ describe('useEventSubscriptions', () => {
     mockOnConnectionStatusChanged.mockReturnValue(vi.fn());
     mockOnShotReceived.mockReturnValue(vi.fn());
     mockOnShotRecorded.mockReturnValue(vi.fn());
+    mockOnUpdateStateChanged.mockReturnValue(vi.fn());
 
     Object.defineProperty(window, 'electronAPI', {
       configurable: true,
       writable: true,
       value: {
+        updates: {
+          getUpdateState: vi.fn(),
+          checkForUpdates: vi.fn(),
+          quitAndInstall: vi.fn(),
+        },
         on: {
           sessionStarted: mockOnSessionStarted,
           modeSwitched: mockOnModeSwitched,
@@ -102,6 +109,7 @@ describe('useEventSubscriptions', () => {
           stageAdvanced: vi.fn().mockReturnValue(vi.fn()),
           competitionFinished: vi.fn().mockReturnValue(vi.fn()),
           logMessage: vi.fn().mockReturnValue(vi.fn()),
+          updateStateChanged: mockOnUpdateStateChanged,
         },
       },
     });
@@ -125,6 +133,7 @@ describe('useEventSubscriptions', () => {
       expect(mockOnSessionReset).toHaveBeenCalledTimes(1);
       expect(mockOnConnectionStatusChanged).toHaveBeenCalledTimes(1);
       expect(mockOnShotRecorded).toHaveBeenCalledTimes(1);
+      expect(mockOnUpdateStateChanged).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters all event listeners on unmount', () => {
@@ -133,12 +142,14 @@ describe('useEventSubscriptions', () => {
       const unsubSessionReset = vi.fn();
       const unsubConnectionStatusChanged = vi.fn();
       const unsubShotRecorded = vi.fn();
+      const unsubUpdateStateChanged = vi.fn();
 
       mockOnSessionStarted.mockReturnValue(unsubSessionStarted);
       mockOnModeSwitched.mockReturnValue(unsubModeSwitched);
       mockOnSessionReset.mockReturnValue(unsubSessionReset);
       mockOnConnectionStatusChanged.mockReturnValue(unsubConnectionStatusChanged);
       mockOnShotRecorded.mockReturnValue(unsubShotRecorded);
+      mockOnUpdateStateChanged.mockReturnValue(unsubUpdateStateChanged);
 
       const { unmount } = renderHook(() => useEventSubscriptions());
 
@@ -149,6 +160,7 @@ describe('useEventSubscriptions', () => {
       expect(unsubSessionReset).toHaveBeenCalledTimes(1);
       expect(unsubConnectionStatusChanged).toHaveBeenCalledTimes(1);
       expect(unsubShotRecorded).toHaveBeenCalledTimes(1);
+      expect(unsubUpdateStateChanged).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -59,6 +59,7 @@
   "dependencies": {
     "better-sqlite3": "^11.0.0",
     "electron-store": "10.0.0",
+    "electron-updater": "^6.8.3",
     "lucide-react": "^0.484.0",
     "mqtt": "^5.15.0",
     "react": "^19.0.0",

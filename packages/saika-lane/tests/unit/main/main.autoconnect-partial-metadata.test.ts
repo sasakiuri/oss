@@ -227,9 +227,13 @@ function setupMainModuleMocks(): void {
   vi.doMock('@/main/shared-infra/sqlite/SqliteDb', () => ({
     createSqliteDb: vi.fn(() => ({})),
   }));
-  vi.doMock('@/shared/ipc/contracts', () => ({
-    windowContract: { namespace: 'window' },
-  }));
+  vi.doMock('@/shared/ipc/contracts', async () => {
+    const actual = await vi.importActual<typeof import('@/shared/ipc/contracts')>('@/shared/ipc/contracts');
+    return {
+      ...actual,
+      windowContract: { namespace: 'window' },
+    };
+  });
 }
 
 describe('main.ts auto-connect with partial USB metadata', () => {

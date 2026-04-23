@@ -31,6 +31,7 @@
 import type {
   competitionContract,
   connectionContract,
+  AppUpdateStateDto,
   AppSettingsInputDto,
   ConnectionSettingsDto,
   eventsContract,
@@ -38,6 +39,7 @@ import type {
   reportContract,
   sessionContract,
   settingsContract,
+  updaterContract,
   UserPreferencesDto,
   windowContract,
 } from '@/shared/ipc/contracts';
@@ -55,6 +57,7 @@ type EventBridge = InferEventBridge<typeof eventsContract>;
 type ReportBridge = InferBridge<typeof reportContract>;
 type WindowBridge = InferBridge<typeof windowContract>;
 type MqttBridge = InferBridge<typeof mqttContract>;
+type UpdaterBridge = InferBridge<typeof updaterContract>;
 
 // ---------------------------------------------------------------------------
 // Settings output types (used for adapted signatures)
@@ -124,8 +127,17 @@ export interface ElectronAPI {
   /** MQTT management methods */
   readonly mqtt: MqttBridge;
 
+  /** Application update methods */
+  readonly updates: {
+    getUpdateState: UpdaterBridge['getUpdateState'];
+    checkForUpdates: UpdaterBridge['checkForUpdates'];
+    quitAndInstall: UpdaterBridge['quitAndInstall'];
+  };
+
   /** Event subscription methods */
-  readonly on: EventBridge;
+  readonly on: EventBridge & {
+    updateStateChanged: (callback: (data: AppUpdateStateDto) => void) => () => void;
+  };
 }
 
 // ---------------------------------------------------------------------------

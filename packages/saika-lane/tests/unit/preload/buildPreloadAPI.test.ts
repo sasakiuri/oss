@@ -51,6 +51,7 @@ describe('buildPreloadAPI', () => {
       expect(api).toHaveProperty('settings');
       expect(api).toHaveProperty('report');
       expect(api).toHaveProperty('window');
+      expect(api).toHaveProperty('updates');
       expect(api).toHaveProperty('on');
     });
   });
@@ -137,6 +138,14 @@ describe('buildPreloadAPI', () => {
     });
   });
 
+  describe('updates namespace', () => {
+    it('should expose updater methods as functions', () => {
+      expect(typeof api.updates.getUpdateState).toBe('function');
+      expect(typeof api.updates.checkForUpdates).toBe('function');
+      expect(typeof api.updates.quitAndInstall).toBe('function');
+    });
+  });
+
   describe('on (events) namespace', () => {
     it('should expose all competition event subscriptions', () => {
       expect(typeof api.on.competitionStarted).toBe('function');
@@ -158,6 +167,10 @@ describe('buildPreloadAPI', () => {
 
     it('should expose fullscreenChanged event subscription', () => {
       expect(typeof api.on.fullscreenChanged).toBe('function');
+    });
+
+    it('should expose updateStateChanged event subscription', () => {
+      expect(typeof api.on.updateStateChanged).toBe('function');
     });
   });
 });
