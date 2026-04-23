@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSavedSettingsRestore } from '@/renderer/presentation/hooks/useSavedSettingsRestore';
@@ -42,6 +42,30 @@ describe('useSavedSettingsRestore', () => {
 
     await waitFor(() => {
       expect(useSessionStore.getState().laneNumber).toBe(3);
+    });
+  });
+
+  it('does not overwrite a laneNumber changed while restore is still pending', async () => {
+    let resolvePreferences: ((value: { laneNumber: number }) => void) | undefined;
+    mockGetUserPreferences.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePreferences = resolve;
+        }),
+    );
+
+    renderHook(() => useSavedSettingsRestore());
+
+    act(() => {
+      useSessionStore.getState().setLaneNumber(9);
+    });
+
+    await act(async () => {
+      resolvePreferences?.({ laneNumber: 3 });
+    });
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().laneNumber).toBe(9);
     });
   });
 

@@ -14,24 +14,41 @@ import { settingsService } from '@/renderer/services/settingsService';
  */
 export function useSavedSettingsRestore(): void {
   useEffect(() => {
+    let cancelled = false;
+    const initialSessionState = {
+      discipline: useSessionStore.getState().discipline,
+      laneNumber: useSessionStore.getState().laneNumber,
+      audioVolume: useSessionStore.getState().audioVolume,
+    };
+    const initialCompetitionTypeId = useCompetitionStore.getState().savedCompetitionTypeId;
+
     const loadSavedSettings = async () => {
       try {
         const prefs = await settingsService.getUserPreferences();
         const { discipline, laneNumber } = prefs;
+        if (cancelled) {
+          return;
+        }
 
-        if (discipline) {
-          useSessionStore.getState().setDiscipline(discipline);
+        const sessionStore = useSessionStore.getState();
+        const competitionStore = useCompetitionStore.getState();
+
+        if (discipline && sessionStore.discipline === initialSessionState.discipline) {
+          sessionStore.setDiscipline(discipline);
         }
-        if (laneNumber !== undefined) {
-          useSessionStore.getState().setLaneNumber(laneNumber);
+        if (laneNumber !== undefined && sessionStore.laneNumber === initialSessionState.laneNumber) {
+          sessionStore.setLaneNumber(laneNumber);
         }
-        if (prefs.audioVolume !== undefined) {
-          useSessionStore.getState().setAudioVolume(prefs.audioVolume);
+        if (prefs.audioVolume !== undefined && sessionStore.audioVolume === initialSessionState.audioVolume) {
+          sessionStore.setAudioVolume(prefs.audioVolume);
         }
-        if (prefs.competitionTypeId) {
-          useCompetitionStore.getState().setSavedCompetitionTypeId(prefs.competitionTypeId);
+        if (prefs.competitionTypeId && competitionStore.savedCompetitionTypeId === initialCompetitionTypeId) {
+          competitionStore.setSavedCompetitionTypeId(prefs.competitionTypeId);
         }
       } catch (error) {
+        if (cancelled) {
+          return;
+        }
         useLogStore.getState().addEntry({
           id: `settings-restore-error-${Date.now()}`,
           timestamp: new Date().toISOString(),
@@ -42,6 +59,10 @@ export function useSavedSettingsRestore(): void {
       }
     };
 
-    loadSavedSettings();
+    void loadSavedSettings();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 }
