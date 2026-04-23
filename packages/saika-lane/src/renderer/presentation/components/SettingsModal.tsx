@@ -69,9 +69,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [jsonDraft, setJsonDraft] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [settingsFilePath, setSettingsFilePath] = useState('');
-  const generalDraftDirtyRef = useRef({ laneNumber: false, audioVolume: false });
   const jsonDraftDirtyRef = useRef(false);
-  const wasOpenRef = useRef(false);
 
   const applySettingsToStores = (settings: AppSettingsDto) => {
     useSessionStore.getState().setLaneNumber(settings.userPreferences.laneNumber);
@@ -95,32 +93,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     return { settings, metadata };
   };
 
-  // Sync input values with store when modal opens, but do not overwrite in-progress edits.
+  // Sync input values with store when modal opens or values change
   useEffect(() => {
-    if (!isOpen) {
-      wasOpenRef.current = false;
-      return;
-    }
-
-    const didOpen = !wasOpenRef.current;
-    wasOpenRef.current = true;
-
-    if (didOpen) {
-      generalDraftDirtyRef.current = { laneNumber: false, audioVolume: false };
+    if (isOpen) {
+      setInputValue(laneNumber.toString());
+      setVolumeValue(audioVolume);
       setSaveError(null);
       setJsonError(null);
       jsonDraftDirtyRef.current = false;
     }
-
-    if (didOpen || !generalDraftDirtyRef.current.laneNumber) {
-      setInputValue(laneNumber.toString());
-    }
-
-    if (didOpen || !generalDraftDirtyRef.current.audioVolume) {
-      setVolumeValue(audioVolume);
-    }
   }, [isOpen, laneNumber, audioVolume]);
 
+  // Reset active tab only when modal opens or initialTab changes
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
@@ -320,10 +304,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="number"
                     min="1"
                     value={inputValue}
-                    onChange={(e) => {
-                      generalDraftDirtyRef.current.laneNumber = true;
-                      setInputValue(e.target.value);
-                    }}
+                    onChange={(e) => setInputValue(e.target.value)}
                     className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-describedby="lane-number-help"
                   />
@@ -344,10 +325,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       min="0"
                       max="100"
                       value={volumeValue}
-                      onChange={(e) => {
-                        generalDraftDirtyRef.current.audioVolume = true;
-                        setVolumeValue(parseInt(e.target.value, 10));
-                      }}
+                      onChange={(e) => setVolumeValue(parseInt(e.target.value, 10))}
                       className="h-2 flex-1 accent-blue-500"
                     />
                     <span className="w-10 text-right text-sm text-zinc-300">{volumeValue}%</span>

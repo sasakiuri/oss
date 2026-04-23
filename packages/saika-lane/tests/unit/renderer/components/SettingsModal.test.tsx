@@ -874,19 +874,5 @@ describe('SettingsModal', () => {
       const resetInput = screen.getByLabelText('Lane Number') as HTMLInputElement;
       expect(resetInput.value).toBe('10');
     });
-
-    it('does not overwrite an edited laneNumber input when the store changes while open', () => {
-      const { rerender } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
-
-      const input = screen.getByLabelText('Lane Number') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: '42' } });
-
-      act(() => {
-        useSessionStore.getState().setLaneNumber(3);
-      });
-      rerender(<SettingsModal isOpen={true} onClose={mockOnClose} />);
-
-      expect(input.value).toBe('42');
-    });
   });
 });
