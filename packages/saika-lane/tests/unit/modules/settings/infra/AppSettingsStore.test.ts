@@ -159,6 +159,23 @@ describe('AppSettingsStore', () => {
     });
   });
 
+  it('preserves explicitly saved default laneNumber across reloads', () => {
+    const store = new AppSettingsStore({ filePath, storage });
+
+    store.saveUserPreferences({
+      laneNumber: 1,
+    });
+
+    expect(store.getUserPreferences()).toEqual({
+      laneNumber: 1,
+    });
+
+    const reloadedStore = new AppSettingsStore({ filePath, storage });
+    expect(reloadedStore.getUserPreferences()).toEqual({
+      laneNumber: 1,
+    });
+  });
+
   it('persists USB identity fields with connection settings', () => {
     const store = new AppSettingsStore({ filePath, storage });
 

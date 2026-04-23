@@ -84,13 +84,14 @@ export class AppSettingsStore implements IAppSettingsStore {
   }
 
   getUserPreferences(): UserPreferencesDto {
-    return this.toLegacyUserPreferences(this.getAll().userPreferences);
+    this.getAll();
+    return this.getStoredLegacyUserPreferences();
   }
 
   saveUserPreferences(preferences: UserPreferencesDto): AppSettingsDto {
     const current = this.getAll();
-
-    return this.replaceAll({
+    const nextLegacyPreferences = this.mergeLegacyUserPreferences(this.getStoredLegacyUserPreferences(), preferences);
+    const nextSettings = this.replaceAll({
       ...current,
       userPreferences: {
         ...current.userPreferences,
@@ -100,6 +101,8 @@ export class AppSettingsStore implements IAppSettingsStore {
         ...(preferences.competitionTypeId !== undefined ? { competitionTypeId: preferences.competitionTypeId } : {}),
       },
     });
+    this.storage.set('userPreferences', nextLegacyPreferences);
+    return nextSettings;
   }
 
   getMqttSettings(): MqttSettings {
@@ -424,7 +427,10 @@ export class AppSettingsStore implements IAppSettingsStore {
   private syncLegacyStorage(settings: AppSettingsDto): void {
     this.storage.set('mqtt.laneId', settings.mqtt.laneId);
     this.storage.set('mqtt.settings', settings.mqtt);
-    this.storage.set('userPreferences', this.toLegacyUserPreferences(settings.userPreferences));
+    this.storage.set(
+      'userPreferences',
+      this.toLegacyUserPreferences(settings.userPreferences, this.getStoredLegacyUserPreferences()),
+    );
 
     if (settings.connection.portName) {
       this.storage.set('connectionSettings', this.toLegacyConnectionSettings(settings.connection));
@@ -444,12 +450,51 @@ export class AppSettingsStore implements IAppSettingsStore {
     };
   }
 
-  private toLegacyUserPreferences(userPreferences: AppSettingsDto['userPreferences']): UserPreferencesDto {
+  private getStoredLegacyUserPreferences(): UserPreferencesDto {
+    const stored = this.storage.get('userPreferences');
+    if (typeof stored !== 'object' || stored === null) {
+      return {};
+    }
+
+    const parsed = AppSettingsSchema.shape.userPreferences.safeParse(stored);
+    if (!parsed.success) {
+      return {};
+    }
+
+    const candidate = stored as Record<string, unknown>;
     return {
-      ...(userPreferences.laneNumber !== 1 ? { laneNumber: userPreferences.laneNumber } : {}),
-      ...(userPreferences.audioVolume !== 50 ? { audioVolume: userPreferences.audioVolume } : {}),
+      ...('laneNumber' in candidate ? { laneNumber: parsed.data.laneNumber } : {}),
+      ...('audioVolume' in candidate ? { audioVolume: parsed.data.audioVolume } : {}),
+      ...('discipline' in candidate && parsed.data.discipline ? { discipline: parsed.data.discipline } : {}),
+      ...('competitionTypeId' in candidate ? { competitionTypeId: parsed.data.competitionTypeId } : {}),
+    };
+  }
+
+  private mergeLegacyUserPreferences(current: UserPreferencesDto, patch: UserPreferencesDto): UserPreferencesDto {
+    return {
+      ...current,
+      ...(patch.laneNumber !== undefined ? { laneNumber: patch.laneNumber } : {}),
+      ...(patch.audioVolume !== undefined ? { audioVolume: patch.audioVolume } : {}),
+      ...(patch.discipline !== undefined ? { discipline: patch.discipline } : {}),
+      ...(patch.competitionTypeId !== undefined ? { competitionTypeId: patch.competitionTypeId } : {}),
+    };
+  }
+
+  private toLegacyUserPreferences(
+    userPreferences: AppSettingsDto['userPreferences'],
+    current: UserPreferencesDto = {},
+  ): UserPreferencesDto {
+    return {
+      ...(userPreferences.laneNumber !== 1 || current.laneNumber === 1
+        ? { laneNumber: userPreferences.laneNumber }
+        : {}),
+      ...(userPreferences.audioVolume !== 50 || current.audioVolume === 50
+        ? { audioVolume: userPreferences.audioVolume }
+        : {}),
       ...(userPreferences.discipline ? { discipline: userPreferences.discipline } : {}),
-      ...(userPreferences.competitionTypeId ? { competitionTypeId: userPreferences.competitionTypeId } : {}),
+      ...(userPreferences.competitionTypeId !== '' || current.competitionTypeId === ''
+        ? { competitionTypeId: userPreferences.competitionTypeId }
+        : {}),
     };
   }
 
