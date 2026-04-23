@@ -35,7 +35,7 @@ import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger, initializeLogger } from '@/main/shared-infra/logging';
 import { ModuleLoader } from '@/main/shared-infra/module';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import { windowContract } from '@/shared/ipc/contracts';
+import { eventsContract, windowContract } from '@/shared/ipc/contracts';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const isWsl =
@@ -184,15 +184,29 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       } else {
         mainWindow.maximize();
       }
-      return { isMaximized: mainWindow.isMaximized() };
+      return {
+        isMaximized: mainWindow.isMaximized(),
+        isFullscreen: mainWindow.isFullScreen(),
+      };
     },
     close: async () => {
       mainWindow.close();
     },
     getWindowState: async () => ({
       isMaximized: mainWindow.isMaximized(),
+      isFullscreen: mainWindow.isFullScreen(),
     }),
   });
+
+  const sendFullscreenChanged = () => {
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send(eventsContract.channels.fullscreenChanged, {
+      isFullscreen: mainWindow.isFullScreen(),
+    });
+  };
+
+  mainWindow.on('enter-full-screen', sendFullscreenChanged);
+  mainWindow.on('leave-full-screen', sendFullscreenChanged);
 
   // 4. Forward domain events to renderer via contract-based channels
   const eventForwarder = new ContractEventForwarder(eventBus, mainWindow);

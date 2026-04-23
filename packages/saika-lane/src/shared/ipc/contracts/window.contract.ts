@@ -28,6 +28,7 @@ const FullscreenStateDtoSchema = z.object({
 
 const WindowStateDtoSchema = z.object({
   isMaximized: z.boolean(),
+  isFullscreen: z.boolean(),
 });
 
 // ============================================================

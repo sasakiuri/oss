@@ -22,6 +22,7 @@ vi.mock('@/renderer/presentation/hooks/useEscapeKey', () => ({
 function defaultProps(overrides: Partial<TitleBarProps> = {}): TitleBarProps {
   return {
     isMaximized: false,
+    isFullscreen: false,
     onMinimize: vi.fn(),
     onMaximize: vi.fn(),
     onClose: vi.fn(),
@@ -56,6 +57,11 @@ describe('TitleBar', () => {
       expect(menuItems[2]).toHaveTextContent('View');
       expect(menuItems[3]).toHaveTextContent('Window');
       expect(menuItems[4]).toHaveTextContent('Help');
+    });
+
+    it('hides the menu bar in fullscreen mode', () => {
+      render(<TitleBar {...defaultProps({ isFullscreen: true })} />);
+      expect(screen.queryByRole('menubar')).not.toBeInTheDocument();
     });
 
     it('displays 3 window control buttons', () => {

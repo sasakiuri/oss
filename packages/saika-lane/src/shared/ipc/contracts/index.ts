@@ -72,6 +72,7 @@ export type {
   CompetitionStartedEventPayload,
   ConnectionStatus,
   ConnectionStatusChangedEventPayload,
+  FullscreenChangedEventPayload,
   IpcErrorEventPayload,
   LogEntryDto,
   LogMessageEventPayload,

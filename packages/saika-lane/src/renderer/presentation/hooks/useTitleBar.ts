@@ -13,6 +13,7 @@ import { windowService } from '@/renderer/services/windowService';
 
 export interface UseTitleBarResult {
   isMaximized: boolean;
+  isFullscreen: boolean;
   handleMinimize: () => void;
   handleMaximize: () => void;
   handleClose: () => void;
@@ -20,14 +21,24 @@ export interface UseTitleBarResult {
 
 export function useTitleBar(): UseTitleBarResult {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     windowService
       .getWindowState()
-      .then((state) => setIsMaximized(state.isMaximized))
+      .then((state) => {
+        setIsMaximized(state.isMaximized);
+        setIsFullscreen(state.isFullscreen);
+      })
       .catch(() => {
         /* Initial fetch failure is non-critical */
       });
+  }, []);
+
+  useEffect(() => {
+    return window.electronAPI.on.fullscreenChanged((state) => {
+      setIsFullscreen(state.isFullscreen);
+    });
   }, []);
 
   const handleMinimize = useCallback(() => {
@@ -45,5 +56,5 @@ export function useTitleBar(): UseTitleBarResult {
     windowService.close().catch(() => {});
   }, []);
 
-  return { isMaximized, handleMinimize, handleMaximize, handleClose };
+  return { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose };
 }

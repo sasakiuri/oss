@@ -60,7 +60,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
     setIsSettingsModalOpen,
   });
 
-  const { isMaximized, handleMinimize, handleMaximize, handleClose } = useTitleBar();
+  const { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose } = useTitleBar();
 
   const { handlePreparationClick, handleMatchClick, handleNextStageClick } = useModeSwitchActions();
 
@@ -80,6 +80,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
     <div className={`flex h-screen flex-col overflow-hidden bg-zinc-900 ${className}`.trim()}>
       <TitleBar
         isMaximized={isMaximized}
+        isFullscreen={isFullscreen}
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onClose={handleClose}

@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 
 describe('eventsContract', () => {
-  it('has 16 events', () => {
+  it('has 17 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
-    expect(eventKeys).toHaveLength(16);
+    expect(eventKeys).toHaveLength(17);
   });
 
   it('all events have kind=event', () => {
@@ -31,6 +31,8 @@ describe('eventsContract', () => {
     expect(eventsContract.channels.seriesCompleted).toBe('event:seriesCompleted');
     expect(eventsContract.channels.stageAdvanced).toBe('event:stageAdvanced');
     expect(eventsContract.channels.competitionFinished).toBe('event:competitionFinished');
+    expect(eventsContract.channels.mqttStatusChanged).toBe('event:mqttStatusChanged');
+    expect(eventsContract.channels.fullscreenChanged).toBe('event:fullscreenChanged');
   });
 
   it('shotReceived schema accepts valid data', () => {
@@ -93,6 +95,12 @@ describe('eventsContract', () => {
       stageName: 'Preparation',
       scored: false,
     });
+    expect(result.success).toBe(true);
+  });
+
+  it('fullscreenChanged schema accepts valid data', () => {
+    const schema = eventsContract.events.fullscreenChanged.schema;
+    const result = schema.safeParse({ isFullscreen: true });
     expect(result.success).toBe(true);
   });
 });

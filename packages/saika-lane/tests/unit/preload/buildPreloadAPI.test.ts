@@ -155,5 +155,9 @@ describe('buildPreloadAPI', () => {
     it('should expose logMessage event subscription', () => {
       expect(typeof api.on.logMessage).toBe('function');
     });
+
+    it('should expose fullscreenChanged event subscription', () => {
+      expect(typeof api.on.fullscreenChanged).toBe('function');
+    });
   });
 });

@@ -18,24 +18,33 @@ const mockGetWindowState = vi.mocked(windowService.getWindowState);
 const mockMinimize = vi.mocked(windowService.minimize);
 const mockMaximize = vi.mocked(windowService.maximize);
 const mockClose = vi.mocked(windowService.close);
+const mockOnFullscreenChanged = vi.mocked(window.electronAPI.on.fullscreenChanged);
 
 describe('useTitleBar', () => {
+  let fullscreenChangedCallback: ((state: { isFullscreen: boolean }) => void) | undefined;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetWindowState.mockResolvedValue({ isMaximized: false });
+    fullscreenChangedCallback = undefined;
+    mockGetWindowState.mockResolvedValue({ isMaximized: false, isFullscreen: false });
     mockMinimize.mockResolvedValue(undefined);
-    mockMaximize.mockResolvedValue({ isMaximized: true });
+    mockMaximize.mockResolvedValue({ isMaximized: true, isFullscreen: false });
     mockClose.mockResolvedValue(undefined);
+    mockOnFullscreenChanged.mockImplementation((callback) => {
+      fullscreenChangedCallback = callback;
+      return vi.fn();
+    });
   });
 
   describe('initial state', () => {
     it('initializes isMaximized to false', () => {
       const { result } = renderHook(() => useTitleBar());
       expect(result.current.isMaximized).toBe(false);
+      expect(result.current.isFullscreen).toBe(false);
     });
 
     it('calls getWindowState on mount', async () => {
-      mockGetWindowState.mockResolvedValue({ isMaximized: true });
+      mockGetWindowState.mockResolvedValue({ isMaximized: true, isFullscreen: true });
 
       const { result } = renderHook(() => useTitleBar());
 
@@ -44,6 +53,7 @@ describe('useTitleBar', () => {
       });
 
       expect(result.current.isMaximized).toBe(true);
+      expect(result.current.isFullscreen).toBe(true);
       expect(mockGetWindowState).toHaveBeenCalledTimes(1);
     });
 
@@ -56,6 +66,19 @@ describe('useTitleBar', () => {
         await new Promise((r) => setTimeout(r, 50));
       });
       expect(result.current.isMaximized).toBe(false);
+      expect(result.current.isFullscreen).toBe(false);
+    });
+
+    it('subscribes to fullscreen changes', async () => {
+      const { result } = renderHook(() => useTitleBar());
+
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+        fullscreenChangedCallback?.({ isFullscreen: true });
+      });
+
+      expect(result.current.isFullscreen).toBe(true);
+      expect(mockOnFullscreenChanged).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -73,7 +96,7 @@ describe('useTitleBar', () => {
 
   describe('handleMaximize', () => {
     it('calls windowService.maximize and updates isMaximized', async () => {
-      mockMaximize.mockResolvedValue({ isMaximized: true });
+      mockMaximize.mockResolvedValue({ isMaximized: true, isFullscreen: false });
 
       const { result } = renderHook(() => useTitleBar());
 

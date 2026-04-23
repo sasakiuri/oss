@@ -80,12 +80,12 @@ describe('windowService', () => {
     it('success -> returns WindowStateDto', async () => {
       vi.mocked(window.electronAPI.window.maximize).mockResolvedValue({
         success: true,
-        data: { isMaximized: true },
+        data: { isMaximized: true, isFullscreen: false },
       });
 
       const result = await windowService.maximize();
 
-      expect(result).toEqual({ isMaximized: true });
+      expect(result).toEqual({ isMaximized: true, isFullscreen: false });
       expect(window.electronAPI.window.maximize).toHaveBeenCalledTimes(1);
     });
 
@@ -147,12 +147,12 @@ describe('windowService', () => {
     it('success -> returns WindowStateDto', async () => {
       vi.mocked(window.electronAPI.window.getWindowState).mockResolvedValue({
         success: true,
-        data: { isMaximized: false },
+        data: { isMaximized: false, isFullscreen: true },
       });
 
       const result = await windowService.getWindowState();
 
-      expect(result).toEqual({ isMaximized: false });
+      expect(result).toEqual({ isMaximized: false, isFullscreen: true });
       expect(window.electronAPI.window.getWindowState).toHaveBeenCalledTimes(1);
     });
 

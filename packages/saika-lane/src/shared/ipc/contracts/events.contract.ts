@@ -160,6 +160,10 @@ const MqttStatusChangedEventSchema = z.object({
   laneId: z.string().optional(),
 });
 
+const FullscreenChangedEventSchema = z.object({
+  isFullscreen: z.boolean(),
+});
+
 // ============================================================
 // Event contract definition
 // ============================================================
@@ -213,6 +217,9 @@ export const eventsContract = defineEventContract('events', {
   mqttStatusChanged: defineEvent(MqttStatusChangedEventSchema, {
     channel: 'event:mqttStatusChanged',
   }),
+  fullscreenChanged: defineEvent(FullscreenChangedEventSchema, {
+    channel: 'event:fullscreenChanged',
+  }),
 });
 
 // ============================================================
@@ -237,3 +244,4 @@ export type SeriesCompletedEventPayload = z.infer<typeof SeriesCompletedEventSch
 export type StageAdvancedEventPayload = z.infer<typeof StageAdvancedEventSchema>;
 export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinishedEventSchema>;
 export type MqttStatusChangedEventPayload = z.infer<typeof MqttStatusChangedEventSchema>;
+export type FullscreenChangedEventPayload = z.infer<typeof FullscreenChangedEventSchema>;

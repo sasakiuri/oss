@@ -68,6 +68,8 @@ export interface MockedElectronAPI {
     seriesCompleted: ReturnType<typeof vi.fn>;
     stageAdvanced: ReturnType<typeof vi.fn>;
     competitionFinished: ReturnType<typeof vi.fn>;
+    mqttStatusChanged: ReturnType<typeof vi.fn>;
+    fullscreenChanged: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -141,9 +143,9 @@ export function createMockElectronAPI(): MockedElectronAPI {
     window: {
       toggleFullscreen: vi.fn(),
       minimize: vi.fn().mockResolvedValue({ success: true }),
-      maximize: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false } }),
+      maximize: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } }),
       close: vi.fn().mockResolvedValue({ success: true }),
-      getWindowState: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false } }),
+      getWindowState: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } }),
     },
     on: {
       shotReceived: vi.fn().mockReturnValue(() => {}),
@@ -161,6 +163,8 @@ export function createMockElectronAPI(): MockedElectronAPI {
       seriesCompleted: vi.fn().mockReturnValue(() => {}),
       stageAdvanced: vi.fn().mockReturnValue(() => {}),
       competitionFinished: vi.fn().mockReturnValue(() => {}),
+      mqttStatusChanged: vi.fn().mockReturnValue(() => {}),
+      fullscreenChanged: vi.fn().mockReturnValue(() => {}),
     },
   };
 }

@@ -114,6 +114,7 @@ export function buildPreloadAPI(): ElectronAPI {
       stageAdvanced: events.stageAdvanced,
       competitionFinished: events.competitionFinished,
       mqttStatusChanged: events.mqttStatusChanged,
+      fullscreenChanged: events.fullscreenChanged,
     },
   };
 }

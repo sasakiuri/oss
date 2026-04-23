@@ -15,6 +15,7 @@ import { windowService } from '@/renderer/services/windowService';
 
 export interface TitleBarProps {
   isMaximized: boolean;
+  isFullscreen: boolean;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
@@ -39,6 +40,7 @@ interface MenuDefinition {
 
 export const TitleBar: React.FC<TitleBarProps> = ({
   isMaximized,
+  isFullscreen,
   onMinimize,
   onMaximize,
   onClose,
@@ -110,6 +112,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeMenu]);
 
+  useEffect(() => {
+    if (isFullscreen) {
+      setActiveMenu(null);
+    }
+  }, [isFullscreen]);
+
   // Close dropdown on ESC
   useEscapeKey(
     activeMenu !== null,
@@ -146,45 +154,47 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       </div>
 
       {/* Menu bar */}
-      <nav ref={menuBarRef} className="app-no-drag flex items-center" role="menubar">
-        {menus.map((menu) => (
-          <div key={menu.label} className="relative">
-            <button
-              role="menuitem"
-              className={`h-8 px-3 transition-colors hover:bg-[#2A2D2E] ${
-                activeMenu === menu.label ? 'bg-[#2A2D2E]' : ''
-              }`}
-              onClick={() => handleMenuClick(menu.label)}
-              onMouseEnter={() => handleMenuHover(menu.label)}
-            >
-              {menu.label}
-            </button>
-
-            {activeMenu === menu.label && (
-              <div
-                role="menu"
-                className="absolute left-0 top-full z-50 min-w-[200px] rounded border border-[#3E3E42] bg-[#2D2D30] py-1 shadow-lg"
+      {!isFullscreen && (
+        <nav ref={menuBarRef} className="app-no-drag flex items-center" role="menubar">
+          {menus.map((menu) => (
+            <div key={menu.label} className="relative">
+              <button
+                role="menuitem"
+                className={`h-8 px-3 transition-colors hover:bg-[#2A2D2E] ${
+                  activeMenu === menu.label ? 'bg-[#2A2D2E]' : ''
+                }`}
+                onClick={() => handleMenuClick(menu.label)}
+                onMouseEnter={() => handleMenuHover(menu.label)}
               >
-                {menu.items.map((item, index) =>
-                  item.separator ? (
-                    <div key={index} className="my-1 border-t border-[#3E3E42]" />
-                  ) : (
-                    <button
-                      key={item.label}
-                      role="menuitem"
-                      className="flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors hover:bg-[#007ACC] hover:text-white"
-                      onClick={() => handleMenuItemClick(item)}
-                    >
-                      <span>{item.label}</span>
-                      {item.shortcut && <span className="ml-8 text-[#858585]">{item.shortcut}</span>}
-                    </button>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </nav>
+                {menu.label}
+              </button>
+
+              {activeMenu === menu.label && (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full z-50 min-w-[200px] rounded border border-[#3E3E42] bg-[#2D2D30] py-1 shadow-lg"
+                >
+                  {menu.items.map((item, index) =>
+                    item.separator ? (
+                      <div key={index} className="my-1 border-t border-[#3E3E42]" />
+                    ) : (
+                      <button
+                        key={item.label}
+                        role="menuitem"
+                        className="flex w-full items-center justify-between px-4 py-1.5 text-left transition-colors hover:bg-[#007ACC] hover:text-white"
+                        onClick={() => handleMenuItemClick(item)}
+                      >
+                        <span>{item.label}</span>
+                        {item.shortcut && <span className="ml-8 text-[#858585]">{item.shortcut}</span>}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+      )}
 
       {/* Centered title */}
       {!isEmbeddedMenuBar && <div className="pointer-events-none absolute left-1/2 -translate-x-1/2">Saika Lane</div>}

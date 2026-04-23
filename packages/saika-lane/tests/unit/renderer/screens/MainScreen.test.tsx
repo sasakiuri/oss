@@ -16,6 +16,7 @@ import type { ShotDto } from '@/shared/ipc/contracts';
 vi.mock('@/renderer/presentation/hooks/useTitleBar', () => ({
   useTitleBar: () => ({
     isMaximized: false,
+    isFullscreen: false,
     handleMinimize: vi.fn(),
     handleMaximize: vi.fn(),
     handleClose: vi.fn(),
