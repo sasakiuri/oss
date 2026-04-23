@@ -7,7 +7,7 @@
  * minimize, maximize/restore, and close operations.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { windowService } from '@/renderer/services/windowService';
 
@@ -22,13 +22,16 @@ export interface UseTitleBarResult {
 export function useTitleBar(): UseTitleBarResult {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const hasObservedFullscreenEvent = useRef(false);
 
   useEffect(() => {
     windowService
       .getWindowState()
       .then((state) => {
         setIsMaximized(state.isMaximized);
-        setIsFullscreen(state.isFullscreen);
+        if (!hasObservedFullscreenEvent.current) {
+          setIsFullscreen(state.isFullscreen);
+        }
       })
       .catch(() => {
         /* Initial fetch failure is non-critical */
@@ -37,6 +40,7 @@ export function useTitleBar(): UseTitleBarResult {
 
   useEffect(() => {
     return window.electronAPI.on.fullscreenChanged((state) => {
+      hasObservedFullscreenEvent.current = true;
       setIsFullscreen(state.isFullscreen);
     });
   }, []);

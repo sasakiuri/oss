@@ -80,6 +80,29 @@ describe('useTitleBar', () => {
       expect(result.current.isFullscreen).toBe(true);
       expect(mockOnFullscreenChanged).toHaveBeenCalledTimes(1);
     });
+
+    it('does not restore stale fullscreen state after a newer fullscreen event', async () => {
+      let resolveWindowState!: (value: { isMaximized: boolean; isFullscreen: boolean }) => void;
+      mockGetWindowState.mockReturnValue(
+        new Promise((resolve) => {
+          resolveWindowState = resolve;
+        }),
+      );
+
+      const { result } = renderHook(() => useTitleBar());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        fullscreenChangedCallback?.({ isFullscreen: false });
+        resolveWindowState({ isMaximized: false, isFullscreen: true });
+        await Promise.resolve();
+      });
+
+      expect(result.current.isFullscreen).toBe(false);
+    });
   });
 
   describe('handleMinimize', () => {
