@@ -211,6 +211,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }, [activeTab, isOpen]);
 
+  useEffect(() => {
+    setUpdateActionError(null);
+  }, [updateState]);
+
   if (!isOpen) return null;
 
   const handleSave = async () => {
@@ -293,8 +297,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleCheckForUpdates = async () => {
     try {
       setUpdateActionError(null);
-      const state = await updateService.checkForUpdates();
-      useUpdateStore.getState().setState(state);
+      await updateService.checkForUpdates();
     } catch (err) {
       setUpdateActionError(err instanceof Error ? err.message : String(err));
     }

@@ -7,21 +7,25 @@ import { updateService } from '@/renderer/services/updateService';
 export function useUpdateEvents(): void {
   useEffect(() => {
     let cancelled = false;
+    let eventGeneration = 0;
+
+    const unsubscribe = window.electronAPI.on.updateStateChanged((state) => {
+      eventGeneration += 1;
+      useUpdateStore.getState().setState(state);
+    });
+
+    const bootstrapGeneration = eventGeneration;
 
     void updateService
       .getUpdateState()
       .then((state) => {
-        if (!cancelled) {
+        if (!cancelled && eventGeneration === bootstrapGeneration) {
           useUpdateStore.getState().setState(state);
         }
       })
       .catch(() => {
         // Best-effort bootstrap; event stream continues even if the initial query fails.
       });
-
-    const unsubscribe = window.electronAPI.on.updateStateChanged((state) => {
-      useUpdateStore.getState().setState(state);
-    });
 
     return () => {
       cancelled = true;

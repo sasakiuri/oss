@@ -239,6 +239,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   // 5. Register close confirmation dialog
   mainWindow.on('close', (event) => {
     if (skipCloseConfirmation) {
+      skipCloseConfirmation = false;
       return;
     }
 

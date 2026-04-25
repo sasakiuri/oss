@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { app, BrowserWindow } from 'electron';
+import { app, autoUpdater as nativeAutoUpdater, BrowserWindow } from 'electron';
 
 import { getLogger } from '@/main/shared-infra/logging';
 import { eventsContract, type AppUpdateStateDto } from '@/shared/ipc/contracts';
@@ -138,6 +138,9 @@ export class AppUpdater {
   private initializePromise: Promise<void> | null = null;
   private checkPromise: Promise<AppUpdateStateDto> | null = null;
   private eventHandlersAttached = false;
+  private readonly handleBeforeQuitForUpdate = () => {
+    this.onBeforeQuitForInstall?.();
+  };
 
   constructor(options: AppUpdaterOptions) {
     this.mainWindow = options.mainWindow;
@@ -166,12 +169,16 @@ export class AppUpdater {
       return this.state;
     }
 
-    if (this.state.status === 'checking' || this.state.status === 'downloading') {
+    if (this.state.canInstallUpdate) {
       return this.state;
     }
 
     if (this.checkPromise) {
       return this.checkPromise;
+    }
+
+    if (this.state.status === 'checking' || this.state.status === 'downloading') {
+      return this.state;
     }
 
     this.checkPromise = (async () => {
@@ -214,7 +221,6 @@ export class AppUpdater {
       throw new Error('No downloaded update is ready to install.');
     }
 
-    this.onBeforeQuitForInstall?.();
     this.autoUpdater.quitAndInstall(false, true);
   }
 
@@ -238,6 +244,10 @@ export class AppUpdater {
         this.attachEventHandlers();
       } catch (error) {
         this.handleError(error);
+      } finally {
+        if (!this.autoUpdater) {
+          this.initializePromise = null;
+        }
       }
     })();
 
@@ -250,6 +260,7 @@ export class AppUpdater {
     }
 
     this.eventHandlersAttached = true;
+    nativeAutoUpdater.on('before-quit-for-update', this.handleBeforeQuitForUpdate);
 
     this.autoUpdater.on('checking-for-update', () => {
       getLogger().info('Updater: checking for updates.', 'main');
@@ -332,6 +343,7 @@ export class AppUpdater {
 
   private handleError(error: unknown): void {
     const message = toErrorMessage(error);
+    const canRetryInstall = this.state.canInstallUpdate;
     getLogger().warn('Updater: failed to complete update operation.', 'main', {
       error: message,
     });
@@ -339,10 +351,14 @@ export class AppUpdater {
     this.setState({
       ...this.state,
       status: 'error',
+      downloadPercent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      bytesPerSecond: null,
       lastCheckedAt: new Date().toISOString(),
       errorMessage: message,
-      canCheckForUpdates: this.isPackaged,
-      canInstallUpdate: false,
+      canCheckForUpdates: this.isPackaged && !canRetryInstall,
+      canInstallUpdate: canRetryInstall,
     });
   }
 

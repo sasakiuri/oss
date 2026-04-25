@@ -329,6 +329,148 @@ describe('SettingsModal', () => {
         expect(mockQuitAndInstall).toHaveBeenCalledTimes(1);
       });
     });
+
+    it('does not let a stale checkForUpdates response overwrite a newer update event state', async () => {
+      let resolveCheckForUpdates:
+        | ((state: {
+            status: 'available';
+            currentVersion: string;
+            targetVersion: string;
+            releaseName: string;
+            releaseDate: string;
+            releaseNotes: string;
+            downloadPercent: null;
+            transferredBytes: null;
+            totalBytes: null;
+            bytesPerSecond: null;
+            lastCheckedAt: string;
+            errorMessage: null;
+            canCheckForUpdates: false;
+            canInstallUpdate: false;
+          }) => void)
+        | null = null;
+
+      mockCheckForUpdates.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveCheckForUpdates = resolve;
+        }),
+      );
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(await screen.findByText('Check for Updates'));
+
+      await waitFor(() => {
+        expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        useUpdateStore.getState().setState({
+          status: 'downloaded',
+          currentVersion: '0.2.1',
+          targetVersion: '0.2.2',
+          releaseName: 'Saika Lane 0.2.2',
+          releaseDate: '2026-04-23T00:00:00.000Z',
+          releaseNotes: 'Fixes',
+          downloadPercent: 100,
+          transferredBytes: 4096,
+          totalBytes: 4096,
+          bytesPerSecond: 1024,
+          lastCheckedAt: '2026-04-23T00:00:00.000Z',
+          errorMessage: null,
+          canCheckForUpdates: false,
+          canInstallUpdate: true,
+        });
+      });
+
+      expect(screen.getByText('Restart & Install')).toBeInTheDocument();
+
+      await act(async () => {
+        resolveCheckForUpdates?.({
+          status: 'available',
+          currentVersion: '0.2.1',
+          targetVersion: '0.2.2',
+          releaseName: 'Saika Lane 0.2.2',
+          releaseDate: '2026-04-23T00:00:00.000Z',
+          releaseNotes: 'Fixes',
+          downloadPercent: null,
+          transferredBytes: null,
+          totalBytes: null,
+          bytesPerSecond: null,
+          lastCheckedAt: '2026-04-23T00:00:00.000Z',
+          errorMessage: null,
+          canCheckForUpdates: false,
+          canInstallUpdate: false,
+        });
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText('Restart & Install')).toBeInTheDocument();
+    });
+
+    it('clears a stale manual update error after a later successful update state arrives', async () => {
+      mockCheckForUpdates.mockRejectedValueOnce(new Error('IPC failed'));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(await screen.findByText('Check for Updates'));
+
+      expect(await screen.findByText('IPC failed')).toBeInTheDocument();
+
+      act(() => {
+        useUpdateStore.getState().setState({
+          status: 'downloaded',
+          currentVersion: '0.2.1',
+          targetVersion: '0.2.2',
+          releaseName: 'Saika Lane 0.2.2',
+          releaseDate: '2026-04-23T00:00:00.000Z',
+          releaseNotes: 'Fixes',
+          downloadPercent: 100,
+          transferredBytes: 4096,
+          totalBytes: 4096,
+          bytesPerSecond: 1024,
+          lastCheckedAt: '2026-04-23T00:00:00.000Z',
+          errorMessage: null,
+          canCheckForUpdates: false,
+          canInstallUpdate: true,
+        });
+      });
+
+      expect(screen.queryByText('IPC failed')).not.toBeInTheDocument();
+      expect(screen.getByText('Restart & Install')).toBeInTheDocument();
+    });
+
+    it('replaces a stale manual update error when a later updater error state arrives', async () => {
+      mockCheckForUpdates.mockRejectedValueOnce(new Error('IPC failed'));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(await screen.findByText('Check for Updates'));
+
+      expect(await screen.findByText('IPC failed')).toBeInTheDocument();
+
+      act(() => {
+        useUpdateStore.getState().setState({
+          status: 'error',
+          currentVersion: '0.2.1',
+          targetVersion: null,
+          releaseName: null,
+          releaseDate: null,
+          releaseNotes: null,
+          downloadPercent: null,
+          transferredBytes: null,
+          totalBytes: null,
+          bytesPerSecond: null,
+          lastCheckedAt: '2026-04-23T00:00:00.000Z',
+          errorMessage: 'network down',
+          canCheckForUpdates: true,
+          canInstallUpdate: false,
+        });
+      });
+
+      expect(screen.queryByText('IPC failed')).not.toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('network down');
+    });
   });
 
   describe('lane number input', () => {
