@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.2
+
+### Patch Changes
+
+- Change the fullscreen shortcut from Numpad Enter to F11.
+
 ## 0.2.1
 
 ### Patch Changes
