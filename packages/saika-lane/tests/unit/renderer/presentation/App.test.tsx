@@ -175,6 +175,29 @@ describe('App', () => {
     });
   });
 
+  describe('keyboard shortcut: F11 (fullscreen)', () => {
+    it('pressing F11 toggles fullscreen on any screen', () => {
+      vi.mocked(window.electronAPI.window.toggleFullscreen).mockResolvedValue({
+        success: true,
+        data: { isFullscreen: true },
+      });
+
+      render(<App />);
+
+      fireEvent.keyDown(window, { code: 'F11' });
+
+      expect(window.electronAPI.window.toggleFullscreen).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not toggle fullscreen with NumpadEnter', () => {
+      render(<App />);
+
+      fireEvent.keyDown(window, { code: 'NumpadEnter' });
+
+      expect(window.electronAPI.window.toggleFullscreen).not.toHaveBeenCalled();
+    });
+  });
+
   describe('keyboard shortcut: Numpad1/Numpad2 (Mode Switch)', () => {
     it('pressing Numpad2 on MainScreen switches to MATCH mode', async () => {
       const mockSwitchMode = vi.fn().mockResolvedValue(undefined);

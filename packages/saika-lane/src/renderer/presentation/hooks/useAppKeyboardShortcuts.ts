@@ -8,7 +8,7 @@
  * - Numpad2 : Switch to Match mode (MainScreen only)
  * - Numpad3 : Next Stage (MainScreen only)
  * - Numpad9 : Open print window (MainScreen only)
- * - NumpadEnter : Toggle fullscreen (all screens)
+ * - F11 : Toggle fullscreen (all screens)
  *
  * Note: NumpadDecimal and ESC are handled within MainScreen (SettingsModal toggle)
  */
@@ -48,7 +48,7 @@ export function useAppKeyboardShortcuts({
 }: UseAppKeyboardShortcutsParams): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // NumpadEnter: Toggle fullscreen (all screens)
+      // F11: Toggle fullscreen (all screens)
       if (event.code === SHORTCUTS.FULLSCREEN) {
         event.preventDefault();
         if (onToggleFullscreen) {

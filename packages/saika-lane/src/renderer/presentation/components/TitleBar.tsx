@@ -74,7 +74,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       items: [
         {
           label: 'Toggle Fullscreen',
-          shortcut: 'NumpadEnter',
+          shortcut: 'F11',
           action: () => {
             windowService.toggleFullscreen().catch(() => {});
           },

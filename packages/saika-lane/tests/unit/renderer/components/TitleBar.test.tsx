@@ -200,5 +200,15 @@ describe('TitleBar', () => {
       expect(screen.getByText('Ctrl+,')).toBeInTheDocument();
       expect(screen.getByText('Ctrl+Q')).toBeInTheDocument();
     });
+
+    it('displays the fullscreen shortcut in the View menu', async () => {
+      const user = userEvent.setup();
+      render(<TitleBar {...defaultProps()} />);
+
+      const menubar = screen.getByRole('menubar');
+      await user.click(within(menubar).getByText('View'));
+
+      expect(screen.getByText('F11')).toBeInTheDocument();
+    });
   });
 });

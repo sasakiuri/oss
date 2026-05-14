@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Numpad shortcut definitions
+ * Shortcut definitions
  *
  * @description
  * Shortcut key definitions based on event.code (independent of NumLock state)
@@ -23,7 +23,7 @@ export const SHORTCUTS = {
   /** Zoom out */
   ZOOM_OUT: 'NumpadSubtract',
   /** Toggle fullscreen */
-  FULLSCREEN: 'NumpadEnter',
+  FULLSCREEN: 'F11',
 } as const;
 
 /** Shortcut key type */

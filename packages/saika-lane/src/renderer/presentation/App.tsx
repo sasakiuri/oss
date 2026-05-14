@@ -9,12 +9,12 @@
  * 1. SplashScreen (2 seconds)
  * 2. MainScreen (primary interface)
  *
- * Keyboard Shortcuts (Numpad):
+ * Keyboard Shortcuts:
  * - Numpad1: Preparation mode switch (MainScreen only)
  * - Numpad2: Match mode switch (MainScreen only)
  * - Numpad3: Next Stage (MainScreen only)
  * - Numpad9: Print (MainScreen only)
- * - NumpadEnter: Fullscreen toggle (all screens)
+ * - F11: Fullscreen toggle (all screens)
  *
  * Note: NumpadDecimal and ESC are handled inside MainScreen (SettingsModal toggle)
  */
