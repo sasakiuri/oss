@@ -82,6 +82,7 @@ const SessionScoreDtoSchema = z.object({
 const ShotDtoSchema = z.object({
   id: z.string(),
   shotNumber: z.number(),
+  seriesNumber: z.number().optional(),
   x: z.number().nullable(),
   y: z.number().nullable(),
   score: z.number().int(),

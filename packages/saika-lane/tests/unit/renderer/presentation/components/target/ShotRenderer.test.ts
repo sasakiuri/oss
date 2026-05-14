@@ -103,10 +103,34 @@ describe('ShotRenderer', () => {
         },
       });
 
-      const shots = [createShot({ shotNumber: 1, score: 100 }), createShot({ shotNumber: 2, score: 90 })];
+      const shots = [
+        createShot({ id: 'shot-1', shotNumber: 1, score: 100 }),
+        createShot({ id: 'shot-2', shotNumber: 2, score: 90 }),
+      ];
       drawShots(ctx, 400, 400, 1, shots, 'AIR_RIFLE_10M');
 
       expect(fillStyleHistory).toContain('rgba(68, 68, 68, 0.7)');
+    });
+
+    it('treats the last shot as latest when display shot numbers reset', () => {
+      const ctx = createMockCanvas();
+      const fillStyleHistory: string[] = [];
+      Object.defineProperty(ctx, 'fillStyle', {
+        set(v: string) {
+          fillStyleHistory.push(v);
+        },
+        get() {
+          return fillStyleHistory[fillStyleHistory.length - 1] || '';
+        },
+      });
+
+      const shots = [
+        createShot({ id: 'previous-series-shot', shotNumber: 10, score: 105 }),
+        createShot({ id: 'current-series-shot', shotNumber: 1, score: 95 }),
+      ];
+      drawShots(ctx, 400, 400, 1, shots, 'AIR_RIFLE_10M');
+
+      expect(fillStyleHistory).toContain('rgba(253, 254, 3, 0.7)');
     });
 
     it('scale value is applied to bullet size', () => {

@@ -190,6 +190,7 @@ export class ContractEventForwarder {
     return {
       id: shot.id,
       shotNumber: shot.shotNumber,
+      seriesNumber: shot.seriesNumber,
       x: shot.impactPoint !== null ? shot.impactPoint.x : null,
       y: shot.impactPoint !== null ? shot.impactPoint.y : null,
       score: shot.score.value,

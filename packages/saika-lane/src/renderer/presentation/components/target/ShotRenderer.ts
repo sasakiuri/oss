@@ -21,8 +21,8 @@ export function drawShots(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Identify the shotNumber of the most recent shot
-  const maxShotNumber = recentShots.length > 0 ? Math.max(...recentShots.map((s) => s.shotNumber)) : 0;
+  // Identify the most recent shot by order, because display shot numbers reset per series.
+  const latestShotId = recentShots.length > 0 ? recentShots[recentShots.length - 1]?.id : undefined;
 
   recentShots.forEach((shot) => {
     // Skip rendering for miss shots (x/y is null)
@@ -39,7 +39,7 @@ export function drawShots(
     const shotRadius = SHOT_RADIUS_MAP[discipline] * scale;
 
     // Determine if this is the latest shot
-    const isLatest = shot.shotNumber === maxShotNumber;
+    const isLatest = shot.id === latestShotId;
 
     // Color coding (opacity 0.7 allows background to show through slightly)
     let color: string;

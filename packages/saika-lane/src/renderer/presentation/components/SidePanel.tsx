@@ -23,6 +23,7 @@ import React, { useMemo } from 'react';
 
 import { useCompetitionStore } from '../stores/competitionStore';
 import { useSessionStore } from '../stores/sessionStore';
+import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
 import { DISCIPLINE_LABELS, calculateSeriesScores } from '../utils/scoreUtils';
 
 import { SeriesProgress } from './side-panel/SeriesProgress';
@@ -46,7 +47,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const shotsPerSeries = useCompetitionStore((s) => s.shotsPerSeries);
   const acc = useCompetitionStore((s) => s.acc);
 
-  const recentShots = useMemo(() => shots.slice(-10).reverse(), [shots]);
+  const displayShots = useMemo(() => withDisplayShotNumbers(shots), [shots]);
+  const recentShots = useMemo(() => displayShots.slice(-10).reverse(), [displayShots]);
 
   const scoringShots = useMemo(
     () => (mode === 'SIGHTING' ? shots : shots.filter((shot) => shot.isRecorded)),

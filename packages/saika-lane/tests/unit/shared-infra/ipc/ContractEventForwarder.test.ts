@@ -289,6 +289,7 @@ describe('ContractEventForwarder', () => {
         shot: {
           id: shot.id,
           shotNumber: 1,
+          seriesNumber: 1,
           x: 1.5,
           y: -2.3,
           score: 98,
@@ -557,6 +558,7 @@ describe('ContractEventForwarder', () => {
 
       expect(shotDto.id).toBe(shot.id);
       expect(shotDto.shotNumber).toBe(shot.shotNumber);
+      expect(shotDto.seriesNumber).toBe(shot.seriesNumber);
       expect(shotDto.x).toBe(shot.impactPoint!.x);
       expect(shotDto.y).toBe(shot.impactPoint!.y);
       expect(shotDto.score).toBe(shot.score.value);

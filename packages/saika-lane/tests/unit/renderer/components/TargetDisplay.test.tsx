@@ -192,6 +192,29 @@ describe('TargetDisplay', () => {
       expect(mockFillText).toHaveBeenCalledWith('9999', expect.any(Number), expect.any(Number));
     });
 
+    it('draws series-relative shot numbers when seriesNumber is available', () => {
+      const discipline: Discipline = 'AIR_RIFLE_10M';
+      const shots: ShotDto[] = [
+        ...Array.from({ length: 10 }, (_, i) =>
+          createMockShot({
+            id: `series-2-shot-${i + 1}`,
+            shotNumber: i + 1,
+            seriesNumber: 2,
+          }),
+        ),
+        createMockShot({
+          id: 'series-3-shot-1',
+          shotNumber: 11,
+          seriesNumber: 3,
+        }),
+      ];
+
+      render(<TargetDisplay shots={shots} discipline={discipline} zoomMode="AUTO" />);
+
+      expect(mockFillText).not.toHaveBeenCalledWith('11', expect.any(Number), expect.any(Number));
+      expect(mockFillText).toHaveBeenCalledWith('1', expect.any(Number), expect.any(Number));
+    });
+
     it('does not error when Canvas getContext returns null', () => {
       mockGetContext.mockReturnValueOnce(null);
 

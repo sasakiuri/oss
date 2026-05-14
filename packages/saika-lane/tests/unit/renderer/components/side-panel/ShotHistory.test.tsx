@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ShotHistory } from '@/renderer/presentation/components/side-panel/ShotHistory';
 
 const createShot = (shotNumber: number, score: number, x = 0, y = 0) => ({
+  id: `shot-${shotNumber}`,
   shotNumber,
   score,
   x,

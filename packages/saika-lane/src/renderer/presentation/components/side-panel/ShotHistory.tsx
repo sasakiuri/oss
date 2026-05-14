@@ -8,6 +8,7 @@ import React, { memo, useEffect, useRef } from 'react';
 import { toArrowDirection } from '../../utils/scoreUtils';
 
 interface ShotHistoryItem {
+  id: string;
   shotNumber: number;
   score: number;
   x: number | null;
@@ -37,7 +38,7 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, acc = 'DEC
         ) : (
           <>
             {shots.map((shot, index) => (
-              <div key={shot.shotNumber} className={`grid grid-cols-3 gap-1 ${index === 0 ? 'text-4xl' : 'text-4xl'}`}>
+              <div key={shot.id} className={`grid grid-cols-3 gap-1 ${index === 0 ? 'text-4xl' : 'text-4xl'}`}>
                 <span className="text-zinc-400">{shot.shotNumber}</span>
                 <span className="text-right font-mono font-semibold tabular-nums text-zinc-100">
                   {acc === 'RING' ? String(Math.floor(shot.score / 10)) : (shot.score / 10).toFixed(1)}

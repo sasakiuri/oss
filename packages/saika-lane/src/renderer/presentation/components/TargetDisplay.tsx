@@ -21,6 +21,7 @@ import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Discipline, ShotDto } from '@/shared/ipc/contracts';
 
+import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
 import { calculateAutoZoom, calculateFixedZoom, type ZoomMode } from '../utils/zoomCalculator';
 
 import { drawShots } from './target/ShotRenderer';
@@ -51,11 +52,13 @@ export const TargetDisplay: React.FC<TargetDisplayProps> = memo(({ shots, discip
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
 
+  const displayShots = useMemo(() => withDisplayShotNumbers(shots), [shots]);
+
   // Only display the most recent 8 shots
   const recentShots = useMemo(() => {
-    const recent = shots.slice(-MAX_RECENT_SHOTS);
+    const recent = displayShots.slice(-MAX_RECENT_SHOTS);
     return recent;
-  }, [shots]);
+  }, [displayShots]);
 
   // Calculate zoom level (switch based on mode)
   const effectiveZoom = useMemo(() => {
