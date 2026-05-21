@@ -183,16 +183,16 @@ describe('TargetDisplay', () => {
       }).not.toThrow();
     });
 
-    it('displays a shot with a large shot number', () => {
+    it('uses display sequence numbers for large persisted shot numbers', () => {
       const discipline: Discipline = 'AIR_RIFLE_10M';
       const shots: ShotDto[] = [createMockShot({ shotNumber: 9999 })];
 
       render(<TargetDisplay shots={shots} discipline={discipline} zoomMode="AUTO" />);
 
-      expect(mockFillText).toHaveBeenCalledWith('9999', expect.any(Number), expect.any(Number));
+      expect(mockFillText).not.toHaveBeenCalledWith('9999', expect.any(Number), expect.any(Number));
     });
 
-    it('draws series-relative shot numbers when seriesNumber is available', () => {
+    it('draws match shot numbers continuously across series', () => {
       const discipline: Discipline = 'AIR_RIFLE_10M';
       const shots: ShotDto[] = [
         ...Array.from({ length: 10 }, (_, i) =>
@@ -211,8 +211,7 @@ describe('TargetDisplay', () => {
 
       render(<TargetDisplay shots={shots} discipline={discipline} zoomMode="AUTO" />);
 
-      expect(mockFillText).not.toHaveBeenCalledWith('11', expect.any(Number), expect.any(Number));
-      expect(mockFillText).toHaveBeenCalledWith('1', expect.any(Number), expect.any(Number));
+      expect(mockFillText).toHaveBeenCalledWith('11', expect.any(Number), expect.any(Number));
     });
 
     it('does not error when Canvas getContext returns null', () => {

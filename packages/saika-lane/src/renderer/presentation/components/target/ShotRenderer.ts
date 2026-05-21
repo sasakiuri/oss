@@ -21,7 +21,7 @@ export function drawShots(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Identify the most recent shot by order, because display shot numbers reset per series.
+  // Identify the most recent shot by order, because display shot numbers can repeat by mode.
   const latestShotId = recentShots.length > 0 ? recentShots[recentShots.length - 1]?.id : undefined;
 
   recentShots.forEach((shot) => {

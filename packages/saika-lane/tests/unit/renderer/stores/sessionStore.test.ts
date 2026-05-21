@@ -29,6 +29,11 @@ describe('sessionStore', () => {
       expect(shots).toHaveLength(0);
     });
 
+    it('preparation shot number reset indices is an empty array', () => {
+      const { preparationShotNumberResetIndices } = useSessionStore.getState();
+      expect(preparationShotNumberResetIndices).toEqual([]);
+    });
+
     it('seriesScores is an empty array', () => {
       const { seriesScores } = useSessionStore.getState();
       expect(seriesScores).toEqual([]);
@@ -185,6 +190,36 @@ describe('sessionStore', () => {
     });
   });
 
+  describe('markPreparationShotNumberReset', () => {
+    it('records the current shot index', () => {
+      const { addShot, markPreparationShotNumberReset } = useSessionStore.getState();
+
+      addShot({
+        id: 'shot-1',
+        shotNumber: 1,
+        x: 1.5,
+        y: 2.0,
+        score: 10.5,
+        timestamp: '2026-01-14T10:00:00Z',
+        mode: 'SIGHTING',
+        isRecorded: false,
+        innerTen: false,
+      });
+      markPreparationShotNumberReset();
+
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([1]);
+    });
+
+    it('does not add duplicate reset indices without intervening shots', () => {
+      const { markPreparationShotNumberReset } = useSessionStore.getState();
+
+      markPreparationShotNumberReset();
+      markPreparationShotNumberReset();
+
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([0]);
+    });
+  });
+
   describe('updateScores', () => {
     it('can update scores', () => {
       const { updateScores } = useSessionStore.getState();
@@ -258,6 +293,7 @@ describe('sessionStore', () => {
       expect(state.currentSessionId).toBeNull();
       expect(state.mode).toBe('SIGHTING');
       expect(state.shots).toEqual([]);
+      expect(state.preparationShotNumberResetIndices).toEqual([]);
       expect(state.seriesScores).toEqual([]);
       expect(state.totalScore).toBe(0);
     });

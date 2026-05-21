@@ -41,13 +41,17 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const laneNumber = useSessionStore((s) => s.laneNumber);
   const mode = useSessionStore((s) => s.mode);
   const shots = useSessionStore((s) => s.shots);
+  const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
   const totalScore = useSessionStore((s) => s.totalScore);
   const seriesScores = useSessionStore((s) => s.seriesScores);
   const phase = useCompetitionStore((s) => s.phase);
   const shotsPerSeries = useCompetitionStore((s) => s.shotsPerSeries);
   const acc = useCompetitionStore((s) => s.acc);
 
-  const displayShots = useMemo(() => withDisplayShotNumbers(shots), [shots]);
+  const displayShots = useMemo(
+    () => withDisplayShotNumbers(shots, { preparationResetIndices: preparationShotNumberResetIndices }),
+    [shots, preparationShotNumberResetIndices],
+  );
   const recentShots = useMemo(() => displayShots.slice(-10).reverse(), [displayShots]);
 
   const scoringShots = useMemo(

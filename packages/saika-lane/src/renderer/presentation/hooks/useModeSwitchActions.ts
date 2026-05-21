@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useCompetition } from '@/renderer/presentation/hooks/useCompetition';
 import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
 export interface ModeSwitchActions {
   handlePreparationClick: () => Promise<void>;
@@ -14,23 +15,26 @@ export interface ModeSwitchActions {
 export function useModeSwitchActions(): ModeSwitchActions {
   const { switchMode } = useSession();
   const { startStage, startNextSeries, advanceStage, endStage } = useCompetition();
+  const markPreparationShotNumberReset = useSessionStore((s) => s.markPreparationShotNumberReset);
 
   const handlePreparationClick = useCallback(async () => {
     const { competitionId, phase } = useCompetitionStore.getState();
     if (competitionId && phase !== 'FINISHED') {
       try {
         await startStage(competitionId);
+        markPreparationShotNumberReset();
       } catch {
         // Error handled by useCompetition
       }
     } else {
       try {
         await switchMode('SIGHTING');
+        markPreparationShotNumberReset();
       } catch {
         // Error handled by useSession
       }
     }
-  }, [startStage, switchMode]);
+  }, [startStage, switchMode, markPreparationShotNumberReset]);
 
   const handleMatchClick = useCallback(async () => {
     const { competitionId, phase } = useCompetitionStore.getState();

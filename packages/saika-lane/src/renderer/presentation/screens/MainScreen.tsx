@@ -46,6 +46,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const { currentSessionId } = useSession();
   const { shots } = useShot();
   const { discipline } = useSessionStore();
+  const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
   const { status } = useConnectionStore();
   const isConnected = status === 'connected';
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
@@ -110,7 +111,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
         <main className="flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
           {currentSessionId && discipline ? (
-            <TargetDisplay shots={shots} discipline={discipline} zoomMode={zoomMode} />
+            <TargetDisplay
+              shots={shots}
+              discipline={discipline}
+              zoomMode={zoomMode}
+              preparationShotNumberResetIndices={preparationShotNumberResetIndices}
+            />
           ) : (
             <div className="text-center text-zinc-400">
               <p className="mb-2 text-lg">No session started</p>

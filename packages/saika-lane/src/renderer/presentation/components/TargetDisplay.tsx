@@ -40,6 +40,8 @@ export interface TargetDisplayProps {
   discipline: Discipline;
   /** Zoom mode controlled by parent */
   zoomMode: ZoomMode;
+  /** Shot indices where Preparation display shot numbers are initialized */
+  preparationShotNumberResetIndices?: readonly number[];
   /** Optional CSS class name */
   className?: string;
 }
@@ -47,12 +49,21 @@ export interface TargetDisplayProps {
 /**
  * TargetDisplay component
  */
-export const TargetDisplay: React.FC<TargetDisplayProps> = memo(({ shots, discipline, zoomMode, className = '' }) => {
+export const TargetDisplay: React.FC<TargetDisplayProps> = memo(function TargetDisplay({
+  shots,
+  discipline,
+  zoomMode,
+  preparationShotNumberResetIndices = [],
+  className = '',
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
 
-  const displayShots = useMemo(() => withDisplayShotNumbers(shots), [shots]);
+  const displayShots = useMemo(
+    () => withDisplayShotNumbers(shots, { preparationResetIndices: preparationShotNumberResetIndices }),
+    [shots, preparationShotNumberResetIndices],
+  );
 
   // Only display the most recent 8 shots
   const recentShots = useMemo(() => {

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
 const mockSwitchMode = vi.fn().mockResolvedValue(undefined);
 const mockStartStage = vi.fn().mockResolvedValue({ sessionId: 'session-1' });
@@ -57,6 +58,7 @@ describe('useModeSwitchActions (3-button model)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useCompetitionStore.getState().resetCompetition();
+    useSessionStore.getState().resetSession();
   });
 
   describe('handlePreparationClick', () => {
@@ -71,6 +73,7 @@ describe('useModeSwitchActions (3-button model)', () => {
 
       expect(mockStartStage).toHaveBeenCalledWith('comp-1');
       expect(mockSwitchMode).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([0]);
     });
 
     it('calls switchMode("SIGHTING") when not in competition', async () => {
@@ -82,6 +85,7 @@ describe('useModeSwitchActions (3-button model)', () => {
 
       expect(mockSwitchMode).toHaveBeenCalledWith('SIGHTING');
       expect(mockStartStage).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([0]);
     });
 
     it('treats phase FINISHED as non-competition and calls switchMode', async () => {
@@ -95,6 +99,7 @@ describe('useModeSwitchActions (3-button model)', () => {
 
       expect(mockSwitchMode).toHaveBeenCalledWith('SIGHTING');
       expect(mockStartStage).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([0]);
     });
 
     it('does not throw when startStage fails', async () => {
@@ -108,6 +113,7 @@ describe('useModeSwitchActions (3-button model)', () => {
           await result.current.handlePreparationClick();
         }),
       ).resolves.not.toThrow();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
     });
   });
 

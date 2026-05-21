@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.4
+
+### Patch Changes
+
+- Update displayed shot numbers so Preparation and Match use separate continuous sequences, with Preparation reset when the Preparation button is pressed.
+
 ## 0.2.3
 
 ### Patch Changes
