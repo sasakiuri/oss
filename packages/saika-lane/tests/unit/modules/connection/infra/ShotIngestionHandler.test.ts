@@ -12,6 +12,8 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   resetLogger: vi.fn(),
 }));
 
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import {
   createShotIngestionHandler,
   type ShotIngestionDeps,
@@ -74,6 +76,31 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({
         sessionId: session.id,
         deviceScore: 9.8,
+      }),
+    );
+  });
+
+  it('should use the active competition session instead of an older active session', async () => {
+    const staleSession = buildSession();
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create(
+      'competition-001',
+      competitionSession.id,
+      BR60S.config,
+    ).startStage();
+    sessionRepository.findActive = vi.fn().mockResolvedValue(staleSession);
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+
+    const handler = createShotIngestionHandler(deps);
+    await handler(shotData);
+
+    expect(sessionRepository.findById).toHaveBeenCalledWith(competitionSession.id);
+    expect(sessionRepository.findActive).not.toHaveBeenCalled();
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({
+        sessionId: competitionSession.id,
       }),
     );
   });
