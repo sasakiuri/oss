@@ -110,7 +110,46 @@ describe('createGetScoreSheetHandler', () => {
       expect(series2Shots.map((s) => s.shotNumber)).toEqual([1, 2, 3, 4, 5]);
     });
 
-    it('should exclude sighting shots', async () => {
+    it('should print sighting shots when no match shots exist yet', async () => {
+      const discipline = Discipline.airRifle10m();
+      let session = Session.create(discipline);
+
+      session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(90), new Date());
+      session = session.recordShot(new ImpactPoint(0.3, 0.4), new Score(95), new Date());
+
+      vi.mocked(mockSessionRepo.findById).mockResolvedValue(session);
+
+      const result = await handler({ sessionId: session.id });
+
+      expect(result.allShots).toHaveLength(2);
+      expect(result.allShots.map((s) => s.shotNumber)).toEqual([1, 2]);
+      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([0, 0]);
+      expect(result.seriesScores).toEqual([185]);
+      expect(result.totalScore).toBe(185);
+      expect(result.totalIntegerScore).toBe(18);
+    });
+
+    it('should print sighting shots after switching to match when no match shots exist yet', async () => {
+      const discipline = Discipline.airRifle10m();
+      let session = Session.create(discipline);
+
+      session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(90), new Date());
+      session = session.recordShot(new ImpactPoint(0.3, 0.4), new Score(95), new Date());
+      session = session.switchMode(Mode.match());
+
+      vi.mocked(mockSessionRepo.findById).mockResolvedValue(session);
+
+      const result = await handler({ sessionId: session.id });
+
+      expect(result.allShots).toHaveLength(2);
+      expect(result.allShots.map((s) => s.shotNumber)).toEqual([1, 2]);
+      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([0, 0]);
+      expect(result.seriesScores).toEqual([185]);
+      expect(result.totalScore).toBe(185);
+      expect(result.totalIntegerScore).toBe(18);
+    });
+
+    it('should exclude sighting shots when match shots exist', async () => {
       const discipline = Discipline.airRifle10m();
       let session = Session.create(discipline);
 

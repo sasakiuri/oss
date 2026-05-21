@@ -30,19 +30,24 @@ export function createGetScoreSheetHandler(
     const prefs = storage.get<{ laneNumber?: number }>('userPreferences');
     const laneNumber = prefs?.laneNumber ?? 1;
 
-    // Extract match shots only
-    const matchShots = session.matchShots;
+    // Score sheets normally use match shots. Before the match stage starts,
+    // preparation shots are the only recorded shots, so include them instead.
+    const reportShots = session.matchShots.length > 0 ? session.matchShots : session.allShots;
 
     // Group by series and assign sequential numbers within each series
-    const seriesMap = new Map<number, (typeof matchShots)[number][]>();
-    for (const shot of matchShots) {
+    const seriesMap = new Map<number, (typeof reportShots)[number][]>();
+    for (const shot of reportShots) {
       const shots = seriesMap.get(shot.seriesNumber) ?? [];
       shots.push(shot);
       seriesMap.set(shot.seriesNumber, shots);
     }
 
     const allShots: ScoreSheetShotDto[] = [];
-    for (const [seriesNum, shots] of seriesMap) {
+    const seriesNumbers = [...seriesMap.keys()].sort((a, b) => a - b);
+    for (const seriesNum of seriesNumbers) {
+      const shots = seriesMap.get(seriesNum);
+      if (!shots) continue;
+
       shots.forEach((shot, idx) => {
         allShots.push({
           shotNumber: idx + 1,
@@ -55,11 +60,14 @@ export function createGetScoreSheetHandler(
       });
     }
 
-    // Calculate series scores (only series that have shots)
-    const seriesScores = session.series.filter((series) => series.count > 0).map((series) => series.total);
+    // Calculate series scores for the shots included in this print.
+    const seriesScores = seriesNumbers.map((seriesNum) =>
+      (seriesMap.get(seriesNum) ?? []).reduce((sum, shot) => sum + shot.score.value, 0),
+    );
 
     // Integer total
-    const totalIntegerScore = matchShots.reduce((sum, shot) => sum + Math.floor(shot.score.value / 10), 0);
+    const totalScore = reportShots.reduce((sum, shot) => sum + shot.score.value, 0);
+    const totalIntegerScore = reportShots.reduce((sum, shot) => sum + Math.floor(shot.score.value / 10), 0);
 
     return {
       sessionId: session.id,
@@ -69,7 +77,7 @@ export function createGetScoreSheetHandler(
       affiliation: '',
       allShots,
       seriesScores,
-      totalScore: session.totalScore,
+      totalScore,
       totalIntegerScore,
       disciplineName: session.discipline.displayName,
       discipline: session.discipline.value as Discipline,

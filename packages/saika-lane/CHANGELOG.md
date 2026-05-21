@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.5
+
+### Patch Changes
+
+- Include Preparation and IDLE shot impacts in printed score sheets when no Match shots have been recorded yet.
+
 ## 0.2.4
 
 ### Patch Changes

@@ -37,7 +37,7 @@ export interface ScoreSheetDto {
   playerName: string;
   /** Affiliation (empty string = not set) */
   affiliation: string;
-  /** All shots (match shots only, sequential number within series) */
+  /** Shots included in the print (match shots, or preparation shots when no match shots exist) */
   allShots: ScoreSheetShotDto[];
   /** Total score per series (decimal) */
   seriesScores: number[];

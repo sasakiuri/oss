@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-lane",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
   "engines": {
     "node": ">=22.15.0"
