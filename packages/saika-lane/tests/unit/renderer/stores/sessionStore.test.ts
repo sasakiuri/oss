@@ -7,8 +7,9 @@ import type { SessionMode, ShotDto } from '@/shared/ipc/contracts';
 describe('sessionStore', () => {
   beforeEach(() => {
     // Reset the store before each test
-    const { resetSession } = useSessionStore.getState();
+    const { resetSession, setLaneNumber } = useSessionStore.getState();
     resetSession();
+    setLaneNumber(1);
   });
 
   describe('initial state', () => {
@@ -356,6 +357,21 @@ describe('sessionStore', () => {
 
       const state = useSessionStore.getState();
       expect(state.audioVolume).toBe(80);
+      expect(state.currentSessionId).toBeNull();
+    });
+  });
+
+  describe('resetSession — laneNumber', () => {
+    it('preserves laneNumber on reset', () => {
+      const { setLaneNumber, setSessionId, resetSession } = useSessionStore.getState();
+
+      setLaneNumber(8);
+      setSessionId('test-session');
+
+      resetSession();
+
+      const state = useSessionStore.getState();
+      expect(state.laneNumber).toBe(8);
       expect(state.currentSessionId).toBeNull();
     });
   });

@@ -153,6 +153,7 @@ describe('SettingsConnectionTab', () => {
     mockUsePortList.mockImplementation(() => portListState);
     mockUseDeviceList.mockReturnValue({ ...defaultDeviceListResult });
     useSessionStore.getState().resetSession();
+    useSessionStore.getState().setLaneNumber(1);
   });
 
   describe('rendering', () => {

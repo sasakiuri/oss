@@ -192,6 +192,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
       ...initialState,
       manufacturer: state.manufacturer,
       deviceId: state.deviceId,
+      laneNumber: state.laneNumber,
       audioVolume: state.audioVolume,
     }));
   },

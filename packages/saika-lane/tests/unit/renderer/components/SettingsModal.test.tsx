@@ -119,6 +119,7 @@ describe('SettingsModal', () => {
     vi.clearAllMocks();
     // Reset store
     useSessionStore.getState().resetSession();
+    useSessionStore.getState().setLaneNumber(1);
     useUpdateStore.getState().reset();
   });
 

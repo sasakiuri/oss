@@ -17,6 +17,7 @@ const mockOnSessionReset = vi.fn();
 describe('useSessionEvents', () => {
   beforeEach(() => {
     useSessionStore.getState().resetSession();
+    useSessionStore.getState().setLaneNumber(1);
     vi.clearAllMocks();
 
     mockOnSessionStarted.mockReturnValue(vi.fn());
@@ -78,6 +79,17 @@ describe('useSessionEvents', () => {
       const state = useSessionStore.getState();
       expect(state.currentSessionId).toBe('sess-123');
       expect(state.mode).toBe('SIGHTING');
+    });
+
+    it('preserves restored laneNumber when a new session starts', () => {
+      useSessionStore.getState().setLaneNumber(6);
+      renderHook(() => useSessionEvents());
+
+      const callback = mockOnSessionStarted.mock.calls[0]![0] as (event: SessionStartedEventPayload) => void;
+
+      callback({ sessionId: 'sess-123', discipline: 'AIR_RIFLE_10M' });
+
+      expect(useSessionStore.getState().laneNumber).toBe(6);
     });
   });
 

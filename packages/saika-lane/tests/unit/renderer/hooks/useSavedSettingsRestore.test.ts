@@ -19,6 +19,7 @@ describe('useSavedSettingsRestore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useSessionStore.getState().resetSession();
+    useSessionStore.getState().setLaneNumber(1);
   });
 
   it('applies saved discipline to sessionStore', async () => {

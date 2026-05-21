@@ -21,6 +21,7 @@ const createShotDto = (shotNumber: number, score: number, x = 0, y = 0, isRecord
 describe('SidePanel', () => {
   beforeEach(() => {
     useSessionStore.getState().resetSession();
+    useSessionStore.getState().setLaneNumber(1);
   });
 
   describe('basic rendering', () => {
