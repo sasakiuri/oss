@@ -7,6 +7,7 @@ import { reportContract } from '@/shared/ipc/contracts';
 
 import {
   createMockCommandBus,
+  createMockCompetitionRepository,
   createMockIpcRouter,
   createMockPrintWindowService,
   createMockQueryBus,
@@ -19,6 +20,7 @@ describe('report.module', () => {
   let queryBus: ReturnType<typeof createMockQueryBus>;
   let ipcRouter: ReturnType<typeof createMockIpcRouter>;
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
+  let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
   let storage: ReturnType<typeof createMockStorage>;
   let printWindowService: ReturnType<typeof createMockPrintWindowService>;
 
@@ -27,6 +29,7 @@ describe('report.module', () => {
     queryBus = createMockQueryBus();
     ipcRouter = createMockIpcRouter();
     sessionRepository = createMockSessionRepository();
+    competitionRepository = createMockCompetitionRepository();
     storage = createMockStorage();
     printWindowService = createMockPrintWindowService();
   });
@@ -42,6 +45,7 @@ describe('report.module', () => {
         'commandBus',
         'ipcRouter',
         'sessionRepository',
+        'competitionRepository',
         'storage',
         'printWindowService',
       ]);
@@ -55,6 +59,7 @@ describe('report.module', () => {
         commandBus,
         ipcRouter,
         sessionRepository,
+        competitionRepository,
         storage,
         printWindowService,
       });

@@ -27,19 +27,23 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
   return async (shotData: ShotData): Promise<void> => {
     const logger = getLogger();
     try {
-      const activeSession = await sessionRepository.findActive();
-
-      if (!activeSession) {
-        logger.warn('No active session for shot data', 'usb');
-        return;
-      }
-
-      // Shot acceptance guard: in competition mode, evaluate with canAcceptShot()
+      // In competition mode, the competition state is the source of truth for
+      // the current session. Falling back to findActive() can select an older
+      // unfinished session if stale rows exist in the local DB.
       const activeCompetition = await competitionRepository.findActive();
       if (activeCompetition && !activeCompetition.canAcceptShot()) {
         logger.debug('Shot rejected by competition guard', 'usb', {
           phase: activeCompetition.phase,
         });
+        return;
+      }
+
+      const activeSession = activeCompetition?.sessionId
+        ? await sessionRepository.findById(activeCompetition.sessionId)
+        : await sessionRepository.findActive();
+
+      if (!activeSession) {
+        logger.warn('No active session for shot data', 'usb');
         return;
       }
 
