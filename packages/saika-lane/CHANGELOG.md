@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.6
+
+### Patch Changes
+
+- Keep shot recording and score sheet printing aligned with the active competition session so impacts and scores render after IDLE, Preparation, and Match transitions.
+
 ## 0.2.5
 
 ### Patch Changes
