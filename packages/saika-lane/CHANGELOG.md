@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.3
+
+### Patch Changes
+
+- Preserve the saved lane number across session resets.
+
 ## 0.2.2
 
 ### Patch Changes
