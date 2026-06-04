@@ -16,6 +16,7 @@
 import { useEffect } from 'react';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
+import { isEditableShortcutTarget } from '@/renderer/presentation/utils/keyboardShortcuts';
 
 /**
  * Parameters for useAppKeyboardShortcuts
@@ -59,6 +60,10 @@ export function useAppKeyboardShortcuts({
 
       // MainScreen-only shortcuts
       if (screen === 'main') {
+        if (isEditableShortcutTarget(event.target)) {
+          return;
+        }
+
         // Numpad1: Preparation mode
         if (event.code === SHORTCUTS.PREPARATION) {
           event.preventDefault();

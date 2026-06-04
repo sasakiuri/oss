@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
+import { isEditableShortcutTarget } from '@/renderer/presentation/utils/keyboardShortcuts';
 import type { ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
 
 interface UseMainScreenKeyboardShortcutsParams {
@@ -29,6 +30,12 @@ export function useMainScreenKeyboardShortcuts({
 }: UseMainScreenKeyboardShortcutsParams): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isEditableTarget = isEditableShortcutTarget(event.target);
+
+      if (isEditableTarget && event.key !== 'Escape') {
+        return;
+      }
+
       if (event.code === SHORTCUTS.ZOOM) {
         event.preventDefault();
         onZoomClick();

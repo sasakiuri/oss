@@ -9,6 +9,10 @@ function fireKey(code: string, key?: string) {
   window.dispatchEvent(new KeyboardEvent('keydown', { code, key: key ?? code, bubbles: true }));
 }
 
+function fireKeyFrom(target: HTMLElement, code: string, key?: string) {
+  target.dispatchEvent(new KeyboardEvent('keydown', { code, key: key ?? code, bubbles: true }));
+}
+
 describe('useMainScreenKeyboardShortcuts', () => {
   let onZoomClick: ReturnType<typeof vi.fn>;
   let setZoomMode: ReturnType<typeof vi.fn>;
@@ -42,6 +46,27 @@ describe('useMainScreenKeyboardShortcuts', () => {
     expect(setZoomMode).not.toHaveBeenCalled();
   });
 
+  it('does not call the shared zoom handler from editable controls', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+
+    renderHook(() =>
+      useMainScreenKeyboardShortcuts({
+        isSettingsModalOpen: false,
+        onZoomClick,
+        setZoomMode,
+        setSettingsInitialTab,
+        setIsSettingsModalOpen,
+      }),
+    );
+
+    fireKeyFrom(input, SHORTCUTS.ZOOM, '6');
+    expect(onZoomClick).not.toHaveBeenCalled();
+    expect(setZoomMode).not.toHaveBeenCalled();
+
+    input.remove();
+  });
+
   it('does nothing on NumpadSubtract', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
@@ -56,6 +81,30 @@ describe('useMainScreenKeyboardShortcuts', () => {
     fireKey('NumpadSubtract');
     expect(onZoomClick).not.toHaveBeenCalled();
     expect(setZoomMode).not.toHaveBeenCalled();
+  });
+
+  it('does not handle main screen shortcuts from editable controls', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+
+    renderHook(() =>
+      useMainScreenKeyboardShortcuts({
+        isSettingsModalOpen: false,
+        onZoomClick,
+        setZoomMode,
+        setSettingsInitialTab,
+        setIsSettingsModalOpen,
+      }),
+    );
+
+    fireKeyFrom(input, SHORTCUTS.AUTO_ZOOM, '5');
+    fireKeyFrom(input, SHORTCUTS.SETTINGS, '.');
+
+    expect(setZoomMode).not.toHaveBeenCalled();
+    expect(setSettingsInitialTab).not.toHaveBeenCalled();
+    expect(setIsSettingsModalOpen).not.toHaveBeenCalled();
+
+    input.remove();
   });
 
   it('sets auto zoom on Numpad5', () => {
