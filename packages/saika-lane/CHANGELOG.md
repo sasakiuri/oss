@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.7
+
+### Patch Changes
+
+- Move the zoom shortcut to Numpad6, match its behavior to the zoom button, and preserve numpad input while editing settings fields.
+
 ## 0.2.6
 
 ### Patch Changes

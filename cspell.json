@@ -10,6 +10,7 @@
     "tailwindcss",
     "turborepo",
     "commitlint",
+    "contenteditable",
     "syncpack",
     "changesets",
     "cspell",
