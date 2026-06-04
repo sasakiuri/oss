@@ -10,11 +10,13 @@ function fireKey(code: string, key?: string) {
 }
 
 describe('useMainScreenKeyboardShortcuts', () => {
+  let onZoomClick: ReturnType<typeof vi.fn>;
   let setZoomMode: ReturnType<typeof vi.fn>;
   let setSettingsInitialTab: ReturnType<typeof vi.fn>;
   let setIsSettingsModalOpen: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    onZoomClick = vi.fn();
     setZoomMode = vi.fn();
     setSettingsInitialTab = vi.fn();
     setIsSettingsModalOpen = vi.fn();
@@ -24,38 +26,43 @@ describe('useMainScreenKeyboardShortcuts', () => {
     vi.restoreAllMocks();
   });
 
-  it('calls zoom in on NumpadAdd', () => {
+  it('calls the shared zoom handler on Numpad6', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: false,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,
       }),
     );
 
-    fireKey(SHORTCUTS.ZOOM_IN);
-    expect(setZoomMode).toHaveBeenCalledTimes(1);
+    fireKey(SHORTCUTS.ZOOM);
+    expect(onZoomClick).toHaveBeenCalledTimes(1);
+    expect(setZoomMode).not.toHaveBeenCalled();
   });
 
-  it('calls zoom out on NumpadSubtract', () => {
+  it('does nothing on NumpadSubtract', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: false,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,
       }),
     );
 
-    fireKey(SHORTCUTS.ZOOM_OUT);
-    expect(setZoomMode).toHaveBeenCalledTimes(1);
+    fireKey('NumpadSubtract');
+    expect(onZoomClick).not.toHaveBeenCalled();
+    expect(setZoomMode).not.toHaveBeenCalled();
   });
 
   it('sets auto zoom on Numpad5', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: false,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,
@@ -70,6 +77,7 @@ describe('useMainScreenKeyboardShortcuts', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: false,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,
@@ -85,6 +93,7 @@ describe('useMainScreenKeyboardShortcuts', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: true,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,
@@ -99,6 +108,7 @@ describe('useMainScreenKeyboardShortcuts', () => {
     renderHook(() =>
       useMainScreenKeyboardShortcuts({
         isSettingsModalOpen: false,
+        onZoomClick,
         setZoomMode,
         setSettingsInitialTab,
         setIsSettingsModalOpen,

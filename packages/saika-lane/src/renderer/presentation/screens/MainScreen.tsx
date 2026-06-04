@@ -54,8 +54,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection'>('general');
   const [zoomMode, setZoomMode] = useState<ZoomMode>('AUTO');
 
+  const handleZoomClick = useCallback(() => {
+    setZoomMode((prev) => getNextZoomMode(prev));
+  }, []);
+
   useMainScreenKeyboardShortcuts({
     isSettingsModalOpen,
+    onZoomClick: handleZoomClick,
     setZoomMode,
     setSettingsInitialTab,
     setIsSettingsModalOpen,
@@ -66,10 +71,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const { handlePreparationClick, handleMatchClick, handleNextStageClick } = useModeSwitchActions();
 
   useAutoHideCursor(!isSettingsModalOpen, CURSOR_IDLE_TIMEOUT_MS);
-
-  const handleZoomClick = () => {
-    setZoomMode((prev) => getNextZoomMode(prev));
-  };
 
   const handlePrintClick = useCallback(async () => {
     if (currentSessionId) {

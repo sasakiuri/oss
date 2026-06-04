@@ -18,10 +18,8 @@ export const SHORTCUTS = {
   PRINT: 'Numpad9',
   /** Toggle settings modal */
   SETTINGS: 'NumpadDecimal',
-  /** Zoom in */
-  ZOOM_IN: 'NumpadAdd',
-  /** Zoom out */
-  ZOOM_OUT: 'NumpadSubtract',
+  /** Cycle zoom mode */
+  ZOOM: 'Numpad6',
   /** Toggle fullscreen */
   FULLSCREEN: 'F11',
 } as const;

@@ -2,10 +2,11 @@
 import { useEffect } from 'react';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
-import { getNextZoomMode, getPrevZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
+import type { ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
 
 interface UseMainScreenKeyboardShortcutsParams {
   isSettingsModalOpen: boolean;
+  onZoomClick: () => void;
   setZoomMode: React.Dispatch<React.SetStateAction<ZoomMode>>;
   setSettingsInitialTab: (tab: 'general' | 'target' | 'connection') => void;
   setIsSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -14,29 +15,23 @@ interface UseMainScreenKeyboardShortcutsParams {
 /**
  * Hook that manages keyboard shortcuts for MainScreen.
  *
- * - NumpadAdd: Zoom in
- * - NumpadSubtract: Zoom out
+ * - Numpad6: Cycle zoom mode
  * - Numpad5: Auto zoom
  * - NumpadDecimal: Toggle settings modal
  * - Escape: Close settings modal
  */
 export function useMainScreenKeyboardShortcuts({
   isSettingsModalOpen,
+  onZoomClick,
   setZoomMode,
   setSettingsInitialTab,
   setIsSettingsModalOpen,
 }: UseMainScreenKeyboardShortcutsParams): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === SHORTCUTS.ZOOM_IN) {
+      if (event.code === SHORTCUTS.ZOOM) {
         event.preventDefault();
-        setZoomMode((prev) => getNextZoomMode(prev));
-        return;
-      }
-
-      if (event.code === SHORTCUTS.ZOOM_OUT) {
-        event.preventDefault();
-        setZoomMode((prev) => getPrevZoomMode(prev));
+        onZoomClick();
         return;
       }
 
@@ -64,5 +59,5 @@ export function useMainScreenKeyboardShortcuts({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSettingsModalOpen, setZoomMode, setSettingsInitialTab, setIsSettingsModalOpen]);
+  }, [isSettingsModalOpen, onZoomClick, setZoomMode, setSettingsInitialTab, setIsSettingsModalOpen]);
 }
