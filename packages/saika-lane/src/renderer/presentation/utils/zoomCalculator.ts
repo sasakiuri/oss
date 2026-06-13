@@ -12,12 +12,12 @@
 
 import type { Discipline } from '@/shared/ipc/contracts';
 
+import { SHOT_RADIUS_BY_DISCIPLINE } from './targetDimensions';
+import { INITIAL_ZOOM, ZOOM_LIMITS } from './zoomConstants';
+
 // Sub-module re-exports
 export { calculateFixedZoom } from './zoomFixed';
 export { getNextZoomMode, getPrevZoomMode, type ZoomMode } from './zoomModes';
-
-// Import constants for local use
-import { INITIAL_ZOOM, ZOOM_LIMITS } from './zoomConstants';
 
 /**
  * Shot coordinate interface
@@ -36,12 +36,25 @@ interface Shot {
 const MARGIN_FACTOR = 1.5;
 
 /**
+ * Margin coefficient for keeping shot markers inside the canvas.
+ */
+const FIT_MARGIN_COEFFICIENT = 1.1;
+
+/**
  * Tight group threshold (in mm)
  *
  * If the standard deviation of the shot group is below this value,
  * the group is considered tight and maximum zoom is applied.
  */
 const TIGHT_GROUP_THRESHOLD = 0.5;
+
+function clampZoom(zoom: number): number {
+  return Math.max(ZOOM_LIMITS.MIN, Math.min(ZOOM_LIMITS.MAX, zoom));
+}
+
+function calculateZoomForRadius(canvasRadius: number, radiusMm: number, marginCoefficient: number): number {
+  return clampZoom(canvasRadius / (radiusMm * marginCoefficient) / 5);
+}
 
 /**
  * Calculate the standard deviation of a shot group
@@ -92,28 +105,40 @@ export function calculateAutoZoom(
   canvasRadius: number = 400,
   targetRadii?: Record<number, number>,
 ): number {
-  // Check the number of valid shots after excluding miss shots (x/y is null)
-  const validShotCount = shots.filter((s) => s.x !== null && s.y !== null).length;
+  const validShots = shots.filter(
+    (shot): shot is Shot & { x: number; y: number } => shot.x !== null && shot.y !== null,
+  );
+  const validShotCount = validShots.length;
 
-  // For 0-1 shots, use a zoom based on the 6-ring (approximately the middle of the black zone)
-  if (validShotCount <= 1) {
+  const calculateInitialZoom = () => {
     if (targetRadii && targetRadii[6] !== undefined) {
-      const MARGIN_COEFFICIENT = 1.1;
-      const radiusMm = targetRadii[6];
-      const zoom = canvasRadius / (radiusMm * MARGIN_COEFFICIENT) / 5;
-      return Math.max(ZOOM_LIMITS.MIN, Math.min(ZOOM_LIMITS.MAX, zoom));
+      return calculateZoomForRadius(canvasRadius, targetRadii[6], FIT_MARGIN_COEFFICIENT);
     }
     return INITIAL_ZOOM[discipline];
+  };
+
+  // With no shots, use a zoom based on the 6-ring (approximately the middle of the black zone).
+  const initialZoom = calculateInitialZoom();
+  if (validShotCount === 0) {
+    return initialZoom;
+  }
+
+  const shotRadiusMm = SHOT_RADIUS_BY_DISCIPLINE[discipline];
+  const requiredRadiusMm = Math.max(...validShots.map((shot) => Math.hypot(shot.x, shot.y) + shotRadiusMm));
+  const fitZoom = calculateZoomForRadius(canvasRadius, requiredRadiusMm, FIT_MARGIN_COEFFICIENT);
+
+  if (validShotCount === 1) {
+    return Math.min(initialZoom, fitZoom);
   }
 
   const stdDev = calculateStandardDeviation(shots);
 
   if (stdDev < TIGHT_GROUP_THRESHOLD) {
-    return ZOOM_LIMITS.MAX;
+    return Math.min(ZOOM_LIMITS.MAX, fitZoom);
   }
 
-  const zoom = canvasRadius / (stdDev * 2 * MARGIN_FACTOR) / 5;
-  return Math.max(ZOOM_LIMITS.MIN, Math.min(ZOOM_LIMITS.MAX, zoom));
+  const spreadZoom = calculateZoomForRadius(canvasRadius, stdDev * 2, MARGIN_FACTOR);
+  return Math.min(spreadZoom, fitZoom);
 }
 
 /**
@@ -125,5 +150,5 @@ export function calculateAutoZoom(
  */
 export function calculateEffectiveZoom(autoZoom: number, manualOffset: number = 0): number {
   const effectiveZoom = autoZoom + manualOffset;
-  return Math.max(ZOOM_LIMITS.MIN, Math.min(ZOOM_LIMITS.MAX, effectiveZoom));
+  return clampZoom(effectiveZoom);
 }

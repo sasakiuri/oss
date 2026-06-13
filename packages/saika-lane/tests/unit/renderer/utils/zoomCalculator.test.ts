@@ -108,6 +108,14 @@ describe('calculateAutoZoom', () => {
     expect(calculateAutoZoom(shots, 'AIR_RIFLE_10M')).toBe(3.0);
   });
 
+  it('zooms out enough to keep a first outer-ring shot visible', () => {
+    const shots = [{ x: 15.25, y: 0 }];
+    const result = calculateAutoZoom(shots, 'AIR_RIFLE_10M', 400);
+
+    // AIR_RIFLE shot edge radius: shot distance 15.25mm + bullet radius 2.25mm.
+    expect(result).toBeLessThanOrEqual(400 / ((15.25 + 2.25) * 1.1) / 5);
+  });
+
   it('returns maximum zoom for tight groups (sigma < 0.5mm)', () => {
     const shots = [
       { x: 0, y: 0.1 },
@@ -115,6 +123,19 @@ describe('calculateAutoZoom', () => {
       { x: -0.1, y: 0 },
     ];
     expect(calculateAutoZoom(shots, 'BEAM_RIFLE_10M')).toBe(10.0);
+  });
+
+  it('limits tight-group zoom so outer-ring groups remain visible', () => {
+    const shots = [
+      { x: 15.25, y: 0 },
+      { x: 15.5, y: 0 },
+      { x: 15.75, y: 0 },
+    ];
+    const result = calculateAutoZoom(shots, 'AIR_RIFLE_10M', 400);
+
+    // Without the center-distance constraint this tight group would clamp to MAX zoom.
+    expect(result).toBeCloseTo(400 / ((15.75 + 2.25) * 1.1) / 5, 5);
+    expect(result).toBeLessThan(ZOOM_LIMITS.MAX);
   });
 
   it('calculates appropriate zoom for scattered shots', () => {
@@ -176,6 +197,25 @@ describe('calculateAutoZoom', () => {
       const shots = [{ x: 0, y: 0 }];
       const result = calculateAutoZoom(shots, 'AIR_RIFLE_10M', 400, airRifleRadii);
       expect(result).toBeCloseTo(7.1, 1);
+    });
+
+    it('zooms out from the 6-ring initial zoom when the first shot is outside that view', () => {
+      const shots = [{ x: 15.25, y: 0 }];
+      const result = calculateAutoZoom(shots, 'AIR_RIFLE_10M', 400, airRifleRadii);
+
+      expect(result).toBeCloseTo(400 / ((15.25 + 2.25) * 1.1) / 5, 5);
+      expect(result).toBeLessThan(7.1);
+    });
+
+    it('keeps a 4.0 -> 5.0 opening sequence visible instead of zooming to a tight group', () => {
+      const shots = [
+        { x: airRifleRadii[4]!, y: 0 },
+        { x: airRifleRadii[5]!, y: 0 },
+      ];
+      const result = calculateAutoZoom(shots, 'AIR_RIFLE_10M', 400, airRifleRadii);
+
+      expect(result).toBeCloseTo(400 / ((airRifleRadii[4]! + 2.25) * 1.1) / 5, 5);
+      expect(result).toBeLessThan(ZOOM_LIMITS.MAX);
     });
 
     it('returns zoom based on 6-ring zone for PISTOL_25M with 0 shots', () => {

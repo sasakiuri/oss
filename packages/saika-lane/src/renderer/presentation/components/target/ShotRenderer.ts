@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { SHOT_RADIUS_BY_DISCIPLINE } from '@/renderer/presentation/utils/targetDimensions';
 import type { Discipline, ShotDto } from '@/shared/ipc/contracts';
-
-/** Per-discipline bullet radius (mm) — Conforms to TARGET_SPEC.md */
-const SHOT_RADIUS_MAP: Record<Discipline, number> = {
-  BEAM_RIFLE_10M: 3.0, // beam diameter 6.0mm
-  AIR_RIFLE_10M: 2.25, // bullet diameter 4.5mm
-  AIR_PISTOL_10M: 2.25, // bullet diameter 4.5mm
-  RIFLE_50M: 2.8, // bullet diameter 5.6mm
-  PISTOL_25M: 4.5, // bullet diameter 9.0mm
-};
 
 export function drawShots(
   ctx: CanvasRenderingContext2D,
@@ -36,7 +28,7 @@ export function drawShots(
     // Bullet size: per discipline (conforms to TARGET_SPEC.md)
     // No upper limit so it scales at the same rate as the target
     const borderWidth = 0.5; // as thin a border as possible
-    const shotRadius = SHOT_RADIUS_MAP[discipline] * scale;
+    const shotRadius = SHOT_RADIUS_BY_DISCIPLINE[discipline] * scale;
 
     // Determine if this is the latest shot
     const isLatest = shot.id === latestShotId;
