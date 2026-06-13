@@ -50,6 +50,13 @@ vi.mock('electron', () => {
     setFullScreen = vi.fn();
     isFullScreen = vi.fn(() => false);
     isDestroyed = vi.fn(() => false);
+    isMinimized = vi.fn(() => false);
+    restore = vi.fn();
+    show = vi.fn();
+    focus = vi.fn();
+    isFocused = vi.fn(() => true);
+    moveTop = vi.fn();
+    setAlwaysOnTop = vi.fn();
   }
 
   return {
@@ -62,6 +69,7 @@ vi.mock('electron', () => {
       on: vi.fn(),
       getPath: vi.fn(() => '/tmp/saika-lane-user-data'),
       quit: vi.fn(),
+      focus: vi.fn(),
     },
     BrowserWindow,
     dialog: {

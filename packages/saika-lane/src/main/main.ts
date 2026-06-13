@@ -9,6 +9,7 @@ import { app, BrowserWindow, dialog, Menu } from 'electron';
 
 import { ConnectToTargetToken } from '@/main/composition/tokens';
 import { createMainWindowOptions } from '@/main/createMainWindowOptions';
+import { focusStartupWindow } from '@/main/focusStartupWindow';
 import { competitionModule } from '@/main/modules/competition/competition.module';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
@@ -231,6 +232,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
 
   // Run renderer-load initialization from a single did-finish-load hook.
   mainWindow.webContents.once('did-finish-load', () => {
+    focusStartupWindow(mainWindow);
     scheduleAutoConnect(settingsStore, usbConnectionManager, commandBus);
     appUpdater.emitCurrentState();
     void appUpdater.checkForUpdates();
