@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.9
+
+### Patch Changes
+
+- Keep auto zoom from over-zooming outer-ring shot groups.
+
 ## 0.2.8
 
 ### Patch Changes
