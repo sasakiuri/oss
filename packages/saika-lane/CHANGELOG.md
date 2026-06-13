@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.8
+
+### Patch Changes
+
+- Focus the main window after startup so keyboard shortcuts work without an initial mouse click.
+
 ## 0.2.7
 
 ### Patch Changes
