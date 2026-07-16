@@ -105,7 +105,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
             </div>
           </div>
         </div>
-        <SeriesTargetCanvas shots={data.allShots} discipline={data.discipline} size={120} />
+        <SeriesTargetCanvas shots={data.allShots} discipline={data.discipline} size={120} sequentialShotNumbers />
       </div>
 
       {/* Series details */}
