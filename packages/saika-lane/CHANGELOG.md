@@ -1,5 +1,11 @@
 # @sasakiuri/saika-lane
 
+## 0.2.10
+
+### Patch Changes
+
+- [#67](https://github.com/sasakiuri/oss/pull/67) [`0c7a3d0`](https://github.com/sasakiuri/oss/commit/0c7a3d08fa076c963da62a9b89f4a6e6bc44c05e) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Number shots continuously across series on the aggregate printed target.
+
 ## 0.2.9
 
 ### Patch Changes
