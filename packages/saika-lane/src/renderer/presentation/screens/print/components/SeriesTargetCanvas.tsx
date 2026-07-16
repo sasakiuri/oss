@@ -18,9 +18,16 @@ interface SeriesTargetCanvasProps {
   shots: ScoreSheetShotDto[];
   discipline: Discipline;
   size?: number;
+  /** Display shot labels as a sequence across the supplied shots. */
+  sequentialShotNumbers?: boolean;
 }
 
-export function SeriesTargetCanvas({ shots, discipline, size = 120 }: SeriesTargetCanvasProps): React.JSX.Element {
+export function SeriesTargetCanvas({
+  shots,
+  discipline,
+  size = 120,
+  sequentialShotNumbers = false,
+}: SeriesTargetCanvasProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useLayoutEffect(() => {
@@ -42,9 +49,12 @@ export function SeriesTargetCanvas({ shots, discipline, size = 120 }: SeriesTarg
 
     // Auto-zoom: determine viewRadiusMm based on shot positions
     const radii = getTargetRadii(discipline);
-    const validShots = shots.filter(
-      (s): s is ScoreSheetShotDto & { x: number; y: number } => s.x !== null && s.y !== null,
-    );
+    const validShots = shots
+      .map((shot, index) => ({
+        ...shot,
+        shotNumber: sequentialShotNumbers ? index + 1 : shot.shotNumber,
+      }))
+      .filter((s): s is ScoreSheetShotDto & { x: number; y: number } => s.x !== null && s.y !== null);
 
     let viewRadiusMm: number;
     if (validShots.length > 0) {
@@ -102,7 +112,7 @@ export function SeriesTargetCanvas({ shots, discipline, size = 120 }: SeriesTarg
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(`${shot.shotNumber}`, x, y);
     }
-  }, [shots, discipline, size]);
+  }, [shots, discipline, size, sequentialShotNumbers]);
 
   return <canvas ref={canvasRef} className="series-target-canvas" style={{ width: size, height: size }} />;
 }
