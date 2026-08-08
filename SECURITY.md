@@ -4,7 +4,8 @@
 
 | Package        | Version | Supported |
 | -------------- | ------- | --------- |
-| saika-lane     | 0.1.x   | Yes       |
+| saika-lane     | 0.2.x   | Yes       |
+| saika-lane     | < 0.2   | No        |
 | shared configs | 1.0.x   | Yes       |
 
 ## Reporting a Vulnerability
@@ -34,12 +35,12 @@ We follow a coordinated disclosure process:
 
 ## Local Data Storage
 
-Saika Lane stores all data locally on the user's machine. **Data is not encrypted at rest.** No data is sent to external servers unless MQTT is explicitly configured.
+Saika Lane stores its application data locally on the user's machine. **Data is not encrypted at rest.** Packaged builds also contact GitHub to check for application updates, and MQTT communication occurs when MQTT is enabled and configured. See [PRIVACY.md](./PRIVACY.md) for the complete network and data-storage disclosure.
 
 | File                                     | Format | Description                             |
 | ---------------------------------------- | ------ | --------------------------------------- |
 | `saika-lane.db`                          | SQLite | Session and shot records                |
-| `saika-lane.json`                        | JSON   | Application settings (electron-store)   |
+| `settings.json`                          | JSON   | Application, device, and MQTT settings  |
 | `logs/combined.log`                      | Text   | Application log (rotated, max 5 MB × 5) |
 | `logs/error.log`                         | Text   | Error log (rotated, max 5 MB × 5)       |
 | `logs/score-discrepancy.csv`             | CSV    | Score calculation discrepancy log       |

@@ -179,6 +179,12 @@ check_license() {
   fi
 }
 
+check_third_party_license_report() {
+  if ! npm run license-report:check 2>&1; then
+    CHECK_STATUS="FAIL"
+  fi
+}
+
 check_cspell() {
   if ! npm run cspell 2>&1; then
     CHECK_STATUS="FAIL"
@@ -850,6 +856,7 @@ if [[ "$SKIP_CI" == false ]]; then
   run_check "CI" "Unit tests"            check_unit_tests
   run_check "CI" "Architecture"          check_depcruise
   run_check "CI" "License check"         check_license
+  run_check "CI" "Third-party licenses"  check_third_party_license_report
   run_check "CI" "Spell check"           check_cspell
   run_check "CI" "Unused exports"        check_knip
   run_check "CI" "Bundle size"           check_bundle_size

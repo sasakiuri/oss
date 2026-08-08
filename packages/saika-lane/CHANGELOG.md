@@ -1,5 +1,12 @@
 # @sasakiuri/saika-lane
 
+## 0.2.11
+
+### Patch Changes
+
+- Restore complete third-party license notices, include Saika Lane's MIT license in packaged applications, and verify legal files against bundled dependencies during release builds.
+- Document automatic GitHub update checks, MQTT network activity, and local data storage accurately.
+
 ## 0.2.10
 
 ### Patch Changes

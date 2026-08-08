@@ -75,7 +75,8 @@
 - [ ] (auto) MQTT broker URL does not accept credentials in userinfo (mqtt://user:pass@host format)
 - [ ] (auto) Gitleaks reports no secrets in git history
 - [ ] (auto) OSV Scanner reports no known vulnerabilities
-- [ ] (auto) THIRD-PARTY-LICENSES.txt is up-to-date (`npm run license-report -w packages/saika-lane`)
+- [ ] (auto) THIRD-PARTY-LICENSES.txt is up-to-date (`npm run license-report:check`)
+- [ ] (release CI) Packaged app contains the project LICENSE and a license entry for every bundled npm dependency
 - [ ] (auto) Git history author emails use GitHub noreply addresses
 - [ ] (auto) No files tracked that should be gitignored (CLAUDE.md, .claude/, .env, etc.)
 - [ ] Electron Content Security Policy is appropriately restrictive

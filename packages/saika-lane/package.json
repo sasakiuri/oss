@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-lane",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "private": true,
   "engines": {
     "node": ">=22.15.0"
@@ -51,7 +51,8 @@
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
-    "license-report": "cd ../.. && generate-license-file --config packages/saika-lane/.generate-license-file.json",
+    "license-report": "node ../../scripts/generate-third-party-licenses.mjs",
+    "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check",
     "size-limit": "size-limit",
     "analyze": "cross-env ANALYZE=1 tsc && cross-env ANALYZE=1 vite build",
     "typecheck": "tsc --noEmit"
@@ -91,7 +92,6 @@
     "electron": "35.7.5",
     "electron-builder": "26.8.2",
     "electron-playwright-helpers": "^2.1.0",
-    "generate-license-file": "^4.1.1",
     "jsdom": "25.0.1",
     "postcss": "8.5.8",
     "rollup-plugin-visualizer": "^7.0.1",
