@@ -89,6 +89,9 @@ jobs:
       - name: License check
         run: npm run license-check
 
+      - name: Verify third-party license report
+        run: npm run license-report:check
+
       - name: Spell check
         run: npm run cspell
 

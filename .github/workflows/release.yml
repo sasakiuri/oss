@@ -43,6 +43,9 @@ jobs:
       - name: License check
         run: npm run license-check
 
+      - name: Verify third-party license report
+        run: npm run license-report:check
+
       - name: Spell check
         run: npm run cspell
 
@@ -89,6 +92,9 @@ jobs:
           # To enable signing, add MAC_CSC_LINK/WIN_CSC_LINK secrets and split this step
           # into signed/unsigned variants with conditional env injection.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Verify packaged legal notices
+        run: npm run license-artifacts:check
 
       - name: Smoke test build artifacts
         run: |
