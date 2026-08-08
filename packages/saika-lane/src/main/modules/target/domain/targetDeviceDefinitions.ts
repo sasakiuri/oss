@@ -72,12 +72,12 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M'],
   },
   {
-    id: 'RDT_ZIE1_RIFLE',
-    manufacturer: 'CUSTOM',
-    modelName: 'RDT-ZIE1',
-    displayName: 'RDT-ZIE1 Rifle',
+    id: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+    manufacturer: 'DISAG',
+    modelName: 'KT RDT ZIE 1',
+    displayName: 'DISAG RedDot Rifle',
     serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M', 'RIFLE_50M'],
+    supportedDisciplines: ['AIR_RIFLE_10M'],
   },
   {
     id: 'RDT_ZIE1_PISTOL',

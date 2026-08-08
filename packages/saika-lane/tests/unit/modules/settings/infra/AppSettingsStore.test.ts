@@ -69,6 +69,50 @@ describe('AppSettingsStore', () => {
     expect(persisted).toEqual(settings);
   });
 
+  it('migrates the legacy RedDot rifle device ID and vendor', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify(
+        {
+          connection: {
+            portName: 'COM8',
+            manufacturer: 'CUSTOM',
+            deviceId: 'RDT_ZIE1_RIFLE',
+            serialNumber: 'REDDOT01',
+            vendorId: '',
+            productId: '',
+          },
+          userPreferences: {},
+          mqtt: {},
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: 'COM8',
+      manufacturer: 'DISAG',
+      deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      serialNumber: 'REDDOT01',
+      vendorId: '',
+      productId: '',
+    });
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<typeof store.getAll>;
+    expect(persisted.connection).toEqual(settings.connection);
+    expect(storage.set).toHaveBeenCalledWith('connectionSettings', {
+      portName: 'COM8',
+      manufacturer: 'DISAG',
+      deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      serialNumber: 'REDDOT01',
+    });
+  });
+
   it('rebuilds settings from legacy storage when settings.json exists but is empty', () => {
     storage.set('connectionSettings', {
       portName: 'COM3',
