@@ -5,6 +5,7 @@ import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionSta
 import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import { USBConnectionLifecycle } from '@/main/modules/connection/infra/usb/USBConnectionLifecycle';
 import { USBEventEmitter } from '@/main/modules/connection/infra/usb/USBEventEmitter';
+import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 
 let mockPortInstance: any;
@@ -35,6 +36,10 @@ vi.mock('serialport', () => {
           if (callback) callback(null);
         }, 10);
       }),
+      set: vi.fn((_options: unknown, callback?: (err: Error | null) => void) => callback?.(null)),
+      write: vi.fn((_data: Buffer, callback?: (err: Error | null) => void) => callback?.(null)),
+      drain: vi.fn((callback?: (err: Error | null) => void) => callback?.(null)),
+      removeListener: vi.fn(),
       removeAllListeners: vi.fn(),
       get isOpen() {
         return this._isOpen;
@@ -374,6 +379,38 @@ describe('USBConnectionLifecycle', () => {
 
       expect(ports).toHaveLength(1);
       expect(ports[0]).toEqual(expect.objectContaining({ path: 'COM3', manufacturer: 'FTDI' }));
+    });
+  });
+
+  describe('sendMode()', () => {
+    it('preserves MT201 S/R mode writes', async () => {
+      await lifecycle.connect(createConfig());
+
+      await lifecycle.sendMode(Mode.sighting());
+      await lifecycle.sendMode(Mode.match());
+
+      expect(mockPortInstance.write).toHaveBeenNthCalledWith(1, Buffer.from('S'), expect.any(Function));
+      expect(mockPortInstance.write).toHaveBeenNthCalledWith(2, Buffer.from('R'), expect.any(Function));
+    });
+
+    it('configures DTR/RTS off and never writes S/R for RedDot', async () => {
+      const config = createConfig({
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+      await lifecycle.connect(config);
+
+      await lifecycle.sendMode(Mode.sighting());
+      await lifecycle.sendMode(Mode.match());
+
+      expect(mockPortInstance.set).toHaveBeenCalledWith({ dtr: false, rts: false }, expect.any(Function));
+      expect(mockPortInstance.write).not.toHaveBeenCalled();
+    });
+
+    it('does not change modem-control signals for MT201', async () => {
+      await lifecycle.connect(createConfig());
+
+      expect(mockPortInstance.set).not.toHaveBeenCalled();
     });
   });
 

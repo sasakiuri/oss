@@ -29,7 +29,10 @@ import { resolveSavedConnectionPort } from '@/shared/settings/resolveSavedConnec
 /**
  * Manufacturer options
  */
-const MANUFACTURER_OPTIONS: SelectOption[] = [{ value: 'KOHTO', label: 'Kohto Electronics' }];
+const MANUFACTURER_OPTIONS: SelectOption[] = [
+  { value: 'KOHTO', label: 'Kohto Electronics' },
+  { value: 'DISAG', label: 'DISAG' },
+];
 
 /**
  * SettingsConnectionTab component
@@ -42,6 +45,7 @@ export const SettingsConnectionTab: React.FC = () => {
   const [selectedPort, setSelectedPort] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState<TargetManufacturer>('KOHTO');
   const [savedConnectionSettings, setSavedConnectionSettings] = useState<ConnectionSettingsDto | null>(null);
+  const [pendingSavedDeviceId, setPendingSavedDeviceId] = useState<string | null>(null);
 
   const { ports, portOptions, isLoadingPorts, portError, refreshPorts } = usePortList();
 
@@ -73,15 +77,13 @@ export const SettingsConnectionTab: React.FC = () => {
         const settings = await settingsService.getConnectionSettings();
         if (signal.aborted) return;
 
+        setPendingSavedDeviceId(settings.deviceId ?? null);
         setSavedConnectionSettings(settings);
         if (settings.portName) {
           setSelectedPort(settings.portName);
         }
-        if (settings.manufacturer === 'KOHTO') {
+        if (MANUFACTURER_OPTIONS.some(({ value }) => value === settings.manufacturer)) {
           setSelectedManufacturer(settings.manufacturer);
-        }
-        if (settings.deviceId) {
-          setSelectedDeviceId(settings.deviceId);
         }
       } catch {
         // Settings restore failure is non-critical
@@ -89,7 +91,25 @@ export const SettingsConnectionTab: React.FC = () => {
     })();
 
     return () => controller.abort();
-  }, [fetchDevices, setSelectedPort, setSelectedManufacturer, setSelectedDeviceId]);
+  }, [fetchDevices, setSelectedPort, setSelectedManufacturer]);
+
+  useEffect(() => {
+    if (pendingSavedDeviceId === null || isLoadingDevices || deviceOptions.length === 0) {
+      return;
+    }
+
+    const optionsMatchSelectedManufacturer = deviceOptions.every(
+      (device) => device.manufacturer === selectedManufacturer,
+    );
+    if (!optionsMatchSelectedManufacturer) {
+      return;
+    }
+
+    if (deviceOptions.some((device) => device.id === pendingSavedDeviceId)) {
+      setSelectedDeviceId(pendingSavedDeviceId);
+    }
+    setPendingSavedDeviceId(null);
+  }, [deviceOptions, isLoadingDevices, pendingSavedDeviceId, selectedManufacturer, setSelectedDeviceId]);
 
   useEffect(() => {
     if (hasUserSelectedPortRef.current || isLoadingPorts || !savedConnectionSettings?.portName) {
@@ -112,6 +132,7 @@ export const SettingsConnectionTab: React.FC = () => {
 
   const handleManufacturerChange = useCallback(
     (value: string) => {
+      setPendingSavedDeviceId(null);
       setSelectedManufacturer(value as TargetManufacturer);
       clearError();
     },
@@ -120,6 +141,7 @@ export const SettingsConnectionTab: React.FC = () => {
 
   const handleDeviceChange = useCallback(
     (value: string) => {
+      setPendingSavedDeviceId(null);
       setSelectedDeviceId(value);
       const selectedDevice = deviceOptions.find((d) => d.id === value);
       if (selectedDevice && selectedDevice.supportedDisciplines.length > 0) {

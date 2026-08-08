@@ -116,11 +116,12 @@ vi.mock('@/renderer/presentation/components/DeviceSelector', () => ({
   DeviceSelector: (props: {
     selectedManufacturer: string;
     selectedDeviceId: string;
+    manufacturerOptions: { value: string; label: string }[];
     onManufacturerChange: (v: string) => void;
     onDeviceChange: (v: string) => void;
   }) => (
     <div data-testid="device-selector">
-      <button data-testid="manufacturer-select-trigger" onClick={() => props.onManufacturerChange('KOHTO')}>
+      <button data-testid="manufacturer-select-trigger" onClick={() => props.onManufacturerChange('DISAG')}>
         Select Manufacturer
       </button>
       <button data-testid="device-select-trigger" onClick={() => props.onDeviceChange('MT201')}>
@@ -128,6 +129,9 @@ vi.mock('@/renderer/presentation/components/DeviceSelector', () => ({
       </button>
       <span data-testid="selected-manufacturer">{props.selectedManufacturer}</span>
       <span data-testid="selected-device">{props.selectedDeviceId}</span>
+      <span data-testid="manufacturer-options">
+        {props.manufacturerOptions.map(({ value, label }) => `${value}:${label}`).join(',')}
+      </span>
     </div>
   ),
 }));
@@ -165,6 +169,12 @@ describe('SettingsConnectionTab', () => {
     it('displays DeviceSelector', () => {
       render(<SettingsConnectionTab />);
       expect(screen.getByTestId('device-selector')).toBeInTheDocument();
+    });
+
+    it('offers KOHTO and DISAG as target manufacturers', () => {
+      render(<SettingsConnectionTab />);
+
+      expect(screen.getByTestId('manufacturer-options')).toHaveTextContent('KOHTO:Kohto Electronics,DISAG:DISAG');
     });
 
     it('displays the Connect button by default (disconnected state)', () => {
@@ -395,6 +405,8 @@ describe('SettingsConnectionTab', () => {
       fireEvent.click(screen.getByTestId('manufacturer-select-trigger'));
 
       expect(mockClearError).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('DISAG');
+      expect(mockUseDeviceList).toHaveBeenLastCalledWith('DISAG');
     });
 
     it('clearError is called when device changes', () => {
@@ -535,7 +547,37 @@ describe('SettingsConnectionTab', () => {
         expect(screen.getByTestId('selected-port')).toHaveTextContent('/dev/ttyUSB1');
       });
       expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('KOHTO');
-      expect(mockSetSelectedDeviceId).toHaveBeenCalledWith('MT201');
+      await waitFor(() => {
+        expect(mockSetSelectedDeviceId).toHaveBeenCalledWith('MT201');
+      });
+    });
+
+    it('restores a saved DISAG RedDot selection after loading DISAG devices', async () => {
+      const redDotDevice: TargetDeviceDto = {
+        id: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+        manufacturer: 'DISAG',
+        displayName: 'DISAG RedDot Rifle',
+        baudRate: 9600,
+        supportedDisciplines: ['AIR_RIFLE_10M'],
+      };
+      mockUseDeviceList.mockImplementation((manufacturer) => ({
+        ...defaultDeviceListResult,
+        deviceOptions: manufacturer === 'DISAG' ? [redDotDevice] : defaultDeviceListResult.deviceOptions,
+      }));
+      mockGetConnectionSettings.mockResolvedValueOnce({
+        portName: '/dev/ttyUSB1',
+        manufacturer: 'DISAG',
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+
+      render(<SettingsConnectionTab />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('DISAG');
+      });
+      await waitFor(() => {
+        expect(mockSetSelectedDeviceId).toHaveBeenCalledWith('DISAG_KT_RDT_ZIE_1_RIFLE');
+      });
     });
 
     it('resolves a moved saved device to the current port using serial number', async () => {

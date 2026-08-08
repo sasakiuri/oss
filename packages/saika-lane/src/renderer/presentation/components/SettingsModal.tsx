@@ -513,7 +513,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <Volume2 size={16} />
                     </button>
                   </div>
-                  <span className="text-xs text-zinc-400">MT-201 device shot sound volume (0% = mute)</span>
+                  <span className="text-xs text-zinc-400">MT-201 / DISAG RedDot shot sound volume (0% = mute)</span>
                 </div>
               </div>
             </div>

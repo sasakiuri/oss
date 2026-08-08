@@ -41,6 +41,12 @@ describe('target.module', () => {
       expect(adapterRegistry.registerAdapter).toHaveBeenCalledWith('KOHTO', expect.any(Object));
     });
 
+    it('should register DISAG adapter', () => {
+      targetModule.register({ adapterRegistry });
+
+      expect(adapterRegistry.registerAdapter).toHaveBeenCalledWith('DISAG', expect.any(Object));
+    });
+
     it('should assign MT201 device to KOHTO adapter', () => {
       targetModule.register({ adapterRegistry });
 
@@ -59,16 +65,24 @@ describe('target.module', () => {
       expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('CUSTOM', 'CUSTOM');
     });
 
-    it('should register 2 manufacturer adapters total', () => {
+    it('should assign only the supported RedDot rifle device to DISAG adapter', () => {
       targetModule.register({ adapterRegistry });
 
-      expect(adapterRegistry.registerAdapter).toHaveBeenCalledTimes(2);
+      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
+      expect(adapterRegistry.assignDeviceAdapter).not.toHaveBeenCalledWith('DISAG_DEFAULT', 'DISAG');
+      expect(adapterRegistry.assignDeviceAdapter).not.toHaveBeenCalledWith('RDT_ZIE1_PISTOL', 'DISAG');
     });
 
-    it('should assign 3 device adapters total', () => {
+    it('should register 3 manufacturer adapters total', () => {
       targetModule.register({ adapterRegistry });
 
-      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledTimes(3);
+      expect(adapterRegistry.registerAdapter).toHaveBeenCalledTimes(3);
+    });
+
+    it('should assign 4 device adapters total', () => {
+      targetModule.register({ adapterRegistry });
+
+      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledTimes(4);
     });
   });
 });

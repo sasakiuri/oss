@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { SerialConfig } from './TargetDevice';
 
+export const DISAG_RED_DOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
+
 /**
  * DeviceDefinition — Static definition data for target devices
  *
@@ -72,7 +74,7 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M'],
   },
   {
-    id: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+    id: DISAG_RED_DOT_RIFLE_DEVICE_ID,
     manufacturer: 'DISAG',
     modelName: 'KT RDT ZIE 1',
     displayName: 'DISAG RedDot Rifle',

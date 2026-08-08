@@ -4,6 +4,8 @@ import { useCallback, useEffect } from 'react';
 import shotSound from '@/assets/sounds/shot.wav';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
+const SHOT_SOUND_DEVICE_IDS = new Set(['MT201', 'DISAG_KT_RDT_ZIE_1_RIFLE']);
+
 // ---------------------------------------------------------------------------
 // Module-level singleton state
 // ---------------------------------------------------------------------------
@@ -127,7 +129,7 @@ export function _resetAudioPlaybackForTest(): void {
  * On first mount, fetches WAV, decodes via decodeAudioData, and caches as AudioBuffer
  * in a module-level singleton. Subsequent mounts reuse the same AudioContext and buffer.
  * On playback, uses BufferSource + GainNode for immediate sound output.
- * Only plays impact sound for MT-201 devices.
+ * Only plays impact sound for devices with a supported shot-sound profile.
  *
  * - AudioContext is created once with `latencyHint: 'interactive'` and immediately resumed
  * - After WAV decode, plays a silent buffer once to pre-initialize the OS audio output stream
@@ -189,10 +191,10 @@ export function useAudioPlayback() {
     }
   }, []);
 
-  /** Play impact sound at the store's audioVolume when an MT-201 device is connected. */
+  /** Play impact sound at the store's audioVolume when a supported target is connected. */
   const playShotSound = useCallback(() => {
     const { deviceId, audioVolume } = useSessionStore.getState();
-    if (deviceId !== 'MT201') return;
+    if (deviceId === null || !SHOT_SOUND_DEVICE_IDS.has(deviceId)) return;
     if (audioVolume === 0) return;
     playBuffer(audioVolume / 100);
   }, [playBuffer]);

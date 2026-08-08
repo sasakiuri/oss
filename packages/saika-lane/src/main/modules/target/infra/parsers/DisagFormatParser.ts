@@ -4,36 +4,25 @@ import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManu
 
 import type { RawData } from '../ISerialDataParser';
 
+import { RedDotStreamScanner } from './disag/RedDotStreamScanner';
 import type { IManufacturerParser, ParseResult } from './IManufacturerParser';
 
 export class DisagFormatParser implements IManufacturerParser {
   parse(buffer: Buffer, manufacturer: TargetManufacturer): ParseResult {
-    const results: RawData[] = [];
-    const timestamp = new Date();
+    // SerialDataParser owns the retained buffer, so this wrapper intentionally
+    // creates a stateless scanner for the complete buffer passed to it.
+    const scanner = new RedDotStreamScanner();
+    const events = scanner.push(buffer);
+    const results: RawData[] = events
+      .filter((event) => event.type === 'frame')
+      .map((event) =>
+        Object.freeze({
+          raw: Buffer.from(event.frame),
+          timestamp: new Date(event.receivedAt.getTime()),
+          manufacturer,
+        }),
+      );
 
-    const lines = buffer.toString('utf-8').split('\n');
-
-    const incompleteLine = lines.pop() || '';
-    const remaining = Buffer.from(incompleteLine, 'utf-8');
-
-    for (const line of lines) {
-      if (line.trim().length === 0) {
-        continue;
-      }
-
-      if (!line.includes('<shot>') || !line.includes('</shot>')) {
-        continue;
-      }
-
-      const rawData: RawData = Object.freeze({
-        raw: Buffer.from(line, 'utf-8'),
-        timestamp,
-        manufacturer,
-      });
-
-      results.push(rawData);
-    }
-
-    return { results, remaining };
+    return { results, remaining: scanner.getRemainingBuffer() };
   }
 }

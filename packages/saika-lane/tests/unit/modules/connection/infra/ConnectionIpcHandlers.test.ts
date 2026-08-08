@@ -282,6 +282,27 @@ describe('ConnectionIpcHandlers', () => {
       }
     });
 
+    it('should expose the RedDot rifle for DISAG', async () => {
+      const handlers = createConnectionIpcHandlers(deps);
+      const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'DISAG' })) as {
+        devices: Array<{
+          id: string;
+          manufacturer: string;
+          displayName: string;
+          baudRate: number;
+          supportedDisciplines: string[];
+        }>;
+      };
+
+      expect(result.devices).toContainEqual({
+        id: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+        manufacturer: 'DISAG',
+        displayName: 'DISAG RedDot Rifle',
+        baudRate: 9600,
+        supportedDisciplines: ['AIR_RIFLE_10M'],
+      });
+    });
+
     it('should throw on invalid manufacturer', async () => {
       const handlers = createConnectionIpcHandlers(deps);
 
