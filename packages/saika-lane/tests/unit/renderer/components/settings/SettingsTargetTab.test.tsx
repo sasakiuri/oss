@@ -12,6 +12,7 @@ import { settingsService } from '@/renderer/services/settingsService';
 const mockStartCompetition = vi.fn().mockResolvedValue({ competitionId: 'comp-1', sessionId: 'session-1' });
 const mockStartStage = vi.fn().mockResolvedValue({ sessionId: 'session-1' });
 const mockGetCompetitionTypes = vi.fn().mockResolvedValue([
+  { id: 'AR60', name: '10m Air Rifle 60 shots' },
   { id: 'BR60S', name: 'BR 60S Qualification' },
   { id: 'BP60', name: 'BP 60 Qualification' },
 ]);
@@ -50,6 +51,7 @@ describe('SettingsTargetTab', () => {
     mockStartCompetition.mockResolvedValue({ competitionId: 'comp-1', sessionId: 'session-1' });
     mockStartStage.mockResolvedValue({ sessionId: 'session-1' });
     mockGetCompetitionTypes.mockResolvedValue([
+      { id: 'AR60', name: '10m Air Rifle 60 shots' },
       { id: 'BR60S', name: 'BR 60S Qualification' },
       { id: 'BP60', name: 'BP 60 Qualification' },
     ]);
@@ -60,6 +62,7 @@ describe('SettingsTargetTab', () => {
       render(<SettingsTargetTab />);
 
       await waitFor(() => {
+        expect(screen.getByText('10m Air Rifle 60 shots')).toBeInTheDocument();
         expect(screen.getByText('BR 60S Qualification')).toBeInTheDocument();
         expect(screen.getByText('BP 60 Qualification')).toBeInTheDocument();
       });
@@ -70,7 +73,7 @@ describe('SettingsTargetTab', () => {
 
       await waitFor(() => {
         const buttons = screen.getAllByRole('button');
-        expect(buttons).toHaveLength(2);
+        expect(buttons).toHaveLength(3);
       });
     });
 

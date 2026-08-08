@@ -259,46 +259,40 @@ describe('SerialDataParser', () => {
     });
   });
 
-  describe('parse() - DISAG format (mock)', () => {
-    it('should parse XML-format messages (mock implementation)', () => {
-      const xml = '<shot><x>12.5</x><y>-8.3</y></shot>';
-      const buffer = Buffer.from(xml + '\n');
+  describe('parse() - DISAG RedDot format', () => {
+    const frame = Buffer.from(
+      '0230303030303030300d30303030303030300d4c470d30310d312e300d30310d30392e300d303530302e300d2b303330300d2b303430300d173a24',
+      'hex',
+    );
+
+    it('should parse a complete RedDot frame', () => {
       const manufacturer = TargetManufacturer.disag();
 
-      const results = parser.parse(buffer, manufacturer);
+      const results = parser.parse(frame, manufacturer);
 
       expect(results).toHaveLength(1);
-      expect(results[0]!.raw.toString()).toBe(xml);
+      expect(results[0]!.raw).toEqual(frame);
       expect(results[0]!.manufacturer.equals(manufacturer)).toBe(true);
       expect(results[0]!.timestamp).toBeInstanceOf(Date);
     });
 
-    it('should process multiple XML messages', () => {
-      const xml1 = '<shot><x>12.5</x><y>-8.3</y></shot>';
-      const xml2 = '<shot><x>5.0</x><y>10.2</y></shot>';
-      const buffer = Buffer.from(xml1 + '\n' + xml2 + '\n');
+    it('should process multiple RedDot frames', () => {
       const manufacturer = TargetManufacturer.disag();
 
-      const results = parser.parse(buffer, manufacturer);
+      const results = parser.parse(Buffer.concat([frame, frame]), manufacturer);
 
       expect(results).toHaveLength(2);
-      expect(results[0]!.raw.toString()).toBe(xml1);
-      expect(results[1]!.raw.toString()).toBe(xml2);
     });
 
-    it('should buffer incomplete XML', () => {
+    it('should buffer a split RedDot frame', () => {
       const manufacturer = TargetManufacturer.disag();
 
-      // First partial data
-      const chunk1 = Buffer.from('<shot><x>12.5</x>');
-      const results1 = parser.parse(chunk1, manufacturer);
+      const results1 = parser.parse(frame.subarray(0, 20), manufacturer);
       expect(results1).toHaveLength(0);
 
-      // Remaining data
-      const chunk2 = Buffer.from('<y>-8.3</y></shot>\n');
-      const results2 = parser.parse(chunk2, manufacturer);
+      const results2 = parser.parse(frame.subarray(20), manufacturer);
       expect(results2).toHaveLength(1);
-      expect(results2[0]!.raw.toString()).toBe('<shot><x>12.5</x><y>-8.3</y></shot>');
+      expect(results2[0]!.raw).toEqual(frame);
     });
   });
 

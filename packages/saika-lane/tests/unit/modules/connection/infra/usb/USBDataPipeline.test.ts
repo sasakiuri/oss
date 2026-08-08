@@ -263,6 +263,85 @@ describe('USBDataPipeline', () => {
     });
   });
 
+  describe('processValidatedFrame()', () => {
+    const redDotConfig: USBConnectionConfig = {
+      portName: 'COM3',
+      manufacturer: TargetManufacturer.disag(),
+      deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      baudRate: 9600,
+    };
+
+    it('bypasses the stream parser and converts by the exact RedDot device ID', () => {
+      const frame = Buffer.alloc(59, 0x30);
+      const receivedAt = new Date('2026-08-08T00:00:00.000Z');
+      mockConversionService.convertByDeviceId.mockReturnValue({
+        impactPoint: new ImpactPoint(3, 4),
+        score: new Score(90),
+        timestamp: receivedAt,
+        mode: Mode.sighting(),
+      });
+
+      pipeline.processValidatedFrame(frame, receivedAt, redDotConfig);
+
+      expect(mockDataParser.parse).not.toHaveBeenCalled();
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
+        expect.objectContaining({
+          raw: expect.any(Buffer),
+          timestamp: receivedAt,
+          manufacturer: redDotConfig.manufacturer,
+        }),
+        'DISAG_KT_RDT_ZIE_1_RIFLE',
+        expect.objectContaining({ shotNumber: 1 }),
+      );
+      expect(mockConversionService.convert).not.toHaveBeenCalled();
+    });
+
+    it('plays the shot notification once immediately before emitting data', () => {
+      const callOrder: string[] = [];
+      const receivedAt = new Date('2026-08-08T00:00:00.000Z');
+      pipeline.setOnShotDetected(() => callOrder.push('sound'));
+      emitter.on('data', () => callOrder.push('data'));
+      mockConversionService.convertByDeviceId.mockReturnValue({
+        impactPoint: new ImpactPoint(3, 4),
+        score: new Score(90),
+        timestamp: receivedAt,
+        mode: Mode.sighting(),
+      });
+
+      pipeline.processValidatedFrame(Buffer.alloc(59), receivedAt, redDotConfig);
+
+      expect(callOrder).toEqual(['sound', 'data']);
+    });
+
+    it('does not play a shot notification or emit data when conversion fails', () => {
+      const sound = vi.fn();
+      const data = vi.fn();
+      const error = vi.fn();
+      pipeline.setOnShotDetected(sound);
+      emitter.on('data', data);
+      emitter.on('error', error);
+      mockConversionService.convertByDeviceId.mockImplementation(() => {
+        throw new Error('invalid frame');
+      });
+
+      pipeline.processValidatedFrame(Buffer.alloc(59), new Date(), redDotConfig);
+
+      expect(sound).not.toHaveBeenCalled();
+      expect(data).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(expect.objectContaining({ recoverable: true }));
+    });
+
+    it('rejects framed data for any other device ID', () => {
+      const error = vi.fn();
+      emitter.on('error', error);
+
+      pipeline.processValidatedFrame(Buffer.alloc(59), new Date(), { ...redDotConfig, deviceId: 'MT201' });
+
+      expect(mockConversionService.convertByDeviceId).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(expect.objectContaining({ recoverable: true }));
+    });
+  });
+
   describe('resetCounter()', () => {
     it('should reset the shot number counter', () => {
       const rawData = {

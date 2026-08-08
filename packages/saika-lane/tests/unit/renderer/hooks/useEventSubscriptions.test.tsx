@@ -376,7 +376,21 @@ describe('useEventSubscriptions', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
-    it('does not play shot sound for non-MT201 devices', async () => {
+    it('plays shot sound for a validated DISAG RedDot hit', async () => {
+      useSessionStore.getState().setDeviceInfo('DISAG', 'DISAG_KT_RDT_ZIE_1_RIFLE');
+
+      renderHook(() => useEventSubscriptions());
+      await flushAudioLoad();
+
+      mockStart.mockClear();
+
+      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
+      callback();
+
+      expect(mockStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not play shot sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
 
       renderHook(() => useEventSubscriptions());

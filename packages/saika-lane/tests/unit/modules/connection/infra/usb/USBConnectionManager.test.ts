@@ -5,8 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
+import { Discipline } from '@/main/modules/session/domain/Discipline';
+import { Mode } from '@/main/modules/session/domain/Mode';
+import { DisagAdapter } from '@/main/modules/target/adapters/DisagAdapter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+
+import { validRedDotFrame } from '../../../../../helpers/redDotFixtures';
 
 // Mock Electron
 vi.mock('electron', () => ({
@@ -15,6 +20,7 @@ vi.mock('electron', () => ({
 
 // Mock SerialPort instance
 let mockPortInstance: any;
+const mockPortInstances: any[] = [];
 
 // Mock serialport
 vi.mock('serialport', () => {
@@ -43,8 +49,23 @@ vi.mock('serialport', () => {
           if (callback) callback(null);
         }, 10);
       }),
-      write: vi.fn(),
-      removeAllListeners: vi.fn(),
+      set: vi.fn((_options: unknown, callback?: Function) => callback?.(null)),
+      write: vi.fn((_data: Buffer, callback?: Function) => callback?.(null)),
+      drain: vi.fn((callback?: Function) => callback?.(null)),
+      removeListener: vi.fn(function (this: any, event: string, callback: Function) {
+        if (this._events[event] === callback) {
+          delete this._events[event];
+        }
+        return this;
+      }),
+      removeAllListeners: vi.fn(function (this: any, event?: string) {
+        if (event === undefined) {
+          this._events = {};
+        } else {
+          delete this._events[event];
+        }
+        return this;
+      }),
       get isOpen() {
         return this._isOpen;
       },
@@ -52,6 +73,7 @@ vi.mock('serialport', () => {
         this._isOpen = value;
       },
     };
+    mockPortInstances.push(mockPortInstance);
     return mockPortInstance;
   });
 
@@ -111,11 +133,12 @@ describe('USBConnectionManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPortInstance = null;
+    mockPortInstances.length = 0;
     manager = new USBConnectionManager(new AdapterRegistry());
   });
 
-  afterEach(() => {
-    // Don't restore mocks as it breaks subsequent tests
+  afterEach(async () => {
+    await manager.disconnect();
   });
 
   describe('connect()', () => {
@@ -175,6 +198,79 @@ describe('USBConnectionManager', () => {
         }),
       );
     });
+
+    it('should start RedDot polling with ENQ and never send S/R mode commands', async () => {
+      const config: USBConnectionConfig = {
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+        baudRate: 9600,
+      };
+
+      await manager.connect(config);
+      await manager.sendMode(Mode.sighting());
+      await manager.sendMode(Mode.match());
+
+      expect(mockPortInstance.set).toHaveBeenCalledWith({ dtr: false, rts: false }, expect.any(Function));
+      expect(mockPortInstance.write).toHaveBeenCalledTimes(1);
+      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+    });
+
+    it('should ACK a split RedDot frame and emit one existing shot event without idle sounds', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerAdapter('DISAG', new DisagAdapter());
+      registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
+      manager = new USBConnectionManager(registry);
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.airRifle10m(),
+        mode: Mode.sighting(),
+      }));
+      const sound = vi.fn();
+      const data = vi.fn();
+      manager.setOnShotDetected(sound);
+      manager.on('data', data);
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+
+      mockPortInstance._events.data(Buffer.from([0x15]));
+      await flushPromises();
+      expect(sound).not.toHaveBeenCalled();
+
+      const frame = validRedDotFrame();
+      mockPortInstance._events.data(frame.subarray(0, 20));
+      await flushPromises();
+      expect(sound).not.toHaveBeenCalled();
+
+      mockPortInstance._events.data(frame.subarray(20));
+      await flushPromises();
+
+      expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from([0x05]),
+        Buffer.from([0x06]),
+      ]);
+      expect(sound).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4, score: 90, mode: 'SIGHTING' }));
+    });
+
+    it.each([
+      [TargetManufacturer.disag(), undefined],
+      [TargetManufacturer.disag(), 'DISAG_DEFAULT'],
+      [TargetManufacturer.custom(), 'DISAG_KT_RDT_ZIE_1_RIFLE'],
+    ])('should reject mismatched RedDot identity before opening a port', async (manufacturer, deviceId) => {
+      await expect(
+        manager.connect({
+          portName: 'COM3',
+          manufacturer,
+          ...(deviceId === undefined ? {} : { deviceId }),
+        }),
+      ).rejects.toThrow();
+
+      expect(SerialPort).not.toHaveBeenCalled();
+    });
   });
 
   describe('disconnect()', () => {
@@ -226,6 +322,49 @@ describe('USBConnectionManager', () => {
 
       // Listeners on the old port are removed by pipeline.detach()
       expect(firstPort.removeAllListeners).toHaveBeenCalled();
+    });
+
+    it('should stop the old RedDot session and start one poller on the new port', async () => {
+      const config: USBConnectionConfig = {
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      };
+      await manager.connect(config);
+      const firstPort = mockPortInstance;
+
+      await manager.reconnect();
+      const secondPort = mockPortInstance;
+
+      expect(mockPortInstances).toHaveLength(2);
+      expect(firstPort.removeListener).toHaveBeenCalledWith('data', expect.any(Function));
+      expect(firstPort._events.data).toBeUndefined();
+      expect(secondPort._events.data).toEqual(expect.any(Function));
+      expect(firstPort.write).toHaveBeenCalledTimes(1);
+      expect(secondPort.write).toHaveBeenCalledTimes(1);
+      expect(secondPort.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+    });
+
+    it('should stop RedDot protocol work on port error and reconnect after close', async () => {
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+      const firstPort = mockPortInstance;
+
+      firstPort._events.error(new Error('serial failure'));
+      expect(firstPort._events.data).toBeUndefined();
+      expect(firstPort._events.close).toEqual(expect.any(Function));
+
+      firstPort._isOpen = false;
+      firstPort._events.close();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      expect(mockPortInstances).toHaveLength(2);
+      expect(mockPortInstance).not.toBe(firstPort);
+      expect(mockPortInstance._events.data).toEqual(expect.any(Function));
+      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
     });
   });
 
@@ -330,4 +469,10 @@ describe('USBConnectionManager', () => {
       });
     });
   });
+
+  async function flushPromises(): Promise<void> {
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+  }
 });

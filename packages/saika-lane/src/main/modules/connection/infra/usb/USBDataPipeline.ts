@@ -3,7 +3,9 @@ import { app } from 'electron';
 import type { SerialPort } from 'serialport';
 
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
+import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
+import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
@@ -54,7 +56,9 @@ export class USBDataPipeline {
   }
 
   /**
-   * Set the callback invoked when a shot is detected (called immediately after USB reception, before parsing)
+   * Set the callback invoked when a shot is detected.
+   * Direct-stream devices call it on reception; framed protocols call it only
+   * after successful validation and conversion.
    */
   setOnShotDetected(callback: () => void): void {
     this.onShotDetected = callback;
@@ -174,50 +178,7 @@ export class USBDataPipeline {
 
       // Convert parse results to ShotData and emit
       rawDataList.forEach((rawData) => {
-        try {
-          if (!this.sessionContextProvider) {
-            throw ErrorCatalog.createError('SESSION_NOT_FOUND');
-          }
-
-          const { discipline, mode } = this.sessionContextProvider();
-          this.shotNumberCounter++;
-          const context: AdapterContext = {
-            shotNumber: this.shotNumberCounter,
-            discipline,
-            mode,
-          };
-
-          const deviceId = config.deviceId;
-          const shot = deviceId
-            ? this.dataConversionService.convertByDeviceId(rawData, deviceId, context)
-            : this.dataConversionService.convert(rawData, context);
-
-          const shotData: ShotData = {
-            x: shot.impactPoint !== null ? shot.impactPoint.x : null,
-            y: shot.impactPoint !== null ? shot.impactPoint.y : null,
-            timestamp: shot.timestamp,
-            score: shot.score.value,
-            mode: shot.mode.value,
-            raw: rawData.raw,
-          };
-
-          logger.debug('[USB] ShotData created', 'usb', {
-            x: shotData.x,
-            y: shotData.y,
-            score: shotData.score,
-            timestamp: shotData.timestamp.toISOString(),
-            rawLength: shotData.raw?.length ?? 0,
-          });
-
-          this.emitter.emit('data', shotData);
-        } catch (conversionError) {
-          logger.error(
-            'Shot conversion error',
-            'usb',
-            conversionError instanceof Error ? { error: conversionError.stack } : { error: String(conversionError) },
-          );
-          this.emitter.emit('error', { error: toError(conversionError), recoverable: true });
-        }
+        this.convertAndEmit(rawData, config, false);
       });
     } catch (error) {
       const logger = getLogger();
@@ -227,6 +188,102 @@ export class USBDataPipeline {
         error instanceof Error ? { error: error.stack } : { error: String(error) },
       );
       this.emitter.emit('error', { error: toError(error), recoverable: true });
+    }
+  }
+
+  /**
+   * Processes one frame already validated and delimited by a protocol session.
+   * This bypasses SerialDataParser so protocol bytes and partial frames cannot
+   * trigger shot notifications.
+   */
+  processValidatedFrame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
+    try {
+      if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+        throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
+          reason: 'Validated RedDot frames require the RedDot Rifle device ID',
+          deviceId: config.deviceId,
+        });
+      }
+
+      const rawData: RawData = Object.freeze({
+        raw: Buffer.from(frame),
+        timestamp: new Date(receivedAt.getTime()),
+        manufacturer: config.manufacturer,
+      });
+      this.convertAndEmit(rawData, config, true);
+    } catch (error) {
+      getLogger().error(
+        'Validated frame processing error',
+        'usb',
+        error instanceof Error ? { error: error.stack } : { error: String(error) },
+      );
+      this.emitter.emit('error', { error: toError(error), recoverable: true });
+    }
+  }
+
+  private convertAndEmit(rawData: RawData, config: USBConnectionConfig, notifyBeforeEmit: boolean): void {
+    const logger = getLogger();
+
+    try {
+      if (!this.sessionContextProvider) {
+        throw ErrorCatalog.createError('SESSION_NOT_FOUND');
+      }
+
+      const { discipline, mode } = this.sessionContextProvider();
+      this.shotNumberCounter++;
+      const context: AdapterContext = {
+        shotNumber: this.shotNumberCounter,
+        discipline,
+        mode,
+      };
+
+      const deviceId = config.deviceId;
+      const shot = deviceId
+        ? this.dataConversionService.convertByDeviceId(rawData, deviceId, context)
+        : this.dataConversionService.convert(rawData, context);
+
+      const shotData: ShotData = {
+        x: shot.impactPoint !== null ? shot.impactPoint.x : null,
+        y: shot.impactPoint !== null ? shot.impactPoint.y : null,
+        timestamp: shot.timestamp,
+        score: shot.score.value,
+        mode: shot.mode.value,
+        raw: rawData.raw,
+      };
+
+      logger.debug(
+        '[USB] ShotData created',
+        'usb',
+        notifyBeforeEmit
+          ? { rawLength: shotData.raw?.length ?? 0 }
+          : {
+              x: shotData.x,
+              y: shotData.y,
+              score: shotData.score,
+              timestamp: shotData.timestamp.toISOString(),
+              rawLength: shotData.raw?.length ?? 0,
+            },
+      );
+
+      if (notifyBeforeEmit) {
+        this.notifyShotDetected();
+      }
+      this.emitter.emit('data', shotData);
+    } catch (conversionError) {
+      logger.error(
+        'Shot conversion error',
+        'usb',
+        conversionError instanceof Error ? { error: conversionError.stack } : { error: String(conversionError) },
+      );
+      this.emitter.emit('error', { error: toError(conversionError), recoverable: true });
+    }
+  }
+
+  private notifyShotDetected(): void {
+    try {
+      this.onShotDetected?.();
+    } catch {
+      /* non-critical: sound notification failure must not block data processing */
     }
   }
 }

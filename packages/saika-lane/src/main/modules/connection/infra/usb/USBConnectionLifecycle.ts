@@ -4,6 +4,7 @@ import { SerialPort } from 'serialport';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
+import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
@@ -33,7 +34,8 @@ export class USBConnectionLifecycle {
    */
   constructor(
     private readonly emitter: USBEventEmitter,
-    private readonly onPortReady: (port: SerialPort, config: USBConnectionConfig) => void,
+    private readonly onPortReady: (port: SerialPort, config: USBConnectionConfig) => void | Promise<void>,
+    private readonly onPortUnavailable: () => void = () => undefined,
   ) {
     this.deviceDetector = new USBDeviceDetector();
   }
@@ -109,48 +111,65 @@ export class USBConnectionLifecycle {
 
     // Wait for connection completion as a Promise
     return new Promise((resolve, reject) => {
+      let initialized = false;
+      let initializationFailed = false;
+
+      const reportConnectionError = (error: Error): void => {
+        if (this.connection) {
+          this.connection = this.connection.setError(error.message);
+        }
+        this.emitter.emit('error', { error, recoverable: false });
+        if (!initialized) {
+          initializationFailed = true;
+          reject(error);
+        }
+      };
+
       // Register event listeners
       port.on('open', () => {
-        logger.debug('[USB] port.on("open") fired - connection successful', 'usb');
+        void (async () => {
+          try {
+            logger.debug('[USB] port.on("open") fired - connection successful', 'usb');
 
-        // Reset reconnect attempt count
-        this.reconnectAttempts = 0;
+            if (initializationFailed) {
+              return;
+            }
 
-        // Set up the data pipeline
-        this.onPortReady(port, savedConfig);
+            await this.configureControlSignals(port, savedConfig);
+            if (initializationFailed) {
+              return;
+            }
+            await this.onPortReady(port, savedConfig);
+            if (initializationFailed) {
+              this.onPortUnavailable();
+              return;
+            }
 
-        // Update Connection entity to connected state
-        if (!this.connection) {
-          reject(
-            ErrorCatalog.createError('CONNECTION_FAILED', {
-              reason: 'Connection lost during open',
-            }),
-          );
-          return;
-        }
-        this.connection = this.connection.connect();
+            if (!this.connection) {
+              throw ErrorCatalog.createError('CONNECTION_FAILED', {
+                reason: 'Connection lost during open',
+              });
+            }
 
-        // Emit connection success event
-        this.emitter.emit('connected', this.connection);
-
-        resolve(this.connection);
+            this.reconnectAttempts = 0;
+            this.connection = this.connection.connect();
+            initialized = true;
+            this.emitter.emit('connected', this.connection);
+            resolve(this.connection);
+          } catch (error) {
+            this.onPortUnavailable();
+            reportConnectionError(toError(error));
+          }
+        })();
       });
 
       port.on('error', (error: Error) => {
+        this.onPortUnavailable();
         logger.error('[USB] port.on("error") fired', 'usb', {
           message: error.message,
           stack: error.stack,
         });
-
-        // Update to error state
-        if (this.connection) {
-          this.connection = this.connection.setError(error.message);
-        }
-
-        // Emit error event
-        this.emitter.emit('error', { error, recoverable: false });
-
-        reject(error);
+        reportConnectionError(error);
       });
 
       // Open the port
@@ -160,15 +179,8 @@ export class USBConnectionLifecycle {
         });
 
         if (error) {
-          // Update to error state
-          if (this.connection) {
-            this.connection = this.connection.setError(error.message);
-          }
-
-          // Emit error event
-          this.emitter.emit('error', { error, recoverable: false });
-
-          reject(error);
+          this.onPortUnavailable();
+          reportConnectionError(error);
         }
       });
     });
@@ -178,6 +190,7 @@ export class USBConnectionLifecycle {
    * Disconnect from the target
    */
   async disconnect(): Promise<void> {
+    this.onPortUnavailable();
     const port = this.port;
     if (!port?.isOpen) {
       return;
@@ -270,6 +283,11 @@ export class USBConnectionLifecycle {
     const logger = getLogger();
     const byteChar = mode.isSighting() ? 'S' : 'R';
 
+    if (this.config?.deviceId === DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+      logger.debug('[USB] sendMode: RedDot uses session mode; serial write skipped', 'usb');
+      return;
+    }
+
     if (!this.port?.isOpen) {
       logger.warn('[USB] sendMode: port is not open, skipping', 'usb', { mode: mode.value, byte: byteChar });
       return;
@@ -309,5 +327,30 @@ export class USBConnectionLifecycle {
       // Emit reconnect failure event
       this.emitter.emit('reconnectFailed', { attempts: this.reconnectAttempts, lastError: toError(error) });
     }
+  }
+
+  private configureControlSignals(port: SerialPort, config: USBConnectionConfig): Promise<void> {
+    if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+      return Promise.resolve();
+    }
+
+    const configurablePort = port as SerialPort & {
+      set?: (options: { dtr: boolean; rts: boolean }, callback: (error?: Error | null) => void) => void;
+    };
+    if (typeof configurablePort.set !== 'function') {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      configurablePort.set?.({ dtr: false, rts: false }, (error) => {
+        if (error) {
+          reject(
+            ErrorCatalog.createError('CONNECTION_FAILED', { reason: 'Failed to disable DTR/RTS for RedDot' }, error),
+          );
+          return;
+        }
+        resolve();
+      });
+    });
   }
 }

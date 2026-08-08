@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
-import { BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
 
 describe('CompetitionTypeRegistry', () => {
   let registry: CompetitionTypeRegistry;
@@ -69,6 +69,30 @@ describe('CompetitionTypeRegistry', () => {
       expect(BR60S.name).toBe('10m Beam Rifle 60 shots standing');
       expect(BR60S.config.shotsPerSeries).toBe(10);
       expect(BR60S.config.stages).toHaveLength(2);
+    });
+
+    it('AR60 has a decimal 10m air rifle definition', () => {
+      expect(AR60.id).toBe('AR60');
+      expect(AR60.name).toBe('10m Air Rifle 60 shots');
+      expect(AR60.discipline).toBe('AIR_RIFLE_10M');
+      expect(AR60.config.acc).toBe('DECIMAL');
+      expect(AR60.config.shotsPerSeries).toBe(10);
+      expect(AR60.config.stages).toHaveLength(2);
+    });
+
+    it('AR60 has a 15-minute sighting stage and a 75-minute 60-shot match stage', () => {
+      const sighting = AR60.config.stages[0]!;
+      expect(sighting.scored).toBe(false);
+      expect(sighting.series[0]!.maxShots).toBe(0);
+      expect(sighting.timer?.durationSeconds).toBe(900);
+
+      const match = AR60.config.stages[1]!;
+      expect(match.scored).toBe(true);
+      expect(match.series).toHaveLength(6);
+      expect(match.timer?.durationSeconds).toBe(4500);
+      for (const series of match.series) {
+        expect(series.maxShots).toBe(10);
+      }
     });
 
     it('BR60S scoring method is DECIMAL', () => {

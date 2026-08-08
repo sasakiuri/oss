@@ -112,7 +112,7 @@ export interface ShotData {
   timestamp: Date;
 
   /**
-   * Score (score received from MT201)
+   * Score reported by the target device (×10 integer)
    */
   score?: number;
 
@@ -239,9 +239,10 @@ export interface IUSBConnectionManager {
   setSessionContextProvider(provider: SessionContextProvider): void;
 
   /**
-   * Set the callback invoked when raw data is received (called before parsing)
+   * Set the callback invoked when a shot is detected.
+   * Framed protocols invoke it only after a valid shot has been accepted.
    *
-   * @param callback - Callback invoked immediately upon data reception
+   * @param callback - Callback used for low-latency shot feedback
    */
   setOnShotDetected(callback: () => void): void;
 
@@ -254,6 +255,7 @@ export interface IUSBConnectionManager {
    * Send a mode byte to the device
    *
    * Sends the 'S' byte for sighting mode (SIGHTING) or the 'R' byte for match mode (MATCH).
+   * Devices without wire-level mode commands, such as RedDot, treat this as a no-op.
    * Fails silently on send failure (does not propagate error to the caller).
    *
    * @param mode - The mode to send

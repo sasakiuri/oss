@@ -178,7 +178,23 @@ describe('useAudioPlayback', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
-    it('does not play sound for non-MT201 devices', async () => {
+    it('plays the same shot sound for the DISAG RedDot rifle', async () => {
+      useSessionStore.getState().setDeviceInfo('DISAG', 'DISAG_KT_RDT_ZIE_1_RIFLE');
+
+      const { result } = renderHook(() => useAudioPlayback());
+      await flushAudioLoad();
+
+      await act(async () => {
+        result.current.playShotSound();
+      });
+
+      expect(mockCtxInstance.createBufferSource).toHaveBeenCalledTimes(1);
+      expect(mockCtxInstance.createGain).toHaveBeenCalledTimes(1);
+      expect(mockStart).toHaveBeenCalledTimes(1);
+      expect(capturedGainValue).toBe(0.5);
+    });
+
+    it('does not play sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
 
       const { result } = renderHook(() => useAudioPlayback());

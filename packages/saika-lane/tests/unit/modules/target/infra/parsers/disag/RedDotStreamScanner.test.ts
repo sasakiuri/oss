@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: MIT
+import { describe, expect, it } from 'vitest';
+
+import { RedDotStreamScanner } from '@/main/modules/target/infra/parsers/disag/RedDotStreamScanner';
+
+import { validRedDotFrame } from '../../../../../../helpers/redDotFixtures';
+
+describe('RedDotStreamScanner', () => {
+  it('returns exactly one frame for every possible two-part split', () => {
+    const frame = validRedDotFrame();
+
+    for (let split = 1; split < frame.length; split += 1) {
+      const scanner = new RedDotStreamScanner();
+      expect(scanner.push(frame.subarray(0, split)).filter((event) => event.type === 'frame')).toHaveLength(0);
+
+      const events = scanner.push(frame.subarray(split));
+      expect(events.filter((event) => event.type === 'frame')).toHaveLength(1);
+      expect(scanner.getBufferedByteCount()).toBe(0);
+    }
+  });
+
+  it('assembles a frame received one byte at a time', () => {
+    const scanner = new RedDotStreamScanner();
+    const frameEvents = [];
+    for (const byte of validRedDotFrame()) {
+      frameEvents.push(...scanner.push(Buffer.from([byte])));
+    }
+
+    expect(frameEvents.filter((event) => event.type === 'frame')).toHaveLength(1);
+  });
+
+  it('returns two combined frames in order', () => {
+    const scanner = new RedDotStreamScanner();
+    const first = validRedDotFrame();
+    const second = Buffer.from(first);
+
+    const events = scanner.push(Buffer.concat([first, second]));
+    const frames = events.filter((event) => event.type === 'frame');
+
+    expect(frames).toHaveLength(2);
+    expect(frames[0]!.frame).toEqual(first);
+    expect(frames[1]!.frame).toEqual(second);
+  });
+
+  it('handles NAK, noise, a partial frame, and the completed frame without losing sync', () => {
+    const scanner = new RedDotStreamScanner();
+    const frame = validRedDotFrame();
+
+    const firstEvents = scanner.push(Buffer.concat([Buffer.from([0x15, 0x41, 0x42]), frame.subarray(0, 20)]));
+    const secondEvents = scanner.push(frame.subarray(20));
+
+    expect(firstEvents.map((event) => event.type)).toEqual(['idle', 'noise']);
+    expect(secondEvents.filter((event) => event.type === 'frame')).toHaveLength(1);
+  });
+
+  it('drops only the leading STX for a structural error and finds the next frame', () => {
+    const scanner = new RedDotStreamScanner();
+    const malformed = validRedDotFrame();
+    malformed[9] = 0x0a;
+    const valid = validRedDotFrame();
+
+    const events = scanner.push(Buffer.concat([malformed, valid]));
+
+    expect(events.filter((event) => event.type === 'invalid-structure')).toHaveLength(1);
+    expect(events.filter((event) => event.type === 'frame')).toHaveLength(1);
+  });
+
+  it('consumes a complete bad-BCC candidate before accepting the next frame', () => {
+    const scanner = new RedDotStreamScanner();
+    const malformed = validRedDotFrame();
+    malformed[57] = malformed[57]! ^ 0x01;
+    const valid = validRedDotFrame();
+
+    const events = scanner.push(Buffer.concat([malformed, valid]));
+
+    expect(events.map((event) => event.type)).toEqual(['invalid-frame', 'frame']);
+  });
+
+  it('bounds its buffer and retains only a trailing incomplete STX candidate', () => {
+    const scanner = new RedDotStreamScanner({ maxBufferBytes: 32 });
+    const trailingCandidate = validRedDotFrame().subarray(0, 10);
+    const events = scanner.push(Buffer.concat([Buffer.alloc(40, 0x41), trailingCandidate]));
+
+    expect(events.filter((event) => event.type === 'overflow')).toHaveLength(1);
+    expect(scanner.getBufferedByteCount()).toBe(10);
+  });
+});

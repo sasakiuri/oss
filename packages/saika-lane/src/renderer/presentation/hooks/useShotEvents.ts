@@ -8,7 +8,7 @@ import { useAudioPlayback } from './useAudioPlayback';
 /**
  * Subscription to shot IPC events
  *
- * - shotReceived: Immediate signal on USB data receipt -> MT-201 impact sound playback (low latency)
+ * - shotReceived: Immediate signal for a validated target hit -> impact sound playback (low latency)
  * - shotRecorded: After CQRS processing completion -> add shot data to the store
  */
 export function useShotEvents(): void {
