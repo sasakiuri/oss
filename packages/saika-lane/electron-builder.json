@@ -24,6 +24,10 @@
   "npmRebuild": true,
   "extraResources": [
     {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    },
+    {
       "from": "THIRD-PARTY-LICENSES.txt",
       "to": "THIRD-PARTY-LICENSES.txt"
     }

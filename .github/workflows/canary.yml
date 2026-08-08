@@ -34,6 +34,9 @@ jobs:
         with:
           enable-electron-cache: "true"
 
+      - name: Verify third-party license report
+        run: npm run license-report:check
+
       - name: Type check
         run: cd packages/saika-lane && npx tsc --noEmit
 
@@ -61,6 +64,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify packaged legal notices
+        run: npm run license-artifacts:check
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
