@@ -27,6 +27,9 @@ interface AppSettingsStoreOptions {
   storage: ILocalStorage;
 }
 
+const LEGACY_REDDOT_RIFLE_DEVICE_ID = 'RDT_ZIE1_RIFLE';
+const REDDOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
+
 export class AppSettingsStore implements IAppSettingsStore {
   private readonly filePath: string;
   private readonly storage: ILocalStorage;
@@ -293,6 +296,11 @@ export class AppSettingsStore implements IAppSettingsStore {
     const portName = this.parseDraftField(connectionSchema.shape.portName, section.portName);
     const hasStoredManufacturer = typeof section.manufacturer === 'string' && section.manufacturer.trim() !== '';
     const manufacturerResult = connectionSchema.shape.manufacturer.safeParse(section.manufacturer);
+    const deviceId = this.parseDraftField(connectionSchema.shape.deviceId, section.deviceId);
+    const isLegacyRedDotRifle = deviceId === LEGACY_REDDOT_RIFLE_DEVICE_ID;
+    const manufacturer = manufacturerResult.success
+      ? manufacturerResult.data
+      : connectionSchema.shape.manufacturer.parse(undefined);
 
     // An incomplete saved connection must not auto-connect as the default manufacturer.
     if (portName && (!hasStoredManufacturer || !manufacturerResult.success)) {
@@ -308,10 +316,8 @@ export class AppSettingsStore implements IAppSettingsStore {
 
     return connectionSchema.parse({
       portName,
-      manufacturer: manufacturerResult.success
-        ? manufacturerResult.data
-        : connectionSchema.shape.manufacturer.parse(undefined),
-      deviceId: this.parseDraftField(connectionSchema.shape.deviceId, section.deviceId),
+      manufacturer: isLegacyRedDotRifle ? 'DISAG' : manufacturer,
+      deviceId: isLegacyRedDotRifle ? REDDOT_RIFLE_DEVICE_ID : deviceId,
       serialNumber: this.parseDraftField(connectionSchema.shape.serialNumber, section.serialNumber),
       vendorId: this.parseDraftField(connectionSchema.shape.vendorId, section.vendorId),
       productId: this.parseDraftField(connectionSchema.shape.productId, section.productId),

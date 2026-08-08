@@ -232,13 +232,13 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 #### メーカー一覧
 
-| 表示名            | コード   | 登録済み装置    | 実装状況 |
-| ----------------- | -------- | --------------- | -------- |
-| Kohto Electronics | `KOHTO`  | MT201, BP216    | 対応     |
-| SIUS              | `SIUS`   | HS10, HS25      | スタブ   |
-| Meyton            | `MEYTON` | Meyton Standard | スタブ   |
-| DISAG             | `DISAG`  | DISAG Standard  | スタブ   |
-| Custom            | `CUSTOM` | Custom Device   | 対応     |
+| 表示名            | コード   | 登録済み装置                       | 実装状況 |
+| ----------------- | -------- | ---------------------------------- | -------- |
+| Kohto Electronics | `KOHTO`  | MT201, BP216                       | 対応     |
+| SIUS              | `SIUS`   | HS10, HS25                         | スタブ   |
+| Meyton            | `MEYTON` | Meyton Standard                    | スタブ   |
+| DISAG             | `DISAG`  | DISAG Standard, DISAG RedDot Rifle | スタブ   |
+| Custom            | `CUSTOM` | RDT-ZIE1 Pistol, Custom Device     | 一部対応 |
 
 > 「スタブ」はUI・型・パーサーの骨格が存在することを示し、実機互換性を保証しない。
 
@@ -253,14 +253,15 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 設定値は [`targetDeviceDefinitions.ts`](../../saika-lane/src/main/modules/target/domain/targetDeviceDefinitions.ts) を正とする。値が登録されていても、スタブ装置の実機互換性を意味しない。
 
-| 装置ID           | ボーレート | データビット | ストップビット | パリティ |
-| ---------------- | ---------: | -----------: | -------------: | -------- |
-| `MT201`          |       9600 |            8 |              1 | none     |
-| `BP216`          |     115200 |            8 |              1 | none     |
-| `HS10`, `HS25`   |       9600 |            8 |              1 | none     |
-| `MEYTON_DEFAULT` |      19200 |            8 |              1 | none     |
-| `DISAG_DEFAULT`  |       9600 |            8 |              1 | none     |
-| `CUSTOM`         |       9600 |            8 |              1 | none     |
+| 装置ID                     | ボーレート | データビット | ストップビット | パリティ |
+| -------------------------- | ---------: | -----------: | -------------: | -------- |
+| `MT201`                    |       9600 |            8 |              1 | none     |
+| `BP216`                    |     115200 |            8 |              1 | none     |
+| `HS10`, `HS25`             |       9600 |            8 |              1 | none     |
+| `MEYTON_DEFAULT`           |      19200 |            8 |              1 | none     |
+| `DISAG_DEFAULT`            |       9600 |            8 |              1 | none     |
+| `DISAG_KT_RDT_ZIE_1_RIFLE` |       9600 |            8 |              1 | none     |
+| `CUSTOM`                   |       9600 |            8 |              1 | none     |
 
 ---
 
@@ -268,8 +269,11 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 受信データはメーカー別パーサーでフレーミングし、装置アダプターで共通の `Shot` に変換する。
 MT201については、メーカーの公式通信仕様ではなく、公開実装が受理する入力契約として
-[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。それ以外の第三者装置の未検証
-ワイヤープロトコルは、このOSS文書では公開しない。
+[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。DISAG RedDotライフルについては、
+[RedDot受信互換・実装仕様](./devices/disag/reddot/README.md) にポーリング、59 byteフレーム、BCC、
+座標変換、Saikaへの組み込み条件を定義する。RedDotの現行コードはスタブであり、同文書の受入条件を
+満たす実装が追加されるまで実機対応を保証しない。それ以外の第三者装置の未検証ワイヤープロトコルは
+公開しない。
 
 独自装置向けの `CUSTOM` 形式はSaika独自仕様で、改行区切りの `x,y` または `x,y,label`（座標単位はmm）を受け取る。実装は [`CustomAdapter.ts`](../../saika-lane/src/main/modules/target/adapters/CustomAdapter.ts) を参照する。
 
