@@ -135,6 +135,11 @@ See `scripts/build-win.ps1` for detailed options and step-by-step instructions.
 
 `src/assets/sounds/shot.wav` — Original recording by the author, licensed under MIT.
 
+## Documentation
+
+Detailed specifications, MQTT design, scoring data, and legal/provenance notices are maintained in
+[`@sasakiuri/saika-docs`](../saika-docs/).
+
 ## Disclaimer
 
 This is an **unofficial, independent** project. It is not affiliated with, endorsed by, or supported by any electronic target manufacturer.

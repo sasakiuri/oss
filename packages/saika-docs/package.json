@@ -1,0 +1,29 @@
+{
+  "name": "@sasakiuri/saika-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Specifications and design notes for the Saika application suite",
+  "license": "MIT",
+  "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasakiuri/oss.git",
+    "directory": "packages/saika-docs"
+  },
+  "bugs": {
+    "url": "https://github.com/sasakiuri/oss/issues"
+  },
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/saika-docs#readme",
+  "scripts": {
+    "lint": "prettier --check \"**/*.md\" \"package.json\"",
+    "lint:prettier": "prettier --check \"**/*.md\" \"package.json\"",
+    "fix": "prettier --write \"**/*.md\" \"package.json\"",
+    "fix:prettier": "prettier --write \"**/*.md\" \"package.json\""
+  },
+  "devDependencies": {
+    "@sasakiuri/prettier-config": "*",
+    "prettier": "^3.6.2"
+  },
+  "prettier": "@sasakiuri/prettier-config"
+}
