@@ -9,6 +9,7 @@
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
+import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -113,7 +114,9 @@ export function createConnectionIpcHandlers(deps: ConnectionIpcHandlersDeps): In
 
     getDevicesByManufacturer: async (input) => {
       const manufacturer = TargetManufacturer.fromValue(input.manufacturer);
-      const devices = TargetDevice.getByManufacturer(manufacturer);
+      const devices = TargetDevice.getByManufacturer(manufacturer).filter(
+        (device) => manufacturer.value !== 'DISAG' || device.id === DISAG_RED_DOT_RIFLE_DEVICE_ID,
+      );
 
       return {
         devices: devices.map((device) => ({

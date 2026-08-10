@@ -28,6 +28,8 @@ vi.mock('serialport', () => {
     mockPortInstance = {
       _events: {},
       _isOpen: false,
+      opening: false,
+      closing: false,
       path: options.path,
       baudRate: options.baudRate,
       on: vi.fn(function (this: any, event: string, callback: Function) {
@@ -35,7 +37,9 @@ vi.mock('serialport', () => {
         return this;
       }),
       open: vi.fn(function (this: any, callback?: Function) {
+        this.opening = true;
         setTimeout(() => {
+          this.opening = false;
           this._isOpen = true;
           if (this._events.open) {
             this._events.open();
@@ -44,7 +48,9 @@ vi.mock('serialport', () => {
         }, 10);
       }),
       close: vi.fn(function (this: any, callback?: Function) {
+        this.closing = true;
         setTimeout(() => {
+          this.closing = false;
           this._isOpen = false;
           if (callback) callback(null);
         }, 10);
@@ -135,6 +141,10 @@ describe('USBConnectionManager', () => {
     mockPortInstance = null;
     mockPortInstances.length = 0;
     manager = new USBConnectionManager(new AdapterRegistry());
+    manager.setSessionContextProvider(() => ({
+      discipline: Discipline.airRifle10m(),
+      mode: Mode.sighting(),
+    }));
   });
 
   afterEach(async () => {
@@ -271,6 +281,23 @@ describe('USBConnectionManager', () => {
 
       expect(SerialPort).not.toHaveBeenCalled();
     });
+
+    it('should reject RedDot before opening when the active session uses another discipline', async () => {
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.beamRifle10m(),
+        mode: Mode.sighting(),
+      }));
+
+      await expect(
+        manager.connect({
+          portName: 'COM3',
+          manufacturer: TargetManufacturer.disag(),
+          deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+        }),
+      ).rejects.toMatchObject({ code: 'INCOMPATIBLE_TARGET_DISCIPLINE' });
+
+      expect(SerialPort).not.toHaveBeenCalled();
+    });
   });
 
   describe('disconnect()', () => {
@@ -345,7 +372,9 @@ describe('USBConnectionManager', () => {
       expect(secondPort.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
     });
 
-    it('should stop RedDot protocol work on port error and reconnect after close', async () => {
+    it('should stop RedDot protocol work and reconnect when error is not followed by close', async () => {
+      const disconnected = vi.fn();
+      manager.on('disconnected', disconnected);
       await manager.connect({
         portName: 'COM3',
         manufacturer: TargetManufacturer.disag(),
@@ -354,17 +383,84 @@ describe('USBConnectionManager', () => {
       const firstPort = mockPortInstance;
 
       firstPort._events.error(new Error('serial failure'));
-      expect(firstPort._events.data).toBeUndefined();
-      expect(firstPort._events.close).toEqual(expect.any(Function));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      firstPort._isOpen = false;
-      firstPort._events.close();
-      await new Promise((resolve) => setTimeout(resolve, 30));
-
+      expect(disconnected).toHaveBeenCalledTimes(1);
+      expect(firstPort.close).toHaveBeenCalledTimes(1);
       expect(mockPortInstances).toHaveLength(2);
       expect(mockPortInstance).not.toBe(firstPort);
       expect(mockPortInstance._events.data).toEqual(expect.any(Function));
       expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+    });
+
+    it('should use the same disconnected recovery path after an ACK write failure', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerAdapter('DISAG', new DisagAdapter());
+      registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
+      manager = new USBConnectionManager(registry);
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.airRifle10m(),
+        mode: Mode.sighting(),
+      }));
+      const disconnected = vi.fn();
+      const data = vi.fn();
+      manager.on('disconnected', disconnected);
+      manager.on('data', data);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+      const firstPort = mockPortInstance;
+      firstPort.write.mockImplementationOnce((_chunk: Buffer, callback?: Function) =>
+        callback?.(new Error('ACK failed')),
+      );
+
+      firstPort._events.data(validRedDotFrame());
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      expect(data).not.toHaveBeenCalled();
+      expect(disconnected).toHaveBeenCalledTimes(1);
+      expect(firstPort.close).toHaveBeenCalledTimes(1);
+      expect(mockPortInstances).toHaveLength(2);
+      expect(mockPortInstance).not.toBe(firstPort);
+      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+    });
+
+    it('should surface a session discipline change instead of silently dropping later RedDot frames', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerAdapter('DISAG', new DisagAdapter());
+      registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
+      manager = new USBConnectionManager(registry);
+      let discipline = Discipline.airRifle10m();
+      manager.setSessionContextProvider(() => ({ discipline, mode: Mode.sighting() }));
+      const data = vi.fn();
+      const disconnected = vi.fn();
+      const reconnectFailed = vi.fn();
+      manager.on('data', data);
+      manager.on('disconnected', disconnected);
+      manager.on('reconnectFailed', reconnectFailed);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
+      });
+      const firstPort = mockPortInstance;
+      discipline = Discipline.beamRifle10m();
+
+      firstPort._events.data(validRedDotFrame());
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      expect(data).not.toHaveBeenCalled();
+      expect(disconnected).toHaveBeenCalledTimes(1);
+      expect(firstPort.close).toHaveBeenCalledTimes(1);
+      expect(reconnectFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lastError: expect.objectContaining({ code: 'INCOMPATIBLE_TARGET_DISCIPLINE' }),
+        }),
+      );
     });
   });
 

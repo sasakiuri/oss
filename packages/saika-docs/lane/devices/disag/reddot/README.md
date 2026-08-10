@@ -47,21 +47,22 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 本書はライフル用RS-232接続だけを対象にする。Bluetooth接続、ピストル用設定、校正、保守、
 ファームウェア更新、標的本体の設定操作は対象外である。
 
-### 1.2 現在のSaika実装との差分
+### 1.2 現在のSaika実装状況
 
-現行のSaika Laneには `DISAG` の型とパーサー骨格があるが、実機互換実装ではない。
+現行のSaika Laneは、本書で定義したRedDot受信経路を実装している。
 
-- `DisagFormatParser` は改行区切りのXML風データを仮定するスタブであり、本書の59 byte形式と異なる。
-- `DisagAdapter` は常に `DATA_CONVERSION_ERROR` を送出する。
-- `DISAG_KT_RDT_ZIE_1_RIFLE` のID、ベンダー、公式型式、表示名、対応種目はデバイス定義へ反映済み
-  だが、protocol sessionとadapterは未実装である。
-- 接続時とモード変更時に全機種へASCII `S` / `R` を送るため、RedDot用の抑止が必要である。
-- 現在のpipelineへRedDotのraw chunkを直接渡すと、通常の `NAK` でも着弾音が鳴る。protocol
-  sessionで応答を終端し、妥当なフレームだけを1件ずつpipelineへ渡す経路が必要である。
-- `target.module.ts` はDISAGアダプターを登録していない。
+- `DisagFormatParser` とruntimeのprotocol sessionは同じ `RedDotStreamScanner` を使用する。
+- `RedDotProtocolSession` が `ENQ` polling、`ACK` / `NAK`、timeout、write直列化を担当する。
+- `DisagAdapter` が検証済み59 byte frameをAIR_RIFLE_10Mの `Shot` へ変換する。
+- RedDot接続ではASCII `S` / `R` を送らず、妥当なframeの変換成功時だけ着弾音を発生させる。
+- port close/errorとprotocol write失敗は、旧portのclose完了後に1回だけ再接続する。接続世代が変わった
+  handshake callbackは無効化する。
+- UIへ列挙するDISAG装置は `DISAG_KT_RDT_ZIE_1_RIFLE` だけで、接続前と各フレーム処理時に
+  active sessionが `AIR_RIFLE_10M` であることを検証する。接続中にsessionが終了または別種目へ
+  変わった場合は、ショットを黙って破棄せず接続エラーとして停止・通知する。
 
-したがって、シリアル設定だけを変更して対応完了とはしない。§10と§12を満たした時点で
-`DISAG_KT_RDT_ZIE_1_RIFLE` を「対応」と扱う。
+合成fixtureによる§12.1〜§12.4の自動テストは実装済みである。§12.5の実port検証が完了するまでは、
+文書上の状態を「実装済み（実機検証待ち）」とし、実機対応を保証しない。
 
 ### 1.3 根拠の区分
 
@@ -448,12 +449,14 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
    `NAK`、noise、部分frameをこの入口へ渡さず、変換成功1件につき `onShotDetected` をdata eventの
    直前に1回だけ呼ぶ。既存デバイスの直接受信経路と着弾音タイミングはこの対応では変更しない。
 8. disconnect、unexpected close、reconnectのどの経路でもprotocol sessionの `stop()` を先に呼び、
-   data listener、poll timer、timeout、保留bufferを残さない。
+   data listener、poll timer、timeout、保留bufferを残さない。接続世代を更新して旧callbackを無効化し、
+   unexpected close/errorでは `disconnected` を通知して旧portのclose完了後に再接続する。
 
 RedDot接続では `USBConnectionConfig.deviceId` を必須とし、メーカーIDが `DISAG` という理由だけで
 protocol sessionを開始しない。device IDが欠落するか `DISAG_KT_RDT_ZIE_1_RIFLE` 以外なら
 configuration errorにする。変換には必ず `convertByDeviceId()` を使い、汎用のDISAG adapter fallbackへ
-依存しない。
+依存しない。active sessionが `AIR_RIFLE_10M` でなければportをopenする前にconfiguration errorとし、
+正しい競技を選択するまでpollingを開始しない。
 
 接続完了後に [`ConnectToTargetHandler.ts`](../../../../../saika-lane/src/main/modules/connection/application/handlers/ConnectToTargetHandler.ts)
 や [`connection.module.ts`](../../../../../saika-lane/src/main/modules/connection/connection.module.ts) が

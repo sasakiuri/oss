@@ -78,7 +78,6 @@ export class USBDataPipeline {
     if (this.attachedPort) {
       this.attachedPort.removeAllListeners('data');
       this.attachedPort.removeAllListeners('readable');
-      this.attachedPort.removeAllListeners('close');
       this.attachedPort = null;
     }
   }
@@ -88,9 +87,8 @@ export class USBDataPipeline {
    *
    * @param port - SerialPort instance
    * @param config - USB connection settings
-   * @param onClose - Callback invoked when the port closes (reconnect trigger)
    */
-  attach(port: SerialPort, config: USBConnectionConfig, onClose: () => void): void {
+  attach(port: SerialPort, config: USBConnectionConfig): void {
     this.attachedPort = port;
     const logger = getLogger();
     logger.debug('[USB] setupDataListener() called', 'usb', {
@@ -135,15 +133,6 @@ export class USBDataPipeline {
 
       logger.debug('[USB] Data event listener attached', 'usb');
     }
-
-    // close event: connection was disconnected
-    port.on('close', () => {
-      logger.debug('[USB] port.on("close") fired - connection closed', 'usb');
-      this.emitter.emit('disconnected');
-      onClose();
-    });
-
-    logger.debug('[USB] Close listener attached', 'usb');
   }
 
   /**

@@ -13,6 +13,19 @@ import type { USBConnectionConfig, USBPortInfo } from './IUSBConnectionManager';
 import { USBDeviceDetector } from './USBDeviceDetector';
 import type { USBEventEmitter } from './USBEventEmitter';
 
+interface PendingConnect {
+  readonly generation: number;
+  readonly port: SerialPort;
+  readonly connection: Connection;
+  readonly resolve: (connection: Connection) => void;
+  readonly reject: (error: Error) => void;
+}
+
+interface OpenCompletion {
+  readonly port: SerialPort;
+  readonly promise: Promise<void>;
+}
+
 /**
  * USBConnectionLifecycle
  *
@@ -27,6 +40,9 @@ export class USBConnectionLifecycle {
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 3;
   private readonly deviceDetector: USBDeviceDetector;
+  private generation = 0;
+  private pendingConnect: PendingConnect | null = null;
+  private openCompletion: OpenCompletion | null = null;
 
   /**
    * @param emitter - Event emitter
@@ -58,8 +74,9 @@ export class USBConnectionLifecycle {
       deviceId: config.deviceId,
     });
 
-    // Disconnect if an existing connection is present
-    if (this.port?.isOpen) {
+    // A closed/opening/closing stale port must also be fully disposed before a
+    // new SerialPort instance is created for the same OS device path.
+    if (this.port) {
       await this.disconnect();
     }
 
@@ -67,15 +84,16 @@ export class USBConnectionLifecycle {
     this.config = config;
 
     // Create Connection entity
-    this.connection = Connection.create({
+    const connection = Connection.create({
       manufacturer: config.manufacturer,
       portPath: config.portName,
       baudRate: config.baudRate || 9600,
       deviceId: config.deviceId,
     });
+    this.connection = connection;
 
     // Create SerialPort instance
-    this.port = new SerialPort({
+    const port = new SerialPort({
       path: config.portName,
       baudRate: config.baudRate || 9600,
       dataBits: config.dataBits || 8,
@@ -87,6 +105,8 @@ export class USBConnectionLifecycle {
       xon: false, // Software Flow Control (XON)
       xoff: false, // Software Flow Control (XOFF)
     });
+    this.port = port;
+    const generation = ++this.generation;
 
     logger.debug('[USB] SerialPort instance created', 'usb', {
       path: config.portName,
@@ -99,88 +119,54 @@ export class USBConnectionLifecycle {
       xoff: false,
     });
 
-    // Null safety: capture local references after initialization
-    const port = this.port;
-    const savedConfig = this.config;
-
-    if (!port || !this.connection || !savedConfig) {
-      throw ErrorCatalog.createError('CONNECTION_FAILED', {
-        reason: 'Port or connection initialization failed',
-      });
-    }
+    const savedConfig = config;
+    let openCompleted = false;
+    let completeOpen!: () => void;
+    const openPromise = new Promise<void>((resolveOpen) => {
+      completeOpen = () => {
+        if (openCompleted) {
+          return;
+        }
+        openCompleted = true;
+        resolveOpen();
+      };
+    });
+    this.openCompletion = { port, promise: openPromise };
 
     // Wait for connection completion as a Promise
     return new Promise((resolve, reject) => {
-      let initialized = false;
-      let initializationFailed = false;
-
-      const reportConnectionError = (error: Error): void => {
-        if (this.connection) {
-          this.connection = this.connection.setError(error.message);
-        }
-        this.emitter.emit('error', { error, recoverable: false });
-        if (!initialized) {
-          initializationFailed = true;
-          reject(error);
-        }
-      };
+      this.pendingConnect = { generation, port, connection, resolve, reject };
 
       // Register event listeners
       port.on('open', () => {
-        void (async () => {
-          try {
-            logger.debug('[USB] port.on("open") fired - connection successful', 'usb');
-
-            if (initializationFailed) {
-              return;
-            }
-
-            await this.configureControlSignals(port, savedConfig);
-            if (initializationFailed) {
-              return;
-            }
-            await this.onPortReady(port, savedConfig);
-            if (initializationFailed) {
-              this.onPortUnavailable();
-              return;
-            }
-
-            if (!this.connection) {
-              throw ErrorCatalog.createError('CONNECTION_FAILED', {
-                reason: 'Connection lost during open',
-              });
-            }
-
-            this.reconnectAttempts = 0;
-            this.connection = this.connection.connect();
-            initialized = true;
-            this.emitter.emit('connected', this.connection);
-            resolve(this.connection);
-          } catch (error) {
-            this.onPortUnavailable();
-            reportConnectionError(toError(error));
-          }
-        })();
+        void this.initializePort(port, savedConfig, connection, generation);
       });
 
       port.on('error', (error: Error) => {
-        this.onPortUnavailable();
         logger.error('[USB] port.on("error") fired', 'usb', {
           message: error.message,
           stack: error.stack,
         });
-        reportConnectionError(error);
+        void this.handlePortError(port, connection, generation, error);
+      });
+
+      port.on('close', () => {
+        logger.debug('[USB] port.on("close") fired - connection closed', 'usb');
+        void this.handlePortClose(port, connection, generation);
       });
 
       // Open the port
       port.open((error) => {
+        completeOpen();
+        if (this.openCompletion?.port === port) {
+          this.openCompletion = null;
+        }
         logger.debug('[USB] port.open() callback', 'usb', {
           error: error?.message ?? 'none',
         });
 
         if (error) {
-          this.onPortUnavailable();
-          reportConnectionError(error);
+          void this.failConnectionAttempt(port, connection, generation, error);
         }
       });
     });
@@ -190,37 +176,31 @@ export class USBConnectionLifecycle {
    * Disconnect from the target
    */
   async disconnect(): Promise<void> {
-    this.onPortUnavailable();
     const port = this.port;
-    if (!port?.isOpen) {
-      return;
+    const connection = this.connection;
+    this.generation += 1;
+    this.onPortUnavailable();
+
+    const pending = this.pendingConnect;
+    if (pending && (!port || pending.port === port)) {
+      this.pendingConnect = null;
+      pending.reject(
+        ErrorCatalog.createError('CONNECTION_FAILED', {
+          reason: 'Connection attempt was cancelled',
+        }),
+      );
     }
 
-    // Remove all listeners to ensure OS port lock is released
-    port.removeAllListeners();
-
-    return new Promise((resolve) => {
-      port.close((error) => {
-        if (error) {
-          // Even if an error occurs, treat disconnection as complete
-          const logger = getLogger();
-          logger.error(
-            'Disconnect error',
-            'usb',
-            error instanceof Error ? { error: error.stack } : { error: String(error) },
-          );
-        }
-
+    if (port) {
+      await this.closePort(port);
+      if (this.port === port) {
         this.port = null;
+      }
+    }
 
-        // Update Connection entity to disconnected state
-        if (this.connection) {
-          this.connection = this.connection.disconnect();
-        }
-
-        resolve();
-      });
-    });
+    if (connection && this.connection?.id === connection.id) {
+      this.connection = this.connection.disconnect();
+    }
   }
 
   /**
@@ -239,6 +219,8 @@ export class USBConnectionLifecycle {
       throw ErrorCatalog.createError('MAX_RECONNECT_EXCEEDED');
     }
 
+    const config = this.config;
+
     // Increment reconnect attempt count
     this.reconnectAttempts++;
 
@@ -246,7 +228,7 @@ export class USBConnectionLifecycle {
     await this.disconnect();
 
     // Reconnect
-    await this.connect(this.config);
+    await this.connect(config);
   }
 
   /**
@@ -327,6 +309,202 @@ export class USBConnectionLifecycle {
       // Emit reconnect failure event
       this.emitter.emit('reconnectFailed', { attempts: this.reconnectAttempts, lastError: toError(error) });
     }
+  }
+
+  /**
+   * Recover an established connection after a protocol-level failure.
+   * The same path is also used by SerialPort error/close events so cleanup,
+   * disconnect bookkeeping, and reconnect ordering cannot diverge.
+   */
+  async handleConnectionError(port: SerialPort, error: Error): Promise<void> {
+    await this.recoverEstablishedConnection(port, error);
+  }
+
+  private async initializePort(
+    port: SerialPort,
+    config: USBConnectionConfig,
+    connection: Connection,
+    generation: number,
+  ): Promise<void> {
+    if (!this.isCurrent(port, generation, connection)) {
+      return;
+    }
+
+    try {
+      await this.configureControlSignals(port, config);
+      if (!this.isCurrent(port, generation, connection)) {
+        return;
+      }
+
+      await this.onPortReady(port, config);
+      if (!this.isCurrent(port, generation, connection)) {
+        return;
+      }
+
+      if (!port.isOpen) {
+        throw ErrorCatalog.createError('CONNECTION_FAILED', {
+          reason: 'Port closed during initialization',
+        });
+      }
+
+      const connectedConnection = connection.connect();
+      this.reconnectAttempts = 0;
+      this.connection = connectedConnection;
+      this.resolvePendingConnect(generation, port, connectedConnection);
+      this.emitter.emit('connected', connectedConnection);
+    } catch (error) {
+      await this.failConnectionAttempt(port, connection, generation, toError(error));
+    }
+  }
+
+  private async handlePortError(
+    port: SerialPort,
+    connection: Connection,
+    generation: number,
+    error: Error,
+  ): Promise<void> {
+    if (!this.isCurrent(port, generation, connection)) {
+      return;
+    }
+
+    if (this.connection?.id === connection.id && this.connection.isConnected) {
+      await this.recoverEstablishedConnection(port, error);
+      return;
+    }
+
+    await this.failConnectionAttempt(port, connection, generation, error);
+  }
+
+  private async handlePortClose(port: SerialPort, connection: Connection, generation: number): Promise<void> {
+    if (!this.isCurrent(port, generation, connection)) {
+      return;
+    }
+
+    if (this.connection?.id === connection.id && this.connection.isConnected) {
+      await this.recoverEstablishedConnection(port);
+      return;
+    }
+
+    await this.failConnectionAttempt(
+      port,
+      connection,
+      generation,
+      ErrorCatalog.createError('CONNECTION_FAILED', { reason: 'Port closed during initialization' }),
+    );
+  }
+
+  private async failConnectionAttempt(
+    port: SerialPort,
+    connection: Connection,
+    generation: number,
+    error: Error,
+  ): Promise<void> {
+    if (!this.isCurrent(port, generation, connection)) {
+      return;
+    }
+
+    this.generation += 1;
+    this.onPortUnavailable();
+    if (this.connection?.id === connection.id) {
+      this.connection = this.connection.setError(error.message);
+    }
+    this.emitter.emit('error', { error, recoverable: false });
+
+    await this.closePort(port);
+    if (this.port === port) {
+      this.port = null;
+    }
+    this.rejectPendingConnect(generation, port, error);
+  }
+
+  private async recoverEstablishedConnection(port: SerialPort, error?: Error): Promise<void> {
+    const generation = this.generation;
+    const connection = this.connection;
+    if (!connection || !connection.isConnected || !this.isCurrent(port, generation, connection)) {
+      return;
+    }
+
+    // Invalidate every callback belonging to this port before stopping the
+    // receiver. Pending writes may settle synchronously during stop().
+    this.generation += 1;
+    this.onPortUnavailable();
+
+    const terminalConnection = error ? connection.setError(error.message).disconnect() : connection.disconnect();
+    this.connection = terminalConnection;
+    if (error) {
+      this.emitter.emit('error', { error, recoverable: false });
+    }
+    this.emitter.emit('disconnected');
+
+    await this.closePort(port);
+    if (this.port === port) {
+      this.port = null;
+    }
+
+    await this.attemptReconnect();
+  }
+
+  private isCurrent(port: SerialPort, generation: number, connection: Connection): boolean {
+    return this.generation === generation && this.port === port && this.connection?.id === connection.id;
+  }
+
+  private resolvePendingConnect(generation: number, port: SerialPort, connection: Connection): void {
+    const pending = this.pendingConnect;
+    if (!pending || pending.generation !== generation || pending.port !== port) {
+      return;
+    }
+
+    this.pendingConnect = null;
+    pending.resolve(connection);
+  }
+
+  private rejectPendingConnect(generation: number, port: SerialPort, error: Error): void {
+    const pending = this.pendingConnect;
+    if (!pending || pending.generation !== generation || pending.port !== port) {
+      return;
+    }
+
+    this.pendingConnect = null;
+    pending.reject(error);
+  }
+
+  private async closePort(port: SerialPort): Promise<void> {
+    const openCompletion = this.openCompletion?.port === port ? this.openCompletion.promise : null;
+    port.removeAllListeners();
+
+    if (port.opening && openCompletion) {
+      await openCompletion;
+    }
+
+    if (port.closing) {
+      await new Promise<void>((resolve) => {
+        const finish = (): void => {
+          port.removeListener('close', finish);
+          port.removeListener('error', finish);
+          resolve();
+        };
+        port.once('close', finish);
+        port.once('error', finish);
+      });
+    }
+
+    if (!port.isOpen) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      port.close((error) => {
+        if (error) {
+          const logger = getLogger();
+          logger.error(
+            'Disconnect error',
+            'usb',
+            error instanceof Error ? { error: error.stack } : { error: String(error) },
+          );
+        }
+        resolve();
+      });
+    });
   }
 
   private configureControlSignals(port: SerialPort, config: USBConnectionConfig): Promise<void> {

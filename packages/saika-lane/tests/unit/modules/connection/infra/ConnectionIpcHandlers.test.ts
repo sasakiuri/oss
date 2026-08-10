@@ -301,6 +301,7 @@ describe('ConnectionIpcHandlers', () => {
         baudRate: 9600,
         supportedDisciplines: ['AIR_RIFLE_10M'],
       });
+      expect(result.devices.map((device) => device.id)).toEqual(['DISAG_KT_RDT_ZIE_1_RIFLE']);
     });
 
     it('should throw on invalid manufacturer', async () => {

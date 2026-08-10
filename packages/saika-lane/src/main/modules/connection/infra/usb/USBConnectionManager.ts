@@ -9,6 +9,7 @@ import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { toError } from '@/shared/errors/toError';
 
 import type {
   IUSBConnectionManager,
@@ -52,9 +53,8 @@ export class USBConnectionManager implements IUSBConnectionManager {
   private readonly emitter: USBEventEmitter;
   private readonly lifecycle: USBConnectionLifecycle;
   private readonly pipeline: USBDataPipeline;
-  private redDotSession: RedDotProtocolSession | null = null;
-  private redDotClosePort: SerialPort | null = null;
-  private redDotCloseListener: (() => void) | null = null;
+  private sessionContextProvider: SessionContextProvider | null = null;
+  private redDotReceiver: { readonly port: SerialPort; readonly session: RedDotProtocolSession } | null = null;
 
   constructor(adapterRegistry: AdapterRegistry) {
     this.emitter = new USBEventEmitter();
@@ -64,7 +64,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
     this.lifecycle = new USBConnectionLifecycle(
       this.emitter,
       (port, config) => this.attachReceiver(port, config),
-      () => this.redDotSession?.stop(),
+      () => this.detachReceivers(),
     );
   }
 
@@ -80,6 +80,9 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   async reconnect(): Promise<void> {
+    if (this.lifecycle.config) {
+      this.validateConfig(this.lifecycle.config);
+    }
     this.detachReceivers();
     return this.lifecycle.reconnect();
   }
@@ -97,6 +100,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   setSessionContextProvider(provider: SessionContextProvider): void {
+    this.sessionContextProvider = provider;
     this.pipeline.setSessionContextProvider(provider);
   }
 
@@ -114,47 +118,39 @@ export class USBConnectionManager implements IUSBConnectionManager {
 
   private async attachReceiver(port: SerialPort, config: USBConnectionConfig): Promise<void> {
     if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
-      this.pipeline.attach(port, config, () => this.lifecycle.attemptReconnect());
+      this.pipeline.attach(port, config);
       return;
     }
 
+    this.validateRedDotSessionContext();
+
     const session = new RedDotProtocolSession(port, {
-      onFrame: (frame, receivedAt) => this.pipeline.processValidatedFrame(frame, receivedAt, config),
-      onConnectionError: (error) => this.handleRedDotConnectionError(session, error),
+      onFrame: (frame, receivedAt) => {
+        try {
+          // The active session can be reset or replaced while the serial port
+          // remains open. Recheck it for every accepted frame so a post-ACK
+          // conversion failure cannot remain a silent shot loss.
+          this.validateRedDotSessionContext();
+          this.pipeline.processValidatedFrame(frame, receivedAt, config);
+        } catch (error) {
+          void this.lifecycle.handleConnectionError(port, toError(error));
+        }
+      },
+      onConnectionError: (error) => {
+        void this.lifecycle.handleConnectionError(port, error);
+      },
     });
 
-    const closeListener = (): void => {
-      if (this.redDotSession !== session) {
-        return;
-      }
-      this.detachRedDotReceiver();
-      this.emitter.emit('disconnected');
-      void this.lifecycle.attemptReconnect();
-    };
-
-    this.redDotSession = session;
-    this.redDotClosePort = port;
-    this.redDotCloseListener = closeListener;
-    port.on('close', closeListener);
+    this.redDotReceiver = { port, session };
 
     try {
       await session.start();
     } catch (error) {
-      if (this.redDotSession === session) {
+      if (this.redDotReceiver?.session === session) {
         this.detachRedDotReceiver();
       }
       throw error;
     }
-  }
-
-  private handleRedDotConnectionError(session: RedDotProtocolSession, error: Error): void {
-    if (this.redDotSession !== session) {
-      return;
-    }
-
-    this.detachRedDotReceiver();
-    this.emitter.emit('error', { error, recoverable: false });
-    void this.lifecycle.attemptReconnect();
   }
 
   private detachReceivers(): void {
@@ -163,18 +159,8 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private detachRedDotReceiver(): void {
-    const session = this.redDotSession;
-    const port = this.redDotClosePort;
-    const closeListener = this.redDotCloseListener;
-
-    session?.stop();
-    if (port && closeListener) {
-      port.removeListener('close', closeListener);
-    }
-
-    this.redDotSession = null;
-    this.redDotClosePort = null;
-    this.redDotCloseListener = null;
+    this.redDotReceiver?.session.stop();
+    this.redDotReceiver = null;
   }
 
   private validateConfig(config: USBConnectionConfig): void {
@@ -186,6 +172,29 @@ export class USBConnectionManager implements IUSBConnectionManager {
         reason: 'DISAG RedDot requires matching manufacturer and device ID',
         manufacturer: config.manufacturer.value,
         deviceId: config.deviceId,
+      });
+    }
+
+    if (isRedDot) {
+      this.validateRedDotSessionContext();
+    }
+  }
+
+  private validateRedDotSessionContext(): void {
+    let currentDiscipline = 'NONE';
+
+    try {
+      currentDiscipline = this.sessionContextProvider?.().discipline.value ?? 'NONE';
+    } catch {
+      // The dedicated configuration error below gives the renderer one
+      // actionable message for both missing and incompatible sessions.
+    }
+
+    if (currentDiscipline !== 'AIR_RIFLE_10M') {
+      throw ErrorCatalog.createError('INCOMPATIBLE_TARGET_DISCIPLINE', {
+        deviceId: DISAG_RED_DOT_RIFLE_DEVICE_ID,
+        currentDiscipline,
+        requiredDiscipline: 'AIR_RIFLE_10M',
       });
     }
   }
