@@ -412,13 +412,12 @@ describe('USBDataPipeline', () => {
         removeAllListeners: vi.fn(),
       };
 
-      pipeline.attach(mockPort as any, config, vi.fn());
+      pipeline.attach(mockPort as any, config);
 
       pipeline.detach();
 
       expect(mockPort.removeAllListeners).toHaveBeenCalledWith('data');
       expect(mockPort.removeAllListeners).toHaveBeenCalledWith('readable');
-      expect(mockPort.removeAllListeners).toHaveBeenCalledWith('close');
     });
 
     it('should not throw an error when called without an attached port', () => {
@@ -431,12 +430,12 @@ describe('USBDataPipeline', () => {
         removeAllListeners: vi.fn(),
       };
 
-      pipeline.attach(mockPort as any, config, vi.fn());
+      pipeline.attach(mockPort as any, config);
       pipeline.detach();
       pipeline.detach();
 
       // removeAllListeners is only called on the first detach
-      expect(mockPort.removeAllListeners).toHaveBeenCalledTimes(3);
+      expect(mockPort.removeAllListeners).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -446,47 +445,11 @@ describe('USBDataPipeline', () => {
         on: vi.fn(),
       };
 
-      pipeline.attach(mockPort as any, config, vi.fn());
+      pipeline.attach(mockPort as any, config);
 
-      // Two listeners should be registered: data and close
       const eventNames = mockPort.on.mock.calls.map((call: unknown[]) => call[0]);
       expect(eventNames).toContain('data');
-      expect(eventNames).toContain('close');
-    });
-
-    it('should invoke onClose callback on close event', () => {
-      const mockPort = {
-        on: vi.fn(),
-      };
-      const onClose = vi.fn();
-
-      pipeline.attach(mockPort as any, config, onClose);
-
-      // Get the close listener and invoke it
-      const closeCall = mockPort.on.mock.calls.find((call: unknown[]) => call[0] === 'close');
-      expect(closeCall).toBeDefined();
-
-      const closeHandler = closeCall![1] as (...args: unknown[]) => void;
-      closeHandler();
-
-      expect(onClose).toHaveBeenCalledTimes(1);
-    });
-
-    it('should emit a disconnected event on close event', () => {
-      const mockPort = {
-        on: vi.fn(),
-      };
-      const disconnectedCallback = vi.fn();
-      emitter.on('disconnected', disconnectedCallback);
-
-      pipeline.attach(mockPort as any, config, vi.fn());
-
-      // Get the close listener and invoke it
-      const closeCall = mockPort.on.mock.calls.find((call: unknown[]) => call[0] === 'close');
-      const closeHandler = closeCall![1] as (...args: unknown[]) => void;
-      closeHandler();
-
-      expect(disconnectedCallback).toHaveBeenCalledTimes(1);
+      expect(eventNames).not.toContain('close');
     });
 
     it('should call processReceivedData on data event', () => {
@@ -509,7 +472,7 @@ describe('USBDataPipeline', () => {
       const dataCallback = vi.fn();
       emitter.on('data', dataCallback);
 
-      pipeline.attach(mockPort as any, config, vi.fn());
+      pipeline.attach(mockPort as any, config);
 
       // Get the data listener and invoke it
       const dataCall = mockPort.on.mock.calls.find((call: unknown[]) => call[0] === 'data');

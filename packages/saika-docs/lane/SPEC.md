@@ -20,13 +20,13 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 
 登録済み装置と実装状況は [`saika-lane` のREADME](../../saika-lane/README.md#supported-devices) を正とする。第三者製品名は互換性対象を識別するためにのみ使用する。
 
-| メーカー / 種別   | 装置ID           | 実装状況 |
-| ----------------- | ---------------- | -------- |
-| Kohto Electronics | `MT201`, `BP216` | 対応     |
-| SIUS              | `HS10`, `HS25`   | スタブ   |
-| Meyton            | `MEYTON_DEFAULT` | スタブ   |
-| DISAG             | `DISAG_DEFAULT`  | スタブ   |
-| Custom            | `CUSTOM`         | 対応     |
+| メーカー / 種別   | 装置ID                     | 実装状況                 |
+| ----------------- | -------------------------- | ------------------------ |
+| Kohto Electronics | `MT201`, `BP216`           | 対応                     |
+| SIUS              | `HS10`, `HS25`             | スタブ                   |
+| Meyton            | `MEYTON_DEFAULT`           | スタブ                   |
+| DISAG             | `DISAG_KT_RDT_ZIE_1_RIFLE` | 実装済み（実機検証待ち） |
+| Custom            | `CUSTOM`                   | 対応                     |
 
 #### 選択の挙動
 
@@ -232,15 +232,16 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 #### メーカー一覧
 
-| 表示名            | コード   | 登録済み装置                       | 実装状況 |
-| ----------------- | -------- | ---------------------------------- | -------- |
-| Kohto Electronics | `KOHTO`  | MT201, BP216                       | 対応     |
-| SIUS              | `SIUS`   | HS10, HS25                         | スタブ   |
-| Meyton            | `MEYTON` | Meyton Standard                    | スタブ   |
-| DISAG             | `DISAG`  | DISAG Standard, DISAG RedDot Rifle | スタブ   |
-| Custom            | `CUSTOM` | RDT-ZIE1 Pistol, Custom Device     | 一部対応 |
+| 表示名            | コード   | 選択可能な装置          | 実装状況                 |
+| ----------------- | -------- | ----------------------- | ------------------------ |
+| Kohto Electronics | `KOHTO`  | MT201, BP216            | 対応                     |
+| SIUS              | `SIUS`   | HS10, HS25              | スタブ                   |
+| Meyton            | `MEYTON` | Meyton Standard         | スタブ                   |
+| DISAG             | `DISAG`  | DISAG RedDot Rifle      | 実装済み（実機検証待ち） |
+| Custom            | `CUSTOM` | RDT-ZIE1 Pistol, Custom | 一部対応                 |
 
 > 「スタブ」はUI・型・パーサーの骨格が存在することを示し、実機互換性を保証しない。
+> `DISAG_DEFAULT` の内部定義は互換性のため残すが、接続可能なDISAG装置としてUIへ列挙しない。
 
 #### 接続ボタンの挙動
 
@@ -271,9 +272,9 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 MT201については、メーカーの公式通信仕様ではなく、公開実装が受理する入力契約として
 [MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。DISAG RedDotライフルについては、
 [RedDot受信互換・実装仕様](./devices/disag/reddot/README.md) にポーリング、59 byteフレーム、BCC、
-座標変換、Saikaへの組み込み条件を定義する。RedDotの現行コードはスタブであり、同文書の受入条件を
-満たす実装が追加されるまで実機対応を保証しない。それ以外の第三者装置の未検証ワイヤープロトコルは
-公開しない。
+座標変換、Saikaへの組み込み条件を定義する。RedDotの受信・変換・再接続コードと合成fixtureによる
+自動テストは実装済みである。実portでの複数ショット検証が完了するまでは「実機検証待ち」とし、
+実機対応を保証しない。それ以外の第三者装置の未検証ワイヤープロトコルは公開しない。
 
 独自装置向けの `CUSTOM` 形式はSaika独自仕様で、改行区切りの `x,y` または `x,y,label`（座標単位はmm）を受け取る。実装は [`CustomAdapter.ts`](../../saika-lane/src/main/modules/target/adapters/CustomAdapter.ts) を参照する。
 

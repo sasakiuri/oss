@@ -3,6 +3,7 @@ import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type TargetErrorCode =
   | 'INVALID_TARGET'
+  | 'INCOMPATIBLE_TARGET_DISCIPLINE'
   | 'INVALID_TARGET_DESIGN'
   | 'UNKNOWN_DISCIPLINE'
   | 'UNKNOWN_MODE'
@@ -17,6 +18,16 @@ export const TARGET_ERRORS: ReadonlyArray<[TargetErrorCode, ErrorDefinition]> = 
       code: 'INVALID_TARGET',
       message: 'Invalid target configuration',
       userMessage: 'Invalid target configuration',
+      severity: 'error',
+    },
+  ],
+  [
+    'INCOMPATIBLE_TARGET_DISCIPLINE',
+    {
+      code: 'INCOMPATIBLE_TARGET_DISCIPLINE',
+      message: 'Target {{deviceId}} requires {{requiredDiscipline}}, but the active session uses {{currentDiscipline}}',
+      userMessage:
+        'Select a {{requiredDiscipline}} competition before connecting target {{deviceId}} (current: {{currentDiscipline}})',
       severity: 'error',
     },
   ],

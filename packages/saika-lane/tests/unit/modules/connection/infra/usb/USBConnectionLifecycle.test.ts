@@ -15,6 +15,8 @@ vi.mock('serialport', () => {
     mockPortInstance = {
       _events: {} as Record<string, Function>,
       _isOpen: false,
+      opening: false,
+      closing: false,
       path: options.path,
       baudRate: options.baudRate,
       on: vi.fn(function (this: typeof mockPortInstance, event: string, callback: Function) {
@@ -22,7 +24,9 @@ vi.mock('serialport', () => {
         return this;
       }),
       open: vi.fn(function (this: typeof mockPortInstance, callback?: (err: Error | null) => void) {
+        this.opening = true;
         setTimeout(() => {
+          this.opening = false;
           this._isOpen = true;
           if (this._events.open) {
             this._events.open();
@@ -31,7 +35,9 @@ vi.mock('serialport', () => {
         }, 10);
       }),
       close: vi.fn(function (this: typeof mockPortInstance, callback?: (err: Error | null) => void) {
+        this.closing = true;
         setTimeout(() => {
+          this.closing = false;
           this._isOpen = false;
           if (callback) callback(null);
         }, 10);
@@ -142,6 +148,7 @@ describe('USBConnectionLifecycle', () => {
             if (callback) callback(error);
           }),
           close: vi.fn(),
+          removeAllListeners: vi.fn(),
           get isOpen() {
             return this._isOpen;
           },
@@ -176,6 +183,7 @@ describe('USBConnectionLifecycle', () => {
             }, 10);
           }),
           close: vi.fn(),
+          removeAllListeners: vi.fn(),
           get isOpen() {
             return this._isOpen;
           },
@@ -200,6 +208,43 @@ describe('USBConnectionLifecycle', () => {
       // getStatus should return connected
       const status = lifecycle.getStatus();
       expect(status.equals(ConnectionStatus.connected())).toBe(true);
+    });
+
+    it('should close an open port before rejecting post-open initialization failure', async () => {
+      onPortReady.mockRejectedValueOnce(new Error('Receiver initialization failed'));
+
+      await expect(lifecycle.connect(createConfig())).rejects.toThrow('Receiver initialization failed');
+
+      expect(mockPortInstance.close).toHaveBeenCalledTimes(1);
+      expect(lifecycle.getStatus().equals(ConnectionStatus.disconnected())).toBe(true);
+    });
+
+    it('should reject a handshake closed while onPortReady is pending without emitting connected', async () => {
+      let releaseReady!: () => void;
+      onPortReady.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseReady = resolve;
+          }),
+      );
+      const connected = vi.fn();
+      emitter.on('connected', connected);
+
+      const connectPromise = lifecycle.connect(createConfig());
+      const rejected = expect(connectPromise).rejects.toMatchObject({
+        code: 'CONNECTION_FAILED',
+        metadata: { reason: 'Port closed during initialization' },
+      });
+      await vi.waitFor(() => expect(onPortReady).toHaveBeenCalledTimes(1));
+
+      mockPortInstance._isOpen = false;
+      mockPortInstance._events.close();
+      await rejected;
+      releaseReady();
+      await Promise.resolve();
+
+      expect(connected).not.toHaveBeenCalled();
+      expect(lifecycle.getStatus().equals(ConnectionStatus.disconnected())).toBe(true);
     });
   });
 
@@ -233,6 +278,23 @@ describe('USBConnectionLifecycle', () => {
       // Verify no error is thrown
       const status = lifecycle.getStatus();
       expect(status.equals(ConnectionStatus.disconnected())).toBe(true);
+    });
+
+    it('should cancel an opening port and close it once opening completes', async () => {
+      const connected = vi.fn();
+      emitter.on('connected', connected);
+
+      const connectPromise = lifecycle.connect(createConfig());
+      const rejected = expect(connectPromise).rejects.toMatchObject({
+        code: 'CONNECTION_FAILED',
+        metadata: { reason: 'Connection attempt was cancelled' },
+      });
+      await lifecycle.disconnect();
+      await rejected;
+
+      expect(mockPortInstance.close).toHaveBeenCalledTimes(1);
+      expect(connected).not.toHaveBeenCalled();
+      expect(lifecycle.getStatus().equals(ConnectionStatus.disconnected())).toBe(true);
     });
 
     it('should remove all port listeners on disconnect', async () => {
@@ -315,6 +377,7 @@ describe('USBConnectionLifecycle', () => {
             this._isOpen = false;
             if (callback) callback(null);
           }),
+          removeAllListeners: vi.fn(),
           get isOpen() {
             return this._isOpen;
           },
