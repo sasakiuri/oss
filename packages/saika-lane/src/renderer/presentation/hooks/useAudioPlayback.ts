@@ -4,7 +4,7 @@ import { useCallback, useEffect } from 'react';
 import shotSound from '@/assets/sounds/shot.wav';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
-const SHOT_SOUND_DEVICE_IDS = new Set(['MT201', 'DISAG_KT_RDT_ZIE_1_RIFLE']);
+const SHOT_SOUND_DEVICE_IDS = new Set(['MT201', 'DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL']);
 
 // ---------------------------------------------------------------------------
 // Module-level singleton state

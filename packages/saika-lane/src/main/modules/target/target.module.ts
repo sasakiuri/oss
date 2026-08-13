@@ -10,7 +10,7 @@ import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { CustomAdapter } from './adapters/CustomAdapter';
 import { DisagAdapter } from './adapters/DisagAdapter';
 import { MT201Adapter } from './adapters/MT201Adapter';
-import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from './domain/targetDeviceDefinitions';
+import { DISAG_RED_DOT_DEVICE_IDS } from './domain/targetDeviceDefinitions';
 import { TargetManufacturer } from './domain/TargetManufacturer';
 
 type TargetDeps = 'adapterRegistry';
@@ -33,6 +33,8 @@ export const targetModule: ModuleDefinition<TargetDeps> = {
     adapterRegistry.assignDeviceAdapter('MT201', TargetManufacturer.kohto().value);
     adapterRegistry.assignDeviceAdapter('BP216', TargetManufacturer.kohto().value);
     adapterRegistry.assignDeviceAdapter('CUSTOM', TargetManufacturer.custom().value);
-    adapterRegistry.assignDeviceAdapter(DISAG_RED_DOT_RIFLE_DEVICE_ID, TargetManufacturer.disag().value);
+    for (const deviceId of DISAG_RED_DOT_DEVICE_IDS) {
+      adapterRegistry.assignDeviceAdapter(deviceId, TargetManufacturer.disag().value);
+    }
   },
 };

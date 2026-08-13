@@ -2,7 +2,8 @@
 
 # DISAG RedDot受信互換・実装仕様（Saika Lane）
 
-この文書は、Saika LaneでDISAG RedDotライフル標的を実装するための、独立実装向け互換仕様である。
+この文書は、Saika LaneでDISAG RedDotのライフル／ピストル標的プロファイルを実装するための、
+独立実装向け互換仕様である。
 シリアルポートを開いてから `Shot` を生成するまでの必須動作、バイト配置、検証、エラー回復、
 Saika内の変更箇所、テストベクターを定義する。
 
@@ -18,19 +19,22 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 
 ### 1.1 対象プロファイル
 
-| 項目                 | 値                                       |
-| -------------------- | ---------------------------------------- |
-| 販売名               | DISAG RedDot Laserziel                   |
-| 公式型式             | `KT RDT ZIE 1`                           |
-| 製造者               | KNESTEL Technologie & Elektronik GmbH    |
-| 販売元               | DISAG GmbH & Co KG                       |
-| SaikaデバイスID      | `DISAG_KT_RDT_ZIE_1_RIFLE`               |
-| SaikaベンダーID      | `DISAG`                                  |
-| Saika種目            | `AIR_RIFLE_10M`                          |
-| Saika標的コード      | `ISSF_AR_10M`                            |
-| ワイヤー上の種別     | `LG`（10mエアライフル）                  |
-| 通信方向             | ショットデータは標的からホストへの一方向 |
-| ホストから送るデータ | `ENQ`、およびフレームへの `ACK` / `NAK`  |
+| 項目                 | 値                                                       |
+| -------------------- | -------------------------------------------------------- |
+| 販売名               | DISAG RedDot Laserziel                                   |
+| 公式型式             | `KT RDT ZIE 1`                                           |
+| 製造者               | KNESTEL Technologie & Elektronik GmbH                    |
+| 販売元               | DISAG GmbH & Co KG                                       |
+| SaikaデバイスID      | `DISAG_KT_RDT_ZIE_1_RIFLE` / `DISAG_KT_RDT_ZIE_1_PISTOL` |
+| SaikaベンダーID      | `DISAG`                                                  |
+| ワイヤー上の種別     | `LG`（両プロファイル共通）                               |
+| 通信方向             | ショットデータは標的からホストへの一方向                 |
+| ホストから送るデータ | `ENQ`、およびフレームへの `ACK` / `NAK`                  |
+
+| Saikaプロファイル           | Saika種目        | Saika標的コード |
+| --------------------------- | ---------------- | --------------- |
+| `DISAG_KT_RDT_ZIE_1_RIFLE`  | `AIR_RIFLE_10M`  | `ISSF_AR_10M`   |
+| `DISAG_KT_RDT_ZIE_1_PISTOL` | `AIR_PISTOL_10M` | `ISSF_AP_10M`   |
 
 `KT RDT ZIE 1` は、KNESTELのEU適合宣言で `Typ / Model` として記載される型式である。現行のDISAG
 取扱説明書では大文字・小文字だけが異なる `KT RDT Zie 1`、Bluetoothの機器名では
@@ -38,14 +42,15 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 `KT RDT ZIE 1` に統一する。
 
 `RDT-ZIE1` というハイフン表記は確認した公式資料にはなく、正式なモデル名として使用しない。
-`DISAG_KT_RDT_ZIE_1_RIFLE` はSaika内部IDであり、メーカー型式そのものではない。旧暫定ID
-`RDT_ZIE1_RIFLE` を保存済み設定から読み込んだ場合は、新IDとベンダー `DISAG` へ自動移行する。
-利用者向けのモデル名と内部IDを混同させない。末尾の `RIFLE` はSaikaの標的・採点profileを表し、
-公式なハードウェアvariant名ではない。Saikaの `DISAG` もprotocol routing用のベンダーIDであり、
-法的な製造者名を表すフィールドではない。
+2つのデバイスIDはSaika内部の標的・採点プロファイルであり、メーカー型式そのものではない。
+旧暫定ID `RDT_ZIE1_RIFLE` / `RDT_ZIE1_PISTOL` を保存済み設定から読み込んだ場合は、それぞれ
+新IDとベンダー `DISAG` へ自動移行する。利用者向けのモデル名と内部IDを混同させない。末尾の
+`RIFLE` / `PISTOL` は公式なハードウェアvariant名ではない。Saikaの `DISAG` もprotocol routing用の
+ベンダーIDであり、法的な製造者名を表すフィールドではない。
 
-本書はライフル用RS-232接続だけを対象にする。Bluetooth接続、ピストル用設定、校正、保守、
-ファームウェア更新、標的本体の設定操作は対象外である。
+本書はRS-232接続とSaika内のRifle/Pistolプロファイルを対象にする。Bluetooth接続、校正、保守、
+ファームウェア更新、標的本体の設定操作は対象外である。PistolはRifleと同じ59 byte受信形式を使い、
+標的・採点コンテキストだけを `ISSF_AP_10M` へ切り替える。
 
 ### 1.2 現在のSaika実装状況
 
@@ -53,13 +58,13 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 
 - `DisagFormatParser` とruntimeのprotocol sessionは同じ `RedDotStreamScanner` を使用する。
 - `RedDotProtocolSession` が `ENQ` polling、`ACK` / `NAK`、timeout、write直列化を担当する。
-- `DisagAdapter` が検証済み59 byte frameをAIR_RIFLE_10Mの `Shot` へ変換する。
+- `DisagAdapter` が検証済み59 byte frameを選択中のAIR_RIFLE_10MまたはAIR_PISTOL_10Mの `Shot` へ変換する。
 - RedDot接続ではASCII `S` / `R` を送らず、妥当なframeの変換成功時だけ着弾音を発生させる。
 - port close/errorとprotocol write失敗は、旧portのclose完了後に1回だけ再接続する。接続世代が変わった
   handshake callbackは無効化する。
-- UIへ列挙するDISAG装置は `DISAG_KT_RDT_ZIE_1_RIFLE` だけで、接続前と各フレーム処理時に
-  active sessionが `AIR_RIFLE_10M` であることを検証する。接続中にsessionが終了または別種目へ
-  変わった場合は、ショットを黙って破棄せず接続エラーとして停止・通知する。
+- UIへRifle/Pistolの2プロファイルを列挙し、接続前と各フレーム処理時に選択プロファイルとactive
+  sessionの種目が一致することを検証する。接続中にsessionが終了または別種目へ変わった場合は、
+  ショットを黙って破棄せず接続エラーとして停止・通知する。
 
 合成fixtureによる§12.1〜§12.4の自動テストは実装済みである。§12.5の実port検証が完了するまでは、
 文書上の状態を「実装済み（実機検証待ち）」とし、実機対応を保証しない。
@@ -137,7 +142,7 @@ Node SerialPortでは `rtscts: false`, `xon: false`, `xoff: false` を指定し�
 
 RedDotフレームに試射/本射モードはなく、RedDotへASCII `S` / `R` を送らない。Saikaの試射/本射は
 現在の `AdapterContext.mode` を使用する。接続、再接続、`ModeSwitched`、`StageAdvanced`、
-`PhaseChanged` のいずれでも、デバイスIDが `DISAG_KT_RDT_ZIE_1_RIFLE` なら `sendMode()` は正常終了する
+`PhaseChanged` のいずれでも、デバイスIDがいずれかのRedDotプロファイルなら `sendMode()` は正常終了する
 no-opでなければならない。
 
 本書のプロファイルでSaikaが送信してよいbyteは `ENQ`、`ACK`、`NAK` だけである。
@@ -339,17 +344,17 @@ distanceMm ≈ hypot(xMm, yMm)
 
 ### 7.3 採点と仮想弾
 
-| 項目           | 値                            |
-| -------------- | ----------------------------- |
-| 標的           | `ISSF_AR_10M`                 |
-| 仮想弾径       | 4.5mm                         |
-| 仮想弾半径     | 2.25mm                        |
-| 採点方式       | outer-edge                    |
-| 小数点採点step | 半径方向0.25mm                |
-| 最大スコア     | 10.9（`scoreTenths === 109`） |
+| 項目           | Rifleプロファイル | Pistolプロファイル |
+| -------------- | ----------------- | ------------------ |
+| 標的           | `ISSF_AR_10M`     | `ISSF_AP_10M`      |
+| 仮想弾径       | 4.5mm             | 4.5mm              |
+| 仮想弾半径     | 2.25mm            | 2.25mm             |
+| 採点方式       | outer-edge        | outer-edge         |
+| 小数点採点step | 半径方向0.25mm    | 半径方向0.8mm      |
+| 最大スコア     | 10.9              | 10.9               |
 
-4.5mmはレーザースポット径ではなく、エアライフル弾を表す採点・描画上の仮想径である。詳細なリング
-寸法とSaikaの採点式は [標的・採点データ](../../../../common/TARGET_SPEC.md) を参照する。
+4.5mmはレーザースポット径ではなく、採点・描画上の仮想弾径である。詳細なリング寸法とSaikaの採点式は
+[標的・採点データ](../../../../common/TARGET_SPEC.md) を参照する。
 
 RedDotが通知したscoreを `Shot.score` に設定する。後段の `USBDataPipeline` はこれを
 `ShotData.score` として渡し、`RecordShotHandler` が `deviceScore` として保存する。座標から計算した
@@ -364,7 +369,9 @@ Saika scoreとの差は既存のdiscrepancy検出へ渡すが、不一致だけ�
 - このプロファイルでは座標なしを表す特殊値を確認していない。scoreが `00.0` でも有効なX/Yがある
   フレームは座標付き0点として扱い、推測で `impactPoint: null` にしない。
 
-`context.discipline` が `AIR_RIFLE_10M` 以外、またはフレームの種別が `LG` 以外なら変換を拒否する。
+`context.discipline` は `AIR_RIFLE_10M` または `AIR_PISTOL_10M` だけを受け付ける。接続マネージャーは
+デバイスIDごとに前者または後者との一致を検証する。両プロファイルとも、共有受信形式の種別
+`LG` 以外のフレームは拒否する。
 
 ## 8. ストリーム分割と再同期
 
@@ -426,9 +433,10 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
 ### 10.2 既存ファイルの必須変更
 
 1. [`targetDeviceDefinitions.ts`](../../../../../saika-lane/src/main/modules/target/domain/targetDeviceDefinitions.ts)
-   の `DISAG_KT_RDT_ZIE_1_RIFLE` は `manufacturer: 'DISAG'`、`modelName: 'KT RDT ZIE 1'`、
-   表示名 `DISAG RedDot Rifle`、対応種目 `['AIR_RIFLE_10M']` を維持する。
-   `RDT_ZIE1_PISTOL` と `DISAG_DEFAULT` は本書の対応対象へ含めない。
+   に `DISAG_KT_RDT_ZIE_1_RIFLE` / `DISAG_KT_RDT_ZIE_1_PISTOL` を定義する。どちらも
+   `manufacturer: 'DISAG'`、`modelName: 'KT RDT ZIE 1'` とし、対応種目はそれぞれ
+   `['AIR_RIFLE_10M']` / `['AIR_PISTOL_10M']` に限定する。旧 `RDT_ZIE1_PISTOL` は保存設定の
+   migration入力としてだけ扱い、装置定義には残さない。`DISAG_DEFAULT` は本書の対応対象へ含めない。
 2. [`DisagFormatParser.ts`](../../../../../saika-lane/src/main/modules/target/infra/parsers/DisagFormatParser.ts)
    のXML風スタブを削除する。runtimeでprotocol sessionがscannerを直接使う場合も、同じscannerを
    利用する薄いwrapperにして、異なるDISAG形式を二重実装しない。
@@ -436,10 +444,10 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
    変換へ置き換える。現行 `RawData` interfaceを維持するなら、protocol sessionで検証済みであっても
    同じpureな `RedDotFrameDecoder` を再実行する。検証ロジックを複製してはならない。
 4. [`target.module.ts`](../../../../../saika-lane/src/main/modules/target/target.module.ts) でDISAG
-   adapterをメーカーID `DISAG` へ登録し、device ID `DISAG_KT_RDT_ZIE_1_RIFLE` だけを割り当てる。
-   `DISAG_DEFAULT` と `RDT_ZIE1_PISTOL` をこのadapterへ割り当てない。
+   adapterをメーカーID `DISAG` へ登録し、Rifle/Pistol両方のdevice IDを割り当てる。
+   `DISAG_DEFAULT` はこのadapterへ割り当てない。
 5. [`USBConnectionManager.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionManager.ts)
-   は `DISAG_KT_RDT_ZIE_1_RIFLE` のときprotocol sessionを開始し、有効フレームだけをpipelineへ渡す。
+   はいずれかのRedDot device IDのときprotocol sessionを開始し、有効フレームだけをpipelineへ渡す。
    他デバイスは現在の直接受信経路を維持する。
 6. [`USBConnectionLifecycle.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionLifecycle.ts)
    の `sendMode()` をdevice-awareにし、RedDotではno-opにする。open後のDTR/RTS設定もここで行う。
@@ -453,10 +461,10 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
    unexpected close/errorでは `disconnected` を通知して旧portのclose完了後に再接続する。
 
 RedDot接続では `USBConnectionConfig.deviceId` を必須とし、メーカーIDが `DISAG` という理由だけで
-protocol sessionを開始しない。device IDが欠落するか `DISAG_KT_RDT_ZIE_1_RIFLE` 以外なら
-configuration errorにする。変換には必ず `convertByDeviceId()` を使い、汎用のDISAG adapter fallbackへ
-依存しない。active sessionが `AIR_RIFLE_10M` でなければportをopenする前にconfiguration errorとし、
-正しい競技を選択するまでpollingを開始しない。
+protocol sessionを開始しない。device IDが欠落するか対応する2プロファイル以外ならconfiguration
+errorにする。変換には必ず `convertByDeviceId()` を使い、汎用のDISAG adapter fallbackへ依存しない。
+active sessionはRifleなら `AIR_RIFLE_10M`、Pistolなら `AIR_PISTOL_10M` でなければportをopenする前に
+configuration errorとし、正しい競技を選択するまでpollingを開始しない。
 
 接続完了後に [`ConnectToTargetHandler.ts`](../../../../../saika-lane/src/main/modules/connection/application/handlers/ConnectToTargetHandler.ts)
 や [`connection.module.ts`](../../../../../saika-lane/src/main/modules/connection/connection.module.ts) が
@@ -465,14 +473,15 @@ configuration errorにする。変換には必ず `convertByDeviceId()` を使�
 
 ### 10.3 end-to-end処理順
 
-1. UIで `DISAG_KT_RDT_ZIE_1_RIFLE` と `AIR_RIFLE_10M` を選ぶ。
+1. UIでRedDotプロファイルと、それに対応する `AIR_RIFLE_10M` または `AIR_PISTOL_10M` を選ぶ。
 2. 9600 8N1、flow controlなしでportをopenする。
 3. `RedDotProtocolSession` を開始し、最初の `ENQ` を送る。
 4. 単独 `NAK` なら何も生成せず次pollへ進む。
 5. scannerが59 byte候補を確定し、decoderが構造、BCC、discipline、score、distance、X/Yを検査する。
 6. 正常なら `ACK` をdrainし、frameと受信時刻をpipelineへ1回渡す。
 7. adapterが同じdecoderの結果からscore、distance、X/Yを取得する。
-8. adapterが現在のsession modeと `ISSF_AR_10M` を使って `Shot` を作る。
+8. adapterが現在のsession modeと、選択プロファイルに対応する `ISSF_AR_10M` / `ISSF_AP_10M` を使って
+   `Shot` を作る。
 9. pipelineが着弾音通知を1回発生させ、`ShotData` をemitする。
 10. `RecordShotHandler` がdevice scoreを保存し、座標再計算との差を診断する。
 
@@ -509,6 +518,11 @@ configuration errorにする。変換には必ず `convertByDeviceId()` を使�
 | mode                   | fixture内になし。テストcontextを使用 |
 
 reserved値はfixtureを構成するための任意値であり、実装が同じ値を要求してはならない。
+
+Pistolプロファイルの統合fixtureは、同じ `LG` フレームのscoreだけを `10.3` に置き換えてBCCを
+再計算する。座標 `(+3.00mm, +4.00mm)` は `ISSF_AP_10M` のinner ten境界上にあるため、期待値は
+`Score(103)`、`innerTen: true` である。このfixtureは共有通信経路と標的マッピングのテスト用であり、
+実射データではない。
 
 ### 11.2 符号付き座標fixture
 
@@ -549,7 +563,7 @@ for (let split = 1; split < frame.length; split += 1) {
 - STX、各CR、ETB、`$` の1箇所破損をそれぞれ拒否する。
 - BCCだけを1 bit変更したフレームを拒否する。
 - score、distance、X、Yの桁数、符号、小数点位置の異常を拒否する。
-- disciplineが `LG` 以外ならライフルadapterで拒否する。
+- disciplineが `LG` 以外なら共有RedDot decoderで拒否する。
 - reserved値を別のprintable ASCIIへ変え、BCCを再計算したフレームは受理する。
 - §11.1をscore 90、X 3mm、Y 4mm、distance 5mmへ変換する。
 - distanceの不一致はwarningにするが、変換結果を返す。
@@ -579,14 +593,16 @@ fake serial writerとfake clockを使い、wall clockや実USBへ依存させな
 ### 12.4 adapter・統合テスト
 
 - `DISAG_KT_RDT_ZIE_1_RIFLE` はベンダー `DISAG`、対応種目 `AIR_RIFLE_10M` だけとして列挙される。
+- `DISAG_KT_RDT_ZIE_1_PISTOL` はベンダー `DISAG`、対応種目 `AIR_PISTOL_10M` だけとして列挙される。
 - `DISAG_KT_RDT_ZIE_1_RIFLE` の `modelName` は公式型式どおり `KT RDT ZIE 1` である。
-- DISAGでもdevice IDが欠落または `DISAG_KT_RDT_ZIE_1_RIFLE` 以外ならRedDotのpollを開始しない。
+- 旧 `RDT_ZIE1_PISTOL` の保存設定を新Pistol IDとベンダー `DISAG` へ移行する。
+- DISAGでもdevice IDが欠落または対応する2プロファイル以外ならRedDotのpollを開始しない。
 - §11.1から `ImpactPoint(3, 4)`、`Score(90)`、`innerTen: false` を生成する。
 - 同じframeをSIGHTING/MATCHのcontextで変換し、各contextのmodeを保持する。
 - mode切替時にserialへ `S` / `R` を送らず、次ショットは新しいsession modeになる。
 - `NAK` や部分chunkでは着弾音を鳴らさず、変換成功1件につき1回だけ鳴らす。
 - device scoreと座標計算scoreが違っても記録し、discrepancyを診断する。
-- `AIR_RIFLE_10M` 以外のcontextを拒否する。
+- Rifle/Pistolのdevice IDとsession disciplineが一致しないcontextを接続前とフレーム処理時に拒否する。
 - 既存MT201、Custom、その他のparserテストを変更せず通す。
 
 ### 12.5 完了条件
@@ -608,8 +624,8 @@ fake serial writerとfake clockを使い、wall clockや実USBへ依存させな
 - RedDot固有のmiss/座標なしsentinel
 - firmware間のフレーム差、再送回数、メーカー保証timeout
 - BluetoothとRS-232の切替手順
-- ピストル用RedDotのdiscipline、座標、採点、フレーム差
-- `LG` 以外のOpticScoreフレームを同じadapterで扱えるか
+- Pistolプロファイルの実portパケットとdevice scoreを使った実機検証
+- `LG` 以外のOpticScoreフレームを同じdecoderで扱えるか
 
 新しい挙動を追加する場合は、まず匿名化した最小の合成fixtureとテストでSaikaの受理契約を定義し、
 同じ変更で本書を更新する。メーカー資料は複製せず一次情報へリンクし、独立確認事項をメーカー保証と

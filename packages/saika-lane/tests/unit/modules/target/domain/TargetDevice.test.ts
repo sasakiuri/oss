@@ -219,24 +219,24 @@ describe('TargetDevice value object', () => {
       });
     });
 
-    describe('RDT_ZIE1_PISTOL', () => {
-      it('should correctly create an RDT-ZIE1 pistol device', () => {
-        const device = TargetDevice.fromId('RDT_ZIE1_PISTOL');
-        expect(device.id).toBe('RDT_ZIE1_PISTOL');
-        expect(device.manufacturer.equals(TargetManufacturer.custom())).toBe(true);
-        expect(device.modelName).toBe('RDT-ZIE1');
-        expect(device.displayName).toBe('RDT-ZIE1 Pistol');
+    describe('DISAG_KT_RDT_ZIE_1_PISTOL', () => {
+      it('should correctly create a DISAG RedDot pistol device', () => {
+        const device = TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_PISTOL');
+        expect(device.id).toBe('DISAG_KT_RDT_ZIE_1_PISTOL');
+        expect(device.manufacturer.equals(TargetManufacturer.disag())).toBe(true);
+        expect(device.modelName).toBe('KT RDT ZIE 1');
+        expect(device.displayName).toBe('DISAG RedDot Pistol');
         expect(device.baudRate).toBe(9600);
         expect(device.dataBits).toBe(8);
         expect(device.stopBits).toBe(1);
         expect(device.parity).toBe('none');
-        expect(device.supportedDisciplines).toHaveLength(2);
+        expect(device.supportedDisciplines).toHaveLength(1);
       });
 
-      it('should support pistol disciplines only for RDT-ZIE1 pistol', () => {
-        const device = TargetDevice.fromId('RDT_ZIE1_PISTOL');
+      it('should support only 10m air pistol for the RedDot pistol profile', () => {
+        const device = TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_PISTOL');
         expect(device.supportsDiscipline(Discipline.airPistol10m())).toBe(true);
-        expect(device.supportsDiscipline(Discipline.pistol25m())).toBe(true);
+        expect(device.supportsDiscipline(Discipline.pistol25m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.airRifle10m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.rifle50m())).toBe(false);
       });
@@ -280,7 +280,7 @@ describe('TargetDevice value object', () => {
         ['MEYTON_DEFAULT', 'Meyton Standard'],
         ['DISAG_DEFAULT', 'DISAG Standard'],
         ['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG RedDot Rifle'],
-        ['RDT_ZIE1_PISTOL', 'RDT-ZIE1 Pistol'],
+        ['DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG RedDot Pistol'],
         ['CUSTOM', 'Custom Device'],
       ])('should create a device from ID %s', (id, expectedDisplayName) => {
         const device = TargetDevice.fromId(id);
@@ -358,17 +358,17 @@ describe('TargetDevice value object', () => {
 
     it('should retrieve the list of DISAG devices', () => {
       const devices = TargetDevice.getByManufacturer(TargetManufacturer.disag());
-      expect(devices).toHaveLength(2);
+      expect(devices).toHaveLength(3);
       expect(devices.every((d) => d.manufacturer.value === 'DISAG')).toBe(true);
       expect(devices.some((d) => d.id === 'DISAG_DEFAULT')).toBe(true);
       expect(devices.some((d) => d.id === 'DISAG_KT_RDT_ZIE_1_RIFLE')).toBe(true);
+      expect(devices.some((d) => d.id === 'DISAG_KT_RDT_ZIE_1_PISTOL')).toBe(true);
     });
 
     it('should retrieve the list of Custom devices', () => {
       const devices = TargetDevice.getByManufacturer(TargetManufacturer.custom());
-      expect(devices).toHaveLength(2);
+      expect(devices).toHaveLength(1);
       expect(devices.every((d) => d.manufacturer.value === 'CUSTOM')).toBe(true);
-      expect(devices.some((d) => d.id === 'RDT_ZIE1_PISTOL')).toBe(true);
       expect(devices.some((d) => d.id === 'CUSTOM')).toBe(true);
     });
   });
@@ -399,7 +399,7 @@ describe('TargetDevice value object', () => {
       expect(ids).toContain('MEYTON_DEFAULT');
       expect(ids).toContain('DISAG_DEFAULT');
       expect(ids).toContain('DISAG_KT_RDT_ZIE_1_RIFLE');
-      expect(ids).toContain('RDT_ZIE1_PISTOL');
+      expect(ids).toContain('DISAG_KT_RDT_ZIE_1_PISTOL');
       expect(ids).toContain('CUSTOM');
     });
   });
@@ -571,7 +571,7 @@ describe('TargetDevice value object', () => {
       expect(TargetDevice.fromId('MEYTON_DEFAULT').baudRate).toBe(19200);
       expect(TargetDevice.fromId('DISAG_DEFAULT').baudRate).toBe(9600);
       expect(TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_RIFLE').baudRate).toBe(9600);
-      expect(TargetDevice.fromId('RDT_ZIE1_PISTOL').baudRate).toBe(9600);
+      expect(TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_PISTOL').baudRate).toBe(9600);
       expect(TargetDevice.fromId('CUSTOM').baudRate).toBe(9600);
     });
 
@@ -609,7 +609,7 @@ describe('TargetDevice value object', () => {
       expect(TargetDevice.fromId('MEYTON_DEFAULT').displayName).toBe('Meyton Standard');
       expect(TargetDevice.fromId('DISAG_DEFAULT').displayName).toBe('DISAG Standard');
       expect(TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_RIFLE').displayName).toBe('DISAG RedDot Rifle');
-      expect(TargetDevice.fromId('RDT_ZIE1_PISTOL').displayName).toBe('RDT-ZIE1 Pistol');
+      expect(TargetDevice.fromId('DISAG_KT_RDT_ZIE_1_PISTOL').displayName).toBe('DISAG RedDot Pistol');
       expect(TargetDevice.fromId('CUSTOM').displayName).toBe('Custom Device');
     });
   });

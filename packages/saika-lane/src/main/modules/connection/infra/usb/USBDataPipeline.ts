@@ -3,7 +3,7 @@ import { app } from 'electron';
 import type { SerialPort } from 'serialport';
 
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
-import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -187,9 +187,9 @@ export class USBDataPipeline {
    */
   processValidatedFrame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
     try {
-      if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+      if (!isDisagRedDotDeviceId(config.deviceId)) {
         throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
-          reason: 'Validated RedDot frames require the RedDot Rifle device ID',
+          reason: 'Validated RedDot frames require a supported RedDot device ID',
           deviceId: config.deviceId,
         });
       }

@@ -4,7 +4,7 @@ import type { SerialPort } from 'serialport';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { getDisagRedDotDiscipline, isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -117,12 +117,12 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private async attachReceiver(port: SerialPort, config: USBConnectionConfig): Promise<void> {
-    if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+    if (!isDisagRedDotDeviceId(config.deviceId)) {
       this.pipeline.attach(port, config);
       return;
     }
 
-    this.validateRedDotSessionContext();
+    this.validateRedDotSessionContext(config);
 
     const session = new RedDotProtocolSession(port, {
       onFrame: (frame, receivedAt) => {
@@ -130,7 +130,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
           // The active session can be reset or replaced while the serial port
           // remains open. Recheck it for every accepted frame so a post-ACK
           // conversion failure cannot remain a silent shot loss.
-          this.validateRedDotSessionContext();
+          this.validateRedDotSessionContext(config);
           this.pipeline.processValidatedFrame(frame, receivedAt, config);
         } catch (error) {
           void this.lifecycle.handleConnectionError(port, toError(error));
@@ -165,7 +165,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
 
   private validateConfig(config: USBConnectionConfig): void {
     const isDisag = config.manufacturer.value === 'DISAG';
-    const isRedDot = config.deviceId === DISAG_RED_DOT_RIFLE_DEVICE_ID;
+    const isRedDot = isDisagRedDotDeviceId(config.deviceId);
 
     if ((isDisag && !isRedDot) || (isRedDot && !isDisag)) {
       throw ErrorCatalog.createError('INVALID_TARGET', {
@@ -176,12 +176,20 @@ export class USBConnectionManager implements IUSBConnectionManager {
     }
 
     if (isRedDot) {
-      this.validateRedDotSessionContext();
+      this.validateRedDotSessionContext(config);
     }
   }
 
-  private validateRedDotSessionContext(): void {
+  private validateRedDotSessionContext(config: USBConnectionConfig): void {
     let currentDiscipline = 'NONE';
+    const requiredDiscipline = getDisagRedDotDiscipline(config.deviceId);
+
+    if (requiredDiscipline === null) {
+      throw ErrorCatalog.createError('INVALID_TARGET', {
+        reason: 'Unsupported RedDot device ID',
+        deviceId: config.deviceId,
+      });
+    }
 
     try {
       currentDiscipline = this.sessionContextProvider?.().discipline.value ?? 'NONE';
@@ -190,11 +198,11 @@ export class USBConnectionManager implements IUSBConnectionManager {
       // actionable message for both missing and incompatible sessions.
     }
 
-    if (currentDiscipline !== 'AIR_RIFLE_10M') {
+    if (currentDiscipline !== requiredDiscipline) {
       throw ErrorCatalog.createError('INCOMPATIBLE_TARGET_DISCIPLINE', {
-        deviceId: DISAG_RED_DOT_RIFLE_DEVICE_ID,
+        deviceId: config.deviceId,
         currentDiscipline,
-        requiredDiscipline: 'AIR_RIFLE_10M',
+        requiredDiscipline,
       });
     }
   }

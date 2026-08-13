@@ -456,19 +456,22 @@ describe('USBConnectionLifecycle', () => {
       expect(mockPortInstance.write).toHaveBeenNthCalledWith(2, Buffer.from('R'), expect.any(Function));
     });
 
-    it('configures DTR/RTS off and never writes S/R for RedDot', async () => {
-      const config = createConfig({
-        manufacturer: TargetManufacturer.disag(),
-        deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
-      });
-      await lifecycle.connect(config);
+    it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
+      'configures DTR/RTS off and never writes S/R for RedDot profile %s',
+      async (deviceId) => {
+        const config = createConfig({
+          manufacturer: TargetManufacturer.disag(),
+          deviceId,
+        });
+        await lifecycle.connect(config);
 
-      await lifecycle.sendMode(Mode.sighting());
-      await lifecycle.sendMode(Mode.match());
+        await lifecycle.sendMode(Mode.sighting());
+        await lifecycle.sendMode(Mode.match());
 
-      expect(mockPortInstance.set).toHaveBeenCalledWith({ dtr: false, rts: false }, expect.any(Function));
-      expect(mockPortInstance.write).not.toHaveBeenCalled();
-    });
+        expect(mockPortInstance.set).toHaveBeenCalledWith({ dtr: false, rts: false }, expect.any(Function));
+        expect(mockPortInstance.write).not.toHaveBeenCalled();
+      },
+    );
 
     it('does not change modem-control signals for MT201', async () => {
       await lifecycle.connect(createConfig());

@@ -31,9 +31,11 @@ export class DisagAdapter implements ITargetAdapter {
         });
       }
 
-      if (!context.discipline.equals(Discipline.airRifle10m())) {
+      const isAirRifle = context.discipline.equals(Discipline.airRifle10m());
+      const isAirPistol = context.discipline.equals(Discipline.airPistol10m());
+      if (!isAirRifle && !isAirPistol) {
         throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
-          reason: 'DISAG RedDot Rifle only supports AIR_RIFLE_10M',
+          reason: 'DISAG RedDot only supports AIR_RIFLE_10M or AIR_PISTOL_10M',
           discipline: context.discipline.value,
         });
       }

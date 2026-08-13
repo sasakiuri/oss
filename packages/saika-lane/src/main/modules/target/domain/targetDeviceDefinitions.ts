@@ -2,6 +2,26 @@
 import type { SerialConfig } from './TargetDevice';
 
 export const DISAG_RED_DOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
+export const DISAG_RED_DOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
+
+export const DISAG_RED_DOT_DEVICE_IDS = [DISAG_RED_DOT_RIFLE_DEVICE_ID, DISAG_RED_DOT_PISTOL_DEVICE_ID] as const;
+
+export type DisagRedDotDeviceId = (typeof DISAG_RED_DOT_DEVICE_IDS)[number];
+export type DisagRedDotDiscipline = 'AIR_RIFLE_10M' | 'AIR_PISTOL_10M';
+
+export function isDisagRedDotDeviceId(deviceId: string | undefined): deviceId is DisagRedDotDeviceId {
+  return DISAG_RED_DOT_DEVICE_IDS.some((candidate) => candidate === deviceId);
+}
+
+export function getDisagRedDotDiscipline(deviceId: string | undefined): DisagRedDotDiscipline | null {
+  if (deviceId === DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+    return 'AIR_RIFLE_10M';
+  }
+  if (deviceId === DISAG_RED_DOT_PISTOL_DEVICE_ID) {
+    return 'AIR_PISTOL_10M';
+  }
+  return null;
+}
 
 /**
  * DeviceDefinition — Static definition data for target devices
@@ -82,12 +102,12 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     supportedDisciplines: ['AIR_RIFLE_10M'],
   },
   {
-    id: 'RDT_ZIE1_PISTOL',
-    manufacturer: 'CUSTOM',
-    modelName: 'RDT-ZIE1',
-    displayName: 'RDT-ZIE1 Pistol',
+    id: DISAG_RED_DOT_PISTOL_DEVICE_ID,
+    manufacturer: 'DISAG',
+    modelName: 'KT RDT ZIE 1',
+    displayName: 'DISAG RedDot Pistol',
     serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_PISTOL_10M', 'PISTOL_25M'],
+    supportedDisciplines: ['AIR_PISTOL_10M'],
   },
   {
     id: 'CUSTOM',

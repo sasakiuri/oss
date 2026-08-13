@@ -282,7 +282,7 @@ describe('ConnectionIpcHandlers', () => {
       }
     });
 
-    it('should expose the RedDot rifle for DISAG', async () => {
+    it('should expose the RedDot rifle and pistol profiles for DISAG', async () => {
       const handlers = createConnectionIpcHandlers(deps);
       const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'DISAG' })) as {
         devices: Array<{
@@ -301,7 +301,17 @@ describe('ConnectionIpcHandlers', () => {
         baudRate: 9600,
         supportedDisciplines: ['AIR_RIFLE_10M'],
       });
-      expect(result.devices.map((device) => device.id)).toEqual(['DISAG_KT_RDT_ZIE_1_RIFLE']);
+      expect(result.devices).toContainEqual({
+        id: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+        manufacturer: 'DISAG',
+        displayName: 'DISAG RedDot Pistol',
+        baudRate: 9600,
+        supportedDisciplines: ['AIR_PISTOL_10M'],
+      });
+      expect(result.devices.map((device) => device.id)).toEqual([
+        'DISAG_KT_RDT_ZIE_1_RIFLE',
+        'DISAG_KT_RDT_ZIE_1_PISTOL',
+      ]);
     });
 
     it('should throw on invalid manufacturer', async () => {
