@@ -178,21 +178,24 @@ describe('useAudioPlayback', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
-    it('plays the same shot sound for the DISAG RedDot rifle', async () => {
-      useSessionStore.getState().setDeviceInfo('DISAG', 'DISAG_KT_RDT_ZIE_1_RIFLE');
+    it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
+      'plays the same shot sound for DISAG RedDot profile %s',
+      async (deviceId) => {
+        useSessionStore.getState().setDeviceInfo('DISAG', deviceId);
 
-      const { result } = renderHook(() => useAudioPlayback());
-      await flushAudioLoad();
+        const { result } = renderHook(() => useAudioPlayback());
+        await flushAudioLoad();
 
-      await act(async () => {
-        result.current.playShotSound();
-      });
+        await act(async () => {
+          result.current.playShotSound();
+        });
 
-      expect(mockCtxInstance.createBufferSource).toHaveBeenCalledTimes(1);
-      expect(mockCtxInstance.createGain).toHaveBeenCalledTimes(1);
-      expect(mockStart).toHaveBeenCalledTimes(1);
-      expect(capturedGainValue).toBe(0.5);
-    });
+        expect(mockCtxInstance.createBufferSource).toHaveBeenCalledTimes(1);
+        expect(mockCtxInstance.createGain).toHaveBeenCalledTimes(1);
+        expect(mockStart).toHaveBeenCalledTimes(1);
+        expect(capturedGainValue).toBe(0.5);
+      },
+    );
 
     it('does not play sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');

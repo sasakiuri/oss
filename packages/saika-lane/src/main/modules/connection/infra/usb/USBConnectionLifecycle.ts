@@ -4,7 +4,7 @@ import { SerialPort } from 'serialport';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-import { DISAG_RED_DOT_RIFLE_DEVICE_ID } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
@@ -265,7 +265,7 @@ export class USBConnectionLifecycle {
     const logger = getLogger();
     const byteChar = mode.isSighting() ? 'S' : 'R';
 
-    if (this.config?.deviceId === DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+    if (isDisagRedDotDeviceId(this.config?.deviceId)) {
       logger.debug('[USB] sendMode: RedDot uses session mode; serial write skipped', 'usb');
       return;
     }
@@ -508,7 +508,7 @@ export class USBConnectionLifecycle {
   }
 
   private configureControlSignals(port: SerialPort, config: USBConnectionConfig): Promise<void> {
-    if (config.deviceId !== DISAG_RED_DOT_RIFLE_DEVICE_ID) {
+    if (!isDisagRedDotDeviceId(config.deviceId)) {
       return Promise.resolve();
     }
 

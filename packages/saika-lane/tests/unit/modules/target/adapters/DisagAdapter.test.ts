@@ -9,7 +9,7 @@ import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufactu
 import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { DomainError } from '@/shared/errors/DomainError';
 
-import { replaceRedDotAscii, validRedDotFrame } from '../../../../helpers/redDotFixtures';
+import { replaceRedDotAscii, validRedDotFrame, validRedDotPistolFrame } from '../../../../helpers/redDotFixtures';
 
 const loggerMocks = vi.hoisted(() => ({ warn: vi.fn() }));
 
@@ -60,11 +60,23 @@ describe('DisagAdapter', () => {
     );
   });
 
-  it('rejects a non-air-rifle context', () => {
+  it('creates an AIR_PISTOL_10M Shot against the ISSF_AP_10M target', () => {
+    const shot = adapter.convert(rawData(validRedDotPistolFrame()), {
+      ...context(Mode.match()),
+      discipline: Discipline.airPistol10m(),
+    });
+
+    expect(shot.impactPoint).toMatchObject({ x: 3, y: 4 });
+    expect(shot.score.value).toBe(103);
+    expect(shot.deviceScore?.value).toBe(103);
+    expect(shot.innerTen).toBe(true);
+  });
+
+  it('rejects a non-10m-air context', () => {
     expect(() =>
       adapter.convert(rawData(validRedDotFrame()), {
         ...context(Mode.match()),
-        discipline: Discipline.airPistol10m(),
+        discipline: Discipline.pistol25m(),
       }),
     ).toThrow();
   });

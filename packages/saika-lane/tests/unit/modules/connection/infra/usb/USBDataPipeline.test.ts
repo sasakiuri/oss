@@ -296,6 +296,28 @@ describe('USBDataPipeline', () => {
       expect(mockConversionService.convert).not.toHaveBeenCalled();
     });
 
+    it('accepts validated frames for the RedDot pistol profile', () => {
+      const receivedAt = new Date('2026-08-08T00:00:00.000Z');
+      const pistolConfig: USBConnectionConfig = {
+        ...redDotConfig,
+        deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+      };
+      mockConversionService.convertByDeviceId.mockReturnValue({
+        impactPoint: new ImpactPoint(3, 4),
+        score: new Score(103),
+        timestamp: receivedAt,
+        mode: Mode.match(),
+      });
+
+      pipeline.processValidatedFrame(Buffer.alloc(59), receivedAt, pistolConfig);
+
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
+        expect.any(Object),
+        'DISAG_KT_RDT_ZIE_1_PISTOL',
+        expect.any(Object),
+      );
+    });
+
     it('plays the shot notification once immediately before emitting data', () => {
       const callOrder: string[] = [];
       const receivedAt = new Date('2026-08-08T00:00:00.000Z');

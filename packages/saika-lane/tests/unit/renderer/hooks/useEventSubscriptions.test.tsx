@@ -376,19 +376,22 @@ describe('useEventSubscriptions', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
-    it('plays shot sound for a validated DISAG RedDot hit', async () => {
-      useSessionStore.getState().setDeviceInfo('DISAG', 'DISAG_KT_RDT_ZIE_1_RIFLE');
+    it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
+      'plays shot sound for a validated DISAG RedDot hit from %s',
+      async (deviceId) => {
+        useSessionStore.getState().setDeviceInfo('DISAG', deviceId);
 
-      renderHook(() => useEventSubscriptions());
-      await flushAudioLoad();
+        renderHook(() => useEventSubscriptions());
+        await flushAudioLoad();
 
-      mockStart.mockClear();
+        mockStart.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+        const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
+        callback();
 
-      expect(mockStart).toHaveBeenCalledTimes(1);
-    });
+        expect(mockStart).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it('does not play shot sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');

@@ -11,7 +11,7 @@ import { DisagAdapter } from '@/main/modules/target/adapters/DisagAdapter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 
-import { validRedDotFrame } from '../../../../../helpers/redDotFixtures';
+import { validRedDotFrame, validRedDotPistolFrame } from '../../../../../helpers/redDotFixtures';
 
 // Mock Electron
 vi.mock('electron', () => ({
@@ -266,10 +266,41 @@ describe('USBConnectionManager', () => {
       expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4, score: 90, mode: 'SIGHTING' }));
     });
 
+    it('should use the shared RedDot protocol for the ISSF_AP_10M pistol profile', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerAdapter('DISAG', new DisagAdapter());
+      registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG');
+      manager = new USBConnectionManager(registry);
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.airPistol10m(),
+        mode: Mode.match(),
+      }));
+      const sound = vi.fn();
+      const data = vi.fn();
+      manager.setOnShotDetected(sound);
+      manager.on('data', data);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.disag(),
+        deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+      });
+      mockPortInstance._events.data(validRedDotPistolFrame());
+      await flushPromises();
+
+      expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from([0x05]),
+        Buffer.from([0x06]),
+      ]);
+      expect(sound).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4, score: 103, mode: 'MATCH' }));
+    });
+
     it.each([
       [TargetManufacturer.disag(), undefined],
       [TargetManufacturer.disag(), 'DISAG_DEFAULT'],
       [TargetManufacturer.custom(), 'DISAG_KT_RDT_ZIE_1_RIFLE'],
+      [TargetManufacturer.custom(), 'DISAG_KT_RDT_ZIE_1_PISTOL'],
     ])('should reject mismatched RedDot identity before opening a port', async (manufacturer, deviceId) => {
       await expect(
         manager.connect({
@@ -295,6 +326,21 @@ describe('USBConnectionManager', () => {
           deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE',
         }),
       ).rejects.toMatchObject({ code: 'INCOMPATIBLE_TARGET_DISCIPLINE' });
+
+      expect(SerialPort).not.toHaveBeenCalled();
+    });
+
+    it('should reject the RedDot pistol profile outside AIR_PISTOL_10M', async () => {
+      await expect(
+        manager.connect({
+          portName: 'COM3',
+          manufacturer: TargetManufacturer.disag(),
+          deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+        }),
+      ).rejects.toMatchObject({
+        code: 'INCOMPATIBLE_TARGET_DISCIPLINE',
+        metadata: { requiredDiscipline: 'AIR_PISTOL_10M' },
+      });
 
       expect(SerialPort).not.toHaveBeenCalled();
     });

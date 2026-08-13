@@ -14,6 +14,11 @@ export function signedRedDotFrame(): Buffer {
   return Buffer.from(SIGNED_FRAME_HEX, 'hex');
 }
 
+/** Pistol profile uses the same RedDot wire format and LG frame kind. */
+export function validRedDotPistolFrame(): Buffer {
+  return replaceRedDotAscii(validRedDotFrame(), 32, '10.3');
+}
+
 export function recalculateRedDotBcc(frame: Buffer): Buffer {
   const updated = Buffer.from(frame);
   updated[57] = calculateRedDotBcc(updated.subarray(0, 57));

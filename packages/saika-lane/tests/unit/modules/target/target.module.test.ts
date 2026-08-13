@@ -65,10 +65,11 @@ describe('target.module', () => {
       expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('CUSTOM', 'CUSTOM');
     });
 
-    it('should assign only the supported RedDot rifle device to DISAG adapter', () => {
+    it('should assign both supported RedDot profiles to the DISAG adapter', () => {
       targetModule.register({ adapterRegistry });
 
       expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
+      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG');
       expect(adapterRegistry.assignDeviceAdapter).not.toHaveBeenCalledWith('DISAG_DEFAULT', 'DISAG');
       expect(adapterRegistry.assignDeviceAdapter).not.toHaveBeenCalledWith('RDT_ZIE1_PISTOL', 'DISAG');
     });
@@ -79,10 +80,10 @@ describe('target.module', () => {
       expect(adapterRegistry.registerAdapter).toHaveBeenCalledTimes(3);
     });
 
-    it('should assign 4 device adapters total', () => {
+    it('should assign 5 device adapters total', () => {
       targetModule.register({ adapterRegistry });
 
-      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledTimes(4);
+      expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledTimes(5);
     });
   });
 });

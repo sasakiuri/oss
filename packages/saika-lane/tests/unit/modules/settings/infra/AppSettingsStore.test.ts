@@ -113,6 +113,50 @@ describe('AppSettingsStore', () => {
     });
   });
 
+  it('migrates the legacy RedDot pistol device ID and vendor', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify(
+        {
+          connection: {
+            portName: 'COM9',
+            manufacturer: 'CUSTOM',
+            deviceId: 'RDT_ZIE1_PISTOL',
+            serialNumber: 'REDDOT02',
+            vendorId: '',
+            productId: '',
+          },
+          userPreferences: { discipline: 'AIR_PISTOL_10M' },
+          mqtt: {},
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toEqual({
+      portName: 'COM9',
+      manufacturer: 'DISAG',
+      deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+      serialNumber: 'REDDOT02',
+      vendorId: '',
+      productId: '',
+    });
+
+    const persisted = JSON.parse(readFileSync(filePath, 'utf8')) as ReturnType<typeof store.getAll>;
+    expect(persisted.connection).toEqual(settings.connection);
+    expect(storage.set).toHaveBeenCalledWith('connectionSettings', {
+      portName: 'COM9',
+      manufacturer: 'DISAG',
+      deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
+      serialNumber: 'REDDOT02',
+    });
+  });
+
   it('rebuilds settings from legacy storage when settings.json exists but is empty', () => {
     storage.set('connectionSettings', {
       portName: 'COM3',
