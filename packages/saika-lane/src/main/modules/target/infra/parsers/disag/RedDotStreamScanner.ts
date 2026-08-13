@@ -9,9 +9,11 @@ import {
 import { RED_DOT_FRAME_LENGTH } from './RedDotChecksum';
 
 const STX = 0x02;
+const ACK = 0x06;
 const NAK = 0x15;
 
 export type RedDotStreamEvent =
+  | { readonly type: 'ack' }
   | { readonly type: 'idle' }
   | {
       readonly type: 'frame';
@@ -30,7 +32,7 @@ export interface RedDotStreamScannerOptions {
 }
 
 /**
- * Binary stream scanner for RedDot NAK responses and fixed-size shot frames.
+ * Binary stream scanner for RedDot ACK/NAK responses and fixed-size shot frames.
  */
 export class RedDotStreamScanner {
   private buffer = Buffer.alloc(0);
@@ -66,6 +68,12 @@ export class RedDotStreamScanner {
 
     while (this.buffer.length > 0) {
       const firstByte = this.buffer[0];
+
+      if (firstByte === ACK) {
+        this.consume(1);
+        events.push(Object.freeze({ type: 'ack' }));
+        continue;
+      }
 
       if (firstByte === NAK) {
         this.consume(1);
@@ -129,7 +137,7 @@ export class RedDotStreamScanner {
   private findNextMarkerOffset(): number {
     for (let offset = 1; offset < this.buffer.length; offset += 1) {
       const byte = this.buffer[offset];
-      if (byte === NAK || byte === STX) {
+      if (byte === ACK || byte === NAK || byte === STX) {
         return offset;
       }
     }

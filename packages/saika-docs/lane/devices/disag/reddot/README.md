@@ -28,13 +28,13 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 | SaikaデバイスID      | `DISAG_KT_RDT_ZIE_1_RIFLE` / `DISAG_KT_RDT_ZIE_1_PISTOL` |
 | SaikaベンダーID      | `DISAG`                                                  |
 | ワイヤー上の種別     | `LG`（両プロファイル共通）                               |
-| 通信方向             | ショットデータは標的からホストへの一方向                 |
-| ホストから送るデータ | `ENQ`、およびフレームへの `ACK` / `NAK`                  |
+| 通信方向             | ショットはRedDot → Saika、初期化・リンク制御は双方向     |
+| ホストから送るデータ | 標的種別設定、`ENQ`、フレームへの `ACK` / `NAK`          |
 
-| Saikaプロファイル           | Saika種目        | Saika標的コード |
-| --------------------------- | ---------------- | --------------- |
-| `DISAG_KT_RDT_ZIE_1_RIFLE`  | `AIR_RIFLE_10M`  | `ISSF_AR_10M`   |
-| `DISAG_KT_RDT_ZIE_1_PISTOL` | `AIR_PISTOL_10M` | `ISSF_AP_10M`   |
+| Saikaプロファイル           | Saika種目        | Saika標的コード | RedDot標的種別byte |
+| --------------------------- | ---------------- | --------------- | -----------------: |
+| `DISAG_KT_RDT_ZIE_1_RIFLE`  | `AIR_RIFLE_10M`  | `ISSF_AR_10M`   |             `0x01` |
+| `DISAG_KT_RDT_ZIE_1_PISTOL` | `AIR_PISTOL_10M` | `ISSF_AP_10M`   |             `0x00` |
 
 `KT RDT ZIE 1` は、KNESTELのEU適合宣言で `Typ / Model` として記載される型式である。現行のDISAG
 取扱説明書では大文字・小文字だけが異なる `KT RDT Zie 1`、Bluetoothの機器名では
@@ -49,15 +49,23 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 ベンダーIDであり、法的な製造者名を表すフィールドではない。
 
 本書はRS-232接続とSaika内のRifle/Pistolプロファイルを対象にする。Bluetooth接続、校正、保守、
-ファームウェア更新、標的本体の設定操作は対象外である。PistolはRifleと同じ59 byte受信形式を使い、
-標的・採点コンテキストだけを `ISSF_AP_10M` へ切り替える。
+ファームウェア更新は対象外である。PistolはRifleと同じ59 byte受信形式とwire discipline `LG` を使うが、
+Saikaの標的・採点コンテキストを `ISSF_AP_10M` へ切り替えるだけでは足りない。接続ごとにRedDot本体へ
+標的種別 `0x00` を設定する。Rifleでは `0x01` を設定する。
 
 ### 1.2 現在のSaika実装状況
 
 現行のSaika Laneは、本書で定義したRedDot受信経路を実装している。
 
 - `DisagFormatParser` とruntimeのprotocol sessionは同じ `RedDotStreamScanner` を使用する。
-- `RedDotProtocolSession` が `ENQ` polling、`ACK` / `NAK`、timeout、write直列化を担当する。
+- `RedDotProtocolSession` が初回 `ENQ` probe、Rifle/Pistol標的種別の初期化、`ENQ` polling、
+  `ACK` / `NAK`、timeout、write直列化を担当する。
+- 標的種別の確定後は、poll予約中、poll応答待ちのどちらでも妥当な59 byteフレームを受理する。
+  したがって、`ENQ` への応答として届く通常動作と、標的から先に届く自発送信の両方を同じ受信経路で
+  扱える。初期化完了前のframeは機器のqueueを解放するため `ACK` するが、誤ったdevice scoreを記録しない
+  よう `Shot` へ変換せず、warningを記録する。
+- Rifleは正式な標的種別設定を1回試し、command ACKを確認できない場合だけ実機確認済みの従来型
+  `ENQ` pollingへfallbackする。Pistolは誤採点防止のためfallbackせず接続を失敗させる。
 - `DisagAdapter` が検証済み59 byte frameを選択中のAIR_RIFLE_10MまたはAIR_PISTOL_10Mの `Shot` へ変換する。
 - RedDot接続ではASCII `S` / `R` を送らず、妥当なframeの変換成功時だけ着弾音を発生させる。
 - port close/errorとprotocol write失敗は、旧portのclose完了後に1回だけ再接続する。接続世代が変わった
@@ -71,12 +79,13 @@ DISAGの公式通信仕様や保守資料ではなく、同社による提携、
 
 ### 1.3 根拠の区分
 
-| 区分                 | 本書で使用する内容                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| メーカー公開情報     | 製品識別、RS-232/Bluetooth対応、PC直結の1:1配線、標的寸法、繰返し精度、OpticScore対応 |
-| 公開インターフェース | 制御文字の役割とXOR/BCC方式の同系統仕様。別製品のbaud rateやフィールドは転用しない    |
-| 独立相互運用確認     | 9600 8N1、ポーリング応答、59 byte配置、RedDotに `S` / `R` がないこと、座標方向と単位  |
-| Saika固有設計        | 300msのポーリング、タイムアウト、バッファ上限、エラー分類、クラス分割                 |
+| 区分                   | 本書で使用する内容                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| メーカー公開情報       | 製品識別、RS-232/Bluetooth対応、PC直結の1:1配線、標的寸法、繰返し精度、OpticScore対応 |
+| メーカー配布実装の観察 | RedDotViewのENQ周期、標的種別設定、ACK/NAK/STXの受信処理                              |
+| 比較実装の観察         | 比較実装の初期化順、polling、59 byte受信、自発フレームを拒否しない状態遷移            |
+| 独立相互運用確認       | 9600 8N1、59 byte配置、RedDotに `S` / `R` がないこと、座標方向と単位                  |
+| Saika固有設計          | 100msのpolling、厳格なBCC検証、timeout、buffer上限、エラー分類、クラス分割            |
 
 外部一次情報へのリンクは [参照元](../../../../SOURCES.md) にまとめている。
 
@@ -115,8 +124,8 @@ RS-232データ線」を使う記載がある。これはRedDotとPC/USB変換�
 | RTS                |                   off |
 
 Node SerialPortでは `rtscts: false`, `xon: false`, `xoff: false` を指定し、open後に可能なら
-`port.set({ dtr: false, rts: false })` を完了してから最初の `ENQ` を送る。DTR/RTS設定APIを提供しない
-環境では、少なくともハードウェアフロー制御へ利用しない。
+`port.set({ dtr: false, rts: false })` を完了してから最初の `ENQ` probeを送る。DTR/RTS設定APIを
+提供しない環境では、少なくともハードウェアフロー制御へ利用しない。
 
 受信データはバイナリー `Buffer` のまま扱う。フレーム全体をUTF-8文字列へ変換してから分割しては
 ならない。BCCは任意の1 byteであり、文字列変換で値が失われる可能性がある。
@@ -125,15 +134,16 @@ Node SerialPortでは `rtscts: false`, `xon: false`, `xoff: false` を指定し�
 
 ### 3.1 制御byte
 
-| 名前 | 16進 | 方向           | 意味                                    |
-| ---- | ---: | -------------- | --------------------------------------- |
-| STX  | `02` | RedDot → Saika | フレーム開始                            |
-| ENQ  | `05` | Saika → RedDot | 送信待ちデータの問い合わせ              |
-| ACK  | `06` | Saika → RedDot | 正常フレームを受理                      |
-| CR   | `0D` | RedDot → Saika | フィールド終端                          |
-| NAK  | `15` | 両方向         | RedDot発: データなし、Saika発: 受信拒否 |
-| ETB  | `17` | RedDot → Saika | BCC計算対象の終端                       |
-| `$`  | `24` | RedDot → Saika | フレーム末尾                            |
+| 名前 | 16進 | 方向           | 意味                                           |
+| ---- | ---: | -------------- | ---------------------------------------------- |
+| STX  | `02` | RedDot → Saika | フレーム開始                                   |
+| ENQ  | `05` | Saika → RedDot | 送信待ちデータの問い合わせ                     |
+| ACK  | `06` | 両方向         | RedDot発: command受理、Saika発: 正常frame受理  |
+| CR   | `0D` | RedDot → Saika | フィールド終端                                 |
+| DC1  | `11` | Saika → RedDot | 設定commandのprefix                            |
+| NAK  | `15` | 両方向         | RedDot発: データなし／拒否、Saika発: frame拒否 |
+| ETB  | `17` | RedDot → Saika | BCC計算対象の終端                              |
+| `$`  | `24` | RedDot → Saika | フレーム末尾                                   |
 
 `NAK` は方向によって意味が異なる。`ENQ` に対してRedDotから返る単独の `0x15` は「現在データなし」で
 あり、エラー、ミスショット、切断として扱わない。音を鳴らさず、`Shot` も生成しない。
@@ -145,7 +155,72 @@ RedDotフレームに試射/本射モードはなく、RedDotへASCII `S` / `R` 
 `PhaseChanged` のいずれでも、デバイスIDがいずれかのRedDotプロファイルなら `sendMode()` は正常終了する
 no-opでなければならない。
 
-本書のプロファイルでSaikaが送信してよいbyteは `ENQ`、`ACK`、`NAK` だけである。
+本書のプロファイルでSaikaが送信してよいのは、§3.3の標的種別設定、`ENQ`、frameへの `ACK` / `NAK`
+だけである。標的種別byteの `0x00` / `0x01` をMT201のASCII `S` / `R` と混同しない。
+
+### 3.3 Rifle/Pistol標的種別の初期化
+
+port open後、通常pollingを開始する前に次を実行する。
+
+1. 実機確認済みの既存経路と同じく、最初のhost byteとして `ENQ` をwrite/drainする。
+2. RedDotから単独 `NAK` またはframeを受けた時点でprobe完了とする。300ms無応答でもprobeを打ち切り、
+   次へ進む。probeで受けたframeは `ACK` するが、標的種別が未確定なので記録しない。
+3. Saikaから3 byte `11 00 01` をwrite/drainする。
+4. RedDotから単独 `ACK` (`06`) を待つ。
+5. Rifleなら `01`、Pistolなら `00` を1 byteでwrite/drainする。
+6. 標的種別byteの後に追加ACKは要求せず、正式設定の成功をinfoログへ記録して100ms後の `ENQ` を予約する。
+
+`11 00 01` へのACK待ちは500msで打ち切る。同じ3 byte commandは再送しない。最初のcommandが受理されて
+ACKだけが失われた場合、RedDotが次の1 byteを標的種別として待っている可能性があり、commandを再送すると
+先頭の `0x11` を種別値として消費させる危険があるためである。
+
+Rifleではtimeout時に期待値 `01` を1回だけwrite/drainし、種別待ち状態だった場合にparserを安全に閉じる。
+その後500msの静穏時間を置き、遅延ACKを制御応答として消費してから、従来と同じ `ENQ` pollingを開始する。
+このfallbackはwarningとして記録し、connectionはfallback完了後に初めてreadyとする。Pistolではdevice
+scoreがRifle規則のままになる危険があるためfallbackせず、`RED_DOT_INITIALIZATION_FAILED` で接続を失敗
+させる。接続または再接続のたびに同じ判定を行い、標的本体が前回値を保持することへ依存しない。
+
+このcommandはRifle/Pistolで共通だが、ACK後の1 byteが異なる。59 byte frame内のwire discipline `LG` は
+両方で同じなので、frameだけから現在の標的種別を復元してはならない。device scoreを採用するSaikaでは、
+Pistolを `ISSF_AP_10M` として正しく採点させるためにもこのwire-level設定が必要である。
+
+### 3.4 比較実装の観察と自発送信への対応
+
+比較対象は、現在のSaika Lane worktree、ローカルで解析した比較実装 1.5.5、DISAG配布の
+RedDotView 1.5.8.6である。後二者はバイナリー動作の観察結果であり、「解析で確認できず」は機能が存在
+しないという断定ではない。
+
+| 比較項目                 | Saika Lane                                                                                      | 比較実装 1.5.5                                                  | DISAG RedDotView 1.5.8.6                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 最初の通信               | 実機確認済み経路を維持して `ENQ`                                                                | version取得                                                     | open時に300ms `ENQ` timerを開始                                   |
+| 接続・初期化の順序       | `ENQ` probe → `11 00 01` → `ACK` → target byte                                                  | version → revision → `11 00 01` → `ACK` → target byte → polling | 最初の `NAK` でconnected扱い → version/revision。競技読込時に設定 |
+| Rifle/Pistol設定値       | Rifle=`01`、Pistol=`00`                                                                         | Rifle=`01`、Pistol=`00`                                         | Rifle=`01`、Pistol=`00`                                           |
+| 設定commandの再送        | しない。ACK喪失時に `0x11` がtarget byteとして消費される競合を避ける                            | 約500ms進展がなければ初期化状態をresetして再試行                | 専用の再送・復旧経路は解析で確認できず                            |
+| command ACK欠落時        | Rifleは `01` を1回送り500ms静穏後にlegacy polling。Pistolは接続error                            | 初期化を再試行。legacy pollingへのfallbackなし                  | command activityが残り、`ENQ` pollingが実質停止。fallbackなし     |
+| 接続readyの判定          | 正式設定またはRifle fallback完了まで `connect()` を完了しない                                   | 初期化シーケンス完了後                                          | 最初の `ENQ` に対する `NAK` でconnected扱い                       |
+| `ENQ` 間隔               | 100ms                                                                                           | 100ms ticker                                                    | 300ms timer                                                       |
+| 未応答中の重複 `ENQ`     | 送らない                                                                                        | tickerと内部activityで制御                                      | command activity中はtimer処理を抑制                               |
+| 未処理 `ENQ` のないframe | 初期化完了後なら受理                                                                            | 受理                                                            | 受理                                                              |
+| 初期化完了前のframe      | device queue解放のため `ACK` するが、誤採点防止のため破棄してwarning                            | 明示的な「初期化済み」受理gateは解析で確認できず                | 明示的な「未処理ENQあり」受理gateは解析で確認できず               |
+| 自発frame受信後          | `ACK` 後にpoll timerを100msへ張り直す                                                           | frame処理と100ms tickerは独立                                   | frame受信はtimer上の未処理ENQ有無に依存しない                     |
+| 連続shotの時間guard      | なし。同一座標・得点の正当な連射を保持                                                          | 前回shotから1秒未満なら内容にかかわらず二重カウントとして破棄   | 同等のguardは解析で確認できず                                     |
+| frame検証                | 59 byte固定構造、制御位置、printable ASCII、BCC、`LG`、数値fieldを検証                          | `STX` 始まりの59 byteを専用scannerで処理                        | `STX` と59 byte長でshot frameを認識                               |
+| 初期化結果の診断         | 正式成功=info、Rifle fallback=warning、Pistol失敗=error。Debug Paneとfile logへ保存             | RedDot初期化方式を明示する同等ログは解析で確認できず            | 同等の永続診断ログは解析で確認できず                              |
+| Saikaが追加した安全性    | commandを1回に限定、遅延ACK静穏時間、profile別fail-open/closed、timer generation、初期frame遮断 | 比較対象外                                                      | 比較対象外                                                        |
+
+したがって、確認できた2実装はいずれも通常運用でpollingしており、「機器がENQなしで常に自発送信する」
+根拠にはならない。一方、両実装とも受信をpoll応答だけへ制限していない。Saikaもこの組合せを採用する。
+
+- `ENQ` pollingは既定で維持し、passive-onlyや自動判定modeは追加しない。
+- 初期化完了後は、poll予約中、poll応答待ちのどちらでも正常frameを `ACK` して1回だけ後段へ渡す。
+- polling開始後に自発frameを受信したらpoll timerを張り直すため、直後に余分な `ENQ` を重ねない。
+- 初期化中の自発frameは `ACK` して破棄し、その事実をwarningへ記録する。標的種別ACKまたはfallback静穏
+  時間の期限は延長しない。
+- 比較実装で観察した「前回shotから1秒未満なら内容に関係なく破棄」という時間guardは採用しない。
+  正当に連続した2射を失うためであり、Saikaはframe内容による重複排除も行わない。
+
+これはhost受信側が自発送信に耐えることを意味する。RedDot実機がRS-232またはBluetooth SPPでENQなしに
+送るか、ACKを保留した場合に同一frameを再送するかは、§12.5の実port試験で別途確認する。
 
 ## 4. ポーリング状態機械
 
@@ -155,46 +230,63 @@ no-opでなければならない。
 設定値と時計を使用する。
 
 ```ts
-const POLL_INTERVAL_MS = 300;
+const INITIALIZATION_TIMEOUT_MS = 500;
+const FALLBACK_SETTLE_MS = 500;
+const POLL_INTERVAL_MS = 100;
 const RESPONSE_TIMEOUT_MS = 300;
 const MAX_BUFFER_BYTES = 4096;
 const MAX_INVALID_RESPONSES_PER_POLL = 3;
 ```
 
-同時に存在できるポーリングtimerと応答timeoutは、それぞれ最大1個とする。前回の問い合わせが
-完了またはtimeoutする前に次の `ENQ` を送らない。
+同時に存在できるpoll timerは最大1個、初期化／poll応答を待つtimeoutも共用で最大1個とする。前回の
+問い合わせが完了またはtimeoutする前に次の `ENQ` を送らない。
 
 ### 4.2 状態
 
-| 状態                | 意味                                          |
-| ------------------- | --------------------------------------------- |
-| `STOPPED`           | listener、timer、保留writeがない              |
-| `POLL_SCHEDULED`    | 次の `ENQ` を待っている                       |
-| `AWAITING_RESPONSE` | `ENQ` のwrite/drainが完了し、応答を待っている |
-| `WRITING_REPLY`     | `ACK` または `NAK` のwrite/drainを直列実行中  |
+| 状態                       | 意味                                                    |
+| -------------------------- | ------------------------------------------------------- |
+| `STOPPED`                  | listener、timer、保留writeがない                        |
+| `PROBING`                  | 最初の `ENQ` をwrite/drain中                            |
+| `AWAITING_PROBE_RESPONSE`  | 最初の `ENQ` に対する `NAK` / frameまたはtimeout待ち    |
+| `INITIALIZING_TARGET_TYPE` | commandまたは標的種別byteをwrite/drain中                |
+| `AWAITING_TARGET_TYPE_ACK` | `11 00 01` のwrite/drain後、RedDotの `ACK` を待っている |
+| `FALLBACK_SETTLING`        | Rifleの `01` 同期送信後、遅延ACKを吸収している          |
+| `POLL_SCHEDULED`           | 次の `ENQ` を待っている                                 |
+| `AWAITING_RESPONSE`        | `ENQ` のwrite/drainが完了し、応答を待っている           |
+| `WRITING_REPLY`            | frameへの `ACK` または `NAK` をwrite/drain中            |
 
 ### 4.3 遷移
 
-| 現在状態            | 入力・事象                 | 必須動作                                                               | 次状態              |
-| ------------------- | -------------------------- | ---------------------------------------------------------------------- | ------------------- |
-| `STOPPED`           | port open                  | bufferを空にし、DTR/RTS設定後、直ちに `ENQ` をwrite/drainする          | `AWAITING_RESPONSE` |
-| `AWAITING_RESPONSE` | RedDotから単独 `NAK`       | 1 byte消費。イベントを発生させず、300ms後のpollを予約                  | `POLL_SCHEDULED`    |
-| `AWAITING_RESPONSE` | 妥当な59 byteフレーム      | 受信時刻を保存し、`ACK` をwrite/drain後に1回だけ後段へ渡し、pollを予約 | `POLL_SCHEDULED`    |
-| `AWAITING_RESPONSE` | 完成した不正フレーム       | 不正回数を加算し、フレームを破棄して `NAK` をwrite/drain               | 下記規則による      |
-| `AWAITING_RESPONSE` | response timeout           | 未完成データを破棄し、recoverable warningを記録して次pollを予約        | `POLL_SCHEDULED`    |
-| `POLL_SCHEDULED`    | timer                      | `ENQ` をwrite/drainし、応答timeoutを開始                               | `AWAITING_RESPONSE` |
-| `POLL_SCHEDULED`    | 遅延到着した妥当フレーム   | poll timerを取消し、`ACK` 後に後段へ渡して新しいpollを予約             | `POLL_SCHEDULED`    |
-| 任意                | close / error / disconnect | timerとtimeoutを取消し、bufferを空にし、listenerを解除                 | `STOPPED`           |
+| 現在状態                   | 入力・事象                 | 必須動作                                                            | 次状態                     |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------- | -------------------------- |
+| `STOPPED`                  | port open                  | bufferを空にし、最初の `ENQ` をwrite/drain                          | `AWAITING_PROBE_RESPONSE`  |
+| `AWAITING_PROBE_RESPONSE`  | 単独 `NAK`                 | probe timeoutを取消し、`11 00 01` をwrite/drain                     | `AWAITING_TARGET_TYPE_ACK` |
+| `AWAITING_PROBE_RESPONSE`  | 妥当なframe                | `ACK` drain後にframeを破棄・warning記録し、`11 00 01` をwrite/drain | `AWAITING_TARGET_TYPE_ACK` |
+| `AWAITING_PROBE_RESPONSE`  | 300ms timeout              | 未完成bufferを破棄・warning記録し、`11 00 01` をwrite/drain         | `AWAITING_TARGET_TYPE_ACK` |
+| `AWAITING_TARGET_TYPE_ACK` | RedDotから単独 `ACK`       | profileに対応する `01` / `00` をwrite/drainし、100ms後のpollを予約  | `POLL_SCHEDULED`           |
+| `AWAITING_TARGET_TYPE_ACK` | RedDotから単独 `NAK`       | 1 byte消費し、初期化timeoutを維持                                   | 状態維持                   |
+| `AWAITING_TARGET_TYPE_ACK` | Rifleで500ms timeout       | `01` を1回だけwrite/drainし、fallback静穏timerを開始                | `FALLBACK_SETTLING`        |
+| `AWAITING_TARGET_TYPE_ACK` | Pistolで500ms timeout      | errorを記録し、接続初期化を失敗させる                               | `STOPPED`                  |
+| `FALLBACK_SETTLING`        | 500ms timeout              | fallback warningを記録し、100ms後のpollを予約                       | `POLL_SCHEDULED`           |
+| `AWAITING_RESPONSE`        | RedDotから単独 `NAK`       | 1 byte消費。eventを発生させず、100ms後のpollを予約                  | `POLL_SCHEDULED`           |
+| 初期化完了後               | 完成した不正frame          | 不正回数を加算し、frameを破棄して `NAK` をwrite/drain               | 下記規則による             |
+| 初期化完了後               | 妥当な59 byte frame        | poll/応答timerを取消し、`ACK` drain後に受信時刻とframeを1回渡す     | `POLL_SCHEDULED`           |
+| 初期化完了前               | 妥当な59 byte frame        | 初期化期限を維持し、`ACK` drain後にframeを破棄してwarningを記録     | 元の初期化状態             |
+| `AWAITING_RESPONSE`        | response timeout           | 未完成bufferを破棄し、recoverable warningを記録して次pollを予約     | `POLL_SCHEDULED`           |
+| `POLL_SCHEDULED`           | timer                      | `ENQ` をwrite/drainし、応答timeoutを開始                            | `AWAITING_RESPONSE`        |
+| 任意                       | close / error / disconnect | timerとtimeoutを取消し、bufferを空にし、listenerを解除              | `STOPPED`                  |
 
-不正応答が1回目または2回目なら、`NAK` のdrain後に応答timeoutを張り直して
+初期化完了後、不正応答が1回目または2回目なら、`NAK` のdrain後に応答timeoutを張り直して
 `AWAITING_RESPONSE` へ戻る。3回目の `NAK` をdrainしたらbufferと不正回数を空にして次pollを予約し、
-`POLL_SCHEDULED` へ移る。これは壊れた機器やノイズにより通信loopが占有されるのを防ぐSaika側の
-上限である。
+`POLL_SCHEDULED` へ移る。初期化中は同じ上限でbufferを再同期した後、元の初期化状態へ戻り、標的種別ACK
+またはfallback静穏timerの期限を延長しない。これは壊れた機器やノイズにより通信loopが占有されるのを
+防ぐSaika側の上限である。
 
 ### 4.4 write順序と多重実行防止
 
 - `port.write()` のcallback成功だけで完了とせず、`port.drain()` の完了まで待つ。
-- `ENQ`、`ACK`、`NAK` のwriteは単一のPromise chainまたはqueueで直列化する。
+- 初期化command、標的種別byte、`ENQ`、`ACK`、`NAK` のwriteは単一のPromise chainまたはqueueで
+  直列化する。
 - 正常フレームは `ACK` のdrain成功後にだけ後段へ渡す。ACK失敗時はショットを生成せず接続エラーへ
   移行する。ACK前にイベントを発生させると、再送時に同じ射撃を二重記録し得る。
 - 同じ座標・得点の連続射撃は有効なので、フレーム内容による重複排除は行わない。
@@ -376,22 +468,23 @@ Saika scoreとの差は既存のdiscrepancy検出へ渡すが、不一致だけ�
 ## 8. ストリーム分割と再同期
 
 serialportの1回の `data` eventと1フレームは対応しない。1 byteずつ分割される場合、複数応答が結合
-される場合、単独 `NAK` とフレームが同じchunkに入る場合をすべて処理する。
+される場合、単独 `ACK` / `NAK` とフレームが同じchunkに入る場合をすべて処理する。
 
 推奨scannerの処理は次のとおりである。
 
 1. chunkを内部buffer末尾へ追加する。
 2. bufferが4096 byteを超えたら、最後に現れた `STX` 以降59 byte未満だけを残す。見つからなければ
    全消去し、recoverable overflowを記録する。
-3. 先頭が単独 `NAK` なら1 byte消費して `idle` eventを返し、1へ戻る。
-4. 先頭が `STX` でなければ、次の `NAK` または `STX` までをnoiseとして破棄する。
-5. `STX` から59 byte未満なら、追加chunkを待つ。
-6. 59 byte候補の固定制御位置が不正なら `invalid-structure` を返し、先頭の `STX` 1 byteだけを
+3. 先頭が単独 `ACK` なら1 byte消費して `ack` eventを返し、1へ戻る。
+4. 先頭が単独 `NAK` なら1 byte消費して `idle` eventを返し、1へ戻る。
+5. 先頭が `STX` でなければ、次の `ACK`、`NAK`、`STX` までをnoiseとして破棄する。
+6. `STX` から59 byte未満なら、追加chunkを待つ。
+7. 59 byte候補の固定制御位置が不正なら `invalid-structure` を返し、先頭の `STX` 1 byteだけを
    捨てて再走査する。これにより候補内の次の `STX` へ同期できる。
-7. 固定制御位置が正しければ、同じ `RedDotFrameDecoder` でBCCと§5.2の全フィールドを検査する。
+8. 固定制御位置が正しければ、同じ `RedDotFrameDecoder` でBCCと§5.2の全フィールドを検査する。
    拒否された候補59 byteを消費し、理由付き `invalid-frame` を返す。
-8. すべて妥当なら59 byteを消費し、raw frame、解析済みDTO、受信時刻を持つ `frame` eventを返す。
-9. bufferが空になるか未完成候補になるまで繰り返す。
+9. すべて妥当なら59 byteを消費し、raw frame、解析済みDTO、受信時刻を持つ `frame` eventを返す。
+10. bufferが空になるか未完成候補になるまで繰り返す。
 
 noiseの破棄だけでは `NAK` を送らない。`STX` から始まる完成候補を拒否した場合にだけ
 protocol sessionが `NAK` を送る。scannerはバイト列の認識、sessionはpollと返信、adapterは意味変換
@@ -399,17 +492,29 @@ protocol sessionが `NAK` を送る。scannerはバイト列の認識、session�
 
 ## 9. エラーとログ
 
-| 条件                          | 分類               | serial返信 | Shot | 利用者向け動作                        |
-| ----------------------------- | ------------------ | ---------: | ---: | ------------------------------------- |
-| RedDotから単独 `NAK`          | 正常idle           |       なし | なし | 表示・音・errorなし                   |
-| 未完成フレーム                | 待機中             |       なし | なし | timeoutまでは何もしない               |
-| 構造/BCC/wire discipline不正  | recoverable frame  |      `NAK` | なし | warning、次フレームを受信可能にする   |
-| Saikaのcontext discipline不正 | configuration      |      `ACK` | なし | 設定error。deviceへの再送要求はしない |
-| distance整合性超過            | diagnostic         |      `ACK` | 生成 | warningのみ                           |
-| device scoreと再計算値の差    | diagnostic         |      `ACK` | 生成 | 既存discrepancy loggerへ渡す          |
-| ACK/ENQ/NAK write失敗         | connection error   |          — | なし | 接続回復処理                          |
-| port close/error              | connection error   |          — | なし | 既存の再接続処理                      |
-| buffer上限超過                | recoverable stream | 状況による | なし | 再同期しwarning                       |
+| 条件                          | 分類               | serial返信 | Shot | 利用者向け動作                             |
+| ----------------------------- | ------------------ | ---------: | ---: | ------------------------------------------ |
+| 初期probeの300ms無応答        | recoverable probe  |       なし | なし | warning後、正式initializationを試す        |
+| 初期化commandへの単独 `ACK`   | 正常initialization |  `01`/`00` | なし | 対応profileを設定しinfoを記録              |
+| 初期化中の単独 `NAK`          | 待機中             |       なし | なし | timeoutまで待機                            |
+| Rifleでcommand ACK timeout    | compatibility      |       `01` | なし | 静穏時間後fallbackしwarningを記録          |
+| Pistolでcommand ACK timeout   | configuration      |          — | なし | errorを記録して接続を失敗させる            |
+| 初期化完了前の正常frame       | safety guard       |      `ACK` | なし | frameを破棄してwarningを記録               |
+| polling中の単独 `NAK`         | 正常idle           |       なし | なし | 表示・音・errorなし                        |
+| 未完成フレーム                | 待機中             |       なし | なし | timeoutまでは何もしない                    |
+| 構造/BCC/wire discipline不正  | recoverable frame  |      `NAK` | なし | warning、次フレームを受信可能にする        |
+| Saikaのcontext discipline不正 | configuration      |      `ACK` | なし | 設定error。deviceへの再送要求はしない      |
+| distance整合性超過            | diagnostic         |      `ACK` | 生成 | warningのみ                                |
+| device scoreと再計算値の差    | diagnostic         |      `ACK` | 生成 | 既存discrepancy loggerへ渡す               |
+| 初期化/ACK/ENQ/NAK write失敗  | connection error   |          — | なし | 初期化中は接続失敗、接続後は既存の回復処理 |
+| port close/error              | connection error   |          — | なし | 既存の再接続処理                           |
+| buffer上限超過                | recoverable stream | 状況による | なし | 再同期しwarning                            |
+
+正式設定成功はcode `RED_DOT_TARGET_TYPE_CONFIGURED` のinfo、Rifle fallbackはcode
+`RIFLE_LEGACY_POLLING_FALLBACK` のwarningとして、profile、timeout、静穏時間、poll間隔とともに記録する。
+Pistol初期化失敗はcode `RED_DOT_INITIALIZATION_FAILED` のerrorとする。これらは既存の `IpcLogger` を通るため、
+開いているDebug Paneへリアルタイム表示され、同じmetadataをアプリの `logs/combined.log` に保存する。
+errorは `logs/error.log` にも保存する。Debug Pane専用の別経路や一時的なconsole出力だけにしない。
 
 通常ログは状態、offset、error code、byte数だけを残す。実射フレーム、座標、得点をinfoログへ出さない。
 raw hexは開発者が明示的に有効化したdebugログだけに限定し、issueや公開fixtureへ貼らない。
@@ -425,7 +530,7 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
 | `RedDotFrameDecoder`        | `target/adapters/disag/RedDotFrameDecoder.ts`          | 固定offset検証、ASCIIと数値のDTO化         |
 | `RedDotCoordinateConverter` | `target/adapters/disag/RedDotCoordinateConverter.ts`   | raw座標からmmへの変換                      |
 | `DisagAdapter`              | `target/adapters/DisagAdapter.ts`                      | context検証と `Shot` 生成                  |
-| `RedDotProtocolSession`     | `connection/infra/usb/reddot/RedDotProtocolSession.ts` | ENQ、ACK/NAK、timer、write直列化           |
+| `RedDotProtocolSession`     | `connection/infra/usb/reddot/RedDotProtocolSession.ts` | 標的種別、ENQ、ACK/NAK、timer、write直列化 |
 | `USBConnectionManager`      | 既存ファイル                                           | device IDで通常pipeline/sessionを選択      |
 
 ファイル名は変更してよいが、scanner、意味decoder、protocol sessionの責務境界は保つ。
@@ -447,8 +552,8 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
    adapterをメーカーID `DISAG` へ登録し、Rifle/Pistol両方のdevice IDを割り当てる。
    `DISAG_DEFAULT` はこのadapterへ割り当てない。
 5. [`USBConnectionManager.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionManager.ts)
-   はいずれかのRedDot device IDのときprotocol sessionを開始し、有効フレームだけをpipelineへ渡す。
-   他デバイスは現在の直接受信経路を維持する。
+   はいずれかのRedDot device IDのとき、Rifle/Pistolをwire target typeへ対応付けてprotocol sessionを開始し、
+   有効フレームだけをpipelineへ渡す。他デバイスは現在の直接受信経路を維持する。
 6. [`USBConnectionLifecycle.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionLifecycle.ts)
    の `sendMode()` をdevice-awareにし、RedDotではno-opにする。open後のDTR/RTS設定もここで行う。
 7. [`USBDataPipeline.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBDataPipeline.ts)
@@ -475,15 +580,19 @@ configuration errorとし、正しい競技を選択するまでpollingを開始
 
 1. UIでRedDotプロファイルと、それに対応する `AIR_RIFLE_10M` または `AIR_PISTOL_10M` を選ぶ。
 2. 9600 8N1、flow controlなしでportをopenする。
-3. `RedDotProtocolSession` を開始し、最初の `ENQ` を送る。
-4. 単独 `NAK` なら何も生成せず次pollへ進む。
-5. scannerが59 byte候補を確定し、decoderが構造、BCC、discipline、score、distance、X/Yを検査する。
-6. 正常なら `ACK` をdrainし、frameと受信時刻をpipelineへ1回渡す。
-7. adapterが同じdecoderの結果からscore、distance、X/Yを取得する。
-8. adapterが現在のsession modeと、選択プロファイルに対応する `ISSF_AR_10M` / `ISSF_AP_10M` を使って
-   `Shot` を作る。
-9. pipelineが着弾音通知を1回発生させ、`ShotData` をemitする。
-10. `RecordShotHandler` がdevice scoreを保存し、座標再計算との差を診断する。
+3. 最初に `ENQ` を送り、`NAK` / frameまたは300ms timeoutで既存linkのprobeを終える。
+4. `11 00 01` を1回送り、RedDotの `ACK` 後にRifle=`01`／Pistol=`00` を送る。
+5. 正式設定に成功したらinfoを記録する。ACK timeout時はRifleだけ `01` と500ms静穏時間を経てfallbackし、
+   warningを記録する。Pistolは接続errorにする。
+6. 接続ready後、100ms間隔の `ENQ` pollingを開始する。
+7. 単独 `NAK` なら何も生成せず次pollへ進む。
+8. scannerが59 byte候補を確定し、decoderが構造、BCC、discipline、score、distance、X/Yを検査する。
+9. 正常なら `ACK` をdrainし、frameと受信時刻をpipelineへ1回渡す。未処理ENQの有無は受理条件にしない。
+10. adapterが同じdecoderの結果からscore、distance、X/Yを取得する。
+11. adapterが現在のsession modeと、選択プロファイルに対応する `ISSF_AR_10M` / `ISSF_AP_10M` を使って
+    `Shot` を作る。
+12. pipelineが着弾音通知を1回発生させ、`ShotData` をemitする。
+13. `RecordShotHandler` がdevice scoreを保存し、座標再計算との差を診断する。
 
 ## 11. 合成テストベクター
 
@@ -572,7 +681,7 @@ for (let split = 1; split < frame.length; split += 1) {
 
 - すべての2分割位置1〜58と、1 byteずつの分割でフレームを1件だけ返す。
 - 2フレームが1 chunkに結合されても順番どおり2件返す。
-- `NAK`、noise、部分フレーム、正常フレームの組合せから再同期する。
+- `ACK`、`NAK`、noise、部分フレーム、正常フレームの組合せから再同期する。
 - 不正構造では先頭STXだけ、不正BCCでは候補59 byteを消費する。
 - 4096 byte超過で無制限にmemoryを保持しない。
 
@@ -580,12 +689,20 @@ for (let split = 1; split < frame.length; split += 1) {
 
 fake serial writerとfake clockを使い、wall clockや実USBへ依存させない。
 
-- start直後の最初のhost byteが `ENQ` であり、ASCII `S` / `R` が一度も出ない。
+- start直後の最初のhost byteが `ENQ` であり、probe完了後にだけ `11 00 01` を送る。
+- command ACK後にRifle=`01`／Pistol=`00` を送り、正式設定成功をinfoログへ記録してからpollingする。
+- Rifleで標的種別ACKが500ms来なければcommandを再送せず、`01` を1回送って500ms静穏時間後に
+  legacy pollingへfallbackし、その理由をwarningログへ記録する。
+- fallback静穏中の遅延ACKを無視し、静穏時間より前に `ENQ` を送らない。
+- Pistolで標的種別ACKが500ms来なければfallbackせず、初期化errorで接続を失敗させる。
+- 初期化中の `NAK` をpoll-idleと誤認しない。
 - RedDotの `NAK` が繰り返されてもshot、sound、errorを発生させない。
 - 正常フレームでは `ACK` のdrain完了後にだけframe callbackを1回呼ぶ。
+- 初期化完了前のframeは `ACK` するがcallbackせずwarningを記録する。初期化完了後にpoll予約中のframeを
+  受けた場合はcallbackし、timerを正しく張り直す。
 - 不正BCCでは `NAK` を送り、callbackを呼ばず、次の正常フレームで回復する。
 - 応答待ち中に重複 `ENQ` を送らない。
-- 300msより前に次pollを送らず、fake clockを300ms進めた時点で1回だけ送る。
+- 100msより前に次pollを送らず、fake clockを100ms進めた時点で1回だけ送る。
 - disconnectでtimerとlistenerを除去し、clockを進めてもwriteしない。
 - reconnectを繰り返してもtimerとdata listenerが1組だけ存在する。
 - ACK write/drain失敗時にframeをemitせず、connection errorへ渡す。
@@ -595,6 +712,7 @@ fake serial writerとfake clockを使い、wall clockや実USBへ依存させな
 - `DISAG_KT_RDT_ZIE_1_RIFLE` はベンダー `DISAG`、対応種目 `AIR_RIFLE_10M` だけとして列挙される。
 - `DISAG_KT_RDT_ZIE_1_PISTOL` はベンダー `DISAG`、対応種目 `AIR_PISTOL_10M` だけとして列挙される。
 - `DISAG_KT_RDT_ZIE_1_RIFLE` の `modelName` は公式型式どおり `KT RDT ZIE 1` である。
+- Rifle/Pistolのdevice IDがそれぞれwire target type `01` / `00` へ対応する。
 - 旧 `RDT_ZIE1_PISTOL` の保存設定を新Pistol IDとベンダー `DISAG` へ移行する。
 - DISAGでもdevice IDが欠落または対応する2プロファイル以外ならRedDotのpollを開始しない。
 - §11.1から `ImpactPoint(3, 4)`、`Score(90)`、`innerTen: false` を生成する。
@@ -612,6 +730,7 @@ fake serial writerとfake clockを使い、wall clockや実USBへ依存させな
 - 上記単体・統合テストが自動化されている。
 - 通常idleでerrorと着弾音が発生しない。
 - 実portで複数ショットを欠落・重複なく受信できる。
+- 実portで正式設定成功またはRifle fallbackの選択結果がDebug Paneと `combined.log` の両方に残る。
 - disconnect/reconnect後もpollが多重化しない。
 - 実射データをfixture、通常ログ、公開issueへ残していない。
 - MT201を含む既存USB受信の回帰テストが通る。
@@ -625,6 +744,9 @@ fake serial writerとfake clockを使い、wall clockや実USBへ依存させな
 - firmware間のフレーム差、再送回数、メーカー保証timeout
 - BluetoothとRS-232の切替手順
 - Pistolプロファイルの実portパケットとdevice scoreを使った実機検証
+- RS-232/Bluetooth SPPの各経路で、ENQを書かずに射撃した場合の自発送信有無
+- frame受信後にACKを保留または送信しなかった場合の再送周期と回数
+- 初期化command、shot frame、ENQが近接した場合の機器側queue順序
 - `LG` 以外のOpticScoreフレームを同じdecoderで扱えるか
 
 新しい挙動を追加する場合は、まず匿名化した最小の合成fixtureとテストでSaikaの受理契約を定義し、

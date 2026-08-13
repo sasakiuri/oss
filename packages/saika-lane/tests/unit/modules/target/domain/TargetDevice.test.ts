@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
-import { DEVICE_DEFINITIONS } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { DEVICE_DEFINITIONS, getDisagRedDotTargetType } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { DomainError } from '@/shared/errors/DomainError';
 
@@ -47,6 +47,13 @@ describe('TargetDevice value object', () => {
         expect(device.id).toBe(def.id);
         expect(device.displayName).toBe(def.displayName);
       }
+    });
+
+    it('should map only the two RedDot profiles to their wire target types', () => {
+      expect(getDisagRedDotTargetType('DISAG_KT_RDT_ZIE_1_RIFLE')).toBe('RIFLE');
+      expect(getDisagRedDotTargetType('DISAG_KT_RDT_ZIE_1_PISTOL')).toBe('PISTOL');
+      expect(getDisagRedDotTargetType('DISAG_DEFAULT')).toBeNull();
+      expect(getDisagRedDotTargetType(undefined)).toBeNull();
     });
   });
 

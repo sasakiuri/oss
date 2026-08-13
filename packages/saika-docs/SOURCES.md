@@ -7,7 +7,7 @@
 外部資料は複製せず、参照先のみを示します。規則や製品情報は更新されるため、利用時に最新版を
 確認してください。
 
-外部一次情報の最終確認日: 2026-08-08
+外部一次情報の最終確認日: 2026-08-13
 
 - [公益社団法人日本ライフル射撃協会 — 競技規則](https://www.riflesports.jp/support/rule/)
 - [公益社団法人日本ライフル射撃協会 — 協会規程](https://www.riflesports.jp/knowledge/regulations/)
@@ -15,6 +15,7 @@
 - [DISAG — RedDot Laserziel 取扱説明書](https://www.disag.de/wp-content/uploads/reddot_laserziel.pdf)
 - [DISAG — RedDot Pistole 製品情報](https://www.disag.de/produkte/reddot-lichtschiessen/reddot-pistole/)
 - [DISAG — RedDot Laserziel 技術説明書（旧版）](https://www.disag.de/download/manuals/reddot_laserziel.pdf)
+- [DISAG — RedDotView配布ページ](https://www.disag.de/downloads/software/reddotview/)
 - [DISAG — RedDot用RS-232クロスケーブル結線図](https://www.disag.de/wp-content/uploads/RS232_Male-Male_Crossover.pdf)
 - [KNESTEL — KT RDT ZIE 1 EU適合宣言](https://knestel.de/wp-content/uploads/2023/08/CE-Konformitaetserklaerung_RD_Ziel_2015.03.11.pdf)
 - [DISAG — RM-III / RM-III Universal インターフェース説明書](https://www.disag.de/download/manuals/schnittstellenbeschreibung.pdf)

@@ -42,15 +42,23 @@ describe('RedDotStreamScanner', () => {
     expect(frames[1]!.frame).toEqual(second);
   });
 
-  it('handles NAK, noise, a partial frame, and the completed frame without losing sync', () => {
+  it('handles ACK, NAK, noise, a partial frame, and the completed frame without losing sync', () => {
     const scanner = new RedDotStreamScanner();
     const frame = validRedDotFrame();
 
-    const firstEvents = scanner.push(Buffer.concat([Buffer.from([0x15, 0x41, 0x42]), frame.subarray(0, 20)]));
+    const firstEvents = scanner.push(Buffer.concat([Buffer.from([0x06, 0x15, 0x41, 0x42]), frame.subarray(0, 20)]));
     const secondEvents = scanner.push(frame.subarray(20));
 
-    expect(firstEvents.map((event) => event.type)).toEqual(['idle', 'noise']);
+    expect(firstEvents.map((event) => event.type)).toEqual(['ack', 'idle', 'noise']);
     expect(secondEvents.filter((event) => event.type === 'frame')).toHaveLength(1);
+  });
+
+  it('resynchronizes to an ACK marker after leading noise', () => {
+    const scanner = new RedDotStreamScanner();
+
+    const events = scanner.push(Buffer.from([0x41, 0x42, 0x06]));
+
+    expect(events.map((event) => event.type)).toEqual(['noise', 'ack']);
   });
 
   it('drops only the leading STX for a structural error and finds the next frame', () => {

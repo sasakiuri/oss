@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import {
+  RED_DOT_ACK,
+  RED_DOT_ENQ,
+  RED_DOT_PISTOL_TARGET_TYPE,
+  RED_DOT_RIFLE_TARGET_TYPE,
+  RED_DOT_SET_TARGET_TYPE_COMMAND,
+} from '@/main/modules/connection/infra/usb/reddot/RedDotProtocolSession';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -21,6 +28,7 @@ vi.mock('electron', () => ({
 // Mock SerialPort instance
 let mockPortInstance: any;
 const mockPortInstances: any[] = [];
+let autoRedDotHandshake = true;
 
 // Mock serialport
 vi.mock('serialport', () => {
@@ -56,7 +64,21 @@ vi.mock('serialport', () => {
         }, 10);
       }),
       set: vi.fn((_options: unknown, callback?: Function) => callback?.(null)),
-      write: vi.fn((_data: Buffer, callback?: Function) => callback?.(null)),
+      write: vi.fn(function (this: any, data: Buffer, callback?: Function) {
+        callback?.(null);
+        if (autoRedDotHandshake) {
+          let response: Buffer | null = null;
+          if (data.equals(Buffer.from([0x05]))) {
+            response = Buffer.from([0x15]);
+          } else if (data.equals(Buffer.from([0x11, 0x00, 0x01]))) {
+            response = Buffer.from([0x06]);
+          }
+          if (response) {
+            queueMicrotask(() => this._events.data?.(response));
+          }
+        }
+        return true;
+      }),
       drain: vi.fn((callback?: Function) => callback?.(null)),
       removeListener: vi.fn(function (this: any, event: string, callback: Function) {
         if (this._events[event] === callback) {
@@ -140,6 +162,7 @@ describe('USBConnectionManager', () => {
     vi.clearAllMocks();
     mockPortInstance = null;
     mockPortInstances.length = 0;
+    autoRedDotHandshake = true;
     manager = new USBConnectionManager(new AdapterRegistry());
     manager.setSessionContextProvider(() => ({
       discipline: Discipline.airRifle10m(),
@@ -209,7 +232,7 @@ describe('USBConnectionManager', () => {
       );
     });
 
-    it('should start RedDot polling with ENQ and never send S/R mode commands', async () => {
+    it('should initialize the RedDot Rifle profile and never send S/R mode commands', async () => {
       const config: USBConnectionConfig = {
         portName: 'COM3',
         manufacturer: TargetManufacturer.disag(),
@@ -222,8 +245,15 @@ describe('USBConnectionManager', () => {
       await manager.sendMode(Mode.match());
 
       expect(mockPortInstance.set).toHaveBeenCalledWith({ dtr: false, rts: false }, expect.any(Function));
-      expect(mockPortInstance.write).toHaveBeenCalledTimes(1);
-      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+      expect(mockPortInstance.write).toHaveBeenCalledTimes(3);
+      expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from([RED_DOT_ENQ]),
+        Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+        Buffer.from([RED_DOT_RIFLE_TARGET_TYPE]),
+      ]);
+      const writtenBytes = mockPortInstance.write.mock.calls.flatMap((call: unknown[]) => [...(call[0] as Buffer)]);
+      expect(writtenBytes).not.toContain('S'.charCodeAt(0));
+      expect(writtenBytes).not.toContain('R'.charCodeAt(0));
     });
 
     it('should ACK a split RedDot frame and emit one existing shot event without idle sounds', async () => {
@@ -258,8 +288,10 @@ describe('USBConnectionManager', () => {
       await flushPromises();
 
       expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
-        Buffer.from([0x05]),
-        Buffer.from([0x06]),
+        Buffer.from([RED_DOT_ENQ]),
+        Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+        Buffer.from([RED_DOT_RIFLE_TARGET_TYPE]),
+        Buffer.from([RED_DOT_ACK]),
       ]);
       expect(sound).toHaveBeenCalledTimes(1);
       expect(data).toHaveBeenCalledTimes(1);
@@ -285,12 +317,15 @@ describe('USBConnectionManager', () => {
         manufacturer: TargetManufacturer.disag(),
         deviceId: 'DISAG_KT_RDT_ZIE_1_PISTOL',
       });
+
       mockPortInstance._events.data(validRedDotPistolFrame());
       await flushPromises();
 
       expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
-        Buffer.from([0x05]),
-        Buffer.from([0x06]),
+        Buffer.from([RED_DOT_ENQ]),
+        Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+        Buffer.from([RED_DOT_PISTOL_TARGET_TYPE]),
+        Buffer.from([RED_DOT_ACK]),
       ]);
       expect(sound).toHaveBeenCalledTimes(1);
       expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4, score: 103, mode: 'MATCH' }));
@@ -413,9 +448,13 @@ describe('USBConnectionManager', () => {
       expect(firstPort.removeListener).toHaveBeenCalledWith('data', expect.any(Function));
       expect(firstPort._events.data).toBeUndefined();
       expect(secondPort._events.data).toEqual(expect.any(Function));
-      expect(firstPort.write).toHaveBeenCalledTimes(1);
-      expect(secondPort.write).toHaveBeenCalledTimes(1);
-      expect(secondPort.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+      expect(firstPort.write).toHaveBeenCalledTimes(3);
+      expect(secondPort.write).toHaveBeenCalledTimes(3);
+      expect(secondPort.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from([RED_DOT_ENQ]),
+        Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+        Buffer.from([RED_DOT_RIFLE_TARGET_TYPE]),
+      ]);
     });
 
     it('should stop RedDot protocol work and reconnect when error is not followed by close', async () => {
@@ -436,7 +475,7 @@ describe('USBConnectionManager', () => {
       expect(mockPortInstances).toHaveLength(2);
       expect(mockPortInstance).not.toBe(firstPort);
       expect(mockPortInstance._events.data).toEqual(expect.any(Function));
-      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([RED_DOT_ENQ]));
     });
 
     it('should use the same disconnected recovery path after an ACK write failure', async () => {
@@ -471,7 +510,7 @@ describe('USBConnectionManager', () => {
       expect(firstPort.close).toHaveBeenCalledTimes(1);
       expect(mockPortInstances).toHaveLength(2);
       expect(mockPortInstance).not.toBe(firstPort);
-      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([0x05]));
+      expect(mockPortInstance.write.mock.calls[0]![0]).toEqual(Buffer.from([RED_DOT_ENQ]));
     });
 
     it('should surface a session discipline change instead of silently dropping later RedDot frames', async () => {
