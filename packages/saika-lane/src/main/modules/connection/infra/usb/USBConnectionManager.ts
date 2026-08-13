@@ -4,7 +4,11 @@ import type { SerialPort } from 'serialport';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-import { getDisagRedDotDiscipline, isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import {
+  getDisagRedDotDiscipline,
+  getDisagRedDotTargetType,
+  isDisagRedDotDeviceId,
+} from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -123,8 +127,16 @@ export class USBConnectionManager implements IUSBConnectionManager {
     }
 
     this.validateRedDotSessionContext(config);
+    const targetType = getDisagRedDotTargetType(config.deviceId);
+    if (targetType === null) {
+      throw ErrorCatalog.createError('INVALID_TARGET', {
+        reason: 'Unsupported RedDot target type',
+        deviceId: config.deviceId,
+      });
+    }
 
     const session = new RedDotProtocolSession(port, {
+      targetType,
       onFrame: (frame, receivedAt) => {
         try {
           // The active session can be reset or replaced while the serial port

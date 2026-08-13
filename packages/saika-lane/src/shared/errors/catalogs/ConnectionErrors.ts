@@ -9,6 +9,7 @@ export type ConnectionErrorCode =
   | 'USB_WRITE_FAILED'
   | 'USB_READ_TIMEOUT'
   | 'USB_PARSE_ERROR'
+  | 'RED_DOT_INITIALIZATION_FAILED'
   | 'USB_DEVICE_BUSY'
   | 'INVALID_PORT_PATH'
   | 'INVALID_BAUD_RATE'
@@ -77,6 +78,15 @@ export const CONNECTION_ERRORS: ReadonlyArray<[ConnectionErrorCode, ErrorDefinit
       code: 'USB_PARSE_ERROR',
       message: 'Failed to parse USB data',
       userMessage: 'Failed to parse USB data',
+      severity: 'error',
+    },
+  ],
+  [
+    'RED_DOT_INITIALIZATION_FAILED',
+    {
+      code: 'RED_DOT_INITIALIZATION_FAILED',
+      message: 'RedDot target-type initialization failed',
+      userMessage: 'Failed to configure the RedDot target type',
       severity: 'error',
     },
   ],
