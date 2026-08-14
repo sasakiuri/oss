@@ -396,8 +396,9 @@ ScoreSheet（個票）の印刷を担う。HTML+CSS+別 BrowserWindow+`window.pr
 #### データフロー
 
 ```
-Target Device --> [USB/TCP] --> SerialDataParser --> IManufacturerParser --> RawData
-  --> USBDataPipeline (AdapterContext 生成) --> DataConversionService --> Adapter --> Common Shot
+Target Device --> [USB/TCP] --> TargetProtocol --> USBDataPipeline (AdapterContext 生成)
+  --> [direct stream: SerialDataParser --> IManufacturerParser | accepted shot frame: RawData]
+  --> DataConversionService --> Adapter --> Common Shot
   --> [IPC] --> SessionStore --> useEventSubscriptions --> UI Components
 ```
 

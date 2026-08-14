@@ -95,11 +95,47 @@ Saikaは接続時および試射・本射の切替時に、終端文字なしの
 を使用する。標的環は10mエアピストルと同じで、仮想弾径4.5mm（半径2.25mm）として描画・座標採点
 する。BPT-216が通知した得点は `deviceScore` として保持し、BP60では整数圏採点を適用する。
 
-## 6. Saika実装
+## 6. MT-201とのシグナル受信・処理比較
+
+次の表はメーカー通信仕様同士の比較ではなく、Saika Laneの現在の受信・変換経路を処理段階ごとに
+比較したものである。MT-201については公開済みSaika実装の挙動、BPT-216については同実装に加えて
+公式V201の相互運用解析で確認した範囲を記載する。
+
+| 処理段階               | MT-201（Beam Rifle）                                                                                         | BPT-216（Beam Pistol）                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| 対応種目               | `BEAM_RIFLE_10M`                                                                                             | `BEAM_PISTOL_10M`                                                                                  |
+| シリアル設定           | 9600 baud、8N1                                                                                               | 115200 baud、8N1、フロー制御なし                                                                   |
+| Saika内の受信経路      | `SerialPort` → `DirectSerialTargetProtocol` → `USBDataPipeline` → `SerialDataParser` → `KohtoFormatParser`   | `SerialPort` → `BPT216TargetProtocol` → `BPT216ProtocolSession` → `USBDataPipeline`                |
+| レコード境界           | LF。CRLFはMT-201パーサーの`trim()`で受理                                                                     | LF。専用セッションがCR、空白、タブを行端から除去するためCRLFも受理                                 |
+| 未完行の保持           | 次のチャンクまで保持。受信間隔が1秒以上空くと破棄し、全体が1MiBを超えるとエラー                              | 次のチャンクまで保持。タイムアウトは設けず、未完行または1行が4096 byteを超えると破棄               |
+| 着弾レコード形式       | 空白区切りの `mode score xHex yHex checksum`                                                                 | CSVの `score,x,y,reserved-1,reserved-2,state[,version]`                                            |
+| 着弾前の選別           | 完結した空でない行をすべてMT-201パーサーへ渡し、`R` / `S`だけを着弾として受理                                | 第6フィールドが`T`の行だけを着弾パーサーへ渡す                                                     |
+| 非着弾シグナル         | Ready・軌跡・状態通知という分類は持たない。不正レコードは変換エラー                                          | `R`、`B`、不明stateは内容をパースせず破棄。軌跡の保存・描画もしない                                |
+| 試射・本射の決定       | レコード先頭の`R`を`MATCH`、`S`を`SIGHTING`として、Saikaの現在モードより優先                                 | 受信`state`は試射・本射を表さない。Saikaの現在モードを`Shot.mode`に使用                            |
+| ホストからのモード送信 | MT-201プロトコルは終端なしの`S` / `R` 1 byteを送信する。ただし、実機側での正式な意味と適合性は本書では未確定 | BPT-216プロトコルは公式V201の挙動に合わせ、試射=`S`、本射=`R`を終端なしで送信                      |
+| 得点の受理             | 数値を`round(score × 10)`で0.1点単位へ変換し、`0`〜`109`を検査                                               | `0.0`〜`10.9`の0.1点単位だけを受理。`9.70`のような末尾ゼロは許容し、1点未満は0点へ正規化           |
+| 60発競技での得点       | BR60Sは`DECIMAL`採点なので、受信した小数点得点を保持・表示                                                   | BP60は`RING`採点なので小数点以下を切り捨てて記録し、競技画面では整数表示。印刷帳票は小数形式も併記 |
+| 座標表現・変換         | 16進4桁を符号付き16 bitとして解釈し、`raw / 150` mm                                                          | 符号付き10進整数を解釈し、`raw / 100` mm                                                           |
+| X/Yの向き              | 受信した符号を反転せず使用                                                                                   | X正を右、Y正を上として符号を反転せず使用                                                           |
+| ミス・状態特殊値       | `score=0.0`かつ`x=y=7FFF`だけを座標なしのミスにする                                                          | 1点未満は0点だが座標は保持する。X欄`9999`は状態通知なので着弾へ変換しない                          |
+| 付加フィールド         | checksumは16進2桁の形式だけを検査し、再計算・照合はしない                                                    | reserved欄は使用しない。version欄は任意で、チェックサム欄はない                                    |
+| inner ten              | 受信得点ではなく、Beam Rifleの標的形状と変換後座標から判定                                                   | 受信得点ではなく、Beam Pistolの標的形状と変換後座標から判定                                        |
+| 着弾通知・着弾音       | パース前に受信チャンク単位で通知する。不完全・不正チャンクでも通知され、1チャンクに複数行ある場合も通知は1回 | `T`行の構文・座標・種目検査に成功した後、着弾ごとに通知する。`R` / `B` / 不正`T`では通知しない     |
+| ショット番号           | 変換に成功した着弾ごとに増加。不正レコードでは増加しない                                                     | 変換に成功した`T`着弾ごとに増加。破棄したstateや不正`T`では増加しない                              |
+| 種目整合性の防御       | デバイス定義でBeam Rifleだけを選択可能にする。専用受信セッションでの再検査はない                             | 接続時と各`T`着弾の処理前に、現在種目がBeam Pistolであることを再検査                               |
+
+要点は、MT-201が「改行で完成した行を汎用パイプラインへ渡し、行内の`R` / `S`をショットモード
+として解釈する」のに対し、BPT-216は「専用受信セッションが`T`だけを選別し、Saika側の現在モードで
+ショットを生成する」点にある。したがって、両機種は同じ`KOHTO`メーカー分類でも受信パーサーを共有
+しない。接続・停止・モード送信という共通操作だけを `TargetProtocol` 境界で揃え、wire形式は各実装へ
+閉じ込める。
+
+## 7. Saika実装
 
 - [BPT-216アダプター](../../../../../saika-lane/src/main/modules/target/adapters/BPT216Adapter.ts)
 - [CSVパーサー](../../../../../saika-lane/src/main/modules/target/adapters/bpt216/BPT216DataParser.ts)
 - [座標変換](../../../../../saika-lane/src/main/modules/target/adapters/bpt216/BPT216CoordinateConverter.ts)
+- [ハードウェアプロトコル](../../../../../saika-lane/src/main/modules/connection/infra/usb/bpt216/BPT216TargetProtocol.ts)
 - [受信セッション](../../../../../saika-lane/src/main/modules/connection/infra/usb/bpt216/BPT216ProtocolSession.ts)
 - [アダプターテスト](../../../../../saika-lane/tests/unit/modules/target/adapters/BPT216Adapter.test.ts)
 - [フレーミングテスト](../../../../../saika-lane/tests/unit/modules/connection/infra/usb/bpt216/BPT216ProtocolSession.test.ts)
@@ -107,7 +143,13 @@ Saikaは接続時および試射・本射の切替時に、終端文字なしの
 パーサーと受信処理は、非ASCII、不正な得点精度、非整数座標、過大な未終端行を拒否または破棄する。
 変換に成功した `T` 行だけが着弾音と `data` イベントを発生させる。
 
-## 7. 検証状態
+MT-201側の比較元:
+
+- [MT-201受信互換仕様](../mt201/README.md)
+- [MT-201アダプター](../../../../../saika-lane/src/main/modules/target/adapters/MT201Adapter.ts)
+- [Kohto汎用フレーミング](../../../../../saika-lane/src/main/modules/target/infra/parsers/KohtoFormatParser.ts)
+
+## 8. 検証状態
 
 公式V201の静的解析、合成フレームによる単体テスト、Saika内の接続統合テストは完了している。実機の
 BPT-216とUSBシリアル接続した複数ショット、モード切替、再接続は未検証である。実機確認が完了する

@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { app } from 'electron';
-import type { SerialPort } from 'serialport';
-
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
-import { isBpt216DeviceId, isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -11,16 +7,8 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
-import type { ShotData, USBConnectionConfig } from './IUSBConnectionManager';
+import type { SessionContextProvider, ShotData, USBConnectionConfig } from './IUSBConnectionManager';
 import type { USBEventEmitter } from './USBEventEmitter';
-
-/**
- * Type for the session context provider
- *
- * Synchronously returns the discipline/mode of the current session.
- * Throws if no session has been started.
- */
-export type SessionContextProvider = () => Pick<AdapterContext, 'discipline' | 'mode'>;
 
 /**
  * USBDataPipeline
@@ -35,7 +23,6 @@ export class USBDataPipeline {
   private shotNumberCounter = 0;
   private sessionContextProvider: SessionContextProvider | null = null;
   private onShotDetected: (() => void) | null = null;
-  private attachedPort: SerialPort | null = null;
 
   constructor(
     dataParser: SerialDataParser,
@@ -69,70 +56,6 @@ export class USBDataPipeline {
    */
   resetCounter(): void {
     this.shotNumberCounter = 0;
-  }
-
-  /**
-   * Detach data listeners from the SerialPort
-   */
-  detach(): void {
-    if (this.attachedPort) {
-      this.attachedPort.removeAllListeners('data');
-      this.attachedPort.removeAllListeners('readable');
-      this.attachedPort = null;
-    }
-  }
-
-  /**
-   * Attach data listeners to the SerialPort
-   *
-   * @param port - SerialPort instance
-   * @param config - USB connection settings
-   */
-  attach(port: SerialPort, config: USBConnectionConfig): void {
-    this.attachedPort = port;
-    const logger = getLogger();
-    logger.debug('[USB] setupDataListener() called', 'usb', {
-      portExists: !!port,
-    });
-
-    // Toggle readable mode via environment variable (for debugging)
-    const useReadableMode = !app.isPackaged && process.env.USE_READABLE_MODE === 'true';
-    logger.debug('[USB] Event mode: ' + (useReadableMode ? 'readable' : 'data'), 'usb');
-
-    if (useReadableMode) {
-      // readable mode: manually call port.read() (avoids flowing mode)
-      port.on('readable', () => {
-        logger.debug('[USB] readable event fired - attempting to read', 'usb');
-
-        let chunk: Buffer | null;
-        while ((chunk = port.read()) !== null) {
-          if (logger.isLevelEnabled('debug')) {
-            logger.debug('[USB] read() returned chunk', 'usb', {
-              chunkLength: chunk.length,
-              chunkHexPreview: chunk.slice(0, 32).toString('hex'),
-            });
-          }
-
-          this.processReceivedData(chunk, config);
-        }
-      });
-
-      logger.debug('[USB] Readable event listener attached', 'usb');
-    } else {
-      // data mode: automatically enters flowing mode (default)
-      port.on('data', (chunk: Buffer) => {
-        if (logger.isLevelEnabled('debug')) {
-          logger.debug('[USB] data event received', 'usb', {
-            chunkLength: chunk.length,
-            chunkHexPreview: chunk.slice(0, 32).toString('hex'),
-          });
-        }
-
-        this.processReceivedData(chunk, config);
-      });
-
-      logger.debug('[USB] Data event listener attached', 'usb');
-    }
   }
 
   /**
@@ -181,34 +104,12 @@ export class USBDataPipeline {
   }
 
   /**
-   * Processes one frame already validated and delimited by a protocol session.
-   * This bypasses SerialDataParser so protocol bytes and partial frames cannot
-   * trigger shot notifications.
+   * Processes one shot frame already delimited by a target protocol.
+   * This bypasses SerialDataParser so control bytes and partial frames cannot
+   * trigger shot notifications or manufacturer stream parsing.
    */
-  processValidatedFrame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
-    this.processDeviceFrame(frame, receivedAt, config, isDisagRedDotDeviceId(config.deviceId), 'RedDot');
-  }
-
-  /** Processes one newline-delimited BPT-216 shot frame. */
-  processBpt216Frame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
-    this.processDeviceFrame(frame, receivedAt, config, isBpt216DeviceId(config.deviceId), 'BPT-216');
-  }
-
-  private processDeviceFrame(
-    frame: Buffer,
-    receivedAt: Date,
-    config: USBConnectionConfig,
-    supportedDevice: boolean,
-    protocolName: string,
-  ): void {
+  processShotFrame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
     try {
-      if (!supportedDevice) {
-        throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
-          reason: `Validated ${protocolName} frames require a supported device ID`,
-          deviceId: config.deviceId,
-        });
-      }
-
       const rawData: RawData = Object.freeze({
         raw: Buffer.from(frame),
         timestamp: new Date(receivedAt.getTime()),
@@ -217,7 +118,7 @@ export class USBDataPipeline {
       this.convertAndEmit(rawData, config, true);
     } catch (error) {
       getLogger().error(
-        'Validated frame processing error',
+        'Protocol shot frame processing error',
         'usb',
         error instanceof Error ? { error: error.stack } : { error: String(error) },
       );

@@ -233,6 +233,32 @@ describe('USBConnectionManager', () => {
       );
     });
 
+    it('preserves the established MT-201 direct stream and S/R mode commands', async () => {
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.beamRifle10m(),
+        mode: Mode.sighting(),
+      }));
+      const sound = vi.fn();
+      manager.setOnShotDetected(sound);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.kohto(),
+        deviceId: 'MT201',
+      });
+
+      mockPortInstance._events.data(Buffer.from('R 9.7 0250 FF5F 70\n'));
+      await manager.sendMode(Mode.sighting());
+      await manager.sendMode(Mode.match());
+
+      expect(sound).toHaveBeenCalledTimes(1);
+      expect(mockPortInstance.set).not.toHaveBeenCalled();
+      expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from('S'),
+        Buffer.from('R'),
+      ]);
+    });
+
     it('should initialize the RedDot Rifle profile and never send S/R mode commands', async () => {
       const config: USBConnectionConfig = {
         portName: 'COM3',
@@ -473,7 +499,7 @@ describe('USBConnectionManager', () => {
       await manager.connect(config);
       await manager.disconnect();
 
-      // Listeners are removed by both pipeline.detach() and lifecycle.disconnect()
+      // The protocol session removes its listener, then the lifecycle clears the remaining port listeners.
       expect(mockPortInstance.removeAllListeners).toHaveBeenCalled();
     });
 
@@ -498,7 +524,7 @@ describe('USBConnectionManager', () => {
       const firstPort = mockPortInstance;
       await manager.reconnect();
 
-      // Listeners on the old port are removed by pipeline.detach()
+      // The protocol session and lifecycle remove listeners from the old port.
       expect(firstPort.removeAllListeners).toHaveBeenCalled();
     });
 

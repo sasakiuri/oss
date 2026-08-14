@@ -3,8 +3,6 @@ import { SerialPort } from 'serialport';
 
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
-import type { Mode } from '@/main/modules/session/domain/Mode';
-import { isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
@@ -254,42 +252,6 @@ export class USBConnectionLifecycle {
   }
 
   /**
-   * Send a mode byte to the device
-   *
-   * Sends 'S' for sighting mode (SIGHTING) or 'R' for match mode (MATCH).
-   * Logs via logger.warn if the port is not open or if sending fails, without propagating exceptions.
-   *
-   * @param mode - The mode to send
-   */
-  async sendMode(mode: Mode): Promise<void> {
-    const logger = getLogger();
-    const byteChar = mode.isSighting() ? 'S' : 'R';
-
-    if (isDisagRedDotDeviceId(this.config?.deviceId)) {
-      logger.debug('[USB] sendMode: RedDot uses session mode; serial write skipped', 'usb');
-      return;
-    }
-
-    if (!this.port?.isOpen) {
-      logger.warn('[USB] sendMode: port is not open, skipping', 'usb', { mode: mode.value, byte: byteChar });
-      return;
-    }
-
-    return new Promise<void>((resolve) => {
-      this.port!.write(Buffer.from(byteChar), (err) => {
-        if (err) {
-          logger.warn('[USB] sendMode: write failed', 'usb', {
-            mode: mode.value,
-            byte: byteChar,
-            error: err.message,
-          });
-        }
-        resolve();
-      });
-    });
-  }
-
-  /**
    * Attempt automatic reconnection
    */
   async attemptReconnect(): Promise<void> {
@@ -331,11 +293,6 @@ export class USBConnectionLifecycle {
     }
 
     try {
-      await this.configureControlSignals(port, config);
-      if (!this.isCurrent(port, generation, connection)) {
-        return;
-      }
-
       await this.onPortReady(port, config);
       if (!this.isCurrent(port, generation, connection)) {
         return;
@@ -501,31 +458,6 @@ export class USBConnectionLifecycle {
             'usb',
             error instanceof Error ? { error: error.stack } : { error: String(error) },
           );
-        }
-        resolve();
-      });
-    });
-  }
-
-  private configureControlSignals(port: SerialPort, config: USBConnectionConfig): Promise<void> {
-    if (!isDisagRedDotDeviceId(config.deviceId)) {
-      return Promise.resolve();
-    }
-
-    const configurablePort = port as SerialPort & {
-      set?: (options: { dtr: boolean; rts: boolean }, callback: (error?: Error | null) => void) => void;
-    };
-    if (typeof configurablePort.set !== 'function') {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      configurablePort.set?.({ dtr: false, rts: false }, (error) => {
-        if (error) {
-          reject(
-            ErrorCatalog.createError('CONNECTION_FAILED', { reason: 'Failed to disable DTR/RTS for RedDot' }, error),
-          );
-          return;
         }
         resolve();
       });
