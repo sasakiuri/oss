@@ -263,7 +263,7 @@ describe('USBDataPipeline', () => {
     });
   });
 
-  describe('processValidatedFrame()', () => {
+  describe('processShotFrame()', () => {
     const redDotConfig: USBConnectionConfig = {
       portName: 'COM3',
       manufacturer: TargetManufacturer.disag(),
@@ -281,7 +281,7 @@ describe('USBDataPipeline', () => {
         mode: Mode.sighting(),
       });
 
-      pipeline.processValidatedFrame(frame, receivedAt, redDotConfig);
+      pipeline.processShotFrame(frame, receivedAt, redDotConfig);
 
       expect(mockDataParser.parse).not.toHaveBeenCalled();
       expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
@@ -309,7 +309,7 @@ describe('USBDataPipeline', () => {
         mode: Mode.match(),
       });
 
-      pipeline.processValidatedFrame(Buffer.alloc(59), receivedAt, pistolConfig);
+      pipeline.processShotFrame(Buffer.alloc(59), receivedAt, pistolConfig);
 
       expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
         expect.any(Object),
@@ -330,7 +330,7 @@ describe('USBDataPipeline', () => {
         mode: Mode.sighting(),
       });
 
-      pipeline.processValidatedFrame(Buffer.alloc(59), receivedAt, redDotConfig);
+      pipeline.processShotFrame(Buffer.alloc(59), receivedAt, redDotConfig);
 
       expect(callOrder).toEqual(['sound', 'data']);
     });
@@ -346,25 +346,15 @@ describe('USBDataPipeline', () => {
         throw new Error('invalid frame');
       });
 
-      pipeline.processValidatedFrame(Buffer.alloc(59), new Date(), redDotConfig);
+      pipeline.processShotFrame(Buffer.alloc(59), new Date(), redDotConfig);
 
       expect(sound).not.toHaveBeenCalled();
       expect(data).not.toHaveBeenCalled();
       expect(error).toHaveBeenCalledWith(expect.objectContaining({ recoverable: true }));
     });
-
-    it('rejects framed data for any other device ID', () => {
-      const error = vi.fn();
-      emitter.on('error', error);
-
-      pipeline.processValidatedFrame(Buffer.alloc(59), new Date(), { ...redDotConfig, deviceId: 'MT201' });
-
-      expect(mockConversionService.convertByDeviceId).not.toHaveBeenCalled();
-      expect(error).toHaveBeenCalledWith(expect.objectContaining({ recoverable: true }));
-    });
   });
 
-  describe('processBpt216Frame()', () => {
+  describe('protocol-independent shot frames', () => {
     const bpt216Config: USBConnectionConfig = {
       portName: 'COM3',
       manufacturer: TargetManufacturer.kohto(),
@@ -382,7 +372,7 @@ describe('USBDataPipeline', () => {
         mode: Mode.match(),
       });
 
-      pipeline.processBpt216Frame(frame, receivedAt, bpt216Config);
+      pipeline.processShotFrame(frame, receivedAt, bpt216Config);
 
       expect(mockDataParser.parse).not.toHaveBeenCalled();
       expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
@@ -410,15 +400,15 @@ describe('USBDataPipeline', () => {
           mode: Mode.match(),
         });
 
-      pipeline.processBpt216Frame(Buffer.from('bad,T'), receivedAt, bpt216Config);
-      pipeline.processBpt216Frame(Buffer.from('10.90,123,-456,0,0,T'), receivedAt, bpt216Config);
+      pipeline.processShotFrame(Buffer.from('bad,T'), receivedAt, bpt216Config);
+      pipeline.processShotFrame(Buffer.from('10.90,123,-456,0,0,T'), receivedAt, bpt216Config);
 
       expect(callOrder).toEqual(['sound', 'data']);
       expect(error).toHaveBeenCalledTimes(1);
       expect(mockConversionService.convertByDeviceId.mock.calls[1]?.[2]).toMatchObject({ shotNumber: 1 });
     });
 
-    it('accepts the legacy BP216 device ID but rejects unrelated devices', () => {
+    it('routes canonical and legacy BPT-216 IDs without device-specific pipeline branches', () => {
       const receivedAt = new Date('2026-08-14T00:00:00.000Z');
       mockConversionService.convertByDeviceId.mockReturnValue({
         impactPoint: new ImpactPoint(0, 0),
@@ -427,21 +417,14 @@ describe('USBDataPipeline', () => {
         mode: Mode.match(),
       });
 
-      pipeline.processBpt216Frame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, {
+      pipeline.processShotFrame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, bpt216Config);
+      pipeline.processShotFrame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, {
         ...bpt216Config,
         deviceId: 'BP216',
       });
-      pipeline.processBpt216Frame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, {
-        ...bpt216Config,
-        deviceId: 'MT201',
-      });
 
-      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledTimes(1);
-      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
-        expect.anything(),
-        'BP216',
-        expect.anything(),
-      );
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledTimes(2);
+      expect(mockConversionService.convertByDeviceId.mock.calls.map((call) => call[1])).toEqual(['BPT216', 'BP216']);
     });
   });
 
@@ -505,84 +488,6 @@ describe('USBDataPipeline', () => {
       const context = mockConversionService.convert.mock.calls[0]![1];
       expect(context.discipline.value).toBe('AIR_RIFLE_10M');
       expect(context.mode.value).toBe('MATCH');
-    });
-  });
-
-  describe('detach()', () => {
-    it('should remove listeners from an attached port', () => {
-      const mockPort = {
-        on: vi.fn(),
-        removeAllListeners: vi.fn(),
-      };
-
-      pipeline.attach(mockPort as any, config);
-
-      pipeline.detach();
-
-      expect(mockPort.removeAllListeners).toHaveBeenCalledWith('data');
-      expect(mockPort.removeAllListeners).toHaveBeenCalledWith('readable');
-    });
-
-    it('should not throw an error when called without an attached port', () => {
-      expect(() => pipeline.detach()).not.toThrow();
-    });
-
-    it('should not throw an error when detaching again after detach', () => {
-      const mockPort = {
-        on: vi.fn(),
-        removeAllListeners: vi.fn(),
-      };
-
-      pipeline.attach(mockPort as any, config);
-      pipeline.detach();
-      pipeline.detach();
-
-      // removeAllListeners is only called on the first detach
-      expect(mockPort.removeAllListeners).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('attach()', () => {
-    it('should attach a data event listener to the port', () => {
-      const mockPort = {
-        on: vi.fn(),
-      };
-
-      pipeline.attach(mockPort as any, config);
-
-      const eventNames = mockPort.on.mock.calls.map((call: unknown[]) => call[0]);
-      expect(eventNames).toContain('data');
-      expect(eventNames).not.toContain('close');
-    });
-
-    it('should call processReceivedData on data event', () => {
-      const mockPort = {
-        on: vi.fn(),
-      };
-      const rawData = {
-        raw: Buffer.from('test'),
-        timestamp: new Date(),
-        manufacturer: TargetManufacturer.custom(),
-      };
-      mockDataParser.parse.mockReturnValue([rawData]);
-      mockConversionService.convert.mockReturnValue({
-        impactPoint: new ImpactPoint(1.0, 2.0),
-        score: new Score(100),
-        timestamp: new Date(),
-        mode: Mode.match(),
-      });
-
-      const dataCallback = vi.fn();
-      emitter.on('data', dataCallback);
-
-      pipeline.attach(mockPort as any, config);
-
-      // Get the data listener and invoke it
-      const dataCall = mockPort.on.mock.calls.find((call: unknown[]) => call[0] === 'data');
-      const dataHandler = dataCall![1] as (...args: unknown[]) => void;
-      dataHandler(Buffer.from('test'));
-
-      expect(dataCallback).toHaveBeenCalledTimes(1);
     });
   });
 });

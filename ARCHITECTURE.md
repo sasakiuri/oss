@@ -47,8 +47,8 @@ Each feature module contains `domain/`, `application/`, `infra/` layers and a
 ```
 modules/
 ├── session/        Session aggregation, scoring, series management
-├── connection/     USB serial lifecycle, device detection, data pipeline
-├── target/         Manufacturer protocol parsing, coordinate conversion (adapters)
+├── connection/     USB lifecycle, target protocol sessions, data pipeline
+├── target/         Shot record parsing, coordinate conversion (adapters)
 ├── competition/    5-phase state machine, timer, discipline rules
 ├── mqtt/           Broker connectivity, command/event pub-sub, RPC
 ├── report/         Score sheet generation, print window
@@ -161,44 +161,48 @@ Shot data flows from hardware to UI through the following pipeline:
 USB Serial Port
       │
       ▼
-USBDeviceDetector ──► USBConnectionLifecycle ──► USBDataPipeline
-                                                      │
-                                                      ▼
-                                          SerialDataParser (dispatcher)
-                                                      │
-                                          ┌───────────┼───────────┐
-                                          ▼           ▼           ▼
-                                    KohtoFormat  SiusFormat  MeytonFormat ...
-                                    Parser       Parser      Parser
-                                          │           │           │
-                                          └───────────┼───────────┘
-                                                      ▼
-                                          DataConversionService
-                                                      │
-                                          ┌───────────┼───────────┐
-                                          ▼           ▼           ▼
-                                    MT201        Sius        Meyton  ...
-                                    Adapter      Adapter     Adapter
-                                          │           │           │
-                                          └───────────┼───────────┘
-                                                      ▼
-                                              Domain Shot object
-                                                      │
-                                                      ▼
-                                    TypedEventBus (shot:received event)
-                                          ┌───────────┼───────────┐
-                                          ▼           ▼           ▼
-                                    Session       MQTT        Renderer
-                                    Module        Module      (via IPC)
+USBDeviceDetector ──► USBConnectionLifecycle
+                              │
+                              ▼
+                    TargetProtocolRegistry
+                    ┌─────────┼──────────┐
+                    ▼         ▼          ▼
+              MT201 direct  BPT-216   RedDot
+              stream        framing   handshake/polling
+                    │         │          │
+                    └─────────┼──────────┘
+                              ▼
+                       USBDataPipeline
+                    stream │      │ shot frame
+                           ▼      │
+                  SerialDataParser│
+                           └──┬───┘
+                              ▼
+                  DataConversionService
+                    ┌─────────┼──────────┐
+                    ▼         ▼          ▼
+                  MT201    BPT-216     DISAG ...
+                  Adapter   Adapter     Adapter
+                    └─────────┼──────────┘
+                              ▼
+                      Domain Shot object
+                              │
+                              ▼
+                 TypedEventBus (shot:received)
+                    ┌─────────┼──────────┐
+                    ▼         ▼          ▼
+                 Session     MQTT     Renderer
+                 Module      Module   (via IPC)
 ```
 
 Key stages:
 
 1. **Detection** -- `USBDeviceDetector` enumerates serial ports.
-2. **Connection** -- `USBConnectionLifecycle` manages open/close; `USBDataPipeline` buffers incoming bytes.
-3. **Parsing** -- `SerialDataParser` dispatches to manufacturer-specific parsers (Strategy pattern).
-4. **Adaptation** -- `DataConversionService` routes parsed data to the correct adapter, which converts raw coordinates into domain `Shot` objects.
-5. **Distribution** -- The `TypedEventBus` broadcasts shot events; subscriber modules (session, MQTT, renderer) react independently.
+2. **Connection** -- `USBConnectionLifecycle` owns only OS port open/close and reconnection.
+3. **Protocol** -- `TargetProtocolRegistry` selects the hardware contract. MT-201 keeps the established direct stream; BPT-216 delimits terminal records; RedDot owns initialization, polling, and replies.
+4. **Parsing** -- Direct streams use `SerialDataParser`; framed protocols pass accepted shot frames directly to `USBDataPipeline`.
+5. **Adaptation** -- `DataConversionService` routes data to the device adapter, which creates domain `Shot` objects.
+6. **Distribution** -- The `TypedEventBus` broadcasts shot events; subscriber modules (session, MQTT, renderer) react independently.
 
 ### Event Flow: Main to Renderer
 

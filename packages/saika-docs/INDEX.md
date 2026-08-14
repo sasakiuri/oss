@@ -9,6 +9,7 @@
 - [テストシナリオ](./lane/TESTS.md)
 - [実装変更履歴](./lane/HISTORY.md)
 - [MT201受信互換仕様](./lane/devices/kohto/mt201/README.md)
+- [BPT-216受信互換仕様（MT-201比較表を含む）](./lane/devices/kohto/bpt216/README.md)
 - [DISAG RedDot受信互換・実装仕様](./lane/devices/disag/reddot/README.md)
 
 ## 共通資料

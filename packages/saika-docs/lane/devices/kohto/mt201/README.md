@@ -26,6 +26,8 @@
 データ表現や変換係数は、メーカー仕様として引用するものではなく、Saika公開実装の現在の挙動である。
 
 標的面と採点データについては [標的・採点データ](../../../../common/TARGET_SPEC.md) も参照する。
+BPT-216との実装差分は
+[MT-201とのシグナル受信・処理比較](../bpt216/README.md#6-mt-201とのシグナル受信処理比較) にまとめる。
 
 ### 1.2 対象外
 
@@ -192,6 +194,7 @@ issueやfixtureへ実データをそのまま貼らない。
 
 確認対象:
 
+- [MT-201直結プロトコル](../../../../../saika-lane/src/main/modules/connection/infra/usb/protocol/DirectSerialTargetProtocol.ts)
 - [レコード構文テスト](../../../../../saika-lane/tests/unit/modules/target/adapters/mt201/MT201DataParser.test.ts)
 - [座標変換テスト](../../../../../saika-lane/tests/unit/modules/target/adapters/mt201/MT201CoordinateConverter.test.ts)
 - [アダプターテスト](../../../../../saika-lane/tests/unit/modules/target/adapters/MT201Adapter.test.ts)

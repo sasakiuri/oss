@@ -523,15 +523,17 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
 
 ### 10.1 責務と推奨ファイル
 
-| コンポーネント              | 推奨配置                                               | 責務                                       |
-| --------------------------- | ------------------------------------------------------ | ------------------------------------------ |
-| `RedDotStreamScanner`       | `target/infra/parsers/disag/RedDotStreamScanner.ts`    | chunk結合、候補抽出、decoder呼出し、再同期 |
-| `RedDotChecksum`            | `target/infra/parsers/disag/RedDotChecksum.ts`         | BCC算出と照合                              |
-| `RedDotFrameDecoder`        | `target/adapters/disag/RedDotFrameDecoder.ts`          | 固定offset検証、ASCIIと数値のDTO化         |
-| `RedDotCoordinateConverter` | `target/adapters/disag/RedDotCoordinateConverter.ts`   | raw座標からmmへの変換                      |
-| `DisagAdapter`              | `target/adapters/DisagAdapter.ts`                      | context検証と `Shot` 生成                  |
-| `RedDotProtocolSession`     | `connection/infra/usb/reddot/RedDotProtocolSession.ts` | 標的種別、ENQ、ACK/NAK、timer、write直列化 |
-| `USBConnectionManager`      | 既存ファイル                                           | device IDで通常pipeline/sessionを選択      |
+| コンポーネント              | 推奨配置                                                  | 責務                                       |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| `RedDotStreamScanner`       | `target/infra/parsers/disag/RedDotStreamScanner.ts`       | chunk結合、候補抽出、decoder呼出し、再同期 |
+| `RedDotChecksum`            | `target/infra/parsers/disag/RedDotChecksum.ts`            | BCC算出と照合                              |
+| `RedDotFrameDecoder`        | `target/adapters/disag/RedDotFrameDecoder.ts`             | 固定offset検証、ASCIIと数値のDTO化         |
+| `RedDotCoordinateConverter` | `target/adapters/disag/RedDotCoordinateConverter.ts`      | raw座標からmmへの変換                      |
+| `DisagAdapter`              | `target/adapters/DisagAdapter.ts`                         | context検証と `Shot` 生成                  |
+| `RedDotProtocolSession`     | `connection/infra/usb/reddot/RedDotProtocolSession.ts`    | 標的種別、ENQ、ACK/NAK、timer、write直列化 |
+| `RedDotTargetProtocol`      | `connection/infra/usb/reddot/RedDotTargetProtocol.ts`     | 機種検証、port設定、session・mode操作      |
+| `TargetProtocolRegistry`    | `connection/infra/usb/protocol/TargetProtocolRegistry.ts` | device IDからhardware protocolを選択       |
+| `USBConnectionManager`      | 既存ファイル                                              | protocol lifecycleとpipelineを接続         |
 
 ファイル名は変更してよいが、scanner、意味decoder、protocol sessionの責務境界は保つ。
 
@@ -551,11 +553,11 @@ raw hexは開発者が明示的に有効化したdebugログだけに限定し�
 4. [`target.module.ts`](../../../../../saika-lane/src/main/modules/target/target.module.ts) でDISAG
    adapterをメーカーID `DISAG` へ登録し、Rifle/Pistol両方のdevice IDを割り当てる。
    `DISAG_DEFAULT` はこのadapterへ割り当てない。
-5. [`USBConnectionManager.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionManager.ts)
-   はいずれかのRedDot device IDのとき、Rifle/Pistolをwire target typeへ対応付けてprotocol sessionを開始し、
-   有効フレームだけをpipelineへ渡す。他デバイスは現在の直接受信経路を維持する。
-6. [`USBConnectionLifecycle.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBConnectionLifecycle.ts)
-   の `sendMode()` をdevice-awareにし、RedDotではno-opにする。open後のDTR/RTS設定もここで行う。
+5. [`TargetProtocolRegistry.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/protocol/TargetProtocolRegistry.ts)
+   がdevice IDからRedDot protocolを選び、`RedDotTargetProtocol` がRifle/Pistolをwire target typeへ
+   対応付けてsessionを開始する。有効フレームだけをpipelineへ渡す。
+6. [`RedDotTargetProtocol.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/reddot/RedDotTargetProtocol.ts)
+   がopen後のDTR/RTS設定、接続前・frameごとの種目検証、RedDotでの `sendMode()` no-opを所有する。
 7. [`USBDataPipeline.ts`](../../../../../saika-lane/src/main/modules/connection/infra/usb/USBDataPipeline.ts)
    は、既に検証・フレーミング済みの `Buffer` と受信時刻を処理できる入口を持つ。RedDotでは
    `SerialDataParser` のstream bufferへ再投入せず、その2値からimmutableな `RawData` を作って変換する。

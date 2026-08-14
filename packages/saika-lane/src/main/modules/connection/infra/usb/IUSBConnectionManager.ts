@@ -2,9 +2,11 @@
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
+import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 
-import type { SessionContextProvider } from './USBDataPipeline';
+/** Synchronously supplies the discipline and mode of the active competition. */
+export type SessionContextProvider = () => Pick<AdapterContext, 'discipline' | 'mode'>;
 
 export interface USBConnectionEvents {
   connected: Connection;
