@@ -17,11 +17,11 @@ const MANUFACTURER_OPTIONS: SelectOption[] = [
 const DEVICE_OPTIONS: TargetDeviceDto[] = [
   { id: 'mt201', manufacturer: 'KOHTO', displayName: 'MT201', baudRate: 9600, supportedDisciplines: ['AIR_RIFLE_10M'] },
   {
-    id: 'bp216',
+    id: 'bpt216',
     manufacturer: 'KOHTO',
-    displayName: 'BP216',
-    baudRate: 9600,
-    supportedDisciplines: ['AIR_PISTOL_10M'],
+    displayName: 'BPT-216',
+    baudRate: 115200,
+    supportedDisciplines: ['BEAM_PISTOL_10M'],
   },
 ];
 
@@ -66,7 +66,7 @@ describe('DeviceSelector', () => {
       render(<DeviceSelector {...defaultProps()} />);
 
       expect(screen.getByText('MT201')).toBeInTheDocument();
-      expect(screen.getByText('BP216')).toBeInTheDocument();
+      expect(screen.getByText('BPT-216')).toBeInTheDocument();
     });
   });
 
@@ -92,9 +92,9 @@ describe('DeviceSelector', () => {
 
       const selects = screen.getAllByRole('combobox');
       // Second combobox is device
-      await user.selectOptions(selects[1]!, 'bp216');
+      await user.selectOptions(selects[1]!, 'bpt216');
 
-      expect(onDeviceChange).toHaveBeenCalledWith('bp216');
+      expect(onDeviceChange).toHaveBeenCalledWith('bpt216');
     });
   });
 

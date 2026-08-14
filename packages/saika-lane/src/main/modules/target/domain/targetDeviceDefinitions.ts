@@ -6,12 +6,19 @@ export const DISAG_RED_DOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
 
 export const DISAG_RED_DOT_DEVICE_IDS = [DISAG_RED_DOT_RIFLE_DEVICE_ID, DISAG_RED_DOT_PISTOL_DEVICE_ID] as const;
 
+export const BPT216_DEVICE_ID = 'BPT216';
+export const LEGACY_BP216_DEVICE_ID = 'BP216';
+
 export type DisagRedDotDeviceId = (typeof DISAG_RED_DOT_DEVICE_IDS)[number];
 export type DisagRedDotDiscipline = 'AIR_RIFLE_10M' | 'AIR_PISTOL_10M';
 export type DisagRedDotTargetType = 'RIFLE' | 'PISTOL';
 
 export function isDisagRedDotDeviceId(deviceId: string | undefined): deviceId is DisagRedDotDeviceId {
   return DISAG_RED_DOT_DEVICE_IDS.some((candidate) => candidate === deviceId);
+}
+
+export function isBpt216DeviceId(deviceId: string | undefined): boolean {
+  return deviceId === BPT216_DEVICE_ID || deviceId === LEGACY_BP216_DEVICE_ID;
 }
 
 export function getDisagRedDotDiscipline(deviceId: string | undefined): DisagRedDotDiscipline | null {
@@ -42,12 +49,14 @@ export function getDisagRedDotTargetType(deviceId: string | undefined): DisagRed
  */
 export interface DeviceDefinition {
   readonly id: string;
+  readonly aliases?: readonly string[];
   readonly manufacturer: 'KOHTO' | 'SIUS' | 'MEYTON' | 'DISAG' | 'CUSTOM';
   readonly modelName: string;
   readonly displayName: string;
   readonly serialConfig: SerialConfig;
   readonly supportedDisciplines: readonly (
     | 'BEAM_RIFLE_10M'
+    | 'BEAM_PISTOL_10M'
     | 'AIR_RIFLE_10M'
     | 'AIR_PISTOL_10M'
     | 'RIFLE_50M'
@@ -65,12 +74,13 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     supportedDisciplines: ['BEAM_RIFLE_10M'],
   },
   {
-    id: 'BP216',
+    id: BPT216_DEVICE_ID,
+    aliases: [LEGACY_BP216_DEVICE_ID],
     manufacturer: 'KOHTO',
-    modelName: 'BP216',
-    displayName: 'Kohto Electronics BP216',
+    modelName: 'BPT-216',
+    displayName: 'Kohto Electronics BPT-216',
     serialConfig: { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['BEAM_RIFLE_10M'],
+    supportedDisciplines: ['BEAM_PISTOL_10M'],
   },
   {
     id: 'HS10',
@@ -126,6 +136,13 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     modelName: 'Custom',
     displayName: 'Custom Device',
     serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M', 'BEAM_RIFLE_10M'],
+    supportedDisciplines: [
+      'AIR_RIFLE_10M',
+      'AIR_PISTOL_10M',
+      'RIFLE_50M',
+      'PISTOL_25M',
+      'BEAM_RIFLE_10M',
+      'BEAM_PISTOL_10M',
+    ],
   },
 ] as const;

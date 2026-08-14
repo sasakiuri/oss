@@ -157,6 +157,36 @@ describe('AppSettingsStore', () => {
     });
   });
 
+  it('migrates the legacy BP216 device ID to canonical BPT216', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        connection: {
+          portName: 'COM10',
+          manufacturer: 'KOHTO',
+          deviceId: 'BP216',
+          serialNumber: 'BPT01',
+          vendorId: '0403',
+          productId: '6001',
+        },
+        userPreferences: { discipline: 'BEAM_PISTOL_10M' },
+        mqtt: {},
+      }),
+      'utf8',
+    );
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection).toMatchObject({
+      portName: 'COM10',
+      manufacturer: 'KOHTO',
+      deviceId: 'BPT216',
+    });
+    expect(settings.userPreferences.discipline).toBe('BEAM_PISTOL_10M');
+    expect(JSON.parse(readFileSync(filePath, 'utf8')).connection.deviceId).toBe('BPT216');
+  });
+
   it('rebuilds settings from legacy storage when settings.json exists but is empty', () => {
     storage.set('connectionSettings', {
       portName: 'COM3',

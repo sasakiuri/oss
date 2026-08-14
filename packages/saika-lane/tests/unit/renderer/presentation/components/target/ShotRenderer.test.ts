@@ -45,6 +45,7 @@ describe('ShotRenderer', () => {
       { discipline: 'BEAM_RIFLE_10M', expectedRadius: 3.0 },
       { discipline: 'AIR_RIFLE_10M', expectedRadius: 2.25 },
       { discipline: 'AIR_PISTOL_10M', expectedRadius: 2.25 },
+      { discipline: 'BEAM_PISTOL_10M', expectedRadius: 2.25 },
       { discipline: 'RIFLE_50M', expectedRadius: 2.8 },
       { discipline: 'PISTOL_25M', expectedRadius: 4.5 },
     ];

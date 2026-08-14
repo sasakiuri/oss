@@ -32,7 +32,14 @@ describe('SessionStorageSchema', () => {
   });
 
   it('should accept all discipline types', () => {
-    const disciplines = ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M', 'BEAM_RIFLE_10M'];
+    const disciplines = [
+      'AIR_RIFLE_10M',
+      'AIR_PISTOL_10M',
+      'RIFLE_50M',
+      'PISTOL_25M',
+      'BEAM_RIFLE_10M',
+      'BEAM_PISTOL_10M',
+    ];
     for (const discipline of disciplines) {
       const data = { ...validSessionData, discipline };
       const result = SessionStorageSchema.safeParse(data);

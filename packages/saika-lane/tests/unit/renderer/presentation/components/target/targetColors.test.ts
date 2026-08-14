@@ -5,8 +5,15 @@ import { getTargetZoneConfig } from '@/renderer/presentation/components/target/t
 
 describe('targetColors', () => {
   describe('getTargetZoneConfig', () => {
-    it('config can be retrieved for all 5 disciplines', () => {
-      const disciplines = ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M', 'BEAM_RIFLE_10M'] as const;
+    it('config can be retrieved for all 6 disciplines', () => {
+      const disciplines = [
+        'AIR_RIFLE_10M',
+        'AIR_PISTOL_10M',
+        'RIFLE_50M',
+        'PISTOL_25M',
+        'BEAM_RIFLE_10M',
+        'BEAM_PISTOL_10M',
+      ] as const;
 
       for (const d of disciplines) {
         const config = getTargetZoneConfig(d);
@@ -25,6 +32,7 @@ describe('targetColors', () => {
 
     it('pistol disciplines have innerZoneStartScore=7', () => {
       expect(getTargetZoneConfig('AIR_PISTOL_10M').innerZoneStartScore).toBe(7);
+      expect(getTargetZoneConfig('BEAM_PISTOL_10M').innerZoneStartScore).toBe(7);
       expect(getTargetZoneConfig('PISTOL_25M').innerZoneStartScore).toBe(7);
     });
 

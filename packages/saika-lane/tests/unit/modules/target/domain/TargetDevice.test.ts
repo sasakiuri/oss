@@ -85,13 +85,13 @@ describe('TargetDevice value object', () => {
       });
     });
 
-    describe('BP216', () => {
-      it('should correctly create a BP216 device', () => {
-        const device = TargetDevice.fromId('BP216');
-        expect(device.id).toBe('BP216');
+    describe('BPT216', () => {
+      it('should correctly create a BPT-216 device', () => {
+        const device = TargetDevice.fromId('BPT216');
+        expect(device.id).toBe('BPT216');
         expect(device.manufacturer.equals(TargetManufacturer.kohto())).toBe(true);
-        expect(device.modelName).toBe('BP216');
-        expect(device.displayName).toBe('Kohto Electronics BP216');
+        expect(device.modelName).toBe('BPT-216');
+        expect(device.displayName).toBe('Kohto Electronics BPT-216');
         expect(device.baudRate).toBe(115200);
         expect(device.dataBits).toBe(8);
         expect(device.stopBits).toBe(1);
@@ -99,13 +99,18 @@ describe('TargetDevice value object', () => {
         expect(device.supportedDisciplines).toHaveLength(1);
       });
 
-      it('should support beam rifle only for BP216', () => {
-        const device = TargetDevice.fromId('BP216');
-        expect(device.supportsDiscipline(Discipline.beamRifle10m())).toBe(true);
+      it('should support Beam Pistol only for BPT-216', () => {
+        const device = TargetDevice.fromId('BPT216');
+        expect(device.supportsDiscipline(Discipline.beamPistol10m())).toBe(true);
+        expect(device.supportsDiscipline(Discipline.beamRifle10m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.airRifle10m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.airPistol10m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.rifle50m())).toBe(false);
         expect(device.supportsDiscipline(Discipline.pistol25m())).toBe(false);
+      });
+
+      it('canonicalizes the legacy BP216 ID', () => {
+        expect(TargetDevice.fromId('BP216').id).toBe('BPT216');
       });
     });
 
@@ -260,7 +265,7 @@ describe('TargetDevice value object', () => {
         expect(device.dataBits).toBe(8);
         expect(device.stopBits).toBe(1);
         expect(device.parity).toBe('none');
-        expect(device.supportedDisciplines).toHaveLength(5);
+        expect(device.supportedDisciplines).toHaveLength(6);
       });
 
       it('should support all disciplines for Custom Device', () => {
@@ -270,6 +275,7 @@ describe('TargetDevice value object', () => {
         expect(device.supportsDiscipline(Discipline.rifle50m())).toBe(true);
         expect(device.supportsDiscipline(Discipline.pistol25m())).toBe(true);
         expect(device.supportsDiscipline(Discipline.beamRifle10m())).toBe(true);
+        expect(device.supportsDiscipline(Discipline.beamPistol10m())).toBe(true);
       });
     });
   });
@@ -281,7 +287,7 @@ describe('TargetDevice value object', () => {
     describe('Normal cases', () => {
       it.each([
         ['MT201', 'Kohto Electronics MT201'],
-        ['BP216', 'Kohto Electronics BP216'],
+        ['BPT216', 'Kohto Electronics BPT-216'],
         ['HS10', 'SIUS HS10'],
         ['HS25', 'SIUS HS25'],
         ['MEYTON_DEFAULT', 'Meyton Standard'],
@@ -346,7 +352,7 @@ describe('TargetDevice value object', () => {
       expect(devices).toHaveLength(2);
       expect(devices.every((d) => d.manufacturer.value === 'KOHTO')).toBe(true);
       expect(devices.some((d) => d.id === 'MT201')).toBe(true);
-      expect(devices.some((d) => d.id === 'BP216')).toBe(true);
+      expect(devices.some((d) => d.id === 'BPT216')).toBe(true);
     });
 
     it('should retrieve the list of SIUS devices', () => {
@@ -400,7 +406,7 @@ describe('TargetDevice value object', () => {
       const devices = TargetDevice.getAll();
       const ids = devices.map((d) => d.id);
       expect(ids).toContain('MT201');
-      expect(ids).toContain('BP216');
+      expect(ids).toContain('BPT216');
       expect(ids).toContain('HS10');
       expect(ids).toContain('HS25');
       expect(ids).toContain('MEYTON_DEFAULT');
@@ -442,6 +448,7 @@ describe('TargetDevice value object', () => {
       expect(device.supportsDiscipline(Discipline.rifle50m())).toBe(true);
       expect(device.supportsDiscipline(Discipline.pistol25m())).toBe(true);
       expect(device.supportsDiscipline(Discipline.beamRifle10m())).toBe(true);
+      expect(device.supportsDiscipline(Discipline.beamPistol10m())).toBe(true);
     });
   });
 
@@ -457,7 +464,7 @@ describe('TargetDevice value object', () => {
 
     it('should return false when comparing different devices', () => {
       const device1 = TargetDevice.fromId('MT201');
-      const device2 = TargetDevice.fromId('BP216');
+      const device2 = TargetDevice.fromId('BPT216');
       expect(device1.equals(device2)).toBe(false);
     });
 
@@ -486,8 +493,8 @@ describe('TargetDevice value object', () => {
       expect(config.parity).toBe('none');
     });
 
-    it('should retrieve BP216 serial config (high-speed communication)', () => {
-      const device = TargetDevice.fromId('BP216');
+    it('should retrieve BPT-216 serial config (high-speed communication)', () => {
+      const device = TargetDevice.fromId('BPT216');
       const config = device.getSerialConfig();
       expect(config.baudRate).toBe(115200);
       expect(config.dataBits).toBe(8);
@@ -521,7 +528,7 @@ describe('TargetDevice value object', () => {
     it('should have readonly properties', () => {
       const device = TargetDevice.fromId('MT201');
       expect(() => {
-        (device as any).id = 'BP216';
+        (device as any).id = 'BPT216';
       }).toThrow();
     });
 
@@ -572,7 +579,7 @@ describe('TargetDevice value object', () => {
   describe('Serial config diversity', () => {
     it('should have correct baud rates for each device', () => {
       expect(TargetDevice.fromId('MT201').baudRate).toBe(9600);
-      expect(TargetDevice.fromId('BP216').baudRate).toBe(115200);
+      expect(TargetDevice.fromId('BPT216').baudRate).toBe(115200);
       expect(TargetDevice.fromId('HS10').baudRate).toBe(9600);
       expect(TargetDevice.fromId('HS25').baudRate).toBe(9600);
       expect(TargetDevice.fromId('MEYTON_DEFAULT').baudRate).toBe(19200);
@@ -610,7 +617,7 @@ describe('TargetDevice value object', () => {
   describe('Device display names', () => {
     it('should have appropriate display names for each device', () => {
       expect(TargetDevice.fromId('MT201').displayName).toBe('Kohto Electronics MT201');
-      expect(TargetDevice.fromId('BP216').displayName).toBe('Kohto Electronics BP216');
+      expect(TargetDevice.fromId('BPT216').displayName).toBe('Kohto Electronics BPT-216');
       expect(TargetDevice.fromId('HS10').displayName).toBe('SIUS HS10');
       expect(TargetDevice.fromId('HS25').displayName).toBe('SIUS HS25');
       expect(TargetDevice.fromId('MEYTON_DEFAULT').displayName).toBe('Meyton Standard');

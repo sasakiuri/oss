@@ -7,7 +7,7 @@
 外部資料は複製せず、参照先のみを示します。規則や製品情報は更新されるため、利用時に最新版を
 確認してください。
 
-外部一次情報の最終確認日: 2026-08-13
+外部一次情報の最終確認日: 2026-08-14
 
 - [公益社団法人日本ライフル射撃協会 — 競技規則](https://www.riflesports.jp/support/rule/)
 - [公益社団法人日本ライフル射撃協会 — 協会規程](https://www.riflesports.jp/knowledge/regulations/)
@@ -22,6 +22,7 @@
 - [DISAG — JSON Liveインターフェース仕様](https://dokumentation.disag.de/wp-content/uploads/2020/11/DISAG-JSON-Liveschnittstelle_Extended.pdf)
 - [DISAG — RM IV 取扱説明書](https://www.disag.de/download/manuals/rmiv_de.pdf)
 - [興東電子株式会社 — ビームライフル装置](https://kohto.co.jp/beam03.html)
+- [興東電子株式会社 — ビームピストル装置](https://kohto.co.jp/beam04.html)
 - [`@sasakiuri/saika-lane` の実装とテスト](../saika-lane/)
 
 ## リポジトリ内の実装根拠
@@ -32,6 +33,9 @@
 - [MT201レコードパーサー](../saika-lane/src/main/modules/target/adapters/mt201/MT201DataParser.ts)
 - [MT201座標変換](../saika-lane/src/main/modules/target/adapters/mt201/MT201CoordinateConverter.ts)
 - [Kohto受信フレーミング](../saika-lane/src/main/modules/target/infra/parsers/KohtoFormatParser.ts)
+- [BPT-216アダプター](../saika-lane/src/main/modules/target/adapters/BPT216Adapter.ts)
+- [BPT-216レコードパーサー](../saika-lane/src/main/modules/target/adapters/bpt216/BPT216DataParser.ts)
+- [BPT-216受信セッション](../saika-lane/src/main/modules/connection/infra/usb/bpt216/BPT216ProtocolSession.ts)
 
 ## データの扱い
 
@@ -42,6 +46,10 @@
 `lane/devices/kohto/mt201/README.md` はメーカーの公式通信仕様ではなく、公開Saika実装の入力契約を
 独自に説明したものです。`common/PRINT_SPEC.md` のDirector向け部分は設計資料であり、現行OSSに
 対応実装があることを示しません。
+
+`lane/devices/kohto/bpt216/README.md` は、利用者から相互運用解析用に提供された公式V201アプリの
+静的解析結果を、独自実装に必要な範囲で説明したものです。公式配布物、逆コンパイル結果、実機ログは
+収録せず、文書とテストの入力例には合成データだけを使用しています。
 
 `lane/devices/disag/reddot/README.md` はメーカーの公式通信仕様ではありません。メーカー公開資料と
 独立した相互運用確認を区別し、Saikaが実装する受理形式、状態機械、座標変換、受入条件を独自に

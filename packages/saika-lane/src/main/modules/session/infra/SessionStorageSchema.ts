@@ -41,6 +41,7 @@ export const SessionStorageSchema = z.object({
     z.literal('RIFLE_50M'),
     z.literal('PISTOL_25M'),
     z.literal('BEAM_RIFLE_10M'),
+    z.literal('BEAM_PISTOL_10M'),
   ]),
   mode: z.union([z.literal('SIGHTING'), z.literal('MATCH')]),
   series: z.array(SeriesStorageSchema),

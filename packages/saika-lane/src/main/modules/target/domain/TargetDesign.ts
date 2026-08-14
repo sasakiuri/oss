@@ -55,6 +55,7 @@ export class TargetDesign {
   /** Bullet radius per discipline (mm) — per TARGET_SPEC.md */
   static readonly SHOT_RADIUS: Record<string, number> = {
     BEAM_RIFLE_10M: 3.0, // Beam diameter 6.0mm
+    BEAM_PISTOL_10M: 2.25, // Virtual projectile diameter 4.5mm
     AIR_RIFLE_10M: 2.25, // Bullet diameter 4.5mm
     AIR_PISTOL_10M: 2.25, // Bullet diameter 4.5mm
     RIFLE_50M: 2.8, // Bullet diameter 5.6mm
@@ -261,7 +262,7 @@ export class TargetDesign {
       };
     }
 
-    if (disciplineValue === 'AIR_PISTOL_10M') {
+    if (disciplineValue === 'AIR_PISTOL_10M' || disciplineValue === 'BEAM_PISTOL_10M') {
       return {
         rings: this.generateDecimalRings(this.AIR_PISTOL_SPEC, shotRadius),
         xRingRadius: this.AIR_PISTOL_SPEC.xRingRadius,

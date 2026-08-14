@@ -11,6 +11,7 @@ describe('scoreUtils', () => {
       expect(DISCIPLINE_LABELS.RIFLE_50M).toBe('50m Rifle');
       expect(DISCIPLINE_LABELS.PISTOL_25M).toBe('25m Pistol');
       expect(DISCIPLINE_LABELS.BEAM_RIFLE_10M).toBe('10m Beam Rifle');
+      expect(DISCIPLINE_LABELS.BEAM_PISTOL_10M).toBe('10m Beam Pistol');
     });
   });
 

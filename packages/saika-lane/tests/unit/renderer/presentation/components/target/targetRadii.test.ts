@@ -5,10 +5,11 @@ import { getTargetRadii, TARGET_RADII } from '@/renderer/presentation/components
 
 describe('targetRadii', () => {
   describe('TARGET_RADII', () => {
-    it('data exists for all 5 disciplines', () => {
+    it('data exists for all 6 disciplines', () => {
       expect(TARGET_RADII.AIR_RIFLE_10M).toBeDefined();
       expect(TARGET_RADII.AIR_PISTOL_10M).toBeDefined();
       expect(TARGET_RADII.BEAM_RIFLE_10M).toBeDefined();
+      expect(TARGET_RADII.BEAM_PISTOL_10M).toEqual(TARGET_RADII.AIR_PISTOL_10M);
       expect(TARGET_RADII.RIFLE_50M).toBeDefined();
       expect(TARGET_RADII.PISTOL_25M).toBeDefined();
     });

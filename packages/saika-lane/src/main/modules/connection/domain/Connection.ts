@@ -36,7 +36,7 @@ export class Connection {
   readonly baudRate: number;
 
   /**
-   * Device ID (optional, e.g. MT201, BP216, HS10)
+   * Device ID (optional, e.g. MT201, BPT216, HS10)
    * Used to select the adapter during data conversion
    */
   readonly deviceId: string | null;

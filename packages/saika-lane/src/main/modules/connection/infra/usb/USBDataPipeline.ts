@@ -3,7 +3,7 @@ import { app } from 'electron';
 import type { SerialPort } from 'serialport';
 
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
-import { isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { isBpt216DeviceId, isDisagRedDotDeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -186,10 +186,25 @@ export class USBDataPipeline {
    * trigger shot notifications.
    */
   processValidatedFrame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
+    this.processDeviceFrame(frame, receivedAt, config, isDisagRedDotDeviceId(config.deviceId), 'RedDot');
+  }
+
+  /** Processes one newline-delimited BPT-216 shot frame. */
+  processBpt216Frame(frame: Buffer, receivedAt: Date, config: USBConnectionConfig): void {
+    this.processDeviceFrame(frame, receivedAt, config, isBpt216DeviceId(config.deviceId), 'BPT-216');
+  }
+
+  private processDeviceFrame(
+    frame: Buffer,
+    receivedAt: Date,
+    config: USBConnectionConfig,
+    supportedDevice: boolean,
+    protocolName: string,
+  ): void {
     try {
-      if (!isDisagRedDotDeviceId(config.deviceId)) {
+      if (!supportedDevice) {
         throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
-          reason: 'Validated RedDot frames require a supported RedDot device ID',
+          reason: `Validated ${protocolName} frames require a supported device ID`,
           deviceId: config.deviceId,
         });
       }
@@ -219,9 +234,9 @@ export class USBDataPipeline {
       }
 
       const { discipline, mode } = this.sessionContextProvider();
-      this.shotNumberCounter++;
+      const shotNumber = this.shotNumberCounter + 1;
       const context: AdapterContext = {
-        shotNumber: this.shotNumberCounter,
+        shotNumber,
         discipline,
         mode,
       };
@@ -230,6 +245,7 @@ export class USBDataPipeline {
       const shot = deviceId
         ? this.dataConversionService.convertByDeviceId(rawData, deviceId, context)
         : this.dataConversionService.convert(rawData, context);
+      this.shotNumberCounter = shotNumber;
 
       const shotData: ShotData = {
         x: shot.impactPoint !== null ? shot.impactPoint.x : null,

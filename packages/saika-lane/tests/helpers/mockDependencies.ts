@@ -282,6 +282,7 @@ export function createMockAdapterRegistry(): AdapterRegistry {
     getAdapterCount: vi.fn(() => adapters.size),
     getAdapter: vi.fn((id: string) => adapters.get(id)),
     assignDeviceAdapter: vi.fn(),
+    registerDeviceAdapter: vi.fn(),
     getAdapterByDeviceId: vi.fn(),
     getRegisteredManufacturerIds: vi.fn(() => Array.from(adapters.keys())),
     getRegisteredDeviceIds: vi.fn(() => []),

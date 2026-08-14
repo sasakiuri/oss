@@ -104,6 +104,7 @@ describe('createStartCompetitionHandler', () => {
 
       const savedSession = vi.mocked(mockSessionRepo.save).mock.calls[0]![0];
       expect(savedSession.scoringMode).toBe('RING');
+      expect(savedSession.discipline.value).toBe('BEAM_PISTOL_10M');
     });
 
     it('should call Session.create() with DECIMAL scoringMode when starting a BR60S competition', async () => {

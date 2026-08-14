@@ -7,6 +7,7 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
+import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { CustomAdapter } from '@/main/modules/target/adapters/CustomAdapter';
 import type { ITargetAdapter } from '@/main/modules/target/adapters/ITargetAdapter';
 import { MT201Adapter } from '@/main/modules/target/adapters/MT201Adapter';
@@ -66,10 +67,12 @@ describe('DataConversionService', () => {
     // Register adapters (mirrors target.module.ts)
     const customAdapter = new CustomAdapter();
     const mt201Adapter = new MT201Adapter();
+    const bpt216Adapter = new BPT216Adapter();
     registry.registerAdapter(TargetManufacturer.custom().value, customAdapter);
     registry.registerAdapter(TargetManufacturer.kohto().value, mt201Adapter);
     registry.assignDeviceAdapter('MT201', TargetManufacturer.kohto().value);
-    registry.assignDeviceAdapter('BP216', TargetManufacturer.kohto().value);
+    registry.registerDeviceAdapter('BPT216', bpt216Adapter);
+    registry.registerDeviceAdapter('BP216', bpt216Adapter);
     registry.assignDeviceAdapter('CUSTOM', TargetManufacturer.custom().value);
 
     service = new DataConversionService(registry);
@@ -204,19 +207,21 @@ describe('DataConversionService', () => {
       }
     });
 
-    it('should convert with BP216 device ID (same as MT201Adapter)', () => {
+    it('should convert with the canonical BPT216 device ID', () => {
       const rawData: RawData = {
-        raw: Buffer.from('R 8.5 0100 0200 70'),
+        raw: Buffer.from('8.50,300,400,0,0,T'),
         timestamp: new Date(),
         manufacturer: TargetManufacturer.kohto(),
       };
 
-      const shot = service.convertByDeviceId(rawData, 'BP216', defaultContext());
+      const shot = service.convertByDeviceId(rawData, 'BPT216', {
+        ...defaultContext(),
+        discipline: Discipline.beamPistol10m(),
+      });
 
       expect(shot).toBeDefined();
       expect(shot.score.value).toBe(85);
-      expect(shot.impactPoint!.x).toBeCloseTo(1.706, 2);
-      expect(shot.impactPoint!.y).toBeCloseTo(3.413, 2);
+      expect(shot.impactPoint).toMatchObject({ x: 3, y: 4 });
     });
 
     it('should accurately distinguish deviceId differences within the same manufacturer', () => {
@@ -227,13 +232,17 @@ describe('DataConversionService', () => {
       };
 
       const rawDataBP216: RawData = {
-        raw: Buffer.from('R 9.0 01C2 0258 70'),
+        raw: Buffer.from('9.00,300,400,0,0,T'),
         timestamp: new Date(),
         manufacturer: TargetManufacturer.kohto(),
       };
 
       const shotMT201 = service.convertByDeviceId(rawDataMT201, 'MT201', { ...defaultContext(), shotNumber: 1 });
-      const shotBP216 = service.convertByDeviceId(rawDataBP216, 'BP216', { ...defaultContext(), shotNumber: 2 });
+      const shotBP216 = service.convertByDeviceId(rawDataBP216, 'BP216', {
+        ...defaultContext(),
+        shotNumber: 2,
+        discipline: Discipline.beamPistol10m(),
+      });
 
       expect(shotMT201.impactPoint!.x).toBeCloseTo(1.0, 2);
       expect(shotMT201.impactPoint!.y).toBeCloseTo(2.0, 2);

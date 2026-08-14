@@ -130,6 +130,7 @@ export function createConnectionIpcHandlers(deps: ConnectionIpcHandlersDeps): In
             | 'RIFLE_50M'
             | 'PISTOL_25M'
             | 'BEAM_RIFLE_10M'
+            | 'BEAM_PISTOL_10M'
           )[],
         })),
       };

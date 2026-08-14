@@ -38,7 +38,7 @@ interface SessionState {
   totalScore: number;
   /** Connected target manufacturer (null when disconnected) */
   manufacturer: string | null;
-  /** Connected device ID (MT201, BP216, etc.; null when disconnected) */
+  /** Connected device ID (MT201, BPT216, etc.; null when disconnected) */
   deviceId: string | null;
   /** Impact sound volume (0-100) */
   audioVolume: number;

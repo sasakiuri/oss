@@ -107,6 +107,7 @@ describe('sessionService', () => {
         'RIFLE_50M',
         'PISTOL_25M',
         'BEAM_RIFLE_10M',
+        'BEAM_PISTOL_10M',
       ] as const) {
         await sessionService.startSession({ discipline });
         expect(mockStartSession).toHaveBeenCalledWith({ discipline });
