@@ -31,6 +31,8 @@ const LEGACY_REDDOT_RIFLE_DEVICE_ID = 'RDT_ZIE1_RIFLE';
 const REDDOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
 const LEGACY_REDDOT_PISTOL_DEVICE_ID = 'RDT_ZIE1_PISTOL';
 const REDDOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
+const LEGACY_BPT216_DEVICE_ID = 'BP216';
+const BPT216_DEVICE_ID = 'BPT216';
 
 export class AppSettingsStore implements IAppSettingsStore {
   private readonly filePath: string;
@@ -306,6 +308,7 @@ export class AppSettingsStore implements IAppSettingsStore {
       : isLegacyRedDotPistol
         ? REDDOT_PISTOL_DEVICE_ID
         : null;
+    const migratedDeviceId = migratedRedDotDeviceId ?? (deviceId === LEGACY_BPT216_DEVICE_ID ? BPT216_DEVICE_ID : null);
     const manufacturer = manufacturerResult.success
       ? manufacturerResult.data
       : connectionSchema.shape.manufacturer.parse(undefined);
@@ -325,7 +328,7 @@ export class AppSettingsStore implements IAppSettingsStore {
     return connectionSchema.parse({
       portName,
       manufacturer: migratedRedDotDeviceId === null ? manufacturer : 'DISAG',
-      deviceId: migratedRedDotDeviceId ?? deviceId,
+      deviceId: migratedDeviceId ?? deviceId,
       serialNumber: this.parseDraftField(connectionSchema.shape.serialNumber, section.serialNumber),
       vendorId: this.parseDraftField(connectionSchema.shape.vendorId, section.vendorId),
       productId: this.parseDraftField(connectionSchema.shape.productId, section.productId),

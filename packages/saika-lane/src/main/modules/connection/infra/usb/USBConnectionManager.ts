@@ -5,6 +5,7 @@ import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import {
+  isBpt216DeviceId,
   getDisagRedDotDiscipline,
   getDisagRedDotTargetType,
   isDisagRedDotDeviceId,
@@ -15,6 +16,7 @@ import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
+import { BPT216ProtocolSession } from './bpt216/BPT216ProtocolSession';
 import type {
   IUSBConnectionManager,
   USBConnectionConfig,
@@ -59,6 +61,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
   private readonly pipeline: USBDataPipeline;
   private sessionContextProvider: SessionContextProvider | null = null;
   private redDotReceiver: { readonly port: SerialPort; readonly session: RedDotProtocolSession } | null = null;
+  private bpt216Receiver: { readonly port: SerialPort; readonly session: BPT216ProtocolSession } | null = null;
 
   constructor(adapterRegistry: AdapterRegistry) {
     this.emitter = new USBEventEmitter();
@@ -121,6 +124,26 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private async attachReceiver(port: SerialPort, config: USBConnectionConfig): Promise<void> {
+    if (isBpt216DeviceId(config.deviceId)) {
+      this.validateBpt216SessionContext(config);
+      const session = new BPT216ProtocolSession(port, {
+        onFrame: (frame, receivedAt) => {
+          try {
+            this.validateBpt216SessionContext(config);
+            this.pipeline.processBpt216Frame(frame, receivedAt, config);
+          } catch (error) {
+            void this.lifecycle.handleConnectionError(port, toError(error));
+          }
+        },
+        onConnectionError: (error) => {
+          void this.lifecycle.handleConnectionError(port, error);
+        },
+      });
+      this.bpt216Receiver = { port, session };
+      session.start();
+      return;
+    }
+
     if (!isDisagRedDotDeviceId(config.deviceId)) {
       this.pipeline.attach(port, config);
       return;
@@ -166,6 +189,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private detachReceivers(): void {
+    this.detachBpt216Receiver();
     this.detachRedDotReceiver();
     this.pipeline.detach();
   }
@@ -175,9 +199,15 @@ export class USBConnectionManager implements IUSBConnectionManager {
     this.redDotReceiver = null;
   }
 
+  private detachBpt216Receiver(): void {
+    this.bpt216Receiver?.session.stop();
+    this.bpt216Receiver = null;
+  }
+
   private validateConfig(config: USBConnectionConfig): void {
     const isDisag = config.manufacturer.value === 'DISAG';
     const isRedDot = isDisagRedDotDeviceId(config.deviceId);
+    const isBpt216 = isBpt216DeviceId(config.deviceId);
 
     if ((isDisag && !isRedDot) || (isRedDot && !isDisag)) {
       throw ErrorCatalog.createError('INVALID_TARGET', {
@@ -189,6 +219,33 @@ export class USBConnectionManager implements IUSBConnectionManager {
 
     if (isRedDot) {
       this.validateRedDotSessionContext(config);
+    }
+    if (isBpt216 && config.manufacturer.value !== 'KOHTO') {
+      throw ErrorCatalog.createError('INVALID_TARGET', {
+        reason: 'BPT-216 requires the KOHTO manufacturer',
+        manufacturer: config.manufacturer.value,
+        deviceId: config.deviceId,
+      });
+    }
+    if (isBpt216) {
+      this.validateBpt216SessionContext(config);
+    }
+  }
+
+  private validateBpt216SessionContext(config: USBConnectionConfig): void {
+    let currentDiscipline = 'NONE';
+    try {
+      currentDiscipline = this.sessionContextProvider?.().discipline.value ?? 'NONE';
+    } catch {
+      // Report the same actionable configuration error for a missing session.
+    }
+
+    if (currentDiscipline !== 'BEAM_PISTOL_10M') {
+      throw ErrorCatalog.createError('INCOMPATIBLE_TARGET_DISCIPLINE', {
+        deviceId: config.deviceId,
+        currentDiscipline,
+        requiredDiscipline: 'BEAM_PISTOL_10M',
+      });
     }
   }
 

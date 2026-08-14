@@ -20,13 +20,13 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 
 登録済み装置と実装状況は [`saika-lane` のREADME](../../saika-lane/README.md#supported-devices) を正とする。第三者製品名は互換性対象を識別するためにのみ使用する。
 
-| メーカー / 種別   | 装置ID                                                  | 実装状況                 |
-| ----------------- | ------------------------------------------------------- | ------------------------ |
-| Kohto Electronics | `MT201`, `BP216`                                        | 対応                     |
-| SIUS              | `HS10`, `HS25`                                          | スタブ                   |
-| Meyton            | `MEYTON_DEFAULT`                                        | スタブ                   |
-| DISAG             | `DISAG_KT_RDT_ZIE_1_RIFLE`, `DISAG_KT_RDT_ZIE_1_PISTOL` | 実装済み（実機検証待ち） |
-| Custom            | `CUSTOM`                                                | 対応                     |
+| メーカー / 種別   | 装置ID                                                  | 実装状況                      |
+| ----------------- | ------------------------------------------------------- | ----------------------------- |
+| Kohto Electronics | `MT201`, `BPT216`                                       | 対応（BPT-216は実機検証待ち） |
+| SIUS              | `HS10`, `HS25`                                          | スタブ                        |
+| Meyton            | `MEYTON_DEFAULT`                                        | スタブ                        |
+| DISAG             | `DISAG_KT_RDT_ZIE_1_RIFLE`, `DISAG_KT_RDT_ZIE_1_PISTOL` | 実装済み（実機検証待ち）      |
+| Custom            | `CUSTOM`                                                | 対応                          |
 
 #### 選択の挙動
 
@@ -35,7 +35,8 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 - 装置を変更すると、ポートリストが自動更新される（利用可能な USB ポートを自動探索）。
 
 > 詳細な標的仕様・スコアリングは [TARGET_SPEC.md](../common/TARGET_SPEC.md)、MT201のSaika側受信形式は
-> [MT201受信互換仕様](./devices/kohto/mt201/README.md) を参照。
+> [MT201受信互換仕様](./devices/kohto/mt201/README.md)、
+> [BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) を参照。
 
 ---
 
@@ -142,12 +143,13 @@ stateDiagram-v2
 - 10点圏（INNER_TEN）は #FFFFFF の白円（塗りつぶしなし）で描画される。
 - ゾーン境界は種目ごとに定義される（下表参照）。各得点圏のリングには上下左右4方向に得点ラベル（1-8点）が印字される。
 
-| 種目           | 外側ゾーン | 内側ゾーン | 10点圏 |
-| -------------- | ---------- | ---------- | ------ |
-| BEAM_RIFLE_10M | 1-3点      | 4-9点      | 10点   |
-| AIR_RIFLE_10M  | 1-3点      | 4-9点      | 10点   |
-| AIR_PISTOL_10M | 1-6点      | 7-9点      | 10点   |
-| RIFLE_50M      | 1-3点      | 4-9点      | 10点   |
+| 種目            | 外側ゾーン | 内側ゾーン | 10点圏 |
+| --------------- | ---------- | ---------- | ------ |
+| BEAM_RIFLE_10M  | 1-3点      | 4-9点      | 10点   |
+| AIR_RIFLE_10M   | 1-3点      | 4-9点      | 10点   |
+| AIR_PISTOL_10M  | 1-6点      | 7-9点      | 10点   |
+| BEAM_PISTOL_10M | 1-6点      | 7-9点      | 10点   |
+| RIFLE_50M       | 1-3点      | 4-9点      | 10点   |
 
 - 着弾円は標的に対して実寸サイズの円で表示される。
 - 着弾円の内部にはショットナンバー（何発目か）が印字される。
@@ -232,13 +234,13 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 #### メーカー一覧
 
-| 表示名            | コード   | 選択可能な装置              | 実装状況                 |
-| ----------------- | -------- | --------------------------- | ------------------------ |
-| Kohto Electronics | `KOHTO`  | MT201, BP216                | 対応                     |
-| SIUS              | `SIUS`   | HS10, HS25                  | スタブ                   |
-| Meyton            | `MEYTON` | Meyton Standard             | スタブ                   |
-| DISAG             | `DISAG`  | DISAG RedDot Rifle / Pistol | 実装済み（実機検証待ち） |
-| Custom            | `CUSTOM` | Custom                      | 対応                     |
+| 表示名            | コード   | 選択可能な装置              | 実装状況                      |
+| ----------------- | -------- | --------------------------- | ----------------------------- |
+| Kohto Electronics | `KOHTO`  | MT201, BPT-216              | 対応（BPT-216は実機検証待ち） |
+| SIUS              | `SIUS`   | HS10, HS25                  | スタブ                        |
+| Meyton            | `MEYTON` | Meyton Standard             | スタブ                        |
+| DISAG             | `DISAG`  | DISAG RedDot Rifle / Pistol | 実装済み（実機検証待ち）      |
+| Custom            | `CUSTOM` | Custom                      | 対応                          |
 
 > 「スタブ」はUI・型・パーサーの骨格が存在することを示し、実機互換性を保証しない。
 > `DISAG_DEFAULT` の内部定義は互換性のため残すが、接続可能なDISAG装置としてUIへ列挙しない。
@@ -257,7 +259,7 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 | 装置ID                      | ボーレート | データビット | ストップビット | パリティ |
 | --------------------------- | ---------: | -----------: | -------------: | -------- |
 | `MT201`                     |       9600 |            8 |              1 | none     |
-| `BP216`                     |     115200 |            8 |              1 | none     |
+| `BPT216`                    |     115200 |            8 |              1 | none     |
 | `HS10`, `HS25`              |       9600 |            8 |              1 | none     |
 | `MEYTON_DEFAULT`            |      19200 |            8 |              1 | none     |
 | `DISAG_DEFAULT`             |       9600 |            8 |              1 | none     |
@@ -271,7 +273,9 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 受信データはメーカー別パーサーでフレーミングし、装置アダプターで共通の `Shot` に変換する。
 MT201については、メーカーの公式通信仕様ではなく、公開実装が受理する入力契約として
-[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。DISAG RedDotについては、
+[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。BPT-216については、公式V201
+アプリケーションの相互運用目的の静的解析から得た必要最小限の挙動を
+[BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) に記録する。DISAG RedDotについては、
 [RedDot受信互換・実装仕様](./devices/disag/reddot/README.md) にポーリング、59 byteフレーム、BCC、
 座標変換、Rifle/Pistolプロファイル、Saikaへの組み込み条件を定義する。RedDotの受信・変換・再接続
 コードと合成fixtureによる自動テストは実装済みである。実portでの複数ショット検証が完了するまでは

@@ -73,7 +73,7 @@ export class DataConversionService {
    * Converts RawData to a Shot using a specified device ID.
    *
    * @param rawData - RawData to convert
-   * @param deviceId - Device ID (MT201, BP216, etc.)
+   * @param deviceId - Device ID (MT201, BPT216, etc.)
    * @param context - Adapter context
    * @returns Converted Shot entity
    * @throws DATA_CONVERSION_ERROR - If no corresponding adapter exists

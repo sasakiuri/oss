@@ -808,13 +808,13 @@ describe('TargetDesign value object', () => {
     });
 
     it('JRSF_BP_10M (xRingRadius=5.0mm): distance 4.99mm should be innerTen=true', () => {
-      const targetDesign = TargetDesign.forDiscipline(Discipline.airPistol10m());
+      const targetDesign = TargetDesign.forDiscipline(Discipline.beamPistol10m());
       const impactPoint = new ImpactPoint(4.99, 0);
       expect(targetDesign.isInnerTen(impactPoint)).toBe(true);
     });
 
     it('JRSF_BP_10M (xRingRadius=5.0mm): distance 5.01mm should be innerTen=false', () => {
-      const targetDesign = TargetDesign.forDiscipline(Discipline.airPistol10m());
+      const targetDesign = TargetDesign.forDiscipline(Discipline.beamPistol10m());
       const impactPoint = new ImpactPoint(5.01, 0);
       expect(targetDesign.isInnerTen(impactPoint)).toBe(false);
     });
@@ -934,6 +934,18 @@ describe('TargetDesign value object', () => {
         const score = targetDesign.calculateScore(impactPoint);
         expect(score.value).toBe(0);
       });
+    });
+  });
+
+  describe('BEAM_PISTOL_10M target geometry', () => {
+    it('uses the JRSF beam-pistol target and virtual 4.5 mm projectile', () => {
+      const beamPistol = TargetDesign.forDiscipline(Discipline.beamPistol10m());
+      const airPistol = TargetDesign.forDiscipline(Discipline.airPistol10m());
+
+      expect(TargetDesign.SHOT_RADIUS.BEAM_PISTOL_10M).toBe(2.25);
+      expect(beamPistol.rings).toEqual(airPistol.rings);
+      expect(beamPistol.xRingRadius).toBe(5.0);
+      expect(beamPistol.calculateScore(new ImpactPoint(8, 0)).value).toBe(100);
     });
   });
 });

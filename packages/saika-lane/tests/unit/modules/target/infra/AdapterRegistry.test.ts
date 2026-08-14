@@ -164,12 +164,23 @@ describe('AdapterRegistry', () => {
       const mockAdapter = new MockAdapter();
       registry.registerAdapter('KOHTO', mockAdapter);
 
-      registry.assignDeviceAdapter('MT201', 'KOHTO');
-      registry.assignDeviceAdapter('BP216', 'KOHTO');
+      registry.assignDeviceAdapter('DEVICE_A', 'KOHTO');
+      registry.assignDeviceAdapter('DEVICE_B', 'KOHTO');
 
-      expect(registry.getAdapterByDeviceId('MT201')).toBe(mockAdapter);
-      expect(registry.getAdapterByDeviceId('BP216')).toBe(mockAdapter);
-      expect(registry.getAdapterByDeviceId('MT201')).toBe(registry.getAdapterByDeviceId('BP216'));
+      expect(registry.getAdapterByDeviceId('DEVICE_A')).toBe(mockAdapter);
+      expect(registry.getAdapterByDeviceId('DEVICE_B')).toBe(mockAdapter);
+      expect(registry.getAdapterByDeviceId('DEVICE_A')).toBe(registry.getAdapterByDeviceId('DEVICE_B'));
+    });
+
+    it('should register a device-specific adapter without replacing the manufacturer fallback', () => {
+      const fallbackAdapter = new MockAdapter();
+      const deviceAdapter = new MockAdapter();
+      registry.registerAdapter('KOHTO', fallbackAdapter);
+
+      registry.registerDeviceAdapter('BPT216', deviceAdapter);
+
+      expect(registry.getAdapter('KOHTO')).toBe(fallbackAdapter);
+      expect(registry.getAdapterByDeviceId('BPT216')).toBe(deviceAdapter);
     });
   });
 
@@ -198,12 +209,12 @@ describe('AdapterRegistry', () => {
     it('should return the list of registered device IDs', () => {
       registry.registerAdapter('KOHTO', new MockAdapter());
       registry.assignDeviceAdapter('MT201', 'KOHTO');
-      registry.assignDeviceAdapter('BP216', 'KOHTO');
+      registry.assignDeviceAdapter('BPT216', 'KOHTO');
 
       const ids = registry.getRegisteredDeviceIds();
 
       expect(ids).toContain('MT201');
-      expect(ids).toContain('BP216');
+      expect(ids).toContain('BPT216');
       expect(ids).toHaveLength(2);
     });
   });

@@ -24,4 +24,5 @@ export const INITIAL_ZOOM: Record<Discipline, number> = {
   RIFLE_50M: 2.0,
   PISTOL_25M: 1.5,
   BEAM_RIFLE_10M: 5.0,
+  BEAM_PISTOL_10M: 3.0,
 } as const;

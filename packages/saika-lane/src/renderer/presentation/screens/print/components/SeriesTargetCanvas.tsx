@@ -8,6 +8,7 @@ import type { Discipline, ScoreSheetShotDto } from '@/shared/ipc/contracts';
 /** Bullet radius per discipline (mm) -- per TARGET_SPEC.md */
 const SHOT_RADIUS_MM: Record<Discipline, number> = {
   BEAM_RIFLE_10M: 3.0,
+  BEAM_PISTOL_10M: 2.25,
   AIR_RIFLE_10M: 2.25,
   AIR_PISTOL_10M: 2.25,
   RIFLE_50M: 2.8,

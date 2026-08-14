@@ -24,6 +24,7 @@ export const DisciplineSchema = z.union([
   z.literal('RIFLE_50M'),
   z.literal('PISTOL_25M'),
   z.literal('BEAM_RIFLE_10M'),
+  z.literal('BEAM_PISTOL_10M'),
 ]);
 
 export type Discipline = z.infer<typeof DisciplineSchema>;

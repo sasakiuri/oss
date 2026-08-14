@@ -16,6 +16,7 @@ export const DISCIPLINE_LABELS: Record<Discipline, string> = {
   RIFLE_50M: '50m Rifle',
   PISTOL_25M: '25m Pistol',
   BEAM_RIFLE_10M: '10m Beam Rifle',
+  BEAM_PISTOL_10M: '10m Beam Pistol',
 };
 
 /**

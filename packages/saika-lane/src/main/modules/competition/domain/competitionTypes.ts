@@ -90,7 +90,7 @@ export const BR60S: CompetitionTypeDefinition = {
 export const BP60: CompetitionTypeDefinition = {
   id: 'BP60',
   name: '10m Beam Pistol 60 shots',
-  discipline: 'AIR_PISTOL_10M',
+  discipline: 'BEAM_PISTOL_10M',
   config: {
     name: 'Qualification',
     shotsPerSeries: 10,

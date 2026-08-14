@@ -20,6 +20,9 @@ export interface SerialConfig {
 const deviceMap = new Map<string, DeviceDefinition>();
 for (const def of DEVICE_DEFINITIONS) {
   deviceMap.set(def.id, def);
+  for (const alias of def.aliases ?? []) {
+    deviceMap.set(alias, def);
+  }
 }
 
 /**

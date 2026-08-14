@@ -14,7 +14,7 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 
 | Manufacturer                    | Models                                        | Status                                   |
 | ------------------------------- | --------------------------------------------- | ---------------------------------------- |
-| Kohto Electronics (Koto Denshi) | MT201, BP216                                  | Supported                                |
+| Kohto Electronics (Koto Denshi) | MT201, BPT-216                                | Implemented; hardware validation pending |
 | SIUS                            | HS10, HS25, Ascor                             | Stub                                     |
 | Meyton                          | —                                             | Stub                                     |
 | DISAG                           | KT RDT ZIE 1 (RedDot Rifle / Pistol profiles) | Implemented; hardware validation pending |

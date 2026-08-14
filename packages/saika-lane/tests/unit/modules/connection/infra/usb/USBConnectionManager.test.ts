@@ -14,6 +14,7 @@ import {
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
+import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { DisagAdapter } from '@/main/modules/target/adapters/DisagAdapter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
@@ -329,6 +330,75 @@ describe('USBConnectionManager', () => {
       ]);
       expect(sound).toHaveBeenCalledTimes(1);
       expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 4, score: 103, mode: 'MATCH' }));
+    });
+
+    it('should emit only terminal BPT-216 shots and keep S/R mode commands', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerDeviceAdapter('BPT216', new BPT216Adapter());
+      manager = new USBConnectionManager(registry);
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.beamPistol10m(),
+        mode: Mode.match(),
+      }));
+      const sound = vi.fn();
+      const data = vi.fn();
+      manager.setOnShotDetected(sound);
+      manager.on('data', data);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.kohto(),
+        deviceId: 'BPT216',
+        baudRate: 115200,
+      });
+
+      mockPortInstance._events.data(Buffer.from('0.0,0,0,0,0,R\r\n0.0,10,20,0,0,B\n10.90,123'));
+      expect(sound).not.toHaveBeenCalled();
+      expect(data).not.toHaveBeenCalled();
+      mockPortInstance._events.data(Buffer.from(',-456,0,0,T\r\n'));
+
+      expect(sound).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: 1.23, y: -4.56, score: 109, mode: 'MATCH' }));
+
+      await manager.sendMode(Mode.sighting());
+      await manager.sendMode(Mode.match());
+      expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
+        Buffer.from('S'),
+        Buffer.from('R'),
+      ]);
+    });
+
+    it('should reject BPT-216 outside BEAM_PISTOL_10M before opening a port', async () => {
+      await expect(
+        manager.connect({
+          portName: 'COM3',
+          manufacturer: TargetManufacturer.kohto(),
+          deviceId: 'BPT216',
+          baudRate: 115200,
+        }),
+      ).rejects.toMatchObject({
+        code: 'INCOMPATIBLE_TARGET_DISCIPLINE',
+        metadata: { requiredDiscipline: 'BEAM_PISTOL_10M' },
+      });
+
+      expect(SerialPort).not.toHaveBeenCalled();
+    });
+
+    it('should reject a BPT-216 device ID with a non-KOHTO manufacturer', async () => {
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.beamPistol10m(),
+        mode: Mode.sighting(),
+      }));
+
+      await expect(
+        manager.connect({
+          portName: 'COM3',
+          manufacturer: TargetManufacturer.custom(),
+          deviceId: 'BPT216',
+        }),
+      ).rejects.toMatchObject({ code: 'INVALID_TARGET' });
+
+      expect(SerialPort).not.toHaveBeenCalled();
     });
 
     it.each([

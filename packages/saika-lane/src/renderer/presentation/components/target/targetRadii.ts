@@ -42,6 +42,18 @@ export const TARGET_RADII: Record<Discipline, Record<number, number>> = {
     2: 69.75, // ring inner edge radius
     1: 77.75, // ring inner edge radius
   },
+  BEAM_PISTOL_10M: {
+    10: 5.75,
+    9: 13.75,
+    8: 21.75,
+    7: 29.75,
+    6: 37.75,
+    5: 45.75,
+    4: 53.75,
+    3: 61.75,
+    2: 69.75,
+    1: 77.75,
+  },
   RIFLE_50M: {
     10: 5.2, // ring inner edge radius
     9: 13.2, // ring inner edge radius

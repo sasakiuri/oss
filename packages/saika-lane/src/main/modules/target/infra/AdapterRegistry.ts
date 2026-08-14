@@ -30,7 +30,7 @@ export class AdapterRegistry {
 
   /**
    * Adapter map keyed by device ID.
-   * Holds ITargetAdapter instances keyed by device ID (MT201, BP216, etc.).
+   * Holds ITargetAdapter instances keyed by device ID (MT201, BPT216, etc.).
    */
   private readonly deviceAdapters: Map<string, ITargetAdapter>;
 
@@ -96,7 +96,7 @@ export class AdapterRegistry {
   /**
    * Assigns a manufacturer adapter to a device ID.
    *
-   * @param deviceId - Device ID (MT201, BP216, etc.)
+   * @param deviceId - Device ID (MT201, BPT216, etc.)
    * @param manufacturerId - Manufacturer ID
    * @throws DATA_CONVERSION_ERROR - If the manufacturer is not registered
    */
@@ -111,6 +111,14 @@ export class AdapterRegistry {
       });
     }
 
+    this.deviceAdapters.set(deviceId, adapter);
+  }
+
+  /**
+   * Registers a device-specific adapter without changing the manufacturer
+   * fallback adapter.
+   */
+  registerDeviceAdapter(deviceId: string, adapter: ITargetAdapter): void {
     this.deviceAdapters.set(deviceId, adapter);
   }
 

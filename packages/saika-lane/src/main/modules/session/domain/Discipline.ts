@@ -9,7 +9,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
  */
 export class Discipline {
   /**
-   * Discipline value (AIR_RIFLE_10M | AIR_PISTOL_10M | RIFLE_50M | PISTOL_25M)
+   * Discipline value (AIR_RIFLE_10M | AIR_PISTOL_10M | RIFLE_50M | PISTOL_25M | BEAM_RIFLE_10M | BEAM_PISTOL_10M)
    */
   readonly value: string;
 
@@ -92,6 +92,15 @@ export class Discipline {
   }
 
   /**
+   * Creates a 10m Beam Pistol instance
+   *
+   * @returns 10m Beam Pistol instance
+   */
+  static beamPistol10m(): Discipline {
+    return new Discipline('BEAM_PISTOL_10M', '10m Beam Pistol', 10, 170.0);
+  }
+
+  /**
    * Checks equality with another Discipline
    *
    * @param other - The Discipline to compare against
@@ -104,7 +113,7 @@ export class Discipline {
   /**
    * Reconstructs a Discipline from a string value
    *
-   * @param value - Discipline value (AR60, AP60, R50M, P25M, BR60S, AIR_RIFLE_10M, AIR_PISTOL_10M, RIFLE_50M, PISTOL_25M, BEAM_RIFLE_10M)
+   * @param value - Discipline value (AR60, AP60, R50M, P25M, BR60S, BP60, AIR_RIFLE_10M, AIR_PISTOL_10M, RIFLE_50M, PISTOL_25M, BEAM_RIFLE_10M, BEAM_PISTOL_10M)
    * @returns Discipline instance
    * @throws {Error} If the value is invalid
    */
@@ -121,6 +130,8 @@ export class Discipline {
       PISTOL_25M: () => Discipline.pistol25m(),
       BR60S: () => Discipline.beamRifle10m(),
       BEAM_RIFLE_10M: () => Discipline.beamRifle10m(),
+      BP60: () => Discipline.beamPistol10m(),
+      BEAM_PISTOL_10M: () => Discipline.beamPistol10m(),
     };
 
     const factory = mapping[value];

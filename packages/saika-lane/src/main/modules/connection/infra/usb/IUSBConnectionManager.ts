@@ -32,7 +32,7 @@ export interface USBConnectionConfig {
   manufacturer: TargetManufacturer;
 
   /**
-   * Device ID (optional, e.g. MT201, BP216, HS10)
+   * Device ID (optional, e.g. MT201, BPT216, HS10)
    * When specified, the adapter corresponding to this ID is used during data conversion
    */
   deviceId?: string;

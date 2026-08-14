@@ -120,9 +120,10 @@ describe('CompetitionTypeRegistry', () => {
       }
     });
 
-    it('BP60 has 10m air pistol definition', () => {
+    it('BP60 has 10m beam pistol definition', () => {
       expect(BP60.id).toBe('BP60');
       expect(BP60.name).toBe('10m Beam Pistol 60 shots');
+      expect(BP60.discipline).toBe('BEAM_PISTOL_10M');
       expect(BP60.config.stages).toHaveLength(2);
     });
   });

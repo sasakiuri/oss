@@ -7,10 +7,11 @@
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 
+import { BPT216Adapter } from './adapters/BPT216Adapter';
 import { CustomAdapter } from './adapters/CustomAdapter';
 import { DisagAdapter } from './adapters/DisagAdapter';
 import { MT201Adapter } from './adapters/MT201Adapter';
-import { DISAG_RED_DOT_DEVICE_IDS } from './domain/targetDeviceDefinitions';
+import { BPT216_DEVICE_ID, DISAG_RED_DOT_DEVICE_IDS, LEGACY_BP216_DEVICE_ID } from './domain/targetDeviceDefinitions';
 import { TargetManufacturer } from './domain/TargetManufacturer';
 
 type TargetDeps = 'adapterRegistry';
@@ -23,15 +24,17 @@ export const targetModule: ModuleDefinition<TargetDeps> = {
     const customAdapter = new CustomAdapter();
     const disagAdapter = new DisagAdapter();
     const mt201Adapter = new MT201Adapter();
+    const bpt216Adapter = new BPT216Adapter();
 
     // Register by manufacturer ID
     adapterRegistry.registerAdapter(TargetManufacturer.custom().value, customAdapter);
     adapterRegistry.registerAdapter(TargetManufacturer.disag().value, disagAdapter);
     adapterRegistry.registerAdapter(TargetManufacturer.kohto().value, mt201Adapter);
 
-    // Register by device ID (MT201 and BP216 share the same MT201Adapter)
+    // Register by device ID. BPT-216 uses a distinct CSV protocol from MT201.
     adapterRegistry.assignDeviceAdapter('MT201', TargetManufacturer.kohto().value);
-    adapterRegistry.assignDeviceAdapter('BP216', TargetManufacturer.kohto().value);
+    adapterRegistry.registerDeviceAdapter(BPT216_DEVICE_ID, bpt216Adapter);
+    adapterRegistry.registerDeviceAdapter(LEGACY_BP216_DEVICE_ID, bpt216Adapter);
     adapterRegistry.assignDeviceAdapter('CUSTOM', TargetManufacturer.custom().value);
     for (const deviceId of DISAG_RED_DOT_DEVICE_IDS) {
       adapterRegistry.assignDeviceAdapter(deviceId, TargetManufacturer.disag().value);

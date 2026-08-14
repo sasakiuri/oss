@@ -364,6 +364,87 @@ describe('USBDataPipeline', () => {
     });
   });
 
+  describe('processBpt216Frame()', () => {
+    const bpt216Config: USBConnectionConfig = {
+      portName: 'COM3',
+      manufacturer: TargetManufacturer.kohto(),
+      deviceId: 'BPT216',
+      baudRate: 115200,
+    };
+
+    it('bypasses the generic stream parser and converts by the exact device ID', () => {
+      const frame = Buffer.from('10.90,123,-456,0,0,T');
+      const receivedAt = new Date('2026-08-14T00:00:00.000Z');
+      mockConversionService.convertByDeviceId.mockReturnValue({
+        impactPoint: new ImpactPoint(1.23, -4.56),
+        score: new Score(109),
+        timestamp: receivedAt,
+        mode: Mode.match(),
+      });
+
+      pipeline.processBpt216Frame(frame, receivedAt, bpt216Config);
+
+      expect(mockDataParser.parse).not.toHaveBeenCalled();
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
+        expect.objectContaining({ raw: frame, timestamp: receivedAt, manufacturer: bpt216Config.manufacturer }),
+        'BPT216',
+        expect.objectContaining({ shotNumber: 1 }),
+      );
+    });
+
+    it('notifies only after successful conversion and does not consume a shot number on failure', () => {
+      const callOrder: string[] = [];
+      const error = vi.fn();
+      const receivedAt = new Date('2026-08-14T00:00:00.000Z');
+      pipeline.setOnShotDetected(() => callOrder.push('sound'));
+      emitter.on('data', () => callOrder.push('data'));
+      emitter.on('error', error);
+      mockConversionService.convertByDeviceId
+        .mockImplementationOnce(() => {
+          throw new Error('invalid terminal frame');
+        })
+        .mockReturnValueOnce({
+          impactPoint: new ImpactPoint(1.23, -4.56),
+          score: new Score(109),
+          timestamp: receivedAt,
+          mode: Mode.match(),
+        });
+
+      pipeline.processBpt216Frame(Buffer.from('bad,T'), receivedAt, bpt216Config);
+      pipeline.processBpt216Frame(Buffer.from('10.90,123,-456,0,0,T'), receivedAt, bpt216Config);
+
+      expect(callOrder).toEqual(['sound', 'data']);
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(mockConversionService.convertByDeviceId.mock.calls[1]?.[2]).toMatchObject({ shotNumber: 1 });
+    });
+
+    it('accepts the legacy BP216 device ID but rejects unrelated devices', () => {
+      const receivedAt = new Date('2026-08-14T00:00:00.000Z');
+      mockConversionService.convertByDeviceId.mockReturnValue({
+        impactPoint: new ImpactPoint(0, 0),
+        score: new Score(109),
+        timestamp: receivedAt,
+        mode: Mode.match(),
+      });
+
+      pipeline.processBpt216Frame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, {
+        ...bpt216Config,
+        deviceId: 'BP216',
+      });
+      pipeline.processBpt216Frame(Buffer.from('10.90,0,0,0,0,T'), receivedAt, {
+        ...bpt216Config,
+        deviceId: 'MT201',
+      });
+
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledTimes(1);
+      expect(mockConversionService.convertByDeviceId).toHaveBeenCalledWith(
+        expect.anything(),
+        'BP216',
+        expect.anything(),
+      );
+    });
+  });
+
   describe('resetCounter()', () => {
     it('should reset the shot number counter', () => {
       const rawData = {

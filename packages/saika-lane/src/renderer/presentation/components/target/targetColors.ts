@@ -40,6 +40,7 @@ const TARGET_ZONE_CONFIG: Record<Discipline, TargetZoneConfig> = {
   BEAM_RIFLE_10M: { innerZoneStartScore: 4, maxLabelScore: 8, colors: DEFAULT_COLORS },
   AIR_RIFLE_10M: { innerZoneStartScore: 4, maxLabelScore: 8, colors: DEFAULT_COLORS },
   AIR_PISTOL_10M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
+  BEAM_PISTOL_10M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
   RIFLE_50M: { innerZoneStartScore: 4, maxLabelScore: 8, colors: DEFAULT_COLORS },
   PISTOL_25M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
 };

@@ -36,6 +36,16 @@ describe('Discipline value object', () => {
       expect(discipline.distance).toBe(25);
       expect(discipline.targetSize).toBe(500);
     });
+
+    it('Discipline.beamPistol10m() creates 10m beam pistol', () => {
+      const discipline = Discipline.beamPistol10m();
+      expect(discipline.value).toBe('BEAM_PISTOL_10M');
+      expect(discipline.displayName).toBe('10m Beam Pistol');
+      expect(discipline.distance).toBe(10);
+      expect(discipline.targetSize).toBe(170.0);
+      expect(Discipline.fromValue('BP60').equals(discipline)).toBe(true);
+      expect(Discipline.fromValue('BEAM_PISTOL_10M').equals(discipline)).toBe(true);
+    });
   });
 
   describe('equals() method', () => {
@@ -63,6 +73,7 @@ describe('Discipline value object', () => {
       expect(Discipline.airPistol10m().distance).toBe(10);
       expect(Discipline.rifle50m().distance).toBe(50);
       expect(Discipline.pistol25m().distance).toBe(25);
+      expect(Discipline.beamPistol10m().distance).toBe(10);
     });
 
     it('each discipline has the correct target size', () => {
@@ -70,6 +81,7 @@ describe('Discipline value object', () => {
       expect(Discipline.airPistol10m().targetSize).toBe(170.0);
       expect(Discipline.rifle50m().targetSize).toBe(250.0);
       expect(Discipline.pistol25m().targetSize).toBe(500);
+      expect(Discipline.beamPistol10m().targetSize).toBe(170.0);
     });
   });
 
