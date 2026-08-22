@@ -55,6 +55,10 @@ describe('BPT216DataParser', () => {
     },
   );
 
+  it('rejects a format-valid BPT-216 RS-232C frame with a mismatched checksum', () => {
+    expect(() => parser.parse(Buffer.from('P 8.9 FAC3 F474 4F'))).toThrow();
+  });
+
   it('rejects non-ASCII and line terminators', () => {
     expect(() => parser.parse(Buffer.from([0xff, ...Buffer.from(',0,0,0,0,T')]))).toThrow();
     expect(() => parser.parse(Buffer.from('9.7,0,0,0,0,T\n'))).toThrow();

@@ -70,11 +70,21 @@ export class BPT216DataParser {
     }
 
     const [, scoreText, xHex, yHex, checksum] = match;
+    const normalizedChecksum = checksum!.toUpperCase();
+    const expectedChecksum = this.calculateRs232Checksum(frame.slice(0, -normalizedChecksum.length));
+    if (normalizedChecksum !== expectedChecksum) {
+      throw ErrorCatalog.createError('VALIDATION_ERROR', {
+        field: 'checksum',
+        value: normalizedChecksum,
+        expected: expectedChecksum,
+      });
+    }
+
     return Object.freeze({
       scoreTenths: this.parseScore(scoreText?.trim()),
       xRaw: this.parseSignedInt16(xHex!),
       yRaw: this.parseSignedInt16(yHex!),
-      checksum: checksum!.toUpperCase(),
+      checksum: normalizedChecksum,
     });
   }
 
@@ -124,5 +134,10 @@ export class BPT216DataParser {
   private parseSignedInt16(value: string): number {
     const unsigned = Number.parseInt(value, 16);
     return unsigned >= 0x8000 ? unsigned - 0x10000 : unsigned;
+  }
+
+  private calculateRs232Checksum(payload: string): string {
+    const sum = Buffer.from(payload, 'ascii').reduce((checksum, byte) => (checksum + byte) & 0xff, 0);
+    return sum.toString(16).toUpperCase().padStart(2, '0');
   }
 }
