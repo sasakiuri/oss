@@ -178,6 +178,22 @@ describe('useAudioPlayback', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
+    it.each(['BPT216', 'BPT216_RS232'])('plays the same shot sound for BPT-216 profile %s', async (deviceId) => {
+      useSessionStore.getState().setDeviceInfo('KOHTO', deviceId);
+
+      const { result } = renderHook(() => useAudioPlayback());
+      await flushAudioLoad();
+
+      await act(async () => {
+        result.current.playShotSound();
+      });
+
+      expect(mockCtxInstance.createBufferSource).toHaveBeenCalledTimes(1);
+      expect(mockCtxInstance.createGain).toHaveBeenCalledTimes(1);
+      expect(mockStart).toHaveBeenCalledTimes(1);
+      expect(capturedGainValue).toBe(0.5);
+    });
+
     it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
       'plays the same shot sound for DISAG RedDot profile %s',
       async (deviceId) => {

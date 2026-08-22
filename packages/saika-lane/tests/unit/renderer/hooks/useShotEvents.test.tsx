@@ -123,7 +123,21 @@ describe('useShotEvents', () => {
       expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
-    it('does not play shot sound for non-MT201 devices', async () => {
+    it.each(['BPT216', 'BPT216_RS232'])('plays shot sound on shotReceived for BPT-216 profile %s', async (deviceId) => {
+      useSessionStore.getState().setDeviceInfo('KOHTO', deviceId);
+
+      renderHook(() => useShotEvents());
+      await flushAudioLoad();
+
+      mockStart.mockClear();
+
+      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
+      callback();
+
+      expect(mockStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not play shot sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
 
       renderHook(() => useShotEvents());
