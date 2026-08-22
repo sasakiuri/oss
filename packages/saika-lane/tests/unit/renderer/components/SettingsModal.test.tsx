@@ -507,10 +507,10 @@ describe('SettingsModal', () => {
   });
 
   describe('test sound button', () => {
-    it('describes the shared MT-201 and DISAG RedDot shot volume', () => {
+    it('describes the shared MT-201, BPT-216, and DISAG RedDot shot volume', () => {
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
-      expect(screen.getByText('MT-201 / DISAG RedDot shot sound volume (0% = mute)')).toBeInTheDocument();
+      expect(screen.getByText('MT-201 / BPT-216 / DISAG RedDot shot sound volume (0% = mute)')).toBeInTheDocument();
     });
 
     it('displays the Test sound button', () => {
