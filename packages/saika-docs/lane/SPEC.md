@@ -22,7 +22,7 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 
 | メーカー / 種別   | 装置ID                                                  | 実装状況                      |
 | ----------------- | ------------------------------------------------------- | ----------------------------- |
-| Kohto Electronics | `MT201`, `BPT216`                                       | 対応（BPT-216は実機検証待ち） |
+| Kohto Electronics | `MT201`, `BPT216`, `BPT216_RS232`                       | 対応（BPT-216は実機検証待ち） |
 | SIUS              | `HS10`, `HS25`                                          | スタブ                        |
 | Meyton            | `MEYTON_DEFAULT`                                        | スタブ                        |
 | DISAG             | `DISAG_KT_RDT_ZIE_1_RIFLE`, `DISAG_KT_RDT_ZIE_1_PISTOL` | 実装済み（実機検証待ち）      |
@@ -234,13 +234,13 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 
 #### メーカー一覧
 
-| 表示名            | コード   | 選択可能な装置              | 実装状況                      |
-| ----------------- | -------- | --------------------------- | ----------------------------- |
-| Kohto Electronics | `KOHTO`  | MT201, BPT-216              | 対応（BPT-216は実機検証待ち） |
-| SIUS              | `SIUS`   | HS10, HS25                  | スタブ                        |
-| Meyton            | `MEYTON` | Meyton Standard             | スタブ                        |
-| DISAG             | `DISAG`  | DISAG RedDot Rifle / Pistol | 実装済み（実機検証待ち）      |
-| Custom            | `CUSTOM` | Custom                      | 対応                          |
+| 表示名            | コード   | 選択可能な装置                         | 実装状況                      |
+| ----------------- | -------- | -------------------------------------- | ----------------------------- |
+| Kohto Electronics | `KOHTO`  | MT201, BPT-216（BP-217 I/F / RS-232C） | 対応（BPT-216は実機検証待ち） |
+| SIUS              | `SIUS`   | HS10, HS25                             | スタブ                        |
+| Meyton            | `MEYTON` | Meyton Standard                        | スタブ                        |
+| DISAG             | `DISAG`  | DISAG RedDot Rifle / Pistol            | 実装済み（実機検証待ち）      |
+| Custom            | `CUSTOM` | Custom                                 | 対応                          |
 
 > 「スタブ」はUI・型・パーサーの骨格が存在することを示し、実機互換性を保証しない。
 > `DISAG_DEFAULT` の内部定義は互換性のため残すが、接続可能なDISAG装置としてUIへ列挙しない。
@@ -260,6 +260,7 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 | --------------------------- | ---------: | -----------: | -------------: | -------- |
 | `MT201`                     |       9600 |            8 |              1 | none     |
 | `BPT216`                    |     115200 |            8 |              1 | none     |
+| `BPT216_RS232`              |       9600 |            8 |              1 | none     |
 | `HS10`, `HS25`              |       9600 |            8 |              1 | none     |
 | `MEYTON_DEFAULT`            |      19200 |            8 |              1 | none     |
 | `DISAG_DEFAULT`             |       9600 |            8 |              1 | none     |
@@ -274,8 +275,8 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 受信データはメーカー別パーサーでフレーミングし、装置アダプターで共通の `Shot` に変換する。
 MT201については、メーカーの公式通信仕様ではなく、公開実装が受理する入力契約として
 [MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。BPT-216については、公式V201
-アプリケーションの相互運用目的の静的解析から得た必要最小限の挙動を
-[BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) に記録する。DISAG RedDotについては、
+アプリケーションの相互運用目的の静的解析から得たBP-217 I/F形式と、実装・自動テストで受理契約を
+固定したRS-232C形式を [BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) に記録する。DISAG RedDotについては、
 [RedDot受信互換・実装仕様](./devices/disag/reddot/README.md) にポーリング、59 byteフレーム、BCC、
 座標変換、Rifle/Pistolプロファイル、Saikaへの組み込み条件を定義する。RedDotの受信・変換・再接続
 コードと合成fixtureによる自動テストは実装済みである。実portでの複数ショット検証が完了するまでは
@@ -454,7 +455,7 @@ stateDiagram-v2
 Saika Lane は「フリー射撃」モードに加え、競技種別定義に基づいた構造化された「競技フロー」をサポートする。
 
 - **フリー射撃モード**: 競技種別を指定せずにセッションのみで運用する。ショットは無条件に受理され、手動で試射/本射を切り替える。シリーズはデフォルト10発で自動切り替え。
-- **競技モード**: 競技種別（BR60S、BP60 等）を指定して開始する。`CompetitionState` が試射→本射のステージ遷移、シリーズ完了の自動検知、タイマー制御を管理する。ショットは `canAcceptShot()` で ACTIVE フェーズのみ受理される。
+- **競技モード**: 競技種別（AR60、AP60、BR60S、BP60 等）を指定して開始する。`CompetitionState` が試射→本射のステージ遷移、シリーズ完了の自動検知、タイマー制御を管理する。ショットは `canAcceptShot()` で ACTIVE フェーズのみ受理される。
 
 #### ショット受理ガード
 
@@ -542,6 +543,8 @@ stateDiagram-v2
 
 | 種別ID | 表示名                     | ラウンド      |
 | ------ | -------------------------- | ------------- |
+| AR60   | 10m エアライフル60発       | Qualification |
+| AP60   | 10m エアピストル60発       | Qualification |
 | BR60S  | 10m ビームライフル60発立射 | Qualification |
 | BP60   | 10m ビームピストル60発     | Qualification |
 
@@ -834,7 +837,7 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 - 対応言語: ja（デフォルト）、en
 - ライブラリ: i18next + react-i18next
 - 翻訳対象: ボタンラベル、メニュー項目、エラーメッセージ、モーダルタイトル、ツールチップ
-- 翻訳非対象: 種目名（BR60S, AR60S 等）、メーカー名、ログメッセージ、デバッグ情報
+- 翻訳非対象: 種目名（BR60S, AR60 等）、メーカー名、ログメッセージ、デバッグ情報
 
 ---
 

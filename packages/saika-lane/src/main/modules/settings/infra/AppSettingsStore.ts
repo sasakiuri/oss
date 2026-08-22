@@ -27,10 +27,10 @@ interface AppSettingsStoreOptions {
   storage: ILocalStorage;
 }
 
-const LEGACY_REDDOT_RIFLE_DEVICE_ID = 'RDT_ZIE1_RIFLE';
-const REDDOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
-const LEGACY_REDDOT_PISTOL_DEVICE_ID = 'RDT_ZIE1_PISTOL';
-const REDDOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
+const LEGACY_RED_DOT_RIFLE_DEVICE_ID = 'RDT_ZIE1_RIFLE';
+const RED_DOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
+const LEGACY_RED_DOT_PISTOL_DEVICE_ID = 'RDT_ZIE1_PISTOL';
+const RED_DOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
 const LEGACY_BPT216_DEVICE_ID = 'BP216';
 const BPT216_DEVICE_ID = 'BPT216';
 
@@ -301,12 +301,12 @@ export class AppSettingsStore implements IAppSettingsStore {
     const hasStoredManufacturer = typeof section.manufacturer === 'string' && section.manufacturer.trim() !== '';
     const manufacturerResult = connectionSchema.shape.manufacturer.safeParse(section.manufacturer);
     const deviceId = this.parseDraftField(connectionSchema.shape.deviceId, section.deviceId);
-    const isLegacyRedDotRifle = deviceId === LEGACY_REDDOT_RIFLE_DEVICE_ID;
-    const isLegacyRedDotPistol = deviceId === LEGACY_REDDOT_PISTOL_DEVICE_ID;
+    const isLegacyRedDotRifle = deviceId === LEGACY_RED_DOT_RIFLE_DEVICE_ID;
+    const isLegacyRedDotPistol = deviceId === LEGACY_RED_DOT_PISTOL_DEVICE_ID;
     const migratedRedDotDeviceId = isLegacyRedDotRifle
-      ? REDDOT_RIFLE_DEVICE_ID
+      ? RED_DOT_RIFLE_DEVICE_ID
       : isLegacyRedDotPistol
-        ? REDDOT_PISTOL_DEVICE_ID
+        ? RED_DOT_PISTOL_DEVICE_ID
         : null;
     const migratedDeviceId = migratedRedDotDeviceId ?? (deviceId === LEGACY_BPT216_DEVICE_ID ? BPT216_DEVICE_ID : null);
     const manufacturer = manufacturerResult.success

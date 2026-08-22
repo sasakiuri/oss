@@ -5,7 +5,7 @@ export interface RedDotCoordinates {
   readonly yMm: number;
 }
 
-/** Converts RedDot coordinate units (0.01 mm) to millimetres. */
+/** Converts RedDot coordinate units (0.01 mm) to millimeters. */
 export class RedDotCoordinateConverter {
   static readonly RAW_UNITS_PER_MM = 100;
 

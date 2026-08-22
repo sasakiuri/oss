@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
-import { DEVICE_DEFINITIONS, getDisagRedDotTargetType } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import {
+  DEVICE_DEFINITIONS,
+  findTargetDeviceDefinition,
+  getDisagRedDotTargetType,
+} from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { DomainError } from '@/shared/errors/DomainError';
 
@@ -47,6 +51,13 @@ describe('TargetDevice value object', () => {
         expect(device.id).toBe(def.id);
         expect(device.displayName).toBe(def.displayName);
       }
+    });
+
+    it('resolves canonical and legacy device IDs for startup configuration', () => {
+      expect(findTargetDeviceDefinition('BPT216')?.serialConfig.baudRate).toBe(115200);
+      expect(findTargetDeviceDefinition('BP216')?.id).toBe('BPT216');
+      expect(findTargetDeviceDefinition('UNKNOWN')).toBeUndefined();
+      expect(findTargetDeviceDefinition(undefined)).toBeUndefined();
     });
 
     it('should map only the two RedDot profiles to their wire target types', () => {
