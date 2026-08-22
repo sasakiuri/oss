@@ -20,8 +20,10 @@ export interface BPT216ProtocolSessionOptions {
 const defaultClock: BPT216ProtocolClock = { now: () => new Date() };
 
 /**
- * Delimits the BPT-216 ASCII stream and forwards only terminal shot (`T`)
- * frames. Ready (`R`), trajectory (`B`), and version/status lines are ignored.
+ * Delimits both BPT-216 ASCII streams and forwards shot frames only:
+ * BP-217 I/F comma-separated terminal (`T`) frames and RS-232C fixed-width
+ * pistol (`P`) frames. Ready (`R`), trajectory (`B`), status, and MT-201 lines
+ * are ignored.
  */
 export class BPT216ProtocolSession {
   private readonly maxFrameBytes: number;
@@ -90,7 +92,13 @@ export class BPT216ProtocolSession {
       return;
     }
 
-    const fields = line.toString('latin1').split(',');
+    const frame = line.toString('latin1');
+    if (/^P(?: [0-9]\.[0-9]|10\.[0-9]) [0-9A-F]{4} [0-9A-F]{4} [0-9A-F]{2}$/i.test(frame)) {
+      this.options.onFrame(Buffer.from(line), this.clock.now());
+      return;
+    }
+
+    const fields = frame.split(',');
     if (fields.length >= 6 && fields[5]?.trim() === 'T') {
       this.options.onFrame(Buffer.from(line), this.clock.now());
     }

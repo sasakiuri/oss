@@ -24,6 +24,7 @@ describe('TargetProtocolRegistry', () => {
   it.each([
     [TargetManufacturer.kohto(), 'MT201', 'MT201'],
     [TargetManufacturer.kohto(), 'BPT216', 'BPT216'],
+    [TargetManufacturer.kohto(), 'BPT216_RS232', 'BPT216'],
     [TargetManufacturer.kohto(), 'BP216', 'BPT216'],
     [TargetManufacturer.disag(), 'DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_RED_DOT'],
     [TargetManufacturer.disag(), 'DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG_RED_DOT'],
@@ -41,6 +42,14 @@ describe('TargetProtocolRegistry', () => {
     expect(() =>
       protocol.validate(config(TargetManufacturer.custom(), 'BPT216'), sessionContext(Discipline.beamPistol10m())),
     ).toThrow();
+  });
+
+  it('keeps the BPT-216 RS-232C profile restricted to Beam Pistol', () => {
+    const protocolConfig = config(TargetManufacturer.kohto(), 'BPT216_RS232');
+    const protocol = registry.resolve(protocolConfig);
+
+    expect(() => protocol.validate(protocolConfig, sessionContext(Discipline.beamPistol10m()))).not.toThrow();
+    expect(() => protocol.validate(protocolConfig, sessionContext(Discipline.beamRifle10m()))).toThrow();
   });
 
   it('routes mismatched DISAG identities to RedDot validation instead of the direct fallback', () => {

@@ -5,12 +5,13 @@ export interface BPT216ParsedData {
   readonly scoreTenths: number;
   readonly xRaw: number;
   readonly yRaw: number;
-  readonly reserved1: string;
-  readonly reserved2: string;
+  readonly reserved1?: string;
+  readonly reserved2?: string;
+  readonly checksum?: string;
   readonly version?: string;
 }
 
-/** Parses one terminal-shot ASCII frame emitted by a Kohto BPT-216. */
+/** Parses one terminal-shot ASCII frame emitted by either BPT-216 connection path. */
 export class BPT216DataParser {
   parse(buffer: Buffer): BPT216ParsedData {
     if (buffer.length === 0 || Array.from(buffer).some((byte) => byte < 0x20 || byte > 0x7e)) {
@@ -20,6 +21,14 @@ export class BPT216DataParser {
     }
 
     const frame = buffer.toString('ascii').trim();
+    if (frame.startsWith('P')) {
+      return this.parseRs232Frame(frame);
+    }
+
+    return this.parseBp217InterfaceFrame(frame);
+  }
+
+  private parseBp217InterfaceFrame(frame: string): BPT216ParsedData {
     const fields = frame.split(',').map((field) => field.trim());
     if (fields.length < 6) {
       throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
@@ -29,28 +38,10 @@ export class BPT216DataParser {
     }
 
     const [scoreText, xText, yText, reserved1, reserved2, stateText, version] = fields;
-    if (!scoreText || !/^(?:0|[1-9]|10)(?:\.\d{1,2})?$/.test(scoreText)) {
-      throw ErrorCatalog.createError('VALIDATION_ERROR', {
-        field: 'score',
-        value: scoreText ?? '',
-        expected: '0.0 through 10.9 in 0.1-point increments',
-      });
-    }
+    const scoreTenths = this.parseScore(scoreText);
 
-    const scoreValue = Number(scoreText);
-    const parsedScoreTenths = Math.round(scoreValue * 10);
-    if (parsedScoreTenths < 0 || parsedScoreTenths > 109 || Math.abs(scoreValue * 10 - parsedScoreTenths) > 1e-9) {
-      throw ErrorCatalog.createError('VALIDATION_ERROR', {
-        field: 'score',
-        value: scoreText,
-        expected: '0.0 through 10.9 in 0.1-point increments',
-      });
-    }
-    // The official V201 application treats every value below the 1-ring as a miss.
-    const scoreTenths = parsedScoreTenths < 10 ? 0 : parsedScoreTenths;
-
-    const xRaw = this.parseCoordinate(xText, 'x');
-    const yRaw = this.parseCoordinate(yText, 'y');
+    const xRaw = this.parseDecimalCoordinate(xText, 'x');
+    const yRaw = this.parseDecimalCoordinate(yText, 'y');
     if (stateText !== 'T') {
       throw ErrorCatalog.createError('VALIDATION_ERROR', {
         field: 'state',
@@ -69,7 +60,48 @@ export class BPT216DataParser {
     });
   }
 
-  private parseCoordinate(value: string | undefined, field: 'x' | 'y'): number {
+  private parseRs232Frame(frame: string): BPT216ParsedData {
+    const match = frame.match(/^P( [0-9]\.[0-9]|10\.[0-9]) ([0-9A-F]{4}) ([0-9A-F]{4}) ([0-9A-F]{2})$/i);
+    if (!match) {
+      throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
+        reason: 'BPT-216 RS-232C frame format mismatch',
+        receivedFormat: frame,
+      });
+    }
+
+    const [, scoreText, xHex, yHex, checksum] = match;
+    return Object.freeze({
+      scoreTenths: this.parseScore(scoreText?.trim()),
+      xRaw: this.parseSignedInt16(xHex!),
+      yRaw: this.parseSignedInt16(yHex!),
+      checksum: checksum!.toUpperCase(),
+    });
+  }
+
+  private parseScore(value: string | undefined): number {
+    if (!value || !/^(?:0|[1-9]|10)(?:\.\d{1,2})?$/.test(value)) {
+      throw ErrorCatalog.createError('VALIDATION_ERROR', {
+        field: 'score',
+        value: value ?? '',
+        expected: '0.0 through 10.9 in 0.1-point increments',
+      });
+    }
+
+    const scoreValue = Number(value);
+    const parsedScoreTenths = Math.round(scoreValue * 10);
+    if (parsedScoreTenths < 0 || parsedScoreTenths > 109 || Math.abs(scoreValue * 10 - parsedScoreTenths) > 1e-9) {
+      throw ErrorCatalog.createError('VALIDATION_ERROR', {
+        field: 'score',
+        value,
+        expected: '0.0 through 10.9 in 0.1-point increments',
+      });
+    }
+
+    // The official V201 application treats every value below the 1-ring as a miss.
+    return parsedScoreTenths < 10 ? 0 : parsedScoreTenths;
+  }
+
+  private parseDecimalCoordinate(value: string | undefined, field: 'x' | 'y'): number {
     if (!value || !/^[+-]?\d+$/.test(value)) {
       throw ErrorCatalog.createError('VALIDATION_ERROR', {
         field,
@@ -87,5 +119,10 @@ export class BPT216DataParser {
       });
     }
     return parsed;
+  }
+
+  private parseSignedInt16(value: string): number {
+    const unsigned = Number.parseInt(value, 16);
+    return unsigned >= 0x8000 ? unsigned - 0x10000 : unsigned;
   }
 }

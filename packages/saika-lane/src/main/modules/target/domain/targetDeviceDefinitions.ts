@@ -7,6 +7,7 @@ export const DISAG_RED_DOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
 export const DISAG_RED_DOT_DEVICE_IDS = [DISAG_RED_DOT_RIFLE_DEVICE_ID, DISAG_RED_DOT_PISTOL_DEVICE_ID] as const;
 
 export const BPT216_DEVICE_ID = 'BPT216';
+export const BPT216_RS232_DEVICE_ID = 'BPT216_RS232';
 export const LEGACY_BP216_DEVICE_ID = 'BP216';
 
 export type DisagRedDotDeviceId = (typeof DISAG_RED_DOT_DEVICE_IDS)[number];
@@ -18,7 +19,7 @@ export function isDisagRedDotDeviceId(deviceId: string | undefined): deviceId is
 }
 
 export function isBpt216DeviceId(deviceId: string | undefined): boolean {
-  return deviceId === BPT216_DEVICE_ID || deviceId === LEGACY_BP216_DEVICE_ID;
+  return deviceId === BPT216_DEVICE_ID || deviceId === BPT216_RS232_DEVICE_ID || deviceId === LEGACY_BP216_DEVICE_ID;
 }
 
 export function getDisagRedDotDiscipline(deviceId: string | undefined): DisagRedDotDiscipline | null {
@@ -78,8 +79,16 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     aliases: [LEGACY_BP216_DEVICE_ID],
     manufacturer: 'KOHTO',
     modelName: 'BPT-216',
-    displayName: 'Kohto Electronics BPT-216',
+    displayName: 'Kohto Electronics BPT-216 (BP-217 I/F)',
     serialConfig: { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' },
+    supportedDisciplines: ['BEAM_PISTOL_10M'],
+  },
+  {
+    id: BPT216_RS232_DEVICE_ID,
+    manufacturer: 'KOHTO',
+    modelName: 'BPT-216',
+    displayName: 'Kohto Electronics BPT-216 (RS-232C)',
+    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
     supportedDisciplines: ['BEAM_PISTOL_10M'],
   },
   {

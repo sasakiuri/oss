@@ -282,6 +282,34 @@ describe('ConnectionIpcHandlers', () => {
       }
     });
 
+    it('should expose separate BPT-216 connection profiles for Beam Pistol', async () => {
+      const handlers = createConnectionIpcHandlers(deps);
+      const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' })) as {
+        devices: Array<{
+          id: string;
+          manufacturer: string;
+          displayName: string;
+          baudRate: number;
+          supportedDisciplines: string[];
+        }>;
+      };
+
+      expect(result.devices).toContainEqual({
+        id: 'BPT216',
+        manufacturer: 'KOHTO',
+        displayName: 'Kohto Electronics BPT-216 (BP-217 I/F)',
+        baudRate: 115200,
+        supportedDisciplines: ['BEAM_PISTOL_10M'],
+      });
+      expect(result.devices).toContainEqual({
+        id: 'BPT216_RS232',
+        manufacturer: 'KOHTO',
+        displayName: 'Kohto Electronics BPT-216 (RS-232C)',
+        baudRate: 9600,
+        supportedDisciplines: ['BEAM_PISTOL_10M'],
+      });
+    });
+
     it('should expose the RedDot rifle and pistol profiles for DISAG', async () => {
       const handlers = createConnectionIpcHandlers(deps);
       const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'DISAG' })) as {

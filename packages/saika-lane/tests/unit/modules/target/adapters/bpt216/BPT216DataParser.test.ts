@@ -26,6 +26,13 @@ describe('BPT216DataParser', () => {
     });
   });
 
+  it.each([
+    ['P 6.9 FAC3 F474 4F', 69, -1341, -2956, '4F'],
+    ['P 8.4 FF1F 07F6 50', 84, -225, 2038, '50'],
+  ])('parses captured BPT-216 RS-232C frame %s', (frame, scoreTenths, xRaw, yRaw, checksum) => {
+    expect(parser.parse(Buffer.from(frame))).toEqual({ scoreTenths, xRaw, yRaw, checksum });
+  });
+
   it.each(['R', 'B'] as const)('does not parse non-shot state %s', (state) => {
     expect(() => parser.parse(Buffer.from(`0.0,0,0,0,0,${state}`))).toThrow();
   });
@@ -36,6 +43,13 @@ describe('BPT216DataParser', () => {
 
   it.each(['9.75,0,0,0,0,T', '11.0,0,0,0,0,T', '9.7,1.2,0,0,0,T', '9.7,0,0,0,0,X', '9.7,0,0,T'])(
     'rejects invalid frame %s',
+    (frame) => {
+      expect(() => parser.parse(Buffer.from(frame))).toThrow();
+    },
+  );
+
+  it.each(['R 6.9 FAC3 F474 4F', 'P 6.9 FAC F474 4F', 'P 6.9 FAC3 F474 ZZ', 'P 6.95 FAC3 F474 4F'])(
+    'rejects an invalid BPT-216 RS-232C frame %s',
     (frame) => {
       expect(() => parser.parse(Buffer.from(frame))).toThrow();
     },

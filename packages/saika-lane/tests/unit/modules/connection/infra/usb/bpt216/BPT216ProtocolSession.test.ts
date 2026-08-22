@@ -60,6 +60,21 @@ describe('BPT216ProtocolSession', () => {
     expect(onFrame).toHaveBeenCalledWith(Buffer.from('9.70,0,0,0,0,T'), expect.any(Date));
   });
 
+  it('forwards split BPT-216 RS-232C pistol frames and ignores MT-201 frames', () => {
+    const port = new FakePort();
+    const onFrame = vi.fn();
+    const receivedAt = new Date('2026-08-22T01:10:00.000Z');
+    const session = new BPT216ProtocolSession(port, { onFrame, clock: { now: () => receivedAt } });
+    session.start();
+
+    port.emit('P 6.9 FAC3');
+    port.emit(' F474 4F \n\rR 9.2 00C3 FCF8 3F\r\nP 8.4 FF1F 07F6 50 \n\r');
+
+    expect(onFrame).toHaveBeenCalledTimes(2);
+    expect(onFrame).toHaveBeenNthCalledWith(1, Buffer.from('P 6.9 FAC3 F474 4F'), receivedAt);
+    expect(onFrame).toHaveBeenNthCalledWith(2, Buffer.from('P 8.4 FF1F 07F6 50'), receivedAt);
+  });
+
   it('clears an unterminated oversized frame and resumes at the next frame', () => {
     const port = new FakePort();
     const onFrame = vi.fn();
