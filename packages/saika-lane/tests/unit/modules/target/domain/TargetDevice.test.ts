@@ -91,7 +91,7 @@ describe('TargetDevice value object', () => {
         expect(device.id).toBe('BPT216');
         expect(device.manufacturer.equals(TargetManufacturer.kohto())).toBe(true);
         expect(device.modelName).toBe('BPT-216');
-        expect(device.displayName).toBe('Kohto Electronics BPT-216');
+        expect(device.displayName).toBe('Kohto Electronics BPT-216 (BP-217 I/F)');
         expect(device.baudRate).toBe(115200);
         expect(device.dataBits).toBe(8);
         expect(device.stopBits).toBe(1);
@@ -111,6 +111,22 @@ describe('TargetDevice value object', () => {
 
       it('canonicalizes the legacy BP216 ID', () => {
         expect(TargetDevice.fromId('BP216').id).toBe('BPT216');
+      });
+
+      it('provides an isolated RS-232C profile for Beam Pistol', () => {
+        const device = TargetDevice.fromId('BPT216_RS232');
+
+        expect(device.id).toBe('BPT216_RS232');
+        expect(device.manufacturer.equals(TargetManufacturer.kohto())).toBe(true);
+        expect(device.modelName).toBe('BPT-216');
+        expect(device.displayName).toBe('Kohto Electronics BPT-216 (RS-232C)');
+        expect(device.baudRate).toBe(9600);
+        expect(device.dataBits).toBe(8);
+        expect(device.stopBits).toBe(1);
+        expect(device.parity).toBe('none');
+        expect(device.supportsDiscipline(Discipline.beamPistol10m())).toBe(true);
+        expect(device.supportsDiscipline(Discipline.beamRifle10m())).toBe(false);
+        expect(device.supportsDiscipline(Discipline.airPistol10m())).toBe(false);
       });
     });
 
@@ -287,7 +303,8 @@ describe('TargetDevice value object', () => {
     describe('Normal cases', () => {
       it.each([
         ['MT201', 'Kohto Electronics MT201'],
-        ['BPT216', 'Kohto Electronics BPT-216'],
+        ['BPT216', 'Kohto Electronics BPT-216 (BP-217 I/F)'],
+        ['BPT216_RS232', 'Kohto Electronics BPT-216 (RS-232C)'],
         ['HS10', 'SIUS HS10'],
         ['HS25', 'SIUS HS25'],
         ['MEYTON_DEFAULT', 'Meyton Standard'],
@@ -349,10 +366,11 @@ describe('TargetDevice value object', () => {
   describe('getByManufacturer() method', () => {
     it('should retrieve the list of Kohto Electronics devices', () => {
       const devices = TargetDevice.getByManufacturer(TargetManufacturer.kohto());
-      expect(devices).toHaveLength(2);
+      expect(devices).toHaveLength(3);
       expect(devices.every((d) => d.manufacturer.value === 'KOHTO')).toBe(true);
       expect(devices.some((d) => d.id === 'MT201')).toBe(true);
       expect(devices.some((d) => d.id === 'BPT216')).toBe(true);
+      expect(devices.some((d) => d.id === 'BPT216_RS232')).toBe(true);
     });
 
     it('should retrieve the list of SIUS devices', () => {
@@ -392,14 +410,14 @@ describe('TargetDevice value object', () => {
   describe('getAll() method', () => {
     it('should retrieve all devices', () => {
       const devices = TargetDevice.getAll();
-      expect(devices).toHaveLength(9);
+      expect(devices).toHaveLength(10);
     });
 
     it('should contain all devices without duplicates', () => {
       const devices = TargetDevice.getAll();
       const ids = devices.map((d) => d.id);
       const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(9);
+      expect(uniqueIds.size).toBe(10);
     });
 
     it('should contain all correct device IDs', () => {
@@ -407,6 +425,7 @@ describe('TargetDevice value object', () => {
       const ids = devices.map((d) => d.id);
       expect(ids).toContain('MT201');
       expect(ids).toContain('BPT216');
+      expect(ids).toContain('BPT216_RS232');
       expect(ids).toContain('HS10');
       expect(ids).toContain('HS25');
       expect(ids).toContain('MEYTON_DEFAULT');
@@ -502,6 +521,15 @@ describe('TargetDevice value object', () => {
       expect(config.parity).toBe('none');
     });
 
+    it('should retrieve BPT-216 RS-232C serial config', () => {
+      expect(TargetDevice.fromId('BPT216_RS232').getSerialConfig()).toEqual({
+        baudRate: 9600,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'none',
+      });
+    });
+
     it('should retrieve Meyton serial config (19200bps)', () => {
       const device = TargetDevice.fromId('MEYTON_DEFAULT');
       const config = device.getSerialConfig();
@@ -580,6 +608,7 @@ describe('TargetDevice value object', () => {
     it('should have correct baud rates for each device', () => {
       expect(TargetDevice.fromId('MT201').baudRate).toBe(9600);
       expect(TargetDevice.fromId('BPT216').baudRate).toBe(115200);
+      expect(TargetDevice.fromId('BPT216_RS232').baudRate).toBe(9600);
       expect(TargetDevice.fromId('HS10').baudRate).toBe(9600);
       expect(TargetDevice.fromId('HS25').baudRate).toBe(9600);
       expect(TargetDevice.fromId('MEYTON_DEFAULT').baudRate).toBe(19200);
@@ -617,7 +646,8 @@ describe('TargetDevice value object', () => {
   describe('Device display names', () => {
     it('should have appropriate display names for each device', () => {
       expect(TargetDevice.fromId('MT201').displayName).toBe('Kohto Electronics MT201');
-      expect(TargetDevice.fromId('BPT216').displayName).toBe('Kohto Electronics BPT-216');
+      expect(TargetDevice.fromId('BPT216').displayName).toBe('Kohto Electronics BPT-216 (BP-217 I/F)');
+      expect(TargetDevice.fromId('BPT216_RS232').displayName).toBe('Kohto Electronics BPT-216 (RS-232C)');
       expect(TargetDevice.fromId('HS10').displayName).toBe('SIUS HS10');
       expect(TargetDevice.fromId('HS25').displayName).toBe('SIUS HS25');
       expect(TargetDevice.fromId('MEYTON_DEFAULT').displayName).toBe('Meyton Standard');

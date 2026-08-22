@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 
-/** Converts BPT-216 signed decimal coordinates (0.01 mm) to millimetres. */
+/** Converts decoded BPT-216 signed coordinate units (0.01 mm) to millimetres. */
 export class BPT216CoordinateConverter {
   private static readonly UNITS_PER_MILLIMETRE = 100;
 

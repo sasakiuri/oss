@@ -54,10 +54,11 @@ describe('target.module', () => {
       expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledWith('MT201', 'KOHTO');
     });
 
-    it('should register canonical and legacy BPT-216 IDs with a dedicated adapter', () => {
+    it('should register both BPT-216 connection profiles and the legacy ID with a dedicated adapter', () => {
       targetModule.register({ adapterRegistry });
 
       expect(adapterRegistry.registerDeviceAdapter).toHaveBeenCalledWith('BPT216', expect.any(BPT216Adapter));
+      expect(adapterRegistry.registerDeviceAdapter).toHaveBeenCalledWith('BPT216_RS232', expect.any(BPT216Adapter));
       expect(adapterRegistry.registerDeviceAdapter).toHaveBeenCalledWith('BP216', expect.any(BPT216Adapter));
     });
 
@@ -86,7 +87,7 @@ describe('target.module', () => {
       targetModule.register({ adapterRegistry });
 
       expect(adapterRegistry.assignDeviceAdapter).toHaveBeenCalledTimes(4);
-      expect(adapterRegistry.registerDeviceAdapter).toHaveBeenCalledTimes(2);
+      expect(adapterRegistry.registerDeviceAdapter).toHaveBeenCalledTimes(3);
     });
   });
 });

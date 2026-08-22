@@ -28,6 +28,15 @@ describe('BPT216Adapter', () => {
     expect(adapter.convert(rawData('9.70,600,0,0,0,T'), context(Mode.sighting())).mode.value).toBe('SIGHTING');
   });
 
+  it('converts a captured RS-232C frame as a Beam Pistol shot', () => {
+    const shot = adapter.convert(rawData('P 6.9 FAC3 F474 4F'), context(Mode.sighting()));
+
+    expect(shot.impactPoint).toMatchObject({ x: -13.41, y: -29.56 });
+    expect(shot.score.value).toBe(69);
+    expect(shot.deviceScore?.value).toBe(69);
+    expect(shot.mode.value).toBe('SIGHTING');
+  });
+
   it.each(['0.0,0,0,0,0,R', '0.0,0,0,0,0,B'])('rejects non-shot frame %s', (frame) => {
     expect(() => adapter.convert(rawData(frame), context(Mode.match()))).toThrow();
   });

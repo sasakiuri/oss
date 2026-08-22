@@ -394,6 +394,37 @@ describe('USBConnectionManager', () => {
       ]);
     });
 
+    it('should isolate BPT-216 RS-232C pistol frames at 9600 bps', async () => {
+      const registry = new AdapterRegistry();
+      registry.registerDeviceAdapter('BPT216_RS232', new BPT216Adapter());
+      manager = new USBConnectionManager(registry);
+      manager.setSessionContextProvider(() => ({
+        discipline: Discipline.beamPistol10m(),
+        mode: Mode.sighting(),
+      }));
+      const sound = vi.fn();
+      const data = vi.fn();
+      manager.setOnShotDetected(sound);
+      manager.on('data', data);
+
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.kohto(),
+        deviceId: 'BPT216_RS232',
+        baudRate: 9600,
+      });
+
+      expect(SerialPort).toHaveBeenCalledWith(expect.objectContaining({ baudRate: 9600 }));
+      mockPortInstance._events.data(Buffer.from('R 9.2 00C3 FCF8 3F\r\nP 6.9 FAC3'));
+      expect(sound).not.toHaveBeenCalled();
+      expect(data).not.toHaveBeenCalled();
+      mockPortInstance._events.data(Buffer.from(' F474 4F \n\r'));
+
+      expect(sound).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledTimes(1);
+      expect(data).toHaveBeenCalledWith(expect.objectContaining({ x: -13.41, y: -29.56, score: 69, mode: 'SIGHTING' }));
+    });
+
     it('should reject BPT-216 outside BEAM_PISTOL_10M before opening a port', async () => {
       await expect(
         manager.connect({
