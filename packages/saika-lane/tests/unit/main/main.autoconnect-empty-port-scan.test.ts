@@ -132,7 +132,7 @@ vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
         connection: {
           portName: 'COM9',
           manufacturer: 'KOHTO',
-          deviceId: 'MT201',
+          deviceId: 'BPT216',
           serialNumber: '',
           vendorId: '',
           productId: '',
@@ -157,7 +157,7 @@ vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
       return {
         portName: 'COM9',
         manufacturer: 'KOHTO',
-        deviceId: 'MT201',
+        deviceId: 'BPT216',
       };
     }
 
@@ -243,7 +243,7 @@ describe('main.ts auto-connect regression', () => {
     vi.clearAllMocks();
   });
 
-  it('attempts auto-connect when saved settings exist even if the initial port scan is empty', async () => {
+  it('auto-connects a saved BPT-216 at its configured baud rate when the initial port scan is empty', async () => {
     await import('@/main/main');
     await Promise.resolve();
     await Promise.resolve();
@@ -259,7 +259,8 @@ describe('main.ts auto-connect regression', () => {
       expect.objectContaining({
         portName: 'COM9',
         manufacturer: 'KOHTO',
-        deviceId: 'MT201',
+        deviceId: 'BPT216',
+        baudRate: 115200,
       }),
     );
   });

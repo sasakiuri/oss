@@ -25,6 +25,7 @@ import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { settingsModule } from '@/main/modules/settings/settings.module';
+import { findTargetDeviceDefinition } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
@@ -326,11 +327,14 @@ function scheduleAutoConnect(
 
     logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
 
+    const baudRate = findTargetDeviceDefinition(settings.deviceId)?.serialConfig.baudRate;
+
     commandBus
       .execute(ConnectToTargetToken, {
         portName: settings.portName,
         manufacturer,
         deviceId: settings.deviceId,
+        baudRate,
       })
       .then(() => {
         logger.info('Auto-connect: connection established successfully.', 'main');

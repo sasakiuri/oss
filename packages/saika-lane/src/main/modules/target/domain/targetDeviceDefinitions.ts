@@ -155,3 +155,12 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
     ],
   },
 ] as const;
+
+/** Resolves a canonical or legacy device ID to its static definition. */
+export function findTargetDeviceDefinition(deviceId: string | undefined): DeviceDefinition | undefined {
+  if (!deviceId) {
+    return undefined;
+  }
+
+  return DEVICE_DEFINITIONS.find((definition) => definition.id === deviceId || definition.aliases?.includes(deviceId));
+}

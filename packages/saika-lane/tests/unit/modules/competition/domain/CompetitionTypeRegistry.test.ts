@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
-import { AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { ALL_COMPETITION_TYPES, AP60, AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
 
 describe('CompetitionTypeRegistry', () => {
   let registry: CompetitionTypeRegistry;
@@ -64,6 +64,10 @@ describe('CompetitionTypeRegistry', () => {
   });
 
   describe('competition type definition content verification', () => {
+    it('registers both air and beam 60-shot competition types', () => {
+      expect(ALL_COMPETITION_TYPES).toEqual([AR60, AP60, BR60S, BP60]);
+    });
+
     it('BR60S has 10m air rifle definition', () => {
       expect(BR60S.id).toBe('BR60S');
       expect(BR60S.name).toBe('10m Beam Rifle 60 shots standing');
@@ -87,6 +91,30 @@ describe('CompetitionTypeRegistry', () => {
       expect(sighting.timer?.durationSeconds).toBe(900);
 
       const match = AR60.config.stages[1]!;
+      expect(match.scored).toBe(true);
+      expect(match.series).toHaveLength(6);
+      expect(match.timer?.durationSeconds).toBe(4500);
+      for (const series of match.series) {
+        expect(series.maxShots).toBe(10);
+      }
+    });
+
+    it('AP60 has an integer-scored 10m air pistol definition', () => {
+      expect(AP60.id).toBe('AP60');
+      expect(AP60.name).toBe('10m Air Pistol 60 shots');
+      expect(AP60.discipline).toBe('AIR_PISTOL_10M');
+      expect(AP60.config.acc).toBe('RING');
+      expect(AP60.config.shotsPerSeries).toBe(10);
+      expect(AP60.config.stages).toHaveLength(2);
+    });
+
+    it('AP60 has a 15-minute sighting stage and a 75-minute 60-shot match stage', () => {
+      const sighting = AP60.config.stages[0]!;
+      expect(sighting.scored).toBe(false);
+      expect(sighting.series[0]!.maxShots).toBe(0);
+      expect(sighting.timer?.durationSeconds).toBe(900);
+
+      const match = AP60.config.stages[1]!;
       expect(match.scored).toBe(true);
       expect(match.series).toHaveLength(6);
       expect(match.timer?.durationSeconds).toBe(4500);

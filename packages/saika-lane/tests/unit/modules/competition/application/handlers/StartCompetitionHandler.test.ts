@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStartCompetitionHandler } from '@/main/modules/competition/application/handlers/StartCompetitionHandler';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
-import { AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { AP60, AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -18,6 +18,7 @@ describe('createStartCompetitionHandler', () => {
   beforeEach(() => {
     registry = new CompetitionTypeRegistry();
     registry.register(AR60);
+    registry.register(AP60);
     registry.register(BR60S);
     registry.register(BP60);
 
@@ -83,6 +84,15 @@ describe('createStartCompetitionHandler', () => {
     const savedSession = vi.mocked(mockSessionRepo.save).mock.calls[0]![0];
     expect(savedSession.discipline.value).toBe('AIR_RIFLE_10M');
     expect(savedSession.scoringMode).toBe('DECIMAL');
+  });
+
+  it('creates an integer-scored air-pistol session for AP60', async () => {
+    const handler = createStartCompetitionHandler(registry, mockCompetitionRepo, mockSessionRepo, mockEventBus);
+    await handler({ competitionTypeId: 'AP60' });
+
+    const savedSession = vi.mocked(mockSessionRepo.save).mock.calls[0]![0];
+    expect(savedSession.discipline.value).toBe('AIR_PISTOL_10M');
+    expect(savedSession.scoringMode).toBe('RING');
   });
 
   it('should derive the SessionStarted event discipline from the definition', async () => {

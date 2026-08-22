@@ -4,7 +4,7 @@
 
 Saika Lane の競技種別（CompetitionType）に関する設計資料。
 
-> 現行実装の登録済み種別は `BR60S` と `BP60` です。将来案を含む記述には未実装であることを明記しています。公式な競技規則は [参照元](../SOURCES.md) を確認してください。
+> 現行実装の登録済み種別は `AR60`、`AP60`、`BR60S`、`BP60` です。将来案を含む記述には未実装であることを明記しています。公式な競技規則は [参照元](../SOURCES.md) を確認してください。
 
 ---
 
@@ -14,9 +14,11 @@ Saika Lane の競技種別（CompetitionType）に関する設計資料。
 CompetitionTypeDefinition
 ├── id: string                    # 種別ID（例: 'BR60S'）
 ├── name: string                  # 表示名（例: '10m ビームライフル60発立射'）
+├── discipline: string            # Saika種目（例: 'BEAM_RIFLE_10M'）
 └── config: RoundConfig           # この CompetitionType の唯一のラウンド定義
     ├── name: string              # ラウンド種別名（例: 'Qualification', 'Final'）
     ├── shotsPerSeries: number    # 標準発数（デフォルト10）
+    ├── acc: 'RING' | 'DECIMAL'   # 整数圏／小数点採点
     └── stages: StageDefinition[]
         ├── name: string          # ステージ名（例: '試射', '本射'）
         ├── scored: boolean              # 採点対象ステージか否か
@@ -41,6 +43,35 @@ CompetitionTypeDefinition
 | Individual    | 個人戦 | 単独で完結するラウンド（予選・決勝の区分なし）                                                                                                      |
 
 > ISSF ルール改定により新しい RoundType が追加される可能性がある。コード上の実装は各アプリのコードベースに委ねる。本ドキュメントは概念レベルの定義を記載する。
+
+---
+
+## ISSF 10m Air 系
+
+### AR60 (Qualification)
+
+| ステージ | 種別          | シリーズ       | タイマー                    |
+| -------- | ------------- | -------------- | --------------------------- |
+| Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
+| Match    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+
+- Saika種目: `AIR_RIFLE_10M`
+- 採点方式: 小数点（0.1点刻み）
+- 使用標的: ISSF_AR_10M
+
+### AP60 (Qualification)
+
+| ステージ | 種別          | シリーズ       | タイマー                    |
+| -------- | ------------- | -------------- | --------------------------- |
+| Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
+| Match    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+
+- Saika種目: `AIR_PISTOL_10M`
+- 採点方式: 整数圏
+- 使用標的: ISSF_AP_10M
+
+AR60とAP60の時間は電子標的を使用する60発Qualificationに対応する。紙標的使用時などの別条件は
+Saika Laneの現行定義には含めない。
 
 ---
 
