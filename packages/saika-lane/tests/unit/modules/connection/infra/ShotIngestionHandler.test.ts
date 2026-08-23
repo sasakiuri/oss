@@ -80,6 +80,39 @@ describe('ShotIngestionHandler', () => {
     );
   });
 
+  it('should serialize concurrently received shots in arrival order', async () => {
+    const session = buildSession();
+    sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(null);
+
+    let releaseFirstExecution!: () => void;
+    const firstExecution = new Promise<void>((resolve) => {
+      releaseFirstExecution = resolve;
+    });
+    (commandBus.execute as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => firstExecution)
+      .mockResolvedValueOnce(undefined);
+
+    const firstShot = { ...shotData, timestamp: new Date('2026-01-15T10:00:00Z') };
+    const secondShot = { ...shotData, timestamp: new Date('2026-01-15T10:00:01Z') };
+    const handler = createShotIngestionHandler(deps);
+
+    const firstResult = handler(firstShot);
+    const secondResult = handler(secondShot);
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(commandBus.execute).toHaveBeenCalledTimes(1);
+
+    releaseFirstExecution();
+    await Promise.all([firstResult, secondResult]);
+
+    expect(commandBus.execute).toHaveBeenCalledTimes(2);
+    expect((commandBus.execute as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1].timestamp)).toEqual([
+      firstShot.timestamp,
+      secondShot.timestamp,
+    ]);
+  });
+
   it('should use the active competition session instead of an older active session', async () => {
     const staleSession = buildSession();
     const competitionSession = buildSession();

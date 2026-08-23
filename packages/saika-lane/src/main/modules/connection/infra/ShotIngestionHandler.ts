@@ -24,7 +24,7 @@ export interface ShotIngestionDeps {
 export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: ShotData) => Promise<void> {
   const { commandBus, sessionRepository, competitionRepository } = deps;
 
-  return async (shotData: ShotData): Promise<void> => {
+  const ingestShot = async (shotData: ShotData): Promise<void> => {
     const logger = getLogger();
     try {
       // In competition mode, the competition state is the source of truth for
@@ -67,5 +67,15 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         error instanceof Error ? { error: error.stack } : { error: String(error) },
       );
     }
+  };
+
+  // A protocol session can emit multiple complete frames from one serial chunk.
+  // Keep repository read-modify-write operations in receipt order so concurrent
+  // callbacks cannot reconstruct the same session state and reuse a shot number.
+  let ingestionQueue = Promise.resolve();
+  return (shotData: ShotData): Promise<void> => {
+    const result = ingestionQueue.then(() => ingestShot(shotData));
+    ingestionQueue = result.catch(() => undefined);
+    return result;
   };
 }
