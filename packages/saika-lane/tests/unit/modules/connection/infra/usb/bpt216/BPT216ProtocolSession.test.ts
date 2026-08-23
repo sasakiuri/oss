@@ -90,6 +90,21 @@ describe('BPT216ProtocolSession', () => {
     expect(onFrame).toHaveBeenCalledWith(Buffer.from('9.8,0,0,0,0,T'), expect.any(Date));
   });
 
+  it('rejects a complete oversized line before trimming surrounding whitespace', () => {
+    const port = new FakePort();
+    const onFrame = vi.fn();
+    const onWarning = vi.fn();
+    const session = new BPT216ProtocolSession(port, { onFrame, onWarning, maxFrameBytes: 24 });
+    session.start();
+
+    port.emit(`${' '.repeat(25)}9.7,0,0,0,0,T\n9.8,0,0,0,0,T\n`);
+
+    expect(onWarning).toHaveBeenCalledTimes(1);
+    expect(onWarning).toHaveBeenCalledWith('FRAME_TOO_LONG');
+    expect(onFrame).toHaveBeenCalledTimes(1);
+    expect(onFrame).toHaveBeenCalledWith(Buffer.from('9.8,0,0,0,0,T'), expect.any(Date));
+  });
+
   it('removes its listener and clears partial data when stopped', () => {
     const port = new FakePort();
     const onFrame = vi.fn();
