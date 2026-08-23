@@ -95,12 +95,24 @@ describe('RedDotStreamScanner', () => {
     expect(events.map((event) => event.type)).toEqual(['invalid-frame', 'frame']);
   });
 
-  it('bounds its buffer and retains only a trailing incomplete STX candidate', () => {
+  it('bounds its buffer and retains a trailing incomplete STX candidate', () => {
     const scanner = new RedDotStreamScanner({ maxBufferBytes: 32 });
     const trailingCandidate = validRedDotFrame().subarray(0, 10);
     const events = scanner.push(Buffer.concat([Buffer.alloc(40, 0x41), trailingCandidate]));
 
     expect(events.filter((event) => event.type === 'overflow')).toHaveLength(1);
     expect(scanner.getBufferedByteCount()).toBe(10);
+  });
+
+  it('retains and decodes a trailing complete frame after buffer overflow', () => {
+    const scanner = new RedDotStreamScanner({ maxBufferBytes: 64 });
+    const frame = validRedDotFrame();
+
+    const events = scanner.push(Buffer.concat([Buffer.alloc(10, 0x41), frame]), 9);
+
+    expect(events.map((event) => event.type)).toEqual(['overflow', 'frame']);
+    expect(events[0]).toEqual({ type: 'overflow', droppedByteCount: 10 });
+    expect(events[1]).toMatchObject({ type: 'frame', frame, startedAtReceiptSequence: 9 });
+    expect(scanner.getBufferedByteCount()).toBe(0);
   });
 });
