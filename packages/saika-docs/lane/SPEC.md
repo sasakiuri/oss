@@ -30,9 +30,9 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 
 #### 選択の挙動
 
-- 標的装置への接続設定は保存され、次回移行に自動で接続を試みる。
+- 標的装置への接続設定は保存され、次回起動時に自動で接続を試みる。
 - メーカーを変更すると、装置リストが自動更新される。
-- 装置を変更すると、ポートリストが自動更新される（利用可能な USB ポートを自動探索）。
+- ポートリストは装置選択とは独立して探索され、Connection タブの更新ボタンで再探索できる。
 
 > 詳細な標的仕様・スコアリングは [TARGET_SPEC.md](../common/TARGET_SPEC.md)、MT201のSaika側受信形式は
 > [MT201受信互換仕様](./devices/kohto/mt201/README.md)、
@@ -46,8 +46,8 @@ Saika Lane（サイカ・レーン）は、PC／ノートパソコンにイン�
 stateDiagram-v2
     [*] --> スプラッシュ
     スプラッシュ --> メイン画面: 2秒後
-    メイン画面 --> 設定モーダル: L5クリック / NumpadDecimal
-    メイン画面 --> 設定モーダル: L2クリック（Targetタブ）
+    メイン画面 --> 設定モーダル: Settingsクリック / NumpadDecimal
+    Generalタブ --> Targetタブ: タブ選択
     設定モーダル --> メイン画面: 閉じる / ESC / NumpadDecimal
     メイン画面 --> デバッグパネル: S3クリック
     デバッグパネル --> メイン画面: 閉じる
@@ -57,84 +57,65 @@ stateDiagram-v2
 
 #### 画面一覧
 
-| 画面名           | 説明                                      | 遷移元       | 遷移先                          |
-| ---------------- | ----------------------------------------- | ------------ | ------------------------------- |
-| スプラッシュ     | 起動スプラッシュ（2秒表示）               | -            | メイン画面                      |
-| メイン画面       | 着弾表示・点数管理                        | スプラッシュ | 設定モーダル                    |
-| 設定モーダル     | 射座番号・種目選択・接続設定（3タブ構成） | メイン画面   | メイン画面                      |
-| エラーダイアログ | エラーメッセージ表示                      | メイン画面   | 元の画面                        |
-| デバッグパネル   | デバッグ情報表示                          | メイン画面   | メイン画面                      |
-| 印刷ウィンドウ   | ScoreSheet 個票印刷                       | メイン画面   | 印刷ダイアログ（OS ネイティブ） |
+| 画面名         | 説明                                                  | 遷移元       | 遷移先                          |
+| -------------- | ----------------------------------------------------- | ------------ | ------------------------------- |
+| スプラッシュ   | 起動スプラッシュ（2秒表示）                           | -            | メイン画面                      |
+| メイン画面     | 着弾表示・点数管理                                    | スプラッシュ | 設定モーダル                    |
+| 設定モーダル   | 更新・射座・音量・種目・接続・MQTT・JSON設定（5タブ） | メイン画面   | メイン画面                      |
+| デバッグパネル | デバッグ情報表示                                      | メイン画面   | メイン画面                      |
+| 印刷ウィンドウ | ScoreSheet 個票印刷                                   | メイン画面   | 印刷ダイアログ（OS ネイティブ） |
 
 ---
 
 ### 4. メイン画面 (Main Screen)
 
-メイン画面は、サイドメニュー（L）、サイドパネル（P）、メインパネル（MAIN）、ステータスバー（S）の4つの領域で構成される。スプラッシュ画面（2秒表示）の後に表示される。
+メイン画面は、タイトルバーと、サイドメニュー（L）、サイドパネル（P）、メインパネル（MAIN）、ステータスバー（S）の4領域で構成される。スプラッシュ画面（2秒表示）の後に表示される。
 
 #### レイアウト
 
 ```
-┌──────┬──────────────┬────────────────────────────────────────────────────┐
-│ [L1] │ [P1]         │ [MAIN]                                             │
-│ [L2] ├────┬─────────┤                                                    │
-│ [L3] │[P2]│ [P3]    │                                                    │
-│ [L4] ├────┴─────────┤                                                    │
-│      │              │                                                    │
-│      │ [P4]         │                                                    │
-│      │              │                                                    │
-│      ├──────────────┤                                                    │
-│      │ [P5]         │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      │              │                                                    │
-│      ├──────────────┤                                                    │
-│      │              │                                                    │
-│      │ [P6]         │                                                    │
-│      │              │                                                    │
-│      ├──────────────┤                                                    │
-│      │ [P7]         │                                                    │
-│ [L5] │              │                                                    │
-├──────┴──────────────┴────────────────────────────────────────────────────┤
-│ [S1]                                                           [S2] [S3] │
-└──────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────── TitleBar ─────────────────────────────┐
+├ SideMenu [L1-L6] ┬ SidePanel [P1-P7] ┬ TargetDisplay [MAIN]      │
+└──────────────────┴────────────────────┴───────────────────────────┤
+│ StatusBar [S1-S3]                                                 │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 #### サイドメニュー（L）
 
 **L1 拡大縮小ボタン**
 
-押下でズームサイクルが切り替わる。Z0（自動）→ Z1 → Z2 → Z3 → Z4 → Z0。Z0 では初期状態で Z1 の拡大率を使用し、着弾ごとに直近8発の標準偏差に基づいてZ1〜Z4を自動選択する。
+押下でズームモードが AUTO → RING_8 → RING_6 → RING_4 → FULL → AUTO の順に切り替わる。AUTO は直近8発が画面内に収まる倍率を着弾位置と分散から連続的に計算する。
 
-**L2 種目選択ボタン**
+**L2 試射モードボタン**
 
-設定モーダルを Target タブで開く。種目一覧をカード形式で表示し、現在選択中の種目はハイライト（ring-2 ring-blue-400）表示する。種目カードをクリックすると即座にストア更新・設定永続化が行われ、セッション未開始時は自動でセッションが開始される。連打防止のため、処理中はカードが disabled になる。
+Preparation（試射）を開始する。競技が ACTIVE のときは新しいセッションへローテーションして IDLE に戻し、遷移待ちフェーズでは先頭ステージへ戻る。現在のステージが試射中の場合は強調表示される。
 
-**L3 試射モードボタン**
+**L3 本射モードボタン**
 
-試射（Preparation）モードへ切り替える。現在のモードが試射の場合、ボタンは強調表示される。試射モードで記録された着弾は合計点に加算されない。
+Match（本射）または次シリーズを開始する。試射中は `endStage` → `advanceStage` → `startNextSeries` を連続実行する。現在のステージが本射中の場合は強調表示される。
 
-**L4 本射モードボタン**
+**L4 Next Stage ボタン**
 
-本射（Match）モードへ切り替える。切り替え時に確認ダイアログを表示し、承認後に試射データがリセットされる。ボタン色は赤色（#E54437）。現在のモードが本射の場合、ボタンは強調表示される。
+試射中はステージを終了し、SERIES_COMPLETE では次シリーズまたは次ステージへ進む。現在のフェーズで操作できない場合は無効化される。
 
-**L5 設定ボタン**
+**L5 印刷ボタン**
 
-設定モーダルを General タブで開く。設定モーダルは「General」タブ（射座番号の設定）、「Target」タブ（種目選択）、「Connection」タブ（接続設定）の3タブ構成で、各設定値は永続化ストレージに保存され、次回起動以降も復元される。キーボードショートカット（NumpadDecimal）でも開閉できる。
+現在のセッションを ScoreSheet として別ウィンドウで開く。セッションがない場合は無効化される。
+
+**L6 設定ボタン**
+
+設定モーダルを General タブで開く。設定モーダルは「General」「Target」「Connection」「MQTT」「JSON」の5タブ構成で、各設定値は永続化ストレージに保存され、次回起動以降も復元される。キーボードショートカット（NumpadDecimal）でも開閉できる。
 
 #### ズームレベル
 
-| レベル | 説明                                                                         |
-| ------ | ---------------------------------------------------------------------------- |
-| Z0     | 自動（デフォルト）。初期は Z1。その後、直近8発の着弾が表示されるよう自動調整 |
-| Z1     | 黒色圏の中心 1/3 程度が表示される倍率                                        |
-| Z2     | 黒色圏の半分程度が表示される倍率                                             |
-| Z3     | 黒色圏のすべてが表示される倍率                                               |
-| Z4     | 標的全体が表示される倍率                                                     |
+| モード | 説明                                                              |
+| ------ | ----------------------------------------------------------------- |
+| AUTO   | 自動（デフォルト）。直近8発と弾径が画面内に収まるよう自動調整する |
+| RING_8 | 8点圏を基準にした固定倍率                                         |
+| RING_6 | 6点圏を基準にした固定倍率                                         |
+| RING_4 | 4点圏を基準にした固定倍率                                         |
+| FULL   | 標的全体を表示する固定倍率                                        |
 
 #### メインパネル（MAIN）
 
@@ -150,73 +131,75 @@ stateDiagram-v2
 | AIR_PISTOL_10M  | 1-6点      | 7-9点      | 10点   |
 | BEAM_PISTOL_10M | 1-6点      | 7-9点      | 10点   |
 | RIFLE_50M       | 1-3点      | 4-9点      | 10点   |
+| PISTOL_25M      | 1-6点      | 7-9点      | 10点   |
 
 - 着弾円は標的に対して実寸サイズの円で表示される。
 - 着弾円の内部にはショットナンバー（何発目か）が印字される。
 - 最新の1発について、10点は rgba(254, 1, 0, 0.7)、9点は rgba(253, 254, 3, 0.7)、8点以下は rgba(0, 102, 255, 0.7) で表示する。
 - 過去の着弾は rgba(68, 68, 68, 0.7) で表示する。
 - 最大8発の着弾円を描画する。
-- マウスホイールでズームイン／ズームアウト。
-- ドラッグで標的の移動（パン操作）。
 
 #### サイドパネル（P）
 
 `SidePanel` は `side-panel/` サブモジュール（`ShotHistory`、`SeriesScoreGrid`）に表示ロジックを分離している。スコア計算ユーティリティは `presentation/utils/scoreUtils` に共通配置している。
 
-| 要素 | 内容                                                      | 配置             |
-| ---- | --------------------------------------------------------- | ---------------- |
-| P1   | 種目名                                                    | パネル内上寄せ   |
-| P2   | 射座番号（設定から変更）                                  | パネル内上寄せ   |
-| P3   | 「Preparation」または「Match」                            | パネル内上寄せ   |
-| P4   | 合計点（小数1桁）                                         | パネル内上寄せ   |
-| P5   | 最新10発のショットナンバーと点数、自動スクロール          | 残りの余白すべて |
-| P6   | シリーズ（10発）ごとの点数。横3列 x 縦2列、自動スクロール | パネル内下寄せ   |
-| P7   | 平均点（小数2桁）                                         | パネル内下寄せ   |
+| 要素 | 内容                                                  | 配置             |
+| ---- | ----------------------------------------------------- | ---------------- |
+| P1   | 種目名                                                | パネル内上寄せ   |
+| P2   | 射座番号（設定から変更）                              | パネル内上寄せ   |
+| P3   | モード、または競技フェーズ                            | パネル内上寄せ   |
+| P4   | 合計点（RING は整数、DECIMAL は小数1桁）              | パネル内上寄せ   |
+| P5   | 最新10発のショットナンバーと点数、自動スクロール      | 残りの余白すべて |
+| P6   | シリーズごとの点数。横3列、必要に応じて自動スクロール | パネル内下寄せ   |
+| P7   | 平均点（小数2桁）                                     | パネル内下寄せ   |
 
 #### ステータスバー（S）
 
 - **S1**: 時刻（HH:MM:SS 形式）
-- **S2**: 標的装置への接続状態（接続中、切断、エラー）
+- **S2**: 標的装置への接続状態（接続済み／切断）
 - **S3**: デバッグパネルの表示切り替えボタン
 
 #### キーボードショートカット
 
-テンキー（Numpad）を使用したショートカットキー操作に対応する。`event.code` を使用するため NumLock の状態に依存しない。ショートカットキー定義は `src/renderer/presentation/constants/shortcuts.ts` に集約されている。`useAppKeyboardShortcuts`（App レベル）はリセット・モード切替・印刷・フルスクリーンを処理し、`MainScreen` はズーム操作・設定モーダル・ESC を処理する。`useAppNavigation` は画面遷移（`'splash' | 'main'`）を管理する。
+テンキー（Numpad）を使用したショートカットキー操作に対応する。`event.code` を使用するため NumLock の状態に依存しない。ショートカットキー定義は `src/renderer/presentation/constants/shortcuts.ts` に集約されている。`useAppKeyboardShortcuts`（App レベル）はモード切替・競技進行・印刷・フルスクリーンを処理し、`MainScreen` はズーム操作・設定モーダル・ESC を処理する。
 
-| キー         | event.code       | 操作                             | 管理箇所                |
-| ------------ | ---------------- | -------------------------------- | ----------------------- |
-| Numpad 0     | `Numpad0`        | リセットセッション               | useAppKeyboardShortcuts |
-| Numpad 1     | `Numpad1`        | Preparation（試射）モードに切替  | useAppKeyboardShortcuts |
-| Numpad 2     | `Numpad2`        | Match（本射）モードに切替        | useAppKeyboardShortcuts |
-| Numpad 5     | `Numpad5`        | オートズーム（AUTO に戻す）      | MainScreen              |
-| Numpad 9     | `Numpad9`        | 印刷（スコアシート）             | useAppKeyboardShortcuts |
-| Numpad .     | `NumpadDecimal`  | 設定モーダル開閉                 | MainScreen              |
-| Numpad +     | `NumpadAdd`      | ズームイン（次のズームモード）   | MainScreen              |
-| Numpad -     | `NumpadSubtract` | ズームアウト（前のズームモード） | MainScreen              |
-| Numpad Enter | `NumpadEnter`    | フルスクリーン切替               | useAppKeyboardShortcuts |
-| ESC          | `Escape`         | モーダルを閉じる                 | MainScreen              |
+| キー     | event.code      | 操作                            | 管理箇所                |
+| -------- | --------------- | ------------------------------- | ----------------------- |
+| Numpad 1 | `Numpad1`       | Preparation（試射）モードに切替 | useAppKeyboardShortcuts |
+| Numpad 2 | `Numpad2`       | Match（本射）モードに切替       | useAppKeyboardShortcuts |
+| Numpad 3 | `Numpad3`       | 次のステージ／シリーズへ進む    | useAppKeyboardShortcuts |
+| Numpad 5 | `Numpad5`       | オートズーム（AUTO に戻す）     | MainScreen              |
+| Numpad 6 | `Numpad6`       | ズームモードを順に切り替える    | MainScreen              |
+| Numpad 9 | `Numpad9`       | 印刷（スコアシート）            | useAppKeyboardShortcuts |
+| Numpad . | `NumpadDecimal` | 設定モーダル開閉                | MainScreen              |
+| F11      | `F11`           | フルスクリーン切替              | useAppKeyboardShortcuts |
+| ESC      | `Escape`        | モーダルを閉じる                | MainScreen              |
 
-**ズームモード順序**: AUTO <-> RING_8 <-> RING_6 <-> RING_4 <-> FULL
+**ズームモード順序**: AUTO → RING_8 → RING_6 → RING_4 → FULL → AUTO
 
-NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）、NumpadSubtract でズームアウト（逆順）する。Numpad5 で AUTO に戻る。
+Numpad6 で上記の順に切り替え、Numpad5 で AUTO に戻る。
 
 #### 着弾音 (Shot Sound)
 
 着弾イベント受信時に効果音を再生する（`useAudioPlayback` フック）。再生動作の仕様は以下のとおり。
 
-- **低レイテンシパイプライン**: USB データ受信直後（デバッグログやパース処理の前）に `shotReceived` IPC シグナルを発火し、Renderer 側で即座に Web Audio API で再生する。IPC ペイロードは空オブジェクトで最小化されている。
-- **AudioContext 設定**: `latencyHint: 'interactive'` で生成し、アプリ起動時に即座に `resume()` を実行する（fire-and-forget）。suspended → resume の非同期待機を排除し、初弾の再生レイテンシを最小化する。
+- **低レイテンシパイプライン**: MT201 などの直接ストリームでは USB チャンク受信直後に、BPT-216 / DISAG RedDot などのフレーム型プロトコルではフレーム検証・変換成功後に `shotReceived` IPC シグナルを発火する。Renderer 側は Web Audio API で再生し、IPC ペイロードは空オブジェクトで最小化されている。
+- **AudioContext 設定**: `latencyHint: 'interactive'` で生成し、起動時に `resume()` を試みる。ユーザー操作、statechange、visibilitychange でも再開・無音ウォームアップを行い、初弾の再生レイテンシを抑える。
 - **モノフォニック再生**: 前の音が再生中の場合は停止してから新しい音を再生する。複数ショットが短時間に連続した場合の重複再生を防ぐ。
 
 ---
 
 ### 5. 設定モーダル (Settings Modal)
 
-設定モーダルは「General」タブ（射座番号）、「Target」タブ（種目選択）、「Connection」タブ（接続設定）の3タブで構成される。メイン画面の L5 ボタンまたは NumpadDecimal で開閉し、ESC で閉じる。
+設定モーダルは「General」「Target」「Connection」「MQTT」「JSON」の5タブで構成される。メイン画面の L6 ボタンまたは NumpadDecimal で開閉し、ESC で閉じる。
 
 #### General タブ
 
-射座番号（整数、1〜99）を設定する。設定値は永続化ストレージに保存され、次回起動以降も復元される。
+アプリ更新の確認・インストール状態、射座番号（1以上の整数）、着弾音量を設定する。設定値は永続化ストレージに保存され、次回起動以降も復元される。
+
+#### Target タブ
+
+競技種別をカードから選択する。種目と採点方式は選択した定義から導出され、新しいセッションと競技を作成して最初のステージを開始する。競技種別 ID はユーザー設定へ永続化する。
 
 #### Connection タブ
 
@@ -225,32 +208,36 @@ NumpadAdd でズームイン（AUTO → RING_8 → RING_6 → RING_4 → FULL）
 **操作フロー**:
 
 1. メーカーを選択する。選択するとデバイスリストが自動更新される。
-2. デバイスを選択する。選択するとポートリストが自動更新される（利用可能な USB ポートを自動探索）。
-3. 接続ボタンをクリックする。全項目が選択されている場合のみ有効化される。
+2. ポートリストを確認し、必要に応じて更新ボタンで再探索する。
+3. デバイスとポートを選択して接続ボタンをクリックする。
 4. 接続成功時はモーダル内に接続状態が表示される。
-5. 接続失敗時はエラーダイアログを表示する。
+5. 接続失敗時は Connection タブ内にエラーを表示する。
 
 全ての選択は次回起動時に復元される。
 
 #### メーカー一覧
 
-| 表示名            | コード   | 選択可能な装置                         | 実装状況                      |
-| ----------------- | -------- | -------------------------------------- | ----------------------------- |
-| Kohto Electronics | `KOHTO`  | MT201, BPT-216（BP-217 I/F / RS-232C） | 対応（BPT-216は実機検証待ち） |
-| SIUS              | `SIUS`   | HS10, HS25                             | スタブ                        |
-| Meyton            | `MEYTON` | Meyton Standard                        | スタブ                        |
-| DISAG             | `DISAG`  | DISAG RedDot Rifle / Pistol            | 実装済み（実機検証待ち）      |
-| Custom            | `CUSTOM` | Custom                                 | 対応                          |
+| 表示名            | コード  | UIで選択可能な装置                     | 実装状況                      |
+| ----------------- | ------- | -------------------------------------- | ----------------------------- |
+| Kohto Electronics | `KOHTO` | MT201, BPT-216（BP-217 I/F / RS-232C） | 対応（BPT-216は実機検証待ち） |
+| DISAG             | `DISAG` | DISAG RedDot Rifle / Pistol            | 実装済み（実機検証待ち）      |
 
-> 「スタブ」はUI・型・パーサーの骨格が存在することを示し、実機互換性を保証しない。
-> `DISAG_DEFAULT` の内部定義は互換性のため残すが、接続可能なDISAG装置としてUIへ列挙しない。
+SIUS、Meyton、Custom と `DISAG_DEFAULT` は内部定義を持つが、現行 Connection タブのメーカー候補には列挙しない。
 
 #### 接続ボタンの挙動
 
-- 全項目（メーカー、装置、ポート）が選択されている場合のみ有効化される。
+- 利用可能なポートが選択され、複数の装置候補がある場合は装置も選択されているときに有効化される。
 - クリック時に接続処理を開始し、ローディング状態を表示する。
 - 接続成功: 接続状態が更新される。
-- 接続失敗: エラーダイアログを表示する。ダイアログには [再試行] と [キャンセル] ボタンを配置する。
+- 接続失敗: Connection タブ内にエラーを表示する。
+
+#### MQTT タブ
+
+MQTT の有効化、Broker URL、射座エイリアス、自動接続、Lane ID を設定し、Broker への接続・切断を操作する。
+
+#### JSON タブ
+
+正本となる `settings.json` 全体を JSON として表示・編集する。保存時は IPC スキーマで検証し、空の MQTT Lane ID は既存の安定した ID を維持する。
 
 #### シリアル通信デフォルト設定
 
@@ -292,19 +279,19 @@ MT201については、メーカーの公式通信仕様ではなく、公開実
 
 **Shot（着弾）**: ショットナンバー、X/Y 座標（mm）、点数（0.0〜10.9）、タイムスタンプ、モード（Preparation / Match）を持つ。1発の射撃を表すデータ単位。
 
-**Session（セッション）**: セッション ID（UUID）、射座番号、種目、現在のモード、着弾データの配列、開始時刻を持つ。1回の射撃練習または競技の単位を表す。
+**Session（セッション）**: セッション ID（UUID）、種目、現在のモード、シリーズ、着弾履歴、開始・終了時刻、採点方式を持つ。射座番号はユーザー設定として別に管理する。1回の射撃練習または競技の単位を表す。
 
 **Series（シリーズ）**: シリーズ番号、スコアリスト、最大発数（`maxShots`）を持つ不変値オブジェクト。`maxShots` はデフォルト 10、0 は無制限を表す。`isComplete` は `maxShots > 0 && scores.length >= maxShots` で判定される。`Series.create(seriesNumber, maxShots = 10)` で生成し、`addScore()` で maxShots を保持した新インスタンスを返す。
 
-**CompetitionState（競技状態）**: 競技の状態マシンを管理する不変集約ルート。フェーズ（IDLE / ACTIVE / SERIES_COMPLETE / STAGE_ENTERED / FINISHED）、現在のステージ・シリーズインデックス、シリーズ内発数、タイマーを持つ。
+**CompetitionState（競技状態）**: 競技の状態マシンを管理する不変集約ルート。フェーズ（IDLE / ACTIVE / SERIES_COMPLETE / SERIES_ENTERED / STAGE_ENTERED / FINISHED）、現在のステージ・シリーズインデックス、シリーズ内発数、タイマーを持つ。
 
 **Timer（タイマー）**: 残り秒数と合計秒数を持つ不変値オブジェクト。`tick()` / `tickBy(seconds)` で新インスタンスを返す。`formattedRemaining` で "MM:SS" 形式を提供。
 
-**CompetitionTypeDefinition（競技種別定義）**: 1つの CompetitionTypeDefinition は1つのラウンド（例: BR60S の Qualification）を表す。`id`（種別ID）、`name`（表示名）、`config`（ステージ・シリーズ・タイマーの構成）をデータ駆動で定義するインターフェース。Qualification と Final は別々の定義として登録される。
+**CompetitionTypeDefinition（競技種別定義）**: 1つの CompetitionTypeDefinition は1つのラウンド（例: BR60S の Qualification）を表す。`id`（種別ID）、`name`（表示名）、`config`（ステージ・シリーズ・タイマーの構成）をデータ駆動で定義するインターフェース。現行レジストリには Qualification の4種別を登録する。
 
-**TargetDevice（標的装置）**: 装置 ID、メーカー名、モデル名、対応種目リスト、通信方式（USB / TCP）を持つ。
+**TargetDevice（標的装置）**: 装置 ID、メーカー名、モデル名、シリアル通信設定、対応種目リストを持つ。
 
-**ConnectionSettings（接続設定）**: ポート名、メーカー、装置 ID、射座番号、種目を持つ。
+**ConnectionSettings（接続設定）**: ポート名、メーカー、任意の装置 ID と USB 識別情報（serialNumber / vendorId / productId）を持つ。
 
 #### 境界づけられたコンテキスト (Bounded Contexts)
 
@@ -314,15 +301,15 @@ MT201については、メーカーの公式通信仕様ではなく、公開実
 
 **データ取得コンテキスト (Data Acquisition)**
 
-電子標的からのデータ受信と変換を担う。USB/TCP 接続の確立・切断・再接続、メーカー別のデータ受信、生データから共通 Shot フォーマットへの変換を行う。`SerialDataParser` は Strategy パターンで `IManufacturerParser` にメーカー別処理を委譲する。アダプターは `AdapterContext` を外部から受け取るステートレス設計。
+電子標的からのデータ受信と変換を担う。USB シリアル接続の確立・切断・再接続、メーカー別のデータ受信、生データから共通 Shot フォーマットへの変換を行う。`SerialDataParser` は Strategy パターンで `IManufacturerParser` にメーカー別処理を委譲する。アダプターは `AdapterContext` を外部から受け取るステートレス設計。
 
 **標的表示コンテキスト (Target Display)**
 
-標的と着弾点の視覚化を担う。種目別の標的デザインのレンダリング、着弾円の描画（色分け・ハイライト）、ズーム制御（5段階 + 自動）、パン操作を行う。
+標的と着弾点の視覚化を担う。種目別の標的デザインのレンダリング、着弾円の描画（色分け・ハイライト）、AUTO と4つの固定モードによるズーム制御を行う。
 
 **点数計算コンテキスト (Score Calculation)**
 
-着弾点座標から点数を算出する。種目別の得点圏テーブルを参照し、0.1点単位で計算する。シリーズ合計（10発ごと）、合計点、平均点の計算もこのコンテキストの責務である。
+着弾点座標から点数を算出する。種目別の得点圏テーブルを参照し、0.1点単位で計算する。競技定義の発数に基づくシリーズ合計、合計点、平均点の計算もこのコンテキストの責務である。
 
 **競技管理コンテキスト (Competition Management)**
 
@@ -352,14 +339,14 @@ ScoreSheet（個票）の印刷を担う。HTML+CSS+別 BrowserWindow+`window.pr
 **Competition 集約**:
 
 - 競技 ID は一意であり、1つのセッションに紐づく
-- フェーズ遷移は状態マシンの規則に従う（IDLE → ACTIVE → SERIES_COMPLETE → STAGE_ENTERED → FINISHED）
+- フェーズ遷移は状態マシンの規則に従う（シリーズ内遷移では SERIES_ENTERED、ステージ間遷移では STAGE_ENTERED を経由する）
 - タイマーはステージまたはシリーズ単位で管理される
 - 終了済み競技に対する状態変更操作は拒否される
 
 **Connection 集約**:
 
 - 同時にアクティブな接続は1つのみ
-- 接続状態は DISCONNECTED / CONNECTING / CONNECTED のいずれか
+- 接続状態は DISCONNECTED / CONNECTING / CONNECTED / ERROR のいずれか
 
 **Target 集約**:
 
@@ -369,11 +356,11 @@ ScoreSheet（個票）の印刷を担う。HTML+CSS+別 BrowserWindow+`window.pr
 
 #### ドメインサービス
 
-**ScoreCalculationService**: 着弾点の標的中心からの距離を算出し、種目別の得点圏テーブルを参照して点数を計算する。平均点は合計点 / 記録対象ショット数（本射のみ）で算出し、小数1桁に丸める。
+**ScoreCalculationService**: 着弾点の標的中心からの距離を算出し、種目別の得点圏テーブルを参照して点数を計算する。平均点は Renderer で合計点 / 記録対象ショット数（本射のみ）として算出し、小数2桁で表示する。
 
-**DataConversionService**: メーカー別アダプターを選択し、受信した生バイト列をパースして共通 Shot フォーマットに変換する。アダプターはステートレスであり、変換に必要なセッション状態は `AdapterContext` として外部から注入される。
+**DataConversionService**: メーカーまたは装置 ID に対応するアダプターを選択し、フレーミング済みの `RawData` を共通 Shot フォーマットに変換する。ストリームのパースは `SerialDataParser` または装置プロトコルが担当する。アダプターはステートレスであり、変換に必要なセッション状態は `AdapterContext` として外部から注入される。
 
-**SessionFactory**: Session エンティティの生成を担う。ストレージからの復元（`reconstruct`）と新規作成（`create`）の2つのファクトリメソッドを提供する。
+**Session / SessionFactory**: 新規セッションは `Session.create()`、永続化データからの復元は `SessionFactory.fromStorageData()` と `Session.reconstruct()` が担う。
 
 #### ドメインイベント
 
@@ -384,7 +371,6 @@ ScoreSheet（個票）の印刷を担う。HTML+CSS+別 BrowserWindow+`window.pr
 | SeriesCompleted       | シリーズが完了した            |
 | ModeSwitched          | 試射/本射モードが切り替わった |
 | SessionReset          | セッションがリセットされた    |
-| SessionEnded          | セッションが終了した          |
 | ConnectionEstablished | 標的装置との接続が確立された  |
 | ConnectionLost        | 標的装置との接続が切断された  |
 | CompetitionStarted    | 競技が開始された              |
@@ -393,11 +379,13 @@ ScoreSheet（個票）の印刷を担う。HTML+CSS+別 BrowserWindow+`window.pr
 | TimerExpired          | タイマーが満了した            |
 | StageAdvanced         | 次のステージに進んだ          |
 | CompetitionFinished   | 競技が終了した                |
+| MqttConnected         | MQTT Brokerへ接続した         |
+| MqttDisconnected      | MQTT Brokerから切断した       |
 
 #### データフロー
 
 ```
-Target Device --> [USB/TCP] --> TargetProtocol --> USBDataPipeline (AdapterContext 生成)
+Target Device --> [USB serial] --> TargetProtocol --> USBDataPipeline (AdapterContext 生成)
   --> [direct stream: SerialDataParser --> IManufacturerParser | accepted shot frame: RawData]
   --> DataConversionService --> Adapter --> Common Shot
   --> [IPC] --> SessionStore --> useEventSubscriptions --> UI Components
@@ -407,7 +395,7 @@ Target Device --> [USB/TCP] --> TargetProtocol --> USBDataPipeline (AdapterConte
 
 ### 8. 状態機械 (State Machines)
 
-接続状態、セッション状態、競技状態の3つの独立した状態機械で、アプリケーション全体の状態遷移を管理する。
+接続状態、セッションのモード／終了状態、競技状態を独立して管理する。競技進行は明示的な状態機械、Session はモードと `finishedAt` を持つ不変集約として表現する。
 
 #### 接続状態機械
 
@@ -430,43 +418,34 @@ stateDiagram-v2
 | CONNECTED    | 接続済み   | 緑色「接続中」    |
 | ERROR        | 通信エラー | 赤色「エラー」    |
 
-#### セッション状態機械
+#### セッションのライフサイクル
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> SIGHTING: startSession()
+    [*] --> SIGHTING: startSession()
     SIGHTING --> MATCH: switchToMatch()
     MATCH --> SIGHTING: switchToSighting()
-    SIGHTING --> IDLE: reset()
-    MATCH --> COMPLETED: finish()
-    COMPLETED --> IDLE: reset()
+    SIGHTING --> FINISHED: finish()
+    MATCH --> FINISHED: finish()
 ```
 
-| 状態      | 説明                 |
-| --------- | -------------------- |
-| IDLE      | セッション未開始     |
-| SIGHTING  | 試射中 (Preparation) |
-| MATCH     | 本射中               |
-| COMPLETED | 完了                 |
+Session 自体に IDLE 状態はない。進行中は `mode` が SIGHTING または MATCH を表し、`finishedAt` の有無で終了済みかを判定する。`resetSession` は同じセッションの着弾・シリーズを初期化する。
 
 #### 競技フロー (Competition Flow)
 
 Saika Lane は「フリー射撃」モードに加え、競技種別定義に基づいた構造化された「競技フロー」をサポートする。
 
-- **フリー射撃モード**: 競技種別を指定せずにセッションのみで運用する。ショットは無条件に受理され、手動で試射/本射を切り替える。シリーズはデフォルト10発で自動切り替え。
-- **競技モード**: 競技種別（AR60、AP60、BR60S、BP60 等）を指定して開始する。`CompetitionState` が試射→本射のステージ遷移、シリーズ完了の自動検知、タイマー制御を管理する。ショットは `canAcceptShot()` で ACTIVE フェーズのみ受理される。
+- **フリー射撃相当の IDLE**: 起動直後の競技状態。発数・時間制限なしでショットを受理する。
+- **競技モード**: 競技種別（AR60、AP60、BR60S、BP60 等）を指定して開始する。`CompetitionState` が試射→本射のステージ遷移、シリーズ完了の自動検知、タイマー制御を管理する。
 
 #### ショット受理ガード
 
 競技モードでは `CompetitionState.canAcceptShot()` がショット受理の可否を判定する。
 
-| フェーズ                                          | `canAcceptShot()` | 説明                                             |
-| ------------------------------------------------- | ----------------- | ------------------------------------------------ |
-| ACTIVE                                            | `true`            | 試射中・本射中のみショットを受理する             |
-| IDLE / SERIES_COMPLETE / STAGE_ENTERED / FINISHED | `false`           | フェーズ間の遷移待ち・準備中はショットを拒否する |
-
-フリー射撃モード（`CompetitionState` なし）ではガードは適用されず、すべてのショットが無条件に受理される。
+| フェーズ                                                    | `canAcceptShot()` | 説明                                             |
+| ----------------------------------------------------------- | ----------------- | ------------------------------------------------ |
+| IDLE / ACTIVE                                               | `true`            | IDLE の自由射撃、または進行中の試射・本射を受理  |
+| SERIES_COMPLETE / SERIES_ENTERED / STAGE_ENTERED / FINISHED | `false`           | フェーズ間の遷移待ち・終了後はショットを拒否する |
 
 #### スタンドアローンモード操作
 
@@ -488,11 +467,12 @@ Saika Lane がディレクター（saika.director）に接続せず単独で動�
 | ACTIVE [preparation] | IDLE にリセット       | 試射終了→本射開始         | 試射終了 (SERIES_COMPLETE へ) |
 | ACTIVE [match]       | IDLE にリセット       | — (無効)                  | — (無効)                      |
 | SERIES_COMPLETE      | 試射に戻る (stage[0]) | 本射開始 / 次シリーズ開始 | 次ステージへ進む              |
+| SERIES_ENTERED       | 試射に戻る (stage[0]) | 次シリーズ開始            | — (無効)                      |
 | STAGE_ENTERED        | 試射に戻る (stage[0]) | 本射開始                  | — (無効)                      |
 | FINISHED             | — (無効)              | — (無効)                  | — (無効)                      |
 
 - **IDLE (トレーニングモード)**: 発数・時間制限なしで自由射撃可能。ショットは表示・印刷可能
-- **Preparation → Match の直接遷移**: Match ボタン1クリックで endPreparation → advanceStage → startMatch を連鎖実行
+- **Preparation → Match の直接遷移**: Match ボタン1クリックで `endStage` → `advanceStage` → `startNextSeries` を連鎖実行
 - **リセット**: ACTIVE 中の Preparation 押下は resetToIdle() で起動時状態に完全リセット（セッションローテーション付き）
 
 **操作フロー例**:
@@ -501,7 +481,7 @@ Saika Lane がディレクター（saika.director）に接続せず単独で動�
 起動 → [IDLE: トレーニング自由射撃]
   → [Prep] → [ACTIVE: preparation 試射]
   → [Match] → [ACTIVE: match 本射]
-  → (maxShot到達で自動完了)
+  → (maxShots到達で自動完了)
   → [印刷]
   → [Prep] → [IDLE: トレーニングにリセット]
 ```
@@ -511,29 +491,35 @@ Saika Lane がディレクター（saika.director）に接続せず単独で動�
 ```mermaid
 stateDiagram-v2
     [*] --> IDLE
-    IDLE --> ACTIVE: startPreparation()
+    IDLE --> ACTIVE: startStage()
     ACTIVE --> ACTIVE: recordShotInSeries()
     ACTIVE --> SERIES_COMPLETE: recordShotInSeries() [maxShots到達]
     ACTIVE --> SERIES_COMPLETE: expireTimer()
-    SERIES_COMPLETE --> ACTIVE: startMatch() [同ステージ次シリーズ]
+    ACTIVE --> SERIES_COMPLETE: endStage() [試射終了]
+    SERIES_COMPLETE --> ACTIVE: startNextSeries()
+    SERIES_COMPLETE --> SERIES_ENTERED: advanceToNextStage() [同ステージ次シリーズ]
     SERIES_COMPLETE --> STAGE_ENTERED: advanceToNextStage() [次ステージ]
     SERIES_COMPLETE --> FINISHED: advanceToNextStage() [全ステージ完了]
-    STAGE_ENTERED --> ACTIVE: startMatch()
-    SERIES_COMPLETE --> ACTIVE: backToPreparation()
-    STAGE_ENTERED --> ACTIVE: backToPreparation()
-    ACTIVE --> ACTIVE: backToPreparation() [match→preparation]
+    SERIES_ENTERED --> ACTIVE: startNextSeries()
+    STAGE_ENTERED --> ACTIVE: startNextSeries()
+    ACTIVE --> IDLE: resetToIdle()
+    SERIES_COMPLETE --> ACTIVE: rewindToStage()
+    SERIES_ENTERED --> ACTIVE: rewindToStage()
+    STAGE_ENTERED --> ACTIVE: rewindToStage()
     ACTIVE --> FINISHED: finish()
     SERIES_COMPLETE --> FINISHED: finish()
+    SERIES_ENTERED --> FINISHED: finish()
     STAGE_ENTERED --> FINISHED: finish()
 ```
 
-| フェーズ        | 説明                       |
-| --------------- | -------------------------- |
-| IDLE            | 初期状態（未開始）         |
-| ACTIVE          | 射撃中（試射・本射問わず） |
-| SERIES_COMPLETE | シリーズ完了（遷移待ち）   |
-| STAGE_ENTERED   | 新ステージ進入（開始待ち） |
-| FINISHED        | 競技終了                   |
+| フェーズ        | 説明                                     |
+| --------------- | ---------------------------------------- |
+| IDLE            | 初期状態（未開始）                       |
+| ACTIVE          | 射撃中（試射・本射問わず）               |
+| SERIES_COMPLETE | シリーズ完了（遷移待ち）                 |
+| SERIES_ENTERED  | 同一ステージの次シリーズ進入（開始待ち） |
+| STAGE_ENTERED   | 新ステージ進入（開始待ち）               |
+| FINISHED        | 競技終了                                 |
 
 #### 競技種別定義（CompetitionTypeDefinition）
 
@@ -554,17 +540,17 @@ Saika Lane では Qualification ラウンドのみをサポートする。
 
 #### タイマー仕様
 
-**タイマーモード**:
+**タイマー設定**:
 
-- `stage` モード: ステージ全体で1つのカウントダウン。ステージ内の全シリーズを通じてタイマーが継続する。
-- `series` モード: シリーズごとに個別のカウントダウン。シリーズ開始時にタイマーがリセットされる。
-- `shot` モード: 1発ごとにカウントダウン。シリーズ内の全スロットを消化すると次シリーズへ進む（Final 2nd Stage 等で使用）。
+- ステージの `timer`: ステージ全体で1つのカウントダウン。ステージ内のシリーズを通じて継続する。
+- シリーズの `timer`: シリーズ開始時に個別のカウントダウンを生成する。
+- シリーズの `shotTimer`: 型定義上は将来の Final 対応用に予約されており、現行の進行処理では使用しない。
 
 **ドリフト補正**: `LaneTimerService` は `Date.now()` ベースでドリフト補正を実施する。
 
 **タイマー満了時の動作**: タイマーが0に達すると `TimerExpired` イベントが発火し、`CompetitionState` が SERIES_COMPLETE フェーズに遷移する。`LaneTimerService` は自動的に停止する。
 
-**UI 表示**: Renderer では `TimerTick` イベントの `formattedRemaining`（"MM:SS" 形式）をカウントダウン表示する。プログレスバーで残り時間の割合を視覚化し、残り60秒で黄色、残り30秒で赤色に色変化する。
+**UI 表示**: Renderer は `TimerTick` イベントの残り秒数と合計秒数をストアへ反映し、残り時間を "MM:SS" 形式で表示する。プログレスバーで残り時間の割合を視覚化し、残り60秒で黄色、残り30秒で赤色に色変化する。
 
 ---
 
@@ -572,7 +558,7 @@ Saika Lane では Qualification ラウンドのみをサポートする。
 
 #### アーキテクチャ概要
 
-Main プロセスと Renderer プロセス間の IPC 通信は、Zod スキーマベースのコントラクトシステムで型安全に定義される。すべてのコントラクトは `src/shared/ipc/contracts/` に配置され、`defineContract()` DSL により Main / Preload / Renderer の3層で共有される。Renderer プロセスは `@/main/modules/` から直接インポートせず、全ての DTO 型は共有 IPC コントラクト経由で取得する（Renderer → Main 直接インポート: 0件）。Session DTO は `session/application/dto/index.ts` から共有コントラクトへ再エクスポートされている。
+Main プロセスと Renderer プロセス間の IPC 通信は、Zod スキーマベースのコントラクトシステムで型安全に定義される。すべてのコントラクトは `src/shared/ipc/contracts/` に配置され、`defineContract()` DSL により Main / Preload / Renderer の3層で共有される。Renderer プロセスは `@/main/modules/` から直接インポートせず、DTO 型は共有 IPC コントラクト経由で取得する。Main 側の Session DTO エントリーポイントも共有コントラクトの型を再エクスポートする。
 
 - **Main プロセス**: `IpcRouter` がコントラクトからハンドラーを自動登録し、入力を Zod スキーマで検証する。
 - **Preload**: `createBridge()` / `createEventBridge()` がコントラクトからブリッジ関数を自動生成する。
@@ -580,7 +566,7 @@ Main プロセスと Renderer プロセス間の IPC 通信は、Zod スキー�
 
 #### レスポンス形式
 
-応答形式は `{ success: true, data: T }` または `{ success: false, error: IpcErrorDto }` の Result 型で統一される。イベントは Main から Renderer への単方向プッシュ通知であり、`ipcRenderer.on()` で受信する。
+データを返す Query は `{ success: true, data: T }` または `{ success: false, data: null, error: IpcErrorDto }`、データを返す Command は成功時に `data`、失敗時に `error` を持つ判別可能な Result とする。データを返さない Command は `success` と任意の `error` を返す。イベントは Main から Renderer への単方向プッシュ通知であり、`ipcRenderer.on()` で受信する。
 
 #### IPC チャネル命名規則
 
@@ -590,7 +576,8 @@ Main プロセスと Renderer プロセス間の IPC 通信は、Zod スキー�
 | `query:*`      | クエリ（データ取得）     | Renderer → Main |
 | `usb:*`        | USB / 接続操作           | Renderer → Main |
 | `settings:*`   | 設定の保存・取得         | Renderer → Main |
-| `report:*`     | 帳票・印刷操作           | Renderer → Main |
+| `mqtt:*`       | MQTT 接続・設定          | Renderer → Main |
+| `updater:*`    | アプリ更新               | Renderer → Main |
 | `event:*`      | イベント通知             | Main → Renderer |
 | `error`        | エラー通知               | Main → Renderer |
 | `log:*`        | ログメッセージ           | Main → Renderer |
@@ -629,20 +616,41 @@ USB デバイスの接続・切断・探索を管理するコントラクト。
 | `settings:get-connection-settings`  | Query   | なし               | 接続設定データ     | 接続設定を取得する                                                     |
 | `settings:save-user-preferences`    | Command | ユーザー設定データ | void               | ユーザー設定をマージ保存する（既存値と差分マージ、undefined 値は無視） |
 | `settings:get-user-preferences`     | Query   | なし               | ユーザー設定データ | ユーザー設定を取得する                                                 |
+| `settings:save-app-settings`        | Command | 設定文書全体       | void               | `settings.json` 全体を検証して保存する                                 |
+| `settings:get-app-settings`         | Query   | なし               | 設定文書全体       | 正規化された設定文書を取得する                                         |
+| `settings:get-settings-file-info`   | Query   | なし               | path               | 設定ファイルの情報を取得する                                           |
 
 #### Competition コントラクト（competition.contract.ts）
 
 競技のライフサイクル管理と状態取得を行うコントラクト。
 
-| チャネル                    | 種別    | 入力              | 出力                                           | 説明                      |
-| --------------------------- | ------- | ----------------- | ---------------------------------------------- | ------------------------- |
-| `command:startCompetition`  | Command | competitionTypeId | `{ competitionId: string, sessionId: string }` | 競技を開始する            |
-| `command:startPreparation`  | Command | competitionId     | void                                           | 試射を開始する            |
-| `command:startMatch`        | Command | competitionId     | void                                           | 本射/次シリーズを開始する |
-| `command:advanceStage`      | Command | competitionId     | void                                           | 次のステージへ進む        |
-| `command:finishCompetition` | Command | competitionId     | void                                           | 競技を終了する            |
-| `query:getCompetitionState` | Query   | competitionId     | CompetitionStateDto                            | 競技状態を取得する        |
-| `query:getCompetitionTypes` | Query   | なし              | CompetitionTypeDto[]                           | 競技種別一覧を取得する    |
+| チャネル                    | 種別    | 入力              | 出力                                           | 説明                         |
+| --------------------------- | ------- | ----------------- | ---------------------------------------------- | ---------------------------- |
+| `command:startCompetition`  | Command | competitionTypeId | `{ competitionId: string, sessionId: string }` | 競技を作成する               |
+| `command:startStage`        | Command | competitionId     | `{ sessionId: string }`                        | 最初のステージを開始する     |
+| `command:startNextSeries`   | Command | competitionId     | void                                           | 次のシリーズを開始する       |
+| `command:advanceStage`      | Command | competitionId     | void                                           | 次シリーズ／ステージへ進む   |
+| `command:endStage`          | Command | competitionId     | void                                           | 採点対象外ステージを終了する |
+| `command:finishCompetition` | Command | competitionId     | void                                           | 競技を終了する               |
+| `query:getCompetitionState` | Query   | competitionId     | CompetitionStateDto                            | 競技状態を取得する           |
+| `query:getCompetitionTypes` | Query   | なし              | CompetitionTypeDto[]                           | 競技種別一覧を取得する       |
+
+#### MQTT コントラクト（mqtt.contract.ts）
+
+| チャネル            | 種別    | 入力                                | 出力     | 説明               |
+| ------------------- | ------- | ----------------------------------- | -------- | ------------------ |
+| `mqtt:connect`      | Command | brokerUrl, laneAlias?, autoConnect? | void     | Brokerへ接続する   |
+| `mqtt:disconnect`   | Command | なし                                | void     | Brokerから切断する |
+| `mqtt:getStatus`    | Query   | なし                                | MQTT状態 | 接続状態を取得する |
+| `mqtt:saveSettings` | Command | MQTT設定                            | void     | MQTT設定を保存する |
+| `mqtt:getSettings`  | Query   | なし                                | MQTT設定 | MQTT設定を取得する |
+
+MQTT モジュールは着弾・得点・競技状態の publish、競技状態・コマンドの subscribe、および RPC 応答を実装する。トピックとペイロードの詳細は実装内の Zod スキーマを正とする。
+
+#### Window / Updater コントラクト
+
+- Window: `command:toggleFullscreen`、`command:minimize`、`command:maximize`、`command:close`、`query:getWindowState`
+- Updater: `updater:get-update-state`、`updater:check-for-updates`、`updater:quit-and-install`
 
 #### Report コントラクト（report.contract.ts）
 
@@ -657,22 +665,26 @@ USB デバイスの接続・切断・探索を管理するコントラクト。
 
 Main プロセスから Renderer プロセスへのプッシュ通知イベントを定義するコントラクト。
 
-| チャネル                        | ペイロード                                                  | 説明                       |
-| ------------------------------- | ----------------------------------------------------------- | -------------------------- |
-| `event:shotRecorded`            | sessionId, shot                                             | ショットが記録された       |
-| `event:connectionStatusChanged` | connectionId, status, manufacturer?, portPath?, reason?     | 接続状態が変化した         |
-| `event:sessionStarted`          | sessionId, discipline                                       | セッションが開始された     |
-| `event:modeSwitched`            | sessionId, mode                                             | モードが切り替わった       |
-| `event:sessionReset`            | sessionId                                                   | セッションがリセットされた |
-| `event:competitionStarted`      | competitionTypeId, sessionId, config                        | 競技が開始された           |
-| `event:phaseChanged`            | previousPhase, newPhase, stageIndex, seriesIndex, stageName | 競技フェーズが遷移した     |
-| `event:timerTick`               | remainingSeconds, totalSeconds, formattedRemaining          | タイマーが1秒減算された    |
-| `event:timerExpired`            | stageIndex, timerMode                                       | タイマーが満了した         |
-| `event:seriesCompleted`         | stageIndex, seriesIndex, shotCount                          | シリーズが完了した         |
-| `event:stageAdvanced`           | previousStageIndex, newStageIndex, stageName, stageType     | 次のステージに進んだ       |
-| `event:competitionFinished`     | sessionId                                                   | 競技が終了した             |
-| `error`                         | code, message, userMessage, severity                        | IPC エラーが発生した       |
-| `log:message`                   | entry（id, timestamp, level, message, source, metadata?）   | ログメッセージが送信された |
+| チャネル                        | 主なペイロード                                                           | 説明                       |
+| ------------------------------- | ------------------------------------------------------------------------ | -------------------------- |
+| `event:shotReceived`            | `{}`                                                                     | 着弾音用の受信通知         |
+| `event:shotRecorded`            | sessionId, shot                                                          | ショットが記録された       |
+| `event:connectionStatusChanged` | connectionId, status, manufacturer?, portPath?, deviceId?, reason?       | 接続状態が変化した         |
+| `event:sessionStarted`          | sessionId, discipline                                                    | セッションが開始された     |
+| `event:modeSwitched`            | sessionId, mode                                                          | モードが切り替わった       |
+| `event:sessionReset`            | sessionId                                                                | セッションがリセットされた |
+| `event:competitionStarted`      | competitionId, competitionTypeId, sessionId, config, shotsPerSeries, acc | 競技が開始された           |
+| `event:phaseChanged`            | previousPhase, newPhase, stageIndex, seriesIndex, stageName, scored      | 競技フェーズが遷移した     |
+| `event:timerTick`               | remainingSeconds, totalSeconds, formattedRemaining                       | タイマーが1秒減算された    |
+| `event:timerExpired`            | stageIndex                                                               | タイマーが満了した         |
+| `event:seriesCompleted`         | stageIndex, seriesIndex, shotCount                                       | シリーズが完了した         |
+| `event:stageAdvanced`           | previousStageIndex, newStageIndex, stageName, scored                     | 次のステージに進んだ       |
+| `event:competitionFinished`     | sessionId                                                                | 競技が終了した             |
+| `event:mqttStatusChanged`       | status, brokerUrl?, laneId?                                              | MQTT接続状態が変化した     |
+| `event:fullscreenChanged`       | isFullscreen                                                             | 全画面状態が変化した       |
+| `event:updateStateChanged`      | AppUpdateState                                                           | アプリ更新状態が変化した   |
+| `error`                         | code, message, userMessage, severity                                     | IPC エラーが発生した       |
+| `log:message`                   | entry（id, timestamp, level, message, source, metadata?）                | ログメッセージが送信された |
 
 ---
 
@@ -682,16 +694,18 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 エラー定義は `src/shared/errors/catalogs/` にドメイン別に分割されている:
 
-| カタログファイル     | 対象ドメイン                         | エラーコード数 |
-| -------------------- | ------------------------------------ | -------------- |
-| ConnectionErrors.ts  | USB 接続・通信エラー                 | 12             |
-| SessionErrors.ts     | セッション管理・バリデーションエラー | 10             |
-| StorageErrors.ts     | ストレージ操作エラー                 | 4              |
-| InfraErrors.ts       | インフラ基盤エラー                   | 9              |
-| TargetErrors.ts      | 標的・種目・メーカー関連エラー       | 7              |
-| CompetitionErrors.ts | 競技管理・状態遷移エラー             | 7              |
+| カタログファイル     | 対象ドメイン                         |
+| -------------------- | ------------------------------------ |
+| CompetitionErrors.ts | 競技管理・状態遷移エラー             |
+| ConnectionErrors.ts  | USB 接続・通信エラー                 |
+| InfraErrors.ts       | インフラ基盤エラー                   |
+| MqttErrors.ts        | MQTT接続・通信エラー                 |
+| ReportErrors.ts      | 帳票・印刷エラー                     |
+| SessionErrors.ts     | セッション管理・バリデーションエラー |
+| StorageErrors.ts     | ストレージ操作エラー                 |
+| TargetErrors.ts      | 標的・種目・メーカー関連エラー       |
 
-`ErrorCatalog` がこれらを統合し、型安全なエラー生成ファクトリ（`ErrorCatalog.createError()`）を提供する。全ドメイン層・アプリケーション層・インフラ層で `throw new Error()` は使用せず、`ErrorCatalog.createError()` による統一されたエラー生成を行う。合計 6 カタログ 49 エラーコード体制。
+`ErrorCatalog` がこれらを統合し、型安全なエラー生成ファクトリ（`ErrorCatalog.createError()`）を提供する。ドメイン境界や共有エラーはカタログを使用し、Renderer の局所的な入力・状態検査などでは通常の `Error` も使用する。カタログとコードの一覧は `src/shared/errors/catalogs/` を正とする。
 
 #### エラーハンドリングユーティリティ
 
@@ -700,24 +714,14 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 | `toError()`                     | `src/shared/errors/toError.ts`                     | `unknown` 型を安全に `Error` へ変換するユーティリティ。`error as Error` の安全でないキャストを排除する            |
 | `withRepositoryErrorHandling()` | `src/shared/errors/withRepositoryErrorHandling.ts` | リポジトリ共通のエラーラッパー。ErrorCatalog の `REPOSITORY_ERROR` を使用して統一的なエラーハンドリングを提供する |
 
-全リポジトリ実装（`ConnectionRepositoryImpl`、`SessionRepositoryImpl`、`CompetitionRepositoryImpl`）は `withRepositoryErrorHandling()` を使用し、個別の try-catch ブロックではなく統一されたエラー処理パターンを適用する。`error as Error` の安全でないキャストはコードベース全体で排除されている（23箇所 → 0箇所）。
+接続・セッション・競技のリポジトリ実装は `withRepositoryErrorHandling()` を使用し、ストレージ例外を共通のリポジトリエラーへ変換する。
 
 #### 表示方式の詳細
 
-**モーダル（severity: error、致命的）**: タイトル、エラーメッセージ、原因、対処法を表示する。[再試行] と [キャンセル] ボタンを配置する。対象: CONNECTION_FAILED, USB_OPEN_FAILED 等。
-
-**トースト（severity: warning）**: 画面右上に表示し、5秒後に自動消去する。クリックで即座に消去可能。対象: USB_READ_TIMEOUT, MAX_RECONNECT_EXCEEDED 等。
-
-**インライン（severity: error/warning、軽微）**: ステータスバー S2 に赤色テキストで表示する。詳細はデバッグパネルにログ出力する。対象: USB_PARSE_ERROR, DATA_CONVERSION_ERROR, VALIDATION_ERROR 等。
-
-#### エラーログとレベルの対応
-
-| severity | ログレベル | 代表的なエラーコード                     | 表示方式   |
-| -------- | ---------- | ---------------------------------------- | ---------- |
-| error    | ERROR      | CONNECTION_FAILED, USB_OPEN_FAILED       | モーダル   |
-| warning  | WARN       | USB_READ_TIMEOUT, MAX_RECONNECT_EXCEEDED | トースト   |
-| error    | INFO       | USB_PARSE_ERROR, VALIDATION_ERROR        | インライン |
-| info     | INFO       | DATA_CONVERSION_ERROR                    | インライン |
+- Connection、設定、MQTT、更新操作の失敗は各タブまたは操作領域内にインライン表示する。
+- 予期しない標的切断は、Connection 設定を開く操作付きの警告トーストとして6秒間表示する。
+- 接続状態はステータスバーにも表示し、通信・変換の詳細はログとデバッグパネルで確認する。
+- IPC の `error` イベントは共通の code / message / userMessage / severity を運ぶが、severity だけで一律に表示方式を決める汎用ディスパッチャーは設けていない。
 
 ---
 
@@ -725,25 +729,22 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 #### UI 制約
 
-- 最小解像度: 1024x768
-- 推奨解像度: 1920x1080 以上
-- 最小ウィンドウサイズ: 800x600
+- 初期ウィンドウサイズ: 1280x800（パッケージ版は全画面で起動）
 - 着弾円の最大表示数: 8発
-- ズーム: 5段階（Z0〜Z4）
+- ズーム: AUTO / RING_8 / RING_6 / RING_4 / FULL の5モード
 
 #### データ制約
 
-- 射座番号: 1〜99
-- セッションあたりの最大ショット数: 10,000発
+- 射座番号: 1以上の整数
 - 点数: 0.0〜10.9（小数1桁）
-- 座標: -999.99〜999.99 mm
 
 #### 通信制約
 
 - USB ポート: 同時に1つのみ接続可能
-- TCP/IP 接続: 同時に1つのみ接続可能
 - 接続・読み取りタイムアウトは現行実装とテストを正とする。
 - 予期しない切断時の自動再接続: 旧ポートのclose完了後に即時1回
+
+以下は設計目標であり、現行実装が実行時に保証する上限値ではない。
 
 #### パフォーマンス目標（UI 操作）
 
@@ -752,7 +753,7 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 | 標的ズーム                   | < 50ms           |
 | 着弾円描画                   | < 16ms（60 FPS） |
 | モーダル表示                 | < 100ms          |
-| スクロール/ドラッグ          | 60 FPS           |
+| スクロール                   | 60 FPS           |
 | ボタンクリックフィードバック | < 100ms          |
 
 #### パフォーマンス目標（データ処理）
@@ -776,8 +777,7 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 #### 信頼性
 
 - 自動再接続: 旧ポートのclose完了後に即時1回
-- クラッシュ復旧: 最後のセッションを自動保存し、再起動時に復元を提案
-- RTO < 1分、RPO = 最新の1ショット
+- セッションと着弾は受信ごとにローカルストレージへ保存する。
 
 #### セキュリティ（Electron）
 
@@ -788,11 +788,11 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 #### OS 互換性
 
-| OS      | バージョン                | サポートレベル |
-| ------- | ------------------------- | -------------- |
-| Windows | 10+                       | 必須           |
-| macOS   | 12+                       | 必須           |
-| Linux   | Ubuntu 20.04+, Fedora 35+ | 推奨           |
+| OS      | サポートレベル |
+| ------- | -------------- |
+| Windows | 正式対象       |
+| macOS   | 実験対象       |
+| Linux   | 実験対象       |
 
 ---
 
@@ -819,7 +819,7 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 | サイズ名 | サイズ | 用途                 |
 | -------- | ------ | -------------------- |
-| xs       | 11px   | 補助情報             |
+| xs       | 12px   | 補助情報             |
 | sm       | 14px   | 通常テキスト         |
 | md       | 16px   | ショット番号、ボタン |
 | lg       | 20px   | 得点圏ラベル、見出し |
@@ -828,16 +828,13 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 #### アクセシビリティ
 
-- コントラスト: 通常テキスト #000/#FFF = 21:1、ボタン #FFF/#029863 = 4.8:1（WCAG AA 準拠）
-- フォーカスリング: 2px solid #0066FF
-- 最小フォントサイズ: 12px
+- 操作要素にはフォーカスリングを表示する。
+- モーダル、警告、主要ボタンには role / aria-label / aria-live などを設定する。
+- Playwright と axe によるアクセシビリティ検査を行う。個別の色組み合わせを含む包括的な WCAG 適合宣言は行わない。
 
 #### 国際化
 
-- 対応言語: ja（デフォルト）、en
-- ライブラリ: i18next + react-i18next
-- 翻訳対象: ボタンラベル、メニュー項目、エラーメッセージ、モーダルタイトル、ツールチップ
-- 翻訳非対象: 種目名（BR60S, AR60 等）、メーカー名、ログメッセージ、デバッグ情報
+現行 UI は主に英語で記述され、国際化フレームワークは導入していない。将来ローカライズする場合も、競技種別 ID、メーカー名、ログ・デバッグ情報は安定した識別子または原文として扱う。
 
 ---
 
@@ -853,24 +850,25 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 | F-004 | 着弾点リアルタイム表示 | 種目別標的上に着弾円描画、色分け、ハイライト                               |
 | F-005 | 点数表示・計算         | 0.1点単位、シリーズ合計、合計点、平均点                                    |
 | F-006 | 種目名表示             | 種目切り替え、標的デザイン・計算ルール連動                                 |
-| F-013 | エラーハンドリング     | ErrorCatalog 統一エラー生成、6カタログ49エラーコード、日本語メッセージ     |
+| F-013 | エラーハンドリング     | ドメイン別 ErrorCatalog と型安全な共通エラー生成                           |
 | F-014 | 競技進行管理           | 競技種別定義ベースのステージ・シリーズ・タイマー制御、自動シリーズ完了検知 |
 
 #### P1 機能（MVP 推奨）
 
-| ID       | 機能名               | 概要                                                                                                                                                           |
-| -------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F-001-01 | シリアル通信設定詳細 | baudRate/dataBits/stopBits/parity/flowControl 編集、メーカー別デフォルト                                                                                       |
-| F-007    | 標的選択機能         | メーカー・種目選択 UI、前回設定復元、自動接続                                                                                                                  |
-| F-008    | 着弾データリセット   | 確認ダイアログ付きリセット、履歴保存、新セッション開始                                                                                                         |
-| F-009    | 試射/本射モード切替  | モードボタン、試射は合計点非加算、視覚的区別                                                                                                                   |
-| F-010    | 標的拡大表示         | ズーム5段階、ホイール、ドラッグパン                                                                                                                            |
-| F-011    | ScoreSheet 個票印刷  | HTML+CSS+別BrowserWindow+window.print() 方式、A4最適化（1頁:ヘッダー+サマリー+Series1-6、2頁:Series7+）、セッションデータからScoreSheetDto変換、選手情報は空欄 |
-| F-012    | セッション管理       | UUID 自動生成、開始/終了時刻、ローカル保存                                                                                                                     |
+| ID       | 機能名              | 概要                                                                                                                                                           |
+| -------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-001-01 | シリアル通信設定    | 装置定義に基づく baudRate / dataBits / stopBits / parity の適用                                                                                                |
+| F-007    | 標的・競技選択機能  | メーカー・装置・競技種別の選択 UI、前回設定復元、自動接続                                                                                                      |
+| F-008    | 着弾データリセット  | Preparation 操作による履歴保存、セッションローテーション、競技状態リセット                                                                                     |
+| F-009    | 試射/本射モード切替 | モードボタン、試射は合計点非加算、視覚的区別                                                                                                                   |
+| F-010    | 標的拡大表示        | AUTO と4つの固定ズームモードをボタン／Numpad6で循環                                                                                                            |
+| F-011    | ScoreSheet 個票印刷 | HTML+CSS+別BrowserWindow+window.print() 方式、A4最適化（1頁:ヘッダー+サマリー+Series1-6、2頁:Series7+）、セッションデータからScoreSheetDto変換、選手情報は空欄 |
+| F-012    | セッション管理      | UUID 自動生成、開始/終了時刻、ローカル保存                                                                                                                     |
+| F-015    | MQTT 連携           | Broker設定・接続、着弾／得点／競技状態publish、競技状態／コマンドsubscribe、RPC応答                                                                            |
 
 #### 将来機能（P2/P3）
 
-- **P2**: MQTT 連携、ランキングシステム、観客用ボード、大会管理、データ分析、セッション履歴
+- **P2**: ランキングシステム、観客用ボード、大会管理、データ分析、セッション履歴
 - **P3**: 複数標的管理、クラウド同期
 
 ---
