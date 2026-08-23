@@ -74,7 +74,7 @@ export class USBConnectionLifecycle {
 
     // A closed/opening/closing stale port must also be fully disposed before a
     // new SerialPort instance is created for the same OS device path.
-    if (this.port) {
+    while (this.port) {
       await this.disconnect();
     }
 
