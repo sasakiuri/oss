@@ -93,6 +93,7 @@ export class RedDotProtocolSession {
   private operationQueue: Promise<void> = Promise.resolve();
   private receiptSequence = 0;
   private lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
+  private lastReceiptBeforeTargetTypeCommand = Number.POSITIVE_INFINITY;
 
   private readonly dataListener = (chunk: Buffer): void => {
     const generation = this.generation;
@@ -132,6 +133,7 @@ export class RedDotProtocolSession {
     this.invalidResponseCount = 0;
     this.receiptSequence = 0;
     this.lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
+    this.lastReceiptBeforeTargetTypeCommand = Number.POSITIVE_INFINITY;
     this.scanner.clear();
     this.operationQueue = Promise.resolve();
     const readiness = this.createReadiness();
@@ -230,6 +232,7 @@ export class RedDotProtocolSession {
     this.clearPollTimer();
     this.clearResponseTimer();
     this.state = 'INITIALIZING_TARGET_TYPE';
+    this.lastReceiptBeforeTargetTypeCommand = this.receiptSequence;
     await this.writeAndDrain(Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND), 'SET_TARGET_TYPE', generation);
 
     if (!this.isActive(generation)) {
@@ -295,7 +298,7 @@ export class RedDotProtocolSession {
   private async handleStreamEvent(event: RedDotStreamEvent, generation: number): Promise<void> {
     switch (event.type) {
       case 'ack':
-        await this.handleAck(generation);
+        await this.handleAck(event, generation);
         return;
       case 'idle':
         await this.handleIdle(generation);
@@ -316,8 +319,11 @@ export class RedDotProtocolSession {
     }
   }
 
-  private async handleAck(generation: number): Promise<void> {
-    if (this.state !== 'AWAITING_TARGET_TYPE_ACK') {
+  private async handleAck(event: Extract<RedDotStreamEvent, { type: 'ack' }>, generation: number): Promise<void> {
+    if (
+      this.state !== 'AWAITING_TARGET_TYPE_ACK' ||
+      event.receivedAtReceiptSequence <= this.lastReceiptBeforeTargetTypeCommand
+    ) {
       return;
     }
 

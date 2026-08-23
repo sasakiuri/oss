@@ -154,6 +154,29 @@ describe('RedDotProtocolSession', () => {
     expect(session.getInitializationMode()).toBe('FORMAL');
   });
 
+  it('ignores an ACK received before the target-type command was sent', async () => {
+    const port = new FakeRedDotPort();
+    const session = createSession(port, { targetType: 'PISTOL' });
+    const startPromise = session.start();
+    await flushPromises();
+
+    port.emitData(Buffer.from([RED_DOT_NAK, RED_DOT_ACK]));
+    await flushPromises();
+
+    expect(port.writes).toEqual([Buffer.from([RED_DOT_ENQ]), Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND)]);
+    expect(session.getState()).toBe('AWAITING_TARGET_TYPE_ACK');
+
+    port.emitData(Buffer.from([RED_DOT_ACK]));
+    await startPromise;
+
+    expect(port.writes).toEqual([
+      Buffer.from([RED_DOT_ENQ]),
+      Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+      Buffer.from([RED_DOT_PISTOL_TARGET_TYPE]),
+    ]);
+    expect(session.getInitializationMode()).toBe('FORMAL');
+  });
+
   it('attempts formal initialization after an unanswered initial probe', async () => {
     const port = new FakeRedDotPort();
     const session = createSession(port);

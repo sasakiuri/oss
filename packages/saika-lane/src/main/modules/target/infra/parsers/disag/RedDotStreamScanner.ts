@@ -13,7 +13,7 @@ const ACK = 0x06;
 const NAK = 0x15;
 
 export type RedDotStreamEvent =
-  | { readonly type: 'ack' }
+  | { readonly type: 'ack'; readonly receivedAtReceiptSequence: number }
   | { readonly type: 'idle' }
   | {
       readonly type: 'frame';
@@ -80,8 +80,9 @@ export class RedDotStreamScanner {
       const firstByte = this.buffer[0];
 
       if (firstByte === ACK) {
+        const receivedAtReceiptSequence = this.bufferReceiptSequences[0] ?? receiptSequence;
         this.consume(1);
-        events.push(Object.freeze({ type: 'ack' }));
+        events.push(Object.freeze({ type: 'ack', receivedAtReceiptSequence }));
         continue;
       }
 
