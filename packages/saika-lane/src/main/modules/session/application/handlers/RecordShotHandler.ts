@@ -70,7 +70,7 @@ export function createRecordShotHandler(
       input.timestamp,
       deviceScore,
       innerTen,
-      input.mode, // Prioritize device-notified mode (uses session mode if omitted)
+      input.mode, // Use the mode captured for this shot (falls back to the session mode if omitted)
     );
 
     // Retrieve the recorded shot (the last shot)
