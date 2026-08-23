@@ -33,12 +33,6 @@ export class BPT216Adapter implements ITargetAdapter {
       }
 
       const parsed = this.parser.parse(rawData.raw);
-      if (parsed.xRaw === 9999) {
-        throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
-          reason: 'BPT-216 status sentinel cannot be converted as a shot',
-        });
-      }
-
       const impactPoint = this.coordinateConverter.toImpactPoint(parsed.xRaw, parsed.yRaw);
       const score = new Score(parsed.scoreTenths);
       const targetDesign = TargetDesign.forDiscipline(context.discipline);
