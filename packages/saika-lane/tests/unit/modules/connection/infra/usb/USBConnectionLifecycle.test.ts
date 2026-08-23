@@ -248,6 +248,34 @@ describe('USBConnectionLifecycle', () => {
       expect(mockPortInstances.filter((port) => port.isOpen).map((port) => port.path)).toEqual(['COM3']);
     });
 
+    it('should settle concurrent replacements when their shared port close reports an error', async () => {
+      await lifecycle.connect(createConfig({ portName: 'COM1' }));
+      const establishedPort = mockPortInstance;
+      establishedPort.close.mockImplementation(function (
+        this: typeof mockPortInstance,
+        callback?: (err: Error | null) => void,
+      ) {
+        this.closing = true;
+        setTimeout(() => {
+          this.closing = false;
+          this._isOpen = false;
+          // SerialPortStream reports close failures only through the callback
+          // when one is supplied; it does not also emit an error event.
+          callback?.(new Error('Close error'));
+        }, 10);
+      });
+
+      const olderReplacement = lifecycle.connect(createConfig({ portName: 'COM2' }));
+      const olderRejection = expect(olderReplacement).rejects.toMatchObject({
+        code: 'CONNECTION_FAILED',
+        metadata: { reason: 'Connection attempt was cancelled' },
+      });
+      const latestReplacement = lifecycle.connect(createConfig({ portName: 'COM3' }));
+
+      await expect(latestReplacement).resolves.toMatchObject({ portPath: 'COM3' });
+      await olderRejection;
+    });
+
     it('should close an open port before rejecting post-open initialization failure', async () => {
       onPortReady.mockRejectedValueOnce(new Error('Receiver initialization failed'));
 
