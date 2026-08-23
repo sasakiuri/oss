@@ -12,6 +12,7 @@ build orchestration (caching, parallel task execution, dependency-aware pipeline
 oss/
 ├── packages/
 │   ├── saika-lane/             # Electron desktop app -- electronic target display
+│   ├── saika-docs/             # Product specifications and interoperability references
 │   ├── eslint-config/          # @sasakiuri/eslint-config
 │   ├── prettier-config/        # @sasakiuri/prettier-config
 │   ├── stylelint-config/       # @sasakiuri/stylelint-config
@@ -328,20 +329,22 @@ initializeApplication(window)
 
 ## Storage Architecture
 
-Two storage engines serve different access patterns:
+Three persistence paths serve different access patterns:
 
-| Engine                    | Library        | Data                                      |
-| ------------------------- | -------------- | ----------------------------------------- |
-| **SQLite**                | better-sqlite3 | Time-series data (shot history, scores)   |
-| **electron-store (JSON)** | electron-store | Configuration (connection settings, etc.) |
+| Path                | Implementation   | Data                                                          |
+| ------------------- | ---------------- | ------------------------------------------------------------- |
+| **saika-lane.db**   | better-sqlite3   | Time-series data (sessions, shot history, scores)             |
+| **settings.json**   | AppSettingsStore | Canonical application, device, user, and MQTT settings        |
+| **saika-lane.json** | electron-store   | Compatibility settings, connection history, competition state |
 
 **SQLite** is used when data requires querying -- session repositories persist
 shots and scores with indexed lookups. The database file lives at
 `{userData}/saika-lane.db`.
 
-**electron-store** is used for key-value configuration (connection settings,
-MQTT settings, competition state). It serializes to a JSON file and is accessed
-through the `LocalStorageAdapter` which implements `ILocalStorage`.
+**AppSettingsStore** owns the canonical settings document. **electron-store**
+provides key-value persistence for compatibility settings, connection history,
+and competition state through `LocalStorageAdapter`, which implements
+`ILocalStorage`.
 
 ## Security Model
 

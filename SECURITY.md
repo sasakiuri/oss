@@ -37,14 +37,15 @@ We follow a coordinated disclosure process:
 
 Saika Lane stores its application data locally on the user's machine. **Data is not encrypted at rest.** Packaged builds also contact GitHub to check for application updates, and MQTT communication occurs when MQTT is enabled and configured. See [PRIVACY.md](./PRIVACY.md) for the complete network and data-storage disclosure.
 
-| File                                     | Format | Description                             |
-| ---------------------------------------- | ------ | --------------------------------------- |
-| `saika-lane.db`                          | SQLite | Session and shot records                |
-| `settings.json`                          | JSON   | Application, device, and MQTT settings  |
-| `logs/combined.log`                      | Text   | Application log (rotated, max 5 MB × 5) |
-| `logs/error.log`                         | Text   | Error log (rotated, max 5 MB × 5)       |
-| `logs/score-discrepancy.csv`             | CSV    | Score calculation discrepancy log       |
-| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Raw shot data per session               |
+| File                                     | Format | Description                                                   |
+| ---------------------------------------- | ------ | ------------------------------------------------------------- |
+| `saika-lane.db`                          | SQLite | Session and shot records                                      |
+| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings              |
+| `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition state |
+| `logs/combined.log`                      | Text   | Application log (rotated, max 5 MB × 5)                       |
+| `logs/error.log`                         | Text   | Error log (rotated, max 5 MB × 5)                             |
+| `logs/score-discrepancy.csv`             | CSV    | Score calculation discrepancy log                             |
+| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Raw shot data per session                                     |
 
 **Storage location** (OS-specific user data directory):
 

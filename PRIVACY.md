@@ -21,7 +21,8 @@ MQTT broker credentials are not accepted as part of the broker URL. Saika Lane d
 Saika Lane can store the following data below the operating system's application-data directory:
 
 - `saika-lane.db`: session and shot records.
-- `settings.json`: application, device, and MQTT settings.
+- `settings.json`: canonical application, device, and MQTT settings.
+- `saika-lane.json`: an electron-store compatibility mirror plus connection history and competition state.
 - `logs/combined.log` and `logs/error.log`: rotating diagnostic logs.
 - `logs/score-discrepancy.csv`: score-calculation discrepancy records.
 - `ShotLog/*.jsonl`: raw shot records for individual sessions.
