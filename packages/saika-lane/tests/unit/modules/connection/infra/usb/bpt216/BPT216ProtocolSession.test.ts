@@ -75,7 +75,7 @@ describe('BPT216ProtocolSession', () => {
     expect(onFrame).toHaveBeenNthCalledWith(2, Buffer.from('P 8.4 FF1F 07F6 50'), receivedAt);
   });
 
-  it('clears an unterminated oversized frame and resumes at the next frame', () => {
+  it('discards an unterminated oversized line through its delimiter before resuming', () => {
     const port = new FakePort();
     const onFrame = vi.fn();
     const onWarning = vi.fn();
@@ -83,10 +83,11 @@ describe('BPT216ProtocolSession', () => {
     session.start();
 
     port.emit('x'.repeat(25));
-    port.emit('9.7,0,0,0,0,T\n');
+    port.emit('9.7,0,0,0,0,T\n9.8,0,0,0,0,T\n');
 
     expect(onWarning).toHaveBeenCalledWith('FRAME_TOO_LONG');
     expect(onFrame).toHaveBeenCalledTimes(1);
+    expect(onFrame).toHaveBeenCalledWith(Buffer.from('9.8,0,0,0,0,T'), expect.any(Date));
   });
 
   it('removes its listener and clears partial data when stopped', () => {
