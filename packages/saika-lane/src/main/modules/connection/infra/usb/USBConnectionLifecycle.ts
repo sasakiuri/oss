@@ -39,6 +39,7 @@ export class USBConnectionLifecycle {
   private readonly maxReconnectAttempts = 3;
   private readonly deviceDetector: USBDeviceDetector;
   private generation = 0;
+  private connectionOperationGeneration = 0;
   private pendingConnect: PendingConnect | null = null;
   private openCompletion: OpenCompletion | null = null;
 
@@ -61,6 +62,11 @@ export class USBConnectionLifecycle {
    * @returns Connection entity on successful connection
    */
   async connect(config: USBConnectionConfig): Promise<Connection> {
+    const operationGeneration = ++this.connectionOperationGeneration;
+    return await this.connectForOperation(config, operationGeneration);
+  }
+
+  private async connectForOperation(config: USBConnectionConfig, operationGeneration: number): Promise<Connection> {
     const logger = getLogger();
     logger.debug('[USB] connect() called', 'usb', {
       portName: config.portName,
@@ -75,8 +81,10 @@ export class USBConnectionLifecycle {
     // A closed/opening/closing stale port must also be fully disposed before a
     // new SerialPort instance is created for the same OS device path.
     while (this.port) {
-      await this.disconnect();
+      this.ensureCurrentConnectionOperation(operationGeneration);
+      await this.disconnectCurrent();
     }
+    this.ensureCurrentConnectionOperation(operationGeneration);
 
     // Save connection settings
     this.config = config;
@@ -174,6 +182,11 @@ export class USBConnectionLifecycle {
    * Disconnect from the target
    */
   async disconnect(): Promise<void> {
+    this.connectionOperationGeneration += 1;
+    await this.disconnectCurrent();
+  }
+
+  private async disconnectCurrent(): Promise<void> {
     const port = this.port;
     const connection = this.connection;
     this.generation += 1;
@@ -205,6 +218,8 @@ export class USBConnectionLifecycle {
    * Reconnect to the target
    */
   async reconnect(): Promise<void> {
+    const operationGeneration = ++this.connectionOperationGeneration;
+
     // Error if no connection settings are available
     if (!this.config) {
       throw ErrorCatalog.createError('CONNECTION_FAILED', {
@@ -223,10 +238,11 @@ export class USBConnectionLifecycle {
     this.reconnectAttempts++;
 
     // Disconnect existing connection
-    await this.disconnect();
+    await this.disconnectCurrent();
+    this.ensureCurrentConnectionOperation(operationGeneration);
 
     // Reconnect
-    await this.connect(config);
+    await this.connectForOperation(config, operationGeneration);
   }
 
   /**
@@ -410,6 +426,16 @@ export class USBConnectionLifecycle {
 
   private isCurrent(port: SerialPort, generation: number, connection: Connection): boolean {
     return this.generation === generation && this.port === port && this.connection?.id === connection.id;
+  }
+
+  private ensureCurrentConnectionOperation(operationGeneration: number): void {
+    if (operationGeneration === this.connectionOperationGeneration) {
+      return;
+    }
+
+    throw ErrorCatalog.createError('CONNECTION_FAILED', {
+      reason: 'Connection attempt was cancelled',
+    });
   }
 
   private resolvePendingConnect(generation: number, port: SerialPort, connection: Connection): void {

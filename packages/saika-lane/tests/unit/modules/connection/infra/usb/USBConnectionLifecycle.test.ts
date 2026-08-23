@@ -47,8 +47,9 @@ vi.mock('serialport', () => {
         setTimeout(() => {
           this.closing = false;
           this._isOpen = false;
-          if (callback) callback(null);
+          // SerialPortStream emits `close` before invoking the close callback.
           this._events.close?.();
+          if (callback) callback(null);
         }, 10);
       }),
       set: vi.fn((_options: unknown, callback?: (err: Error | null) => void) => callback?.(null)),
