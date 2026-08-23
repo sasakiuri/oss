@@ -473,8 +473,9 @@ serialportの1回の `data` eventと1フレームは対応しない。1 byteず�
 推奨scannerの処理は次のとおりである。
 
 1. chunkを内部buffer末尾へ追加する。
-2. bufferが4096 byteを超えたら、最後に現れた `STX` 以降59 byte未満だけを残す。見つからなければ
-   全消去し、recoverable overflowを記録する。
+2. bufferが4096 byteを超えたら、最後に現れた `STX` から末尾までが4096 byte以下なら、59 byte以上の
+   完成候補も含めてそのsuffixを残す。`STX` がない、またはsuffix自体が4096 byteを超える場合は全消去し、
+   recoverable overflowを記録する。
 3. 先頭が単独 `ACK` なら1 byte消費して `ack` eventを返し、1へ戻る。
 4. 先頭が単独 `NAK` なら1 byte消費して `idle` eventを返し、1へ戻る。
 5. 先頭が `STX` でなければ、次の `ACK`、`NAK`、`STX` までをnoiseとして破棄する。
