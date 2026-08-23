@@ -99,6 +99,13 @@ describe('SessionContextCache', () => {
       expect(eventBus.on).toHaveBeenCalledWith('ModeSwitched', expect.any(Function));
     });
 
+    it('should subscribe to competition stage and phase events', () => {
+      cache.subscribeEvents(vi.fn());
+
+      expect(eventBus.on).toHaveBeenCalledWith('StageAdvanced', expect.any(Function));
+      expect(eventBus.on).toHaveBeenCalledWith('PhaseChanged', expect.any(Function));
+    });
+
     it('should subscribe to SessionReset event', () => {
       cache.subscribeEvents(vi.fn());
 
@@ -156,6 +163,64 @@ describe('SessionContextCache', () => {
 
       const context = cache.getContext();
       expect(context.mode.value).toBe('MATCH');
+    });
+
+    it('should update mode when the competition advances to a scored stage', () => {
+      cache.subscribeEvents(vi.fn());
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'SessionStarted',
+        aggregateId: 'session-1',
+        discipline: Discipline.beamPistol10m(),
+        timestamp: Date.now(),
+      });
+
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'StageAdvanced',
+        aggregateId: 'competition-1',
+        previousStageIndex: 0,
+        newStageIndex: 1,
+        stageName: 'Match',
+        scored: true,
+        timestamp: Date.now(),
+      });
+
+      expect(cache.getContext().mode.value).toBe('MATCH');
+    });
+
+    it('should derive mode from the active competition phase', () => {
+      cache.subscribeEvents(vi.fn());
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'SessionStarted',
+        aggregateId: 'session-1',
+        discipline: Discipline.airRifle10m(),
+        timestamp: Date.now(),
+      });
+
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'PhaseChanged',
+        aggregateId: 'competition-1',
+        previousPhase: 'STAGE_ENTERED',
+        newPhase: 'ACTIVE',
+        stageIndex: 1,
+        seriesIndex: 0,
+        stageName: 'Match',
+        scored: true,
+        timestamp: Date.now(),
+      });
+      expect(cache.getContext().mode.value).toBe('MATCH');
+
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'PhaseChanged',
+        aggregateId: 'competition-1',
+        previousPhase: 'ACTIVE',
+        newPhase: 'IDLE',
+        stageIndex: 0,
+        seriesIndex: 0,
+        stageName: 'Sighting',
+        scored: false,
+        timestamp: Date.now(),
+      });
+      expect(cache.getContext().mode.value).toBe('SIGHTING');
     });
 
     it('should clear cache on SessionReset', () => {

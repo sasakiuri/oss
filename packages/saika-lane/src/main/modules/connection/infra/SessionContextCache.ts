@@ -53,6 +53,10 @@ export class SessionContextCache {
    * @param onSessionReset - Callback invoked when a session starts or resets
    */
   subscribeEvents(onSessionReset: () => void): void {
+    const updateCompetitionMode = (scored: boolean): void => {
+      this.cachedMode = scored ? Mode.match() : Mode.sighting();
+    };
+
     this.eventBus.on('SessionStarted', (event) => {
       this.cachedDiscipline = event.discipline;
       this.cachedMode = Mode.sighting();
@@ -61,6 +65,14 @@ export class SessionContextCache {
 
     this.eventBus.on('ModeSwitched', (event) => {
       this.cachedMode = event.newMode;
+    });
+
+    this.eventBus.on('StageAdvanced', (event) => {
+      updateCompetitionMode(event.scored);
+    });
+
+    this.eventBus.on('PhaseChanged', (event) => {
+      updateCompetitionMode(event.scored);
     });
 
     this.eventBus.on('SessionReset', () => {
