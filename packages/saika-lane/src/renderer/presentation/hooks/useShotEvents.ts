@@ -8,7 +8,8 @@ import { useAudioPlayback } from './useAudioPlayback';
 /**
  * Subscription to shot IPC events
  *
- * - shotReceived: Immediate signal for a validated target hit -> impact sound playback (low latency)
+ * - shotReceived: Low-latency device signal. Framed protocols validate first;
+ *   direct streams notify on chunk receipt.
  * - shotRecorded: After CQRS processing completion -> add shot data to the store
  */
 export function useShotEvents(): void {
