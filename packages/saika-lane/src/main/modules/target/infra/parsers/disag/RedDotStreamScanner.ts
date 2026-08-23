@@ -65,7 +65,7 @@ export class RedDotStreamScanner {
       const originalLength = this.buffer.length;
       const lastStx = this.buffer.lastIndexOf(STX);
       const suffix = lastStx >= 0 ? this.buffer.subarray(lastStx) : Buffer.alloc(0);
-      const retainSuffix = lastStx >= 0 && suffix.length < RED_DOT_FRAME_LENGTH && suffix.length <= this.maxBufferBytes;
+      const retainSuffix = lastStx >= 0 && suffix.length <= this.maxBufferBytes;
       this.buffer = retainSuffix ? Buffer.from(suffix) : Buffer.alloc(0);
       this.bufferReceiptSequences = retainSuffix ? this.bufferReceiptSequences.slice(lastStx) : [];
       events.push(
