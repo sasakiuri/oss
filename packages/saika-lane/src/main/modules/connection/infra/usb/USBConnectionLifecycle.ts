@@ -42,6 +42,7 @@ export class USBConnectionLifecycle {
   private connectionOperationGeneration = 0;
   private pendingConnect: PendingConnect | null = null;
   private openCompletion: OpenCompletion | null = null;
+  private readonly closeCompletions = new WeakMap<SerialPort, Promise<void>>();
 
   /**
    * @param emitter - Event emitter
@@ -459,6 +460,24 @@ export class USBConnectionLifecycle {
   }
 
   private async closePort(port: SerialPort): Promise<void> {
+    const existingCompletion = this.closeCompletions.get(port);
+    if (existingCompletion) {
+      await existingCompletion;
+      return;
+    }
+
+    const completion = this.performClosePort(port);
+    this.closeCompletions.set(port, completion);
+    try {
+      await completion;
+    } finally {
+      if (this.closeCompletions.get(port) === completion) {
+        this.closeCompletions.delete(port);
+      }
+    }
+  }
+
+  private async performClosePort(port: SerialPort): Promise<void> {
     const openCompletion = this.openCompletion?.port === port ? this.openCompletion.promise : null;
     port.removeAllListeners();
 
