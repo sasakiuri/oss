@@ -205,7 +205,7 @@ export class Session {
       throw ErrorCatalog.createError('CURRENT_SERIES_NOT_FOUND');
     }
 
-    // Prioritize device-notified mode; use session mode if omitted
+    // Prioritize the mode supplied for this shot; use the session mode if omitted
     const effectiveMode = shotMode ?? this.mode;
 
     // Determine series number
