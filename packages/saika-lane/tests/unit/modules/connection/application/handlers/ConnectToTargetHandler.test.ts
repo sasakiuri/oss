@@ -6,6 +6,7 @@ import { createConnectToTargetHandler } from '@/main/modules/connection/applicat
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -56,7 +57,9 @@ describe('createConnectToTargetHandler', () => {
     }).connect();
 
     // Create handler
-    handler = createConnectToTargetHandler(mockConnectionRepository, mockUSBManager, mockEventBus);
+    handler = createConnectToTargetHandler(mockConnectionRepository, mockUSBManager, mockEventBus, () =>
+      Mode.sighting(),
+    );
   });
 
   describe('Success cases', () => {
@@ -103,6 +106,20 @@ describe('createConnectToTargetHandler', () => {
           portPath: portName,
         }),
       );
+    });
+
+    it('should synchronize the target with the current match mode after connecting', async () => {
+      (mockUSBManager.connect as any).mockResolvedValue(testConnection);
+      const matchMode = Mode.match();
+      handler = createConnectToTargetHandler(mockConnectionRepository, mockUSBManager, mockEventBus, () => matchMode);
+
+      await handler({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.sius(),
+        baudRate: 9600,
+      });
+
+      expect(mockUSBManager.sendMode).toHaveBeenCalledWith(matchMode);
     });
 
     it('should connect without specifying a baud rate', async () => {
