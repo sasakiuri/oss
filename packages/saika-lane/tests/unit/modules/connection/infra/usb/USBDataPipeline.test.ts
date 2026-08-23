@@ -463,6 +463,14 @@ describe('USBDataPipeline', () => {
     });
   });
 
+  describe('clearBufferedData()', () => {
+    it('should discard partial direct-stream data at a connection boundary', () => {
+      pipeline.clearBufferedData();
+
+      expect(mockDataParser.clearBuffer).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('setSessionContextProvider()', () => {
     it('should pass the configured provider discipline/mode to the context', () => {
       pipeline.setSessionContextProvider(() => ({

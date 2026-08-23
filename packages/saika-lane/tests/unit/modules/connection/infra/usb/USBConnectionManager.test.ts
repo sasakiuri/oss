@@ -30,6 +30,7 @@ vi.mock('electron', () => ({
 let mockPortInstance: any;
 const mockPortInstances: any[] = [];
 let autoRedDotHandshake = true;
+let mockDataParserInstance: any;
 
 // Mock serialport
 vi.mock('serialport', () => {
@@ -136,10 +137,13 @@ vi.mock('@/main/modules/connection/infra/usb/USBDeviceDetector', () => ({
 // Mock SerialDataParser
 vi.mock('@/main/modules/target/infra/SerialDataParser', () => {
   const MockSerialDataParser = Object.assign(
-    vi.fn().mockImplementation(() => ({
-      parse: vi.fn().mockReturnValue([]),
-      clearBuffer: vi.fn(),
-    })),
+    vi.fn().mockImplementation(() => {
+      mockDataParserInstance = {
+        parse: vi.fn().mockReturnValue([]),
+        clearBuffer: vi.fn(),
+      };
+      return mockDataParserInstance;
+    }),
     { defaultParsers: vi.fn().mockReturnValue({}) },
   );
   return { SerialDataParser: MockSerialDataParser };
@@ -164,6 +168,7 @@ describe('USBConnectionManager', () => {
     mockPortInstance = null;
     mockPortInstances.length = 0;
     autoRedDotHandshake = true;
+    mockDataParserInstance = null;
     manager = new USBConnectionManager(new AdapterRegistry());
     manager.setSessionContextProvider(() => ({
       discipline: Discipline.airRifle10m(),
@@ -557,6 +562,18 @@ describe('USBConnectionManager', () => {
 
       // The protocol session and lifecycle remove listeners from the old port.
       expect(firstPort.removeAllListeners).toHaveBeenCalled();
+    });
+
+    it('should discard partial direct-stream data before reconnecting', async () => {
+      await manager.connect({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.custom(),
+      });
+      mockDataParserInstance.clearBuffer.mockClear();
+
+      await manager.reconnect();
+
+      expect(mockDataParserInstance.clearBuffer).toHaveBeenCalledTimes(1);
     });
 
     it('should stop the old RedDot session and start one poller on the new port', async () => {

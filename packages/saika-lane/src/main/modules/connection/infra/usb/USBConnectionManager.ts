@@ -147,8 +147,17 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private detachProtocol(): void {
-    this.activeProtocol?.session.stop();
+    const activeProtocol = this.activeProtocol;
     this.activeProtocol = null;
+    if (!activeProtocol) {
+      return;
+    }
+
+    try {
+      activeProtocol.session.stop();
+    } finally {
+      this.pipeline.clearBufferedData();
+    }
   }
 
   private validateConfig(config: USBConnectionConfig): void {

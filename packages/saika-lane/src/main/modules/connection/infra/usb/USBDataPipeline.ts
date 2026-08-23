@@ -59,6 +59,14 @@ export class USBDataPipeline {
   }
 
   /**
+   * Discard partial data retained by the direct-stream parser.
+   * Connection and protocol boundaries must not share an incomplete frame.
+   */
+  clearBufferedData(): void {
+    this.dataParser.clearBuffer();
+  }
+
+  /**
    * Process received data
    *
    * Parses binary data, converts it to ShotData, and emits the event.
