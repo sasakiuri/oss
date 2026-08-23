@@ -177,6 +177,35 @@ describe('RedDotProtocolSession', () => {
     expect(session.getInitializationMode()).toBe('FORMAL');
   });
 
+  it('does not accept an ACK byte embedded in a malformed frame as the target-type command response', async () => {
+    const port = new FakeRedDotPort();
+    const session = createSession(port, { targetType: 'PISTOL' });
+    const outcomePromise = session.start().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await flushPromises();
+
+    port.emitData(Buffer.from([RED_DOT_NAK]));
+    await flushPromises();
+    expect(session.getState()).toBe('AWAITING_TARGET_TYPE_ACK');
+
+    const malformed = validRedDotFrame();
+    malformed[56] = RED_DOT_ACK;
+    port.emitData(malformed);
+    await flushPromises();
+
+    expect(session.getState()).toBe('AWAITING_TARGET_TYPE_ACK');
+    expect(port.writes).toEqual([
+      Buffer.from([RED_DOT_ENQ]),
+      Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+      Buffer.from([RED_DOT_NAK]),
+    ]);
+
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(outcomePromise).resolves.toMatchObject({ code: 'RED_DOT_INITIALIZATION_FAILED' });
+  });
+
   it('attempts formal initialization after an unanswered initial probe', async () => {
     const port = new FakeRedDotPort();
     const session = createSession(port);

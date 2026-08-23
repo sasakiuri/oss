@@ -72,7 +72,7 @@ describe('RedDotStreamScanner', () => {
     expect(events[1]).toMatchObject({ type: 'ack', receivedAtReceiptSequence: 42 });
   });
 
-  it('drops only the leading STX for a structural error and finds the next frame', () => {
+  it('discards a structurally invalid candidate and finds the next frame', () => {
     const scanner = new RedDotStreamScanner();
     const malformed = validRedDotFrame();
     malformed[9] = 0x0a;
@@ -82,6 +82,17 @@ describe('RedDotStreamScanner', () => {
 
     expect(events.filter((event) => event.type === 'invalid-structure')).toHaveLength(1);
     expect(events.filter((event) => event.type === 'frame')).toHaveLength(1);
+  });
+
+  it('does not reinterpret control bytes inside a structurally invalid frame', () => {
+    const scanner = new RedDotStreamScanner();
+    const malformed = validRedDotFrame();
+    malformed[56] = 0x06;
+
+    const events = scanner.push(malformed, 42);
+
+    expect(events.map((event) => event.type)).toEqual(['invalid-structure']);
+    expect(scanner.getBufferedByteCount()).toBe(0);
   });
 
   it('consumes a complete bad-BCC candidate before accepting the next frame', () => {

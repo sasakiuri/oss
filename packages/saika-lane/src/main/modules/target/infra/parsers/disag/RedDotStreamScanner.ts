@@ -109,7 +109,15 @@ export class RedDotStreamScanner {
       const receivedAt = this.now();
       const structureError = getRedDotFixedStructureError(candidate);
       if (structureError) {
-        this.consume(1);
+        // A rejected fixed-length candidate is one protocol unit. Do not scan
+        // ACK/NAK-looking bytes inside it as standalone control responses: an
+        // embedded byte could otherwise satisfy an unrelated command handshake.
+        // If another STX already exists inside the candidate, keep it as the
+        // earliest possible frame boundary for stream resynchronization.
+        const nextStxOffset = this.buffer.indexOf(STX, 1);
+        const bytesToConsume =
+          nextStxOffset > 0 && nextStxOffset < RED_DOT_FRAME_LENGTH ? nextStxOffset : RED_DOT_FRAME_LENGTH;
+        this.consume(bytesToConsume);
         events.push(Object.freeze({ type: 'invalid-structure', error: structureError, startedAtReceiptSequence }));
         continue;
       }
