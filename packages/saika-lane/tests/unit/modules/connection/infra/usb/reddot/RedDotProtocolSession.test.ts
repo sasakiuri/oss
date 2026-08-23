@@ -522,6 +522,21 @@ describe('RedDotProtocolSession', () => {
     expect(onFrame).toHaveBeenCalledTimes(1);
   });
 
+  it('stops processing the current chunk after the invalid-response limit', async () => {
+    const port = new FakeRedDotPort();
+    const session = createSession(port, { maxInvalidResponsesPerPoll: 3 });
+    await startFormally(port, session);
+    await vi.advanceTimersByTimeAsync(100);
+    const malformed = validRedDotFrame();
+    malformed[57] = malformed[57]! ^ 0x01;
+
+    port.emitData(Buffer.concat([malformed, malformed, malformed, malformed]));
+    await flushPromises();
+
+    expect(port.writes.filter((write) => write.equals(Buffer.from([RED_DOT_NAK])))).toHaveLength(3);
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+  });
+
   it('does not send a duplicate ENQ while awaiting a response', async () => {
     const port = new FakeRedDotPort();
     const session = createSession(port);

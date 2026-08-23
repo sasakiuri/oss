@@ -291,31 +291,33 @@ export class RedDotProtocolSession {
       if (!this.isActive(generation)) {
         return;
       }
-      await this.handleStreamEvent(event, generation);
+      const shouldContinue = await this.handleStreamEvent(event, generation);
+      if (!shouldContinue) {
+        return;
+      }
     }
   }
 
-  private async handleStreamEvent(event: RedDotStreamEvent, generation: number): Promise<void> {
+  private async handleStreamEvent(event: RedDotStreamEvent, generation: number): Promise<boolean> {
     switch (event.type) {
       case 'ack':
         await this.handleAck(event, generation);
-        return;
+        return true;
       case 'idle':
         await this.handleIdle(generation);
-        return;
+        return true;
       case 'noise':
         this.warn('STREAM_NOISE', { byteCount: event.byteCount });
-        return;
+        return true;
       case 'overflow':
         this.warn('BUFFER_OVERFLOW', { byteCount: event.droppedByteCount });
-        return;
+        return true;
       case 'invalid-structure':
       case 'invalid-frame':
-        await this.rejectFrame(event, generation);
-        return;
+        return this.rejectFrame(event, generation);
       case 'frame':
         await this.acceptFrame(event, generation);
-        return;
+        return true;
     }
   }
 
@@ -354,7 +356,7 @@ export class RedDotProtocolSession {
   private async rejectFrame(
     event: Extract<RedDotStreamEvent, { type: 'invalid-structure' | 'invalid-frame' }>,
     generation: number,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const previousState = this.state;
     const wasInitialized = this.wasInitializedWhenCandidateStarted(event.startedAtReceiptSequence);
     this.clearPollTimer();
@@ -367,30 +369,32 @@ export class RedDotProtocolSession {
     await this.writeAndDrain(Buffer.from([RED_DOT_NAK]), 'NAK', generation);
 
     if (!this.isActive(generation)) {
-      return;
+      return false;
     }
 
     if (!wasInitialized) {
-      if (this.invalidResponseCount >= this.maxInvalidResponsesPerPoll) {
+      const reachedInvalidResponseLimit = this.invalidResponseCount >= this.maxInvalidResponsesPerPoll;
+      if (reachedInvalidResponseLimit) {
         this.scanner.clear();
         this.invalidResponseCount = 0;
       }
       if (this.initialized) {
         this.schedulePoll(generation);
-        return;
+        return !reachedInvalidResponseLimit;
       }
       await this.resumeInitializationAfterReply(previousState, generation);
-      return;
+      return !reachedInvalidResponseLimit;
     }
 
     if (this.invalidResponseCount >= this.maxInvalidResponsesPerPoll) {
       this.scanner.clear();
       this.schedulePoll(generation);
-      return;
+      return false;
     }
 
     this.state = 'AWAITING_RESPONSE';
     this.startResponseTimer(generation);
+    return true;
   }
 
   private async acceptFrame(event: Extract<RedDotStreamEvent, { type: 'frame' }>, generation: number): Promise<void> {

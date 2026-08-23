@@ -278,9 +278,9 @@ const MAX_INVALID_RESPONSES_PER_POLL = 3;
 
 初期化完了後、不正応答が1回目または2回目なら、`NAK` のdrain後に応答timeoutを張り直して
 `AWAITING_RESPONSE` へ戻る。3回目の `NAK` をdrainしたらbufferと不正回数を空にして次pollを予約し、
-`POLL_SCHEDULED` へ移る。初期化中は同じ上限でbufferを再同期した後、元の初期化状態へ戻り、標的種別ACK
-またはfallback静穏timerの期限を延長しない。これは壊れた機器やノイズにより通信loopが占有されるのを
-防ぐSaika側の上限である。
+`POLL_SCHEDULED` へ移る。同じchunkから既に抽出済みの後続eventも破棄し、次pollの単位へ切り替える。
+初期化中は同じ上限でbufferを再同期した後、元の初期化状態へ戻り、標的種別ACKまたはfallback静穏timerの
+期限を延長しない。これは壊れた機器やノイズにより通信loopが占有されるのを防ぐSaika側の上限である。
 
 ### 4.4 write順序と多重実行防止
 
@@ -686,7 +686,7 @@ for (let split = 1; split < frame.length; split += 1) {
 - すべての2分割位置1〜58と、1 byteずつの分割でフレームを1件だけ返す。
 - 2フレームが1 chunkに結合されても順番どおり2件返す。
 - `ACK`、`NAK`、noise、部分フレーム、正常フレームの組合せから再同期する。
-- 不正構造では先頭STXだけ、不正BCCでは候補59 byteを消費する。
+- 不正構造では候補内の次のSTXまで（なければ候補59 byte全体）、不正BCCでは候補59 byteを消費する。
 - 4096 byte超過で無制限にmemoryを保持しない。
 
 ### 12.3 protocol session単体テスト
