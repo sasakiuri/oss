@@ -24,6 +24,8 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 
 - 10m Air Rifle
 - 10m Air Pistol
+- 10m Beam Rifle
+- 10m Beam Pistol
 - 50m Rifle
 - 25m Pistol
 
@@ -71,14 +73,15 @@ By default, Saika Lane stores persistent data under the OS-specific user data di
 
 ### Stored files
 
-| File / Directory                         | Format | Description                                                                                |
-| ---------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
-| `saika-lane.db`                          | SQLite | Session history, shots, and scores (managed by better-sqlite3)                             |
-| `saika-lane.json`                        | JSON   | Application settings such as connection and device preferences (managed by electron-store) |
-| `logs/combined.log`                      | Log    | Application log (rotated, 5 MB x 5 files)                                                  |
-| `logs/error.log`                         | Log    | Error-only log (rotated, 5 MB x 5 files)                                                   |
-| `logs/score-discrepancy.csv`             | CSV    | Records of score mismatches between device and app calculation                             |
-| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Per-session shot log with coordinates, scores, and metadata                                |
+| File / Directory                         | Format | Description                                                    |
+| ---------------------------------------- | ------ | -------------------------------------------------------------- |
+| `saika-lane.db`                          | SQLite | Session history, shots, and scores                             |
+| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings               |
+| `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition state  |
+| `logs/combined.log`                      | Log    | Application log (rotated, 5 MB x 5 files)                      |
+| `logs/error.log`                         | Log    | Error-only log (rotated, 5 MB x 5 files)                       |
+| `logs/score-discrepancy.csv`             | CSV    | Records of score mismatches between device and app calculation |
+| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Per-session shot log with coordinates, scores, and metadata    |
 
 ### Deleting all data
 

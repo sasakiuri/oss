@@ -879,37 +879,32 @@ Main プロセスから Renderer プロセスへのプッシュ通知イベン�
 
 #### 使用技術
 
-electron-store を使用する。
+用途に応じて、SQLite、`settings.json`、electron-store の3経路を使用する。
+
+| 保存先            | 実装             | 内容                                       |
+| ----------------- | ---------------- | ------------------------------------------ |
+| `saika-lane.db`   | better-sqlite3   | セッション、着弾履歴、得点                 |
+| `settings.json`   | AppSettingsStore | 正本となるアプリ、機器、ユーザー、MQTT設定 |
+| `saika-lane.json` | electron-store   | 互換設定、接続履歴、進行中の競技状態       |
 
 #### ストレージインターフェース
 
-ストレージアクセスは `ILocalStorage` インターフェース（`src/shared/storage/ILocalStorage.ts`）を通じて抽象化されている。`ServiceRegistry.storage` は `ILocalStorage` インターフェース型として定義され、具象クラス（`LocalStorageAdapter`）に直接依存しない。これにより、モジュール間の結合度が低減され、テスト時のモック差し替えが容易になっている。
+接続・競技・互換設定のアクセスは `ILocalStorage` インターフェース
+（`src/shared/storage/ILocalStorage.ts`）を通じて抽象化し、`LocalStorageAdapter` が electron-store を
+実装する。設定の正本は `AppSettingsStore`、セッションと着弾履歴は `ISessionRepository` を介して
+SQLiteへ保存する。
 
 #### OS ごとの保存パス
 
 | OS      | パス                                        |
 | ------- | ------------------------------------------- |
-| Windows | `%APPDATA%\saika-lane\`                     |
-| macOS   | `~/Library/Application Support/saika-lane/` |
-| Linux   | `~/.config/saika-lane/`                     |
+| Windows | `%APPDATA%\Saika Lane\`                     |
+| macOS   | `~/Library/Application Support/Saika Lane/` |
+| Linux   | `~/.config/Saika Lane/`                     |
 
-#### config.json トップレベルキー
-
-| キー        | 型     | 説明                                 |
-| ----------- | ------ | ------------------------------------ |
-| sessions    | object | セッション ID ごとのセッションデータ |
-| config      | object | アプリケーション設定                 |
-| connections | object | 接続履歴                             |
-| targets     | object | 標的定義                             |
-
-#### config サブキー
-
-- **connection**: lastUsedPort, lastUsedManufacturer, lastUsedDiscipline, autoConnect
-- **ui**: theme, language, targetZoomLevel
-- **sound**: enabled, volume（0.0〜1.0）
-- **print**: paperSize, includeScores
-- **mode**: current, autoSwitchEnabled, autoSwitchCount
-- **serialSettings**: current（baudRate/dataBits/stopBits/parity/flowControl）、isCustomized、manufacturerDefaults
+`settings.json` は `connection`、`userPreferences`、`mqtt` の3セクションを持つ。旧形式との互換性と、
+接続・競技リポジトリのために `saika-lane.json` も併存する。すべてのローカルデータを削除する場合は、
+アプリを終了して上記ディレクトリ全体を削除する。
 
 ---
 
