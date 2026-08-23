@@ -26,6 +26,10 @@ describe('BPT216DataParser', () => {
     });
   });
 
+  it('rejects the BP-217 version/status sentinel as a terminal shot', () => {
+    expect(() => parser.parse(Buffer.from('0.0,9999,0,0,0,T,2.01'))).toThrow();
+  });
+
   it.each([
     ['P 6.9 FAC3 F474 4F', 69, -1341, -2956, '4F'],
     ['P 8.4 FF1F 07F6 50', 84, -225, 2038, '50'],

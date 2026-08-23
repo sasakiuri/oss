@@ -37,6 +37,13 @@ describe('BPT216Adapter', () => {
     expect(shot.mode.value).toBe('SIGHTING');
   });
 
+  it('does not apply the BP-217 status sentinel to an RS-232C coordinate', () => {
+    const shot = adapter.convert(rawData('P 5.0 270F 0000 02'), context(Mode.match()));
+
+    expect(shot.impactPoint).toMatchObject({ x: 99.99, y: 0 });
+    expect(shot.score.value).toBe(50);
+  });
+
   it.each(['0.0,0,0,0,0,R', '0.0,0,0,0,0,B'])('rejects non-shot frame %s', (frame) => {
     expect(() => adapter.convert(rawData(frame), context(Mode.match()))).toThrow();
   });

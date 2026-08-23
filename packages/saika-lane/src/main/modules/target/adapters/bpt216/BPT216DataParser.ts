@@ -49,6 +49,11 @@ export class BPT216DataParser {
         expected: 'T (terminal shot)',
       });
     }
+    if (xRaw === 9999) {
+      throw ErrorCatalog.createError('DATA_CONVERSION_ERROR', {
+        reason: 'BPT-216 status sentinel cannot be converted as a shot',
+      });
+    }
 
     return Object.freeze({
       scoreTenths,
