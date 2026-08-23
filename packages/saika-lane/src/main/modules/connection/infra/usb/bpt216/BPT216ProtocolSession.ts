@@ -29,6 +29,7 @@ export class BPT216ProtocolSession {
   private readonly maxFrameBytes: number;
   private readonly clock: BPT216ProtocolClock;
   private buffer = Buffer.alloc(0);
+  private discardingOversizedLine = false;
   private running = false;
 
   private readonly dataListener = (chunk: Buffer): void => {
@@ -52,6 +53,7 @@ export class BPT216ProtocolSession {
       this.stop();
     }
     this.buffer = Buffer.alloc(0);
+    this.discardingOversizedLine = false;
     this.running = true;
     this.port.on('data', this.dataListener);
   }
@@ -62,6 +64,7 @@ export class BPT216ProtocolSession {
     }
     this.running = false;
     this.buffer = Buffer.alloc(0);
+    this.discardingOversizedLine = false;
   }
 
   private handleChunk(chunk: Buffer): void {
@@ -69,7 +72,21 @@ export class BPT216ProtocolSession {
       return;
     }
 
-    this.buffer = Buffer.concat([this.buffer, chunk]);
+    let remainingChunk = chunk;
+    if (this.discardingOversizedLine) {
+      const newlineIndex = remainingChunk.indexOf(0x0a);
+      if (newlineIndex < 0) {
+        return;
+      }
+
+      this.discardingOversizedLine = false;
+      remainingChunk = remainingChunk.subarray(newlineIndex + 1);
+      if (remainingChunk.length === 0) {
+        return;
+      }
+    }
+
+    this.buffer = Buffer.concat([this.buffer, remainingChunk]);
     let newlineIndex = this.buffer.indexOf(0x0a);
     while (newlineIndex >= 0) {
       const line = this.trimLine(this.buffer.subarray(0, newlineIndex));
@@ -80,6 +97,7 @@ export class BPT216ProtocolSession {
 
     if (this.buffer.length > this.maxFrameBytes) {
       this.buffer = Buffer.alloc(0);
+      this.discardingOversizedLine = true;
       this.options.onWarning?.('FRAME_TOO_LONG');
     }
   }
