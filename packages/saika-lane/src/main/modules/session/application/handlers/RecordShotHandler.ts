@@ -52,13 +52,13 @@ export function createRecordShotHandler(
       });
     }
 
-    // Prioritize MT201 score (×10 integer); fall back to recalculated score if unavailable
+    // Prioritize the device-reported score (×10 integer); fall back to the recalculated score if unavailable
     const rawScore = input.deviceScore !== undefined ? new Score(input.deviceScore) : calculatedScore;
 
     // In RING mode, floor the score (truncate ×10 integer to nearest multiple of 10: 105→100); leave as-is in DECIMAL
     const finalScore = session.scoringMode === 'RING' ? new Score(Math.floor(rawScore.value / 10) * 10) : rawScore;
 
-    // Save the MT201 score in deviceScore (×10 integer); undefined if unavailable
+    // Preserve the device-reported score (×10 integer); undefined if unavailable
     const deviceScore = input.deviceScore !== undefined ? new Score(input.deviceScore) : undefined;
 
     // X ring determination (physical geometry)
@@ -68,7 +68,7 @@ export function createRecordShotHandler(
       input.impactPoint,
       finalScore,
       input.timestamp,
-      deviceScore, // Save the MT201 score
+      deviceScore,
       innerTen,
       input.mode, // Prioritize device-notified mode (uses session mode if omitted)
     );
