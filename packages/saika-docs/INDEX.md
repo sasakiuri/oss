@@ -23,5 +23,4 @@
 
 - [第三者表示と免責](./NOTICE.md)
 - [参照元](./SOURCES.md)
-- [移植監査記録](./MIGRATION_AUDIT.md)
 - [公開コンテンツ方針](./CONTENT_POLICY.md)

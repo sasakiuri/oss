@@ -21,7 +21,7 @@ Saika Lane の仕様、設計判断、帳票、対応機器、テストシナリ
 
 このパッケージは既存の Saika 文書から、Saika 自身の内容だけを選別して移植しています。
 第三者の規則PDF、製品ソースコード、スクリーンショット、抽出コード、パケットキャプチャ、
-他製品の解析資料は収録していません。詳細は [MIGRATION_AUDIT.md](./MIGRATION_AUDIT.md) と
+他製品の解析資料は収録していません。参照元は [SOURCES.md](./SOURCES.md)、公開方針は
 [CONTENT_POLICY.md](./CONTENT_POLICY.md) を参照してください。
 
 MT201文書はメーカー通信仕様の転載ではなく、公開済みSaika Lane実装が受理する形式の説明です。

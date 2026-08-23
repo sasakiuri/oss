@@ -8,6 +8,7 @@ import { USBEventEmitter } from '@/main/modules/connection/infra/usb/USBEventEmi
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 
 let mockPortInstance: any;
+const mockPortInstances: any[] = [];
 
 vi.mock('serialport', () => {
   const mockSerialPort = vi.fn().mockImplementation((options: any) => {
@@ -20,6 +21,14 @@ vi.mock('serialport', () => {
       baudRate: options.baudRate,
       on: vi.fn(function (this: typeof mockPortInstance, event: string, callback: Function) {
         this._events[event] = callback;
+        return this;
+      }),
+      once: vi.fn(function (this: typeof mockPortInstance, event: string, callback: Function) {
+        const onceCallback = (...args: unknown[]) => {
+          this.removeListener(event, onceCallback);
+          callback(...args);
+        };
+        this._events[event] = onceCallback;
         return this;
       }),
       open: vi.fn(function (this: typeof mockPortInstance, callback?: (err: Error | null) => void) {
@@ -39,17 +48,27 @@ vi.mock('serialport', () => {
           this.closing = false;
           this._isOpen = false;
           if (callback) callback(null);
+          this._events.close?.();
         }, 10);
       }),
       set: vi.fn((_options: unknown, callback?: (err: Error | null) => void) => callback?.(null)),
       write: vi.fn((_data: Buffer, callback?: (err: Error | null) => void) => callback?.(null)),
       drain: vi.fn((callback?: (err: Error | null) => void) => callback?.(null)),
-      removeListener: vi.fn(),
-      removeAllListeners: vi.fn(),
+      removeListener: vi.fn(function (this: typeof mockPortInstance, event: string, callback: Function) {
+        if (this._events[event] === callback) {
+          delete this._events[event];
+        }
+        return this;
+      }),
+      removeAllListeners: vi.fn(function (this: typeof mockPortInstance) {
+        this._events = {};
+        return this;
+      }),
       get isOpen() {
         return this._isOpen;
       },
     };
+    mockPortInstances.push(mockPortInstance);
     return mockPortInstance;
   });
 
@@ -94,6 +113,7 @@ describe('USBConnectionLifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPortInstance = null;
+    mockPortInstances.length = 0;
     emitter = new USBEventEmitter();
     onPortReady = vi.fn();
     lifecycle = new USBConnectionLifecycle(emitter, onPortReady);
@@ -344,6 +364,18 @@ describe('USBConnectionLifecycle', () => {
 
       // Should not throw
       await lifecycle.disconnect();
+    });
+
+    it('should not reconnect when an explicit disconnect supersedes automatic recovery', async () => {
+      await lifecycle.connect(createConfig());
+      const establishedPort = mockPortInstance;
+
+      const recovery = lifecycle.handleConnectionError(establishedPort, new Error('Link lost'));
+      const explicitDisconnect = lifecycle.disconnect();
+      await Promise.all([recovery, explicitDisconnect]);
+
+      expect(mockPortInstances).toHaveLength(1);
+      expect(lifecycle.getStatus().equals(ConnectionStatus.disconnected())).toBe(true);
     });
   });
 

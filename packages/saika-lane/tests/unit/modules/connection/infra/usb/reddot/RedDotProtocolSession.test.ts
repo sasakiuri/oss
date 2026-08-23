@@ -443,6 +443,32 @@ describe('RedDotProtocolSession', () => {
     expect(session.getState()).toBe('STOPPED');
   });
 
+  it('settles cancellation without an unhandled rejection while the probe drain is pending', async () => {
+    const port = new FakeRedDotPort();
+    port.deferDrains = true;
+    const session = createSession(port);
+    const outcomePromise = session.start().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await flushPromises();
+
+    session.stop();
+    const error = await outcomePromise;
+
+    expect(error).toMatchObject({
+      code: 'CONNECTION_FAILED',
+      metadata: { reason: 'RedDot protocol initialization was cancelled' },
+    });
+    expect(session.getState()).toBe('STOPPED');
+    expect(port.listenerCount()).toBe(0);
+
+    // A late serialport callback must be harmless after start() has settled.
+    port.completeNextDrain();
+    await flushPromises();
+    expect(session.getState()).toBe('STOPPED');
+  });
+
   it('keeps one listener and one timer generation across reconnect-style restarts', async () => {
     const port = new FakeRedDotPort();
     const session = createSession(port);

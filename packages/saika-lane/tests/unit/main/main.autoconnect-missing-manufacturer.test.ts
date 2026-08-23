@@ -205,7 +205,9 @@ function setupMainModuleMocks(): void {
     QueryLoggingMiddleware: class {},
   }));
   vi.doMock('@/main/shared-infra/events/TypedEventBus', () => ({
-    TypedEventBus: class {},
+    TypedEventBus: class {
+      on = vi.fn(() => () => undefined);
+    },
   }));
   vi.doMock('@/main/shared-infra/ipc', () => ({
     ContractEventForwarder: class {

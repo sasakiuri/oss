@@ -383,7 +383,7 @@ export class USBConnectionLifecycle {
 
     // Invalidate every callback belonging to this port before stopping the
     // receiver. Pending writes may settle synchronously during stop().
-    this.generation += 1;
+    const recoveryGeneration = ++this.generation;
     this.onPortUnavailable();
 
     const terminalConnection = error ? connection.setError(error.message).disconnect() : connection.disconnect();
@@ -396,6 +396,13 @@ export class USBConnectionLifecycle {
     await this.closePort(port);
     if (this.port === port) {
       this.port = null;
+    }
+
+    // An explicit disconnect or a newer connect attempt supersedes this
+    // recovery while the old port is closing. Do not reopen a connection after
+    // the caller has changed the lifecycle generation.
+    if (this.generation !== recoveryGeneration) {
+      return;
     }
 
     await this.attemptReconnect();

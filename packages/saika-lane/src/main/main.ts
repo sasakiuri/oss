@@ -25,13 +25,17 @@ import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { settingsModule } from '@/main/modules/settings/settings.module';
-import { findTargetDeviceDefinition } from '@/main/modules/target/domain/targetDeviceDefinitions';
+import {
+  findTargetDeviceDefinition,
+  isBpt216DeviceId,
+  isDisagRedDotDeviceId,
+} from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
-import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { type IEventBus, TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ContractEventForwarder } from '@/main/shared-infra/ipc';
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger, initializeLogger } from '@/main/shared-infra/logging';
@@ -125,6 +129,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   });
   settingsStore.getAll();
   const eventBus = new TypedEventBus();
+  const firstSessionStarted = waitForFirstSessionStart(eventBus);
   const db = createSqliteDb(join(app.getPath('userData'), 'saika-lane.db'));
   const sessionRepository = new SqliteSessionRepository(db);
   const connectionRepository = new ConnectionRepositoryImpl(storage);
@@ -234,7 +239,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   // Run renderer-load initialization from a single did-finish-load hook.
   mainWindow.webContents.once('did-finish-load', () => {
     focusStartupWindow(mainWindow);
-    scheduleAutoConnect(settingsStore, usbConnectionManager, commandBus);
+    scheduleAutoConnect(settingsStore, usbConnectionManager, commandBus, firstSessionStarted);
     appUpdater.emitCurrentState();
     void appUpdater.checkForUpdates();
   });
@@ -264,10 +269,22 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   });
 }
 
+function waitForFirstSessionStart(eventBus: IEventBus): Promise<void> {
+  return new Promise((resolve) => {
+    let unsubscribe: (() => void) | null = null;
+    unsubscribe = eventBus.on('SessionStarted', () => {
+      unsubscribe?.();
+      unsubscribe = null;
+      resolve();
+    });
+  });
+}
+
 function scheduleAutoConnect(
   settingsStore: IAppSettingsStore,
   usbManager: USBConnectionManager,
   commandBus: CommandBus,
+  firstSessionStarted: Promise<void>,
 ): void {
   void (async () => {
     const logger = getLogger();
@@ -323,6 +340,13 @@ function scheduleAutoConnect(
         error: err instanceof Error ? err.message : String(err),
       });
       return;
+    }
+
+    if (isBpt216DeviceId(settings.deviceId) || isDisagRedDotDeviceId(settings.deviceId)) {
+      logger.info('Auto-connect: waiting for the initial session before connecting the selected target.', 'main', {
+        deviceId: settings.deviceId,
+      });
+      await firstSessionStarted;
     }
 
     logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');
