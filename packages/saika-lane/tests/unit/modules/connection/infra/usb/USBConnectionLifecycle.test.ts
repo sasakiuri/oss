@@ -229,6 +229,24 @@ describe('USBConnectionLifecycle', () => {
       expect(status.equals(ConnectionStatus.connected())).toBe(true);
     });
 
+    it('should cancel an older replacement connect before opening the latest port', async () => {
+      await lifecycle.connect(createConfig({ portName: 'COM1' }));
+
+      const olderReplacement = lifecycle.connect(createConfig({ portName: 'COM2' }));
+      const olderRejection = expect(olderReplacement).rejects.toMatchObject({
+        code: 'CONNECTION_FAILED',
+        metadata: { reason: 'Connection attempt was cancelled' },
+      });
+      const latestReplacement = lifecycle.connect(createConfig({ portName: 'COM3' }));
+
+      const latestConnection = await latestReplacement;
+      await olderRejection;
+
+      expect(latestConnection.portPath).toBe('COM3');
+      expect(lifecycle.port?.path).toBe('COM3');
+      expect(mockPortInstances.filter((port) => port.isOpen).map((port) => port.path)).toEqual(['COM3']);
+    });
+
     it('should close an open port before rejecting post-open initialization failure', async () => {
       onPortReady.mockRejectedValueOnce(new Error('Receiver initialization failed'));
 
