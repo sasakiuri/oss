@@ -480,8 +480,9 @@ serialportの1回の `data` eventと1フレームは対応しない。1 byteず�
 4. 先頭が単独 `NAK` なら1 byte消費して `idle` eventを返し、1へ戻る。
 5. 先頭が `STX` でなければ、次の `ACK`、`NAK`、`STX` までをnoiseとして破棄する。
 6. `STX` から59 byte未満なら、追加chunkを待つ。
-7. 59 byte候補の固定制御位置が不正なら `invalid-structure` を返し、先頭の `STX` 1 byteだけを
-   捨てて再走査する。これにより候補内の次の `STX` へ同期できる。
+7. 59 byte候補の固定制御位置が不正なら `invalid-structure` を返し、候補内に次の `STX` があれば
+   その位置まで、なければ候補59 byte全体を捨てて再走査する。不正候補内の `ACK` / `NAK` 相当byteは
+   単独の制御応答として再解釈しない。
 8. 固定制御位置が正しければ、同じ `RedDotFrameDecoder` でBCCと§5.2の全フィールドを検査する。
    拒否された候補59 byteを消費し、理由付き `invalid-frame` を返す。
 9. すべて妥当なら59 byteを消費し、raw frame、解析済みDTO、受信時刻を持つ `frame` eventを返す。
