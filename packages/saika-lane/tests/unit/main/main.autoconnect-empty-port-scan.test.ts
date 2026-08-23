@@ -13,6 +13,9 @@ const shared = vi.hoisted(() => {
     commandExecute: vi.fn().mockResolvedValue(undefined),
     listPorts: vi.fn().mockResolvedValue([]),
     didFinishLoad: null as null | (() => void),
+    sessionStarted: null as null | (() => void),
+    manufacturer: 'KOHTO',
+    deviceId: 'BPT216',
     logger,
   };
 });
@@ -131,8 +134,8 @@ vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
       return {
         connection: {
           portName: 'COM9',
-          manufacturer: 'KOHTO',
-          deviceId: 'BPT216',
+          manufacturer: shared.manufacturer,
+          deviceId: shared.deviceId,
           serialNumber: '',
           vendorId: '',
           productId: '',
@@ -156,8 +159,8 @@ vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
     getConnectionSettings() {
       return {
         portName: 'COM9',
-        manufacturer: 'KOHTO',
-        deviceId: 'BPT216',
+        manufacturer: shared.manufacturer,
+        deviceId: shared.deviceId,
       };
     }
 
@@ -196,7 +199,18 @@ vi.mock('@/main/shared-infra/cqrs', () => ({
   QueryLoggingMiddleware: class {},
 }));
 vi.mock('@/main/shared-infra/events/TypedEventBus', () => ({
-  TypedEventBus: class {},
+  TypedEventBus: class {
+    on = vi.fn((event: string, callback: () => void) => {
+      if (event === 'SessionStarted') {
+        shared.sessionStarted = callback;
+      }
+      return () => {
+        if (shared.sessionStarted === callback) {
+          shared.sessionStarted = null;
+        }
+      };
+    });
+  },
 }));
 vi.mock('@/main/shared-infra/ipc', () => ({
   ContractEventForwarder: class {
@@ -236,6 +250,9 @@ describe('main.ts auto-connect regression', () => {
     shared.listPorts.mockReset();
     shared.listPorts.mockResolvedValue([]);
     shared.didFinishLoad = null;
+    shared.sessionStarted = null;
+    shared.manufacturer = 'KOHTO';
+    shared.deviceId = 'BPT216';
     Object.values(shared.logger).forEach((mockFn) => mockFn.mockReset());
   });
 
@@ -243,7 +260,12 @@ describe('main.ts auto-connect regression', () => {
     vi.clearAllMocks();
   });
 
-  it('auto-connects a saved BPT-216 at its configured baud rate when the initial port scan is empty', async () => {
+  it.each([
+    { manufacturer: 'KOHTO', deviceId: 'BPT216', baudRate: 115200 },
+    { manufacturer: 'DISAG', deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE', baudRate: 9600 },
+  ])('waits for SessionStarted before auto-connecting $deviceId', async ({ manufacturer, deviceId, baudRate }) => {
+    shared.manufacturer = manufacturer;
+    shared.deviceId = deviceId;
     await import('@/main/main');
     await Promise.resolve();
     await Promise.resolve();
@@ -254,13 +276,19 @@ describe('main.ts auto-connect regression', () => {
     await Promise.resolve();
     await Promise.resolve();
 
+    expect(shared.commandExecute).not.toHaveBeenCalled();
+
+    shared.sessionStarted?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
     expect(shared.commandExecute).toHaveBeenCalledWith(
       { name: 'ConnectToTarget' },
       expect.objectContaining({
         portName: 'COM9',
-        manufacturer: 'KOHTO',
-        deviceId: 'BPT216',
-        baudRate: 115200,
+        manufacturer,
+        deviceId,
+        baudRate,
       }),
     );
   });

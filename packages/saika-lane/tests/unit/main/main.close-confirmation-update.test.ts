@@ -190,7 +190,9 @@ vi.mock('@/main/shared-infra/cqrs', () => ({
   QueryLoggingMiddleware: class {},
 }));
 vi.mock('@/main/shared-infra/events/TypedEventBus', () => ({
-  TypedEventBus: class {},
+  TypedEventBus: class {
+    on = vi.fn(() => () => undefined);
+  },
 }));
 vi.mock('@/main/shared-infra/ipc', () => ({
   ContractEventForwarder: class {

@@ -134,8 +134,10 @@ export class RedDotProtocolSession {
     this.port.on('data', this.dataListener);
 
     try {
-      await this.runSerialized(() => this.beginProbe(generation));
-      await readiness.promise;
+      // Observe readiness from the beginning of the probe. stop() may reject it
+      // while write/drain is still pending, and waiting for the probe first would
+      // leave that rejection temporarily unhandled and delay cancellation.
+      await Promise.all([this.runSerialized(() => this.beginProbe(generation)), readiness.promise]);
     } catch (error) {
       if (this.isActive(generation)) {
         this.stopInternal();
