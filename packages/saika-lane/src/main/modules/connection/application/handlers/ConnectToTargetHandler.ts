@@ -2,7 +2,7 @@
 import type { ConnectToTargetInput } from '@/main/composition/tokens';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
-import { Mode } from '@/main/modules/session/domain/Mode';
+import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
@@ -16,7 +16,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
  *
  * @example
  * ```typescript
- * const handler = createConnectToTargetHandler(connectionRepository, usbManager, eventBus);
+ * const handler = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, getCurrentMode);
  * await handler({ portName: 'COM3', manufacturer: TargetManufacturer.sius(), baudRate: 9600 });
  * ```
  *
@@ -29,6 +29,7 @@ export function createConnectToTargetHandler(
   connectionRepository: IConnectionRepository,
   usbManager: IUSBConnectionManager,
   eventBus: IEventBus,
+  getCurrentMode: () => Mode,
 ): CommandHandler<ConnectToTargetInput> {
   return async (input) => {
     // Connect using the USB connection manager
@@ -39,8 +40,9 @@ export function createConnectToTargetHandler(
       deviceId: input.deviceId,
     });
 
-    // Send sighting mode byte 'S' immediately after connection (best-effort: continue even on failure)
-    await usbManager.sendMode(Mode.sighting());
+    // Synchronize the target with the mode that is current after the potentially
+    // asynchronous port/protocol initialization completes.
+    await usbManager.sendMode(getCurrentMode());
 
     // Persist the connection
     await connectionRepository.save(connection);

@@ -104,6 +104,56 @@ describe('connection.module', () => {
       expect(commandBus.register).toHaveBeenCalledWith(ConnectToTargetToken, expect.any(Function));
     });
 
+    it('should use the cached competition mode for an initial connection', async () => {
+      registerModule();
+
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'SessionStarted',
+        aggregateId: 'session-1',
+        discipline: { value: 'BEAM_PISTOL_10M' },
+        timestamp: Date.now(),
+      });
+      (eventBus.emit as ReturnType<typeof vi.fn>)({
+        type: 'PhaseChanged',
+        aggregateId: 'competition-1',
+        previousPhase: 'SERIES_ENTERED',
+        newPhase: 'ACTIVE',
+        stageIndex: 1,
+        seriesIndex: 1,
+        stageName: 'Match',
+        scored: true,
+        timestamp: Date.now(),
+      });
+      vi.mocked(usbManager.sendMode).mockClear();
+
+      const connection = Connection.create({
+        manufacturer: TargetManufacturer.kohto(),
+        portPath: 'COM3',
+        baudRate: 115200,
+        deviceId: 'BPT216',
+      }).connect();
+      vi.mocked(usbManager.connect).mockResolvedValue(connection);
+      const connectHandler = vi
+        .mocked(commandBus.register)
+        .mock.calls.find((call) => call[0] === ConnectToTargetToken)?.[1] as
+        | ((input: {
+            portName: string;
+            manufacturer: TargetManufacturer;
+            baudRate?: number;
+            deviceId?: string;
+          }) => Promise<void>)
+        | undefined;
+
+      await connectHandler?.({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.kohto(),
+        baudRate: 115200,
+        deviceId: 'BPT216',
+      });
+
+      expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.match());
+    });
+
     it('should register DisconnectFromTarget command handler', () => {
       registerModule();
 

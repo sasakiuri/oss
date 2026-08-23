@@ -71,7 +71,15 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // Subscribe to session events for cache updates + shot counter reset
     sessionContextCache.subscribeEvents(() => usbManager.resetShotCounter());
 
-    const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus);
+    const getCurrentMode = (): Mode => {
+      try {
+        return sessionContextCache.getContext().mode;
+      } catch {
+        return Mode.sighting();
+      }
+    };
+
+    const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, getCurrentMode);
 
     let pendingUnexpectedDisconnect: Promise<Connection | null> | null = null;
 
@@ -131,14 +139,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     const handleShotIngestion = createShotIngestionHandler({ commandBus, sessionRepository, competitionRepository });
     usbManager.on('data', handleShotIngestion);
 
-    const getReconnectMode = (): Mode => {
-      try {
-        return sessionContextCache.getContext().mode;
-      } catch {
-        return Mode.sighting();
-      }
-    };
-
     usbManager.on('disconnected', () => {
       pendingUnexpectedDisconnect = (async () => {
         try {
@@ -177,7 +177,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
             deviceId: reconnectedConnection.deviceId,
           });
 
-          usbManager.sendMode(getReconnectMode()).catch((err: unknown) => {
+          usbManager.sendMode(getCurrentMode()).catch((err: unknown) => {
             getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
               err: err instanceof Error ? err.message : String(err),
             });
