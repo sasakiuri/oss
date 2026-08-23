@@ -91,10 +91,13 @@ export class RedDotProtocolSession {
   private responseTimerGeneration = 0;
   private readiness: Readiness | null = null;
   private operationQueue: Promise<void> = Promise.resolve();
+  private receiptSequence = 0;
+  private lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
 
   private readonly dataListener = (chunk: Buffer): void => {
     const generation = this.generation;
-    void this.runSerialized(() => this.handleChunk(chunk, generation)).catch((error: unknown) => {
+    const receiptSequence = ++this.receiptSequence;
+    void this.runSerialized(() => this.handleChunk(chunk, generation, receiptSequence)).catch((error: unknown) => {
       this.handleConnectionFailure(error, generation);
     });
   };
@@ -127,6 +130,8 @@ export class RedDotProtocolSession {
     this.initialized = false;
     this.initializationMode = null;
     this.invalidResponseCount = 0;
+    this.receiptSequence = 0;
+    this.lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
     this.scanner.clear();
     this.operationQueue = Promise.resolve();
     const readiness = this.createReadiness();
@@ -273,12 +278,12 @@ export class RedDotProtocolSession {
     this.startResponseTimer(generation);
   }
 
-  private async handleChunk(chunk: Buffer, generation: number): Promise<void> {
+  private async handleChunk(chunk: Buffer, generation: number, receiptSequence: number): Promise<void> {
     if (!this.isActive(generation)) {
       return;
     }
 
-    const events = this.scanner.push(chunk);
+    const events = this.scanner.push(chunk, receiptSequence);
     for (const event of events) {
       if (!this.isActive(generation)) {
         return;
@@ -345,7 +350,7 @@ export class RedDotProtocolSession {
     generation: number,
   ): Promise<void> {
     const previousState = this.state;
-    const wasInitialized = this.initialized;
+    const wasInitialized = this.wasInitializedWhenCandidateStarted(event.startedAtReceiptSequence);
     this.clearPollTimer();
     if (wasInitialized || previousState === 'AWAITING_PROBE_RESPONSE') {
       this.clearResponseTimer();
@@ -364,6 +369,10 @@ export class RedDotProtocolSession {
         this.scanner.clear();
         this.invalidResponseCount = 0;
       }
+      if (this.initialized) {
+        this.schedulePoll(generation);
+        return;
+      }
       await this.resumeInitializationAfterReply(previousState, generation);
       return;
     }
@@ -380,7 +389,7 @@ export class RedDotProtocolSession {
 
   private async acceptFrame(event: Extract<RedDotStreamEvent, { type: 'frame' }>, generation: number): Promise<void> {
     const previousState = this.state;
-    const wasInitialized = this.initialized;
+    const wasInitialized = this.wasInitializedWhenCandidateStarted(event.startedAtReceiptSequence);
     this.clearPollTimer();
     if (wasInitialized || previousState === 'AWAITING_PROBE_RESPONSE') {
       this.clearResponseTimer();
@@ -398,6 +407,10 @@ export class RedDotProtocolSession {
         { targetType: this.options.targetType, state: previousState },
         '[RedDot] Shot received before target-type initialization was dropped',
       );
+      if (this.initialized) {
+        this.schedulePoll(generation);
+        return;
+      }
       await this.resumeInitializationAfterReply(previousState, generation);
       return;
     }
@@ -431,6 +444,10 @@ export class RedDotProtocolSession {
       return;
     }
 
+    // A serial chunk can be queued while the target-type byte is still being
+    // drained. Frames that started in any chunk received up to this point must
+    // remain pre-initialization frames even when they are parsed later.
+    this.lastPreInitializationReceiptSequence = this.receiptSequence;
     this.initialized = true;
     this.initializationMode = mode;
     this.invalidResponseCount = 0;
@@ -447,6 +464,10 @@ export class RedDotProtocolSession {
 
     this.schedulePoll(generation);
     this.resolveReadiness();
+  }
+
+  private wasInitializedWhenCandidateStarted(startedAtReceiptSequence: number): boolean {
+    return this.initialized && startedAtReceiptSequence > this.lastPreInitializationReceiptSequence;
   }
 
   private schedulePoll(generation: number): void {

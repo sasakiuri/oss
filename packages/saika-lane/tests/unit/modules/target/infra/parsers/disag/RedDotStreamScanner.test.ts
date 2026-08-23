@@ -29,6 +29,16 @@ describe('RedDotStreamScanner', () => {
     expect(frameEvents.filter((event) => event.type === 'frame')).toHaveLength(1);
   });
 
+  it('retains the receipt sequence of the first frame byte across chunks', () => {
+    const scanner = new RedDotStreamScanner();
+    const frame = validRedDotFrame();
+
+    expect(scanner.push(frame.subarray(0, 20), 7)).toHaveLength(0);
+    const event = scanner.push(frame.subarray(20), 8).find((candidate) => candidate.type === 'frame');
+
+    expect(event).toMatchObject({ type: 'frame', startedAtReceiptSequence: 7 });
+  });
+
   it('returns two combined frames in order', () => {
     const scanner = new RedDotStreamScanner();
     const first = validRedDotFrame();
