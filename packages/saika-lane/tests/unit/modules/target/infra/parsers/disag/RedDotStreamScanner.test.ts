@@ -66,9 +66,10 @@ describe('RedDotStreamScanner', () => {
   it('resynchronizes to an ACK marker after leading noise', () => {
     const scanner = new RedDotStreamScanner();
 
-    const events = scanner.push(Buffer.from([0x41, 0x42, 0x06]));
+    const events = scanner.push(Buffer.from([0x41, 0x42, 0x06]), 42);
 
     expect(events.map((event) => event.type)).toEqual(['noise', 'ack']);
+    expect(events[1]).toMatchObject({ type: 'ack', receivedAtReceiptSequence: 42 });
   });
 
   it('drops only the leading STX for a structural error and finds the next frame', () => {
