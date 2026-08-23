@@ -89,9 +89,13 @@ export class BPT216ProtocolSession {
     this.buffer = Buffer.concat([this.buffer, remainingChunk]);
     let newlineIndex = this.buffer.indexOf(0x0a);
     while (newlineIndex >= 0) {
-      const line = this.trimLine(this.buffer.subarray(0, newlineIndex));
+      const rawLine = this.buffer.subarray(0, newlineIndex);
       this.buffer = this.buffer.subarray(newlineIndex + 1);
-      this.processLine(line);
+      if (rawLine.length > this.maxFrameBytes) {
+        this.options.onWarning?.('FRAME_TOO_LONG');
+      } else {
+        this.processLine(this.trimLine(rawLine));
+      }
       newlineIndex = this.buffer.indexOf(0x0a);
     }
 
