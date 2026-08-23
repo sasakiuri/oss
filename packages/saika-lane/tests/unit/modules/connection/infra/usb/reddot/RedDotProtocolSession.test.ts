@@ -316,6 +316,64 @@ describe('RedDotProtocolSession', () => {
     await startPromise;
   });
 
+  it('drops a shot coalesced with the target-type command ACK', async () => {
+    const port = new FakeRedDotPort();
+    const onFrame = vi.fn();
+    const onWarning = vi.fn();
+    const session = createSession(port, { targetType: 'PISTOL', onFrame, onWarning });
+    const startPromise = session.start();
+    await flushPromises();
+
+    port.emitData(Buffer.from([RED_DOT_NAK]));
+    await flushPromises();
+    expect(session.getState()).toBe('AWAITING_TARGET_TYPE_ACK');
+
+    port.emitData(Buffer.concat([Buffer.from([RED_DOT_ACK]), validRedDotFrame()]));
+    await startPromise;
+    await flushPromises();
+
+    expect(onFrame).not.toHaveBeenCalled();
+    expect(onWarning).toHaveBeenCalledWith('FRAME_BEFORE_TARGET_TYPE_DROPPED');
+    expect(port.writes).toEqual([
+      Buffer.from([RED_DOT_ENQ]),
+      Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND),
+      Buffer.from([RED_DOT_PISTOL_TARGET_TYPE]),
+      Buffer.from([RED_DOT_ACK]),
+    ]);
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+  });
+
+  it('drops a split shot that started while the target-type byte was draining', async () => {
+    const port = new FakeRedDotPort();
+    const onFrame = vi.fn();
+    const onWarning = vi.fn();
+    const session = createSession(port, { targetType: 'PISTOL', onFrame, onWarning });
+    const startPromise = session.start();
+    await flushPromises();
+
+    port.emitData(Buffer.from([RED_DOT_NAK]));
+    await flushPromises();
+    port.deferDrains = true;
+    port.emitData(Buffer.from([RED_DOT_ACK]));
+    await flushPromises();
+    expect(session.getState()).toBe('INITIALIZING_TARGET_TYPE');
+
+    const frame = validRedDotFrame();
+    port.emitData(frame.subarray(0, 20));
+    port.deferDrains = false;
+    port.completeNextDrain();
+    await startPromise;
+    await flushPromises();
+
+    port.emitData(frame.subarray(20));
+    await flushPromises();
+
+    expect(onFrame).not.toHaveBeenCalled();
+    expect(onWarning).toHaveBeenCalledWith('FRAME_BEFORE_TARGET_TYPE_DROPPED');
+    expect(port.writes.at(-1)).toEqual(Buffer.from([RED_DOT_ACK]));
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+  });
+
   it('treats repeated device NAK responses as idle after initialization', async () => {
     const port = new FakeRedDotPort();
     const onFrame = vi.fn();

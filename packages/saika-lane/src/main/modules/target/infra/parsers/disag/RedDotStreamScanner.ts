@@ -20,9 +20,18 @@ export type RedDotStreamEvent =
       readonly frame: Buffer;
       readonly parsed: RedDotParsedFrame;
       readonly receivedAt: Date;
+      readonly startedAtReceiptSequence: number;
     }
-  | { readonly type: 'invalid-structure'; readonly error: RedDotFrameDecodeError }
-  | { readonly type: 'invalid-frame'; readonly error: RedDotFrameDecodeError }
+  | {
+      readonly type: 'invalid-structure';
+      readonly error: RedDotFrameDecodeError;
+      readonly startedAtReceiptSequence: number;
+    }
+  | {
+      readonly type: 'invalid-frame';
+      readonly error: RedDotFrameDecodeError;
+      readonly startedAtReceiptSequence: number;
+    }
   | { readonly type: 'noise'; readonly byteCount: number }
   | { readonly type: 'overflow'; readonly droppedByteCount: number };
 
@@ -36,6 +45,7 @@ export interface RedDotStreamScannerOptions {
  */
 export class RedDotStreamScanner {
   private buffer = Buffer.alloc(0);
+  private bufferReceiptSequences: number[] = [];
   private readonly decoder: RedDotFrameDecoder;
   private readonly maxBufferBytes: number;
   private readonly now: () => Date;
@@ -46,18 +56,18 @@ export class RedDotStreamScanner {
     this.now = options.now ?? (() => new Date());
   }
 
-  push(chunk: Buffer): RedDotStreamEvent[] {
+  push(chunk: Buffer, receiptSequence = 0): RedDotStreamEvent[] {
     const events: RedDotStreamEvent[] = [];
     this.buffer = Buffer.concat([this.buffer, chunk]);
+    this.bufferReceiptSequences.push(...Array.from({ length: chunk.length }, () => receiptSequence));
 
     if (this.buffer.length > this.maxBufferBytes) {
       const originalLength = this.buffer.length;
       const lastStx = this.buffer.lastIndexOf(STX);
       const suffix = lastStx >= 0 ? this.buffer.subarray(lastStx) : Buffer.alloc(0);
-      this.buffer =
-        lastStx >= 0 && suffix.length < RED_DOT_FRAME_LENGTH && suffix.length <= this.maxBufferBytes
-          ? Buffer.from(suffix)
-          : Buffer.alloc(0);
+      const retainSuffix = lastStx >= 0 && suffix.length < RED_DOT_FRAME_LENGTH && suffix.length <= this.maxBufferBytes;
+      this.buffer = retainSuffix ? Buffer.from(suffix) : Buffer.alloc(0);
+      this.bufferReceiptSequences = retainSuffix ? this.bufferReceiptSequences.slice(lastStx) : [];
       events.push(
         Object.freeze({
           type: 'overflow',
@@ -94,24 +104,25 @@ export class RedDotStreamScanner {
       }
 
       const candidate = Buffer.from(this.buffer.subarray(0, RED_DOT_FRAME_LENGTH));
+      const startedAtReceiptSequence = this.bufferReceiptSequences[0] ?? receiptSequence;
       const receivedAt = this.now();
       const structureError = getRedDotFixedStructureError(candidate);
       if (structureError) {
         this.consume(1);
-        events.push(Object.freeze({ type: 'invalid-structure', error: structureError }));
+        events.push(Object.freeze({ type: 'invalid-structure', error: structureError, startedAtReceiptSequence }));
         continue;
       }
 
       try {
         const parsed = this.decoder.decode(candidate);
         this.consume(RED_DOT_FRAME_LENGTH);
-        events.push(Object.freeze({ type: 'frame', frame: candidate, parsed, receivedAt }));
+        events.push(Object.freeze({ type: 'frame', frame: candidate, parsed, receivedAt, startedAtReceiptSequence }));
       } catch (error) {
         if (!(error instanceof RedDotFrameDecodeError)) {
           throw error;
         }
         this.consume(RED_DOT_FRAME_LENGTH);
-        events.push(Object.freeze({ type: 'invalid-frame', error }));
+        events.push(Object.freeze({ type: 'invalid-frame', error, startedAtReceiptSequence }));
       }
     }
 
@@ -120,6 +131,7 @@ export class RedDotStreamScanner {
 
   clear(): void {
     this.buffer = Buffer.alloc(0);
+    this.bufferReceiptSequences = [];
   }
 
   getBufferedByteCount(): number {
@@ -132,6 +144,7 @@ export class RedDotStreamScanner {
 
   private consume(byteCount: number): void {
     this.buffer = Buffer.from(this.buffer.subarray(byteCount));
+    this.bufferReceiptSequences = this.bufferReceiptSequences.slice(byteCount);
   }
 
   private findNextMarkerOffset(): number {
