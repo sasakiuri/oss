@@ -189,11 +189,21 @@ USBDeviceDetector ──► USBConnectionLifecycle
                       Domain Shot object
                               │
                               ▼
-                 TypedEventBus (shot:received)
-                    ┌─────────┼──────────┐
-                    ▼         ▼          ▼
-                 Session     MQTT     Renderer
-                 Module      Module   (via IPC)
+                 USB data event (ShotData)
+                              │
+                              ▼
+                    RecordShot command
+                              │
+                              ▼
+                 Session aggregate + repository
+                              │
+                              ▼
+                  TypedEventBus (ShotRecorded)
+                              │
+                              ├──► Competition
+                              ├──► MQTT
+                              ├──► ShotLog
+                              └──► Renderer (via IPC)
 ```
 
 Key stages:
@@ -203,7 +213,8 @@ Key stages:
 3. **Protocol** -- `TargetProtocolRegistry` selects the hardware contract. MT-201 keeps the established direct stream; BPT-216 delimits terminal records; RedDot owns initialization, polling, and replies.
 4. **Parsing** -- Direct streams use `SerialDataParser`; framed protocols pass accepted shot frames directly to `USBDataPipeline`.
 5. **Adaptation** -- `DataConversionService` routes data to the device adapter, which creates domain `Shot` objects.
-6. **Distribution** -- The `TypedEventBus` broadcasts shot events; subscriber modules (session, MQTT, renderer) react independently.
+6. **Recording** -- The USB `data` event is serialized by `ShotIngestionHandler`, which dispatches `RecordShot`; the session aggregate creates and persists the recorded shot.
+7. **Distribution** -- The `TypedEventBus` broadcasts `ShotRecorded`; competition, MQTT, shot logging, and the renderer IPC forwarder react independently. The low-latency `shotReceived` sound signal is a separate direct IPC path, not a domain event.
 
 ### Event Flow: Main to Renderer
 
