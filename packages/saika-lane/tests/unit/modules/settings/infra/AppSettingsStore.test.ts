@@ -187,6 +187,54 @@ describe('AppSettingsStore', () => {
     expect(JSON.parse(readFileSync(filePath, 'utf8')).connection.deviceId).toBe('BPT216');
   });
 
+  it('migrates legacy BP216 rifle preferences to the BPT-216 pistol competition', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        connection: {
+          portName: 'COM10',
+          manufacturer: 'KOHTO',
+          deviceId: 'BP216',
+        },
+        userPreferences: {
+          discipline: 'BEAM_RIFLE_10M',
+          competitionTypeId: 'BR60S',
+        },
+        mqtt: {},
+      }),
+      'utf8',
+    );
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection.deviceId).toBe('BPT216');
+    expect(settings.userPreferences).toMatchObject({
+      discipline: 'BEAM_PISTOL_10M',
+      competitionTypeId: 'BP60',
+    });
+  });
+
+  it('migrates BP216 preferences recovered from legacy storage', () => {
+    storage.set('connectionSettings', {
+      portName: 'COM10',
+      manufacturer: 'KOHTO',
+      deviceId: 'BP216',
+    });
+    storage.set('userPreferences', {
+      discipline: 'BEAM_RIFLE_10M',
+    });
+
+    const store = new AppSettingsStore({ filePath, storage });
+    const settings = store.getAll();
+
+    expect(settings.connection.deviceId).toBe('BPT216');
+    expect(settings.userPreferences).toMatchObject({
+      discipline: 'BEAM_PISTOL_10M',
+      competitionTypeId: 'BP60',
+    });
+  });
+
   it('rebuilds settings from legacy storage when settings.json exists but is empty', () => {
     storage.set('connectionSettings', {
       portName: 'COM3',

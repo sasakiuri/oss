@@ -193,14 +193,18 @@ export class AppSettingsStore implements IAppSettingsStore {
 
   private buildInitialSettings(): AppSettingsDto {
     return this.normalizeDraft({
-      connection: this.readLegacyConnection(),
+      connection: this.readLegacyConnectionInput(),
       userPreferences: this.readLegacyUserPreferences(),
       mqtt: this.readLegacyMqttSettings(),
     });
   }
 
+  private readLegacyConnectionInput(): unknown {
+    return this.storage.get('connectionSettings') ?? {};
+  }
+
   private readLegacyConnection(): AppSettingsDraftDto['connection'] {
-    return this.normalizeConnectionDraft(this.storage.get('connectionSettings') ?? {});
+    return this.normalizeConnectionDraft(this.readLegacyConnectionInput());
   }
 
   private readLegacyUserPreferences(): AppSettingsDraftDto['userPreferences'] {
@@ -218,8 +222,12 @@ export class AppSettingsStore implements IAppSettingsStore {
 
   private normalizeDraft(draft: unknown, preferredLaneId?: string | null): AppSettingsDto {
     const root = this.asRecord(draft);
+    const isLegacyBpt216 = this.asRecord(root.connection).deviceId === LEGACY_BPT216_DEVICE_ID;
     const connection = this.normalizeConnectionDraft(root.connection);
-    const userPreferences = this.normalizeUserPreferencesDraft(root.userPreferences);
+    const normalizedUserPreferences = this.normalizeUserPreferencesDraft(root.userPreferences);
+    const userPreferences = isLegacyBpt216
+      ? this.migrateLegacyBpt216UserPreferences(normalizedUserPreferences)
+      : normalizedUserPreferences;
     const mqtt = this.normalizeMqttDraft(root.mqtt);
     const laneIdCandidate = preferredLaneId ?? mqtt.laneId ?? this.getValidLegacyLaneId() ?? randomUUID();
 
@@ -237,7 +245,7 @@ export class AppSettingsStore implements IAppSettingsStore {
     return {
       ...draft,
       ...(this.shouldRecoverConnectionSection(draft.connection)
-        ? { connection: this.readLegacyConnection() }
+        ? { connection: this.readLegacyConnectionInput() }
         : { connection: this.mergeConnectionFromLegacy(draft.connection) }),
       ...(this.shouldRecoverSection(draft.userPreferences)
         ? { userPreferences: this.readLegacyUserPreferences() }
@@ -345,6 +353,19 @@ export class AppSettingsStore implements IAppSettingsStore {
       competitionTypeId: this.parseDraftField(userPreferencesSchema.shape.competitionTypeId, section.competitionTypeId),
       audioVolume: this.parseDraftField(userPreferencesSchema.shape.audioVolume, section.audioVolume),
     });
+  }
+
+  private migrateLegacyBpt216UserPreferences(
+    preferences: AppSettingsDraftDto['userPreferences'],
+  ): AppSettingsDraftDto['userPreferences'] {
+    return {
+      ...preferences,
+      discipline: preferences.discipline === 'BEAM_RIFLE_10M' ? 'BEAM_PISTOL_10M' : preferences.discipline,
+      competitionTypeId:
+        preferences.competitionTypeId === '' || preferences.competitionTypeId === 'BR60S'
+          ? 'BP60'
+          : preferences.competitionTypeId,
+    };
   }
 
   private normalizeMqttDraft(input: unknown): AppSettingsDraftDto['mqtt'] {
