@@ -579,8 +579,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-xs text-zinc-400">
-                  GUI からの保存と同じ検証を通して設定全体を更新します。mqtt.laneId
-                  は自動管理され、保存時に現在値が維持されます。
+                  Updating the entire document applies the same validation as saving through the GUI. mqtt.laneId is
+                  managed automatically and retains its current value when saved.
                 </span>
               </div>
             </div>
