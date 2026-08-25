@@ -59,7 +59,11 @@ const readPackagedDependencyIds = (archivePath, appPackageName) => {
   const entries = listPackage(archivePath, { isPack: false });
 
   for (const entry of entries) {
-    const normalizedEntry = entry.replaceAll("\\", "/").replace(/^\//, "");
+    // Keep the host-native separators for @electron/asar extraction. On
+    // Windows, normalizing the path to forward slashes makes its filesystem
+    // traversal treat the entire directory path as a single segment.
+    const archiveEntry = entry.replace(/^[/\\]/, "");
+    const normalizedEntry = archiveEntry.replaceAll("\\", "/");
     if (!packageJsonEntryPattern.test(normalizedEntry)) {
       continue;
     }
@@ -67,7 +71,7 @@ const readPackagedDependencyIds = (archivePath, appPackageName) => {
     let packageJson;
     try {
       packageJson = JSON.parse(
-        extractFile(archivePath, normalizedEntry).toString("utf8"),
+        extractFile(archivePath, archiveEntry).toString("utf8"),
       );
     } catch (error) {
       throw new Error(
