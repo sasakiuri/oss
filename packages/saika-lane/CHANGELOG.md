@@ -1,5 +1,17 @@
 # @sasakiuri/saika-lane
 
+## 0.3.0
+
+### Minor Changes
+
+- [#73](https://github.com/sasakiuri/oss/pull/73) [`11b27fb`](https://github.com/sasakiuri/oss/commit/11b27fbad06af83327ae9dd63cc0747b9430707f) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Add DISAG RedDot rifle and pistol support, 10m Air Rifle and Air Pistol competitions, the 10m Beam Pistol discipline, and Kohto BPT-216 BP-217 I/F and RS-232C protocol support. This also includes device-ID migration, protocol lifecycle hardening, target rendering, shot sounds, automatic baud-rate restoration, tests, and interoperability documentation.
+
+### Patch Changes
+
+- [#73](https://github.com/sasakiuri/oss/pull/73) [`7c9f151`](https://github.com/sasakiuri/oss/commit/7c9f1510467781a1758eb8a862f1d056ad93e07f) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Update application and build dependencies to patched releases.
+
+- [#73](https://github.com/sasakiuri/oss/pull/73) [`8d8cf9f`](https://github.com/sasakiuri/oss/commit/8d8cf9fe1a5b6e980e2c11e2ec0c949c372f2dbd) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Translate the JSON settings guidance shown in the settings dialog.
+
 ## 0.2.11
 
 ### Patch Changes
