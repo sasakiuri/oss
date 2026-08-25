@@ -279,10 +279,15 @@ temp_build/
 # ============================================
 # Coding AI Agent
 # ============================================
+.agents/
 .claude/
 claude/
 CLAUDE.md
+AGENTS.md
 TODO.md
+
+# Windows download metadata
+*:Zone.Identifier
 
 # ============================================
 # Application logs
