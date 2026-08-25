@@ -8,13 +8,14 @@ import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
  *
  * - sessionStarted: Set session ID + transition to sighting mode
  * - modeSwitched: Switch mode
- * - sessionReset: Reset session state
+ * - sessionReset: Clear shooting data while preserving session context
  */
 export function useSessionEvents(): void {
   const setSessionId = useSessionStore((s) => s.setSessionId);
   const setMode = useSessionStore((s) => s.setMode);
   const setDiscipline = useSessionStore((s) => s.setDiscipline);
   const resetSessionStore = useSessionStore((s) => s.resetSession);
+  const clearSessionData = useSessionStore((s) => s.clearSessionData);
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.on.sessionStarted((event) => {
@@ -36,8 +37,8 @@ export function useSessionEvents(): void {
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.on.sessionReset(() => {
-      resetSessionStore();
+      clearSessionData();
     });
     return () => unsubscribe();
-  }, [resetSessionStore]);
+  }, [clearSessionData]);
 }

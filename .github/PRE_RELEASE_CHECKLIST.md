@@ -25,7 +25,7 @@
 
 ## Distribution & Publishing
 
-- [ ] Publishing strategy decided and documented (npm for shared configs, GitHub Releases for saika-lane)
+- [ ] Publishing strategy decided and documented (npm for shared configs; one versioned GitHub Release containing Saika Lane, Saika Director, and Saika Docs)
 - [ ] npm access tokens configured (if publishing shared configs)
 - [ ] npm Trusted Publishers (OIDC) configured — eliminates long-lived npm tokens ([npm docs](https://docs.npmjs.com/generating-provenance-statements#publishing-packages-with-provenance-via-github-actions))
 - [ ] (auto) Changeset access field matches publishing intent (`public` vs `restricted`)
@@ -52,12 +52,24 @@
 
 ## Electron App (saika-lane)
 
+- [ ] Saika Lane, Saika Director, and Saika Docs package versions match the approved `v<version>` tag
 - [ ] Windows build tested and verified (`scripts/build-win.ps1`)
 - [ ] Application launches and basic functionality works
 - [ ] Serial port connection works with target hardware (if available)
 - [ ] (auto) All UI translations are complete (no Japanese text in `packages/saika-lane/src/`)
 - [ ] Test data and debug artifacts removed from production build
 - [ ] `jp.nilay.saika.lane` app ID reviewed for organizational information disclosure
+
+## Electron App (saika-director)
+
+- [ ] Windows x64, macOS x64/arm64, and Linux x64 artifacts built by the combined `release.yml`
+- [ ] Packaged application launches without a native-module ABI error
+- [ ] Embedded broker tested with one or more physical Saika Lane devices
+- [ ] External MQTT broker transition and rollback tested on the venue network
+- [ ] BR60S and BP60 qualification workflows exercised from join through finish
+- [ ] Timing, acknowledgement, and score results compared with an independent authority
+- [ ] Unsigned-build warnings are acceptable, or Windows/macOS signing and notarization are configured
+- [ ] `jp.nilay.saika.director` app ID reviewed for organizational information disclosure
 
 ## Internationalization
 
@@ -111,3 +123,4 @@
 - [ ] GOVERNANCE.md or MAINTAINERS.md created
 - [ ] First-time external contributor PR approval required
 - [ ] GitHub Releases page has proper release notes
+- [ ] Shared GitHub Release contains Saika Lane and Saika Director artifacts for every supported platform, with Saika Docs available from the tagged source

@@ -265,6 +265,38 @@ describe('sessionStore', () => {
     });
   });
 
+  describe('clearSessionData', () => {
+    it('clears shots and scores while preserving the active session context', () => {
+      const { setSessionId, setMode, setDiscipline, addShot, updateScores, clearSessionData } =
+        useSessionStore.getState();
+      setSessionId('test-session-123');
+      setMode('MATCH');
+      setDiscipline('AIR_RIFLE_10M');
+      addShot({
+        id: 'shot-1',
+        shotNumber: 1,
+        x: 1.5,
+        y: 2.0,
+        score: 10.5,
+        timestamp: '2026-01-14T10:00:00Z',
+        mode: 'MATCH',
+        isRecorded: true,
+        innerTen: false,
+      });
+      updateScores(105, [105]);
+
+      clearSessionData();
+
+      const state = useSessionStore.getState();
+      expect(state.currentSessionId).toBe('test-session-123');
+      expect(state.mode).toBe('MATCH');
+      expect(state.discipline).toBe('AIR_RIFLE_10M');
+      expect(state.shots).toEqual([]);
+      expect(state.seriesScores).toEqual([]);
+      expect(state.totalScore).toBe(0);
+    });
+  });
+
   describe('resetSession', () => {
     it('can reset session state to initial state', () => {
       const { setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();

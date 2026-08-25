@@ -14,6 +14,19 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { createMockSettingsStore } from '../../../helpers/mockDependencies';
 
+const { mockMqttClient } = vi.hoisted(() => ({
+  mockMqttClient: {
+    connected: false,
+    on: vi.fn(),
+    removeListener: vi.fn(),
+    removeAllListeners: vi.fn(),
+    end: vi.fn(),
+    publishAsync: vi.fn(),
+    subscribeAsync: vi.fn(),
+    unsubscribeAsync: vi.fn(),
+  },
+}));
+
 // ── mock electron ──────────────────────────────────────────────
 vi.mock('electron', () => ({
   app: { getVersion: () => '1.0.0-test' },
@@ -22,15 +35,7 @@ vi.mock('electron', () => ({
 // ── mock mqtt ──────────────────────────────────────────────────
 vi.mock('mqtt', () => ({
   default: {
-    connect: vi.fn(() => ({
-      connected: false,
-      on: vi.fn(),
-      removeListener: vi.fn(),
-      end: vi.fn(),
-      publishAsync: vi.fn(),
-      subscribeAsync: vi.fn(),
-      unsubscribeAsync: vi.fn(),
-    })),
+    connect: vi.fn(() => mockMqttClient),
   },
 }));
 
@@ -124,6 +129,15 @@ describe('mqtt.module', () => {
   let sessionRepository: ISessionRepository;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    mockMqttClient.connected = false;
+    mockMqttClient.end.mockImplementation((_force: boolean, _options: object, callback: (error?: Error) => void) => {
+      mockMqttClient.connected = false;
+      callback();
+    });
+    mockMqttClient.publishAsync.mockResolvedValue(undefined);
+    mockMqttClient.subscribeAsync.mockResolvedValue(undefined);
+    mockMqttClient.unsubscribeAsync.mockResolvedValue(undefined);
     eventBus = createMockEventBus();
     ipcRouter = createMockIpcRouter();
     storage = createMockStorage();
@@ -217,5 +231,47 @@ describe('mqtt.module', () => {
     });
 
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
+  });
+
+  it('should publish offline and close the client when initial subscription fails', async () => {
+    let emittedInitialConnect = false;
+    mockMqttClient.on.mockImplementation((event: string, handler: Function) => {
+      if (event === 'connect' && !emittedInitialConnect) {
+        emittedInitialConnect = true;
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          handler();
+        }, 0);
+      }
+    });
+    mockMqttClient.subscribeAsync.mockRejectedValueOnce(new Error('subscription rejected'));
+
+    mqttModule.register({
+      eventBus,
+      ipcRouter,
+      storage,
+      settingsStore,
+      queryBus,
+      commandBus,
+      competitionRepository,
+      timerService,
+      sessionRepository,
+    });
+    const handlers = vi.mocked(ipcRouter.register).mock.calls[0]?.[1] as unknown as {
+      connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;
+      getMqttStatus(): Promise<{ status: string }>;
+    };
+
+    await expect(
+      handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883', laneAlias: 'Lane 4' }),
+    ).rejects.toMatchObject({ code: 'MQTT_SUBSCRIBE_FAILED' });
+
+    expect(mockMqttClient.publishAsync).toHaveBeenCalledWith(
+      'saika/lane/test-lane-uuid/hardware/state',
+      expect.stringContaining('"status":"offline"'),
+      { qos: 1, retain: true },
+    );
+    expect(mockMqttClient.end).toHaveBeenCalledWith(false, {}, expect.any(Function));
+    await expect(handlers.getMqttStatus()).resolves.toMatchObject({ status: 'disconnected' });
   });
 });

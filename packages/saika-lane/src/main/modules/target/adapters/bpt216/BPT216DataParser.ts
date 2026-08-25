@@ -112,7 +112,7 @@ export class BPT216DataParser {
       });
     }
 
-    // The official V201 application treats every value below the 1-ring as a miss.
+    // Normalize scores below one point to zero.
     return parsedScoreTenths < 10 ? 0 : parsedScoreTenths;
   }
 

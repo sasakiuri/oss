@@ -9,10 +9,14 @@ import { fileURLToPath } from "node:url";
 import { getProjectLicenses } from "generate-license-file";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const appDirectory = join(repositoryRoot, "packages", "saika-lane");
-const appPackageJsonPath = join(appDirectory, "package.json");
-const reportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
+const appDirectories = [
+  join(repositoryRoot, "packages", "saika-lane"),
+  join(repositoryRoot, "packages", "saika-director"),
+];
 const checkOnly = process.argv.includes("--check");
+const selectedWorkspace = process.argv
+  .find((argument) => argument.startsWith("--workspace="))
+  ?.slice("--workspace=".length);
 
 const normalizeText = (value) =>
   value
@@ -98,13 +102,15 @@ const loadProductionDependencyIds = async (appPackage) => {
   visit(workspaceNode, appPackage.name);
 
   if (dependencyIds.size === 0) {
-    throw new Error("No production dependencies were found for Saika Lane.");
+    throw new Error(
+      `No production dependencies were found for ${appPackage.name}.`,
+    );
   }
 
   return dependencyIds;
 };
 
-const loadLicenseRecords = async (dependencyIds) => {
+const loadLicenseRecords = async (dependencyIds, appPackageJsonPath) => {
   const options = {
     replace: {
       doctrine: join(repositoryRoot, "node_modules", "doctrine", "LICENSE"),
@@ -163,7 +169,7 @@ const loadLicenseRecords = async (dependencyIds) => {
   return records;
 };
 
-const formatReport = (records) => {
+const formatReport = (records, appPackageName) => {
   const groups = new Map();
   for (const [dependencyId, record] of records) {
     const group = groups.get(record.recordKey) ?? {
@@ -186,7 +192,7 @@ const formatReport = (records) => {
     "THIRD-PARTY SOFTWARE NOTICES",
     "",
     "This file is generated from the installed production dependency closure of",
-    "@sasakiuri/saika-lane. Do not edit it manually.",
+    `${appPackageName}. Do not edit it manually.`,
     "",
     `Package/version entries: ${records.size}`,
     "",
@@ -222,11 +228,13 @@ const formatReport = (records) => {
   return `${lines.join("\n").trimEnd()}\n`;
 };
 
-const main = async () => {
+const generateForApplication = async (appDirectory) => {
+  const appPackageJsonPath = join(appDirectory, "package.json");
+  const reportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
   const appPackage = await readJson(appPackageJsonPath);
   const dependencyIds = await loadProductionDependencyIds(appPackage);
-  const records = await loadLicenseRecords(dependencyIds);
-  const report = formatReport(records);
+  const records = await loadLicenseRecords(dependencyIds, appPackageJsonPath);
+  const report = formatReport(records, appPackage.name);
 
   if (checkOnly) {
     let currentReport;
@@ -243,7 +251,7 @@ const main = async () => {
     }
 
     console.log(
-      `Verified ${records.size} production package/version license entries.`,
+      `Verified ${records.size} production package/version license entries for ${appPackage.name}.`,
     );
     return;
   }
@@ -252,6 +260,28 @@ const main = async () => {
   console.log(
     `Wrote ${records.size} production package/version license entries to ${reportPath}.`,
   );
+};
+
+const main = async () => {
+  const applications = await Promise.all(
+    appDirectories.map(async (appDirectory) => ({
+      appDirectory,
+      appPackage: await readJson(join(appDirectory, "package.json")),
+    })),
+  );
+  const selectedApplications = selectedWorkspace
+    ? applications.filter(
+        ({ appPackage }) => appPackage.name === selectedWorkspace,
+      )
+    : applications;
+
+  if (selectedApplications.length === 0) {
+    throw new Error(`Unknown application workspace: ${selectedWorkspace}`);
+  }
+
+  for (const { appDirectory } of selectedApplications) {
+    await generateForApplication(appDirectory);
+  }
 };
 
 main().catch((error) => {

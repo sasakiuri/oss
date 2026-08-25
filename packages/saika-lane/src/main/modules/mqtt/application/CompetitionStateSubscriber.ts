@@ -1,50 +1,73 @@
 // SPDX-License-Identifier: MIT
 /**
- * CompetitionStateSubscriber
- *
- * @description
- * Subscribes to `saika/competition/{competitionId}/state` published by the Director,
- * detects competition phase changes, and logs them.
- * Subscribes on join-competition and unsubscribes on leave-competition.
+ * Receives the Director-owned retained competition state and ensures that the
+ * lane has a local aggregate with the same competition ID before join is ACKed.
  */
 
+import { StartCompetitionToken } from '@/main/composition/tokens';
+import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import {
   CompetitionStatePayloadSchema,
   type CompetitionStatePayload,
 } from '@/main/modules/mqtt/domain/MqttCompetitionStateSchemas';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+
+const DEFAULT_STATE_TIMEOUT_MS = 5_000;
 
 export class CompetitionStateSubscriber {
   private subscribedTopic: string | null = null;
   private messageUnsubscribe: (() => void) | null = null;
   private lastPhase: string | null = null;
 
-  constructor(private readonly mqttClient: IMqttClientService) {}
+  constructor(
+    private readonly mqttClient: IMqttClientService,
+    private readonly commandBus: CommandBus,
+    private readonly competitionRepository: ICompetitionRepository,
+    private readonly stateTimeoutMs: number = DEFAULT_STATE_TIMEOUT_MS,
+  ) {}
 
-  /**
-   * Subscribes to the competition state topic
-   */
-  async subscribe(competitionId: string): Promise<void> {
+  async subscribe(competitionId: string): Promise<CompetitionStatePayload> {
     await this.unsubscribe();
 
     const topic = `saika/competition/${competitionId}/state`;
     this.subscribedTopic = topic;
     this.lastPhase = null;
 
-    await this.mqttClient.subscribe(topic, 1);
+    let resolveFirstState: (state: CompetitionStatePayload) => void = () => undefined;
+    const firstState = new Promise<CompetitionStatePayload>((resolve) => {
+      resolveFirstState = resolve;
+    });
+    let firstStateReceived = false;
 
+    // Register before SUBSCRIBE because a retained message can arrive before
+    // subscribe() resolves.
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
       if (msgTopic !== topic) return;
-      this.handleMessage(payload);
+      const state = this.parseMessage(payload);
+      if (!state || state.competitionId !== competitionId) return;
+
+      this.logPhaseChange(state);
+      if (!firstStateReceived) {
+        firstStateReceived = true;
+        resolveFirstState(state);
+      }
     });
 
-    getLogger().info(`[CompetitionStateSubscriber] Subscribed to ${topic}`, 'mqtt');
+    try {
+      await this.mqttClient.subscribe(topic, 1);
+      const state = await this.withTimeout(firstState, competitionId);
+      await this.ensureLocalCompetition(state);
+      getLogger().info(`[CompetitionStateSubscriber] Subscribed to ${topic}`, 'mqtt');
+      return state;
+    } catch (error) {
+      await this.unsubscribe();
+      throw error;
+    }
   }
 
-  /**
-   * Unsubscribes
-   */
   async unsubscribe(): Promise<void> {
     this.messageUnsubscribe?.();
     this.messageUnsubscribe = null;
@@ -53,44 +76,107 @@ export class CompetitionStateSubscriber {
       try {
         await this.mqttClient.unsubscribe(this.subscribedTopic);
       } catch {
-        // Ignore if already disconnected
+        // Ignore if already disconnected.
       }
       this.subscribedTopic = null;
       this.lastPhase = null;
     }
   }
 
-  /**
-   * Processes a message
-   */
-  private handleMessage(payload: Buffer): void {
+  private parseMessage(payload: Buffer): CompetitionStatePayload | null {
     const logger = getLogger();
-
     let rawData: unknown;
     try {
       rawData = JSON.parse(payload.toString());
     } catch {
       logger.error('[CompetitionStateSubscriber] Failed to parse JSON', 'mqtt');
-      return;
+      return null;
     }
 
-    const parseResult = CompetitionStatePayloadSchema.safeParse(rawData);
-    if (!parseResult.success) {
+    const result = CompetitionStatePayloadSchema.safeParse(rawData);
+    if (!result.success) {
       logger.warn('[CompetitionStateSubscriber] Invalid payload', 'mqtt', {
-        error: parseResult.error.message,
+        error: result.error.message,
       });
+      return null;
+    }
+    return result.data;
+  }
+
+  private logPhaseChange(state: CompetitionStatePayload): void {
+    if (state.phase === this.lastPhase) return;
+    getLogger().info(
+      `[CompetitionStateSubscriber] Phase changed: ${this.lastPhase ?? '(none)'} → ${state.phase}`,
+      'mqtt',
+      {
+        competitionId: state.competitionId,
+        competitionTypeId: state.competitionTypeId,
+        phase: state.phase,
+      },
+    );
+    this.lastPhase = state.phase;
+  }
+
+  private async ensureLocalCompetition(state: CompetitionStatePayload): Promise<void> {
+    const existing = await this.competitionRepository.findById(state.competitionId);
+    if (existing) {
+      const totalSeries = existing.config.stages
+        .filter((stage) => stage.scored)
+        .reduce((sum, stage) => sum + stage.series.length, 0);
+      const totalShots = existing.config.stages
+        .filter((stage) => stage.scored)
+        .flatMap((stage) => stage.series)
+        .reduce((sum, series) => sum + series.maxShots, 0);
+      const matches =
+        existing.config.name === state.roundName &&
+        existing.config.acc === state.acc &&
+        existing.config.shotsPerSeries === state.shotsPerSeries &&
+        totalSeries === state.totalSeries &&
+        totalShots === state.totalShots;
+      if (!matches) {
+        throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
+          detail: state.competitionId,
+        });
+      }
+
+      // The Lane may have durably applied finish-competition while Director
+      // still retains an earlier phase because its ACK or retained-state write
+      // was interrupted. Keep the saved membership and subscriptions so a new
+      // finish command can republish the final snapshots and complete cleanup.
       return;
     }
 
-    const data: CompetitionStatePayload = parseResult.data;
-
-    if (data.phase !== this.lastPhase) {
-      logger.info(`[CompetitionStateSubscriber] Phase changed: ${this.lastPhase ?? '(none)'} → ${data.phase}`, 'mqtt', {
-        competitionId: data.competitionId,
-        competitionTypeId: data.competitionTypeId,
-        phase: data.phase,
+    if (state.phase !== 'NOT_STARTED') {
+      throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
+        detail: `${state.competitionId} is already ${state.phase}`,
       });
-      this.lastPhase = data.phase;
+    }
+
+    await this.commandBus.execute(StartCompetitionToken, {
+      competitionId: state.competitionId,
+      competitionTypeId: state.competitionTypeId,
+    });
+  }
+
+  private async withTimeout(
+    statePromise: Promise<CompetitionStatePayload>,
+    competitionId: string,
+  ): Promise<CompetitionStatePayload> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(
+          ErrorCatalog.createError('MQTT_COMPETITION_STATE_TIMEOUT', {
+            competitionId,
+          }),
+        );
+      }, this.stateTimeoutMs);
+    });
+
+    try {
+      return await Promise.race([statePromise, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 }

@@ -133,19 +133,37 @@ describe('LaneTimerService', () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('future time: timer starts with full duration', async () => {
+    it('future time: timer waits until the absolute start time', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-      // starts 5 seconds in the future (elapsed is negative → remaining > duration → elapsedSeconds=0, tickTimerBy skipped)
+      // starts 5 seconds in the future
       const fiveSecondsLater = new Date(Date.now() + 5_000).toISOString();
-      await timerService.startAt('comp-1', fiveSecondsLater, 60);
+      const startPromise = timerService.startAt('comp-1', fiveSecondsLater, 60);
+
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await startPromise;
 
       // tickTimerBy is not called (elapsedSeconds <= 0)
       // save is not called (elapsed <= 0 branch)
       expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
       // timer is started
       expect(vi.getTimerCount()).toBe(1);
+    });
+
+    it('cancels a pending absolute start when stopped', async () => {
+      const fiveSecondsLater = new Date(Date.now() + 5_000).toISOString();
+      const startPromise = timerService.startAt('comp-1', fiveSecondsLater, 60);
+
+      timerService.stop();
+      await vi.advanceTimersByTimeAsync(5_000);
+      await startPromise;
+
+      expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
     });
 
     it('does nothing for non-ACTIVE phase', async () => {
@@ -300,6 +318,20 @@ describe('LaneTimerService', () => {
           remainingSeconds: 64,
           formattedRemaining: '01:04',
         }),
+      );
+    });
+  });
+
+  describe('expire()', () => {
+    it('forces an ACTIVE competition to SERIES_COMPLETE', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+
+      await timerService.expire('comp-1');
+
+      expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(2);
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PhaseChanged', newPhase: 'SERIES_COMPLETE' }),
       );
     });
   });

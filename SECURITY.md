@@ -4,8 +4,9 @@
 
 | Package        | Version | Supported |
 | -------------- | ------- | --------- |
-| saika-lane     | 0.2.x   | Yes       |
-| saika-lane     | < 0.2   | No        |
+| saika-lane     | 0.3.x   | Yes       |
+| saika-lane     | < 0.3   | No        |
+| saika-director | 0.1.x   | Yes       |
 | shared configs | 1.0.x   | Yes       |
 
 ## Reporting a Vulnerability
@@ -56,3 +57,8 @@ Saika Lane stores its application data locally on the user's machine. **Data is 
 | Linux   | `~/.config/Saika Lane/`                     |
 
 To remove all stored data, delete the directory above.
+
+Saika Director stores its competition-control state locally in `saika.db` and
+application logs in the OS-specific `Saika Director` user-data directory. This
+data is also not encrypted at rest. Director communicates only with the MQTT
+broker selected by the user and does not include an automatic updater.

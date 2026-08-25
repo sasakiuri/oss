@@ -361,6 +361,8 @@ check_electron_security() {
   local option_files=(
     "packages/saika-lane/src/main/createMainWindowOptions.ts"
     "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts"
+    "packages/saika-director/src/main/main.ts"
+    "packages/saika-director/src/main/infrastructure/window/WindowManager.ts"
   )
   local failures=()
 
@@ -436,6 +438,14 @@ check_mqtt_credential_leak() {
     if ! grep -qE '(sanitize|mask|strip|redact|userinfo|credential)' "$mqtt_service" 2>/dev/null; then
       echo "MqttClientService.ts does not appear to sanitize credentials from broker URLs"
       echo "URLs with userinfo (mqtt://user:pass@host) may leak to logs and UI"
+      CHECK_STATUS="WARN"
+    fi
+  fi
+
+  local director_schema="packages/saika-director/src/shared/config/AppConfigSchema.ts"
+  if [[ -f "$director_schema" ]]; then
+    if ! grep -qE '(url\.username|url\.password|Credentials must not)' "$director_schema" 2>/dev/null; then
+      echo "Saika Director MQTT URL schema does not appear to reject embedded credentials"
       CHECK_STATUS="WARN"
     fi
   fi

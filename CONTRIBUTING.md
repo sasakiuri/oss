@@ -6,7 +6,7 @@ Thank you for your interest in contributing to this project. This guide covers t
 
 ### Prerequisites
 
-- **Node.js** 22.15.0+ ([Volta](https://volta.sh/) recommended)
+- **Node.js** 22.22.0+ ([Volta](https://volta.sh/) recommended)
 - **npm** 10.x+
 - For `saika-lane`: Visual Studio Build Tools with "Desktop development with C++" workload (required for native modules like `serialport`)
 - Shell scripts in `scripts/` require **Bash** (Linux / macOS / WSL)
@@ -98,6 +98,11 @@ You will be prompted to:
 3. Write a short summary of the change.
 
 This creates a markdown file in `.changeset/` that should be committed with your PR. When changesets are merged to `1.x`, a "Version Packages" PR is automatically created. Merging that PR triggers version bumps, tag creation, and the release workflow.
+
+Saika Lane, Saika Director, and Saika Docs are configured as a Changesets fixed
+group. A change to any suite package advances all three to the same version. The
+shared `v<version>` release contains both applications and the documentation at
+that tag. Shared configuration packages remain independently versioned.
 
 ## Pull Request Process
 

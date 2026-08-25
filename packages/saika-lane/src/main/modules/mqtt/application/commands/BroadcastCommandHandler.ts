@@ -18,7 +18,11 @@ import {
   StartNextSeriesToken,
   StartStageToken,
 } from '@/main/composition/tokens';
+import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
+import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
   AdvanceSeriesCmdSchema,
@@ -73,6 +77,9 @@ export class BroadcastCommandHandler {
     private readonly mqttClient: IMqttClientService,
     private readonly commandBus: CommandBus,
     private readonly timerService: LaneTimerService,
+    private readonly competitionRepository: ICompetitionRepository,
+    private readonly competitionStatePublisher: LaneCompetitionStatePublisher,
+    private readonly scorePublisher: LaneScorePublisher,
     private readonly idempotencyGuard: CommandIdempotencyGuard,
     private readonly getLaneId: () => string,
     _competitionId: string,
@@ -187,9 +194,9 @@ export class BroadcastCommandHandler {
     // Clock drift check (timer-related actions only)
     let doneWarning: string | undefined;
     if (TIMER_ACTIONS.has(action as BroadcastAction)) {
-      const timerStartAt = command.timerStartAt as string | undefined;
-      if (timerStartAt) {
-        const drift = Math.abs(Date.now() - new Date(timerStartAt).getTime());
+      const issuedAt = command.issuedAt as string | undefined;
+      if (issuedAt) {
+        const drift = Math.abs(Date.now() - new Date(issuedAt).getTime());
         if (drift > CLOCK_DRIFT_REJECT_THRESHOLD_MS) {
           const error = ErrorCatalog.createError('MQTT_CLOCK_OUT_OF_SYNC', { driftMs: drift });
           logger.error(`[BroadcastCommandHandler] Clock out of sync: driftMs=${drift}`, 'mqtt', { commandId, action });
@@ -231,35 +238,144 @@ export class BroadcastCommandHandler {
     competitionId: string,
   ): Promise<void> {
     switch (action) {
-      case 'start-sighting':
-        await this.commandBus.execute(StartStageToken, { competitionId });
-        await this.timerService.startAt(
-          competitionId,
-          command.timerStartAt as string,
-          command.timerDurationSeconds as number,
-        );
-        break;
+      case 'start-sighting': {
+        await this.waitUntil(command.timerStartAt as string);
+        const state = await this.requireCompetition(competitionId);
+        if (state.phase === 'IDLE') {
+          await this.commandBus.execute(StartStageToken, { competitionId });
+          await this.startTimer(command, competitionId);
+          break;
+        }
 
-      case 'end-sighting':
-        await this.commandBus.execute(EndStageToken, { competitionId });
+        // A retry must never invoke StartStage on an ACTIVE competition: that
+        // command intentionally rotates the session and resets the Lane to IDLE.
+        // Restart the shared sighting timer only while the Lane is still in the
+        // sighting stage; later states mean this operation has been superseded.
+        if (this.isSightingStage(state) && state.phase === 'ACTIVE') {
+          await this.startTimer(command, competitionId);
+        }
         break;
+      }
 
-      case 'start-match':
-        await this.commandBus.execute(StartNextSeriesToken, { competitionId });
-        await this.timerService.startAt(
-          competitionId,
-          command.timerStartAt as string,
-          command.timerDurationSeconds as number,
-        );
+      case 'end-sighting': {
+        const state = await this.requireCompetition(competitionId);
+        if (this.isSightingStage(state) && state.phase === 'ACTIVE') {
+          await this.commandBus.execute(EndStageToken, { competitionId });
+          break;
+        }
+        if (state.phase === 'IDLE') {
+          throw this.invalidState(action, state, 'an active or completed sighting stage');
+        }
+        // SERIES_COMPLETE in the sighting stage, or any later scored stage,
+        // means the transition was already applied.
         break;
+      }
 
-      case 'advance-series':
+      case 'start-match': {
+        await this.waitUntil(command.timerStartAt as string);
+        const state = await this.requireCompetition(competitionId);
+        const matchStageIndex = this.firstScoredStageIndex(state);
+        if (matchStageIndex < 0) {
+          throw this.invalidState(action, state, 'a configured scored stage');
+        }
+
+        if (state.currentStageIndex < matchStageIndex) {
+          if (!this.isSightingStage(state) || state.phase !== 'SERIES_COMPLETE') {
+            throw this.invalidState(action, state, 'a completed sighting stage');
+          }
+          await this.commandBus.execute(AdvanceStageToken, { competitionId });
+          await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+          await this.startTimer(command, competitionId);
+          break;
+        }
+
+        if (
+          state.currentStageIndex === matchStageIndex &&
+          state.currentSeriesIndex === 0 &&
+          (state.phase === 'STAGE_ENTERED' || state.phase === 'SERIES_ENTERED')
+        ) {
+          // AdvanceStage succeeded but StartNextSeries did not. Resume only the
+          // missing half of the transition.
+          await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+          await this.startTimer(command, competitionId);
+          break;
+        }
+
+        if (state.currentStageIndex === matchStageIndex && state.currentSeriesIndex === 0 && state.phase === 'ACTIVE') {
+          await this.startTimer(command, competitionId);
+        }
+        // A Lane already beyond the first match series has also completed this
+        // operation; do not rewind it or restart its timer.
+        break;
+      }
+
+      case 'advance-series': {
+        const state = await this.requireCompetition(competitionId);
+        const stageIndex = command.stageIndex as number;
+        const fromSeriesIndex = command.fromSeriesIndex as number;
+        const resumeOnly = command.resumeOnly === true;
+        const sourceStage = state.config.stages[stageIndex];
+        if (!sourceStage?.series[fromSeriesIndex]) {
+          throw this.invalidState(action, state, `existing series ${stageIndex}:${fromSeriesIndex}`);
+        }
+
+        const sourceComparison = this.comparePosition(state, stageIndex, fromSeriesIndex);
+        if (sourceComparison < 0) {
+          throw this.invalidState(action, state, `series ${stageIndex}:${fromSeriesIndex}`);
+        }
+        if (resumeOnly && sourceComparison > 0) break;
+        if (resumeOnly && sourceComparison === 0 && state.phase === 'ACTIVE') break;
+        if (sourceComparison === 0 && (state.phase === 'SERIES_ENTERED' || state.phase === 'STAGE_ENTERED')) {
+          // Every Lane may already have persisted the destination, including the
+          // final series where there is no further position. Resume the missing
+          // StartNextSeries step at the current position.
+          await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+          break;
+        }
+        if (resumeOnly) break;
+
+        const nextPosition = this.getNextPosition(state, stageIndex, fromSeriesIndex);
+        if (!nextPosition) {
+          throw this.invalidState(action, state, `a series after ${stageIndex}:${fromSeriesIndex}`);
+        }
+        if (sourceComparison > 0) {
+          if (
+            state.currentStageIndex === nextPosition.stageIndex &&
+            state.currentSeriesIndex === nextPosition.seriesIndex &&
+            (state.phase === 'SERIES_ENTERED' || state.phase === 'STAGE_ENTERED')
+          ) {
+            // AdvanceStage persisted, but StartNextSeries failed. Complete the
+            // second half without advancing again.
+            await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+          }
+          // At the expected destination or later, the command is already done.
+          break;
+        }
+        if (state.phase !== 'SERIES_COMPLETE') {
+          throw this.invalidState(action, state, `completed series ${stageIndex}:${fromSeriesIndex}`);
+        }
+
         await this.commandBus.execute(AdvanceStageToken, { competitionId });
+        await this.commandBus.execute(StartNextSeriesToken, { competitionId });
         break;
+      }
 
-      case 'finish-competition':
-        await this.commandBus.execute(FinishCompetitionToken, { competitionId });
+      case 'finish-competition': {
+        try {
+          await this.commandBus.execute(FinishCompetitionToken, { competitionId });
+        } catch (error) {
+          if ((error as { code?: string }).code !== 'COMPETITION_ALREADY_FINISHED') throw error;
+        }
+        // A finished competition is no longer returned by findActive(). Publish
+        // by ID and wait for both retained snapshots before acknowledging so the
+        // Director cannot save and clear stale result data.
+        const finalSnapshotCommandId = command.commandId as string;
+        await Promise.all([
+          this.competitionStatePublisher.publishCurrentState(competitionId, finalSnapshotCommandId),
+          this.scorePublisher.publishCurrentScore(competitionId, finalSnapshotCommandId),
+        ]);
         break;
+      }
 
       case 'timer-started':
         await this.timerService.startAt(
@@ -270,8 +386,62 @@ export class BroadcastCommandHandler {
         break;
 
       case 'timer-expired':
-        this.timerService.stop();
+        await this.timerService.expire(competitionId);
         break;
+    }
+  }
+
+  private async requireCompetition(competitionId: string): Promise<CompetitionState> {
+    const state = await this.competitionRepository.findById(competitionId);
+    if (!state) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: competitionId });
+    return state;
+  }
+
+  private isSightingStage(state: CompetitionState): boolean {
+    return state.currentStageIndex < this.firstScoredStageIndex(state);
+  }
+
+  private firstScoredStageIndex(state: CompetitionState): number {
+    return state.config.stages.findIndex((stage) => stage.scored);
+  }
+
+  private comparePosition(state: CompetitionState, stageIndex: number, seriesIndex: number): number {
+    if (state.currentStageIndex !== stageIndex) return state.currentStageIndex - stageIndex;
+    return state.currentSeriesIndex - seriesIndex;
+  }
+
+  private getNextPosition(
+    state: CompetitionState,
+    stageIndex: number,
+    seriesIndex: number,
+  ): { stageIndex: number; seriesIndex: number } | null {
+    const stage = state.config.stages[stageIndex];
+    if (!stage || !stage.series[seriesIndex]) {
+      throw this.invalidState('advance-series', state, `existing series ${stageIndex}:${seriesIndex}`);
+    }
+    if (seriesIndex + 1 < stage.series.length) return { stageIndex, seriesIndex: seriesIndex + 1 };
+    if (stageIndex + 1 < state.config.stages.length) return { stageIndex: stageIndex + 1, seriesIndex: 0 };
+    return null;
+  }
+
+  private startTimer(command: Record<string, unknown>, competitionId: string): Promise<void> {
+    return this.timerService.startAt(
+      competitionId,
+      command.timerStartAt as string,
+      command.timerDurationSeconds as number,
+    );
+  }
+
+  private invalidState(action: BroadcastAction, state: CompetitionState, expected: string): Error {
+    return ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+      detail: `${action} requires ${expected}; current state is ${state.phase} at ${state.currentStageIndex}:${state.currentSeriesIndex}`,
+    });
+  }
+
+  private async waitUntil(absoluteTime: string): Promise<void> {
+    const delayMs = new Date(absoluteTime).getTime() - Date.now();
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
     }
   }
 

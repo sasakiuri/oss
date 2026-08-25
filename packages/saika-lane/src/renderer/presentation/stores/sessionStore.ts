@@ -110,6 +110,11 @@ interface SessionActions {
   setAudioVolume: (volume: number) => void;
 
   /**
+   * Clear shooting data while preserving the active session context.
+   */
+  clearSessionData: () => void;
+
+  /**
    * Reset session (restore to initial state)
    */
   resetSession: () => void;
@@ -207,6 +212,15 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
 
   setDeviceInfo: (manufacturer, deviceId) => {
     set({ manufacturer, deviceId });
+  },
+
+  clearSessionData: () => {
+    set({
+      shots: [],
+      preparationShotNumberResetIndices: [],
+      seriesScores: [],
+      totalScore: 0,
+    });
   },
 
   resetSession: () => {

@@ -28,6 +28,10 @@
   color: "c5def5"
   description: "saika-lane package"
 
+- name: "Package: saika-director 📦"
+  color: "c5def5"
+  description: "saika-director package"
+
 - name: "Package: shared-config 📦"
   color: "c5def5"
   description: "Shared config packages"

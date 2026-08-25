@@ -75,6 +75,7 @@
   },
   "linux": {
     "executableName": "saika-lane",
+    "syncDesktopName": true,
     "target": [
       { "target": "AppImage", "arch": ["x64"] },
       { "target": "deb", "arch": ["x64"] }

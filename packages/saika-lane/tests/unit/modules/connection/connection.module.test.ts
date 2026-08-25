@@ -13,12 +13,15 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 }));
 
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { connectionModule } from '@/main/modules/connection/connection.module';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
+import { buildSession } from '../../../helpers/factories';
 import {
   createMockCommandBus,
   createMockCompetitionRepository,
@@ -151,6 +154,46 @@ describe('connection.module', () => {
         deviceId: 'BPT216',
       });
 
+      expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.match());
+    });
+
+    it('should await persisted competition mode recovery before the initial connection', async () => {
+      const session = buildSession();
+      const competition = CompetitionState.create('competition-1', session.id, BR60S.config)
+        .startStage()
+        .endStage()
+        .advanceToNextStage()
+        .startNextSeries();
+      competitionRepository.findActive = vi.fn().mockResolvedValue(competition);
+      sessionRepository.findById = vi.fn().mockResolvedValue(session);
+      registerModule();
+
+      const connection = Connection.create({
+        manufacturer: TargetManufacturer.kohto(),
+        portPath: 'COM3',
+        baudRate: 115200,
+        deviceId: 'BPT216',
+      }).connect();
+      vi.mocked(usbManager.connect).mockResolvedValue(connection);
+      const connectHandler = vi
+        .mocked(commandBus.register)
+        .mock.calls.find((call) => call[0] === ConnectToTargetToken)?.[1] as
+        | ((input: {
+            portName: string;
+            manufacturer: TargetManufacturer;
+            baudRate?: number;
+            deviceId?: string;
+          }) => Promise<void>)
+        | undefined;
+
+      await connectHandler?.({
+        portName: 'COM3',
+        manufacturer: TargetManufacturer.kohto(),
+        baudRate: 115200,
+        deviceId: 'BPT216',
+      });
+
+      expect(sessionRepository.findById).toHaveBeenCalledWith(session.id);
       expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.match());
     });
 
@@ -321,8 +364,7 @@ describe('connection.module', () => {
           .mocked(usbManager.on)
           .mock.calls.find((call) => call[0] === 'disconnected')?.[1] as (() => void) | undefined;
         const connectedCallback = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'connected')?.[1] as
-          | ((connection: Connection) => void)
-          | undefined;
+          ((connection: Connection) => void) | undefined;
         const connectHandler = vi
           .mocked(commandBus.register)
           .mock.calls.find((call) => call[0] === ConnectToTargetToken)?.[1] as
@@ -388,8 +430,7 @@ describe('connection.module', () => {
         const reconnectFailedCallback = vi
           .mocked(usbManager.on)
           .mock.calls.find((call) => call[0] === 'reconnectFailed')?.[1] as
-          | ((payload: { attempts: number; lastError: Error }) => void)
-          | undefined;
+          ((payload: { attempts: number; lastError: Error }) => void) | undefined;
 
         expect(disconnectedCallback).toBeDefined();
         expect(reconnectFailedCallback).toBeDefined();
@@ -442,8 +483,7 @@ describe('connection.module', () => {
           .mocked(usbManager.on)
           .mock.calls.find((call) => call[0] === 'disconnected')?.[1] as (() => void) | undefined;
         const connectedCallback = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'connected')?.[1] as
-          | ((connection: Connection) => void)
-          | undefined;
+          ((connection: Connection) => void) | undefined;
 
         expect(disconnectedCallback).toBeDefined();
         expect(connectedCallback).toBeDefined();
@@ -505,8 +545,7 @@ describe('connection.module', () => {
           .mocked(usbManager.on)
           .mock.calls.find((call) => call[0] === 'disconnected')?.[1] as (() => void) | undefined;
         const connectedCallback = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'connected')?.[1] as
-          | ((connection: Connection) => void)
-          | undefined;
+          ((connection: Connection) => void) | undefined;
 
         disconnectedCallback?.();
         connectedCallback?.(reconnectedConnection);
@@ -534,13 +573,11 @@ describe('connection.module', () => {
         const reconnectFailedCallback = vi
           .mocked(usbManager.on)
           .mock.calls.find((call) => call[0] === 'reconnectFailed')?.[1] as
-          | ((payload: { attempts: number; lastError: Error }) => void)
-          | undefined;
+          ((payload: { attempts: number; lastError: Error }) => void) | undefined;
         const disconnectHandler = vi
           .mocked(commandBus.register)
           .mock.calls.find((call) => call[0] === DisconnectFromTargetToken)?.[1] as
-          | ((input: { connectionId: string }) => Promise<void>)
-          | undefined;
+          ((input: { connectionId: string }) => Promise<void>) | undefined;
 
         expect(disconnectedCallback).toBeDefined();
         expect(reconnectFailedCallback).toBeDefined();

@@ -99,6 +99,15 @@ Remove the user data directory listed above to clear the database, settings, and
 >
 > macOS builds are unsigned and not notarized. You may need to allow the app in System Preferences > Security & Privacy.
 
+## Distribution
+
+Saika Lane, Saika Director, and Saika Docs share one suite version and one
+`v<version>` release tag. The release and canary workflows build both applications
+for every supported platform and publish their artifacts together in one GitHub
+Release; Saika Docs is included as versioned source at the same tag. Saika Lane's
+automatic-update metadata remains included alongside both sets of application
+packages.
+
 For a proposed minimal Debian kiosk setup with audio, printing, and MQTT, see the
 [minimal appliance OS design note](../../docs/minimal-appliance-os.md).
 
@@ -145,6 +154,10 @@ See `scripts/build-win.ps1` for detailed options and step-by-step instructions.
 
 Detailed specifications, MQTT design, scoring data, and legal/provenance notices are maintained in
 [`@sasakiuri/saika-docs`](../saika-docs/).
+
+For synchronized multi-lane competitions, Saika Lane can be discovered and controlled over MQTT by
+[`@sasakiuri/saika-director`](../saika-director/). The operational flow is documented in the
+[Director MQTT control guide](../saika-docs/director/MQTT_CONTROL.md).
 
 ## Disclaimer
 

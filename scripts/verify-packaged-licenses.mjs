@@ -8,10 +8,23 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const appDirectory = join(repositoryRoot, "packages", "saika-lane");
-const expectedLicensePath = join(appDirectory, "LICENSE");
-const expectedReportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
-const defaultSearchRoot = join(appDirectory, "release");
+const commandLineArguments = process.argv.slice(2);
+const workspaceArgument = commandLineArguments.find((argument) =>
+  argument.startsWith("--workspace="),
+);
+const workspaceName =
+  workspaceArgument?.slice("--workspace=".length) ?? "@sasakiuri/saika-lane";
+const packageDirectoryByWorkspace = new Map([
+  ["@sasakiuri/saika-lane", "saika-lane"],
+  ["@sasakiuri/saika-director", "saika-director"],
+]);
+const packageDirectory = packageDirectoryByWorkspace.get(workspaceName);
+const appDirectory = packageDirectory
+  ? join(repositoryRoot, "packages", packageDirectory)
+  : null;
+const searchArguments = commandLineArguments.filter(
+  (argument) => !argument.startsWith("--workspace="),
+);
 
 const exists = async (path) => {
   try {
@@ -110,7 +123,14 @@ const assertCopiedFile = async (
 };
 
 const main = async () => {
-  const searchRoots = process.argv.slice(2).map((path) => resolve(path));
+  if (!appDirectory) {
+    throw new Error(`Unsupported Electron workspace: ${workspaceName}`);
+  }
+
+  const expectedLicensePath = join(appDirectory, "LICENSE");
+  const expectedReportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
+  const defaultSearchRoot = join(appDirectory, "release");
+  const searchRoots = searchArguments.map((path) => resolve(path));
   if (searchRoots.length === 0) {
     searchRoots.push(defaultSearchRoot);
   }

@@ -198,9 +198,10 @@ describe('useEventSubscriptions', () => {
   });
 
   describe('sessionReset event', () => {
-    it('resets the store on sessionReset event', () => {
+    it('clears shooting data while preserving session context on sessionReset', () => {
       useSessionStore.getState().setSessionId('session-abc');
       useSessionStore.getState().setMode('MATCH');
+      useSessionStore.getState().updateScores(105, [105]);
 
       renderHook(() => useEventSubscriptions());
 
@@ -211,8 +212,8 @@ describe('useEventSubscriptions', () => {
       });
 
       const sessionState = useSessionStore.getState();
-      expect(sessionState.currentSessionId).toBeNull();
-      expect(sessionState.mode).toBe('SIGHTING');
+      expect(sessionState.currentSessionId).toBe('session-abc');
+      expect(sessionState.mode).toBe('MATCH');
       expect(sessionState.shots).toEqual([]);
       expect(sessionState.totalScore).toBe(0);
       expect(sessionState.seriesScores).toEqual([]);

@@ -61,15 +61,18 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       }
     });
 
-    // Bootstrap context from persisted active session (app restart scenario)
-    sessionContextCache.bootstrap(sessionRepository).catch((err: unknown) => {
-      getLogger().warn('Session context bootstrap failed; cache will be populated by events', 'main', {
-        err: err instanceof Error ? err.message : String(err),
-      });
-    });
-
-    // Subscribe to session events for cache updates + shot counter reset
+    // Subscribe before the asynchronous bootstrap so a live event cannot be
+    // missed or overwritten by an older persisted snapshot.
     sessionContextCache.subscribeEvents(() => usbManager.resetShotCounter());
+
+    // Bootstrap context from the persisted session and competition stage (app restart scenario)
+    const contextBootstrap = sessionContextCache
+      .bootstrap(sessionRepository, competitionRepository)
+      .catch((err: unknown) => {
+        getLogger().warn('Session context bootstrap failed; cache will be populated by events', 'main', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
 
     const getCurrentMode = (): Mode => {
       try {
@@ -122,6 +125,9 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
 
     // Register CQRS handlers
     commandBus.register(ConnectToTargetToken, async (input) => {
+      // The first connection after an app restart must not send the Session
+      // row's stale SIGHTING mode before competition recovery has completed.
+      await contextBootstrap;
       await flushPendingUnexpectedDisconnect();
       await connectToTarget(input);
     });
@@ -160,6 +166,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     usbManager.on('connected', (reconnectedConnection) => {
       void (async () => {
         try {
+          await contextBootstrap;
           const disconnectedConnection = await takePendingUnexpectedDisconnect();
           if (!disconnectedConnection) {
             return;

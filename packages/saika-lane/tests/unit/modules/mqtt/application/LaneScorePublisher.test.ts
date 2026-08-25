@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
@@ -90,6 +91,7 @@ describe('LaneScorePublisher', () => {
   let storage: ILocalStorage;
   let competitionRepository: ICompetitionRepository;
   let queryBus: QueryBus;
+  let publisher: LaneScorePublisher;
 
   const mockCompetition = {
     id: 'comp-uuid',
@@ -123,22 +125,138 @@ describe('LaneScorePublisher', () => {
     };
     queryBus = {
       register: vi.fn(),
-      execute: vi.fn().mockResolvedValue({
-        sessionId: 'session-uuid',
-        totalScore: 1055,
-        seriesScores: [1000, 1055],
-        shotCount: 15,
-        discipline: 'BEAM_RIFLE_10M',
-        mode: 'MATCH',
+      execute: vi.fn((token) => {
+        if (token === GetSessionScoreToken) {
+          return Promise.resolve({
+            sessionId: 'session-uuid',
+            totalScore: 1055,
+            seriesScores: [1000, 1055],
+            shotCount: 15,
+            discipline: 'BEAM_RIFLE_10M',
+            mode: 'MATCH',
+          });
+        }
+        if (token === GetShotHistoryToken) {
+          return Promise.resolve({
+            sessionId: 'session-uuid',
+            shots: [
+              {
+                id: 'sighting-shot',
+                shotNumber: 1,
+                seriesNumber: 0,
+                x: 0,
+                y: 0,
+                score: 90,
+                innerTen: false,
+                timestamp: '2026-02-24T11:59:00.000Z',
+                mode: 'SIGHTING',
+                isRecorded: false,
+              },
+              {
+                id: 'match-shot-1',
+                shotNumber: 2,
+                seriesNumber: 1,
+                x: 0,
+                y: 0,
+                score: 1000,
+                innerTen: false,
+                timestamp: '2026-02-24T12:00:00.000Z',
+                mode: 'MATCH',
+                isRecorded: true,
+              },
+              {
+                id: 'match-shot-2',
+                shotNumber: 3,
+                seriesNumber: 2,
+                x: 0,
+                y: 0,
+                score: 1055,
+                innerTen: true,
+                timestamp: '2026-02-24T12:01:00.000Z',
+                mode: 'MATCH',
+                isRecorded: true,
+              },
+            ],
+          });
+        }
+        throw new Error('Unexpected query token');
       }),
       use: vi.fn(),
     } as unknown as QueryBus;
 
-    new LaneScorePublisher(mqttClient, eventBus, storage, competitionRepository, queryBus);
+    publisher = new LaneScorePublisher(mqttClient, eventBus, storage, competitionRepository, queryBus);
   });
 
   it('should subscribe to ShotRecorded events', () => {
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
+  });
+
+  it('should subscribe to SessionReset events', () => {
+    expect(eventBus.on).toHaveBeenCalledWith('SessionReset', expect.any(Function));
+  });
+
+  it('should republish the retained score after SessionReset', async () => {
+    (eventBus as { emit: Function }).emit({
+      type: 'SessionReset',
+      timestamp: Date.now(),
+      aggregateId: 'session-uuid',
+    });
+
+    await vi.waitFor(() => {
+      expect(mqttClient.publish).toHaveBeenCalledWith(
+        'saika/competition/comp-uuid/lane/lane-uuid/score',
+        expect.any(String),
+        { qos: 1, retain: true },
+      );
+    });
+  });
+
+  it('should report a retained score publication failure to command callers', async () => {
+    vi.mocked(mqttClient.publish).mockRejectedValueOnce(new Error('broker unavailable'));
+
+    await expect(publisher.publishCurrentScore()).rejects.toThrow('broker unavailable');
+  });
+
+  it('serializes retained score publications', async () => {
+    let resolveFirst!: () => void;
+    vi.mocked(mqttClient.publish).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+
+    const first = publisher.publishCurrentScore();
+    const second = publisher.publishCurrentScore();
+    await vi.waitFor(() => {
+      expect(mqttClient.publish).toHaveBeenCalledTimes(1);
+    });
+    expect(competitionRepository.findActive).toHaveBeenCalledTimes(1);
+
+    resolveFirst();
+    await Promise.all([first, second]);
+
+    expect(mqttClient.publish).toHaveBeenCalledTimes(2);
+    expect(competitionRepository.findActive).toHaveBeenCalledTimes(2);
+  });
+
+  it('publishes a finished competition score by ID after it is no longer active', async () => {
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(null);
+    vi.mocked(competitionRepository.findById).mockResolvedValue(mockCompetition);
+
+    await publisher.publishCurrentScore('comp-uuid');
+
+    expect(competitionRepository.findById).toHaveBeenCalledWith('comp-uuid');
+    expect(mqttClient.publish).toHaveBeenCalled();
+  });
+
+  it('tags a final score snapshot with the finish command ID', async () => {
+    const commandId = 'c3333333-3333-4333-a333-333333333333';
+    vi.mocked(competitionRepository.findById).mockResolvedValue(mockCompetition);
+
+    await publisher.publishCurrentScore('comp-uuid', commandId);
+
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.calls[0]![1] as string) as Record<string, unknown>;
+    expect(payload.finalSnapshotCommandId).toBe(commandId);
   });
 
   it('should publish score on MATCH ShotRecorded event', async () => {
@@ -202,7 +320,52 @@ describe('LaneScorePublisher', () => {
     expect(payload.totalShotCount).toBe(15);
     expect(payload.acc).toBe('DECIMAL');
     expect(payload.stages).toBeDefined();
+    expect(payload.stages[0].series).toEqual([
+      expect.objectContaining({ seriesIndex: 0, shots: [1000] }),
+      expect.objectContaining({ seriesIndex: 1, shots: [1055] }),
+      expect.objectContaining({ seriesIndex: 2, shots: [] }),
+    ]);
     expect(payload.publishedAt).toBeDefined();
+  });
+
+  it('marks the current series complete as soon as it reaches its shot limit', async () => {
+    vi.mocked(queryBus.execute).mockImplementation((token) => {
+      if (token === GetSessionScoreToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          totalScore: 3000,
+          seriesScores: [1000, 1000, 1000],
+          shotCount: 30,
+          discipline: 'BEAM_RIFLE_10M',
+          mode: 'MATCH',
+        });
+      }
+      if (token === GetShotHistoryToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          shots: Array.from({ length: 10 }, (_, index) => ({
+            id: `match-shot-${index + 1}`,
+            shotNumber: index + 21,
+            seriesNumber: 3,
+            x: 0,
+            y: 0,
+            score: 100,
+            innerTen: false,
+            timestamp: `2026-02-24T12:00:${String(index).padStart(2, '0')}.000Z`,
+            mode: 'MATCH',
+            isRecorded: true,
+          })),
+        });
+      }
+      throw new Error('Unexpected query token');
+    });
+
+    await publisher.publishCurrentScore();
+
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.calls[0]![1] as string) as {
+      stages: Array<{ series: Array<{ isComplete: boolean }> }>;
+    };
+    expect(payload.stages[0]?.series[2]?.isComplete).toBe(true);
   });
 
   it('should not publish when mqtt client is not connected', async () => {

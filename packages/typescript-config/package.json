@@ -2,7 +2,7 @@
   "name": "@sasakiuri/typescript-config",
   "version": "1.0.0",
   "description": "Shared TypeScript configuration",
-  "author": "sasakiuri",
+  "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "publishConfig": {
     "access": "public"
   },

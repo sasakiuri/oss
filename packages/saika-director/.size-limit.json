@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Renderer bundle",
+    "path": "dist/renderer/**/*.js",
+    "limit": "500 KB"
+  }
+]

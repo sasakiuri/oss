@@ -6,6 +6,7 @@
 
 # Application packages
 packages/saika-lane/ @sasakiuri
+packages/saika-director/ @sasakiuri
 
 # Shared configuration packages
 packages/eslint-config/ @sasakiuri

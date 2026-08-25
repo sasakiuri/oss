@@ -24,9 +24,12 @@ import type { BroadcastCommandHandler } from '@/main/modules/mqtt/application/co
 import { LaneTier1CommandHandler } from '@/main/modules/mqtt/application/commands/LaneTier1CommandHandler';
 import type { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
+import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+
+import { createMockStorage } from '../../../../../helpers/mockDependencies';
 
 function createMockMqttClient(): IMqttClientService {
   return {
@@ -92,6 +95,8 @@ describe('LaneTier1CommandHandler', () => {
   let perLaneHandler: PerLaneCommandHandler;
   let rpcHandler: RpcRequestHandler;
   let competitionStateSubscriber: CompetitionStateSubscriber;
+  let retainPublisher: RetainPublisher;
+  let storage: ReturnType<typeof createMockStorage>;
   let handler: LaneTier1CommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -102,6 +107,10 @@ describe('LaneTier1CommandHandler', () => {
     perLaneHandler = createMockPerLaneHandler();
     rpcHandler = createMockRpcHandler();
     competitionStateSubscriber = createMockCompetitionStateSubscriber();
+    retainPublisher = {
+      clearCompetitionTopics: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RetainPublisher;
+    storage = createMockStorage();
     handler = new LaneTier1CommandHandler(
       mqttClient,
       guard,
@@ -109,6 +118,8 @@ describe('LaneTier1CommandHandler', () => {
       perLaneHandler,
       rpcHandler,
       competitionStateSubscriber,
+      retainPublisher,
+      storage,
       () => LANE_ID,
     );
 
@@ -153,6 +164,7 @@ describe('LaneTier1CommandHandler', () => {
       expect(perLaneHandler.subscribeToCompetition).toHaveBeenCalledWith(COMPETITION_ID);
       expect(rpcHandler.subscribe).toHaveBeenCalledWith(COMPETITION_ID);
       expect(competitionStateSubscriber.subscribe).toHaveBeenCalledWith(COMPETITION_ID);
+      expect(storage.set).toHaveBeenCalledWith('mqtt.competitionId', COMPETITION_ID);
     });
 
     it('sets competitionId after joining', async () => {
@@ -176,6 +188,28 @@ describe('LaneTier1CommandHandler', () => {
   });
 
   describe('ALREADY_IN_COMPETITION error', () => {
+    it('acknowledges a retry for the competition it has already joined', async () => {
+      await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+      (mqttClient.publish as ReturnType<typeof vi.fn>).mockClear();
+
+      const topic = `saika/lane/${LANE_ID}/command/join-competition`;
+      const retry = buildCommand({
+        commandId: 'd4444444-4444-4444-a444-444444444444',
+        competitionId: COMPETITION_ID,
+      });
+      messageHandler(topic, Buffer.from(JSON.stringify(retry)));
+      await flushPromises();
+
+      const acknowledgements = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls.filter((call: unknown[]) =>
+        (call[0] as string).includes('/acknowledgement'),
+      );
+      expect(JSON.parse(acknowledgements[1]![1] as string)).toMatchObject({
+        commandId: retry.commandId,
+        status: 'done',
+      });
+      expect(broadcastHandler.subscribeToCompetition).toHaveBeenCalledTimes(1);
+    });
+
     it('returns error ACK when already in competition', async () => {
       // First join
       await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
@@ -221,6 +255,8 @@ describe('LaneTier1CommandHandler', () => {
       expect(perLaneHandler.unsubscribeFromCompetition).toHaveBeenCalled();
       expect(rpcHandler.unsubscribe).toHaveBeenCalled();
       expect(competitionStateSubscriber.unsubscribe).toHaveBeenCalled();
+      expect(retainPublisher.clearCompetitionTopics).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID);
+      expect(storage.delete).toHaveBeenCalledWith('mqtt.competitionId');
       expect(handler.competitionId).toBeNull();
     });
 
@@ -234,6 +270,22 @@ describe('LaneTier1CommandHandler', () => {
       const errorAck = JSON.parse(ackCalls[1]![1] as string);
       expect(errorAck.status).toBe('error');
       expect(errorAck.error.code).toBe('MQTT_NOT_IN_COMPETITION');
+    });
+  });
+
+  describe('join rollback', () => {
+    it('does not enter the competition when a child subscription fails', async () => {
+      vi.mocked(perLaneHandler.subscribeToCompetition).mockRejectedValue(new Error('subscribe failed'));
+
+      await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+
+      expect(handler.competitionId).toBeNull();
+      expect(storage.set).not.toHaveBeenCalledWith('mqtt.competitionId', COMPETITION_ID);
+      expect(broadcastHandler.unsubscribeFromCompetition).toHaveBeenCalled();
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter((call) => call[0].includes('/acknowledgement'));
+      expect(JSON.parse(acknowledgements[1]![1]).status).toBe('error');
     });
   });
 

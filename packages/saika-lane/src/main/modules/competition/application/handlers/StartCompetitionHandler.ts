@@ -52,7 +52,7 @@ export function createStartCompetitionHandler(
     await sessionRepository.save(session);
 
     // Create CompetitionState
-    const competitionId = crypto.randomUUID();
+    const competitionId = input.competitionId ?? crypto.randomUUID();
     const state = CompetitionState.create(competitionId, session.id, definition.config);
     await competitionRepository.save(state);
 

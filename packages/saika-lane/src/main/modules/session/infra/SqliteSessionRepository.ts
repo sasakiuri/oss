@@ -46,6 +46,7 @@ export class SqliteSessionRepository implements ISessionRepository {
   private readonly stmtSelectSession: Database.Statement;
   private readonly stmtSelectAllSessions: Database.Statement;
   private readonly stmtSelectShots: Database.Statement;
+  private readonly stmtDeleteSessionShots: Database.Statement;
   private readonly stmtDeleteSession: Database.Statement;
   private readonly stmtFindActiveSession: Database.Statement;
 
@@ -96,6 +97,10 @@ export class SqliteSessionRepository implements ISessionRepository {
       ORDER BY shotNumber ASC
     `);
 
+    this.stmtDeleteSessionShots = db.prepare(`
+      DELETE FROM shots WHERE sessionId = ?
+    `);
+
     this.stmtDeleteSession = db.prepare(`
       DELETE FROM sessions WHERE id = ?
     `);
@@ -128,7 +133,11 @@ export class SqliteSessionRepository implements ISessionRepository {
             scoringMode: session.scoringMode,
           });
 
-          // UPSERT into the shots table (all shots)
+          // save() is a full replacement. Remove rows that are no longer
+          // present before inserting the aggregate's current shot history.
+          this.stmtDeleteSessionShots.run(session.id);
+
+          // UPSERT into the shots table (all current shots)
           for (const shot of session.allShots) {
             this.stmtUpsertShot.run({
               id: shot.id,

@@ -2,7 +2,7 @@
   "name": "@sasakiuri/stylelint-config",
   "version": "1.0.0",
   "description": "Shared Stylelint configuration",
-  "author": "sasakiuri",
+  "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "publishConfig": {
     "access": "public"
   },

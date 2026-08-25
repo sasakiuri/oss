@@ -12,6 +12,8 @@ export type MqttErrorCode =
   | 'MQTT_COMMAND_EXECUTION_FAILED'
   | 'MQTT_ALREADY_IN_COMPETITION'
   | 'MQTT_NOT_IN_COMPETITION'
+  | 'MQTT_COMPETITION_STATE_TIMEOUT'
+  | 'MQTT_COMPETITION_STATE_MISMATCH'
   | 'MQTT_CLOCK_OUT_OF_SYNC';
 
 export const MQTT_ERRORS: ReadonlyArray<[MqttErrorCode, ErrorDefinition]> = [
@@ -102,6 +104,24 @@ export const MQTT_ERRORS: ReadonlyArray<[MqttErrorCode, ErrorDefinition]> = [
       code: 'MQTT_NOT_IN_COMPETITION',
       message: 'Lane is not in any competition',
       userMessage: 'Lane is not in any competition',
+      severity: 'error',
+    },
+  ],
+  [
+    'MQTT_COMPETITION_STATE_TIMEOUT',
+    {
+      code: 'MQTT_COMPETITION_STATE_TIMEOUT',
+      message: 'Timed out waiting for competition state: {{competitionId}}',
+      userMessage: 'Competition state could not be obtained: {{competitionId}}',
+      severity: 'error',
+    },
+  ],
+  [
+    'MQTT_COMPETITION_STATE_MISMATCH',
+    {
+      code: 'MQTT_COMPETITION_STATE_MISMATCH',
+      message: 'Competition state does not match the lane configuration: {{detail}}',
+      userMessage: 'Competition settings do not match this lane: {{detail}}',
       severity: 'error',
     },
   ],

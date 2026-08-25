@@ -18,6 +18,7 @@
 ## Scope
 
 - [ ] saika-lane
+- [ ] saika-director
 - [ ] eslint-config
 - [ ] prettier-config
 - [ ] stylelint-config

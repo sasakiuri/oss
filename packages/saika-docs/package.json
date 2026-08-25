@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-docs",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Specifications and design notes for the Saika application suite",
   "license": "MIT",

@@ -46,7 +46,7 @@ runs:
           ~/.cache/electron
           ~/Library/Caches/electron
           ~/AppData/Local/electron/Cache
-        key: electron-${{ runner.os }}-${{ hashFiles('packages/saika-lane/package.json') }}
+        key: electron-${{ runner.os }}-${{ hashFiles('packages/saika-lane/package.json', 'packages/saika-director/package.json') }}
         restore-keys: electron-${{ runner.os }}-
 
     - name: Install dependencies

@@ -255,9 +255,11 @@ describe('MqttCommandSchemas', () => {
         ...validBase(),
         stageIndex: 0,
         fromSeriesIndex: 1,
+        resumeOnly: true,
         timerStartAt: new Date().toISOString(),
       });
       expect(result.success).toBe(true);
+      if (result.success) expect(result.data.resumeOnly).toBe(true);
     });
 
     it('rejects negative fromSeriesIndex', () => {

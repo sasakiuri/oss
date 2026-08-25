@@ -254,6 +254,22 @@ describe('SqliteSessionRepository', () => {
       };
       expect(sessionCount.cnt).toBe(1);
     });
+
+    it('should remove persisted shots that are absent from a full replacement save', async () => {
+      const discipline = Discipline.airRifle10m();
+      let session = Session.create(discipline).switchMode(Mode.match());
+      session = session.recordShot(new ImpactPoint(1, 1), new Score(95), new Date());
+      await repository.save(session);
+
+      await repository.save(session.reset());
+
+      const found = await repository.findById(session.id);
+      expect(found?.shotCount).toBe(0);
+      const shotsCount = db.prepare('SELECT COUNT(*) as cnt FROM shots WHERE sessionId = ?').get(session.id) as {
+        cnt: number;
+      };
+      expect(shotsCount.cnt).toBe(0);
+    });
   });
 
   describe('saveShot() (incremental save)', () => {

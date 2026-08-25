@@ -106,9 +106,11 @@ describe('useSessionEvents', () => {
   });
 
   describe('sessionReset', () => {
-    it('resets session state', () => {
+    it('clears shooting data while preserving session context', () => {
       useSessionStore.getState().setSessionId('sess-123');
       useSessionStore.getState().setMode('MATCH');
+      useSessionStore.getState().setDiscipline('AIR_RIFLE_10M');
+      useSessionStore.getState().updateScores(105, [105]);
 
       renderHook(() => useSessionEvents());
 
@@ -117,9 +119,12 @@ describe('useSessionEvents', () => {
       callback({ sessionId: 'sess-123' });
 
       const state = useSessionStore.getState();
-      expect(state.currentSessionId).toBeNull();
-      expect(state.mode).toBe('SIGHTING');
+      expect(state.currentSessionId).toBe('sess-123');
+      expect(state.mode).toBe('MATCH');
+      expect(state.discipline).toBe('AIR_RIFLE_10M');
       expect(state.shots).toEqual([]);
+      expect(state.totalScore).toBe(0);
+      expect(state.seriesScores).toEqual([]);
     });
   });
 });

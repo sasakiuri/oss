@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   preflight:
     name: Preflight Checks
@@ -20,42 +24,76 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           enable-turbo-cache: "true"
+          enable-electron-cache: "true"
 
-      - name: Verify tag matches package version
+      - name: Verify tag matches Saika suite versions
         run: |
-          PKG_VERSION=$(node -p "require('./packages/saika-lane/package.json').version")
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package version $PKG_VERSION"
+          tag_version="${GITHUB_REF_NAME#v}"
+          lane_version=$(node -p "require('./packages/saika-lane/package.json').version")
+          director_version=$(node -p "require('./packages/saika-director/package.json').version")
+          docs_version=$(node -p "require('./packages/saika-docs/package.json').version")
+          if [ "$lane_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Saika Lane version $lane_version"
+            exit 1
+          fi
+          if [ "$director_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Saika Director version $director_version"
+            exit 1
+          fi
+          if [ "$docs_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Saika Docs version $docs_version"
             exit 1
           fi
         shell: bash
 
+      - name: Rebuild better-sqlite3 for Node.js tests
+        run: npm rebuild better-sqlite3
+
       - name: Type check
-        run: cd packages/saika-lane && npx tsc --noEmit
+        run: npx turbo typecheck
 
       - name: Lint
         run: npx turbo lint
 
+      - name: Unit tests and coverage thresholds
+        run: |
+          npm run test:coverage --workspace=@sasakiuri/saika-lane
+          npm run test:coverage --workspace=@sasakiuri/saika-director
+
       - name: Architecture validation
         run: npx turbo depcruise
 
-      - name: License check
-        run: npm run license-check
+      - name: Build
+        run: npx turbo build
 
-      - name: Verify third-party license report
-        run: npm run license-report:check
+      - name: Bundle size
+        run: npx turbo size-limit
 
-      - name: Spell check
-        run: npm run cspell
+      - name: License checks
+        run: |
+          npm run license-check
+          npm run license-report:check
 
-      - name: Unused exports check
-        run: npm run knip
+      - name: Repository consistency checks
+        run: |
+          npm run knip
+          npm run syncpack
+          npm run cspell
 
-      - name: Dependency version check
-        run: npm run syncpack
+      - name: Rebuild better-sqlite3 for Electron E2E
+        run: npx electron-rebuild -f -w better-sqlite3 --module-dir=.
+
+      - name: Electron E2E
+        run: |
+          xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-lane
+          xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-director
+
+      - name: Restore better-sqlite3 for Node.js
+        if: always()
+        run: npm rebuild better-sqlite3
 
   build:
+    name: Build (${{ matrix.os }})
     needs: preflight
     runs-on: ${{ matrix.os }}
     permissions:
@@ -83,73 +121,86 @@ jobs:
         with:
           enable-electron-cache: "true"
 
-      - name: Build Electron app
-        run: cd packages/saika-lane && npm run build && npx electron-builder --${{ matrix.platform }} --publish never
+      - name: Build Saika Lane artifacts
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing is not configured. electron-builder treats CSC_LINK='' as a file
-          # path ("not a file" error), so we must NOT set CSC_LINK at all.
-          # To enable signing, add MAC_CSC_LINK/WIN_CSC_LINK secrets and split this step
-          # into signed/unsigned variants with conditional env injection.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Build Saika Director artifacts
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Verify packaged legal notices
-        run: npm run license-artifacts:check
-
-      - name: Smoke test build artifacts
         run: |
-          cd packages/saika-lane/release
-          echo "=== Artifact inventory ==="
-          ls -lh *.exe *.zip *.dmg *.AppImage *.deb 2>/dev/null || true
+          npm run license-artifacts:check --workspace=@sasakiuri/saika-lane
+          npm run license-artifacts:check --workspace=@sasakiuri/saika-director
 
-          # Verify at least one artifact exists
-          shopt -s nullglob
-          artifacts=(*.exe *.zip *.dmg *.AppImage *.deb)
-          if [ ${#artifacts[@]} -eq 0 ]; then
-            echo "::error::No build artifacts found"
-            exit 1
-          fi
-
-          # Verify minimum file sizes (> 10MB for real Electron apps)
-          MIN_SIZE=$((10 * 1024 * 1024))
-          for f in "${artifacts[@]}"; do
-            size=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null)
-            if [ -z "$size" ]; then
-              echo "::error::Could not determine size of $f"
+      - name: Validate artifact inventories
+        run: |
+          validate_artifacts() {
+            local application="$1"
+            local directory="$2"
+            pushd "$directory" >/dev/null
+            shopt -s nullglob
+            artifacts=(*.exe *.zip *.dmg *.AppImage *.deb)
+            if [ ${#artifacts[@]} -eq 0 ]; then
+              echo "::error::No $application artifacts found"
               exit 1
             fi
-            if [ "$size" -lt "$MIN_SIZE" ]; then
-              echo "::error::Artifact $f is suspiciously small (${size} bytes)"
-              exit 1
-            fi
-            echo "OK $f ($(numfmt --to=iec "$size" 2>/dev/null || echo "${size} bytes"))"
-          done
+            minimum_size=$((10 * 1024 * 1024))
+            for artifact in "${artifacts[@]}"; do
+              size=$(stat -f%z "$artifact" 2>/dev/null || stat -c%s "$artifact" 2>/dev/null)
+              if [ -z "$size" ] || [ "$size" -lt "$minimum_size" ]; then
+                echo "::error::$application artifact $artifact is missing or suspiciously small (${size:-unknown} bytes)"
+                exit 1
+              fi
+              echo "OK $application: $artifact (${size} bytes)"
+            done
+            popd >/dev/null
+          }
+
+          validate_artifacts "Saika Lane" packages/saika-lane/release
+          validate_artifacts "Saika Director" packages/saika-director/release
         shell: bash
 
-      - name: Install libfuse2 (AppImage dependency)
+      - name: Install AppImage runtime dependency
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
+        run: sudo apt-get update && (sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2)
 
-      - name: Smoke test app launch (Linux)
+      - name: Smoke test AppImage launches
         if: runner.os == 'Linux'
         run: |
-          cd packages/saika-lane/release
-          chmod +x *.AppImage
-          xvfb-run -a ./"Saika Lane"-*-linux-x86_64.AppImage --no-sandbox &
-          APP_PID=$!
-          sleep 5
-          if kill -0 $APP_PID 2>/dev/null; then
-            echo "OK App launched successfully (PID: $APP_PID)"
-            kill $APP_PID
-            wait $APP_PID 2>/dev/null || true
-          else
-            echo "::error::App failed to start"
-            exit 1
-          fi
+          smoke_test_appimage() {
+            local application="$1"
+            local directory="$2"
+            pushd "$directory" >/dev/null
+            shopt -s nullglob
+            appimages=(*.AppImage)
+            if [ ${#appimages[@]} -ne 1 ]; then
+              echo "::error::Expected exactly one $application AppImage, found ${#appimages[@]}"
+              exit 1
+            fi
+            chmod +x "${appimages[0]}"
+            xvfb-run -a ./"${appimages[0]}" --no-sandbox &
+            app_pid=$!
+            sleep 8
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              echo "::error::$application AppImage failed to stay running"
+              exit 1
+            fi
+            kill "$app_pid"
+            wait "$app_pid" 2>/dev/null || true
+            popd >/dev/null
+          }
+
+          smoke_test_appimage "Saika Lane" packages/saika-lane/release
+          smoke_test_appimage "Saika Director" packages/saika-director/release
         shell: bash
 
       - name: Attest build provenance
-        continue-on-error: true
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: |
@@ -158,11 +209,16 @@ jobs:
             packages/saika-lane/release/*.dmg
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
+            packages/saika-director/release/*.exe
+            packages/saika-director/release/*.zip
+            packages/saika-director/release/*.dmg
+            packages/saika-director/release/*.AppImage
+            packages/saika-director/release/*.deb
 
-      - name: Upload build artifacts
+      - name: Upload Saika Lane build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: release-${{ matrix.os }}
+          name: release-lane-${{ matrix.os }}
           path: |
             packages/saika-lane/release/*.exe
             packages/saika-lane/release/*.zip
@@ -174,7 +230,21 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload Saika Director build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-director-${{ matrix.os }}
+          path: |
+            packages/saika-director/release/*.exe
+            packages/saika-director/release/*.zip
+            packages/saika-director/release/*.dmg
+            packages/saika-director/release/*.AppImage
+            packages/saika-director/release/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
   create-release:
+    name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -183,16 +253,54 @@ jobs:
       attestations: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download Saika Lane artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          path: artifacts
-          pattern: release-*
+          path: artifacts/lane
+          pattern: release-lane-*
           merge-multiple: true
 
-      - name: Restore execute permission on AppImage
-        run: chmod +x artifacts/*.AppImage 2>/dev/null || true
+      - name: Download Saika Director artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts/director
+          pattern: release-director-*
+          merge-multiple: true
+
+      - name: Restore execute permissions on AppImages
+        run: chmod +x artifacts/lane/*.AppImage artifacts/director/*.AppImage 2>/dev/null || true
         shell: bash
+
+      - name: Generate checksums
+        run: |
+          {
+            (
+              cd artifacts/lane
+              shopt -s nullglob
+              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "No Saika Lane release artifacts found" >&2
+                exit 1
+              fi
+              sha256sum "${files[@]}"
+            )
+            (
+              cd artifacts/director
+              shopt -s nullglob
+              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "No Saika Director release artifacts found" >&2
+                exit 1
+              fi
+              sha256sum "${files[@]}"
+            )
+          } > artifacts/SHA256SUMS.txt
+        shell: bash
+
+      - name: Attest checksums provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: artifacts/SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
@@ -200,35 +308,18 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           files: |
-            artifacts/*.exe
-            artifacts/*.zip
-            artifacts/*.dmg
-            artifacts/*.AppImage
-            artifacts/*.deb
-            artifacts/latest*.yml
-            artifacts/*.blockmap
+            artifacts/lane/*.exe
+            artifacts/lane/*.zip
+            artifacts/lane/*.dmg
+            artifacts/lane/*.AppImage
+            artifacts/lane/*.deb
+            artifacts/lane/latest*.yml
+            artifacts/lane/*.blockmap
+            artifacts/director/*.exe
+            artifacts/director/*.zip
+            artifacts/director/*.dmg
+            artifacts/director/*.AppImage
+            artifacts/director/*.deb
+            artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate checksums
-        run: |
-          cd artifacts
-          shopt -s nullglob
-          files=(*.exe *.zip *.dmg *.AppImage *.deb)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No artifacts found" >&2
-            exit 1
-          fi
-          sha256sum "${files[@]}" > SHA256SUMS.txt
-        shell: bash
-
-      - name: Upload checksums
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
-        with:
-          files: artifacts/SHA256SUMS.txt
-
-      - name: Attest checksums provenance
-        continue-on-error: true
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
-        with:
-          subject-path: artifacts/SHA256SUMS.txt

@@ -360,6 +360,12 @@ describe('Session', () => {
         expect((error as DomainError).code).toBe('SESSION_ALREADY_FINISHED');
       }
     });
+
+    it('cannot clear a finished session', () => {
+      const session = Session.create(discipline).finish();
+
+      expect(() => session.reset()).toThrowError(expect.objectContaining({ code: 'SESSION_ALREADY_FINISHED' }));
+    });
   });
 
   describe('edge case: empty session', () => {
@@ -384,6 +390,24 @@ describe('Session', () => {
   });
 
   describe('edge case: reset feature', () => {
+    it('can clear all shooting data without ending the session', () => {
+      let session = Session.create(discipline).switchMode(Mode.match());
+      session = session.recordShot(new ImpactPoint(1.0, 1.0), new Score(105), new Date());
+      const originalId = session.id;
+      const originalStartedAt = session.startedAt;
+
+      session = session.reset();
+
+      expect(session.id).toBe(originalId);
+      expect(session.startedAt).toBe(originalStartedAt);
+      expect(session.mode.value).toBe('MATCH');
+      expect(session.isFinished).toBe(false);
+      expect(session.allShots).toEqual([]);
+      expect(session.totalScore).toBe(0);
+      expect(session.series).toHaveLength(1);
+      expect(session.currentSeries?.count).toBe(0);
+    });
+
     it('can reset the current series', () => {
       let session = Session.create(discipline);
 

@@ -12,6 +12,7 @@
 import type { z } from 'zod';
 
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
+import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import { JoinCompetitionCmdSchema, LeaveCompetitionCmdSchema } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
@@ -19,6 +20,7 @@ import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandI
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
 import type { PerLaneCommandHandler } from './PerLaneCommandHandler';
@@ -48,6 +50,8 @@ export class LaneTier1CommandHandler {
     private readonly perLaneHandler: PerLaneCommandHandler,
     private readonly rpcHandler: RpcRequestHandler,
     private readonly competitionStateSubscriber: CompetitionStateSubscriber,
+    private readonly retainPublisher: RetainPublisher,
+    private readonly storage: ILocalStorage,
     private readonly getLaneId: () => string,
   ) {}
 
@@ -55,10 +59,10 @@ export class LaneTier1CommandHandler {
    * Subscribes to Tier1 commands
    */
   async subscribe(): Promise<void> {
+    await this.unsubscribeTier1Topic();
+
     const topic = `saika/lane/${this.getLaneId()}/command/+`;
     this.subscribedTopic = topic;
-
-    await this.mqttClient.subscribe(topic, 1);
 
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
       const parsed = this.parseTopic(msgTopic);
@@ -67,12 +71,37 @@ export class LaneTier1CommandHandler {
 
       void this.handleCommand(parsed, payload);
     });
+
+    await this.mqttClient.subscribe(topic, 1);
+
+    const savedCompetitionId = this.currentCompetitionId ?? this.storage.get<string>('mqtt.competitionId') ?? null;
+    if (savedCompetitionId) {
+      try {
+        await this.activateCompetitionSubscriptions(savedCompetitionId);
+        this.currentCompetitionId = savedCompetitionId;
+      } catch (error) {
+        await this.deactivateCompetitionSubscriptions(savedCompetitionId);
+        this.currentCompetitionId = null;
+        this.storage.delete('mqtt.competitionId');
+        getLogger().warn('[LaneTier1CommandHandler] Failed to restore competition membership', 'mqtt', {
+          competitionId: savedCompetitionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   /**
    * Unsubscribes
    */
   async unsubscribe(): Promise<void> {
+    if (this.currentCompetitionId) {
+      await this.deactivateCompetitionSubscriptions(this.currentCompetitionId);
+    }
+    await this.unsubscribeTier1Topic();
+  }
+
+  private async unsubscribeTier1Topic(): Promise<void> {
     this.messageUnsubscribe?.();
     this.messageUnsubscribe = null;
 
@@ -179,22 +208,25 @@ export class LaneTier1CommandHandler {
       case 'join-competition': {
         const competitionId = command.competitionId as string;
 
+        if (this.currentCompetitionId === competitionId) {
+          getLogger().info(`[LaneTier1CommandHandler] Already joined competition: ${competitionId}`, 'mqtt');
+          break;
+        }
         if (this.currentCompetitionId) {
           throw ErrorCatalog.createError('MQTT_ALREADY_IN_COMPETITION', {
             competitionId: this.currentCompetitionId,
           });
         }
 
+        try {
+          await this.activateCompetitionSubscriptions(competitionId);
+        } catch (error) {
+          await this.deactivateCompetitionSubscriptions(competitionId);
+          throw error;
+        }
+
         this.currentCompetitionId = competitionId;
-
-        // Subscribe to the entire competition topic
-        await this.mqttClient.subscribe(`saika/competition/${competitionId}/#`, 1);
-
-        // Start subscriptions for each handler
-        await this.broadcastHandler.subscribeToCompetition(competitionId);
-        await this.perLaneHandler.subscribeToCompetition(competitionId);
-        await this.rpcHandler.subscribe(competitionId);
-        await this.competitionStateSubscriber.subscribe(competitionId);
+        this.storage.set('mqtt.competitionId', competitionId);
 
         getLogger().info(`[LaneTier1CommandHandler] Joined competition: ${competitionId}`, 'mqtt');
         break;
@@ -206,25 +238,45 @@ export class LaneTier1CommandHandler {
         if (!this.currentCompetitionId) {
           throw ErrorCatalog.createError('MQTT_NOT_IN_COMPETITION');
         }
-
-        // Unsubscribe each handler
-        await this.broadcastHandler.unsubscribeFromCompetition();
-        await this.perLaneHandler.unsubscribeFromCompetition();
-        await this.rpcHandler.unsubscribe();
-        await this.competitionStateSubscriber.unsubscribe();
-
-        // Unsubscribe from the entire competition topic
-        try {
-          await this.mqttClient.unsubscribe(`saika/competition/${competitionId}/#`);
-        } catch {
-          // Ignore if already disconnected
+        if (this.currentCompetitionId !== competitionId) {
+          throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
+            detail: `joined=${this.currentCompetitionId}, requested=${competitionId}`,
+          });
         }
 
+        await this.retainPublisher.clearCompetitionTopics(competitionId, this.getLaneId());
+        await this.deactivateCompetitionSubscriptions(competitionId);
+
         this.currentCompetitionId = null;
+        this.storage.delete('mqtt.competitionId');
 
         getLogger().info(`[LaneTier1CommandHandler] Left competition: ${competitionId}`, 'mqtt');
         break;
       }
+    }
+  }
+
+  private async activateCompetitionSubscriptions(competitionId: string): Promise<void> {
+    // The state subscriber is first so the retained Director state can create
+    // the matching local competition before any broadcast command is accepted.
+    await this.competitionStateSubscriber.subscribe(competitionId);
+    await this.mqttClient.subscribe(`saika/competition/${competitionId}/#`, 1);
+    await this.broadcastHandler.subscribeToCompetition(competitionId);
+    await this.perLaneHandler.subscribeToCompetition(competitionId);
+    await this.rpcHandler.subscribe(competitionId);
+  }
+
+  private async deactivateCompetitionSubscriptions(competitionId: string): Promise<void> {
+    await Promise.allSettled([
+      this.broadcastHandler.unsubscribeFromCompetition(),
+      this.perLaneHandler.unsubscribeFromCompetition(),
+      this.rpcHandler.unsubscribe(),
+      this.competitionStateSubscriber.unsubscribe(),
+    ]);
+    try {
+      await this.mqttClient.unsubscribe(`saika/competition/${competitionId}/#`);
+    } catch {
+      // Ignore if already disconnected.
     }
   }
 

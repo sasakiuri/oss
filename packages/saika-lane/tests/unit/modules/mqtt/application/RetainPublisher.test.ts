@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { HardwareStatePublisher } from '@/main/modules/mqtt/application/HardwareStatePublisher';
+import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
@@ -100,6 +101,7 @@ describe('RetainPublisher', () => {
   let hardwarePublisher: HardwareStatePublisher;
   let competitionStatePublisher: LaneCompetitionStatePublisher;
   let scorePublisher: LaneScorePublisher;
+  let assignmentPublisher: LaneAssignmentPublisher;
   let retainPublisher: RetainPublisher;
 
   beforeEach(() => {
@@ -128,11 +130,15 @@ describe('RetainPublisher', () => {
       publishState: vi.fn(),
     } as unknown as HardwareStatePublisher;
     competitionStatePublisher = {
-      publishCurrentState: vi.fn(),
+      publishCurrentState: vi.fn().mockResolvedValue(undefined),
     } as unknown as LaneCompetitionStatePublisher;
     scorePublisher = {
-      publishCurrentScore: vi.fn(),
+      publishCurrentScore: vi.fn().mockResolvedValue(undefined),
     } as unknown as LaneScorePublisher;
+    assignmentPublisher = {
+      publishCurrentAssignment: vi.fn().mockResolvedValue(undefined),
+      clearStoredAssignment: vi.fn(),
+    } as unknown as LaneAssignmentPublisher;
 
     retainPublisher = new RetainPublisher(
       mqttClient,
@@ -142,6 +148,7 @@ describe('RetainPublisher', () => {
       hardwarePublisher,
       competitionStatePublisher,
       scorePublisher,
+      assignmentPublisher,
     );
     retainPublisher.registerCallbacks();
   });
@@ -170,10 +177,39 @@ describe('RetainPublisher', () => {
 
     await vi.waitFor(() => {
       expect(hardwarePublisher.publishState).toHaveBeenCalled();
+      expect(assignmentPublisher.publishCurrentAssignment).toHaveBeenCalledWith(mockCompetition.id);
     });
 
     expect(competitionStatePublisher.publishCurrentState).toHaveBeenCalled();
     expect(scorePublisher.publishCurrentScore).toHaveBeenCalled();
+  });
+
+  it('should wait for retained state and score before publishing the assignment', async () => {
+    let resolveScore!: () => void;
+    const pendingScore = new Promise<void>((resolve) => {
+      resolveScore = resolve;
+    });
+    vi.mocked(scorePublisher.publishCurrentScore).mockReturnValueOnce(pendingScore);
+
+    const republishPromise = retainPublisher.republish();
+    await vi.waitFor(() => {
+      expect(scorePublisher.publishCurrentScore).toHaveBeenCalledOnce();
+    });
+
+    expect(assignmentPublisher.publishCurrentAssignment).not.toHaveBeenCalled();
+
+    resolveScore();
+    await republishPromise;
+
+    expect(assignmentPublisher.publishCurrentAssignment).toHaveBeenCalledWith(mockCompetition.id);
+  });
+
+  it('should reject republish when retained score publication fails', async () => {
+    vi.mocked(scorePublisher.publishCurrentScore).mockRejectedValueOnce(new Error('broker unavailable'));
+
+    await expect(retainPublisher.republish()).rejects.toThrow('broker unavailable');
+
+    expect(assignmentPublisher.publishCurrentAssignment).not.toHaveBeenCalled();
   });
 
   it('should replay backlog shots with isReplay=true on reconnect', async () => {
@@ -280,5 +316,18 @@ describe('RetainPublisher', () => {
     await retainPublisher.republish();
 
     expect((retainPublisher as unknown as { disconnectedAt: Date | null }).disconnectedAt).toBeNull();
+  });
+
+  it('clears all lane-owned retained topics when leaving', async () => {
+    await retainPublisher.clearCompetitionTopics('competition-id', 'lane-id');
+
+    expect(mqttClient.publish).toHaveBeenCalledTimes(3);
+    for (const suffix of ['state', 'score', 'assignment']) {
+      expect(mqttClient.publish).toHaveBeenCalledWith(`saika/competition/competition-id/lane/lane-id/${suffix}`, '', {
+        qos: 1,
+        retain: true,
+      });
+    }
+    expect(assignmentPublisher.clearStoredAssignment).toHaveBeenCalledWith('competition-id');
   });
 });
