@@ -1310,7 +1310,7 @@ const MqttSettingsSchema = z.object({
   // MQTT がなくても saika.lane は完全動作する
   enabled: z.boolean().default(false),
 
-  // MQTT ブローカー URL（e.g. "mqtt://192.168.1.100:1883", "mqtts://broker.example.com:8883"）
+  // MQTT ブローカー URL（e.g. "mqtt://broker.example.com:1883", "mqtts://broker.example.com:8883"）
   brokerUrl: z.string().url(),
 
   // このレーンの識別子（UUID v4）
