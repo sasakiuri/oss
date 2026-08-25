@@ -834,8 +834,8 @@ THE SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - builder-util-runtime@9.5.1
- - electron-updater@6.8.3
+ - builder-util-runtime@9.7.0
+ - electron-updater@6.8.9
 
 These packages each contain the following license:
 
@@ -1541,15 +1541,13 @@ SOFTWARE.
 
 The following npm package may be included in this product:
 
- - fast-uri@3.1.0
+ - fast-uri@3.1.6
 
 This package contains the following license:
 
 Copyright (c) 2011-2021, Gary Court until https://github.com/garycourt/uri-js/commit/a1acf730b4bba3f1097c9f52e7d9d3aba8cdcaae
-Copyright (c) 2021-present The Fastify team
+Copyright (c) 2021-present The Fastify team <https://github.com/fastify/fastify#team>
 All rights reserved.
-
-The Fastify team members are listed at https://github.com/fastify/fastify#team.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -1821,7 +1819,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 The following npm package may be included in this product:
 
- - ip-address@10.1.0
+ - ip-address@10.5.0
 
 This package contains the following license:
 
@@ -1879,7 +1877,7 @@ SOFTWARE.
 
 The following npm package may be included in this product:
 
- - js-yaml@4.1.1
+ - js-yaml@4.3.1
 
 This package contains the following license:
 
@@ -3511,7 +3509,7 @@ THE SOFTWARE.
 
 The following npm package may be included in this product:
 
- - ws@8.19.0
+ - ws@8.21.3
 
 This package contains the following license:
 
