@@ -99,6 +99,9 @@ Remove the user data directory listed above to clear the database, settings, and
 >
 > macOS builds are unsigned and not notarized. You may need to allow the app in System Preferences > Security & Privacy.
 
+For a proposed minimal Debian kiosk setup with audio, printing, and MQTT, see the
+[minimal appliance OS design note](../../docs/minimal-appliance-os.md).
+
 ## Getting Started
 
 ```bash

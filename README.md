@@ -52,6 +52,7 @@ npx turbo fix
 
 - [Saika Lane README](packages/saika-lane/) -- detailed setup, architecture, and usage
 - [Saika Docs](packages/saika-docs/) -- specifications, MQTT design, scoring data, and migration notices
+- [Minimal appliance OS](docs/minimal-appliance-os.md) -- proposed Debian kiosk configuration with audio, printing, and MQTT
 - [Contributing Guide](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
