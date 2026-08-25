@@ -158,7 +158,7 @@ Electron main process から既定プリンターへ silent print する方式�
 次のディレクトリを OS イメージやアプリ本体から分離して扱う。
 
 ```text
-/home/saika/.config/Saika Lane/
+~/.config/Saika Lane/
 ```
 
 ここには SQLite database、設定、ログ、ShotLog が含まれる。バックアップ、空き容量監視、突然の電源断後の
