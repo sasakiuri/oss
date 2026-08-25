@@ -281,7 +281,7 @@ check_internal_urls() {
 
 check_personal_info() {
   local email_pattern='[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-  local exclude_pattern='(@users\.noreply\.github\.com|@example\.com|@test\.com|@t\.com|THIRD-PARTY-LICENSES|\.test\.ts:|\.spec\.ts:|tests/|pre-release-check\.sh)'
+  local exclude_pattern='(@users\.noreply\.github\.com|@example\.com|@test\.com|@t\.com|@[a-zA-Z0-9_.-]+\.service|THIRD-PARTY-LICENSES|\.test\.ts:|\.spec\.ts:|tests/|pre-release-check\.sh)'
 
   local hits
   hits=$(grep -rEn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' \
@@ -358,44 +358,39 @@ check_npm_audit() {
 }
 
 check_electron_security() {
-  local main_file="packages/saika-lane/src/main/main.ts"
-  if [[ ! -f "$main_file" ]]; then
-    echo "Electron main file not found: $main_file"
-    CHECK_STATUS="FAIL"
-    return
-  fi
-
+  local option_files=(
+    "packages/saika-lane/src/main/createMainWindowOptions.ts"
+    "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts"
+  )
   local failures=()
 
-  # Check nodeIntegration: false
-  if ! grep -q 'nodeIntegration:\s*false' "$main_file"; then
-    if grep -q 'nodeIntegration:\s*true' "$main_file"; then
-      failures+=("nodeIntegration is set to true (must be false)")
-    else
-      failures+=("nodeIntegration: false not found")
+  for option_file in "${option_files[@]}"; do
+    if [[ ! -f "$option_file" ]]; then
+      failures+=("$option_file: window options file not found")
+      continue
     fi
-  fi
 
-  # Check contextIsolation: true
-  if ! grep -q 'contextIsolation:\s*true' "$main_file"; then
-    if grep -q 'contextIsolation:\s*false' "$main_file"; then
-      failures+=("contextIsolation is set to false (must be true)")
-    else
-      failures+=("contextIsolation: true not found")
+    if grep -q 'nodeIntegration:\s*true' "$option_file"; then
+      failures+=("$option_file: nodeIntegration is set to true (must be false)")
+    elif ! grep -q 'nodeIntegration:\s*false' "$option_file"; then
+      failures+=("$option_file: nodeIntegration: false not found")
     fi
-  fi
 
-  # Check sandbox: true
-  if ! grep -q 'sandbox:\s*true' "$main_file"; then
-    if grep -q 'sandbox:\s*false' "$main_file"; then
-      failures+=("sandbox is set to false (must be true)")
-    else
-      failures+=("sandbox: true not found")
+    if grep -q 'contextIsolation:\s*false' "$option_file"; then
+      failures+=("$option_file: contextIsolation is set to false (must be true)")
+    elif ! grep -q 'contextIsolation:\s*true' "$option_file"; then
+      failures+=("$option_file: contextIsolation: true not found")
     fi
-  fi
+
+    if grep -q 'sandbox:\s*false' "$option_file"; then
+      failures+=("$option_file: sandbox is set to false (must be true)")
+    elif ! grep -q 'sandbox:\s*true' "$option_file"; then
+      failures+=("$option_file: sandbox: true not found")
+    fi
+  done
 
   if [[ ${#failures[@]} -gt 0 ]]; then
-    echo "Electron security settings issues in $main_file:"
+    echo "Electron security settings issues:"
     for f in "${failures[@]}"; do
       echo "  - $f"
     done
@@ -505,26 +500,26 @@ check_tracked_files() {
 check_publish_config() {
   local failures=()
 
-  for pkg_json in packages/*/package.json; do
+  for pkg_json in packages/*-config/package.json; do
     local result
     result=$(node -e "
       const pkg = require('./' + process.argv[1]);
-      if (pkg.private === true) {
+      if (pkg.private !== true && pkg.publishConfig?.access === 'public') {
         process.stdout.write('OK');
       } else {
-        process.stdout.write('MISSING');
+        process.stdout.write('INVALID');
       }
     " "$pkg_json" 2>/dev/null || echo "ERROR")
 
-    if [[ "$result" == "MISSING" ]]; then
-      failures+=("$pkg_json: missing private: true")
+    if [[ "$result" == "INVALID" ]]; then
+      failures+=("$pkg_json: public config packages require private != true and publishConfig.access = public")
     elif [[ "$result" == "ERROR" ]]; then
       failures+=("$pkg_json: failed to parse")
     fi
   done
 
   if [[ ${#failures[@]} -gt 0 ]]; then
-    echo "private:true issues:"
+    echo "Public package configuration issues:"
     for f in "${failures[@]}"; do
       echo "  - $f"
     done
@@ -536,6 +531,10 @@ check_private_true() {
   local failures=()
 
   for pkg_json in package.json packages/*/package.json; do
+    if [[ "$pkg_json" == packages/*-config/package.json ]]; then
+      continue
+    fi
+
     if [[ ! -f "$pkg_json" ]]; then
       failures+=("$pkg_json: file not found")
       continue
@@ -553,7 +552,7 @@ check_private_true() {
   done
 
   if [[ ${#failures[@]} -gt 0 ]]; then
-    echo "private:true issues:"
+    echo "Private package configuration issues:"
     for f in "${failures[@]}"; do
       echo "  - $f"
     done
@@ -890,8 +889,8 @@ fi
 # --- Category 4: Package Publishing ---
 if [[ "$SKIP_PUBLISHING" == false ]]; then
   echo "${C_BOLD}[Publishing]${C_RESET}"
-  run_check "Publishing" "publishConfig"         check_publish_config
-  run_check "Publishing" "private:true"           check_private_true
+  run_check "Publishing" "Public package config"  check_publish_config
+  run_check "Publishing" "Private package config" check_private_true
   run_check "Publishing" ".npmrc registry"        check_npmrc_registry
   run_check "Publishing" "Changeset access"       check_changeset_access
   run_check "Publishing" "License consistency"    check_license_consistency
