@@ -89,16 +89,8 @@ export interface UseSessionResult {
  * @returns Session state and actions
  */
 export function useSession(): UseSessionResult {
-  const {
-    currentSessionId,
-    mode,
-    totalScore,
-    seriesScores,
-    setSessionId,
-    setMode,
-    setDiscipline,
-    resetSession: resetSessionStore,
-  } = useSessionStore();
+  const { currentSessionId, mode, totalScore, seriesScores, setSessionId, setMode, setDiscipline, clearSessionData } =
+    useSessionStore();
 
   const starting = useAsyncAction(
     async (discipline: string) => {
@@ -134,7 +126,7 @@ export function useSession(): UseSessionResult {
       await sessionService.resetSession({
         sessionId: currentSessionId,
       });
-      resetSessionStore();
+      clearSessionData();
     },
     { errorMessage: 'An error occurred while resetting the session' },
   );

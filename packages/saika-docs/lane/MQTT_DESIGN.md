@@ -3,7 +3,7 @@
 # Saika MQTT 連携設計ドキュメント
 
 > **作成日**: 2026-02-24
-> **ステータス**: 移植時点の設計資料。実装との差異は [`saika-lane` のMQTTモジュール](../../saika-lane/src/main/modules/mqtt/) を優先する。
+> **ステータス**: 設計資料。実装との差異は [`saika-lane` のMQTTモジュール](../../saika-lane/src/main/modules/mqtt/) を優先する。
 
 ---
 
@@ -75,7 +75,23 @@ Saikaのマルチレーン構成では、競技進行の権威を各射座（lan
 - lane はコマンドを受け取り、自律的に状態遷移する
 - director が落ちても lane は独立して動作し続ける（後述）
 
-### 1.4 耐障害設計
+### 1.4 複数 competition の同時進行
+
+Director は、異なる `competitionId` を持つ複数の competition を同時に保持し、それぞれを独立して進行できる。物理 Lane は同時に 1 つの competition だけに所属し、Director は重複所属を拒否する。
+
+例えば、次の構成を同時に運用できる。
+
+| competition   | 種目    | 所属 Lane |
+| ------------- | ------- | --------- |
+| competition A | `BP60`  | Lane 1〜4 |
+| competition B | `BR60S` | Lane 5〜8 |
+
+- competition-level のコマンドと ACK は `competitionId` ごとに分離する。
+- Director はタイマ満了予約を `competitionId` ごとに保持する。一方の試射・本射開始や終了は、他方のタイマを上書きしない。
+- Lane の assignment、score、shot は所属する `competitionId` のデータだけを Director 画面に投影する。
+- 大会の射座割と成績保存先も `competitionId` ごとに保持する。
+
+### 1.5 耐障害設計
 
 #### Lane 障害時の動作
 
@@ -397,6 +413,11 @@ const HardwareStatePayload = z.object({
 });
 ```
 
+接続操作で指定した `laneAlias` は、設定ファイルへの保存有無にかかわらず、その MQTT 接続の状態発行と Will に使用する。
+`connected` / `disconnected` は60秒ごとに heartbeat として再発行する。Director は最終 `publishedAt` から150秒を
+超えた状態を `offline` とみなし、ブローカー障害で Will が配信されず古い Retain が復元された場合にも自動的に失効させる。
+新しい heartbeat を受信すると、その接続状態へ復旧する。
+
 ### 4.2 `RawShotPayload` — `saika/lane/{laneId}/hardware/shot`
 
 ```typescript
@@ -411,13 +432,13 @@ const RawShotPayload = z.object({
   shotId: z.string().uuid(),
 
   // 着弾座標（標的中心を原点とするミリメートル座標系）
-  // null = 標的外（scoreX100 は 0）
+  // null = 標的外（scoreX10 は 0）
   x: z.number().nullable(),
   y: z.number().nullable(),
 
-  // スコア（×100 整数）
-  // RING: 10点 → 1000 / DECIMAL: 10.9点 → 1090
-  rawScoreX100: z.number().int().min(0),
+  // スコア（×10 整数）
+  // RING: 10点 → 100 / DECIMAL: 10.9点 → 109
+  rawScoreX10: z.number().int().min(0),
 
   // 10.9点（インナーテン）フラグ
   innerTen: z.boolean(),
@@ -471,11 +492,46 @@ const CompetitionStatePayload = z.object({
   // この competition に参加している lane の ID 一覧
   laneIds: z.array(z.string().uuid()),
 
+  // 参加コマンドの最終 ACK を Director が確認できていない lane ID 一覧
+  pendingJoinLaneIds: z.array(z.string().uuid()).optional(),
+
+  // 試射開始が未完了の lane ID 一覧
+  pendingSightingLaneIds: z.array(z.string().uuid()).optional(),
+
   // 競技開始時刻（NOT_STARTED は null）
   startedAt: z.string().datetime().nullable(),
 
   // 競技終了時刻（MATCH_COMPLETE のみ）
   finishedAt: z.string().datetime().nullable(),
+
+  // Director が再起動後に復元する進行中タイマーの絶対期限情報。
+  // 全 lane が満了を確認すると省略される。
+  activeTimer: z
+    .object({
+      timerScope: z.enum(['STAGE', 'SERIES']),
+      timerStartAt: z.string().datetime(),
+      timerDurationSeconds: z.number().int().positive(),
+      stageIndex: z.number().int().min(0),
+      seriesIndex: z.number().int().min(0).nullable(),
+    })
+    .optional(),
+
+  // タイマー付きコマンドの配信前に Retain する未確定操作。
+  // ACK 後の状態発行に失敗しても、再試行では同じ開始時刻と時間を使う。
+  pendingTimer: z
+    .object({
+      action: z.enum(['start-sighting', 'start-match', 'timer-started']),
+      timerScope: z.enum(['STAGE', 'SERIES']),
+      timerStartAt: z.string().datetime(),
+      timerDurationSeconds: z.number().int().positive(),
+      stageIndex: z.number().int().min(0),
+      seriesIndex: z.number().int().min(0).nullable(),
+    })
+    .optional(),
+
+  // Director の成績保存など、清掃前処理が完了した時刻。
+  // 設定後は清掃再試行時に前処理を再実行しない。
+  cleanupPreparedAt: z.string().datetime().optional(),
 
   publishedAt: z.string().datetime(),
 });
@@ -533,6 +589,12 @@ const LaneCompetitionStatePayload = z.object({
     maxShots: z.number().int().min(0), // 最大発数（0=無制限）
   }),
 
+  // 遷移先を保存済みだが、シリーズ開始処理の完了を待っているか
+  awaitingSeriesStart: z.boolean().optional(),
+
+  // finish-competition への応答として再発行する場合のコマンド ID
+  finalSnapshotCommandId: z.string().uuid().optional(),
+
   publishedAt: z.string().datetime(),
 });
 ```
@@ -581,14 +643,14 @@ const LaneScorePayload = z.object({
   laneId: z.string().uuid(),
   sessionId: z.string().uuid(),
 
-  // 本射合計スコア（×100 整数）
-  totalScoreX100: z.number().int().min(0),
+  // 本射合計スコア（×10 整数）
+  totalScoreX10: z.number().int().min(0),
 
   // 本射ショット数
   totalShotCount: z.number().int().min(0),
 
   // 採点方式（CompetitionStatePayload.acc と同一値）
-  // RING: 1000=10点, 900=9点 / DECIMAL: 1090=10.9点, 950=9.5点
+  // RING: 100=10点, 90=9点 / DECIMAL: 109=10.9点, 95=9.5点
   acc: z.enum(['RING', 'DECIMAL']),
 
   // ステージ別スコア
@@ -597,19 +659,19 @@ const LaneScorePayload = z.object({
       stageIndex: z.number().int().min(0),
       stageName: z.string(),
 
-      // ステージ合計（×100 整数）
-      stageTotalX100: z.number().int().min(0),
+      // ステージ合計（×10 整数）
+      stageTotalX10: z.number().int().min(0),
 
       // シリーズ別スコア
       series: z.array(
         z.object({
           seriesIndex: z.number().int().min(0),
 
-          // 各ショットスコア（×100 整数の配列）
+          // 各ショットスコア（×10 整数の配列）
           shots: z.array(z.number().int().min(0)),
 
-          // シリーズ合計（×100 整数）
-          seriesTotalX100: z.number().int().min(0),
+          // シリーズ合計（×10 整数）
+          seriesTotalX10: z.number().int().min(0),
 
           // シリーズ完了フラグ（maxShots に達した場合 true）
           isComplete: z.boolean(),
@@ -618,9 +680,16 @@ const LaneScorePayload = z.object({
     }),
   ),
 
+  // finish-competition への応答として再発行する場合のコマンド ID
+  finalSnapshotCommandId: z.string().uuid().optional(),
+
   publishedAt: z.string().datetime(),
 });
 ```
+
+各ショットは 0〜109 の ×10 整数とし、`RING` では 10 の倍数に限る。シリーズ、ステージ、全体の合計値は
+それぞれ下位要素の合計と一致し、`totalShotCount` は全シリーズの `shots` 要素数と一致しなければならない。
+`stageIndex` と各ステージ内の `seriesIndex` は重複不可とする。
 
 ### 4.8 `CompetitionShotPayload` — `saika/competition/{competitionId}/lane/{laneId}/shot`
 
@@ -636,7 +705,7 @@ const CompetitionShotPayload = z.object({
   shotId: z.string().uuid(),
   x: z.number().nullable(),
   y: z.number().nullable(),
-  rawScoreX100: z.number().int().min(0),
+  rawScoreX10: z.number().int().min(0),
   innerTen: z.boolean(),
   mode: z.enum(['SIGHTING', 'MATCH']),
   timestamp: z.string().datetime(),
@@ -676,7 +745,8 @@ const CompetitionShotPayload = z.object({
 // competition/state を受け取って自動設定を取得する（configure-lane 不要）
 //
 // 制約: lane は同時に 1 つの competition にのみ参加可能。
-// 参加中の lane に join-competition が送られた場合:
+// 同じ competition への再送は冪等に done ACK を返す。
+// 別の competition に参加中の場合:
 //   → error ACK を返す（code: "ALREADY_IN_COMPETITION"）
 //   → 先に leave-competition が必要
 const JoinCompetitionCmd = z.object({
@@ -816,6 +886,8 @@ const AdvanceSeriesCmd = z.object({
   issuedAt: z.string().datetime(),
   stageIndex: z.number().int().min(0),
   fromSeriesIndex: z.number().int().min(0), // 進行元シリーズインデックス
+  // 遷移先の保存後に失敗した StartNextSeries だけを再開する
+  resumeOnly: z.boolean().optional(),
   // 次シリーズのタイマー開始時刻（決勝等で使用、省略可能）
   timerStartAt: z.string().datetime().optional(),
 });
@@ -830,6 +902,11 @@ const FinishCompetitionCmd = z.object({
   issuedAt: z.string().datetime(),
 });
 ```
+
+lane は競技終了を永続化した後、終了状態と最終スコアを `competitionId` で読み直して Retain 発行し、両方の
+QoS 1 発行が完了してから `done` ACK を返す。スコア発行は直前の着弾による発行を含めて直列化し、古い
+スナップショットが後から Retain 値を上書きしないようにする。いずれかの発行に失敗した場合は `error` ACK を返し、
+同じ競技が既に終了済みの再試行でも最終状態・スコアを再発行してから `done` とする。
 
 #### Per-Lane Commands（`saika/competition/{competitionId}/lane/{laneId}/command/{action}`）
 
@@ -858,7 +935,7 @@ const AssignAthleteCmd = z.object({
 ##### `reset-session`
 
 ```typescript
-// セッションをリセットする（競技データが消去される）
+// 競技開始前のセッションをリセットする（全着弾・得点データが消去される）
 
 const ResetSessionCmd = z.object({
   commandId: z.string().uuid(),
@@ -867,6 +944,11 @@ const ResetSessionCmd = z.object({
   reason: z.string().optional(), // リセット理由（ログ記録用）
 });
 ```
+
+`reset-session` は Lane の競技状態が `IDLE` の間だけ受理する。開始後は競技進行位置とシリーズ番号を
+壊さないため `INVALID_PHASE_TRANSITION` を返す。成功時はセッション ID・種目・モード・接続情報を維持し、
+着弾履歴と得点だけを消去して、0 点の Retain スコアを再発行する。Retain の発行完了後に `done` ACK を返し、
+発行に失敗した場合は `error` ACK を返す。
 
 ### 4.10 ACK ペイロード
 
@@ -910,6 +992,10 @@ const CommandAckPayload = z.object({
 > - Tier 1: `saika/lane/+/command/+/acknowledgement`
 > - Tier 2 Broadcast: `saika/competition/+/command/+/acknowledgement/+`
 > - Tier 2 Per-lane: `saika/competition/+/lane/+/command/+/acknowledgement`
+>
+> director は ACK を `commandId` だけで関連付けず、コマンド発行時に期待した完全な ACK トピックと照合する。
+> トピック内の competition ID・action・lane ID のいずれかが一致しない ACK は無視する。また、各 lane の
+> `done` / `error` は終端状態として扱い、遅延または重複した `executing` を受信しても上書きしない。
 
 ### 4.11 RPC ペイロード（QueryPayload）
 
@@ -1017,6 +1103,8 @@ Lane L1 -- UNSUBSCRIBE saika/competition/{id}/#  ← エラー時はサブスク
 ```
 
 > **Note**: `executing` ACK は subscribe 開始時に即時送信する。これにより director は lane がコマンドを受け付けたことを即座に確認できる。最終的な `done` / `error` は Retain メッセージの受信結果に基づいて送信される。
+
+> Director が `done` / `error` を確認できずタイムアウトした場合、Lane では参加 ID の永続化が完了している可能性がある。Director は対象 Lane を `pendingJoinLaneIds` に残して競技開始を止め、新しい commandId で参加を再試行する。Lane は同じ競技に参加済みなら `done` を返す。
 
 ### 5.1 競技開始〜試射フロー
 
@@ -1193,7 +1281,7 @@ saika.director              MQTT Broker              saika.lane(×N台)
      |<-- lane/L1/state ---------|  (Retain 配信)          |
      |    {phase: SERIES_COMPLETE}|                       |
      |<-- lane/L1/score ---------|  (Retain 配信)          |
-     |    {totalScoreX100: 9870}  |                       |
+     |     {totalScoreX10: 987}   |                       |
      |<-- lane/L1/assignment -----|  (Retain 配信)         |
      |    {athlete: {name,...}}  |                        |
      |<-- hardware/state ---------|  (Retain 配信)         |
@@ -1246,7 +1334,7 @@ saika.director              MQTT Broker              saika.lane (L1)
 
 ### 5.5 競技終了後の Retain クリーンアップシーケンス
 
-`finish-competition` の全 lane ACK（`done`）受信後、director は各 Retain トピックに空ペイロード（payload length = 0）を `Retain=ON` で publish する。これによりブローカー上の Retain メッセージがクリアされ、次回の competition 開始時に古い状態が配信されることを防ぐ。
+`finish-competition` の全 lane ACK（`done`）受信後、director は必要な成績保存を終えてから、各 Retain トピックに空ペイロード（payload length = 0）を `Retain=ON` で publish する。`done` の時点で各 lane の終了状態と最終スコアの Retain 発行は完了している。これにより director は最終データを保存してからブローカー上の Retain メッセージをクリアでき、次回の competition 開始時に古い状態が配信されることも防ぐ。
 
 #### Director 側クリーンアップ
 
@@ -1368,14 +1456,18 @@ const MqttSettingsSchema = z.object({
 
 ### 7.1 障害シナリオ一覧
 
-| 障害シナリオ                | Lane 動作                                                                                                     | Director 動作                                                                               | 競技継続性      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------- |
-| Broker 一時断（数秒〜数分） | ローカル SQLite で競技継続。再接続後に全 Retain トピックを再発行し、切断中のショットを shot トピックで再送信  | 再接続後、Retain メッセージで全 lane の最新状態を自動復旧。RPC 不要                         | ✅ 継続         |
-| Lane クラッシュ             | Will メッセージで hardware/state (offline) を自動送信。再起動後に SQLite から完全復旧し Retain トピックを更新 | hardware/state (offline) を受信し LanePhase=OFFLINE を検知。競技一時停止を人的判断          | △ 要人的判断    |
-| Director クラッシュ         | Lane は独立して競技を継続。MQTT 発行も通常通り継続。コマンド受信なしでも状態遷移は手動操作で継続可能          | 再起動後、Retain メッセージで competition/state・全 lane の状態・スコア・選手配置を完全復旧 | ✅ Lane 側継続  |
-| ネットワーク遅延            | タイマーは `absoluteDeadline` を基準に補正。ローカルクロックと `absoluteDeadline` の差分で開始/終了時刻を調整 | ACK タイムアウト（推奨 10 秒）で lane の応答を監視。タイムアウト後に状態確認 RPC を発行     | ✅ 補正あり     |
-| 特定 Lane の USB 接続断     | hardware/state (disconnected) を発行。競技層は継続（他 lane に影響なし）                                      | hardware/state を受信しハードウェア接続断を検知。競技タイマーは継続                         | ✅ 他 lane 継続 |
-| Broker 永続障害             | 完全スタンドアロンで動作。全機能が利用可能（スコア記録・表示・印刷）                                          | N/A                                                                                         | ✅ Lane 単独    |
+| 障害シナリオ                | Lane 動作                                                                                                     | Director 動作                                                                                | 競技継続性      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------- |
+| Broker 一時断（数秒〜数分） | ローカル SQLite で競技継続。再接続後に全 Retain トピックを再発行し、切断中のショットを shot トピックで再送信  | 再接続後、Retain メッセージで全 lane の最新状態を自動復旧。RPC 不要                          | ✅ 継続         |
+| Lane クラッシュ             | Will メッセージで hardware/state (offline) を自動送信。再起動後に SQLite から完全復旧し Retain トピックを更新 | hardware/state (offline) を受信し LanePhase=OFFLINE を検知。競技一時停止を人的判断           | △ 要人的判断    |
+| Director クラッシュ         | Lane は独立して競技を継続。MQTT 発行も通常通り継続。コマンド受信なしでも状態遷移は手動操作で継続可能          | 再起動後、Retain メッセージで competition/state・全 lane の状態・スコア・選手配置を完全復旧  | ✅ Lane 側継続  |
+| Broker クラッシュ           | 再接続までローカル SQLite で競技継続。接続復旧後に最新状態を再発行                                            | Will が配信されず古い hardware/state が復元されても、150秒を超えた heartbeat は offline 扱い | △ 復旧待ち      |
+| ネットワーク遅延            | タイマーは `absoluteDeadline` を基準に補正。ローカルクロックと `absoluteDeadline` の差分で開始/終了時刻を調整 | ACK タイムアウト（推奨 10 秒）で lane の応答を監視。タイムアウト後に状態確認 RPC を発行      | ✅ 補正あり     |
+| 特定 Lane の USB 接続断     | hardware/state (disconnected) を発行。競技層は継続（他 lane に影響なし）                                      | hardware/state を受信しハードウェア接続断を検知。競技タイマーは継続                          | ✅ 他 lane 継続 |
+| Broker 永続障害             | 完全スタンドアロンで動作。全機能が利用可能（スコア記録・表示・印刷）                                          | N/A                                                                                          | ✅ Lane 単独    |
+
+初回接続または必須購読の初期化に失敗した場合、Lane は MQTT クライアントの自動再接続を停止し、接続後の失敗では
+`offline` を Retain 発行してからソケットを閉じる。UI に失敗を返した後でバックグラウンド接続だけが残ることはない。
 
 ### 7.2 Lane スタンドアロン動作の保証
 
@@ -1414,6 +1506,9 @@ Will payload: { laneId, laneAlias, connection: { status: "offline" }, appVersion
 Will QoS:     1
 Will Retain:  true（ブローカーに残り、次の接続で上書きされるまで配信される）
 ```
+
+正常切断では Will が発行されないため、Lane は MQTT `DISCONNECT` の前に同じトピックへ最新時刻の
+`offline` 状態を QoS 1 / Retain 付きで明示的に発行する。
 
 > **`publishedAt` の注意**: Will メッセージの `publishedAt` は MQTT CONNECT 時に登録された値であり、実際の切断時刻ではない。数時間稼働後にクラッシュした場合、`publishedAt` は起動時の時刻となる。正確な切断時刻が必要な場合は、director 側の受信時刻（`receivedAt`）を使用すること。
 
@@ -1517,11 +1612,11 @@ timerStartAt が未来の場合（余裕を持ったコマンド）:
 
 #### フェイルセーフ
 
-| 条件                         | 動作                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | ---------- | ------------------------------------- |
-| クロックドリフトが 5秒 超    | lane は `start-match` ACK に `warning: "clock_drift_detected"` を付加して director に通知 |
-| クロックドリフトが 30秒 超   | lane はコマンドを拒否し `status: error, code: "CLOCK_OUT_OF_SYNC"` の ACK を返す          |
-| NTP 同期なしが検出された場合 | `HardwareStatePayload` に `clockSyncStatus: 'synced'                                      | 'unsynced' | 'unknown'` を追加して通知（将来実装） |
+| 条件                         | 動作                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| クロックドリフトが 5秒 超    | lane は `start-match` ACK に `warning: "clock_drift_detected"` を付加して director に通知                   |
+| クロックドリフトが 30秒 超   | lane はコマンドを拒否し `status: error, code: "CLOCK_OUT_OF_SYNC"` の ACK を返す                            |
+| NTP 同期なしが検出された場合 | `HardwareStatePayload` に `clockSyncStatus: 'synced' \| 'unsynced' \| 'unknown'` を追加して通知（将来実装） |
 
 > **運用要件**: 競技開始前に全 lane の NTP 同期を確認すること。`HardwareStatePayload.clockSyncStatus` の導入（将来 P2）まで、運用チェックリストで手動確認を行う。
 

@@ -138,6 +138,28 @@ describe('ShotIngestionHandler', () => {
     );
   });
 
+  it('should use the active competition stage mode after restarting during match', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, BR60S.config)
+      .startStage()
+      .endStage()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+
+    const handler = createShotIngestionHandler(deps);
+    await handler({ ...shotData, mode: 'SIGHTING' });
+
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({
+        sessionId: competitionSession.id,
+        mode: expect.objectContaining({ value: 'MATCH' }),
+      }),
+    );
+  });
+
   it('should pass ImpactPoint with correct coordinates', async () => {
     const session = buildSession();
     sessionRepository.findActive = vi.fn().mockResolvedValue(session);

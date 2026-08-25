@@ -9,6 +9,7 @@ This is a monorepo managed with **Turborepo** and **npm workspaces**.
 | Package                        | Description                                             |
 | ------------------------------ | ------------------------------------------------------- |
 | `saika-lane`                   | Electron desktop app for electronic target shot display |
+| `saika-director`               | Electron desktop app for MQTT competition control       |
 | `@sasakiuri/eslint-config`     | Shared ESLint flat config                               |
 | `@sasakiuri/prettier-config`   | Shared Prettier config                                  |
 | `@sasakiuri/stylelint-config`  | Shared Stylelint config                                 |
@@ -53,13 +54,14 @@ npx changeset        # Create a changeset for versioning
 type(scope): message
 ```
 
-- **Scope is required** and must be one of: `saika-lane`, `eslint-config`, `prettier-config`, `stylelint-config`, `typescript-config`, `repo`
+- **Scope is required** and must be one of: `saika-lane`, `saika-director`, `eslint-config`, `prettier-config`, `stylelint-config`, `typescript-config`, `repo`
 - **Allowed types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `revert`
 - Header max length: 100 characters
 
 **Examples:**
 
 - `feat(saika-lane): add SIUS adapter support`
+- `feat(saika-director): add lane assignment control`
 - `fix(eslint-config): correct TypeScript override`
 - `chore(repo): update CI workflow`
 

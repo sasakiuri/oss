@@ -158,6 +158,24 @@ describe('HardwareStatePublisher', () => {
     expect(publishedPayload.publishedAt).toBeDefined();
   });
 
+  it('should use the Lane alias supplied for the current MQTT connection', () => {
+    publisher.setRuntimeLaneAlias('Lane 7');
+    publisher.publishState();
+
+    const publishedPayload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
+    expect(publishedPayload.laneAlias).toBe('Lane 7');
+    expect(JSON.parse(publisher.getWillPayload()).laneAlias).toBe('Lane 7');
+  });
+
+  it('should return to the stored Lane alias after clearing the runtime value', () => {
+    publisher.setRuntimeLaneAlias('Lane 7');
+    publisher.setRuntimeLaneAlias(null);
+    publisher.publishState();
+
+    const publishedPayload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
+    expect(publishedPayload.laneAlias).toBe('Lane 1');
+  });
+
   // ── Heartbeat ──
   describe('heartbeat', () => {
     it('should publish state at interval', () => {
@@ -204,6 +222,37 @@ describe('HardwareStatePublisher', () => {
       expect(payload.laneId).toBe('test-lane-uuid');
       expect(payload.appVersion).toBe('1.0.0');
     });
+  });
+
+  it('should publish and await a retained offline state for graceful disconnect', async () => {
+    await publisher.publishOfflineState();
+
+    expect(mqttClient.publish).toHaveBeenCalledWith(
+      'saika/lane/test-lane-uuid/hardware/state',
+      expect.stringContaining('"status":"offline"'),
+      { qos: 1, retain: true },
+    );
+  });
+
+  it('should suppress later hardware updates until MQTT publishing resumes', async () => {
+    await publisher.publishOfflineState();
+    vi.mocked(mqttClient.publish).mockClear();
+
+    (eventBus as { emit: Function }).emit({
+      type: 'ConnectionLost',
+      timestamp: Date.now(),
+      aggregateId: 'conn-123',
+      reason: 'USB disconnected',
+    } satisfies ConnectionLostEvent);
+    expect(mqttClient.publish).not.toHaveBeenCalled();
+
+    publisher.resumePublishing();
+    publisher.publishState();
+    expect(mqttClient.publish).toHaveBeenCalledWith(
+      'saika/lane/test-lane-uuid/hardware/state',
+      expect.stringContaining('"status":"disconnected"'),
+      { qos: 1, retain: true },
+    );
   });
 
   // ── Error handling ──

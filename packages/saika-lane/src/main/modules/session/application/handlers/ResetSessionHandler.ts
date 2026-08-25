@@ -33,8 +33,8 @@ export function createResetSessionHandler(
       throw ErrorCatalog.createError('SESSION_NOT_FOUND');
     }
 
-    // Reset the session (a new session instance is returned)
-    const updatedSession = session.resetSeries();
+    // Clear all shooting data while keeping the session context active.
+    const updatedSession = session.reset();
 
     // Persist the session
     await sessionRepository.save(updatedSession);

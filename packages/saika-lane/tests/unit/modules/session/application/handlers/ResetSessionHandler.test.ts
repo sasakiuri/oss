@@ -6,6 +6,7 @@ import { createResetSessionHandler } from '@/main/modules/session/application/ha
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
@@ -35,7 +36,7 @@ describe('createResetSessionHandler', () => {
     };
 
     // Create test session (with some shots)
-    testSession = Session.create(Discipline.airRifle10m());
+    testSession = Session.create(Discipline.airRifle10m()).switchMode(Mode.match());
     const impactPoint = new ImpactPoint(5.2, -3.8);
     const score = new Score(105);
     testSession = testSession.recordShot(impactPoint, score, new Date());
@@ -79,10 +80,8 @@ describe('createResetSessionHandler', () => {
       );
     });
 
-    it('should add a new series after reset', async () => {
+    it('should clear all shots and scores while preserving the session context', async () => {
       // Arrange
-      const initialSeriesCount = testSession.series.length;
-
       (mockSessionRepository.findById as any).mockResolvedValue(testSession);
 
       // Act
@@ -90,7 +89,13 @@ describe('createResetSessionHandler', () => {
 
       // Assert
       const savedSession = (mockSessionRepository.save as any).mock.calls[0][0];
-      expect(savedSession.series.length).toBe(initialSeriesCount + 1);
+      expect(savedSession.id).toBe(testSession.id);
+      expect(savedSession.discipline).toBe(testSession.discipline);
+      expect(savedSession.mode.value).toBe('MATCH');
+      expect(savedSession.shotCount).toBe(0);
+      expect(savedSession.totalScore).toBe(0);
+      expect(savedSession.series).toHaveLength(1);
+      expect(savedSession.currentSeries?.count).toBe(0);
     });
   });
 

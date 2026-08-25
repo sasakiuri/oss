@@ -15,7 +15,6 @@
 - [DISAG — RedDot Laserziel 取扱説明書](https://www.disag.de/wp-content/uploads/reddot_laserziel.pdf)
 - [DISAG — RedDot Pistole 製品情報](https://www.disag.de/produkte/reddot-lichtschiessen/reddot-pistole/)
 - [DISAG — RedDot Laserziel 技術説明書（旧版）](https://www.disag.de/download/manuals/reddot_laserziel.pdf)
-- [DISAG — RedDotView配布ページ](https://www.disag.de/downloads/software/reddotview/)
 - [DISAG — RedDot用RS-232クロスケーブル結線図](https://www.disag.de/wp-content/uploads/RS232_Male-Male_Crossover.pdf)
 - [KNESTEL — KT RDT ZIE 1 EU適合宣言](https://knestel.de/wp-content/uploads/2023/08/CE-Konformitaetserklaerung_RD_Ziel_2015.03.11.pdf)
 - [DISAG — RM-III / RM-III Universal インターフェース説明書](https://www.disag.de/download/manuals/schnittstellenbeschreibung.pdf)
@@ -24,8 +23,13 @@
 - [興東電子株式会社 — ビームライフル装置](https://kohto.co.jp/beam03.html)
 - [興東電子株式会社 — ビームピストル装置](https://kohto.co.jp/beam04.html)
 - [`@sasakiuri/saika-lane` の実装とテスト](../saika-lane/)
+- [`@sasakiuri/saika-director` の実装とテスト](../saika-director/)
 
 ## リポジトリ内の実装根拠
+
+- [Director MQTT 制御サービス](../saika-director/src/main/modules/mqtt/infra/DirectorMqttService.ts)
+- [Director MQTT IPC モジュール](../saika-director/src/main/modules/mqtt/mqtt.module.ts)
+- [共通 MQTT ペイロード契約](../saika-director/src/shared/mqtt/protocol.ts)
 
 - [ScoreSheetのデータ生成](../saika-lane/src/main/modules/report/application/handlers/GetScoreSheetHandler.ts)
 - [ScoreSheetの表示](../saika-lane/src/renderer/presentation/screens/print/components/ScoreSheet.tsx)
@@ -47,11 +51,8 @@
 独自に説明したものです。`common/PRINT_SPEC.md` のDirector向け部分は設計資料であり、現行OSSに
 対応実装があることを示しません。
 
-`lane/devices/kohto/bpt216/README.md` は、利用者から相互運用解析用に提供された公式V201アプリの
-静的解析結果を、独自実装に必要な範囲で説明したものです。公式配布物、逆コンパイル結果、実機ログは
-収録せず、文書の入力例には合成データだけを使用しています。別プロファイルのRS-232C形式は、公式V201の
-解析結果ではなく、Saika実装と自動テストで固定した受理契約として区別しています。
+`lane/devices/kohto/bpt216/README.md` は、Saikaの実装・テストにおける `BP-217 I/F` 形式と
+RS-232C形式の受理条件を説明したものです。掲載する入力例には合成データを使用しています。
 
-`lane/devices/disag/reddot/README.md` はメーカーの公式通信仕様ではありません。メーカー公開資料と
-独立した相互運用確認を区別し、Saikaが実装する受理形式、状態機械、座標変換、受入条件を独自に
-定義したものです。実射パケットや機器固有情報は収録せず、掲載フレームは文書用の合成fixtureです。
+`lane/devices/disag/reddot/README.md` はメーカーの公式通信仕様ではありません。
+Saikaが実装する受理形式、状態機械、座標変換、受入条件を説明したものです。実射パケットや機器固有情報は収録せず、掲載フレームは文書用の合成fixtureです。

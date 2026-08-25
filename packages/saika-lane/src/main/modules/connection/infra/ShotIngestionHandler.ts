@@ -47,12 +47,24 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         return;
       }
 
+      const stageScored = activeCompetition?.currentStageConfig?.scored;
+      const effectiveMode =
+        typeof stageScored === 'boolean'
+          ? stageScored
+            ? Mode.match()
+            : Mode.sighting()
+          : shotData.mode !== undefined
+            ? Mode.fromValue(shotData.mode)
+            : undefined;
+
       await commandBus.execute(RecordShotToken, {
         sessionId: activeSession.id,
         impactPoint: shotData.x !== null && shotData.y !== null ? new ImpactPoint(shotData.x, shotData.y) : null,
         timestamp: shotData.timestamp,
         deviceScore: shotData.score,
-        mode: shotData.mode !== undefined ? Mode.fromValue(shotData.mode) : undefined,
+        // A persisted competition stage is authoritative. Adapter context can
+        // be stale immediately after restarting the app during MATCH.
+        mode: effectiveMode,
       });
 
       logger.debug('Shot recorded via USB', 'usb', {

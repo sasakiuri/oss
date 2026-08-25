@@ -2,135 +2,197 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
-  getLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
+  getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
+import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 
-function createMockMqttClient(): IMqttClientService {
+import { createMockCommandBus } from '../../../../helpers/mockDependencies';
+
+const COMPETITION_ID = 'b2222222-2222-4222-a222-222222222222';
+const LANE_ID = 'a1111111-1111-4111-a111-111111111111';
+
+function validState(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn().mockResolvedValue(undefined),
-    unsubscribe: vi.fn().mockResolvedValue(undefined),
-    setWill: vi.fn(),
-    onMessage: vi.fn().mockReturnValue(() => {}),
-    onConnect: vi.fn(),
-    onDisconnect: vi.fn(),
-    isConnected: vi.fn().mockReturnValue(true),
+    competitionId: COMPETITION_ID,
+    competitionTypeId: 'BR60S',
+    competitionTypeName: '10m Beam Rifle 60 shots standing',
+    discipline: 'BEAM_RIFLE_10M',
+    roundName: 'Qualification',
+    acc: 'DECIMAL',
+    phase: 'NOT_STARTED',
+    shotsPerSeries: 10,
+    totalSeries: 6,
+    totalShots: 60,
+    laneIds: [LANE_ID],
+    startedAt: null,
+    finishedAt: null,
+    publishedAt: new Date().toISOString(),
+    ...overrides,
   };
 }
 
-const COMPETITION_ID = 'b2222222-2222-4222-a222-222222222222';
+function matchingCompetition(): CompetitionState {
+  return {
+    id: COMPETITION_ID,
+    phase: 'IDLE',
+    config: {
+      name: 'Qualification',
+      acc: 'DECIMAL',
+      shotsPerSeries: 10,
+      stages: [
+        { scored: false, series: [{ maxShots: 0 }] },
+        {
+          scored: true,
+          series: Array.from({ length: 6 }, () => ({ maxShots: 10 })),
+        },
+      ],
+    },
+  } as unknown as CompetitionState;
+}
 
 describe('CompetitionStateSubscriber', () => {
   let mqttClient: IMqttClientService;
+  let commandBus: ReturnType<typeof createMockCommandBus>;
+  let competitionRepository: ICompetitionRepository;
   let subscriber: CompetitionStateSubscriber;
   let messageHandler: (topic: string, payload: Buffer) => void;
+  let retainedPayload: string | null;
 
   beforeEach(() => {
-    mqttClient = createMockMqttClient();
-    subscriber = new CompetitionStateSubscriber(mqttClient);
-
-    (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
-      (h: (topic: string, payload: Buffer) => void) => {
-        messageHandler = h;
-        return () => {
-          /* unsubscribe */
-        };
-      },
-    );
+    retainedPayload = JSON.stringify(validState());
+    mqttClient = {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      publish: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn().mockImplementation(async (topic: string) => {
+        if (retainedPayload) messageHandler(topic, Buffer.from(retainedPayload));
+      }),
+      unsubscribe: vi.fn().mockResolvedValue(undefined),
+      setWill: vi.fn(),
+      onMessage: vi.fn().mockImplementation((handler: typeof messageHandler) => {
+        messageHandler = handler;
+        return () => undefined;
+      }),
+      onConnect: vi.fn(),
+      onDisconnect: vi.fn(),
+      isConnected: vi.fn().mockReturnValue(true),
+    };
+    commandBus = createMockCommandBus();
+    vi.mocked(commandBus.execute).mockResolvedValue({
+      competitionId: COMPETITION_ID,
+      sessionId: 'd4444444-4444-4444-a444-444444444444',
+    });
+    competitionRepository = {
+      save: vi.fn(),
+      findById: vi.fn().mockResolvedValue(null),
+      findBySessionId: vi.fn().mockResolvedValue(null),
+      findActive: vi.fn().mockResolvedValue(null),
+      delete: vi.fn(),
+    };
+    subscriber = new CompetitionStateSubscriber(mqttClient, commandBus, competitionRepository, 10);
   });
 
-  it('subscribes to competition state topic', async () => {
+  it('subscribes before bootstrapping a matching local competition ID', async () => {
     await subscriber.subscribe(COMPETITION_ID);
 
     expect(mqttClient.subscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/state`, 1);
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ competitionId: COMPETITION_ID, competitionTypeId: 'BR60S' }),
+    );
   });
 
-  it('unsubscribes from competition state topic', async () => {
+  it('reuses an existing compatible competition', async () => {
+    vi.mocked(competitionRepository.findById).mockResolvedValue(matchingCompetition());
+
+    await subscriber.subscribe(COMPETITION_ID);
+
+    expect(commandBus.execute).not.toHaveBeenCalled();
+  });
+
+  it('restores subscriptions when the Lane finished before Director retained completion', async () => {
+    vi.mocked(competitionRepository.findById).mockResolvedValue({
+      ...matchingCompetition(),
+      phase: 'FINISHED',
+    } as CompetitionState);
+    retainedPayload = JSON.stringify(
+      validState({
+        phase: 'MATCH',
+        startedAt: new Date().toISOString(),
+      }),
+    );
+
+    await subscriber.subscribe(COMPETITION_ID);
+
+    expect(commandBus.execute).not.toHaveBeenCalled();
+  });
+
+  it('accepts retained active timer metadata from the Director', async () => {
+    vi.mocked(competitionRepository.findById).mockResolvedValue(matchingCompetition());
+    const timerStartAt = new Date().toISOString();
+    retainedPayload = JSON.stringify(
+      validState({
+        phase: 'MATCH',
+        startedAt: timerStartAt,
+        activeTimer: {
+          timerScope: 'STAGE',
+          timerStartAt,
+          timerDurationSeconds: 2_700,
+          stageIndex: 1,
+          seriesIndex: null,
+        },
+      }),
+    );
+
+    await expect(subscriber.subscribe(COMPETITION_ID)).resolves.toMatchObject({
+      activeTimer: {
+        timerScope: 'STAGE',
+        timerStartAt,
+        timerDurationSeconds: 2_700,
+        stageIndex: 1,
+        seriesIndex: null,
+      },
+    });
+  });
+
+  it('rejects an incompatible existing competition', async () => {
+    vi.mocked(competitionRepository.findById).mockResolvedValue(matchingCompetition());
+    retainedPayload = JSON.stringify(validState({ totalShots: 40 }));
+
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toMatchObject({
+      code: 'MQTT_COMPETITION_STATE_MISMATCH',
+    });
+  });
+
+  it('times out when no valid retained state is available', async () => {
+    retainedPayload = JSON.stringify({ competitionId: COMPETITION_ID });
+
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toMatchObject({
+      code: 'MQTT_COMPETITION_STATE_TIMEOUT',
+    });
+  });
+
+  it('does not bootstrap a new lane into an already running competition', async () => {
+    retainedPayload = JSON.stringify(
+      validState({
+        phase: 'MATCH',
+        startedAt: new Date().toISOString(),
+      }),
+    );
+
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toMatchObject({
+      code: 'MQTT_COMPETITION_STATE_MISMATCH',
+    });
+  });
+
+  it('unsubscribes from the exact state topic', async () => {
     await subscriber.subscribe(COMPETITION_ID);
     await subscriber.unsubscribe();
 
     expect(mqttClient.unsubscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/state`);
-  });
-
-  it('ignores messages for other topics', async () => {
-    await subscriber.subscribe(COMPETITION_ID);
-
-    const payload = JSON.stringify({
-      competitionId: COMPETITION_ID,
-      competitionTypeId: 'BR60S',
-      phase: 'SIGHTING',
-      publishedAt: new Date().toISOString(),
-    });
-
-    // Send to a different topic - should be ignored
-    messageHandler('saika/competition/other-id/state', Buffer.from(payload));
-
-    // No error, no crash
-    expect(true).toBe(true);
-  });
-
-  it('handles phase change', async () => {
-    await subscriber.subscribe(COMPETITION_ID);
-
-    const topic = `saika/competition/${COMPETITION_ID}/state`;
-
-    // First message - phase change from null to SIGHTING
-    const payload1 = JSON.stringify({
-      competitionId: COMPETITION_ID,
-      competitionTypeId: 'BR60S',
-      phase: 'SIGHTING',
-      publishedAt: new Date().toISOString(),
-    });
-    messageHandler(topic, Buffer.from(payload1));
-
-    // Second message - same phase, should not log again
-    messageHandler(topic, Buffer.from(payload1));
-
-    // Third message - different phase
-    const payload2 = JSON.stringify({
-      competitionId: COMPETITION_ID,
-      competitionTypeId: 'BR60S',
-      phase: 'MATCH',
-      publishedAt: new Date().toISOString(),
-    });
-    messageHandler(topic, Buffer.from(payload2));
-
-    // Just verify no crashes - the logging is mocked
-    expect(true).toBe(true);
-  });
-
-  it('handles invalid JSON gracefully', async () => {
-    await subscriber.subscribe(COMPETITION_ID);
-
-    const topic = `saika/competition/${COMPETITION_ID}/state`;
-
-    // Should not throw
-    messageHandler(topic, Buffer.from('not-json'));
-    expect(true).toBe(true);
-  });
-
-  it('resubscribes to new competition', async () => {
-    await subscriber.subscribe(COMPETITION_ID);
-    const newCompId = 'c3333333-3333-4333-a333-333333333333';
-    await subscriber.subscribe(newCompId);
-
-    expect(mqttClient.unsubscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/state`);
-    expect(mqttClient.subscribe).toHaveBeenCalledWith(`saika/competition/${newCompId}/state`, 1);
-  });
-
-  it('unsubscribe is no-op when not subscribed', async () => {
-    await subscriber.unsubscribe();
-
-    expect(mqttClient.unsubscribe).not.toHaveBeenCalled();
   });
 });

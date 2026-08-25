@@ -12,21 +12,29 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   resetLogger: vi.fn(),
 }));
 
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 
 import { buildSession } from '../../../../helpers/factories';
-import { createMockEventBus, createMockSessionRepository } from '../../../../helpers/mockDependencies';
+import {
+  createMockCompetitionRepository,
+  createMockEventBus,
+  createMockSessionRepository,
+} from '../../../../helpers/mockDependencies';
 
 describe('SessionContextCache', () => {
   let eventBus: ReturnType<typeof createMockEventBus>;
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
+  let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
   let cache: SessionContextCache;
 
   beforeEach(() => {
     eventBus = createMockEventBus();
     sessionRepository = createMockSessionRepository();
+    competitionRepository = createMockCompetitionRepository();
     cache = new SessionContextCache(eventBus);
   });
 
@@ -83,6 +91,23 @@ describe('SessionContextCache', () => {
       await cache.bootstrap(sessionRepository);
 
       expect(sessionRepository.findActive).toHaveBeenCalledTimes(1);
+    });
+
+    it('should restore MATCH mode from an active competition after restart', async () => {
+      const session = buildSession({ discipline: Discipline.beamRifle10m() });
+      const competition = CompetitionState.create('competition-1', session.id, BR60S.config)
+        .startStage()
+        .endStage()
+        .advanceToNextStage()
+        .startNextSeries();
+      competitionRepository.findActive = vi.fn().mockResolvedValue(competition);
+      sessionRepository.findById = vi.fn().mockResolvedValue(session);
+
+      await cache.bootstrap(sessionRepository, competitionRepository);
+
+      expect(sessionRepository.findById).toHaveBeenCalledWith(session.id);
+      expect(cache.getContext().discipline.value).toBe('BEAM_RIFLE_10M');
+      expect(cache.getContext().mode.value).toBe('MATCH');
     });
   });
 
@@ -223,7 +248,7 @@ describe('SessionContextCache', () => {
       expect(cache.getContext().mode.value).toBe('SIGHTING');
     });
 
-    it('should clear cache on SessionReset', () => {
+    it('should preserve active context on SessionReset', () => {
       cache.subscribeEvents(vi.fn());
 
       // First, start a session
@@ -241,7 +266,8 @@ describe('SessionContextCache', () => {
         timestamp: Date.now(),
       });
 
-      expect(() => cache.getContext()).toThrow();
+      expect(cache.getContext().discipline.value).toBe('AIR_RIFLE_10M');
+      expect(cache.getContext().mode.value).toBe('SIGHTING');
     });
 
     it('should call onSessionReset callback on SessionReset', () => {

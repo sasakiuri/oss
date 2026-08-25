@@ -122,6 +122,8 @@ export interface GetScoreSheetInput {
 /** Input for the start competition command */
 export interface StartCompetitionInput {
   competitionTypeId: string;
+  /** Existing ID supplied by a remote competition director. */
+  competitionId?: string;
 }
 
 /** Input for the start stage command */
@@ -147,13 +149,6 @@ export interface FinishCompetitionInput {
 /** Input for the end stage command */
 export interface EndStageInput {
   competitionId: string;
-}
-
-/** Input for the assign athlete command */
-export interface AssignAthleteInput {
-  competitionId: string;
-  /** Athlete name (null to unassign) */
-  athleteName: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,8 +186,6 @@ export const AdvanceStageToken = defineCommand<AdvanceStageInput>('AdvanceStage'
 export const FinishCompetitionToken = defineCommand<FinishCompetitionInput>('FinishCompetition');
 
 export const EndStageToken = defineCommand<EndStageInput>('EndStage');
-
-export const AssignAthleteToken = defineCommand<AssignAthleteInput>('AssignAthlete');
 
 // ---------------------------------------------------------------------------
 // Competition Query Tokens

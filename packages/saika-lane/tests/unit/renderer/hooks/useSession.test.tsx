@@ -301,9 +301,9 @@ describe('useSession', () => {
       expect(result.current.isResetting).toBe(false);
       expect(result.current.error).toBeNull();
 
-      // Verify store is reset
+      // Verify shooting data is reset while the session remains active
       const storeState = useSessionStore.getState();
-      expect(storeState.currentSessionId).toBeNull();
+      expect(storeState.currentSessionId).toBe('session-123');
       expect(storeState.mode).toBe('SIGHTING');
       expect(storeState.shots).toEqual([]);
       expect(storeState.totalScore).toBe(0);
@@ -431,8 +431,8 @@ describe('useSession', () => {
         await result.current.resetSession();
       });
 
-      expect(result.current.currentSessionId).toBeNull();
-      expect(result.current.mode).toBe('SIGHTING');
+      expect(result.current.currentSessionId).toBe('session-789');
+      expect(result.current.mode).toBe('MATCH');
       expect(result.current.totalScore).toBe(0);
       expect(result.current.seriesScores).toEqual([]);
     });

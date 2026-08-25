@@ -1,25 +1,17 @@
 // SPDX-License-Identifier: MIT
-import path from 'path';
-import { fileURLToPath } from 'url';
-
 import AxeBuilder from '@axe-core/playwright';
-import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test';
-import electronPath from 'electron';
+import { expect, test } from '@playwright/test';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { closeLane, launchLane, type RunningLane } from './fixtures';
 
 test.describe('Accessibility', () => {
-  let app: ElectronApplication;
+  let running: RunningLane | undefined;
 
-  test.afterEach(async () => {
-    await app?.close();
-  });
+  test.afterEach(async () => closeLane(running));
 
   test('should have no WCAG 2.1 AA violations', async () => {
-    const appPath = path.resolve(__dirname, '../dist/main/main.js');
-    app = await electron.launch({ executablePath: electronPath as unknown as string, args: [appPath] });
-
-    const window = await app.firstWindow();
+    running = await launchLane();
+    const window = await running.app.firstWindow();
     await window.waitForLoadState('domcontentloaded');
 
     const results = await new AxeBuilder({ page: window })

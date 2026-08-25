@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: MIT
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { expect, test } from '@playwright/test';
 
-import { _electron as electron, expect, test } from '@playwright/test';
-import electronPath from 'electron';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { closeLane, launchLane, type RunningLane } from './fixtures';
 
 test.describe('Saika Lane App', () => {
-  test('should launch the app and display the main window', async () => {
-    const appPath = path.resolve(__dirname, '../dist/main/main.js');
-    const app = await electron.launch({ executablePath: electronPath as unknown as string, args: [appPath] });
+  let running: RunningLane | undefined;
 
-    const window = await app.firstWindow();
+  test.afterEach(async () => closeLane(running));
+
+  test('should launch the app and display the main window', async () => {
+    running = await launchLane();
+    const window = await running.app.firstWindow();
     const title = await window.title();
 
     expect(title).toBeDefined();
-
-    await app.close();
   });
 });

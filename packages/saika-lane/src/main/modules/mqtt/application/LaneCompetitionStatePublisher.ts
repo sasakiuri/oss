@@ -19,6 +19,7 @@ export class LaneCompetitionStatePublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly competitionRepository: ICompetitionRepository;
+  private publicationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     mqttClient: IMqttClientService,
@@ -30,17 +31,30 @@ export class LaneCompetitionStatePublisher {
     this.storage = storage;
     this.competitionRepository = competitionRepository;
 
-    eventBus.on('PhaseChanged', () => this.publishCurrentState());
-    eventBus.on('StageAdvanced', () => this.publishCurrentState());
-    eventBus.on('SeriesCompleted', () => this.publishCurrentState());
-    eventBus.on('CompetitionStarted', () => this.publishCurrentState());
-    eventBus.on('CompetitionFinished', () => this.publishCurrentState());
+    const publishEventState = (event: { aggregateId: string }): void => {
+      void this.publishCurrentState(event.aggregateId).catch((error: unknown) => this.logPublishError(error));
+    };
+    eventBus.on('PhaseChanged', publishEventState);
+    eventBus.on('StageAdvanced', publishEventState);
+    eventBus.on('SeriesCompleted', publishEventState);
+    eventBus.on('CompetitionStarted', publishEventState);
+    eventBus.on('CompetitionFinished', publishEventState);
   }
 
-  async publishCurrentState(): Promise<void> {
+  publishCurrentState(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
+    const publication = this.publicationQueue.then(() =>
+      this.publishStateInternal(competitionId, finalSnapshotCommandId),
+    );
+    this.publicationQueue = publication.catch(() => undefined);
+    return publication;
+  }
+
+  private async publishStateInternal(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
 
-    const competition = await this.competitionRepository.findActive();
+    const competition = competitionId
+      ? await this.competitionRepository.findById(competitionId)
+      : await this.competitionRepository.findActive();
     if (!competition) return;
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
@@ -71,16 +85,20 @@ export class LaneCompetitionStatePublisher {
         shotsRecorded: competition.seriesShotCount,
         maxShots: currentSeries?.maxShots ?? 0,
       },
+      awaitingSeriesStart: competition.phase === 'STAGE_ENTERED' || competition.phase === 'SERIES_ENTERED',
+      ...(finalSnapshotCommandId ? { finalSnapshotCommandId } : {}),
       publishedAt: new Date().toISOString(),
     });
 
     const topic = `saika/competition/${competition.id}/lane/${laneId}/state`;
 
-    this.mqttClient.publish(topic, payload, { qos: 1, retain: true }).catch((err: unknown) => {
-      const logger = getLogger();
-      logger.error('[LaneCompetitionStatePublisher] Failed to publish state', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+    await this.mqttClient.publish(topic, payload, { qos: 1, retain: true });
+  }
+
+  private logPublishError(error: unknown): void {
+    const logger = getLogger();
+    logger.error('[LaneCompetitionStatePublisher] Failed to publish state', 'mqtt', {
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }

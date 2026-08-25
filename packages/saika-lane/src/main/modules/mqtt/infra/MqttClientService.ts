@@ -37,8 +37,10 @@ export class MqttClientService implements IMqttClientService {
     retain: boolean;
   } | null = null;
 
-  connect(options: MqttConnectOptions): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async connect(options: MqttConnectOptions): Promise<void> {
+    if (this.client) await this.disconnect();
+
+    await new Promise<void>((resolve, reject) => {
       const logger = getLogger();
       const sanitizedUrl = sanitizeBrokerUrl(options.brokerUrl);
 
@@ -65,16 +67,36 @@ export class MqttClientService implements IMqttClientService {
       }
 
       const client = this.client;
+      let settling = false;
 
       const onConnect = () => {
+        if (settling) return;
+        settling = true;
         cleanup();
         logger.info(`[MQTT] Connected to ${sanitizedUrl}`);
         resolve();
       };
 
       const onError = (err: Error) => {
+        if (settling) return;
+        settling = true;
         cleanup();
-        reject(ErrorCatalog.createError('MQTT_CONNECTION_FAILED', { brokerUrl: sanitizedUrl }, err));
+        if (this.client === client) this.client = null;
+
+        const connectionError = ErrorCatalog.createError('MQTT_CONNECTION_FAILED', { brokerUrl: sanitizedUrl }, err);
+        // mqtt.js keeps reconnecting after an initial error. Force-close the
+        // failed client before exposing the failure to callers.
+        const swallowCleanupError = () => {};
+        client.on('error', swallowCleanupError);
+        const rejectAfterCleanup = () => {
+          client.removeListener('error', swallowCleanupError);
+          reject(connectionError);
+        };
+        try {
+          client.end(true, {}, rejectAfterCleanup);
+        } catch {
+          rejectAfterCleanup();
+        }
       };
 
       const cleanup = () => {

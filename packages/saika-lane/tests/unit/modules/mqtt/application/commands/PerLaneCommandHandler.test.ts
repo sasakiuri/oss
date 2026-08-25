@@ -22,6 +22,8 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
+import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
+import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 
@@ -49,7 +51,7 @@ const SESSION_ID = 'd4444444-4444-4444-a444-444444444444';
 function createMockCompetitionRepo(): ICompetitionRepository {
   return {
     save: vi.fn().mockResolvedValue(undefined),
-    findById: vi.fn().mockResolvedValue({ sessionId: SESSION_ID }),
+    findById: vi.fn().mockResolvedValue({ sessionId: SESSION_ID, phase: 'IDLE' }),
     findBySessionId: vi.fn().mockResolvedValue(null),
     findActive: vi.fn().mockResolvedValue(null),
     delete: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +74,8 @@ describe('PerLaneCommandHandler', () => {
   let commandBus: ReturnType<typeof createMockCommandBus>;
   let guard: CommandIdempotencyGuard;
   let competitionRepo: ICompetitionRepository;
+  let assignmentPublisher: LaneAssignmentPublisher;
+  let scorePublisher: LaneScorePublisher;
   let handler: PerLaneCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -80,7 +84,22 @@ describe('PerLaneCommandHandler', () => {
     commandBus = createMockCommandBus();
     guard = new CommandIdempotencyGuard();
     competitionRepo = createMockCompetitionRepo();
-    handler = new PerLaneCommandHandler(mqttClient, commandBus, guard, competitionRepo, () => LANE_ID, COMPETITION_ID);
+    assignmentPublisher = {
+      assign: vi.fn().mockResolvedValue(undefined),
+    } as unknown as LaneAssignmentPublisher;
+    scorePublisher = {
+      publishCurrentScore: vi.fn().mockResolvedValue(undefined),
+    } as unknown as LaneScorePublisher;
+    handler = new PerLaneCommandHandler(
+      mqttClient,
+      commandBus,
+      guard,
+      competitionRepo,
+      assignmentPublisher,
+      scorePublisher,
+      () => LANE_ID,
+      COMPETITION_ID,
+    );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
       (h: (topic: string, payload: Buffer) => void) => {
@@ -127,7 +146,10 @@ describe('PerLaneCommandHandler', () => {
 
       await sendMessage('assign-athlete', cmd);
 
-      expect(commandBus.execute).toHaveBeenCalled();
+      expect(assignmentPublisher.assign).toHaveBeenCalledWith(
+        COMPETITION_ID,
+        expect.objectContaining({ id: 'athlete-1', name: 'Test Athlete' }),
+      );
     });
 
     it('executes AssignAthlete with null athlete (unassign)', async () => {
@@ -135,7 +157,7 @@ describe('PerLaneCommandHandler', () => {
 
       await sendMessage('assign-athlete', cmd);
 
-      expect(commandBus.execute).toHaveBeenCalled();
+      expect(assignmentPublisher.assign).toHaveBeenCalledWith(COMPETITION_ID, null);
     });
   });
 
@@ -150,6 +172,23 @@ describe('PerLaneCommandHandler', () => {
         expect.anything(),
         expect.objectContaining({ sessionId: SESSION_ID }),
       );
+      expect(scorePublisher.publishCurrentScore).toHaveBeenCalledOnce();
+      expect(vi.mocked(commandBus.execute).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(scorePublisher.publishCurrentScore).mock.invocationCallOrder[0]!,
+      );
+    });
+
+    it('sends an error ACK when the reset score cannot be retained', async () => {
+      vi.mocked(scorePublisher.publishCurrentScore).mockRejectedValue(new Error('broker unavailable'));
+
+      await sendMessage('reset-session', buildCommand({ reason: 'Device malfunction' }));
+
+      const ackCalls = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter((call) => (call[0] as string).includes('/acknowledgement'));
+      const errorAck = JSON.parse(ackCalls.at(-1)![1] as string);
+      expect(errorAck.status).toBe('error');
+      expect(errorAck.error.code).toBe('MQTT_COMMAND_EXECUTION_FAILED');
     });
 
     it('sends error ACK when competition not found', async () => {
@@ -166,6 +205,21 @@ describe('PerLaneCommandHandler', () => {
       const errorAck = JSON.parse(ackCalls[1]![1] as string);
       expect(errorAck.status).toBe('error');
       expect(errorAck.error.code).toBe('COMPETITION_NOT_FOUND');
+    });
+
+    it('rejects reset after the competition has started', async () => {
+      vi.mocked(competitionRepo.findById).mockResolvedValue({
+        sessionId: SESSION_ID,
+        phase: 'ACTIVE',
+      } as Awaited<ReturnType<ICompetitionRepository['findById']>>);
+
+      await sendMessage('reset-session', buildCommand({ reason: 'Device malfunction' }));
+
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const errorAck = JSON.parse(publishCalls.at(-1)![1] as string);
+      expect(errorAck.status).toBe('error');
+      expect(errorAck.error.code).toBe('INVALID_PHASE_TRANSITION');
     });
   });
 
@@ -188,7 +242,7 @@ describe('PerLaneCommandHandler', () => {
     });
 
     it('sends error ACK on failure', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('failed'));
+      vi.mocked(assignmentPublisher.assign).mockRejectedValue(new Error('failed'));
       const cmd = buildCommand({ athlete: null });
 
       await sendMessage('assign-athlete', cmd);

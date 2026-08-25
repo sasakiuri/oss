@@ -9,6 +9,7 @@
  * and bootstraps from the persisted active session on app restart.
  */
 
+import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -18,6 +19,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 export class SessionContextCache {
   private cachedDiscipline: Discipline | null = null;
   private cachedMode: Mode | null = null;
+  private modeRevision = 0;
 
   constructor(private readonly eventBus: IEventBus) {}
 
@@ -39,11 +41,34 @@ export class SessionContextCache {
    *
    * Restores the cache before events fire in the app restart scenario.
    */
-  async bootstrap(sessionRepository: ISessionRepository): Promise<void> {
-    const activeSession = await sessionRepository.findActive();
+  async bootstrap(
+    sessionRepository: ISessionRepository,
+    competitionRepository?: ICompetitionRepository,
+  ): Promise<void> {
+    const initialModeRevision = this.modeRevision;
+    const [activeCompetition, fallbackSession] = await Promise.all([
+      competitionRepository?.findActive() ?? Promise.resolve(null),
+      sessionRepository.findActive(),
+    ]);
+    const activeSession = activeCompetition
+      ? await sessionRepository.findById(activeCompetition.sessionId)
+      : fallbackSession;
+
     if (activeSession) {
-      this.cachedDiscipline = activeSession.discipline;
-      this.cachedMode = activeSession.mode;
+      // An event may have populated a newer session while repository reads were
+      // in flight. Never replace that discipline with the stale bootstrap row.
+      this.cachedDiscipline ??= activeSession.discipline;
+
+      // Competition stages change the effective shot mode without mutating the
+      // Session row. Restore from the persisted competition after app restart,
+      // unless a newer event already supplied the mode while bootstrap waited.
+      if (this.modeRevision === initialModeRevision) {
+        this.cachedMode = activeCompetition
+          ? activeCompetition.currentStageConfig.scored
+            ? Mode.match()
+            : Mode.sighting()
+          : activeSession.mode;
+      }
     }
   }
 
@@ -55,16 +80,19 @@ export class SessionContextCache {
   subscribeEvents(onSessionReset: () => void): void {
     const updateCompetitionMode = (scored: boolean): void => {
       this.cachedMode = scored ? Mode.match() : Mode.sighting();
+      this.modeRevision += 1;
     };
 
     this.eventBus.on('SessionStarted', (event) => {
       this.cachedDiscipline = event.discipline;
       this.cachedMode = Mode.sighting();
+      this.modeRevision += 1;
       onSessionReset();
     });
 
     this.eventBus.on('ModeSwitched', (event) => {
       this.cachedMode = event.newMode;
+      this.modeRevision += 1;
     });
 
     this.eventBus.on('StageAdvanced', (event) => {
@@ -76,8 +104,8 @@ export class SessionContextCache {
     });
 
     this.eventBus.on('SessionReset', () => {
-      this.cachedDiscipline = null;
-      this.cachedMode = null;
+      // Reset clears shooting data, not the active session context. Keeping
+      // discipline and mode allows the target pipeline to accept new shots.
       onSessionReset();
     });
   }

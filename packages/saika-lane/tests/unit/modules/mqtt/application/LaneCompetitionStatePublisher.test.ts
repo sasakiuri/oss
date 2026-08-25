@@ -90,6 +90,7 @@ describe('LaneCompetitionStatePublisher', () => {
   let eventBus: IEventBus;
   let storage: ILocalStorage;
   let competitionRepository: ICompetitionRepository;
+  let publisher: LaneCompetitionStatePublisher;
   const mockCompetition = createMockCompetition();
 
   beforeEach(() => {
@@ -99,12 +100,12 @@ describe('LaneCompetitionStatePublisher', () => {
     storage = createMockStorage();
     competitionRepository = {
       save: vi.fn(),
-      findById: vi.fn(),
+      findById: vi.fn().mockResolvedValue(mockCompetition),
       findBySessionId: vi.fn(),
       findActive: vi.fn().mockResolvedValue(mockCompetition),
       delete: vi.fn(),
     };
-    new LaneCompetitionStatePublisher(mqttClient, eventBus, storage, competitionRepository);
+    publisher = new LaneCompetitionStatePublisher(mqttClient, eventBus, storage, competitionRepository);
   });
 
   it('should subscribe to relevant events', () => {
@@ -172,7 +173,33 @@ describe('LaneCompetitionStatePublisher', () => {
       shotsRecorded: 3,
       maxShots: 10,
     });
+    expect(payload.awaitingSeriesStart).toBe(false);
     expect(payload.publishedAt).toBeDefined();
+  });
+
+  it('marks a persisted series transition that is still waiting to start', async () => {
+    (competitionRepository.findById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockCompetition,
+      phase: 'SERIES_ENTERED',
+    });
+
+    (eventBus as { emit: Function }).emit({
+      type: 'PhaseChanged',
+      timestamp: Date.now(),
+      aggregateId: 'comp-uuid-456',
+      previousPhase: 'SERIES_COMPLETE',
+      newPhase: 'SERIES_ENTERED',
+      stageIndex: 1,
+      seriesIndex: 0,
+      stageName: '1st Stage',
+    });
+
+    await vi.waitFor(() => {
+      expect(mqttClient.publish).toHaveBeenCalled();
+    });
+
+    const payload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
+    expect(payload.awaitingSeriesStart).toBe(true);
   });
 
   it('should not publish when mqtt client is not connected', async () => {
@@ -193,8 +220,8 @@ describe('LaneCompetitionStatePublisher', () => {
     expect(mqttClient.publish).not.toHaveBeenCalled();
   });
 
-  it('should not publish when no active competition', async () => {
-    (competitionRepository.findActive as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+  it('should not publish when the event competition no longer exists', async () => {
+    (competitionRepository.findById as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
     (eventBus as { emit: Function }).emit({
       type: 'CompetitionStarted',
@@ -214,7 +241,8 @@ describe('LaneCompetitionStatePublisher', () => {
       ...mockCompetition,
       phase: 'FINISHED' as const,
     };
-    (competitionRepository.findActive as ReturnType<typeof vi.fn>).mockResolvedValue(finishedCompetition);
+    (competitionRepository.findActive as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (competitionRepository.findById as ReturnType<typeof vi.fn>).mockResolvedValue(finishedCompetition);
 
     (eventBus as { emit: Function }).emit({
       type: 'CompetitionFinished',
@@ -229,5 +257,41 @@ describe('LaneCompetitionStatePublisher', () => {
 
     const payload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
     expect(payload.phase).toBe('FINISHED');
+    expect(competitionRepository.findById).toHaveBeenCalledWith('comp-uuid-456');
+  });
+
+  it('reports direct retained state publication failures to command callers', async () => {
+    vi.mocked(mqttClient.publish).mockRejectedValueOnce(new Error('broker unavailable'));
+
+    await expect(publisher.publishCurrentState('comp-uuid-456')).rejects.toThrow('broker unavailable');
+  });
+
+  it('tags a final state snapshot with the finish command ID', async () => {
+    const commandId = 'c3333333-3333-4333-a333-333333333333';
+
+    await publisher.publishCurrentState('comp-uuid-456', commandId);
+
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.calls[0]![1] as string) as Record<string, unknown>;
+    expect(payload.finalSnapshotCommandId).toBe(commandId);
+  });
+
+  it('serializes retained state publications', async () => {
+    let resolveFirst!: () => void;
+    vi.mocked(mqttClient.publish).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+
+    const first = publisher.publishCurrentState('comp-uuid-456');
+    const second = publisher.publishCurrentState('comp-uuid-456');
+    await vi.waitFor(() => {
+      expect(mqttClient.publish).toHaveBeenCalledTimes(1);
+    });
+
+    resolveFirst();
+    await Promise.all([first, second]);
+
+    expect(mqttClient.publish).toHaveBeenCalledTimes(2);
   });
 });

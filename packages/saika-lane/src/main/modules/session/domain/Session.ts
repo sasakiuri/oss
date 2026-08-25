@@ -331,6 +331,34 @@ export class Session {
   }
 
   /**
+   * Clears all shooting data while keeping the current session active.
+   *
+   * Session identity, discipline, mode, start time, and scoring mode are
+   * preserved so connected targets can continue using the same context.
+   *
+   * @returns A new Session instance with one empty series and no shots
+   * @throws {Error} If the session is already finished
+   */
+  reset(): Session {
+    if (this.isFinished) {
+      throw ErrorCatalog.createError('SESSION_ALREADY_FINISHED', { detail: 'Cannot reset a finished session' });
+    }
+
+    const initialSeries = Series.create(1, this.currentSeries?.maxShots ?? 10);
+
+    return new Session(
+      this.id,
+      this.discipline,
+      this.mode,
+      [initialSeries],
+      [],
+      this.startedAt,
+      this.finishedAt,
+      this.scoringMode,
+    );
+  }
+
+  /**
    * Finishes the session and returns a new Session instance
    *
    * @returns New Session instance

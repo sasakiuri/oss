@@ -2,7 +2,7 @@
 
 # Saika Lane — SPEC
 
-> この文書は移植時点の設計資料です。実装と差異がある場合は [`saika-lane`](../../saika-lane/) のソースコードとテストを優先してください。
+> この文書は設計資料です。実装と差異がある場合は [`saika-lane`](../../saika-lane/) のソースコードとテストを優先してください。
 
 ### 1. 概要 (Overview)
 
@@ -261,9 +261,8 @@ MQTT の有効化、Broker URL、射座エイリアス、自動接続、Lane ID 
 
 受信データはメーカー別パーサーでフレーミングし、装置アダプターで共通の `Shot` に変換する。
 MT201については、メーカーの公式通信仕様ではなく、公開実装が受理する入力契約として
-[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。BPT-216については、公式V201
-アプリケーションの相互運用目的の静的解析から得たBP-217 I/F形式と、実装・自動テストで受理契約を
-固定したRS-232C形式を [BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) に記録する。DISAG RedDotについては、
+[MT201受信互換仕様](./devices/kohto/mt201/README.md) に記録する。BPT-216については、実装・自動テストにおける
+BP-217 I/F形式とRS-232C形式の受理条件を [BPT-216受信互換仕様](./devices/kohto/bpt216/README.md) に記録する。DISAG RedDotについては、
 [RedDot受信互換・実装仕様](./devices/disag/reddot/README.md) にポーリング、59 byteフレーム、BCC、
 座標変換、Rifle/Pistolプロファイル、Saikaへの組み込み条件を定義する。RedDotの受信・変換・再接続
 コードと合成fixtureによる自動テストは実装済みである。実portでの複数ショット検証が完了するまでは

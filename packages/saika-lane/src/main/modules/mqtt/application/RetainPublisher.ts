@@ -17,6 +17,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { HardwareStatePublisher } from './HardwareStatePublisher';
+import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
 
@@ -26,6 +27,7 @@ export class RetainPublisher {
   private readonly competitionRepository: ICompetitionRepository;
   private readonly sessionRepository: ISessionRepository;
   private readonly hardwarePublisher: HardwareStatePublisher;
+  private readonly assignmentPublisher: LaneAssignmentPublisher;
   private readonly competitionStatePublisher: LaneCompetitionStatePublisher;
   private readonly scorePublisher: LaneScorePublisher;
   private disconnectedAt: Date | null = null;
@@ -39,6 +41,7 @@ export class RetainPublisher {
     hardwarePublisher: HardwareStatePublisher,
     competitionStatePublisher: LaneCompetitionStatePublisher,
     scorePublisher: LaneScorePublisher,
+    assignmentPublisher: LaneAssignmentPublisher,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -47,13 +50,15 @@ export class RetainPublisher {
     this.hardwarePublisher = hardwarePublisher;
     this.competitionStatePublisher = competitionStatePublisher;
     this.scorePublisher = scorePublisher;
+    this.assignmentPublisher = assignmentPublisher;
   }
 
   /**
    * Registers with MqttClientService's onConnect/onDisconnect.
    * Does not republish on the initial connection (since connectMqtt in mqtt.module publishes manually).
    */
-  registerCallbacks(): void {
+  registerCallbacks(initialConnectionAlreadyOccurred: boolean = false): void {
+    this.isInitialConnect = !initialConnectionAlreadyOccurred;
     this.mqttClient.onDisconnect(() => {
       this.disconnectedAt = new Date();
     });
@@ -90,8 +95,11 @@ export class RetainPublisher {
     }
 
     // 3. Re-publish LaneCompetitionState and LaneScore
-    this.competitionStatePublisher.publishCurrentState();
-    this.scorePublisher.publishCurrentScore();
+    await Promise.all([
+      this.competitionStatePublisher.publishCurrentState(),
+      this.scorePublisher.publishCurrentScore(),
+    ]);
+    await this.assignmentPublisher.publishCurrentAssignment(competition.id);
 
     // 4. Replay shot backlog recorded during disconnection (isReplay=true)
     if (this.disconnectedAt) {
@@ -100,9 +108,23 @@ export class RetainPublisher {
 
     // 5. Re-publish LaneCompetitionState as replay completion notification
     // (MQTT_DESIGN.md 7.4: means for the director to detect replay completion)
-    this.competitionStatePublisher.publishCurrentState();
+    await this.competitionStatePublisher.publishCurrentState();
 
     this.disconnectedAt = null;
+  }
+
+  /** Clears all lane-owned retained topics when leaving a competition. */
+  async clearCompetitionTopics(competitionId: string, laneId: string): Promise<void> {
+    const baseTopic = `saika/competition/${competitionId}/lane/${laneId}`;
+    try {
+      await Promise.all(
+        ['state', 'score', 'assignment'].map((suffix) =>
+          this.mqttClient.publish(`${baseTopic}/${suffix}`, '', { qos: 1, retain: true }),
+        ),
+      );
+    } finally {
+      this.assignmentPublisher.clearStoredAssignment(competitionId);
+    }
   }
 
   private async replayBacklog(competitionId: string, sessionId: string, since: Date): Promise<void> {

@@ -27,6 +27,8 @@ export class HardwareStatePublisher {
   private readonly appVersion: string;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private currentState: HardwareState = { status: 'disconnected' };
+  private publishingEnabled = true;
+  private runtimeLaneAlias: string | null = null;
 
   constructor(mqttClient: IMqttClientService, eventBus: IEventBus, storage: ILocalStorage, appVersion: string) {
     this.mqttClient = mqttClient;
@@ -59,22 +61,27 @@ export class HardwareStatePublisher {
   }
 
   private getLaneAlias(): string {
+    if (this.runtimeLaneAlias !== null) return this.runtimeLaneAlias;
     const settings = this.storage.get<{ laneAlias?: string }>('mqtt.settings');
     return settings?.laneAlias ?? '';
   }
 
-  private buildPayload(): string {
+  setRuntimeLaneAlias(laneAlias: string | null): void {
+    this.runtimeLaneAlias = laneAlias;
+  }
+
+  private buildPayload(connection: HardwareState = this.currentState): string {
     return JSON.stringify({
       laneId: this.getLaneId(),
       laneAlias: this.getLaneAlias(),
-      connection: this.currentState,
+      connection,
       appVersion: this.appVersion,
       publishedAt: new Date().toISOString(),
     });
   }
 
   publishState(): void {
-    if (!this.mqttClient.isConnected()) {
+    if (!this.publishingEnabled || !this.mqttClient.isConnected()) {
       return;
     }
 
@@ -87,6 +94,25 @@ export class HardwareStatePublisher {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+  }
+
+  async publishOfflineState(): Promise<void> {
+    this.publishingEnabled = false;
+    if (!this.mqttClient.isConnected()) return;
+
+    try {
+      await this.mqttClient.publish(this.getTopic(), this.buildPayload({ status: 'offline' }), {
+        qos: 1,
+        retain: true,
+      });
+    } catch (error) {
+      this.publishingEnabled = true;
+      throw error;
+    }
+  }
+
+  resumePublishing(): void {
+    this.publishingEnabled = true;
   }
 
   startHeartbeat(intervalMs: number = 60_000): void {

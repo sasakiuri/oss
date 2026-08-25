@@ -10,8 +10,11 @@
 
 import type { z } from 'zod';
 
-import { AssignAthleteToken, ResetSessionToken } from '@/main/composition/tokens';
+import { ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
+import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import { AssignAthleteCmdSchema, ResetSessionCmdSchema } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
@@ -43,6 +46,8 @@ export class PerLaneCommandHandler {
     private readonly commandBus: CommandBus,
     private readonly idempotencyGuard: CommandIdempotencyGuard,
     private readonly competitionRepository: ICompetitionRepository,
+    private readonly assignmentPublisher: LaneAssignmentPublisher,
+    private readonly scorePublisher: LaneScorePublisher,
     private readonly getLaneId: () => string,
     _competitionId: string,
   ) {}
@@ -174,11 +179,8 @@ export class PerLaneCommandHandler {
   ): Promise<void> {
     switch (action) {
       case 'assign-athlete': {
-        const athlete = command.athlete as { name: string } | null;
-        await this.commandBus.execute(AssignAthleteToken, {
-          competitionId,
-          athleteName: athlete?.name ?? null,
-        });
+        const athlete = command.athlete as Athlete | null;
+        await this.assignmentPublisher.assign(competitionId, athlete);
         break;
       }
 
@@ -188,9 +190,17 @@ export class PerLaneCommandHandler {
         if (!competition) {
           throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { competitionId });
         }
+        if (competition.phase !== 'IDLE') {
+          throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+            detail: `reset-session is only allowed before competition start; current phase is ${competition.phase}`,
+          });
+        }
         await this.commandBus.execute(ResetSessionToken, {
           sessionId: competition.sessionId,
         });
+        // A successful reset acknowledgement guarantees that the broker no
+        // longer retains the pre-reset score.
+        await this.scorePublisher.publishCurrentScore();
         break;
       }
     }

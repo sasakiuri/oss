@@ -35,16 +35,22 @@ jobs:
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           version: npx changeset version
-          commit: "chore(saika-lane): version packages"
-          title: "chore(saika-lane): version packages"
+          commit: "chore(repo): version saika suite"
+          title: "chore(repo): version saika suite"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push version tag
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          VERSION=$(node -p "require('./packages/saika-lane/package.json').version")
-          TAG="v${VERSION}"
+          lane_version=$(node -p "require('./packages/saika-lane/package.json').version")
+          director_version=$(node -p "require('./packages/saika-director/package.json').version")
+          docs_version=$(node -p "require('./packages/saika-docs/package.json').version")
+          if [ "$lane_version" != "$director_version" ] || [ "$lane_version" != "$docs_version" ]; then
+            echo "::error::Saika suite versions must match: Lane ($lane_version), Director ($director_version), Docs ($docs_version)"
+            exit 1
+          fi
+          TAG="v${lane_version}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping"
           else

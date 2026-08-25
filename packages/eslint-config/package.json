@@ -2,7 +2,7 @@
   "name": "@sasakiuri/eslint-config",
   "version": "1.0.0",
   "description": "Shared ESLint configuration",
-  "author": "sasakiuri",
+  "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "publishConfig": {
     "access": "public"
   },

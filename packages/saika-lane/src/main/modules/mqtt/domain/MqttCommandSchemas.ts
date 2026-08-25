@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+import { AthleteSchema } from './MqttAssignmentSchemas';
+
 // ============================================================
 // Common base schema
 // ============================================================
@@ -66,6 +68,7 @@ export const TimerExpiredCmdSchema = CommandBaseSchema.extend({
 export const AdvanceSeriesCmdSchema = CommandBaseSchema.extend({
   stageIndex: z.number().int().min(0),
   fromSeriesIndex: z.number().int().min(0),
+  resumeOnly: z.boolean().optional(),
   timerStartAt: z.string().datetime().optional(),
 });
 
@@ -76,15 +79,7 @@ export const FinishCompetitionCmdSchema = CommandBaseSchema;
 // ============================================================
 
 export const AssignAthleteCmdSchema = CommandBaseSchema.extend({
-  athlete: z
-    .object({
-      startNumber: z.number().int().positive(),
-      id: z.string(),
-      name: z.string(),
-      teamName: z.string().optional(),
-      issfCode: z.string().optional(),
-    })
-    .nullable(),
+  athlete: AthleteSchema.nullable(),
 });
 
 export const ResetSessionCmdSchema = CommandBaseSchema.extend({

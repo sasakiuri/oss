@@ -19,6 +19,7 @@ export class LaneTimerService {
   private competitionId: string | null = null;
   private remainingSeconds: number = 0;
   private totalSeconds: number = 0;
+  private startGeneration: number = 0;
 
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
@@ -62,7 +63,14 @@ export class LaneTimerService {
     this.stop();
 
     const startMs = new Date(absoluteTime).getTime();
-    const elapsedSeconds = Math.floor((Date.now() - startMs) / 1000);
+    const generation = this.startGeneration;
+    const delayMs = startMs - Date.now();
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      if (generation !== this.startGeneration) return;
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
     const remainingSeconds = durationSeconds - elapsedSeconds;
 
     if (remainingSeconds <= 0) {
@@ -119,6 +127,7 @@ export class LaneTimerService {
    * Stops the timer
    */
   stop(): void {
+    this.startGeneration += 1;
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
       this.intervalId = null;
@@ -126,6 +135,26 @@ export class LaneTimerService {
     this.competitionId = null;
     this.remainingSeconds = 0;
     this.totalSeconds = 0;
+  }
+
+  /** Applies a Director timer-expired command immediately and idempotently. */
+  async expire(competitionId: string): Promise<void> {
+    this.stop();
+    const state = await this.competitionRepository.findById(competitionId);
+    if (!state || state.phase !== 'ACTIVE') return;
+
+    const updated = state.tickTimerBy(state.timer.remainingSeconds);
+    await this.competitionRepository.save(updated);
+    const expired = updated.expireTimer();
+    await this.competitionRepository.save(expired);
+
+    this.eventBus.emit({
+      type: 'TimerExpired',
+      timestamp: Date.now(),
+      aggregateId: expired.id,
+      stageIndex: expired.currentStageIndex,
+    });
+    emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
   }
 
   /**

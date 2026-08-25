@@ -40,6 +40,9 @@ describe('MqttClientService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockClient.connected = false;
+    mockClient.end.mockImplementation((_force: boolean, _opts: object, callback: (error?: Error) => void) => {
+      callback();
+    });
     service = new MqttClientService();
   });
 
@@ -139,6 +142,20 @@ describe('MqttClientService', () => {
           clientId: 'test-client',
         }),
       ).rejects.toMatchObject({ code: 'MQTT_CONNECTION_FAILED' });
+      expect(mockClient.end).toHaveBeenCalledWith(true, {}, expect.any(Function));
+      await expect(service.publish('topic', 'payload')).rejects.toMatchObject({ code: 'MQTT_CLIENT_NOT_CONNECTED' });
+    });
+
+    it('should close an existing client before connecting again', async () => {
+      mockClient.on.mockImplementation((event: string, handler: Function) => {
+        if (event === 'connect') setTimeout(() => handler(), 0);
+      });
+
+      await service.connect({ brokerUrl: 'mqtt://localhost:1883', clientId: 'first-client' });
+      await service.connect({ brokerUrl: 'mqtt://localhost:1883', clientId: 'second-client' });
+
+      expect(mockClient.end).toHaveBeenCalledWith(false, {}, expect.any(Function));
+      expect(mqtt.connect).toHaveBeenCalledTimes(2);
     });
 
     it('should use custom keepalive and reconnectPeriod', async () => {

@@ -8,9 +8,8 @@
 Saika内の変更箇所、テストベクターを定義する。
 
 DISAGの公式通信仕様や保守資料ではなく、同社による提携、承認、動作保証を示すものでもない。
-メーカー公開資料から確認できる事項、独立した相互運用確認で確定したSaika受理形式、Saika固有の
-設計値を明確に区別する。実機のパケットキャプチャ、第三者の抽出コード、機器固有IDは収録せず、
-§11のフレームはこの文書用に作成した合成データである。
+製品情報と、Saikaが受理する形式・設定値を記載する。
+§11のフレームは、この文書用に作成した合成データである。
 
 本文中の「必須」は適合実装が満たす条件、「推奨」は相互運用性または障害回復のために採用すべき
 条件を表す。
@@ -79,13 +78,11 @@ Saikaの標的・採点コンテキストを `ISSF_AP_10M` へ切り替えるだ
 
 ### 1.3 根拠の区分
 
-| 区分                   | 本書で使用する内容                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| メーカー公開情報       | 製品識別、RS-232/Bluetooth対応、PC直結の1:1配線、標的寸法、繰返し精度、OpticScore対応 |
-| メーカー配布実装の観察 | RedDotViewのENQ周期、標的種別設定、ACK/NAK/STXの受信処理                              |
-| 比較実装の観察         | 比較実装の初期化順、polling、59 byte受信、自発フレームを拒否しない状態遷移            |
-| 独立相互運用確認       | 9600 8N1、59 byte配置、RedDotに `S` / `R` がないこと、座標方向と単位                  |
-| Saika固有設計          | 100msのpolling、厳格なBCC検証、timeout、buffer上限、エラー分類、クラス分割            |
+| 区分             | 本書で使用する内容                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| メーカー公開情報 | 製品識別、RS-232/Bluetooth対応、PC直結の1:1配線、標的寸法、繰返し精度、OpticScore対応 |
+| Saika の受理形式 | 9600 8N1、59 byte配置、RedDot 接続では `S` / `R` を送らないこと、座標方向と単位       |
+| Saika固有設計    | 100msのpolling、厳格なBCC検証、timeout、buffer上限、エラー分類、クラス分割            |
 
 外部一次情報へのリンクは [参照元](../../../../SOURCES.md) にまとめている。
 
@@ -184,40 +181,38 @@ scoreがRifle規則のままになる危険があるためfallbackせず、`RED_
 両方で同じなので、frameだけから現在の標的種別を復元してはならない。device scoreを採用するSaikaでは、
 Pistolを `ISSF_AP_10M` として正しく採点させるためにもこのwire-level設定が必要である。
 
-### 3.4 比較実装の観察と自発送信への対応
+### 3.4 接続処理と自発送信への対応
 
-比較対象は、現在のSaika Lane worktree、ローカルで解析した比較実装 1.5.5、DISAG配布の
-RedDotView 1.5.8.6である。後二者はバイナリー動作の観察結果であり、「解析で確認できず」は機能が存在
-しないという断定ではない。
+Saika Laneの接続処理とフレーム受信時の動作を次に示す。
 
-| 比較項目                 | Saika Lane                                                                                      | 比較実装 1.5.5                                                  | DISAG RedDotView 1.5.8.6                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 最初の通信               | 実機確認済み経路を維持して `ENQ`                                                                | version取得                                                     | open時に300ms `ENQ` timerを開始                                   |
-| 接続・初期化の順序       | `ENQ` probe → `11 00 01` → `ACK` → target byte                                                  | version → revision → `11 00 01` → `ACK` → target byte → polling | 最初の `NAK` でconnected扱い → version/revision。競技読込時に設定 |
-| Rifle/Pistol設定値       | Rifle=`01`、Pistol=`00`                                                                         | Rifle=`01`、Pistol=`00`                                         | Rifle=`01`、Pistol=`00`                                           |
-| 設定commandの再送        | しない。ACK喪失時に `0x11` がtarget byteとして消費される競合を避ける                            | 約500ms進展がなければ初期化状態をresetして再試行                | 専用の再送・復旧経路は解析で確認できず                            |
-| command ACK欠落時        | Rifleは `01` を1回送り500ms静穏後にlegacy polling。Pistolは接続error                            | 初期化を再試行。legacy pollingへのfallbackなし                  | command activityが残り、`ENQ` pollingが実質停止。fallbackなし     |
-| 接続readyの判定          | 正式設定またはRifle fallback完了まで `connect()` を完了しない                                   | 初期化シーケンス完了後                                          | 最初の `ENQ` に対する `NAK` でconnected扱い                       |
-| `ENQ` 間隔               | 100ms                                                                                           | 100ms ticker                                                    | 300ms timer                                                       |
-| 未応答中の重複 `ENQ`     | 送らない                                                                                        | tickerと内部activityで制御                                      | command activity中はtimer処理を抑制                               |
-| 未処理 `ENQ` のないframe | 初期化完了後なら受理                                                                            | 受理                                                            | 受理                                                              |
-| 初期化完了前のframe      | device queue解放のため `ACK` するが、誤採点防止のため破棄してwarning                            | 明示的な「初期化済み」受理gateは解析で確認できず                | 明示的な「未処理ENQあり」受理gateは解析で確認できず               |
-| 自発frame受信後          | `ACK` 後にpoll timerを100msへ張り直す                                                           | frame処理と100ms tickerは独立                                   | frame受信はtimer上の未処理ENQ有無に依存しない                     |
-| 連続shotの時間guard      | なし。同一座標・得点の正当な連射を保持                                                          | 前回shotから1秒未満なら内容にかかわらず二重カウントとして破棄   | 同等のguardは解析で確認できず                                     |
-| frame検証                | 59 byte固定構造、制御位置、printable ASCII、BCC、`LG`、数値fieldを検証                          | `STX` 始まりの59 byteを専用scannerで処理                        | `STX` と59 byte長でshot frameを認識                               |
-| 初期化結果の診断         | 正式成功=info、Rifle fallback=warning、Pistol失敗=error。Debug Paneとfile logへ保存             | RedDot初期化方式を明示する同等ログは解析で確認できず            | 同等の永続診断ログは解析で確認できず                              |
-| Saikaが追加した安全性    | commandを1回に限定、遅延ACK静穏時間、profile別fail-open/closed、timer generation、初期frame遮断 | 比較対象外                                                      | 比較対象外                                                        |
+| 項目                     | Saika Lane                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------- |
+| 最初の通信               | `ENQ`                                                                                           |
+| 接続・初期化の順序       | `ENQ` probe → `11 00 01` → `ACK` → target byte                                                  |
+| Rifle/Pistol設定値       | Rifle=`01`、Pistol=`00`                                                                         |
+| 設定commandの再送        | しない。ACK喪失時に `0x11` がtarget byteとして消費される競合を避ける                            |
+| command ACK欠落時        | Rifleは `01` を1回送り500ms静穏後にlegacy polling。Pistolは接続error                            |
+| 接続readyの判定          | 正式設定またはRifle fallback完了まで `connect()` を完了しない                                   |
+| `ENQ` 間隔               | 100ms                                                                                           |
+| 未応答中の重複 `ENQ`     | 送らない                                                                                        |
+| 未処理 `ENQ` のないframe | 初期化完了後なら受理                                                                            |
+| 初期化完了前のframe      | device queue解放のため `ACK` するが、誤採点防止のため破棄してwarning                            |
+| 自発frame受信後          | `ACK` 後にpoll timerを100msへ張り直す                                                           |
+| 連続shotの時間guard      | なし。同一座標・得点の正当な連射を保持                                                          |
+| frame検証                | 59 byte固定構造、制御位置、printable ASCII、BCC、`LG`、数値fieldを検証                          |
+| 初期化結果の診断         | 正式成功=info、Rifle fallback=warning、Pistol失敗=error。Debug Paneとfile logへ保存             |
+| 安全性の確保             | commandを1回に限定、遅延ACK静穏時間、profile別fail-open/closed、timer generation、初期frame遮断 |
 
-したがって、確認できた2実装はいずれも通常運用でpollingしており、「機器がENQなしで常に自発送信する」
-根拠にはならない。一方、両実装とも受信をpoll応答だけへ制限していない。Saikaもこの組合せを採用する。
+Saikaは通常運用でpollingを行う。初期化完了後は、poll応答を待っていない場合も
+妥当なフレームを受理する。
 
 - `ENQ` pollingは既定で維持し、passive-onlyや自動判定modeは追加しない。
 - 初期化完了後は、poll予約中、poll応答待ちのどちらでも正常frameを `ACK` して1回だけ後段へ渡す。
 - polling開始後に自発frameを受信したらpoll timerを張り直すため、直後に余分な `ENQ` を重ねない。
 - 初期化中の自発frameは `ACK` して破棄し、その事実をwarningへ記録する。標的種別ACKまたはfallback静穏
   時間の期限は延長しない。
-- 比較実装で観察した「前回shotから1秒未満なら内容に関係なく破棄」という時間guardは採用しない。
-  正当に連続した2射を失うためであり、Saikaはframe内容による重複排除も行わない。
+- 連続した正当な着弾を保持するため、前回の着弾からの経過時間による受信制限は設けない。
+  フレーム内容による重複排除も行わない。
 
 これはhost受信側が自発送信に耐えることを意味する。RedDot実機がRS-232またはBluetooth SPPでENQなしに
 送るか、ACKを保留した場合に同一frameを再送するかは、§12.5の実port試験で別途確認する。
@@ -226,7 +221,7 @@ RedDotView 1.5.8.6である。後二者はバイナリー動作の観察結果�
 
 ### 4.1 Saika既定値
 
-次はメーカー保証値ではなく、相互運用確認に基づくSaikaの実装定数である。テストでは注入可能な
+次はメーカー保証値ではなく、Saikaの実装定数である。テストでは注入可能な
 設定値と時計を使用する。
 
 ```ts

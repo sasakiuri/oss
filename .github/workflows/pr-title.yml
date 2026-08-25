@@ -28,6 +28,7 @@ jobs:
             revert
           scopes: |
             saika-lane
+            saika-director
             eslint-config
             prettier-config
             stylelint-config
