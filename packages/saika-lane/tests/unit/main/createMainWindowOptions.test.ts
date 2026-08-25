@@ -14,6 +14,9 @@ describe('createMainWindowOptions', () => {
     expect(options.fullscreen).toBe(true);
     expect(options.frame).toBe(true);
     expect(options.webPreferences?.preload).toBe('/tmp/preload.mjs');
+    expect(options.webPreferences?.nodeIntegration).toBe(false);
+    expect(options.webPreferences?.contextIsolation).toBe(true);
+    expect(options.webPreferences?.sandbox).toBe(true);
   });
 
   it('keeps development builds in windowed mode', () => {

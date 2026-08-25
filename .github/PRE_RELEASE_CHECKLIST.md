@@ -32,7 +32,7 @@
 - [ ] Changeset files present for all unreleased changes
 - [ ] Version bump strategy confirmed (major/minor/patch)
 - [ ] (auto) publish.yml workflow trigger matches documented activation status
-- [ ] (auto) All packages have `private: true` set correctly
+- [ ] (auto) Non-published packages have `private: true`; shared config packages have `publishConfig.access: public`
 - [ ] (auto) .npmrc has no private registry URLs
 - [ ] (auto) License field consistent across all packages
 - [ ] (auto) LICENSE file exists in each package
