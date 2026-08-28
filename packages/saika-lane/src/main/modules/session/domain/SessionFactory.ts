@@ -41,6 +41,9 @@ export interface SessionStorageData {
     seriesNumber: number;
     mode: string;
     deviceScore?: number;
+    calculatedScore?: number;
+    receivedAt?: string;
+    sourceObservationId?: string;
   }>;
   startedAt: string;
   finishedAt: string | null;
@@ -98,6 +101,8 @@ export class SessionFactory {
       const shotMode = Mode.fromValue(shotData.mode);
       const timestamp = new Date(shotData.timestamp);
       const deviceScore = shotData.deviceScore !== undefined ? new Score(shotData.deviceScore) : undefined;
+      const calculatedScore =
+        shotData.calculatedScore !== undefined ? new Score(shotData.calculatedScore) : new Score(shotData.score);
 
       return Shot.reconstruct({
         id: shotData.id,
@@ -109,6 +114,9 @@ export class SessionFactory {
         seriesNumber: shotData.seriesNumber,
         innerTen: shotData.innerTen,
         deviceScore,
+        calculatedScore,
+        receivedAt: shotData.receivedAt ? new Date(shotData.receivedAt) : timestamp,
+        sourceObservationId: shotData.sourceObservationId,
       });
     });
 

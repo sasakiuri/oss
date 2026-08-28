@@ -98,6 +98,7 @@ describe('championship editor save state', () => {
       {
         id: participant.id,
         playerName: 'Edit During Save',
+        familyName: 'Edit During Save',
         affiliation: '',
       },
     ]);

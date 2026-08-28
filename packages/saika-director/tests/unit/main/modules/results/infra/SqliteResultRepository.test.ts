@@ -27,6 +27,17 @@ function createResult(participantId: string, score: number, competitionId: strin
     'published',
     undefined,
     competitionId,
+    `Family ${participantId}`,
+    `lane-${participantId}`,
+    [
+      {
+        ringScore: Math.floor(score),
+        decimalScore: score,
+        innerTen: true,
+        shotId: `shot-${participantId}`,
+        seriesIndex: 0,
+      },
+    ],
   );
 }
 
@@ -46,6 +57,7 @@ describe('SqliteResultRepository', () => {
         event_id TEXT NOT NULL,
         participant_id TEXT NOT NULL,
         player_name TEXT NOT NULL,
+        family_name TEXT,
         affiliation TEXT NOT NULL DEFAULT '',
         relay_number INTEGER NOT NULL,
         total_score REAL NOT NULL,
@@ -59,6 +71,8 @@ describe('SqliteResultRepository', () => {
         confirmed_at TEXT NOT NULL,
         status TEXT NOT NULL,
         source_competition_id TEXT,
+        source_lane_id TEXT,
+        ranking_shots_detail TEXT NOT NULL DEFAULT '[]',
         UNIQUE(event_id, participant_id)
       );
     `);
@@ -78,15 +92,40 @@ describe('SqliteResultRepository', () => {
       repository.findByEventIdAndRelay(EVENT_ID, 2).map((result) => ({
         participantId: result.participantId.value,
         sourceCompetitionId: result.sourceCompetitionId,
+        familyName: result.familyName,
+        sourceLaneId: result.sourceLaneId,
+        rankingShots: result.rankingShots,
       })),
     ).toEqual([
       {
         participantId: REPLACEMENT_PARTICIPANT_ID,
         sourceCompetitionId: FIRST_COMPETITION_ID,
+        familyName: `Family ${REPLACEMENT_PARTICIPANT_ID}`,
+        sourceLaneId: `lane-${REPLACEMENT_PARTICIPANT_ID}`,
+        rankingShots: [
+          {
+            ringScore: 30,
+            decimalScore: 30,
+            innerTen: true,
+            shotId: `shot-${REPLACEMENT_PARTICIPANT_ID}`,
+            seriesIndex: 0,
+          },
+        ],
       },
       {
         participantId: SECOND_PARTICIPANT_ID,
         sourceCompetitionId: SECOND_COMPETITION_ID,
+        familyName: `Family ${SECOND_PARTICIPANT_ID}`,
+        sourceLaneId: `lane-${SECOND_PARTICIPANT_ID}`,
+        rankingShots: [
+          {
+            ringScore: 20,
+            decimalScore: 20,
+            innerTen: true,
+            shotId: `shot-${SECOND_PARTICIPANT_ID}`,
+            seriesIndex: 0,
+          },
+        ],
       },
     ]);
   });

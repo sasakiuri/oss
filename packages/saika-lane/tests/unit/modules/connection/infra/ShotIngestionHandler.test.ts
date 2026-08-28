@@ -25,12 +25,14 @@ import {
   createMockCommandBus,
   createMockCompetitionRepository,
   createMockSessionRepository,
+  createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 
 describe('ShotIngestionHandler', () => {
   let commandBus: ReturnType<typeof createMockCommandBus>;
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
   let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
+  let shotObservationRepository: ReturnType<typeof createMockShotObservationRepository>;
   let deps: ShotIngestionDeps;
   let shotData: ShotData;
 
@@ -38,7 +40,8 @@ describe('ShotIngestionHandler', () => {
     commandBus = createMockCommandBus();
     sessionRepository = createMockSessionRepository();
     competitionRepository = createMockCompetitionRepository();
-    deps = { commandBus, sessionRepository, competitionRepository };
+    shotObservationRepository = createMockShotObservationRepository();
+    deps = { commandBus, sessionRepository, competitionRepository, shotObservationRepository };
 
     shotData = {
       x: 1.5,
@@ -60,6 +63,10 @@ describe('ShotIngestionHandler', () => {
     await handler(shotData);
 
     expect(commandBus.execute).not.toHaveBeenCalled();
+    expect(shotObservationRepository.append).toHaveBeenCalledTimes(1);
+    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'NO_ACTIVE_SESSION' }),
+    );
   });
 
   it('should execute RecordShot command when active session exists', async () => {
@@ -76,7 +83,12 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({
         sessionId: session.id,
         deviceScore: 9.8,
+        sourceObservationId: expect.any(String),
+        receivedAt: expect.any(Date),
       }),
+    );
+    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'RECORDED', sessionId: session.id }),
     );
   });
 
@@ -199,6 +211,10 @@ describe('ShotIngestionHandler', () => {
     await handler(shotData);
 
     expect(commandBus.execute).not.toHaveBeenCalled();
+    expect(shotObservationRepository.append).toHaveBeenCalledTimes(1);
+    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'REJECTED_COMPETITION_PHASE' }),
+    );
   });
 
   it('should accept shot when competition is in IDLE (training mode)', async () => {

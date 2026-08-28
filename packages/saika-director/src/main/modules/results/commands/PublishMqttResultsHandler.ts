@@ -9,11 +9,18 @@ import {
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
+import type { CompetitionShotPayload, LaneScorePayload } from '@/shared/mqtt';
+import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 
 import type { IResultRepository } from '../domain/IResultRepository';
 import { Result } from '../domain/Result';
 import { ResultId } from '../domain/ResultId';
 import type { PublishMqttResultsCommand, PublishMqttResultLane } from './PublishMqttResults';
+import {
+  assembleRankingEvidence,
+  type RankingSeriesEvidenceInput,
+  type RankingShotSourceEvidence,
+} from '../domain/RankingEvidenceAssembler';
 
 function scoreFromX10(value: number): number {
   return value / 10;
@@ -43,6 +50,42 @@ function shotScores(score: NonNullable<PublishMqttResultLane['score']>): number[
     );
 }
 
+function rankingSeries(score: LaneScorePayload): RankingSeriesEvidenceInput[] {
+  return score.stages.flatMap((stage) =>
+    stage.series.map((series) => ({
+      stageIndex: stage.stageIndex,
+      seriesIndex: series.seriesIndex,
+      scoresX10: series.shots,
+    })),
+  );
+}
+
+function journalEvidence(observation: CompetitionShotObservation): RankingShotSourceEvidence {
+  return {
+    shotId: observation.shotId,
+    stageIndex: observation.stageIndex,
+    seriesIndex: observation.seriesIndex,
+    shotNumberInSeries: observation.shotNumberInSeries,
+    effectiveScoreX10: observation.effectiveScoreX10,
+    calculatedScoreX10: observation.calculatedScoreX10,
+    calculatedScoreAvailable: observation.calculatedScoreAvailable,
+    innerTen: observation.innerTen,
+  };
+}
+
+function payloadEvidence(shot: CompetitionShotPayload): RankingShotSourceEvidence {
+  return {
+    shotId: shot.shotId,
+    stageIndex: shot.stageIndex,
+    seriesIndex: shot.seriesIndex,
+    shotNumberInSeries: shot.shotNumberInSeries,
+    effectiveScoreX10: shot.effectiveScoreX10 ?? shot.rawScoreX10,
+    calculatedScoreX10: shot.calculatedScoreX10 ?? shot.rawScoreX10,
+    calculatedScoreAvailable: shot.calculatedScoreX10 !== undefined,
+    innerTen: shot.innerTen,
+  };
+}
+
 function sameNumbers(left: readonly number[], right: readonly number[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -65,6 +108,7 @@ export class PublishMqttResultsHandler {
     private readonly queryBus: QueryBus,
     private readonly resultRepository: IResultRepository,
     private readonly competitionTypeRegistry: CompetitionTypeRegistry,
+    private readonly shotJournal?: ICompetitionShotJournal,
   ) {}
 
   async execute(command: PublishMqttResultsCommand): Promise<PublishResultsResponse> {
@@ -114,6 +158,13 @@ export class PublishMqttResultsHandler {
       command.relayNumber,
       command.competitionId,
     );
+    let journalObservations: CompetitionShotObservation[] = [];
+    try {
+      journalObservations = this.shotJournal?.findByCompetition(command.competitionId) ?? [];
+    } catch {
+      // Ranking evidence is additive. The retained score snapshot can still be
+      // published, and direct MQTT shot payloads below provide a fallback.
+    }
 
     for (const lane of command.lanes) {
       const athlete = lane.assignment?.competitionId === command.competitionId ? lane.assignment.athlete : null;
@@ -147,6 +198,30 @@ export class PublishMqttResultsHandler {
       laneIdByParticipantId.set(athlete.id, lane.laneId);
 
       try {
+        const sources = [
+          ...journalObservations
+            .filter(
+              (observation) =>
+                observation.laneId === lane.laneId &&
+                observation.sessionId === score.sessionId &&
+                observation.mode === 'MATCH' &&
+                observation.scored &&
+                observation.isRecorded,
+            )
+            .map(journalEvidence),
+          ...lane.shots
+            .filter(
+              (shot) =>
+                shot.competitionId === command.competitionId &&
+                shot.laneId === lane.laneId &&
+                shot.sessionId === score.sessionId &&
+                shot.mode === 'MATCH' &&
+                shot.scored &&
+                shot.isRecorded,
+            )
+            .map(payloadEvidence),
+        ];
+        const rankingEvidence = assembleRankingEvidence(rankingSeries(score), sources);
         const candidate = Result.create(
           ResultId.generate(),
           EventId.create(command.eventId),
@@ -160,6 +235,9 @@ export class PublishMqttResultsHandler {
           'published',
           definition.resultFormat,
           command.competitionId,
+          relayAssignment.familyName,
+          lane.laneId,
+          rankingEvidence,
         );
         const existingResult = this.resultRepository.findByParticipantId(athlete.id);
         if (

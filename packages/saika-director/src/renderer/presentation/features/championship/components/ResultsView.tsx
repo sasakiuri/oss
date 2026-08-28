@@ -1,11 +1,15 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useResults } from '../../../hooks/useResults';
-import { CheckCircle, Printer } from 'lucide-react';
+import { CheckCircle, ClipboardCheck, Printer, Scale } from 'lucide-react';
 import { Logger } from '@/shared/utils/Logger';
 import type { FinalRankedResultDto } from '@/shared/ipc/contracts/results.contract';
 import { resultsService, boardService } from '@/renderer/services';
 import { useNotificationStore } from '../../../stores/ui/notifications.store';
 import { Button } from '../../shared/common/Button';
+import { ScoringDecisionPanel } from './ScoringDecisionPanel';
+import type { RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import { ResultVerificationPanel } from './ResultVerificationPanel';
+import { FinalPlacementReviewPanel } from './FinalPlacementReviewPanel';
 
 const logger = Logger.create('ResultsView');
 
@@ -13,9 +17,10 @@ interface ResultsViewProps {
   eventId: string;
   eventName?: string;
   round?: string;
+  readOnly?: boolean;
 }
 
-export function ResultsView({ eventId, eventName, round = 'Qualification' }: ResultsViewProps) {
+export function ResultsView({ eventId, eventName, round = 'Qualification', readOnly = false }: ResultsViewProps) {
   const isFinal = round === 'Final';
 
   const {
@@ -40,6 +45,10 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
   const selectedRelay = relayFilter.eventId === eventId && relayFilter.isFinal === isFinal ? relayFilter.value : 'all';
   const [availableRelays, setAvailableRelays] = useState<number[]>([]);
   const [printLoading, setPrintLoading] = useState(false);
+  const [decisionResult, setDecisionResult] = useState<RankedResultDto | FinalRankedResultDto | null>(null);
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const [placementReviewOpen, setPlacementReviewOpen] = useState(false);
+  const finalRequestId = useRef(0);
 
   const results = isFinal ? [] : qualificationResults;
   const loading = isFinal ? finalLoading : qLoading;
@@ -54,7 +63,26 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
 
   useEffect(() => {
     clearResults();
+    setDecisionResult(null);
+    setPlacementReviewOpen(false);
   }, [eventId, isFinal, clearResults]);
+
+  const refreshFinalResults = useCallback(async () => {
+    const requestId = ++finalRequestId.current;
+    setFinalLoading(true);
+    setFinalError(null);
+    try {
+      const response = await resultsService.getFinalByEvent({ eventId });
+      if (requestId !== finalRequestId.current) return;
+      if (!response.success) throw new Error(response.error?.message ?? 'Failed to load results');
+      setFinalResults(response.data.results);
+    } catch (err) {
+      if (requestId !== finalRequestId.current) return;
+      setFinalError(err instanceof Error ? err.message : 'Failed to load results');
+    } finally {
+      if (requestId === finalRequestId.current) setFinalLoading(false);
+    }
+  }, [eventId]);
 
   const filteredResults = useMemo(() => {
     if (isFinal) return [];
@@ -78,24 +106,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
     let cancelled = false;
     if (isFinal) {
       setFinalResults([]);
-      setFinalLoading(true);
-      setFinalError(null);
-      void resultsService
-        .getFinalByEvent({ eventId })
-        .then((response) => {
-          if (cancelled) return;
-          if (response.success) {
-            setFinalResults(response.data.results);
-          } else {
-            setFinalError(response.error?.message ?? 'Failed to load results');
-          }
-          setFinalLoading(false);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setFinalError(err instanceof Error ? err.message : 'Failed to load results');
-          setFinalLoading(false);
-        });
+      void refreshFinalResults();
     } else {
       if (selectedRelay === 'all') {
         void getEventResults(eventId).then((response) => {
@@ -109,8 +120,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
     }
     return () => {
       cancelled = true;
+      if (isFinal) finalRequestId.current += 1;
     };
-  }, [eventId, selectedRelay, isFinal, getEventResults, getRelayResults]);
+  }, [eventId, selectedRelay, isFinal, getEventResults, getRelayResults, refreshFinalResults]);
 
   const handleRelayChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -137,6 +149,14 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
       }
     }
   }, [eventId, publishedResultIds, confirmResults, selectedRelay, getEventResults, getRelayResults]);
+
+  const refreshQualificationResults = useCallback(() => {
+    if (selectedRelay === 'all') {
+      void getEventResults(eventId);
+    } else {
+      void getRelayResults(eventId, selectedRelay);
+    }
+  }, [eventId, getEventResults, getRelayResults, selectedRelay]);
 
   const handlePrint = useCallback(async () => {
     setPrintLoading(true);
@@ -178,11 +198,23 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-end gap-2">
+          {!readOnly && (
+            <Button size="sm" variant="secondary" onClick={() => setPlacementReviewOpen(true)}>
+              <ClipboardCheck size={14} aria-hidden="true" />
+              Review placements
+            </Button>
+          )}
           <Button size="sm" onClick={handlePrint} disabled={finalResults.length === 0 || printLoading}>
             <Printer size={14} aria-hidden="true" />
             {printLoading ? 'Opening…' : 'Print'}
           </Button>
         </div>
+
+        {finalResults.some((result) => result.placementReviewRequired) && (
+          <div className="border-l-2 border-vscode-warning pl-3 text-[13px] text-vscode-warning">
+            One or more Final placements require jury review. Source elimination ranks are preserved until reviewed.
+          </div>
+        )}
 
         <div className="overflow-auto border border-vscode-border rounded">
           <table className="w-full text-vscode-text">
@@ -194,7 +226,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                 <th className="px-2 py-1.5 text-right w-16">Stage1</th>
                 <th className="px-2 py-1.5 text-right w-16">Stage2</th>
                 <th className="px-2 py-1.5 text-right w-16">Total</th>
-                <th className="px-2 py-1.5 text-center w-20">Remarks</th>
+                <th className="px-2 py-1.5 text-right w-20">Adjustment</th>
+                <th className="px-2 py-1.5 text-left min-w-40">Remarks</th>
+                {!readOnly && <th className="px-2 py-1.5 text-center w-24">Decisions</th>}
               </tr>
             </thead>
             <tbody className="text-vscode-text">
@@ -215,7 +249,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                               : ''
                       }
                     >
-                      {result.rank}
+                      {result.classificationCode ?? result.rank}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-base">{result.playerName}</td>
@@ -223,16 +257,54 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                   <td className="px-2 py-1.5 text-right text-base tabular-nums">{result.stage1Total.toFixed(1)}</td>
                   <td className="px-2 py-1.5 text-right text-base tabular-nums">{result.stage2Total.toFixed(1)}</td>
                   <td className="px-2 py-1.5 text-right text-base font-bold tabular-nums">
-                    {result.totalScore.toFixed(1)}
+                    {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
                   </td>
-                  <td className="px-2 py-1.5 text-center text-base text-vscode-dimmed">
-                    {result.eliminatedAtShot ? `Eliminated after shot ${result.eliminatedAtShot}` : result.remarks}
+                  <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
+                    {result.scoreAdjustment > 0 ? `−${result.scoreAdjustment.toFixed(1)}` : '—'}
                   </td>
+                  <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
+                    {result.eliminatedAtShot !== undefined && (
+                      <span className="block">Eliminated after shot {result.eliminatedAtShot}</span>
+                    )}
+                    {result.remarks || (!result.eliminatedAtShot ? '—' : null)}
+                    {result.placementReviewRequired && (
+                      <span className="block text-vscode-warning">Placement review required</span>
+                    )}
+                  </td>
+                  {!readOnly && (
+                    <td className="px-2 py-1.5 text-center">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setDecisionResult(result)}
+                        aria-label={`Scoring decisions for ${result.playerName}`}
+                      >
+                        <Scale size={13} aria-hidden="true" />
+                        {result.decisionCount}
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {!readOnly && decisionResult && (
+          <ScoringDecisionPanel
+            result={decisionResult}
+            resultScope="FINAL"
+            onClose={() => setDecisionResult(null)}
+            onChanged={() => void refreshFinalResults()}
+          />
+        )}
+        {!readOnly && placementReviewOpen && (
+          <FinalPlacementReviewPanel
+            eventId={eventId}
+            eventName={eventName}
+            onClose={() => setPlacementReviewOpen(false)}
+            onChanged={() => void refreshFinalResults()}
+          />
+        )}
       </div>
     );
   }
@@ -269,10 +341,20 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={handleConfirm} disabled={publishedResultIds.length === 0}>
-            <CheckCircle size={14} aria-hidden="true" />
-            Confirm ({publishedResultIds.length})
-          </Button>
+          {!readOnly && (
+            <>
+              <Button size="sm" onClick={handleConfirm} disabled={publishedResultIds.length === 0}>
+                <CheckCircle size={14} aria-hidden="true" />
+                Confirm ({publishedResultIds.length})
+              </Button>
+              {!isFinal && (
+                <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
+                  <ClipboardCheck size={14} aria-hidden="true" />
+                  RTS verification
+                </Button>
+              )}
+            </>
+          )}
           <Button size="sm" onClick={handlePrint} disabled={filteredResults.length === 0 || printLoading}>
             <Printer size={14} aria-hidden="true" />
             {printLoading ? 'Opening…' : 'Print'}
@@ -293,7 +375,10 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                 </th>
               ))}
               <th className="px-2 py-1.5 text-right w-16">Total</th>
+              <th className="px-2 py-1.5 text-right w-20">Adjustment</th>
+              <th className="px-2 py-1.5 text-left min-w-36">Remarks</th>
               <th className="px-2 py-1.5 text-center w-20">Status</th>
+              {!readOnly && <th className="px-2 py-1.5 text-center w-24">Decisions</th>}
             </tr>
           </thead>
           <tbody className="text-vscode-text">
@@ -311,7 +396,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                             : ''
                     }
                   >
-                    {result.rank}
+                    {result.classificationCode ?? result.rank}
                   </span>
                 </td>
                 <td className="px-2 py-1.5 text-base">{result.playerName}</td>
@@ -324,7 +409,18 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                     </td>
                   );
                 })}
-                <td className="px-2 py-1.5 text-right text-base font-bold tabular-nums">{result.totalScore}</td>
+                <td className="px-2 py-1.5 text-right text-base font-bold tabular-nums">
+                  {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
+                </td>
+                <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
+                  {result.scoreAdjustment > 0 ? `−${result.scoreAdjustment.toFixed(1)}` : '—'}
+                </td>
+                <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
+                  {result.remarks.length > 0 ? result.remarks.join('; ') : '—'}
+                  {result.projectionIssues.length > 0 && (
+                    <span className="block text-vscode-error">Projection needs review</span>
+                  )}
+                </td>
                 <td className="px-2 py-1.5 text-center">
                   {result.status === 'published' && (
                     <span className="inline-block text-xs font-medium text-blue-300">Published</span>
@@ -333,11 +429,35 @@ export function ResultsView({ eventId, eventName, round = 'Qualification' }: Res
                     <span className="inline-block text-xs font-medium text-vscode-success">Confirmed</span>
                   )}
                 </td>
+                {!readOnly && (
+                  <td className="px-2 py-1.5 text-center">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setDecisionResult(result)}
+                      aria-label={`Scoring decisions for ${result.playerName}`}
+                    >
+                      <Scale size={13} aria-hidden="true" />
+                      {result.decisionCount}
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {!readOnly && decisionResult && (
+        <ScoringDecisionPanel
+          result={decisionResult}
+          resultScope="QUALIFICATION"
+          onClose={() => setDecisionResult(null)}
+          onChanged={refreshQualificationResults}
+        />
+      )}
+      {!readOnly && !isFinal && verificationOpen && (
+        <ResultVerificationPanel eventId={eventId} eventName={eventName} onClose={() => setVerificationOpen(false)} />
+      )}
     </div>
   );
 }

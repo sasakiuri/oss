@@ -99,12 +99,14 @@ describe('PublishMqttResultsHandler', () => {
             firingPointNumber: 1,
             participantId: PARTICIPANT_ID,
             playerName: 'Canonical Athlete',
+            familyName: 'Athlete',
             affiliation: 'Canonical Team',
           },
           {
             firingPointNumber: 2,
             participantId: SECOND_PARTICIPANT_ID,
             playerName: 'Second Athlete',
+            familyName: 'Athlete',
             affiliation: 'Second Team',
           },
         ];
@@ -174,13 +176,80 @@ describe('PublishMqttResultsHandler', () => {
     const saved = vi.mocked(repository.replaceByCompetitionId).mock.calls[0]![3][0]!;
     expect(saved).toMatchObject({
       playerName: 'Canonical Athlete',
+      familyName: 'Athlete',
       affiliation: 'Canonical Team',
       totalScore: 20.5,
       relayNumber: 2,
       sourceCompetitionId: COMPETITION_ID,
+      sourceLaneId: LANE_ID,
     });
     expect(saved.seriesScores.slice(0, 2)).toEqual([20.5, 0]);
     expect(saved.shots.slice(0, 3)).toEqual([10.5, 10, 0]);
+  });
+
+  it('attaches independent X and decimal evidence without changing the retained score', async () => {
+    const lane = createLaneResultData();
+    lane.shots = [
+      {
+        laneId: LANE_ID,
+        shotId: '77777777-7777-4777-8777-777777777777',
+        x: 0,
+        y: 0,
+        rawScoreX10: 105,
+        deviceScoreX10: 104,
+        calculatedScoreX10: 106,
+        effectiveScoreX10: 105,
+        innerTen: true,
+        mode: 'MATCH',
+        timestamp: '2026-08-26T00:00:00.000Z',
+        competitionId: COMPETITION_ID,
+        sessionId: SESSION_ID,
+        stageIndex: 1,
+        scored: true,
+        seriesIndex: 0,
+        shotNumberInSeries: 1,
+        isRecorded: true,
+        isReplay: false,
+        publishedAt: '2026-08-26T00:00:00.010Z',
+      },
+      {
+        laneId: LANE_ID,
+        shotId: '88888888-8888-4888-8888-888888888888',
+        x: 1,
+        y: 0,
+        rawScoreX10: 100,
+        calculatedScoreX10: 101,
+        effectiveScoreX10: 100,
+        innerTen: false,
+        mode: 'MATCH',
+        timestamp: '2026-08-26T00:00:01.000Z',
+        competitionId: COMPETITION_ID,
+        sessionId: SESSION_ID,
+        stageIndex: 1,
+        scored: true,
+        seriesIndex: 0,
+        shotNumberInSeries: 2,
+        isRecorded: true,
+        isReplay: false,
+        publishedAt: '2026-08-26T00:00:01.010Z',
+      },
+    ];
+
+    const response = await handler.execute({
+      competitionId: COMPETITION_ID,
+      competitionTypeId: 'BR60S',
+      eventId: EVENT_ID,
+      relayNumber: 2,
+      lanes: [lane],
+    });
+
+    expect(response).toEqual({ savedCount: 1, errors: [] });
+    const saved = vi.mocked(repository.replaceByCompetitionId).mock.calls[0]![3][0]!;
+    expect(saved.totalScore).toBe(20.5);
+    expect(saved.rankingShots).toEqual([
+      { ringScore: 10, decimalScore: 10.6, innerTen: true, shotId: lane.shots[0]!.shotId, seriesIndex: 0 },
+      { ringScore: 10, decimalScore: 10.1, innerTen: false, shotId: lane.shots[1]!.shotId, seriesIndex: 0 },
+    ]);
   });
 
   it('uses canonical tournament identity instead of echoed MQTT athlete text', async () => {

@@ -8,6 +8,7 @@ import { ResultsBoardScreen } from './features/boards/ResultsBoardScreen';
 import { FinalBoardScreen } from './features/boards/FinalBoardScreen';
 import { ScoreSheetPrintScreen } from './features/print/ScoreSheetPrintScreen';
 import { ResultsListPrintScreen } from './features/print/ResultsListPrintScreen';
+import { IncidentReportPrintScreen } from './features/print/IncidentReportPrintScreen';
 import { ErrorBoundary } from './features/shared/common';
 import { boardService } from '@/renderer/services';
 
@@ -60,6 +61,8 @@ function BoardAppContent() {
       return <ScoreSheetPrintScreen config={config} />;
     case 'results-list-print':
       return <ResultsListPrintScreen config={config} />;
+    case 'incident-report-print':
+      return <IncidentReportPrintScreen config={config} />;
     default:
       return (
         <div className="min-h-screen bg-vscode-bg flex items-center justify-center">

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { getTargetRadii, TARGET_RADII } from '@/renderer/presentation/components/target/targetRadii';
+import {
+  getTargetRadii,
+  getTargetRadiiForProfile,
+  TARGET_RADII,
+} from '@/renderer/presentation/components/target/targetRadii';
 
 describe('targetRadii', () => {
   describe('TARGET_RADII', () => {
@@ -30,6 +34,18 @@ describe('targetRadii', () => {
       const radii = getTargetRadii('AIR_RIFLE_10M');
       expect(radii).toBeDefined();
       expect(radii[10]).toBe(0.25);
+    });
+
+    it('uses the precision target as the 25m default', () => {
+      const radii = getTargetRadii('PISTOL_25M');
+      expect(radii[10]).toBe(25);
+      expect(radii[9]).toBe(50);
+      expect(radii[1]).toBe(250);
+    });
+
+    it('can select the 25m rapid-fire target independently', () => {
+      const radii = getTargetRadiiForProfile('ISSF_PISTOL_25M_RAPID_FIRE_2026');
+      expect(radii).toEqual({ 10: 50, 9: 90, 8: 130, 7: 170, 6: 210, 5: 250 });
     });
 
     it('throws an error for an unknown discipline', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { ResultFormat } from '@/shared/competitionTypes';
+import type { RankingShotEvidence } from '@/shared/competitionTypes';
 
 describe('IssfStandardStrategy', () => {
   let strategy: IssfStandardStrategy;
@@ -216,6 +217,106 @@ describe('IssfStandardStrategy', () => {
       const result = strategy.compareResults(a, b, defaultFormat);
 
       expect(result).toBeLessThan(0);
+    });
+
+    const evidence = (
+      rings: number[],
+      innerTens: boolean[],
+      decimals: Array<number | null> = rings,
+    ): RankingShotEvidence[] =>
+      rings.map((ringScore, index) => ({
+        ringScore,
+        innerTen: innerTens[index] ?? false,
+        decimalScore: decimals[index] ?? null,
+        shotId: `shot-${index}`,
+        seriesIndex: Math.floor(index / 2),
+      }));
+
+    const fullRingFormat: ResultFormat = {
+      totalShots: 4,
+      totalSeries: 2,
+      tieBreakPolicy: 'ISSF_FULL_RING',
+    };
+
+    it('applies ISSF 6.15.1(a) inner-ten count before the last-series comparison', () => {
+      const a = {
+        totalScore: 38,
+        seriesScores: [20, 18],
+        shots: [10, 10, 9, 9],
+        rankingShots: evidence([10, 10, 9, 9], [true, true, false, false]),
+      };
+      const b = {
+        totalScore: 38,
+        seriesScores: [18, 20],
+        shots: [9, 9, 10, 10],
+        rankingShots: evidence([9, 9, 10, 10], [false, false, true, false]),
+      };
+
+      expect(strategy.compareResults(a, b, fullRingFormat)).toBeLessThan(0);
+    });
+
+    it('applies ISSF 6.15.1(c) reverse-shot X distinction when X counts are equal', () => {
+      const a = {
+        totalScore: 40,
+        seriesScores: [20, 20],
+        shots: [10, 10, 10, 10],
+        rankingShots: evidence([10, 10, 10, 10], [false, false, false, true]),
+      };
+      const b = {
+        totalScore: 40,
+        seriesScores: [20, 20],
+        shots: [10, 10, 10, 10],
+        rankingShots: evidence([10, 10, 10, 10], [true, false, false, false]),
+      };
+
+      expect(strategy.compareResults(a, b, fullRingFormat)).toBeLessThan(0);
+    });
+
+    it('applies ISSF 6.15.1(d) reverse-shot EST decimals after full-ring criteria', () => {
+      const a = {
+        totalScore: 40,
+        seriesScores: [20, 20],
+        shots: [10, 10, 10, 10],
+        rankingShots: evidence([10, 10, 10, 10], [false, false, false, false], [10.1, 10.1, 10.1, 10.4]),
+      };
+      const b = {
+        totalScore: 40,
+        seriesScores: [20, 20],
+        shots: [10, 10, 10, 10],
+        rankingShots: evidence([10, 10, 10, 10], [false, false, false, false], [10.1, 10.1, 10.1, 10.3]),
+      };
+
+      expect(strategy.compareResults(a, b, fullRingFormat)).toBeLessThan(0);
+    });
+
+    it('applies ISSF 6.15.1(f) decimal-rifle series and ignores the inner-ten-count branch', () => {
+      const decimalFormat: ResultFormat = {
+        totalShots: 4,
+        totalSeries: 2,
+        tieBreakPolicy: 'ISSF_DECIMAL_RIFLE',
+      };
+      const a = {
+        totalScore: 40,
+        seriesScores: [20.5, 19.5],
+        shots: [10.3, 10.2, 9.7, 9.8],
+        rankingShots: evidence([10, 10, 9, 9], [true, true, true, true]),
+      };
+      const b = {
+        totalScore: 40,
+        seriesScores: [19.5, 20.5],
+        shots: [9.7, 9.8, 10.3, 10.2],
+        rankingShots: evidence([9, 9, 10, 10], [false, false, false, false]),
+      };
+
+      expect(strategy.compareResults(a, b, decimalFormat)).toBeGreaterThan(0);
+    });
+
+    it('orders an unresolved tie by family name without changing the ranking comparison', () => {
+      const a = { totalScore: 40, seriesScores: [20, 20], shots: [10, 10, 10, 10], familyName: 'Zulu' };
+      const b = { totalScore: 40, seriesScores: [20, 20], shots: [10, 10, 10, 10], familyName: 'Adams' };
+
+      expect(strategy.compareResults(a, b, fullRingFormat)).toBe(0);
+      expect(strategy.compareEqualResultsForDisplay(a, b)).toBeGreaterThan(0);
     });
   });
 

@@ -11,7 +11,11 @@ export class RankingService {
       return [];
     }
 
-    const sortedResults = [...results].sort((a, b) => a.compareTo(b));
+    const sortedResults = [...results].sort((a, b) => {
+      const rankingDifference = a.compareTo(b);
+      if (rankingDifference !== 0) return rankingDifference;
+      return a.compareEqualForDisplay?.(b) ?? 0;
+    });
 
     const rankedResults: RankedResult<T>[] = [];
     let currentRank = 1;

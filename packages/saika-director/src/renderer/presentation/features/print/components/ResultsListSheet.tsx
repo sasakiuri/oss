@@ -33,12 +33,13 @@ export function ResultsListSheet({ eventName, relayNumber, results }: ResultsLis
             <th className="col-series">S5</th>
             <th className="col-series">S6</th>
             <th className="col-total">Total</th>
+            <th className="col-remarks">Remarks</th>
           </tr>
         </thead>
         <tbody>
           {results.map((result) => (
             <tr key={result.id}>
-              <td className="col-rank">{result.rank}</td>
+              <td className="col-rank">{result.classificationCode ?? result.rank}</td>
               <td className="col-name">{result.playerName}</td>
               <td className="col-affiliation">{result.affiliation}</td>
               {result.seriesScores.map((score, idx) => (
@@ -46,7 +47,8 @@ export function ResultsListSheet({ eventName, relayNumber, results }: ResultsLis
                   {score > 0 ? score : '-'}
                 </td>
               ))}
-              <td className="col-total">{result.totalScore}</td>
+              <td className="col-total">{result.classificationCode ? '—' : result.totalScore.toFixed(1)}</td>
+              <td className="col-remarks">{result.remarks.join('; ')}</td>
             </tr>
           ))}
         </tbody>

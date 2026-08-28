@@ -9,3 +9,4 @@ export { ParticipantEditor } from './ParticipantEditor';
 export { ParticipantPool } from './ParticipantPool';
 export { ParticipantRow } from './ParticipantRow';
 export { ResultsView } from './ResultsView';
+export { IncidentReportsView } from './IncidentReportsView';

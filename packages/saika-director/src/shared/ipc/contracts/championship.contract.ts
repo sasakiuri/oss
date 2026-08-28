@@ -66,6 +66,7 @@ const SaveParticipantsPayloadSchema = z.object({
     z.object({
       id: z.string().optional(),
       playerName: z.string(),
+      familyName: z.string().optional(),
       affiliation: z.string(),
       logoPath: z.string().optional(),
     }),
@@ -123,6 +124,7 @@ const championshipDetailDtoSchema = championshipDtoSchema.extend({
 const participantDtoSchema = z.object({
   id: z.string(),
   playerName: z.string(),
+  familyName: z.string().optional(),
   affiliation: z.string(),
   logoPath: z.string().nullable(),
   sortOrder: z.number(),

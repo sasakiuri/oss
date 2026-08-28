@@ -27,7 +27,7 @@ export function ResultsBoardScreen({ config }: Props) {
 
       {/* Results View */}
       <div className="flex-1 overflow-auto">
-        <ResultsView eventId={eventId} round={round} />
+        <ResultsView eventId={eventId} round={round} readOnly />
       </div>
     </div>
   );

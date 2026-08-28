@@ -3,6 +3,7 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Score } from '@/main/modules/session/domain/Score';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
+import type { TargetScoringProfileId } from '@/shared/target';
 
 /**
  * ScoreCalculationService interface
@@ -18,7 +19,7 @@ export interface ScoreCalculationService {
    * @param discipline - Discipline
    * @returns Calculated score
    */
-  calculateScore(impactPoint: ImpactPoint, discipline: Discipline): Score;
+  calculateScore(impactPoint: ImpactPoint, discipline: Discipline, profileId?: TargetScoringProfileId): Score;
 
   /**
    * Determines whether an impact point is within the X ring (inner ten)
@@ -30,7 +31,7 @@ export interface ScoreCalculationService {
    * @param discipline - Discipline
    * @returns true if within the X ring, false otherwise
    */
-  isInnerTen(impactPoint: ImpactPoint | null, discipline: Discipline): boolean;
+  isInnerTen(impactPoint: ImpactPoint | null, discipline: Discipline, profileId?: TargetScoringProfileId): boolean;
 
   /**
    * Retrieves the target design for the given discipline
@@ -38,5 +39,5 @@ export interface ScoreCalculationService {
    * @param discipline - Discipline
    * @returns Target design corresponding to the discipline
    */
-  getTargetDesign(discipline: Discipline): TargetDesign;
+  getTargetDesign(discipline: Discipline, profileId?: TargetScoringProfileId): TargetDesign;
 }

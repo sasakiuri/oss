@@ -67,6 +67,7 @@ export interface RelayFiringPointAssignment {
   firingPointNumber: number;
   participantId: string;
   playerName: string;
+  familyName: string;
   affiliation: string;
 }
 
@@ -126,6 +127,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
             firingPointNumber: assignment.firingPointNumber,
             participantId: participant.id.value,
             playerName: participant.playerName,
+            familyName: participant.familyName,
             affiliation: participant.affiliation,
           };
         });
@@ -228,11 +230,20 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
               p.affiliation,
               p.logoPath ?? existingParticipant.logoPath,
               index,
+              p.familyName ?? existingParticipant.familyName,
             );
           } else {
             const newId = ParticipantId.generate();
             usedIds.add(newId.value);
-            return Participant.create(newId, eventId, p.playerName, p.affiliation, p.logoPath ?? null, index);
+            return Participant.create(
+              newId,
+              eventId,
+              p.playerName,
+              p.affiliation,
+              p.logoPath ?? null,
+              index,
+              p.familyName ?? p.playerName,
+            );
           }
         });
 
@@ -260,6 +271,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
           participants: newParticipants.map((participant) => ({
             id: participant.id.value,
             playerName: participant.playerName,
+            familyName: participant.familyName,
             affiliation: participant.affiliation,
             logoPath: participant.logoPath,
             sortOrder: participant.sortOrder,
@@ -352,6 +364,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
           participants: participants.map((p) => ({
             id: p.id.value,
             playerName: p.playerName,
+            familyName: p.familyName,
             affiliation: p.affiliation,
             logoPath: p.logoPath,
             sortOrder: p.sortOrder,

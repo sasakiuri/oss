@@ -14,6 +14,8 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
+
 export class RawShotPublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
@@ -40,7 +42,7 @@ export class RawShotPublisher {
       shotId: shot.id,
       x: shot.impactPoint?.x ?? null,
       y: shot.impactPoint?.y ?? null,
-      rawScoreX10: shot.score.value,
+      ...toShotMqttEvidencePayload(shot),
       innerTen: shot.innerTen,
       mode: shot.mode.value,
       timestamp: shot.timestamp.toISOString(),

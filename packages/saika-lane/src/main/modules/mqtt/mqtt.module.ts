@@ -80,7 +80,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionRepository,
     );
     const scorePublisher = new LaneScorePublisher(mqttClient, eventBus, storage, competitionRepository, queryBus);
-    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository);
+    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository, sessionRepository);
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
 
     // Initialize retain publisher (handles reconnect republish + shot backlog replay)

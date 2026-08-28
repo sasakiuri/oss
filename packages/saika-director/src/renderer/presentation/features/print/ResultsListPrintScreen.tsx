@@ -19,7 +19,12 @@ function toFinalResultData(results: FinalRankedResultDto[]): FinalResultData[] {
     stage1Total: r.stage1Total,
     stage2Shots: r.stage2Shots,
     stage2Total: r.stage2Total,
+    seriesScores: r.seriesScores,
+    seriesShotCounts: r.seriesShotCounts,
     totalScore: r.totalScore,
+    scoreAdjustment: r.scoreAdjustment,
+    classificationCode: r.classificationCode,
+    placementReviewRequired: r.placementReviewRequired,
     eliminatedAtShot: r.eliminatedAtShot,
     remarks: r.remarks,
   }));

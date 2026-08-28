@@ -116,6 +116,11 @@ export const boardModule: ModuleDefinition<'queryBus' | 'ipcRouter' | 'windowMan
           eventType: eventResult.eventType,
         });
       },
+      openIncidentReportPrint: async (input) =>
+        windowManager.createBoardWindow('incident-report-print', {
+          type: 'incident-report-print',
+          reportId: input.reportId,
+        }),
       closeBoard: (input) => {
         windowManager.closeBoardWindow(input);
         return Promise.resolve(undefined);

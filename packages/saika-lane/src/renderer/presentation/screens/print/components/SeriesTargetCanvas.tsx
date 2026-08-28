@@ -3,17 +3,8 @@ import { useLayoutEffect, useRef } from 'react';
 
 import { getTargetRadii } from '@/renderer/presentation/components/target/targetRadii';
 import { drawTarget } from '@/renderer/presentation/components/target/TargetRingRenderer';
+import { SHOT_RADIUS_BY_DISCIPLINE } from '@/renderer/presentation/utils/targetDimensions';
 import type { Discipline, ScoreSheetShotDto } from '@/shared/ipc/contracts';
-
-/** Bullet radius per discipline (mm) -- per TARGET_SPEC.md */
-const SHOT_RADIUS_MM: Record<Discipline, number> = {
-  BEAM_RIFLE_10M: 3.0,
-  BEAM_PISTOL_10M: 2.25,
-  AIR_RIFLE_10M: 2.25,
-  AIR_PISTOL_10M: 2.25,
-  RIFLE_50M: 2.8,
-  PISTOL_25M: 4.5,
-};
 
 interface SeriesTargetCanvasProps {
   shots: ScoreSheetShotDto[];
@@ -85,7 +76,7 @@ export function SeriesTargetCanvas({
     });
 
     // Draw shots -- for print: uniform grey for all shots, with numbers
-    const shotRadius = SHOT_RADIUS_MM[discipline] * scale;
+    const shotRadius = SHOT_RADIUS_BY_DISCIPLINE[discipline] * scale;
     const borderWidth = 0.5;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

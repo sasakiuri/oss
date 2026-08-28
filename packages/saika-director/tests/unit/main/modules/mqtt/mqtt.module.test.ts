@@ -109,6 +109,7 @@ function registerModule(eventType: string | null): {
     } as never,
     competitionTypeRegistry: {} as never,
     laneControlRepository: {} as never,
+    competitionShotJournal: { append: vi.fn(), findByCompetition: vi.fn(() => []) } as never,
   });
 
   if (!handlers) throw new Error('MQTT handlers were not registered');

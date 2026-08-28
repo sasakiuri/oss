@@ -166,6 +166,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   loader.load(
     [targetModule, sessionModule, connectionModule, settingsModule, competitionModule, reportModule, mqttModule],
     {
+      database: db,
       commandBus,
       queryBus,
       eventBus,

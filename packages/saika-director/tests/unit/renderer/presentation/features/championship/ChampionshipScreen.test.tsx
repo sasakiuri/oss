@@ -63,6 +63,10 @@ vi.mock('@/renderer/presentation/features/championship/components/ChampionshipFo
   ),
 }));
 
+vi.mock('@/renderer/presentation/features/championship/components/IncidentReportsView', () => ({
+  IncidentReportsView: ({ eventId }: { eventId: string }) => <div>incident workspace {eventId}</div>,
+}));
+
 import { ChampionshipScreen } from '@/renderer/presentation/features/championship/ChampionshipScreen';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 
@@ -152,5 +156,20 @@ describe('ChampionshipScreen', () => {
         participantIdsToDelete: [PARTICIPANT_ID],
       }),
     );
+  });
+
+  it('opens the event-level incident workspace before results exist', async () => {
+    Object.assign(championshipState, {
+      selectedChampionship,
+      selectedEventId: EVENT_ID,
+      participants: [participant],
+    });
+    loadChampionshipDetail.mockResolvedValue({ success: true, data: selectedChampionship });
+    render(<ChampionshipScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Championship Test' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Incidents' }));
+
+    expect(screen.getByText(`incident workspace ${EVENT_ID}`)).toBeInTheDocument();
   });
 });

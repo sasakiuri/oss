@@ -84,6 +84,32 @@ describe('SqliteSessionRepository', () => {
       expect(found?.allShots[0]?.deviceScore?.value).toBe(102);
     });
 
+    it('keeps calculated, effective, device, and observation evidence separate', async () => {
+      let session = Session.create(Discipline.airRifle10m()).switchMode(Mode.match());
+      session = session.recordShot(
+        new ImpactPoint(0.2, -0.1),
+        new Score(101),
+        new Date('2026-01-01T10:00:00.000Z'),
+        new Score(99),
+        false,
+        undefined,
+        {
+          calculatedScore: new Score(103),
+          receivedAt: new Date('2026-01-01T10:00:00.025Z'),
+          sourceObservationId: '11111111-1111-4111-8111-111111111111',
+        },
+      );
+
+      await repository.save(session);
+
+      const shot = (await repository.findById(session.id))?.allShots[0];
+      expect(shot?.deviceScore?.value).toBe(99);
+      expect(shot?.calculatedScore.value).toBe(103);
+      expect(shot?.score.value).toBe(101);
+      expect(shot?.receivedAt.toISOString()).toBe('2026-01-01T10:00:00.025Z');
+      expect(shot?.sourceObservationId).toBe('11111111-1111-4111-8111-111111111111');
+    });
+
     it('should correctly save and retrieve the innerTen flag', async () => {
       const discipline = Discipline.airRifle10m();
       let session = Session.create(discipline);

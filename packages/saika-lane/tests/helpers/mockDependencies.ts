@@ -8,6 +8,7 @@ import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
+import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -70,6 +71,15 @@ export function createMockSessionRepository(): ISessionRepository {
     findAll: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),
     findActive: vi.fn().mockResolvedValue(null),
+  };
+}
+
+export function createMockShotObservationRepository(): IShotObservationRepository {
+  return {
+    append: vi.fn().mockResolvedValue(undefined),
+    appendOutcome: vi.fn().mockResolvedValue(undefined),
+    findById: vi.fn().mockResolvedValue(null),
+    findOutcomes: vi.fn().mockResolvedValue([]),
   };
 }
 

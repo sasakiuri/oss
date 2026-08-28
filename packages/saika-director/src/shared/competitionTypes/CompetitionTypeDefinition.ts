@@ -52,6 +52,15 @@ export interface ResultFormat {
   readonly totalShots: number;
   readonly totalSeries: number;
   readonly stage1Shots?: number; // Finals only.
+  /** ISSF 6.15.1 qualification tie-break branch. */
+  readonly tieBreakPolicy?: 'ISSF_FULL_RING' | 'ISSF_DECIMAL_RIFLE';
+}
+
+export interface ResultVerificationPolicy {
+  /** ISSF 6.14.8 requires the ten best individual results. */
+  readonly topIndividualResults: number;
+  /** Set to three for event definitions that also publish team results. */
+  readonly topTeamResults: number;
 }
 
 export interface CompetitionTypeDefinition {
@@ -62,4 +71,5 @@ export interface CompetitionTypeDefinition {
   readonly rankingStrategyId: string;
   readonly displayHints: DisplayHints;
   readonly resultFormat: ResultFormat;
+  readonly resultVerification?: ResultVerificationPolicy;
 }

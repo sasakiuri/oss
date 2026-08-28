@@ -9,6 +9,7 @@ import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import type { Connection } from '@/main/modules/connection/domain/Connection';
 import { Mode } from '@/main/modules/session/domain/Mode';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
@@ -20,6 +21,7 @@ import { createShotIngestionHandler } from './infra/ShotIngestionHandler';
 
 type ConnectionDeps =
   | 'commandBus'
+  | 'database'
   | 'eventBus'
   | 'connectionRepository'
   | 'sessionRepository'
@@ -32,6 +34,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   name: 'connection',
   deps: [
     'commandBus',
+    'database',
     'eventBus',
     'connectionRepository',
     'sessionRepository',
@@ -42,6 +45,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   ] as const,
   register({
     commandBus,
+    database,
     eventBus,
     connectionRepository,
     sessionRepository,
@@ -50,6 +54,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     ipcRouter,
     mainWindow,
   }) {
+    const shotObservationRepository = new SqliteShotObservationRepository(database);
     // Session context cache for synchronous access by USBDataPipeline
     const sessionContextCache = new SessionContextCache(eventBus);
     usbManager.setSessionContextProvider(() => sessionContextCache.getContext());
@@ -142,7 +147,12 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     ipcRouter.register(connectionContract, connectionHandlers);
 
     // Register shot ingestion handler: USB data → RecordShot command
-    const handleShotIngestion = createShotIngestionHandler({ commandBus, sessionRepository, competitionRepository });
+    const handleShotIngestion = createShotIngestionHandler({
+      commandBus,
+      sessionRepository,
+      competitionRepository,
+      shotObservationRepository,
+    });
     usbManager.on('data', handleShotIngestion);
 
     usbManager.on('disconnected', () => {

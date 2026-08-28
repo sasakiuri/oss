@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -19,6 +20,7 @@ import { connectionModule } from '@/main/modules/connection/connection.module';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
+import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
 import { buildSession } from '../../../helpers/factories';
@@ -34,6 +36,7 @@ import {
 
 describe('connection.module', () => {
   let commandBus: ReturnType<typeof createMockCommandBus>;
+  let database: Database.Database;
   let eventBus: ReturnType<typeof createMockEventBus>;
   let ipcRouter: ReturnType<typeof createMockIpcRouter>;
   let connectionRepository: ReturnType<typeof createMockConnectionRepository>;
@@ -46,6 +49,7 @@ describe('connection.module', () => {
 
   beforeEach(() => {
     commandBus = createMockCommandBus();
+    database = createSqliteDb(':memory:');
     eventBus = createMockEventBus();
     ipcRouter = createMockIpcRouter();
     connectionRepository = createMockConnectionRepository();
@@ -62,6 +66,10 @@ describe('connection.module', () => {
     mockIsDestroyed.mockReturnValue(false);
   });
 
+  afterEach(() => {
+    database.close();
+  });
+
   describe('metadata', () => {
     it('should have name "connection"', () => {
       expect(connectionModule.name).toBe('connection');
@@ -70,6 +78,7 @@ describe('connection.module', () => {
     it('should declare correct dependencies', () => {
       expect(connectionModule.deps).toEqual([
         'commandBus',
+        'database',
         'eventBus',
         'connectionRepository',
         'sessionRepository',
@@ -85,6 +94,7 @@ describe('connection.module', () => {
     function registerModule() {
       connectionModule.register({
         commandBus,
+        database,
         eventBus,
         connectionRepository,
         sessionRepository,

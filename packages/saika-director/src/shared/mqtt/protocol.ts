@@ -38,7 +38,13 @@ export const RawShotPayloadSchema = z.object({
   shotId: z.string().uuid(),
   x: z.number().nullable(),
   y: z.number().nullable(),
+  /** @deprecated Backwards-compatible alias of effectiveScoreX10. */
   rawScoreX10: z.number().int().min(0).max(109),
+  deviceScoreX10: z.number().int().min(0).max(109).nullable().optional(),
+  calculatedScoreX10: z.number().int().min(0).max(109).optional(),
+  effectiveScoreX10: z.number().int().min(0).max(109).optional(),
+  observationId: z.string().uuid().optional(),
+  receivedAt: z.string().datetime().optional(),
   innerTen: z.boolean(),
   mode: z.enum(['SIGHTING', 'MATCH']),
   timestamp: z.string().datetime(),

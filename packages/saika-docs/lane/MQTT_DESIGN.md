@@ -436,11 +436,20 @@ const RawShotPayload = z.object({
   x: z.number().nullable(),
   y: z.number().nullable(),
 
-  // スコア（×10 整数）
-  // RING: 10点 → 100 / DECIMAL: 10.9点 → 109
+  // 後方互換 alias。実際に採用した effectiveScoreX10 と同値。
   rawScoreX10: z.number().int().min(0),
 
-  // 10.9点（インナーテン）フラグ
+  // 標的装置の報告点、座標からの独立計算点、競技で採用した点。
+  // 旧 Lane との通信では optional フィールドが欠けることがある。
+  deviceScoreX10: z.number().int().min(0).nullable().optional(),
+  calculatedScoreX10: z.number().int().min(0).optional(),
+  effectiveScoreX10: z.number().int().min(0).optional(),
+
+  // Lane の受信 observation と受信時刻。旧 Lane では optional。
+  observationId: z.string().uuid().optional(),
+  receivedAt: z.string().datetime().optional(),
+
+  // 標的・ゲージ geometry による物理的な inner ten フラグ
   innerTen: z.boolean(),
 
   // 射撃モード（SIGHTING=試射, MATCH=本射）
@@ -706,6 +715,11 @@ const CompetitionShotPayload = z.object({
   x: z.number().nullable(),
   y: z.number().nullable(),
   rawScoreX10: z.number().int().min(0),
+  deviceScoreX10: z.number().int().min(0).nullable().optional(),
+  calculatedScoreX10: z.number().int().min(0).optional(),
+  effectiveScoreX10: z.number().int().min(0).optional(),
+  observationId: z.string().uuid().optional(),
+  receivedAt: z.string().datetime().optional(),
   innerTen: z.boolean(),
   mode: z.enum(['SIGHTING', 'MATCH']),
   timestamp: z.string().datetime(),
@@ -716,12 +730,12 @@ const CompetitionShotPayload = z.object({
 
   // 射撃時点のステージ情報
   stageIndex: z.number().int().min(0),
-  stageType: z.enum(['preparation', 'match']),
+  scored: z.boolean(),
 
   // 射撃時点のシリーズ情報
   seriesIndex: z.number().int().min(0),
 
-  // このシリーズ内でのショット番号（1始まり）
+  // このシリーズ内でのショット番号（1始まり）。Session 通算番号ではない。
   shotNumberInSeries: z.number().int().positive(),
 
   // 記録対象フラグ（MATCH モード かつ match ステージの場合 true）
@@ -1522,6 +1536,7 @@ MQTT QoS 1 は「少なくとも1回の配信」を保証するが「重複配�
 | -------------- | --------------------------------------------------------------------------------------------------- |
 | 再送フラグ     | `CompetitionShotPayload.isReplay = true`                                                            |
 | 再送順序       | SQLite の `timestamp`（着弾時刻）昇順で再送する                                                     |
+| 位置の復元     | 保存済み shot history の series number から元の stage / series / series内番号を復元する             |
 | 再送タイミング | broker 再接続後、通常ショット発行前にバックログを一括送信                                           |
 | 再送完了通知   | 全バックログ送信後、`LaneCompetitionStatePayload` を再発行（director が「再送完了」を検知する手段） |
 
@@ -1530,7 +1545,7 @@ MQTT QoS 1 は「少なくとも1回の配信」を保証するが「重複配�
 | 項目           | 仕様                                                                                           |
 | -------------- | ---------------------------------------------------------------------------------------------- |
 | 識別キー       | `shotId`（UUID）で重複を判定する                                                               |
-| 重複の扱い     | 同一 `shotId` を2回以上受信した場合、2回目以降を無視する                                       |
+| 重複の扱い     | operational state では2回目以降を無視し、監査 journal には全 delivery を追記する               |
 | 順序の復元     | 表示・スコア計算には `timestamp`（着弾時刻）順を使用する（`publishedAt` は再送時刻のため不適） |
 | 再送完了の検知 | `LaneCompetitionStatePayload` の再発行を「再送完了シグナル」として扱う                         |
 
@@ -1538,7 +1553,8 @@ MQTT QoS 1 は「少なくとも1回の配信」を保証するが「重複配�
 
 - `shotId` は lane 側で着弾時に生成し SQLite に永続化する。再送時も元の `shotId` を使用する。
 - `publishedAt` は発行時刻（再送では再送時刻）、`timestamp` は着弾時刻である。スコア計算・順序判定には必ず `timestamp` を使用すること。
-- director は受信した `shotId` を一時キャッシュ（または DB の UNIQUE 制約）で管理し、競技終了後にキャッシュをクリアする。
+- director は operational state 用に `shotId` を一時キャッシュし、競技終了後にキャッシュをクリアする。別途、
+  append-only journal は duplicate と `isReplay=true` の delivery も削除せず保存する。
 
 ### 7.5 再接続時のサブスクリプション再構築
 

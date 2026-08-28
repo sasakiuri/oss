@@ -71,6 +71,11 @@ export function createRecordShotHandler(
       deviceScore,
       innerTen,
       input.mode, // Use the mode captured for this shot (falls back to the session mode if omitted)
+      {
+        calculatedScore,
+        receivedAt: input.receivedAt ?? new Date(),
+        sourceObservationId: input.sourceObservationId,
+      },
     );
 
     // Retrieve the recorded shot (the last shot)

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ArrowLeft, CalendarDays, MapPin, Pencil, Target, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, CalendarDays, FileWarning, MapPin, Pencil, Target, Trophy, Users } from 'lucide-react';
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
@@ -10,6 +10,7 @@ import { EventForm } from './components/EventForm';
 import { ParticipantEditor } from './components/ParticipantEditor';
 import { FiringPointAssignmentEditor } from './components/FiringPointAssignmentEditor';
 import { ResultsView } from './components/ResultsView';
+import { IncidentReportsView } from './components/IncidentReportsView';
 import { useChampionshipStore } from '../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../hooks/useChampionshipActions';
 import type { ChampionshipDto, EventDto } from '@/shared/ipc/contracts/championship.contract';
@@ -18,7 +19,7 @@ import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirm
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
-type EventTab = 'participants' | 'assignments' | 'results';
+type EventTab = 'participants' | 'assignments' | 'incidents' | 'results';
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
@@ -185,7 +186,7 @@ export function ChampionshipScreen() {
   );
 
   const handleSaveParticipants = useCallback(
-    async (rows: { id?: string; playerName: string; affiliation: string }[]) => {
+    async (rows: { id?: string; playerName: string; familyName: string; affiliation: string }[]) => {
       if (!selectedEventId) return null;
 
       const submittedParticipantIds = new Set(rows.flatMap((row) => (row.id ? [row.id] : [])));
@@ -395,6 +396,21 @@ export function ChampionshipScreen() {
                   <button
                     type="button"
                     role="tab"
+                    aria-selected={eventTab === 'incidents'}
+                    aria-controls="incidents-panel"
+                    onClick={() => setEventTab('incidents')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'incidents'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <FileWarning size={15} aria-hidden="true" />
+                    Incidents
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
                     aria-selected={eventTab === 'results'}
                     aria-controls="results-panel"
                     onClick={() => setEventTab('results')}
@@ -437,6 +453,16 @@ export function ChampionshipScreen() {
                     />
                   </div>
                 )}
+                {eventTab === 'incidents' && (
+                  <div id="incidents-panel" role="tabpanel" className="p-4">
+                    <IncidentReportsView
+                      key={selectedEventId}
+                      eventId={selectedEventId}
+                      eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
+                      participants={participants}
+                    />
+                  </div>
+                )}
               </section>
             ) : (
               <section className="flex min-h-28 items-start gap-3 border-y border-vscode-border px-4 py-5">
@@ -447,7 +473,7 @@ export function ChampionshipScreen() {
                   </p>
                   <p className="mt-1 text-xs text-vscode-text-muted">
                     {selectedChampionship.events.length > 0
-                      ? 'The entry list, firing-point assignment and results will open here.'
+                      ? 'The entry list, firing-point assignment, incident reports and results will open here.'
                       : 'Add an event from the panel on the left.'}
                   </p>
                 </div>

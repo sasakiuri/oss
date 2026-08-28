@@ -202,6 +202,8 @@ export class WindowManager {
         return 'Print Score Sheets';
       case 'results-list-print':
         return 'Print Results List';
+      case 'incident-report-print':
+        return 'Print Range Incident Report';
       case 'final-board':
         return 'Final Board';
       default:

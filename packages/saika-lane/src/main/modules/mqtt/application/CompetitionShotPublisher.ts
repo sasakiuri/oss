@@ -10,25 +10,32 @@
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
+import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
+
 export class CompetitionShotPublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly competitionRepository: ICompetitionRepository;
+  private readonly sessionRepository: ISessionRepository;
 
   constructor(
     mqttClient: IMqttClientService,
     eventBus: IEventBus,
     storage: ILocalStorage,
     competitionRepository: ICompetitionRepository,
+    sessionRepository: ISessionRepository,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
     this.competitionRepository = competitionRepository;
+    this.sessionRepository = sessionRepository;
 
     eventBus.on('ShotRecorded', (event: ShotRecordedEvent) => {
       this.publishShot(event);
@@ -46,14 +53,31 @@ export class CompetitionShotPublisher {
     const currentStage = competition.config.stages[competition.currentStageIndex];
     if (!currentStage) return;
 
-    const isRecorded = shot.mode.value === 'MATCH' && currentStage.scored;
+    const session = await this.sessionRepository.findById(event.aggregateId);
+    const resolvedPlacement = resolveCompetitionShotPlacement(
+      shot,
+      session?.allShots ?? [shot],
+      competition.config,
+      competition.currentStageIndex,
+      competition.currentSeriesIndex,
+    );
+    const placement = currentStage.scored
+      ? resolvedPlacement
+      : {
+          ...resolvedPlacement,
+          stageIndex: competition.currentStageIndex,
+          seriesIndex: competition.currentSeriesIndex,
+        };
+    const shotStage = competition.config.stages[placement.stageIndex] ?? currentStage;
+
+    const isRecorded = shot.mode.value === 'MATCH' && shotStage.scored;
 
     const payload = JSON.stringify({
       laneId,
       shotId: shot.id,
       x: shot.impactPoint?.x ?? null,
       y: shot.impactPoint?.y ?? null,
-      rawScoreX10: shot.score.value,
+      ...toShotMqttEvidencePayload(shot),
       innerTen: shot.innerTen,
       mode: shot.mode.value,
       timestamp: shot.timestamp.toISOString(),
@@ -61,10 +85,10 @@ export class CompetitionShotPublisher {
       // Competition context
       competitionId: competition.id,
       sessionId: competition.sessionId,
-      stageIndex: competition.currentStageIndex,
-      scored: currentStage.scored,
-      seriesIndex: competition.currentSeriesIndex,
-      shotNumberInSeries: shot.shotNumber,
+      stageIndex: placement.stageIndex,
+      scored: shotStage.scored,
+      seriesIndex: placement.seriesIndex,
+      shotNumberInSeries: placement.shotNumberInSeries,
       isRecorded,
       isReplay: false,
       publishedAt: new Date().toISOString(),

@@ -22,6 +22,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
  */
 function buildMockRegistry(): ServiceRegistry {
   return {
+    database: {} as ServiceRegistry['database'],
     commandBus: { register: vi.fn(), execute: vi.fn(), use: vi.fn() },
     queryBus: { register: vi.fn(), execute: vi.fn(), use: vi.fn() },
     eventBus: { publish: vi.fn(), subscribe: vi.fn() },

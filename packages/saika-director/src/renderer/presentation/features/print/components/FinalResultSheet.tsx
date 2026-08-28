@@ -26,6 +26,11 @@ export interface FinalResultData {
   stage2Shots: number[];
   stage2Total: number;
   totalScore: number;
+  seriesScores?: number[];
+  seriesShotCounts?: number[];
+  scoreAdjustment?: number;
+  classificationCode?: 'DSQ' | 'DQB' | 'AD_DSQ' | null;
+  placementReviewRequired?: boolean;
   eliminatedAtShot?: number;
   remarks: string;
 }
@@ -42,6 +47,7 @@ export interface ShootoffData {
 function calculateStage2Cumulatives(
   stage1Total: number,
   stage2Shots: number[],
+  seriesScores?: number[],
   eliminatedAtShot?: number,
 ): (number | null)[] {
   const cumulatives: (number | null)[] = [];
@@ -53,7 +59,7 @@ function calculateStage2Cumulatives(
     if (eliminatedAtShot !== undefined && shotNumber > eliminatedAtShot) {
       cumulatives.push(null);
     } else {
-      cumulative += (stage2Shots[i] || 0) + (stage2Shots[i + 1] || 0);
+      cumulative += seriesScores?.[i / 2 + 2] ?? (stage2Shots[i] || 0) + (stage2Shots[i + 1] || 0);
       cumulatives.push(cumulative);
     }
   }
@@ -62,7 +68,7 @@ function calculateStage2Cumulatives(
 }
 
 export function FinalResultSheet({ championship, event, results, shootoffs }: FinalResultSheetProps) {
-  const sortedResults = [...results].sort((a, b) => a.rank - b.rank);
+  const sortedResults = [...results].sort(compareFinalResultRows);
 
   return (
     <div className="final-result-sheet">
@@ -116,10 +122,17 @@ export function FinalResultSheet({ championship, event, results, shootoffs }: Fi
             const stage2Cumulatives = calculateStage2Cumulatives(
               result.stage1Total,
               result.stage2Shots,
+              result.seriesScores,
               result.eliminatedAtShot,
             );
 
-            return <FinalResultSheetRow key={result.rank} result={result} stage2Cumulatives={stage2Cumulatives} />;
+            return (
+              <FinalResultSheetRow
+                key={result.firingPointNumber}
+                result={result}
+                stage2Cumulatives={stage2Cumulatives}
+              />
+            );
           })}
         </tbody>
       </table>
@@ -129,8 +142,16 @@ export function FinalResultSheet({ championship, event, results, shootoffs }: Fi
       <div className="final-result-footer">
         <div className="footer-legend">
           <span>E## = Eliminated at shot ##</span>
+          <span> · * = Placement review required</span>
         </div>
       </div>
     </div>
   );
+}
+
+function compareFinalResultRows(left: FinalResultData, right: FinalResultData): number {
+  const leftClassified = left.classificationCode !== undefined && left.classificationCode !== null;
+  const rightClassified = right.classificationCode !== undefined && right.classificationCode !== null;
+  if (leftClassified !== rightClassified) return leftClassified ? 1 : -1;
+  return left.rank - right.rank || left.firingPointNumber - right.firingPointNumber;
 }
