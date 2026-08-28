@@ -35,5 +35,10 @@ export const BR60S: CompetitionTypeDefinition = {
   resultFormat: {
     totalShots: 60,
     totalSeries: 6,
+    tieBreakPolicy: 'ISSF_DECIMAL_RIFLE',
+  },
+  resultVerification: {
+    topIndividualResults: 10,
+    topTeamResults: 0,
   },
 };

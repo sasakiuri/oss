@@ -6,11 +6,12 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: 'md' | 'xl';
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
   const titleId = useId();
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -94,7 +95,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-auto rounded-sm border border-vscode-border bg-vscode-bg-light shadow-2xl shadow-black/60"
+        className={`relative max-h-[calc(100vh-2rem)] w-full ${size === 'xl' ? 'max-w-5xl' : 'max-w-lg'} overflow-auto rounded-sm border border-vscode-border bg-vscode-bg-light shadow-2xl shadow-black/60`}
       >
         <div className="flex h-12 items-center justify-between gap-4 border-b border-vscode-border px-5">
           <h2 id={titleId} className="text-base font-semibold text-vscode-text">

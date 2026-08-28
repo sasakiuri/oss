@@ -1382,7 +1382,12 @@ describe('DirectorMqttService', () => {
 
   it('deduplicates replayed competition shots by shotId', async () => {
     const onCompetitionShot = vi.fn();
-    const service = new DirectorMqttService({ directorId: 'director-test' }, { onCompetitionShot }, transport);
+    const onCompetitionShotObserved = vi.fn();
+    const service = new DirectorMqttService(
+      { directorId: 'director-test' },
+      { onCompetitionShot, onCompetitionShotObserved },
+      transport,
+    );
     await service.connect('mqtt://localhost:1883');
     await createCompetition(service);
     const shot = {
@@ -1410,6 +1415,8 @@ describe('DirectorMqttService', () => {
     transport.emitMessage(topic, shot);
 
     expect(onCompetitionShot).toHaveBeenCalledTimes(1);
+    expect(onCompetitionShotObserved).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(onCompetitionShotObserved.mock.calls[0]![1] as string)).toEqual(shot);
     expect(service.getSnapshot().lanes[0]?.lastCompetitionShot?.shotId).toBe(shot.shotId);
   });
 

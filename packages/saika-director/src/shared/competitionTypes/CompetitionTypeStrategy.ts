@@ -1,5 +1,24 @@
 import type { ResultFormat } from './CompetitionTypeDefinition';
 
+export interface RankingShotEvidence {
+  /** Effective full-ring value used by Rule 6.15.1(c). */
+  readonly ringScore: number;
+  /** Independent EST decimal-ring value used by Rule 6.15.1(d), when available. */
+  readonly decimalScore: number | null;
+  /** Physical inner-ten determination, null when evidence is unavailable. */
+  readonly innerTen: boolean | null;
+  readonly shotId: string | null;
+  readonly seriesIndex: number;
+}
+
+export interface QualificationRankingInput {
+  readonly totalScore: number;
+  readonly seriesScores: readonly number[];
+  readonly shots: readonly number[];
+  readonly rankingShots?: readonly RankingShotEvidence[];
+  readonly familyName?: string;
+}
+
 /**
  * Competition-specific result processing strategy.
  * Encapsulates shot/series padding, ranking, and stage-splitting logic.
@@ -17,11 +36,10 @@ export interface CompetitionTypeStrategy {
    * Compares qualification results for ranking.
    * @returns Negative when a ranks higher, zero for a tie, positive when b ranks higher.
    */
-  compareResults(
-    a: { totalScore: number; seriesScores: readonly number[]; shots: readonly number[] },
-    b: { totalScore: number; seriesScores: readonly number[]; shots: readonly number[] },
-    format: ResultFormat,
-  ): number;
+  compareResults(a: QualificationRankingInput, b: QualificationRankingInput, format: ResultFormat): number;
+
+  /** Orders an unresolved tie for display without assigning different ranks (Rule 6.15.1(e)). */
+  compareEqualResultsForDisplay?(a: QualificationRankingInput, b: QualificationRankingInput): number;
 
   /** Splits final-round shots between Stage 1 and Stage 2. */
   splitFinalStages(matchShots: number[], format: ResultFormat): { stage1Shots: number[]; stage2Shots: number[] };

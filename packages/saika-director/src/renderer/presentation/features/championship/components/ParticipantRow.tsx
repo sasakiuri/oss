@@ -5,6 +5,7 @@ interface ParticipantRow {
   id?: string;
   tempId: string;
   playerName: string;
+  familyName: string;
   affiliation: string;
 }
 
@@ -35,6 +36,8 @@ export function ParticipantRow({
 }: ParticipantRowProps) {
   const playerNameIME = useIMEInput(row.playerName, (value) => onUpdate(index, 'playerName', value));
 
+  const familyNameIME = useIMEInput(row.familyName, (value) => onUpdate(index, 'familyName', value));
+
   const affiliationIME = useIMEInput(row.affiliation, (value) => onUpdate(index, 'affiliation', value));
 
   return (
@@ -52,6 +55,18 @@ export function ParticipantRow({
         >
           <GripVertical size={12} />
         </span>
+      </td>
+      <td className="px-1 py-1">
+        <input
+          type="text"
+          value={familyNameIME.value}
+          onChange={familyNameIME.onChange}
+          onCompositionStart={familyNameIME.onCompositionStart}
+          onCompositionEnd={familyNameIME.onCompositionEnd}
+          placeholder="Family name"
+          className="min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text placeholder:text-vscode-dimmed"
+          lang="en"
+        />
       </td>
       <td className="px-1 py-1">
         <input

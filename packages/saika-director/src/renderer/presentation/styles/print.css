@@ -482,6 +482,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.results-list-table .col-remarks {
+  min-width: 110px;
+  text-align: left;
+  font-size: 8pt;
+}
+
 .final-result-sheet {
   background: white;
   color: black;

@@ -35,5 +35,10 @@ export const BP60: CompetitionTypeDefinition = {
   resultFormat: {
     totalShots: 60,
     totalSeries: 6,
+    tieBreakPolicy: 'ISSF_FULL_RING',
+  },
+  resultVerification: {
+    topIndividualResults: 10,
+    topTeamResults: 0,
   },
 };

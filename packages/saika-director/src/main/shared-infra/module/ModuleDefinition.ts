@@ -20,6 +20,17 @@ import type { LaneTimerService } from '@/main/modules/lane-control';
 import type { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
+import type {
+  IFinalResultRepository,
+  IFinalResultsReader,
+  IQualificationResultsReader,
+  IResultRepository,
+} from '@/main/modules/results';
+import type { IScoringDecisionRepository, IScoringDecisionTargetResolver } from '@/main/modules/scoring-decisions';
+import type { ICompetitionShotJournal } from '@/main/modules/mqtt';
+import type { IResultVerificationRepository } from '@/main/modules/result-verification';
+import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
+import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
 
 // Re-export for convenience
 export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
@@ -40,6 +51,16 @@ export interface ServiceRegistry {
   readonly laneTimerService: LaneTimerService;
   readonly appConfigService: AppConfigService;
   readonly competitionTypeRegistry: CompetitionTypeRegistry;
+  readonly resultRepository: IResultRepository;
+  readonly finalResultRepository: IFinalResultRepository;
+  readonly scoringDecisionRepository: IScoringDecisionRepository;
+  readonly scoringDecisionTargetResolver: IScoringDecisionTargetResolver;
+  readonly competitionShotJournal: ICompetitionShotJournal;
+  readonly qualificationResultsReader: IQualificationResultsReader;
+  readonly finalResultsReader: IFinalResultsReader;
+  readonly resultVerificationRepository: IResultVerificationRepository;
+  readonly rangeIncidentReportRepository: IRangeIncidentReportRepository;
+  readonly finalPlacementReviewRepository: IFinalPlacementReviewRepository;
 }
 
 // ---------------------------------------------------------------------------

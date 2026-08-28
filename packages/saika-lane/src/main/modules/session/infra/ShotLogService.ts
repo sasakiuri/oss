@@ -76,9 +76,14 @@ export function formatJsonLine(
     mode: string;
     seriesNumber: number;
     shotNumber: number;
+    /** @deprecated Backwards-compatible alias of effectiveScore. */
     score: number;
+    effectiveScore: number;
+    calculatedScore: number;
     rawScore?: number;
     deviceScore: number | null;
+    receivedAt: string;
+    observationId: string | null;
     x: number | null;
     y: number | null;
     innerTen: boolean;
@@ -92,8 +97,12 @@ export function formatJsonLine(
     seriesNumber: shot.seriesNumber,
     shotNumber: shot.shotNumber,
     score: shot.score.value,
+    effectiveScore: shot.score.value,
+    calculatedScore: shot.calculatedScore.value,
     rawScore: context.rawScore,
     deviceScore: shot.deviceScore !== undefined ? shot.deviceScore.value : null,
+    receivedAt: shot.receivedAt.toISOString(),
+    observationId: shot.sourceObservationId ?? null,
     x: shot.impactPoint !== null ? shot.impactPoint.x : null,
     y: shot.impactPoint !== null ? shot.impactPoint.y : null,
     innerTen: shot.innerTen,

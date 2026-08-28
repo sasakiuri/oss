@@ -11,10 +11,24 @@ import { join } from 'path';
 
 import { championshipModule } from '@/main/modules/championship';
 import { laneControlModule } from '@/main/modules/lane-control';
-import { resultsModule } from '@/main/modules/results';
+import {
+  FinalResultsReader,
+  QualificationResultsReader,
+  resultsModule,
+  ScoringDecisionTargetResolver,
+  SqliteFinalResultRepository,
+  SqliteResultRepository,
+} from '@/main/modules/results';
+import { scoringDecisionsModule, SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 import { shootoffModule } from '@/main/modules/shootoff';
 import { boardModule } from '@/main/modules/board';
-import { mqttModule } from '@/main/modules/mqtt';
+import { mqttModule, SqliteCompetitionShotJournal } from '@/main/modules/mqtt';
+import { resultVerificationModule, SqliteResultVerificationRepository } from '@/main/modules/result-verification';
+import { incidentReportsModule, SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
+import {
+  finalPlacementReviewModule,
+  SqliteFinalPlacementReviewRepository,
+} from '@/main/modules/final-placement-review';
 
 // Infrastructure
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -50,7 +64,18 @@ import { Logger } from '@/shared/utils/Logger';
 const logger = Logger.create('createApp');
 
 // Static module list (Vite/Electron safe — no dynamic import)
-const modules = [championshipModule, laneControlModule, resultsModule, shootoffModule, boardModule, mqttModule];
+const modules = [
+  championshipModule,
+  laneControlModule,
+  scoringDecisionsModule,
+  resultsModule,
+  shootoffModule,
+  boardModule,
+  mqttModule,
+  resultVerificationModule,
+  incidentReportsModule,
+  finalPlacementReviewModule,
+];
 
 /**
  * Services exposed to main.ts.
@@ -101,6 +126,13 @@ export function createApp(preloadPath: string): AppServices {
   // Repositories
   const appConfigService = new AppConfigService(database);
   const laneControlRepository = new SqliteLaneControlRepository(database);
+  const resultRepository = new SqliteResultRepository(database);
+  const finalResultRepository = new SqliteFinalResultRepository(database);
+  const scoringDecisionRepository = new SqliteScoringDecisionRepository(database);
+  const competitionShotJournal = new SqliteCompetitionShotJournal(database);
+  const resultVerificationRepository = new SqliteResultVerificationRepository(database);
+  const rangeIncidentReportRepository = new SqliteRangeIncidentReportRepository(database);
+  const finalPlacementReviewRepository = new SqliteFinalPlacementReviewRepository(database);
 
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
@@ -113,6 +145,26 @@ export function createApp(preloadPath: string): AppServices {
   commandBus.use(new CommandLoggingMiddleware());
   const queryBus = new QueryBus();
   queryBus.use(new QueryLoggingMiddleware());
+
+  const qualificationResultsReader = new QualificationResultsReader(
+    queryBus,
+    resultRepository,
+    scoringDecisionRepository,
+    competitionTypeRegistry,
+  );
+  const finalResultsReader = new FinalResultsReader(
+    queryBus,
+    finalResultRepository,
+    scoringDecisionRepository,
+    finalPlacementReviewRepository,
+    competitionTypeRegistry,
+  );
+  const scoringDecisionTargetResolver = new ScoringDecisionTargetResolver(
+    queryBus,
+    resultRepository,
+    finalResultRepository,
+    competitionTypeRegistry,
+  );
 
   // IPC Router
   const ipcRouter = new IpcRouter();
@@ -133,6 +185,16 @@ export function createApp(preloadPath: string): AppServices {
     laneTimerService,
     appConfigService,
     competitionTypeRegistry,
+    resultRepository,
+    finalResultRepository,
+    scoringDecisionRepository,
+    scoringDecisionTargetResolver,
+    competitionShotJournal,
+    qualificationResultsReader,
+    finalResultsReader,
+    resultVerificationRepository,
+    rangeIncidentReportRepository,
+    finalPlacementReviewRepository,
   };
 
   // === Module Registration via ModuleLoader ===

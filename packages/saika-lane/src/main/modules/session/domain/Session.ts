@@ -190,6 +190,11 @@ export class Session {
     deviceScore?: Score,
     innerTen: boolean = false,
     shotMode?: Mode,
+    evidence?: {
+      calculatedScore?: Score;
+      receivedAt?: Date;
+      sourceObservationId?: string;
+    },
   ): Session {
     // Business rule: cannot add new shots to a finished session
     if (this.isFinished) {
@@ -231,6 +236,9 @@ export class Session {
       seriesNumber,
       innerTen,
       deviceScore,
+      calculatedScore: evidence?.calculatedScore,
+      receivedAt: evidence?.receivedAt,
+      sourceObservationId: evidence?.sourceObservationId,
     });
 
     // Add to all shots history

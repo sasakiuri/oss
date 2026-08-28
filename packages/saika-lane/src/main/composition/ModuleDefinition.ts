@@ -5,6 +5,7 @@
  * Each module declares only the dependencies it needs and receives only those dependencies.
  */
 
+import type Database from 'better-sqlite3';
 import type { BrowserWindow } from 'electron';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
@@ -24,6 +25,7 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 /** Flat record of all injectable services */
 export interface ServiceRegistry {
+  database: Database.Database;
   commandBus: CommandBus;
   queryBus: QueryBus;
   eventBus: IEventBus;

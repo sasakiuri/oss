@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import type { Discipline as DisciplineCode } from '@/shared/ipc/schemas/common';
 
 /**
  * Discipline value object
@@ -11,7 +12,7 @@ export class Discipline {
   /**
    * Discipline value (AIR_RIFLE_10M | AIR_PISTOL_10M | RIFLE_50M | PISTOL_25M | BEAM_RIFLE_10M | BEAM_PISTOL_10M)
    */
-  readonly value: string;
+  readonly value: DisciplineCode;
 
   /**
    * Display name
@@ -36,7 +37,7 @@ export class Discipline {
    * @param distance - Shooting distance (in meters)
    * @param targetSize - Target size (in mm)
    */
-  private constructor(value: string, displayName: string, distance: number, targetSize: number) {
+  private constructor(value: DisciplineCode, displayName: string, distance: number, targetSize: number) {
     this.value = value;
     this.displayName = displayName;
     this.distance = distance;

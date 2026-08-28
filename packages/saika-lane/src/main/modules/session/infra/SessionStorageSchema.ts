@@ -25,6 +25,9 @@ const ShotStorageSchema = z.object({
   seriesNumber: z.number().int().nonnegative(),
   mode: z.union([z.literal('SIGHTING'), z.literal('MATCH')]),
   deviceScore: z.number().optional(),
+  calculatedScore: z.number().optional(),
+  receivedAt: z.string().optional(),
+  sourceObservationId: z.string().optional(),
 });
 
 const SeriesStorageSchema = z.object({

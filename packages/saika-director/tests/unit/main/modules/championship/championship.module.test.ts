@@ -20,6 +20,7 @@ interface ParticipantRow {
   id: string;
   event_id: string;
   player_name: string;
+  family_name: string;
   affiliation: string;
   logo_path: string | null;
   sort_order: number;
@@ -80,6 +81,7 @@ function createHarness(
             id: string;
             eventId: string;
             playerName: string;
+            familyName: string;
             affiliation: string;
             logoPath: string | null;
             sortOrder: number;
@@ -88,6 +90,7 @@ function createHarness(
               id: params.id,
               event_id: params.eventId,
               player_name: params.playerName,
+              family_name: params.familyName,
               affiliation: params.affiliation,
               logo_path: params.logoPath,
               sort_order: params.sortOrder,
@@ -172,6 +175,7 @@ const existingParticipant: ParticipantRow = {
   id: 'participant-1',
   event_id: 'event-1',
   player_name: 'Existing Athlete',
+  family_name: 'Athlete',
   affiliation: 'Test Team',
   logo_path: null,
   sort_order: 0,
@@ -181,6 +185,7 @@ const participantToDelete: ParticipantRow = {
   id: 'participant-2',
   event_id: 'event-1',
   player_name: 'Removed Athlete',
+  family_name: 'Athlete',
   affiliation: 'Test Team',
   logo_path: null,
   sort_order: 1,
@@ -218,6 +223,7 @@ describe('championshipModule saveParticipants', () => {
       {
         id: existingParticipant.id,
         playerName: 'Updated Athlete',
+        familyName: existingParticipant.family_name,
         affiliation: 'Updated Team',
         logoPath: null,
         sortOrder: 0,
@@ -225,6 +231,7 @@ describe('championshipModule saveParticipants', () => {
       {
         id: expect.any(String),
         playerName: 'New Athlete',
+        familyName: 'New Athlete',
         affiliation: 'New Team',
         logoPath: null,
         sortOrder: 1,
@@ -386,6 +393,7 @@ describe('championshipModule relay assignment query', () => {
         firingPointNumber: 3,
         participantId: existingParticipant.id,
         playerName: existingParticipant.player_name,
+        familyName: existingParticipant.family_name,
         affiliation: existingParticipant.affiliation,
       },
     ]);

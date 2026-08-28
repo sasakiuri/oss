@@ -4,6 +4,7 @@ import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Score } from '@/main/modules/session/domain/Score';
 import { ScoreCalculationService } from '@/main/modules/session/domain/ScoreCalculationService';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
+import { DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE, type TargetScoringProfileId } from '@/shared/target';
 
 /**
  * ScoreCalculationServiceImpl (score calculation service implementation)
@@ -48,8 +49,8 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
    * console.log(score.value); // 109
    * ```
    */
-  calculateScore(impactPoint: ImpactPoint, discipline: Discipline): Score {
-    const targetDesign = this.getTargetDesign(discipline);
+  calculateScore(impactPoint: ImpactPoint, discipline: Discipline, profileId?: TargetScoringProfileId): Score {
+    const targetDesign = this.getTargetDesign(discipline, profileId);
     return targetDesign.calculateScore(impactPoint);
   }
 
@@ -60,8 +61,8 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
    * @param discipline - Discipline
    * @returns true if within the X ring, false otherwise
    */
-  isInnerTen(impactPoint: ImpactPoint | null, discipline: Discipline): boolean {
-    const targetDesign = this.getTargetDesign(discipline);
+  isInnerTen(impactPoint: ImpactPoint | null, discipline: Discipline, profileId?: TargetScoringProfileId): boolean {
+    const targetDesign = this.getTargetDesign(discipline, profileId);
     return targetDesign.isInnerTen(impactPoint);
   }
 
@@ -85,8 +86,9 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
    * console.log(targetDesign.rings.length); // 97
    * ```
    */
-  getTargetDesign(discipline: Discipline): TargetDesign {
-    const cacheKey = discipline.value;
+  getTargetDesign(discipline: Discipline, profileId?: TargetScoringProfileId): TargetDesign {
+    const effectiveProfileId = profileId ?? DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE[discipline.value];
+    const cacheKey = `${discipline.value}:${effectiveProfileId}`;
 
     // Try to retrieve from cache
     const cachedDesign = this.targetDesignCache.get(cacheKey);
@@ -95,7 +97,7 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
     }
 
     // Not in cache; create a new one
-    const targetDesign = TargetDesign.forDiscipline(discipline);
+    const targetDesign = TargetDesign.forDiscipline(discipline, effectiveProfileId);
 
     // Save to cache
     this.targetDesignCache.set(cacheKey, targetDesign);

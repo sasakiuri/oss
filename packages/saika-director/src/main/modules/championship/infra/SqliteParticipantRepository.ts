@@ -8,6 +8,7 @@ interface ParticipantRow {
   id: string;
   event_id: string;
   player_name: string;
+  family_name: string | null;
   affiliation: string;
   logo_path: string | null;
   sort_order: number;
@@ -18,11 +19,12 @@ export class SqliteParticipantRepository implements IParticipantRepository {
 
   save(participant: Participant): void {
     const stmt = this.db.prepare(`
-      INSERT INTO participants (id, event_id, player_name, affiliation, logo_path, sort_order)
-      VALUES (@id, @eventId, @playerName, @affiliation, @logoPath, @sortOrder)
+      INSERT INTO participants (id, event_id, player_name, family_name, affiliation, logo_path, sort_order)
+      VALUES (@id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder)
       ON CONFLICT(id) DO UPDATE SET
         event_id = excluded.event_id,
         player_name = excluded.player_name,
+        family_name = excluded.family_name,
         affiliation = excluded.affiliation,
         logo_path = excluded.logo_path,
         sort_order = excluded.sort_order
@@ -31,6 +33,7 @@ export class SqliteParticipantRepository implements IParticipantRepository {
       id: participant.id.value,
       eventId: participant.eventId.value,
       playerName: participant.playerName,
+      familyName: participant.familyName,
       affiliation: participant.affiliation,
       logoPath: participant.logoPath,
       sortOrder: participant.sortOrder,
@@ -39,11 +42,12 @@ export class SqliteParticipantRepository implements IParticipantRepository {
 
   saveAll(participants: Participant[]): void {
     const stmt = this.db.prepare(`
-      INSERT INTO participants (id, event_id, player_name, affiliation, logo_path, sort_order)
-      VALUES (@id, @eventId, @playerName, @affiliation, @logoPath, @sortOrder)
+      INSERT INTO participants (id, event_id, player_name, family_name, affiliation, logo_path, sort_order)
+      VALUES (@id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder)
       ON CONFLICT(id) DO UPDATE SET
         event_id = excluded.event_id,
         player_name = excluded.player_name,
+        family_name = excluded.family_name,
         affiliation = excluded.affiliation,
         logo_path = excluded.logo_path,
         sort_order = excluded.sort_order
@@ -54,6 +58,7 @@ export class SqliteParticipantRepository implements IParticipantRepository {
           id: p.id.value,
           eventId: p.eventId.value,
           playerName: p.playerName,
+          familyName: p.familyName,
           affiliation: p.affiliation,
           logoPath: p.logoPath,
           sortOrder: p.sortOrder,
@@ -101,6 +106,7 @@ export class SqliteParticipantRepository implements IParticipantRepository {
       row.affiliation,
       row.logo_path,
       row.sort_order,
+      row.family_name ?? row.player_name,
     );
   }
 }

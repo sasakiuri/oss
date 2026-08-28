@@ -30,7 +30,11 @@ export interface RecordShotInput {
   sessionId: string;
   impactPoint: ImpactPoint | null;
   timestamp: Date;
+  /** Local receipt time, distinct from the target-provided firing time. */
+  receivedAt?: Date;
   deviceScore?: number;
+  /** Link to the immutable observation journal entry. */
+  sourceObservationId?: string;
   /** Mode reported by the device (if omitted, the Session's mode is used) */
   mode?: Mode;
 }

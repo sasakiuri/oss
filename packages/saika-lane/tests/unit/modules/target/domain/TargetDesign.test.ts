@@ -819,16 +819,26 @@ describe('TargetDesign value object', () => {
       expect(targetDesign.isInnerTen(impactPoint)).toBe(false);
     });
 
-    it('AIR_PISTOL_10M (xRingRadius=5.0mm): distance 4.99mm should be innerTen=true', () => {
+    it('ISSF AIR_PISTOL_10M: distance 4.75mm should be innerTen=true', () => {
       const targetDesign = TargetDesign.forDiscipline(Discipline.airPistol10m());
-      const impactPoint = new ImpactPoint(4.99, 0);
+      const impactPoint = new ImpactPoint(4.75, 0);
       expect(targetDesign.isInnerTen(impactPoint)).toBe(true);
     });
 
-    it('AIR_PISTOL_10M (xRingRadius=5.0mm): distance 5.01mm should be innerTen=false', () => {
+    it('ISSF AIR_PISTOL_10M: distance 4.76mm should be innerTen=false', () => {
       const targetDesign = TargetDesign.forDiscipline(Discipline.airPistol10m());
-      const impactPoint = new ImpactPoint(5.01, 0);
+      const impactPoint = new ImpactPoint(4.76, 0);
       expect(targetDesign.isInnerTen(impactPoint)).toBe(false);
+    });
+
+    it('ISSF RIFLE_50M: distance 5.30mm should be innerTen=true', () => {
+      const targetDesign = TargetDesign.forDiscipline(Discipline.rifle50m());
+      expect(targetDesign.isInnerTen(new ImpactPoint(5.3, 0))).toBe(true);
+    });
+
+    it('ISSF RIFLE_50M: distance 5.31mm should be innerTen=false', () => {
+      const targetDesign = TargetDesign.forDiscipline(Discipline.rifle50m());
+      expect(targetDesign.isInnerTen(new ImpactPoint(5.31, 0))).toBe(false);
     });
 
     it('impactPoint=null → innerTen=false', () => {
@@ -946,6 +956,35 @@ describe('TargetDesign value object', () => {
       expect(beamPistol.rings).toEqual(airPistol.rings);
       expect(beamPistol.xRingRadius).toBe(5.0);
       expect(beamPistol.calculateScore(new ImpactPoint(8, 0)).value).toBe(100);
+    });
+  });
+
+  describe('25m target-face profiles', () => {
+    it('uses the precision face as the backward-compatible default', () => {
+      const design = TargetDesign.forDiscipline(Discipline.pistol25m());
+
+      expect(design.profileId).toBe('ISSF_PISTOL_25M_PRECISION_2026');
+      expect(design.rings).toHaveLength(10);
+      expect(design.rings[0]).toMatchObject({ score: 100, radius: 29.5 });
+      expect(design.rings[1]).toMatchObject({ score: 90, radius: 54.5 });
+      expect(design.xRingRadius).toBe(17);
+    });
+
+    it('builds the rapid-fire face without changing the discipline model', () => {
+      const design = TargetDesign.forProfile('ISSF_PISTOL_25M_RAPID_FIRE_2026');
+
+      expect(design.discipline.value).toBe('PISTOL_25M');
+      expect(design.rings).toHaveLength(6);
+      expect(design.rings[0]).toMatchObject({ score: 100, radius: 54.5 });
+      expect(design.rings[1]).toMatchObject({ score: 90, radius: 94.5 });
+      expect(design.calculateScore(new ImpactPoint(54.5, 0)).value).toBe(100);
+      expect(design.calculateScore(new ImpactPoint(54.51, 0)).value).toBe(90);
+    });
+
+    it('rejects a profile from another discipline', () => {
+      expect(() => TargetDesign.forDiscipline(Discipline.airRifle10m(), 'ISSF_AIR_PISTOL_10M_2026')).toThrow(
+        'Invalid target design',
+      );
     });
   });
 });

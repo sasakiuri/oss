@@ -48,6 +48,10 @@ const OpenResultsListPrintPayloadSchema = z.object({
   relayNumber: z.number().int().positive().optional(),
 });
 
+const OpenIncidentReportPrintPayloadSchema = z.object({
+  reportId: uuidSchema,
+});
+
 const BoardWindowConfigSchema = z.object({
   type: z.enum([
     'target-board',
@@ -56,6 +60,7 @@ const BoardWindowConfigSchema = z.object({
     'final-board',
     'score-sheet-print',
     'results-list-print',
+    'incident-report-print',
   ]),
   laneRange: z.object({ from: z.number(), to: z.number() }).optional(),
   competitionId: uuidSchema.optional(),
@@ -67,6 +72,7 @@ const BoardWindowConfigSchema = z.object({
   relayNumber: z.number().int().positive().optional(),
   round: z.string().optional(),
   eventType: z.string().optional(),
+  reportId: uuidSchema.optional(),
 });
 
 const LiveRankingDtoSchema = z.object({
@@ -91,6 +97,7 @@ export type OpenResultsBoardPayload = z.infer<typeof OpenResultsBoardPayloadSche
 export type OpenFinalBoardPayload = z.infer<typeof OpenFinalBoardPayloadSchema>;
 export type OpenScoreSheetPrintPayload = z.infer<typeof OpenScoreSheetPrintPayloadSchema>;
 export type OpenResultsListPrintPayload = z.infer<typeof OpenResultsListPrintPayloadSchema>;
+export type OpenIncidentReportPrintPayload = z.infer<typeof OpenIncidentReportPrintPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -103,6 +110,7 @@ export const boardContract = defineContract('board', {
   openFinalBoard: command(OpenFinalBoardPayloadSchema, commandDataResponseSchema(z.string())),
   openScoreSheetPrint: command(OpenScoreSheetPrintPayloadSchema, commandDataResponseSchema(z.string())),
   openResultsListPrint: command(OpenResultsListPrintPayloadSchema, commandDataResponseSchema(z.string())),
+  openIncidentReportPrint: command(OpenIncidentReportPrintPayloadSchema, commandDataResponseSchema(z.string())),
   closeBoard: command(z.string().min(1), CommandResponseSchema),
   getConfig: query(queryResponseSchema(BoardWindowConfigSchema.nullable())),
   getLiveRanking: query(queryResponseSchema(z.array(LiveRankingDtoSchema))),

@@ -1,6 +1,19 @@
 // Domain entities (used by tests)
 export { Result } from './domain/Result';
 export { ResultId } from './domain/ResultId';
+export type { IResultRepository } from './domain/IResultRepository';
+export type { IFinalResultRepository } from './domain/IFinalResultRepository';
+export { QualificationResultsReader, type IQualificationResultsReader } from './application/QualificationResultsReader';
+export {
+  FinalResultsReader,
+  type FinalResultsSnapshot,
+  type IFinalResultsReader,
+} from './application/FinalResultsReader';
+export { ScoringDecisionTargetResolver } from './application/ScoringDecisionTargetResolver';
+
+// Composition-root adapter
+export { SqliteResultRepository } from './infra/SqliteResultRepository';
+export { SqliteFinalResultRepository } from './infra/SqliteFinalResultRepository';
 
 // Module definition
 export { resultsModule } from './results.module';

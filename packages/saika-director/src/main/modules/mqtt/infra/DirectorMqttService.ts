@@ -128,6 +128,8 @@ export interface CreateCompetitionInput {
 
 export interface DirectorMqttCallbacks {
   onStateChanged?: (snapshot: MqttControlSnapshot) => void;
+  /** Called for every valid delivery, including duplicates and replay deliveries. */
+  onCompetitionShotObserved?: (shot: CompetitionShotPayload, payloadJson: string) => void;
   onCompetitionShot?: (shot: CompetitionShotPayload) => void;
   onSessionReset?: () => void;
   onError?: (message: string) => void;
@@ -988,6 +990,7 @@ export class DirectorMqttService {
     if (kind === 'shot') {
       const shot = this.parsePayload(CompetitionShotPayloadSchema, payload, 'competition shot');
       if (!shot || shot.laneId !== laneId || shot.competitionId !== segments[2]) return;
+      this.callbacks.onCompetitionShotObserved?.(shot, payload.toString('utf8'));
       if (!this.rememberShot(shot.shotId)) return;
       this.rememberCompetitionShot(shot);
       this.updateCompetitionLane(

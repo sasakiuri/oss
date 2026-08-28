@@ -3,12 +3,14 @@ import type { IResultRepository } from '../domain/IResultRepository';
 import { Result } from '../domain/Result';
 import { ResultId } from '../domain/ResultId';
 import { EventId, ParticipantId } from '@/main/modules/championship';
+import type { RankingShotEvidence } from '@/shared/competitionTypes';
 
 interface ResultRow {
   id: string;
   event_id: string;
   participant_id: string;
   player_name: string;
+  family_name: string | null;
   affiliation: string;
   total_score: number;
   series1: number;
@@ -22,6 +24,8 @@ interface ResultRow {
   confirmed_at: string;
   status: 'published' | 'confirmed';
   source_competition_id: string | null;
+  source_lane_id: string | null;
+  ranking_shots_detail: string;
 }
 
 export class SqliteResultRepository implements IResultRepository {
@@ -30,14 +34,16 @@ export class SqliteResultRepository implements IResultRepository {
   save(result: Result): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO results (
-        id, event_id, participant_id, player_name, affiliation,
+        id, event_id, participant_id, player_name, family_name, affiliation,
         total_score, series1, series2, series3, series4, series5, series6,
-        shots_detail, relay_number, confirmed_at, status, source_competition_id
+        shots_detail, ranking_shots_detail, relay_number, confirmed_at, status,
+        source_competition_id, source_lane_id
       )
       VALUES (
-        @id, @eventId, @participantId, @playerName, @affiliation,
+        @id, @eventId, @participantId, @playerName, @familyName, @affiliation,
         @totalScore, @series1, @series2, @series3, @series4, @series5, @series6,
-        @shotsDetail, @relayNumber, @confirmedAt, @status, @sourceCompetitionId
+        @shotsDetail, @rankingShotsDetail, @relayNumber, @confirmedAt, @status,
+        @sourceCompetitionId, @sourceLaneId
       )
     `);
     const seriesScores = result.seriesScores;
@@ -46,6 +52,7 @@ export class SqliteResultRepository implements IResultRepository {
       eventId: result.eventId.value,
       participantId: result.participantId.value,
       playerName: result.playerName,
+      familyName: result.familyName,
       affiliation: result.affiliation,
       totalScore: result.totalScore,
       series1: seriesScores[0] ?? 0,
@@ -55,10 +62,12 @@ export class SqliteResultRepository implements IResultRepository {
       series5: seriesScores[4] ?? 0,
       series6: seriesScores[5] ?? 0,
       shotsDetail: JSON.stringify(result.shots),
+      rankingShotsDetail: JSON.stringify(result.rankingShots),
       relayNumber: result.relayNumber,
       confirmedAt: result.confirmedAt.toISOString(),
       status: result.status,
       sourceCompetitionId: result.sourceCompetitionId,
+      sourceLaneId: result.sourceLaneId,
     });
   }
 
@@ -153,6 +162,36 @@ export class SqliteResultRepository implements IResultRepository {
       new Date(row.confirmed_at),
       row.status,
       row.source_competition_id,
+      row.family_name ?? row.player_name,
+      row.source_lane_id,
+      parseRankingShots(row.ranking_shots_detail),
     );
   }
+}
+
+function parseRankingShots(value: string | null | undefined): RankingShotEvidence[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isRankingShotEvidence).map((shot) => ({ ...shot }));
+  } catch {
+    // Legacy/corrupt evidence must not prevent the effective result from loading.
+    return [];
+  }
+}
+
+function isRankingShotEvidence(value: unknown): value is RankingShotEvidence {
+  if (typeof value !== 'object' || value === null) return false;
+  const shot = value as Record<string, unknown>;
+  return (
+    typeof shot.ringScore === 'number' &&
+    Number.isFinite(shot.ringScore) &&
+    (shot.decimalScore === null || (typeof shot.decimalScore === 'number' && Number.isFinite(shot.decimalScore))) &&
+    (shot.innerTen === null || typeof shot.innerTen === 'boolean') &&
+    (shot.shotId === null || typeof shot.shotId === 'string') &&
+    typeof shot.seriesIndex === 'number' &&
+    Number.isInteger(shot.seriesIndex) &&
+    shot.seriesIndex >= 0
+  );
 }

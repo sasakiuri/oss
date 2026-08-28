@@ -2,6 +2,10 @@
 export { championshipContract } from './championship.contract';
 export { laneControlContract } from './laneControl.contract';
 export { resultsContract } from './results.contract';
+export { scoringDecisionsContract } from './scoringDecisions.contract';
+export { resultVerificationContract } from './resultVerification.contract';
+export { incidentReportsContract } from './incidentReports.contract';
+export { finalPlacementReviewContract } from './finalPlacementReview.contract';
 export { boardContract } from './board.contract';
 export { shootoffContract } from './shootoff.contract';
 export { mqttContract } from './mqtt.contract';
@@ -50,6 +54,42 @@ export type {
   GetFinalEventResultsPayload,
 } from './results.contract';
 
+export type {
+  ScoringDecisionDto,
+  AddScoringDecisionPayload,
+  RevokeScoringDecisionPayload,
+  ScoringDecisionListResponse,
+} from './scoringDecisions.contract';
+
+export type {
+  ResultVerificationCheckDto,
+  ResultListApprovalDto,
+  VerificationResultItemDto,
+  ResultVerificationStatusDto,
+  AddVerificationCheckPayload,
+  ApproveResultListPayload,
+  RevokeResultListApprovalPayload,
+} from './resultVerification.contract';
+
+export type {
+  IncidentReportOfficialRoleDto,
+  IncidentReportEntryDto,
+  IncidentReportLinkedDecisionDto,
+  RangeIncidentReportDto,
+  UncoveredIncidentDecisionDto,
+  IncidentReportEventStatusDto,
+  CreateRangeIncidentReportPayload,
+  AppendIncidentReportEntryPayload,
+} from './incidentReports.contract';
+
+export type {
+  FinalPlacementAssignmentDto,
+  FinalPlacementReviewEntryDto,
+  FinalPlacementReviewStatusDto,
+  RecordFinalPlacementReviewPayload,
+  RevokeFinalPlacementReviewPayload,
+} from './finalPlacementReview.contract';
+
 // Lane Control types
 export type {
   ShotDto,
@@ -88,6 +128,7 @@ export type {
   OpenFinalBoardPayload,
   OpenScoreSheetPrintPayload,
   OpenResultsListPrintPayload,
+  OpenIncidentReportPrintPayload,
 } from './board.contract';
 
 // Event types

@@ -9,7 +9,13 @@
  * Board window type.
  */
 export type BoardType =
-  'target-board' | 'ranking-board' | 'results-board' | 'final-board' | 'score-sheet-print' | 'results-list-print';
+  | 'target-board'
+  | 'ranking-board'
+  | 'results-board'
+  | 'final-board'
+  | 'score-sheet-print'
+  | 'results-list-print'
+  | 'incident-report-print';
 
 /**
  * Board window configuration.
@@ -36,4 +42,6 @@ export interface BoardWindowConfig {
   round?: string;
   /** Results List Print: competition type such as BR60S or BP60. */
   eventType?: string;
+  /** Incident Report Print: report ID. */
+  reportId?: string;
 }

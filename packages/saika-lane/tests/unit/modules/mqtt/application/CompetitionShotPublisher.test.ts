@@ -6,6 +6,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import { CompetitionShotPublisher } from '@/main/modules/mqtt/application/CompetitionShotPublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
+import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
@@ -86,6 +87,10 @@ function createMatchShot(): Shot {
     shotNumber: 5,
     seriesNumber: 3,
     innerTen: false,
+    deviceScore: new Score(100),
+    calculatedScore: new Score(103),
+    receivedAt: new Date('2026-02-24T12:00:00.040Z'),
+    sourceObservationId: '11111111-1111-4111-8111-111111111111',
   });
 }
 
@@ -106,6 +111,7 @@ describe('CompetitionShotPublisher', () => {
   let eventBus: IEventBus;
   let storage: ILocalStorage;
   let competitionRepository: ICompetitionRepository;
+  let sessionRepository: ISessionRepository;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -119,7 +125,15 @@ describe('CompetitionShotPublisher', () => {
       findActive: vi.fn().mockResolvedValue(mockCompetition),
       delete: vi.fn(),
     };
-    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository);
+    sessionRepository = {
+      save: vi.fn(),
+      saveShot: vi.fn(),
+      findById: vi.fn().mockResolvedValue(null),
+      findAll: vi.fn().mockResolvedValue([]),
+      delete: vi.fn(),
+      findActive: vi.fn().mockResolvedValue(null),
+    };
+    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository, sessionRepository);
   });
 
   it('should subscribe to ShotRecorded events', () => {
@@ -172,6 +186,11 @@ describe('CompetitionShotPublisher', () => {
     expect(payload.x).toBe(2.5);
     expect(payload.y).toBe(-1.3);
     expect(payload.rawScoreX10).toBe(102);
+    expect(payload.deviceScoreX10).toBe(100);
+    expect(payload.calculatedScoreX10).toBe(103);
+    expect(payload.effectiveScoreX10).toBe(102);
+    expect(payload.receivedAt).toBe('2026-02-24T12:00:00.040Z');
+    expect(payload.observationId).toBe('11111111-1111-4111-8111-111111111111');
     expect(payload.innerTen).toBe(false);
     expect(payload.mode).toBe('MATCH');
     expect(payload.competitionId).toBe('comp-uuid');
@@ -179,10 +198,37 @@ describe('CompetitionShotPublisher', () => {
     expect(payload.stageIndex).toBe(1);
     expect(payload.scored).toBe(true);
     expect(payload.seriesIndex).toBe(2);
-    expect(payload.shotNumberInSeries).toBe(5);
+    expect(payload.shotNumberInSeries).toBe(1);
     expect(payload.isRecorded).toBe(true);
     expect(payload.isReplay).toBe(false);
     expect(payload.publishedAt).toBeDefined();
+  });
+
+  it('derives shotNumberInSeries from persisted history', async () => {
+    const earlier = Shot.create({
+      impactPoint: null,
+      score: new Score(100),
+      mode: Mode.match(),
+      timestamp: new Date('2026-02-24T11:59:59Z'),
+      shotNumber: 4,
+      seriesNumber: 3,
+      innerTen: false,
+    });
+    const shot = createMatchShot();
+    vi.mocked(sessionRepository.findById).mockResolvedValue({ allShots: [earlier, shot] } as never);
+
+    (eventBus as { emit: Function }).emit({
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-uuid',
+      shot,
+      scoringMode: 'DECIMAL',
+    } satisfies ShotRecordedEvent);
+
+    await vi.waitFor(() => expect(mqttClient.publish).toHaveBeenCalled());
+    const payload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
+    expect(payload.seriesIndex).toBe(2);
+    expect(payload.shotNumberInSeries).toBe(2);
   });
 
   it('should set isRecorded=false for SIGHTING shots in match stage', async () => {

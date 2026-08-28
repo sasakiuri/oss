@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 import type { Discipline } from '@/shared/ipc/contracts';
+import { getDefaultTargetScoringProfile } from '@/shared/target';
 
-/** Per-discipline bullet radius (mm) -- conforms to TARGET_SPEC.md */
-export const SHOT_RADIUS_BY_DISCIPLINE: Record<Discipline, number> = {
-  BEAM_RIFLE_10M: 3.0, // Beam diameter 6.0mm
-  BEAM_PISTOL_10M: 2.25, // Virtual projectile diameter 4.5mm
-  AIR_RIFLE_10M: 2.25, // Bullet diameter 4.5mm
-  AIR_PISTOL_10M: 2.25, // Bullet diameter 4.5mm
-  RIFLE_50M: 2.8, // Bullet diameter 5.6mm
-  PISTOL_25M: 4.5, // Bullet diameter 9.0mm
-} as const;
+/** Per-discipline default projectile radius (mm), derived from target profiles. */
+export const SHOT_RADIUS_BY_DISCIPLINE: Readonly<Record<Discipline, number>> = Object.freeze({
+  BEAM_RIFLE_10M: getDefaultTargetScoringProfile('BEAM_RIFLE_10M').projectileRadiusMm,
+  BEAM_PISTOL_10M: getDefaultTargetScoringProfile('BEAM_PISTOL_10M').projectileRadiusMm,
+  AIR_RIFLE_10M: getDefaultTargetScoringProfile('AIR_RIFLE_10M').projectileRadiusMm,
+  AIR_PISTOL_10M: getDefaultTargetScoringProfile('AIR_PISTOL_10M').projectileRadiusMm,
+  RIFLE_50M: getDefaultTargetScoringProfile('RIFLE_50M').projectileRadiusMm,
+  PISTOL_25M: getDefaultTargetScoringProfile('PISTOL_25M').projectileRadiusMm,
+});

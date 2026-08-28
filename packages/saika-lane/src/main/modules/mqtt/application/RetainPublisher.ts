@@ -20,6 +20,8 @@ import type { HardwareStatePublisher } from './HardwareStatePublisher';
 import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
+import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
+import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
 
 export class RetainPublisher {
   private readonly mqttClient: IMqttClientService;
@@ -152,8 +154,22 @@ export class RetainPublisher {
     const topic = `saika/competition/${competitionId}/lane/${laneId}/shot`;
 
     for (const shot of backlogShots) {
-      const stageIndex = competition.currentStageIndex;
-      const stage = competition.config.stages[stageIndex];
+      const currentStage = competition.config.stages[competition.currentStageIndex];
+      const resolvedPlacement = resolveCompetitionShotPlacement(
+        shot,
+        session.allShots,
+        competition.config,
+        competition.currentStageIndex,
+        competition.currentSeriesIndex,
+      );
+      const placement = currentStage?.scored
+        ? resolvedPlacement
+        : {
+            ...resolvedPlacement,
+            stageIndex: competition.currentStageIndex,
+            seriesIndex: competition.currentSeriesIndex,
+          };
+      const stage = competition.config.stages[placement.stageIndex];
       const scored = stage?.scored ?? true;
 
       const payload = JSON.stringify({
@@ -161,16 +177,16 @@ export class RetainPublisher {
         shotId: shot.id,
         x: shot.impactPoint?.x ?? 0,
         y: shot.impactPoint?.y ?? 0,
-        rawScoreX10: shot.score.value,
+        ...toShotMqttEvidencePayload(shot),
         innerTen: shot.innerTen,
         mode: shot.mode.value,
         timestamp: shot.timestamp.toISOString(),
         competitionId,
         sessionId,
-        stageIndex,
+        stageIndex: placement.stageIndex,
         scored,
-        seriesIndex: competition.currentSeriesIndex,
-        shotNumberInSeries: shot.shotNumber,
+        seriesIndex: placement.seriesIndex,
+        shotNumberInSeries: placement.shotNumberInSeries,
         isRecorded: shot.mode.isMatch() && scored,
         isReplay: true,
         publishedAt: new Date().toISOString(),

@@ -57,6 +57,15 @@ export class Shot {
    */
   readonly deviceScore?: Score;
 
+  /** Score independently calculated from coordinates by Saika Lane. */
+  readonly calculatedScore: Score;
+
+  /** Time at which Saika Lane received the observation. */
+  readonly receivedAt: Date;
+
+  /** Link to the immutable pre-rule observation journal, when available. */
+  readonly sourceObservationId?: string;
+
   /**
    * Private constructor
    * Prevents direct instantiation from outside; forces creation via static factory methods
@@ -81,6 +90,9 @@ export class Shot {
     seriesNumber: number,
     innerTen: boolean,
     deviceScore?: Score,
+    calculatedScore?: Score,
+    receivedAt?: Date,
+    sourceObservationId?: string,
   ) {
     this.id = id;
     this.impactPoint = impactPoint;
@@ -91,6 +103,9 @@ export class Shot {
     this.seriesNumber = seriesNumber;
     this.innerTen = innerTen;
     this.deviceScore = deviceScore;
+    this.calculatedScore = calculatedScore ?? score;
+    this.receivedAt = receivedAt ?? timestamp;
+    this.sourceObservationId = sourceObservationId;
 
     // Guarantee immutability: freeze the object
     Object.freeze(this);
@@ -112,6 +127,9 @@ export class Shot {
     seriesNumber: number;
     innerTen: boolean;
     deviceScore?: Score;
+    calculatedScore?: Score;
+    receivedAt?: Date;
+    sourceObservationId?: string;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (props.shotNumber < 1) {
@@ -133,6 +151,9 @@ export class Shot {
     if (isNaN(props.timestamp.getTime())) {
       throw ErrorCatalog.createError('INVALID_SHOT', { detail: 'timestamp must be a valid date/time' });
     }
+    if (props.receivedAt !== undefined && isNaN(props.receivedAt.getTime())) {
+      throw ErrorCatalog.createError('INVALID_SHOT', { detail: 'receivedAt must be a valid date/time' });
+    }
 
     // Auto-generate ID (UUID v4)
     const id = crypto.randomUUID();
@@ -147,6 +168,9 @@ export class Shot {
       props.seriesNumber,
       props.innerTen,
       props.deviceScore,
+      props.calculatedScore,
+      props.receivedAt,
+      props.sourceObservationId,
     );
   }
 
@@ -167,6 +191,9 @@ export class Shot {
     seriesNumber: number;
     innerTen: boolean;
     deviceScore?: Score;
+    calculatedScore?: Score;
+    receivedAt?: Date;
+    sourceObservationId?: string;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (data.shotNumber < 1) {
@@ -188,6 +215,9 @@ export class Shot {
     if (isNaN(data.timestamp.getTime())) {
       throw ErrorCatalog.createError('INVALID_SHOT', { detail: 'timestamp must be a valid date/time' });
     }
+    if (data.receivedAt !== undefined && isNaN(data.receivedAt.getTime())) {
+      throw ErrorCatalog.createError('INVALID_SHOT', { detail: 'receivedAt must be a valid date/time' });
+    }
 
     // Reconstruct using the existing ID
     return new Shot(
@@ -200,6 +230,9 @@ export class Shot {
       data.seriesNumber,
       data.innerTen,
       data.deviceScore,
+      data.calculatedScore,
+      data.receivedAt,
+      data.sourceObservationId,
     );
   }
 

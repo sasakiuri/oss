@@ -99,6 +99,33 @@ describe('formatJsonLine', () => {
     expect(result.deviceScore).toBe(91);
   });
 
+  it('separates device, calculated, and effective evidence', () => {
+    const shot = Shot.create({
+      impactPoint: buildImpactPoint(),
+      score: new Score(101),
+      calculatedScore: new Score(103),
+      deviceScore: new Score(99),
+      mode: Mode.match(),
+      timestamp: new Date('2026-01-15T10:00:00.000Z'),
+      receivedAt: new Date('2026-01-15T10:00:00.025Z'),
+      sourceObservationId: '11111111-1111-4111-8111-111111111111',
+      shotNumber: 1,
+      seriesNumber: 1,
+      innerTen: false,
+    });
+
+    const result = JSON.parse(formatJsonLine(shot, discipline, defaultContext));
+
+    expect(result).toMatchObject({
+      score: 101,
+      effectiveScore: 101,
+      calculatedScore: 103,
+      deviceScore: 99,
+      receivedAt: '2026-01-15T10:00:00.025Z',
+      observationId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
   it('should output score as an integer value', () => {
     const shot = buildShot({
       score: buildScore(92),

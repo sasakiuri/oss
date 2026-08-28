@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BoardApp from '@/renderer/presentation/BoardApp';
 
 const { getConfig } = vi.hoisted(() => ({ getConfig: vi.fn() }));
+const REPORT_ID = '11111111-1111-4111-8111-111111111111';
 
 vi.mock('@/renderer/services', () => ({
   boardService: { getConfig },
@@ -34,6 +35,11 @@ vi.mock('@/renderer/presentation/features/print/ScoreSheetPrintScreen', () => ({
 }));
 vi.mock('@/renderer/presentation/features/print/ResultsListPrintScreen', () => ({
   ResultsListPrintScreen: () => <div>results list</div>,
+}));
+vi.mock('@/renderer/presentation/features/print/IncidentReportPrintScreen', () => ({
+  IncidentReportPrintScreen: ({ config }: { config: { reportId?: string } }) => (
+    <div>incident report {config.reportId}</div>
+  ),
 }));
 
 describe('BoardApp', () => {
@@ -72,5 +78,16 @@ describe('BoardApp', () => {
     render(<BoardApp />);
 
     expect(await screen.findByText('ranking board')).toBeInTheDocument();
+  });
+
+  it('routes an incident report print configuration to its print screen', async () => {
+    getConfig.mockResolvedValue({
+      success: true,
+      data: { type: 'incident-report-print', reportId: REPORT_ID },
+    });
+
+    render(<BoardApp />);
+
+    expect(await screen.findByText(`incident report ${REPORT_ID}`)).toBeInTheDocument();
   });
 });

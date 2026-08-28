@@ -236,10 +236,14 @@ describe('RetainPublisher', () => {
     const payload1 = JSON.parse(shotPublishes[0]![1] as string);
     expect(payload1.isReplay).toBe(true);
     expect(payload1.shotId).toBe(shot1.id);
+    expect(payload1.shotNumberInSeries).toBe(1);
+    expect(payload1.stageIndex).toBe(1);
+    expect(payload1.seriesIndex).toBe(0);
 
     const payload2 = JSON.parse(shotPublishes[1]![1] as string);
     expect(payload2.isReplay).toBe(true);
     expect(payload2.shotId).toBe(shot2.id);
+    expect(payload2.shotNumberInSeries).toBe(2);
   });
 
   it('should send shots in timestamp ascending order', async () => {

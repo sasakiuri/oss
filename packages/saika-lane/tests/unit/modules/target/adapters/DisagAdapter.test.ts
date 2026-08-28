@@ -69,7 +69,9 @@ describe('DisagAdapter', () => {
     expect(shot.impactPoint).toMatchObject({ x: 3, y: 4 });
     expect(shot.score.value).toBe(103);
     expect(shot.deviceScore?.value).toBe(103);
-    expect(shot.innerTen).toBe(true);
+    // The fixture is 5.00 mm from centre, outside the ISSF AP inner-ten
+    // centre radius of 4.75 mm.
+    expect(shot.innerTen).toBe(false);
   });
 
   it('rejects a non-10m-air context', () => {

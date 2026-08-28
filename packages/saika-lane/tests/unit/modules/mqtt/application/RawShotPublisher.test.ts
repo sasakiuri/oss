@@ -62,8 +62,12 @@ function createTestShot(
     x: number | null;
     y: number | null;
     score: number;
+    deviceScore: number;
+    calculatedScore: number;
     mode: 'SIGHTING' | 'MATCH';
     innerTen: boolean;
+    receivedAt: Date;
+    observationId: string;
   }>,
 ): Shot {
   const x = overrides && 'x' in overrides ? overrides.x : 1.5;
@@ -80,6 +84,10 @@ function createTestShot(
     shotNumber: 1,
     seriesNumber: 1,
     innerTen,
+    deviceScore: overrides?.deviceScore === undefined ? undefined : new Score(overrides.deviceScore),
+    calculatedScore: overrides?.calculatedScore === undefined ? undefined : new Score(overrides.calculatedScore),
+    receivedAt: overrides?.receivedAt,
+    sourceObservationId: overrides?.observationId,
   });
 }
 
@@ -120,7 +128,16 @@ describe('RawShotPublisher', () => {
   });
 
   it('should include correct payload fields', () => {
-    const shot = createTestShot({ x: 3.2, y: -1.5, score: 98, innerTen: false });
+    const shot = createTestShot({
+      x: 3.2,
+      y: -1.5,
+      score: 98,
+      deviceScore: 97,
+      calculatedScore: 99,
+      innerTen: false,
+      receivedAt: new Date('2026-02-24T12:00:00.050Z'),
+      observationId: '11111111-1111-4111-8111-111111111111',
+    });
     const event: ShotRecordedEvent = {
       type: 'ShotRecorded',
       timestamp: Date.now(),
@@ -138,6 +155,11 @@ describe('RawShotPublisher', () => {
     expect(publishedPayload.x).toBe(3.2);
     expect(publishedPayload.y).toBe(-1.5);
     expect(publishedPayload.rawScoreX10).toBe(98);
+    expect(publishedPayload.deviceScoreX10).toBe(97);
+    expect(publishedPayload.calculatedScoreX10).toBe(99);
+    expect(publishedPayload.effectiveScoreX10).toBe(98);
+    expect(publishedPayload.receivedAt).toBe('2026-02-24T12:00:00.050Z');
+    expect(publishedPayload.observationId).toBe('11111111-1111-4111-8111-111111111111');
     expect(publishedPayload.innerTen).toBe(false);
     expect(publishedPayload.mode).toBe('MATCH');
     expect(publishedPayload.timestamp).toBe('2026-02-24T12:00:00.000Z');

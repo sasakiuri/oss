@@ -9,7 +9,7 @@ import {
   createParseError,
 } from '@/shared/types/Result';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-import type { ResultFormat } from '@/shared/competitionTypes';
+import type { RankingShotEvidence, ResultFormat } from '@/shared/competitionTypes';
 
 const logger = Logger.create('Result');
 
@@ -38,6 +38,9 @@ export class Result implements IRankable<Result> {
     public readonly confirmedAt: Date,
     public readonly status: ResultStatus,
     public readonly sourceCompetitionId: string | null = null,
+    public readonly familyName: string = playerName,
+    public readonly sourceLaneId: string | null = null,
+    public readonly rankingShots: readonly RankingShotEvidence[] = Object.freeze([]),
     shotsJson: string | null = null,
   ) {
     this._shotsCache = shots;
@@ -148,6 +151,9 @@ export class Result implements IRankable<Result> {
     status: ResultStatus = 'published',
     format?: ResultFormat,
     sourceCompetitionId: string | null = null,
+    familyName: string = playerName,
+    sourceLaneId: string | null = null,
+    rankingShots: readonly RankingShotEvidence[] = [],
   ): Result {
     const maxSeries = format?.totalSeries ?? 6;
     const maxShots = format?.totalShots ?? 60;
@@ -182,6 +188,9 @@ export class Result implements IRankable<Result> {
       new Date(),
       status,
       sourceCompetitionId,
+      familyName.trim() || playerName.trim(),
+      sourceLaneId,
+      freezeRankingShots(rankingShots),
     );
   }
 
@@ -198,6 +207,9 @@ export class Result implements IRankable<Result> {
     confirmedAt: Date,
     status: ResultStatus,
     sourceCompetitionId: string | null = null,
+    familyName: string = playerName,
+    sourceLaneId: string | null = null,
+    rankingShots: readonly RankingShotEvidence[] = [],
   ): Result {
     return new Result(
       id,
@@ -212,6 +224,9 @@ export class Result implements IRankable<Result> {
       confirmedAt,
       status,
       sourceCompetitionId,
+      familyName || playerName,
+      sourceLaneId,
+      freezeRankingShots(rankingShots),
     );
   }
 
@@ -231,6 +246,9 @@ export class Result implements IRankable<Result> {
     confirmedAt: Date,
     status: ResultStatus,
     sourceCompetitionId: string | null = null,
+    familyName: string = playerName,
+    sourceLaneId: string | null = null,
+    rankingShots: readonly RankingShotEvidence[] = [],
   ): Result {
     return new Result(
       id,
@@ -245,6 +263,9 @@ export class Result implements IRankable<Result> {
       confirmedAt,
       status,
       sourceCompetitionId,
+      familyName || playerName,
+      sourceLaneId,
+      freezeRankingShots(rankingShots),
       shotsJson,
     );
   }
@@ -266,6 +287,9 @@ export class Result implements IRankable<Result> {
       this.confirmedAt,
       'confirmed',
       this.sourceCompetitionId,
+      this.familyName,
+      this.sourceLaneId,
+      this.rankingShots,
     );
   }
 
@@ -307,4 +331,8 @@ export class Result implements IRankable<Result> {
     // Exact tie.
     return 0;
   }
+}
+
+function freezeRankingShots(shots: readonly RankingShotEvidence[]): readonly RankingShotEvidence[] {
+  return Object.freeze(shots.map((shot) => Object.freeze({ ...shot })));
 }

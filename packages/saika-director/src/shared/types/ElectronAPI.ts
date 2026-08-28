@@ -7,6 +7,10 @@
 import type { InferBridge, InferEventBridge } from '@/shared/ipc/defineContract';
 import type {
   resultsContract,
+  scoringDecisionsContract,
+  resultVerificationContract,
+  incidentReportsContract,
+  finalPlacementReviewContract,
   boardContract,
   shootoffContract,
   laneControlContract,
@@ -87,6 +91,10 @@ export interface ElectronAPI {
   championship: IpcChampionship;
   laneControl: InferBridge<typeof laneControlContract>;
   results: InferBridge<typeof resultsContract>;
+  scoringDecisions: InferBridge<typeof scoringDecisionsContract>;
+  resultVerification: InferBridge<typeof resultVerificationContract>;
+  incidentReports: InferBridge<typeof incidentReportsContract>;
+  finalPlacementReview: InferBridge<typeof finalPlacementReviewContract>;
   board: InferBridge<typeof boardContract>;
   shootoff: InferBridge<typeof shootoffContract>;
   mqtt: InferBridge<typeof mqttContract>;

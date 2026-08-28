@@ -32,6 +32,9 @@ interface ShotRow {
   timestamp: string;
   mode: string;
   deviceScore: number | null;
+  calculatedScore: number | null;
+  receivedAt: string | null;
+  observationId: string | null;
 }
 
 /**
@@ -63,8 +66,14 @@ export class SqliteSessionRepository implements ISessionRepository {
     `);
 
     this.stmtUpsertShot = db.prepare(`
-      INSERT INTO shots (id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen, timestamp, mode, deviceScore)
-      VALUES (@id, @sessionId, @shotNumber, @seriesNumber, @impactPointX, @impactPointY, @score, @innerTen, @timestamp, @mode, @deviceScore)
+      INSERT INTO shots (
+        id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen,
+        timestamp, mode, deviceScore, calculatedScore, receivedAt, observationId
+      )
+      VALUES (
+        @id, @sessionId, @shotNumber, @seriesNumber, @impactPointX, @impactPointY, @score, @innerTen,
+        @timestamp, @mode, @deviceScore, @calculatedScore, @receivedAt, @observationId
+      )
       ON CONFLICT(id) DO UPDATE SET
         sessionId = excluded.sessionId,
         shotNumber = excluded.shotNumber,
@@ -75,7 +84,10 @@ export class SqliteSessionRepository implements ISessionRepository {
         innerTen = excluded.innerTen,
         timestamp = excluded.timestamp,
         mode = excluded.mode,
-        deviceScore = excluded.deviceScore
+        deviceScore = excluded.deviceScore,
+        calculatedScore = excluded.calculatedScore,
+        receivedAt = excluded.receivedAt,
+        observationId = excluded.observationId
     `);
 
     this.stmtSelectSession = db.prepare(`
@@ -91,7 +103,8 @@ export class SqliteSessionRepository implements ISessionRepository {
     `);
 
     this.stmtSelectShots = db.prepare(`
-      SELECT id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen, timestamp, mode, deviceScore
+      SELECT id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen, timestamp, mode,
+             deviceScore, calculatedScore, receivedAt, observationId
       FROM shots
       WHERE sessionId = ?
       ORDER BY shotNumber ASC
@@ -151,6 +164,9 @@ export class SqliteSessionRepository implements ISessionRepository {
               timestamp: shot.timestamp.toISOString(),
               mode: shot.mode.value,
               deviceScore: shot.deviceScore !== undefined ? shot.deviceScore.value : null,
+              calculatedScore: shot.calculatedScore.value,
+              receivedAt: shot.receivedAt.toISOString(),
+              observationId: shot.sourceObservationId ?? null,
             });
           }
         });
@@ -199,6 +215,9 @@ export class SqliteSessionRepository implements ISessionRepository {
             timestamp: shot.timestamp.toISOString(),
             mode: shot.mode.value,
             deviceScore: shot.deviceScore !== undefined ? shot.deviceScore.value : null,
+            calculatedScore: shot.calculatedScore.value,
+            receivedAt: shot.receivedAt.toISOString(),
+            observationId: shot.sourceObservationId ?? null,
           });
         });
 
@@ -310,6 +329,9 @@ export class SqliteSessionRepository implements ISessionRepository {
       seriesNumber: shot.seriesNumber,
       mode: shot.mode,
       deviceScore: shot.deviceScore !== null ? shot.deviceScore : undefined,
+      calculatedScore: shot.calculatedScore !== null ? shot.calculatedScore : undefined,
+      receivedAt: shot.receivedAt ?? undefined,
+      sourceObservationId: shot.observationId ?? undefined,
     }));
 
     // Reconstruct series from shots where seriesNumber > 0 (Session invariant: sequential from 1)

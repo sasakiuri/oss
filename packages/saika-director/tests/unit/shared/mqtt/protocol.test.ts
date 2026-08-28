@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { LaneScorePayloadSchema } from '@/shared/mqtt/protocol';
+import { LaneScorePayloadSchema, RawShotPayloadSchema } from '@/shared/mqtt/protocol';
 
 const BASE_SCORE = {
   competitionId: '11111111-1111-4111-8111-111111111111',
@@ -75,5 +75,35 @@ describe('LaneScorePayloadSchema', () => {
     };
 
     expect(LaneScorePayloadSchema.safeParse(score).success).toBe(false);
+  });
+});
+
+describe('RawShotPayloadSchema', () => {
+  const legacyPayload = {
+    laneId: '11111111-1111-4111-8111-111111111111',
+    shotId: '22222222-2222-4222-8222-222222222222',
+    x: 1.2,
+    y: -0.4,
+    rawScoreX10: 101,
+    innerTen: false,
+    mode: 'MATCH' as const,
+    timestamp: '2026-08-28T00:00:00.000Z',
+  };
+
+  it('keeps accepting the legacy effective-score alias', () => {
+    expect(RawShotPayloadSchema.safeParse(legacyPayload).success).toBe(true);
+  });
+
+  it('accepts separately named device, calculated, and effective score evidence', () => {
+    const parsed = RawShotPayloadSchema.safeParse({
+      ...legacyPayload,
+      deviceScoreX10: 99,
+      calculatedScoreX10: 102,
+      effectiveScoreX10: 101,
+      observationId: '33333333-3333-4333-8333-333333333333',
+      receivedAt: '2026-08-28T00:00:00.050Z',
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });

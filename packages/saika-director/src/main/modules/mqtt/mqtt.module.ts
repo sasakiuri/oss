@@ -19,6 +19,7 @@ import {
   type MqttControlSnapshot,
 } from './infra/DirectorMqttService';
 import { FiringPointNumberResolver } from './application/FiringPointNumberResolver';
+import { toCompetitionShotObservation } from './application/toCompetitionShotObservation';
 import { PublishMqttResultsToken } from '@/main/modules/results';
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
@@ -72,6 +73,7 @@ export const mqttModule: ModuleDefinition<
   | 'appConfigService'
   | 'competitionTypeRegistry'
   | 'laneControlRepository'
+  | 'competitionShotJournal'
 > = {
   name: 'mqtt',
   deps: [
@@ -84,6 +86,7 @@ export const mqttModule: ModuleDefinition<
     'appConfigService',
     'competitionTypeRegistry',
     'laneControlRepository',
+    'competitionShotJournal',
   ] as const,
   register(ctx): ModuleOutput {
     const {
@@ -96,6 +99,7 @@ export const mqttModule: ModuleDefinition<
       appConfigService,
       competitionTypeRegistry,
       laneControlRepository,
+      competitionShotJournal,
     } = ctx;
 
     const retainedMessageStore = new SqliteMqttRetainedMessageStore(database);
@@ -177,6 +181,13 @@ export const mqttModule: ModuleDefinition<
       },
       {
         onStateChanged: handleSnapshot,
+        onCompetitionShotObserved: (shot, payloadJson) => {
+          try {
+            competitionShotJournal.append(toCompetitionShotObservation(shot, payloadJson, new Date()));
+          } catch (error) {
+            logger.error(`Failed to journal MQTT shot ${shot.shotId}:`, error);
+          }
+        },
         onCompetitionShot: (shot) => {
           const lane = mqttService.getSnapshot().lanes.find((entry) => entry.laneId === shot.laneId);
           if (!lane?.hardware) return;
@@ -190,7 +201,7 @@ export const mqttModule: ModuleDefinition<
             competitionId: shot.competitionId,
             channel,
             shotNumber,
-            score: shot.rawScoreX10 / 10,
+            score: (shot.effectiveScoreX10 ?? shot.rawScoreX10) / 10,
             seriesNumber: shot.seriesIndex + 1,
           });
         },

@@ -8,13 +8,14 @@ interface ParticipantRow {
   id?: string;
   tempId: string;
   playerName: string;
+  familyName: string;
   affiliation: string;
 }
 
 interface ParticipantEditorProps {
   participants: ParticipantDto[];
   onSave: (
-    participants: { id?: string; playerName: string; affiliation: string }[],
+    participants: { id?: string; playerName: string; familyName: string; affiliation: string }[],
   ) => Promise<ParticipantDto[] | null>;
 }
 
@@ -27,6 +28,7 @@ function parseClipboardText(text: string): ParticipantRow[] {
         tempId: crypto.randomUUID(),
         playerName: (parts[0] ?? '').trim(),
         affiliation: (parts[1] ?? '').trim(),
+        familyName: (parts[2] ?? parts[0] ?? '').trim(),
       };
     })
     .filter((row) => row.playerName !== '');
@@ -59,6 +61,7 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
         id: p.id,
         tempId: crypto.randomUUID(),
         playerName: p.playerName,
+        familyName: p.familyName ?? p.playerName,
         affiliation: p.affiliation,
       })),
     );
@@ -67,7 +70,7 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
   }, [participants, updateDirty]);
 
   const addRow = () => {
-    setRows([...rows, { id: undefined, tempId: crypto.randomUUID(), playerName: '', affiliation: '' }]);
+    setRows([...rows, { id: undefined, tempId: crypto.randomUUID(), playerName: '', familyName: '', affiliation: '' }]);
     markDirty();
   };
 
@@ -103,7 +106,12 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
     setIsSaving(true);
     try {
       const savedParticipants = await onSave(
-        validRows.map(({ id, playerName, affiliation }) => ({ id, playerName, affiliation })),
+        validRows.map(({ id, playerName, familyName, affiliation }) => ({
+          id,
+          playerName,
+          familyName: familyName.trim() || playerName,
+          affiliation,
+        })),
       );
       if (!savedParticipants) return;
 
@@ -113,6 +121,7 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
             id: participant.id,
             tempId: validRows[index]?.tempId ?? crypto.randomUUID(),
             playerName: participant.playerName,
+            familyName: participant.familyName ?? participant.playerName,
             affiliation: participant.affiliation,
           })),
         );
@@ -186,6 +195,7 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
               <tr className="border-b border-vscode-border">
                 <th className="w-6 px-1 py-1.5"></th>
                 <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Athlete</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Family name</th>
                 <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Affiliation</th>
                 <th className="w-8 px-2 py-1.5"></th>
               </tr>
@@ -212,7 +222,9 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
       )}
 
       <div className="mt-1 flex items-center justify-between gap-3">
-        <p className="text-xs text-vscode-dimmed">Paste two columns from a spreadsheet: athlete and affiliation.</p>
+        <p className="text-xs text-vscode-dimmed">
+          Paste athlete, affiliation, and optional family-name columns from a spreadsheet.
+        </p>
         <Button size="sm" variant="secondary" onClick={addRow}>
           <Plus size={13} aria-hidden="true" />
           Add athlete

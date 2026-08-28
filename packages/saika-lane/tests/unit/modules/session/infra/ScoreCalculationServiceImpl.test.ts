@@ -228,12 +228,22 @@ describe('ScoreCalculationServiceImpl', () => {
       expect(score.value).toBe(100);
     });
 
-    it('should calculate 10.0 points from an impact in the 10-ring', () => {
+    it('uses the precision target by default and scores 40mm as 9 points', () => {
       const service = new ScoreCalculationServiceImpl();
       const impactPoint = new ImpactPoint(40, 0);
       const discipline = Discipline.pistol25m();
 
       const score = service.calculateScore(impactPoint, discipline);
+
+      expect(score.value).toBe(90);
+    });
+
+    it('can select the rapid-fire target independently from the discipline', () => {
+      const service = new ScoreCalculationServiceImpl();
+      const impactPoint = new ImpactPoint(40, 0);
+      const discipline = Discipline.pistol25m();
+
+      const score = service.calculateScore(impactPoint, discipline, 'ISSF_PISTOL_25M_RAPID_FIRE_2026');
 
       expect(score.value).toBe(100);
     });

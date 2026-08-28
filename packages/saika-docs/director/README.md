@@ -16,6 +16,9 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 - 試射、本射、タイマー、シリーズ進行、競技終了の一括操作
 - Lane ごとの ACK、タイムアウト、状態、割当、スコア、直近着弾の表示
 - Retain メッセージによる Director / Lane 再接続時の状態復旧
+- 受信 shot の追記型監査 journal と、装置点・独立計算点・採用点の分離
+- Qualification 成績への減点、失格、remark、malfunction 等の追記型 decision
+- ISSF 6.15.1 に対応する competition type 別の同点順位処理
 
 ## 基本操作
 

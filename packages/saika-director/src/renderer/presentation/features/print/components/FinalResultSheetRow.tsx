@@ -13,8 +13,15 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
 
   const { first5: stage1First5, second5: stage1Second5 } = calculateStage1Series(result.stage1Shots);
 
-  const stage1_5shots = stage1First5.reduce((sum, s) => sum + s, 0);
-  const stage1_10shots = result.stage1Total;
+  const stage1_5shots = result.seriesScores?.[0] ?? stage1First5.reduce((sum, s) => sum + s, 0);
+  const stage1_10shots = result.seriesScores?.slice(0, 2).reduce((sum, score) => sum + score, 0) ?? result.stage1Total;
+  const remarks = [
+    result.remarks,
+    result.scoreAdjustment && result.scoreAdjustment > 0 ? `Adjustment -${result.scoreAdjustment.toFixed(1)}` : '',
+    result.placementReviewRequired ? '* Placement review required' : '',
+  ]
+    .filter(Boolean)
+    .join('; ');
 
   const stage2ShotPairs: Array<[number | undefined, number | undefined]> = [];
   for (let i = 0; i < 14; i += 2) {
@@ -25,11 +32,11 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
 
   rows.push(
     <tr
-      key={`${result.rank}-cumulative`}
+      key={`${result.firingPointNumber}-cumulative`}
       className={`result-row result-row-cumulative ${isEliminated ? 'eliminated' : ''}`}
     >
       <td className="col-rank" rowSpan={MAX_SHOT_ROWS + 1}>
-        {result.rank}
+        {result.classificationCode ?? result.rank}
       </td>
 
       <td className="col-name" rowSpan={MAX_SHOT_ROWS + 1}>
@@ -60,11 +67,11 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
       })}
 
       <td className="col-total" rowSpan={MAX_SHOT_ROWS + 1}>
-        {formatScore(result.totalScore)}
+        {result.classificationCode ? '—' : formatScore(result.totalScore)}
       </td>
 
       <td className="col-remarks" rowSpan={MAX_SHOT_ROWS + 1}>
-        {result.remarks || (isEliminated ? `E${result.eliminatedAtShot}` : '')}
+        {remarks || (isEliminated ? `E${result.eliminatedAtShot}` : '')}
       </td>
     </tr>,
   );
@@ -75,7 +82,7 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
 
     rows.push(
       <tr
-        key={`${result.rank}-shot-${shotRow}`}
+        key={`${result.firingPointNumber}-shot-${shotRow}`}
         className={`result-row result-row-shot ${isEliminated ? 'eliminated' : ''}`}
       >
         <td className="col-stage1-shot shot-cell">{formatScore(stage1Shot1)}</td>
