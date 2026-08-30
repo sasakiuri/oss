@@ -70,6 +70,13 @@ describe('AppConfigService', () => {
       expect(service.get('mqtt.broker.port')).toBe(1883);
       expect(service.get('mqtt.broker.url')).toBe('mqtt://localhost:1883');
       expect(service.get('mqtt.broker.mode')).toBe('embedded');
+      expect(service.get('competitionAnnouncements.enabled')).toBe(true);
+    });
+
+    it('parses a persisted disabled announcement setting', () => {
+      mockDb._store.set('competitionAnnouncements.enabled', 'false');
+
+      expect(service.get('competitionAnnouncements.enabled')).toBe(false);
     });
 
     it('should coerce string port to number', () => {

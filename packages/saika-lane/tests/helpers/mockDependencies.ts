@@ -78,6 +78,7 @@ export function createMockShotObservationRepository(): IShotObservationRepositor
   return {
     append: vi.fn().mockResolvedValue(undefined),
     appendOutcome: vi.fn().mockResolvedValue(undefined),
+    appendOutcomeWithEvidence: vi.fn().mockResolvedValue(undefined),
     findById: vi.fn().mockResolvedValue(null),
     findOutcomes: vi.fn().mockResolvedValue([]),
   };

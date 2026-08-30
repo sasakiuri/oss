@@ -82,6 +82,7 @@ function hasStoredResults(database: Database.Database, eventId: string): boolean
       `SELECT (
         EXISTS(SELECT 1 FROM results WHERE event_id = @eventId)
         OR EXISTS(SELECT 1 FROM final_results WHERE event_id = @eventId)
+        OR EXISTS(SELECT 1 FROM mixed_team_final_results WHERE event_id = @eventId)
       ) AS has_results`,
     )
     .get({ eventId }) as { has_results: number };
@@ -231,6 +232,21 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
               p.logoPath ?? existingParticipant.logoPath,
               index,
               p.familyName ?? existingParticipant.familyName,
+              {
+                startNumber:
+                  p.startNumber === undefined ? existingParticipant.officialEntry.startNumber : p.startNumber,
+                issfId: p.issfId === undefined ? existingParticipant.officialEntry.issfId : p.issfId,
+                nationCode: p.nationCode === undefined ? existingParticipant.officialEntry.nationCode : p.nationCode,
+                gender: p.gender ?? existingParticipant.officialEntry.gender,
+                entryStatus: p.entryStatus ?? existingParticipant.officialEntry.entryStatus,
+                teamId: p.teamId === undefined ? existingParticipant.officialEntry.teamId : p.teamId,
+                teamName:
+                  p.teamId === null && p.teamName === undefined
+                    ? null
+                    : p.teamName === undefined
+                      ? existingParticipant.officialEntry.teamName
+                      : p.teamName,
+              },
             );
           } else {
             const newId = ParticipantId.generate();
@@ -243,6 +259,15 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
               p.logoPath ?? null,
               index,
               p.familyName ?? p.playerName,
+              {
+                startNumber: p.startNumber,
+                issfId: p.issfId,
+                nationCode: p.nationCode,
+                gender: p.gender,
+                entryStatus: p.entryStatus,
+                teamId: p.teamId,
+                teamName: p.teamName,
+              },
             );
           }
         });
@@ -275,6 +300,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
             affiliation: participant.affiliation,
             logoPath: participant.logoPath,
             sortOrder: participant.sortOrder,
+            ...participant.officialEntry,
           })),
         };
       },
@@ -368,6 +394,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
             affiliation: p.affiliation,
             logoPath: p.logoPath,
             sortOrder: p.sortOrder,
+            ...p.officialEntry,
           })),
         };
       },
@@ -387,7 +414,13 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
       getCompetitionTypes: async (): Promise<CompetitionTypeListResponse> => {
         const all = competitionTypeRegistry.getAll();
         return {
-          types: all.map((def) => ({ id: def.id, name: def.name })),
+          types: all.map((def) => ({
+            id: def.id,
+            name: def.name,
+            scoringPrecision: def.scoring.precision,
+            totalSeries: def.resultFormat.totalSeries,
+            rulePackId: def.rulePackId ?? null,
+          })),
         };
       },
     });

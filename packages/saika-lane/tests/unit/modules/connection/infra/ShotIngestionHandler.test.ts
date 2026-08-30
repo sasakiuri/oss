@@ -64,8 +64,9 @@ describe('ShotIngestionHandler', () => {
 
     expect(commandBus.execute).not.toHaveBeenCalled();
     expect(shotObservationRepository.append).toHaveBeenCalledTimes(1);
-    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'NO_ACTIVE_SESSION' }),
+      expect.objectContaining({ outcome: 'NO_ACTIVE_SESSION', competition: null }),
     );
   });
 
@@ -87,8 +88,9 @@ describe('ShotIngestionHandler', () => {
         receivedAt: expect.any(Date),
       }),
     );
-    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'RECORDED', sessionId: session.id }),
+      expect.objectContaining({ outcome: 'RECORDED', sessionId: session.id }),
     );
   });
 
@@ -202,28 +204,56 @@ describe('ShotIngestionHandler', () => {
   it('should reject shot when competition guard rejects', async () => {
     const session = buildSession();
     sessionRepository.findActive = vi.fn().mockResolvedValue(session);
-    competitionRepository.findActive = vi.fn().mockResolvedValue({
-      phase: 'SERIES_COMPLETE',
-      canAcceptShot: () => false,
-    });
+    const competition = CompetitionState.create(crypto.randomUUID(), session.id, BR60S.config)
+      .startStage()
+      .expireTimer();
+    competitionRepository.findActive = vi.fn().mockResolvedValue(competition);
 
     const handler = createShotIngestionHandler(deps);
     await handler(shotData);
 
     expect(commandBus.execute).not.toHaveBeenCalled();
     expect(shotObservationRepository.append).toHaveBeenCalledTimes(1);
-    expect(shotObservationRepository.appendOutcome).toHaveBeenCalledWith(
+    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'REJECTED_COMPETITION_PHASE' }),
+      expect.objectContaining({
+        outcome: 'REJECTED_COMPETITION_PHASE',
+        competition: expect.objectContaining({ competitionId: competition.id, phase: 'SERIES_COMPLETE' }),
+      }),
+    );
+  });
+
+  it('quarantines target evidence without scoring while the safety latch is stopped', async () => {
+    const session = buildSession();
+    const competition = CompetitionState.create(crypto.randomUUID(), session.id, BR60S.config).startStage();
+    competitionRepository.findActive = vi.fn().mockResolvedValue(competition);
+    deps.safetyStopReader = {
+      isStopped: () => true,
+      getState: () =>
+        ({ safetyStopId: '77777777-7777-4777-8777-777777777777' }) as ReturnType<
+          NonNullable<ShotIngestionDeps['safetyStopReader']>['getState']
+        >,
+    };
+
+    await createShotIngestionHandler(deps)(shotData);
+
+    expect(commandBus.execute).not.toHaveBeenCalled();
+    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'QUARANTINED_SAFETY_STOP',
+        sessionId: session.id,
+        detail: 'safetyStopId=77777777-7777-4777-8777-777777777777',
+      }),
+      expect.objectContaining({ outcome: 'QUARANTINED_SAFETY_STOP' }),
     );
   });
 
   it('should accept shot when competition is in IDLE (training mode)', async () => {
     const session = buildSession();
-    sessionRepository.findActive = vi.fn().mockResolvedValue(session);
-    competitionRepository.findActive = vi.fn().mockResolvedValue({
-      phase: 'IDLE',
-      canAcceptShot: () => true,
-    });
+    sessionRepository.findById = vi.fn().mockResolvedValue(session);
+    competitionRepository.findActive = vi
+      .fn()
+      .mockResolvedValue(CompetitionState.create(crypto.randomUUID(), session.id, BR60S.config));
 
     const handler = createShotIngestionHandler(deps);
     await handler(shotData);
@@ -233,11 +263,10 @@ describe('ShotIngestionHandler', () => {
 
   it('should allow shot when competition guard accepts', async () => {
     const session = buildSession();
-    sessionRepository.findActive = vi.fn().mockResolvedValue(session);
-    competitionRepository.findActive = vi.fn().mockResolvedValue({
-      phase: 'MATCH',
-      canAcceptShot: () => true,
-    });
+    sessionRepository.findById = vi.fn().mockResolvedValue(session);
+    competitionRepository.findActive = vi
+      .fn()
+      .mockResolvedValue(CompetitionState.create(crypto.randomUUID(), session.id, BR60S.config).startStage());
 
     const handler = createShotIngestionHandler(deps);
     await handler(shotData);

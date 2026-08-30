@@ -13,12 +13,22 @@ import { focusStartupWindow } from '@/main/focusStartupWindow';
 import { competitionModule } from '@/main/modules/competition/competition.module';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import {
+  CompetitionInterruptionService,
+  LocalCompetitionInterruptionRepository,
+} from '@/main/modules/competition-interruption';
+import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { connectionModule } from '@/main/modules/connection/connection.module';
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { reportModule } from '@/main/modules/report/report.module';
+import {
+  CompetitionSafetyTimerFreezer,
+  LaneSafetyStopService,
+  SqliteLaneSafetyStopRepository,
+} from '@/main/modules/safety-stop';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { sessionModule } from '@/main/modules/session/session.module';
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
@@ -127,6 +137,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     filePath: join(app.getPath('userData'), 'settings.json'),
     storage,
   });
+  const competitionShootOffControl = new LocalCompetitionShootOffControl(storage);
   settingsStore.getAll();
   const eventBus = new TypedEventBus();
   const firstSessionStarted = waitForFirstSessionStart(eventBus);
@@ -161,7 +172,25 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   queryBus.use(new QueryLoggingMiddleware());
 
   // 3. Load modules (registers all command/query handlers)
-  const timerService = new LaneTimerService(competitionRepository, eventBus);
+  let safetyStopControl: LaneSafetyStopService | null = null;
+  const timerService = new LaneTimerService(
+    competitionRepository,
+    eventBus,
+    () => safetyStopControl?.isStopped() !== true,
+  );
+  const competitionInterruptionRepository = new LocalCompetitionInterruptionRepository(storage);
+  const competitionInterruptionControl = new CompetitionInterruptionService(
+    competitionInterruptionRepository,
+    competitionRepository,
+    timerService,
+    commandBus,
+    eventBus,
+  );
+  safetyStopControl = new LaneSafetyStopService(
+    new SqliteLaneSafetyStopRepository(db),
+    new CompetitionSafetyTimerFreezer(competitionRepository, timerService),
+    eventBus,
+  );
   const loader = new ModuleLoader();
   loader.load(
     [targetModule, sessionModule, connectionModule, settingsModule, competitionModule, reportModule, mqttModule],
@@ -180,10 +209,27 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       printWindowService,
       adapterRegistry,
       timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      safetyStopControl,
       mainWindow,
       userDataPath: app.getPath('userData'),
     },
   );
+  void (async () => {
+    if (safetyStopControl.isStopped()) {
+      timerService.stop();
+      logger.warn('[LaneSafetyStopService] Active safety latch restored; timer recovery remains blocked', 'domain', {
+        safetyStopId: safetyStopControl.getState()?.safetyStopId,
+      });
+      return;
+    }
+    await competitionInterruptionControl.restoreActive();
+  })().catch((error: unknown) => {
+    logger.error('[CompetitionInterruptionService] Failed to restore interruption state', 'domain', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 
   // 3.1 Register window operation handlers
   ipcRouter.register(windowContract, {

@@ -125,12 +125,19 @@ export function handleStageModeShot(
 // Timer-expiry handlers (called from tickTimer when timer reaches 0)
 // ---------------------------------------------------------------------------
 
-export function handleShotTimerExpired(state: LaneControlState, stage: StageDefinition, newTimer: Timer): MutablePatch {
+export function handleShotTimerExpired(
+  state: LaneControlState,
+  stage: StageDefinition,
+  newTimer: Timer,
+  missedShot: Shot,
+): MutablePatch {
   const series = stage.series[state.seriesIndex]!;
   const newSlot = state.shotSlotInSeries + 1;
+  const newMatchShots = [...state.matchShots, missedShot];
   if (newSlot >= series.shots) {
     // Series complete after timeout
     return {
+      matchShots: newMatchShots,
       timer: newTimer,
       shotSlotInSeries: newSlot,
       ...seriesCompletePatch(state),
@@ -138,23 +145,34 @@ export function handleShotTimerExpired(state: LaneControlState, stage: StageDefi
   }
   // More shots in series — transition to SHOT_COMPLETE (wait for next Match press)
   return {
+    matchShots: newMatchShots,
     shotSlotInSeries: newSlot,
     phase: 'SHOT_COMPLETE' as LanePhase,
     timer: null,
   };
 }
 
-export function handleSeriesTimerExpired(state: LaneControlState, newTimer: Timer): MutablePatch {
+export function handleSeriesTimerExpired(
+  state: LaneControlState,
+  newTimer: Timer,
+  missedShots: readonly Shot[] = [],
+): MutablePatch {
   return {
+    matchShots: [...state.matchShots, ...missedShots],
     timer: newTimer,
     ...seriesCompletePatch(state),
   };
 }
 
-export function handleStageTimerExpired(state: LaneControlState, newTimer: Timer): MutablePatch {
+export function handleStageTimerExpired(
+  state: LaneControlState,
+  newTimer: Timer,
+  missedShots: readonly Shot[] = [],
+): MutablePatch {
   const isLastStage = state.stageIndex >= state.config.stages.length - 1;
   const nextPhase: LanePhase = isLastStage ? 'FINISHED' : 'SERIES_COMPLETE';
   return {
+    matchShots: [...state.matchShots, ...missedShots],
     phase: nextPhase,
     timer: nextPhase === 'FINISHED' ? null : newTimer,
   };

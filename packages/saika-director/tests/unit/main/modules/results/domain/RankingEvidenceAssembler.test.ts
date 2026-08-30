@@ -16,6 +16,7 @@ describe('assembleRankingEvidence', () => {
         seriesIndex: 0,
         shotNumberInSeries: 1,
         effectiveScoreX10: 100,
+        deviceScoreX10: 104,
         calculatedScoreX10: 104,
         calculatedScoreAvailable: true,
         innerTen: true,
@@ -27,6 +28,7 @@ describe('assembleRankingEvidence', () => {
         seriesIndex: 0,
         shotNumberInSeries: 1,
         effectiveScoreX10: 100,
+        deviceScoreX10: 104,
         calculatedScoreX10: 104,
         calculatedScoreAvailable: true,
         innerTen: true,
@@ -34,9 +36,36 @@ describe('assembleRankingEvidence', () => {
     ]);
 
     expect(result).toEqual([
-      { ringScore: 10, decimalScore: 10.4, innerTen: true, shotId: 'shot-1', seriesIndex: 0 },
-      { ringScore: 9, decimalScore: null, innerTen: null, shotId: null, seriesIndex: 0 },
-      { ringScore: 10, decimalScore: null, innerTen: null, shotId: null, seriesIndex: 1 },
+      {
+        ringScore: 10,
+        decimalScore: 10.4,
+        decimalScoreSource: 'DEVICE',
+        innerTen: true,
+        innerTenSource: 'CALCULATED',
+        scoreConflict: false,
+        shotId: 'shot-1',
+        seriesIndex: 0,
+      },
+      {
+        ringScore: 9,
+        decimalScore: null,
+        decimalScoreSource: null,
+        innerTen: null,
+        innerTenSource: null,
+        scoreConflict: false,
+        shotId: null,
+        seriesIndex: 0,
+      },
+      {
+        ringScore: 10,
+        decimalScore: null,
+        decimalScoreSource: null,
+        innerTen: null,
+        innerTenSource: null,
+        scoreConflict: false,
+        shotId: null,
+        seriesIndex: 1,
+      },
     ]);
   });
 
@@ -46,6 +75,7 @@ describe('assembleRankingEvidence', () => {
       seriesIndex: 0,
       shotNumberInSeries: 1,
       effectiveScoreX10: 100,
+      deviceScoreX10: 103,
       calculatedScoreX10: 103,
       calculatedScoreAvailable: true,
       innerTen: false,
@@ -57,8 +87,26 @@ describe('assembleRankingEvidence', () => {
     ]);
 
     expect(result).toEqual([
-      { ringScore: 10, decimalScore: null, innerTen: null, shotId: null, seriesIndex: 0 },
-      { ringScore: 9, decimalScore: null, innerTen: null, shotId: null, seriesIndex: 0 },
+      {
+        ringScore: 10,
+        decimalScore: null,
+        decimalScoreSource: null,
+        innerTen: null,
+        innerTenSource: null,
+        scoreConflict: false,
+        shotId: null,
+        seriesIndex: 0,
+      },
+      {
+        ringScore: 9,
+        decimalScore: null,
+        decimalScoreSource: null,
+        innerTen: null,
+        innerTenSource: null,
+        scoreConflict: false,
+        shotId: null,
+        seriesIndex: 0,
+      },
     ]);
   });
 
@@ -70,6 +118,7 @@ describe('assembleRankingEvidence', () => {
         seriesIndex: 0,
         shotNumberInSeries: 1,
         effectiveScoreX10: 100,
+        deviceScoreX10: null,
         calculatedScoreX10: 100,
         calculatedScoreAvailable: false,
         innerTen: false,

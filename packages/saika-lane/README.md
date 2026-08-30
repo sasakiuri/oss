@@ -9,6 +9,10 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 - Real-time impact point display
 - Multi-manufacturer target support
 - Score calculation and session recording
+- Director-authorized Lane-specific timer pause/resume with durable interruption recovery
+- Competition-independent durable safety STOP, timer gate, STOP / UNLOAD overlay, and quarantined-shot evidence
+- ISSF 2026 Individual and Mixed Team 10m Qualification/Final course definitions
+- Synchronized series/single-shot timers and Director-authorized Final retirement snapshots
 
 ## Supported Devices
 
@@ -73,15 +77,15 @@ By default, Saika Lane stores persistent data under the OS-specific user data di
 
 ### Stored files
 
-| File / Directory                         | Format | Description                                                    |
-| ---------------------------------------- | ------ | -------------------------------------------------------------- |
-| `saika-lane.db`                          | SQLite | Session history, shots, and scores                             |
-| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings               |
-| `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition state  |
-| `logs/combined.log`                      | Log    | Application log (rotated, 5 MB x 5 files)                      |
-| `logs/error.log`                         | Log    | Error-only log (rotated, 5 MB x 5 files)                       |
-| `logs/score-discrepancy.csv`             | CSV    | Records of score mismatches between device and app calculation |
-| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Per-session shot log with coordinates, scores, and metadata    |
+| File / Directory                         | Format | Description                                                                    |
+| ---------------------------------------- | ------ | ------------------------------------------------------------------------------ |
+| `saika-lane.db`                          | SQLite | Session history, shots, and scores                                             |
+| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings                               |
+| `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition and interruption state |
+| `logs/combined.log`                      | Log    | Application log (rotated, 5 MB x 5 files)                                      |
+| `logs/error.log`                         | Log    | Error-only log (rotated, 5 MB x 5 files)                                       |
+| `logs/score-discrepancy.csv`             | CSV    | Records of score mismatches between device and app calculation                 |
+| `ShotLog/<timestamp>_<discipline>.jsonl` | JSONL  | Per-session shot log with coordinates, scores, and metadata                    |
 
 ### Deleting all data
 

@@ -27,10 +27,27 @@ import type {
   IResultRepository,
 } from '@/main/modules/results';
 import type { IScoringDecisionRepository, IScoringDecisionTargetResolver } from '@/main/modules/scoring-decisions';
-import type { ICompetitionShotJournal } from '@/main/modules/mqtt';
-import type { IResultVerificationRepository } from '@/main/modules/result-verification';
+import type {
+  ICompetitionShotJournal,
+  IFiringWindowJournal,
+  IShotObservationEvidenceJournal,
+} from '@/main/modules/mqtt';
+import type { IResultVerificationRepository, ResultVerificationService } from '@/main/modules/result-verification';
 import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
+import type { ITargetExaminationRepository } from '@/main/modules/target-examinations';
+import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
+import type { ICompetitionDataGuard } from '@/main/shared-infra/operations/CompetitionDataGuard';
+import type {
+  IResultPublicationPolicyResolver,
+  IResultPublicationReadiness,
+  IResultPublicationRepository,
+} from '@/main/modules/result-publication';
+import type { IMixedTeamFinalResultRepository } from '@/main/modules/team-results';
+import type { TeamResultsService } from '@/main/modules/team-results';
+import type { EstBackupVerificationService } from '@/main/modules/est-backup-verification';
+import type { RulePackRegistry } from '@sasakiuri/saika-rules';
+import type { FinalOperationService } from '@/main/modules/final-operations';
 
 // Re-export for convenience
 export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
@@ -51,16 +68,30 @@ export interface ServiceRegistry {
   readonly laneTimerService: LaneTimerService;
   readonly appConfigService: AppConfigService;
   readonly competitionTypeRegistry: CompetitionTypeRegistry;
+  readonly rulePackRegistry: RulePackRegistry;
+  readonly finalOperationService: FinalOperationService;
   readonly resultRepository: IResultRepository;
   readonly finalResultRepository: IFinalResultRepository;
+  readonly mixedTeamFinalResultRepository: IMixedTeamFinalResultRepository;
+  readonly teamResultsService: TeamResultsService;
+  readonly estBackupVerificationService: EstBackupVerificationService;
   readonly scoringDecisionRepository: IScoringDecisionRepository;
   readonly scoringDecisionTargetResolver: IScoringDecisionTargetResolver;
   readonly competitionShotJournal: ICompetitionShotJournal;
+  readonly firingWindowJournal: IFiringWindowJournal;
+  readonly shotObservationEvidenceJournal: IShotObservationEvidenceJournal;
   readonly qualificationResultsReader: IQualificationResultsReader;
   readonly finalResultsReader: IFinalResultsReader;
   readonly resultVerificationRepository: IResultVerificationRepository;
+  readonly resultVerificationService: ResultVerificationService;
   readonly rangeIncidentReportRepository: IRangeIncidentReportRepository;
+  readonly targetExaminationRepository: ITargetExaminationRepository;
+  readonly rangeInterruptionRepository: IRangeInterruptionRepository;
+  readonly competitionDataGuard: ICompetitionDataGuard;
   readonly finalPlacementReviewRepository: IFinalPlacementReviewRepository;
+  readonly resultPublicationRepository: IResultPublicationRepository;
+  readonly resultPublicationReadiness: IResultPublicationReadiness;
+  readonly resultPublicationPolicyResolver: IResultPublicationPolicyResolver;
 }
 
 // ---------------------------------------------------------------------------

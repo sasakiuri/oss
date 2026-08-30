@@ -2,15 +2,29 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { addNotification, getBrokerConfig, getBrokerStatus, setBrokerConfig, writeClipboardText } = vi.hoisted(() => ({
+const {
+  addNotification,
+  getAnnouncementSettings,
+  getBrokerConfig,
+  getBrokerStatus,
+  setAnnouncementSettings,
+  setBrokerConfig,
+  writeClipboardText,
+} = vi.hoisted(() => ({
   addNotification: vi.fn(),
+  getAnnouncementSettings: vi.fn(),
   getBrokerConfig: vi.fn(),
   getBrokerStatus: vi.fn(),
+  setAnnouncementSettings: vi.fn(),
   setBrokerConfig: vi.fn(),
   writeClipboardText: vi.fn(),
 }));
 
 vi.mock('@/renderer/services', () => ({
+  competitionAnnouncementsService: {
+    getSettings: getAnnouncementSettings,
+    setSettings: setAnnouncementSettings,
+  },
   mqttService: {
     getBrokerConfig,
     getBrokerStatus,
@@ -46,6 +60,11 @@ describe('SettingsScreen', () => {
         localAddresses: ['192.0.2.10'],
       },
     });
+    getAnnouncementSettings.mockResolvedValue({ success: true, data: { enabled: true } });
+    setAnnouncementSettings.mockImplementation(async ({ enabled }: { enabled: boolean }) => ({
+      success: true,
+      data: { enabled },
+    }));
   });
 
   it('restores the configured mode when an external broker connection fails', async () => {
@@ -73,5 +92,18 @@ describe('SettingsScreen', () => {
 
     await waitFor(() => expect(writeClipboardText).toHaveBeenCalledWith('mqtt://192.0.2.10:1883'));
     expect(addNotification).toHaveBeenCalledWith('success', 'Connection URL copied');
+  });
+
+  it('persists the CRO rule reminder preference independently', async () => {
+    render(<SettingsScreen />);
+
+    const reminderSwitch = await screen.findByRole('switch', { name: 'CRO announcement prompts' });
+    await waitFor(() => expect(reminderSwitch).toBeEnabled());
+    expect(reminderSwitch).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(reminderSwitch);
+
+    await waitFor(() => expect(setAnnouncementSettings).toHaveBeenCalledWith({ enabled: false }));
+    expect(reminderSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(addNotification).toHaveBeenCalledWith('success', 'Rule reminders disabled');
   });
 });

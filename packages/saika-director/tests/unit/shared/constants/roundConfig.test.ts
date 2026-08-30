@@ -43,8 +43,12 @@ describe('roundConfig', () => {
     it('should build elimination schedule for elimination stage', () => {
       const config = buildRoundConfig(BR60S_FINAL, 8);
 
-      expect(config.eliminationStageIndex).toBeDefined();
-      expect(Object.keys(config.eliminationSchedule).length).toBeGreaterThan(0);
+      expect(config.eliminationStageIndex).toBe(2);
+      expect(config.eliminationSchedule).toEqual({ 1: 8, 3: 7, 5: 6, 7: 5, 9: 4, 11: 3, 13: 2 });
+    });
+
+    it('delays the first checkpoint when fewer finalists start', () => {
+      expect(buildRoundConfig(BR60S_FINAL, 5).eliminationSchedule).toEqual({ 7: 5, 9: 4, 11: 3, 13: 2 });
     });
   });
 

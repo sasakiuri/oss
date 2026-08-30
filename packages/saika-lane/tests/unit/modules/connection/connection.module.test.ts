@@ -83,6 +83,8 @@ describe('connection.module', () => {
         'connectionRepository',
         'sessionRepository',
         'competitionRepository',
+        'competitionShootOffControl',
+        'safetyStopControl',
         'usbManager',
         'ipcRouter',
         'mainWindow',

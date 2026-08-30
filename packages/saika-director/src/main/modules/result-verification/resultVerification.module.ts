@@ -1,28 +1,12 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultVerificationContract } from '@/shared/ipc/contracts';
 
-import { ResultVerificationService } from './application/ResultVerificationService';
-
-export const resultVerificationModule: ModuleDefinition<
-  'queryBus' | 'ipcRouter' | 'qualificationResultsReader' | 'resultVerificationRepository' | 'competitionTypeRegistry'
-> = {
+export const resultVerificationModule: ModuleDefinition<'ipcRouter' | 'resultVerificationService'> = {
   name: 'resultVerification',
-  deps: [
-    'queryBus',
-    'ipcRouter',
-    'qualificationResultsReader',
-    'resultVerificationRepository',
-    'competitionTypeRegistry',
-  ] as const,
-  register({ queryBus, ipcRouter, qualificationResultsReader, resultVerificationRepository, competitionTypeRegistry }) {
-    const service = new ResultVerificationService(
-      queryBus,
-      qualificationResultsReader,
-      resultVerificationRepository,
-      competitionTypeRegistry,
-    );
+  deps: ['ipcRouter', 'resultVerificationService'] as const,
+  register({ ipcRouter, resultVerificationService: service }) {
     ipcRouter.register(resultVerificationContract, {
-      getStatus: ({ eventId }) => service.getStatus(eventId),
+      getStatus: ({ eventId, resultScope }) => service.getStatus(eventId, resultScope),
       addCheck: (input) => service.addCheck(input),
       approve: (input) => service.approve(input),
       revokeApproval: (input) => service.revokeApproval(input),

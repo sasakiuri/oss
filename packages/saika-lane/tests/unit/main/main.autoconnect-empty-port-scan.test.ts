@@ -232,7 +232,9 @@ vi.mock('@/main/shared-infra/module', () => ({
   },
 }));
 vi.mock('@/main/shared-infra/sqlite/SqliteDb', () => ({
-  createSqliteDb: vi.fn(() => ({})),
+  createSqliteDb: vi.fn(() => ({
+    prepare: vi.fn(() => ({ all: vi.fn(() => []), run: vi.fn() })),
+  })),
 }));
 vi.mock('@/shared/ipc/contracts', async () => {
   const actual = await vi.importActual<typeof import('@/shared/ipc/contracts')>('@/shared/ipc/contracts');

@@ -150,6 +150,7 @@ const ScoreSheetShotDtoSchema = z.object({
   value: z.number(),
   integerValue: z.number(),
   seriesNumber: z.number(),
+  disposition: z.enum(['SCORED', 'MISS']),
 });
 
 const ScoreSheetDtoSchema = z.object({

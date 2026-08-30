@@ -27,6 +27,7 @@ export class GetScoreSheetsHandler {
         value: shot.score.value,
         integerValue: Math.floor(shot.score.value),
         seriesNumber: shot.seriesNumber,
+        disposition: shot.disposition,
       }));
 
       // Calculate total integer score

@@ -1,13 +1,8 @@
 import { createHash } from 'node:crypto';
 
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
-import type { IQualificationResultsReader } from '@/main/modules/results';
-import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
-import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type {
   AddVerificationCheckPayload,
   ApproveResultListPayload,
-  RankedResultDto,
   ResultListApprovalDto,
   ResultVerificationCheckDto,
   ResultVerificationStatusDto,
@@ -22,71 +17,68 @@ import {
   type ResultApprovalScope,
 } from '../domain/ResultListApprovalEntry';
 import { ResultVerificationCheck } from '../domain/ResultVerificationCheck';
+import type { IResultVerificationSourceResolver, ResultVerificationSourceSnapshot } from './ResultVerificationSource';
 
-const SCOPE: ResultApprovalScope = 'QUALIFICATION';
-
-/** Application service that validates checks and approvals against live result revisions. */
+/** Scope-neutral workflow that validates checks and approvals against live result revisions. */
 export class ResultVerificationService {
   constructor(
-    private readonly queryBus: QueryBus,
-    private readonly results: IQualificationResultsReader,
     private readonly repository: IResultVerificationRepository,
-    private readonly competitionTypes: CompetitionTypeRegistry,
+    private readonly sources: IResultVerificationSourceResolver,
   ) {}
 
-  async getStatus(eventId: string): Promise<ResultVerificationStatusDto> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
-    if (!event) throw new Error(`Event ${eventId} not found`);
-    const definition = this.competitionTypes.get(event.eventType);
-    const policy = definition.resultVerification ?? { topIndividualResults: 0, topTeamResults: 0 };
-    const results = await this.results.getByEvent(eventId);
-    const snapshotRevision = calculateSnapshotRevision(eventId, policy, results);
-    const requiredRankedResults = results
+  async getStatus(
+    eventId: string,
+    resultScope: ResultApprovalScope = 'QUALIFICATION',
+  ): Promise<ResultVerificationStatusDto> {
+    const snapshot = await this.sources.resolve(resultScope).load(eventId);
+    if (snapshot.eventId !== eventId || snapshot.resultScope !== resultScope) {
+      throw new Error('Result verification source returned another event or result scope');
+    }
+    const snapshotRevision = calculateSnapshotRevision(snapshot);
+    const requiredRankedResults = [...snapshot.results]
       .filter((result) => result.rank > 0 && result.classificationCode === null)
-      .slice(0, policy.topIndividualResults);
-    const requiredIds = new Set(requiredRankedResults.map((result) => result.id));
-    const checks = this.repository.findChecksByEvent(eventId);
+      .sort((left, right) => left.rank - right.rank)
+      .slice(0, snapshot.configuredIndividualChecks);
+    const requiredIds = new Set(requiredRankedResults.map((result) => result.resultId));
+    const resultIds = new Set(snapshot.results.map((result) => result.resultId));
+    const checks = this.repository.findChecksByEvent(eventId).filter((check) => resultIds.has(check.resultId));
 
-    const items: VerificationResultItemDto[] = results.map((result) => {
-      const targetChecks = checks.filter((check) => check.participantId === result.participantId);
+    const items: VerificationResultItemDto[] = snapshot.results.map((result) => {
+      const targetChecks = checks.filter((check) => check.resultId === result.resultId);
       const latest = targetChecks.at(-1) ?? null;
       const current = [...targetChecks]
         .reverse()
-        .find((check) => check.resultId === result.id && check.resultRevision === result.revision);
+        .find((check) => check.resultId === result.resultId && check.resultRevision === result.revision);
+      const item = {
+        ...result,
+        projectionIssues: [...result.projectionIssues],
+        evidenceSummary: { ...result.evidenceSummary },
+        required: requiredIds.has(result.resultId),
+        latestCheck: null,
+        currentCheck: null,
+      } satisfies VerificationResultItemDto;
       return {
-        resultId: result.id,
-        participantId: result.participantId,
-        revision: result.revision,
-        rank: result.rank,
-        playerName: result.playerName,
-        affiliation: result.affiliation,
-        relayNumber: result.relayNumber,
-        totalScore: result.totalScore,
-        classificationCode: result.classificationCode,
-        decisionCount: result.decisionCount,
-        projectionIssues: result.projectionIssues,
-        status: result.status,
-        evidenceSummary: result.evidenceSummary,
-        required: requiredIds.has(result.id),
-        latestCheck: latest ? toCheckDto(latest, result) : null,
-        currentCheck: current ? toCheckDto(current, result) : null,
+        ...item,
+        latestCheck: latest ? toCheckDto(latest, item) : null,
+        currentCheck: current ? toCheckDto(current, item) : null,
       };
     });
 
     const requiredItems = items.filter((item) => item.required);
     const checkedIndividualResults = requiredItems.filter((item) => item.currentCheck?.qualifies).length;
-    const allResultsConfirmed = results.length > 0 && results.every((result) => result.status === 'confirmed');
-    const teamVerificationSupported = policy.topTeamResults === 0;
+    const allResultsConfirmed =
+      snapshot.results.length > 0 && snapshot.results.every((result) => result.status === 'confirmed');
     const issues = buildReadinessIssues({
-      resultCount: results.length,
-      configuredIndividualChecks: policy.topIndividualResults,
+      resultScope,
+      resultCount: snapshot.results.length,
+      configuredIndividualChecks: snapshot.configuredIndividualChecks,
+      configuredTeamChecks: snapshot.configuredTeamChecks,
       requiredItems,
       allResultsConfirmed,
-      requiredTeamChecks: policy.topTeamResults,
-      teamVerificationSupported,
+      sourceIssues: snapshot.issues,
     });
 
-    const approvalEntries = this.repository.findApprovalEntriesByEvent(eventId, SCOPE);
+    const approvalEntries = this.repository.findApprovalEntriesByEvent(eventId, resultScope);
     const activeApprovalIds = new Set(getActiveResultListApprovals(approvalEntries).map((entry) => entry.id));
     const approvalHistory = approvalEntries.map((entry) =>
       toApprovalDto(entry, activeApprovalIds.has(entry.id), snapshotRevision),
@@ -97,12 +89,16 @@ export class ResultVerificationService {
 
     return {
       eventId,
+      resultScope,
       snapshotRevision,
-      configuredIndividualChecks: policy.topIndividualResults,
+      configuredIndividualChecks: snapshot.configuredIndividualChecks,
+      configuredTeamChecks: snapshot.configuredTeamChecks,
       requiredIndividualChecks: requiredItems.length,
-      requiredTeamChecks: policy.topTeamResults,
-      teamVerificationSupported,
+      requiredTeamChecks: snapshot.requiredTeamChecks,
+      teamVerificationSupported: snapshot.teamVerificationSupported,
       checkedIndividualResults,
+      checkedTeamResults: snapshot.checkedTeamResults,
+      teamVerificationRunId: snapshot.teamVerificationRunId,
       allResultsConfirmed,
       readyForApproval: issues.length === 0,
       issues,
@@ -113,16 +109,18 @@ export class ResultVerificationService {
   }
 
   async addCheck(input: AddVerificationCheckPayload): Promise<ResultVerificationCheckDto> {
-    const status = await this.getStatus(input.eventId);
+    const status = await this.getStatus(input.eventId, input.resultScope);
     const result = status.results.find((item) => item.resultId === input.resultId);
     if (!result) throw new Error(`Result ${input.resultId} is not part of event ${input.eventId}`);
     if (result.revision !== input.resultRevision) {
       throw new Error('The result changed after this verification form was opened; reload and compare it again');
     }
     if (result.rank < 1 || result.classificationCode !== null) {
-      throw new Error('Only ranked qualification results can be verified');
+      throw new Error('Only ranked results can be verified');
     }
-    if (result.status !== 'confirmed') throw new Error('Confirm the result before recording an RTS verification');
+    if (result.status !== 'confirmed') {
+      throw new Error('The result must be complete and confirmed before recording an RTS verification');
+    }
 
     const check = ResultVerificationCheck.create({
       eventId: input.eventId,
@@ -145,7 +143,7 @@ export class ResultVerificationService {
   }
 
   async approve(input: ApproveResultListPayload): Promise<ResultListApprovalDto> {
-    const status = await this.getStatus(input.eventId);
+    const status = await this.getStatus(input.eventId, input.resultScope);
     if (status.snapshotRevision !== input.snapshotRevision) {
       throw new Error('The result list changed after this approval form was opened; reload before approving');
     }
@@ -156,9 +154,10 @@ export class ResultVerificationService {
       .filter((result) => result.required)
       .map((result) => result.currentCheck?.id)
       .filter((id): id is string => id !== undefined);
+    if (status.teamVerificationRunId) checkIds.push(status.teamVerificationRunId);
     const approval = ResultListApprovalEntry.createApproval({
       eventId: input.eventId,
-      resultScope: SCOPE,
+      resultScope: input.resultScope,
       snapshotRevision: status.snapshotRevision,
       requiredIndividualChecks: status.requiredIndividualChecks,
       requiredTeamChecks: status.requiredTeamChecks,
@@ -187,16 +186,18 @@ export class ResultVerificationService {
   }
 }
 
-function calculateSnapshotRevision(
-  eventId: string,
-  policy: { topIndividualResults: number; topTeamResults: number },
-  results: readonly RankedResultDto[],
-): string {
+function calculateSnapshotRevision(snapshot: ResultVerificationSourceSnapshot): string {
   const canonical = {
-    eventId,
-    policy,
-    results: results.map((result) => ({
-      id: result.id,
+    eventId: snapshot.eventId,
+    resultScope: snapshot.resultScope,
+    policy: {
+      topIndividualResults: snapshot.configuredIndividualChecks,
+      topTeamResults: snapshot.configuredTeamChecks,
+    },
+    sourceRevision: snapshot.sourceRevision,
+    teamSnapshotRevision: snapshot.teamSnapshotRevision,
+    results: snapshot.results.map((result) => ({
+      resultId: result.resultId,
       participantId: result.participantId,
       rank: result.rank,
       revision: result.revision,
@@ -208,35 +209,32 @@ function calculateSnapshotRevision(
 }
 
 function buildReadinessIssues(input: {
+  resultScope: ResultApprovalScope;
   resultCount: number;
   configuredIndividualChecks: number;
+  configuredTeamChecks: number;
   requiredItems: readonly VerificationResultItemDto[];
   allResultsConfirmed: boolean;
-  requiredTeamChecks: number;
-  teamVerificationSupported: boolean;
+  sourceIssues: readonly string[];
 }): string[] {
-  const issues: string[] = [];
-  if (input.resultCount === 0) issues.push('No qualification results are available');
-  if (input.configuredIndividualChecks === 0 && input.requiredTeamChecks === 0) {
+  const issues: string[] = [...input.sourceIssues];
+  const label = input.resultScope === 'FINAL' ? 'Final' : 'qualification';
+  if (input.resultCount === 0) issues.push(`No ${label} results are available`);
+  if (input.configuredIndividualChecks === 0 && input.configuredTeamChecks === 0) {
     issues.push('No result verification policy is configured for this competition type');
   }
-  if (!input.allResultsConfirmed) issues.push('All qualification results must be confirmed');
-  if (!input.teamVerificationSupported) {
-    issues.push(`Verification of the top ${input.requiredTeamChecks} team results is not implemented`);
-  }
+  if (!input.allResultsConfirmed) issues.push(`All ${label} results must be complete and confirmed`);
   if (input.requiredItems.some((item) => item.projectionIssues.length > 0)) {
     issues.push('At least one required result has unresolved projection issues');
   }
   if (input.requiredItems.some((item) => !item.currentCheck?.qualifies)) {
-    issues.push('Every required individual result needs a current matched verification');
+    issues.push('Every required result needs a current matched verification');
   }
-  return issues;
+  return [...new Set(issues)];
 }
 
-function toCheckDto(check: ResultVerificationCheck, result: VerificationResultItemDto | RankedResultDto) {
-  const currentResultId = 'resultId' in result ? result.resultId : result.id;
-  const current = check.resultId === currentResultId && check.resultRevision === result.revision;
-  const decisionCount = 'decisionCount' in result ? result.decisionCount : 0;
+function toCheckDto(check: ResultVerificationCheck, result: VerificationResultItemDto): ResultVerificationCheckDto {
+  const current = check.resultId === result.resultId && check.resultRevision === result.revision;
   return {
     id: check.id,
     eventId: check.eventId,
@@ -256,8 +254,11 @@ function toCheckDto(check: ResultVerificationCheck, result: VerificationResultIt
     checkedAt: check.checkedAt.toISOString(),
     current,
     qualifies:
-      current && check.comparisonStatus === 'MATCHED' && (decisionCount === 0 || check.manualInterventionsReviewed),
-  } satisfies ResultVerificationCheckDto;
+      current &&
+      check.evidenceSource !== 'OTHER' &&
+      check.comparisonStatus === 'MATCHED' &&
+      (result.decisionCount === 0 || check.manualInterventionsReviewed),
+  };
 }
 
 function toApprovalDto(

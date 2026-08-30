@@ -12,6 +12,13 @@ interface ParticipantRow {
   affiliation: string;
   logo_path: string | null;
   sort_order: number;
+  start_number: string | null;
+  issf_id: string | null;
+  nation_code: string | null;
+  gender: 'M' | 'F' | 'X' | 'UNSPECIFIED';
+  entry_status: 'COMPETING' | 'RPO' | 'MQS' | 'OOC' | 'DNS' | 'DNF' | 'DSQ' | 'DQB';
+  team_id: string | null;
+  team_name: string | null;
 }
 
 export class SqliteParticipantRepository implements IParticipantRepository {
@@ -19,15 +26,27 @@ export class SqliteParticipantRepository implements IParticipantRepository {
 
   save(participant: Participant): void {
     const stmt = this.db.prepare(`
-      INSERT INTO participants (id, event_id, player_name, family_name, affiliation, logo_path, sort_order)
-      VALUES (@id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder)
+      INSERT INTO participants (
+        id, event_id, player_name, family_name, affiliation, logo_path, sort_order,
+        start_number, issf_id, nation_code, gender, entry_status, team_id, team_name
+      ) VALUES (
+        @id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder,
+        @startNumber, @issfId, @nationCode, @gender, @entryStatus, @teamId, @teamName
+      )
       ON CONFLICT(id) DO UPDATE SET
         event_id = excluded.event_id,
         player_name = excluded.player_name,
         family_name = excluded.family_name,
         affiliation = excluded.affiliation,
         logo_path = excluded.logo_path,
-        sort_order = excluded.sort_order
+        sort_order = excluded.sort_order,
+        start_number = excluded.start_number,
+        issf_id = excluded.issf_id,
+        nation_code = excluded.nation_code,
+        gender = excluded.gender,
+        entry_status = excluded.entry_status,
+        team_id = excluded.team_id,
+        team_name = excluded.team_name
     `);
     stmt.run({
       id: participant.id.value,
@@ -37,20 +56,33 @@ export class SqliteParticipantRepository implements IParticipantRepository {
       affiliation: participant.affiliation,
       logoPath: participant.logoPath,
       sortOrder: participant.sortOrder,
+      ...participant.officialEntry,
     });
   }
 
   saveAll(participants: Participant[]): void {
     const stmt = this.db.prepare(`
-      INSERT INTO participants (id, event_id, player_name, family_name, affiliation, logo_path, sort_order)
-      VALUES (@id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder)
+      INSERT INTO participants (
+        id, event_id, player_name, family_name, affiliation, logo_path, sort_order,
+        start_number, issf_id, nation_code, gender, entry_status, team_id, team_name
+      ) VALUES (
+        @id, @eventId, @playerName, @familyName, @affiliation, @logoPath, @sortOrder,
+        @startNumber, @issfId, @nationCode, @gender, @entryStatus, @teamId, @teamName
+      )
       ON CONFLICT(id) DO UPDATE SET
         event_id = excluded.event_id,
         player_name = excluded.player_name,
         family_name = excluded.family_name,
         affiliation = excluded.affiliation,
         logo_path = excluded.logo_path,
-        sort_order = excluded.sort_order
+        sort_order = excluded.sort_order,
+        start_number = excluded.start_number,
+        issf_id = excluded.issf_id,
+        nation_code = excluded.nation_code,
+        gender = excluded.gender,
+        entry_status = excluded.entry_status,
+        team_id = excluded.team_id,
+        team_name = excluded.team_name
     `);
     const transaction = this.db.transaction((items: Participant[]) => {
       for (const p of items) {
@@ -62,6 +94,7 @@ export class SqliteParticipantRepository implements IParticipantRepository {
           affiliation: p.affiliation,
           logoPath: p.logoPath,
           sortOrder: p.sortOrder,
+          ...p.officialEntry,
         });
       }
     });
@@ -107,6 +140,15 @@ export class SqliteParticipantRepository implements IParticipantRepository {
       row.logo_path,
       row.sort_order,
       row.family_name ?? row.player_name,
+      {
+        startNumber: row.start_number,
+        issfId: row.issf_id,
+        nationCode: row.nation_code,
+        gender: row.gender,
+        entryStatus: row.entry_status,
+        teamId: row.team_id,
+        teamName: row.team_name,
+      },
     );
   }
 }

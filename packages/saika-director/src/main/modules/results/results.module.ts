@@ -13,6 +13,8 @@ import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefiniti
 // Command handlers (kept as classes — cross-module orchestration)
 import { PublishResultsHandler } from './commands/PublishResultsHandler';
 import { PublishMqttResultsHandler } from './commands/PublishMqttResultsHandler';
+import { PublishMqttFinalResultsHandler } from './commands/PublishMqttFinalResultsHandler';
+import { PublishMqttMixedTeamFinalResultsHandler } from './commands/PublishMqttMixedTeamFinalResultsHandler';
 import { PublishFinalResultsHandler } from './commands/PublishFinalResultsHandler';
 import { ConfirmResultsHandler } from './commands/ConfirmResultsHandler';
 
@@ -25,15 +27,26 @@ import type {
 } from '@/shared/ipc/contracts/results.contract';
 
 // Command Tokens (kept for cross-module command dispatch)
-import { PublishResultsToken, PublishMqttResultsToken, PublishFinalResultsToken, ConfirmResultsToken } from './tokens';
+import {
+  PublishResultsToken,
+  PublishMqttResultsToken,
+  PublishMqttFinalResultsToken,
+  PublishMqttMixedTeamFinalResultsToken,
+  PublishFinalResultsToken,
+  ConfirmResultsToken,
+} from './tokens';
+import { SqliteFinalControlRepository } from '@/main/modules/final-control';
+import { SqliteMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 
 export const resultsModule: ModuleDefinition<
   | 'commandBus'
+  | 'database'
   | 'queryBus'
   | 'ipcRouter'
   | 'competitionTypeRegistry'
   | 'resultRepository'
   | 'finalResultRepository'
+  | 'mixedTeamFinalResultRepository'
   | 'competitionShotJournal'
   | 'qualificationResultsReader'
   | 'finalResultsReader'
@@ -41,11 +54,13 @@ export const resultsModule: ModuleDefinition<
   name: 'results',
   deps: [
     'commandBus',
+    'database',
     'queryBus',
     'ipcRouter',
     'competitionTypeRegistry',
     'resultRepository',
     'finalResultRepository',
+    'mixedTeamFinalResultRepository',
     'competitionShotJournal',
     'qualificationResultsReader',
     'finalResultsReader',
@@ -53,11 +68,13 @@ export const resultsModule: ModuleDefinition<
   register(ctx) {
     const {
       commandBus,
+      database,
       queryBus,
       ipcRouter,
       competitionTypeRegistry,
       resultRepository,
       finalResultRepository,
+      mixedTeamFinalResultRepository,
       competitionShotJournal,
       qualificationResultsReader,
       finalResultsReader,
@@ -71,6 +88,18 @@ export const resultsModule: ModuleDefinition<
       competitionTypeRegistry,
       competitionShotJournal,
     );
+    const publishMqttFinalResultsHandler = new PublishMqttFinalResultsHandler(
+      queryBus,
+      finalResultRepository,
+      competitionTypeRegistry,
+      new SqliteFinalControlRepository(database),
+    );
+    const publishMqttMixedTeamFinalResultsHandler = new PublishMqttMixedTeamFinalResultsHandler(
+      queryBus,
+      mixedTeamFinalResultRepository,
+      competitionTypeRegistry,
+      new SqliteMixedTeamFinalControlRepository(database),
+    );
     const publishFinalResultsHandler = new PublishFinalResultsHandler(
       queryBus,
       finalResultRepository,
@@ -80,6 +109,10 @@ export const resultsModule: ModuleDefinition<
 
     commandBus.register(PublishResultsToken, (input) => publishResultsHandler.execute(input));
     commandBus.register(PublishMqttResultsToken, (input) => publishMqttResultsHandler.execute(input));
+    commandBus.register(PublishMqttFinalResultsToken, (input) => publishMqttFinalResultsHandler.execute(input));
+    commandBus.register(PublishMqttMixedTeamFinalResultsToken, (input) =>
+      publishMqttMixedTeamFinalResultsHandler.execute(input),
+    );
     commandBus.register(PublishFinalResultsToken, (input) => publishFinalResultsHandler.execute(input));
     commandBus.register(ConfirmResultsToken, async (input) => confirmResultsHandler.execute(input));
 

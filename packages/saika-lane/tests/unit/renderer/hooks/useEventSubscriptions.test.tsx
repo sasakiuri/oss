@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { _resetAudioPlaybackForTest } from '@/renderer/presentation/hooks/useAudioPlayback';
 import { useEventSubscriptions } from '@/renderer/presentation/hooks/useEventSubscriptions';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
+import { useFinalCueStore } from '@/renderer/presentation/stores/finalCueStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type {
   ConnectionStatusChangedEventPayload,
@@ -67,6 +68,7 @@ const mockOnSessionReset = vi.fn();
 const mockOnConnectionStatusChanged = vi.fn();
 const mockOnShotReceived = vi.fn();
 const mockOnShotRecorded = vi.fn();
+const mockOnCompetitionCueChanged = vi.fn();
 const mockOnUpdateStateChanged = vi.fn();
 
 describe('useEventSubscriptions', () => {
@@ -74,6 +76,7 @@ describe('useEventSubscriptions', () => {
     _resetAudioPlaybackForTest();
     useSessionStore.getState().resetSession();
     useConnectionStore.getState().disconnect();
+    useFinalCueStore.getState().setCue('00000000-0000-4000-8000-000000000000', null);
     vi.clearAllMocks();
 
     // Default: return unsubscribe function
@@ -83,6 +86,7 @@ describe('useEventSubscriptions', () => {
     mockOnConnectionStatusChanged.mockReturnValue(vi.fn());
     mockOnShotReceived.mockReturnValue(vi.fn());
     mockOnShotRecorded.mockReturnValue(vi.fn());
+    mockOnCompetitionCueChanged.mockReturnValue(vi.fn());
     mockOnUpdateStateChanged.mockReturnValue(vi.fn());
 
     Object.defineProperty(window, 'electronAPI', {
@@ -105,6 +109,8 @@ describe('useEventSubscriptions', () => {
           phaseChanged: vi.fn().mockReturnValue(vi.fn()),
           timerTick: vi.fn().mockReturnValue(vi.fn()),
           timerExpired: vi.fn().mockReturnValue(vi.fn()),
+          competitionInterruptionChanged: vi.fn().mockReturnValue(vi.fn()),
+          competitionCueChanged: mockOnCompetitionCueChanged,
           seriesCompleted: vi.fn().mockReturnValue(vi.fn()),
           stageAdvanced: vi.fn().mockReturnValue(vi.fn()),
           competitionFinished: vi.fn().mockReturnValue(vi.fn()),
@@ -133,6 +139,7 @@ describe('useEventSubscriptions', () => {
       expect(mockOnSessionReset).toHaveBeenCalledTimes(1);
       expect(mockOnConnectionStatusChanged).toHaveBeenCalledTimes(1);
       expect(mockOnShotRecorded).toHaveBeenCalledTimes(1);
+      expect(mockOnCompetitionCueChanged).toHaveBeenCalledTimes(1);
       expect(mockOnUpdateStateChanged).toHaveBeenCalledTimes(1);
     });
 
@@ -142,6 +149,7 @@ describe('useEventSubscriptions', () => {
       const unsubSessionReset = vi.fn();
       const unsubConnectionStatusChanged = vi.fn();
       const unsubShotRecorded = vi.fn();
+      const unsubCompetitionCueChanged = vi.fn();
       const unsubUpdateStateChanged = vi.fn();
 
       mockOnSessionStarted.mockReturnValue(unsubSessionStarted);
@@ -149,6 +157,7 @@ describe('useEventSubscriptions', () => {
       mockOnSessionReset.mockReturnValue(unsubSessionReset);
       mockOnConnectionStatusChanged.mockReturnValue(unsubConnectionStatusChanged);
       mockOnShotRecorded.mockReturnValue(unsubShotRecorded);
+      mockOnCompetitionCueChanged.mockReturnValue(unsubCompetitionCueChanged);
       mockOnUpdateStateChanged.mockReturnValue(unsubUpdateStateChanged);
 
       const { unmount } = renderHook(() => useEventSubscriptions());
@@ -160,7 +169,55 @@ describe('useEventSubscriptions', () => {
       expect(unsubSessionReset).toHaveBeenCalledTimes(1);
       expect(unsubConnectionStatusChanged).toHaveBeenCalledTimes(1);
       expect(unsubShotRecorded).toHaveBeenCalledTimes(1);
+      expect(unsubCompetitionCueChanged).toHaveBeenCalledTimes(1);
       expect(unsubUpdateStateChanged).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('competitionCueChanged event', () => {
+    it('stores the active Final command cue', () => {
+      renderHook(() => useEventSubscriptions());
+
+      const callback = mockOnCompetitionCueChanged.mock.calls[0]![0] as (event: {
+        competitionId: string;
+        cue: {
+          schemaVersion: 1;
+          competitionId: string;
+          runId: string;
+          cueId: string;
+          confirmationEntryId: string;
+          branch: 'MAIN';
+          iteration: number;
+          stepId: string;
+          actor: 'CRO';
+          kind: 'COMMAND';
+          text: string;
+          ruleReference: string;
+          effect: { type: 'OPEN_FIRING'; purpose: 'MATCH' };
+          publishedAt: string;
+        };
+      }) => void;
+      const competitionId = '11111111-1111-4111-8111-111111111111';
+      const cue = {
+        schemaVersion: 1 as const,
+        competitionId,
+        runId: '22222222-2222-4222-8222-222222222222',
+        cueId: '33333333-3333-4333-8333-333333333333',
+        confirmationEntryId: '44444444-4444-4444-8444-444444444444',
+        branch: 'MAIN' as const,
+        iteration: 0,
+        stepId: 'final-single-1',
+        actor: 'CRO' as const,
+        kind: 'COMMAND' as const,
+        text: 'START',
+        ruleReference: 'ISSF 6.17',
+        effect: { type: 'OPEN_FIRING' as const, purpose: 'MATCH' as const },
+        publishedAt: '2026-09-02T09:00:00.000Z',
+      };
+
+      act(() => callback({ competitionId, cue }));
+
+      expect(useFinalCueStore.getState()).toMatchObject({ competitionId, cue });
     });
   });
 

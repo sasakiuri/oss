@@ -8,6 +8,7 @@ const {
   getByEvent,
   getByRelay,
   getFinalByEvent,
+  getMixedFinal,
   confirm,
   openResultsListPrint,
   listByResult,
@@ -17,6 +18,11 @@ const {
   addVerificationCheck,
   approveResultList,
   revokeResultListApproval,
+  getPublicationStatus,
+  publishPreliminary,
+  registerResultProtest,
+  resolveResultProtest,
+  publishOfficial,
   getPlacementReviewStatus,
   recordPlacementReview,
   revokePlacementReview,
@@ -24,6 +30,7 @@ const {
   getByEvent: vi.fn(),
   getByRelay: vi.fn(),
   getFinalByEvent: vi.fn(),
+  getMixedFinal: vi.fn(),
   confirm: vi.fn(),
   openResultsListPrint: vi.fn(),
   listByResult: vi.fn(),
@@ -33,6 +40,11 @@ const {
   addVerificationCheck: vi.fn(),
   approveResultList: vi.fn(),
   revokeResultListApproval: vi.fn(),
+  getPublicationStatus: vi.fn(),
+  publishPreliminary: vi.fn(),
+  registerResultProtest: vi.fn(),
+  resolveResultProtest: vi.fn(),
+  publishOfficial: vi.fn(),
   getPlacementReviewStatus: vi.fn(),
   recordPlacementReview: vi.fn(),
   revokePlacementReview: vi.fn(),
@@ -40,6 +52,7 @@ const {
 
 vi.mock('@/renderer/services', () => ({
   resultsService: { getByEvent, getByRelay, getFinalByEvent, confirm },
+  teamResultsService: { getMixedFinal },
   boardService: { openResultsListPrint },
   scoringDecisionsService: { listByResult, add, revoke },
   resultVerificationService: {
@@ -47,6 +60,13 @@ vi.mock('@/renderer/services', () => ({
     addCheck: addVerificationCheck,
     approve: approveResultList,
     revokeApproval: revokeResultListApproval,
+  },
+  resultPublicationService: {
+    getStatus: getPublicationStatus,
+    publishPreliminary,
+    registerProtest: registerResultProtest,
+    resolveProtest: resolveResultProtest,
+    publishOfficial,
   },
   finalPlacementReviewService: {
     getStatus: getPlacementReviewStatus,
@@ -78,6 +98,7 @@ function createResult(id: string, relayNumber: number, playerName: string): Rank
       linkedShots: 10,
       independentDecimalShots: 10,
       innerTenClassifiedShots: 10,
+      scoreConflicts: 0,
     },
     revision: 'a'.repeat(64),
     confirmedAt: '2026-01-01T00:00:00.000Z',
@@ -101,9 +122,9 @@ const finalResult: FinalRankedResultDto = {
   stage1Shots: Array.from({ length: 10 }, () => 10),
   stage1Total: 100,
   stage2Shots: [10, 10],
-  stage2Total: 19,
-  seriesScores: [50, 50, 19],
-  seriesShotCounts: [5, 5, 2],
+  stage2Total: 20,
+  seriesScores: [50, 50, 10, 10],
+  seriesShotCounts: [5, 5, 1, 1],
   baseTotalScore: 120,
   totalScore: 119,
   scoreAdjustment: 1,
@@ -129,10 +150,13 @@ describe('ResultsView', () => {
         eventId: 'event-1',
         snapshotRevision: 'b'.repeat(64),
         configuredIndividualChecks: 10,
+        configuredTeamChecks: 0,
         requiredIndividualChecks: 2,
         requiredTeamChecks: 0,
         teamVerificationSupported: true,
         checkedIndividualResults: 0,
+        checkedTeamResults: 0,
+        teamVerificationRunId: null,
         allResultsConfirmed: false,
         readyForApproval: false,
         issues: ['All qualification results must be confirmed'],
@@ -180,6 +204,7 @@ describe('ResultsView', () => {
     getFinalByEvent.mockImplementation(({ eventId }: { eventId: string }) =>
       Promise.resolve({ success: true, data: { eventId, results: [finalResult] } }),
     );
+    getMixedFinal.mockResolvedValue({ success: true, data: [] });
     getPlacementReviewStatus.mockResolvedValue({
       success: true,
       data: {
@@ -194,6 +219,27 @@ describe('ResultsView', () => {
     });
     recordPlacementReview.mockResolvedValue({ success: true, data: {} });
     revokePlacementReview.mockResolvedValue({ success: true, data: {} });
+    getPublicationStatus.mockResolvedValue({
+      success: true,
+      data: {
+        eventId: 'event-1',
+        resultScope: 'QUALIFICATION',
+        status: 'DRAFT',
+        preliminaryId: null,
+        publicationSnapshotRevision: null,
+        currentSnapshotRevision: 'b'.repeat(64),
+        publicationCurrent: false,
+        postedAt: null,
+        protestEndsAt: null,
+        openProtestReferences: [],
+        officialPublishedAt: null,
+        approvalId: null,
+        canRegisterProtest: false,
+        canPublishOfficial: false,
+        issues: ['Preliminary results have not been published'],
+        history: [],
+      },
+    });
   });
 
   it('opens the independent RTS result-verification workflow', async () => {
@@ -201,9 +247,23 @@ describe('ResultsView', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'RTS verification' }));
 
-    await waitFor(() => expect(getVerificationStatus).toHaveBeenCalledWith({ eventId: 'event-1' }));
+    await waitFor(() =>
+      expect(getVerificationStatus).toHaveBeenCalledWith({ eventId: 'event-1', resultScope: 'QUALIFICATION' }),
+    );
     expect(screen.getByRole('dialog', { name: 'RTS result verification — Qualification' })).toBeInTheDocument();
     expect(screen.getByText('0 / 2')).toBeInTheDocument();
+  });
+
+  it('opens the result publication workflow independently from score confirmation', async () => {
+    render(<ResultsView eventId="event-1" eventName="Qualification" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Publication' }));
+
+    await waitFor(() =>
+      expect(getPublicationStatus).toHaveBeenCalledWith({ eventId: 'event-1', resultScope: 'QUALIFICATION' }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Result publication — Qualification' })).toBeInTheDocument();
+    expect(screen.getByText('Preliminary results have not been published')).toBeInTheDocument();
   });
 
   it('keeps every relay available after filtering to one relay', async () => {
@@ -269,7 +329,7 @@ describe('ResultsView', () => {
     await waitFor(() =>
       expect(listByResult).toHaveBeenCalledWith({ resultId: 'final-result-1', resultScope: 'FINAL' }),
     );
-    expect(screen.getByText('Available series: S1 (5), S2 (5), S3 (2)')).toBeInTheDocument();
+    expect(screen.getByText('Available series: S1 (5), S2 (5), S3 (1), S4 (1)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Public result-list remark'), {
       target: { value: 'Final deduction confirmed' },
     });

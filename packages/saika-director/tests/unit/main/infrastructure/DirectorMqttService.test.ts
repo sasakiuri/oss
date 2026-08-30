@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DirectorMqttService, type MqttControlSnapshot } from '@/main/modules/mqtt/infra/DirectorMqttService';
+import {
+  DirectorMqttService,
+  type DirectorMqttCallbacks,
+  type MqttControlSnapshot,
+} from '@/main/modules/mqtt/infra/DirectorMqttService';
 import type { IMqttTransport, MqttMessageHandler } from '@/main/modules/mqtt/infra/MqttTransport';
 
 class FakeMqttTransport implements IMqttTransport {
@@ -100,6 +104,7 @@ const COMPETITION_ID = '22222222-2222-4222-8222-222222222222';
 const SECOND_COMPETITION_ID = '88888888-8888-4888-8888-888888888888';
 const SESSION_ID = '33333333-3333-4333-8333-333333333333';
 const PARTICIPANT_ID = '44444444-4444-4444-8444-444444444444';
+const INTERRUPTION_ID = '99999999-9999-4999-8999-999999999999';
 
 function hardwareState() {
   return {
@@ -111,10 +116,14 @@ function hardwareState() {
   };
 }
 
-function createService(transport: FakeMqttTransport, onStateChanged = vi.fn()) {
+function createService(
+  transport: FakeMqttTransport,
+  onStateChanged = vi.fn(),
+  callbacks: Omit<DirectorMqttCallbacks, 'onStateChanged'> = {},
+) {
   return new DirectorMqttService(
     { directorId: 'director-test', commandTimeoutMs: 50, startDelayMs: 0, resubscribeRetryMs: 10 },
-    { onStateChanged },
+    { ...callbacks, onStateChanged },
     transport,
   );
 }
@@ -217,6 +226,26 @@ async function createCompetitionGroup(
   });
 }
 
+function publishedCommand(transport: FakeMqttTransport, action: string) {
+  const publication = transport.publications.filter((entry) => entry.topic.endsWith(`/command/${action}`)).at(-1);
+  if (!publication) throw new Error(`No ${action} command was published`);
+  return JSON.parse(publication.payload) as {
+    commandId: string;
+    issuedAt: string;
+    timerStartAt: string;
+    expiredAt: string;
+  };
+}
+
+function acknowledgeCompetitionCommand(transport: FakeMqttTransport, action: string, commandId: string): void {
+  transport.emitMessage(`saika/competition/${COMPETITION_ID}/command/${action}/acknowledgement/${LANE_ID}`, {
+    commandId,
+    laneId: LANE_ID,
+    status: 'done',
+    acknowledgedAt: new Date().toISOString(),
+  });
+}
+
 describe('DirectorMqttService', () => {
   let transport: FakeMqttTransport;
 
@@ -258,6 +287,21 @@ describe('DirectorMqttService', () => {
     expect(service.getSnapshot().connected).toBe(true);
   });
 
+  it('clears a retained Final cue without changing competition state', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+
+    await service.clearCompetitionCue(COMPETITION_ID);
+
+    expect(transport.publications.at(-1)).toEqual({
+      topic: `saika/competition/${COMPETITION_ID}/cue`,
+      payload: '',
+      options: { qos: 1, retain: true },
+    });
+    expect(service.getSnapshot().competitions).toHaveLength(1);
+  });
+
   it('subscribes to director topics and aggregates hardware state', async () => {
     const onStateChanged = vi.fn<(snapshot: MqttControlSnapshot) => void>();
     const service = createService(transport, onStateChanged);
@@ -267,6 +311,7 @@ describe('DirectorMqttService', () => {
 
     expect(transport.subscriptions).toEqual([
       'saika/lane/+/hardware/#',
+      'saika/lane/+/safety/state',
       'saika/lane/+/command/+/acknowledgement',
       'saika/competition/+/#',
     ]);
@@ -276,6 +321,77 @@ describe('DirectorMqttService', () => {
       hardware: { connection: { status: 'connected' } },
     });
     expect(onStateChanged).toHaveBeenCalled();
+  });
+
+  it('emits exact START and STOP boundaries when firing commands reach the broker', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-30T00:00:00.000Z'));
+    const onFiringBoundary = vi.fn<NonNullable<DirectorMqttCallbacks['onFiringBoundary']>>();
+    const service = createService(transport, vi.fn(), { onFiringBoundary });
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+
+    const startSighting = service.startSighting(COMPETITION_ID, 60);
+    await vi.advanceTimersByTimeAsync(0);
+    const sightingStartCommand = publishedCommand(transport, 'start-sighting');
+    expect(onFiringBoundary).toHaveBeenLastCalledWith({
+      competitionId: COMPETITION_ID,
+      phase: 'SIGHTING',
+      transition: 'OPEN',
+      occurredAt: new Date(sightingStartCommand.timerStartAt),
+      commandId: sightingStartCommand.commandId,
+      commandIssuedAt: new Date(sightingStartCommand.issuedAt),
+      sourceAction: 'start-sighting',
+    });
+    acknowledgeCompetitionCommand(transport, 'start-sighting', sightingStartCommand.commandId);
+    await startSighting;
+
+    vi.setSystemTime(new Date('2026-08-30T00:00:10.000Z'));
+    const endSighting = service.endSighting(COMPETITION_ID);
+    await vi.advanceTimersByTimeAsync(0);
+    const sightingStopCommand = publishedCommand(transport, 'end-sighting');
+    expect(onFiringBoundary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        phase: 'SIGHTING',
+        transition: 'CLOSE',
+        occurredAt: new Date(sightingStopCommand.issuedAt),
+        commandId: sightingStopCommand.commandId,
+        sourceAction: 'end-sighting',
+      }),
+    );
+    acknowledgeCompetitionCommand(transport, 'end-sighting', sightingStopCommand.commandId);
+    await endSighting;
+
+    vi.setSystemTime(new Date('2026-08-30T00:00:20.000Z'));
+    const startMatch = service.startMatch(COMPETITION_ID, 1);
+    await vi.advanceTimersByTimeAsync(0);
+    const matchStartCommand = publishedCommand(transport, 'start-match');
+    expect(onFiringBoundary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        phase: 'MATCH',
+        transition: 'OPEN',
+        occurredAt: new Date(matchStartCommand.timerStartAt),
+        commandId: matchStartCommand.commandId,
+        sourceAction: 'start-match',
+      }),
+    );
+    acknowledgeCompetitionCommand(transport, 'start-match', matchStartCommand.commandId);
+    await startMatch;
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    const matchStopCommand = publishedCommand(transport, 'timer-expired');
+    expect(onFiringBoundary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        phase: 'MATCH',
+        transition: 'CLOSE',
+        occurredAt: new Date(matchStopCommand.expiredAt),
+        commandId: matchStopCommand.commandId,
+        sourceAction: 'timer-expired',
+      }),
+    );
+    acknowledgeCompetitionCommand(transport, 'timer-expired', matchStopCommand.commandId);
+    await vi.advanceTimersByTimeAsync(0);
+    await service.disconnect();
   });
 
   it('treats a retained connected heartbeat as offline after its freshness window expires', async () => {
@@ -1190,6 +1306,62 @@ describe('DirectorMqttService', () => {
     await service.disconnect();
   });
 
+  it('uses Lane-specific interruption commands and preserves captured timer evidence from the ACK', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      startedAt: new Date().toISOString(),
+      publishedAt: new Date(Date.now() + 1).toISOString(),
+    });
+
+    const acknowledgeLast = async (action: 'pause-timer' | 'resume-timer' | 'resume-match', data?: object) => {
+      await vi.waitFor(() =>
+        expect(transport.publications.some((entry) => entry.topic.endsWith(`/command/${action}`))).toBe(true),
+      );
+      const publication = transport.publications.filter((entry) => entry.topic.endsWith(`/command/${action}`)).at(-1)!;
+      const command = JSON.parse(publication.payload) as Record<string, unknown> & { commandId: string };
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/${action}/acknowledgement`, {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        ...(data ? { data } : {}),
+        acknowledgedAt: new Date().toISOString(),
+      });
+      return command;
+    };
+
+    const pausePromise = service.pauseLaneTimer(COMPETITION_ID, LANE_ID, INTERRUPTION_ID);
+    const pauseCommand = await acknowledgeLast('pause-timer', {
+      interruptionId: INTERRUPTION_ID,
+      status: 'PAUSED',
+      capturedAt: '2026-08-31T01:00:01.000Z',
+      remainingSeconds: 240,
+      totalSeconds: 600,
+    });
+    expect(pauseCommand).toMatchObject({ interruptionId: INTERRUPTION_ID });
+    await expect(pausePromise).resolves.toMatchObject({
+      success: true,
+      lanes: [{ data: { remainingSeconds: 240, totalSeconds: 600 } }],
+    });
+
+    const resumePromise = service.resumeLaneTimer(COMPETITION_ID, LANE_ID, INTERRUPTION_ID, 540, true);
+    const resumeCommand = await acknowledgeLast('resume-timer');
+    expect(resumeCommand).toMatchObject({
+      interruptionId: INTERRUPTION_ID,
+      authorizedRemainingSeconds: 540,
+      unlimitedSightingShots: true,
+    });
+    await expect(resumePromise).resolves.toMatchObject({ success: true });
+
+    const matchPromise = service.resumeLaneMatch(COMPETITION_ID, LANE_ID, INTERRUPTION_ID);
+    await acknowledgeLast('resume-match');
+    await expect(matchPromise).resolves.toMatchObject({ success: true });
+    await service.disconnect();
+  });
+
   it('locks athlete assignments during competition but permits repair before result cleanup', async () => {
     const service = createService(transport);
     await service.connect('mqtt://localhost:1883');
@@ -1819,7 +1991,7 @@ describe('DirectorMqttService', () => {
     transport.emitDisconnected();
     transport.emitConnected();
 
-    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(6));
+    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(8));
     expect(service.getSnapshot()).toMatchObject({
       connected: true,
       activeCompetitionId: null,
@@ -2033,6 +2205,7 @@ describe('DirectorMqttService', () => {
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`,
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/score`,
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/assignment`,
+        `saika/competition/${COMPETITION_ID}/cue`,
       ]),
     );
     expect(service.getSnapshot()).toMatchObject({ activeCompetitionId: null, competitions: [] });
@@ -2082,6 +2255,57 @@ describe('DirectorMqttService', () => {
     });
 
     await expect(finishing).resolves.toMatchObject({ success: true });
+  });
+
+  it('keeps a completed competition recoverable when a data-clear guard rejects cleanup', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    const beforeDataClear = vi.fn<() => void>(() => {
+      throw new Error('Evidence hold is active');
+    });
+
+    const finishing = service.finishCompetition(COMPETITION_ID, undefined, beforeDataClear);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/finish-competition'))).toBe(true),
+    );
+    const finishPublication = transport.publications.find((entry) => entry.topic.endsWith('/finish-competition'))!;
+    const finishCommand = JSON.parse(finishPublication.payload) as { commandId: string };
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/command/finish-competition/acknowledgement/${LANE_ID}`, {
+      commandId: finishCommand.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+
+    await expect(finishing).rejects.toThrow('Evidence hold is active');
+    expect(beforeDataClear).toHaveBeenCalledOnce();
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/leave-competition'))).toBe(false);
+    expect(transport.publications.some((entry) => entry.options.retain && entry.payload === '')).toBe(false);
+    const heldSnapshot = service.getSnapshot();
+    expect(heldSnapshot).toMatchObject({
+      activeCompetitionId: COMPETITION_ID,
+      competitions: [expect.objectContaining({ phase: 'MATCH_COMPLETE' })],
+    });
+    expect(heldSnapshot.competitions[0]?.cleanupPreparedAt).toBeUndefined();
+
+    beforeDataClear.mockImplementation(() => undefined);
+    const retry = service.finishCompetition(COMPETITION_ID, undefined, beforeDataClear);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/leave-competition'))).toBe(true),
+    );
+    const leavePublication = transport.publications.find((entry) => entry.topic.endsWith('/leave-competition'))!;
+    const leaveCommand = JSON.parse(leavePublication.payload) as { commandId: string };
+    transport.emitMessage(`saika/lane/${LANE_ID}/command/leave-competition/acknowledgement`, {
+      commandId: leaveCommand.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+
+    await expect(retry).resolves.toMatchObject({ success: true });
+    expect(beforeDataClear).toHaveBeenCalledTimes(2);
+    expect(service.getSnapshot()).toMatchObject({ activeCompetitionId: null, competitions: [] });
   });
 
   it('does not save or clean up results when final Lane snapshots do not arrive after the finish command', async () => {
@@ -2334,5 +2558,95 @@ describe('DirectorMqttService', () => {
       ),
     ).toBe(true);
     expect(service.getSnapshot()).toMatchObject({ activeCompetitionId: null, competitions: [] });
+  });
+
+  it('fans out independent safety STOP and explicit clear commands with Lane acknowledgements', async () => {
+    const service = createService(transport);
+    const safetyStopId = '77777777-7777-4777-8777-777777777777';
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+
+    const stopping = service.activateSafetyStop([LANE_ID], safetyStopId, 'Person forward of firing line', 'CRO One');
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/command/activate-safety-stop'))).toBe(true),
+    );
+    const stopPublication = transport.publications.find((entry) =>
+      entry.topic.endsWith('/command/activate-safety-stop'),
+    )!;
+    const stopCommand = JSON.parse(stopPublication.payload) as {
+      commandId: string;
+      safetyStopId: string;
+      reason: string;
+      issuedBy: string;
+    };
+    expect(stopCommand).toMatchObject({ safetyStopId, reason: 'Person forward of firing line', issuedBy: 'CRO One' });
+    transport.emitMessage(`saika/lane/${LANE_ID}/command/activate-safety-stop/acknowledgement`, {
+      commandId: stopCommand.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      data: { safetyStopId, status: 'STOPPED', timerRestarted: false },
+      acknowledgedAt: new Date().toISOString(),
+    });
+    await expect(stopping).resolves.toMatchObject({ success: true });
+
+    transport.emitMessage(`saika/lane/${LANE_ID}/safety/state`, {
+      laneId: LANE_ID,
+      status: 'STOPPED',
+      safetyStopId,
+      reason: 'Person forward of firing line',
+      stoppedBy: 'CRO One',
+      stoppedAt: new Date().toISOString(),
+      timerSnapshot: null,
+      clearedBy: null,
+      clearanceReason: null,
+      clearedAt: null,
+      publishedAt: new Date().toISOString(),
+    });
+    expect(service.getSnapshot().lanes[0]?.safetyState).toMatchObject({ status: 'STOPPED', safetyStopId });
+
+    const clearing = service.clearSafetyStop([LANE_ID], safetyStopId, 'Range inspected', 'CRO One');
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/command/clear-safety-stop'))).toBe(true),
+    );
+    const clearPublication = transport.publications.find((entry) =>
+      entry.topic.endsWith('/command/clear-safety-stop'),
+    )!;
+    const clearCommand = JSON.parse(clearPublication.payload) as {
+      commandId: string;
+      confirmedSafe: boolean;
+      clearanceReason: string;
+    };
+    expect(clearCommand).toMatchObject({ confirmedSafe: true, clearanceReason: 'Range inspected' });
+    transport.emitMessage(`saika/lane/${LANE_ID}/command/clear-safety-stop/acknowledgement`, {
+      commandId: clearCommand.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      data: { safetyStopId, status: 'CLEAR', timerRestarted: false },
+      acknowledgedAt: new Date().toISOString(),
+    });
+    await expect(clearing).resolves.toMatchObject({ success: true });
+  });
+
+  it('blocks a firing start while a Lane safety STOP is retained', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+    await createCompetition(service);
+    transport.emitMessage(`saika/lane/${LANE_ID}/safety/state`, {
+      laneId: LANE_ID,
+      status: 'STOPPED',
+      safetyStopId: '77777777-7777-4777-8777-777777777777',
+      reason: 'Emergency',
+      stoppedBy: 'CRO One',
+      stoppedAt: new Date().toISOString(),
+      timerSnapshot: null,
+      clearedBy: null,
+      clearanceReason: null,
+      clearedAt: null,
+      publishedAt: new Date().toISOString(),
+    });
+
+    await expect(service.startSighting(COMPETITION_ID, 600)).rejects.toThrow('safety STOP is active');
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-sighting'))).toBe(false);
   });
 });

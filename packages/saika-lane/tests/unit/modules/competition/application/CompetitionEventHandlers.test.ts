@@ -22,7 +22,8 @@ import { CompetitionState } from '@/main/modules/competition/domain/CompetitionS
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
-import type { PhaseChangedEvent } from '@/main/shared-infra/events/coreEvents';
+import { Mode } from '@/main/modules/session/domain/Mode';
+import type { PhaseChangedEvent, ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 describe('createShotRecordedHandler', () => {
@@ -115,6 +116,27 @@ describe('createShotRecordedHandler', () => {
         aggregateId: 'comp-1',
       }),
     );
+  });
+
+  it('does not count authorized sighting shots in a scored stage', async () => {
+    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    vi.mocked(mockRepo.findActive).mockResolvedValue(state);
+    const event = {
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-1',
+      shot: { mode: Mode.sighting() },
+      scoringMode: 'DECIMAL',
+    } as ShotRecordedEvent;
+
+    const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
+    await handler(event);
+
+    expect(mockRepo.save).not.toHaveBeenCalled();
   });
 
   it('should not emit SeriesCompleted event when series is not yet complete', async () => {

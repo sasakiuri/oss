@@ -4,18 +4,40 @@ import { Button } from '../../shared/common/Button';
 import { ParticipantRow as ParticipantRowComponent } from './ParticipantRow';
 import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
 
+type ParticipantGender = Exclude<ParticipantDto['gender'], undefined>;
+type ParticipantEntryStatus = Exclude<ParticipantDto['entryStatus'], undefined>;
+
 interface ParticipantRow {
   id?: string;
   tempId: string;
   playerName: string;
   familyName: string;
   affiliation: string;
+  startNumber: string;
+  issfId: string;
+  nationCode: string;
+  gender: ParticipantGender;
+  entryStatus: ParticipantEntryStatus;
+  teamId: string;
+  teamName: string;
 }
 
 interface ParticipantEditorProps {
   participants: ParticipantDto[];
   onSave: (
-    participants: { id?: string; playerName: string; familyName: string; affiliation: string }[],
+    participants: Array<{
+      id?: string;
+      playerName: string;
+      familyName: string;
+      affiliation: string;
+      startNumber: string | null;
+      issfId: string | null;
+      nationCode: string | null;
+      gender: ParticipantGender;
+      entryStatus: ParticipantEntryStatus;
+      teamId: string | null;
+      teamName: string | null;
+    }>,
   ) => Promise<ParticipantDto[] | null>;
 }
 
@@ -29,6 +51,13 @@ function parseClipboardText(text: string): ParticipantRow[] {
         playerName: (parts[0] ?? '').trim(),
         affiliation: (parts[1] ?? '').trim(),
         familyName: (parts[2] ?? parts[0] ?? '').trim(),
+        startNumber: (parts[3] ?? '').trim(),
+        issfId: (parts[4] ?? '').trim(),
+        nationCode: (parts[5] ?? '').trim().toUpperCase(),
+        gender: parseGender(parts[6]),
+        entryStatus: parseEntryStatus(parts[7]),
+        teamId: (parts[8] ?? '').trim(),
+        teamName: (parts[9] ?? '').trim(),
       };
     })
     .filter((row) => row.playerName !== '');
@@ -63,6 +92,13 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
         playerName: p.playerName,
         familyName: p.familyName ?? p.playerName,
         affiliation: p.affiliation,
+        startNumber: p.startNumber ?? '',
+        issfId: p.issfId ?? '',
+        nationCode: p.nationCode ?? '',
+        gender: p.gender ?? 'UNSPECIFIED',
+        entryStatus: p.entryStatus ?? 'COMPETING',
+        teamId: p.teamId ?? '',
+        teamName: p.teamName ?? '',
       })),
     );
     editVersionRef.current += 1;
@@ -70,7 +106,23 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
   }, [participants, updateDirty]);
 
   const addRow = () => {
-    setRows([...rows, { id: undefined, tempId: crypto.randomUUID(), playerName: '', familyName: '', affiliation: '' }]);
+    setRows([
+      ...rows,
+      {
+        id: undefined,
+        tempId: crypto.randomUUID(),
+        playerName: '',
+        familyName: '',
+        affiliation: '',
+        startNumber: '',
+        issfId: '',
+        nationCode: '',
+        gender: 'UNSPECIFIED',
+        entryStatus: 'COMPETING',
+        teamId: '',
+        teamName: '',
+      },
+    ]);
     markDirty();
   };
 
@@ -106,11 +158,18 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
     setIsSaving(true);
     try {
       const savedParticipants = await onSave(
-        validRows.map(({ id, playerName, familyName, affiliation }) => ({
+        validRows.map(({ id, playerName, familyName, affiliation, ...official }) => ({
           id,
           playerName,
           familyName: familyName.trim() || playerName,
           affiliation,
+          startNumber: official.startNumber.trim() || null,
+          issfId: official.issfId.trim() || null,
+          nationCode: official.nationCode.trim().toUpperCase() || null,
+          gender: official.gender,
+          entryStatus: official.entryStatus,
+          teamId: official.teamId.trim() || null,
+          teamName: official.teamName.trim() || null,
         })),
       );
       if (!savedParticipants) return;
@@ -123,6 +182,13 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
             playerName: participant.playerName,
             familyName: participant.familyName ?? participant.playerName,
             affiliation: participant.affiliation,
+            startNumber: participant.startNumber ?? '',
+            issfId: participant.issfId ?? '',
+            nationCode: participant.nationCode ?? '',
+            gender: participant.gender ?? 'UNSPECIFIED',
+            entryStatus: participant.entryStatus ?? 'COMPETING',
+            teamId: participant.teamId ?? '',
+            teamName: participant.teamName ?? '',
           })),
         );
         updateDirty(false);
@@ -194,8 +260,15 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
             <thead>
               <tr className="border-b border-vscode-border">
                 <th className="w-6 px-1 py-1.5"></th>
-                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Athlete</th>
                 <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Family name</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Athlete</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Start #</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">ISSF ID</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">NOC</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Gender</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Entry</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Team ID</th>
+                <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Team name</th>
                 <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-vscode-text-muted">Affiliation</th>
                 <th className="w-8 px-2 py-1.5"></th>
               </tr>
@@ -223,7 +296,8 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
 
       <div className="mt-1 flex items-center justify-between gap-3">
         <p className="text-xs text-vscode-dimmed">
-          Paste athlete, affiliation, and optional family-name columns from a spreadsheet.
+          Paste athlete, affiliation, family name, start number, ISSF ID, NOC, gender, entry status, team ID, and team
+          name.
         </p>
         <Button size="sm" variant="secondary" onClick={addRow}>
           <Plus size={13} aria-hidden="true" />
@@ -232,4 +306,16 @@ export function ParticipantEditor({ participants, onSave }: ParticipantEditorPro
       </div>
     </div>
   );
+}
+
+function parseGender(value: string | undefined): ParticipantGender {
+  const normalized = value?.trim().toUpperCase();
+  return normalized === 'M' || normalized === 'F' || normalized === 'X' ? normalized : 'UNSPECIFIED';
+}
+
+function parseEntryStatus(value: string | undefined): ParticipantEntryStatus {
+  const normalized = value?.trim().toUpperCase();
+  return ['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB'].includes(normalized ?? '')
+    ? (normalized as ParticipantEntryStatus)
+    : 'COMPETING';
 }

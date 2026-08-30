@@ -8,6 +8,8 @@
 import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
+import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { mqttContract } from '@/shared/ipc/contracts';
 import type { MqttSettings } from '@/shared/ipc/contracts/mqtt.contract';
@@ -16,15 +18,19 @@ import type { InferHandlers } from '@/shared/ipc/defineContract';
 import { BroadcastCommandHandler } from './application/commands/BroadcastCommandHandler';
 import { LaneTier1CommandHandler } from './application/commands/LaneTier1CommandHandler';
 import { PerLaneCommandHandler } from './application/commands/PerLaneCommandHandler';
+import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber';
+import { CompetitionShootOffShotPublisher } from './application/CompetitionShootOffShotPublisher';
 import { CompetitionShotPublisher } from './application/CompetitionShotPublisher';
 import { CompetitionStateSubscriber } from './application/CompetitionStateSubscriber';
 import { HardwareStatePublisher } from './application/HardwareStatePublisher';
 import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
 import { LaneCompetitionStatePublisher } from './application/LaneCompetitionStatePublisher';
+import { LaneSafetyStatePublisher } from './application/LaneSafetyStatePublisher';
 import { LaneScorePublisher } from './application/LaneScorePublisher';
 import { RawShotPublisher } from './application/RawShotPublisher';
 import { RetainPublisher } from './application/RetainPublisher';
 import { RpcRequestHandler } from './application/RpcRequestHandler';
+import { ShotObservationEvidencePublisher } from './application/ShotObservationEvidencePublisher';
 import { CommandIdempotencyGuard } from './infra/CommandIdempotencyGuard';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
@@ -37,7 +43,11 @@ type MqttDeps =
   | 'commandBus'
   | 'competitionRepository'
   | 'timerService'
-  | 'sessionRepository';
+  | 'competitionInterruptionControl'
+  | 'competitionShootOffControl'
+  | 'safetyStopControl'
+  | 'sessionRepository'
+  | 'database';
 
 export const mqttModule: ModuleDefinition<MqttDeps> = {
   name: 'mqtt',
@@ -50,7 +60,11 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'commandBus',
     'competitionRepository',
     'timerService',
+    'competitionInterruptionControl',
+    'competitionShootOffControl',
+    'safetyStopControl',
     'sessionRepository',
+    'database',
   ] as const,
   register({
     eventBus,
@@ -61,7 +75,11 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     commandBus,
     competitionRepository,
     timerService,
+    competitionInterruptionControl,
+    competitionShootOffControl,
+    safetyStopControl,
     sessionRepository,
+    database,
   }) {
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
@@ -70,7 +88,20 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 
     // Initialize publishers (they subscribe to EventBus events)
     const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion);
+    new CompetitionShootOffShotPublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      competitionShootOffControl,
+      new SqliteCompetitionShootOffShotOutbox(database),
+    );
     new RawShotPublisher(mqttClient, eventBus, storage);
+    new ShotObservationEvidencePublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      new SqliteShotObservationEvidenceOutbox(database),
+    );
 
     // Initialize competition publishers
     const competitionStatePublisher = new LaneCompetitionStatePublisher(
@@ -78,10 +109,19 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       eventBus,
       storage,
       competitionRepository,
+      (competitionId) => competitionInterruptionControl.get(competitionId),
     );
     const scorePublisher = new LaneScorePublisher(mqttClient, eventBus, storage, competitionRepository, queryBus);
-    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository, sessionRepository);
+    new CompetitionShotPublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      competitionRepository,
+      sessionRepository,
+      competitionShootOffControl,
+    );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
+    const safetyStatePublisher = new LaneSafetyStatePublisher(mqttClient, eventBus, storage, safetyStopControl);
 
     // Initialize retain publisher (handles reconnect republish + shot backlog replay)
     const retainPublisher = new RetainPublisher(
@@ -93,6 +133,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionStatePublisher,
       scorePublisher,
       assignmentPublisher,
+      safetyStatePublisher,
     );
 
     // Initialize RPC handler
@@ -100,6 +141,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 
     // Initialize competition state subscriber
     const competitionStateSubscriber = new CompetitionStateSubscriber(mqttClient, commandBus, competitionRepository);
+    const competitionCueSubscriber = new CompetitionCueSubscriber(mqttClient, eventBus, getLaneId);
 
     // Initialize command handlers (laneId is read dynamically via getter)
     const competitionId = ''; // Set when joining a competition
@@ -114,6 +156,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       idempotencyGuard,
       getLaneId,
       competitionId,
+      competitionInterruptionControl,
+      safetyStopControl,
+      competitionShootOffControl,
     );
 
     const perLaneHandler = new PerLaneCommandHandler(
@@ -123,8 +168,11 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionRepository,
       assignmentPublisher,
       scorePublisher,
+      competitionStatePublisher,
+      competitionInterruptionControl,
       getLaneId,
       competitionId,
+      safetyStopControl,
     );
 
     const tier1Handler = new LaneTier1CommandHandler(
@@ -137,6 +185,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       retainPublisher,
       storage,
       getLaneId,
+      safetyStopControl,
+      safetyStatePublisher,
+      competitionCueSubscriber,
+      competitionShootOffControl,
     );
 
     // IPC handlers
@@ -170,6 +222,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           // Publish initial state
           hardwarePublisher.resumePublishing();
           hardwarePublisher.publishState();
+          await safetyStatePublisher.publishCurrentState();
           hardwarePublisher.startHeartbeat();
 
           // Subscribe to Tier1 commands
@@ -234,6 +287,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
         };
       },
 
+      getSafetyState: async () => toSafetyStateDto(safetyStopControl.getState()),
+
       saveMqttSettings: async (input) => {
         settingsStore.saveMqttSettings(input);
         hardwarePublisher.setRuntimeLaneAlias(null);
@@ -246,3 +301,24 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     ipcRouter.register(mqttContract, handlers);
   },
 };
+
+function toSafetyStateDto(state: ReturnType<import('@/main/modules/safety-stop').ILaneSafetyStopControl['getState']>) {
+  return {
+    status: state?.status ?? ('CLEAR' as const),
+    safetyStopId: state?.safetyStopId ?? null,
+    reason: state?.reason ?? null,
+    stoppedBy: state?.stoppedBy ?? null,
+    stoppedAt: state?.stoppedAt.toISOString() ?? null,
+    timerSnapshot: state?.timerSnapshot
+      ? {
+          competitionId: state.timerSnapshot.competitionId,
+          remainingSeconds: state.timerSnapshot.remainingSeconds,
+          totalSeconds: state.timerSnapshot.totalSeconds,
+          frozenAt: state.timerSnapshot.frozenAt.toISOString(),
+        }
+      : null,
+    clearedBy: state?.clearedBy ?? null,
+    clearanceReason: state?.clearanceReason ?? null,
+    clearedAt: state?.clearedAt?.toISOString() ?? null,
+  };
+}

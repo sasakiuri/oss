@@ -43,6 +43,8 @@ export interface RoundConfig {
 export interface CompetitionTypeDefinition {
   readonly id: string;
   readonly name: string;
+  /** Versioned rule source. Missing for local/JRSF definitions not yet migrated. */
+  readonly rulePackId?: string;
   readonly discipline: string;
   readonly config: RoundConfig;
 }

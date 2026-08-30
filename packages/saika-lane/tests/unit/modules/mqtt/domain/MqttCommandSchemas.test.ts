@@ -9,7 +9,10 @@ import {
   FinishCompetitionCmdSchema,
   JoinCompetitionCmdSchema,
   LeaveCompetitionCmdSchema,
+  PauseTimerCmdSchema,
   ResetSessionCmdSchema,
+  ResumeMatchCmdSchema,
+  ResumeTimerCmdSchema,
   StartMatchCmdSchema,
   StartSightingCmdSchema,
   TimerExpiredCmdSchema,
@@ -351,6 +354,42 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
+  describe('Lane interruption command schemas', () => {
+    const interruptionId = crypto.randomUUID();
+
+    it('accepts pause, timed resume, and MATCH resume commands', () => {
+      expect(
+        PauseTimerCmdSchema.safeParse({
+          ...validBase(),
+          interruptionId,
+          pausedAt: new Date().toISOString(),
+        }).success,
+      ).toBe(true);
+      expect(
+        ResumeTimerCmdSchema.safeParse({
+          ...validBase(),
+          interruptionId,
+          timerStartAt: new Date().toISOString(),
+          authorizedRemainingSeconds: 540,
+          unlimitedSightingShots: true,
+        }).success,
+      ).toBe(true);
+      expect(ResumeMatchCmdSchema.safeParse({ ...validBase(), interruptionId }).success).toBe(true);
+    });
+
+    it('rejects a resume without a positive authorized duration', () => {
+      expect(
+        ResumeTimerCmdSchema.safeParse({
+          ...validBase(),
+          interruptionId,
+          timerStartAt: new Date().toISOString(),
+          authorizedRemainingSeconds: 0,
+          unlimitedSightingShots: false,
+        }).success,
+      ).toBe(false);
+    });
+  });
+
   // ============================================================
   // ACK
   // ============================================================
@@ -383,6 +422,17 @@ describe('MqttCommandSchemas', () => {
         laneId: crypto.randomUUID(),
         status: 'executing',
         warning: 'Timer drift detected',
+        acknowledgedAt: new Date().toISOString(),
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts structured command result data', () => {
+      const result = CommandAckPayloadSchema.safeParse({
+        commandId: crypto.randomUUID(),
+        laneId: crypto.randomUUID(),
+        status: 'done',
+        data: { remainingSeconds: 240, status: 'PAUSED' },
         acknowledgedAt: new Date().toISOString(),
       });
       expect(result.success).toBe(true);

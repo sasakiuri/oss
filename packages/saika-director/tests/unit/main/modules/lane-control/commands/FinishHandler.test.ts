@@ -4,7 +4,7 @@ import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
-import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildMultiShotSeriesFinalConfig } from '../../../../../helpers/testConfigs';
 import { FinishHandler } from '@/main/modules/lane-control/commands/FinishHandler';
 import { DomainError } from '@/shared/errors';
 
@@ -65,8 +65,7 @@ describe('FinishHandler', () => {
   });
 
   it('should finish lane in SHOT_COMPLETE state', async () => {
-    const { buildFinalConfig } = await import('../../../../../helpers/testConfigs');
-    let lane = LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(8));
+    let lane = LaneControl.create('lane-1', Channel.create(1), buildMultiShotSeriesFinalConfig(8));
     lane = lane.assignPlayer(Player.create('Test Player', 'Test Affiliation', 'participant-1'));
     lane = lane.startPreparation().advanceToNextStage().startMatch();
     for (let i = 0; i < 5; i++) {

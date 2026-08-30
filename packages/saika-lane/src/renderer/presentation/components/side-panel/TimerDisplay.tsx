@@ -18,6 +18,7 @@ export const TimerDisplay: React.FC = () => {
   const phase = useCompetitionStore((s) => s.phase);
   const remainingSeconds = useCompetitionStore((s) => s.remainingSeconds);
   const totalSeconds = useCompetitionStore((s) => s.totalSeconds);
+  const interruption = useCompetitionStore((s) => s.interruption);
   const formattedRemaining = formatSeconds(remainingSeconds);
 
   if (phase === 'IDLE') return null;
@@ -39,6 +40,15 @@ export const TimerDisplay: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center border-b border-zinc-500 px-2 py-3">
+      {interruption && interruption.status !== 'RUNNING_MATCH' && (
+        <span
+          className={`mb-1 rounded px-3 py-1 text-lg font-bold tracking-widest ${
+            interruption.status === 'SIGHTING' ? 'bg-amber-400 text-zinc-950' : 'bg-red-600 text-white'
+          }`}
+        >
+          {interruption.status === 'SIGHTING' ? 'AUTHORIZED SIGHTING' : 'STOP — INTERRUPTED'}
+        </span>
+      )}
       <span className={`font-mono text-5xl font-bold tabular-nums ${textColor}`}>{formattedRemaining}</span>
       <div className="mt-2 h-2 w-full rounded bg-zinc-600">
         <div className={`h-full rounded transition-all ${barColor}`} style={{ width: `${progress}%` }} />

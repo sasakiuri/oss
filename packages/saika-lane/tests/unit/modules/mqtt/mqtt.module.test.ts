@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
@@ -117,6 +120,25 @@ function createMockSessionRepository(): ISessionRepository {
   };
 }
 
+function createMockInterruptionControl(): ICompetitionInterruptionControl {
+  return {
+    pause: vi.fn(),
+    resume: vi.fn(),
+    resumeMatch: vi.fn(),
+    get: vi.fn().mockReturnValue(null),
+    clear: vi.fn(),
+  };
+}
+
+function createMockSafetyStopControl(): ILaneSafetyStopControl {
+  return {
+    activate: vi.fn(),
+    clear: vi.fn(),
+    getState: vi.fn().mockReturnValue(null),
+    isStopped: vi.fn().mockReturnValue(false),
+  };
+}
+
 describe('mqtt.module', () => {
   let eventBus: IEventBus;
   let ipcRouter: IpcRouter;
@@ -126,6 +148,9 @@ describe('mqtt.module', () => {
   let queryBus: QueryBus;
   let competitionRepository: ICompetitionRepository;
   let timerService: LaneTimerService;
+  let competitionInterruptionControl: ICompetitionInterruptionControl;
+  let competitionShootOffControl: ICompetitionShootOffControl;
+  let safetyStopControl: ILaneSafetyStopControl;
   let sessionRepository: ISessionRepository;
 
   beforeEach(() => {
@@ -146,6 +171,15 @@ describe('mqtt.module', () => {
     queryBus = createMockQueryBus();
     competitionRepository = createMockCompetitionRepository();
     timerService = createMockTimerService();
+    competitionInterruptionControl = createMockInterruptionControl();
+    competitionShootOffControl = {
+      open: vi.fn(),
+      close: vi.fn(),
+      getState: vi.fn().mockReturnValue(null),
+      canAcceptShot: vi.fn().mockReturnValue(false),
+      recordShot: vi.fn(),
+    } as unknown as ICompetitionShootOffControl;
+    safetyStopControl = createMockSafetyStopControl();
     sessionRepository = createMockSessionRepository();
   });
 
@@ -163,7 +197,11 @@ describe('mqtt.module', () => {
       'commandBus',
       'competitionRepository',
       'timerService',
+      'competitionInterruptionControl',
+      'competitionShootOffControl',
+      'safetyStopControl',
       'sessionRepository',
+      'database',
     ]);
   });
 
@@ -178,7 +216,11 @@ describe('mqtt.module', () => {
         commandBus,
         competitionRepository,
         timerService,
+        competitionInterruptionControl,
+        competitionShootOffControl,
+        safetyStopControl,
         sessionRepository,
+        database: {} as never,
       });
     }).not.toThrow();
   });
@@ -193,7 +235,11 @@ describe('mqtt.module', () => {
       commandBus,
       competitionRepository,
       timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      safetyStopControl,
       sessionRepository,
+      database: {} as never,
     });
 
     expect(ipcRouter.register).toHaveBeenCalledTimes(1);
@@ -210,7 +256,11 @@ describe('mqtt.module', () => {
       commandBus,
       competitionRepository,
       timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      safetyStopControl,
       sessionRepository,
+      database: {} as never,
     });
 
     expect(eventBus.on).toHaveBeenCalledWith('ConnectionEstablished', expect.any(Function));
@@ -227,7 +277,11 @@ describe('mqtt.module', () => {
       commandBus,
       competitionRepository,
       timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      safetyStopControl,
       sessionRepository,
+      database: {} as never,
     });
 
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
@@ -255,7 +309,11 @@ describe('mqtt.module', () => {
       commandBus,
       competitionRepository,
       timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      safetyStopControl,
       sessionRepository,
+      database: {} as never,
     });
     const handlers = vi.mocked(ipcRouter.register).mock.calls[0]?.[1] as unknown as {
       connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;

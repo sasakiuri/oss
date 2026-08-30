@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { IQualificationResultsReader } from '@/main/modules/results';
-import { ResultVerificationService } from '@/main/modules/result-verification/application/ResultVerificationService';
+import {
+  QualificationResultVerificationSource,
+  ResultVerificationService,
+  ResultVerificationSourceRegistry,
+  type ITeamResultVerificationReadiness,
+} from '@/main/modules/result-verification';
 import type { IResultVerificationRepository } from '@/main/modules/result-verification/domain/IResultVerificationRepository';
 import type { ResultListApprovalEntry } from '@/main/modules/result-verification/domain/ResultListApprovalEntry';
 import type { ResultVerificationCheck } from '@/main/modules/result-verification/domain/ResultVerificationCheck';
@@ -12,6 +17,7 @@ import type { RankedResultDto } from '@/shared/ipc/contracts';
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const RESULT_ONE_ID = '22222222-2222-4222-8222-222222222222';
 const RESULT_TWO_ID = '33333333-3333-4333-8333-333333333333';
+const TEAM_RUN_ID = '44444444-4444-4444-8444-444444444444';
 
 function rankedResult(props: {
   id: string;
@@ -42,6 +48,7 @@ function rankedResult(props: {
       linkedShots: 10,
       independentDecimalShots: 10,
       innerTenClassifiedShots: 10,
+      scoreConflicts: 0,
     },
     revision: props.revision,
     confirmedAt: '2026-08-28T00:00:00.000Z',
@@ -49,7 +56,13 @@ function rankedResult(props: {
   };
 }
 
-function harness(policy = { topIndividualResults: 10, topTeamResults: 0 }) {
+function harness(
+  policy = { topIndividualResults: 10, topTeamResults: 0 },
+  options: {
+    teamFormat?: 'MIXED_PAIR';
+    teamVerification?: ITeamResultVerificationReadiness;
+  } = {},
+) {
   let results = [
     rankedResult({
       id: RESULT_ONE_ID,
@@ -88,9 +101,14 @@ function harness(policy = { topIndividualResults: 10, topTeamResults: 0 }) {
     })),
   } as unknown as QueryBus;
   const competitionTypes = {
-    get: vi.fn(() => ({ resultVerification: policy })),
+    get: vi.fn(() => ({ resultVerification: policy, teamFormat: options.teamFormat })),
   } as unknown as CompetitionTypeRegistry;
-  const service = new ResultVerificationService(queryBus, reader, repository, competitionTypes);
+  const service = new ResultVerificationService(
+    repository,
+    new ResultVerificationSourceRegistry([
+      new QualificationResultVerificationSource(queryBus, reader, competitionTypes, options.teamVerification),
+    ]),
+  );
   return {
     service,
     checks,
@@ -116,6 +134,7 @@ describe('ResultVerificationService', () => {
     for (const result of getResults()) {
       await service.addCheck({
         eventId: EVENT_ID,
+        resultScope: 'QUALIFICATION',
         resultId: result.id,
         resultRevision: result.revision,
         evidenceSource: 'INDEPENDENT_MEMORY',
@@ -132,6 +151,7 @@ describe('ResultVerificationService', () => {
 
     const approval = await service.approve({
       eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
       snapshotRevision: checked.snapshotRevision,
       statement: 'Official Final Results verified',
       officialName: 'RTS Jury B',
@@ -148,6 +168,7 @@ describe('ResultVerificationService', () => {
     const first = getResults()[0]!;
     await service.addCheck({
       eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
       resultId: first.id,
       resultRevision: first.revision,
       evidenceSource: 'TARGET_PRINTOUT',
@@ -159,6 +180,7 @@ describe('ResultVerificationService', () => {
     const second = getResults()[1]!;
     await service.addCheck({
       eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
       resultId: second.id,
       resultRevision: second.revision,
       evidenceSource: 'TARGET_PRINTOUT',
@@ -170,6 +192,7 @@ describe('ResultVerificationService', () => {
     const ready = await service.getStatus(EVENT_ID);
     await service.approve({
       eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
       snapshotRevision: ready.snapshotRevision,
       statement: 'Verified',
       officialName: 'RTS Jury B',
@@ -191,10 +214,11 @@ describe('ResultVerificationService', () => {
     for (const result of getResults()) {
       await service.addCheck({
         eventId: EVENT_ID,
+        resultScope: 'QUALIFICATION',
         resultId: result.id,
         resultRevision: result.revision,
-        evidenceSource: 'OTHER',
-        evidenceReference: 'Controlled export',
+        evidenceSource: 'TARGET_PRINTOUT',
+        evidenceReference: 'Controlled printout',
         comparisonStatus: 'MATCHED',
         manualInterventionsReviewed: true,
         officialName: 'RTS Jury A',
@@ -203,6 +227,7 @@ describe('ResultVerificationService', () => {
     const status = await service.getStatus(EVENT_ID);
     const approval = await service.approve({
       eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
       snapshotRevision: status.snapshotRevision,
       statement: 'Verified',
       officialName: 'RTS Jury B',
@@ -234,10 +259,109 @@ describe('ResultVerificationService', () => {
     await expect(
       service.approve({
         eventId: EVENT_ID,
+        resultScope: 'QUALIFICATION',
         snapshotRevision: status.snapshotRevision,
         statement: 'Verified',
         officialName: 'RTS Jury A',
       }),
     ).rejects.toThrow('Result list is not ready');
+  });
+
+  it('retains OTHER evidence without treating it as an ISSF 6.14.8 qualifying comparison', async () => {
+    const { service, getResults } = harness({ topIndividualResults: 1, topTeamResults: 0 });
+    const result = getResults()[0]!;
+
+    const check = await service.addCheck({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      resultId: result.id,
+      resultRevision: result.revision,
+      evidenceSource: 'OTHER',
+      evidenceReference: 'Non-EST controlled export',
+      comparisonStatus: 'MATCHED',
+      manualInterventionsReviewed: true,
+      officialName: 'RTS Jury A',
+    });
+
+    expect(check.qualifies).toBe(false);
+    expect((await service.getStatus(EVENT_ID)).readyForApproval).toBe(false);
+  });
+
+  it('accepts a current independent team-memory run through the readiness port', async () => {
+    const teamVerification: ITeamResultVerificationReadiness = {
+      assess: vi.fn(async () => ({
+        supported: true,
+        configuredChecks: 3,
+        requiredChecks: 2,
+        checkedResults: 2,
+        snapshotRevision: 'd'.repeat(64),
+        currentVerificationId: TEAM_RUN_ID,
+        issues: [],
+      })),
+    };
+    const { service } = harness(
+      { topIndividualResults: 0, topTeamResults: 3 },
+      { teamFormat: 'MIXED_PAIR', teamVerification },
+    );
+
+    const status = await service.getStatus(EVENT_ID);
+
+    expect(teamVerification.assess).toHaveBeenCalledWith({
+      eventId: EVENT_ID,
+      resultKind: 'MIXED_TEAM',
+      configuredChecks: 3,
+      requireResults: true,
+    });
+    expect(status).toMatchObject({
+      configuredTeamChecks: 3,
+      requiredTeamChecks: 2,
+      checkedTeamResults: 2,
+      teamVerificationRunId: TEAM_RUN_ID,
+      readyForApproval: true,
+    });
+
+    const approval = await service.approve({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      snapshotRevision: status.snapshotRevision,
+      statement: 'Team results verified',
+      officialName: 'RTS Jury A',
+    });
+    expect(approval.checkIds).toEqual([TEAM_RUN_ID]);
+  });
+
+  it('marks approval stale when the official team-result snapshot changes', async () => {
+    let revision = 'd'.repeat(64);
+    let currentVerificationId: string | null = TEAM_RUN_ID;
+    const teamVerification: ITeamResultVerificationReadiness = {
+      assess: vi.fn(async () => ({
+        supported: true,
+        configuredChecks: 3,
+        requiredChecks: 2,
+        checkedResults: currentVerificationId ? 2 : 0,
+        snapshotRevision: revision,
+        currentVerificationId,
+        issues: currentVerificationId
+          ? []
+          : ['Required team results need a current EST printout or independent-memory comparison'],
+      })),
+    };
+    const { service } = harness({ topIndividualResults: 0, topTeamResults: 3 }, { teamVerification });
+    const ready = await service.getStatus(EVENT_ID);
+    await service.approve({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      snapshotRevision: ready.snapshotRevision,
+      statement: 'Team results verified',
+      officialName: 'RTS Jury A',
+    });
+
+    revision = 'e'.repeat(64);
+    currentVerificationId = null;
+    const changed = await service.getStatus(EVENT_ID);
+
+    expect(changed.currentApproval).toBeNull();
+    expect(changed.approvalHistory[0]).toMatchObject({ active: true, current: false });
+    expect(changed.readyForApproval).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { Gauge, Settings, Trophy } from 'lucide-react';
+import { ClockAlert, FileSearch, Gauge, Settings, Trophy } from 'lucide-react';
 import appIcon from '@/assets/images/appIcon.png';
 import { useNavigationStore } from '../../../stores/ui/navigation.store';
 import type { ActiveScreen } from '../../../stores/ui/navigation.store';
@@ -22,6 +22,18 @@ const navItems: NavItem[] = [
     label: 'Competition Control',
     shortLabel: 'Control',
     icon: <Gauge size={19} aria-hidden="true" />,
+  },
+  {
+    id: 'examinations',
+    label: 'Target Examinations',
+    shortLabel: 'Examinations',
+    icon: <FileSearch size={19} aria-hidden="true" />,
+  },
+  {
+    id: 'interruptions',
+    label: 'Range Interruptions',
+    shortLabel: 'Interruptions',
+    icon: <ClockAlert size={19} aria-hidden="true" />,
   },
   {
     id: 'settings',

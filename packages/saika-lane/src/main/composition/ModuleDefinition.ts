@@ -10,10 +10,13 @@ import type { BrowserWindow } from 'electron';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
+import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
@@ -40,6 +43,9 @@ export interface ServiceRegistry {
   adapterRegistry: AdapterRegistry;
   mqttClient?: IMqttClientService;
   timerService: LaneTimerService;
+  competitionInterruptionControl: ICompetitionInterruptionControl;
+  competitionShootOffControl: ICompetitionShootOffControl;
+  safetyStopControl: ILaneSafetyStopControl;
   mainWindow: BrowserWindow;
   userDataPath: string;
 }

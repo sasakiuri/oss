@@ -4,7 +4,7 @@ import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
-import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildMultiShotSeriesFinalConfig } from '../../../../../helpers/testConfigs';
 import { StartSeriesHandler } from '@/main/modules/lane-control/commands/StartSeriesHandler';
 
 function createIdleLane(id = 'lane-1', channel = 1): LaneControl {
@@ -64,8 +64,7 @@ describe('StartSeriesHandler', () => {
 
   it('should start match for lane in SHOT_COMPLETE state (shot mode next shot)', async () => {
     // Build a lane in SHOT_COMPLETE state via Final 2nd Stage
-    const { buildFinalConfig } = await import('../../../../../helpers/testConfigs');
-    let lane = LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(8));
+    let lane = LaneControl.create('lane-1', Channel.create(1), buildMultiShotSeriesFinalConfig(8));
     lane = lane.startPreparation().advanceToNextStage().startMatch();
     // 1st Stage: 10 shots
     for (let i = 0; i < 5; i++) {

@@ -9,11 +9,13 @@
 
 import { z } from 'zod';
 
+import { CompetitionCuePayloadSchema } from '@/shared/mqtt/CompetitionCue';
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
 import { defineEvent, defineEventContract } from '../defineContract';
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
 
+import { LaneSafetyStateDtoSchema } from './mqtt.contract';
 import { AppUpdateStateSchema } from './updater.contract';
 
 // ============================================================
@@ -140,6 +142,21 @@ const TimerExpiredEventSchema = z.object({
   stageIndex: z.number(),
 });
 
+const CompetitionInterruptionChangedEventSchema = z.object({
+  competitionId: z.string(),
+  interruptionId: z.string().uuid(),
+  status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
+  remainingSeconds: z.number().int().nonnegative(),
+  unlimitedSightingShots: z.boolean(),
+});
+
+const SafetyStopChangedEventSchema = LaneSafetyStateDtoSchema;
+
+const CompetitionCueChangedEventSchema = z.object({
+  competitionId: z.string().uuid(),
+  cue: CompetitionCuePayloadSchema.nullable(),
+});
+
 const SeriesCompletedEventSchema = z.object({
   stageIndex: z.number(),
   seriesIndex: z.number(),
@@ -210,6 +227,15 @@ export const eventsContract = defineEventContract('events', {
   timerExpired: defineEvent(TimerExpiredEventSchema, {
     channel: 'event:timerExpired',
   }),
+  competitionInterruptionChanged: defineEvent(CompetitionInterruptionChangedEventSchema, {
+    channel: 'event:competitionInterruptionChanged',
+  }),
+  safetyStopChanged: defineEvent(SafetyStopChangedEventSchema, {
+    channel: 'event:safetyStopChanged',
+  }),
+  competitionCueChanged: defineEvent(CompetitionCueChangedEventSchema, {
+    channel: 'event:competitionCueChanged',
+  }),
   seriesCompleted: defineEvent(SeriesCompletedEventSchema, {
     channel: 'event:seriesCompleted',
   }),
@@ -248,6 +274,8 @@ export type CompetitionStartedEventPayload = z.infer<typeof CompetitionStartedEv
 export type PhaseChangedEventPayload = z.infer<typeof PhaseChangedEventSchema>;
 export type TimerTickEventPayload = z.infer<typeof TimerTickEventSchema>;
 export type TimerExpiredEventPayload = z.infer<typeof TimerExpiredEventSchema>;
+export type SafetyStopChangedEventPayload = z.infer<typeof SafetyStopChangedEventSchema>;
+export type CompetitionCueChangedEventPayload = z.infer<typeof CompetitionCueChangedEventSchema>;
 export type SeriesCompletedEventPayload = z.infer<typeof SeriesCompletedEventSchema>;
 export type StageAdvancedEventPayload = z.infer<typeof StageAdvancedEventSchema>;
 export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinishedEventSchema>;

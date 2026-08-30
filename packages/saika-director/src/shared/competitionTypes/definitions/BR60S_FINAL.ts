@@ -30,9 +30,9 @@ export const BR60S_FINAL: CompetitionTypeDefinition = {
       {
         name: '2nd Stage',
         type: 'match',
-        series: [{ shots: 2 }, { shots: 2 }, { shots: 2 }, { shots: 2 }, { shots: 2 }, { shots: 2 }, { shots: 2 }],
+        series: Array.from({ length: 14 }, () => ({ shots: 1 })),
         timer: { mode: 'shot', durationSec: 50 },
-        elimination: { eliminateCount: 1, unit: 'series', tieBreaker: 'shootoff' },
+        elimination: { eliminateCount: 1, unit: 'series', checkpointEverySeries: 2, tieBreaker: 'shootoff' },
       },
     ],
   },
@@ -43,7 +43,7 @@ export const BR60S_FINAL: CompetitionTypeDefinition = {
   },
   resultFormat: {
     totalShots: 24,
-    totalSeries: 9,
+    totalSeries: 16,
     stage1Shots: 10,
   },
 };

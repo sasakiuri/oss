@@ -4,6 +4,7 @@ import { command, commandDataResponseSchema, defineContract, query, queryRespons
 
 const uuidSchema = z.string().uuid();
 const revisionSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const resultScopeSchema = z.enum(['QUALIFICATION', 'FINAL']);
 const evidenceSourceSchema = z.enum(['TARGET_PRINTOUT', 'INDEPENDENT_MEMORY', 'OTHER']);
 const comparisonStatusSchema = z.enum(['MATCHED', 'MISMATCH', 'UNAVAILABLE']);
 
@@ -63,6 +64,7 @@ const VerificationResultItemDtoSchema = z.object({
     linkedShots: z.number().int().nonnegative(),
     independentDecimalShots: z.number().int().nonnegative(),
     innerTenClassifiedShots: z.number().int().nonnegative(),
+    scoreConflicts: z.number().int().nonnegative(),
   }),
   required: z.boolean(),
   latestCheck: ResultVerificationCheckDtoSchema.nullable(),
@@ -71,12 +73,16 @@ const VerificationResultItemDtoSchema = z.object({
 
 const ResultVerificationStatusDtoSchema = z.object({
   eventId: uuidSchema,
+  resultScope: resultScopeSchema,
   snapshotRevision: revisionSchema,
   configuredIndividualChecks: z.number().int().nonnegative(),
+  configuredTeamChecks: z.number().int().nonnegative(),
   requiredIndividualChecks: z.number().int().nonnegative(),
   requiredTeamChecks: z.number().int().nonnegative(),
   teamVerificationSupported: z.boolean(),
   checkedIndividualResults: z.number().int().nonnegative(),
+  checkedTeamResults: z.number().int().nonnegative(),
+  teamVerificationRunId: uuidSchema.nullable(),
   allResultsConfirmed: z.boolean(),
   readyForApproval: z.boolean(),
   issues: z.array(z.string()),
@@ -87,6 +93,7 @@ const ResultVerificationStatusDtoSchema = z.object({
 
 const AddVerificationCheckInputSchema = z.object({
   eventId: uuidSchema,
+  resultScope: resultScopeSchema,
   resultId: uuidSchema,
   resultRevision: revisionSchema,
   evidenceSource: evidenceSourceSchema,
@@ -99,6 +106,7 @@ const AddVerificationCheckInputSchema = z.object({
 
 const ApproveResultListInputSchema = z.object({
   eventId: uuidSchema,
+  resultScope: resultScopeSchema,
   snapshotRevision: revisionSchema,
   statement: z.string().trim().min(1).max(1000),
   officialName: z.string().trim().min(1).max(200),
@@ -119,7 +127,10 @@ export type ApproveResultListPayload = z.infer<typeof ApproveResultListInputSche
 export type RevokeResultListApprovalPayload = z.infer<typeof RevokeResultListApprovalInputSchema>;
 
 export const resultVerificationContract = defineContract('resultVerification', {
-  getStatus: query(z.object({ eventId: uuidSchema }), queryResponseSchema(ResultVerificationStatusDtoSchema)),
+  getStatus: query(
+    z.object({ eventId: uuidSchema, resultScope: resultScopeSchema }),
+    queryResponseSchema(ResultVerificationStatusDtoSchema),
+  ),
   addCheck: command(AddVerificationCheckInputSchema, commandDataResponseSchema(ResultVerificationCheckDtoSchema)),
   approve: command(ApproveResultListInputSchema, commandDataResponseSchema(ResultListApprovalDtoSchema)),
   revokeApproval: command(RevokeResultListApprovalInputSchema, commandDataResponseSchema(ResultListApprovalDtoSchema)),

@@ -1,9 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
-import type { RankedResultDto, FinalRankedResultDto } from '@/shared/ipc/contracts/results.contract';
-import { ResultsListSheet } from './components/ResultsListSheet';
+import type { ParticipantDto, RankedResultDto, FinalRankedResultDto } from '@/shared/ipc/contracts';
+import { ResultsListSheet, type ResultListCertification } from './components/ResultsListSheet';
 import { FinalResultSheet, type FinalResultData } from './components/FinalResultSheet';
-import { resultsService } from '@/renderer/services';
+import {
+  championshipService,
+  resultPublicationService,
+  resultVerificationService,
+  resultsService,
+} from '@/renderer/services';
+import { createResultListDisplayPolicy, type ResultListDisplayPolicy } from './policies/ResultListDisplayPolicy';
 
 interface Props {
   config: BoardWindowConfig;
@@ -33,6 +39,16 @@ function toFinalResultData(results: FinalRankedResultDto[]): FinalResultData[] {
 export function ResultsListPrintScreen({ config }: Props) {
   const [qualificationResults, setQualificationResults] = useState<RankedResultDto[]>([]);
   const [finalResults, setFinalResults] = useState<FinalRankedResultDto[]>([]);
+  const [participants, setParticipants] = useState<ParticipantDto[]>([]);
+  const [displayPolicy, setDisplayPolicy] = useState<ResultListDisplayPolicy | null>(null);
+  const [certification, setCertification] = useState<ResultListCertification>({
+    status: 'DRAFT',
+    postedAt: null,
+    protestEndsAt: null,
+    approvalOfficialName: null,
+    publicationCurrent: false,
+  });
+  const [rulePackId, setRulePackId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,15 +74,65 @@ export function ResultsListPrintScreen({ config }: Props) {
           if (!response.success) throw new Error(response.error?.message ?? 'Failed to retrieve results');
           setFinalResults(response.data.results);
         } else {
-          if (relayNumber !== undefined) {
-            const response = await resultsService.getByRelay({ eventId, relayNumber });
-            if (!response.success) throw new Error(response.error?.message ?? 'Failed to retrieve results');
-            setQualificationResults(response.data.results);
-          } else {
-            const response = await resultsService.getByEvent({ eventId });
-            if (!response.success) throw new Error(response.error?.message ?? 'Failed to retrieve results');
-            setQualificationResults(response.data.results);
+          const [
+            resultsResponse,
+            participantsResponse,
+            assignmentsResponse,
+            competitionTypesResponse,
+            publicationResponse,
+            verificationResponse,
+          ] = await Promise.all([
+            relayNumber !== undefined
+              ? resultsService.getByRelay({ eventId, relayNumber })
+              : resultsService.getByEvent({ eventId }),
+            championshipService.getParticipants({ eventId }),
+            championshipService.getFiringPointAssignments({ eventId }),
+            championshipService.getCompetitionTypes(),
+            resultPublicationService.getStatus({ eventId, resultScope: 'QUALIFICATION' }),
+            resultVerificationService.getStatus({ eventId, resultScope: 'QUALIFICATION' }),
+          ]);
+          if (!resultsResponse.success) {
+            throw new Error(resultsResponse.error?.message ?? 'Failed to retrieve results');
           }
+          if (!participantsResponse.success) throw new Error(participantsResponse.error.message);
+          if (!assignmentsResponse.success) throw new Error(assignmentsResponse.error.message);
+          if (!competitionTypesResponse.success) throw new Error(competitionTypesResponse.error.message);
+          if (!publicationResponse.success) throw new Error(publicationResponse.error.message);
+          if (!verificationResponse.success) throw new Error(verificationResponse.error.message);
+          const competitionType = competitionTypesResponse.data.types.find((type) => type.id === eventType);
+          const totalSeries =
+            competitionType?.totalSeries ??
+            Math.max(1, ...resultsResponse.data.results.map((result) => result.seriesScores.length));
+          const scoringPrecision =
+            competitionType?.scoringPrecision ??
+            (resultsResponse.data.results.some((result) =>
+              [result.totalScore, ...result.seriesScores].some((score) => !Number.isInteger(score)),
+            )
+              ? 1
+              : 0);
+          setQualificationResults(resultsResponse.data.results);
+          const relayParticipantIds =
+            relayNumber === undefined
+              ? null
+              : new Set(
+                  assignmentsResponse.data.assignments
+                    .filter((assignment) => assignment.relayNumber === relayNumber)
+                    .map((assignment) => assignment.participantId),
+                );
+          setParticipants(
+            relayParticipantIds
+              ? participantsResponse.data.participants.filter((participant) => relayParticipantIds.has(participant.id))
+              : participantsResponse.data.participants,
+          );
+          setDisplayPolicy(createResultListDisplayPolicy({ scoringPrecision, totalSeries }));
+          setRulePackId(competitionType?.rulePackId ?? null);
+          setCertification({
+            status: publicationResponse.data.status,
+            postedAt: publicationResponse.data.postedAt,
+            protestEndsAt: publicationResponse.data.protestEndsAt,
+            approvalOfficialName: verificationResponse.data.currentApproval?.officialName ?? null,
+            publicationCurrent: publicationResponse.data.publicationCurrent,
+          });
         }
         setLoading(false);
       } catch (err) {
@@ -76,7 +142,7 @@ export function ResultsListPrintScreen({ config }: Props) {
     };
 
     fetchResults();
-  }, [eventId, relayNumber, isFinal]);
+  }, [eventId, relayNumber, isFinal, eventType]);
 
   const handlePrint = useCallback(() => {
     window.print();
@@ -108,7 +174,9 @@ export function ResultsListPrintScreen({ config }: Props) {
     );
   }
 
-  const hasResults = isFinal ? finalResults.length > 0 : qualificationResults.length > 0;
+  const hasResults = isFinal
+    ? finalResults.length > 0
+    : qualificationResults.length > 0 || participants.some((participant) => participant.entryStatus !== 'COMPETING');
 
   if (!hasResults) {
     return (
@@ -160,7 +228,17 @@ export function ResultsListPrintScreen({ config }: Props) {
           results={toFinalResultData(finalResults)}
         />
       ) : (
-        <ResultsListSheet eventName={eventName} relayNumber={relayNumber} results={qualificationResults} />
+        displayPolicy && (
+          <ResultsListSheet
+            eventName={eventName}
+            relayNumber={relayNumber}
+            results={qualificationResults}
+            participants={participants}
+            policy={displayPolicy}
+            certification={certification}
+            rulePackId={rulePackId}
+          />
+        )
       )}
     </div>
   );

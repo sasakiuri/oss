@@ -1,7 +1,7 @@
 /** ISSF round types. */
 export type Round = 'Elimination' | 'Qualification' | 'Final' | 'Individual';
 
-/** Competition types (BR60S / BP60). */
+/** Extensible competition type identifier (for example AR60 or BR60S). */
 export type EventType = string;
 
 /**

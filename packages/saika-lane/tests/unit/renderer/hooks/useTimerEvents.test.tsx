@@ -7,6 +7,7 @@ import { useCompetitionStore } from '@/renderer/presentation/stores/competitionS
 
 const mockOnTimerTick = vi.fn();
 const mockOnTimerExpired = vi.fn();
+const mockOnInterruptionChanged = vi.fn();
 
 describe('useTimerEvents', () => {
   beforeEach(() => {
@@ -15,6 +16,7 @@ describe('useTimerEvents', () => {
 
     mockOnTimerTick.mockReturnValue(vi.fn());
     mockOnTimerExpired.mockReturnValue(vi.fn());
+    mockOnInterruptionChanged.mockReturnValue(vi.fn());
 
     Object.defineProperty(window, 'electronAPI', {
       configurable: true,
@@ -23,6 +25,7 @@ describe('useTimerEvents', () => {
         on: {
           timerTick: mockOnTimerTick,
           timerExpired: mockOnTimerExpired,
+          competitionInterruptionChanged: mockOnInterruptionChanged,
         },
       },
     });
@@ -38,14 +41,17 @@ describe('useTimerEvents', () => {
 
       expect(mockOnTimerTick).toHaveBeenCalledTimes(1);
       expect(mockOnTimerExpired).toHaveBeenCalledTimes(1);
+      expect(mockOnInterruptionChanged).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters timer event listeners on unmount', () => {
       const unsubTimerTick = vi.fn();
       const unsubTimerExpired = vi.fn();
+      const unsubInterruptionChanged = vi.fn();
 
       mockOnTimerTick.mockReturnValue(unsubTimerTick);
       mockOnTimerExpired.mockReturnValue(unsubTimerExpired);
+      mockOnInterruptionChanged.mockReturnValue(unsubInterruptionChanged);
 
       const { unmount } = renderHook(() => useTimerEvents());
 
@@ -53,6 +59,7 @@ describe('useTimerEvents', () => {
 
       expect(unsubTimerTick).toHaveBeenCalledTimes(1);
       expect(unsubTimerExpired).toHaveBeenCalledTimes(1);
+      expect(unsubInterruptionChanged).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -107,6 +114,30 @@ describe('useTimerEvents', () => {
       const state = useCompetitionStore.getState();
       expect(state.isTimerRunning).toBe(false);
       expect(state.isTimerExpired).toBe(true);
+    });
+  });
+
+  describe('competitionInterruptionChanged event', () => {
+    it('stops the display timer and records the STOP state', () => {
+      renderHook(() => useTimerEvents());
+      const callback = mockOnInterruptionChanged.mock.calls[0]![0] as (data: {
+        interruptionId: string;
+        status: 'PAUSED';
+        remainingSeconds: number;
+        unlimitedSightingShots: boolean;
+      }) => void;
+
+      callback({
+        interruptionId: '22222222-2222-4222-8222-222222222222',
+        status: 'PAUSED',
+        remainingSeconds: 240,
+        unlimitedSightingShots: false,
+      });
+
+      expect(useCompetitionStore.getState()).toMatchObject({
+        isTimerRunning: false,
+        interruption: { status: 'PAUSED', remainingSeconds: 240 },
+      });
     });
   });
 });

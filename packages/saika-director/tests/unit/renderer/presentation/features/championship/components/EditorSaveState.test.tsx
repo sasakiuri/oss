@@ -100,6 +100,13 @@ describe('championship editor save state', () => {
         playerName: 'Edit During Save',
         familyName: 'Edit During Save',
         affiliation: '',
+        startNumber: null,
+        issfId: null,
+        nationCode: null,
+        gender: 'UNSPECIFIED',
+        entryStatus: 'COMPETING',
+        teamId: null,
+        teamName: null,
       },
     ]);
   });

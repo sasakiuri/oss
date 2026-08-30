@@ -56,6 +56,7 @@
     "pack:linux": "npm run build && node scripts/package.mjs linux --dir"
   },
   "dependencies": {
+    "@sasakiuri/saika-rules": "*",
     "aedes": "^1.1.1",
     "better-sqlite3": "^13.0.3",
     "lucide-react": "^0.484.0",

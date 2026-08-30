@@ -3,7 +3,7 @@ THIRD-PARTY SOFTWARE NOTICES
 This file is generated from the installed production dependency closure of
 @sasakiuri/saika-lane. Do not edit it manually.
 
-Package/version entries: 132
+Package/version entries: 133
 
 The following npm package may be included in this product:
 
@@ -99,6 +99,17 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-----------
+
+The following npm packages may be included in this product:
+
+ - @sasakiuri/saika-rules@0.1.0
+ - lazy-val@1.0.5
+
+These packages each contain the following license:
+
+MIT
 
 -----------
 
@@ -1556,16 +1567,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
------------
-
-The following npm package may be included in this product:
-
- - lazy-val@1.0.5
-
-This package contains the following license:
-
-MIT
 
 -----------
 

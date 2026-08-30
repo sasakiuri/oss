@@ -26,6 +26,8 @@ type ConnectionDeps =
   | 'connectionRepository'
   | 'sessionRepository'
   | 'competitionRepository'
+  | 'competitionShootOffControl'
+  | 'safetyStopControl'
   | 'usbManager'
   | 'ipcRouter'
   | 'mainWindow';
@@ -39,6 +41,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     'connectionRepository',
     'sessionRepository',
     'competitionRepository',
+    'competitionShootOffControl',
+    'safetyStopControl',
     'usbManager',
     'ipcRouter',
     'mainWindow',
@@ -50,6 +54,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     connectionRepository,
     sessionRepository,
     competitionRepository,
+    competitionShootOffControl,
+    safetyStopControl,
     usbManager,
     ipcRouter,
     mainWindow,
@@ -152,6 +158,16 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       sessionRepository,
       competitionRepository,
       shotObservationRepository,
+      safetyStopReader: safetyStopControl,
+      shootOffReader: competitionShootOffControl,
+      onObservationFinalized: (evidenceId) => {
+        eventBus.emit({
+          type: 'ShotObservationRouted',
+          timestamp: Date.now(),
+          aggregateId: evidenceId,
+          evidenceId,
+        });
+      },
     });
     usbManager.on('data', handleShotIngestion);
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetScoreSheetsHandler } from '@/main/modules/lane-control/queries/GetScoreSheetsHandler';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
 import { LaneControl, Channel, Player } from '@/main/modules/lane-control';
-import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildFinalConfig } from '../../../../../helpers/testConfigs';
 
 describe('GetScoreSheetsHandler', () => {
   let mockRepository: ILaneControlRepository;
@@ -79,5 +79,23 @@ describe('GetScoreSheetsHandler', () => {
     const result = await handler.execute({ laneIds: ['lane-1'] });
 
     expect(result.scoreSheets[0]!.relay).toBe(1);
+  });
+
+  it('should expose a timer miss separately from a scored zero', async () => {
+    let lane = LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(8), 1);
+    lane = lane.assignPlayer(Player.create('Player A', 'Team A'), 1);
+    lane = lane.startPreparation().advanceToNextStage().startMatch();
+    for (let index = 0; index < 3; index++) {
+      lane = lane.addShotByScore(10, Date.now(), index + 1);
+    }
+    lane = lane.tickTimer(250).tickTimer();
+    vi.mocked(mockRepository.findById).mockReturnValue(lane);
+
+    const result = await handler.execute({ laneIds: ['lane-1'] });
+
+    expect(result.scoreSheets[0]?.allShots.slice(3)).toEqual([
+      expect.objectContaining({ value: 0, disposition: 'MISS' }),
+      expect.objectContaining({ value: 0, disposition: 'MISS' }),
+    ]);
   });
 });

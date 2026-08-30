@@ -6,6 +6,9 @@ export const AthleteSchema = z.object({
   id: z.string(),
   name: z.string(),
   teamName: z.string().optional(),
+  teamId: z.string().optional(),
+  gender: z.enum(['M', 'F', 'X', 'UNSPECIFIED']).optional(),
+  nationCode: z.string().optional(),
   issfCode: z.string().optional(),
 });
 

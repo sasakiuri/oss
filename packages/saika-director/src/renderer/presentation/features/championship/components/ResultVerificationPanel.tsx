@@ -9,13 +9,14 @@ import { Modal } from '../../shared/common/Modal';
 interface ResultVerificationPanelProps {
   eventId: string;
   eventName?: string;
+  resultScope: 'QUALIFICATION' | 'FINAL';
   onClose: () => void;
 }
 
 const inputClass =
   'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
-export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultVerificationPanelProps) {
+export function ResultVerificationPanel({ eventId, eventName, resultScope, onClose }: ResultVerificationPanelProps) {
   const [status, setStatus] = useState<ResultVerificationStatusDto | null>(null);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
   const [manualInterventionsReviewed, setManualInterventionsReviewed] = useState(false);
   const [note, setNote] = useState('');
   const [approvalStatement, setApprovalStatement] = useState(
-    'Official Final Results verified for accuracy in accordance with ISSF 6.14.5 and 6.14.8.',
+    `Official ${resultScope === 'FINAL' ? 'Final' : 'Qualification'} Results verified for accuracy in accordance with ISSF 6.14.5 and 6.14.8.`,
   );
   const [revocationReason, setRevocationReason] = useState('');
   const [showRevocation, setShowRevocation] = useState(false);
@@ -41,7 +42,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
     setLoading(true);
     setError(null);
     try {
-      const response = await resultVerificationService.getStatus({ eventId });
+      const response = await resultVerificationService.getStatus({ eventId, resultScope });
       if (!response.success) throw new Error(response.error.message);
       setStatus(response.data);
       setSelectedResultId((current) => {
@@ -57,7 +58,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, resultScope]);
 
   useEffect(() => {
     void loadStatus();
@@ -87,6 +88,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
       try {
         const response = await resultVerificationService.addCheck({
           eventId,
+          resultScope,
           resultId: selectedResult.resultId,
           resultRevision: selectedResult.revision,
           evidenceSource,
@@ -113,6 +115,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
       manualInterventionsReviewed,
       note,
       checkOfficialName,
+      resultScope,
       selectedResult,
     ],
   );
@@ -124,6 +127,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
     try {
       const response = await resultVerificationService.approve({
         eventId,
+        resultScope,
         snapshotRevision: status.snapshotRevision,
         statement: approvalStatement,
         officialName: approvalOfficialName,
@@ -135,7 +139,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
     } finally {
       setSaving(false);
     }
-  }, [approvalOfficialName, approvalStatement, eventId, loadStatus, status]);
+  }, [approvalOfficialName, approvalStatement, eventId, loadStatus, resultScope, status]);
 
   const revokeApproval = useCallback(async () => {
     if (!status?.currentApproval) return;
@@ -162,12 +166,25 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
   return (
     <Modal isOpen onClose={onClose} title={`RTS result verification${eventName ? ` — ${eventName}` : ''}`} size="xl">
       <div className="space-y-5">
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             label="Required individual checks"
             value={`${status?.checkedIndividualResults ?? 0} / ${status?.requiredIndividualChecks ?? 0}`}
           />
-          <SummaryCard label="All results confirmed" value={status?.allResultsConfirmed ? 'Yes' : 'No'} />
+          <SummaryCard
+            label={resultScope === 'FINAL' ? 'Final results complete' : 'All results confirmed'}
+            value={status?.allResultsConfirmed ? 'Yes' : 'No'}
+          />
+          <SummaryCard
+            label="Independent team checks"
+            value={
+              status && status.configuredTeamChecks > 0
+                ? status.teamVerificationSupported
+                  ? `${status.checkedTeamResults} / ${status.requiredTeamChecks}`
+                  : 'Unsupported'
+                : 'Not required'
+            }
+          />
           <SummaryCard
             label="RTS Jury approval"
             value={
@@ -196,10 +213,18 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
           </div>
         )}
 
+        {status && status.configuredTeamChecks > 0 && (
+          <div className="rounded-[3px] border border-vscode-border bg-vscode-bg p-3 text-xs text-vscode-text-muted">
+            ISSF 6.14.8 team comparison is supplied by the EST backup workflow. Only a verified printout or
+            independent-memory run for the current top-team snapshot qualifies; use{' '}
+            <span className="font-medium text-vscode-text">EST backup</span> on the results toolbar to append one.
+          </div>
+        )}
+
         {status && (
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[13px] font-semibold text-vscode-text">ISSF 6.14.8 required individual results</h3>
+              <h3 className="text-[13px] font-semibold text-vscode-text">ISSF 6.14.8 required result checks</h3>
               <span className="text-xs text-vscode-text-muted">Top {status.configuredIndividualChecks}</span>
             </div>
             <div className="overflow-auto rounded-[3px] border border-vscode-border">
@@ -230,7 +255,8 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
                         linked {result.evidenceSummary.linkedShots}/{result.evidenceSummary.expectedShots}
                         <span className="block">
                           decimal {result.evidenceSummary.independentDecimalShots} · inner ten{' '}
-                          {result.evidenceSummary.innerTenClassifiedShots}
+                          {result.evidenceSummary.innerTenClassifiedShots} · conflicts{' '}
+                          {result.evidenceSummary.scoreConflicts}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-center tabular-nums">{result.decisionCount}</td>
@@ -265,7 +291,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
             </h3>
             <p className="text-xs text-vscode-text-muted">
               Stored MQTT evidence is diagnostic context. Enter the target printout or independent-memory reference
-              actually used by the RTS Jury.
+              actually used by the RTS Jury. Other evidence is retained for audit but does not satisfy ISSF 6.14.8.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="text-xs text-vscode-text-muted">
@@ -277,7 +303,7 @@ export function ResultVerificationPanel({ eventId, eventName, onClose }: ResultV
                 >
                   <option value="TARGET_PRINTOUT">Target printout</option>
                   <option value="INDEPENDENT_MEMORY">Independent memory</option>
-                  <option value="OTHER">Other controlled source</option>
+                  <option value="OTHER">Other evidence (audit only)</option>
                 </select>
               </label>
               <label className="text-xs text-vscode-text-muted sm:col-span-2">

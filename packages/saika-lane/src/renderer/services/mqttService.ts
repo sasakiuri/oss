@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ConnectMqttInput, MqttSettings, MqttStatus } from '@/shared/ipc/contracts';
+import type { ConnectMqttInput, LaneSafetyStateDto, MqttSettings, MqttStatus } from '@/shared/ipc/contracts';
 
 import { createCommandMethod, createVoidCommandMethod, createVoidServiceMethod } from './createServiceMethod';
 
@@ -9,6 +9,8 @@ export const mqttService = {
   disconnectMqtt: createVoidCommandMethod(() => window.electronAPI.mqtt.disconnectMqtt()),
 
   getMqttStatus: createVoidServiceMethod<MqttStatus>(() => window.electronAPI.mqtt.getMqttStatus()),
+
+  getSafetyState: createVoidServiceMethod<LaneSafetyStateDto>(() => window.electronAPI.mqtt.getSafetyState()),
 
   saveMqttSettings: createCommandMethod<MqttSettings>((settings) => window.electronAPI.mqtt.saveMqttSettings(settings)),
 

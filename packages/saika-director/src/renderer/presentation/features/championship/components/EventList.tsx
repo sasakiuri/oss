@@ -3,6 +3,10 @@ import { Button } from '../../shared/common/Button';
 import type { EventDto } from '@/shared/ipc/contracts/championship.contract';
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
+  AR60: '10m Air Rifle 60 shots',
+  AP60: '10m Air Pistol 60 shots',
+  AR60_FINAL: '10m Air Rifle Final',
+  AP60_FINAL: '10m Air Pistol Final',
   BR60S: 'BR60S',
   BP60: 'BP60',
   BR60S_FINAL: 'BR60S Final',

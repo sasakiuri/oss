@@ -10,24 +10,39 @@
 
 import type { z } from 'zod';
 
-import { ResetSessionToken } from '@/main/composition/tokens';
+import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
+import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
-import { AssignAthleteCmdSchema, ResetSessionCmdSchema } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import {
+  AssignAthleteCmdSchema,
+  PauseTimerCmdSchema,
+  ResetSessionCmdSchema,
+  RetireFinalistCmdSchema,
+  ResumeMatchCmdSchema,
+  ResumeTimerCmdSchema,
+} from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-type PerLaneAction = 'assign-athlete' | 'reset-session';
+type PerLaneAction =
+  'assign-athlete' | 'reset-session' | 'pause-timer' | 'resume-timer' | 'resume-match' | 'retire-finalist';
 
 const ACTION_SCHEMAS: Record<PerLaneAction, z.ZodType> = {
   'assign-athlete': AssignAthleteCmdSchema,
   'reset-session': ResetSessionCmdSchema,
+  'pause-timer': PauseTimerCmdSchema,
+  'resume-timer': ResumeTimerCmdSchema,
+  'resume-match': ResumeMatchCmdSchema,
+  'retire-finalist': RetireFinalistCmdSchema,
 };
 
 /** Parsed parts of the topic */
@@ -48,8 +63,11 @@ export class PerLaneCommandHandler {
     private readonly competitionRepository: ICompetitionRepository,
     private readonly assignmentPublisher: LaneAssignmentPublisher,
     private readonly scorePublisher: LaneScorePublisher,
+    private readonly competitionStatePublisher: LaneCompetitionStatePublisher,
+    private readonly interruptionControl: ICompetitionInterruptionControl,
     private readonly getLaneId: () => string,
     _competitionId: string,
+    private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
   ) {}
 
   /**
@@ -156,8 +174,8 @@ export class PerLaneCommandHandler {
     await this.publishAck(ackTopic, commandId, 'executing');
 
     try {
-      await this.executeAction(action as PerLaneAction, command, competitionId);
-      await this.publishAck(ackTopic, commandId, 'done');
+      const data = await this.executeAction(action as PerLaneAction, command, competitionId);
+      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorCode = (err as { code?: string }).code ?? 'MQTT_COMMAND_EXECUTION_FAILED';
@@ -176,12 +194,12 @@ export class PerLaneCommandHandler {
     action: PerLaneAction,
     command: Record<string, unknown>,
     competitionId: string,
-  ): Promise<void> {
+  ): Promise<Record<string, unknown> | undefined> {
     switch (action) {
       case 'assign-athlete': {
         const athlete = command.athlete as Athlete | null;
         await this.assignmentPublisher.assign(competitionId, athlete);
-        break;
+        return undefined;
       }
 
       case 'reset-session': {
@@ -201,9 +219,77 @@ export class PerLaneCommandHandler {
         // A successful reset acknowledgement guarantees that the broker no
         // longer retains the pre-reset score.
         await this.scorePublisher.publishCurrentScore();
-        break;
+        return undefined;
+      }
+
+      case 'pause-timer': {
+        const record = await this.interruptionControl.pause({
+          competitionId,
+          interruptionId: command.interruptionId as string,
+          pausedAt: new Date(command.pausedAt as string),
+        });
+        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        return {
+          interruptionId: record.interruptionId,
+          status: record.status,
+          capturedAt: record.capturedAt.toISOString(),
+          remainingSeconds: record.capturedRemainingSeconds,
+          totalSeconds: record.capturedTotalSeconds,
+        };
+      }
+
+      case 'resume-timer': {
+        this.assertSafetyCleared(action);
+        const record = await this.interruptionControl.resume({
+          competitionId,
+          interruptionId: command.interruptionId as string,
+          timerStartAt: new Date(command.timerStartAt as string),
+          authorizedRemainingSeconds: command.authorizedRemainingSeconds as number,
+          unlimitedSightingShots: command.unlimitedSightingShots as boolean,
+        });
+        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        return { interruptionId: record.interruptionId, status: record.status };
+      }
+
+      case 'resume-match': {
+        this.assertSafetyCleared(action);
+        const record = await this.interruptionControl.resumeMatch({
+          competitionId,
+          interruptionId: command.interruptionId as string,
+        });
+        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        return { interruptionId: record.interruptionId, status: record.status };
+      }
+
+      case 'retire-finalist': {
+        const competition = await this.competitionRepository.findById(competitionId);
+        if (!competition) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: competitionId });
+        if (competition.config.name !== 'Final') {
+          throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+            detail: `retire-finalist requires a Final; current round is ${competition.config.name}`,
+          });
+        }
+        if (competition.phase !== 'FINISHED') {
+          await this.commandBus.execute(FinishCompetitionToken, { competitionId });
+        }
+        const finalSnapshotCommandId = command.commandId as string;
+        await Promise.all([
+          this.competitionStatePublisher.publishCurrentState(competitionId, finalSnapshotCommandId),
+          this.scorePublisher.publishCurrentScore(competitionId, finalSnapshotCommandId),
+        ]);
+        return {
+          checkpointId: command.checkpointId,
+          rank: command.rank,
+          afterShot: command.afterShot,
+        };
       }
     }
+  }
+
+  private assertSafetyCleared(action: string): void {
+    if (!this.safetyStopControl?.isStopped()) return;
+    const safetyStopId = this.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
+    throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
   }
 
   /**
@@ -215,6 +301,7 @@ export class PerLaneCommandHandler {
     status: CommandAckPayload['status'],
     errorCode?: string,
     errorMessage?: string,
+    data?: Record<string, unknown>,
   ): Promise<void> {
     const ack: CommandAckPayload = {
       commandId,
@@ -222,6 +309,7 @@ export class PerLaneCommandHandler {
       status,
       acknowledgedAt: new Date().toISOString(),
       ...(errorCode && errorMessage ? { error: { code: errorCode, message: errorMessage } } : {}),
+      ...(data ? { data } : {}),
     };
 
     try {

@@ -4,7 +4,24 @@ export { laneControlContract } from './laneControl.contract';
 export { resultsContract } from './results.contract';
 export { scoringDecisionsContract } from './scoringDecisions.contract';
 export { resultVerificationContract } from './resultVerification.contract';
+export { resultPublicationContract } from './resultPublication.contract';
+export { competitionAnnouncementsContract } from './competitionAnnouncements.contract';
 export { incidentReportsContract } from './incidentReports.contract';
+export { targetExaminationsContract } from './targetExaminations.contract';
+export { rangeInterruptionsContract } from './rangeInterruptions.contract';
+export { relayReadinessContract } from './relayReadiness.contract';
+export { teamResultsContract } from './teamResults.contract';
+export { squaddingContract } from './squadding.contract';
+export { productionOperationsContract } from './productionOperations.contract';
+export { mixedTeamTimeoutsContract } from './mixedTeamTimeouts.contract';
+export { protestsContract } from './protests.contract';
+export { estBackupVerificationContract } from './estBackupVerification.contract';
+export { finalControlContract } from './finalControl.contract';
+export { finalOperationsContract } from './finalOperations.contract';
+export { finalRecoveriesContract } from './finalRecoveries.contract';
+export { adjudicationCasesContract } from './adjudicationCases.contract';
+export { startListsContract } from './startLists.contract';
+export { mixedTeamFinalControlContract } from './mixedTeamFinalControl.contract';
 export { finalPlacementReviewContract } from './finalPlacementReview.contract';
 export { boardContract } from './board.contract';
 export { shootoffContract } from './shootoff.contract';
@@ -72,6 +89,20 @@ export type {
 } from './resultVerification.contract';
 
 export type {
+  ResultPublicationEntryDto,
+  ResultPublicationStatusDto,
+  PublishPreliminaryResultsPayload,
+  RegisterResultProtestPayload,
+  ResolveResultProtestPayload,
+  PublishOfficialResultsPayload,
+  FinalResultDeclarationDto,
+  FinalResultDeclarationStatusDto,
+  DeclareFinalResultsPayload,
+} from './resultPublication.contract';
+
+export type { CompetitionAnnouncementSettingsDto } from './competitionAnnouncements.contract';
+
+export type {
   IncidentReportOfficialRoleDto,
   IncidentReportEntryDto,
   IncidentReportLinkedDecisionDto,
@@ -83,12 +114,148 @@ export type {
 } from './incidentReports.contract';
 
 export type {
+  TargetExaminationScopeTypeDto,
+  TargetExaminationIssueKindDto,
+  TargetExaminationEvidenceTypeDto,
+  TargetExaminationEntryTypeDto,
+  TargetExaminationScopeDto,
+  TargetExaminationEvidenceDto,
+  TargetExaminationEntryDto,
+  TargetExaminationCaseDto,
+  TargetExaminationScopePayload,
+  CreateTargetExaminationCasePayload,
+  LinkTargetExaminationScopePayload,
+  AddTargetExaminationEvidencePayload,
+  AppendTargetExaminationEntryPayload,
+} from './targetExaminations.contract';
+
+export type {
+  RangeInterruptionScopeTypeDto,
+  RangeInterruptionCauseDto,
+  RangeInterruptionPhaseDto,
+  RangeInterruptionEntryTypeDto,
+  RangeInterruptionScopeDto,
+  RangeInterruptionEntryDto,
+  TargetRecoveryAssessmentDto,
+  RangeInterruptionCommandBatchDto,
+  IssfInterruptionRecommendationDto,
+  RangeInterruptionCaseDto,
+  RangeInterruptionScopePayload,
+  CreateRangeInterruptionCasePayload,
+  LinkRangeInterruptionScopePayload,
+  AppendRangeInterruptionEntryPayload,
+  RecordTargetRecoveryAssessmentPayload,
+  RecordRangeCommandBatchPayload,
+} from './rangeInterruptions.contract';
+
+export type {
+  RelayReadinessScopePayload,
+  RecordRelayReadinessPayload,
+  RelayReadinessEntryDto,
+  RelayReadinessAssessmentDto,
+} from './relayReadiness.contract';
+
+export type { TeamResultFormatDto, TeamResultDto, MixedTeamFinalResultDto } from './teamResults.contract';
+export type {
+  SquaddingAssignmentDto,
+  SquaddingFindingDto,
+  SquaddingDrawDto,
+  CreateSquaddingDrawPayload,
+  SquaddingDrawEntryPayload,
+} from './squadding.contract';
+export type {
+  ProductionOperationEntryDto,
+  ProductionOperationAssessmentDto,
+  ProductionOperationScopePayload,
+  RecordProductionOperationPayload,
+} from './productionOperations.contract';
+export type {
+  MixedTeamTimeoutDto,
+  StartMixedTeamTimeoutPayload,
+  AppendMixedTeamTimeoutPayload,
+} from './mixedTeamTimeouts.contract';
+export type {
+  ProtestScopePayload,
+  CreateProtestPayload,
+  RecordProtestEntryPayload,
+  ProtestCaseDto,
+} from './protests.contract';
+export type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } from './estBackupVerification.contract';
+export type {
+  FinalControlLaneSnapshotDto,
+  FinalCheckpointAssessmentDto,
+  FinalControlDecisionDto,
+  AssessFinalCheckpointPayload,
+  RecordFinalControlDecisionPayload,
+  RecordFinalControlCommandResultPayload,
+  VoidFinalControlDecisionPayload,
+} from './finalControl.contract';
+export type {
+  AbortFinalOperationRunPayload,
+  CloseFinalOperationShootOffRoundPayload,
+  ConfirmFinalOperationStepPayload,
+  CreateFinalOperationRunPayload,
+  FinalOperationRunDto,
+  FinalOperationScriptStepDto,
+  RecordFinalOperationExecutionPayload,
+  SkipFinalOperationStepPayload,
+  StartFinalOperationShootOffPayload,
+} from './finalOperations.contract';
+export type {
+  AppendFinalRecoveryEntryPayload,
+  CreateFinalRecoveryCasePayload,
+  FinalRecoveryCaseDto,
+  FinalRecoveryClassificationDto,
+  FinalRecoveryEntryTypeDto,
+  FinalRecoveryGuidanceDto,
+  FinalRecoveryIncidentTypeDto,
+  FinalRecoveryPhaseDto,
+  FinalRecoveryProcedureProfileDto,
+  FinalRecoveryRemedyDto,
+} from './finalRecoveries.contract';
+export type {
+  AdjudicationCaseScopePayload,
+  CreateAdjudicationCasePayload,
+  AppendAdjudicationCaseEntryPayload,
+  LinkAdjudicationArtifactPayload,
+  UnlinkAdjudicationArtifactPayload,
+  AdjudicationCaseDto,
+} from './adjudicationCases.contract';
+export type {
+  CreateStartListVersionPayload,
+  DistributeStartListPayload,
+  StartListApprovalPayload,
+  StartListDisciplineGroupDto,
+  StartListDistributionChannelDto,
+  StartListDistributionModeDto,
+  StartListEntryDto,
+  StartListFinalReleaseBasisDto,
+  StartListFindingDto,
+  StartListKindDto,
+  StartListOfficialRoleDto,
+  StartListRowDto,
+  StartListVersionDto,
+} from './startLists.contract';
+export type {
+  MixedTeamFinalMemberDto,
+  MixedTeamFinalSnapshotDto,
+  MixedTeamFinalAssessmentDto,
+  MixedTeamFinalDecisionDto,
+  AssessMixedTeamFinalPayload,
+  RecordMixedTeamFinalDecisionPayload,
+  RecordMixedTeamFinalCommandBatchPayload,
+  VoidMixedTeamFinalDecisionPayload,
+} from './mixedTeamFinalControl.contract';
+
+export type {
   FinalPlacementAssignmentDto,
   FinalPlacementReviewEntryDto,
   FinalPlacementReviewStatusDto,
   RecordFinalPlacementReviewPayload,
   RevokeFinalPlacementReviewPayload,
 } from './finalPlacementReview.contract';
+
+export type { SafetyStopAuditEntryDto } from './mqtt.contract';
 
 // Lane Control types
 export type {
@@ -119,6 +286,10 @@ export type {
   MqttControlSnapshotDto,
   MqttCommandExecutionResultDto,
   MqttCommandBatchResultDto,
+  FiringWindowViolationDto,
+  ShotObservationEvidenceDto,
+  ClockQualityAssessmentDto,
+  LaneClockProbeResultDto,
 } from './mqtt.contract';
 
 // Board types
@@ -145,4 +316,6 @@ export type {
   LaneControlUpdatedEvent,
   LaneControlPatchedEvent,
   MqttControlStateChangedEvent,
+  FiringWindowViolationDetectedEvent,
+  CompetitionAnnouncementDueEvent,
 } from './events.contract';

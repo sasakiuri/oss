@@ -1,0 +1,143 @@
+import type {
+  AppendFinalRecoveryEntryPayload,
+  CreateFinalRecoveryCasePayload,
+  FinalRecoveryCaseDto,
+} from '@/shared/ipc/contracts';
+
+import {
+  FinalRecoveryCase,
+  FinalRecoveryEntry,
+  finalRecoveryStatus,
+  type FinalRecoveryStatus,
+} from '../domain/FinalRecoveryCase';
+import type { IFinalRecoveryRepository } from '../domain/IFinalRecoveryRepository';
+import { getIssfFinalRecoveryGuidance } from '../domain/IssfFinalRecoveryPolicy';
+
+export class FinalRecoveryService {
+  constructor(private readonly repository: IFinalRecoveryRepository) {}
+
+  listByCompetition(competitionId: string): FinalRecoveryCaseDto[] {
+    return this.project(this.repository.findCasesByCompetition(competitionId));
+  }
+
+  listByEvent(eventId: string): FinalRecoveryCaseDto[] {
+    return this.project(this.repository.findCasesByEvent(eventId));
+  }
+
+  create(input: CreateFinalRecoveryCasePayload): FinalRecoveryCaseDto {
+    const value = FinalRecoveryCase.create({
+      competitionId: input.competitionId,
+      ...(input.eventId ? { eventId: input.eventId } : {}),
+      ...(input.finalRunId ? { finalRunId: input.finalRunId } : {}),
+      ...(input.scriptStepId ? { scriptStepId: input.scriptStepId } : {}),
+      ...(input.scriptStepSnapshot ? { scriptStepSnapshot: input.scriptStepSnapshot } : {}),
+      procedureProfile: input.procedureProfile,
+      incidentType: input.incidentType,
+      phase: input.phase,
+      affectedLaneIds: input.affectedLaneIds,
+      summary: input.summary,
+      openedBy: input.openedBy,
+      ...(input.occurredAt ? { occurredAt: new Date(input.occurredAt) } : {}),
+    });
+    this.repository.appendCase(value);
+    return this.project([value])[0]!;
+  }
+
+  appendEntry(input: AppendFinalRecoveryEntryPayload): FinalRecoveryCaseDto {
+    const value = this.repository.findCaseById(input.caseId);
+    if (!value) throw new Error(`Final recovery case ${input.caseId} not found`);
+    const entries = this.repository.findEntries([value.id]).get(value.id) ?? [];
+    assertTransition(finalRecoveryStatus(entries), input.type);
+    assertPolicySelection(value, input);
+    this.repository.appendEntry(
+      FinalRecoveryEntry.create({
+        caseId: value.id,
+        type: input.type,
+        statement: input.statement,
+        officialName: input.officialName,
+        ...(input.ruleReference ? { ruleReference: input.ruleReference } : {}),
+        ...(input.classification ? { classification: input.classification } : {}),
+        ...(input.remedy ? { remedy: input.remedy } : {}),
+        ...(input.remainingTimeSeconds !== undefined ? { remainingTimeSeconds: input.remainingTimeSeconds } : {}),
+        ...(input.grantedTimeSeconds !== undefined ? { grantedTimeSeconds: input.grantedTimeSeconds } : {}),
+        ...(input.shotCount !== undefined ? { shotCount: input.shotCount } : {}),
+        ...(input.occurredAt ? { occurredAt: new Date(input.occurredAt) } : {}),
+      }),
+    );
+    return this.project([value])[0]!;
+  }
+
+  private project(cases: readonly FinalRecoveryCase[]): FinalRecoveryCaseDto[] {
+    const entriesByCase = this.repository.findEntries(cases.map((value) => value.id));
+    return cases.map((value) => {
+      const entries = entriesByCase.get(value.id) ?? [];
+      return {
+        id: value.id,
+        competitionId: value.competitionId,
+        eventId: value.eventId,
+        finalRunId: value.finalRunId,
+        scriptStepId: value.scriptStepId,
+        scriptStepSnapshot: value.scriptStepSnapshot,
+        procedureProfile: value.procedureProfile,
+        incidentType: value.incidentType,
+        phase: value.phase,
+        affectedLaneIds: [...value.affectedLaneIds],
+        summary: value.summary,
+        openedBy: value.openedBy,
+        occurredAt: value.occurredAt.toISOString(),
+        createdAt: value.createdAt.toISOString(),
+        status: finalRecoveryStatus(entries),
+        guidance: getIssfFinalRecoveryGuidance(value.procedureProfile, value.incidentType, value.phase),
+        entries: entries.map((entry) => ({
+          id: entry.id,
+          caseId: entry.caseId,
+          type: entry.type,
+          statement: entry.statement,
+          officialName: entry.officialName,
+          ruleReference: entry.ruleReference,
+          classification: entry.classification,
+          remedy: entry.remedy,
+          remainingTimeSeconds: entry.remainingTimeSeconds,
+          grantedTimeSeconds: entry.grantedTimeSeconds,
+          shotCount: entry.shotCount,
+          occurredAt: entry.occurredAt.toISOString(),
+          recordedAt: entry.recordedAt.toISOString(),
+        })),
+      };
+    });
+  }
+}
+
+function assertPolicySelection(value: FinalRecoveryCase, input: AppendFinalRecoveryEntryPayload): void {
+  const guidance = getIssfFinalRecoveryGuidance(value.procedureProfile, value.incidentType, value.phase);
+  if (input.classification && !guidance.classifications.includes(input.classification)) {
+    throw new Error(
+      `Classification ${input.classification} is not available for ${value.procedureProfile} ${value.incidentType} ${value.phase}`,
+    );
+  }
+  if (input.remedy && !guidance.remedies.includes(input.remedy)) {
+    throw new Error(
+      `Remedy ${input.remedy} is not available for ${value.procedureProfile} ${value.incidentType} ${value.phase}`,
+    );
+  }
+}
+
+function assertTransition(status: FinalRecoveryStatus, next: AppendFinalRecoveryEntryPayload['type']): void {
+  if (status === 'VOID') throw new Error('A void Final recovery case cannot be changed');
+  if (next === 'NOTE') return;
+  if (next === 'VOID') return;
+  if (next === 'STOP_RECORDED' && status !== 'OPEN') throw new Error('Only an open recovery case can record the stop');
+  if (next === 'JURY_RULING' && status !== 'OPEN' && status !== 'STOPPED') {
+    throw new Error('Record the Jury ruling before authorizing recovery');
+  }
+  if (next === 'REMEDY_AUTHORIZED' && status !== 'RULING_RECORDED' && status !== 'RECOVERY_AUTHORIZED') {
+    throw new Error('A Jury ruling is required before authorizing recovery');
+  }
+  if (next === 'RESUMED' && status !== 'RECOVERY_AUTHORIZED') {
+    throw new Error('Recovery must be authorized before recording resumption');
+  }
+  if (next === 'COMPLETED' && status !== 'RECOVERY_AUTHORIZED' && status !== 'RESUMED') {
+    throw new Error('Recovery must be authorized before completing the case');
+  }
+  if (status === 'COMPLETED') throw new Error('A completed recovery case only accepts notes or a void correction');
+}

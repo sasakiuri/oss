@@ -5,6 +5,8 @@ import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import type {
   DebugLogEmitted,
+  FiringWindowViolationDetected,
+  ShotObservationEvidenceObserved,
   LaneConnected,
   MqttConnectionError,
   MqttControlStateChanged,
@@ -12,18 +14,30 @@ import type {
 } from './domain/events';
 import { EmbeddedMqttBroker } from './infra/EmbeddedMqttBroker';
 import { SqliteMqttRetainedMessageStore } from './infra/SqliteMqttRetainedMessageStore';
+import { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJournal';
 import {
   DirectorMqttService,
   sanitizeBrokerUrl,
   type CompetitionResultLane,
+  type CommandBatchResult,
   type MqttControlSnapshot,
 } from './infra/DirectorMqttService';
 import { FiringPointNumberResolver } from './application/FiringPointNumberResolver';
+import { assertPhaseStartReady } from './application/PhaseStartGuard';
 import { toCompetitionShotObservation } from './application/toCompetitionShotObservation';
-import { PublishMqttResultsToken } from '@/main/modules/results';
+import { FiringWindowDetectionService } from './application/FiringWindowDetectionService';
+import { toFiringWindowViolationDto } from './application/toFiringWindowViolationDto';
+import { executeFinalScriptStep } from './application/FinalScriptStepExecutor';
+import type { ClockQualityAssessment } from './domain/ClockQualityPolicy';
+import {
+  PublishMqttFinalResultsToken,
+  PublishMqttMixedTeamFinalResultsToken,
+  PublishMqttResultsToken,
+} from '@/main/modules/results';
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
 import { mqttContract, eventsContract, type MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import type { CompetitionTypeDefinition, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
 import { Logger } from '@/shared/utils/Logger';
 
 const logger = Logger.create('mqtt.module');
@@ -49,18 +63,50 @@ interface RuntimeBrokerConfig {
   port: number;
 }
 
-function getLaneCompetitionMetadata(competitionTypeId: string): {
+function getLaneCompetitionMetadata(definition: CompetitionTypeDefinition): {
   discipline: string;
   acc: 'RING' | 'DECIMAL';
 } {
-  switch (competitionTypeId) {
-    case 'BR60S':
-      return { discipline: 'BEAM_RIFLE_10M', acc: 'DECIMAL' };
-    case 'BP60':
-      return { discipline: 'BEAM_PISTOL_10M', acc: 'RING' };
-    default:
-      throw new Error(`Competition type ${competitionTypeId} is not supported by the current Saika Lane MQTT API`);
+  if (!definition.laneProtocol) {
+    throw new Error(`Competition type ${definition.id} is not supported by the current Saika Lane MQTT API`);
   }
+  return definition.laneProtocol;
+}
+
+function getNextSeriesTimer(
+  definition: CompetitionTypeDefinition,
+  stageIndex: number,
+  seriesIndex: number,
+): { durationSeconds: number; stageIndex: number; seriesIndex: number } | undefined {
+  const sourceStage = definition.config.stages[stageIndex];
+  if (!sourceStage?.series[seriesIndex]) throw new Error(`Series ${stageIndex}:${seriesIndex} is not configured`);
+  const nextStageIndex = seriesIndex + 1 < sourceStage.series.length ? stageIndex : stageIndex + 1;
+  const nextSeriesIndex = seriesIndex + 1 < sourceStage.series.length ? seriesIndex + 1 : 0;
+  const nextStage = definition.config.stages[nextStageIndex];
+  if (!nextStage?.series[nextSeriesIndex]) return undefined;
+  if (nextStage.timer.mode === 'stage') return undefined;
+  return { durationSeconds: nextStage.timer.durationSec, stageIndex: nextStageIndex, seriesIndex: nextSeriesIndex };
+}
+
+function getPreviousSeriesPosition(
+  definition: CompetitionTypeDefinition,
+  target: { stageIndex: number; seriesIndex: number },
+): { stageIndex: number; seriesIndex: number } | null {
+  const targetStage = definition.config.stages[target.stageIndex];
+  if (!targetStage?.series[target.seriesIndex] || targetStage.type !== 'match') {
+    throw new Error(`Final script target ${target.stageIndex}:${target.seriesIndex} is not configured`);
+  }
+  const firstMatchStageIndex = definition.config.stages.findIndex((stage) => stage.type === 'match');
+  if (target.stageIndex === firstMatchStageIndex && target.seriesIndex === 0) return null;
+  if (target.seriesIndex > 0) return { stageIndex: target.stageIndex, seriesIndex: target.seriesIndex - 1 };
+
+  for (let stageIndex = target.stageIndex - 1; stageIndex >= firstMatchStageIndex; stageIndex -= 1) {
+    const stage = definition.config.stages[stageIndex];
+    if (stage?.type === 'match' && stage.series.length > 0) {
+      return { stageIndex, seriesIndex: stage.series.length - 1 };
+    }
+  }
+  throw new Error(`Final script target ${target.stageIndex}:${target.seriesIndex} has no preceding MATCH series`);
 }
 
 export const mqttModule: ModuleDefinition<
@@ -74,6 +120,10 @@ export const mqttModule: ModuleDefinition<
   | 'competitionTypeRegistry'
   | 'laneControlRepository'
   | 'competitionShotJournal'
+  | 'firingWindowJournal'
+  | 'shotObservationEvidenceJournal'
+  | 'competitionDataGuard'
+  | 'finalOperationService'
 > = {
   name: 'mqtt',
   deps: [
@@ -87,6 +137,10 @@ export const mqttModule: ModuleDefinition<
     'competitionTypeRegistry',
     'laneControlRepository',
     'competitionShotJournal',
+    'firingWindowJournal',
+    'shotObservationEvidenceJournal',
+    'competitionDataGuard',
+    'finalOperationService',
   ] as const,
   register(ctx): ModuleOutput {
     const {
@@ -100,15 +154,42 @@ export const mqttModule: ModuleDefinition<
       competitionTypeRegistry,
       laneControlRepository,
       competitionShotJournal,
+      firingWindowJournal,
+      shotObservationEvidenceJournal,
+      competitionDataGuard,
+      finalOperationService,
     } = ctx;
 
     const retainedMessageStore = new SqliteMqttRetainedMessageStore(database);
+    const safetyStopAuditJournal = new SqliteSafetyStopAuditJournal(database);
     let embeddedMqttBroker = new EmbeddedMqttBroker(
       { port: appConfigService.get('mqtt.broker.port') },
       retainedMessageStore,
     );
     const firingPointNumberResolver = new FiringPointNumberResolver();
     const announcedChannelByLaneId = new Map<string, number>();
+    const competitionTypeIdByCompetitionId = new Map<string, string>();
+
+    const getFiringWindowPolicy = (competitionId: string): FiringWindowDetectionPolicy | undefined => {
+      const competitionTypeId = competitionTypeIdByCompetitionId.get(competitionId);
+      if (!competitionTypeId) return undefined;
+      try {
+        return competitionTypeRegistry.get(competitionTypeId).firingWindowDetection;
+      } catch (error) {
+        logger.error(`Failed to resolve firing-window policy for ${competitionId}:`, error);
+        return undefined;
+      }
+    };
+
+    const firingWindowDetectionService = new FiringWindowDetectionService(competitionShotJournal, firingWindowJournal, {
+      onViolationDetected: (violation) => {
+        eventBus.emit({
+          type: 'FiringWindowViolationDetected',
+          timestamp: violation.detectedAt.getTime(),
+          violation,
+        });
+      },
+    });
 
     const addDebugLog = (message: string): void => {
       const entry = {
@@ -153,6 +234,20 @@ export const mqttModule: ModuleDefinition<
 
     const handleSnapshot = (snapshot: MqttControlSnapshot): void => {
       const controlSnapshot = toControlSnapshotDto(snapshot);
+      for (const competition of controlSnapshot.competitions) {
+        const previousTypeId = competitionTypeIdByCompetitionId.get(competition.competitionId);
+        competitionTypeIdByCompetitionId.set(competition.competitionId, competition.competitionTypeId);
+        if (previousTypeId !== competition.competitionTypeId) {
+          try {
+            firingWindowDetectionService.reconcileCompetition(
+              competition.competitionId,
+              getFiringWindowPolicy(competition.competitionId),
+            );
+          } catch (error) {
+            logger.error(`Failed to reconcile firing-window evidence for ${competition.competitionId}:`, error);
+          }
+        }
+      }
       for (const lane of controlSnapshot.lanes) {
         if (lane.hardware?.connection.status !== 'connected') continue;
         const channel = lane.firingPointNumber;
@@ -183,9 +278,49 @@ export const mqttModule: ModuleDefinition<
         onStateChanged: handleSnapshot,
         onCompetitionShotObserved: (shot, payloadJson) => {
           try {
-            competitionShotJournal.append(toCompetitionShotObservation(shot, payloadJson, new Date()));
+            const observation = toCompetitionShotObservation(shot, payloadJson, new Date());
+            competitionShotJournal.append(observation);
+            firingWindowDetectionService.observe(observation, getFiringWindowPolicy(observation.competitionId));
           } catch (error) {
             logger.error(`Failed to journal MQTT shot ${shot.shotId}:`, error);
+          }
+        },
+        onCompetitionShootOffShotObserved: (shot) => {
+          try {
+            finalOperationService.observeShootOffShot({
+              runId: shot.runId,
+              competitionId: shot.competitionId,
+              iteration: shot.iteration,
+              laneId: shot.laneId,
+              shotId: shot.shotId,
+              scoreX10: shot.effectiveScoreX10,
+              x: shot.x,
+              y: shot.y,
+              firedAt: shot.firedAt,
+            });
+          } catch (error) {
+            logger.error(`Failed to record Final shoot-off shot ${shot.shotId}:`, error);
+          }
+        },
+        onShotObservationEvidenceObserved: (evidence, payloadJson) => {
+          try {
+            const observedAt = new Date();
+            shotObservationEvidenceJournal.append({ evidence, payloadJson, observedAt });
+            eventBus.emit({
+              type: 'ShotObservationEvidenceObserved',
+              timestamp: observedAt.getTime(),
+              evidence,
+              observedAt,
+            });
+          } catch (error) {
+            logger.error(`Failed to journal shot observation evidence ${evidence.evidenceId}:`, error);
+          }
+        },
+        onFiringBoundary: (boundary) => {
+          try {
+            firingWindowDetectionService.recordBoundary(boundary, getFiringWindowPolicy(boundary.competitionId));
+          } catch (error) {
+            logger.error(`Failed to journal ${boundary.sourceAction} firing boundary:`, error);
           }
         },
         onCompetitionShot: (shot) => {
@@ -209,6 +344,7 @@ export const mqttModule: ModuleDefinition<
         onSessionReset: () => {
           firingPointNumberResolver.reset();
           announcedChannelByLaneId.clear();
+          competitionTypeIdByCompetitionId.clear();
         },
         onError: (message) => {
           eventBus.emit({
@@ -219,6 +355,12 @@ export const mqttModule: ModuleDefinition<
         },
       },
     );
+
+    const requireCompetition = (competitionId: string) => {
+      const competition = mqttService.getSnapshot().competitions.find((state) => state.competitionId === competitionId);
+      if (!competition) throw new Error(`Competition not found: ${competitionId}`);
+      return competition;
+    };
 
     const readBrokerConfig = (): RuntimeBrokerConfig => ({
       mode: appConfigService.get('mqtt.broker.mode'),
@@ -326,13 +468,76 @@ export const mqttModule: ModuleDefinition<
       connect: () => runWithRuntimeLock(reconnectClient),
       disconnect: () => runWithRuntimeLock(() => mqttService.disconnect()),
       getControlState: async () => toControlSnapshotDto(mqttService.getSnapshot()),
+      getFiringWindowViolations: async (input) =>
+        firingWindowJournal.findViolationsByCompetition(input.competitionId).map(toFiringWindowViolationDto),
+      getShotObservationEvidence: async (input) =>
+        shotObservationEvidenceJournal.findByCompetition(input.competitionId).map((record) => ({
+          ...record.evidence,
+          observedAt: record.observedAt.toISOString(),
+        })),
+      getClockQuality: async () => mqttService.getClockQuality() as Record<string, ClockQualityAssessment>,
+      getSafetyStopAudit: async (input) =>
+        safetyStopAuditJournal.find(input.safetyStopId).map((entry) => ({
+          ...entry,
+          targetLaneIds: [...entry.targetLaneIds],
+          occurredAt: entry.occurredAt.toISOString(),
+          recordedAt: entry.recordedAt.toISOString(),
+          laneOutcomes: entry.laneOutcomes.map((outcome) => ({
+            ...outcome,
+            acknowledgedAt: outcome.acknowledgedAt?.toISOString() ?? null,
+          })),
+        })),
+      probeLaneClock: (input) => runWithControlLock(() => mqttService.probeLaneClock(input.laneId)),
+      activateSafetyStop: (input) =>
+        runWithControlLock(async () => {
+          const occurredAt = new Date();
+          const result = await mqttService.activateSafetyStop(
+            input.laneIds,
+            input.safetyStopId,
+            input.reason,
+            input.officialName,
+          );
+          safetyStopAuditJournal.append({
+            id: crypto.randomUUID(),
+            safetyStopId: input.safetyStopId,
+            operation: 'ACTIVATE',
+            targetLaneIds: [...new Set(input.laneIds)],
+            success: result.success,
+            reason: input.reason,
+            officialName: input.officialName,
+            occurredAt,
+            recordedAt: new Date(),
+            laneOutcomes: toSafetyLaneOutcomes(result),
+          });
+          return result;
+        }),
+      clearSafetyStop: (input) =>
+        runWithControlLock(async () => {
+          const occurredAt = new Date();
+          const result = await mqttService.clearSafetyStop(
+            input.laneIds,
+            input.safetyStopId,
+            input.clearanceReason,
+            input.officialName,
+          );
+          safetyStopAuditJournal.append({
+            id: crypto.randomUUID(),
+            safetyStopId: input.safetyStopId,
+            operation: 'CLEAR',
+            targetLaneIds: [...new Set(input.laneIds)],
+            success: result.success,
+            reason: input.clearanceReason,
+            officialName: input.officialName,
+            occurredAt,
+            recordedAt: new Date(),
+            laneOutcomes: toSafetyLaneOutcomes(result),
+          });
+          return result;
+        }),
       createCompetition: (input) =>
         runWithControlLock(async () => {
           const definition = competitionTypeRegistry.get(input.competitionTypeId);
-          if (definition.config.name !== 'Qualification') {
-            throw new Error('The current Saika Lane MQTT API supports qualification rounds only');
-          }
-          const metadata = getLaneCompetitionMetadata(definition.id);
+          const metadata = getLaneCompetitionMetadata(definition);
           const matchStage = definition.config.stages.find((stage) => stage.type === 'match');
           const shotsPerSeries = matchStage?.series[0]?.shots ?? 0;
           if (!matchStage || shotsPerSeries <= 0) {
@@ -343,6 +548,7 @@ export const mqttModule: ModuleDefinition<
             competitionTypeName: definition.name,
             discipline: metadata.discipline,
             roundName: definition.config.name,
+            competitionUnit: definition.teamFormat === 'MIXED_PAIR' ? 'MIXED_TEAM' : 'INDIVIDUAL',
             acc: metadata.acc,
             shotsPerSeries,
             totalSeries: definition.resultFormat.totalSeries,
@@ -356,18 +562,185 @@ export const mqttModule: ModuleDefinition<
       joinCompetition: (input) =>
         runWithControlLock(() => mqttService.joinCompetition(input.competitionId, input.laneIds)),
       leaveCompetition: (input) =>
-        runWithControlLock(() => mqttService.leaveCompetition(input.competitionId, input.laneIds)),
+        runWithControlLock(async () => {
+          for (const laneId of input.laneIds) {
+            competitionDataGuard.assertAllowed({ operation: 'LEAVE_LANE', competitionId: input.competitionId, laneId });
+          }
+          return mqttService.leaveCompetition(input.competitionId, input.laneIds);
+        }),
       assignAthlete: (input) =>
         runWithControlLock(() => mqttService.assignAthlete(input.competitionId, input.laneId, input.athlete)),
       resetSession: (input) =>
-        runWithControlLock(() => mqttService.resetSession(input.competitionId, input.laneId, input.reason)),
-      startSighting: (input) =>
+        runWithControlLock(() => {
+          competitionDataGuard.assertAllowed({
+            operation: 'RESET_LANE_SESSION',
+            competitionId: input.competitionId,
+            laneId: input.laneId,
+          });
+          return mqttService.resetSession(input.competitionId, input.laneId, input.reason);
+        }),
+      pauseLaneTimer: (input) =>
+        runWithControlLock(() => mqttService.pauseLaneTimer(input.competitionId, input.laneId, input.interruptionId)),
+      resumeLaneTimer: (input) =>
         runWithControlLock(() =>
-          mqttService.startSighting(input.competitionId, input.durationSeconds, input.targetLaneIds),
+          mqttService.resumeLaneTimer(
+            input.competitionId,
+            input.laneId,
+            input.interruptionId,
+            input.authorizedRemainingSeconds,
+            input.unlimitedSightingShots,
+          ),
         ),
+      resumeLaneMatch: (input) =>
+        runWithControlLock(() => mqttService.resumeLaneMatch(input.competitionId, input.laneId, input.interruptionId)),
+      pauseRangeTimers: (input) =>
+        runWithControlLock(() =>
+          mqttService.pauseRangeTimers(input.competitionId, input.laneIds, input.interruptionId),
+        ),
+      resumeRangeTimers: (input) =>
+        runWithControlLock(() =>
+          mqttService.resumeRangeTimers(
+            input.competitionId,
+            input.laneIds,
+            input.interruptionId,
+            input.authorizedRemainingSeconds,
+            input.unlimitedSightingShots,
+          ),
+        ),
+      resumeRangeMatch: (input) =>
+        runWithControlLock(() =>
+          mqttService.resumeRangeMatch(input.competitionId, input.laneIds, input.interruptionId),
+        ),
+      startSighting: (input) =>
+        runWithControlLock(() => {
+          const competition = requireCompetition(input.competitionId);
+          if (competition.phase === 'NOT_STARTED') {
+            assertPhaseStartReady(
+              competitionTypeRegistry.get(competition.competitionTypeId),
+              'SIGHTING',
+              input.acknowledgedRequirementIds,
+            );
+          }
+          return mqttService.startSighting(input.competitionId, input.durationSeconds, input.targetLaneIds);
+        }),
       endSighting: (input) => runWithControlLock(() => mqttService.endSighting(input.competitionId)),
       startMatch: (input) =>
-        runWithControlLock(() => mqttService.startMatch(input.competitionId, input.durationSeconds)),
+        runWithControlLock(() => {
+          const competition = requireCompetition(input.competitionId);
+          if (competition.phase === 'SIGHTING_COMPLETE') {
+            assertPhaseStartReady(
+              competitionTypeRegistry.get(competition.competitionTypeId),
+              'MATCH',
+              input.acknowledgedRequirementIds,
+            );
+          }
+          return mqttService.startMatch(input.competitionId, input.durationSeconds);
+        }),
+      executeFinalScriptStep: (input) =>
+        runWithControlLock(() => {
+          finalOperationService.assertExecutionAuthorized({
+            competitionId: input.competitionId,
+            runId: input.runId,
+            confirmationEntryId: input.confirmationEntryId,
+            branch: input.branch,
+            iteration: input.iteration,
+            step: input.step,
+            eligibleLaneIds: input.eligibleLaneIds ?? [],
+          });
+          return executeFinalScriptStep(
+            {
+              competitionId: input.competitionId,
+              runId: input.runId,
+              confirmationEntryId: input.confirmationEntryId,
+              branch: input.branch,
+              iteration: input.iteration,
+              step: input.step,
+              eligibleLaneIds: input.eligibleLaneIds ?? [],
+              acknowledgedRequirementIds: input.acknowledgedRequirementIds ?? [],
+            },
+            {
+              publishCue: async (cue) => {
+                await mqttService.publishCompetitionCue(cue);
+              },
+              openSighting: async (durationSeconds, acknowledgedRequirementIds) => {
+                const competition = requireCompetition(input.competitionId);
+                if (competition.phase === 'SIGHTING') return null;
+                assertPhaseStartReady(
+                  competitionTypeRegistry.get(competition.competitionTypeId),
+                  'SIGHTING',
+                  acknowledgedRequirementIds,
+                );
+                return mqttService.startSighting(input.competitionId, durationSeconds);
+              },
+              closeSighting: async () => {
+                const phase = requireCompetition(input.competitionId).phase;
+                if (phase === 'SIGHTING_COMPLETE' || phase === 'MATCH' || phase === 'MATCH_COMPLETE') return null;
+                return mqttService.endSighting(input.competitionId);
+              },
+              openMatch: async (step, acknowledgedRequirementIds) => {
+                if (step.effect.type !== 'OPEN_FIRING' || step.effect.purpose !== 'MATCH' || !step.effect.target) {
+                  throw new Error(`Final step ${step.id} has no MATCH target`);
+                }
+                const target = step.effect.target;
+                const competition = requireCompetition(input.competitionId);
+                const definition = competitionTypeRegistry.get(competition.competitionTypeId);
+                const alreadyAtTarget =
+                  competition.phase === 'MATCH' &&
+                  competition.laneIds.every((laneId) => {
+                    const laneState = mqttService
+                      .getSnapshot()
+                      .lanes.find((lane) => lane.laneId === laneId)?.competitionState;
+                    return (
+                      laneState?.competitionId === input.competitionId &&
+                      laneState.currentStage.index === target.stageIndex &&
+                      laneState.currentSeries.index === target.seriesIndex
+                    );
+                  });
+                if (alreadyAtTarget) return null;
+
+                const previous = getPreviousSeriesPosition(definition, target);
+                if (!previous) {
+                  assertPhaseStartReady(definition, 'MATCH', acknowledgedRequirementIds);
+                  return mqttService.startMatch(input.competitionId, step.effect.durationSeconds);
+                }
+                const nextTimer = getNextSeriesTimer(definition, previous.stageIndex, previous.seriesIndex);
+                if (
+                  !nextTimer ||
+                  nextTimer.stageIndex !== target.stageIndex ||
+                  nextTimer.seriesIndex !== target.seriesIndex ||
+                  nextTimer.durationSeconds !== step.effect.durationSeconds
+                ) {
+                  throw new Error(
+                    `Final script timer does not match target ${target.stageIndex}:${target.seriesIndex}`,
+                  );
+                }
+                return mqttService.advanceSeries(
+                  input.competitionId,
+                  previous.stageIndex,
+                  previous.seriesIndex,
+                  undefined,
+                  nextTimer,
+                );
+              },
+              closeMatch: async () => {
+                const competition = requireCompetition(input.competitionId);
+                if (competition.phase === 'MATCH_COMPLETE' || !competition.activeTimer) return null;
+                return mqttService.stopActiveTimer(input.competitionId);
+              },
+              openShootOff: async (durationSeconds, eligibleLaneIds) =>
+                mqttService.startShootOff(
+                  input.competitionId,
+                  input.runId,
+                  input.iteration,
+                  durationSeconds,
+                  eligibleLaneIds,
+                ),
+              closeShootOff: async (eligibleLaneIds) =>
+                mqttService.stopShootOff(input.competitionId, input.runId, input.iteration, eligibleLaneIds),
+            },
+          );
+        }),
+      clearFinalCue: (input) => runWithControlLock(() => mqttService.clearCompetitionCue(input.competitionId)),
       restartTimer: (input) =>
         runWithControlLock(() =>
           mqttService.restartTimer(
@@ -379,15 +752,30 @@ export const mqttModule: ModuleDefinition<
           ),
         ),
       advanceSeries: (input) =>
+        runWithControlLock(() => {
+          const competition = requireCompetition(input.competitionId);
+          const definition = competitionTypeRegistry.get(competition.competitionTypeId);
+          return mqttService.advanceSeries(
+            input.competitionId,
+            input.stageIndex,
+            input.fromSeriesIndex,
+            input.resumeOnly,
+            getNextSeriesTimer(definition, input.stageIndex, input.fromSeriesIndex),
+          );
+        }),
+      retireFinalist: (input) =>
         runWithControlLock(() =>
-          mqttService.advanceSeries(input.competitionId, input.stageIndex, input.fromSeriesIndex, input.resumeOnly),
+          mqttService.retireFinalist(
+            input.competitionId,
+            input.laneId,
+            input.checkpointId,
+            input.rank,
+            input.afterShot,
+          ),
         ),
       finishCompetition: (input) =>
         runWithControlLock(async () => {
-          const competition = mqttService
-            .getSnapshot()
-            .competitions.find((state) => state.competitionId === input.competitionId);
-          if (!competition) throw new Error(`Competition not found: ${input.competitionId}`);
+          const competition = requireCompetition(input.competitionId);
 
           if (input.resultContext && !competition.cleanupPreparedAt) {
             if (competition.phase !== 'MATCH' && competition.phase !== 'MATCH_COMPLETE') {
@@ -410,7 +798,13 @@ export const mqttModule: ModuleDefinition<
           const beforeCleanup = resultContext
             ? async (lanes: CompetitionResultLane[]) => {
                 try {
-                  resultPublication = await commandBus.execute(PublishMqttResultsToken, {
+                  const publicationToken =
+                    competition.roundName !== 'Final'
+                      ? PublishMqttResultsToken
+                      : competition.competitionUnit === 'MIXED_TEAM'
+                        ? PublishMqttMixedTeamFinalResultsToken
+                        : PublishMqttFinalResultsToken;
+                  resultPublication = await commandBus.execute(publicationToken, {
                     competitionId: input.competitionId,
                     competitionTypeId: competition.competitionTypeId,
                     eventId: resultContext.eventId,
@@ -427,7 +821,12 @@ export const mqttModule: ModuleDefinition<
                 }
               }
             : undefined;
-          const result = await mqttService.finishCompetition(input.competitionId, beforeCleanup);
+          const beforeDataClear = () =>
+            competitionDataGuard.assertAllowed({
+              operation: 'CLEAR_COMPETITION_DATA',
+              competitionId: input.competitionId,
+            });
+          const result = await mqttService.finishCompetition(input.competitionId, beforeCleanup, beforeDataClear);
           return resultPublication ? { ...result, resultPublication } : result;
         }),
     });
@@ -511,7 +910,33 @@ export const mqttModule: ModuleDefinition<
           channel: eventsContract.channels.mqttControlStateChanged,
           extractPayload: (event: AnyDomainEvent) => (event as MqttControlStateChanged).snapshot,
         },
+        {
+          eventType: 'FiringWindowViolationDetected',
+          channel: eventsContract.channels.firingWindowViolationDetected,
+          extractPayload: (event: AnyDomainEvent) =>
+            toFiringWindowViolationDto((event as FiringWindowViolationDetected).violation),
+        },
+        {
+          eventType: 'ShotObservationEvidenceObserved',
+          channel: eventsContract.channels.shotObservationEvidenceObserved,
+          extractPayload: (event: AnyDomainEvent) => {
+            const observed = event as ShotObservationEvidenceObserved;
+            return { ...observed.evidence, observedAt: observed.observedAt.toISOString() };
+          },
+        },
       ],
     };
   },
 };
+
+function toSafetyLaneOutcomes(result: CommandBatchResult) {
+  return result.commands.flatMap((command) =>
+    command.lanes.map((lane) => ({
+      laneId: lane.laneId,
+      status: lane.status,
+      errorCode: lane.error?.code ?? null,
+      errorMessage: lane.error?.message ?? null,
+      acknowledgedAt: lane.acknowledgedAt ? new Date(lane.acknowledgedAt) : null,
+    })),
+  );
+}

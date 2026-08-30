@@ -3,6 +3,7 @@ import type { CompetitionTypeDefinition } from '../CompetitionTypeDefinition';
 export const BR60S: CompetitionTypeDefinition = {
   id: 'BR60S',
   name: '10m Beam Rifle 60 Shots Standing',
+  laneProtocol: { discipline: 'BEAM_RIFLE_10M', acc: 'DECIMAL' },
   scoring: {
     minScore: 0,
     maxScore: 109,

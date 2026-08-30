@@ -69,6 +69,7 @@ export type { GetScoreSheetInput, OpenPrintWindowInput, ScoreSheetDto, ScoreShee
 export { eventsContract } from './events.contract';
 export type {
   CompetitionFinishedEventPayload,
+  CompetitionCueChangedEventPayload,
   CompetitionStartedEventPayload,
   ConnectionStatus,
   ConnectionStatusChangedEventPayload,
@@ -86,13 +87,14 @@ export type {
   StageAdvancedEventPayload,
   TimerExpiredEventPayload,
   TimerTickEventPayload,
+  SafetyStopChangedEventPayload,
 } from './events.contract';
 
 export { windowContract } from './window.contract';
 export type { FullscreenStateDto, ToggleFullscreenResponse, WindowStateDto } from './window.contract';
 
 export { mqttContract } from './mqtt.contract';
-export type { ConnectMqttInput, MqttSettings, MqttStatus } from './mqtt.contract';
+export type { ConnectMqttInput, LaneSafetyStateDto, MqttSettings, MqttStatus } from './mqtt.contract';
 
 export { AppUpdateStateSchema, AppUpdateStatusSchema, updaterContract } from './updater.contract';
 export type { AppUpdateStateDto, AppUpdateStatus } from './updater.contract';

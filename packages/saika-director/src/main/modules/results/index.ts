@@ -17,5 +17,5 @@ export { SqliteFinalResultRepository } from './infra/SqliteFinalResultRepository
 
 // Module definition
 export { resultsModule } from './results.module';
-export { PublishMqttResultsToken } from './tokens';
+export { PublishMqttFinalResultsToken, PublishMqttMixedTeamFinalResultsToken, PublishMqttResultsToken } from './tokens';
 export type { PublishMqttResultsCommand, PublishMqttResultLane } from './commands/PublishMqttResults';

@@ -1,5 +1,18 @@
 import { useState, useCallback } from 'react';
-import { ArrowLeft, CalendarDays, FileWarning, MapPin, Pencil, Target, Trophy, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarDays,
+  ClockAlert,
+  FileSearch,
+  FileWarning,
+  Gavel,
+  MapPin,
+  Pencil,
+  Scale,
+  Target,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
@@ -11,15 +24,20 @@ import { ParticipantEditor } from './components/ParticipantEditor';
 import { FiringPointAssignmentEditor } from './components/FiringPointAssignmentEditor';
 import { ResultsView } from './components/ResultsView';
 import { IncidentReportsView } from './components/IncidentReportsView';
+import { TargetExaminationsPanel } from '../target-examinations';
+import { RangeInterruptionsPanel } from '../range-interruptions';
+import { ProtestsPanel } from '../protests';
+import { AdjudicationCasesPanel } from '../adjudication-cases';
 import { useChampionshipStore } from '../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../hooks/useChampionshipActions';
-import type { ChampionshipDto, EventDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ChampionshipDto, EventDto, SaveParticipantsPayload } from '@/shared/ipc/contracts/championship.contract';
 import type { EventType } from '@/shared/constants/competition';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
-type EventTab = 'participants' | 'assignments' | 'incidents' | 'results';
+type EventTab =
+  'participants' | 'assignments' | 'examinations' | 'interruptions' | 'incidents' | 'protests' | 'cases' | 'results';
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
@@ -186,7 +204,7 @@ export function ChampionshipScreen() {
   );
 
   const handleSaveParticipants = useCallback(
-    async (rows: { id?: string; playerName: string; familyName: string; affiliation: string }[]) => {
+    async (rows: SaveParticipantsPayload['participants']) => {
       if (!selectedEventId) return null;
 
       const submittedParticipantIds = new Set(rows.flatMap((row) => (row.id ? [row.id] : [])));
@@ -366,6 +384,36 @@ export function ChampionshipScreen() {
                   <button
                     type="button"
                     role="tab"
+                    aria-selected={eventTab === 'cases'}
+                    aria-controls="cases-panel"
+                    onClick={() => setEventTab('cases')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'cases'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <Scale size={15} aria-hidden="true" />
+                    Cases
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={eventTab === 'protests'}
+                    aria-controls="protests-panel"
+                    onClick={() => setEventTab('protests')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'protests'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <Gavel size={15} aria-hidden="true" />
+                    Protests
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
                     aria-selected={eventTab === 'participants'}
                     aria-controls="participants-panel"
                     onClick={() => setEventTab('participants')}
@@ -396,6 +444,21 @@ export function ChampionshipScreen() {
                   <button
                     type="button"
                     role="tab"
+                    aria-selected={eventTab === 'examinations'}
+                    aria-controls="examinations-panel"
+                    onClick={() => setEventTab('examinations')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'examinations'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <FileSearch size={15} aria-hidden="true" />
+                    Target Examination
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
                     aria-selected={eventTab === 'incidents'}
                     aria-controls="incidents-panel"
                     onClick={() => setEventTab('incidents')}
@@ -407,6 +470,21 @@ export function ChampionshipScreen() {
                   >
                     <FileWarning size={15} aria-hidden="true" />
                     Incidents
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={eventTab === 'interruptions'}
+                    aria-controls="interruptions-panel"
+                    onClick={() => setEventTab('interruptions')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'interruptions'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <ClockAlert size={15} aria-hidden="true" />
+                    Interruptions
                   </button>
                   <button
                     type="button"
@@ -441,6 +519,14 @@ export function ChampionshipScreen() {
                       assignments={firingPointAssignments}
                       participants={participants}
                       onSave={handleSaveAssignments}
+                      eventId={selectedEventId}
+                      competitionTypeId={
+                        selectedChampionship.events.find((event) => event.id === selectedEventId)?.eventType ?? ''
+                      }
+                      round={selectedChampionship.events.find((event) => event.id === selectedEventId)?.round}
+                      onAssignmentsApplied={async () => {
+                        await loadFiringPointAssignments(selectedEventId);
+                      }}
                     />
                   </div>
                 )}
@@ -461,6 +547,32 @@ export function ChampionshipScreen() {
                       eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
                       participants={participants}
                     />
+                  </div>
+                )}
+                {eventTab === 'examinations' && (
+                  <div id="examinations-panel" role="tabpanel" className="p-4">
+                    <TargetExaminationsPanel
+                      key={selectedEventId}
+                      primaryScope={{ scopeType: 'EVENT', scopeId: selectedEventId }}
+                    />
+                  </div>
+                )}
+                {eventTab === 'interruptions' && (
+                  <div id="interruptions-panel" role="tabpanel" className="p-4">
+                    <RangeInterruptionsPanel
+                      key={selectedEventId}
+                      primaryScope={{ scopeType: 'EVENT', scopeId: selectedEventId }}
+                    />
+                  </div>
+                )}
+                {eventTab === 'protests' && (
+                  <div id="protests-panel" role="tabpanel" className="p-4">
+                    <ProtestsPanel key={selectedEventId} scopeId={selectedEventId} />
+                  </div>
+                )}
+                {eventTab === 'cases' && (
+                  <div id="cases-panel" role="tabpanel" className="p-4">
+                    <AdjudicationCasesPanel key={selectedEventId} eventId={selectedEventId} />
                   </div>
                 )}
               </section>

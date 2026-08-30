@@ -75,6 +75,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const projection = ranked.result.projection;
       const history = histories.get(source) ?? [];
       const evidence = source.rankingShots.slice(0, definition.resultFormat.totalShots);
+      const evidenceIssues = buildEvidenceIssues(evidence);
       const dtoWithoutRevision = {
         id: source.id.value,
         participantId: source.participantId.value,
@@ -91,12 +92,13 @@ export class QualificationResultsReader implements IQualificationResultsReader {
         remarks: [...projection.remarks],
         classificationCode: projection.classificationCode,
         decisionCount: projection.activeDecisionIds.length,
-        projectionIssues: [...projection.issues],
+        projectionIssues: [...projection.issues, ...evidenceIssues],
         evidenceSummary: {
           expectedShots: definition.resultFormat.totalShots,
           linkedShots: evidence.filter((shot) => shot.shotId !== null).length,
           independentDecimalShots: evidence.filter((shot) => shot.decimalScore !== null).length,
           innerTenClassifiedShots: evidence.filter((shot) => shot.innerTen !== null).length,
+          scoreConflicts: evidence.filter((shot) => shot.scoreConflict === true).length,
         },
         confirmedAt: source.confirmedAt.toISOString(),
         status: source.status,
@@ -108,6 +110,13 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       };
     });
   }
+}
+
+function buildEvidenceIssues(evidence: readonly { scoreConflict?: boolean }[]): string[] {
+  const conflicts = evidence.filter((shot) => shot.scoreConflict === true).length;
+  return conflicts === 0
+    ? []
+    : [`${conflicts} shot${conflicts === 1 ? '' : 's'} have conflicting EST and independently calculated values`];
 }
 
 function targetKey(participantId: string, relayNumber: number): string {

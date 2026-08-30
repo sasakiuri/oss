@@ -33,6 +33,27 @@ export const HardwareStatePayloadSchema = z.object({
   publishedAt: z.string().datetime(),
 });
 
+export const LaneSafetyStatePayloadSchema = z.object({
+  laneId: z.string().uuid(),
+  status: z.enum(['STOPPED', 'CLEAR']),
+  safetyStopId: z.string().uuid().nullable(),
+  reason: z.string().nullable(),
+  stoppedBy: z.string().nullable(),
+  stoppedAt: z.string().datetime().nullable(),
+  timerSnapshot: z
+    .object({
+      competitionId: z.string().uuid(),
+      remainingSeconds: z.number().int().nonnegative(),
+      totalSeconds: z.number().int().nonnegative(),
+      frozenAt: z.string().datetime(),
+    })
+    .nullable(),
+  clearedBy: z.string().nullable(),
+  clearanceReason: z.string().nullable(),
+  clearedAt: z.string().datetime().nullable(),
+  publishedAt: z.string().datetime(),
+});
+
 export const RawShotPayloadSchema = z.object({
   laneId: z.string().uuid(),
   shotId: z.string().uuid(),
@@ -48,6 +69,44 @@ export const RawShotPayloadSchema = z.object({
   innerTen: z.boolean(),
   mode: z.enum(['SIGHTING', 'MATCH']),
   timestamp: z.string().datetime(),
+});
+
+export const ShotObservationEvidencePayloadSchema = z.object({
+  evidenceVersion: z.literal(1),
+  evidenceId: z.string().uuid(),
+  observationId: z.string().uuid(),
+  outcomeId: z.string().uuid(),
+  laneId: z.string().uuid(),
+  outcome: z.enum([
+    'RECORDED',
+    'REJECTED_COMPETITION_PHASE',
+    'QUARANTINED_SAFETY_STOP',
+    'NO_ACTIVE_SESSION',
+    'PROCESSING_FAILED',
+  ]),
+  x: z.number().nullable(),
+  y: z.number().nullable(),
+  deviceScoreX10: z.number().min(0).max(109).nullable(),
+  firedAt: z.string().datetime(),
+  receivedAt: z.string().datetime(),
+  reportedMode: z.enum(['SIGHTING', 'MATCH']).nullable(),
+  rawFrameHex: z
+    .string()
+    .regex(/^[0-9a-f]*$/i)
+    .nullable(),
+  decidedAt: z.string().datetime(),
+  sessionId: z.string().uuid().nullable(),
+  detail: z.string().nullable(),
+  competition: z
+    .object({
+      competitionId: z.string().uuid(),
+      phase: z.enum(['IDLE', 'ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED', 'FINISHED']),
+      stageIndex: z.number().int().nonnegative(),
+      seriesIndex: z.number().int().nonnegative(),
+      stageScored: z.boolean(),
+    })
+    .nullable(),
+  publishedAt: z.string().datetime(),
 });
 
 export const ActiveCompetitionTimerSchema = z.object({
@@ -68,6 +127,7 @@ export const CompetitionStatePayloadSchema = z.object({
   competitionTypeName: z.string(),
   discipline: z.string(),
   roundName: z.string(),
+  competitionUnit: z.enum(['INDIVIDUAL', 'MIXED_TEAM']).optional(),
   acc: z.enum(['RING', 'DECIMAL']),
   phase: CompetitionPhaseSchema,
   shotsPerSeries: z.number().int().positive(),
@@ -81,6 +141,32 @@ export const CompetitionStatePayloadSchema = z.object({
   activeTimer: ActiveCompetitionTimerSchema.optional(),
   pendingTimer: PendingCompetitionTimerSchema.optional(),
   cleanupPreparedAt: z.string().datetime().optional(),
+  publishedAt: z.string().datetime(),
+});
+
+/**
+ * Retained, presentation-only instruction for joined Lanes. State-changing
+ * actions continue to use acknowledged command topics; a cue can therefore be
+ * replaced or ignored without changing competition state.
+ */
+export const CompetitionCuePayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  competitionId: z.string().uuid(),
+  runId: z.string().uuid(),
+  cueId: z.string().uuid(),
+  confirmationEntryId: z.string().uuid(),
+  branch: z.enum(['MAIN', 'SHOOT_OFF']),
+  iteration: z.number().int().nonnegative(),
+  stepId: z.string().min(1),
+  actor: z.enum(['OFFICIAL', 'CRO', 'ANNOUNCER']),
+  kind: z.enum(['CHECK', 'COMMAND', 'ANNOUNCEMENT', 'DECLARATION']),
+  text: z.string().min(1),
+  ruleReference: z.string().min(1),
+  effect: z.object({
+    type: z.enum(['NONE', 'LOAD', 'OPEN_FIRING', 'CLOSE_FIRING', 'CHECKPOINT', 'DECLARE_RESULTS']),
+    purpose: z.enum(['SIGHTING', 'MATCH', 'SHOOT_OFF']).optional(),
+  }),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
   publishedAt: z.string().datetime(),
 });
 
@@ -101,6 +187,19 @@ export const LaneCompetitionStatePayloadSchema = z.object({
     maxShots: z.number().int().min(0),
   }),
   awaitingSeriesStart: z.boolean().optional(),
+  interruption: z
+    .object({
+      interruptionId: z.string().uuid(),
+      status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
+      pausedAt: z.string().datetime(),
+      capturedAt: z.string().datetime(),
+      capturedRemainingSeconds: z.number().int().nonnegative(),
+      capturedTotalSeconds: z.number().int().nonnegative(),
+      resumeAt: z.string().datetime().nullable(),
+      authorizedRemainingSeconds: z.number().int().nonnegative().nullable(),
+      unlimitedSightingShots: z.boolean().nullable(),
+    })
+    .optional(),
   finalSnapshotCommandId: z.string().uuid().optional(),
   publishedAt: z.string().datetime(),
 });
@@ -110,6 +209,9 @@ export const AthleteSchema = z.object({
   id: z.string(),
   name: z.string(),
   teamName: z.string().optional(),
+  teamId: z.string().optional(),
+  gender: z.enum(['M', 'F', 'X', 'UNSPECIFIED']).optional(),
+  nationCode: z.string().optional(),
   issfCode: z.string().optional(),
 });
 
@@ -236,6 +338,29 @@ export const CompetitionShotPayloadSchema = RawShotPayloadSchema.extend({
   publishedAt: z.string().datetime(),
 });
 
+/**
+ * A one-shot Final tie-break observation. It deliberately uses a dedicated
+ * topic and payload so the shot cannot change the normal MATCH aggregate.
+ */
+export const CompetitionShootOffShotPayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  competitionId: z.string().uuid(),
+  runId: z.string().uuid(),
+  iteration: z.number().int().positive(),
+  laneId: z.string().uuid(),
+  shotId: z.string().uuid(),
+  x: z.number().nullable(),
+  y: z.number().nullable(),
+  effectiveScoreX10: z.number().int().min(0).max(109),
+  deviceScoreX10: z.number().int().min(0).max(109).nullable(),
+  calculatedScoreX10: z.number().int().min(0).max(109),
+  innerTen: z.boolean(),
+  firedAt: z.string().datetime(),
+  receivedAt: z.string().datetime(),
+  observationId: z.string().uuid().optional(),
+  publishedAt: z.string().datetime(),
+});
+
 const CommandBaseSchema = z.object({
   commandId: z.string().uuid(),
   issuedBy: z.string().min(1),
@@ -248,6 +373,21 @@ export const JoinCompetitionCommandSchema = CommandBaseSchema.extend({
 
 export const LeaveCompetitionCommandSchema = CommandBaseSchema.extend({
   competitionId: z.string().uuid(),
+});
+
+export const ProbeClockCommandSchema = CommandBaseSchema.extend({
+  directorSentAt: z.string().datetime(),
+});
+
+export const ActivateSafetyStopCommandSchema = CommandBaseSchema.extend({
+  safetyStopId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const ClearSafetyStopCommandSchema = CommandBaseSchema.extend({
+  safetyStopId: z.string().uuid(),
+  clearanceReason: z.string().trim().min(1).max(500),
+  confirmedSafe: z.literal(true),
 });
 
 export const StartSightingCommandSchema = CommandBaseSchema.extend({
@@ -283,6 +423,7 @@ export const AdvanceSeriesCommandSchema = CommandBaseSchema.extend({
   fromSeriesIndex: z.number().int().min(0),
   resumeOnly: z.boolean().optional(),
   timerStartAt: z.string().datetime().optional(),
+  timerDurationSeconds: z.number().int().positive().optional(),
 });
 
 export const FinishCompetitionCommandSchema = CommandBaseSchema;
@@ -293,6 +434,42 @@ export const AssignAthleteCommandSchema = CommandBaseSchema.extend({
 
 export const ResetSessionCommandSchema = CommandBaseSchema.extend({
   reason: z.string().optional(),
+});
+
+export const PauseTimerCommandSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+  pausedAt: z.string().datetime(),
+});
+
+export const ResumeTimerCommandSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+  timerStartAt: z.string().datetime(),
+  authorizedRemainingSeconds: z.number().int().positive(),
+  unlimitedSightingShots: z.boolean(),
+});
+
+export const ResumeMatchCommandSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+});
+
+export const RetireFinalistCommandSchema = CommandBaseSchema.extend({
+  checkpointId: z.string().uuid(),
+  rank: z.number().int().min(2).max(99),
+  afterShot: z.number().int().positive(),
+});
+
+export const StartShootOffCommandSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  iteration: z.number().int().positive(),
+  timerStartAt: z.string().datetime(),
+  timerDurationSeconds: z.number().int().positive(),
+  targetLaneIds: z.array(z.string().uuid()).min(2),
+});
+
+export const StopShootOffCommandSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  iteration: z.number().int().positive(),
+  targetLaneIds: z.array(z.string().uuid()).min(2),
 });
 
 export const CommandAcknowledgementSchema = z.object({
@@ -306,18 +483,31 @@ export const CommandAcknowledgementSchema = z.object({
     })
     .optional(),
   warning: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   acknowledgedAt: z.string().datetime(),
+});
+
+export const ClockProbeAcknowledgementDataSchema = z.object({
+  directorSentAt: z.string().datetime(),
+  laneReceivedAt: z.string().datetime(),
+  laneSentAt: z.string().datetime(),
 });
 
 export type CompetitionPhase = z.infer<typeof CompetitionPhaseSchema>;
 export type HardwareStatePayload = z.infer<typeof HardwareStatePayloadSchema>;
+export type LaneSafetyStatePayload = z.infer<typeof LaneSafetyStatePayloadSchema>;
 export type RawShotPayload = z.infer<typeof RawShotPayloadSchema>;
+export type ShotObservationEvidencePayload = z.infer<typeof ShotObservationEvidencePayloadSchema>;
 export type ActiveCompetitionTimer = z.infer<typeof ActiveCompetitionTimerSchema>;
 export type CompetitionStatePayload = z.infer<typeof CompetitionStatePayloadSchema>;
+export type CompetitionCuePayload = z.infer<typeof CompetitionCuePayloadSchema>;
 export type PendingCompetitionTimer = z.infer<typeof PendingCompetitionTimerSchema>;
 export type LaneCompetitionStatePayload = z.infer<typeof LaneCompetitionStatePayloadSchema>;
 export type Athlete = z.infer<typeof AthleteSchema>;
 export type LaneAssignmentPayload = z.infer<typeof LaneAssignmentPayloadSchema>;
 export type LaneScorePayload = z.infer<typeof LaneScorePayloadSchema>;
 export type CompetitionShotPayload = z.infer<typeof CompetitionShotPayloadSchema>;
+export type CompetitionShootOffShotPayload = z.infer<typeof CompetitionShootOffShotPayloadSchema>;
 export type CommandAcknowledgement = z.infer<typeof CommandAcknowledgementSchema>;
+export type ProbeClockCommand = z.infer<typeof ProbeClockCommandSchema>;
+export type ClockProbeAcknowledgementData = z.infer<typeof ClockProbeAcknowledgementDataSchema>;

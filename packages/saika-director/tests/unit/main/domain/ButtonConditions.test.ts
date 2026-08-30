@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
-import { QUALIFICATION_CONFIG, buildFinalConfig } from '../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildFinalConfig, buildMultiShotSeriesFinalConfig } from '../../../helpers/testConfigs';
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -12,6 +12,10 @@ function createQualificationLane(): LaneControl {
 
 function createFinalLane(participants = 8): LaneControl {
   return LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(participants));
+}
+
+function createMultiShotSeriesFinalLane(participants = 8): LaneControl {
+  return LaneControl.create('lane-1', Channel.create(1), buildMultiShotSeriesFinalConfig(participants));
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +96,7 @@ describe('ButtonConditions', () => {
     });
 
     it('returns false in SHOT_COMPLETE when no next stage exists', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       for (let i = 0; i < 5; i++) {
         lane = lane.addShotByScore(10.0, Date.now(), i + 1);
@@ -154,7 +158,7 @@ describe('ButtonConditions', () => {
     });
 
     it('returns true in SHOT_COMPLETE', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       for (let i = 0; i < 5; i++) {
         lane = lane.addShotByScore(10.0, Date.now(), i + 1);
@@ -220,7 +224,7 @@ describe('ButtonConditions', () => {
     });
 
     it('returns true in SHOT_COMPLETE', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       for (let i = 0; i < 5; i++) {
         lane = lane.addShotByScore(10.0, Date.now(), i + 1);

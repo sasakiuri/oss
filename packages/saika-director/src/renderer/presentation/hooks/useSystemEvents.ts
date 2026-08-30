@@ -6,6 +6,8 @@ import { useConnectionStore } from '@/renderer/presentation/stores/system/connec
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import { formatCompetitionAnnouncementReminder } from '@/renderer/presentation/formatters/competitionAnnouncement';
+import { formatFiringWindowViolationReminder } from '@/renderer/presentation/formatters/firingWindowViolation';
 
 /**
  * Hook that subscribes to system-level IPC events and updates the
@@ -15,6 +17,8 @@ import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
  * Covers:
  *  - laneConnected           -> connectionStore.addChannel
  *  - mqttControlStateChanged -> connectionStore.setConnected / setDisconnected
+ *  - competitionAnnouncementDue -> notifications.warning
+ *  - firingWindowViolationDetected -> notifications.warning
  *  - timerTick               -> timerStore.setTimer
  *  - timerExpired            -> timerStore.setExpired
  *  - debugLog                -> debugStore.addEntry
@@ -57,6 +61,14 @@ export function useSystemEvents(): void {
   useEvent('mqttControlStateChanged', (snapshot) => {
     hasReceivedLiveMqttState.current = true;
     applyMqttSnapshot(snapshot);
+  });
+
+  useEvent('competitionAnnouncementDue', (announcement) => {
+    addNotification('warning', formatCompetitionAnnouncementReminder(announcement));
+  });
+
+  useEvent('firingWindowViolationDetected', (violation) => {
+    addNotification('warning', formatFiringWindowViolationReminder(violation));
   });
 
   useEffect(() => {

@@ -1,0 +1,8 @@
+{
+  "extends": "@sasakiuri/typescript-config/vite.json",
+  "compilerOptions": {
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

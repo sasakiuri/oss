@@ -21,6 +21,8 @@ import {
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
@@ -30,11 +32,14 @@ import {
   FinishCompetitionCmdSchema,
   StartMatchCmdSchema,
   StartSightingCmdSchema,
+  StartShootOffCmdSchema,
+  StopShootOffCmdSchema,
   TimerExpiredCmdSchema,
   TimerStartedCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
@@ -46,12 +51,19 @@ type BroadcastAction =
   | 'advance-series'
   | 'finish-competition'
   | 'timer-started'
-  | 'timer-expired';
+  | 'timer-expired'
+  | 'start-shoot-off'
+  | 'stop-shoot-off';
 
 const CLOCK_DRIFT_WARNING_THRESHOLD_MS = 5_000;
 const CLOCK_DRIFT_REJECT_THRESHOLD_MS = 30_000;
 
-const TIMER_ACTIONS: ReadonlySet<BroadcastAction> = new Set(['start-sighting', 'start-match', 'timer-started']);
+const TIMER_ACTIONS: ReadonlySet<BroadcastAction> = new Set([
+  'start-sighting',
+  'start-match',
+  'timer-started',
+  'start-shoot-off',
+]);
 
 const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
   'start-sighting': StartSightingCmdSchema,
@@ -61,6 +73,8 @@ const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
   'finish-competition': FinishCompetitionCmdSchema,
   'timer-started': TimerStartedCmdSchema,
   'timer-expired': TimerExpiredCmdSchema,
+  'start-shoot-off': StartShootOffCmdSchema,
+  'stop-shoot-off': StopShootOffCmdSchema,
 };
 
 /** Parsed parts of the topic */
@@ -83,6 +97,9 @@ export class BroadcastCommandHandler {
     private readonly idempotencyGuard: CommandIdempotencyGuard,
     private readonly getLaneId: () => string,
     _competitionId: string,
+    private readonly interruptionControl?: ICompetitionInterruptionControl,
+    private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
+    private readonly shootOffControl?: ICompetitionShootOffControl,
   ) {}
 
   /**
@@ -182,8 +199,8 @@ export class BroadcastCommandHandler {
       return;
     }
 
-    // start-sighting: targetLaneIds filtering
-    if (action === 'start-sighting') {
+    // Targeted broadcast commands are ACKed only by their intended Lanes.
+    if (action === 'start-sighting' || action === 'start-shoot-off' || action === 'stop-shoot-off') {
       const targetLaneIds = command.targetLaneIds as string[] | undefined;
       if (targetLaneIds && !targetLaneIds.includes(this.getLaneId())) {
         logger.info(`[BroadcastCommandHandler] Lane ${this.getLaneId()} not in targetLaneIds, skipping`, 'mqtt');
@@ -237,9 +254,20 @@ export class BroadcastCommandHandler {
     command: Record<string, unknown>,
     competitionId: string,
   ): Promise<void> {
+    if (this.safetyStopControl?.isStopped() && action === 'timer-expired') return;
+    if (action !== 'end-sighting' && action !== 'finish-competition' && action !== 'stop-shoot-off') {
+      this.assertSafetyAllows(action);
+    }
+    const interruption = this.interruptionControl?.get(competitionId);
+    if (interruption) {
+      if (action === 'timer-expired') return;
+      if (action !== 'stop-shoot-off') throw laneInterruptedError(interruption.interruptionId, action);
+    }
+
     switch (action) {
       case 'start-sighting': {
         await this.waitUntil(command.timerStartAt as string);
+        this.assertSafetyAllows(action);
         const state = await this.requireCompetition(competitionId);
         if (state.phase === 'IDLE') {
           await this.commandBus.execute(StartStageToken, { competitionId });
@@ -273,6 +301,7 @@ export class BroadcastCommandHandler {
 
       case 'start-match': {
         await this.waitUntil(command.timerStartAt as string);
+        this.assertSafetyAllows(action);
         const state = await this.requireCompetition(competitionId);
         const matchStageIndex = this.firstScoredStageIndex(state);
         if (matchStageIndex < 0) {
@@ -311,6 +340,7 @@ export class BroadcastCommandHandler {
 
       case 'advance-series': {
         const state = await this.requireCompetition(competitionId);
+        if (state.phase === 'FINISHED') break;
         const stageIndex = command.stageIndex as number;
         const fromSeriesIndex = command.fromSeriesIndex as number;
         const resumeOnly = command.resumeOnly === true;
@@ -329,7 +359,7 @@ export class BroadcastCommandHandler {
           // Every Lane may already have persisted the destination, including the
           // final series where there is no further position. Resume the missing
           // StartNextSeries step at the current position.
-          await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+          await this.startNextSeries(command, competitionId);
           break;
         }
         if (resumeOnly) break;
@@ -346,7 +376,7 @@ export class BroadcastCommandHandler {
           ) {
             // AdvanceStage persisted, but StartNextSeries failed. Complete the
             // second half without advancing again.
-            await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+            await this.startNextSeries(command, competitionId);
           }
           // At the expected destination or later, the command is already done.
           break;
@@ -356,7 +386,7 @@ export class BroadcastCommandHandler {
         }
 
         await this.commandBus.execute(AdvanceStageToken, { competitionId });
-        await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+        await this.startNextSeries(command, competitionId);
         break;
       }
 
@@ -378,6 +408,8 @@ export class BroadcastCommandHandler {
       }
 
       case 'timer-started':
+        if ((await this.requireCompetition(competitionId)).phase === 'FINISHED') break;
+        this.assertSafetyAllows(action);
         await this.timerService.startAt(
           competitionId,
           command.timerStartAt as string,
@@ -386,9 +418,43 @@ export class BroadcastCommandHandler {
         break;
 
       case 'timer-expired':
+        if ((await this.requireCompetition(competitionId)).phase === 'FINISHED') break;
         await this.timerService.expire(competitionId);
         break;
+
+      case 'start-shoot-off': {
+        await this.waitUntil(command.timerStartAt as string);
+        this.assertSafetyAllows(action);
+        const competition = await this.requireCompetition(competitionId);
+        if (competition.config.name !== 'Final' || competition.phase !== 'SERIES_COMPLETE') {
+          throw this.invalidState(action, competition, 'a completed Final series');
+        }
+        // The competition lookup yields. Recheck the independent safety latch
+        // immediately before the synchronous window write so a concurrent STOP
+        // can never be followed by a newly opened shoot-off window.
+        this.assertSafetyAllows(action);
+        const state = this.requireShootOffControl().open({
+          competitionId,
+          runId: command.runId as string,
+          iteration: command.iteration as number,
+          timerStartAt: command.timerStartAt as string,
+          timerDurationSeconds: command.timerDurationSeconds as number,
+        });
+        if (state.status !== 'OPEN' && state.status !== 'SHOT_RECORDED') {
+          throw new Error(`Unexpected shoot-off window state: ${String(state.status)}`);
+        }
+        break;
+      }
+
+      case 'stop-shoot-off':
+        this.requireShootOffControl().close(competitionId, command.runId as string, command.iteration as number);
+        break;
     }
+  }
+
+  private requireShootOffControl(): ICompetitionShootOffControl {
+    if (!this.shootOffControl) throw new Error('Lane shoot-off control is unavailable');
+    return this.shootOffControl;
   }
 
   private async requireCompetition(competitionId: string): Promise<CompetitionState> {
@@ -425,6 +491,7 @@ export class BroadcastCommandHandler {
   }
 
   private startTimer(command: Record<string, unknown>, competitionId: string): Promise<void> {
+    this.assertSafetyAllows('timer-started');
     return this.timerService.startAt(
       competitionId,
       command.timerStartAt as string,
@@ -432,10 +499,27 @@ export class BroadcastCommandHandler {
     );
   }
 
+  private async startNextSeries(command: Record<string, unknown>, competitionId: string): Promise<void> {
+    const timerStartAt = command.timerStartAt as string | undefined;
+    if (timerStartAt) await this.waitUntil(timerStartAt);
+    this.assertSafetyAllows('advance-series');
+    await this.commandBus.execute(StartNextSeriesToken, { competitionId });
+    const timerDurationSeconds = command.timerDurationSeconds as number | undefined;
+    if (timerStartAt && timerDurationSeconds) {
+      await this.timerService.startAt(competitionId, timerStartAt, timerDurationSeconds);
+    }
+  }
+
   private invalidState(action: BroadcastAction, state: CompetitionState, expected: string): Error {
     return ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
       detail: `${action} requires ${expected}; current state is ${state.phase} at ${state.currentStageIndex}:${state.currentSeriesIndex}`,
     });
+  }
+
+  private assertSafetyAllows(action: BroadcastAction): void {
+    if (!this.safetyStopControl?.isStopped()) return;
+    const safetyStopId = this.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
+    throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
   }
 
   private async waitUntil(absoluteTime: string): Promise<void> {
@@ -473,4 +557,10 @@ export class BroadcastCommandHandler {
       });
     }
   }
+}
+
+function laneInterruptedError(interruptionId: string, action: BroadcastAction): Error {
+  const error = new Error(`Cannot apply ${action} while Lane interruption ${interruptionId} is active`);
+  (error as Error & { code: string }).code = 'MQTT_LANE_INTERRUPTED';
+  return error;
 }

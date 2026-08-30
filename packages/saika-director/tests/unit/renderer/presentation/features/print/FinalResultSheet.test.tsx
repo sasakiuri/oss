@@ -51,14 +51,14 @@ describe('FinalResultSheet', () => {
             stage2Shots: [],
             stage2Total: 0,
             totalScore: 0,
-            classificationCode: 'DSQ',
+            classificationCode: 'AD_DSQ',
             remarks: 'Equipment control failure',
           },
         ]}
       />,
     );
 
-    expect(screen.getByText('DSQ')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('AD-DSQ')).toBeInTheDocument();
+    expect(screen.getAllByText('—')).not.toHaveLength(0);
   });
 });

@@ -9,6 +9,7 @@
  */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
@@ -31,6 +32,7 @@ export class CompetitionShotPublisher {
     storage: ILocalStorage,
     competitionRepository: ICompetitionRepository,
     sessionRepository: ISessionRepository,
+    private readonly shootOffControl?: Pick<ICompetitionShootOffControl, 'getState' | 'canAcceptShot'>,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -47,6 +49,17 @@ export class CompetitionShotPublisher {
 
     const competition = await this.competitionRepository.findActive();
     if (!competition) return;
+
+    // The dedicated shoot-off publisher owns this observation. Suppressing it
+    // here prevents a tie-break shot from appearing in MATCH evidence or firing-
+    // window detection while keeping the normal publisher otherwise unchanged.
+    const shootOff = this.shootOffControl?.getState();
+    if (
+      shootOff?.competitionId === competition.id &&
+      (shootOff.shotId === event.shot.id || this.shootOffControl?.canAcceptShot(competition.id, event.shot.timestamp))
+    ) {
+      return;
+    }
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
     const shot = event.shot;

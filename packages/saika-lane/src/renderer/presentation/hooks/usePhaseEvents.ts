@@ -23,6 +23,7 @@ export function usePhaseEvents(): void {
   const setCompetitionId = useCompetitionStore((s) => s.setCompetitionId);
   const setShotsPerSeries = useCompetitionStore((s) => s.setShotsPerSeries);
   const setAcc = useCompetitionStore((s) => s.setAcc);
+  const setInterruption = useCompetitionStore((s) => s.setInterruption);
 
   useEffect(() => {
     const unsubPhaseChanged = window.electronAPI.on.phaseChanged((data) => {
@@ -34,9 +35,10 @@ export function usePhaseEvents(): void {
   useEffect(() => {
     const unsubSeriesCompleted = window.electronAPI.on.seriesCompleted((data) => {
       advanceSeries(data.seriesIndex + 1);
+      setInterruption(null);
     });
     return () => unsubSeriesCompleted();
-  }, [advanceSeries]);
+  }, [advanceSeries, setInterruption]);
 
   useEffect(() => {
     const unsubCompetitionStarted = window.electronAPI.on.competitionStarted((data) => {

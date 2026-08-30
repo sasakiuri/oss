@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
-import { QUALIFICATION_CONFIG, buildFinalConfig } from '../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildFinalConfig, buildMultiShotSeriesFinalConfig } from '../../../helpers/testConfigs';
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -13,6 +13,10 @@ function createQualificationLane(channel = 1): LaneControl {
 
 function createFinalLane(channel = 1, participants = 8): LaneControl {
   return LaneControl.create(`lane-${channel}`, Channel.create(channel), buildFinalConfig(participants));
+}
+
+function createMultiShotSeriesFinalLane(channel = 1, participants = 8): LaneControl {
+  return LaneControl.create(`lane-${channel}`, Channel.create(channel), buildMultiShotSeriesFinalConfig(participants));
 }
 
 /**
@@ -30,12 +34,12 @@ function addShots(lane: LaneControl, count: number, score = 10.0): LaneControl {
 
 /**
  * Adds N scored shots.
- * Restarts the match when the Lane transitions to SHOT_COMPLETE.
+ * Starts the next commanded shot or series whenever the Lane pauses.
  */
 function addShotsWithMatchResume(lane: LaneControl, count: number, score = 10.0): LaneControl {
   let current = lane;
   for (let i = 0; i < count; i++) {
-    if (current.phase === 'SHOT_COMPLETE') {
+    if (current.phase === 'SHOT_COMPLETE' || current.phase === 'SERIES_COMPLETE') {
       current = current.startMatch();
     }
     const absNum = current.matchShots.length + current.preparationShots.length + 1;
@@ -124,7 +128,9 @@ describe('LaneControl characterization tests', () => {
       lane = addShots(lane, 30, 9.0);
       lane = exhaustTimer(lane);
       expect(lane.phase).toBe('FINISHED');
-      expect(lane.matchShots).toHaveLength(30);
+      expect(lane.matchShots).toHaveLength(60);
+      expect(lane.matchShots.filter((shot) => shot.disposition === 'MISS')).toHaveLength(30);
+      expect(lane.totalScore).toBe(270);
     });
 
     it('transitions to FINISHED when finished manually', () => {
@@ -151,7 +157,8 @@ describe('LaneControl characterization tests', () => {
       expect(config.stages[1]!.name).toBe('1st Stage');
       expect(config.stages[1]!.series).toHaveLength(2); // 2 series of 5 shots
       expect(config.stages[2]!.name).toBe('2nd Stage');
-      expect(config.stages[2]!.series).toHaveLength(7); // 7 series of 2 shots
+      expect(config.stages[2]!.series).toHaveLength(14); // 14 single-shot series
+      expect(config.stages[2]!.series.every((series) => series.shots === 1)).toBe(true);
     });
 
     it('transitions from IDLE through Preparation and 1st Stage to SERIES_COMPLETE', () => {
@@ -203,16 +210,9 @@ describe('LaneControl characterization tests', () => {
       lane = lane.startMatch();
       lane = addShots(lane, 5, 10.0);
 
-      // 2nd Stage: 7 series of 2 shots each (mode: shot)
-      lane = lane.advanceToNextStage();
-      for (let i = 0; i < 7; i++) {
-        lane = lane.startMatch();
-        expect(lane.phase).toBe('ACTIVE');
-        lane = addShotsWithMatchResume(lane, 2, 10.0);
-        if (i < 6) {
-          expect(lane.phase).toBe('SERIES_COMPLETE');
-        }
-      }
+      // 2nd Stage: 14 single-shot series (mode: shot)
+      lane = lane.advanceToNextStage().startMatch();
+      lane = addShotsWithMatchResume(lane, 14, 10.0);
       expect(lane.phase).toBe('FINISHED');
       expect(lane.matchShots).toHaveLength(24);
       expect(lane.totalScore).toBe(240);
@@ -224,7 +224,7 @@ describe('LaneControl characterization tests', () => {
 
   describe('Shot mode: SHOT_COMPLETE transitions', () => {
     it('transitions to SHOT_COMPLETE after the first shot in 2nd Stage', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -238,7 +238,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('resumes the timer and transitions to ACTIVE when startMatch is called from SHOT_COMPLETE', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -255,7 +255,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('rejects addShotByScore while SHOT_COMPLETE', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -268,7 +268,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('transitions from SHOT_COMPLETE to FINISHED with finish', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -282,7 +282,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('rejects advanceToNextStage from SHOT_COMPLETE in the final stage', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -295,7 +295,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('transitions to SHOT_COMPLETE when a Shot mode timer expires', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();
@@ -308,6 +308,42 @@ describe('LaneControl characterization tests', () => {
       current = current.tickTimer();
       expect(current.phase).toBe('SHOT_COMPLETE');
       expect(current.timer).toBeNull();
+      expect(current.matchShots).toHaveLength(11);
+      expect(current.matchShots[10]?.score.value).toBe(0);
+      expect(current.matchShots[10]?.disposition).toBe('MISS');
+    });
+
+    it('keeps later shots in their declared slot after a Shot mode timeout', () => {
+      let lane = createMultiShotSeriesFinalLane();
+      lane = lane.startPreparation().advanceToNextStage().startMatch();
+      lane = addShots(lane, 5, 10.0);
+      lane = lane.startMatch();
+      lane = addShots(lane, 5, 10.0);
+      lane = lane.advanceToNextStage().startMatch();
+
+      lane = exhaustTimer(lane);
+      lane = lane.startMatch();
+      const receivedShotNumber = lane.preparationShots.length + 11;
+      lane = lane.addShotByScore(10.7, Date.now(), receivedShotNumber);
+
+      expect(lane.getSeriesScores(2, 0)).toEqual([0, 10.7]);
+      expect(lane.matchShots[10]?.disposition).toBe('MISS');
+      expect(lane.matchShots[11]?.disposition).toBe('SCORED');
+    });
+
+    it('restores legacy snapshots without dispositions as scored slots', () => {
+      let lane = createMultiShotSeriesFinalLane();
+      lane = lane.startPreparation().advanceToNextStage().startMatch();
+      lane = addShots(lane, 2, 10.0);
+      const snapshot = lane.toSnapshot();
+      const legacySnapshot = {
+        ...snapshot,
+        matchShots: snapshot.matchShots.map(({ disposition: _disposition, ...shot }) => shot),
+      };
+
+      const restored = LaneControl.fromSnapshot(legacySnapshot);
+
+      expect(restored.matchShots.map((shot) => shot.disposition)).toEqual(['SCORED', 'SCORED']);
     });
   });
 
@@ -510,12 +546,14 @@ describe('LaneControl characterization tests', () => {
       expect(lane.matchShots).toHaveLength(3);
       lane = exhaustTimer(lane);
       expect(lane.phase).toBe('SERIES_COMPLETE');
+      expect(lane.matchShots).toHaveLength(5);
+      expect(lane.matchShots.slice(3).every((shot) => shot.disposition === 'MISS')).toBe(true);
 
       lane = lane.startMatch();
       expect(lane.stageIndex).toBe(1);
       expect(lane.seriesIndex).toBe(1);
       lane = addShots(lane, 2, 9.0);
-      expect(lane.matchShots).toHaveLength(5);
+      expect(lane.matchShots).toHaveLength(7);
 
       expect(lane.currentSeriesShotCount).toBe(2);
     });
@@ -632,7 +670,7 @@ describe('LaneControl characterization tests', () => {
     });
 
     it('returns itself from tickTimer in SHOT_COMPLETE as a no-op', () => {
-      let lane = createFinalLane();
+      let lane = createMultiShotSeriesFinalLane();
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       lane = addShots(lane, 5, 10.0);
       lane = lane.startMatch();

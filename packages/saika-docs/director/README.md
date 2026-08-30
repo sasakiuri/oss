@@ -10,7 +10,7 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 
 - 内蔵 MQTT ブローカー（既定: TCP 1883）または外部 `mqtt://` / `mqtts://` ブローカー
 - Lane の自動検出と接続状態表示
-- `BR60S` / `BP60` 予選競技の作成
+- `AR60` / `AP60` / `ARMIX30` / `APMIX30` 予選と、Individual / Mixed Team 10m Final、`BR60S` / `BP60` の作成
 - Lane の競技参加、離脱、選手割当、セッションリセット
 - 大会管理で作成した射座割の射群単位での一括反映
 - 試射、本射、タイマー、シリーズ進行、競技終了の一括操作
@@ -19,6 +19,16 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 - 受信 shot の追記型監査 journal と、装置点・独立計算点・採用点の分離
 - Qualification 成績への減点、失格、remark、malfunction 等の追記型 decision
 - ISSF 6.15.1 に対応する competition type 別の同点順位処理
+- Rule Pack の残り時間ポリシーによる CRO 向け視覚告知リマインダー（設定で無効化可能）
+- Rule Pack に応じた SIGHTING 前の呼出・標的表示・setup 完了確認と MATCH 前の標的 reset 完了確認
+- Rule Pack に応じた START／STOP 外 shot の要確認検知、重複抑止、追記型時刻証跡
+- ISSF 6.10.5〜6.10.9 の EST target examination、調査物の追記型 custody 記録、CLEAR LOG 前の evidence hold
+- ISSF 6.10.9／6.11.3 の中断台帳、規則 recommendation と official grant の分離、Lane 個別 STOP／再開
+- Preliminary 掲示、10分の score protest、RTS 承認後の Official 公表を分離した追記型ワークフロー
+- seed付き射座・relay draw、ISSF constraint検査、Technical Delegate承認、明示適用
+- 3名 Team／Mixed Team予選集計と、Mixed Team Finalのチーム単位成績
+- Individual／Mixed Team Finalのcheckpoint順位台帳とLane別脱落ACK
+- 外部音響向けmusic／Final production台帳と、Mixed Teamの30秒Time out台帳
 
 ## 基本操作
 
@@ -27,8 +37,15 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 3. 対象 Lane と競技種別を選択し、競技を作成して参加させます。
 4. 「大会の射座割」で大会・種目・射群を選択し、「射座割を反映」を実行します。大会管理の射座番号と
    進行管理に表示された射座番号が一致する Lane に選手が割り当てられます。
+   ISSF computer draw を使う場合は seed と range geometry を指定し、Technical Delegate 承認後に配置を適用します。
 5. 必要に応じて Lane ごとの選手割当を手動で補正します。
 6. 試射開始、試射終了、本射開始、シリーズ進行、競技終了を順に実行します。
+   Rule Pack に告知時点がある競技では、CRO が発声すべき時点を Director の通知で確認します。
+   事前確認が必要な競技では、所定時刻までの選手呼出と sighting target 表示、setup period、事前検査の完了を確認してから試射開始を承認します。
+   標的 reset 確認が必要な競技では、全標的の準備完了を確認してから本射開始を承認します。
+   START／STOP 外 shot の警告が出た場合は、時刻証跡を確認し、必要な処置を Jury decision として別途記録します。
+   EST complaint／failure がある場合は `Target Examination` を開き、調査物を保全してから判断を追記します。
+   選手に責任のない中断では `Range Interruptions` に開始時刻と残り時間を記録し、必要な Lane STOP、終了、official grant、再開を別々に実行します。
 7. 各操作後に全 Lane の ACK が `done` であることを確認します。`error` または `timeout` の Lane は、
    状態とネットワークを確認してから再操作します。
 
@@ -48,4 +65,8 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
   Lane の終了処理を始めず、種別を修正して再実行できる状態を維持します。
 - 競技終了処理を再実行しても、Lane データと一致する確定済み成績は確定状態を維持します。確定後に異なるデータで
   射群を置き換えたり、確定済み参加者を欠落させたりする再保存は拒否されます。
+- Target Examination の evidence hold 中は、対象 Lane の離脱・session reset と競技終了後の retained data 消去を拒否します。
+  RTS Jury の許可と保全完了を確認して hold を解除した後、同じ操作を再実行してください。
+- close／void されていない Range Interruption record も同じ data guard に加わります。recommendation は自動付与されないため、
+  Range Incident Report と権限者を確認してから official grant を記録してください。
 - 本ソフトウェアは非公式です。公式競技の唯一の採点・計時手段として使用しないでください。
