@@ -46,6 +46,25 @@ const MqttStatusSchema = z.object({
   laneId: z.string().optional(),
 });
 
+export const LaneSafetyStateDtoSchema = z.object({
+  status: z.enum(['STOPPED', 'CLEAR']),
+  safetyStopId: z.string().uuid().nullable(),
+  reason: z.string().nullable(),
+  stoppedBy: z.string().nullable(),
+  stoppedAt: z.string().datetime().nullable(),
+  timerSnapshot: z
+    .object({
+      competitionId: z.string(),
+      remainingSeconds: z.number().int().nonnegative(),
+      totalSeconds: z.number().int().nonnegative(),
+      frozenAt: z.string().datetime(),
+    })
+    .nullable(),
+  clearedBy: z.string().nullable(),
+  clearanceReason: z.string().nullable(),
+  clearedAt: z.string().datetime().nullable(),
+});
+
 // ============================================================
 // Command input schemas
 // ============================================================
@@ -75,6 +94,9 @@ export const mqttContract = defineContract('mqtt', {
   getMqttStatus: query(queryResponseSchema(MqttStatusSchema), {
     channel: 'mqtt:getStatus',
   }),
+  getSafetyState: query(queryResponseSchema(LaneSafetyStateDtoSchema), {
+    channel: 'mqtt:getSafetyState',
+  }),
   saveMqttSettings: command(MqttSettingsSchema, CommandResponseSchema, {
     channel: 'mqtt:saveSettings',
   }),
@@ -89,4 +111,5 @@ export const mqttContract = defineContract('mqtt', {
 
 export type MqttSettings = z.infer<typeof MqttSettingsSchema>;
 export type MqttStatus = z.infer<typeof MqttStatusSchema>;
+export type LaneSafetyStateDto = z.infer<typeof LaneSafetyStateDtoSchema>;
 export type ConnectMqttInput = z.infer<typeof ConnectMqttInputSchema>;

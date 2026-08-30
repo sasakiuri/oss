@@ -130,4 +130,38 @@ describe('TimerDisplay', () => {
 
     expect(screen.getByText('00:00')).toBeInTheDocument();
   });
+
+  it('shows an explicit STOP badge while the Lane timer is paused', () => {
+    useCompetitionStore.setState({
+      phase: 'ACTIVE',
+      remainingSeconds: 240,
+      totalSeconds: 600,
+      interruption: {
+        interruptionId: '22222222-2222-4222-8222-222222222222',
+        status: 'PAUSED',
+        remainingSeconds: 240,
+        unlimitedSightingShots: false,
+      },
+    });
+
+    render(<TimerDisplay />);
+    expect(screen.getByText('STOP — INTERRUPTED')).toBeInTheDocument();
+  });
+
+  it('distinguishes authorized sighting shots from a STOP state', () => {
+    useCompetitionStore.setState({
+      phase: 'ACTIVE',
+      remainingSeconds: 540,
+      totalSeconds: 540,
+      interruption: {
+        interruptionId: '22222222-2222-4222-8222-222222222222',
+        status: 'SIGHTING',
+        remainingSeconds: 540,
+        unlimitedSightingShots: true,
+      },
+    });
+
+    render(<TimerDisplay />);
+    expect(screen.getByText('AUTHORIZED SIGHTING')).toBeInTheDocument();
+  });
 });

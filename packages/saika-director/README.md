@@ -12,10 +12,29 @@ Saika Director is the desktop control application for coordinating multiple
 - Athlete assignment and per-lane session reset
 - Synchronized sighting, match, timer, series, and finish commands
 - Per-lane acknowledgement, timeout, score, assignment, and state monitoring
+- Competition-independent range safety STOP with retained Lane latches, explicit clearance, and append-only ACK audit
 - Recovery of retained competition and lane state after reconnecting
+- Optional CRO visual reminders at Rule Pack-defined announcement points
+- Rule Pack-derived call-to-line, target-visibility, setup, and target-reset confirmations before phase starts
+- Review-only detection and append-only evidence for shots outside Rule Pack-defined START/STOP windows
+- Append-only ISSF target-examination custody records and evidence holds that guard Lane reset and retained-data cleanup
+- Append-only ISSF interruption records with separate recommendations, official grants, and Lane-specific timer control
+- Append-only preliminary, score-protest, RTS-approval, and official-publication workflow
+- Scope-separated Qualification/Final RTS verification and append-only RESULTS ARE FINAL declarations
+- ISSF 2026 Individual and Mixed Team 10m Qualification/Final Rule Packs and synchronized Final series control
+- Independent Individual/Mixed Team Final checkpoint ledgers with per-Lane retirement acknowledgements
+- Official three-member and Mixed Team aggregation, including Mixed Team Final result persistence
+- Reproducible seeded firing-point draws with ISSF constraints, Technical Delegate approval, and explicit application
+- Immutable Start List versions with content/paperless approvals, source-staleness checks, deadline status, CSV export, and distribution audit
+- Versioned Final command scripts with persistent official confirmations, Lane cues, execution retries, and branch-aware shoot-off shots
+- Separate Final malfunction, EST-failure, and incorrect-command recovery cases with ISSF guidance
+- Optional adjudication case files that link decisions, incident reports, protests, and recovery records without merging their ledgers
+- Advisory external music/Final-production operations and a separate one-use 30-second Mixed Team timeout ledger
 
-The progress-management workflow uses MQTT and supports the `BR60S` and `BP60`
-qualification definitions. It is an independent, unofficial application and
+The progress-management workflow uses MQTT and supports `AR60`, `AP60`, `ARMIX30`, `APMIX30`,
+`AR60_FINAL`, `AP60_FINAL`, `ARMIX_FINAL`, `APMIX_FINAL`, `BR60S`, and `BP60` definitions.
+Sighting and match command durations are read from the selected competition definition,
+including the ISSF 15-minute and 75-minute timings. It is an independent, unofficial application and
 must not be used as the sole timing or scoring authority for sanctioned
 competitions.
 

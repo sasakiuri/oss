@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, RefreshCw, Settings2 } from 'lucide-react';
+import { BellRing, Copy, RefreshCw, Settings2 } from 'lucide-react';
 import { Input } from '../shared/common/Input';
 import { Button } from '../shared/common/Button';
 import { PageHeader } from '../shared/layout/PageHeader';
 import { Logger } from '@/shared/utils/Logger';
-import { mqttService } from '@/renderer/services';
+import { competitionAnnouncementsService, mqttService } from '@/renderer/services';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 const logger = Logger.create('SettingsScreen');
@@ -28,13 +28,16 @@ export function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [ruleRemindersEnabled, setRuleRemindersEnabled] = useState(true);
+  const [savingRuleReminders, setSavingRuleReminders] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [configRes, statusRes] = await Promise.all([
+        const [configRes, statusRes, reminderRes] = await Promise.all([
           mqttService.getBrokerConfig(),
           mqttService.getBrokerStatus(),
+          competitionAnnouncementsService.getSettings(),
         ]);
         if (configRes.success) {
           setBrokerMode(configRes.data.mode);
@@ -47,6 +50,11 @@ export function SettingsScreen() {
           setBrokerStatus(statusRes.data);
         } else {
           addNotification('error', statusRes.error.message);
+        }
+        if (reminderRes.success) {
+          setRuleRemindersEnabled(reminderRes.data.enabled);
+        } else {
+          addNotification('error', reminderRes.error.message);
         }
       } catch (error) {
         logger.error('Failed to load MQTT settings:', error);
@@ -133,6 +141,27 @@ export function SettingsScreen() {
       setSaving(false);
     }
   }, [brokerUrl, configuredBrokerMode, refreshStatus, addNotification]);
+
+  const updateRuleReminders = useCallback(
+    async (enabled: boolean) => {
+      setSavingRuleReminders(true);
+      try {
+        const response = await competitionAnnouncementsService.setSettings({ enabled });
+        if (!response.success) {
+          addNotification('error', response.error.message);
+          return;
+        }
+        setRuleRemindersEnabled(response.data.enabled);
+        addNotification('success', `Rule reminders ${response.data.enabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        logger.error('Failed to save rule reminder settings:', error);
+        addNotification('error', 'Failed to save rule reminder settings');
+      } finally {
+        setSavingRuleReminders(false);
+      }
+    },
+    [addNotification],
+  );
 
   return (
     <div className="min-h-full">
@@ -340,6 +369,59 @@ export function SettingsScreen() {
                 </div>
               </dl>
             </section>
+          </div>
+        </section>
+
+        <section aria-labelledby="rule-reminders-heading" className="mt-6 border-t border-vscode-border">
+          <div className="border-b border-vscode-border py-3">
+            <h3 id="rule-reminders-heading" className="flex items-center gap-2 text-sm font-semibold text-vscode-text">
+              <BellRing size={15} aria-hidden="true" />
+              Rule reminders
+            </h3>
+          </div>
+
+          <div className="grid gap-4 border-b border-vscode-border py-4 md:grid-cols-[15rem_minmax(0,1fr)]">
+            <div>
+              <h4 id="cro-reminders-heading" className="text-[13px] font-medium text-vscode-text">
+                CRO announcement prompts
+              </h4>
+              <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
+                Uses reminder points from each versioned Rule Pack. This does not play speech automatically.
+              </p>
+            </div>
+
+            <div className="max-w-xl">
+              <button
+                type="button"
+                role="switch"
+                aria-labelledby="cro-reminders-heading"
+                aria-checked={ruleRemindersEnabled}
+                disabled={loading || savingRuleReminders}
+                onClick={() => void updateRuleReminders(!ruleRemindersEnabled)}
+                className="flex min-h-12 w-full items-center justify-between gap-4 rounded-[3px] border border-vscode-border bg-vscode-input px-3 py-2 text-left transition-colors hover:bg-vscode-hover disabled:opacity-50"
+              >
+                <span>
+                  <span className="block text-[13px] font-medium text-vscode-text">
+                    {ruleRemindersEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <span className="block text-[11px] text-vscode-text-muted">
+                    Visual prompts remain separate from scoring and Lane control.
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                    ruleRemindersEnabled ? 'bg-vscode-primary' : 'bg-vscode-dimmed'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                      ruleRemindersEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+              </button>
+            </div>
           </div>
         </section>
       </div>

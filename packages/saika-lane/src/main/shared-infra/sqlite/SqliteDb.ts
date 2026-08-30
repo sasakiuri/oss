@@ -98,5 +98,85 @@ export function createSqliteDb(dbPath: string): Database.Database {
     db.pragma('user_version = 2');
   }
 
+  if (currentVersion < 3) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS shot_observation_evidence_outbox (
+          evidence_id TEXT PRIMARY KEY,
+          observation_id TEXT NOT NULL REFERENCES shot_observations(id),
+          outcome_id TEXT NOT NULL REFERENCES shot_observation_outcomes(id),
+          payload_json TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          published_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_shot_observation_evidence_pending
+          ON shot_observation_evidence_outbox(published_at, created_at, evidence_id);
+      `);
+    })();
+    db.pragma('user_version = 3');
+  }
+
+  if (currentVersion < 4) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lane_safety_stop_events (
+          id TEXT PRIMARY KEY,
+          safety_stop_id TEXT NOT NULL,
+          event_type TEXT NOT NULL CHECK(event_type IN ('STOPPED', 'TIMER_FROZEN', 'CLEARED')),
+          reason TEXT NOT NULL,
+          official_name TEXT NOT NULL,
+          occurred_at TEXT NOT NULL,
+          competition_id TEXT,
+          remaining_seconds INTEGER CHECK(remaining_seconds IS NULL OR remaining_seconds >= 0),
+          total_seconds INTEGER CHECK(total_seconds IS NULL OR total_seconds >= 0),
+          recorded_at TEXT NOT NULL,
+          CHECK (
+            event_type != 'TIMER_FROZEN' OR
+            (competition_id IS NOT NULL AND remaining_seconds IS NOT NULL AND total_seconds IS NOT NULL)
+          )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_lane_safety_stop_events_current
+          ON lane_safety_stop_events(recorded_at, safety_stop_id);
+
+        CREATE TRIGGER IF NOT EXISTS trg_lane_safety_stop_events_no_update
+        BEFORE UPDATE ON lane_safety_stop_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Lane safety stop events are append-only');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_lane_safety_stop_events_no_delete
+        BEFORE DELETE ON lane_safety_stop_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Lane safety stop events are append-only');
+        END;
+      `);
+    })();
+    db.pragma('user_version = 4');
+  }
+
+  if (currentVersion < 5) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS competition_shoot_off_shot_outbox (
+          shot_id TEXT PRIMARY KEY,
+          competition_id TEXT NOT NULL,
+          run_id TEXT NOT NULL,
+          iteration INTEGER NOT NULL CHECK(iteration > 0),
+          lane_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+          created_at TEXT NOT NULL,
+          published_at TEXT,
+          UNIQUE(run_id, iteration, lane_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_competition_shoot_off_shot_pending
+          ON competition_shoot_off_shot_outbox(published_at, created_at, shot_id);
+      `);
+    })();
+    db.pragma('user_version = 5');
+  }
+
   return db;
 }

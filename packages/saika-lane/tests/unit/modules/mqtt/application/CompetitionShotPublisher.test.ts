@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { CompetitionShotPublisher } from '@/main/modules/mqtt/application/CompetitionShotPublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
@@ -112,6 +113,7 @@ describe('CompetitionShotPublisher', () => {
   let storage: ILocalStorage;
   let competitionRepository: ICompetitionRepository;
   let sessionRepository: ISessionRepository;
+  let shootOffControl: Pick<ICompetitionShootOffControl, 'getState' | 'canAcceptShot'>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -133,7 +135,18 @@ describe('CompetitionShotPublisher', () => {
       delete: vi.fn(),
       findActive: vi.fn().mockResolvedValue(null),
     };
-    new CompetitionShotPublisher(mqttClient, eventBus, storage, competitionRepository, sessionRepository);
+    shootOffControl = {
+      getState: vi.fn().mockReturnValue(null),
+      canAcceptShot: vi.fn().mockReturnValue(false),
+    };
+    new CompetitionShotPublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      competitionRepository,
+      sessionRepository,
+      shootOffControl,
+    );
   });
 
   it('should subscribe to ShotRecorded events', () => {
@@ -250,6 +263,30 @@ describe('CompetitionShotPublisher', () => {
     const payload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
     expect(payload.isRecorded).toBe(false);
     expect(payload.mode).toBe('SIGHTING');
+  });
+
+  it('does not publish a shot owned by an active shoot-off window', async () => {
+    const shot = createSightingShot();
+    vi.mocked(shootOffControl.getState).mockReturnValue({
+      competitionId: mockCompetition.id,
+      runId: '11111111-1111-4111-8111-111111111111',
+      iteration: 1,
+      timerStartAt: '2026-02-24T11:59:59.000Z',
+      timerDurationSeconds: 50,
+      status: 'SHOT_RECORDED',
+      shotId: shot.id,
+    });
+
+    (eventBus as { emit: Function }).emit({
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-uuid',
+      shot,
+      scoringMode: 'DECIMAL',
+    } satisfies ShotRecordedEvent);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(mqttClient.publish).not.toHaveBeenCalled();
   });
 
   it('should set isRecorded=false for MATCH shots in preparation stage', async () => {

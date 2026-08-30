@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ActiveScreen = 'tournament' | 'control' | 'settings';
+export type ActiveScreen = 'tournament' | 'control' | 'examinations' | 'interruptions' | 'settings';
 
 interface NavigationState {
   activeScreen: ActiveScreen;

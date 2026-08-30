@@ -12,6 +12,7 @@
 
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import type { Phase } from '@/main/modules/competition/domain/Phase';
+import type { CompetitionCuePayload } from '@/main/modules/mqtt/domain/MqttCompetitionCueSchemas';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { Shot } from '@/main/modules/session/domain/Shot';
@@ -104,6 +105,35 @@ export interface CompetitionFinishedEvent extends DomainEvent {
   readonly sessionId: string;
 }
 
+export interface CompetitionInterruptionChangedEvent extends DomainEvent {
+  readonly type: 'CompetitionInterruptionChanged';
+  readonly interruptionId: string;
+  readonly status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
+  readonly remainingSeconds: number;
+  readonly unlimitedSightingShots: boolean;
+}
+
+export interface SafetyStopChangedEvent extends DomainEvent {
+  readonly type: 'SafetyStopChanged';
+  readonly safetyStopId: string;
+  readonly status: 'STOPPED' | 'CLEAR';
+  readonly reason: string;
+  readonly stoppedBy: string;
+  readonly stoppedAt: number;
+  readonly competitionId: string | null;
+  readonly remainingSeconds: number | null;
+  readonly totalSeconds: number | null;
+  readonly frozenAt: number | null;
+  readonly clearedBy: string | null;
+  readonly clearanceReason: string | null;
+  readonly clearedAt: number | null;
+}
+
+export interface ShotObservationRoutedEvent extends DomainEvent {
+  readonly type: 'ShotObservationRouted';
+  readonly evidenceId: string;
+}
+
 // ── MQTT Events ──
 
 export interface MqttConnectedEvent extends DomainEvent {
@@ -115,6 +145,11 @@ export interface MqttConnectedEvent extends DomainEvent {
 export interface MqttDisconnectedEvent extends DomainEvent {
   readonly type: 'MqttDisconnected';
   readonly reason?: string;
+}
+
+export interface CompetitionCueChangedEvent extends DomainEvent {
+  readonly type: 'CompetitionCueChanged';
+  readonly cue: CompetitionCuePayload | null;
 }
 
 declare module './EventBus' {
@@ -132,7 +167,11 @@ declare module './EventBus' {
     SeriesCompleted: SeriesCompletedEvent;
     StageAdvanced: StageAdvancedEvent;
     CompetitionFinished: CompetitionFinishedEvent;
+    CompetitionInterruptionChanged: CompetitionInterruptionChangedEvent;
+    SafetyStopChanged: SafetyStopChangedEvent;
+    ShotObservationRouted: ShotObservationRoutedEvent;
     MqttConnected: MqttConnectedEvent;
     MqttDisconnected: MqttDisconnectedEvent;
+    CompetitionCueChanged: CompetitionCueChangedEvent;
   }
 }

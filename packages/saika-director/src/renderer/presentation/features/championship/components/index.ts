@@ -10,3 +10,4 @@ export { ParticipantPool } from './ParticipantPool';
 export { ParticipantRow } from './ParticipantRow';
 export { ResultsView } from './ResultsView';
 export { IncidentReportsView } from './IncidentReportsView';
+export { ResultPublicationPanel } from './ResultPublicationPanel';

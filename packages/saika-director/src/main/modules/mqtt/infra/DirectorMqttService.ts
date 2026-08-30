@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { Logger } from '@/shared/utils/Logger';
 import {
+  ActivateSafetyStopCommandSchema,
   AdvanceSeriesCommandSchema,
   AssignAthleteCommandSchema,
+  ClearSafetyStopCommandSchema,
   CommandAcknowledgementSchema,
+  CompetitionCuePayloadSchema,
+  CompetitionShootOffShotPayloadSchema,
   CompetitionShotPayloadSchema,
   CompetitionStatePayloadSchema,
   EndSightingCommandSchema,
@@ -12,12 +16,21 @@ import {
   JoinCompetitionCommandSchema,
   LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
+  LaneSafetyStatePayloadSchema,
   LaneScorePayloadSchema,
   LeaveCompetitionCommandSchema,
   RawShotPayloadSchema,
+  ShotObservationEvidencePayloadSchema,
   ResetSessionCommandSchema,
+  PauseTimerCommandSchema,
+  ProbeClockCommandSchema,
+  ResumeMatchCommandSchema,
+  ResumeTimerCommandSchema,
+  RetireFinalistCommandSchema,
   StartMatchCommandSchema,
   StartSightingCommandSchema,
+  StartShootOffCommandSchema,
+  StopShootOffCommandSchema,
   TimerExpiredCommandSchema,
   TimerStartedCommandSchema,
   directorSubscriptions,
@@ -26,17 +39,28 @@ import {
   type Athlete,
   type CommandAcknowledgement,
   type CompetitionPhase,
+  type CompetitionCuePayload,
+  type CompetitionShootOffShotPayload,
   type CompetitionShotPayload,
   type CompetitionStatePayload,
   type HardwareStatePayload,
   type LaneAssignmentPayload,
   type LaneCompetitionStatePayload,
   type LaneScorePayload,
+  type LaneSafetyStatePayload,
   type PendingCompetitionTimer,
   type RawShotPayload,
+  type ShotObservationEvidencePayload,
+  ClockProbeAcknowledgementDataSchema,
 } from '@/shared/mqtt';
 
 import { MqttTransport, type IMqttTransport } from './MqttTransport';
+import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
+import {
+  ClockQualityPolicy,
+  type ClockQualityAssessment,
+  type IClockQualityPolicy,
+} from '../domain/ClockQualityPolicy';
 
 const logger = Logger.create('DirectorMqttService');
 // Saika Lane publishes hardware heartbeats every 60 seconds. Two missed
@@ -46,6 +70,8 @@ const HARDWARE_HEARTBEAT_STALE_AFTER_MS = 150_000;
 const EXPIRED_TIMER_RETRY_DELAY_MS = 1_000;
 
 export type DirectorCommandAction =
+  | 'activate-safety-stop'
+  | 'clear-safety-stop'
   | 'join-competition'
   | 'leave-competition'
   | 'start-sighting'
@@ -56,7 +82,14 @@ export type DirectorCommandAction =
   | 'advance-series'
   | 'finish-competition'
   | 'assign-athlete'
-  | 'reset-session';
+  | 'reset-session'
+  | 'pause-timer'
+  | 'resume-timer'
+  | 'resume-match'
+  | 'retire-finalist'
+  | 'start-shoot-off'
+  | 'stop-shoot-off'
+  | 'probe-clock';
 
 type BroadcastCommandAction = Extract<
   DirectorCommandAction,
@@ -76,6 +109,7 @@ export interface DirectorLaneSnapshot {
   laneId: string;
   laneAlias: string;
   hardware: HardwareStatePayload | null;
+  safetyState: LaneSafetyStatePayload | null;
   competitionState: LaneCompetitionStatePayload | null;
   assignment: LaneAssignmentPayload | null;
   score: LaneScorePayload | null;
@@ -90,6 +124,7 @@ export interface LaneCommandResult {
   error?: { code: string; message: string };
   warning?: string;
   acknowledgedAt?: string;
+  data?: Record<string, unknown>;
 }
 
 export interface CommandExecutionResult {
@@ -102,6 +137,11 @@ export interface CommandExecutionResult {
 export interface CommandBatchResult {
   success: boolean;
   commands: CommandExecutionResult[];
+}
+
+export interface LaneClockProbeResult {
+  command: CommandExecutionResult;
+  assessment: ClockQualityAssessment;
 }
 
 export interface MqttControlSnapshot {
@@ -119,6 +159,7 @@ export interface CreateCompetitionInput {
   competitionTypeName: string;
   discipline: string;
   roundName: string;
+  competitionUnit?: 'INDIVIDUAL' | 'MIXED_TEAM';
   acc: 'RING' | 'DECIMAL';
   shotsPerSeries: number;
   totalSeries: number;
@@ -130,7 +171,13 @@ export interface DirectorMqttCallbacks {
   onStateChanged?: (snapshot: MqttControlSnapshot) => void;
   /** Called for every valid delivery, including duplicates and replay deliveries. */
   onCompetitionShotObserved?: (shot: CompetitionShotPayload, payloadJson: string) => void;
+  /** Called for every valid one-shot Final tie-break delivery; persistence handles replay idempotence. */
+  onCompetitionShootOffShotObserved?: (shot: CompetitionShootOffShotPayload, payloadJson: string) => void;
   onCompetitionShot?: (shot: CompetitionShotPayload) => void;
+  /** Called for every durable Lane observation outcome; duplicates are journal-safe by evidenceId. */
+  onShotObservationEvidenceObserved?: (evidence: ShotObservationEvidencePayload, payloadJson: string) => void;
+  /** Called once the broker has accepted a command that opens or closes firing. */
+  onFiringBoundary?: (boundary: FiringBoundarySignal) => void;
   onSessionReset?: () => void;
   onError?: (message: string) => void;
   onDebugLog?: (message: string) => void;
@@ -165,6 +212,7 @@ interface PublishCommandOptions {
   acknowledgementTopic: (laneId: string) => string;
   payload: Record<string, unknown> & { commandId: string };
   expectedLaneIds: string[];
+  onPublished?: () => void;
 }
 
 interface CompetitionLaneData {
@@ -208,11 +256,13 @@ export class DirectorMqttService {
   private nextCompetitionLaneSnapshotRevision = 0;
   private competitionLaneSnapshotListeners = new Set<() => void>();
   private operationTails = new Map<string, Promise<void>>();
+  private clockQualityByLaneId = new Map<string, ClockQualityAssessment>();
 
   constructor(
     options: DirectorMqttOptions,
     callbacks: DirectorMqttCallbacks = {},
     transport: IMqttTransport = new MqttTransport(),
+    private readonly clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
   ) {
     this.directorId = options.directorId;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
@@ -220,6 +270,141 @@ export class DirectorMqttService {
     this.resubscribeRetryMs = options.resubscribeRetryMs ?? 1_000;
     this.callbacks = callbacks;
     this.transport = transport;
+  }
+
+  getClockQuality(laneId?: string): Readonly<Record<string, ClockQualityAssessment>> | ClockQualityAssessment | null {
+    if (laneId !== undefined) return this.clockQualityByLaneId.get(laneId) ?? null;
+    return Object.fromEntries(this.clockQualityByLaneId);
+  }
+
+  async publishCompetitionCue(payload: CompetitionCuePayload): Promise<CompetitionCuePayload> {
+    this.assertConnected();
+    this.requireCompetition(payload.competitionId);
+    payload.targetLaneIds?.forEach((laneId) => this.requireCompetitionLane(payload.competitionId, laneId));
+    const validated = CompetitionCuePayloadSchema.parse(payload);
+    await this.transport.publish(mqttTopics.competitionCue(validated.competitionId), JSON.stringify(validated), {
+      qos: 1,
+      retain: true,
+    });
+    return validated;
+  }
+
+  async clearCompetitionCue(competitionId: string): Promise<void> {
+    this.assertConnected();
+    this.requireCompetition(competitionId);
+    await this.transport.publish(mqttTopics.competitionCue(competitionId), '', { qos: 1, retain: true });
+  }
+
+  async probeLaneClock(laneId: string): Promise<LaneClockProbeResult> {
+    this.assertConnected();
+    if (!this.lanes.has(laneId)) throw new Error(`Lane not found: ${laneId}`);
+    const directorSentAt = new Date();
+    const command = ProbeClockCommandSchema.parse(this.commandBase({ directorSentAt: directorSentAt.toISOString() }));
+    const result = await this.publishCommand({
+      action: 'probe-clock',
+      topic: mqttTopics.laneCommand(laneId, 'probe-clock'),
+      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'probe-clock'),
+      payload: command,
+      expectedLaneIds: [laneId],
+    });
+    const directorReceivedAt = new Date();
+    const laneResult = result.lanes[0];
+    const parsed = ClockProbeAcknowledgementDataSchema.safeParse(laneResult?.data);
+    const assessment =
+      laneResult?.status === 'done' && parsed.success && parsed.data.directorSentAt === command.directorSentAt
+        ? this.clockQualityPolicy.assess(
+            {
+              directorSentAtMs: directorSentAt.getTime(),
+              laneReceivedAtMs: Date.parse(parsed.data.laneReceivedAt),
+              laneSentAtMs: Date.parse(parsed.data.laneSentAt),
+              directorReceivedAtMs: directorReceivedAt.getTime(),
+            },
+            directorReceivedAt,
+          )
+        : this.clockQualityPolicy.unavailable(
+            directorReceivedAt,
+            laneResult?.status === 'timeout'
+              ? 'The Lane clock probe timed out.'
+              : 'The Lane returned no valid clock-probe timestamps.',
+          );
+    this.clockQualityByLaneId.set(laneId, assessment);
+    return { command: result, assessment };
+  }
+
+  /** Activates a competition-independent safety latch on every selected Lane. */
+  activateSafetyStop(
+    laneIds: string[],
+    safetyStopId: string,
+    reason: string,
+    officialName: string,
+  ): Promise<CommandBatchResult> {
+    return this.runSafetyOperation(async () => {
+      const targets = this.requireKnownLanes(laneIds);
+      const commands = await Promise.all(
+        targets.map((laneId) =>
+          this.activateLaneSafetyStopNow(laneId, safetyStopId, reason, officialName).catch((error) =>
+            this.safetyCommandFailure('activate-safety-stop', laneId, error),
+          ),
+        ),
+      );
+      return { success: commands.every((command) => command.success), commands };
+    });
+  }
+
+  clearSafetyStop(
+    laneIds: string[],
+    safetyStopId: string,
+    clearanceReason: string,
+    officialName: string,
+  ): Promise<CommandBatchResult> {
+    return this.runSafetyOperation(async () => {
+      const targets = this.requireKnownLanes(laneIds);
+      const commands = await Promise.all(
+        targets.map((laneId) =>
+          this.clearLaneSafetyStopNow(laneId, safetyStopId, clearanceReason, officialName).catch((error) =>
+            this.safetyCommandFailure('clear-safety-stop', laneId, error),
+          ),
+        ),
+      );
+      return { success: commands.every((command) => command.success), commands };
+    });
+  }
+
+  private activateLaneSafetyStopNow(
+    laneId: string,
+    safetyStopId: string,
+    reason: string,
+    officialName: string,
+  ): Promise<CommandExecutionResult> {
+    const command = ActivateSafetyStopCommandSchema.parse(
+      this.commandBase({ safetyStopId, reason, issuedBy: officialName }),
+    );
+    return this.publishCommand({
+      action: 'activate-safety-stop',
+      topic: mqttTopics.laneCommand(laneId, 'activate-safety-stop'),
+      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'activate-safety-stop'),
+      payload: command,
+      expectedLaneIds: [laneId],
+      onPublished: () => this.log(`Emergency STOP published for Lane ${laneId} (${safetyStopId})`),
+    });
+  }
+
+  private clearLaneSafetyStopNow(
+    laneId: string,
+    safetyStopId: string,
+    clearanceReason: string,
+    officialName: string,
+  ): Promise<CommandExecutionResult> {
+    const command = ClearSafetyStopCommandSchema.parse(
+      this.commandBase({ safetyStopId, clearanceReason, confirmedSafe: true, issuedBy: officialName }),
+    );
+    return this.publishCommand({
+      action: 'clear-safety-stop',
+      topic: mqttTopics.laneCommand(laneId, 'clear-safety-stop'),
+      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'clear-safety-stop'),
+      payload: command,
+      expectedLaneIds: [laneId],
+    });
   }
 
   setCallbacks(callbacks: DirectorMqttCallbacks): void {
@@ -454,6 +639,95 @@ export class DirectorMqttService {
     });
   }
 
+  async retireFinalist(
+    competitionId: string,
+    laneId: string,
+    checkpointId: string,
+    rank: number,
+    afterShot: number,
+  ): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const competition = this.requireCompetitionPhase(competitionId, 'MATCH', 'retire a finalist');
+      if (competition.roundName !== 'Final') throw new Error('Only a Final competitor can be retired');
+      this.requireCompetitionLane(competitionId, laneId);
+      const command = RetireFinalistCommandSchema.parse(this.commandBase({ checkpointId, rank, afterShot }));
+      return this.publishCommand({
+        action: 'retire-finalist',
+        topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'retire-finalist'),
+        acknowledgementTopic: () =>
+          mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'retire-finalist'),
+        payload: command,
+        expectedLaneIds: [laneId],
+      });
+    });
+  }
+
+  async startShootOff(
+    competitionId: string,
+    runId: string,
+    iteration: number,
+    durationSeconds: number,
+    eligibleLaneIds: readonly string[],
+  ): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'start a Final shoot-off');
+      if (state.roundName !== 'Final') throw new Error('A shoot-off can only be started for a Final');
+      const targetLaneIds = [...new Set(eligibleLaneIds)];
+      if (targetLaneIds.length < 2) throw new Error('A shoot-off requires at least two eligible Lanes');
+      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
+      const notReady = targetLaneIds.filter((laneId) => {
+        const lane = this.lanes.get(laneId)?.competitionState;
+        return lane?.competitionId !== competitionId || lane.phase !== 'SERIES_COMPLETE';
+      });
+      if (notReady.length > 0) {
+        throw new Error(`Shoot-off Lanes are not at a completed Final series: ${notReady.join(', ')}`);
+      }
+      this.assertSafetyCleared(targetLaneIds, 'start a Final shoot-off');
+      this.assertClockQualityForTimedCommands(targetLaneIds);
+      const command = StartShootOffCommandSchema.parse(
+        this.commandBase({
+          runId,
+          iteration,
+          timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
+          timerDurationSeconds: durationSeconds,
+          targetLaneIds,
+        }),
+      );
+      return this.publishCommand({
+        action: 'start-shoot-off',
+        topic: mqttTopics.competitionCommand(competitionId, 'start-shoot-off'),
+        acknowledgementTopic: (laneId) =>
+          mqttTopics.competitionCommandAcknowledgement(competitionId, 'start-shoot-off', laneId),
+        payload: command,
+        expectedLaneIds: targetLaneIds,
+      });
+    });
+  }
+
+  async stopShootOff(
+    competitionId: string,
+    runId: string,
+    iteration: number,
+    eligibleLaneIds: readonly string[],
+  ): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'stop a Final shoot-off');
+      if (state.roundName !== 'Final') throw new Error('A shoot-off can only be stopped for a Final');
+      const targetLaneIds = [...new Set(eligibleLaneIds)];
+      if (targetLaneIds.length < 2) throw new Error('A shoot-off requires at least two eligible Lanes');
+      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
+      const command = StopShootOffCommandSchema.parse(this.commandBase({ runId, iteration, targetLaneIds }));
+      return this.publishCommand({
+        action: 'stop-shoot-off',
+        topic: mqttTopics.competitionCommand(competitionId, 'stop-shoot-off'),
+        acknowledgementTopic: (laneId) =>
+          mqttTopics.competitionCommandAcknowledgement(competitionId, 'stop-shoot-off', laneId),
+        payload: command,
+        expectedLaneIds: targetLaneIds,
+      });
+    });
+  }
+
   async resetSession(competitionId: string, laneId: string, reason?: string): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () => this.resetSessionNow(competitionId, laneId, reason));
   }
@@ -476,6 +750,179 @@ export class DirectorMqttService {
     });
     if (result.success) this.clearCompetitionShotHistory(competitionId, laneId);
     return result;
+  }
+
+  async pauseLaneTimer(competitionId: string, laneId: string, interruptionId: string): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, () =>
+      this.pauseLaneTimerNow(competitionId, laneId, interruptionId),
+    );
+  }
+
+  /**
+   * Fan out a range STOP as lane-addressed commands. Each Lane has an independent
+   * acknowledgement so a partial range operation is visible and retryable.
+   */
+  async pauseRangeTimers(
+    competitionId: string,
+    laneIds: string[],
+    interruptionId: string,
+  ): Promise<CommandBatchResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
+      const commands = await Promise.all(
+        uniqueLaneIds.map((laneId) =>
+          this.pauseLaneTimerNow(competitionId, laneId, interruptionId).catch((error) =>
+            this.interruptionCommandFailure('pause-timer', laneId, error),
+          ),
+        ),
+      );
+      return { success: commands.every((command) => command.success), commands };
+    });
+  }
+
+  private async pauseLaneTimerNow(
+    competitionId: string,
+    laneId: string,
+    interruptionId: string,
+  ): Promise<CommandExecutionResult> {
+    const state = this.requireActiveFiringPhase(competitionId, 'pause a Lane timer');
+    this.requireCompetitionLane(competitionId, laneId);
+    const pausedAt = new Date().toISOString();
+    const command = PauseTimerCommandSchema.parse(this.commandBase({ interruptionId, pausedAt }));
+    return this.publishCommand({
+      action: 'pause-timer',
+      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'pause-timer'),
+      acknowledgementTopic: () =>
+        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'pause-timer'),
+      payload: command,
+      expectedLaneIds: [laneId],
+      onPublished: () =>
+        this.log(`Lane-specific STOP published for ${laneId} during ${state.phase} (${interruptionId})`),
+    });
+  }
+
+  async resumeLaneTimer(
+    competitionId: string,
+    laneId: string,
+    interruptionId: string,
+    authorizedRemainingSeconds: number,
+    unlimitedSightingShots: boolean,
+  ): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, () =>
+      this.resumeLaneTimerNow(
+        competitionId,
+        laneId,
+        interruptionId,
+        authorizedRemainingSeconds,
+        unlimitedSightingShots,
+      ),
+    );
+  }
+
+  async resumeRangeTimers(
+    competitionId: string,
+    laneIds: string[],
+    interruptionId: string,
+    authorizedRemainingSeconds: number,
+    unlimitedSightingShots: boolean,
+  ): Promise<CommandBatchResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
+      this.assertClockQualityForTimedCommands(uniqueLaneIds);
+      const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
+      const commands = await Promise.all(
+        uniqueLaneIds.map((laneId) =>
+          this.resumeLaneTimerNow(
+            competitionId,
+            laneId,
+            interruptionId,
+            authorizedRemainingSeconds,
+            unlimitedSightingShots,
+            true,
+            timerStartAt,
+          ).catch((error) => this.interruptionCommandFailure('resume-timer', laneId, error)),
+        ),
+      );
+      return { success: commands.every((command) => command.success), commands };
+    });
+  }
+
+  private async resumeLaneTimerNow(
+    competitionId: string,
+    laneId: string,
+    interruptionId: string,
+    authorizedRemainingSeconds: number,
+    unlimitedSightingShots: boolean,
+    clockQualityAlreadyChecked = false,
+    sharedTimerStartAt?: string,
+  ): Promise<CommandExecutionResult> {
+    this.requireActiveFiringPhase(competitionId, 'resume a Lane timer');
+    this.requireCompetitionLane(competitionId, laneId);
+    this.assertSafetyCleared([laneId], 'resume a Lane timer');
+    if (!clockQualityAlreadyChecked) this.assertClockQualityForTimedCommands([laneId]);
+    const command = ResumeTimerCommandSchema.parse(
+      this.commandBase({
+        interruptionId,
+        timerStartAt: sharedTimerStartAt ?? new Date(Date.now() + this.startDelayMs).toISOString(),
+        authorizedRemainingSeconds,
+        unlimitedSightingShots,
+      }),
+    );
+    return this.publishCommand({
+      action: 'resume-timer',
+      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'resume-timer'),
+      acknowledgementTopic: () =>
+        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'resume-timer'),
+      payload: command,
+      expectedLaneIds: [laneId],
+    });
+  }
+
+  async resumeLaneMatch(
+    competitionId: string,
+    laneId: string,
+    interruptionId: string,
+  ): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, () =>
+      this.resumeLaneMatchNow(competitionId, laneId, interruptionId),
+    );
+  }
+
+  async resumeRangeMatch(
+    competitionId: string,
+    laneIds: string[],
+    interruptionId: string,
+  ): Promise<CommandBatchResult> {
+    return this.runCompetitionOperation(competitionId, async () => {
+      const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
+      const commands = await Promise.all(
+        uniqueLaneIds.map((laneId) =>
+          this.resumeLaneMatchNow(competitionId, laneId, interruptionId).catch((error) =>
+            this.interruptionCommandFailure('resume-match', laneId, error),
+          ),
+        ),
+      );
+      return { success: commands.every((command) => command.success), commands };
+    });
+  }
+
+  private async resumeLaneMatchNow(
+    competitionId: string,
+    laneId: string,
+    interruptionId: string,
+  ): Promise<CommandExecutionResult> {
+    this.requireActiveFiringPhase(competitionId, 'resume MATCH fire on a Lane');
+    this.requireCompetitionLane(competitionId, laneId);
+    this.assertSafetyCleared([laneId], 'resume MATCH fire on a Lane');
+    const command = ResumeMatchCommandSchema.parse(this.commandBase({ interruptionId }));
+    return this.publishCommand({
+      action: 'resume-match',
+      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'resume-match'),
+      acknowledgementTopic: () =>
+        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'resume-match'),
+      payload: command,
+      expectedLaneIds: [laneId],
+    });
   }
 
   async startSighting(
@@ -509,6 +956,8 @@ export class DirectorMqttService {
       throw new Error('Cannot start sighting for a competition with no joined Lanes');
     }
     expectedLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
+    this.assertSafetyCleared(expectedLaneIds, 'start sighting');
+    this.assertClockQualityForTimedCommands(expectedLaneIds);
     let commandState = state;
     let activeTimer: ActiveCompetitionTimer;
     if (isTargetedContinuation && state.activeTimer) {
@@ -541,6 +990,16 @@ export class DirectorMqttService {
         mqttTopics.competitionCommandAcknowledgement(competitionId, 'start-sighting', laneId),
       payload: command,
       expectedLaneIds,
+      onPublished: () =>
+        this.emitFiringBoundary({
+          competitionId,
+          phase: 'SIGHTING',
+          transition: 'OPEN',
+          occurredAt: new Date(activeTimer.timerStartAt),
+          commandId: command.commandId,
+          commandIssuedAt: new Date(command.issuedAt),
+          sourceAction: 'start-sighting',
+        }),
     });
     const completedLaneIds = new Set(result.lanes.filter((lane) => lane.status === 'done').map((lane) => lane.laneId));
     if (state.phase === 'SIGHTING' || completedLaneIds.size > 0) {
@@ -566,6 +1025,36 @@ export class DirectorMqttService {
 
   async endSighting(competitionId: string): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () => this.endSightingNow(competitionId));
+  }
+
+  async stopActiveTimer(competitionId: string): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, () => this.stopActiveTimerNow(competitionId));
+  }
+
+  private async stopActiveTimerNow(competitionId: string): Promise<CommandExecutionResult> {
+    const state = this.requireCompetition(competitionId);
+    if ((state.phase !== 'SIGHTING' && state.phase !== 'MATCH') || !state.activeTimer) {
+      throw new Error(`Competition ${competitionId} has no active firing timer to stop`);
+    }
+    this.clearExpiryTimer(competitionId);
+    const activeTimer = state.activeTimer;
+    try {
+      const result = await this.publishBroadcast(competitionId, 'timer-expired', {
+        timerScope: activeTimer.timerScope,
+        stageIndex: activeTimer.stageIndex,
+        seriesIndex: activeTimer.seriesIndex,
+        expiredAt: new Date().toISOString(),
+      });
+      if (result.success) {
+        await this.publishCompetitionState(this.updateCompetitionState(state, { activeTimer: undefined }));
+      } else {
+        this.restoreExpiryTimer(state);
+      }
+      return result;
+    } catch (error) {
+      this.restoreExpiryTimer(state);
+      throw error;
+    }
   }
 
   private async endSightingNow(competitionId: string): Promise<CommandExecutionResult> {
@@ -603,6 +1092,8 @@ export class DirectorMqttService {
 
   private async startMatchNow(competitionId: string, durationSeconds: number): Promise<CommandExecutionResult> {
     const state = this.requireCompetitionPhase(competitionId, 'SIGHTING_COMPLETE', 'start match');
+    this.assertSafetyCleared(state.laneIds, 'start match');
+    this.assertClockQualityForTimedCommands(state.laneIds);
     const prepared = await this.retainTimerIntent(state, 'start-match', {
       timerScope: 'STAGE',
       timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
@@ -651,6 +1142,8 @@ export class DirectorMqttService {
     if (state.phase !== 'SIGHTING' && state.phase !== 'MATCH') {
       throw new Error(`Cannot restart timer while competition ${competitionId} is in phase ${state.phase}`);
     }
+    this.assertSafetyCleared(state.laneIds, 'restart a timer');
+    this.assertClockQualityForTimedCommands(state.laneIds);
     const prepared = await this.retainTimerIntent(state, 'timer-started', {
       timerScope,
       timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
@@ -679,9 +1172,14 @@ export class DirectorMqttService {
     stageIndex: number,
     fromSeriesIndex: number,
     resumeOnly?: boolean,
+    nextSeriesTimer?: {
+      durationSeconds: number;
+      stageIndex: number;
+      seriesIndex: number;
+    },
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () =>
-      this.advanceSeriesNow(competitionId, stageIndex, fromSeriesIndex, resumeOnly),
+      this.advanceSeriesNow(competitionId, stageIndex, fromSeriesIndex, resumeOnly, nextSeriesTimer),
     );
   }
 
@@ -690,22 +1188,46 @@ export class DirectorMqttService {
     stageIndex: number,
     fromSeriesIndex: number,
     resumeOnly?: boolean,
+    nextSeriesTimer?: {
+      durationSeconds: number;
+      stageIndex: number;
+      seriesIndex: number;
+    },
   ): Promise<CommandExecutionResult> {
-    this.requireCompetitionPhase(competitionId, 'MATCH', 'advance series');
-    return this.publishBroadcast(competitionId, 'advance-series', {
+    const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'advance series');
+    this.assertSafetyCleared(state.laneIds, 'advance series');
+    if (nextSeriesTimer) this.assertClockQualityForTimedCommands(state.laneIds);
+    const timerStartAt = nextSeriesTimer ? new Date(Date.now() + this.startDelayMs).toISOString() : undefined;
+    const result = await this.publishBroadcast(competitionId, 'advance-series', {
       stageIndex,
       fromSeriesIndex,
       ...(resumeOnly === undefined ? {} : { resumeOnly }),
+      ...(nextSeriesTimer ? { timerStartAt, timerDurationSeconds: nextSeriesTimer.durationSeconds } : {}),
     });
+    if (result.success) {
+      const activeTimer =
+        nextSeriesTimer && timerStartAt
+          ? {
+              timerScope: 'SERIES' as const,
+              timerStartAt,
+              timerDurationSeconds: nextSeriesTimer.durationSeconds,
+              stageIndex: nextSeriesTimer.stageIndex,
+              seriesIndex: nextSeriesTimer.seriesIndex,
+            }
+          : undefined;
+      await this.publishCompetitionState(this.updateCompetitionState(state, { activeTimer, pendingTimer: undefined }));
+    }
+    return result;
   }
 
   async finishCompetition(
     competitionId: string,
     beforeCleanup?: (lanes: CompetitionResultLane[]) => Promise<boolean | void>,
+    beforeDataClear?: () => Promise<void> | void,
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(
       competitionId,
-      () => this.finishCompetitionNow(competitionId, beforeCleanup),
+      () => this.finishCompetitionNow(competitionId, beforeCleanup, beforeDataClear),
       true,
     );
   }
@@ -713,6 +1235,7 @@ export class DirectorMqttService {
   private async finishCompetitionNow(
     competitionId: string,
     beforeCleanup?: (lanes: CompetitionResultLane[]) => Promise<boolean | void>,
+    beforeDataClear?: () => Promise<void> | void,
   ): Promise<CommandExecutionResult> {
     let state = this.requireCompetition(competitionId);
     this.clearExpiryTimer(competitionId);
@@ -769,12 +1292,13 @@ export class DirectorMqttService {
           // resume. Persist that fact in the same retained state as completion,
           // so a crash cannot expose an ambiguous completed competition that a
           // later retry might treat as eligible for result publication.
-          ...(beforeCleanup ? {} : { cleanupPreparedAt: finishedAt }),
+          ...(beforeCleanup || beforeDataClear ? {} : { cleanupPreparedAt: finishedAt }),
         });
         await this.publishCompetitionState(state);
       }
 
       const laneIds = this.getCompetitionCleanupLaneIds(competitionId);
+      await beforeDataClear?.();
       if (!state.cleanupPreparedAt) {
         const cleanupAllowed = await beforeCleanup?.(this.getCompetitionResultLanes(competitionId, laneIds));
         if (cleanupAllowed === false) return result;
@@ -890,6 +1414,16 @@ export class DirectorMqttService {
       return;
     }
 
+    if (segments.length === 5 && segments[3] === 'safety' && segments[4] === 'state') {
+      const state = this.parsePayload(LaneSafetyStatePayloadSchema, payload, 'Lane safety state');
+      if (!state || state.laneId !== segments[2]) return;
+      this.updateLane(state.laneId, {
+        safetyState: state,
+        lastSeenAt: state.publishedAt,
+      });
+      return;
+    }
+
     if (segments.length === 5 && segments[3] === 'hardware' && segments[4] === 'shot') {
       const shot = this.parsePayload(RawShotPayloadSchema, payload, 'raw shot');
       if (!shot || shot.laneId !== segments[2]) return;
@@ -897,6 +1431,13 @@ export class DirectorMqttService {
         lastRawShot: shot,
         lastSeenAt: shot.timestamp,
       });
+      return;
+    }
+
+    if (segments.length === 5 && segments[3] === 'hardware' && segments[4] === 'observation') {
+      const evidence = this.parsePayload(ShotObservationEvidencePayloadSchema, payload, 'shot observation evidence');
+      if (!evidence || evidence.laneId !== segments[2] || evidence.competition !== null) return;
+      this.callbacks.onShotObservationEvidenceObserved?.(evidence, payload.toString('utf8'));
       return;
     }
 
@@ -940,6 +1481,13 @@ export class DirectorMqttService {
       segments[7] === 'acknowledgement'
     ) {
       this.handleAcknowledgement(segments.join('/'), payload);
+      return;
+    }
+
+    if (segments.length === 7 && segments[3] === 'lane' && segments[5] === 'shoot-off' && segments[6] === 'shot') {
+      const shot = this.parsePayload(CompetitionShootOffShotPayloadSchema, payload, 'competition shoot-off shot');
+      if (!shot || shot.competitionId !== segments[2] || shot.laneId !== segments[4]) return;
+      this.callbacks.onCompetitionShootOffShotObserved?.(shot, payload.toString('utf8'));
       return;
     }
 
@@ -1002,6 +1550,12 @@ export class DirectorMqttService {
         shot.publishedAt,
       );
       this.callbacks.onCompetitionShot?.(shot);
+      return;
+    }
+    if (kind === 'observation') {
+      const evidence = this.parsePayload(ShotObservationEvidencePayloadSchema, payload, 'shot observation evidence');
+      if (!evidence || evidence.laneId !== laneId || evidence.competition?.competitionId !== segments[2]) return;
+      this.callbacks.onShotObservationEvidenceObserved?.(evidence, payload.toString('utf8'));
     }
   }
 
@@ -1061,13 +1615,89 @@ export class DirectorMqttService {
   ): Promise<CommandExecutionResult> {
     const state = this.requireCompetition(competitionId);
     const command = broadcastCommandSchemas[action].parse(this.commandBase(fields));
+    const firingBoundary = this.toFiringBoundarySignal(competitionId, state.phase, action, fields, command);
     return this.publishCommand({
       action,
       topic: mqttTopics.competitionCommand(competitionId, action),
       acknowledgementTopic: (laneId) => mqttTopics.competitionCommandAcknowledgement(competitionId, action, laneId),
       payload: command,
       expectedLaneIds: state.laneIds,
+      ...(firingBoundary ? { onPublished: () => this.emitFiringBoundary(firingBoundary) } : {}),
     });
+  }
+
+  private toFiringBoundarySignal(
+    competitionId: string,
+    phase: CompetitionPhase,
+    action: BroadcastCommandAction,
+    fields: Record<string, unknown>,
+    command: { commandId: string; issuedAt: string },
+  ): FiringBoundarySignal | null {
+    const commandIssuedAt = new Date(command.issuedAt);
+    if (action === 'end-sighting') {
+      return {
+        competitionId,
+        phase: 'SIGHTING',
+        transition: 'CLOSE',
+        occurredAt: commandIssuedAt,
+        commandId: command.commandId,
+        commandIssuedAt,
+        sourceAction: action,
+      };
+    }
+    if (action === 'start-match') {
+      return {
+        competitionId,
+        phase: 'MATCH',
+        transition: 'OPEN',
+        occurredAt: new Date(String(fields.timerStartAt)),
+        commandId: command.commandId,
+        commandIssuedAt,
+        sourceAction: action,
+      };
+    }
+    if (action === 'timer-started' && (phase === 'SIGHTING' || phase === 'MATCH')) {
+      return {
+        competitionId,
+        phase,
+        transition: 'OPEN',
+        occurredAt: new Date(String(fields.timerStartAt)),
+        commandId: command.commandId,
+        commandIssuedAt,
+        sourceAction: action,
+      };
+    }
+    if (action === 'timer-expired' && (phase === 'SIGHTING' || phase === 'MATCH')) {
+      return {
+        competitionId,
+        phase,
+        transition: 'CLOSE',
+        occurredAt: new Date(String(fields.expiredAt)),
+        commandId: command.commandId,
+        commandIssuedAt,
+        sourceAction: action,
+      };
+    }
+    if (action === 'finish-competition' && phase === 'MATCH') {
+      return {
+        competitionId,
+        phase: 'MATCH',
+        transition: 'CLOSE',
+        occurredAt: commandIssuedAt,
+        commandId: command.commandId,
+        commandIssuedAt,
+        sourceAction: action,
+      };
+    }
+    return null;
+  }
+
+  private emitFiringBoundary(boundary: FiringBoundarySignal): void {
+    try {
+      this.callbacks.onFiringBoundary?.(boundary);
+    } catch (error) {
+      logger.error(`Failed to record ${boundary.sourceAction} firing boundary:`, error);
+    }
   }
 
   private async publishLeaveCompetitionCommands(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
@@ -1099,6 +1729,7 @@ export class DirectorMqttService {
         qos: 1,
         retain: false,
       });
+      options.onPublished?.();
       const result: CommandExecutionResult = {
         commandId: options.payload.commandId,
         action: options.action,
@@ -1127,10 +1758,12 @@ export class DirectorMqttService {
       });
     });
 
-    const publishPromise = this.transport.publish(options.topic, JSON.stringify(options.payload), {
-      qos: 1,
-      retain: false,
-    });
+    const publishPromise = this.transport
+      .publish(options.topic, JSON.stringify(options.payload), {
+        qos: 1,
+        retain: false,
+      })
+      .then(() => options.onPublished?.());
 
     try {
       const outcome = await Promise.race([
@@ -1183,6 +1816,7 @@ export class DirectorMqttService {
         status: acknowledgement.status,
         ...(acknowledgement.error ? { error: acknowledgement.error } : {}),
         ...(acknowledgement.warning ? { warning: acknowledgement.warning } : {}),
+        ...(acknowledgement.data ? { data: acknowledgement.data } : {}),
         acknowledgedAt: acknowledgement.acknowledgedAt,
       };
     });
@@ -1506,6 +2140,7 @@ export class DirectorMqttService {
         laneId,
         laneAlias: '',
         hardware: null,
+        safetyState: null,
         competitionState: null,
         assignment: null,
         score: null,
@@ -1737,11 +2372,12 @@ export class DirectorMqttService {
   }
 
   private async clearCompetitionRetainedState(competitionId: string, laneIds: string[]): Promise<void> {
-    const laneTopics = laneIds.flatMap((laneId) =>
+    const retainedTopics = laneIds.flatMap((laneId) =>
       ['state', 'score', 'assignment'].map((kind) => `saika/competition/${competitionId}/lane/${laneId}/${kind}`),
     );
+    retainedTopics.push(mqttTopics.competitionCue(competitionId));
     const outcomes = await Promise.allSettled(
-      laneTopics.map((topic) => this.transport.publish(topic, '', { qos: 1, retain: true })),
+      retainedTopics.map((topic) => this.transport.publish(topic, '', { qos: 1, retain: true })),
     );
 
     const rejected = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
@@ -1812,6 +2448,54 @@ export class DirectorMqttService {
     return result;
   }
 
+  private interruptionCommandFailure(
+    action: Extract<DirectorCommandAction, 'pause-timer' | 'resume-timer' | 'resume-match'>,
+    laneId: string,
+    error: unknown,
+  ): CommandExecutionResult {
+    const result: CommandExecutionResult = {
+      commandId: crypto.randomUUID(),
+      action,
+      success: false,
+      lanes: [
+        {
+          laneId,
+          status: 'error',
+          error: {
+            code: 'RANGE_COMMAND_FAILED',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        },
+      ],
+    };
+    this.setLastCommand(result);
+    return result;
+  }
+
+  private safetyCommandFailure(
+    action: Extract<DirectorCommandAction, 'activate-safety-stop' | 'clear-safety-stop'>,
+    laneId: string,
+    error: unknown,
+  ): CommandExecutionResult {
+    const result: CommandExecutionResult = {
+      commandId: crypto.randomUUID(),
+      action,
+      success: false,
+      lanes: [
+        {
+          laneId,
+          status: 'error',
+          error: {
+            code: 'SAFETY_COMMAND_FAILED',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        },
+      ],
+    };
+    this.setLastCommand(result);
+    return result;
+  }
+
   private resetBrokerState(): void {
     this.clearExpiryTimers();
     this.clearHardwareStaleTimers();
@@ -1824,6 +2508,7 @@ export class DirectorMqttService {
     this.competitionLaneSnapshotRevisions.clear();
     this.competitionShots.clear();
     this.competitionCleanupLaneIds.clear();
+    this.clockQualityByLaneId.clear();
     this.seenShotIds.clear();
     this.seenShotQueue = [];
     this.lastCommand = null;
@@ -1879,6 +2564,14 @@ export class DirectorMqttService {
     return state;
   }
 
+  private requireActiveFiringPhase(competitionId: string, operation: string): CompetitionStatePayload {
+    const state = this.requireCompetition(competitionId);
+    if (state.phase !== 'SIGHTING' && state.phase !== 'MATCH') {
+      throw new Error(`Cannot ${operation} while competition ${competitionId} is in phase ${state.phase}`);
+    }
+    return state;
+  }
+
   private requireAthleteAssignmentAllowed(competitionId: string): void {
     const state = this.requireCompetition(competitionId);
     const canRepairUnpublishedResults = state.phase === 'MATCH_COMPLETE' && !state.cleanupPreparedAt;
@@ -1902,6 +2595,57 @@ export class DirectorMqttService {
     const state = this.requireCompetition(competitionId);
     if (!state.laneIds.includes(laneId)) {
       throw new Error(`Lane ${laneId} is not joined to competition ${competitionId}`);
+    }
+  }
+
+  private requireRangeOperationLanes(competitionId: string, laneIds: readonly string[]): string[] {
+    const uniqueLaneIds = [...new Set(laneIds)];
+    if (uniqueLaneIds.length === 0) throw new Error('A range operation requires at least one Lane');
+    this.requireActiveFiringPhase(competitionId, 'operate range interruption timers');
+    uniqueLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
+    return uniqueLaneIds;
+  }
+
+  private requireKnownLanes(laneIds: readonly string[]): string[] {
+    const uniqueLaneIds = [...new Set(laneIds)];
+    if (uniqueLaneIds.length === 0) throw new Error('A safety operation requires at least one Lane');
+    const unknown = uniqueLaneIds.filter((laneId) => !this.lanes.has(laneId));
+    if (unknown.length > 0) throw new Error(`Unknown Lane(s): ${unknown.join(', ')}`);
+    return uniqueLaneIds;
+  }
+
+  private assertSafetyCleared(laneIds: readonly string[], operation: string): void {
+    const stopped = laneIds.filter((laneId) => this.lanes.get(laneId)?.safetyState?.status === 'STOPPED');
+    if (stopped.length > 0) {
+      throw new Error(`Cannot ${operation}; safety STOP is active on Lane(s): ${stopped.join(', ')}`);
+    }
+  }
+
+  private runSafetyOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const key = 'range-safety';
+    const predecessor = this.operationTails.get(key) ?? Promise.resolve();
+    const result = predecessor.then(operation);
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.operationTails.set(key, tail);
+    void tail.then(() => {
+      if (this.operationTails.get(key) === tail) this.operationTails.delete(key);
+    });
+    return result;
+  }
+
+  private assertClockQualityForTimedCommands(laneIds: readonly string[]): void {
+    if (this.clockQualityPolicy.mode !== 'REQUIRED') return;
+    const unusable = laneIds.filter((laneId) => {
+      const assessment = this.clockQualityByLaneId.get(laneId);
+      return assessment === undefined || !this.clockQualityPolicy.isUsable(assessment);
+    });
+    if (unusable.length > 0) {
+      throw new Error(
+        `Fresh GOOD clock-quality samples are required before timed commands; probe Lane(s): ${unusable.join(', ')}`,
+      );
     }
   }
 

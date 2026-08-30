@@ -31,6 +31,19 @@ export const scoringDecisionsModule: ModuleDefinition<
         );
         return { decisions: toScoringDecisionDtos(history) };
       },
+      listByEvent: async ({ eventId, resultScope }) => ({
+        decisions: toScoringDecisionDtos(
+          resultScope
+            ? scoringDecisionRepository.findByEventId(eventId, resultScope)
+            : [
+                ...scoringDecisionRepository.findByEventId(eventId, 'QUALIFICATION'),
+                ...scoringDecisionRepository.findByEventId(eventId, 'FINAL'),
+              ].sort(
+                (left, right) =>
+                  left.decidedAt.getTime() - right.decidedAt.getTime() || left.id.localeCompare(right.id),
+              ),
+        ),
+      }),
     });
   },
 };

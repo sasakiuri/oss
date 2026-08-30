@@ -1,5 +1,6 @@
 import type { FinalResultData } from './FinalResultSheet';
 import { formatScore, calculateStage1Series } from '../../shared/scoring';
+import { classificationSuppressesScore, formatClassificationCode } from '../policies/ResultListDisplayPolicy';
 
 const MAX_SHOT_ROWS = 5;
 
@@ -10,6 +11,8 @@ interface FinalResultSheetRowProps {
 
 export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSheetRowProps) {
   const isEliminated = result.eliminatedAtShot !== undefined;
+  const classification = result.classificationCode ?? null;
+  const suppressScores = classificationSuppressesScore(classification);
 
   const { first5: stage1First5, second5: stage1Second5 } = calculateStage1Series(result.stage1Shots);
 
@@ -36,7 +39,7 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
       className={`result-row result-row-cumulative ${isEliminated ? 'eliminated' : ''}`}
     >
       <td className="col-rank" rowSpan={MAX_SHOT_ROWS + 1}>
-        {result.classificationCode ?? result.rank}
+        {classification ? formatClassificationCode(classification) : result.rank}
       </td>
 
       <td className="col-name" rowSpan={MAX_SHOT_ROWS + 1}>
@@ -47,9 +50,9 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
         {result.affiliation}
       </td>
 
-      <td className="col-stage1-cumulative cumulative-cell">{formatScore(stage1_5shots)}</td>
+      <td className="col-stage1-cumulative cumulative-cell">{suppressScores ? '—' : formatScore(stage1_5shots)}</td>
 
-      <td className="col-stage1-cumulative cumulative-cell">{formatScore(stage1_10shots)}</td>
+      <td className="col-stage1-cumulative cumulative-cell">{suppressScores ? '—' : formatScore(stage1_10shots)}</td>
 
       {stage2Cumulatives.map((cumulative, idx) => {
         const shotNumber = 12 + idx * 2;
@@ -61,13 +64,13 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
             key={idx}
             className={`col-stage2-cumulative cumulative-cell ${isAfterElimination ? 'after-elimination' : ''}`}
           >
-            {cumulative !== null ? formatScore(cumulative) : '-'}
+            {!suppressScores && cumulative !== null ? formatScore(cumulative) : '—'}
           </td>
         );
       })}
 
       <td className="col-total" rowSpan={MAX_SHOT_ROWS + 1}>
-        {result.classificationCode ? '—' : formatScore(result.totalScore)}
+        {suppressScores ? '—' : formatScore(result.totalScore)}
       </td>
 
       <td className="col-remarks" rowSpan={MAX_SHOT_ROWS + 1}>
@@ -85,9 +88,9 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
         key={`${result.firingPointNumber}-shot-${shotRow}`}
         className={`result-row result-row-shot ${isEliminated ? 'eliminated' : ''}`}
       >
-        <td className="col-stage1-shot shot-cell">{formatScore(stage1Shot1)}</td>
+        <td className="col-stage1-shot shot-cell">{suppressScores ? '—' : formatScore(stage1Shot1)}</td>
 
-        <td className="col-stage1-shot shot-cell">{formatScore(stage1Shot2)}</td>
+        <td className="col-stage1-shot shot-cell">{suppressScores ? '—' : formatScore(stage1Shot2)}</td>
 
         {stage2ShotPairs.map((pair, pairIdx) => {
           const shotNumber = 11 + pairIdx * 2 + shotRow;
@@ -105,7 +108,7 @@ export function FinalResultSheetRow({ result, stage2Cumulatives }: FinalResultSh
                 key={pairIdx}
                 className={`col-stage2-shot shot-cell ${isThisShotAfterElimination ? 'after-elimination' : ''}`}
               >
-                {isThisShotAfterElimination ? '-' : formatScore(shotValue)}
+                {suppressScores || isThisShotAfterElimination ? '—' : formatScore(shotValue)}
               </td>
             );
           } else {

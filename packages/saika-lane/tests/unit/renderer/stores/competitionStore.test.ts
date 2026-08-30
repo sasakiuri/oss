@@ -58,6 +58,10 @@ describe('competitionStore', () => {
       const { shotsPerSeries } = useCompetitionStore.getState();
       expect(shotsPerSeries).toBe(10);
     });
+
+    it('has no interruption', () => {
+      expect(useCompetitionStore.getState().interruption).toBeNull();
+    });
   });
 
   describe('setPhase', () => {

@@ -9,7 +9,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 
-import { championshipModule } from '@/main/modules/championship';
+import { championshipModule, SqliteParticipantRepository } from '@/main/modules/championship';
 import { laneControlModule } from '@/main/modules/lane-control';
 import {
   FinalResultsReader,
@@ -22,13 +22,69 @@ import {
 import { scoringDecisionsModule, SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 import { shootoffModule } from '@/main/modules/shootoff';
 import { boardModule } from '@/main/modules/board';
-import { mqttModule, SqliteCompetitionShotJournal } from '@/main/modules/mqtt';
-import { resultVerificationModule, SqliteResultVerificationRepository } from '@/main/modules/result-verification';
+import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
+import {
+  mqttModule,
+  SqliteCompetitionShotJournal,
+  SqliteFiringWindowJournal,
+  SqliteShotObservationEvidenceJournal,
+} from '@/main/modules/mqtt';
+import {
+  FinalResultVerificationSource,
+  QualificationResultVerificationSource,
+  resultVerificationModule,
+  ResultVerificationService,
+  ResultVerificationSourceRegistry,
+  SqliteResultVerificationRepository,
+} from '@/main/modules/result-verification';
 import { incidentReportsModule, SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
+import {
+  EvidenceHoldCompetitionDataGuard,
+  SqliteTargetExaminationRepository,
+  targetExaminationsModule,
+} from '@/main/modules/target-examinations';
+import {
+  InterruptionCompetitionDataGuard,
+  rangeInterruptionsModule,
+  SqliteRangeInterruptionRepository,
+} from '@/main/modules/range-interruptions';
+import { relayReadinessModule } from '@/main/modules/relay-readiness';
+import {
+  CompetitionTypeTeamTieBreakPolicyResolver,
+  SqliteMixedTeamFinalResultRepository,
+  teamResultsModule,
+  TeamResultsService,
+} from '@/main/modules/team-results';
+import { protestsModule } from '@/main/modules/protests';
+import {
+  EstBackupVerificationService,
+  estBackupVerificationModule,
+  SqliteEstBackupVerificationRepository,
+} from '@/main/modules/est-backup-verification';
+import { finalControlModule } from '@/main/modules/final-control';
+import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
+import { finalRecoveriesModule } from '@/main/modules/final-recoveries';
+import { startListsModule } from '@/main/modules/start-lists';
+import {
+  FinalOperationService,
+  finalOperationsModule,
+  SqliteFinalOperationRepository,
+} from '@/main/modules/final-operations';
+import { mixedTeamFinalControlModule } from '@/main/modules/mixed-team-final-control';
+import { squaddingModule } from '@/main/modules/squadding';
+import { productionOperationsModule } from '@/main/modules/production-operations';
+import { mixedTeamTimeoutsModule } from '@/main/modules/mixed-team-timeouts';
 import {
   finalPlacementReviewModule,
   SqliteFinalPlacementReviewRepository,
 } from '@/main/modules/final-placement-review';
+import {
+  resultPublicationModule,
+  RulePackResultPublicationPolicyResolver,
+  SqliteResultPublicationRepository,
+  VerifiedResultPublicationReadiness,
+} from '@/main/modules/result-publication';
+import { ISSF_2026_10M_MIXED_RULE_PACKS, ISSF_2026_10M_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
 
 // Infrastructure
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -60,6 +116,7 @@ import type { EventForwardingRule } from '@/main/shared-infra/ipc/EventForwardin
 import type { PhaseChanged, TimerTick, TimerExpired } from '@/main/shared-infra/events/coreEvents';
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import { Logger } from '@/shared/utils/Logger';
+import { CompositeCompetitionDataGuard } from '@/main/shared-infra/operations/CompositeCompetitionDataGuard';
 
 const logger = Logger.create('createApp');
 
@@ -71,8 +128,25 @@ const modules = [
   resultsModule,
   shootoffModule,
   boardModule,
+  competitionAnnouncementsModule,
+  targetExaminationsModule,
+  rangeInterruptionsModule,
+  relayReadinessModule,
+  teamResultsModule,
+  protestsModule,
+  estBackupVerificationModule,
+  finalControlModule,
+  adjudicationCasesModule,
+  finalOperationsModule,
+  finalRecoveriesModule,
+  startListsModule,
+  mixedTeamFinalControlModule,
+  squaddingModule,
+  productionOperationsModule,
+  mixedTeamTimeoutsModule,
   mqttModule,
   resultVerificationModule,
+  resultPublicationModule,
   incidentReportsModule,
   finalPlacementReviewModule,
 ];
@@ -128,14 +202,31 @@ export function createApp(preloadPath: string): AppServices {
   const laneControlRepository = new SqliteLaneControlRepository(database);
   const resultRepository = new SqliteResultRepository(database);
   const finalResultRepository = new SqliteFinalResultRepository(database);
+  const mixedTeamFinalResultRepository = new SqliteMixedTeamFinalResultRepository(database);
+  const participantRepository = new SqliteParticipantRepository(database);
   const scoringDecisionRepository = new SqliteScoringDecisionRepository(database);
   const competitionShotJournal = new SqliteCompetitionShotJournal(database);
+  const firingWindowJournal = new SqliteFiringWindowJournal(database);
+  const shotObservationEvidenceJournal = new SqliteShotObservationEvidenceJournal(database);
   const resultVerificationRepository = new SqliteResultVerificationRepository(database);
   const rangeIncidentReportRepository = new SqliteRangeIncidentReportRepository(database);
+  const targetExaminationRepository = new SqliteTargetExaminationRepository(database);
+  const rangeInterruptionRepository = new SqliteRangeInterruptionRepository(database);
+  const competitionDataGuard = new CompositeCompetitionDataGuard([
+    new EvidenceHoldCompetitionDataGuard(targetExaminationRepository),
+    new InterruptionCompetitionDataGuard(rangeInterruptionRepository),
+  ]);
   const finalPlacementReviewRepository = new SqliteFinalPlacementReviewRepository(database);
+  const resultPublicationRepository = new SqliteResultPublicationRepository(database);
 
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
+  const rulePackRegistry = new RulePackRegistry([...ISSF_2026_10M_RULE_PACKS, ...ISSF_2026_10M_MIXED_RULE_PACKS]);
+  const finalOperationService = new FinalOperationService(
+    new SqliteFinalOperationRepository(database),
+    competitionTypeRegistry,
+    rulePackRegistry,
+  );
 
   // Window Manager
   const windowManager = new WindowManager(preloadPath);
@@ -165,6 +256,43 @@ export function createApp(preloadPath: string): AppServices {
     finalResultRepository,
     competitionTypeRegistry,
   );
+  const teamResultsService = new TeamResultsService(
+    participantRepository,
+    resultRepository,
+    qualificationResultsReader,
+    new CompetitionTypeTeamTieBreakPolicyResolver(queryBus, competitionTypeRegistry),
+  );
+  const estBackupVerificationService = new EstBackupVerificationService(
+    new SqliteEstBackupVerificationRepository(database),
+    participantRepository,
+    qualificationResultsReader,
+    teamResultsService,
+  );
+  const resultVerificationService = new ResultVerificationService(
+    resultVerificationRepository,
+    new ResultVerificationSourceRegistry([
+      new QualificationResultVerificationSource(
+        queryBus,
+        qualificationResultsReader,
+        competitionTypeRegistry,
+        estBackupVerificationService,
+      ),
+      new FinalResultVerificationSource(
+        queryBus,
+        finalResultsReader,
+        mixedTeamFinalResultRepository,
+        competitionTypeRegistry,
+      ),
+    ]),
+  );
+  const resultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
+  const resultPublicationPolicyResolver = new RulePackResultPublicationPolicyResolver(
+    queryBus,
+    competitionTypeRegistry,
+    rulePackRegistry,
+    // Local/JRSF definitions can keep their existing operation until they get a Rule Pack.
+    { scoreProtestWindowMs: 10 * 60 * 1000 },
+  );
 
   // IPC Router
   const ipcRouter = new IpcRouter();
@@ -185,16 +313,30 @@ export function createApp(preloadPath: string): AppServices {
     laneTimerService,
     appConfigService,
     competitionTypeRegistry,
+    rulePackRegistry,
+    finalOperationService,
     resultRepository,
     finalResultRepository,
+    mixedTeamFinalResultRepository,
+    teamResultsService,
+    estBackupVerificationService,
     scoringDecisionRepository,
     scoringDecisionTargetResolver,
     competitionShotJournal,
+    firingWindowJournal,
+    shotObservationEvidenceJournal,
     qualificationResultsReader,
     finalResultsReader,
     resultVerificationRepository,
+    resultVerificationService,
     rangeIncidentReportRepository,
+    targetExaminationRepository,
+    rangeInterruptionRepository,
+    competitionDataGuard,
     finalPlacementReviewRepository,
+    resultPublicationRepository,
+    resultPublicationReadiness,
+    resultPublicationPolicyResolver,
   };
 
   // === Module Registration via ModuleLoader ===

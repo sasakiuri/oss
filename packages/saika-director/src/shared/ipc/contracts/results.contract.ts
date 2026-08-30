@@ -46,6 +46,7 @@ const RankedResultDtoSchema = z.object({
     linkedShots: z.number().int().nonnegative(),
     independentDecimalShots: z.number().int().nonnegative(),
     innerTenClassifiedShots: z.number().int().nonnegative(),
+    scoreConflicts: z.number().int().nonnegative(),
   }),
   revision: z.string().regex(/^[a-f0-9]{64}$/),
   confirmedAt: z.string(),

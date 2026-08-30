@@ -10,7 +10,9 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type {
+  CompetitionCueChangedEvent,
   CompetitionFinishedEvent,
+  CompetitionInterruptionChangedEvent,
   CompetitionStartedEvent,
   ConnectionEstablishedEvent,
   ConnectionLostEvent,
@@ -208,6 +210,18 @@ function createTimerExpiredEvent(): TimerExpiredEvent {
   };
 }
 
+function createCompetitionInterruptionChangedEvent(): CompetitionInterruptionChangedEvent {
+  return {
+    type: 'CompetitionInterruptionChanged',
+    timestamp: now,
+    aggregateId: 'comp-1',
+    interruptionId: '11111111-1111-4111-8111-111111111111',
+    status: 'PAUSED',
+    remainingSeconds: 54,
+    unlimitedSightingShots: false,
+  };
+}
+
 function createSeriesCompletedEvent(): SeriesCompletedEvent {
   return {
     type: 'SeriesCompleted',
@@ -240,6 +254,30 @@ function createCompetitionFinishedEvent(): CompetitionFinishedEvent {
   };
 }
 
+function createCompetitionCueChangedEvent(): CompetitionCueChangedEvent {
+  return {
+    type: 'CompetitionCueChanged',
+    timestamp: now,
+    aggregateId: '11111111-1111-4111-8111-111111111111',
+    cue: {
+      schemaVersion: 1,
+      competitionId: '11111111-1111-4111-8111-111111111111',
+      runId: '22222222-2222-4222-8222-222222222222',
+      cueId: '33333333-3333-4333-8333-333333333333',
+      confirmationEntryId: '44444444-4444-4444-8444-444444444444',
+      branch: 'MAIN',
+      iteration: 0,
+      stepId: 'final-single-1',
+      actor: 'CRO',
+      kind: 'COMMAND',
+      text: 'START',
+      ruleReference: 'ISSF 6.17',
+      effect: { type: 'OPEN_FIRING', purpose: 'MATCH' },
+      publishedAt: '2026-09-02T09:00:00.000Z',
+    },
+  };
+}
+
 // ---------- Helpers ----------
 
 function getFirstHandler(bus: MockEventBus, eventType: string): (event: unknown) => void {
@@ -269,12 +307,12 @@ describe('ContractEventForwarder', () => {
   });
 
   // ============================
-  // start() — 15 event forward verification
+  // start() — 18 event forward verification
   // ============================
   describe('start()', () => {
-    it('subscribes to 15 events', () => {
+    it('subscribes to 18 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(15);
+      expect(eventBus.on).toHaveBeenCalledTimes(18);
     });
 
     it('forwards ShotRecorded to event:shotRecorded', () => {
@@ -418,6 +456,33 @@ describe('ContractEventForwarder', () => {
 
       expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.timerExpired, {
         stageIndex: 1,
+      });
+    });
+
+    it('forwards CompetitionInterruptionChanged to its renderer event', () => {
+      forwarder.start();
+      const event = createCompetitionInterruptionChangedEvent();
+
+      getFirstHandler(eventBus, 'CompetitionInterruptionChanged')(event);
+
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.competitionInterruptionChanged, {
+        competitionId: 'comp-1',
+        interruptionId: '11111111-1111-4111-8111-111111111111',
+        status: 'PAUSED',
+        remainingSeconds: 54,
+        unlimitedSightingShots: false,
+      });
+    });
+
+    it('forwards CompetitionCueChanged to its renderer event', () => {
+      forwarder.start();
+      const event = createCompetitionCueChangedEvent();
+
+      getFirstHandler(eventBus, 'CompetitionCueChanged')(event);
+
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.competitionCueChanged, {
+        competitionId: event.aggregateId,
+        cue: event.cue,
       });
     });
 
@@ -606,8 +671,8 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
       forwarder.start();
 
-      // on is called 30 times (15 x 2)
-      expect(eventBus.on).toHaveBeenCalledTimes(30);
+      // on is called 36 times (18 x 2)
+      expect(eventBus.on).toHaveBeenCalledTimes(36);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);

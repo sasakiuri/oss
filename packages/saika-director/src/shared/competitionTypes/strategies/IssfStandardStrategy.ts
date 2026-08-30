@@ -6,7 +6,7 @@ import type {
 import type { ResultFormat } from '../CompetitionTypeDefinition';
 
 /**
- * ISSF-standard strategy for formats such as BR60S and BP60.
+ * ISSF-standard strategy for full-ring and decimal qualification formats.
  */
 export class IssfStandardStrategy implements CompetitionTypeStrategy {
   readonly id = 'standard';

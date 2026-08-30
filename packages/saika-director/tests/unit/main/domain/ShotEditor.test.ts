@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
-import { QUALIFICATION_CONFIG, buildFinalConfig } from '../../../helpers/testConfigs';
+import { QUALIFICATION_CONFIG, buildFinalConfig, buildMultiShotSeriesFinalConfig } from '../../../helpers/testConfigs';
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ describe('ShotEditor', () => {
     });
 
     it('allows edits in SHOT_COMPLETE', () => {
-      let lane = LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(8));
+      let lane = LaneControl.create('lane-1', Channel.create(1), buildMultiShotSeriesFinalConfig(8));
       lane = lane.startPreparation().advanceToNextStage().startMatch();
       for (let i = 0; i < 5; i++) {
         lane = lane.addShotByScore(10.0, Date.now(), i + 1);

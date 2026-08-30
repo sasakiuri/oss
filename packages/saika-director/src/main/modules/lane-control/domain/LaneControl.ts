@@ -1,7 +1,7 @@
 import { Channel } from './Channel';
 import { Player } from './Player';
 import { Timer } from './Timer';
-import { Shot } from './Shot';
+import { Shot, type ShotDisposition } from './Shot';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
 import type { LanePhase } from '@/shared/constants/competition';
 import type { RoundConfig } from '@/shared/constants/roundConfig';
@@ -11,6 +11,7 @@ import * as ShotEditor from './ShotEditor';
 import * as ShootoffOps from './ShootoffOps';
 import * as ButtonConditions from './ButtonConditions';
 import * as TimerModeHandlers from './TimerModeHandlers';
+import { planRemainingSeriesSlots, planRemainingStageSlots } from './ShotSlotPlanner';
 
 // ---------------------------------------------------------------------------
 // Snapshot types (for persistence serialization)
@@ -20,6 +21,8 @@ export interface ShotSnapshot {
   readonly shotNumber: number;
   readonly score: number;
   readonly seriesNumber: number;
+  /** Missing in snapshots written before explicit shot-slot dispositions were introduced. */
+  readonly disposition?: ShotDisposition;
 }
 
 export interface TimerSnapshot {
@@ -215,11 +218,12 @@ export class LaneControl {
       shotNumber: s.shotNumber.value,
       score: s.score.value,
       seriesNumber: s.seriesNumber,
+      disposition: s.disposition,
     }));
   }
 
   private static deserializeShots(snapshots: ShotSnapshot[]): Shot[] {
-    return snapshots.map((s) => Shot.create(s.shotNumber, s.score, s.seriesNumber));
+    return snapshots.map((s) => Shot.create(s.shotNumber, s.score, s.seriesNumber, s.disposition ?? 'SCORED'));
   }
 
   toSnapshot(): LaneControlSnapshot {
@@ -485,12 +489,33 @@ export class LaneControl {
         return this.with({ timer: newTimer });
       }
       switch (stage.timer.mode) {
-        case 'shot':
-          return this.with(TimerModeHandlers.handleShotTimerExpired(this.state, stage, newTimer));
-        case 'series':
-          return this.with(TimerModeHandlers.handleSeriesTimerExpired(this.state, newTimer));
-        case 'stage':
-          return this.with(TimerModeHandlers.handleStageTimerExpired(this.state, newTimer));
+        case 'shot': {
+          const missedSlot = planRemainingSeriesSlots({
+            firstShotNumber: this.state.matchShots.length + 1,
+            seriesNumber: this.calculateGlobalSeriesNumber(),
+            expectedShots: this.currentSeries.shots,
+            occupiedShots: this.state.shotSlotInSeries,
+          })[0];
+          if (!missedSlot) {
+            return this.with({ timer: newTimer });
+          }
+          return this.with(
+            TimerModeHandlers.handleShotTimerExpired(
+              this.state,
+              stage,
+              newTimer,
+              Shot.miss(missedSlot.shotNumber, missedSlot.seriesNumber),
+            ),
+          );
+        }
+        case 'series': {
+          const missedShots = this.planRemainingCurrentSeriesMisses();
+          return this.with(TimerModeHandlers.handleSeriesTimerExpired(this.state, newTimer, missedShots));
+        }
+        case 'stage': {
+          const missedShots = this.planRemainingCurrentStageMisses();
+          return this.with(TimerModeHandlers.handleStageTimerExpired(this.state, newTimer, missedShots));
+        }
       }
     }
 
@@ -514,6 +539,27 @@ export class LaneControl {
       }
     }
     return globalSeries + 1;
+  }
+
+  private planRemainingCurrentSeriesMisses(): Shot[] {
+    const occupiedShots = this.state.matchShots.length - this.state.matchShotsAtSeriesStart;
+    return planRemainingSeriesSlots({
+      firstShotNumber: this.state.matchShots.length + 1,
+      seriesNumber: this.calculateGlobalSeriesNumber(),
+      expectedShots: this.currentSeries.shots,
+      occupiedShots,
+    }).map((slot) => Shot.miss(slot.shotNumber, slot.seriesNumber));
+  }
+
+  private planRemainingCurrentStageMisses(): Shot[] {
+    const stage = this.currentStage;
+    const occupiedShotsInCurrentSeries = this.state.matchShots.length - this.state.matchShotsAtSeriesStart;
+    return planRemainingStageSlots({
+      firstShotNumber: this.state.matchShots.length + 1,
+      firstSeriesNumber: this.calculateGlobalSeriesNumber(),
+      seriesShotCounts: stage.series.slice(this.state.seriesIndex).map((series) => series.shots),
+      occupiedShotsInFirstSeries: occupiedShotsInCurrentSeries,
+    }).map((slot) => Shot.miss(slot.shotNumber, slot.seriesNumber));
   }
 
   // ---------------------------------------------------------------------------

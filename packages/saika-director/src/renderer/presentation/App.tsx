@@ -3,6 +3,8 @@ import { SplashScreen } from './features/shared/SplashScreen';
 import { ChampionshipScreen } from './features/championship/ChampionshipScreen';
 import { CompetitionControlScreen } from './features/competition-control/CompetitionControlScreen';
 import { SettingsScreen } from './features/settings/SettingsScreen';
+import { TargetExaminationsScreen } from './features/target-examinations';
+import { RangeInterruptionsScreen } from './features/range-interruptions';
 import { MainLayout } from './features/shared/layout/MainLayout';
 import { ErrorBoundary, NotificationContainer, ConfirmDialog } from './features/shared/common';
 import { useNavigationStore } from './stores/ui/navigation.store';
@@ -32,6 +34,8 @@ export function App() {
           <div key={activeScreen} className="min-h-full">
             {activeScreen === 'tournament' && <ChampionshipScreen />}
             {activeScreen === 'control' && <CompetitionControlScreen />}
+            {activeScreen === 'examinations' && <TargetExaminationsScreen />}
+            {activeScreen === 'interruptions' && <RangeInterruptionsScreen />}
             {activeScreen === 'settings' && <SettingsScreen />}
           </div>
         </MainLayout>

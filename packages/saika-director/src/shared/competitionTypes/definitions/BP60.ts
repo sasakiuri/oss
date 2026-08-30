@@ -3,6 +3,7 @@ import type { CompetitionTypeDefinition } from '../CompetitionTypeDefinition';
 export const BP60: CompetitionTypeDefinition = {
   id: 'BP60',
   name: '10m Beam Pistol 60 Shots',
+  laneProtocol: { discipline: 'BEAM_PISTOL_10M', acc: 'RING' },
   scoring: {
     minScore: 0,
     maxScore: 100,

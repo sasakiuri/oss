@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { useConnectionEvents } from './useConnectionEvents';
+import { useFinalCueEvents } from './useFinalCueEvents';
 import { useLogEvents } from './useLogEvents';
 import { usePhaseEvents } from './usePhaseEvents';
+import { useSafetyStopEvents } from './useSafetyStopEvents';
 import { useSessionEvents } from './useSessionEvents';
 import { useShotEvents } from './useShotEvents';
 import { useTimerEvents } from './useTimerEvents';
@@ -14,6 +16,8 @@ import { useUpdateEvents } from './useUpdateEvents';
  */
 export function useEventSubscriptions(): void {
   useSessionEvents();
+  useSafetyStopEvents();
+  useFinalCueEvents();
   useConnectionEvents();
   useShotEvents();
   usePhaseEvents();

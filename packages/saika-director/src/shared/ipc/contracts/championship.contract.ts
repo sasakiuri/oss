@@ -22,6 +22,8 @@ import {
 const uuidSchema = z.string().uuid();
 const eventTypeSchema = z.string();
 const roundSchema = z.enum(['Elimination', 'Qualification', 'Final', 'Individual']);
+const participantGenderSchema = z.enum(['M', 'F', 'X', 'UNSPECIFIED']);
+const participantEntryStatusSchema = z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB']);
 
 // ---------------------------------------------------------------------------
 // Input schemas (command payloads)
@@ -69,6 +71,18 @@ const SaveParticipantsPayloadSchema = z.object({
       familyName: z.string().optional(),
       affiliation: z.string(),
       logoPath: z.string().optional(),
+      startNumber: z.string().trim().min(1).max(50).nullable().optional(),
+      issfId: z.string().trim().min(1).max(50).nullable().optional(),
+      nationCode: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z]{2,3}$/)
+        .nullable()
+        .optional(),
+      gender: participantGenderSchema.optional(),
+      entryStatus: participantEntryStatusSchema.optional(),
+      teamId: z.string().trim().min(1).max(100).nullable().optional(),
+      teamName: z.string().trim().min(1).max(200).nullable().optional(),
     }),
   ),
   participantIdsToDelete: z.array(uuidSchema).optional(),
@@ -128,6 +142,13 @@ const participantDtoSchema = z.object({
   affiliation: z.string(),
   logoPath: z.string().nullable(),
   sortOrder: z.number(),
+  startNumber: z.string().nullable().optional(),
+  issfId: z.string().nullable().optional(),
+  nationCode: z.string().nullable().optional(),
+  gender: participantGenderSchema.optional(),
+  entryStatus: participantEntryStatusSchema.optional(),
+  teamId: z.string().nullable().optional(),
+  teamName: z.string().nullable().optional(),
 });
 
 const firingPointAssignmentDtoSchema = z.object({
@@ -152,6 +173,9 @@ const FiringPointAssignmentListResponseSchema = z.object({
 const competitionTypeDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  scoringPrecision: z.number().int().min(0).max(1),
+  totalSeries: z.number().int().positive(),
+  rulePackId: z.string().nullable(),
 });
 
 const CompetitionTypeListResponseSchema = z.object({

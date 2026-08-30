@@ -29,6 +29,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
 
   const formatShotValue = (shot: ScoreSheetShotDto | undefined): string => {
     if (!shot) return '-';
+    if (shot.disposition === 'MISS') return 'M';
     return shot.value.toFixed(1);
   };
 

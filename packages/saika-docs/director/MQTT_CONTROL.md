@@ -49,7 +49,8 @@ Lane を選択して参加を再試行すると、参加済みの Lane も同じ
 進行管理の Lane 一覧で確認してください。`offline` の Lane は射座番号を保持せず、同じ Lane 名の交換機が
 接続した場合はその射座番号を使用できます。
 
-選手 ID には大会管理の参加者 ID、スタート番号には参加者一覧の順番（1始まり）、チーム名には所属を使用します。
+選手 ID には大会管理の参加者 ID、スタート番号には参加者一覧の順番（1始まり）を使用します。Team ID、team name、gender、nation code、
+ISSF ID は参加者の official entry から独立した field として送信し、所属文字列を team identity として推測しません。
 選択種目と進行中の競技種別が異なる場合は反映できません。対応する Lane や参加者が見つからない射座割は送信せず、
 画面に未対応として表示します。反映対象への `assign-athlete` は Lane ごとに送信され、結果をまとめて通知します。
 射座割を反映した競技の選手割当を手動補正する場合も、入力したスタート番号と選手名を選択種目の参加者一覧と照合し、
@@ -59,18 +60,30 @@ Lane を選択して参加を再試行すると、参加済みの Lane も同じ
 選手割当を変更できるのは競技開始前だけです。ただし、競技終了時の成績保存に失敗した場合は、清掃を開始する前に限り
 割当を補正して終了処理を再実行できます。試射・本射中や成績保存済みの清掃再試行中は変更できません。
 
+大会管理の射座割には、手動 grid と独立した ISSF computer draw があります。draw は seed、参加者 snapshot hash、algorithm version、
+range geometry、MQS/RPO/OOC section policy、配置 hash を追記保存します。同一 nation の隣接回避、relay 間の nation／team member 均等化、
+Mixed Team Qualification のfemale-left隣接配置と同一 nation の別 team の非隣接を検査します。Technical Delegate の承認後にだけ、明示確認を経て保存済み
+射座割を置き換えます。entry list が変わった draw は stale となり、再抽選が必要です。手動 grid はこの機能を使用しない大会向けに残ります。
+Mixed Team Final はteam pairを抽選し、Coachがprotest time終了前にRTS Juryへ通知した左右交替だけを、適用後の手動gridで保存します。
+
 ## コマンドと ACK
 
-| 操作                                     | 配信単位             | 主な効果                           |
-| ---------------------------------------- | -------------------- | ---------------------------------- |
-| `join-competition` / `leave-competition` | Lane 個別            | 競技購読の開始・終了               |
-| `assign-athlete`                         | 競技内 Lane 個別     | 選手割当を保存し Retain 発行       |
-| `reset-session`                          | 開始前の Lane 個別   | 確認後、全着弾・得点を消去         |
-| `start-sighting` / `end-sighting`        | 競技ブロードキャスト | 試射開始・終了                     |
-| `start-match`                            | 競技ブロードキャスト | 本射ステージと最初のシリーズを開始 |
-| `timer-started` / `timer-expired`        | 競技ブロードキャスト | 絶対開始時刻でタイマーを同期・満了 |
-| `advance-series`                         | 競技ブロードキャスト | 現シリーズを進め、次シリーズを開始 |
-| `finish-competition`                     | 競技ブロードキャスト | 競技を終了                         |
+| 操作                                     | 配信単位               | 主な効果                                               |
+| ---------------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `join-competition` / `leave-competition` | Lane 個別              | 競技購読の開始・終了                                   |
+| `activate-safety-stop`                   | 競技非依存の Lane 個別 | durable safety latch、timer freeze、STOP / UNLOAD 表示 |
+| `clear-safety-stop`                      | 競技非依存の Lane 個別 | 明示安全確認後に latch を解除。timer は再開しない      |
+| `assign-athlete`                         | 競技内 Lane 個別       | 選手割当を保存し Retain 発行                           |
+| `reset-session`                          | 開始前の Lane 個別     | 確認後、全着弾・得点を消去                             |
+| `pause-timer`                            | 競技内 Lane 個別       | 中断 ID と正確な残り時間を永続化                       |
+| `resume-timer`                           | 競技内 Lane 個別       | official grant の時間・mode で再開                     |
+| `resume-match`                           | 競技内 Lane 個別       | 追加試射後に MATCH mode へ復帰                         |
+| `retire-finalist`                        | 競技内 Lane 個別       | Final snapshot を確定して競技終了                      |
+| `start-sighting` / `end-sighting`        | 競技ブロードキャスト   | 試射開始・終了                                         |
+| `start-match`                            | 競技ブロードキャスト   | 本射ステージと最初のシリーズを開始                     |
+| `timer-started` / `timer-expired`        | 競技ブロードキャスト   | 絶対開始時刻でタイマーを同期・満了                     |
+| `advance-series`                         | 競技ブロードキャスト   | 現シリーズを進め、次シリーズを開始                     |
+| `finish-competition`                     | 競技ブロードキャスト   | 競技を終了                                             |
 
 すべてのコマンドには UUID の `commandId`、`issuedBy`、ISO 8601 の `issuedAt` が含まれます。Lane は
 処理開始時に `executing`、完了時に `done`、失敗時に `error` を返します。Director は既定で 10 秒待ち、
@@ -84,10 +97,65 @@ Director は同じ競技への操作を受付順に直列化し、各操作が�
 同じ Lane を複数の競技へ同時に確保したりすることはありません。異なる `commandId` の入力が重なった場合も、後続操作は
 先行操作の完了後に現在フェーズを再検証します。
 
+Individual 10m Final は2回の5-shot series 後に14回のsingle shot、Mixed Team Final は3回の5-shot series 後に9回のsingle shotを進めます。
+`advance-series` は次の series／shot の絶対開始時刻と時間を一括配信します。脱落 checkpoint では Director が最低得点候補または同点を表示し、
+Jury が順位と解決根拠を独立台帳へ記録してから対象 Lane へ `retire-finalist` を送ります。Mixed Team は2 Lane の command batch が両方成功して初めて
+team checkpoint が完了します。終了成績は individual と team で別 repository／read model を使用します。
+
 `reset-session` の `done` は、Lane 側の着弾・得点消去と 0 点 Retain スコアの再発行が完了した後に返ります。
 Director も成功 ACK を受けた時点で、その Lane について保持していた初期化前の着弾履歴を破棄します。
 Lane が初期化を完了した後に `done` だけが失われた場合は Director 内に旧着弾イベントが残ることがありますが、
 成績の着弾明細には最終 Retain スコアだけを使用します。したがって 0 発の最終スコアへ初期化前の着弾を混在させません。
+
+Director の Target Examination に evidence hold がある場合、または Range Interruption record が close／void されていない場合、
+対象 competition／Lane の `leave-competition` と `reset-session` は MQTT command を発行する前に拒否されます。range-wide case は同じ
+competition の全 Lane に適用されます。この判定は MQTT service が各機能の型を直接参照せず、複数の `ICompetitionDataGuard` policy を
+合成した port を介して行います。
+
+## Range safety STOP
+
+`activate-safety-stop` と `clear-safety-stop` は `saika/lane/{laneId}/command/+` で配信し、Lane が競技へ参加していなくても処理します。
+進行管理画面の emergency action は検出済み全 Lane を既定対象とし、内部 API は明示 Lane subset も受け付けます。各 Lane command は独立した
+command ID と ACK を持ち、Director は batch 全体の対象、理由、official、Lane 別結果を SQLite の append-only audit に保存します。
+
+Lane は STOP latch を timer 操作より先に永続化します。STOP 中は次を強制します。
+
+- 全画面の `STOP / UNLOAD` 表示
+- start／advance／timer restart／interruption resume の拒否
+- 遅延中の絶対 START と phase event による timer 再始動の中央 gate での拒否
+- 受信 shot の immutable observation 保存と `QUARANTINED_SAFETY_STOP` outcome。score には加算しない
+- competition membership に依存しない `saika/lane/{laneId}/safety/state` の Retain 発行
+
+clear には一致する `safetyStopId`、安全確認文、official、`confirmedSafe: true` が必要です。clear は latch だけを解除し、timer や MATCH mode を
+自動復帰しません。Range Officer が物理的な unload と安全旗を確認し、その後に通常の START／resume workflow を別操作で実施します。
+
+## Lane 個別の中断・再開
+
+Range Interruption record の作成と Lane timer の操作は別です。record を開いただけでは STOP command を発行しません。
+対象 Lane と official を確認して `Apply Lane STOP` を実行すると、Director は record ID と同じ `interruptionId` を付けて
+`pause-timer` を送ります。Lane は現在の in-memory countdown を秒単位で停止して local store へ保存し、次を `done` ACK の `data` に返します。
+
+- `interruptionId` と `status`
+- capture 時刻
+- capture 時点の remaining seconds と total seconds
+
+Director は `done` を確認した後だけ、command ID と snapshot を append-only interruption ledger へ記録します。Lane command が成功し、
+ledger 応答だけが失敗した場合は Lane の Retain 状態を確認して同じ record から再操作できます。Lane は同じ `interruptionId` の STOP を
+冪等に扱い、停止または追加試射中に別 ID の中断が進行中なら拒否します。
+
+`resume-timer` は recommendation を受け付けず、Director の ledger に明示保存された official grant の
+`authorizedRemainingSeconds` と `unlimitedSightingShots` だけを送ります。Lane は再開予定を `RESUME_PENDING` として先に永続化してから、
+session mode と timer を適用します。追加試射がない場合は `MATCH`、許可された場合は `SIGHTING` mode で再開します。
+後者の shot は表示・shot journal には残る一方、competition score と series shot count へ入りません。試射終了時は別の
+`resume-match` command で MATCH mode へ戻します。
+Lane が再起動した場合は、保存済み `resumeAt` と authorized time から経過時間を差し引いて timer と mode を復元します。
+停止中なら timer を開始せず STOP 表示を復元し、再起動中に authorized timer が満了していれば終了状態へ進めて interruption override を消去します。
+
+中断中の Lane が古い competition-wide `timer-expired` を受けた場合は、他 Lane の ACK を妨げず `done` を返して適用を保留します。
+`advance-series`、`finish-competition` など timer 以外の競技進行 command は `MQTT_LANE_INTERRUPTED` で拒否し、誤った state transition を
+行いません。中断後の Lane timer が満了するか series が完了すると local interruption state を消去します。各 command 自体は単一 Lane 用である。
+all-target failure では Director が対象 Lane へ fan-out し、Lane ごとの ACK／error／timeout を range command batch に保存する。部分成功時は
+未完了 Lane のみ再試行し、全 intended Lane の成功後に range workflow を進める。これは分散 transaction として原子的な同時 STOP を保証しない。
 
 `finish-competition` の `done` は、Lane 側の終了状態と最終スコアを競技 ID で再取得し、両方の Retain 発行が
 QoS 1 で完了した後に返ります。着弾時のスコア発行は順番に処理されるため、遅れて完了した古いスナップショットが
@@ -128,6 +196,8 @@ Director は `start-sighting`、`start-match`、`timer-started` の開始時刻�
 - 進行中タイマーの絶対開始時刻、時間、対象ステージ・シリーズ
 - ACK 後の状態保存に備えた未確定タイマー操作の開始時刻と時間
 - 各 Lane の競技状態
+- 各 Lane の中断 ID、capture timer、再開予定、authorized timer、SIGHTING／MATCH 復帰状態
+- 各 Lane の competition-independent safety latch、停止理由、timer snapshot、clearance evidence
 - 各 Lane の選手割当
 - 各 Lane の集計スコア
 - 各 Lane のハードウェア接続状態
@@ -153,6 +223,9 @@ Director は空 payload を削除通知として扱います。着弾はイベ�
 競技終了時は、成績保存などの清掃前処理が成功したことを `cleanupPreparedAt` として競技状態へ Retain 発行してから
 Lane を離脱させます。離脱または Retain 消去に失敗しても参加 Lane 一覧とこの完了記録を保持するため、再接続後は
 失われた Lane データから成績を作り直さず、未完了の清掃だけを安全に再試行できます。
+evidence hold がある場合も `finish-competition` と最終 snapshot の取得までは完了させ、`MATCH_COMPLETE` を Retain する一方、
+`cleanupPreparedAt`、Lane 離脱、Lane／競技 Retain の空 payload 発行は行いません。調査物を確保して hold を解除した後に
+`Retry cleanup` を実行すると、終了 command や保存済み成績を不必要に作り直さず清掃を再開します。
 紐付けた種目が競技中に削除されていた場合も、Lane を終了して割当・得点 Retain を残した回復可能状態で停止します。
 同じ競技種別の保存先を作り直し、射座割を再反映してから終了処理を再実行してください。
 

@@ -35,3 +35,4 @@ Proposed --> Accepted --> Deprecated
 | [0001](0001-monorepo-toolchain.md)    | Monorepo Toolchain        | Accepted |
 | [0002](0002-electron-architecture.md) | Electron App Architecture | Accepted |
 | [0003](0003-ipc-contract-system.md)   | IPC Contract System       | Accepted |
+| [0004](0004-versioned-rule-packs.md)  | Versioned Rule Packs      | Accepted |

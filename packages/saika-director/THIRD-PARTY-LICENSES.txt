@@ -3,7 +3,7 @@ THIRD-PARTY SOFTWARE NOTICES
 This file is generated from the installed production dependency closure of
 @sasakiuri/saika-director. Do not edit it manually.
 
-Package/version entries: 68
+Package/version entries: 69
 
 The following npm package may be included in this product:
 
@@ -33,6 +33,16 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-----------
+
+The following npm package may be included in this product:
+
+ - @sasakiuri/saika-rules@0.1.0
+
+This package contains the following license:
+
+MIT
 
 -----------
 

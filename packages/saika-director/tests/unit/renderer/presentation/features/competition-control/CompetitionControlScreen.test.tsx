@@ -8,6 +8,12 @@ import { CompetitionControlScreen } from '@/renderer/presentation/features/compe
 import { useCompetitionControlStore } from '@/renderer/presentation/stores/domain/competitionControl.store';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import {
+  RULE_PACK_CALL_TO_LINE_REQUIREMENT_ID,
+  RULE_PACK_SETUP_REQUIREMENT_ID,
+  RULE_PACK_SIGHTING_TARGET_VISIBILITY_REQUIREMENT_ID,
+  RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
+} from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 
 const {
@@ -15,26 +21,34 @@ const {
   createCompetition,
   finishCompetition,
   getControlState,
+  getFiringWindowViolations,
+  getShotObservationEvidence,
   getParticipants,
   joinCompetition,
   leaveCompetition,
   resetSession,
+  startMatch,
   startSighting,
 } = vi.hoisted(() => ({
   assignAthlete: vi.fn(),
   createCompetition: vi.fn(),
   finishCompetition: vi.fn(),
   getControlState: vi.fn(),
+  getFiringWindowViolations: vi.fn(),
+  getShotObservationEvidence: vi.fn(),
   getParticipants: vi.fn(),
   joinCompetition: vi.fn(),
   leaveCompetition: vi.fn(),
   resetSession: vi.fn(),
+  startMatch: vi.fn(),
   startSighting: vi.fn(),
 }));
 
 vi.mock('@/renderer/services', () => ({
   mqttService: {
     getControlState,
+    getFiringWindowViolations,
+    getShotObservationEvidence,
     createCompetition,
     joinCompetition,
     leaveCompetition,
@@ -42,7 +56,7 @@ vi.mock('@/renderer/services', () => ({
     resetSession,
     startSighting,
     endSighting: vi.fn(),
-    startMatch: vi.fn(),
+    startMatch,
     advanceSeries: vi.fn(),
     finishCompetition,
   },
@@ -57,6 +71,38 @@ vi.mock('@/renderer/presentation/features/competition-control/components/Champio
       Championship Assignment Test
     </button>
   ),
+}));
+
+vi.mock('@/renderer/presentation/features/target-examinations', () => ({
+  TargetExaminationsPanel: () => <div data-testid="target-examinations-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/range-interruptions', () => ({
+  RangeInterruptionsPanel: () => <div data-testid="range-interruptions-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/relay-readiness', () => ({
+  RelayReadinessPanel: () => <div data-testid="relay-readiness-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/production-operations', () => ({
+  ProductionOperationsPanel: () => <div data-testid="production-operations-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/final-control', () => ({
+  FinalControlPanel: () => <div data-testid="final-control-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/final-operations', () => ({
+  FinalOperationPanel: () => <div data-testid="final-operation-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/mixed-team-final-control', () => ({
+  MixedTeamFinalControlPanel: () => <div data-testid="mixed-team-final-control-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/mixed-team-timeouts', () => ({
+  MixedTeamTimeoutPanel: () => <div data-testid="mixed-team-timeout-panel" />,
 }));
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
@@ -124,6 +170,8 @@ describe('CompetitionControlScreen', () => {
     useNotificationStore.setState({ notifications: [] });
     if (useConfirmDialogStore.getState().isOpen) useConfirmDialogStore.getState().handleCancel();
     getControlState.mockResolvedValue({ success: true, data: completedSnapshot });
+    getFiringWindowViolations.mockResolvedValue({ success: true, data: [] });
+    getShotObservationEvidence.mockResolvedValue({ success: true, data: [] });
     getParticipants.mockResolvedValue({
       success: true,
       data: {
@@ -165,6 +213,45 @@ describe('CompetitionControlScreen', () => {
         lanes: [{ laneId: LANE_ID, status: 'done' }],
       },
     });
+  });
+
+  it('shows persisted firing-window evidence as review-only information', async () => {
+    getFiringWindowViolations.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: '99999999-9999-4999-8999-999999999999',
+          competitionId: COMPETITION_ID,
+          laneId: LANE_ID,
+          sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          shotId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          observationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          shotMode: 'MATCH',
+          policyRuleId: 'issf.6.11.1.3.after-match-stop',
+          kind: 'AFTER_MATCH_STOP',
+          ruleReference: '6.11.1.3',
+          reviewGuidance: 'Review shot identification and the required miss.',
+          timestampSource: 'FIRED_AT',
+          clockToleranceMilliseconds: 0,
+          evaluatedShotAt: '2026-08-30T01:00:02.000Z',
+          firedAt: '2026-08-30T01:00:02.000Z',
+          receivedAt: '2026-08-30T01:00:02.010Z',
+          observedAt: '2026-08-30T01:00:02.020Z',
+          decisiveBoundaryId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          detectedAt: '2026-08-30T01:00:02.030Z',
+        },
+      ],
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    expect(await screen.findByText('Firing-window review (1)')).toBeInTheDocument();
+    expect(screen.getByText('Detection only; no score or Jury decision was changed.')).toBeInTheDocument();
+    expect(getFiringWindowViolations).toHaveBeenCalledWith({ competitionId: COMPETITION_ID });
   });
 
   it('warns and confirms before finishing a competition without result publication', async () => {
@@ -570,6 +657,9 @@ describe('CompetitionControlScreen', () => {
       competitions: [
         {
           ...completedSnapshot.competitions[0]!,
+          competitionTypeId: 'AR60',
+          competitionTypeName: '10m Air Rifle 60 shots',
+          discipline: 'AIR_RIFLE_10M',
           phase: 'SIGHTING',
           laneIds: [LANE_ID, SECOND_LANE_ID],
           pendingSightingLaneIds: [SECOND_LANE_ID],
@@ -617,11 +707,128 @@ describe('CompetitionControlScreen', () => {
     expect(screen.getByRole('button', { name: 'End sighting' })).toBeDisabled();
     fireEvent.click(retryButton);
 
+    expect(useConfirmDialogStore.getState().isOpen).toBe(false);
+
     await waitFor(() =>
       expect(startSighting).toHaveBeenCalledWith({
         competitionId: COMPETITION_ID,
-        durationSeconds: 600,
+        durationSeconds: 900,
         targetLaneIds: [SECOND_LANE_ID],
+      }),
+    );
+  });
+
+  it('uses ISSF timing and requires setup readiness before Preparation and Sighting', async () => {
+    const readySnapshot: MqttControlSnapshotDto = {
+      ...completedSnapshot,
+      competitions: [
+        {
+          ...completedSnapshot.competitions[0]!,
+          competitionTypeId: 'AR60',
+          competitionTypeName: '10m Air Rifle 60 shots',
+          discipline: 'AIR_RIFLE_10M',
+          phase: 'NOT_STARTED',
+          startedAt: null,
+          finishedAt: null,
+        },
+      ],
+      lastCommand: null,
+    };
+    getControlState.mockResolvedValue({ success: true, data: readySnapshot });
+    startSighting.mockResolvedValue({
+      success: true,
+      data: {
+        commandId: '77777777-7777-4777-8777-777777777777',
+        action: 'start-sighting',
+        success: true,
+        lanes: [{ laneId: LANE_ID, status: 'done' }],
+      },
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    const startButton = await screen.findByRole('button', { name: 'Start sighting (15 min)' });
+    expect(screen.getByRole('button', { name: 'Start match (75 min)' })).toBeInTheDocument();
+    expect(startButton).toBeEnabled();
+    fireEvent.click(startButton);
+
+    expect(startSighting).not.toHaveBeenCalled();
+    expect(useConfirmDialogStore.getState()).toMatchObject({
+      isOpen: true,
+      message: expect.stringMatching(
+        /called to the line.*published START.*Minimum interval: 25 min.*sighting targets.*visible.*Minimum interval: 10 min.*setup period.*pre-competition checks.*Required allowance: 10 min/is,
+      ),
+    });
+
+    act(() => useConfirmDialogStore.getState().handleConfirm());
+
+    await waitFor(() =>
+      expect(startSighting).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        durationSeconds: 900,
+        acknowledgedRequirementIds: [
+          RULE_PACK_CALL_TO_LINE_REQUIREMENT_ID,
+          RULE_PACK_SIGHTING_TARGET_VISIBILITY_REQUIREMENT_ID,
+          RULE_PACK_SETUP_REQUIREMENT_ID,
+        ],
+      }),
+    );
+  });
+
+  it('requires CRO target-reset confirmation before an ISSF MATCH start', async () => {
+    const readySnapshot: MqttControlSnapshotDto = {
+      ...completedSnapshot,
+      competitions: [
+        {
+          ...completedSnapshot.competitions[0]!,
+          competitionTypeId: 'AR60',
+          competitionTypeName: '10m Air Rifle 60 shots',
+          discipline: 'AIR_RIFLE_10M',
+          phase: 'SIGHTING_COMPLETE',
+          startedAt: '2026-08-26T00:00:00.000Z',
+          finishedAt: null,
+        },
+      ],
+      lastCommand: null,
+    };
+    getControlState.mockResolvedValue({ success: true, data: readySnapshot });
+    startMatch.mockResolvedValue({
+      success: true,
+      data: {
+        commandId: '99999999-9999-4999-8999-999999999999',
+        action: 'start-match',
+        success: true,
+        lanes: [{ laneId: LANE_ID, status: 'done' }],
+      },
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    const startButton = await screen.findByRole('button', { name: 'Start match (75 min)' });
+    await waitFor(() => expect(startButton).toBeEnabled());
+    fireEvent.click(startButton);
+
+    expect(startMatch).not.toHaveBeenCalled();
+    expect(useConfirmDialogStore.getState()).toMatchObject({
+      isOpen: true,
+      message: expect.stringMatching(/all targets are reset.*Rule guidance: approximately 30 sec/is),
+    });
+
+    act(() => useConfirmDialogStore.getState().handleConfirm());
+
+    await waitFor(() =>
+      expect(startMatch).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        durationSeconds: 4_500,
+        acknowledgedRequirementIds: [RULE_PACK_TARGET_RESET_REQUIREMENT_ID],
       }),
     );
   });
@@ -819,7 +1026,6 @@ describe('CompetitionControlScreen', () => {
           id: PARTICIPANT_ID,
           startNumber: 1,
           name: 'Alex Smith',
-          teamName: 'Tokyo',
         },
       });
     });

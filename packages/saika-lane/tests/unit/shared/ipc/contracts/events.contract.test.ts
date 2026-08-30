@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 
 describe('eventsContract', () => {
-  it('has 18 events', () => {
+  it('has 21 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
-    expect(eventKeys).toHaveLength(18);
+    expect(eventKeys).toHaveLength(21);
   });
 
   it('all events have kind=event', () => {
@@ -28,6 +28,9 @@ describe('eventsContract', () => {
     expect(eventsContract.channels.phaseChanged).toBe('event:phaseChanged');
     expect(eventsContract.channels.timerTick).toBe('event:timerTick');
     expect(eventsContract.channels.timerExpired).toBe('event:timerExpired');
+    expect(eventsContract.channels.competitionInterruptionChanged).toBe('event:competitionInterruptionChanged');
+    expect(eventsContract.channels.safetyStopChanged).toBe('event:safetyStopChanged');
+    expect(eventsContract.channels.competitionCueChanged).toBe('event:competitionCueChanged');
     expect(eventsContract.channels.seriesCompleted).toBe('event:seriesCompleted');
     expect(eventsContract.channels.stageAdvanced).toBe('event:stageAdvanced');
     expect(eventsContract.channels.competitionFinished).toBe('event:competitionFinished');
@@ -95,6 +98,17 @@ describe('eventsContract', () => {
       seriesIndex: 0,
       stageName: 'Preparation',
       scored: false,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('competitionInterruptionChanged schema accepts durable Lane state', () => {
+    const result = eventsContract.events.competitionInterruptionChanged.schema.safeParse({
+      competitionId: 'competition-1',
+      interruptionId: '11111111-1111-4111-8111-111111111111',
+      status: 'SIGHTING',
+      remainingSeconds: 540,
+      unlimitedSightingShots: true,
     });
     expect(result.success).toBe(true);
   });

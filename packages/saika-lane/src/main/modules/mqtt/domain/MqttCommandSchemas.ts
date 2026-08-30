@@ -33,6 +33,21 @@ export const LeaveCompetitionCmdSchema = CommandBaseSchema.extend({
   competitionId: z.string().uuid(),
 });
 
+export const ProbeClockCmdSchema = CommandBaseSchema.extend({
+  directorSentAt: z.string().datetime(),
+});
+
+export const ActivateSafetyStopCmdSchema = CommandBaseSchema.extend({
+  safetyStopId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const ClearSafetyStopCmdSchema = CommandBaseSchema.extend({
+  safetyStopId: z.string().uuid(),
+  clearanceReason: z.string().trim().min(1).max(500),
+  confirmedSafe: z.literal(true),
+});
+
 // ============================================================
 // Broadcast Commands
 // ============================================================
@@ -70,6 +85,7 @@ export const AdvanceSeriesCmdSchema = CommandBaseSchema.extend({
   fromSeriesIndex: z.number().int().min(0),
   resumeOnly: z.boolean().optional(),
   timerStartAt: z.string().datetime().optional(),
+  timerDurationSeconds: z.number().int().positive().optional(),
 });
 
 export const FinishCompetitionCmdSchema = CommandBaseSchema;
@@ -84,6 +100,42 @@ export const AssignAthleteCmdSchema = CommandBaseSchema.extend({
 
 export const ResetSessionCmdSchema = CommandBaseSchema.extend({
   reason: z.string().optional(),
+});
+
+export const PauseTimerCmdSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+  pausedAt: z.string().datetime(),
+});
+
+export const ResumeTimerCmdSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+  timerStartAt: z.string().datetime(),
+  authorizedRemainingSeconds: z.number().int().positive(),
+  unlimitedSightingShots: z.boolean(),
+});
+
+export const ResumeMatchCmdSchema = CommandBaseSchema.extend({
+  interruptionId: z.string().uuid(),
+});
+
+export const RetireFinalistCmdSchema = CommandBaseSchema.extend({
+  checkpointId: z.string().uuid(),
+  rank: z.number().int().min(2).max(99),
+  afterShot: z.number().int().positive(),
+});
+
+export const StartShootOffCmdSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  iteration: z.number().int().positive(),
+  timerStartAt: z.string().datetime(),
+  timerDurationSeconds: z.number().int().positive(),
+  targetLaneIds: z.array(z.string().uuid()).min(2),
+});
+
+export const StopShootOffCmdSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  iteration: z.number().int().positive(),
+  targetLaneIds: z.array(z.string().uuid()).min(2),
 });
 
 // ============================================================
@@ -101,6 +153,7 @@ export const CommandAckPayloadSchema = z.object({
     })
     .optional(),
   warning: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
   acknowledgedAt: z.string().datetime(),
 });
 
@@ -111,6 +164,9 @@ export const CommandAckPayloadSchema = z.object({
 export type CommandBase = z.infer<typeof CommandBaseSchema>;
 export type JoinCompetitionCmd = z.infer<typeof JoinCompetitionCmdSchema>;
 export type LeaveCompetitionCmd = z.infer<typeof LeaveCompetitionCmdSchema>;
+export type ProbeClockCmd = z.infer<typeof ProbeClockCmdSchema>;
+export type ActivateSafetyStopCmd = z.infer<typeof ActivateSafetyStopCmdSchema>;
+export type ClearSafetyStopCmd = z.infer<typeof ClearSafetyStopCmdSchema>;
 export type StartSightingCmd = z.infer<typeof StartSightingCmdSchema>;
 export type EndSightingCmd = z.infer<typeof EndSightingCmdSchema>;
 export type StartMatchCmd = z.infer<typeof StartMatchCmdSchema>;
@@ -120,4 +176,10 @@ export type AdvanceSeriesCmd = z.infer<typeof AdvanceSeriesCmdSchema>;
 export type FinishCompetitionCmd = z.infer<typeof FinishCompetitionCmdSchema>;
 export type AssignAthleteCmd = z.infer<typeof AssignAthleteCmdSchema>;
 export type ResetSessionCmd = z.infer<typeof ResetSessionCmdSchema>;
+export type PauseTimerCmd = z.infer<typeof PauseTimerCmdSchema>;
+export type ResumeTimerCmd = z.infer<typeof ResumeTimerCmdSchema>;
+export type ResumeMatchCmd = z.infer<typeof ResumeMatchCmdSchema>;
+export type RetireFinalistCmd = z.infer<typeof RetireFinalistCmdSchema>;
+export type StartShootOffCmd = z.infer<typeof StartShootOffCmdSchema>;
+export type StopShootOffCmd = z.infer<typeof StopShootOffCmdSchema>;
 export type CommandAckPayload = z.infer<typeof CommandAckPayloadSchema>;

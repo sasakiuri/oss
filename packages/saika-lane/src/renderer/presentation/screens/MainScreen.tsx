@@ -11,6 +11,8 @@ import React, { useCallback, useState } from 'react';
 
 import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
+import { FinalCommandCue } from '@/renderer/presentation/components/FinalCommandCue';
+import { SafetyStopOverlay } from '@/renderer/presentation/components/SafetyStopOverlay';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
@@ -23,6 +25,7 @@ import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitc
 import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useTitleBar } from '@/renderer/presentation/hooks/useTitleBar';
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
@@ -49,6 +52,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
   const { status } = useConnectionStore();
   const isConnected = status === 'connected';
+  const interruption = useCompetitionStore((state) => state.interruption);
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection'>('general');
@@ -80,6 +84,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
   return (
     <div className={`flex h-screen flex-col overflow-hidden bg-zinc-900 ${className}`.trim()}>
+      <SafetyStopOverlay />
+      <FinalCommandCue />
       <TitleBar
         isMaximized={isMaximized}
         isFullscreen={isFullscreen}
@@ -110,7 +116,27 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
         <SidePanel />
 
-        <main className="flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
+        <main className="relative flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
+          {interruption && interruption.status !== 'RUNNING_MATCH' && (
+            <div
+              className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center ${
+                interruption.status === 'SIGHTING' ? 'bg-amber-950/50' : 'bg-red-950/75'
+              }`}
+              role="status"
+              aria-live="assertive"
+            >
+              <div className="rounded-xl border-4 border-white bg-zinc-950/90 px-16 py-10 text-center text-white shadow-2xl">
+                <div className="text-7xl font-black tracking-widest">
+                  {interruption.status === 'SIGHTING' ? 'SIGHTING' : 'STOP'}
+                </div>
+                <div className="mt-3 text-2xl font-semibold">
+                  {interruption.status === 'SIGHTING'
+                    ? 'Unlimited sighting shots authorized'
+                    : 'Range interruption — await Director instruction'}
+                </div>
+              </div>
+            </div>
+          )}
           {currentSessionId && discipline ? (
             <TargetDisplay
               shots={shots}

@@ -24,7 +24,10 @@ export type {
   DebugLogEmitted,
   MqttConnectionError,
   MqttControlStateChanged,
+  FiringWindowViolationDetected,
 } from '@/main/modules/mqtt';
+
+export type { CompetitionAnnouncementDue } from '@/main/modules/competition-announcements';
 
 // Re-export lane-control events
 export type {

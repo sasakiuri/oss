@@ -1,5 +1,7 @@
 import type { DomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import type { FiringWindowViolation } from './IFiringWindowJournal';
+import type { ShotObservationEvidencePayload } from '@/shared/mqtt';
 
 export interface ShotReceived extends DomainEvent {
   type: 'ShotReceived';
@@ -33,6 +35,17 @@ export interface MqttControlStateChanged extends DomainEvent {
   snapshot: MqttControlSnapshotDto;
 }
 
+export interface FiringWindowViolationDetected extends DomainEvent {
+  type: 'FiringWindowViolationDetected';
+  violation: FiringWindowViolation;
+}
+
+export interface ShotObservationEvidenceObserved extends DomainEvent {
+  type: 'ShotObservationEvidenceObserved';
+  evidence: ShotObservationEvidencePayload;
+  observedAt: Date;
+}
+
 declare module '@/main/shared-infra/events/EventBus' {
   interface EventRegistry {
     ShotReceived: ShotReceived;
@@ -40,5 +53,7 @@ declare module '@/main/shared-infra/events/EventBus' {
     DebugLogEmitted: DebugLogEmitted;
     MqttConnectionError: MqttConnectionError;
     MqttControlStateChanged: MqttControlStateChanged;
+    FiringWindowViolationDetected: FiringWindowViolationDetected;
+    ShotObservationEvidenceObserved: ShotObservationEvidenceObserved;
   }
 }

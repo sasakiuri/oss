@@ -33,13 +33,21 @@ export interface RoundConfig {
  *
  * Starts with participantCount athletes and eliminates one after each series until two remain.
  */
-function buildSeriesEliminationSchedule(participantCount: number, totalSeries: number): Record<number, number> {
+function buildSeriesEliminationSchedule(
+  participantCount: number,
+  totalSeries: number,
+  checkpointEverySeries: number,
+): Record<number, number> {
   const schedule: Record<number, number> = {};
-  // Fewer participants delay the first elimination series.
-  const firstEliminationSeries = Math.max(0, totalSeries - (participantCount - 1));
+  // The last checkpoint is the final series. Fewer participants therefore
+  // enter the same course later without changing its terminal checkpoint.
+  const firstEliminationSeries = Math.max(
+    checkpointEverySeries - 1,
+    totalSeries - 1 - checkpointEverySeries * (participantCount - 2),
+  );
 
   for (let rank = participantCount; rank >= 2; rank--) {
-    const seriesIndex = firstEliminationSeries + (participantCount - rank);
+    const seriesIndex = firstEliminationSeries + (participantCount - rank) * checkpointEverySeries;
     if (seriesIndex < totalSeries) {
       schedule[seriesIndex] = rank;
     }
@@ -76,7 +84,11 @@ export function buildRoundConfig(def: CompetitionTypeDefinition, participantCoun
 
   const eliminationSchedule =
     eliminationStage && participantCount !== undefined
-      ? buildSeriesEliminationSchedule(participantCount, eliminationStage.series.length)
+      ? buildSeriesEliminationSchedule(
+          participantCount,
+          eliminationStage.series.length,
+          eliminationStage.elimination?.checkpointEverySeries ?? 1,
+        )
       : {};
 
   return {

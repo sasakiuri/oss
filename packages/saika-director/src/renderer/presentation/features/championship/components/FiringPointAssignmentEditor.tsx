@@ -6,6 +6,8 @@ import { ParticipantPool } from './ParticipantPool';
 import { ConfigBar } from './ConfigBar';
 import { useGridDragDrop } from '../../../hooks/useGridDragDrop';
 import type { FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import { SquaddingPanel } from './SquaddingPanel';
+import { StartListPanel } from './StartListPanel';
 
 interface AssignmentRow {
   relayNumber: number;
@@ -17,6 +19,10 @@ interface FiringPointAssignmentEditorProps {
   assignments: FiringPointAssignmentDto[];
   participants: ParticipantDto[];
   onSave: (assignments: AssignmentRow[]) => Promise<boolean>;
+  eventId?: string;
+  competitionTypeId?: string;
+  round?: 'Elimination' | 'Qualification' | 'Final' | 'Individual';
+  onAssignmentsApplied?: () => Promise<void>;
 }
 
 interface GridState {
@@ -25,7 +31,15 @@ interface GridState {
   grid: (string | null)[][];
 }
 
-export function FiringPointAssignmentEditor({ assignments, participants, onSave }: FiringPointAssignmentEditorProps) {
+export function FiringPointAssignmentEditor({
+  assignments,
+  participants,
+  onSave,
+  eventId,
+  competitionTypeId,
+  round,
+  onAssignmentsApplied,
+}: FiringPointAssignmentEditorProps) {
   const [gridState, setGridState] = useState<GridState>({
     relayCount: 1,
     firingPointCount: 1,
@@ -148,6 +162,15 @@ export function FiringPointAssignmentEditor({ assignments, participants, onSave 
 
   return (
     <div className="space-y-4">
+      {eventId && competitionTypeId && onAssignmentsApplied && (
+        <SquaddingPanel
+          eventId={eventId}
+          competitionTypeId={competitionTypeId}
+          relayCount={gridState.relayCount}
+          firingPointCount={gridState.firingPointCount}
+          onApplied={onAssignmentsApplied}
+        />
+      )}
       <div className="flex items-center justify-between">
         <h4 className="text-[13px] font-semibold text-vscode-text">Firing-point grid</h4>
         {isDirty && (
@@ -186,6 +209,8 @@ export function FiringPointAssignmentEditor({ assignments, participants, onSave 
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       />
+
+      {eventId && <StartListPanel eventId={eventId} round={round} sourceDirty={isDirty || isSaving} />}
     </div>
   );
 }

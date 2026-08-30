@@ -141,7 +141,6 @@ describe('ChampionshipAssignmentPanel', () => {
             id: PARTICIPANT_ID,
             startNumber: 1,
             name: 'Alex Smith',
-            teamName: 'Tokyo',
           },
         },
       ],

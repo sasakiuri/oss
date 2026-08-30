@@ -24,6 +24,7 @@ export class LaneTimerService {
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
     private readonly eventBus: IEventBus,
+    private readonly isRunPermitted: () => boolean = () => true,
   ) {}
 
   /**
@@ -35,6 +36,7 @@ export class LaneTimerService {
    */
   start(competitionId: string, remainingSeconds: number, totalSeconds: number): void {
     this.stop();
+    this.assertRunPermitted();
     this.competitionId = competitionId;
     this.remainingSeconds = remainingSeconds;
     this.totalSeconds = totalSeconds;
@@ -61,6 +63,7 @@ export class LaneTimerService {
    */
   async startAt(competitionId: string, absoluteTime: string, durationSeconds: number): Promise<void> {
     this.stop();
+    this.assertRunPermitted();
 
     const startMs = new Date(absoluteTime).getTime();
     const generation = this.startGeneration;
@@ -69,6 +72,7 @@ export class LaneTimerService {
       await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
       if (generation !== this.startGeneration) return;
     }
+    this.assertRunPermitted();
 
     const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
     const remainingSeconds = durationSeconds - elapsedSeconds;
@@ -77,10 +81,14 @@ export class LaneTimerService {
       // Already expired: execute expiry immediately (expire directly without delegating to processTick)
       try {
         const state = await this.competitionRepository.findById(competitionId);
+        if (generation !== this.startGeneration) return;
+        this.assertRunPermitted();
         if (!state || state.phase !== 'ACTIVE') return;
 
         const updated = state.tickTimerBy(durationSeconds);
         await this.competitionRepository.save(updated);
+        if (generation !== this.startGeneration) return;
+        this.assertRunPermitted();
 
         const expired = updated.expireTimer();
         await this.competitionRepository.save(expired);
@@ -94,6 +102,7 @@ export class LaneTimerService {
 
         emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
       } catch (error) {
+        if (isTimerRunBlockedError(error)) throw error;
         getLogger().error(
           'Failed to expire timer in startAt',
           'domain',
@@ -106,15 +115,20 @@ export class LaneTimerService {
     // Update CompetitionState for the elapsed time before starting the normal timer
     try {
       const state = await this.competitionRepository.findById(competitionId);
+      if (generation !== this.startGeneration) return;
+      this.assertRunPermitted();
       if (!state || state.phase !== 'ACTIVE') return;
 
       if (elapsedSeconds > 0) {
         const updated = state.tickTimerBy(elapsedSeconds);
         await this.competitionRepository.save(updated);
+        if (generation !== this.startGeneration) return;
+        this.assertRunPermitted();
       }
 
       this.start(competitionId, remainingSeconds, durationSeconds);
     } catch (error) {
+      if (isTimerRunBlockedError(error)) throw error;
       getLogger().error(
         'Failed to adjust timer for startAt',
         'domain',
@@ -137,14 +151,56 @@ export class LaneTimerService {
     this.totalSeconds = 0;
   }
 
+  /**
+   * Freezes and persists the exact in-memory countdown for a Lane-specific interruption.
+   */
+  async pause(competitionId: string): Promise<{ remainingSeconds: number; totalSeconds: number }> {
+    const state = await this.competitionRepository.findById(competitionId);
+    if (!state || state.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
+
+    let remainingSeconds = state.timer.remainingSeconds;
+    let totalSeconds = state.timer.totalSeconds;
+    if (this.competitionId === competitionId) {
+      const elapsedSeconds = Math.max(0, Math.round((Date.now() - this.lastTickTime) / 1000));
+      remainingSeconds = Math.max(0, this.remainingSeconds - elapsedSeconds);
+      totalSeconds = this.totalSeconds;
+    }
+
+    await this.competitionRepository.save(state.replaceTimer(remainingSeconds, totalSeconds));
+    this.eventBus.emit({
+      type: 'TimerTick',
+      timestamp: Date.now(),
+      aggregateId: competitionId,
+      remainingSeconds,
+      totalSeconds,
+      formattedRemaining: this.formatRemaining(remainingSeconds),
+    });
+    this.stop();
+    return { remainingSeconds, totalSeconds };
+  }
+
+  /** Persists an authorized timer value and starts it at the supplied absolute time. */
+  async resumeAt(competitionId: string, absoluteTime: string, durationSeconds: number): Promise<void> {
+    this.assertRunPermitted();
+    const state = await this.competitionRepository.findById(competitionId);
+    this.assertRunPermitted();
+    if (!state || state.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
+    await this.competitionRepository.save(state.replaceTimer(durationSeconds, durationSeconds));
+    this.assertRunPermitted();
+    await this.startAt(competitionId, absoluteTime, durationSeconds);
+  }
+
   /** Applies a Director timer-expired command immediately and idempotently. */
   async expire(competitionId: string): Promise<void> {
     this.stop();
+    this.assertRunPermitted();
     const state = await this.competitionRepository.findById(competitionId);
+    this.assertRunPermitted();
     if (!state || state.phase !== 'ACTIVE') return;
 
     const updated = state.tickTimerBy(state.timer.remainingSeconds);
     await this.competitionRepository.save(updated);
+    this.assertRunPermitted();
     const expired = updated.expireTimer();
     await this.competitionRepository.save(expired);
 
@@ -184,6 +240,12 @@ export class LaneTimerService {
    */
   async processTick(): Promise<void> {
     if (!this.competitionId) return;
+    if (!this.isRunPermitted()) {
+      this.stop();
+      return;
+    }
+    const competitionId = this.competitionId;
+    const generation = this.startGeneration;
 
     const now = Date.now();
     const elapsedSeconds = Math.round((now - this.lastTickTime) / 1000);
@@ -197,7 +259,7 @@ export class LaneTimerService {
     this.eventBus.emit({
       type: 'TimerTick',
       timestamp: Date.now(),
-      aggregateId: this.competitionId,
+      aggregateId: competitionId,
       remainingSeconds: this.remainingSeconds,
       totalSeconds: this.totalSeconds,
       formattedRemaining: this.formatRemaining(this.remainingSeconds),
@@ -206,7 +268,13 @@ export class LaneTimerService {
     // Persist only on timer expiry
     if (this.remainingSeconds <= 0) {
       try {
-        const state = await this.competitionRepository.findById(this.competitionId);
+        if (generation !== this.startGeneration) return;
+        const state = await this.competitionRepository.findById(competitionId);
+        if (generation !== this.startGeneration) return;
+        if (!this.isRunPermitted()) {
+          this.stop();
+          return;
+        }
         if (!state || state.phase !== 'ACTIVE') {
           this.stop();
           return;
@@ -214,6 +282,11 @@ export class LaneTimerService {
 
         const updated = state.tickTimerBy(state.timer.remainingSeconds);
         await this.competitionRepository.save(updated);
+        if (generation !== this.startGeneration) return;
+        if (!this.isRunPermitted()) {
+          this.stop();
+          return;
+        }
 
         const expired = updated.expireTimer();
         await this.competitionRepository.save(expired);
@@ -246,4 +319,16 @@ export class LaneTimerService {
     const sec = clamped % 60;
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   }
+
+  private assertRunPermitted(): void {
+    if (this.isRunPermitted()) return;
+    this.stop();
+    const error = new Error('Competition timer operation is blocked by the Lane execution gate');
+    (error as Error & { code: string }).code = 'LANE_TIMER_RUN_BLOCKED';
+    throw error;
+  }
+}
+
+function isTimerRunBlockedError(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === 'LANE_TIMER_RUN_BLOCKED';
 }

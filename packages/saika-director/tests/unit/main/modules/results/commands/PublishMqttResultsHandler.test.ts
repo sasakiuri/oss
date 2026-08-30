@@ -247,8 +247,26 @@ describe('PublishMqttResultsHandler', () => {
     const saved = vi.mocked(repository.replaceByCompetitionId).mock.calls[0]![3][0]!;
     expect(saved.totalScore).toBe(20.5);
     expect(saved.rankingShots).toEqual([
-      { ringScore: 10, decimalScore: 10.6, innerTen: true, shotId: lane.shots[0]!.shotId, seriesIndex: 0 },
-      { ringScore: 10, decimalScore: 10.1, innerTen: false, shotId: lane.shots[1]!.shotId, seriesIndex: 0 },
+      {
+        ringScore: 10,
+        decimalScore: 10.4,
+        decimalScoreSource: 'DEVICE',
+        innerTen: true,
+        innerTenSource: 'CALCULATED',
+        scoreConflict: true,
+        shotId: lane.shots[0]!.shotId,
+        seriesIndex: 0,
+      },
+      {
+        ringScore: 10,
+        decimalScore: null,
+        decimalScoreSource: null,
+        innerTen: false,
+        innerTenSource: 'CALCULATED',
+        scoreConflict: false,
+        shotId: lane.shots[1]!.shotId,
+        seriesIndex: 0,
+      },
     ]);
   });
 

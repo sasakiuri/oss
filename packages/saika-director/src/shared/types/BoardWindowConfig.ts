@@ -40,7 +40,7 @@ export interface BoardWindowConfig {
   relayNumber?: number;
   /** Results List Print: round type. */
   round?: string;
-  /** Results List Print: competition type such as BR60S or BP60. */
+  /** Results List Print: competition type such as AR60 or BR60S. */
   eventType?: string;
   /** Incident Report Print: report ID. */
   reportId?: string;

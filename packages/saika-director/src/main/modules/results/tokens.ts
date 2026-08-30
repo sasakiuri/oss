@@ -11,5 +11,11 @@ export const PublishResultsToken = defineCommand<PublishResultsCommand, unknown>
 export const PublishMqttResultsToken = defineCommand<PublishMqttResultsCommand, PublishResultsResponse>(
   'PublishMqttResults',
 );
+export const PublishMqttFinalResultsToken = defineCommand<PublishMqttResultsCommand, PublishResultsResponse>(
+  'PublishMqttFinalResults',
+);
+export const PublishMqttMixedTeamFinalResultsToken = defineCommand<PublishMqttResultsCommand, PublishResultsResponse>(
+  'PublishMqttMixedTeamFinalResults',
+);
 export const PublishFinalResultsToken = defineCommand<PublishFinalResultsCommand, unknown>('PublishFinalResults');
 export const ConfirmResultsToken = defineCommand<ConfirmResultsCommand, unknown>('ConfirmResults');

@@ -43,6 +43,12 @@ interface CompetitionState {
   competitionId: string | null;
   /** Saved competition type ID */
   savedCompetitionTypeId: string | null;
+  interruption: {
+    interruptionId: string;
+    status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
+    remainingSeconds: number;
+    unlimitedSightingShots: boolean;
+  } | null;
 }
 
 interface CompetitionActions {
@@ -66,6 +72,7 @@ interface CompetitionActions {
   setCompetitionId: (id: string | null) => void;
   /** Set saved competition type ID */
   setSavedCompetitionTypeId: (id: string | null) => void;
+  setInterruption: (interruption: CompetitionState['interruption']) => void;
   /** Apply phase change all at once */
   applyPhaseChange: (phase: Phase, stageIndex: number, seriesIndex: number, stageName: string, scored: boolean) => void;
   /** Reset competition state */
@@ -86,6 +93,7 @@ const initialState: CompetitionState = {
   acc: 'DECIMAL',
   competitionId: null,
   savedCompetitionTypeId: null,
+  interruption: null,
 };
 
 export const useCompetitionStore = create<CompetitionState & CompetitionActions>((set) => ({
@@ -129,6 +137,10 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
 
   setSavedCompetitionTypeId: (id) => {
     set({ savedCompetitionTypeId: id });
+  },
+
+  setInterruption: (interruption) => {
+    set({ interruption });
   },
 
   applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored) => {

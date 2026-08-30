@@ -14,6 +14,7 @@ Saika Lane の競技種別（CompetitionType）に関する設計資料。
 CompetitionTypeDefinition
 ├── id: string                    # 種別ID（例: 'BR60S'）
 ├── name: string                  # 表示名（例: '10m ビームライフル60発立射'）
+├── rulePackId?: string           # 版管理された規則定義（ISSF種目）
 ├── discipline: string            # Saika種目（例: 'BEAM_RIFLE_10M'）
 └── config: RoundConfig           # この CompetitionType の唯一のラウンド定義
     ├── name: string              # ラウンド種別名（例: 'Qualification', 'Final'）
@@ -50,28 +51,31 @@ CompetitionTypeDefinition
 
 ### AR60 (Qualification)
 
-| ステージ | 種別          | シリーズ       | タイマー                    |
-| -------- | ------------- | -------------- | --------------------------- |
-| Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
-| Match    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+| ステージ                 | 種別          | シリーズ       | タイマー                    |
+| ------------------------ | ------------- | -------------- | --------------------------- |
+| Preparation and Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
+| Match                    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
 
 - Saika種目: `AIR_RIFLE_10M`
 - 採点方式: 小数点（0.1点刻み）
-- 使用標的: ISSF_AR_10M
+- 使用標的: `ISSF_AIR_RIFLE_10M_2026`
 
 ### AP60 (Qualification)
 
-| ステージ | 種別          | シリーズ       | タイマー                    |
-| -------- | ------------- | -------------- | --------------------------- |
-| Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
-| Match    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+| ステージ                 | 種別          | シリーズ       | タイマー                    |
+| ------------------------ | ------------- | -------------- | --------------------------- |
+| Preparation and Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
+| Match                    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
 
 - Saika種目: `AIR_PISTOL_10M`
 - 採点方式: 整数圏
-- 使用標的: ISSF_AP_10M
+- 使用標的: `ISSF_AIR_PISTOL_10M_2026`
 
 AR60とAP60の時間は電子標的を使用する60発Qualificationに対応する。紙標的使用時などの別条件は
 Saika Laneの現行定義には含めない。
+
+この2種目は `@sasakiuri/saika-rules` の Edition 2025 Second Print 07/2026 Rule Pack を共通ソースとし、
+Lane と Director が個別の adapter でローカル競技定義へ変換する。国内ルールの BR60S / BP60 は独立定義のまま扱う。
 
 ---
 

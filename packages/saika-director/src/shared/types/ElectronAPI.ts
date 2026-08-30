@@ -9,7 +9,24 @@ import type {
   resultsContract,
   scoringDecisionsContract,
   resultVerificationContract,
+  resultPublicationContract,
+  competitionAnnouncementsContract,
   incidentReportsContract,
+  targetExaminationsContract,
+  rangeInterruptionsContract,
+  relayReadinessContract,
+  teamResultsContract,
+  protestsContract,
+  estBackupVerificationContract,
+  finalControlContract,
+  finalOperationsContract,
+  finalRecoveriesContract,
+  adjudicationCasesContract,
+  startListsContract,
+  mixedTeamFinalControlContract,
+  squaddingContract,
+  productionOperationsContract,
+  mixedTeamTimeoutsContract,
   finalPlacementReviewContract,
   boardContract,
   shootoffContract,
@@ -93,7 +110,24 @@ export interface ElectronAPI {
   results: InferBridge<typeof resultsContract>;
   scoringDecisions: InferBridge<typeof scoringDecisionsContract>;
   resultVerification: InferBridge<typeof resultVerificationContract>;
+  resultPublication: InferBridge<typeof resultPublicationContract>;
+  competitionAnnouncements: InferBridge<typeof competitionAnnouncementsContract>;
   incidentReports: InferBridge<typeof incidentReportsContract>;
+  targetExaminations: InferBridge<typeof targetExaminationsContract>;
+  rangeInterruptions: InferBridge<typeof rangeInterruptionsContract>;
+  relayReadiness: InferBridge<typeof relayReadinessContract>;
+  teamResults: InferBridge<typeof teamResultsContract>;
+  protests: InferBridge<typeof protestsContract>;
+  estBackupVerification: InferBridge<typeof estBackupVerificationContract>;
+  finalControl: InferBridge<typeof finalControlContract>;
+  finalOperations: InferBridge<typeof finalOperationsContract>;
+  finalRecoveries: InferBridge<typeof finalRecoveriesContract>;
+  adjudicationCases: InferBridge<typeof adjudicationCasesContract>;
+  startLists: InferBridge<typeof startListsContract>;
+  mixedTeamFinalControl: InferBridge<typeof mixedTeamFinalControlContract>;
+  squadding: InferBridge<typeof squaddingContract>;
+  productionOperations: InferBridge<typeof productionOperationsContract>;
+  mixedTeamTimeouts: InferBridge<typeof mixedTeamTimeoutsContract>;
   finalPlacementReview: InferBridge<typeof finalPlacementReviewContract>;
   board: InferBridge<typeof boardContract>;
   shootoff: InferBridge<typeof shootoffContract>;

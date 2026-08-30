@@ -19,6 +19,7 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 import type { HardwareStatePublisher } from './HardwareStatePublisher';
 import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
+import type { LaneSafetyStatePublisher } from './LaneSafetyStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
 import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
@@ -44,6 +45,7 @@ export class RetainPublisher {
     competitionStatePublisher: LaneCompetitionStatePublisher,
     scorePublisher: LaneScorePublisher,
     assignmentPublisher: LaneAssignmentPublisher,
+    private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -88,6 +90,9 @@ export class RetainPublisher {
 
     // 1. Re-publish hardware state
     this.hardwarePublisher.publishState();
+
+    // Safety state is Lane-owned and must survive without competition membership.
+    await this.safetyStatePublisher?.publishCurrentState();
 
     // 2. Re-publish competition-related Retain topics
     const competition = await this.competitionRepository.findActive();

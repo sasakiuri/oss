@@ -1,0 +1,29 @@
+{
+  "name": "@sasakiuri/saika-rules",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned, application-neutral competition rule packs for Saika",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./issf-2026": "./src/issf-2026/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "fix": "eslint --fix . && prettier --write .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@sasakiuri/eslint-config": "*",
+    "@sasakiuri/prettier-config": "*",
+    "@sasakiuri/typescript-config": "*",
+    "eslint": "^9",
+    "prettier": "^3.6.2",
+    "typescript": "5.7.3",
+    "vitest": "3.2.7"
+  },
+  "prettier": "@sasakiuri/prettier-config"
+}

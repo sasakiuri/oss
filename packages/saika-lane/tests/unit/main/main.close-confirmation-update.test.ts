@@ -214,7 +214,9 @@ vi.mock('@/main/shared-infra/module', () => ({
   },
 }));
 vi.mock('@/main/shared-infra/sqlite/SqliteDb', () => ({
-  createSqliteDb: vi.fn(() => ({})),
+  createSqliteDb: vi.fn(() => ({
+    prepare: vi.fn(() => ({ all: vi.fn(() => []), run: vi.fn() })),
+  })),
 }));
 vi.mock('@/main/updater/AppUpdater', () => ({
   AppUpdater: class {

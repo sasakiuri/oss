@@ -8,15 +8,39 @@ import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirm
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { useCompetitionControlStore } from '@/renderer/presentation/stores/domain/competitionControl.store';
 import { useNavigationStore } from '@/renderer/presentation/stores/ui/navigation.store';
-import type { MqttCommandExecutionResultDto, MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import type { CompetitionStartPhase } from '@/shared/competitionTypes';
+import type {
+  ClockQualityAssessmentDto,
+  FiringWindowViolationDto,
+  MqttCommandExecutionResultDto,
+  MqttControlSnapshotDto,
+  ShotObservationEvidenceDto,
+} from '@/shared/ipc/contracts';
 import type { Athlete } from '@/shared/mqtt';
 
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
+import { TargetExaminationsPanel } from '../target-examinations';
+import { RangeInterruptionsPanel } from '../range-interruptions';
+import { SafetyStopPanel } from '../range-safety';
+import { FinalControlPanel } from '../final-control';
+import { FinalOperationPanel } from '../final-operations';
+import { FinalRecoveryPanel } from '../final-recoveries';
+import { RelayReadinessPanel } from '../relay-readiness';
+import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
+import { ProductionOperationsPanel } from '../production-operations';
+import { MixedTeamTimeoutPanel } from '../mixed-team-timeouts';
 import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './components/ChampionshipAssignmentPanel';
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
+import { buildPhaseStartConfirmation } from './phaseStartRequirements';
 import { findAdvanceSeriesSource } from './progressPlanning';
+import {
+  asSupportedLaneCompetitionType,
+  getLaneCompetitionTiming,
+  LANE_COMPETITION_TYPES,
+  type SupportedLaneCompetitionType,
+} from './supportedCompetitionTypes';
 
 const EMPTY_SNAPSHOT: MqttControlSnapshotDto = {
   connected: false,
@@ -42,6 +66,20 @@ function formatActionName(action: string): string {
   return action.replaceAll('-', ' ');
 }
 
+function formatTimerDuration(seconds: number): string {
+  return seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} sec`;
+}
+
+function formatClockMetric(value: number | null): string {
+  return value === null ? 'n/a' : `${value >= 0 ? '+' : ''}${value.toFixed(1)} ms`;
+}
+
+function estimateRemainingSeconds(timer: { timerStartAt: string; timerDurationSeconds: number } | undefined): number {
+  if (!timer) return 0;
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Date.parse(timer.timerStartAt)) / 1000));
+  return Math.max(0, timer.timerDurationSeconds - elapsedSeconds);
+}
+
 function commandSummary(result: MqttCommandExecutionResultDto): string {
   const warnings = result.lanes
     .filter((lane) => lane.warning)
@@ -62,16 +100,23 @@ export function CompetitionControlScreen() {
   const [snapshot, setSnapshot] = useState<MqttControlSnapshotDto>(EMPTY_SNAPSHOT);
   const [selectedLaneIds, setSelectedLaneIds] = useState<Set<string>>(new Set());
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
-  const [competitionTypeId, setCompetitionTypeId] = useState<'BR60S' | 'BP60'>('BR60S');
+  const [competitionTypeId, setCompetitionTypeId] = useState<SupportedLaneCompetitionType>('BR60S');
   const [assignmentLaneId, setAssignmentLaneId] = useState('');
   const [athleteStartNumber, setAthleteStartNumber] = useState('1');
   const [athleteName, setAthleteName] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [firingWindowViolations, setFiringWindowViolations] = useState<FiringWindowViolationDto[]>([]);
+  const [shotObservationEvidence, setShotObservationEvidence] = useState<ShotObservationEvidenceDto[]>([]);
+  const [clockQuality, setClockQuality] = useState<Record<string, ClockQualityAssessmentDto>>({});
   const resultContexts = useCompetitionControlStore((state) => state.resultContexts);
   const setResultContext = useCompetitionControlStore((state) => state.setResultContext);
   const clearResultContext = useCompetitionControlStore((state) => state.clearResultContext);
   const liveSnapshotVersionRef = useRef(0);
   const refreshRequestIdRef = useRef(0);
+  const violationRequestIdRef = useRef(0);
+  const liveViolationVersionRef = useRef(0);
+  const observationRequestIdRef = useRef(0);
+  const liveObservationVersionRef = useRef(0);
   const selectAllLanesRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -87,6 +132,28 @@ export function CompetitionControlScreen() {
     }
   }, []);
 
+  const probeLaneClock = useCallback(
+    async (laneId: string) => {
+      setBusyAction(`probe-clock-${laneId}`);
+      try {
+        const response = await mqttService.probeLaneClock({ laneId });
+        if (!response.success) {
+          addNotification('error', response.error.message);
+          return;
+        }
+        setClockQuality((current) => ({ ...current, [laneId]: response.data.assessment }));
+        const assessment = response.data.assessment;
+        addNotification(
+          assessment.status === 'GOOD' || assessment.status === 'DISABLED' ? 'success' : 'warning',
+          `Lane clock ${assessment.status.toLowerCase()}: offset ${formatClockMetric(assessment.offsetMilliseconds)}, uncertainty ${formatClockMetric(assessment.uncertaintyMilliseconds)}`,
+        );
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [addNotification],
+  );
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -95,6 +162,73 @@ export function CompetitionControlScreen() {
     liveSnapshotVersionRef.current += 1;
     setSnapshot(nextSnapshot);
   });
+
+  useEvent('firingWindowViolationDetected', (violation) => {
+    if (violation.competitionId !== selectedCompetitionId) return;
+    liveViolationVersionRef.current += 1;
+    setFiringWindowViolations((current) =>
+      current.some((entry) => entry.id === violation.id) ? current : [...current, violation],
+    );
+  });
+
+  useEvent('shotObservationEvidenceObserved', (evidence) => {
+    if (evidence.competition?.competitionId !== selectedCompetitionId) return;
+    liveObservationVersionRef.current += 1;
+    setShotObservationEvidence((current) =>
+      current.some((entry) => entry.evidenceId === evidence.evidenceId) ? current : [...current, evidence],
+    );
+  });
+
+  useEffect(() => {
+    const requestId = ++violationRequestIdRef.current;
+    const liveVersion = liveViolationVersionRef.current;
+    if (!selectedCompetitionId) {
+      setFiringWindowViolations([]);
+      return;
+    }
+    setFiringWindowViolations((current) => (current.length === 0 ? current : []));
+
+    void mqttService.getFiringWindowViolations({ competitionId: selectedCompetitionId }).then(
+      (response) => {
+        if (
+          response.success &&
+          requestId === violationRequestIdRef.current &&
+          liveVersion === liveViolationVersionRef.current
+        ) {
+          if (response.data.length === 0) return;
+          setFiringWindowViolations((current) => {
+            const unchanged =
+              current.length === response.data.length &&
+              current.every((entry, index) => entry.id === response.data[index]?.id);
+            return unchanged ? current : response.data;
+          });
+        }
+      },
+      () => undefined,
+    );
+  }, [selectedCompetitionId]);
+
+  useEffect(() => {
+    const requestId = ++observationRequestIdRef.current;
+    const liveVersion = liveObservationVersionRef.current;
+    if (!selectedCompetitionId) {
+      setShotObservationEvidence([]);
+      return;
+    }
+    setShotObservationEvidence([]);
+    void mqttService.getShotObservationEvidence({ competitionId: selectedCompetitionId }).then(
+      (response) => {
+        if (
+          response.success &&
+          requestId === observationRequestIdRef.current &&
+          liveVersion === liveObservationVersionRef.current
+        ) {
+          setShotObservationEvidence(response.data);
+        }
+      },
+      () => undefined,
+    );
+  }, [selectedCompetitionId]);
 
   useEffect(() => {
     setSelectedLaneIds((current) => {
@@ -122,6 +256,10 @@ export function CompetitionControlScreen() {
     () => snapshot.competitions.find((competition) => competition.competitionId === selectedCompetitionId) ?? null,
     [selectedCompetitionId, snapshot.competitions],
   );
+  const selectedCompetitionTiming = getLaneCompetitionTiming(competitionTypeId);
+  const activeCompetitionType = asSupportedLaneCompetitionType(activeCompetition?.competitionTypeId);
+  const activeCompetitionTiming = activeCompetitionType ? getLaneCompetitionTiming(activeCompetitionType) : null;
+  const displayedCompetitionTiming = activeCompetitionTiming ?? selectedCompetitionTiming;
   const competitionByLaneId = useMemo(() => {
     const byLaneId = new Map<string, (typeof snapshot.competitions)[number]>();
     const mostRecentFirst = [...snapshot.competitions].sort(
@@ -356,7 +494,11 @@ export function CompetitionControlScreen() {
           startNumber,
           id: participant.id,
           name: participant.playerName,
-          ...(participant.affiliation.trim() ? { teamName: participant.affiliation.trim() } : {}),
+          ...(participant.teamId ? { teamId: participant.teamId } : {}),
+          ...(participant.teamName ? { teamName: participant.teamName } : {}),
+          ...(participant.gender ? { gender: participant.gender } : {}),
+          ...(participant.nationCode ? { nationCode: participant.nationCode } : {}),
+          ...(participant.issfId ? { issfCode: participant.issfId } : {}),
         };
       }
 
@@ -405,6 +547,46 @@ export function CompetitionControlScreen() {
     [activeCompetition, addNotification, runAction],
   );
 
+  const confirmPhaseStart = useCallback(
+    async (phase: CompetitionStartPhase): Promise<string[] | null> => {
+      const confirmation = buildPhaseStartConfirmation(phase, activeCompetitionTiming?.phaseStartRequirements?.[phase]);
+      if (!confirmation) return [];
+      const confirmed = await useConfirmDialogStore.getState().openConfirm(confirmation.message);
+      return confirmed ? [...confirmation.acknowledgedRequirementIds] : null;
+    },
+    [activeCompetitionTiming],
+  );
+
+  const startSighting = useCallback(async () => {
+    if (!activeCompetition || !activeCompetitionTiming) return;
+    const acknowledgedRequirementIds =
+      activeCompetition.phase === 'NOT_STARTED' ? await confirmPhaseStart('SIGHTING') : [];
+    if (acknowledgedRequirementIds === null) return;
+
+    await invokeCompetitionCommand('sighting', (competitionId) =>
+      mqttService.startSighting({
+        competitionId,
+        durationSeconds: activeCompetitionTiming.preparationAndSightingSeconds,
+        ...(activeCompetition.phase === 'SIGHTING' ? { targetLaneIds: pendingSightingLaneIds } : {}),
+        ...(acknowledgedRequirementIds.length > 0 ? { acknowledgedRequirementIds } : {}),
+      }),
+    );
+  }, [activeCompetition, activeCompetitionTiming, confirmPhaseStart, invokeCompetitionCommand, pendingSightingLaneIds]);
+
+  const startMatch = useCallback(async () => {
+    if (!activeCompetition || !activeCompetitionTiming) return;
+    const acknowledgedRequirementIds = await confirmPhaseStart('MATCH');
+    if (acknowledgedRequirementIds === null) return;
+
+    await invokeCompetitionCommand('match', (competitionId) =>
+      mqttService.startMatch({
+        competitionId,
+        durationSeconds: activeCompetitionTiming.matchSeconds,
+        ...(acknowledgedRequirementIds.length > 0 ? { acknowledgedRequirementIds } : {}),
+      }),
+    );
+  }, [activeCompetition, activeCompetitionTiming, confirmPhaseStart, invokeCompetitionCommand]);
+
   const finishCompetition = useCallback(async () => {
     if (!activeCompetition) return;
 
@@ -448,7 +630,8 @@ export function CompetitionControlScreen() {
     runAction,
   ]);
 
-  const baseControlsDisabled = busyAction !== null || !snapshot.connected || !activeCompetition;
+  const baseControlsDisabled =
+    busyAction !== null || !snapshot.connected || !activeCompetition || activeCompetitionTiming === null;
   const competitionLocked = activeCompetition?.phase === 'MATCH_COMPLETE';
   const controlsDisabled = baseControlsDisabled || competitionLocked;
   const finishDisabled = baseControlsDisabled;
@@ -458,6 +641,7 @@ export function CompetitionControlScreen() {
     (activeCompetition?.phase === 'NOT_STARTED' ||
       (activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0));
   const currentPhaseIndex = phaseStepIndex(activeCompetition?.phase);
+  const unscoredObservations = shotObservationEvidence.filter((evidence) => evidence.outcome !== 'RECORDED');
 
   return (
     <div className="min-h-full">
@@ -496,6 +680,11 @@ export function CompetitionControlScreen() {
       <div className="p-5">
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-4">
+            <SafetyStopPanel
+              connected={snapshot.connected}
+              lanes={snapshot.lanes}
+              targetLaneIds={snapshot.lanes.map((lane) => lane.laneId)}
+            />
             <Card>
               <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                 <div>
@@ -509,11 +698,14 @@ export function CompetitionControlScreen() {
                     Competition type
                     <select
                       value={competitionTypeId}
-                      onChange={(event) => setCompetitionTypeId(event.target.value as 'BR60S' | 'BP60')}
+                      onChange={(event) => setCompetitionTypeId(event.target.value as SupportedLaneCompetitionType)}
                       className="min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text"
                     >
-                      <option value="BR60S">BR60S</option>
-                      <option value="BP60">BP60</option>
+                      {LANE_COMPETITION_TYPES.map((competitionType) => (
+                        <option key={competitionType} value={competitionType}>
+                          {competitionType}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <Button
@@ -571,6 +763,12 @@ export function CompetitionControlScreen() {
                         Hardware
                       </th>
                       <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
+                        Safety
+                      </th>
+                      <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
+                        Clock
+                      </th>
+                      <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
                         Competition
                       </th>
                       <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
@@ -587,7 +785,7 @@ export function CompetitionControlScreen() {
                   <tbody>
                     {snapshot.lanes.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-5 text-left">
+                        <td colSpan={11} className="px-4 py-5 text-left">
                           <div className="flex flex-wrap items-center justify-between gap-4">
                             <div>
                               <p className="text-[13px] font-medium text-vscode-text">No Lanes discovered</p>
@@ -650,6 +848,38 @@ export function CompetitionControlScreen() {
                               {lane.hardware?.connection.manufacturer
                                 ? ` / ${lane.hardware.connection.manufacturer}`
                                 : ''}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <span
+                                className={`whitespace-nowrap text-xs font-bold ${
+                                  lane.safetyState?.status === 'STOPPED' ? 'text-red-400' : 'text-vscode-success'
+                                }`}
+                              >
+                                {lane.safetyState?.status ?? 'UNKNOWN'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-vscode-text-muted">
+                              {clockQuality[lane.laneId] ? (
+                                <button
+                                  type="button"
+                                  className="text-left hover:text-vscode-text"
+                                  title={clockQuality[lane.laneId]!.guidance}
+                                  disabled={busyAction !== null}
+                                  onClick={() => void probeLaneClock(lane.laneId)}
+                                >
+                                  <span className="font-semibold">{clockQuality[lane.laneId]!.status}</span>{' '}
+                                  {formatClockMetric(clockQuality[lane.laneId]!.offsetMilliseconds)}
+                                </button>
+                              ) : (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={!snapshot.connected || busyAction !== null}
+                                  onClick={() => void probeLaneClock(lane.laneId)}
+                                >
+                                  Probe
+                                </Button>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-vscode-text">
                               {laneCompetition?.competitionTypeId ?? '--'}
@@ -753,6 +983,153 @@ export function CompetitionControlScreen() {
               onCompetitionTypeChange={setCompetitionTypeId}
               onApply={applyChampionshipAssignments}
             />
+
+            {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+              <Card>
+                <ProductionOperationsPanel
+                  key={activeCompetition.competitionId}
+                  competitionId={activeCompetition.competitionId}
+                  competitionTypeId={activeCompetition.competitionTypeId}
+                  roundName={activeCompetition.roundName}
+                  phase={activeCompetition.phase}
+                />
+              </Card>
+            )}
+
+            {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+              <Card>
+                <RelayReadinessPanel
+                  key={`${activeCompetition.competitionId}:${activeCompetition.phase}`}
+                  competitionId={activeCompetition.competitionId}
+                  relayNumber={resultContext?.relayNumber ?? 1}
+                  phase={
+                    activeCompetition.phase === 'NOT_STARTED' || activeCompetition.phase === 'SIGHTING'
+                      ? 'SIGHTING'
+                      : 'MATCH'
+                  }
+                  lanes={competitionLanes.map((lane) => ({
+                    laneId: lane.laneId,
+                    label: lane.firingPointNumber
+                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                      : lane.laneAlias || lane.laneId.slice(0, 8),
+                  }))}
+                />
+              </Card>
+            )}
+
+            {activeCompetition?.roundName === 'Final' && (
+              <Card>
+                <FinalOperationPanel
+                  key={`operation:${activeCompetition.competitionId}`}
+                  competitionId={activeCompetition.competitionId}
+                  competitionTypeId={activeCompetition.competitionTypeId}
+                  competitorUnit={activeCompetition.competitionUnit ?? 'INDIVIDUAL'}
+                  phase={activeCompetition.phase}
+                  lanes={competitionLanes}
+                  eventId={resultContext?.eventId}
+                  disabled={baseControlsDisabled}
+                />
+              </Card>
+            )}
+
+            {activeCompetition?.roundName === 'Final' && (
+              <Card>
+                <FinalRecoveryPanel
+                  key={`recovery:${activeCompetition.competitionId}`}
+                  competitionId={activeCompetition.competitionId}
+                  competitionTypeId={activeCompetition.competitionTypeId}
+                  phase={activeCompetition.phase}
+                  lanes={competitionLanes}
+                  eventId={resultContext?.eventId}
+                  disabled={baseControlsDisabled}
+                />
+              </Card>
+            )}
+
+            {activeCompetition?.roundName === 'Final' && activeCompetition.competitionUnit !== 'MIXED_TEAM' && (
+              <Card>
+                <FinalControlPanel
+                  key={activeCompetition.competitionId}
+                  competitionId={activeCompetition.competitionId}
+                  competitionTypeId={activeCompetition.competitionTypeId}
+                  eventId={resultContext?.eventId}
+                  lanes={competitionLanes}
+                  disabled={baseControlsDisabled || activeCompetition.phase !== 'MATCH'}
+                />
+              </Card>
+            )}
+
+            {activeCompetition?.roundName === 'Final' && activeCompetition.competitionUnit === 'MIXED_TEAM' && (
+              <Card>
+                <MixedTeamFinalControlPanel
+                  key={activeCompetition.competitionId}
+                  competitionId={activeCompetition.competitionId}
+                  competitionTypeId={activeCompetition.competitionTypeId}
+                  eventId={resultContext?.eventId}
+                  lanes={competitionLanes}
+                  disabled={baseControlsDisabled || activeCompetition.phase !== 'MATCH'}
+                />
+              </Card>
+            )}
+
+            {activeCompetition?.roundName === 'Final' && activeCompetition.competitionUnit === 'MIXED_TEAM' && (
+              <Card>
+                <MixedTeamTimeoutPanel
+                  key={`timeout:${activeCompetition.competitionId}`}
+                  competitionId={activeCompetition.competitionId}
+                  lanes={competitionLanes}
+                  disabled={baseControlsDisabled || activeCompetition.phase !== 'MATCH'}
+                />
+              </Card>
+            )}
+
+            {activeCompetition && (
+              <Card>
+                <RangeInterruptionsPanel
+                  key={activeCompetition.competitionId}
+                  primaryScope={{ scopeType: 'COMPETITION', scopeId: activeCompetition.competitionId }}
+                  additionalScopes={resultContext ? [{ scopeType: 'EVENT', scopeId: resultContext.eventId }] : []}
+                  competitionId={
+                    activeCompetition.phase === 'SIGHTING' || activeCompetition.phase === 'MATCH'
+                      ? activeCompetition.competitionId
+                      : undefined
+                  }
+                  defaultLaneId={assignmentLaneId}
+                  defaultPhase={activeCompetition.phase === 'SIGHTING' ? 'SIGHTING' : 'MATCH'}
+                  defaultRemainingSeconds={estimateRemainingSeconds(activeCompetition.activeTimer)}
+                  lanes={competitionLanes.map((lane) => ({
+                    laneId: lane.laneId,
+                    label: lane.firingPointNumber
+                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                      : lane.laneAlias || lane.laneId.slice(0, 8),
+                    firingPointNumber: lane.firingPointNumber,
+                    ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
+                    ...(lane.competitionState?.interruption
+                      ? { interruption: lane.competitionState.interruption }
+                      : {}),
+                  }))}
+                />
+              </Card>
+            )}
+
+            {activeCompetition && (
+              <Card>
+                <TargetExaminationsPanel
+                  key={activeCompetition.competitionId}
+                  primaryScope={{ scopeType: 'COMPETITION', scopeId: activeCompetition.competitionId }}
+                  additionalScopes={resultContext ? [{ scopeType: 'EVENT', scopeId: resultContext.eventId }] : []}
+                  defaultLaneId={assignmentLaneId}
+                  lanes={competitionLanes.map((lane) => ({
+                    laneId: lane.laneId,
+                    label: lane.firingPointNumber
+                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                      : lane.laneAlias || lane.laneId.slice(0, 8),
+                    firingPointNumber: lane.firingPointNumber,
+                    ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
+                  }))}
+                />
+              </Card>
+            )}
           </div>
 
           <Card className="self-start xl:sticky xl:top-4">
@@ -852,19 +1229,11 @@ export function CompetitionControlScreen() {
                 <Button
                   size="sm"
                   disabled={controlsDisabled || !canStartOrRetrySighting}
-                  onClick={() =>
-                    void invokeCompetitionCommand('sighting', (competitionId) =>
-                      mqttService.startSighting({
-                        competitionId,
-                        durationSeconds: 600,
-                        ...(activeCompetition?.phase === 'SIGHTING' ? { targetLaneIds: pendingSightingLaneIds } : {}),
-                      }),
-                    )
-                  }
+                  onClick={() => void startSighting()}
                 >
                   {activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0
                     ? `Retry sighting for pending Lanes (${pendingSightingLaneIds.length})`
-                    : 'Start sighting (10 min)'}
+                    : `Start sighting (${formatTimerDuration(displayedCompetitionTiming.preparationAndSightingSeconds)})`}
                 </Button>
                 <Button
                   variant="secondary"
@@ -883,13 +1252,9 @@ export function CompetitionControlScreen() {
                 <Button
                   size="sm"
                   disabled={controlsDisabled || activeCompetition?.phase !== 'SIGHTING_COMPLETE'}
-                  onClick={() =>
-                    void invokeCompetitionCommand('match', (competitionId) =>
-                      mqttService.startMatch({ competitionId, durationSeconds: 2_700 }),
-                    )
-                  }
+                  onClick={() => void startMatch()}
                 >
-                  Start match (45 min)
+                  Start match ({formatTimerDuration(displayedCompetitionTiming.matchSeconds)})
                 </Button>
                 <Button
                   variant="secondary"
@@ -949,6 +1314,70 @@ export function CompetitionControlScreen() {
                 <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
                 <p>Finishing before the match starts will abandon the competition without saving results.</p>
               </div>
+            )}
+
+            {unscoredObservations.length > 0 && (
+              <details className="mt-4 border-l-2 border-vscode-warning bg-vscode-warning/5 px-3 py-2.5">
+                <summary className="cursor-pointer text-xs font-semibold text-vscode-warning">
+                  Unscored target observations ({unscoredObservations.length})
+                </summary>
+                <p className="mt-2 text-xs leading-5 text-vscode-text-muted">
+                  These observations are immutable evidence and are not included in Lane or result totals.
+                </p>
+                <ul className="mt-2 grid max-h-64 gap-2 overflow-auto">
+                  {unscoredObservations.map((evidence) => {
+                    const lane = snapshot.lanes.find((entry) => entry.laneId === evidence.laneId);
+                    return (
+                      <li key={evidence.evidenceId} className="border-t border-vscode-border pt-2 text-xs leading-5">
+                        <p className="font-semibold text-vscode-text">
+                          {lane?.laneAlias || `Lane ${evidence.laneId.slice(0, 8)}`} ·{' '}
+                          {evidence.outcome.replaceAll('_', ' ')}
+                        </p>
+                        <p className="text-vscode-text-muted">
+                          Fired {new Date(evidence.firedAt).toLocaleString()} · received{' '}
+                          {new Date(evidence.receivedAt).toLocaleString()}
+                        </p>
+                        <p className="text-vscode-dimmed">
+                          Stage {evidence.competition?.stageIndex ?? '—'} · series{' '}
+                          {evidence.competition?.seriesIndex ?? '—'} · observation {evidence.observationId.slice(0, 8)}
+                        </p>
+                        {evidence.detail && <p className="text-vscode-text-muted">{evidence.detail}</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            )}
+
+            {firingWindowViolations.length > 0 && (
+              <details className="mt-4 border-l-2 border-vscode-warning bg-vscode-warning/5 px-3 py-2.5">
+                <summary className="cursor-pointer text-xs font-semibold text-vscode-warning">
+                  Firing-window review ({firingWindowViolations.length})
+                </summary>
+                <p className="mt-2 text-xs leading-5 text-vscode-text-muted">
+                  Detection only; no score or Jury decision was changed.
+                </p>
+                <ul className="mt-2 grid gap-2">
+                  {firingWindowViolations.map((violation) => {
+                    const lane = snapshot.lanes.find((entry) => entry.laneId === violation.laneId);
+                    return (
+                      <li key={violation.id} className="border-t border-vscode-border pt-2 text-xs leading-5">
+                        <p className="font-semibold text-vscode-text">
+                          {lane?.laneAlias || `Lane ${violation.laneId.slice(0, 8)}`} · Rule {violation.ruleReference}
+                        </p>
+                        <p className="text-vscode-text-muted">
+                          {violation.kind.replaceAll('_', ' ')} · {new Date(violation.evaluatedShotAt).toLocaleString()}
+                        </p>
+                        <p className="text-vscode-dimmed">
+                          Evidence: {violation.timestampSource.replaceAll('_', ' ').toLowerCase()} · boundary tolerance{' '}
+                          {violation.clockToleranceMilliseconds} ms
+                        </p>
+                        <p className="text-vscode-text-muted">{violation.reviewGuidance}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
             )}
 
             {snapshot.lastCommand && (

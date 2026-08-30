@@ -7,6 +7,13 @@ interface ParticipantRow {
   playerName: string;
   familyName: string;
   affiliation: string;
+  startNumber: string;
+  issfId: string;
+  nationCode: string;
+  gender: 'M' | 'F' | 'X' | 'UNSPECIFIED';
+  entryStatus: 'COMPETING' | 'RPO' | 'MQS' | 'OOC' | 'DNS' | 'DNF' | 'DSQ' | 'DQB';
+  teamId: string;
+  teamName: string;
 }
 
 interface ParticipantRowProps {
@@ -80,6 +87,51 @@ export function ParticipantRow({
           lang="en"
         />
       </td>
+      <CompactInput
+        value={row.startNumber}
+        placeholder="Start #"
+        onChange={(value) => onUpdate(index, 'startNumber', value)}
+      />
+      <CompactInput value={row.issfId} placeholder="ISSF ID" onChange={(value) => onUpdate(index, 'issfId', value)} />
+      <CompactInput
+        value={row.nationCode}
+        placeholder="NOC"
+        maxLength={3}
+        onChange={(value) => onUpdate(index, 'nationCode', value.toUpperCase())}
+      />
+      <td className="px-1 py-1">
+        <select
+          aria-label="Gender"
+          value={row.gender}
+          onChange={(event) => onUpdate(index, 'gender', event.target.value)}
+          className={compactClass}
+        >
+          <option value="UNSPECIFIED">—</option>
+          <option value="M">M</option>
+          <option value="F">F</option>
+          <option value="X">X</option>
+        </select>
+      </td>
+      <td className="px-1 py-1">
+        <select
+          aria-label="Entry status"
+          value={row.entryStatus}
+          onChange={(event) => onUpdate(index, 'entryStatus', event.target.value)}
+          className={compactClass}
+        >
+          {['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB'].map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </td>
+      <CompactInput value={row.teamId} placeholder="Team ID" onChange={(value) => onUpdate(index, 'teamId', value)} />
+      <CompactInput
+        value={row.teamName}
+        placeholder="Team name"
+        onChange={(value) => onUpdate(index, 'teamName', value)}
+      />
       <td className="px-1 py-1">
         <input
           type="text"
@@ -105,3 +157,32 @@ export function ParticipantRow({
     </tr>
   );
 }
+
+function CompactInput({
+  value,
+  placeholder,
+  maxLength,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  maxLength?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <td className="px-1 py-1">
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(event) => onChange(event.target.value)}
+        className={compactClass}
+        lang="en"
+      />
+    </td>
+  );
+}
+
+const compactClass =
+  'min-h-8 min-w-20 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[12px] text-vscode-text placeholder:text-vscode-dimmed';

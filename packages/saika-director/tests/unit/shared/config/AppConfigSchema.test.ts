@@ -101,6 +101,7 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'competitionAnnouncements.enabled': true,
       });
     });
 
@@ -113,6 +114,7 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'competitionAnnouncements.enabled': true,
       });
     });
   });
@@ -126,8 +128,9 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id',
         'mqtt.commandTimeoutMs',
         'mqtt.startDelayMs',
+        'competitionAnnouncements.enabled',
       ];
-      expect(keys).toHaveLength(6);
+      expect(keys).toHaveLength(7);
     });
 
     it('should infer correct types for AppConfig', () => {
@@ -138,10 +141,12 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'competitionAnnouncements.enabled': true,
       };
       expect(config['mqtt.broker.port']).toBeTypeOf('number');
       expect(config['mqtt.broker.url']).toBeTypeOf('string');
       expect(config['mqtt.broker.mode']).toBeTypeOf('string');
+      expect(config['competitionAnnouncements.enabled']).toBeTypeOf('boolean');
     });
   });
 });

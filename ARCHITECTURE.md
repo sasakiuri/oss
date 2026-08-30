@@ -12,6 +12,8 @@ build orchestration (caching, parallel task execution, dependency-aware pipeline
 oss/
 ├── packages/
 │   ├── saika-lane/             # Electron desktop app -- electronic target display
+│   ├── saika-director/         # Electron desktop app -- multi-Lane competition control
+│   ├── saika-rules/            # Versioned, application-neutral competition Rule Packs
 │   ├── saika-docs/             # Product specifications and interoperability references
 │   ├── eslint-config/          # @sasakiuri/eslint-config
 │   ├── prettier-config/        # @sasakiuri/prettier-config
@@ -24,6 +26,28 @@ oss/
 
 The shared configuration packages are consumed by `saika-lane` (and any future
 application packages) as regular npm dependencies, linked locally via workspaces.
+
+## Shared Competition Rules
+
+`@sasakiuri/saika-rules` is a pure-data boundary. It owns versioned authority metadata and optional capabilities for
+target selection, scoring, course of fire, ranking, verification, publication, and commands. It does not depend on
+either application. Lane and Director each own an adapter that maps only supported capabilities into their local
+domain model. Local/JRSF competition definitions remain independent and can use injected fallback policies.
+
+Director consumes optional command warning points through a timer-independent announcement scheduler. A policy
+resolver supplies reminder points, a clock port owns scheduling, and a sink port emits semantic notifications. This
+keeps visual prompts and any future audio adapter separate from scoring, Lane state, and MQTT commands.
+
+Director separately adapts setup and reset timing into generic phase-start requirements. The renderer confirms their
+stable IDs, the main-process guard checks the IDs at the IPC boundary, and only the existing phase command crosses
+the Lane MQTT boundary. Local definitions can omit or replace requirements without changing the scheduler or Lane.
+
+This dependency direction is one-way:
+
+```text
+saika-rules  <-  Lane adapter  <-  Lane domain/application
+             <-  Director adapter  <-  Director domain/application
+```
 
 ## Saika Lane Architecture
 

@@ -3,7 +3,19 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
-import { ALL_COMPETITION_TYPES, AP60, AR60, BP60, BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import {
+  ALL_COMPETITION_TYPES,
+  AP60,
+  AP60_FINAL,
+  APMIX30,
+  APMIX_FINAL,
+  AR60,
+  AR60_FINAL,
+  ARMIX30,
+  ARMIX_FINAL,
+  BP60,
+  BR60S,
+} from '@/main/modules/competition/domain/competitionTypes';
 
 describe('CompetitionTypeRegistry', () => {
   let registry: CompetitionTypeRegistry;
@@ -65,7 +77,18 @@ describe('CompetitionTypeRegistry', () => {
 
   describe('competition type definition content verification', () => {
     it('registers both air and beam 60-shot competition types', () => {
-      expect(ALL_COMPETITION_TYPES).toEqual([AR60, AP60, BR60S, BP60]);
+      expect(ALL_COMPETITION_TYPES).toEqual([
+        AR60,
+        AP60,
+        AR60_FINAL,
+        AP60_FINAL,
+        ARMIX30,
+        APMIX30,
+        ARMIX_FINAL,
+        APMIX_FINAL,
+        BR60S,
+        BP60,
+      ]);
     });
 
     it('BR60S has 10m air rifle definition', () => {
@@ -78,6 +101,7 @@ describe('CompetitionTypeRegistry', () => {
     it('AR60 has a decimal 10m air rifle definition', () => {
       expect(AR60.id).toBe('AR60');
       expect(AR60.name).toBe('10m Air Rifle 60 shots');
+      expect(AR60.rulePackId).toBe('ISSF:2026:AR60:QUALIFICATION');
       expect(AR60.discipline).toBe('AIR_RIFLE_10M');
       expect(AR60.config.acc).toBe('DECIMAL');
       expect(AR60.config.shotsPerSeries).toBe(10);

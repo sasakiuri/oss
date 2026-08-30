@@ -4,6 +4,7 @@ import { useSystemEvents } from '@/renderer/presentation/hooks/useSystemEvents';
 import { useTimerStore } from '@/renderer/presentation/stores/system/timer.store';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 // Suppress Logger output in tests
 vi.mock('@/shared/utils/Logger', () => ({
@@ -59,6 +60,7 @@ describe('useSystemEvents', () => {
       isVisible: false,
       activeTab: 'ALL',
     });
+    useNotificationStore.setState({ notifications: [] });
   });
 
   afterEach(() => {
@@ -87,10 +89,65 @@ describe('useSystemEvents', () => {
 
       expect(capturedHandlers.has('laneConnected')).toBe(true);
       expect(capturedHandlers.has('mqttControlStateChanged')).toBe(true);
+      expect(capturedHandlers.has('competitionAnnouncementDue')).toBe(true);
+      expect(capturedHandlers.has('firingWindowViolationDetected')).toBe(true);
       expect(capturedHandlers.has('timerTick')).toBe(true);
       expect(capturedHandlers.has('timerExpired')).toBe(true);
       expect(capturedHandlers.has('debugLog')).toBe(true);
       expect(capturedHandlers.has('mqttConnectionError')).toBe(true);
+    });
+  });
+
+  describe('competitionAnnouncementDue event', () => {
+    it('shows a semantic CRO reminder without controlling scoring or audio', () => {
+      const { fireEvent } = renderSystemEvents();
+
+      fireEvent('competitionAnnouncementDue', {
+        competitionId: '11111111-1111-4111-8111-111111111111',
+        competitionTypeId: 'AR60',
+        rulePackId: 'ISSF:2026:AR60:QUALIFICATION',
+        phase: 'MATCH',
+        remainingSeconds: 600,
+        dueAt: '2026-08-29T01:00:00.000Z',
+      });
+
+      expect(useNotificationStore.getState().notifications.at(-1)).toMatchObject({
+        type: 'warning',
+        message: 'AR60: CRO reminder — announce 10 minutes remaining in the match',
+      });
+    });
+  });
+
+  describe('firingWindowViolationDetected event', () => {
+    it('warns that Jury review is required without implying an automatic decision', () => {
+      const { fireEvent } = renderSystemEvents();
+
+      fireEvent('firingWindowViolationDetected', {
+        id: '99999999-9999-4999-8999-999999999999',
+        competitionId: '11111111-1111-4111-8111-111111111111',
+        laneId: '22222222-2222-4222-8222-222222222222',
+        sessionId: '33333333-3333-4333-8333-333333333333',
+        shotId: '44444444-4444-4444-8444-444444444444',
+        observationId: '55555555-5555-4555-8555-555555555555',
+        shotMode: 'MATCH',
+        policyRuleId: 'issf.6.11.1.3.after-match-stop',
+        kind: 'AFTER_MATCH_STOP',
+        ruleReference: '6.11.1.3',
+        reviewGuidance: 'Review shot identification and the required miss.',
+        timestampSource: 'FIRED_AT',
+        clockToleranceMilliseconds: 0,
+        evaluatedShotAt: '2026-08-30T01:00:02.000Z',
+        firedAt: '2026-08-30T01:00:02.000Z',
+        receivedAt: '2026-08-30T01:00:02.010Z',
+        observedAt: '2026-08-30T01:00:02.020Z',
+        decisiveBoundaryId: '66666666-6666-4666-8666-666666666666',
+        detectedAt: '2026-08-30T01:00:02.030Z',
+      });
+
+      expect(useNotificationStore.getState().notifications.at(-1)).toMatchObject({
+        type: 'warning',
+        message: expect.stringMatching(/Rule 6\.11\.1\.3.*Detection only; no score or decision was changed/),
+      });
     });
   });
 

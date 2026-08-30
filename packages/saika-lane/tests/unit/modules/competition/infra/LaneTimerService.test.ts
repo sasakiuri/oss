@@ -79,6 +79,14 @@ describe('LaneTimerService', () => {
 
       expect(vi.getTimerCount()).toBe(1);
     });
+
+    it('rejects a start when the injected execution gate is closed', () => {
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => false);
+
+      expect(() => timerService.start('comp-1', 600, 600)).toThrow('Lane execution gate');
+      expect(vi.getTimerCount()).toBe(0);
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+    });
   });
 
   describe('stop()', () => {
@@ -162,6 +170,21 @@ describe('LaneTimerService', () => {
       await vi.advanceTimersByTimeAsync(5_000);
       await startPromise;
 
+      expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('rejects a pending absolute start if the execution gate closes while waiting', async () => {
+      let permitted = true;
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+      const fiveSecondsLater = new Date(Date.now() + 5_000).toISOString();
+      const startPromise = timerService.startAt('comp-1', fiveSecondsLater, 60);
+      const rejection = expect(startPromise).rejects.toMatchObject({ code: 'LANE_TIMER_RUN_BLOCKED' });
+
+      permitted = false;
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      await rejection;
       expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
       expect(vi.getTimerCount()).toBe(0);
     });
@@ -320,6 +343,22 @@ describe('LaneTimerService', () => {
         }),
       );
     });
+
+    it('stops without expiring when the execution gate closes before a tick', async () => {
+      let permitted = true;
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+      timerService.start('comp-1', 1, 600);
+      vi.clearAllMocks();
+
+      permitted = false;
+      vi.setSystemTime(Date.now() + 1000);
+      await timerService.processTick();
+
+      expect(vi.getTimerCount()).toBe(0);
+      expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
+      expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+    });
   });
 
   describe('expire()', () => {
@@ -333,6 +372,60 @@ describe('LaneTimerService', () => {
       expect(mockEventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'PhaseChanged', newPhase: 'SERIES_COMPLETE' }),
       );
+    });
+
+    it('does not finalize expiry if the execution gate closes during persistence', async () => {
+      let permitted = true;
+      let releaseFirstSave!: () => void;
+      const firstSave = new Promise<void>((resolve) => {
+        releaseFirstSave = resolve;
+      });
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(async () => firstSave);
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+
+      const expiry = timerService.expire('comp-1');
+      await Promise.resolve();
+      expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(1);
+
+      permitted = false;
+      releaseFirstSave();
+
+      await expect(expiry).rejects.toMatchObject({ code: 'LANE_TIMER_RUN_BLOCKED' });
+      expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(1);
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('interruption controls', () => {
+    it('freezes and persists the exact in-memory remaining time', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      timerService.start('comp-1', 600, 600);
+      vi.setSystemTime(Date.now() + 10_000);
+
+      const captured = await timerService.pause('comp-1');
+
+      expect(captured).toEqual({ remainingSeconds: 590, totalSeconds: 600 });
+      expect(mockCompetitionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ timer: expect.objectContaining({ remainingSeconds: 590, totalSeconds: 600 }) }),
+      );
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('persists the authorized duration before starting the resumed timer', async () => {
+      const original = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      let current = original;
+      vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => current);
+      vi.mocked(mockCompetitionRepo.save).mockImplementation(async (state) => {
+        current = state;
+      });
+
+      await timerService.resumeAt('comp-1', new Date().toISOString(), 540);
+
+      expect(current.timer).toMatchObject({ remainingSeconds: 540, totalSeconds: 540 });
+      expect(vi.getTimerCount()).toBe(1);
     });
   });
 });

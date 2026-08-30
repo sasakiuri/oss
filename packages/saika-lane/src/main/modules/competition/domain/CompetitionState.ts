@@ -393,6 +393,17 @@ export class CompetitionState {
     });
   }
 
+  /** Replaces the active timer with an explicitly authorized value. */
+  replaceTimer(remainingSeconds: number, totalSeconds: number): CompetitionState {
+    this.assertNotFinished();
+    if (this.phase !== 'ACTIVE') {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Cannot replace timer from phase: ${this.phase}`,
+      });
+    }
+    return this.with({ timer: Timer.reconstruct(remainingSeconds, totalSeconds) });
+  }
+
   /**
    * Determines whether a shot can be accepted
    */

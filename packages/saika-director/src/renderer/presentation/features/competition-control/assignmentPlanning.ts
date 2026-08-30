@@ -114,7 +114,11 @@ export function buildFiringPointAssignmentPlan({
         id: participant.id,
         startNumber,
         name: participant.playerName,
-        ...(participant.affiliation.trim() ? { teamName: participant.affiliation.trim() } : {}),
+        ...(participant.teamId ? { teamId: participant.teamId } : {}),
+        ...(participant.teamName ? { teamName: participant.teamName } : {}),
+        ...(participant.gender ? { gender: participant.gender } : {}),
+        ...(participant.nationCode ? { nationCode: participant.nationCode } : {}),
+        ...(participant.issfId ? { issfCode: participant.issfId } : {}),
       },
     });
   }

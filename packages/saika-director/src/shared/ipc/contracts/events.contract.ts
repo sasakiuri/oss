@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { MqttControlSnapshotSchema } from './mqtt.contract';
+import {
+  FiringWindowViolationDtoSchema,
+  MqttControlSnapshotSchema,
+  ShotObservationEvidenceDtoSchema,
+} from './mqtt.contract';
 import { defineEventContract, defineEvent } from '../defineContract';
 
 // ---------------------------------------------------------------------------
@@ -89,6 +93,16 @@ const laneControlUpdatedSchema = z.object({
 
 const mqttConnectionErrorSchema = z.object({ message: z.string() });
 const mqttControlStateChangedSchema = MqttControlSnapshotSchema;
+const firingWindowViolationDetectedSchema = FiringWindowViolationDtoSchema;
+const shotObservationEvidenceObservedSchema = ShotObservationEvidenceDtoSchema;
+const competitionAnnouncementDueSchema = z.object({
+  competitionId: z.string().uuid(),
+  competitionTypeId: z.string().min(1),
+  rulePackId: z.string().min(1).optional(),
+  phase: z.enum(['PREPARATION', 'MATCH']),
+  remainingSeconds: z.number().int().positive(),
+  dueAt: z.string().datetime(),
+});
 
 const laneControlPatchedSchema = z.object({
   laneId: z.string(),
@@ -137,6 +151,9 @@ export type LaneTimerExpiredEvent = z.infer<typeof laneTimerExpiredSchema>;
 export type LaneControlUpdatedEvent = z.infer<typeof laneControlUpdatedSchema>;
 export type MqttConnectionErrorEvent = z.infer<typeof mqttConnectionErrorSchema>;
 export type MqttControlStateChangedEvent = z.infer<typeof mqttControlStateChangedSchema>;
+export type FiringWindowViolationDetectedEvent = z.infer<typeof firingWindowViolationDetectedSchema>;
+export type ShotObservationEvidenceObservedEvent = z.infer<typeof shotObservationEvidenceObservedSchema>;
+export type CompetitionAnnouncementDueEvent = z.infer<typeof competitionAnnouncementDueSchema>;
 export type LaneControlPatchedEvent = z.infer<typeof laneControlPatchedSchema>;
 
 /**
@@ -151,6 +168,9 @@ export interface IpcEvents {
   debugLog: DebugLogEvent;
   mqttConnectionError: MqttConnectionErrorEvent;
   mqttControlStateChanged: MqttControlStateChangedEvent;
+  firingWindowViolationDetected: FiringWindowViolationDetectedEvent;
+  shotObservationEvidenceObserved: ShotObservationEvidenceObservedEvent;
+  competitionAnnouncementDue: CompetitionAnnouncementDueEvent;
   laneTimerTick: LaneTimerTickEvent;
   laneTimerExpired: LaneTimerExpiredEvent;
   laneControlUpdated: LaneControlUpdatedEvent;
@@ -170,6 +190,9 @@ export const eventsContract = defineEventContract('event', {
   debugLog: defineEvent(debugLogSchema),
   mqttConnectionError: defineEvent(mqttConnectionErrorSchema),
   mqttControlStateChanged: defineEvent(mqttControlStateChangedSchema),
+  firingWindowViolationDetected: defineEvent(firingWindowViolationDetectedSchema),
+  shotObservationEvidenceObserved: defineEvent(shotObservationEvidenceObservedSchema),
+  competitionAnnouncementDue: defineEvent(competitionAnnouncementDueSchema),
   laneTimerTick: defineEvent(laneTimerTickSchema),
   laneTimerExpired: defineEvent(laneTimerExpiredSchema),
   laneControlUpdated: defineEvent(laneControlUpdatedSchema),

@@ -15,6 +15,8 @@ import type { ShotDto } from '@/main/modules/session/application/dto';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import type {
   CompetitionFinishedEvent,
+  CompetitionCueChangedEvent,
+  CompetitionInterruptionChangedEvent,
   CompetitionStartedEvent,
   ConnectionEstablishedEvent,
   ConnectionLostEvent,
@@ -23,6 +25,7 @@ import type {
   MqttDisconnectedEvent,
   PhaseChangedEvent,
   SeriesCompletedEvent,
+  SafetyStopChangedEvent,
   SessionResetEvent,
   SessionStartedEvent,
   ShotRecordedEvent,
@@ -126,6 +129,44 @@ export class ContractEventForwarder {
     this.forward<TimerExpiredEvent>('TimerExpired', eventsContract.channels.timerExpired, (event) => ({
       stageIndex: event.stageIndex,
     }));
+
+    this.forward<CompetitionInterruptionChangedEvent>(
+      'CompetitionInterruptionChanged',
+      eventsContract.channels.competitionInterruptionChanged,
+      (event) => ({
+        competitionId: event.aggregateId,
+        interruptionId: event.interruptionId,
+        status: event.status,
+        remainingSeconds: event.remainingSeconds,
+        unlimitedSightingShots: event.unlimitedSightingShots,
+      }),
+    );
+
+    this.forward<SafetyStopChangedEvent>('SafetyStopChanged', eventsContract.channels.safetyStopChanged, (event) => ({
+      status: event.status,
+      safetyStopId: event.safetyStopId,
+      reason: event.reason,
+      stoppedBy: event.stoppedBy,
+      stoppedAt: new Date(event.stoppedAt).toISOString(),
+      timerSnapshot:
+        event.competitionId && event.remainingSeconds !== null && event.totalSeconds !== null
+          ? {
+              competitionId: event.competitionId,
+              remainingSeconds: event.remainingSeconds,
+              totalSeconds: event.totalSeconds,
+              frozenAt: new Date(event.frozenAt ?? event.timestamp).toISOString(),
+            }
+          : null,
+      clearedBy: event.clearedBy,
+      clearanceReason: event.clearanceReason,
+      clearedAt: event.clearedAt === null ? null : new Date(event.clearedAt).toISOString(),
+    }));
+
+    this.forward<CompetitionCueChangedEvent>(
+      'CompetitionCueChanged',
+      eventsContract.channels.competitionCueChanged,
+      (event) => ({ competitionId: event.aggregateId, cue: event.cue }),
+    );
 
     // SeriesCompleted → event:seriesCompleted
     this.forward<SeriesCompletedEvent>('SeriesCompleted', eventsContract.channels.seriesCompleted, (event) => ({

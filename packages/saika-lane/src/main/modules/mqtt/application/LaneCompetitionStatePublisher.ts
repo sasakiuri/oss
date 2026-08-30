@@ -9,6 +9,7 @@
  */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption';
 import { mapToLanePhase } from '@/main/modules/mqtt/domain/PhaseMapper';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -26,6 +27,7 @@ export class LaneCompetitionStatePublisher {
     eventBus: IEventBus,
     storage: ILocalStorage,
     competitionRepository: ICompetitionRepository,
+    private readonly getInterruption: (competitionId: string) => LaneInterruptionRecord | null = () => null,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -39,6 +41,7 @@ export class LaneCompetitionStatePublisher {
     eventBus.on('SeriesCompleted', publishEventState);
     eventBus.on('CompetitionStarted', publishEventState);
     eventBus.on('CompetitionFinished', publishEventState);
+    eventBus.on('CompetitionInterruptionChanged', publishEventState);
   }
 
   publishCurrentState(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
@@ -86,6 +89,7 @@ export class LaneCompetitionStatePublisher {
         maxShots: currentSeries?.maxShots ?? 0,
       },
       awaitingSeriesStart: competition.phase === 'STAGE_ENTERED' || competition.phase === 'SERIES_ENTERED',
+      ...toInterruptionPayload(this.getInterruption(competition.id)),
       ...(finalSnapshotCommandId ? { finalSnapshotCommandId } : {}),
       publishedAt: new Date().toISOString(),
     });
@@ -101,4 +105,21 @@ export class LaneCompetitionStatePublisher {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+function toInterruptionPayload(record: LaneInterruptionRecord | null): Record<string, unknown> {
+  if (!record) return {};
+  return {
+    interruption: {
+      interruptionId: record.interruptionId,
+      status: record.status,
+      pausedAt: record.pausedAt.toISOString(),
+      capturedAt: record.capturedAt.toISOString(),
+      capturedRemainingSeconds: record.capturedRemainingSeconds,
+      capturedTotalSeconds: record.capturedTotalSeconds,
+      resumeAt: record.resumeAt?.toISOString() ?? null,
+      authorizedRemainingSeconds: record.authorizedRemainingSeconds,
+      unlimitedSightingShots: record.unlimitedSightingShots,
+    },
+  };
 }

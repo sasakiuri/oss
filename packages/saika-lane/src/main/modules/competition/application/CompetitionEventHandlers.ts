@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
-import type { PhaseChangedEvent } from '@/main/shared-infra/events/coreEvents';
+import type { PhaseChangedEvent, ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
@@ -14,16 +14,17 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 export function createShotRecordedHandler(deps: {
   competitionRepository: ICompetitionRepository;
   eventBus: IEventBus;
-}): () => Promise<void> {
+}): (event?: ShotRecordedEvent) => Promise<void> {
   const { competitionRepository, eventBus } = deps;
 
-  return async () => {
+  return async (event) => {
     try {
       const state = await competitionRepository.findActive();
       if (!state || !state.canAcceptShot()) return;
 
       // In IDLE (training mode), shots are accepted but not tracked in competition series
       if (state.phase !== 'ACTIVE') return;
+      if (state.currentStageConfig.scored && event?.shot.mode.isSighting()) return;
 
       const newState = state.recordShotInSeries();
       await competitionRepository.save(newState);

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { MqttControlSnapshotSchema, SetBrokerConfigPayloadSchema } from '@/shared/ipc/contracts/mqtt.contract';
+import {
+  MqttControlSnapshotSchema,
+  mqttContract,
+  SetBrokerConfigPayloadSchema,
+} from '@/shared/ipc/contracts/mqtt.contract';
 
 describe('SetBrokerConfigPayloadSchema', () => {
   it('accepts embedded mode without an external URL', () => {
@@ -15,6 +19,37 @@ describe('SetBrokerConfigPayloadSchema', () => {
       mode: 'external',
       url: 'mqtts://broker.example:8883',
     });
+  });
+});
+
+describe('mqttContract phase-start inputs', () => {
+  it('accepts bounded operational-requirement acknowledgement IDs', () => {
+    const input = {
+      competitionId: '11111111-1111-4111-8111-111111111111',
+      durationSeconds: 4_500,
+    };
+
+    for (const procedure of [mqttContract.procedures.startSighting, mqttContract.procedures.startMatch]) {
+      expect(procedure.input.parse(input)).toEqual(input);
+      expect(
+        procedure.input.parse({
+          ...input,
+          acknowledgedRequirementIds: ['rule-pack.requirement'],
+        }),
+      ).toEqual({ ...input, acknowledgedRequirementIds: ['rule-pack.requirement'] });
+      expect(
+        procedure.input.safeParse({
+          ...input,
+          acknowledgedRequirementIds: [''],
+        }).success,
+      ).toBe(false);
+      expect(
+        procedure.input.safeParse({
+          ...input,
+          acknowledgedRequirementIds: Array.from({ length: 33 }, (_, index) => `requirement-${index}`),
+        }).success,
+      ).toBe(false);
+    }
   });
 });
 

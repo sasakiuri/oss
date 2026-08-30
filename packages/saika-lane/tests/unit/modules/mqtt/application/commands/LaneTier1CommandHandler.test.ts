@@ -20,14 +20,17 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
   },
 }));
 
+import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { BroadcastCommandHandler } from '@/main/modules/mqtt/application/commands/BroadcastCommandHandler';
 import { LaneTier1CommandHandler } from '@/main/modules/mqtt/application/commands/LaneTier1CommandHandler';
 import type { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
+import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import { LaneSafetyStopState, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 
 import { createMockStorage } from '../../../../../helpers/mockDependencies';
 
@@ -97,6 +100,9 @@ describe('LaneTier1CommandHandler', () => {
   let competitionStateSubscriber: CompetitionStateSubscriber;
   let retainPublisher: RetainPublisher;
   let storage: ReturnType<typeof createMockStorage>;
+  let shootOffControl: ICompetitionShootOffControl;
+  let safetyStopControl: ILaneSafetyStopControl;
+  let safetyStatePublisher: LaneSafetyStatePublisher;
   let handler: LaneTier1CommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -111,6 +117,29 @@ describe('LaneTier1CommandHandler', () => {
       clearCompetitionTopics: vi.fn().mockResolvedValue(undefined),
     } as unknown as RetainPublisher;
     storage = createMockStorage();
+    shootOffControl = {
+      open: vi.fn(),
+      close: vi.fn(),
+      getState: vi.fn().mockReturnValue(null),
+      canAcceptShot: vi.fn().mockReturnValue(false),
+      recordShot: vi.fn(),
+    } as unknown as ICompetitionShootOffControl;
+    const stoppedState = LaneSafetyStopState.create({
+      safetyStopId: 'd4444444-4444-4444-a444-444444444444',
+      status: 'STOPPED',
+      reason: 'Unsafe condition',
+      stoppedBy: 'director',
+      stoppedAt: new Date('2026-09-02T00:00:00.000Z'),
+    });
+    safetyStopControl = {
+      activate: vi.fn().mockResolvedValue(stoppedState),
+      clear: vi.fn().mockResolvedValue(stoppedState),
+      getState: vi.fn().mockReturnValue(stoppedState),
+      isStopped: vi.fn().mockReturnValue(true),
+    };
+    safetyStatePublisher = {
+      publishCurrentState: vi.fn().mockResolvedValue(undefined),
+    } as unknown as LaneSafetyStatePublisher;
     handler = new LaneTier1CommandHandler(
       mqttClient,
       guard,
@@ -121,6 +150,10 @@ describe('LaneTier1CommandHandler', () => {
       retainPublisher,
       storage,
       () => LANE_ID,
+      safetyStopControl,
+      safetyStatePublisher,
+      undefined,
+      shootOffControl,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -187,6 +220,58 @@ describe('LaneTier1CommandHandler', () => {
     });
   });
 
+  describe('probe-clock', () => {
+    it('returns receive and send timestamps without requiring competition membership', async () => {
+      const directorSentAt = '2026-09-01T00:00:00.000Z';
+      await sendMessage('probe-clock', buildCommand({ directorSentAt }));
+
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter((call) => call[0].includes('/acknowledgement'));
+      const done = JSON.parse(acknowledgements[1]![1]);
+      expect(done).toMatchObject({
+        status: 'done',
+        data: { directorSentAt },
+      });
+      expect(Date.parse(done.data.laneReceivedAt)).not.toBeNaN();
+      expect(Date.parse(done.data.laneSentAt)).not.toBeNaN();
+      expect(handler.competitionId).toBeNull();
+    });
+  });
+
+  describe('activate-safety-stop', () => {
+    it('closes an active shoot-off window so clearing STOP cannot resume it', async () => {
+      vi.mocked(shootOffControl.getState).mockReturnValue({
+        competitionId: COMPETITION_ID,
+        runId: 'e5555555-5555-4555-a555-555555555555',
+        iteration: 3,
+        timerStartAt: '2026-09-02T00:00:00.000Z',
+        timerDurationSeconds: 50,
+        status: 'OPEN',
+        shotId: null,
+      });
+
+      await sendMessage(
+        'activate-safety-stop',
+        buildCommand({
+          safetyStopId: 'd4444444-4444-4444-a444-444444444444',
+          reason: 'Unsafe condition',
+        }),
+      );
+
+      expect(safetyStopControl.activate).toHaveBeenCalled();
+      expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, 'e5555555-5555-4555-a555-555555555555', 3);
+      expect(safetyStatePublisher.publishCurrentState).toHaveBeenCalled();
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter((call) => call[0].includes('/acknowledgement'));
+      expect(JSON.parse(acknowledgements[1]![1])).toMatchObject({
+        status: 'done',
+        data: { status: 'STOPPED', timerRestarted: false },
+      });
+    });
+  });
+
   describe('ALREADY_IN_COMPETITION error', () => {
     it('acknowledges a retry for the competition it has already joined', async () => {
       await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
@@ -239,6 +324,15 @@ describe('LaneTier1CommandHandler', () => {
     it('unsubscribes from competition topics and child handlers', async () => {
       // Join first
       await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+      vi.mocked(shootOffControl.getState).mockReturnValue({
+        competitionId: COMPETITION_ID,
+        runId: 'e5555555-5555-4555-a555-555555555555',
+        iteration: 2,
+        timerStartAt: new Date().toISOString(),
+        timerDurationSeconds: 50,
+        status: 'SHOT_RECORDED',
+        shotId: 'f6666666-6666-4666-a666-666666666666',
+      });
 
       (mqttClient.publish as ReturnType<typeof vi.fn>).mockClear();
 
@@ -256,6 +350,7 @@ describe('LaneTier1CommandHandler', () => {
       expect(rpcHandler.unsubscribe).toHaveBeenCalled();
       expect(competitionStateSubscriber.unsubscribe).toHaveBeenCalled();
       expect(retainPublisher.clearCompetitionTopics).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID);
+      expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, 'e5555555-5555-4555-a555-555555555555', 2);
       expect(storage.delete).toHaveBeenCalledWith('mqtt.competitionId');
       expect(handler.competitionId).toBeNull();
     });

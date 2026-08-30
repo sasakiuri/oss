@@ -61,7 +61,7 @@ describe('buildFiringPointAssignmentPlan', () => {
         firingPointNumber: 1,
         laneId: 'lane-1',
         laneAlias: 'Lane 1',
-        athlete: { id: 'p-1', startNumber: 5, name: 'Athlete p-1', teamName: 'Tokyo' },
+        athlete: { id: 'p-1', startNumber: 5, name: 'Athlete p-1' },
       },
       {
         firingPointNumber: 3,

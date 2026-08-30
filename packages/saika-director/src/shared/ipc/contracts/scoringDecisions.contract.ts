@@ -111,4 +111,8 @@ export const scoringDecisionsContract = defineContract('scoringDecisions', {
     z.object({ resultId: uuidSchema, resultScope: z.enum(['QUALIFICATION', 'FINAL']) }),
     queryResponseSchema(z.object({ decisions: z.array(ScoringDecisionDtoSchema) })),
   ),
+  listByEvent: query(
+    z.object({ eventId: uuidSchema, resultScope: z.enum(['QUALIFICATION', 'FINAL']).optional() }),
+    queryResponseSchema(z.object({ decisions: z.array(ScoringDecisionDtoSchema) })),
+  ),
 });

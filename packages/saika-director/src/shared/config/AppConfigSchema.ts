@@ -30,6 +30,12 @@ export const MqttBrokerUrlSchema = z
     }
   });
 
+const PersistedBooleanSchema = z.preprocess((value) => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+}, z.boolean());
+
 /**
  * Application configuration schema.
  *
@@ -43,6 +49,7 @@ export const AppConfigSchema = z.object({
   'mqtt.director.id': z.string().min(1).default('saika-director'),
   'mqtt.commandTimeoutMs': z.coerce.number().int().min(100).max(60_000).default(10_000),
   'mqtt.startDelayMs': z.coerce.number().int().min(0).max(30_000).default(3_000),
+  'competitionAnnouncements.enabled': PersistedBooleanSchema.default(true),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;

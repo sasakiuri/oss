@@ -227,6 +227,13 @@ describe('championshipModule saveParticipants', () => {
         affiliation: 'Updated Team',
         logoPath: null,
         sortOrder: 0,
+        startNumber: null,
+        issfId: null,
+        nationCode: null,
+        gender: 'UNSPECIFIED',
+        entryStatus: 'COMPETING',
+        teamId: null,
+        teamName: null,
       },
       {
         id: expect.any(String),
@@ -235,6 +242,13 @@ describe('championshipModule saveParticipants', () => {
         affiliation: 'New Team',
         logoPath: null,
         sortOrder: 1,
+        startNumber: null,
+        issfId: null,
+        nationCode: null,
+        gender: 'UNSPECIFIED',
+        entryStatus: 'COMPETING',
+        teamId: null,
+        teamName: null,
       },
     ]);
   });

@@ -10,22 +10,17 @@ import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Card } from '../../shared/common/Card';
 import { buildFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from '../assignmentPlanning';
-
-type SupportedCompetitionType = 'BR60S' | 'BP60';
+import { asSupportedLaneCompetitionType, type SupportedLaneCompetitionType } from '../supportedCompetitionTypes';
 
 interface ChampionshipAssignmentPanelProps {
   activeCompetitionTypeId: string | null;
   lanes: DirectorLaneSnapshotDto[];
   disabled: boolean;
-  onCompetitionTypeChange: (competitionTypeId: SupportedCompetitionType) => void;
+  onCompetitionTypeChange: (competitionTypeId: SupportedLaneCompetitionType) => void;
   onApply: (plan: FiringPointAssignmentPlan, resultContext: ChampionshipResultContext) => Promise<void>;
 }
 
 export type { ChampionshipResultContext } from '@/renderer/presentation/stores/domain/competitionControl.store';
-
-function asSupportedCompetitionType(eventType: string | undefined): SupportedCompetitionType | null {
-  return eventType === 'BR60S' || eventType === 'BP60' ? eventType : null;
-}
 
 function formatFiringPoints(firingPointNumbers: number[]): string {
   return firingPointNumbers.map((number) => `firing point ${number}`).join(', ');
@@ -69,7 +64,7 @@ export function ChampionshipAssignmentPanel({
     () => selectedChampionship?.events.find((event) => event.id === selectedEventId) ?? null,
     [selectedChampionship, selectedEventId],
   );
-  const selectedCompetitionType = asSupportedCompetitionType(selectedEvent?.eventType);
+  const selectedCompetitionType = asSupportedLaneCompetitionType(selectedEvent?.eventType);
   const relayNumbers = useMemo(
     () => [...new Set(firingPointAssignments.map((assignment) => assignment.relayNumber))].sort((a, b) => a - b),
     [firingPointAssignments],

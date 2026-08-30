@@ -5,8 +5,14 @@ export interface RankingShotEvidence {
   readonly ringScore: number;
   /** Independent EST decimal-ring value used by Rule 6.15.1(d), when available. */
   readonly decimalScore: number | null;
+  /** Source of the decimal value. Official ISSF EST evidence must be device-reported. */
+  readonly decimalScoreSource?: 'DEVICE' | null;
   /** Physical inner-ten determination, null when evidence is unavailable. */
   readonly innerTen: boolean | null;
+  /** Inner-ten is currently derived from coordinates unless a device capability is added. */
+  readonly innerTenSource?: 'CALCULATED' | null;
+  /** True when the EST value and Saika's independent coordinate calculation disagree. */
+  readonly scoreConflict?: boolean;
   readonly shotId: string | null;
   readonly seriesIndex: number;
 }

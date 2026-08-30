@@ -21,8 +21,10 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 }));
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
+import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
@@ -47,6 +49,7 @@ function createMockMqttClient(): IMqttClientService {
 const LANE_ID = 'a1111111-1111-4111-a111-111111111111';
 const COMPETITION_ID = 'b2222222-2222-4222-a222-222222222222';
 const SESSION_ID = 'd4444444-4444-4444-a444-444444444444';
+const INTERRUPTION_ID = 'e5555555-5555-4555-a555-555555555555';
 
 function createMockCompetitionRepo(): ICompetitionRepository {
   return {
@@ -76,6 +79,8 @@ describe('PerLaneCommandHandler', () => {
   let competitionRepo: ICompetitionRepository;
   let assignmentPublisher: LaneAssignmentPublisher;
   let scorePublisher: LaneScorePublisher;
+  let competitionStatePublisher: LaneCompetitionStatePublisher;
+  let interruptionControl: ICompetitionInterruptionControl;
   let handler: PerLaneCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -90,6 +95,28 @@ describe('PerLaneCommandHandler', () => {
     scorePublisher = {
       publishCurrentScore: vi.fn().mockResolvedValue(undefined),
     } as unknown as LaneScorePublisher;
+    competitionStatePublisher = {
+      publishCurrentState: vi.fn().mockResolvedValue(undefined),
+    } as unknown as LaneCompetitionStatePublisher;
+    interruptionControl = {
+      pause: vi.fn().mockResolvedValue({
+        interruptionId: 'e5555555-5555-4555-a555-555555555555',
+        status: 'PAUSED',
+        capturedAt: new Date('2026-08-31T01:00:01.000Z'),
+        capturedRemainingSeconds: 240,
+        capturedTotalSeconds: 600,
+      }),
+      resume: vi.fn().mockResolvedValue({
+        interruptionId: 'e5555555-5555-4555-a555-555555555555',
+        status: 'SIGHTING',
+      }),
+      resumeMatch: vi.fn().mockResolvedValue({
+        interruptionId: 'e5555555-5555-4555-a555-555555555555',
+        status: 'RUNNING_MATCH',
+      }),
+      get: vi.fn().mockReturnValue(null),
+      clear: vi.fn(),
+    } as unknown as ICompetitionInterruptionControl;
     handler = new PerLaneCommandHandler(
       mqttClient,
       commandBus,
@@ -97,6 +124,8 @@ describe('PerLaneCommandHandler', () => {
       competitionRepo,
       assignmentPublisher,
       scorePublisher,
+      competitionStatePublisher,
+      interruptionControl,
       () => LANE_ID,
       COMPETITION_ID,
     );
@@ -220,6 +249,53 @@ describe('PerLaneCommandHandler', () => {
       const errorAck = JSON.parse(publishCalls.at(-1)![1] as string);
       expect(errorAck.status).toBe('error');
       expect(errorAck.error.code).toBe('INVALID_PHASE_TRANSITION');
+    });
+  });
+
+  describe('Lane interruption commands', () => {
+    it('pauses only this Lane and returns the captured timer in the done ACK', async () => {
+      await sendMessage(
+        'pause-timer',
+        buildCommand({ interruptionId: INTERRUPTION_ID, pausedAt: '2026-08-31T01:00:00.000Z' }),
+      );
+
+      expect(interruptionControl.pause).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+        pausedAt: new Date('2026-08-31T01:00:00.000Z'),
+      });
+      expect(competitionStatePublisher.publishCurrentState).toHaveBeenCalledWith(COMPETITION_ID);
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({
+        status: 'done',
+        data: { interruptionId: INTERRUPTION_ID, remainingSeconds: 240, totalSeconds: 600 },
+      });
+    });
+
+    it('applies the authorized timer and a later MATCH transition independently', async () => {
+      await sendMessage(
+        'resume-timer',
+        buildCommand({
+          interruptionId: INTERRUPTION_ID,
+          timerStartAt: '2026-08-31T01:10:00.000Z',
+          authorizedRemainingSeconds: 540,
+          unlimitedSightingShots: true,
+        }),
+      );
+      expect(interruptionControl.resume).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+        timerStartAt: new Date('2026-08-31T01:10:00.000Z'),
+        authorizedRemainingSeconds: 540,
+        unlimitedSightingShots: true,
+      });
+
+      guard.clear();
+      await sendMessage('resume-match', buildCommand({ interruptionId: INTERRUPTION_ID }));
+      expect(interruptionControl.resumeMatch).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+      });
     });
   });
 

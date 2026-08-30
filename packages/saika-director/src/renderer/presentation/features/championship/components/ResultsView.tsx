@@ -1,15 +1,20 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useResults } from '../../../hooks/useResults';
-import { CheckCircle, ClipboardCheck, Printer, Scale } from 'lucide-react';
+import { CheckCircle, ClipboardCheck, FileClock, Printer, Scale } from 'lucide-react';
 import { Logger } from '@/shared/utils/Logger';
 import type { FinalRankedResultDto } from '@/shared/ipc/contracts/results.contract';
-import { resultsService, boardService } from '@/renderer/services';
+import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
+import { resultsService, boardService, teamResultsService } from '@/renderer/services';
 import { useNotificationStore } from '../../../stores/ui/notifications.store';
 import { Button } from '../../shared/common/Button';
 import { ScoringDecisionPanel } from './ScoringDecisionPanel';
 import type { RankedResultDto } from '@/shared/ipc/contracts/results.contract';
 import { ResultVerificationPanel } from './ResultVerificationPanel';
 import { FinalPlacementReviewPanel } from './FinalPlacementReviewPanel';
+import { ResultPublicationPanel } from './ResultPublicationPanel';
+import { FinalResultDeclarationPanel } from './FinalResultDeclarationPanel';
+import { TeamResultsPanel } from './TeamResultsPanel';
+import { EstBackupVerificationPanel } from './EstBackupVerificationPanel';
 
 const logger = Logger.create('ResultsView');
 
@@ -34,6 +39,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   } = useResults();
 
   const [finalResults, setFinalResults] = useState<FinalRankedResultDto[]>([]);
+  const [mixedFinalResults, setMixedFinalResults] = useState<MixedTeamFinalResultDto[]>([]);
   const [finalLoading, setFinalLoading] = useState(false);
   const [finalError, setFinalError] = useState<string | null>(null);
 
@@ -47,7 +53,11 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   const [printLoading, setPrintLoading] = useState(false);
   const [decisionResult, setDecisionResult] = useState<RankedResultDto | FinalRankedResultDto | null>(null);
   const [verificationOpen, setVerificationOpen] = useState(false);
+  const [publicationOpen, setPublicationOpen] = useState(false);
+  const [finalDeclarationOpen, setFinalDeclarationOpen] = useState(false);
   const [placementReviewOpen, setPlacementReviewOpen] = useState(false);
+  const [teamResultsOpen, setTeamResultsOpen] = useState(false);
+  const [backupVerificationOpen, setBackupVerificationOpen] = useState(false);
   const finalRequestId = useRef(0);
 
   const results = isFinal ? [] : qualificationResults;
@@ -65,6 +75,11 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     clearResults();
     setDecisionResult(null);
     setPlacementReviewOpen(false);
+    setPublicationOpen(false);
+    setVerificationOpen(false);
+    setFinalDeclarationOpen(false);
+    setTeamResultsOpen(false);
+    setBackupVerificationOpen(false);
   }, [eventId, isFinal, clearResults]);
 
   const refreshFinalResults = useCallback(async () => {
@@ -72,10 +87,15 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     setFinalLoading(true);
     setFinalError(null);
     try {
-      const response = await resultsService.getFinalByEvent({ eventId });
+      const [response, mixedResponse] = await Promise.all([
+        resultsService.getFinalByEvent({ eventId }),
+        teamResultsService.getMixedFinal({ eventId }),
+      ]);
       if (requestId !== finalRequestId.current) return;
       if (!response.success) throw new Error(response.error?.message ?? 'Failed to load results');
+      if (!mixedResponse.success) throw new Error(mixedResponse.error?.message ?? 'Failed to load Mixed Team results');
       setFinalResults(response.data.results);
+      setMixedFinalResults(mixedResponse.data);
     } catch (err) {
       if (requestId !== finalRequestId.current) return;
       setFinalError(err instanceof Error ? err.message : 'Failed to load results');
@@ -106,6 +126,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     let cancelled = false;
     if (isFinal) {
       setFinalResults([]);
+      setMixedFinalResults([]);
       void refreshFinalResults();
     } else {
       if (selectedRelay === 'all') {
@@ -186,6 +207,40 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   }
 
   if (isFinal) {
+    if (mixedFinalResults.length > 0) {
+      return (
+        <div className="space-y-3">
+          {!readOnly && (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
+                <ClipboardCheck size={14} aria-hidden="true" />
+                RTS verification
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setFinalDeclarationOpen(true)}>
+                <FileClock size={14} aria-hidden="true" />
+                Results final
+              </Button>
+            </div>
+          )}
+          <MixedTeamFinalResultsTable results={mixedFinalResults} />
+          {!readOnly && verificationOpen && (
+            <ResultVerificationPanel
+              eventId={eventId}
+              eventName={eventName}
+              resultScope="FINAL"
+              onClose={() => setVerificationOpen(false)}
+            />
+          )}
+          {!readOnly && finalDeclarationOpen && (
+            <FinalResultDeclarationPanel
+              eventId={eventId}
+              eventName={eventName}
+              onClose={() => setFinalDeclarationOpen(false)}
+            />
+          )}
+        </div>
+      );
+    }
     if (finalResults.length === 0) {
       return (
         <div className="border-y border-vscode-border py-4">
@@ -199,10 +254,20 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       <div className="space-y-3">
         <div className="flex items-center justify-end gap-2">
           {!readOnly && (
-            <Button size="sm" variant="secondary" onClick={() => setPlacementReviewOpen(true)}>
-              <ClipboardCheck size={14} aria-hidden="true" />
-              Review placements
-            </Button>
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setPlacementReviewOpen(true)}>
+                <ClipboardCheck size={14} aria-hidden="true" />
+                Review placements
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
+                <ClipboardCheck size={14} aria-hidden="true" />
+                RTS verification
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setFinalDeclarationOpen(true)}>
+                <FileClock size={14} aria-hidden="true" />
+                Results final
+              </Button>
+            </>
           )}
           <Button size="sm" onClick={handlePrint} disabled={finalResults.length === 0 || printLoading}>
             <Printer size={14} aria-hidden="true" />
@@ -305,6 +370,21 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             onChanged={() => void refreshFinalResults()}
           />
         )}
+        {!readOnly && verificationOpen && (
+          <ResultVerificationPanel
+            eventId={eventId}
+            eventName={eventName}
+            resultScope="FINAL"
+            onClose={() => setVerificationOpen(false)}
+          />
+        )}
+        {!readOnly && finalDeclarationOpen && (
+          <FinalResultDeclarationPanel
+            eventId={eventId}
+            eventName={eventName}
+            onClose={() => setFinalDeclarationOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -348,10 +428,22 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                 Confirm ({publishedResultIds.length})
               </Button>
               {!isFinal && (
-                <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
-                  <ClipboardCheck size={14} aria-hidden="true" />
-                  RTS verification
-                </Button>
+                <>
+                  <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
+                    <ClipboardCheck size={14} aria-hidden="true" />
+                    RTS verification
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setPublicationOpen(true)}>
+                    <FileClock size={14} aria-hidden="true" />
+                    Publication
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setTeamResultsOpen(true)}>
+                    Team results
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setBackupVerificationOpen(true)}>
+                    EST backup
+                  </Button>
+                </>
               )}
             </>
           )}
@@ -456,8 +548,76 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
         />
       )}
       {!readOnly && !isFinal && verificationOpen && (
-        <ResultVerificationPanel eventId={eventId} eventName={eventName} onClose={() => setVerificationOpen(false)} />
+        <ResultVerificationPanel
+          eventId={eventId}
+          eventName={eventName}
+          resultScope="QUALIFICATION"
+          onClose={() => setVerificationOpen(false)}
+        />
       )}
+      {!readOnly && !isFinal && publicationOpen && (
+        <ResultPublicationPanel eventId={eventId} eventName={eventName} onClose={() => setPublicationOpen(false)} />
+      )}
+      {!isFinal && teamResultsOpen && <TeamResultsPanel eventId={eventId} onClose={() => setTeamResultsOpen(false)} />}
+      {!isFinal && backupVerificationOpen && (
+        <EstBackupVerificationPanel eventId={eventId} onClose={() => setBackupVerificationOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function MixedTeamFinalResultsTable({ results }: { results: MixedTeamFinalResultDto[] }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-[13px] font-semibold text-vscode-text">Mixed Team Final results</h3>
+        <p className="mt-0.5 text-xs text-vscode-text-muted">
+          Team totals combine both Lane score snapshots; ranks come from the completed Final checkpoint ledger.
+        </p>
+      </div>
+      <div className="overflow-auto rounded border border-vscode-border">
+        <table className="w-full text-vscode-text">
+          <thead className="bg-vscode-sidebar text-base">
+            <tr className="border-b border-vscode-border">
+              <th className="w-12 px-2 py-1.5 text-center">Rank</th>
+              <th className="px-2 py-1.5 text-left">Team</th>
+              <th className="px-2 py-1.5 text-left">NOC</th>
+              <th className="px-2 py-1.5 text-left">Members</th>
+              <th className="w-20 px-2 py-1.5 text-right">Stage 1</th>
+              <th className="w-20 px-2 py-1.5 text-right">Stage 2</th>
+              <th className="w-20 px-2 py-1.5 text-right">Total</th>
+              <th className="min-w-40 px-2 py-1.5 text-left">Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((team) => (
+              <tr key={team.id} className="border-b border-vscode-border align-top">
+                <td className="px-2 py-1.5 text-center font-bold">{team.rank}</td>
+                <td className="px-2 py-1.5">
+                  {team.teamName}
+                  <span className="block text-xs text-vscode-dimmed">{team.teamId}</span>
+                </td>
+                <td className="px-2 py-1.5">{team.nationCode}</td>
+                <td className="px-2 py-1.5">
+                  {team.members.map((member) => (
+                    <span key={member.participantId} className="block text-xs">
+                      {member.gender} · FP {member.firingPointNumber} · {member.playerName} ·{' '}
+                      {member.totalScore.toFixed(1)}
+                    </span>
+                  ))}
+                </td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{team.stage1Total.toFixed(1)}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums">{team.stage2Total.toFixed(1)}</td>
+                <td className="px-2 py-1.5 text-right font-bold tabular-nums">{team.totalScore.toFixed(1)}</td>
+                <td className="px-2 py-1.5 text-xs text-vscode-dimmed">
+                  {team.eliminatedAtShot ? `Placed after shot ${team.eliminatedAtShot}` : 'Winner'}
+                  {team.remarks && <span className="block">{team.remarks}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
