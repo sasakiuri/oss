@@ -1640,25 +1640,31 @@ timerStartAt が未来の場合（余裕を持ったコマンド）:
 
 #### 認証
 
-MQTT ブローカーへの接続は `username/password` 認証を使用する（`MqttSettingsSchema.auth`）。
+Lane と Director は環境変数で `username/password` を設定できる。内蔵 broker は
+`SAIKA_MQTT_BROKER_AUTH_MODE=REQUIRED` の場合に Director／Lane role を認証し、未認証 connection を拒否する。
+外部 broker の account と password policy は broker 側で管理する。
 
 #### ACL（Access Control List）設計方針
 
 以下の ACL を MQTT ブローカーに設定する（Mosquitto の `aclfile` 等で実装）。
 
-| クライアント                 | Publish 許可                                                                                        | Subscribe 許可                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| saika.lane (laneId=X)        | `saika/lane/X/#`、`saika/competition/+/lane/X/#`、`saika/competition/+/command/+/acknowledgement/X` | `saika/lane/X/command/#`、`saika/competition/+/#`                                                        |
-| saika.director               | `saika/competition/#`、`saika/lane/+/command/#`                                                     | `saika/#`                                                                                                |
-| スコアボード（読み取り専用） | なし                                                                                                | `saika/competition/+/lane/+/score`、`saika/competition/+/lane/+/assignment`、`saika/competition/+/state` |
+| クライアント                 | Publish 許可                                                                                        | Subscribe 許可                                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| saika.lane (laneId=X)        | `saika/lane/X/#`、`saika/competition/+/lane/X/#`、`saika/competition/+/command/+/acknowledgement/X` | 自 Lane command、competition state／cue／broadcast command、自 Lane の private command／query request |
+| saika.director               | `saika/competition/#`、`saika/lane/+/command/#`                                                     | `saika/#`                                                                                             |
+| スコアボード（読み取り専用） | なし                                                                                                | 外部 broker で必要な score／assignment／state topic だけを許可する                                    |
+
+内蔵 broker の ACL は認証を `REQUIRED` にした場合にこの境界を強制する。Lane role の credential は共通であり、
+Lane ID と topic の結び付けは client ID に基づく。device ごとの認証主体が必要な構成では、外部 broker で個別 account と ACL を使用する。
 
 #### TLS 運用方針
 
-- **LAN 内環境**: TLS 使用を推奨。自己署名証明書での運用を想定（`MqttSettingsSchema.tls.caCertPath`）
-- **インターネット経由**: TLS 必須。`rejectUnauthorized: true` を強制
-- **開発環境**: TLS なし可（`MqttSettingsSchema.tls.enabled: false`）
+- **LAN 内環境**: TLS 使用を推奨。現在は OS trust store に登録済みの server certificate を使用する
+- **インターネット経由**: 外部 broker の TLS と強い client 別認証／ACL を必須とする
+- **開発環境**: 隔離した開発 network では平文 `mqtt://` を使用可能
 
-> **現在のスコープ**: フェーズ 1〜3 では認証・TLS の実装を優先し、ACL はフェーズ 4 以降で対応する。
+> **現在のスコープ**: username/password と内蔵 broker の role/topic ACL は実装済み。custom CA、TLS client certificate、
+> 内蔵 broker の device 別 account は未対応。
 
 ---
 

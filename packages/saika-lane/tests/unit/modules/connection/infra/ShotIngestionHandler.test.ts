@@ -13,7 +13,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 }));
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { BR60S, P25, R3P60, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import {
   createShotIngestionHandler,
   type ShotIngestionDeps,
@@ -170,6 +170,215 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({
         sessionId: competitionSession.id,
         mode: expect.objectContaining({ value: 'MATCH' }),
+      }),
+    );
+  });
+
+  it('honours athlete-controlled SIGHTING mode before a new 3-position position', async () => {
+    const competitionSession = buildSession();
+    let activeCompetition = CompetitionState.create('competition-001', competitionSession.id, R3P60.config)
+      .startStage()
+      .endStage()
+      .advanceToNextStage()
+      .startNextSeries();
+    for (let index = 0; index < 20; index++) activeCompetition = activeCompetition.recordShotInSeries();
+    expect(activeCompetition.currentSeriesConfig).toMatchObject({
+      position: 'PRONE',
+      targetModeControl: 'ATHLETE',
+    });
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+
+    await createShotIngestionHandler(deps)({ ...shotData, mode: 'SIGHTING' });
+
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({ mode: expect.objectContaining({ value: 'SIGHTING' }) }),
+    );
+  });
+
+  it('forces shots in a Final position-change interval to SIGHTING even if the target reports MATCH', async () => {
+    const competitionSession = buildSession();
+    let activeCompetition = CompetitionState.create('competition-001', competitionSession.id, R3P_FINAL.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    for (let index = 0; index < 20; index++) activeCompetition = activeCompetition.recordShotInSeries();
+    expect(activeCompetition.currentSeriesConfig.purpose).toBe('POSITION_CHANGE_AND_SIGHTING');
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+
+    await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({ mode: expect.objectContaining({ value: 'SIGHTING' }) }),
+    );
+    expect(shotObservationRepository.append).toHaveBeenCalledWith(expect.objectContaining({ reportedMode: 'MATCH' }));
+  });
+
+  it('preserves but does not score a 25m shot outside the authoritative recording window', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+    deps.timedTargetReader = {
+      tryAcceptShot: vi.fn().mockReturnValue({
+        governed: true,
+        allowed: false,
+        purpose: 'MATCH',
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        exposureIndex: null,
+        warning: null,
+        reason: 'Shot was observed during timed target phase ATTENTION',
+      }),
+    };
+
+    await createShotIngestionHandler(deps)(shotData);
+
+    expect(commandBus.execute).not.toHaveBeenCalled();
+    expect(shotObservationRepository.append).toHaveBeenCalledOnce();
+    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'REJECTED_TIMED_TARGET_WINDOW',
+        sessionId: competitionSession.id,
+        detail: expect.stringContaining('ATTENTION'),
+      }),
+      expect.objectContaining({
+        outcome: 'REJECTED_TIMED_TARGET_WINDOW',
+        competition: expect.objectContaining({
+          competitionId: activeCompetition.id,
+          stageIndex: 1,
+          seriesIndex: 0,
+        }),
+      }),
+    );
+  });
+
+  it('keeps an independent Final shoot-off window outside the completed MATCH timed-target guard', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+    deps.shootOffReader = {
+      canAcceptShot: vi.fn().mockReturnValue(true),
+      getState: vi.fn().mockReturnValue(null),
+    };
+    deps.timedTargetReader = {
+      tryAcceptShot: vi.fn().mockReturnValue({
+        governed: true,
+        allowed: false,
+        purpose: 'MATCH',
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        exposureIndex: null,
+        warning: null,
+        reason: 'The preceding MATCH sequence is complete',
+      }),
+    };
+
+    await createShotIngestionHandler(deps)(shotData);
+
+    expect(deps.timedTargetReader.tryAcceptShot).not.toHaveBeenCalled();
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({ mode: expect.objectContaining({ value: 'SIGHTING' }) }),
+    );
+  });
+
+  it('requires the shoot-off timed-target window when the independent window names a program', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+    deps.shootOffReader = {
+      canAcceptShot: vi.fn().mockReturnValue(true),
+      getState: vi.fn().mockReturnValue({
+        timedTargetProgramId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+      } as ReturnType<NonNullable<ShotIngestionDeps['shootOffReader']>['getState']>),
+    };
+    deps.timedTargetReader = {
+      tryAcceptShot: vi.fn().mockReturnValue({
+        governed: true,
+        allowed: true,
+        purpose: 'SHOOT_OFF',
+        targetProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        exposureIndex: 2,
+        warning: null,
+        reason: 'Shot is inside the valid EST recording window',
+      }),
+    };
+
+    await createShotIngestionHandler(deps)(shotData);
+
+    expect(deps.timedTargetReader.tryAcceptShot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+        expectedShootOffProgramId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+      }),
+    );
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({
+        mode: expect.objectContaining({ value: 'SIGHTING' }),
+        targetProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
+        scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
+      }),
+    );
+  });
+
+  it('uses timed purpose and stage target profile for an accepted 25m sighting shot', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+    deps.timedTargetReader = {
+      tryAcceptShot: vi.fn().mockReturnValue({
+        governed: true,
+        allowed: true,
+        purpose: 'SIGHTING',
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        exposureIndex: 0,
+        warning: null,
+        reason: 'Shot is inside the valid EST recording window',
+      }),
+    };
+
+    await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+
+    expect(deps.timedTargetReader.tryAcceptShot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        competitionId: activeCompetition.id,
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+        expectedSightingProgramId: 'P25_SIGHTING_PRECISION_240',
+      }),
+    );
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({
+        mode: expect.objectContaining({ value: 'SIGHTING' }),
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
       }),
     );
   });

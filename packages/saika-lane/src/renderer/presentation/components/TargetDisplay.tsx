@@ -20,12 +20,13 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Discipline, ShotDto } from '@/shared/ipc/contracts';
+import { getScoringGaugeRadiusMm, type ScoringGaugeProfileId, type TargetScoringProfileId } from '@/shared/target';
 
 import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
 import { calculateAutoZoom, calculateFixedZoom, type ZoomMode } from '../utils/zoomCalculator';
 
 import { drawShots } from './target/ShotRenderer';
-import { getTargetRadii } from './target/targetRadii';
+import { getTargetRadii, getTargetRadiiForProfile } from './target/targetRadii';
 import { drawTarget } from './target/TargetRingRenderer';
 
 const MAX_RECENT_SHOTS = 8;
@@ -42,6 +43,10 @@ export interface TargetDisplayProps {
   zoomMode: ZoomMode;
   /** Shot indices where Preparation display shot numbers are initialized */
   preparationShotNumberResetIndices?: readonly number[];
+  /** Optional stage-specific ISSF face (for 25m precision vs rapid-fire). */
+  targetProfileId?: TargetScoringProfileId;
+  /** Optional event-selected scoring geometry, independent from the face. */
+  scoringGaugeProfileId?: ScoringGaugeProfileId;
   /** Optional CSS class name */
   className?: string;
 }
@@ -54,11 +59,14 @@ export const TargetDisplay: React.FC<TargetDisplayProps> = memo(function TargetD
   discipline,
   zoomMode,
   preparationShotNumberResetIndices = [],
+  targetProfileId,
+  scoringGaugeProfileId,
   className = '',
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState(800);
+  const scoringGaugeRadiusMm = scoringGaugeProfileId ? getScoringGaugeRadiusMm(scoringGaugeProfileId) : undefined;
 
   const displayShots = useMemo(
     () => withDisplayShotNumbers(shots, { preparationResetIndices: preparationShotNumberResetIndices }),
@@ -74,14 +82,14 @@ export const TargetDisplay: React.FC<TargetDisplayProps> = memo(function TargetD
   // Calculate zoom level (switch based on mode)
   const effectiveZoom = useMemo(() => {
     const canvasRadius = canvasSize / 2;
-    const targetRadii = getTargetRadii(discipline);
+    const targetRadii = targetProfileId ? getTargetRadiiForProfile(targetProfileId) : getTargetRadii(discipline);
 
     if (zoomMode === 'AUTO') {
-      return calculateAutoZoom(recentShots, discipline, canvasRadius, targetRadii);
+      return calculateAutoZoom(recentShots, discipline, canvasRadius, targetRadii, scoringGaugeRadiusMm);
     } else {
       return calculateFixedZoom(zoomMode, discipline, targetRadii, canvasRadius);
     }
-  }, [zoomMode, recentShots, discipline, canvasSize]);
+  }, [zoomMode, recentShots, discipline, targetProfileId, scoringGaugeRadiusMm, canvasSize]);
 
   // Update canvas size based on container dimensions
   useEffect(() => {
@@ -117,9 +125,9 @@ export const TargetDisplay: React.FC<TargetDisplayProps> = memo(function TargetD
     const centerY = canvas.height / 2;
     const scale = effectiveZoom * 5; // Base scale factor
 
-    drawTarget(ctx, centerX, centerY, scale, discipline);
-    drawShots(ctx, centerX, centerY, scale, recentShots, discipline);
-  }, [recentShots, effectiveZoom, discipline, canvasSize]);
+    drawTarget(ctx, centerX, centerY, scale, discipline, { targetProfileId });
+    drawShots(ctx, centerX, centerY, scale, recentShots, discipline, scoringGaugeRadiusMm);
+  }, [recentShots, effectiveZoom, discipline, targetProfileId, scoringGaugeRadiusMm, canvasSize]);
 
   return (
     <div ref={containerRef} className={`flex h-full w-full items-center justify-center ${className}`.trim()}>

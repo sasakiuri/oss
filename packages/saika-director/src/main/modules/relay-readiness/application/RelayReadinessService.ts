@@ -8,7 +8,7 @@ import type {
 import type { IRelayReadinessRepository } from '../domain/IRelayReadinessRepository';
 import type { IRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
 import { IssfRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
-import { RelayReadinessEntry } from '../domain/RelayReadinessEntry';
+import { RelayReadinessEntry, type RelayReadinessOperationalPhase } from '../domain/RelayReadinessEntry';
 
 export class RelayReadinessService {
   constructor(
@@ -30,11 +30,16 @@ export class RelayReadinessService {
     return toEntryDto(entry);
   }
 
-  async assess(input: RelayReadinessScopePayload & { laneIds: string[] }): Promise<RelayReadinessAssessmentDto> {
+  async assess(
+    input: Omit<RelayReadinessScopePayload, 'phase'> & {
+      phase: RelayReadinessOperationalPhase;
+      laneIds: string[];
+    },
+  ): Promise<RelayReadinessAssessmentDto> {
     const assessment = this.policy.assess({
       phase: input.phase,
       laneIds: input.laneIds,
-      entries: this.repository.findByScope(input),
+      entries: this.repository.findByRelay(input),
     });
     return {
       mode: assessment.mode,
@@ -43,7 +48,10 @@ export class RelayReadinessService {
       items: assessment.items.map((item) => ({
         requirement: item.requirement,
         laneId: item.laneId,
+        phase: item.phase,
+        label: item.label,
         ruleReference: item.ruleReference,
+        required: item.required,
         confirmed: item.confirmed,
         latestEntry: item.latestEntry ? toEntryDto(item.latestEntry) : null,
       })),

@@ -5,6 +5,7 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Series } from '@/main/modules/session/domain/Series';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
 import { Shot } from './Shot';
 
@@ -194,6 +195,8 @@ export class Session {
       calculatedScore?: Score;
       receivedAt?: Date;
       sourceObservationId?: string;
+      targetProfileId?: TargetScoringProfileId;
+      scoringGaugeProfileId?: ScoringGaugeProfileId;
     },
   ): Session {
     // Business rule: cannot add new shots to a finished session
@@ -239,6 +242,8 @@ export class Session {
       calculatedScore: evidence?.calculatedScore,
       receivedAt: evidence?.receivedAt,
       sourceObservationId: evidence?.sourceObservationId,
+      targetProfileId: evidence?.targetProfileId,
+      scoringGaugeProfileId: evidence?.scoringGaugeProfileId,
     });
 
     // Add to all shots history

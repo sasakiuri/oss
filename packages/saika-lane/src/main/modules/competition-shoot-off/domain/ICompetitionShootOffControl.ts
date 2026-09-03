@@ -6,8 +6,11 @@ export interface CompetitionShootOffWindow {
   readonly iteration: number;
   readonly timerStartAt: string;
   readonly timerDurationSeconds: number;
-  readonly status: 'OPEN' | 'SHOT_RECORDED';
-  readonly shotId: string | null;
+  readonly shotsPerLane: number;
+  /** Present when shot acceptance is additionally gated by a RulePack timed-target sequence. */
+  readonly timedTargetProgramId?: string;
+  readonly status: 'OPEN' | 'COMPLETE';
+  readonly recordedShotIds: readonly string[];
 }
 
 export interface OpenCompetitionShootOffWindowInput {
@@ -16,6 +19,8 @@ export interface OpenCompetitionShootOffWindowInput {
   readonly iteration: number;
   readonly timerStartAt: string;
   readonly timerDurationSeconds: number;
+  readonly shotsPerLane: number;
+  readonly timedTargetProgramId?: string;
 }
 
 export interface ICompetitionShootOffControl {

@@ -15,6 +15,7 @@ import {
   ResumeTimerCmdSchema,
   StartMatchCmdSchema,
   StartSightingCmdSchema,
+  StartShootOffCmdSchema,
   TimerExpiredCmdSchema,
   TimerStartedCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
@@ -161,12 +162,47 @@ describe('MqttCommandSchemas', () => {
       expect(result.success).toBe(true);
     });
 
-    it('rejects missing timerDurationSeconds', () => {
+    it('accepts a missing generic duration for independently timed-target matches', () => {
       const result = StartMatchCmdSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('StartShootOffCmdSchema', () => {
+    const shootOff = () => ({
+      ...validBase(),
+      runId: crypto.randomUUID(),
+      iteration: 1,
+      timerStartAt: new Date().toISOString(),
+      shotsPerLane: 5,
+      targetLaneIds: [crypto.randomUUID(), crypto.randomUUID()],
+    });
+
+    it('accepts either a generic window or a RulePack timed-target program', () => {
+      expect(StartShootOffCmdSchema.safeParse({ ...shootOff(), timerDurationSeconds: 60 }).success).toBe(true);
+      expect(
+        StartShootOffCmdSchema.safeParse({
+          ...shootOff(),
+          timedTarget: {
+            programId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+            participantExecution: 'SIMULTANEOUS',
+          },
+        }).success,
+      ).toBe(true);
+    });
+
+    it('rejects an ambiguous or missing shoot-off timing source', () => {
+      expect(StartShootOffCmdSchema.safeParse(shootOff()).success).toBe(false);
+      expect(
+        StartShootOffCmdSchema.safeParse({
+          ...shootOff(),
+          timerDurationSeconds: 60,
+          timedTarget: { programId: 'RFPM_FINAL_SHOOT_OFF_4', participantExecution: 'SEQUENTIAL' },
+        }).success,
+      ).toBe(false);
     });
   });
 

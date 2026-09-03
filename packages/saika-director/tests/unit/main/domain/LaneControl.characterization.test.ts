@@ -3,6 +3,9 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG, buildFinalConfig, buildMultiShotSeriesFinalConfig } from '../../../helpers/testConfigs';
+import { ISSF_2026_R3P_FINAL } from '@sasakiuri/saika-rules';
+import { competitionTypeFromRulePack } from '@/shared/competitionTypes';
+import { buildRoundConfig } from '@/shared/constants/roundConfig';
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -17,6 +20,14 @@ function createFinalLane(channel = 1, participants = 8): LaneControl {
 
 function createMultiShotSeriesFinalLane(channel = 1, participants = 8): LaneControl {
   return LaneControl.create(`lane-${channel}`, Channel.create(channel), buildMultiShotSeriesFinalConfig(participants));
+}
+
+function create50mFinalLane(channel = 1): LaneControl {
+  return LaneControl.create(
+    `lane-${channel}`,
+    Channel.create(channel),
+    buildRoundConfig(competitionTypeFromRulePack(ISSF_2026_R3P_FINAL), 8),
+  );
 }
 
 /**
@@ -216,6 +227,28 @@ describe('LaneControl characterization tests', () => {
       expect(lane.phase).toBe('FINISHED');
       expect(lane.matchShots).toHaveLength(24);
       expect(lane.totalScore).toBe(240);
+    });
+  });
+
+  describe('50m 3 Positions Final: shared-time position block', () => {
+    it('keeps the 22-minute timer through Kneeling, Prone and Standing sighting without a phantom score series', () => {
+      let lane = create50mFinalLane().startPreparation().advanceToNextStage().startMatch();
+      lane = lane.tickTimer(60);
+      lane = addShots(lane, 20, 10);
+
+      expect(lane).toMatchObject({ phase: 'ACTIVE', stageIndex: 1, seriesIndex: 2 });
+      expect(lane.remainingTime).toBe(1260);
+      expect(lane.currentSeries).toMatchObject({
+        shots: 0,
+        purpose: 'POSITION_CHANGE_AND_SIGHTING',
+      });
+      expect(lane.matchShots.slice(0, 10).every((shot) => shot.seriesNumber === 1)).toBe(true);
+      expect(lane.matchShots.slice(10).every((shot) => shot.seriesNumber === 2)).toBe(true);
+      expect(() => lane.addShotByScore(10, Date.now(), 21)).toThrow('position change and sighting');
+
+      lane = lane.tickTimer(1260).advanceToNextStage().startMatch();
+      lane = addShots(lane, 5, 10);
+      expect(lane.matchShots.slice(20).every((shot) => shot.seriesNumber === 3)).toBe(true);
     });
   });
 

@@ -14,6 +14,7 @@ import type {
 import type { CompetitionPhase } from '@/shared/mqtt';
 
 import { Button } from '../shared/common/Button';
+import { getFinalRecoveryDefaults } from './finalRecoveryDefaults';
 
 interface FinalRecoveryPanelProps {
   competitionId: string;
@@ -169,14 +170,22 @@ function CreateRecoveryForm({
   setError: (value: string | null) => void;
   onCreated: (value: FinalRecoveryCaseDto) => void;
 }) {
-  const [procedureProfile, setProcedureProfile] = useState<FinalRecoveryProcedureProfileDto>(() =>
-    defaultProcedureProfile(competitionTypeId),
+  const defaults = getFinalRecoveryDefaults(competitionTypeId, phase);
+  const [procedureProfile, setProcedureProfile] = useState<FinalRecoveryProcedureProfileDto>(
+    () => defaults.procedureProfile,
   );
   const [incidentType, setIncidentType] = useState<FinalRecoveryIncidentTypeDto>('MALFUNCTION');
-  const [recoveryPhase, setRecoveryPhase] = useState<FinalRecoveryPhaseDto>(() => defaultRecoveryPhase(phase));
+  const [recoveryPhase, setRecoveryPhase] = useState<FinalRecoveryPhaseDto>(() => defaults.phase);
   const [affectedLaneIds, setAffectedLaneIds] = useState<Set<string>>(() => new Set());
   const [summary, setSummary] = useState('');
   const [officialName, setOfficialName] = useState('');
+  const singleLaneRequired = is25mMalfunction(procedureProfile, incidentType);
+
+  useEffect(() => {
+    const next = getFinalRecoveryDefaults(competitionTypeId, phase);
+    setProcedureProfile(next.procedureProfile);
+    setRecoveryPhase(next.phase);
+  }, [competitionTypeId, phase]);
 
   const submit = async () => {
     setSaving(true);
@@ -262,7 +271,11 @@ function CreateRecoveryForm({
               type="checkbox"
               checked={affectedLaneIds.has(lane.laneId)}
               onChange={(event) =>
-                setAffectedLaneIds((current) => toggleSet(current, lane.laneId, event.target.checked))
+                setAffectedLaneIds((current) =>
+                  singleLaneRequired && event.target.checked
+                    ? new Set([lane.laneId])
+                    : toggleSet(current, lane.laneId, event.target.checked),
+                )
               }
             />
             {laneLabel(lane)}
@@ -272,6 +285,11 @@ function CreateRecoveryForm({
           <p className="text-xs text-vscode-text-muted">No Lane is required for a range-wide record.</p>
         )}
       </div>
+      {singleLaneRequired && (
+        <p className="mt-2 text-[11px] text-vscode-text-muted">
+          A 25m Final malfunction claim is tracked for exactly one finalist/Lane.
+        </p>
+      )}
       <div className="mt-3 grid gap-2 md:grid-cols-2">
         <label className={labelClass}>
           Observed facts
@@ -294,7 +312,9 @@ function CreateRecoveryForm({
       <Button
         className="mt-3"
         size="sm"
-        disabled={disabled || !summary.trim() || !officialName.trim()}
+        disabled={
+          disabled || !summary.trim() || !officialName.trim() || (singleLaneRequired && affectedLaneIds.size !== 1)
+        }
         onClick={() => void submit()}
       >
         Open recovery case
@@ -539,14 +559,11 @@ function availableEntryTypes(status: FinalRecoveryCaseDto['status']): FinalRecov
   }
 }
 
-function defaultRecoveryPhase(phase: CompetitionPhase): FinalRecoveryPhaseDto {
-  if (phase === 'SIGHTING' || phase === 'SIGHTING_COMPLETE') return 'SIGHTING';
-  if (phase === 'MATCH' || phase === 'MATCH_COMPLETE') return 'MATCH_SINGLE';
-  return 'OTHER';
-}
-
-function defaultProcedureProfile(competitionTypeId?: string): FinalRecoveryProcedureProfileDto {
-  return competitionTypeId?.includes('MIX') ? 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' : 'RIFLE_PISTOL_10M_50M';
+function is25mMalfunction(
+  profile: FinalRecoveryProcedureProfileDto,
+  incidentType: FinalRecoveryIncidentTypeDto,
+): boolean {
+  return incidentType === 'MALFUNCTION' && (profile === 'PISTOL_25M_RAPID_FIRE' || profile === 'PISTOL_25M_WOMEN');
 }
 
 function toggleSet(current: Set<string>, id: string, included: boolean): Set<string> {

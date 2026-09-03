@@ -14,6 +14,8 @@ export interface ShotMqttEvidencePayload {
   effectiveScoreX10: number;
   receivedAt: string;
   observationId?: string;
+  targetProfileId?: string;
+  scoringGaugeProfileId?: string;
 }
 
 /** Keeps transport mapping independent from the publishers and competition flow. */
@@ -25,5 +27,7 @@ export function toShotMqttEvidencePayload(shot: Shot): ShotMqttEvidencePayload {
     effectiveScoreX10: shot.score.value,
     receivedAt: shot.receivedAt.toISOString(),
     ...(shot.sourceObservationId === undefined ? {} : { observationId: shot.sourceObservationId }),
+    ...(shot.targetProfileId === undefined ? {} : { targetProfileId: shot.targetProfileId }),
+    ...(shot.scoringGaugeProfileId === undefined ? {} : { scoringGaugeProfileId: shot.scoringGaugeProfileId }),
   };
 }

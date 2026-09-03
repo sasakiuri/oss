@@ -47,6 +47,7 @@ interface ShootOffShotRow {
   lane_id: string;
   shot_id: string;
   score_x10: number;
+  source_score_x10: number;
   x: number | null;
   y: number | null;
   fired_at: string;
@@ -117,9 +118,9 @@ export class SqliteFinalOperationRepository implements IFinalOperationRepository
     this.db
       .prepare(
         `INSERT INTO final_operation_shoot_off_shots (
-          id, run_id, iteration, lane_id, shot_id, score_x10, x, y, fired_at, observed_at
+          id, run_id, iteration, lane_id, shot_id, score_x10, source_score_x10, x, y, fired_at, observed_at
         ) VALUES (
-          @id, @runId, @iteration, @laneId, @shotId, @scoreX10, @x, @y, @firedAt, @observedAt
+          @id, @runId, @iteration, @laneId, @shotId, @scoreX10, @sourceScoreX10, @x, @y, @firedAt, @observedAt
         )`,
       )
       .run(shot);
@@ -182,6 +183,7 @@ function toShootOffShot(row: ShootOffShotRow): FinalOperationShootOffShot {
     laneId: row.lane_id,
     shotId: row.shot_id,
     scoreX10: row.score_x10,
+    sourceScoreX10: row.source_score_x10,
     x: row.x,
     y: row.y,
     firedAt: row.fired_at,

@@ -37,6 +37,8 @@ export function createGetCompetitionStateHandler(
       currentStageName: state.currentStageConfig.name,
       scored: state.currentStageConfig.scored,
       shotsPerSeries: state.config.shotsPerSeries,
+      targetProfileId: state.currentStageConfig.targetProfileId ?? state.config.targetProfileId,
+      scoringGaugeProfileId: state.currentStageConfig.scoringGaugeProfileId ?? state.config.scoringGaugeProfileId,
     };
   };
 }

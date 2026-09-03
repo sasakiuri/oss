@@ -125,6 +125,8 @@ function shotAt(offsetMilliseconds: number): CompetitionShotObservation {
     calculatedScoreX10: 100,
     calculatedScoreAvailable: true,
     effectiveScoreX10: 100,
+    targetProfileId: null,
+    scoringGaugeProfileId: null,
     innerTen: false,
     mode: 'MATCH',
     firedAt: time,

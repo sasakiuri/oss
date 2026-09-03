@@ -37,6 +37,10 @@ vi.mock('@/renderer/presentation/stores/ui/notifications.store', () => ({
     selector({ addNotification }),
 }));
 
+vi.mock('@/renderer/presentation/features/settings/OperationalArchivesPanel', () => ({
+  OperationalArchivesPanel: () => null,
+}));
+
 import { SettingsScreen } from '@/renderer/presentation/features/settings/SettingsScreen';
 
 describe('SettingsScreen', () => {

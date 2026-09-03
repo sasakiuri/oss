@@ -39,6 +39,7 @@ import type {
   reportContract,
   sessionContract,
   settingsContract,
+  timedTargetContract,
   updaterContract,
   UserPreferencesDto,
   windowContract,
@@ -58,6 +59,7 @@ type ReportBridge = InferBridge<typeof reportContract>;
 type WindowBridge = InferBridge<typeof windowContract>;
 type MqttBridge = InferBridge<typeof mqttContract>;
 type UpdaterBridge = InferBridge<typeof updaterContract>;
+type TimedTargetBridge = InferBridge<typeof timedTargetContract>;
 
 // ---------------------------------------------------------------------------
 // Settings output types (used for adapted signatures)
@@ -126,6 +128,9 @@ export interface ElectronAPI {
 
   /** MQTT management methods */
   readonly mqtt: MqttBridge;
+
+  /** Independent ISSF 25m timed-target sequence state and local emergency cancellation. */
+  readonly timedTarget: TimedTargetBridge;
 
   /** Application update methods */
   readonly updates: {

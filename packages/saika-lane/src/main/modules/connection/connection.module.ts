@@ -27,6 +27,7 @@ type ConnectionDeps =
   | 'sessionRepository'
   | 'competitionRepository'
   | 'competitionShootOffControl'
+  | 'timedTargetControl'
   | 'safetyStopControl'
   | 'usbManager'
   | 'ipcRouter'
@@ -42,6 +43,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     'sessionRepository',
     'competitionRepository',
     'competitionShootOffControl',
+    'timedTargetControl',
     'safetyStopControl',
     'usbManager',
     'ipcRouter',
@@ -55,6 +57,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     sessionRepository,
     competitionRepository,
     competitionShootOffControl,
+    timedTargetControl,
     safetyStopControl,
     usbManager,
     ipcRouter,
@@ -160,6 +163,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       shotObservationRepository,
       safetyStopReader: safetyStopControl,
       shootOffReader: competitionShootOffControl,
+      timedTargetReader: timedTargetControl,
       onObservationFinalized: (evidenceId) => {
         eventBus.emit({
           type: 'ShotObservationRouted',

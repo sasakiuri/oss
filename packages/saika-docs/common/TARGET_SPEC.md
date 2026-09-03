@@ -6,19 +6,35 @@
 
 本ドキュメントは、Saika Lane が描画と採点に使用する標的データを説明する。規則本文や公式図版の転載ではない。
 
-リング半径の値は [`targetRadii.ts`](../../saika-lane/src/renderer/presentation/components/target/targetRadii.ts)（描画用）および [`TargetDesign.ts`](../../saika-lane/src/main/modules/target/domain/TargetDesign.ts)（採点用）の実装と対応する。
+リング半径の値は [`TargetScoringProfile.ts`](../../saika-lane/src/shared/target/TargetScoringProfile.ts)、採点ゲージは [`ScoringGaugeProfile.ts`](../../saika-lane/src/shared/target/ScoringGaugeProfile.ts)、判定処理は [`TargetDesign.ts`](../../saika-lane/src/main/modules/target/domain/TargetDesign.ts) の実装と対応する。
 
 > 数値は実装確認用であり、公式性や現行規則との一致を保証しません。競技で使用する場合は [ISSF・JRSFの一次情報](../SOURCES.md) と照合してください。
 
 ## 名称マッピング
 
-| コード      | 規格 |
-| ----------- | ---- |
-| JRSF_BR_10M | JRSF |
-| JRSF_BP_10M | JRSF |
-| ISSF_AR_10M | ISSF |
-| ISSF_AP_10M | ISSF |
-| ISSF_SB_50M | ISSF |
+| コード                 | 規格 |
+| ---------------------- | ---- |
+| JRSF_BR_10M            | JRSF |
+| JRSF_BP_10M            | JRSF |
+| ISSF_AR_10M            | ISSF |
+| ISSF_AP_10M            | ISSF |
+| ISSF_SB_50M            | ISSF |
+| ISSF_P25_PRECISION_25M | ISSF |
+| ISSF_P25_RAPID_25M     | ISSF |
+
+## 標的面と採点ゲージの分離
+
+Saika Lane は、リング線を定義する「標的面」と、座標から得点を独立計算する「採点ゲージ」を別のプロファイルとして扱う。同じ 25m Precision / 50m Pistol 標的面でも、種目に応じて次の採点幾何を選択する。
+
+| 採点ゲージ ID                | 直径   | 用途                          | 根拠                                            |
+| ---------------------------- | ------ | ----------------------------- | ----------------------------------------------- |
+| `ISSF_AIR_4_50_2026`         | 4.50mm | 10m Air の座標照合            | ISSF 6.3.4、Paper Target Scoring 1.4.4          |
+| `ISSF_SMALLBORE_5_60_2026`   | 5.60mm | 50m Rifle、25m rimfire pistol | ISSF 7.4.6、8.4.3.2、Paper Target Scoring 1.4.3 |
+| `ISSF_CENTER_FIRE_9_65_2026` | 9.65mm | 25m Centre Fire Pistol        | ISSF 8.4.3.3、Paper Target Scoring 1.4.1        |
+
+Centre Fire の 9.65mm は使用実包の推定径ではなく、ISSF が定める scoring gauge の measuring edge diameter である。Rule Pack が採点ゲージ ID を選び、Lane は選択した ID を各射の不変証跡として保存し、MQTT で Director へ送る。
+
+承認済み電子標的（EST）が得点を送信した場合、その装置得点を有効得点として維持する。Saika の座標計算値は差異検出用の独立照合値であり、Jury の判断や装置得点を自動的に上書きしない。紙標的の doubtful shot に対するゲージ挿入手順そのものを自動化するものでもない。
 
 ## スコアリング方式
 
@@ -28,7 +44,7 @@
 
 **判定式**: `distance <= ring.radius`
 
-全種目で outer-edge スコアリングを採用する。各種目の `shotRadius`（弾半径）はリング定義生成時に帯境界に組み込まれており、`calculateScore` では弾中心からの距離のみで判定する。
+座標照合では outer-edge スコアリングを採用する。選択された `scoringGaugeRadius` はリング定義生成時に帯境界に組み込まれており、`calculateScore` では着弾中心からの距離のみで判定する。
 
 ## 小数点スコアリング（Decimal Scoring）
 
@@ -36,12 +52,12 @@
 
 ### 計算式
 
-| 項目       | 式                                               |
-| ---------- | ------------------------------------------------ |
-| 内縁       | Band 0: 0, Band N (N≥1): radii[N−1] + shotRadius |
-| 外縁       | radii[N] + shotRadius                            |
-| ステップ   | (外縁 − 内縁) ÷ 10                               |
-| N.k の半径 | 内縁 + (10 − k) × ステップ                       |
+| 項目       | 式                                                       |
+| ---------- | -------------------------------------------------------- |
+| 内縁       | Band 0: 0, Band N (N≥1): radii[N−1] + scoringGaugeRadius |
+| 外縁       | radii[N] + scoringGaugeRadius                            |
+| ステップ   | (外縁 − 内縁) ÷ 10                                       |
+| N.k の半径 | 内縁 + (10 − k) × ステップ                               |
 
 ### 変数の定義
 
@@ -50,7 +66,7 @@
   - k = 9: N.9（最高小数スコア、内縁に近い）
   - k = 0: N.0（最低小数スコア、外縁に近い）
 
-### 例: ISSF_AR_10M の10点帯（shotRadius=2.25mm）
+### 例: ISSF_AR_10M の10点帯（scoringGaugeRadius=2.25mm）
 
 - 内縁: 0mm（Band 0）
 - 外縁: 0.25mm + 2.25mm = 2.50mm
@@ -277,3 +293,16 @@ JRSF ビームピストル 10m 標的。ISSF_AP_10M と同一の標的仕様を�
 | ----------- | ------------------------------------- | ------------ |
 | ISSF_SB3X20 | 3姿勢 60発（膝射・伏射・立射 各20発） | 2.8mm        |
 | ISSF_SB60PR | 伏射 60発                             | 2.8mm        |
+
+---
+
+### ISSF 25m Pistol 標的
+
+25m Pistol の標的面は、Precision と Rapid Fire をステージごとに切り替える。rimfire 種目は 5.60mm、Centre Fire Pistol は 9.65mm の採点ゲージを同じ標的面へ適用する。
+
+| 標的面     | 10点リング半径 | 9点リング半径 | rimfire 10点中心距離上限 | Centre Fire 10点中心距離上限 |
+| ---------- | -------------- | ------------- | ------------------------ | ---------------------------- |
+| Precision  | 25.0mm         | 50.0mm        | 27.8mm                   | 29.825mm                     |
+| Rapid Fire | 50.0mm         | 90.0mm        | 52.8mm                   | 54.825mm                     |
+
+インナー10のリング半径は Precision が 12.5mm、Rapid Fire が 25.0mm である。したがって弾痕中心距離上限は、rimfire でそれぞれ 15.3mm / 27.8mm、Centre Fire で 17.325mm / 29.825mm となる。

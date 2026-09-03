@@ -8,6 +8,8 @@
  * Also implements a heartbeat at 60-second intervals.
  */
 
+import type { RulePackIdentity } from '@sasakiuri/saika-rules';
+
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -21,6 +23,11 @@ interface HardwareState {
   connectionId?: string;
 }
 
+export interface LaneRuntimeCapabilities {
+  readonly competitionProtocolVersions: readonly [1];
+  readonly rulePacks: readonly RulePackIdentity[];
+}
+
 export class HardwareStatePublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
@@ -30,7 +37,13 @@ export class HardwareStatePublisher {
   private publishingEnabled = true;
   private runtimeLaneAlias: string | null = null;
 
-  constructor(mqttClient: IMqttClientService, eventBus: IEventBus, storage: ILocalStorage, appVersion: string) {
+  constructor(
+    mqttClient: IMqttClientService,
+    eventBus: IEventBus,
+    storage: ILocalStorage,
+    appVersion: string,
+    private readonly capabilities?: LaneRuntimeCapabilities,
+  ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
     this.appVersion = appVersion;
@@ -76,6 +89,7 @@ export class HardwareStatePublisher {
       laneAlias: this.getLaneAlias(),
       connection,
       appVersion: this.appVersion,
+      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
       publishedAt: new Date().toISOString(),
     });
   }
@@ -139,6 +153,7 @@ export class HardwareStatePublisher {
       laneAlias: this.getLaneAlias(),
       connection: { status: 'offline' },
       appVersion: this.appVersion,
+      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
       publishedAt: new Date().toISOString(),
     });
   }

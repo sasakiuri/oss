@@ -100,6 +100,8 @@ function makeObservation(id: string): CompetitionShotObservation {
     calculatedScoreX10: 100,
     calculatedScoreAvailable: true,
     effectiveScoreX10: 100,
+    targetProfileId: null,
+    scoringGaugeProfileId: null,
     innerTen: false,
     mode: 'SIGHTING',
     firedAt,

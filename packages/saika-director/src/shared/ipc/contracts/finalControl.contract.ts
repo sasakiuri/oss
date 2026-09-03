@@ -4,9 +4,25 @@ import { command, commandDataResponseSchema, defineContract, query, queryRespons
 const laneSnapshot = z.object({
   laneId: z.string().uuid(),
   athleteName: z.string().min(1),
+  /** Finals Start Number assigned from qualification ranking where the event requires it. */
+  finalStartNumber: z.number().int().positive().optional(),
   totalShotCount: z.number().int().nonnegative(),
   totalScoreX10: z.number().int().nonnegative(),
   finished: z.boolean(),
+  scoreBreakdown: z
+    .array(
+      z.object({
+        stageIndex: z.number().int().nonnegative(),
+        series: z.array(
+          z.object({
+            seriesIndex: z.number().int().nonnegative(),
+            shotsX10: z.array(z.number().int().nonnegative()),
+            seriesTotalX10: z.number().int().nonnegative(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
 });
 
 const assessmentInput = z.object({
@@ -22,6 +38,8 @@ const assessment = z.object({
   expectedRank: z.number().int().min(2).nullable(),
   activeLaneIds: z.array(z.string().uuid()),
   candidateLaneIds: z.array(z.string().uuid()),
+  resolutionRequirement: z.enum(['CLEAR_LOWEST', 'COUNTBACK', 'FINAL_START_NUMBER', 'SHOOT_OFF_OR_JURY']).nullable(),
+  ruleReference: z.string().min(1),
   guidance: z.string().min(1),
 });
 
@@ -45,7 +63,7 @@ const decision = z.object({
   selectedLaneId: z.string().uuid(),
   scoreSnapshot: z.array(laneSnapshot),
   tiedLaneIds: z.array(z.string().uuid()),
-  resolution: z.enum(['CLEAR_LOWEST', 'SHOOT_OFF', 'JURY_DECISION']),
+  resolution: z.enum(['CLEAR_LOWEST', 'COUNTBACK', 'FINAL_START_NUMBER', 'SHOOT_OFF', 'JURY_DECISION']),
   resolutionStatement: z.string().nullable(),
   officialName: z.string(),
   ruleReference: z.string(),
@@ -59,7 +77,7 @@ const recordDecision = assessmentInput.extend({
   id: z.string().uuid().optional(),
   eventId: z.string().uuid().optional(),
   selectedLaneId: z.string().uuid(),
-  resolution: z.enum(['CLEAR_LOWEST', 'SHOOT_OFF', 'JURY_DECISION']),
+  resolution: z.enum(['CLEAR_LOWEST', 'COUNTBACK', 'FINAL_START_NUMBER', 'SHOOT_OFF', 'JURY_DECISION']),
   resolutionStatement: z.string().trim().min(1).max(2000).optional(),
   officialName: z.string().trim().min(1).max(200),
   recordedAt: z.string().datetime().optional(),

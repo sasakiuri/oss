@@ -137,9 +137,9 @@ export class PublishFinalResultsHandler {
             laneControl.player!.affiliation,
             laneControl.channel.value,
             stage1Shots,
-            laneControl.stage1Total,
+            sum(stage1Shots),
             stage2Shots,
-            laneControl.stage2Total,
+            sum(stage2Shots),
             laneControl.displayTotalScore,
             finalRank,
             eliminatedAtShot,
@@ -180,4 +180,8 @@ export class PublishFinalResultsHandler {
       endTimer();
     }
   }
+}
+
+function sum(scores: readonly number[]): number {
+  return Math.round(scores.reduce((total, score) => total + score, 0) * 10) / 10;
 }

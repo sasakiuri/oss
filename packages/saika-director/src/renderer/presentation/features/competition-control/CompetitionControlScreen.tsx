@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, BellRing, Check, Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 
 import { championshipService, mqttService } from '@/renderer/services';
 import { useEvent } from '@/renderer/presentation/hooks/useEvent';
@@ -27,7 +27,8 @@ import { SafetyStopPanel } from '../range-safety';
 import { FinalControlPanel } from '../final-control';
 import { FinalOperationPanel } from '../final-operations';
 import { FinalRecoveryPanel } from '../final-recoveries';
-import { RelayReadinessPanel } from '../relay-readiness';
+import { IrregularShotCasesPanel } from '../irregular-shot-cases';
+import { RelayAthleteLifecyclePanel, RelayReadinessPanel } from '../relay-readiness';
 import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
 import { ProductionOperationsPanel } from '../production-operations';
 import { MixedTeamTimeoutPanel } from '../mixed-team-timeouts';
@@ -35,8 +36,10 @@ import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './c
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
 import { buildPhaseStartConfirmation } from './phaseStartRequirements';
 import { findAdvanceSeriesSource } from './progressPlanning';
+import { TimedTargetControlPanel } from './TimedTargetControlPanel';
 import {
   asSupportedLaneCompetitionType,
+  getLaneCompetitionDefinition,
   getLaneCompetitionTiming,
   LANE_COMPETITION_TYPES,
   type SupportedLaneCompetitionType,
@@ -259,6 +262,9 @@ export function CompetitionControlScreen() {
   const selectedCompetitionTiming = getLaneCompetitionTiming(competitionTypeId);
   const activeCompetitionType = asSupportedLaneCompetitionType(activeCompetition?.competitionTypeId);
   const activeCompetitionTiming = activeCompetitionType ? getLaneCompetitionTiming(activeCompetitionType) : null;
+  const activeCompetitionDefinition = activeCompetitionType
+    ? getLaneCompetitionDefinition(activeCompetitionType)
+    : null;
   const displayedCompetitionTiming = activeCompetitionTiming ?? selectedCompetitionTiming;
   const competitionByLaneId = useMemo(() => {
     const byLaneId = new Map<string, (typeof snapshot.competitions)[number]>();
@@ -581,11 +587,39 @@ export function CompetitionControlScreen() {
     await invokeCompetitionCommand('match', (competitionId) =>
       mqttService.startMatch({
         competitionId,
-        durationSeconds: activeCompetitionTiming.matchSeconds,
+        ...(activeCompetitionTiming.matchSeconds === null
+          ? {}
+          : { durationSeconds: activeCompetitionTiming.matchSeconds }),
         ...(acknowledgedRequirementIds.length > 0 ? { acknowledgedRequirementIds } : {}),
       }),
     );
   }, [activeCompetition, activeCompetitionTiming, confirmPhaseStart, invokeCompetitionCommand]);
+
+  const startTimedTarget = useCallback(
+    (input: { programId: string; purpose: 'SIGHTING' | 'MATCH'; stageIndex: number; seriesIndex: number }) =>
+      invokeCompetitionCommand(`timed-${input.purpose.toLowerCase()}`, (competitionId) =>
+        mqttService.startTimedTarget({ competitionId, ...input }),
+      ),
+    [invokeCompetitionCommand],
+  );
+
+  const cancelTimedTarget = useCallback(
+    async (sequenceId: string, targetLaneIds: string[]) => {
+      const confirmed = await useConfirmDialogStore
+        .getState()
+        .openConfirm('Cancel this timed-target sequence and return all selected targets to RED?');
+      if (!confirmed) return;
+      await invokeCompetitionCommand('cancel-timed-target', (competitionId) =>
+        mqttService.cancelTimedTarget({
+          competitionId,
+          sequenceId,
+          reason: 'Director cancellation',
+          targetLaneIds,
+        }),
+      );
+    },
+    [invokeCompetitionCommand],
+  );
 
   const finishCompetition = useCallback(async () => {
     if (!activeCompetition) return;
@@ -642,6 +676,7 @@ export function CompetitionControlScreen() {
       (activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0));
   const currentPhaseIndex = phaseStepIndex(activeCompetition?.phase);
   const unscoredObservations = shotObservationEvidence.filter((evidence) => evidence.outcome !== 'RECORDED');
+  const activeRangeOfficerRequests = snapshot.lanes.filter((lane) => lane.rangeOfficerRequest?.status === 'ACTIVE');
 
   return (
     <div className="min-h-full">
@@ -680,6 +715,40 @@ export function CompetitionControlScreen() {
       <div className="p-5">
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-4">
+            {activeRangeOfficerRequests.length > 0 && (
+              <section
+                className="border-2 border-vscode-warning bg-vscode-warning/10 p-4"
+                aria-label="Active Range Officer requests"
+                aria-live="assertive"
+              >
+                <div className="flex items-center gap-2 text-vscode-warning">
+                  <BellRing size={19} aria-hidden="true" />
+                  <h2 className="text-sm font-bold">Range Officer requested</h2>
+                </div>
+                <ul className="mt-2 space-y-2">
+                  {activeRangeOfficerRequests.map((lane) => {
+                    const request = lane.rangeOfficerRequest!;
+                    return (
+                      <li key={request.requestId ?? lane.laneId} className="text-sm text-vscode-text">
+                        <span className="font-semibold">
+                          {lane.firingPointNumber
+                            ? `Firing point ${lane.firingPointNumber}`
+                            : lane.laneAlias || lane.laneId}
+                        </span>
+                        {' · '}
+                        {request.category?.replaceAll('_', ' ') ?? 'ASSISTANCE'}
+                        {request.message ? ` · ${request.message}` : ''}
+                        {request.requestedAt ? ` · ${new Date(request.requestedAt).toLocaleTimeString()}` : ''}
+                        {lane.hardware?.connection.status !== 'connected' ? ' · Lane offline' : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-2 text-xs text-vscode-text-muted">
+                  The Lane owns and clears this assistance signal. It does not change firing or safety state.
+                </p>
+              </section>
+            )}
             <SafetyStopPanel
               connected={snapshot.connected}
               lanes={snapshot.lanes}
@@ -996,6 +1065,32 @@ export function CompetitionControlScreen() {
               </Card>
             )}
 
+            {activeCompetition && (
+              <Card>
+                <RelayAthleteLifecyclePanel
+                  key={`athlete-lifecycle:${activeCompetition.competitionId}`}
+                  competitionId={activeCompetition.competitionId}
+                  relayNumber={resultContext?.relayNumber ?? 1}
+                  preferredPhase={activeCompetition.phase === 'MATCH_COMPLETE' ? 'POST_RELAY' : 'PRE_RELAY'}
+                  athletes={competitionLanes.flatMap((lane) => {
+                    const athlete = lane.assignment?.athlete;
+                    if (!athlete) return [];
+                    return [
+                      {
+                        laneId: lane.laneId,
+                        laneLabel: lane.firingPointNumber
+                          ? `Firing point ${lane.firingPointNumber}`
+                          : lane.laneAlias || lane.laneId.slice(0, 8),
+                        athleteId: athlete.id,
+                        athleteName: athlete.name,
+                        athleteStartNumber: athlete.startNumber,
+                      },
+                    ];
+                  })}
+                />
+              </Card>
+            )}
+
             {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
               <Card>
                 <RelayReadinessPanel
@@ -1013,6 +1108,37 @@ export function CompetitionControlScreen() {
                       ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
                       : lane.laneAlias || lane.laneId.slice(0, 8),
                   }))}
+                />
+              </Card>
+            )}
+
+            {activeCompetition && activeCompetitionDefinition?.timedTarget && (
+              <TimedTargetControlPanel
+                key={`timed-target:${activeCompetition.competitionId}`}
+                definition={activeCompetitionDefinition}
+                phase={activeCompetition.phase}
+                lanes={competitionLanes}
+                disabled={baseControlsDisabled}
+                onStart={startTimedTarget}
+                onCancel={cancelTimedTarget}
+              />
+            )}
+
+            {activeCompetition && resultContext?.eventId && (
+              <Card>
+                <IrregularShotCasesPanel
+                  key={`irregular-shots:${activeCompetition.competitionId}:${resultContext.eventId}`}
+                  eventId={resultContext.eventId}
+                  competitionId={activeCompetition.competitionId}
+                  resultScope={activeCompetition.roundName === 'Final' ? 'FINAL' : 'QUALIFICATION'}
+                  adjudication={activeCompetitionDefinition?.finalSeriesAdjudication}
+                  lanes={competitionLanes.map((lane) => ({
+                    laneId: lane.laneId,
+                    label: lane.firingPointNumber
+                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                      : lane.laneAlias || lane.laneId.slice(0, 8),
+                  }))}
+                  disabled={baseControlsDisabled}
                 />
               </Card>
             )}
@@ -1254,7 +1380,9 @@ export function CompetitionControlScreen() {
                   disabled={controlsDisabled || activeCompetition?.phase !== 'SIGHTING_COMPLETE'}
                   onClick={() => void startMatch()}
                 >
-                  Start match ({formatTimerDuration(displayedCompetitionTiming.matchSeconds)})
+                  {displayedCompetitionTiming.matchSeconds === null
+                    ? 'Enter timed-target match'
+                    : `Start match (${formatTimerDuration(displayedCompetitionTiming.matchSeconds)})`}
                 </Button>
                 <Button
                   variant="secondary"

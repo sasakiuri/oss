@@ -9,6 +9,7 @@ export function drawShots(
   scale: number,
   recentShots: ShotDto[],
   discipline: Discipline,
+  scoringGaugeRadiusMm: number = SHOT_RADIUS_BY_DISCIPLINE[discipline],
 ): void {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -25,10 +26,10 @@ export function drawShots(
     const x = centerX + shot.x * scale;
     const y = centerY - shot.y * scale;
 
-    // Bullet size: per discipline (conforms to TARGET_SPEC.md)
+    // Scoring-gauge footprint: event selection overrides the discipline fallback.
     // No upper limit so it scales at the same rate as the target
     const borderWidth = 0.5; // as thin a border as possible
-    const shotRadius = SHOT_RADIUS_BY_DISCIPLINE[discipline] * scale;
+    const shotRadius = scoringGaugeRadiusMm * scale;
 
     // Determine if this is the latest shot
     const isLatest = shot.id === latestShotId;

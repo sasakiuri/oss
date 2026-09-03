@@ -40,7 +40,10 @@ export class FinalResultDeclaration {
       true,
       requiredText(props.statement, 'statement'),
       requiredText(props.officialName, 'officialName'),
-      requiredText(props.ruleReference ?? 'ISSF 6.14.5 / 6.17.1.7 / 6.17.1.13 / 6.17.2(i) / 6.18.4.2', 'ruleReference'),
+      requiredText(
+        props.ruleReference ?? 'ISSF 6.14.5 / 6.17.1.7 / 6.17.1.13 / 6.17.2(i) / 6.17.3(j) / 6.18.4.2',
+        'ruleReference',
+      ),
       validDate(props.declaredAt ?? new Date()),
     );
   }

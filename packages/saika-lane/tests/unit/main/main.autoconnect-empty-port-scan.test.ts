@@ -39,6 +39,7 @@ vi.mock('electron', () => {
     loadURL = vi.fn();
     loadFile = vi.fn();
     on = vi.fn();
+    once = vi.fn();
     close = vi.fn();
     destroy = vi.fn();
     minimize = vi.fn();
@@ -233,7 +234,7 @@ vi.mock('@/main/shared-infra/module', () => ({
 }));
 vi.mock('@/main/shared-infra/sqlite/SqliteDb', () => ({
   createSqliteDb: vi.fn(() => ({
-    prepare: vi.fn(() => ({ all: vi.fn(() => []), run: vi.fn() })),
+    prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => undefined), run: vi.fn() })),
   })),
 }));
 vi.mock('@/shared/ipc/contracts', async () => {

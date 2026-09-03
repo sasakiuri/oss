@@ -42,7 +42,10 @@ export interface FinalOperationShootOffShot {
   readonly iteration: number;
   readonly laneId: string;
   readonly shotId: string;
+  /** Competition-result score; may be HIT/MISS projected. */
   readonly scoreX10: number;
+  /** Original effective source score retained for review. */
+  readonly sourceScoreX10: number;
   readonly x: number | null;
   readonly y: number | null;
   readonly firedAt: string;

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { P25_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
@@ -366,6 +367,129 @@ describe('LaneScorePublisher', () => {
       stages: Array<{ series: Array<{ isComplete: boolean }> }>;
     };
     expect(payload.stages[0]?.series[2]?.isComplete).toBe(true);
+  });
+
+  it('publishes HIT/MISS result scores while preserving decimal source evidence', async () => {
+    vi.mocked(competitionRepository.findActive).mockResolvedValue({
+      ...mockCompetition,
+      config: P25_FINAL.config,
+    } as unknown as CompetitionState);
+    vi.mocked(queryBus.execute).mockImplementation((token) => {
+      if (token === GetSessionScoreToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          totalScore: 409,
+          seriesScores: [409],
+          shotCount: 5,
+          discipline: 'PISTOL_25M',
+          mode: 'MATCH',
+        });
+      }
+      if (token === GetShotHistoryToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          shots: [102, 101, 109, 97, 0].map((score, index) => ({
+            id: `final-shot-${index + 1}`,
+            shotNumber: index + 1,
+            seriesNumber: 1,
+            x: 0,
+            y: 0,
+            score,
+            innerTen: false,
+            timestamp: `2026-02-24T12:00:0${index}.000Z`,
+            mode: 'MATCH',
+            isRecorded: true,
+          })),
+        });
+      }
+      throw new Error('Unexpected query token');
+    });
+
+    await publisher.publishCurrentScore();
+
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.calls[0]![1] as string) as {
+      totalScoreX10: number;
+      sourceTotalScoreX10: number;
+      resultProjection: { type: string; hitThresholdX10: number };
+      stages: Array<{
+        sourceStageTotalX10: number;
+        series: Array<{
+          shots: number[];
+          seriesTotalX10: number;
+          sourceShotsX10: number[];
+          sourceSeriesTotalX10: number;
+        }>;
+      }>;
+    };
+    expect(payload.totalScoreX10).toBe(20);
+    expect(payload.sourceTotalScoreX10).toBe(409);
+    expect(payload.resultProjection).toMatchObject({ type: 'HIT_MISS', hitThresholdX10: 102 });
+    expect(payload.stages[0]?.sourceStageTotalX10).toBe(409);
+    expect(payload.stages[0]?.series[0]).toMatchObject({
+      shots: [10, 0, 10, 0, 0],
+      seriesTotalX10: 20,
+      sourceShotsX10: [102, 101, 109, 97, 0],
+      sourceSeriesTotalX10: 409,
+    });
+  });
+
+  it('does not consume a score-series number for a position-change sighting interval', async () => {
+    vi.mocked(competitionRepository.findActive).mockResolvedValue({
+      ...mockCompetition,
+      config: {
+        ...mockCompetition.config,
+        stages: [
+          { name: 'Preparation', scored: false, series: [{ maxShots: 0 }] },
+          {
+            name: 'Kneeling and Prone',
+            scored: true,
+            series: [{ maxShots: 10 }, { maxShots: 10 }, { maxShots: 0, purpose: 'POSITION_CHANGE_AND_SIGHTING' }],
+          },
+          { name: 'Standing', scored: true, series: [{ maxShots: 5 }] },
+        ],
+      },
+    } as unknown as CompetitionState);
+    vi.mocked(queryBus.execute).mockImplementation((token) => {
+      if (token === GetSessionScoreToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          totalScore: 600,
+          seriesScores: [100, 200, 300],
+          shotCount: 3,
+          discipline: 'RIFLE_50M',
+          mode: 'MATCH',
+        });
+      }
+      if (token === GetShotHistoryToken) {
+        return Promise.resolve({
+          sessionId: 'session-uuid',
+          shots: [1, 2, 3].map((seriesNumber) => ({
+            id: `match-shot-${seriesNumber}`,
+            shotNumber: seriesNumber,
+            seriesNumber,
+            x: 0,
+            y: 0,
+            score: seriesNumber * 100,
+            innerTen: false,
+            timestamp: '2026-02-24T12:00:00.000Z',
+            mode: 'MATCH',
+            isRecorded: true,
+          })),
+        });
+      }
+      throw new Error('Unexpected query token');
+    });
+
+    await publisher.publishCurrentScore();
+
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.calls[0]![1] as string) as {
+      stages: Array<{ series: Array<{ seriesIndex: number; shots: number[] }> }>;
+    };
+    expect(payload.stages[0]?.series).toEqual([
+      expect.objectContaining({ seriesIndex: 0, shots: [100] }),
+      expect.objectContaining({ seriesIndex: 1, shots: [200] }),
+    ]);
+    expect(payload.stages[1]?.series).toEqual([expect.objectContaining({ seriesIndex: 0, shots: [300] })]);
   });
 
   it('should not publish when mqtt client is not connected', async () => {

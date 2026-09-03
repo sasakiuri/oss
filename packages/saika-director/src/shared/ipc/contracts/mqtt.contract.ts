@@ -7,6 +7,8 @@ import {
   LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
+  RangeOfficerRequestPayloadSchema,
+  TimedTargetStatePayloadSchema,
   LaneScorePayloadSchema,
   RawShotPayloadSchema,
   ShotObservationEvidencePayloadSchema,
@@ -83,6 +85,8 @@ const CommandExecutionResultSchema = z.object({
     'retire-finalist',
     'start-shoot-off',
     'stop-shoot-off',
+    'start-timed-target',
+    'cancel-timed-target',
     'probe-clock',
   ]),
   success: z.boolean(),
@@ -127,6 +131,8 @@ const DirectorLaneSnapshotSchema = z.object({
   firingPointNumber: z.number().int().min(1).max(99).nullable(),
   hardware: HardwareStatePayloadSchema.nullable(),
   safetyState: LaneSafetyStatePayloadSchema.nullable().optional(),
+  rangeOfficerRequest: RangeOfficerRequestPayloadSchema.nullable().optional(),
+  timedTargetState: TimedTargetStatePayloadSchema.nullable().optional(),
   competitionState: LaneCompetitionStatePayloadSchema.nullable(),
   assignment: LaneAssignmentPayloadSchema.nullable(),
   score: LaneScorePayloadSchema.nullable(),
@@ -277,7 +283,24 @@ const StartSightingSchema = StartTimerPhaseSchema.extend({
 });
 
 const StartMatchSchema = StartTimerPhaseSchema.extend({
+  durationSeconds: z.number().int().positive().optional(),
   acknowledgedRequirementIds: AcknowledgedRequirementIdsSchema,
+});
+
+const StartTimedTargetSchema = z.object({
+  competitionId: z.string().uuid(),
+  programId: z.string().min(1),
+  purpose: z.enum(['SIGHTING', 'MATCH']),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
+});
+
+const CancelTimedTargetSchema = z.object({
+  competitionId: z.string().uuid(),
+  sequenceId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
 const RestartTimerSchema = StartTimerPhaseSchema.extend({
@@ -310,6 +333,12 @@ const ExecuteFinalScriptStepSchema = z.object({
   step: FinalOperationScriptStepDtoSchema,
   eligibleLaneIds: z.array(z.string().uuid()).optional(),
   acknowledgedRequirementIds: AcknowledgedRequirementIdsSchema,
+  declarationConfirmation: z
+    .object({
+      finalProtestsResolved: z.literal(true),
+      resultProcessConfirmed: z.literal(true),
+    })
+    .optional(),
 });
 
 const FinalScriptStepExecutionResultSchema = z.object({
@@ -317,6 +346,7 @@ const FinalScriptStepExecutionResultSchema = z.object({
   cueId: z.string().uuid(),
   cuePublished: z.boolean(),
   command: CommandExecutionResultSchema.nullable(),
+  declarationId: z.string().uuid().nullable(),
   statement: z.string().min(1),
 });
 
@@ -375,6 +405,8 @@ export const mqttContract = defineContract('mqtt', {
   startSighting: command(StartSightingSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   endSighting: command(CompetitionSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   startMatch: command(StartMatchSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
+  startTimedTarget: command(StartTimedTargetSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
+  cancelTimedTarget: command(CancelTimedTargetSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   executeFinalScriptStep: command(
     ExecuteFinalScriptStepSchema,
     commandDataResponseSchema(FinalScriptStepExecutionResultSchema),

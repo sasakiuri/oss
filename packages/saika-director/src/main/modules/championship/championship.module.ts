@@ -54,6 +54,7 @@ export interface GetEventByIdResponse {
   eventType: string;
   round: string;
   sortOrder: number;
+  rulePackIdentity: Event['rulePackIdentity'];
 }
 
 export const GetEventByIdToken = defineQuery<GetEventByIdQuery, GetEventByIdResponse | null>('GetEventById');
@@ -111,6 +112,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
         eventType: event.eventType.value,
         round: event.round.value,
         sortOrder: event.sortOrder,
+        rulePackIdentity: event.rulePackIdentity,
       };
     });
     queryBus.register(GetFiringPointAssignmentsByRelayToken, async (query) => {
@@ -172,7 +174,15 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
         const round = Round.create(def.config.name);
         const existingEvents = eventRepository.findByChampionshipId(input.championshipId);
         const sortOrder = existingEvents.length;
-        const event = Event.create(id, championshipId, input.name, eventType, round, sortOrder);
+        const event = Event.create(
+          id,
+          championshipId,
+          input.name,
+          eventType,
+          round,
+          sortOrder,
+          def.rulePackIdentity ?? null,
+        );
         eventRepository.save(event);
         return id.value;
       },
@@ -188,7 +198,12 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
         }
         const def = competitionTypeRegistry.get(input.eventType);
         const round = Round.create(def.config.name);
-        const updated = event.update(input.name, eventType, round);
+        const updated = event.update(
+          input.name,
+          eventType,
+          round,
+          event.eventType.equals(eventType) ? event.rulePackIdentity : (def.rulePackIdentity ?? null),
+        );
         eventRepository.update(updated);
       },
 
@@ -380,6 +395,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
             eventType: e.eventType.value,
             round: e.round.value,
             sortOrder: e.sortOrder,
+            rulePackIdentity: e.rulePackIdentity,
           })),
         };
       },

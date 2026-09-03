@@ -55,6 +55,8 @@ const CompetitionStateDtoSchema = z.object({
   currentStageName: z.string(),
   scored: z.boolean(),
   shotsPerSeries: z.number(),
+  targetProfileId: z.string().min(1).optional(),
+  scoringGaugeProfileId: z.string().min(1).optional(),
 });
 
 const CompetitionTypeDtoSchema = z.object({

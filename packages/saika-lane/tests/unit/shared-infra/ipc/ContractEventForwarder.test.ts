@@ -312,7 +312,7 @@ describe('ContractEventForwarder', () => {
   describe('start()', () => {
     it('subscribes to 18 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(18);
+      expect(eventBus.on).toHaveBeenCalledTimes(19);
     });
 
     it('forwards ShotRecorded to event:shotRecorded', () => {
@@ -672,7 +672,7 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
 
       // on is called 36 times (18 x 2)
-      expect(eventBus.on).toHaveBeenCalledTimes(36);
+      expect(eventBus.on).toHaveBeenCalledTimes(38);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);

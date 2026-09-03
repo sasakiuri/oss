@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { RulePack, RuleStage } from '@sasakiuri/saika-rules';
+import { identifyRulePack, type RulePack, type RuleStage } from '@sasakiuri/saika-rules';
 
 import type { CompetitionTypeDefinition, SeriesDefinition } from './CompetitionTypeDefinition';
 
@@ -16,29 +16,58 @@ export function competitionTypeFromRulePack(pack: RulePack): CompetitionTypeDefi
     id: pack.eventCode,
     name: pack.displayName,
     rulePackId: pack.id,
+    rulePackIdentity: identifyRulePack(pack),
     discipline: pack.discipline,
+    targetProfileId: pack.capabilities.target.scoringProfileId,
+    ...(pack.capabilities.target.scoringGaugeProfileId
+      ? { scoringGaugeProfileId: pack.capabilities.target.scoringGaugeProfileId }
+      : {}),
+    ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
+    ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
     config: {
-      name: pack.round === 'QUALIFICATION' ? 'Qualification' : 'Final',
+      name: pack.round === 'ELIMINATION' ? 'Elimination' : pack.round === 'QUALIFICATION' ? 'Qualification' : 'Final',
       shotsPerSeries,
       acc: pack.capabilities.scoring.mode,
+      targetProfileId: pack.capabilities.target.scoringProfileId,
+      ...(pack.capabilities.target.scoringGaugeProfileId
+        ? { scoringGaugeProfileId: pack.capabilities.target.scoringGaugeProfileId }
+        : {}),
+      ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
+      ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
       stages: stages.map((stage) => ({
         name: stage.name,
         scored: stage.phase === 'MATCH',
-        series: stage.series.map((series) => toSeriesDefinition(stage, series.shots)),
-        ...(stage.timer.mode === 'stage' ? { timer: { durationSeconds: stage.timer.durationSeconds } } : {}),
+        series: stage.series.map((series) => toSeriesDefinition(stage, series)),
+        ...(stage.timer.mode === 'stage' && !stage.series.some((series) => series.timedTargetProgramId)
+          ? { timer: { durationSeconds: stage.timer.durationSeconds } }
+          : {}),
         requiresNewSession: stage.requiresNewSession,
+        ...(stage.seriesTransition ? { seriesTransition: stage.seriesTransition } : {}),
+        ...(stage.targetProfileId ? { targetProfileId: stage.targetProfileId } : {}),
+        ...(stage.scoringGaugeProfileId ? { scoringGaugeProfileId: stage.scoringGaugeProfileId } : {}),
+        ...(stage.sightingTimedTargetProgramId
+          ? { sightingTimedTargetProgramId: stage.sightingTimedTargetProgramId }
+          : {}),
       })),
     },
   };
 }
 
-function toSeriesDefinition(stage: RuleStage, maxShots: number): SeriesDefinition {
+function toSeriesDefinition(stage: RuleStage, series: RuleStage['series'][number]): SeriesDefinition {
+  const metadata = {
+    ...(series.label ? { label: series.label } : {}),
+    ...(series.position ? { position: series.position } : {}),
+    ...(series.purpose ? { purpose: series.purpose } : {}),
+    ...(series.targetModeControl ? { targetModeControl: series.targetModeControl } : {}),
+    ...(series.timedTargetProgramId ? { timedTargetProgramId: series.timedTargetProgramId } : {}),
+  };
+  if (series.timedTargetProgramId) return { maxShots: series.shots, ...metadata };
   switch (stage.timer.mode) {
     case 'series':
-      return { maxShots, timer: { durationSeconds: stage.timer.durationSeconds } };
+      return { maxShots: series.shots, timer: { durationSeconds: stage.timer.durationSeconds }, ...metadata };
     case 'shot':
-      return { maxShots, shotTimer: { durationSeconds: stage.timer.durationSeconds } };
+      return { maxShots: series.shots, shotTimer: { durationSeconds: stage.timer.durationSeconds }, ...metadata };
     case 'stage':
-      return { maxShots };
+      return { maxShots: series.shots, ...metadata };
   }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
@@ -9,10 +9,12 @@ import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { createMockSettingsStore } from '../../../helpers/mockDependencies';
@@ -66,7 +68,7 @@ function createMockIpcRouter(): IpcRouter {
 }
 
 function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>([['mqtt.laneId', 'test-lane-uuid']]);
+  const store = new Map<string, unknown>([['mqtt.laneId', '11111111-1111-4111-8111-111111111111']]);
   return {
     get: vi.fn(<T>(key: string) => (store.get(key) as T) ?? (null as T)),
     set: vi.fn(),
@@ -151,7 +153,9 @@ describe('mqtt.module', () => {
   let competitionInterruptionControl: ICompetitionInterruptionControl;
   let competitionShootOffControl: ICompetitionShootOffControl;
   let safetyStopControl: ILaneSafetyStopControl;
+  let timedTargetControl: ITimedTargetControl;
   let sessionRepository: ISessionRepository;
+  let database: ReturnType<typeof createSqliteDb>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -180,8 +184,20 @@ describe('mqtt.module', () => {
       recordShot: vi.fn(),
     } as unknown as ICompetitionShootOffControl;
     safetyStopControl = createMockSafetyStopControl();
+    timedTargetControl = {
+      enforcementMode: 'REQUIRED',
+      start: vi.fn(),
+      cancel: vi.fn(),
+      getState: vi.fn().mockReturnValue(null),
+      tryAcceptShot: vi.fn(),
+      restore: vi.fn(),
+      dispose: vi.fn(),
+    } as unknown as ITimedTargetControl;
     sessionRepository = createMockSessionRepository();
+    database = createSqliteDb(':memory:');
   });
+
+  afterEach(() => database.close());
 
   it('should have correct name', () => {
     expect(mqttModule.name).toBe('mqtt');
@@ -200,6 +216,7 @@ describe('mqtt.module', () => {
       'competitionInterruptionControl',
       'competitionShootOffControl',
       'safetyStopControl',
+      'timedTargetControl',
       'sessionRepository',
       'database',
     ]);
@@ -219,8 +236,9 @@ describe('mqtt.module', () => {
         competitionInterruptionControl,
         competitionShootOffControl,
         safetyStopControl,
+        timedTargetControl,
         sessionRepository,
-        database: {} as never,
+        database,
       });
     }).not.toThrow();
   });
@@ -238,8 +256,9 @@ describe('mqtt.module', () => {
       competitionInterruptionControl,
       competitionShootOffControl,
       safetyStopControl,
+      timedTargetControl,
       sessionRepository,
-      database: {} as never,
+      database,
     });
 
     expect(ipcRouter.register).toHaveBeenCalledTimes(1);
@@ -259,8 +278,9 @@ describe('mqtt.module', () => {
       competitionInterruptionControl,
       competitionShootOffControl,
       safetyStopControl,
+      timedTargetControl,
       sessionRepository,
-      database: {} as never,
+      database,
     });
 
     expect(eventBus.on).toHaveBeenCalledWith('ConnectionEstablished', expect.any(Function));
@@ -280,8 +300,9 @@ describe('mqtt.module', () => {
       competitionInterruptionControl,
       competitionShootOffControl,
       safetyStopControl,
+      timedTargetControl,
       sessionRepository,
-      database: {} as never,
+      database,
     });
 
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
@@ -312,8 +333,9 @@ describe('mqtt.module', () => {
       competitionInterruptionControl,
       competitionShootOffControl,
       safetyStopControl,
+      timedTargetControl,
       sessionRepository,
-      database: {} as never,
+      database,
     });
     const handlers = vi.mocked(ipcRouter.register).mock.calls[0]?.[1] as unknown as {
       connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;
@@ -325,7 +347,7 @@ describe('mqtt.module', () => {
     ).rejects.toMatchObject({ code: 'MQTT_SUBSCRIBE_FAILED' });
 
     expect(mockMqttClient.publishAsync).toHaveBeenCalledWith(
-      'saika/lane/test-lane-uuid/hardware/state',
+      'saika/lane/11111111-1111-4111-8111-111111111111/hardware/state',
       expect.stringContaining('"status":"offline"'),
       { qos: 1, retain: true },
     );

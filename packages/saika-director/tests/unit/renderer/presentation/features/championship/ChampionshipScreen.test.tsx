@@ -67,6 +67,14 @@ vi.mock('@/renderer/presentation/features/championship/components/IncidentReport
   IncidentReportsView: ({ eventId }: { eventId: string }) => <div>incident workspace {eventId}</div>,
 }));
 
+vi.mock('@/renderer/presentation/features/championship/components/EstChampionshipInspectionPanel', () => ({
+  EstChampionshipInspectionPanel: () => null,
+}));
+
+vi.mock('@/renderer/presentation/features/championship/components/ResultsBookPanel', () => ({
+  ResultsBookPanel: () => null,
+}));
+
 import { ChampionshipScreen } from '@/renderer/presentation/features/championship/ChampionshipScreen';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 

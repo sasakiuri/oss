@@ -11,3 +11,6 @@ export { ParticipantRow } from './ParticipantRow';
 export { ResultsView } from './ResultsView';
 export { IncidentReportsView } from './IncidentReportsView';
 export { ResultPublicationPanel } from './ResultPublicationPanel';
+export { EstChampionshipInspectionPanel } from './EstChampionshipInspectionPanel';
+export { OutdoorEliminationPlanningPanel } from './OutdoorEliminationPlanningPanel';
+export { ResultsBookPanel } from './ResultsBookPanel';

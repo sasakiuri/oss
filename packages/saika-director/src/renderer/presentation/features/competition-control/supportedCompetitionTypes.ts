@@ -3,10 +3,22 @@ import {
   ISSF_2026_AP60_FINAL,
   ISSF_2026_APMIX30,
   ISSF_2026_APMIX_FINAL,
+  ISSF_2026_CFP,
   ISSF_2026_AR60,
   ISSF_2026_AR60_FINAL,
   ISSF_2026_ARMIX30,
   ISSF_2026_ARMIX_FINAL,
+  ISSF_2026_R3P60,
+  ISSF_2026_R3P60_ELIMINATION,
+  ISSF_2026_R3P60_INDOOR,
+  ISSF_2026_R3P_FINAL,
+  ISSF_2026_RPR60,
+  ISSF_2026_RPR60_ELIMINATION,
+  ISSF_2026_P25,
+  ISSF_2026_P25_FINAL,
+  ISSF_2026_RFPM,
+  ISSF_2026_RFPM_FINAL,
+  ISSF_2026_STDP,
 } from '@sasakiuri/saika-rules';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
@@ -28,6 +40,18 @@ export const LANE_COMPETITION_TYPES = [
   'APMIX30',
   'ARMIX_FINAL',
   'APMIX_FINAL',
+  'R3P60',
+  'R3P60_ELIMINATION',
+  'R3P60_INDOOR',
+  'RPR60',
+  'RPR60_ELIMINATION',
+  'R3P_FINAL',
+  'RFPM',
+  'P25',
+  'CFP',
+  'STDP',
+  'RFPM_FINAL',
+  'P25_FINAL',
 ] as const;
 
 export type SupportedLaneCompetitionType = (typeof LANE_COMPETITION_TYPES)[number];
@@ -43,11 +67,24 @@ const definitions: Readonly<Record<SupportedLaneCompetitionType, CompetitionType
   APMIX30: competitionTypeFromRulePack(ISSF_2026_APMIX30),
   ARMIX_FINAL: competitionTypeFromRulePack(ISSF_2026_ARMIX_FINAL),
   APMIX_FINAL: competitionTypeFromRulePack(ISSF_2026_APMIX_FINAL),
+  R3P60: competitionTypeFromRulePack(ISSF_2026_R3P60),
+  R3P60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_R3P60_ELIMINATION),
+  R3P60_INDOOR: competitionTypeFromRulePack(ISSF_2026_R3P60_INDOOR),
+  RPR60: competitionTypeFromRulePack(ISSF_2026_RPR60),
+  RPR60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_RPR60_ELIMINATION),
+  R3P_FINAL: competitionTypeFromRulePack(ISSF_2026_R3P_FINAL),
+  RFPM: competitionTypeFromRulePack(ISSF_2026_RFPM),
+  P25: competitionTypeFromRulePack(ISSF_2026_P25),
+  CFP: competitionTypeFromRulePack(ISSF_2026_CFP),
+  STDP: competitionTypeFromRulePack(ISSF_2026_STDP),
+  RFPM_FINAL: competitionTypeFromRulePack(ISSF_2026_RFPM_FINAL),
+  P25_FINAL: competitionTypeFromRulePack(ISSF_2026_P25_FINAL),
 });
 
 export interface LaneCompetitionTiming {
   readonly preparationAndSightingSeconds: number;
-  readonly matchSeconds: number;
+  /** Null when per-series timed-target programs own firing windows. */
+  readonly matchSeconds: number | null;
   readonly phaseStartRequirements?: PhaseStartRequirements;
 }
 
@@ -63,11 +100,15 @@ export function getLaneCompetitionTiming(competitionType: SupportedLaneCompetiti
   if (!preparation || !match) throw new Error(`Competition type ${competitionType} has no Lane timing`);
   return Object.freeze({
     preparationAndSightingSeconds: preparation.timer.durationSec,
-    matchSeconds: match.timer.durationSec,
+    matchSeconds: definition.timedTarget ? null : match.timer.durationSec,
     ...(definition.phaseStartRequirements
       ? { phaseStartRequirements: copyPhaseStartRequirements(definition.phaseStartRequirements) }
       : {}),
   });
+}
+
+export function getLaneCompetitionDefinition(competitionType: SupportedLaneCompetitionType): CompetitionTypeDefinition {
+  return definitions[competitionType];
 }
 
 function copyPhaseStartRequirements(requirements: PhaseStartRequirements): PhaseStartRequirements {

@@ -21,7 +21,7 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 }));
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { BR60S, P25, P25_FINAL, RFPM_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { Timer } from '@/main/modules/competition/domain/Timer';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
@@ -33,6 +33,7 @@ import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneSco
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
 
 import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
 
@@ -135,7 +136,7 @@ describe('BroadcastCommandHandler', () => {
       clear: vi.fn(),
     };
     shootOffControl = {
-      open: vi.fn((input) => ({ ...input, status: 'OPEN' as const, shotId: null })),
+      open: vi.fn((input) => ({ ...input, status: 'OPEN' as const, recordedShotIds: [] })),
       close: vi.fn(),
       getState: vi.fn().mockReturnValue(null),
       canAcceptShot: vi.fn().mockReturnValue(false),
@@ -282,6 +283,7 @@ describe('BroadcastCommandHandler', () => {
           iteration: 1,
           timerStartAt,
           timerDurationSeconds: 50,
+          shotsPerLane: 1,
           targetLaneIds: [LANE_ID, OTHER_LANE_ID],
         }),
       );
@@ -292,6 +294,7 @@ describe('BroadcastCommandHandler', () => {
         iteration: 1,
         timerStartAt,
         timerDurationSeconds: 50,
+        shotsPerLane: 1,
       });
 
       await sendMessage(
@@ -315,6 +318,7 @@ describe('BroadcastCommandHandler', () => {
           iteration: 1,
           timerStartAt: new Date().toISOString(),
           timerDurationSeconds: 50,
+          shotsPerLane: 1,
           targetLaneIds: [OTHER_LANE_ID, 'a7777777-7777-4777-a777-777777777777'],
         }),
       );
@@ -357,6 +361,7 @@ describe('BroadcastCommandHandler', () => {
           iteration: 1,
           timerStartAt: new Date().toISOString(),
           timerDurationSeconds: 50,
+          shotsPerLane: 1,
           targetLaneIds: [LANE_ID, OTHER_LANE_ID],
         }),
       );
@@ -409,6 +414,288 @@ describe('BroadcastCommandHandler', () => {
 
       expect(commandBus.execute).toHaveBeenCalledOnce();
       expect(vi.mocked(commandBus.execute).mock.calls[0]?.[0].name).toBe('StartNextSeries');
+    });
+
+    it('rejects a conventional MATCH start without its generic timer duration', async () => {
+      await sendMessage('start-match', buildCommand({ timerStartAt: new Date().toISOString() }));
+
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter(([topic]) => topic.includes('/acknowledgement/'));
+      expect(JSON.parse(acknowledgements.at(-1)?.[1] as string)).toMatchObject({
+        status: 'error',
+        error: { message: 'A conventional match requires timerDurationSeconds' },
+      });
+    });
+  });
+
+  describe('timed-target commands', () => {
+    let timedTargetControl: ITimedTargetControl;
+
+    beforeEach(() => {
+      competitionState = CompetitionState.create(COMPETITION_ID, 'd4444444-4444-4444-a444-444444444444', P25.config)
+        .startStage()
+        .expireTimer()
+        .advanceToNextStage()
+        .startNextSeries();
+      timedTargetControl = {
+        enforcementMode: 'REQUIRED',
+        start: vi.fn().mockReturnValue({}),
+        cancel: vi.fn().mockReturnValue({}),
+        getState: vi.fn().mockReturnValue(null),
+        tryAcceptShot: vi.fn(),
+        restore: vi.fn(),
+        dispose: vi.fn(),
+      } as unknown as ITimedTargetControl;
+      handler = new BroadcastCommandHandler(
+        mqttClient,
+        commandBus,
+        timerService,
+        competitionRepository as ICompetitionRepository,
+        competitionStatePublisher,
+        scorePublisher,
+        guard,
+        () => LANE_ID,
+        COMPETITION_ID,
+        interruptionControl,
+        undefined,
+        shootOffControl,
+        undefined,
+        timedTargetControl,
+      );
+    });
+
+    it('arms the RulePack program at the Director supplied absolute LOAD time', async () => {
+      const loadAt = new Date().toISOString();
+
+      await sendMessage(
+        'start-timed-target',
+        buildCommand({
+          programId: 'P25_MATCH_PRECISION_240',
+          purpose: 'MATCH',
+          stageIndex: 1,
+          seriesIndex: 0,
+          loadAt,
+          targetLaneIds: [LANE_ID],
+        }),
+      );
+
+      expect(timedTargetControl.start).toHaveBeenCalledWith({
+        sequenceId: COMMAND_ID,
+        competitionId: COMPETITION_ID,
+        program: expect.objectContaining({ id: 'P25_MATCH_PRECISION_240', purpose: 'MATCH' }),
+        stageIndex: 1,
+        seriesIndex: 0,
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        loadAt: new Date(loadAt),
+      });
+    });
+
+    it('arms one simultaneous RulePack sequence and an independent five-shot shoot-off window', async () => {
+      competitionState = CompetitionState.reconstruct({
+        id: COMPETITION_ID,
+        sessionId: 'd4444444-4444-4444-a444-444444444444',
+        config: P25_FINAL.config,
+        phase: 'SERIES_COMPLETE',
+        currentStageIndex: 1,
+        currentSeriesIndex: 0,
+        seriesShotCount: 5,
+        timer: Timer.create(0),
+        startedAt: Date.now(),
+        finishedAt: null,
+      });
+      vi.mocked(timedTargetControl.start).mockReturnValue({
+        sequenceId: COMMAND_ID,
+      } as ReturnType<ITimedTargetControl['start']>);
+      const loadAt = new Date(Date.now() + 5_000).toISOString();
+
+      await sendMessage(
+        'start-shoot-off',
+        buildCommand({
+          runId: RUN_ID,
+          iteration: 1,
+          timerStartAt: loadAt,
+          shotsPerLane: 5,
+          targetLaneIds: [LANE_ID, OTHER_LANE_ID],
+          timedTarget: {
+            programId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+            participantExecution: 'SIMULTANEOUS',
+          },
+        }),
+      );
+
+      expect(timedTargetControl.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sequenceId: COMMAND_ID,
+          program: expect.objectContaining({
+            id: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+            purpose: 'SHOOT_OFF',
+          }),
+          stageIndex: 1,
+          seriesIndex: 0,
+          targetProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
+          loadAt: new Date(loadAt),
+        }),
+      );
+      expect(shootOffControl.open).toHaveBeenCalledWith({
+        competitionId: COMPETITION_ID,
+        runId: RUN_ID,
+        iteration: 1,
+        timerStartAt: loadAt,
+        timerDurationSeconds: 71,
+        shotsPerLane: 5,
+        timedTargetProgramId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
+      });
+    });
+
+    it('offsets a sequential RFPM shoot-off Lane by the ordered participant slot', async () => {
+      competitionState = CompetitionState.reconstruct({
+        id: COMPETITION_ID,
+        sessionId: 'd4444444-4444-4444-a444-444444444444',
+        config: RFPM_FINAL.config,
+        phase: 'SERIES_COMPLETE',
+        currentStageIndex: 1,
+        currentSeriesIndex: 5,
+        seriesShotCount: 5,
+        timer: Timer.create(0),
+        startedAt: Date.now(),
+        finishedAt: null,
+      });
+      vi.mocked(timedTargetControl.start).mockReturnValue({
+        sequenceId: COMMAND_ID,
+      } as ReturnType<ITimedTargetControl['start']>);
+      const firstLoadAt = new Date(Date.now() + 5_000);
+
+      await sendMessage(
+        'start-shoot-off',
+        buildCommand({
+          runId: RUN_ID,
+          iteration: 1,
+          timerStartAt: firstLoadAt.toISOString(),
+          shotsPerLane: 5,
+          targetLaneIds: [OTHER_LANE_ID, LANE_ID],
+          timedTarget: {
+            programId: 'RFPM_FINAL_SHOOT_OFF_4',
+            participantExecution: 'SEQUENTIAL',
+          },
+        }),
+      );
+
+      const expectedLoadAt = new Date(firstLoadAt.getTime() + 41_300);
+      expect(timedTargetControl.start).toHaveBeenCalledWith(expect.objectContaining({ loadAt: expectedLoadAt }));
+      expect(shootOffControl.open).toHaveBeenCalledWith(
+        expect.objectContaining({ timerStartAt: expectedLoadAt.toISOString(), timerDurationSeconds: 32 }),
+      );
+    });
+
+    it('cancels an unfinished shoot-off target sequence when STOP closes acquisition', async () => {
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: '07777777-7777-4777-a777-777777777777',
+        purpose: 'SHOOT_OFF',
+        phase: 'FIRING',
+      } as ReturnType<ITimedTargetControl['getState']>);
+
+      await sendMessage(
+        'stop-shoot-off',
+        buildCommand({
+          runId: RUN_ID,
+          iteration: 1,
+          targetLaneIds: [LANE_ID, OTHER_LANE_ID],
+        }),
+      );
+
+      expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, RUN_ID, 1);
+      expect(timedTargetControl.cancel).toHaveBeenCalledWith({
+        sequenceId: '07777777-7777-4777-a777-777777777777',
+        reason: 'Shoot-off firing was closed by the Director',
+      });
+    });
+
+    it('enters a timed-target MATCH without starting the generic timer', async () => {
+      competitionState = CompetitionState.create(COMPETITION_ID, 'd4444444-4444-4444-a444-444444444444', P25.config)
+        .startStage()
+        .expireTimer();
+
+      await sendMessage('start-match', buildCommand({ timerStartAt: new Date().toISOString() }));
+
+      expect(vi.mocked(commandBus.execute).mock.calls.map(([token]) => token.name)).toEqual([
+        'AdvanceStage',
+        'StartNextSeries',
+      ]);
+      expect(timerService.startAt).not.toHaveBeenCalled();
+    });
+
+    it('does not arm a sequence when safety STOP activates during the competition lookup', async () => {
+      let stopped = false;
+      competitionRepository = {
+        findById: vi.fn(async () => {
+          stopped = true;
+          return competitionState;
+        }),
+      };
+      const safetyStopControl = {
+        isStopped: vi.fn(() => stopped),
+        getState: vi.fn(() => ({ safetyStopId: 'a7777777-7777-4777-a777-777777777777' })),
+      } as unknown as Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
+      handler = new BroadcastCommandHandler(
+        mqttClient,
+        commandBus,
+        timerService,
+        competitionRepository as ICompetitionRepository,
+        competitionStatePublisher,
+        scorePublisher,
+        guard,
+        () => LANE_ID,
+        COMPETITION_ID,
+        interruptionControl,
+        safetyStopControl,
+        shootOffControl,
+        undefined,
+        timedTargetControl,
+      );
+
+      await sendMessage(
+        'start-timed-target',
+        buildCommand({
+          programId: 'P25_MATCH_PRECISION_240',
+          purpose: 'MATCH',
+          stageIndex: 1,
+          seriesIndex: 0,
+          loadAt: new Date().toISOString(),
+          targetLaneIds: [LANE_ID],
+        }),
+      );
+
+      expect(timedTargetControl.start).not.toHaveBeenCalled();
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter(([topic]) => topic.includes('/acknowledgement/'));
+      expect(JSON.parse(acknowledgements.at(-1)?.[1] as string)).toMatchObject({
+        status: 'error',
+        error: { message: expect.stringContaining('Safety stop') },
+      });
+    });
+
+    it('cancels only the current sequence', async () => {
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: '07777777-7777-4777-a777-777777777777',
+        phase: 'FIRING',
+      } as ReturnType<ITimedTargetControl['getState']>);
+
+      await sendMessage(
+        'cancel-timed-target',
+        buildCommand({
+          sequenceId: '07777777-7777-4777-a777-777777777777',
+          reason: 'Range interruption',
+          targetLaneIds: [LANE_ID],
+        }),
+      );
+
+      expect(timedTargetControl.cancel).toHaveBeenCalledWith({
+        sequenceId: '07777777-7777-4777-a777-777777777777',
+        reason: 'Range interruption',
+      });
     });
   });
 

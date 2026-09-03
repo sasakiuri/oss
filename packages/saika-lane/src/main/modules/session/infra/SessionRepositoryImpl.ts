@@ -211,6 +211,8 @@ export class SessionRepositoryImpl implements ISessionRepository {
         calculatedScore: shot.calculatedScore.value,
         receivedAt: shot.receivedAt.toISOString(),
         sourceObservationId: shot.sourceObservationId,
+        targetProfileId: shot.targetProfileId,
+        scoringGaugeProfileId: shot.scoringGaugeProfileId,
       })),
       startedAt: session.startedAt.toISOString(),
       finishedAt: session.finishedAt ? session.finishedAt.toISOString() : null,

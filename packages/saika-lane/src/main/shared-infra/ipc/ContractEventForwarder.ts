@@ -13,6 +13,7 @@ import type { BrowserWindow } from 'electron';
 
 import type { ShotDto } from '@/main/modules/session/application/dto';
 import type { Shot } from '@/main/modules/session/domain/Shot';
+import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type {
   CompetitionFinishedEvent,
   CompetitionCueChangedEvent,
@@ -32,6 +33,7 @@ import type {
   StageAdvancedEvent,
   TimerExpiredEvent,
   TimerTickEvent,
+  TimedTargetSequenceChangedEvent,
 } from '@/main/shared-infra/events/coreEvents';
 import type { EventName } from '@/main/shared-infra/events/EventBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -116,6 +118,8 @@ export class ContractEventForwarder {
       seriesIndex: event.seriesIndex,
       stageName: event.stageName,
       scored: event.scored,
+      targetProfileId: event.targetProfileId,
+      scoringGaugeProfileId: event.scoringGaugeProfileId,
     }));
 
     // TimerTick → event:timerTick
@@ -166,6 +170,12 @@ export class ContractEventForwarder {
       'CompetitionCueChanged',
       eventsContract.channels.competitionCueChanged,
       (event) => ({ competitionId: event.aggregateId, cue: event.cue }),
+    );
+
+    this.forward<TimedTargetSequenceChangedEvent>(
+      'TimedTargetSequenceChanged',
+      eventsContract.channels.timedTargetSequenceChanged,
+      (event) => toTimedTargetStateDto(event.state),
     );
 
     // SeriesCompleted → event:seriesCompleted

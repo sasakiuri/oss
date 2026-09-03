@@ -84,6 +84,8 @@ export function formatJsonLine(
     deviceScore: number | null;
     receivedAt: string;
     observationId: string | null;
+    targetProfileId: string | null;
+    scoringGaugeProfileId: string | null;
     x: number | null;
     y: number | null;
     innerTen: boolean;
@@ -103,6 +105,8 @@ export function formatJsonLine(
     deviceScore: shot.deviceScore !== undefined ? shot.deviceScore.value : null,
     receivedAt: shot.receivedAt.toISOString(),
     observationId: shot.sourceObservationId ?? null,
+    targetProfileId: shot.targetProfileId ?? null,
+    scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
     x: shot.impactPoint !== null ? shot.impactPoint.x : null,
     y: shot.impactPoint !== null ? shot.impactPoint.y : null,
     innerTen: shot.innerTen,

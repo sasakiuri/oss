@@ -92,6 +92,8 @@ function createMatchShot(): Shot {
     calculatedScore: new Score(103),
     receivedAt: new Date('2026-02-24T12:00:00.040Z'),
     sourceObservationId: '11111111-1111-4111-8111-111111111111',
+    targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+    scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
   });
 }
 
@@ -204,6 +206,8 @@ describe('CompetitionShotPublisher', () => {
     expect(payload.effectiveScoreX10).toBe(102);
     expect(payload.receivedAt).toBe('2026-02-24T12:00:00.040Z');
     expect(payload.observationId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(payload.targetProfileId).toBe('ISSF_PISTOL_25M_PRECISION_2026');
+    expect(payload.scoringGaugeProfileId).toBe('ISSF_CENTER_FIRE_9_65_2026');
     expect(payload.innerTen).toBe(false);
     expect(payload.mode).toBe('MATCH');
     expect(payload.competitionId).toBe('comp-uuid');
@@ -273,8 +277,9 @@ describe('CompetitionShotPublisher', () => {
       iteration: 1,
       timerStartAt: '2026-02-24T11:59:59.000Z',
       timerDurationSeconds: 50,
-      status: 'SHOT_RECORDED',
-      shotId: shot.id,
+      shotsPerLane: 1,
+      status: 'COMPLETE',
+      recordedShotIds: [shot.id],
     });
 
     (eventBus as { emit: Function }).emit({

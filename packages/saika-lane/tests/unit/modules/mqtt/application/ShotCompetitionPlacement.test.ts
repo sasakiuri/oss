@@ -53,4 +53,28 @@ describe('resolveCompetitionShotPlacement', () => {
 
     expect(result).toEqual({ stageIndex: 1, seriesIndex: 1, shotNumberInSeries: 1 });
   });
+
+  it('skips a zero-shot position-change interval when mapping session series', () => {
+    const positionConfig = {
+      ...config,
+      stages: [
+        config.stages[0]!,
+        {
+          ...config.stages[1]!,
+          series: [
+            { maxShots: 10 },
+            { maxShots: 10 },
+            { maxShots: 0, purpose: 'POSITION_CHANGE_AND_SIGHTING' as const },
+          ],
+        },
+        { name: 'Standing', scored: true, requiresNewSession: false, series: [{ maxShots: 5 }] },
+      ],
+    } as RoundConfig;
+
+    expect(resolveCompetitionShotPlacement(shot(21, 3), [shot(21, 3)], positionConfig, 2, 0)).toEqual({
+      stageIndex: 2,
+      seriesIndex: 0,
+      shotNumberInSeries: 1,
+    });
+  });
 });

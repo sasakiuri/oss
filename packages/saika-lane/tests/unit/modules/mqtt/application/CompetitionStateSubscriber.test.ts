@@ -168,6 +168,36 @@ describe('CompetitionStateSubscriber', () => {
     });
   });
 
+  it('rejects a required Rule Pack fingerprint mismatch before bootstrapping', async () => {
+    const requiredIdentity = {
+      id: 'ISSF:2026:AR60:QUALIFICATION',
+      schemaVersion: 1 as const,
+      fingerprint: { algorithm: 'SHA-256' as const, value: 'a'.repeat(64) },
+    };
+    retainedPayload = JSON.stringify(
+      validState({
+        competitionTypeId: 'AR60',
+        definitionBinding: {
+          protocolVersion: 1,
+          compatibilityMode: 'REQUIRED',
+          rulePack: requiredIdentity,
+        },
+      }),
+    );
+    subscriber = new CompetitionStateSubscriber(mqttClient, commandBus, competitionRepository, 10, () => ({
+      id: 'AR60',
+      rulePackIdentity: {
+        ...requiredIdentity,
+        fingerprint: { ...requiredIdentity.fingerprint, value: 'b'.repeat(64) },
+      },
+    }));
+
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toMatchObject({
+      code: 'MQTT_COMPETITION_STATE_MISMATCH',
+    });
+    expect(commandBus.execute).not.toHaveBeenCalled();
+  });
+
   it('times out when no valid retained state is available', async () => {
     retainedPayload = JSON.stringify({ competitionId: COMPETITION_ID });
 

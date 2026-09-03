@@ -122,6 +122,8 @@ function calculateMixedResultRevision(result: MixedTeamFinalResultRecord): strin
       JSON.stringify({
         id: result.id,
         teamId: result.teamId,
+        teamName: result.teamName,
+        nationCode: result.nationCode,
         members: result.members,
         totalScore: result.totalScore,
         finalRank: result.finalRank,

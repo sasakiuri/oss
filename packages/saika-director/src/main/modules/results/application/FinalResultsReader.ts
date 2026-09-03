@@ -233,6 +233,8 @@ function calculateResultScoringRevision(
       id: result.id.value,
       eventId: result.eventId.value,
       participantId: result.participantId.value,
+      playerName: result.playerName,
+      affiliation: result.affiliation,
       firingPointNumber: result.firingPointNumber,
       stage1Shots: result.stage1Shots,
       stage2Shots: result.stage2Shots,
@@ -240,6 +242,7 @@ function calculateResultScoringRevision(
       finalRank: resolvedSourceRank,
       eliminatedAtShot: result.eliminatedAtShot,
       shootoffId: result.shootoffId,
+      remarks: result.remarks,
       status: result.status,
     },
     placementDecisions: activeDecisions

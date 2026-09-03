@@ -17,6 +17,7 @@ import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
+import type { TimedTargetState } from '@/main/modules/timed-target';
 
 import type { DomainEvent } from './EventBus';
 
@@ -71,6 +72,8 @@ export interface PhaseChangedEvent extends DomainEvent {
   readonly seriesIndex: number;
   readonly stageName: string;
   readonly scored: boolean;
+  readonly targetProfileId?: string;
+  readonly scoringGaugeProfileId?: string;
 }
 
 export interface TimerTickEvent extends DomainEvent {
@@ -134,6 +137,11 @@ export interface ShotObservationRoutedEvent extends DomainEvent {
   readonly evidenceId: string;
 }
 
+export interface TimedTargetSequenceChangedEvent extends DomainEvent {
+  readonly type: 'TimedTargetSequenceChanged';
+  readonly state: TimedTargetState;
+}
+
 // ── MQTT Events ──
 
 export interface MqttConnectedEvent extends DomainEvent {
@@ -170,6 +178,7 @@ declare module './EventBus' {
     CompetitionInterruptionChanged: CompetitionInterruptionChangedEvent;
     SafetyStopChanged: SafetyStopChangedEvent;
     ShotObservationRouted: ShotObservationRoutedEvent;
+    TimedTargetSequenceChanged: TimedTargetSequenceChangedEvent;
     MqttConnected: MqttConnectedEvent;
     MqttDisconnected: MqttDisconnectedEvent;
     CompetitionCueChanged: CompetitionCueChangedEvent;

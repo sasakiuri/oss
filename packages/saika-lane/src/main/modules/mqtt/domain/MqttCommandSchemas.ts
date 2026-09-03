@@ -18,6 +18,8 @@ import { AthleteSchema } from './MqttAssignmentSchemas';
 const CommandBaseSchema = z.object({
   commandId: z.string().uuid(),
   issuedBy: z.string(),
+  /** Stable application principal; issuedBy may remain the human official for audit. */
+  issuerId: z.string().min(1).optional(),
   issuedAt: z.string().datetime(),
 });
 
@@ -62,7 +64,8 @@ export const EndSightingCmdSchema = CommandBaseSchema;
 
 export const StartMatchCmdSchema = CommandBaseSchema.extend({
   timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
+  /** Omitted when an independent timed-target program owns every firing window. */
+  timerDurationSeconds: z.number().int().positive().optional(),
 });
 
 export const TimerStartedCmdSchema = CommandBaseSchema.extend({
@@ -128,14 +131,44 @@ export const StartShootOffCmdSchema = CommandBaseSchema.extend({
   runId: z.string().uuid(),
   iteration: z.number().int().positive(),
   timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
+  timerDurationSeconds: z.number().int().positive().optional(),
+  shotsPerLane: z.number().int().positive(),
   targetLaneIds: z.array(z.string().uuid()).min(2),
+  timedTarget: z
+    .object({
+      programId: z.string().min(1),
+      participantExecution: z.enum(['SIMULTANEOUS', 'SEQUENTIAL']),
+    })
+    .optional(),
+}).superRefine((command, context) => {
+  if ((command.timerDurationSeconds === undefined) === (command.timedTarget === undefined)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['timerDurationSeconds'],
+      message: 'A shoot-off requires exactly one generic duration or timed-target program',
+    });
+  }
 });
 
 export const StopShootOffCmdSchema = CommandBaseSchema.extend({
   runId: z.string().uuid(),
   iteration: z.number().int().positive(),
   targetLaneIds: z.array(z.string().uuid()).min(2),
+});
+
+export const StartTimedTargetCmdSchema = CommandBaseSchema.extend({
+  programId: z.string().min(1),
+  purpose: z.enum(['SIGHTING', 'MATCH']),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  loadAt: z.string().datetime(),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
+});
+
+export const CancelTimedTargetCmdSchema = CommandBaseSchema.extend({
+  sequenceId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
 // ============================================================
@@ -182,4 +215,6 @@ export type ResumeMatchCmd = z.infer<typeof ResumeMatchCmdSchema>;
 export type RetireFinalistCmd = z.infer<typeof RetireFinalistCmdSchema>;
 export type StartShootOffCmd = z.infer<typeof StartShootOffCmdSchema>;
 export type StopShootOffCmd = z.infer<typeof StopShootOffCmdSchema>;
+export type StartTimedTargetCmd = z.infer<typeof StartTimedTargetCmdSchema>;
+export type CancelTimedTargetCmd = z.infer<typeof CancelTimedTargetCmdSchema>;
 export type CommandAckPayload = z.infer<typeof CommandAckPayloadSchema>;

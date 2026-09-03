@@ -7,6 +7,7 @@ import {
   reportContract,
   sessionContract,
   settingsContract,
+  timedTargetContract,
   updaterContract,
   windowContract,
 } from '@/shared/ipc/contracts';
@@ -31,6 +32,7 @@ export function buildPreloadAPI(): ElectronAPI {
   const window = createBridgeNamespace(windowContract);
   const mqtt = createBridgeNamespace(mqttContract);
   const updates = createBridgeNamespace(updaterContract);
+  const timedTarget = createBridgeNamespace(timedTargetContract);
   const hasNativeWindowFrame = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1';
 
   return {
@@ -96,9 +98,14 @@ export function buildPreloadAPI(): ElectronAPI {
       disconnectMqtt: mqtt.disconnectMqtt,
       getMqttStatus: mqtt.getMqttStatus,
       getSafetyState: mqtt.getSafetyState,
+      getRangeOfficerRequest: mqtt.getRangeOfficerRequest,
+      requestRangeOfficer: mqtt.requestRangeOfficer,
+      clearRangeOfficerRequest: mqtt.clearRangeOfficerRequest,
       saveMqttSettings: mqtt.saveMqttSettings,
       getMqttSettings: mqtt.getMqttSettings,
     },
+
+    timedTarget,
 
     updates: {
       getUpdateState: updates.getUpdateState,
@@ -122,6 +129,7 @@ export function buildPreloadAPI(): ElectronAPI {
       competitionInterruptionChanged: events.competitionInterruptionChanged,
       safetyStopChanged: events.safetyStopChanged,
       competitionCueChanged: events.competitionCueChanged,
+      timedTargetSequenceChanged: events.timedTargetSequenceChanged,
       seriesCompleted: events.seriesCompleted,
       stageAdvanced: events.stageAdvanced,
       competitionFinished: events.competitionFinished,

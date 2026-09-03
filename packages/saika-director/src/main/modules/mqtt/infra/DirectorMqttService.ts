@@ -4,6 +4,7 @@ import {
   ActivateSafetyStopCommandSchema,
   AdvanceSeriesCommandSchema,
   AssignAthleteCommandSchema,
+  CancelTimedTargetCommandSchema,
   ClearSafetyStopCommandSchema,
   CommandAcknowledgementSchema,
   CompetitionCuePayloadSchema,
@@ -17,6 +18,7 @@ import {
   LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
+  RangeOfficerRequestPayloadSchema,
   LaneScorePayloadSchema,
   LeaveCompetitionCommandSchema,
   RawShotPayloadSchema,
@@ -30,9 +32,11 @@ import {
   StartMatchCommandSchema,
   StartSightingCommandSchema,
   StartShootOffCommandSchema,
+  StartTimedTargetCommandSchema,
   StopShootOffCommandSchema,
   TimerExpiredCommandSchema,
   TimerStartedCommandSchema,
+  TimedTargetStatePayloadSchema,
   directorSubscriptions,
   mqttTopics,
   type ActiveCompetitionTimer,
@@ -48,19 +52,25 @@ import {
   type LaneCompetitionStatePayload,
   type LaneScorePayload,
   type LaneSafetyStatePayload,
+  type RangeOfficerRequestPayload,
+  type TimedTargetStatePayload,
   type PendingCompetitionTimer,
   type RawShotPayload,
   type ShotObservationEvidencePayload,
   ClockProbeAcknowledgementDataSchema,
 } from '@/shared/mqtt';
 
-import { MqttTransport, type IMqttTransport } from './MqttTransport';
+import { MqttTransport, type IMqttTransport, type MqttCredentials } from './MqttTransport';
 import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
 import {
   ClockQualityPolicy,
   type ClockQualityAssessment,
   type IClockQualityPolicy,
 } from '../domain/ClockQualityPolicy';
+import {
+  CompetitionDefinitionCompatibilityPolicy,
+  type ICompetitionDefinitionCompatibilityPolicy,
+} from '../domain/CompetitionDefinitionCompatibilityPolicy';
 
 const logger = Logger.create('DirectorMqttService');
 // Saika Lane publishes hardware heartbeats every 60 seconds. Two missed
@@ -89,11 +99,28 @@ export type DirectorCommandAction =
   | 'retire-finalist'
   | 'start-shoot-off'
   | 'stop-shoot-off'
+  | 'start-timed-target'
+  | 'cancel-timed-target'
   | 'probe-clock';
+
+export type ShootOffTiming =
+  | { readonly type: 'GENERIC'; readonly durationSeconds: number }
+  | {
+      readonly type: 'TIMED_TARGET';
+      readonly programId: string;
+      readonly participantExecution: 'SIMULTANEOUS' | 'SEQUENTIAL';
+    };
 
 type BroadcastCommandAction = Extract<
   DirectorCommandAction,
-  'end-sighting' | 'start-match' | 'timer-started' | 'timer-expired' | 'advance-series' | 'finish-competition'
+  | 'end-sighting'
+  | 'start-match'
+  | 'timer-started'
+  | 'timer-expired'
+  | 'advance-series'
+  | 'finish-competition'
+  | 'start-timed-target'
+  | 'cancel-timed-target'
 >;
 
 const broadcastCommandSchemas = {
@@ -103,6 +130,8 @@ const broadcastCommandSchemas = {
   'timer-expired': TimerExpiredCommandSchema,
   'advance-series': AdvanceSeriesCommandSchema,
   'finish-competition': FinishCompetitionCommandSchema,
+  'start-timed-target': StartTimedTargetCommandSchema,
+  'cancel-timed-target': CancelTimedTargetCommandSchema,
 } as const;
 
 export interface DirectorLaneSnapshot {
@@ -110,6 +139,8 @@ export interface DirectorLaneSnapshot {
   laneAlias: string;
   hardware: HardwareStatePayload | null;
   safetyState: LaneSafetyStatePayload | null;
+  rangeOfficerRequest?: RangeOfficerRequestPayload | null;
+  timedTargetState?: TimedTargetStatePayload | null;
   competitionState: LaneCompetitionStatePayload | null;
   assignment: LaneAssignmentPayload | null;
   score: LaneScorePayload | null;
@@ -160,6 +191,7 @@ export interface CreateCompetitionInput {
   discipline: string;
   roundName: string;
   competitionUnit?: 'INDIVIDUAL' | 'MIXED_TEAM';
+  definitionBinding?: CompetitionStatePayload['definitionBinding'];
   acc: 'RING' | 'DECIMAL';
   shotsPerSeries: number;
   totalSeries: number;
@@ -195,6 +227,7 @@ export interface DirectorMqttOptions {
   commandTimeoutMs?: number;
   startDelayMs?: number;
   resubscribeRetryMs?: number;
+  credentials?: MqttCredentials;
 }
 
 interface PendingCommand {
@@ -220,6 +253,7 @@ interface CompetitionLaneData {
   assignment: LaneAssignmentPayload | null;
   score: LaneScorePayload | null;
   lastCompetitionShot: CompetitionShotPayload | null;
+  timedTargetState: TimedTargetStatePayload | null;
 }
 
 interface CompetitionLaneSnapshotRevision {
@@ -257,12 +291,14 @@ export class DirectorMqttService {
   private competitionLaneSnapshotListeners = new Set<() => void>();
   private operationTails = new Map<string, Promise<void>>();
   private clockQualityByLaneId = new Map<string, ClockQualityAssessment>();
+  private readonly credentials: MqttCredentials | undefined;
 
   constructor(
     options: DirectorMqttOptions,
     callbacks: DirectorMqttCallbacks = {},
     transport: IMqttTransport = new MqttTransport(),
     private readonly clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
+    private readonly definitionCompatibilityPolicy: ICompetitionDefinitionCompatibilityPolicy = new CompetitionDefinitionCompatibilityPolicy(),
   ) {
     this.directorId = options.directorId;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
@@ -270,6 +306,7 @@ export class DirectorMqttService {
     this.resubscribeRetryMs = options.resubscribeRetryMs ?? 1_000;
     this.callbacks = callbacks;
     this.transport = transport;
+    this.credentials = options.credentials;
   }
 
   getClockQuality(laneId?: string): Readonly<Record<string, ClockQualityAssessment>> | ClockQualityAssessment | null {
@@ -418,7 +455,7 @@ export class DirectorMqttService {
     this.resetBrokerState();
     this.brokerUrl = brokerUrl;
     try {
-      await this.transport.connect(brokerUrl, `${this.directorId}-${crypto.randomUUID()}`);
+      await this.transport.connect(brokerUrl, `${this.directorId}-${crypto.randomUUID()}`, this.credentials);
       this.bindTransportEvents();
       await this.subscribeAsDirector();
       this.connected = true;
@@ -508,6 +545,7 @@ export class DirectorMqttService {
     const state = this.requireCompetitionPhase(competitionId, 'NOT_STARTED', 'join competition');
     const uniqueLaneIds = [...new Set(laneIds)];
     this.assertLanesAvailableForCompetition(competitionId, uniqueLaneIds);
+    this.assertDefinitionCompatibility(state, uniqueLaneIds);
     const previousPendingJoinLaneIds = new Set(state.pendingJoinLaneIds ?? []);
     const provisionalPendingJoinLaneIds = [
       ...new Set([...previousPendingJoinLaneIds, ...uniqueLaneIds.filter((laneId) => !state.laneIds.includes(laneId))]),
@@ -561,6 +599,21 @@ export class DirectorMqttService {
     await this.publishCompetitionState(finalState);
 
     return { success: commands.every((command) => command.success), commands };
+  }
+
+  private assertDefinitionCompatibility(state: CompetitionStatePayload, laneIds: readonly string[]): void {
+    for (const laneId of laneIds) {
+      const assessment = this.definitionCompatibilityPolicy.assess(
+        state.definitionBinding,
+        this.lanes.get(laneId)?.hardware?.capabilities,
+      );
+      if (!assessment.joinAllowed) {
+        throw new Error(`Lane ${laneId} cannot join competition ${state.competitionId}: ${assessment.guidance}`);
+      }
+      if (assessment.status !== 'MATCH' && assessment.status !== 'DISABLED' && assessment.status !== 'LEGACY') {
+        logger.warn(`Lane ${laneId} has advisory Rule Pack compatibility: ${assessment.guidance}`);
+      }
+    }
   }
 
   async leaveCompetition(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
@@ -666,7 +719,8 @@ export class DirectorMqttService {
     competitionId: string,
     runId: string,
     iteration: number,
-    durationSeconds: number,
+    timing: ShootOffTiming,
+    shotsPerLane: number,
     eligibleLaneIds: readonly string[],
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, async () => {
@@ -684,12 +738,36 @@ export class DirectorMqttService {
       }
       this.assertSafetyCleared(targetLaneIds, 'start a Final shoot-off');
       this.assertClockQualityForTimedCommands(targetLaneIds);
+      if (timing.type === 'TIMED_TARGET') {
+        const stillActive = targetLaneIds.filter((laneId) => {
+          const timedState = this.lanes.get(laneId)?.timedTargetState;
+          return timedState && timedState.phase !== 'COMPLETE' && timedState.phase !== 'CANCELLED';
+        });
+        if (stillActive.length > 0) {
+          throw new Error(`A timed target sequence is already active on shoot-off Lane(s): ${stillActive.join(', ')}`);
+        }
+      }
+      const earliestStartMs =
+        timing.type === 'TIMED_TARGET'
+          ? targetLaneIds.reduce((latest, laneId) => {
+              const nextLoad = this.lanes.get(laneId)?.timedTargetState?.nextLoadAllowedAt;
+              return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
+            }, Date.now() + this.startDelayMs)
+          : Date.now() + this.startDelayMs;
       const command = StartShootOffCommandSchema.parse(
         this.commandBase({
           runId,
           iteration,
-          timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
-          timerDurationSeconds: durationSeconds,
+          timerStartAt: new Date(earliestStartMs).toISOString(),
+          ...(timing.type === 'GENERIC'
+            ? { timerDurationSeconds: timing.durationSeconds }
+            : {
+                timedTarget: {
+                  programId: timing.programId,
+                  participantExecution: timing.participantExecution,
+                },
+              }),
+          shotsPerLane,
           targetLaneIds,
         }),
       );
@@ -1086,14 +1164,29 @@ export class DirectorMqttService {
     return result;
   }
 
-  async startMatch(competitionId: string, durationSeconds: number): Promise<CommandExecutionResult> {
+  async startMatch(competitionId: string, durationSeconds?: number): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () => this.startMatchNow(competitionId, durationSeconds));
   }
 
-  private async startMatchNow(competitionId: string, durationSeconds: number): Promise<CommandExecutionResult> {
+  private async startMatchNow(competitionId: string, durationSeconds?: number): Promise<CommandExecutionResult> {
     const state = this.requireCompetitionPhase(competitionId, 'SIGHTING_COMPLETE', 'start match');
     this.assertSafetyCleared(state.laneIds, 'start match');
     this.assertClockQualityForTimedCommands(state.laneIds);
+    if (durationSeconds === undefined) {
+      const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
+      const result = await this.publishBroadcast(competitionId, 'start-match', { timerStartAt });
+      if (result.success) {
+        await this.publishCompetitionState(
+          this.updateCompetitionState(state, {
+            phase: 'MATCH',
+            startedAt: state.startedAt ?? timerStartAt,
+            activeTimer: undefined,
+            pendingTimer: undefined,
+          }),
+        );
+      }
+      return result;
+    }
     const prepared = await this.retainTimerIntent(state, 'start-match', {
       timerScope: 'STAGE',
       timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
@@ -1117,6 +1210,101 @@ export class DirectorMqttService {
       );
     }
     return result;
+  }
+
+  async startTimedTarget(input: {
+    competitionId: string;
+    programId: string;
+    purpose: 'SIGHTING' | 'MATCH';
+    stageIndex: number;
+    seriesIndex: number;
+    targetLaneIds?: readonly string[];
+  }): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, () => this.startTimedTargetNow(input));
+  }
+
+  private async startTimedTargetNow(input: {
+    competitionId: string;
+    programId: string;
+    purpose: 'SIGHTING' | 'MATCH';
+    stageIndex: number;
+    seriesIndex: number;
+    targetLaneIds?: readonly string[];
+  }): Promise<CommandExecutionResult> {
+    const competition = this.requireCompetitionPhase(input.competitionId, 'MATCH', 'start a timed target sequence');
+    const targetLaneIds = [...new Set(input.targetLaneIds ?? competition.laneIds)];
+    if (targetLaneIds.length === 0) throw new Error('A timed target sequence requires at least one Lane');
+    targetLaneIds.forEach((laneId) => this.requireCompetitionLane(input.competitionId, laneId));
+    this.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
+    this.assertClockQualityForTimedCommands(targetLaneIds);
+
+    const notReady = await this.waitForTimedTargetLaneReadiness(
+      input.competitionId,
+      targetLaneIds,
+      input.stageIndex,
+      input.seriesIndex,
+    );
+    if (notReady.length > 0) {
+      throw new Error(
+        `Timed target Lanes are not ready at ${input.stageIndex}:${input.seriesIndex}: ${notReady.join(', ')}`,
+      );
+    }
+
+    const stillActive = targetLaneIds.filter((laneId) => {
+      const state = this.lanes.get(laneId)?.timedTargetState;
+      return state && state.phase !== 'COMPLETE' && state.phase !== 'CANCELLED';
+    });
+    if (stillActive.length > 0) {
+      throw new Error(`A timed target sequence is already active on Lane(s): ${stillActive.join(', ')}`);
+    }
+
+    const earliestLoadMs = targetLaneIds.reduce((latest, laneId) => {
+      const nextLoad = this.lanes.get(laneId)?.timedTargetState?.nextLoadAllowedAt;
+      return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
+    }, Date.now() + this.startDelayMs);
+    const command = StartTimedTargetCommandSchema.parse(
+      this.commandBase({
+        programId: input.programId,
+        purpose: input.purpose,
+        stageIndex: input.stageIndex,
+        seriesIndex: input.seriesIndex,
+        loadAt: new Date(earliestLoadMs).toISOString(),
+        targetLaneIds,
+      }),
+    );
+    return this.publishCommand({
+      action: 'start-timed-target',
+      topic: mqttTopics.competitionCommand(input.competitionId, 'start-timed-target'),
+      acknowledgementTopic: (laneId) =>
+        mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'start-timed-target', laneId),
+      payload: command,
+      expectedLaneIds: targetLaneIds,
+    });
+  }
+
+  async cancelTimedTarget(input: {
+    competitionId: string;
+    sequenceId: string;
+    reason: string;
+    targetLaneIds?: readonly string[];
+  }): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, async () => {
+      const competition = this.requireCompetition(input.competitionId);
+      const targetLaneIds = [...new Set(input.targetLaneIds ?? competition.laneIds)];
+      if (targetLaneIds.length === 0) throw new Error('Timed target cancellation requires at least one Lane');
+      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(input.competitionId, laneId));
+      const command = CancelTimedTargetCommandSchema.parse(
+        this.commandBase({ sequenceId: input.sequenceId, reason: input.reason, targetLaneIds }),
+      );
+      return this.publishCommand({
+        action: 'cancel-timed-target',
+        topic: mqttTopics.competitionCommand(input.competitionId, 'cancel-timed-target'),
+        acknowledgementTopic: (laneId) =>
+          mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'cancel-timed-target', laneId),
+        payload: command,
+        expectedLaneIds: targetLaneIds,
+      });
+    });
   }
 
   async restartTimer(
@@ -1424,6 +1612,16 @@ export class DirectorMqttService {
       return;
     }
 
+    if (segments.length === 5 && segments[3] === 'range-officer' && segments[4] === 'request') {
+      const state = this.parsePayload(RangeOfficerRequestPayloadSchema, payload, 'Range Officer request');
+      if (!state || state.laneId !== segments[2]) return;
+      this.updateLane(state.laneId, {
+        rangeOfficerRequest: state,
+        lastSeenAt: state.publishedAt,
+      });
+      return;
+    }
+
     if (segments.length === 5 && segments[3] === 'hardware' && segments[4] === 'shot') {
       const shot = this.parsePayload(RawShotPayloadSchema, payload, 'raw shot');
       if (!shot || shot.laneId !== segments[2]) return;
@@ -1488,6 +1686,14 @@ export class DirectorMqttService {
       const shot = this.parsePayload(CompetitionShootOffShotPayloadSchema, payload, 'competition shoot-off shot');
       if (!shot || shot.competitionId !== segments[2] || shot.laneId !== segments[4]) return;
       this.callbacks.onCompetitionShootOffShotObserved?.(shot, payload.toString('utf8'));
+      return;
+    }
+
+    if (segments.length === 7 && segments[3] === 'lane' && segments[5] === 'timed-target' && segments[6] === 'state') {
+      const state = this.parsePayload(TimedTargetStatePayloadSchema, payload, 'timed target state');
+      const laneId = segments[4];
+      if (!state || !laneId || state.laneId !== laneId || state.competitionId !== segments[2]) return;
+      this.updateCompetitionLane(state.competitionId, laneId, { timedTargetState: state }, state.publishedAt);
       return;
     }
 
@@ -1577,6 +1783,14 @@ export class DirectorMqttService {
       return;
     }
 
+    if (segments.length === 7 && segments[3] === 'lane' && segments[5] === 'timed-target' && segments[6] === 'state') {
+      const laneId = segments[4];
+      const competitionId = segments[2];
+      if (!laneId || !competitionId) return;
+      this.updateCompetitionLane(competitionId, laneId, { timedTargetState: null });
+      return;
+    }
+
     if (segments.length !== 6 || segments[3] !== 'lane') return;
     const laneId = segments[4];
     const kind = segments[5];
@@ -1646,6 +1860,7 @@ export class DirectorMqttService {
       };
     }
     if (action === 'start-match') {
+      if (fields.timerDurationSeconds === undefined) return null;
       return {
         competitionId,
         phase: 'MATCH',
@@ -1877,6 +2092,7 @@ export class DirectorMqttService {
     return {
       commandId: crypto.randomUUID(),
       issuedBy: this.directorId,
+      issuerId: this.directorId,
       issuedAt: new Date().toISOString(),
       ...fields,
     };
@@ -2141,6 +2357,8 @@ export class DirectorMqttService {
         laneAlias: '',
         hardware: null,
         safetyState: null,
+        rangeOfficerRequest: null,
+        timedTargetState: null,
         competitionState: null,
         assignment: null,
         score: null,
@@ -2167,6 +2385,7 @@ export class DirectorMqttService {
       assignment: null,
       score: null,
       lastCompetitionShot: null,
+      timedTargetState: null,
     };
     const updatedData = { ...currentData, ...patch };
     dataByLane.set(laneId, updatedData);
@@ -2297,6 +2516,52 @@ export class DirectorMqttService {
     });
   }
 
+  /**
+   * State publications are independent of command acknowledgements. Waiting on
+   * the snapshot stream removes a transport race between a series transition
+   * and the subsequent absolute-time target command.
+   */
+  private waitForTimedTargetLaneReadiness(
+    competitionId: string,
+    laneIds: readonly string[],
+    stageIndex: number,
+    seriesIndex: number,
+  ): Promise<string[]> {
+    const findNotReady = (): string[] =>
+      laneIds.filter((laneId) => {
+        const lane = this.lanes.get(laneId)?.competitionState;
+        return (
+          lane?.competitionId !== competitionId ||
+          lane.phase !== 'MATCH' ||
+          lane.currentStage.index !== stageIndex ||
+          lane.currentSeries.index !== seriesIndex ||
+          lane.awaitingSeriesStart === true
+        );
+      });
+
+    const initial = findNotReady();
+    if (initial.length === 0) return Promise.resolve([]);
+    return new Promise((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (remaining: string[]): void => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        this.competitionLaneSnapshotListeners.delete(check);
+        resolve(remaining);
+      };
+      const check = (): void => {
+        const remaining = findNotReady();
+        if (remaining.length === 0) finish(remaining);
+      };
+
+      this.competitionLaneSnapshotListeners.add(check);
+      timer = setTimeout(() => finish(findNotReady()), this.commandTimeoutMs);
+      check();
+    });
+  }
+
   private notifyCompetitionLaneSnapshotListeners(): void {
     for (const listener of [...this.competitionLaneSnapshotListeners]) listener();
   }
@@ -2311,6 +2576,7 @@ export class DirectorMqttService {
         assignment: data?.assignment ?? null,
         score: data?.score ?? null,
         lastCompetitionShot: data?.lastCompetitionShot ?? null,
+        timedTargetState: data?.timedTargetState ?? null,
       });
     }
 
@@ -2373,7 +2639,9 @@ export class DirectorMqttService {
 
   private async clearCompetitionRetainedState(competitionId: string, laneIds: string[]): Promise<void> {
     const retainedTopics = laneIds.flatMap((laneId) =>
-      ['state', 'score', 'assignment'].map((kind) => `saika/competition/${competitionId}/lane/${laneId}/${kind}`),
+      ['state', 'score', 'assignment', 'timed-target/state'].map(
+        (kind) => `saika/competition/${competitionId}/lane/${laneId}/${kind}`,
+      ),
     );
     retainedTopics.push(mqttTopics.competitionCue(competitionId));
     const outcomes = await Promise.allSettled(

@@ -7,6 +7,7 @@ Saika Director is the desktop control application for coordinating multiple
 
 - Embedded MQTT broker or connection to an external broker
 - Automatic discovery and online-state monitoring of Saika Lane instances
+- Exact Rule Pack fingerprint negotiation before a required Lane joins a competition
 - Competition creation and lane join/leave control
 - Bulk athlete assignment from tournament firing-point plans
 - Athlete assignment and per-lane session reset
@@ -30,9 +31,11 @@ Saika Director is the desktop control application for coordinating multiple
 - Separate Final malfunction, EST-failure, and incorrect-command recovery cases with ISSF guidance
 - Optional adjudication case files that link decisions, incident reports, protests, and recovery records without merging their ledgers
 - Advisory external music/Final-production operations and a separate one-use 30-second Mixed Team timeout ledger
+- ISSF 25m device-neutral timed-target schedules with Lane-owned persistence, red/green projection, and configurable shot-window enforcement
+- Lane range-officer requests, relay athlete lifecycle tracking, and outdoor Elimination planning as independent operational modules
 
-The progress-management workflow uses MQTT and supports `AR60`, `AP60`, `ARMIX30`, `APMIX30`,
-`AR60_FINAL`, `AP60_FINAL`, `ARMIX_FINAL`, `APMIX_FINAL`, `BR60S`, and `BP60` definitions.
+The progress-management workflow uses MQTT and supports Rule Pack-backed ISSF 2026 10m Individual/Mixed Team,
+50m Rifle Qualification/Elimination/Final, and 25m Pistol Qualification definitions, plus the local `BR60S` and `BP60` definitions.
 Sighting and match command durations are read from the selected competition definition,
 including the ISSF 15-minute and 75-minute timings. It is an independent, unofficial application and
 must not be used as the sole timing or scoring authority for sanctioned
@@ -65,8 +68,26 @@ npm rebuild better-sqlite3
 
 The default configuration starts an embedded MQTT broker on TCP port `1883`.
 Use the Settings screen to switch to an external `mqtt://` or `mqtts://` broker.
-MQTT authentication and custom TLS client credentials are not currently
-supported, so use a trusted, isolated network or broker-side access controls.
+
+## MQTT Security Configuration
+
+| Environment variable           | Values                 | Default                         | Purpose                                                        |
+| ------------------------------ | ---------------------- | ------------------------------- | -------------------------------------------------------------- |
+| `SAIKA_MQTT_BROKER_AUTH_MODE`  | `REQUIRED`, `DISABLED` | `DISABLED`                      | Enables embedded-broker authentication and role/topic ACLs     |
+| `SAIKA_MQTT_DIRECTOR_ID`       | Non-empty string       | Persisted ID (`saika-director`) | Stable command issuer identity matched by each Lane trust list |
+| `SAIKA_MQTT_DIRECTOR_USERNAME` | Non-empty string       | —                               | Director MQTT account                                          |
+| `SAIKA_MQTT_DIRECTOR_PASSWORD` | Non-empty string       | —                               | Director MQTT password                                         |
+| `SAIKA_MQTT_LANE_USERNAME`     | Non-empty string       | —                               | Lane-role account on the embedded broker                       |
+| `SAIKA_MQTT_LANE_PASSWORD`     | Non-empty string       | —                               | Lane-role password on the embedded broker                      |
+
+`REQUIRED` needs both complete accounts. Director and Lane credentials are also accepted when connecting to an
+external broker, whose authentication and ACL remain broker-managed. Configure each Lane's
+`SAIKA_TRUSTED_DIRECTOR_IDS` with the same stable Director ID and use `SAIKA_COMMAND_AUTHORIZATION_MODE=REQUIRED`
+when unverified command issuers must be rejected.
+
+The embedded Lane account is role-level rather than device-specific; its ACL scopes topics from the Lane client ID.
+Use an external broker with per-client credentials/ACLs when cryptographic per-device identity is required. `mqtts://`
+uses system-trusted server certificates, but custom CA and TLS client-certificate selection are not currently configurable.
 
 ## Distribution
 

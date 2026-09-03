@@ -4,6 +4,7 @@ export const mqttTopics = {
   laneHardwareState: (laneId: string) => `saika/lane/${laneId}/hardware/state`,
   laneHardwareShot: (laneId: string) => `saika/lane/${laneId}/hardware/shot`,
   laneSafetyState: (laneId: string) => `saika/lane/${laneId}/safety/state`,
+  laneRangeOfficerRequest: (laneId: string) => `saika/lane/${laneId}/range-officer/request`,
   laneCommand: (laneId: string, action: string) => `saika/lane/${laneId}/command/${action}`,
   laneCommandAcknowledgement: (laneId: string, action: string) =>
     `saika/lane/${laneId}/command/${action}/acknowledgement`,
@@ -23,6 +24,7 @@ export const mqttTopics = {
 export const directorSubscriptions = [
   'saika/lane/+/hardware/#',
   'saika/lane/+/safety/state',
+  'saika/lane/+/range-officer/request',
   'saika/lane/+/command/+/acknowledgement',
   'saika/competition/+/#',
 ] as const;

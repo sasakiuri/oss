@@ -20,7 +20,7 @@ export interface SquaddingPolicyInput {
   firingPointCount: number;
   statusSectionPolicy: 'OFF' | 'END_OF_RELAY';
   teamFormat?: 'MIXED_PAIR';
-  round?: 'Qualification' | 'Final';
+  round?: 'Elimination' | 'Qualification' | 'Final';
 }
 
 export interface SquaddingPolicyResult {
@@ -94,7 +94,7 @@ export class IssfSquaddingPolicy {
         code: 'SEEDED_RANDOM_DRAW',
         severity: 'INFO',
         message: `Computer draw completed with reproducible seed “${input.seed}”.`,
-        ruleReference: 'ISSF 6.6.6 a-b',
+        ruleReference: input.round === 'Elimination' ? 'ISSF 6.6.6.1(b)' : 'ISSF 6.6.6 a-b',
       },
       {
         code: 'NATION_ADJACENCY_CHECKED',
@@ -111,7 +111,7 @@ export class IssfSquaddingPolicy {
         code: 'RELAY_BALANCE_CHECKED',
         severity: 'INFO',
         message: 'Nation entries are distributed as equally as possible between relays.',
-        ruleReference: 'ISSF 6.6.6 d, f',
+        ruleReference: input.round === 'Elimination' ? 'ISSF 6.6.6.1(f)' : 'ISSF 6.6.6 d, f',
       });
     }
     if (mixed) {
@@ -129,7 +129,7 @@ export class IssfSquaddingPolicy {
         code: 'TEAM_RELAY_BALANCE_CHECKED',
         severity: 'INFO',
         message: 'Members sharing a Team ID are distributed equally between relays.',
-        ruleReference: 'ISSF 6.6.6 h',
+        ruleReference: input.round === 'Elimination' ? 'ISSF 6.6.6.1(f-g)' : 'ISSF 6.6.6 h',
       });
     }
     if (input.round !== 'Final') {

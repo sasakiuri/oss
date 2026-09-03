@@ -113,6 +113,7 @@ function mixedQualification(
     capabilities: {
       target: {
         scoringProfileId: discipline === 'AIR_RIFLE_10M' ? 'ISSF_AIR_RIFLE_10M_2026' : 'ISSF_AIR_PISTOL_10M_2026',
+        scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
       },
       scoring: {
         mode: scoringMode,
@@ -155,10 +156,17 @@ function mixedFinal(eventCode: 'ARMIX_FINAL' | 'APMIX_FINAL', discipline: string
     capabilities: {
       target: {
         scoringProfileId: discipline === 'AIR_RIFLE_10M' ? 'ISSF_AIR_RIFLE_10M_2026' : 'ISSF_AIR_PISTOL_10M_2026',
+        scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
       },
       scoring: { mode: 'DECIMAL', minimumShotScore: 0, maximumSeriesScore: 109, precision: 1 },
       courseOfFire: finalCourse,
-      ranking: { strategy: 'FINAL_SCORE', totalShots: 24, totalSeries: 12, stage1Shots: 15 },
+      ranking: {
+        strategy: 'FINAL_SCORE',
+        totalShots: 24,
+        totalSeries: 12,
+        stage1Shots: 15,
+        finalRuleReference: '6.18.3',
+      },
       verification: { topIndividualResults: 0, topTeamResultsWhenPublished: 3 },
       team: { format: 'MIXED_PAIR', membersPerTeam: 2, maximumTeamsPerNation: 2, requiredGenders: ['F', 'M'] },
       commands: {

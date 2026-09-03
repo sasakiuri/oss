@@ -12,12 +12,14 @@ import React, { useCallback, useState } from 'react';
 import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
 import { FinalCommandCue } from '@/renderer/presentation/components/FinalCommandCue';
+import { RangeOfficerRequestControl } from '@/renderer/presentation/components/RangeOfficerRequestControl';
 import { SafetyStopOverlay } from '@/renderer/presentation/components/SafetyStopOverlay';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
 import { StatusBar } from '@/renderer/presentation/components/StatusBar';
 import { TargetDisplay } from '@/renderer/presentation/components/TargetDisplay';
+import { TimedTargetOverlay } from '@/renderer/presentation/components/TimedTargetOverlay';
 import { TitleBar } from '@/renderer/presentation/components/TitleBar';
 import { useAutoHideCursor } from '@/renderer/presentation/hooks/useAutoHideCursor';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
@@ -53,6 +55,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const { status } = useConnectionStore();
   const isConnected = status === 'connected';
   const interruption = useCompetitionStore((state) => state.interruption);
+  const targetProfileId = useCompetitionStore((state) => state.targetProfileId);
+  const scoringGaugeProfileId = useCompetitionStore((state) => state.scoringGaugeProfileId);
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection'>('general');
@@ -86,6 +90,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
     <div className={`flex h-screen flex-col overflow-hidden bg-zinc-900 ${className}`.trim()}>
       <SafetyStopOverlay />
       <FinalCommandCue />
+      <TimedTargetOverlay />
       <TitleBar
         isMaximized={isMaximized}
         isFullscreen={isFullscreen}
@@ -117,6 +122,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
         <SidePanel />
 
         <main className="relative flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
+          <RangeOfficerRequestControl />
           {interruption && interruption.status !== 'RUNNING_MATCH' && (
             <div
               className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center ${
@@ -143,6 +149,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
               discipline={discipline}
               zoomMode={zoomMode}
               preparationShotNumberResetIndices={preparationShotNumberResetIndices}
+              targetProfileId={targetProfileId}
+              scoringGaugeProfileId={scoringGaugeProfileId}
             />
           ) : (
             <div className="text-center text-zinc-400">

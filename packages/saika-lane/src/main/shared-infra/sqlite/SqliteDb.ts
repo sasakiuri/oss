@@ -36,7 +36,9 @@ export function createSqliteDb(dbPath: string): Database.Database {
       deviceScore INTEGER,
       calculatedScore INTEGER,
       receivedAt TEXT,
-      observationId TEXT
+      observationId TEXT,
+      targetProfileId TEXT,
+      scoringGaugeProfileId TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_shots_session ON shots(sessionId);
@@ -176,6 +178,138 @@ export function createSqliteDb(dbPath: string): Database.Database {
       `);
     })();
     db.pragma('user_version = 5');
+  }
+
+  if (currentVersion < 6) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS range_officer_request_events (
+          id TEXT PRIMARY KEY,
+          request_id TEXT NOT NULL,
+          event_type TEXT NOT NULL CHECK(event_type IN ('REQUESTED', 'CLEARED')),
+          category TEXT NOT NULL CHECK(category IN (
+            'ASSISTANCE', 'EQUIPMENT', 'TARGET', 'SCORING', 'SAFETY', 'OTHER'
+          )),
+          message TEXT,
+          requested_at TEXT NOT NULL,
+          occurred_at TEXT NOT NULL,
+          cleared_by TEXT,
+          recorded_at TEXT NOT NULL,
+          CHECK (
+            (event_type = 'REQUESTED' AND cleared_by IS NULL) OR
+            (event_type = 'CLEARED' AND cleared_by IS NOT NULL)
+          )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_range_officer_request_events_current
+          ON range_officer_request_events(recorded_at, request_id);
+
+        CREATE TRIGGER IF NOT EXISTS trg_range_officer_request_events_no_update
+        BEFORE UPDATE ON range_officer_request_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Range Officer request events are append-only');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_range_officer_request_events_no_delete
+        BEFORE DELETE ON range_officer_request_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Range Officer request events are append-only');
+        END;
+      `);
+    })();
+    db.pragma('user_version = 6');
+  }
+
+  if (currentVersion < 7) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS timed_target_sequence_events (
+          id TEXT PRIMARY KEY,
+          sequence_id TEXT NOT NULL,
+          competition_id TEXT NOT NULL,
+          event_type TEXT NOT NULL CHECK(event_type IN (
+            'STARTED', 'SHOT_ACCEPTED', 'COMPLETED', 'CANCELLED'
+          )),
+          schedule_json TEXT CHECK(schedule_json IS NULL OR json_valid(schedule_json)),
+          observation_id TEXT,
+          exposure_index INTEGER CHECK(exposure_index IS NULL OR exposure_index >= 0),
+          reason TEXT,
+          occurred_at TEXT NOT NULL,
+          recorded_at TEXT NOT NULL,
+          CHECK (
+            (event_type = 'STARTED' AND schedule_json IS NOT NULL AND observation_id IS NULL AND exposure_index IS NULL) OR
+            (event_type = 'SHOT_ACCEPTED' AND schedule_json IS NULL AND observation_id IS NOT NULL AND exposure_index IS NOT NULL) OR
+            (event_type IN ('COMPLETED', 'CANCELLED') AND schedule_json IS NULL AND observation_id IS NULL AND exposure_index IS NULL)
+          )
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_timed_target_sequence_started
+          ON timed_target_sequence_events(sequence_id) WHERE event_type = 'STARTED';
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_timed_target_sequence_observation
+          ON timed_target_sequence_events(sequence_id, observation_id) WHERE event_type = 'SHOT_ACCEPTED';
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_timed_target_sequence_terminal
+          ON timed_target_sequence_events(sequence_id) WHERE event_type IN ('COMPLETED', 'CANCELLED');
+        CREATE INDEX IF NOT EXISTS idx_timed_target_sequence_competition
+          ON timed_target_sequence_events(competition_id, recorded_at, sequence_id);
+
+        CREATE TRIGGER IF NOT EXISTS trg_timed_target_sequence_events_no_update
+        BEFORE UPDATE ON timed_target_sequence_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Timed target sequence events are append-only');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_timed_target_sequence_events_no_delete
+        BEFORE DELETE ON timed_target_sequence_events
+        BEGIN
+          SELECT RAISE(ABORT, 'Timed target sequence events are append-only');
+        END;
+      `);
+    })();
+    db.pragma('user_version = 7');
+  }
+
+  if (currentVersion < 8) {
+    db.transaction(() => {
+      db.exec(`
+        ALTER TABLE competition_shoot_off_shot_outbox RENAME TO competition_shoot_off_shot_outbox_v7;
+
+        CREATE TABLE competition_shoot_off_shot_outbox (
+          shot_id TEXT PRIMARY KEY,
+          competition_id TEXT NOT NULL,
+          run_id TEXT NOT NULL,
+          iteration INTEGER NOT NULL CHECK(iteration > 0),
+          lane_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL CHECK(json_valid(payload_json)),
+          created_at TEXT NOT NULL,
+          published_at TEXT
+        );
+
+        INSERT INTO competition_shoot_off_shot_outbox
+        SELECT * FROM competition_shoot_off_shot_outbox_v7;
+
+        DROP TABLE competition_shoot_off_shot_outbox_v7;
+
+        CREATE INDEX idx_competition_shoot_off_shot_pending
+          ON competition_shoot_off_shot_outbox(published_at, created_at, shot_id);
+        CREATE INDEX idx_competition_shoot_off_shot_round
+          ON competition_shoot_off_shot_outbox(run_id, iteration, lane_id, created_at, shot_id);
+      `);
+    })();
+    db.pragma('user_version = 8');
+  }
+
+  if (currentVersion < 9) {
+    db.transaction(() => {
+      const shotColumns = db.prepare('PRAGMA table_info(shots)').all() as { name: string }[];
+      const columnNames = new Set(shotColumns.map((column) => column.name));
+      if (!columnNames.has('targetProfileId')) {
+        db.exec('ALTER TABLE shots ADD COLUMN targetProfileId TEXT');
+      }
+      if (!columnNames.has('scoringGaugeProfileId')) {
+        db.exec('ALTER TABLE shots ADD COLUMN scoringGaugeProfileId TEXT');
+      }
+    })();
+    db.pragma('user_version = 9');
   }
 
   return db;

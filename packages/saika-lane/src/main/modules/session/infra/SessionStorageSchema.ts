@@ -9,6 +9,7 @@
 import { z } from 'zod';
 
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { SCORING_GAUGE_PROFILE_IDS, TARGET_SCORING_PROFILE_IDS } from '@/shared/target';
 
 const ImpactPointSchema = z.object({
   x: z.number(),
@@ -28,6 +29,8 @@ const ShotStorageSchema = z.object({
   calculatedScore: z.number().optional(),
   receivedAt: z.string().optional(),
   sourceObservationId: z.string().optional(),
+  targetProfileId: z.enum(TARGET_SCORING_PROFILE_IDS).optional(),
+  scoringGaugeProfileId: z.enum(SCORING_GAUGE_PROFILE_IDS).optional(),
 });
 
 const SeriesStorageSchema = z.object({

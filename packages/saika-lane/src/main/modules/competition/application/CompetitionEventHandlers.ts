@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
-import type { PhaseChangedEvent, ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
+import type {
+  PhaseChangedEvent,
+  ShotRecordedEvent,
+  TimedTargetSequenceChangedEvent,
+} from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
@@ -68,7 +72,11 @@ export function createPhaseChangedHandler(deps: {
           const state = await competitionRepository.findById(event.aggregateId);
           if (!state || state.phase !== 'ACTIVE') return;
 
-          timerService.start(event.aggregateId, state.timer.remainingSeconds, state.timer.totalSeconds);
+          if (state.timer.totalSeconds > 0) {
+            timerService.start(event.aggregateId, state.timer.remainingSeconds, state.timer.totalSeconds);
+          } else {
+            timerService.stop();
+          }
         } catch (error) {
           getLogger().error(
             'Failed to start timer from PhaseChanged',
@@ -80,5 +88,60 @@ export function createPhaseChangedHandler(deps: {
     } else {
       timerService.stop();
     }
+  };
+}
+
+/** Closes a MATCH series from the independent timed-target event stream. */
+export function createTimedTargetSequenceChangedHandler(deps: {
+  competitionRepository: ICompetitionRepository;
+  eventBus: IEventBus;
+}): (event: TimedTargetSequenceChangedEvent) => void {
+  const { competitionRepository, eventBus } = deps;
+  return (event) => {
+    if (event.state.purpose !== 'MATCH' || event.state.phase !== 'COMPLETE') return;
+    void (async () => {
+      try {
+        const state = await competitionRepository.findById(event.state.competitionId);
+        if (
+          !state ||
+          state.phase !== 'ACTIVE' ||
+          state.currentStageIndex !== event.state.stageIndex ||
+          state.currentSeriesIndex !== event.state.seriesIndex ||
+          state.currentSeriesConfig.timedTargetProgramId !== event.state.programId
+        ) {
+          return;
+        }
+        const completed = state.completeTimedTargetSeries(event.state.programId);
+        await competitionRepository.save(completed);
+        eventBus.emit({
+          type: 'PhaseChanged',
+          timestamp: Date.now(),
+          aggregateId: completed.id,
+          previousPhase: state.phase,
+          newPhase: completed.phase,
+          stageIndex: completed.currentStageIndex,
+          seriesIndex: completed.currentSeriesIndex,
+          stageName: completed.currentStageConfig.name,
+          scored: completed.currentStageConfig.scored,
+          targetProfileId: completed.currentStageConfig.targetProfileId ?? completed.config.targetProfileId,
+          scoringGaugeProfileId:
+            completed.currentStageConfig.scoringGaugeProfileId ?? completed.config.scoringGaugeProfileId,
+        });
+        eventBus.emit({
+          type: 'SeriesCompleted',
+          timestamp: Date.now(),
+          aggregateId: completed.id,
+          stageIndex: completed.currentStageIndex,
+          seriesIndex: completed.currentSeriesIndex,
+          shotCount: completed.seriesShotCount,
+        });
+      } catch (error) {
+        getLogger().error(
+          'Failed to complete timed target series',
+          'domain',
+          error instanceof Error ? { error: error.stack } : { error: String(error) },
+        );
+      }
+    })();
   };
 }

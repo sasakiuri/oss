@@ -7,6 +7,10 @@
 import { StartCompetitionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import {
+  CompetitionDefinitionCompatibilityPolicy,
+  type LocalCompetitionDefinitionIdentity,
+} from '@/main/modules/mqtt/domain/CompetitionDefinitionCompatibilityPolicy';
+import {
   CompetitionStatePayloadSchema,
   type CompetitionStatePayload,
 } from '@/main/modules/mqtt/domain/MqttCompetitionStateSchemas';
@@ -27,6 +31,10 @@ export class CompetitionStateSubscriber {
     private readonly commandBus: CommandBus,
     private readonly competitionRepository: ICompetitionRepository,
     private readonly stateTimeoutMs: number = DEFAULT_STATE_TIMEOUT_MS,
+    private readonly definitionResolver: (
+      competitionTypeId: string,
+    ) => LocalCompetitionDefinitionIdentity | undefined = () => undefined,
+    private readonly compatibilityPolicy = new CompetitionDefinitionCompatibilityPolicy(),
   ) {}
 
   async subscribe(competitionId: string): Promise<CompetitionStatePayload> {
@@ -118,11 +126,26 @@ export class CompetitionStateSubscriber {
   }
 
   private async ensureLocalCompetition(state: CompetitionStatePayload): Promise<void> {
+    const compatibility = this.compatibilityPolicy.assess(state, this.definitionResolver(state.competitionTypeId));
+    if (!compatibility.joinAllowed) {
+      throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
+        detail: compatibility.guidance,
+      });
+    }
+    if (compatibility.status !== 'MATCH' && compatibility.status !== 'DISABLED') {
+      getLogger().warn('[CompetitionStateSubscriber] Rule Pack compatibility is not exact', 'mqtt', {
+        competitionId: state.competitionId,
+        status: compatibility.status,
+        guidance: compatibility.guidance,
+      });
+    }
+
     const existing = await this.competitionRepository.findById(state.competitionId);
     if (existing) {
       const totalSeries = existing.config.stages
         .filter((stage) => stage.scored)
-        .reduce((sum, stage) => sum + stage.series.length, 0);
+        .flatMap((stage) => stage.series)
+        .filter((series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING').length;
       const totalShots = existing.config.stages
         .filter((stage) => stage.scored)
         .flatMap((stage) => stage.series)

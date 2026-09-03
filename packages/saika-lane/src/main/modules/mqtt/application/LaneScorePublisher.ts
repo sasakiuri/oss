@@ -8,6 +8,8 @@
  * Retrieves the latest score via QueryBus and publishes it. Retain=ON, QoS 1.
  */
 
+import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
+
 import { GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
@@ -79,14 +81,22 @@ export class LaneScorePublisher {
       }),
     ]);
 
+    const projection = competition.config.resultProjection;
+    const builtScore = this.buildStages(scoreDto.seriesScores, shotHistory.shots, competition, projection);
     const payload = JSON.stringify({
       competitionId: competition.id,
       laneId,
       sessionId: competition.sessionId,
-      totalScoreX10: scoreDto.totalScore,
+      totalScoreX10: projection ? builtScore.totalScoreX10 : scoreDto.totalScore,
       totalShotCount: scoreDto.shotCount,
       acc: competition.config.acc,
-      stages: this.buildStages(scoreDto.seriesScores, shotHistory.shots, competition),
+      stages: builtScore.stages,
+      ...(projection
+        ? {
+            resultProjection: projection,
+            sourceTotalScoreX10: builtScore.sourceTotalScoreX10,
+          }
+        : {}),
       ...(finalSnapshotCommandId ? { finalSnapshotCommandId } : {}),
       publishedAt: new Date().toISOString(),
     });
@@ -113,11 +123,20 @@ export class LaneScorePublisher {
       isRecorded: boolean;
     }[],
     competition: {
-      config: { stages: readonly { name: string; scored: boolean; series: readonly { maxShots: number }[] }[] };
+      config: {
+        stages: readonly {
+          name: string;
+          scored: boolean;
+          series: readonly { maxShots: number; purpose?: string }[];
+        }[];
+      };
     },
-  ): unknown[] {
+    projection: ShotResultProjectionCapability | undefined,
+  ): { stages: unknown[]; totalScoreX10: number; sourceTotalScoreX10?: number } {
     const stages: unknown[] = [];
     let seriesOffset = 0;
+    let totalScoreX10 = 0;
+    let sourceTotalScoreX10 = 0;
 
     for (let stageIdx = 0; stageIdx < competition.config.stages.length; stageIdx++) {
       const stage = competition.config.stages[stageIdx]!;
@@ -126,22 +145,42 @@ export class LaneScorePublisher {
 
       const seriesData: unknown[] = [];
       let stageTotalX10 = 0;
+      let sourceStageTotalX10 = 0;
 
       for (let serIdx = 0; serIdx < stage.series.length; serIdx++) {
-        const seriesScore = seriesScores[seriesOffset + serIdx] ?? 0;
-        const seriesScoreX10 = seriesScore;
-        const seriesNumber = seriesOffset + serIdx + 1;
+        const seriesConfig = stage.series[serIdx]!;
+        if (seriesConfig.maxShots === 0 || seriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
+        const scoredSeriesBefore = stage.series
+          .slice(0, serIdx)
+          .filter((series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING').length;
+        const sourceSeriesIndex = seriesOffset + scoredSeriesBefore;
+        const sourceSeriesScoreX10 = seriesScores[sourceSeriesIndex] ?? 0;
+        const seriesNumber = sourceSeriesIndex + 1;
         const seriesShots = shots
           .filter((shot) => shot.mode === 'MATCH' && shot.isRecorded && shot.seriesNumber === seriesNumber)
           .sort((a, b) => a.shotNumber - b.shotNumber);
-        const maxShots = stage.series[serIdx]?.maxShots ?? 0;
+        const maxShots = seriesConfig.maxShots;
+        const sourceShotsX10 = seriesShots.map((shot) => shot.score);
+        const resultShotsX10 = projection
+          ? sourceShotsX10.map((score) => projectShotResult(projection, score).resultScoreX10)
+          : sourceShotsX10;
+        const seriesScoreX10 = projection
+          ? resultShotsX10.reduce((sum, score) => sum + score, 0)
+          : sourceSeriesScoreX10;
         stageTotalX10 += seriesScoreX10;
+        sourceStageTotalX10 += sourceShotsX10.reduce((sum, score) => sum + score, 0);
 
         seriesData.push({
           seriesIndex: serIdx,
-          shots: seriesShots.map((shot) => shot.score),
+          shots: resultShotsX10,
           seriesTotalX10: seriesScoreX10,
           isComplete: maxShots > 0 && seriesShots.length >= maxShots,
+          ...(projection
+            ? {
+                sourceShotsX10,
+                sourceSeriesTotalX10: sourceShotsX10.reduce((sum, score) => sum + score, 0),
+              }
+            : {}),
         });
       }
 
@@ -150,11 +189,20 @@ export class LaneScorePublisher {
         stageName: stage.name,
         stageTotalX10,
         series: seriesData,
+        ...(projection ? { sourceStageTotalX10 } : {}),
       });
+      totalScoreX10 += stageTotalX10;
+      sourceTotalScoreX10 += sourceStageTotalX10;
 
-      seriesOffset += stage.series.length;
+      seriesOffset += stage.series.filter(
+        (series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING',
+      ).length;
     }
 
-    return stages;
+    return {
+      stages,
+      totalScoreX10,
+      ...(projection ? { sourceTotalScoreX10 } : {}),
+    };
   }
 }

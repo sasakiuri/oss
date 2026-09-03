@@ -19,7 +19,11 @@ import {
 import { competitionContract } from '@/shared/ipc/contracts';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
 
-import { createPhaseChangedHandler, createShotRecordedHandler } from './application/CompetitionEventHandlers';
+import {
+  createPhaseChangedHandler,
+  createShotRecordedHandler,
+  createTimedTargetSequenceChangedHandler,
+} from './application/CompetitionEventHandlers';
 import { createAdvanceStageHandler } from './application/handlers/AdvanceStageHandler';
 import { createEndStageHandler } from './application/handlers/EndStageHandler';
 import { createFinishCompetitionHandler } from './application/handlers/FinishCompetitionHandler';
@@ -33,13 +37,7 @@ import { CompetitionTypeRegistry } from './domain/CompetitionTypeRegistry';
 import { ALL_COMPETITION_TYPES } from './domain/competitionTypes';
 
 type CompetitionDeps =
-  | 'commandBus'
-  | 'queryBus'
-  | 'eventBus'
-  | 'sessionRepository'
-  | 'competitionRepository'
-  | 'ipcRouter'
-  | 'timerService';
+  'commandBus' | 'queryBus' | 'eventBus' | 'sessionRepository' | 'competitionRepository' | 'ipcRouter' | 'timerService';
 
 export const competitionModule: ModuleDefinition<CompetitionDeps> = {
   name: 'competition',
@@ -84,6 +82,10 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     // 4. Register event listeners
     eventBus.on('ShotRecorded', createShotRecordedHandler({ competitionRepository, eventBus }));
     eventBus.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository, timerService }));
+    eventBus.on(
+      'TimedTargetSequenceChanged',
+      createTimedTargetSequenceChangedHandler({ competitionRepository, eventBus }),
+    );
 
     // 5. Register IPC handlers
     const competitionHandlers: InferHandlers<typeof competitionContract> = {

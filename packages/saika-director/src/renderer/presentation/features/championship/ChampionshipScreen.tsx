@@ -7,6 +7,8 @@ import {
   FileWarning,
   Gavel,
   MapPin,
+  PackageOpen,
+  ListChecks,
   Pencil,
   Scale,
   Target,
@@ -24,6 +26,9 @@ import { ParticipantEditor } from './components/ParticipantEditor';
 import { FiringPointAssignmentEditor } from './components/FiringPointAssignmentEditor';
 import { ResultsView } from './components/ResultsView';
 import { IncidentReportsView } from './components/IncidentReportsView';
+import { EstChampionshipInspectionPanel } from './components/EstChampionshipInspectionPanel';
+import { ResultsBookPanel } from './components/ResultsBookPanel';
+import { OutdoorEliminationPlanningPanel } from './components/OutdoorEliminationPlanningPanel';
 import { TargetExaminationsPanel } from '../target-examinations';
 import { RangeInterruptionsPanel } from '../range-interruptions';
 import { ProtestsPanel } from '../protests';
@@ -34,10 +39,19 @@ import type { ChampionshipDto, EventDto, SaveParticipantsPayload } from '@/share
 import type { EventType } from '@/shared/constants/competition';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { operationalArchivesService } from '@/renderer/services';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
 type EventTab =
-  'participants' | 'assignments' | 'examinations' | 'interruptions' | 'incidents' | 'protests' | 'cases' | 'results';
+  | 'participants'
+  | 'assignments'
+  | 'elimination'
+  | 'examinations'
+  | 'interruptions'
+  | 'incidents'
+  | 'protests'
+  | 'cases'
+  | 'results';
 
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
@@ -53,6 +67,7 @@ export function ChampionshipScreen() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [editEventTarget, setEditEventTarget] = useState<EventDto | null>(null);
   const [eventTab, setEventTab] = useState<EventTab>('participants');
+  const [exportingEvidence, setExportingEvidence] = useState(false);
   const addNotification = useNotificationStore((state) => state.addNotification);
 
   const selectedChampionship = useChampionshipStore((s) => s.selectedChampionship);
@@ -131,6 +146,7 @@ export function ChampionshipScreen() {
   const handleEventSelect = useCallback(
     async (eventId: string) => {
       setSelectedEventId(eventId);
+      setEventTab('participants');
       await Promise.all([loadParticipants(eventId), loadFiringPointAssignments(eventId)]);
     },
     [loadParticipants, loadFiringPointAssignments, setSelectedEventId],
@@ -263,6 +279,24 @@ export function ChampionshipScreen() {
     setEventTab('participants');
   }, [setSelectedEventId]);
 
+  const exportEvidence = useCallback(async () => {
+    if (!selectedChampionship) return;
+    setExportingEvidence(true);
+    try {
+      const response = await operationalArchivesService.exportCompetitionEvidence({
+        championshipId: selectedChampionship.id,
+      });
+      if (!response.success) addNotification('error', response.error.message);
+      else if (response.data.status === 'COMPLETED') {
+        addNotification('success', `Evidence bundle exported: ${response.data.fileName}`);
+      }
+    } catch (error) {
+      addNotification('error', errorMessage(error, 'Failed to export the evidence bundle'));
+    } finally {
+      setExportingEvidence(false);
+    }
+  }, [addNotification, selectedChampionship]);
+
   return (
     <div className="min-h-full">
       {view === 'list' && <ChampionshipList onSelect={handleSelect} onCreate={() => setView('create')} />}
@@ -344,9 +378,36 @@ export function ChampionshipScreen() {
                   <Pencil size={16} aria-hidden="true" />
                   Edit details
                 </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={exportingEvidence}
+                  onClick={() => void exportEvidence()}
+                >
+                  <PackageOpen size={16} aria-hidden="true" />
+                  {exportingEvidence ? 'Exporting…' : 'Export evidence'}
+                </Button>
               </>
             }
           />
+
+          <div className="px-5 pt-5">
+            <Card>
+              <EstChampionshipInspectionPanel
+                key={`est-inspection:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </Card>
+          </div>
+
+          <div className="px-5 pt-4">
+            <Card>
+              <ResultsBookPanel
+                key={`results-book:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </Card>
+          </div>
 
           <div className="grid items-start gap-4 p-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="overflow-hidden rounded-sm border border-vscode-border bg-vscode-bg-light">
@@ -441,6 +502,24 @@ export function ChampionshipScreen() {
                     <Target size={15} aria-hidden="true" />
                     Firing-Point Assignment
                   </button>
+                  {selectedChampionship.events.find((event) => event.id === selectedEventId)?.round ===
+                    'Elimination' && (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={eventTab === 'elimination'}
+                      aria-controls="elimination-panel"
+                      onClick={() => setEventTab('elimination')}
+                      className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                        eventTab === 'elimination'
+                          ? 'border-vscode-primary text-vscode-text'
+                          : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                      }`}
+                    >
+                      <ListChecks size={15} aria-hidden="true" />
+                      Elimination Plan
+                    </button>
+                  )}
                   <button
                     type="button"
                     role="tab"
@@ -537,6 +616,11 @@ export function ChampionshipScreen() {
                       eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
                       round={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.round}
                     />
+                  </div>
+                )}
+                {eventTab === 'elimination' && (
+                  <div id="elimination-panel" role="tabpanel" className="p-4">
+                    <OutdoorEliminationPlanningPanel key={selectedEventId} eventId={selectedEventId} />
                   </div>
                 )}
                 {eventTab === 'incidents' && (

@@ -1,40 +1,34 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultPublicationContract, type ResultPublicationStatusDto } from '@/shared/ipc/contracts';
 import { ResultPublicationService, type ResultPublicationView } from './application/ResultPublicationService';
-import { FinalResultDeclarationService } from './application/FinalResultDeclarationService';
 import type { ResultPublicationEntry } from './domain/ResultPublicationEntry';
-import { SqliteFinalResultDeclarationRepository } from './infra/SqliteFinalResultDeclarationRepository';
 
 export const resultPublicationModule: ModuleDefinition<
-  | 'database'
   | 'ipcRouter'
   | 'resultPublicationRepository'
   | 'resultPublicationReadiness'
   | 'resultPublicationPolicyResolver'
+  | 'finalResultDeclarationService'
 > = {
   name: 'resultPublication',
   deps: [
-    'database',
     'ipcRouter',
     'resultPublicationRepository',
     'resultPublicationReadiness',
     'resultPublicationPolicyResolver',
+    'finalResultDeclarationService',
   ] as const,
   register({
-    database,
     ipcRouter,
     resultPublicationRepository,
     resultPublicationReadiness,
     resultPublicationPolicyResolver,
+    finalResultDeclarationService,
   }) {
     const service = new ResultPublicationService(
       resultPublicationRepository,
       resultPublicationReadiness,
       resultPublicationPolicyResolver,
-    );
-    const finalDeclarations = new FinalResultDeclarationService(
-      new SqliteFinalResultDeclarationRepository(database),
-      resultPublicationReadiness,
     );
     ipcRouter.register(resultPublicationContract, {
       getStatus: async (input) => toDto(await service.getStatus(input.eventId, input.resultScope)),
@@ -42,8 +36,8 @@ export const resultPublicationModule: ModuleDefinition<
       registerProtest: async (input) => toDto(await service.registerProtest(input)),
       resolveProtest: async (input) => toDto(await service.resolveProtest(input)),
       publishOfficial: async (input) => toDto(await service.publishOfficial(input)),
-      getFinalDeclarationStatus: ({ eventId }) => finalDeclarations.getStatus(eventId),
-      declareFinal: (input) => finalDeclarations.declare(input),
+      getFinalDeclarationStatus: ({ eventId }) => finalResultDeclarationService.getStatus(eventId),
+      declareFinal: (input) => finalResultDeclarationService.declare(input),
     });
   },
 };

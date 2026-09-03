@@ -1,0 +1,9 @@
+export { resultsBooksModule } from './resultsBooks.module';
+export { ResultsBookService } from './application/ResultsBookService';
+export * from './domain/IResultsBookRepository';
+export * from './domain/ResultsBookModels';
+export * from './domain/ResultsBookPolicy';
+export { SqliteResultsBookRepository } from './infra/SqliteResultsBookRepository';
+export { SqliteResultsBookSource } from './infra/SqliteResultsBookSource';
+export { VerifiedResultsBookResultSnapshotSource } from './infra/VerifiedResultsBookResultSnapshotSource';
+export { ResultWorkflowOfficialRevisionSource } from './infra/ResultWorkflowOfficialRevisionSource';

@@ -21,8 +21,10 @@ import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
 import type { LaneSafetyStatePublisher } from './LaneSafetyStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
+import type { RangeOfficerRequestPublisher } from './RangeOfficerRequestPublisher';
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
 import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
+import type { TimedTargetStatePublisher } from './TimedTargetStatePublisher';
 
 export class RetainPublisher {
   private readonly mqttClient: IMqttClientService;
@@ -46,6 +48,8 @@ export class RetainPublisher {
     scorePublisher: LaneScorePublisher,
     assignmentPublisher: LaneAssignmentPublisher,
     private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
+    private readonly rangeOfficerRequestPublisher?: RangeOfficerRequestPublisher,
+    private readonly timedTargetStatePublisher?: TimedTargetStatePublisher,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -93,6 +97,7 @@ export class RetainPublisher {
 
     // Safety state is Lane-owned and must survive without competition membership.
     await this.safetyStatePublisher?.publishCurrentState();
+    await this.rangeOfficerRequestPublisher?.publishCurrentState();
 
     // 2. Re-publish competition-related Retain topics
     const competition = await this.competitionRepository.findActive();
@@ -105,6 +110,7 @@ export class RetainPublisher {
     await Promise.all([
       this.competitionStatePublisher.publishCurrentState(),
       this.scorePublisher.publishCurrentScore(),
+      this.timedTargetStatePublisher?.publishCurrentState(competition.id),
     ]);
     await this.assignmentPublisher.publishCurrentAssignment(competition.id);
 
@@ -125,7 +131,7 @@ export class RetainPublisher {
     const baseTopic = `saika/competition/${competitionId}/lane/${laneId}`;
     try {
       await Promise.all(
-        ['state', 'score', 'assignment'].map((suffix) =>
+        ['state', 'score', 'assignment', 'timed-target/state'].map((suffix) =>
           this.mqttClient.publish(`${baseTopic}/${suffix}`, '', { qos: 1, retain: true }),
         ),
       );

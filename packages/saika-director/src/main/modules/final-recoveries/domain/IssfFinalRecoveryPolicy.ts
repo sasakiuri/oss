@@ -43,6 +43,7 @@ function malfunctionGuidance(
   phase: FinalRecoveryPhase,
 ): FinalRecoveryGuidanceDto {
   if (profile === 'PISTOL_25M_RAPID_FIRE') {
+    if (phase === 'SIGHTING') return sightingMalfunctionGuidance('6.17.4(o)');
     return {
       ruleReferences: ['6.17.4(o)', '6.13.2', '6.13.8'],
       checklist: [
@@ -51,12 +52,13 @@ function malfunctionGuidance(
         'For the first ALLOWABLE claim, repeat the series while the other finalists stand by; NON-ALLOWABLE carries the rule penalty.',
         'Document the malfunction in the independent Range Incident Report or malfunction form.',
       ],
-      classifications: ['ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION'],
+      classifications: ['ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION', 'OTHER'],
       remedies: ['REPEAT_SERIES', 'COUNT_DISPLAYED_SHOTS', 'APPLY_RULE_PENALTY', 'CONTINUE', 'OTHER'],
       limits: { ...emptyLimits, malfunctionAllowancePerFinal: 1, readyLimitSeconds: 20 },
     };
   }
   if (profile === 'PISTOL_25M_WOMEN') {
+    if (phase === 'SIGHTING') return sightingMalfunctionGuidance('6.17.5(k)');
     return {
       ruleReferences: ['6.17.5(k)', '6.13.2', '6.13.8'],
       checklist: [
@@ -65,8 +67,8 @@ function malfunctionGuidance(
         'For the first ALLOWABLE claim, complete the series while the other finalists stand by; further claims use displayed hits.',
         'Document the malfunction in the independent Range Incident Report or malfunction form.',
       ],
-      classifications: ['ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION'],
-      remedies: ['COMPLETE_SERIES', 'COUNT_DISPLAYED_SHOTS', 'APPLY_RULE_PENALTY', 'CONTINUE', 'OTHER'],
+      classifications: ['ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION', 'OTHER'],
+      remedies: ['COMPLETE_SERIES', 'COUNT_DISPLAYED_SHOTS', 'CONTINUE', 'OTHER'],
       limits: { ...emptyLimits, malfunctionAllowancePerFinal: 1, readyLimitSeconds: 15 },
     };
   }
@@ -95,6 +97,20 @@ function malfunctionGuidance(
       ? ['COMPLETE_SERIES', 'COUNT_DISPLAYED_SHOTS', 'CONTINUE', 'OTHER']
       : ['REPEAT_SINGLE_SHOT', 'COUNT_DISPLAYED_SHOTS', 'CONTINUE', 'OTHER'],
     limits: { ...emptyLimits, malfunctionAllowancePerFinal: 1, repairLimitSeconds: 60 },
+  };
+}
+
+function sightingMalfunctionGuidance(ruleReference: string): FinalRecoveryGuidanceDto {
+  return {
+    ruleReferences: [ruleReference, '8.9.1'],
+    checklist: [
+      'A malfunction during a sighting series may be recorded, but it may not be claimed or given a repeat/completion series.',
+      'The athlete may clear the malfunction and continue only within the original sighting-series time.',
+      'Keep any firearm examination or Range Incident Report in its independent record.',
+    ],
+    classifications: ['OTHER'],
+    remedies: ['NONE', 'CONTINUE', 'OTHER'],
+    limits: { ...emptyLimits, malfunctionAllowancePerFinal: 1 },
   };
 }
 

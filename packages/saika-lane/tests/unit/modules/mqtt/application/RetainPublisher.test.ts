@@ -325,8 +325,8 @@ describe('RetainPublisher', () => {
   it('clears all lane-owned retained topics when leaving', async () => {
     await retainPublisher.clearCompetitionTopics('competition-id', 'lane-id');
 
-    expect(mqttClient.publish).toHaveBeenCalledTimes(3);
-    for (const suffix of ['state', 'score', 'assignment']) {
+    expect(mqttClient.publish).toHaveBeenCalledTimes(4);
+    for (const suffix of ['state', 'score', 'assignment', 'timed-target/state']) {
       expect(mqttClient.publish).toHaveBeenCalledWith(`saika/competition/competition-id/lane/lane-id/${suffix}`, '', {
         qos: 1,
         retain: true,

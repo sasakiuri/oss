@@ -5,8 +5,13 @@ import { MqttBrokerUrlSchema } from '@/shared/config/AppConfigSchema';
 
 export type MqttMessageHandler = (topic: string, payload: Buffer) => void;
 
+export interface MqttCredentials {
+  readonly username: string;
+  readonly password: string;
+}
+
 export interface IMqttTransport {
-  connect(brokerUrl: string, clientId: string): Promise<void>;
+  connect(brokerUrl: string, clientId: string, credentials?: MqttCredentials): Promise<void>;
   disconnect(): Promise<void>;
   publish(topic: string, payload: string, options: { qos: 0 | 1 | 2; retain: boolean }): Promise<void>;
   subscribe(topic: string, qos: 0 | 1 | 2): Promise<void>;
@@ -22,7 +27,7 @@ export class MqttTransport implements IMqttTransport {
 
   constructor(private readonly operationTimeoutMs = 10_000) {}
 
-  async connect(brokerUrl: string, clientId: string): Promise<void> {
+  async connect(brokerUrl: string, clientId: string, credentials?: MqttCredentials): Promise<void> {
     if (this.client) {
       await this.disconnect();
     }
@@ -39,6 +44,7 @@ export class MqttTransport implements IMqttTransport {
       hostname,
       port: parsedUrl.port ? Number(parsedUrl.port) : protocol === 'mqtts' ? 8883 : 1883,
       clientId,
+      ...(credentials ? { username: credentials.username, password: credentials.password } : {}),
       clean: true,
       keepalive: 60,
       reconnectPeriod: 5_000,

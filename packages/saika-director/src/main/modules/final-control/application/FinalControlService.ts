@@ -55,8 +55,8 @@ export class FinalControlService {
       throw new Error('The selected Lane is not among the lowest-score checkpoint candidates');
     }
     const resolutionStatement = input.resolutionStatement?.trim() || null;
-    if (assessment.status === 'READY' && input.resolution !== 'CLEAR_LOWEST') {
-      throw new Error('A clear lowest score must use CLEAR_LOWEST');
+    if (assessment.status === 'READY' && input.resolution !== assessment.resolutionRequirement) {
+      throw new Error(`This checkpoint requires ${assessment.resolutionRequirement}`);
     }
     if (assessment.status === 'TIE') {
       if (input.resolution === 'CLEAR_LOWEST')
@@ -77,7 +77,7 @@ export class FinalControlService {
       resolution: input.resolution,
       resolutionStatement,
       officialName: input.officialName.trim(),
-      ruleReference: 'ISSF 6.17.2',
+      ruleReference: assessment.ruleReference,
       recordedAt: input.recordedAt ?? new Date().toISOString(),
     } satisfies Omit<FinalControlDecisionDto, 'voided' | 'commandCompleted' | 'commandAttempts'>;
     this.repository.appendDecision(decision);

@@ -3,7 +3,10 @@ import { FinalBoardTable } from './components/FinalBoardTable';
 import { laneControlService } from '@/renderer/services';
 import { mapResponseToFinalBoardLaneData } from '@/renderer/services/mappers/laneControlMapper';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
+import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
+import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 import type { FinalBoardLaneData, ShootoffState } from './types';
+import { RangeClockDisplay } from './components/RangeClockDisplay';
 
 const FINAL_BOARD_PATCH_FIELDS = [
   'unifiedPhase',
@@ -19,8 +22,9 @@ const FINAL_BOARD_PATCH_FIELDS = [
   'eliminationRank',
 ];
 
-export function FinalBoardScreen() {
+export function FinalBoardScreen({ config }: { config?: BoardWindowConfig }) {
   const [shootoff, setShootoff] = useState<ShootoffState | null>(null);
+  const rangeClock = useAuthoritativeRangeClock(config?.competitionId);
 
   const loadFn = useCallback(async (): Promise<FinalBoardLaneData[]> => {
     const response = await laneControlService.getAll();
@@ -76,13 +80,6 @@ export function FinalBoardScreen() {
 
   const remainingPlayersCount = laneControls.filter((lc) => !lc.eliminated).length;
 
-  const activeTimer = useMemo(() => {
-    const activeLane = laneControls.find(
-      (lc) => !lc.eliminated && lc.unifiedPhase === 'ACTIVE' && lc.remainingTime > 0,
-    );
-    return activeLane ? activeLane.remainingTime : null;
-  }, [laneControls]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-zinc-900">
@@ -109,7 +106,7 @@ export function FinalBoardScreen() {
           <StageIndicator stageName={currentStageName} />
         </div>
         <div className="flex items-center gap-6">
-          {activeTimer !== null && <TimerDisplay remainingSeconds={activeTimer} />}
+          <RangeClockDisplay clock={rangeClock} />
           <span className="text-zinc-400 text-lg">{remainingPlayersCount} athletes remaining</span>
         </div>
       </div>
@@ -153,30 +150,4 @@ function StageIndicator({ stageName }: { stageName: string }) {
   const colorClass = stageColorMap[stageName] ?? 'bg-zinc-700 text-zinc-400';
 
   return <span className={`px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>{stageName}</span>;
-}
-
-function TimerDisplay({ remainingSeconds }: { remainingSeconds: number }) {
-  const minutes = Math.floor(remainingSeconds / 60);
-  const seconds = remainingSeconds % 60;
-
-  const isWarning = remainingSeconds <= 30;
-  const isCritical = remainingSeconds <= 10;
-
-  const colorClass = isCritical ? 'text-red-400' : isWarning ? 'text-yellow-400' : 'text-zinc-100';
-
-  const barColorClass = isCritical ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : 'bg-green-500';
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-32 h-2 bg-zinc-700 rounded-full overflow-hidden">
-        <div
-          className={`h-full transition-all duration-1000 ${barColorClass}`}
-          style={{ width: `${Math.min(100, (remainingSeconds / 300) * 100)}%` }}
-        />
-      </div>
-      <span className={`text-2xl font-mono font-bold tabular-nums ${colorClass}`}>
-        {minutes}:{seconds.toString().padStart(2, '0')}
-      </span>
-    </div>
-  );
 }

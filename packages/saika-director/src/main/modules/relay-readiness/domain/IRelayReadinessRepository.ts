@@ -9,4 +9,5 @@ export interface RelayReadinessScope {
 export interface IRelayReadinessRepository {
   append(entry: RelayReadinessEntry): void;
   findByScope(scope: RelayReadinessScope): RelayReadinessEntry[];
+  findByRelay(scope: Omit<RelayReadinessScope, 'phase'>): RelayReadinessEntry[];
 }

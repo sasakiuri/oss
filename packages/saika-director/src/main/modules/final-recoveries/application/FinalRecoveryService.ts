@@ -25,6 +25,7 @@ export class FinalRecoveryService {
   }
 
   create(input: CreateFinalRecoveryCasePayload): FinalRecoveryCaseDto {
+    assert25mMalfunctionCaseShape(input);
     const value = FinalRecoveryCase.create({
       competitionId: input.competitionId,
       ...(input.eventId ? { eventId: input.eventId } : {}),
@@ -49,6 +50,7 @@ export class FinalRecoveryService {
     const entries = this.repository.findEntries([value.id]).get(value.id) ?? [];
     assertTransition(finalRecoveryStatus(entries), input.type);
     assertPolicySelection(value, input);
+    assert25mMalfunctionClaimAvailable(value, input, this.repository);
     this.repository.appendEntry(
       FinalRecoveryEntry.create({
         caseId: value.id,
@@ -106,6 +108,66 @@ export class FinalRecoveryService {
       };
     });
   }
+}
+
+function assert25mMalfunctionCaseShape(input: CreateFinalRecoveryCasePayload): void {
+  if (!is25mMalfunction(input.procedureProfile, input.incidentType)) return;
+  if (input.affectedLaneIds.length !== 1) {
+    throw new Error('A 25m Final malfunction recovery case requires exactly one affected Lane');
+  }
+}
+
+function assert25mMalfunctionClaimAvailable(
+  value: FinalRecoveryCase,
+  input: AppendFinalRecoveryEntryPayload,
+  repository: IFinalRecoveryRepository,
+): void {
+  if (
+    !is25mMalfunction(value.procedureProfile, value.incidentType) ||
+    input.type !== 'JURY_RULING' ||
+    (input.classification !== 'ALLOWABLE_MALFUNCTION' && input.classification !== 'NON_ALLOWABLE_MALFUNCTION')
+  ) {
+    return;
+  }
+  if (value.phase === 'SIGHTING') {
+    throw new Error('A malfunction during a 25m Final sighting series may not be claimed');
+  }
+
+  const cases = repository.findCasesByCompetition(value.competitionId);
+  const entriesByCase = repository.findEntries(cases.map((candidate) => candidate.id));
+  const laneId = value.affectedLaneIds[0]!;
+  const priorClaim = cases.some((candidate) => {
+    if (
+      candidate.id === value.id ||
+      candidate.incidentType !== 'MALFUNCTION' ||
+      !is25mProfile(candidate.procedureProfile) ||
+      !candidate.affectedLaneIds.includes(laneId) ||
+      (value.finalRunId && candidate.finalRunId && candidate.finalRunId !== value.finalRunId)
+    ) {
+      return false;
+    }
+    const entries = entriesByCase.get(candidate.id) ?? [];
+    if (finalRecoveryStatus(entries) === 'VOID') return false;
+    return entries.some(
+      (entry) =>
+        entry.type === 'JURY_RULING' &&
+        (entry.classification === 'ALLOWABLE_MALFUNCTION' || entry.classification === 'NON_ALLOWABLE_MALFUNCTION'),
+    );
+  });
+  if (priorClaim) {
+    throw new Error('Only one ALLOWABLE or NON-ALLOWABLE malfunction may be claimed per Lane in a 25m Final');
+  }
+}
+
+function is25mMalfunction(
+  profile: CreateFinalRecoveryCasePayload['procedureProfile'],
+  incidentType: CreateFinalRecoveryCasePayload['incidentType'],
+): boolean {
+  return incidentType === 'MALFUNCTION' && is25mProfile(profile);
+}
+
+function is25mProfile(profile: FinalRecoveryCase['procedureProfile']): boolean {
+  return profile === 'PISTOL_25M_RAPID_FIRE' || profile === 'PISTOL_25M_WOMEN';
 }
 
 function assertPolicySelection(value: FinalRecoveryCase, input: AppendFinalRecoveryEntryPayload): void {

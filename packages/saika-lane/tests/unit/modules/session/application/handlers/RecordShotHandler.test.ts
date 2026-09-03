@@ -81,7 +81,12 @@ describe('createRecordShotHandler', () => {
       });
 
       expect(mockSessionRepository.findById).toHaveBeenCalledWith(testSession.id);
-      expect(mockScoreService.calculateScore).toHaveBeenCalledWith(impactPoint, testSession.discipline);
+      expect(mockScoreService.calculateScore).toHaveBeenCalledWith(
+        impactPoint,
+        testSession.discipline,
+        'ISSF_AIR_RIFLE_10M_2026',
+        'ISSF_AIR_4_50_2026',
+      );
       expect(mockSessionRepository.saveShot).toHaveBeenCalledTimes(1);
     });
 
@@ -191,7 +196,12 @@ describe('createRecordShotHandler', () => {
         timestamp: new Date(),
       });
 
-      expect(mockScoreService.calculateScore).toHaveBeenCalledWith(impactPoint, beamSession.discipline);
+      expect(mockScoreService.calculateScore).toHaveBeenCalledWith(
+        impactPoint,
+        beamSession.discipline,
+        'JRSF_BEAM_RIFLE_10M',
+        'JRSF_BEAM_RIFLE_VIRTUAL_6_00',
+      );
     });
 
     it('should call discrepancyDetector.detect when device score is provided', async () => {

@@ -25,6 +25,7 @@ describe('LocalCompetitionShootOffControl', () => {
       iteration: 1,
       timerStartAt: '2026-09-02T03:00:00.000Z',
       timerDurationSeconds: 50,
+      shotsPerLane: 1,
     });
 
     const retried = control.open({
@@ -33,6 +34,7 @@ describe('LocalCompetitionShootOffControl', () => {
       iteration: 1,
       timerStartAt: '2026-09-02T03:01:00.000Z',
       timerDurationSeconds: 50,
+      shotsPerLane: 1,
     });
 
     expect(retried).toMatchObject({ status: 'OPEN', timerStartAt: '2026-09-02T03:01:00.000Z' });
@@ -47,6 +49,7 @@ describe('LocalCompetitionShootOffControl', () => {
       iteration: 1,
       timerStartAt: '2026-09-02T03:00:00.000Z',
       timerDurationSeconds: 50,
+      shotsPerLane: 1,
     });
     control.recordShot(competitionId, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', new Date('2026-09-02T03:00:25.000Z'));
 
@@ -56,13 +59,40 @@ describe('LocalCompetitionShootOffControl', () => {
       iteration: 1,
       timerStartAt: '2026-09-02T03:01:00.000Z',
       timerDurationSeconds: 50,
+      shotsPerLane: 1,
     });
 
     expect(retried).toMatchObject({
-      status: 'SHOT_RECORDED',
-      shotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      status: 'COMPLETE',
+      recordedShotIds: ['cccccccc-cccc-4ccc-8ccc-cccccccccccc'],
       timerStartAt: '2026-09-02T03:00:00.000Z',
     });
     expect(control.canAcceptShot(competitionId, new Date('2026-09-02T03:01:25.000Z'))).toBe(false);
+  });
+
+  it('accepts an authorized five-shot series and stops at the exact limit', () => {
+    const control = createControl();
+    control.open({
+      competitionId,
+      runId,
+      iteration: 1,
+      timerStartAt: '2026-09-02T03:00:00.000Z',
+      timerDurationSeconds: 50,
+      shotsPerLane: 5,
+    });
+
+    for (let index = 1; index <= 5; index += 1) {
+      const state = control.recordShot(
+        competitionId,
+        `cccccccc-cccc-4ccc-8ccc-ccccccccccc${index}`,
+        new Date(`2026-09-02T03:00:0${index}.000Z`),
+      );
+      expect(state.recordedShotIds).toHaveLength(index);
+      expect(state.status).toBe(index === 5 ? 'COMPLETE' : 'OPEN');
+    }
+
+    expect(() =>
+      control.recordShot(competitionId, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', new Date('2026-09-02T03:00:06.000Z')),
+    ).toThrow('no open shoot-off window');
   });
 });

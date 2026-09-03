@@ -32,9 +32,9 @@ describe('MigrationRunner', () => {
       }
     });
 
-    it('should have version 39 as the latest', () => {
+    it('should have version 52 as the latest', () => {
       const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(39);
+      expect(maxVersion).toBe(52);
     });
   });
 

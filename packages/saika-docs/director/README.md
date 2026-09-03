@@ -10,7 +10,9 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 
 - 内蔵 MQTT ブローカー（既定: TCP 1883）または外部 `mqtt://` / `mqtts://` ブローカー
 - Lane の自動検出と接続状態表示
-- `AR60` / `AP60` / `ARMIX30` / `APMIX30` 予選と、Individual / Mixed Team 10m Final、`BR60S` / `BP60` の作成
+- Rule Pack 由来の ISSF 2026 10m Individual／Mixed Team、50m Rifle Qualification／Elimination／Final、
+  25m Pistol Qualification と、local `BR60S`／`BP60` の作成
+- Director／Lane の Rule Pack ID・schema version・SHA-256 fingerprint の一致確認
 - Lane の競技参加、離脱、選手割当、セッションリセット
 - 大会管理で作成した射座割の射群単位での一括反映
 - 試射、本射、タイマー、シリーズ進行、競技終了の一括操作
@@ -29,6 +31,8 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 - 3名 Team／Mixed Team予選集計と、Mixed Team Finalのチーム単位成績
 - Individual／Mixed Team Finalのcheckpoint順位台帳とLane別脱落ACK
 - 外部音響向けmusic／Final production台帳と、Mixed Teamの30秒Time out台帳
+- 25m の Lane 主体 absolute schedule、red／green 状態、EST after-time、対象 Lane 共通 LOAD command
+- Lane からの Range Officer request、relay athlete lifecycle、屋外 Elimination plan を独立 module として管理
 
 ## 基本操作
 
@@ -55,8 +59,15 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 ## 運用上の注意
 
 - Director と Lane の時計を同期してください。開始時刻は絶対時刻で配信されます。
-- MQTT のユーザー名・パスワードや TLS クライアント証明書は現時点では未対応です。`mqtts://` ではOSが信頼する
-  サーバー証明書を使用してください。平文 MQTT は信頼できる隔離ネットワークまたはブローカー側 ACL と組み合わせてください。
+- MQTT のユーザー名・パスワードは環境変数で設定できる。内蔵 broker で認証と role/topic ACL を必須にする場合は
+  `SAIKA_MQTT_BROKER_AUTH_MODE=REQUIRED` とし、`SAIKA_MQTT_DIRECTOR_USERNAME/PASSWORD`、
+  `SAIKA_MQTT_LANE_USERNAME/PASSWORD` をすべて設定する。既定は旧運用との互換性のため `DISABLED`。
+- Director ごとに `SAIKA_MQTT_DIRECTOR_ID` を固定し、Lane 側で `SAIKA_COMMAND_AUTHORIZATION_MODE=REQUIRED` と
+  `SAIKA_TRUSTED_DIRECTOR_IDS=<同じID>` を設定すると、未登録 issuer の command を拒否する。issuer ID の検査は
+  broker 認証とは独立しており、電子署名ではない。
+- 内蔵 broker の Lane credential は role 共通で、topic 範囲は client ID から制限する。Lane ごとの認証主体が必要なら、
+  client ごとの account／ACL を設定した外部 broker を使用する。`mqtts://` は OS が信頼する server certificate を使用するが、
+  custom CA と TLS client certificate の選択は未対応。平文 MQTT は信頼できる隔離 network でのみ使用する。
 - Director は進行中タイマーの絶対開始時刻と時間を Retain 状態へ保存します。競技中の再起動や再接続後も
   元の満了時刻を復元し、既に満了していれば接続済み Lane へ直ちに満了を通知します。
 - 大会管理で既存参加者を一覧から外して保存すると、その参加者の射座割と確定成績も削除されます。画面に表示される

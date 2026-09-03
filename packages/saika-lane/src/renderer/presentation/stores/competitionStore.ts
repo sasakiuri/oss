@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 
+import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 import type { Phase } from '@/shared/types/Phase';
 
 export type { Phase } from '@/shared/types/Phase';
@@ -49,6 +50,8 @@ interface CompetitionState {
     remainingSeconds: number;
     unlimitedSightingShots: boolean;
   } | null;
+  targetProfileId?: TargetScoringProfileId;
+  scoringGaugeProfileId?: ScoringGaugeProfileId;
 }
 
 interface CompetitionActions {
@@ -72,9 +75,21 @@ interface CompetitionActions {
   setCompetitionId: (id: string | null) => void;
   /** Set saved competition type ID */
   setSavedCompetitionTypeId: (id: string | null) => void;
+  /** Set the stage-authoritative target scoring profile. */
+  setTargetProfileId: (id?: TargetScoringProfileId) => void;
+  /** Set the event-authoritative scoring gauge independently from the face. */
+  setScoringGaugeProfileId: (id?: ScoringGaugeProfileId) => void;
   setInterruption: (interruption: CompetitionState['interruption']) => void;
   /** Apply phase change all at once */
-  applyPhaseChange: (phase: Phase, stageIndex: number, seriesIndex: number, stageName: string, scored: boolean) => void;
+  applyPhaseChange: (
+    phase: Phase,
+    stageIndex: number,
+    seriesIndex: number,
+    stageName: string,
+    scored: boolean,
+    targetProfileId?: TargetScoringProfileId,
+    scoringGaugeProfileId?: ScoringGaugeProfileId,
+  ) => void;
   /** Reset competition state */
   resetCompetition: () => void;
 }
@@ -94,6 +109,8 @@ const initialState: CompetitionState = {
   competitionId: null,
   savedCompetitionTypeId: null,
   interruption: null,
+  targetProfileId: undefined,
+  scoringGaugeProfileId: undefined,
 };
 
 export const useCompetitionStore = create<CompetitionState & CompetitionActions>((set) => ({
@@ -139,17 +156,27 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
     set({ savedCompetitionTypeId: id });
   },
 
+  setTargetProfileId: (id) => {
+    set({ targetProfileId: id });
+  },
+
+  setScoringGaugeProfileId: (id) => {
+    set({ scoringGaugeProfileId: id });
+  },
+
   setInterruption: (interruption) => {
     set({ interruption });
   },
 
-  applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored) => {
+  applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored, targetProfileId, scoringGaugeProfileId) => {
     set({
       phase,
       stageIndex,
       seriesIndex,
       currentStageName: stageName,
       scored,
+      targetProfileId,
+      scoringGaugeProfileId,
       isTimerRunning: phase === 'ACTIVE',
       ...(phase === 'ACTIVE' ? { isTimerExpired: false } : {}),
     });

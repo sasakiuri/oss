@@ -165,7 +165,7 @@ function resolveClassification(
 function publicationLabel(certification: ResultListCertification): string {
   switch (certification.status) {
     case 'OFFICIAL':
-      return certification.publicationCurrent ? 'OFFICIAL RESULTS' : 'OFFICIAL PUBLICATION — CURRENT DATA DIFFERS';
+      return certification.publicationCurrent ? 'OFFICIAL RESULTS' : 'OFFICIAL PUBLICATION — REVIEW REQUIRED';
     case 'PRELIMINARY':
     case 'PROTEST_PENDING':
     case 'PROTEST_CLOSED':

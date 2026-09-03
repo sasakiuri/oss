@@ -2,6 +2,8 @@
 
 import type { Discipline } from '@/shared/ipc/schemas/common';
 
+import type { ScoringGaugeProfileId } from './ScoringGaugeProfile';
+
 export const TARGET_SCORING_PROFILE_IDS = [
   'JRSF_BEAM_RIFLE_10M',
   'JRSF_BEAM_PISTOL_10M',
@@ -10,9 +12,14 @@ export const TARGET_SCORING_PROFILE_IDS = [
   'ISSF_RIFLE_50M_2026',
   'ISSF_PISTOL_25M_PRECISION_2026',
   'ISSF_PISTOL_25M_RAPID_FIRE_2026',
+  'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
 ] as const;
 
 export type TargetScoringProfileId = (typeof TARGET_SCORING_PROFILE_IDS)[number];
+
+export function isTargetScoringProfileId(value: string): value is TargetScoringProfileId {
+  return (TARGET_SCORING_PROFILE_IDS as readonly string[]).includes(value);
+}
 
 export type TargetScoringGranularity = 'DECIMAL' | 'INTEGER';
 
@@ -29,22 +36,33 @@ export interface TargetScoringAuthority {
   readonly ruleRefs: readonly string[];
 }
 
+export type TargetInnerTenRule =
+  | {
+      readonly type: 'FIXED_CENTER_RADIUS';
+      readonly radiusMm: number;
+    }
+  | {
+      readonly type: 'SCORING_GAUGE_TOUCHES_RING';
+      readonly ringRadiusMm: number;
+    };
+
 /**
  * Data-only scoring profile shared by calculation and rendering.
  *
- * A profile describes a target face and gauge geometry. Competition rules such
- * as time limits and shot counts deliberately live elsewhere, so target faces
- * can be selected per stage without coupling them to a competition aggregate.
+ * A profile describes a target face, not the scoring gauge selected by an
+ * event. Competition rules such as gauge selection, time limits and shot
+ * counts deliberately live elsewhere, so target faces can be reused without
+ * coupling them to a competition aggregate.
  */
 export interface TargetScoringProfile {
   readonly id: TargetScoringProfileId;
   readonly discipline: Discipline;
   readonly displayName: string;
   readonly granularity: TargetScoringGranularity;
-  readonly projectileRadiusMm: number;
+  /** Backward-compatible gauge when no competition Rule Pack selects one. */
+  readonly defaultScoringGaugeProfileId: ScoringGaugeProfileId;
   readonly ringLines: readonly TargetRingLine[];
-  /** Maximum distance between target centre and projectile-hole centre for an inner ten. */
-  readonly innerTenCenterRadiusMm: number;
+  readonly innerTenRule: TargetInnerTenRule;
   readonly authority: TargetScoringAuthority;
 }
 
@@ -57,6 +75,7 @@ function rings(...entries: ReadonlyArray<readonly [score: number, radiusMm: numb
 function freezeProfile(profile: TargetScoringProfile): TargetScoringProfile {
   return Object.freeze({
     ...profile,
+    innerTenRule: Object.freeze({ ...profile.innerTenRule }),
     authority: Object.freeze({ ...profile.authority, ruleRefs: Object.freeze([...profile.authority.ruleRefs]) }),
   });
 }
@@ -67,9 +86,9 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'BEAM_RIFLE_10M',
     displayName: 'JRSF 10m Beam Rifle',
     granularity: 'DECIMAL',
-    projectileRadiusMm: 3,
+    defaultScoringGaugeProfileId: 'JRSF_BEAM_RIFLE_VIRTUAL_6_00',
     ringLines: rings([10, 0.5], [9, 3], [8, 5.5], [7, 8], [6, 10.5], [5, 13], [4, 15.5], [3, 18], [2, 20.5], [1, 23]),
-    innerTenCenterRadiusMm: 2.25,
+    innerTenRule: { type: 'FIXED_CENTER_RADIUS', radiusMm: 2.25 },
     authority: { organization: 'JRSF', edition: 'Saika documented profile', ruleRefs: ['TARGET_SPEC.md'] },
   }),
   JRSF_BEAM_PISTOL_10M: freezeProfile({
@@ -77,7 +96,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'BEAM_PISTOL_10M',
     displayName: 'JRSF 10m Beam Pistol',
     granularity: 'DECIMAL',
-    projectileRadiusMm: 2.25,
+    defaultScoringGaugeProfileId: 'JRSF_BEAM_PISTOL_VIRTUAL_4_50',
     ringLines: rings(
       [10, 5.75],
       [9, 13.75],
@@ -90,7 +109,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
       [2, 69.75],
       [1, 77.75],
     ),
-    innerTenCenterRadiusMm: 5,
+    innerTenRule: { type: 'FIXED_CENTER_RADIUS', radiusMm: 5 },
     authority: { organization: 'JRSF', edition: 'Saika documented profile', ruleRefs: ['TARGET_SPEC.md'] },
   }),
   ISSF_AIR_RIFLE_10M_2026: freezeProfile({
@@ -98,7 +117,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'AIR_RIFLE_10M',
     displayName: 'ISSF 10m Air Rifle (2026)',
     granularity: 'DECIMAL',
-    projectileRadiusMm: 2.25,
+    defaultScoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
     ringLines: rings(
       [10, 0.25],
       [9, 2.75],
@@ -111,7 +130,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
       [2, 20.25],
       [1, 22.75],
     ),
-    innerTenCenterRadiusMm: 2,
+    innerTenRule: { type: 'FIXED_CENTER_RADIUS', radiusMm: 2 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.3'] },
   }),
   ISSF_AIR_PISTOL_10M_2026: freezeProfile({
@@ -119,7 +138,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'AIR_PISTOL_10M',
     displayName: 'ISSF 10m Air Pistol (2026)',
     granularity: 'DECIMAL',
-    projectileRadiusMm: 2.25,
+    defaultScoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
     ringLines: rings(
       [10, 5.75],
       [9, 13.75],
@@ -134,7 +153,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     ),
     // 18.0 mm outward gauge must remain inside the 27.5 mm 9-ring:
     // 27.5 / 2 - 18.0 / 2 = 4.75 mm.
-    innerTenCenterRadiusMm: 4.75,
+    innerTenRule: { type: 'FIXED_CENTER_RADIUS', radiusMm: 4.75 },
     authority: {
       organization: 'ISSF',
       edition: ISSF_2026_EDITION,
@@ -146,7 +165,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'RIFLE_50M',
     displayName: 'ISSF 50m Rifle (2026)',
     granularity: 'DECIMAL',
-    projectileRadiusMm: 2.8,
+    defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
     ringLines: rings(
       [10, 5.2],
       [9, 13.2],
@@ -159,8 +178,7 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
       [2, 69.2],
       [1, 77.2],
     ),
-    // 5.0 mm inner-ten line radius plus the 5.6 mm scoring gauge radius.
-    innerTenCenterRadiusMm: 5.3,
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 2.5 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.2', '7.7.5'] },
   }),
   ISSF_PISTOL_25M_PRECISION_2026: freezeProfile({
@@ -168,9 +186,9 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'PISTOL_25M',
     displayName: 'ISSF 25m Precision / 50m Pistol Target (2026)',
     granularity: 'INTEGER',
-    projectileRadiusMm: 4.5,
+    defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
     ringLines: rings([10, 25], [9, 50], [8, 75], [7, 100], [6, 125], [5, 150], [4, 175], [3, 200], [2, 225], [1, 250]),
-    innerTenCenterRadiusMm: 17,
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 12.5 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.5'] },
   }),
   ISSF_PISTOL_25M_RAPID_FIRE_2026: freezeProfile({
@@ -178,10 +196,24 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     discipline: 'PISTOL_25M',
     displayName: 'ISSF 25m Rapid-Fire Pistol Target (2026)',
     granularity: 'INTEGER',
-    projectileRadiusMm: 4.5,
+    defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
     ringLines: rings([10, 50], [9, 90], [8, 130], [7, 170], [6, 210], [5, 250]),
-    innerTenCenterRadiusMm: 29.5,
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 25 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.4'] },
+  }),
+  ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026: freezeProfile({
+    id: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
+    discipline: 'PISTOL_25M',
+    displayName: 'ISSF 25m Rapid-Fire Pistol Target — Decimal Finals Source (2026)',
+    granularity: 'DECIMAL',
+    defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
+    ringLines: rings([10, 50], [9, 90], [8, 130], [7, 170], [6, 210], [5, 250]),
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 25 },
+    authority: {
+      organization: 'ISSF',
+      edition: ISSF_2026_EDITION,
+      ruleRefs: ['6.3.4.4', '6.17.4(d)', '6.17.5(c)'],
+    },
   }),
 });
 
@@ -192,8 +224,8 @@ export const DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE: Readonly<Record<Disci
     AIR_RIFLE_10M: 'ISSF_AIR_RIFLE_10M_2026',
     AIR_PISTOL_10M: 'ISSF_AIR_PISTOL_10M_2026',
     RIFLE_50M: 'ISSF_RIFLE_50M_2026',
-    // Backward-compatible default. A 25m competition stage should select its
-    // precision or rapid-fire profile explicitly once stage profiles are wired.
+    // Backward-compatible training default. Timed 25m competitions override
+    // this with the precision or rapid-fire profile selected by their stage.
     PISTOL_25M: 'ISSF_PISTOL_25M_PRECISION_2026',
   });
 

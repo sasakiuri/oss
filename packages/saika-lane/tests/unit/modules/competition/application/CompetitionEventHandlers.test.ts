@@ -17,9 +17,10 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 import {
   createPhaseChangedHandler,
   createShotRecordedHandler,
+  createTimedTargetSequenceChangedHandler,
 } from '@/main/modules/competition/application/CompetitionEventHandlers';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { BR60S, P25 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -314,5 +315,98 @@ describe('createPhaseChangedHandler', () => {
 
     expect(mockTimerService.stop).toHaveBeenCalledTimes(1);
     expect(mockTimerService.start).not.toHaveBeenCalled();
+  });
+});
+
+describe('createTimedTargetSequenceChangedHandler', () => {
+  it('completes only the matching MATCH series after the final EST recording edge', async () => {
+    const active = CompetitionState.create('comp-1', 'session-1', P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries()
+      .recordShotInSeries();
+    const mockRepo = {
+      save: vi.fn(),
+      findById: vi.fn().mockResolvedValue(active),
+      findBySessionId: vi.fn(),
+      findActive: vi.fn(),
+      delete: vi.fn(),
+    } satisfies ICompetitionRepository;
+    const mockEventBus = {
+      emit: vi.fn(),
+      on: vi.fn(() => vi.fn()),
+    } satisfies IEventBus;
+    const handler = createTimedTargetSequenceChangedHandler({
+      competitionRepository: mockRepo,
+      eventBus: mockEventBus,
+    });
+
+    handler({
+      type: 'TimedTargetSequenceChanged',
+      timestamp: Date.now(),
+      aggregateId: active.id,
+      state: {
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        competitionId: active.id,
+        programId: 'P25_MATCH_PRECISION_240',
+        programLabel: 'Precision competition series',
+        purpose: 'MATCH',
+        stageIndex: 1,
+        seriesIndex: 0,
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        ruleReference: '6.4.13, 8.7.6.4(g)',
+        phase: 'COMPLETE',
+        signal: 'RED',
+        shotWindowOpen: false,
+        exposureIndex: null,
+        exposureCount: 1,
+        acceptedShotsInExposure: 0,
+        loadAt: new Date('2026-09-03T00:00:00.000Z'),
+        attentionAt: new Date('2026-09-03T00:01:00.000Z'),
+        completesAt: new Date('2026-09-03T00:05:07.300Z'),
+        nextLoadAllowedAt: new Date('2026-09-03T00:06:07.300Z'),
+        nextTransitionAt: null,
+        terminalReason: 'All valid EST recording windows elapsed',
+      },
+    });
+
+    await vi.waitFor(() => expect(mockRepo.save).toHaveBeenCalledOnce());
+    expect(vi.mocked(mockRepo.save).mock.calls[0]?.[0]).toMatchObject({
+      phase: 'SERIES_COMPLETE',
+      seriesShotCount: 1,
+    });
+    expect(mockEventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'PhaseChanged' }));
+    expect(mockEventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'SeriesCompleted', shotCount: 1 }));
+  });
+
+  it('ignores sighting completion without mutating competition progress', async () => {
+    const active = CompetitionState.create('comp-1', 'session-1', P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    const mockRepo = {
+      save: vi.fn(),
+      findById: vi.fn().mockResolvedValue(active),
+      findBySessionId: vi.fn(),
+      findActive: vi.fn(),
+      delete: vi.fn(),
+    } satisfies ICompetitionRepository;
+    const mockEventBus = {
+      emit: vi.fn(),
+      on: vi.fn(() => vi.fn()),
+    } satisfies IEventBus;
+
+    createTimedTargetSequenceChangedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })({
+      type: 'TimedTargetSequenceChanged',
+      timestamp: Date.now(),
+      aggregateId: active.id,
+      state: { purpose: 'SIGHTING', phase: 'COMPLETE' } as never,
+    });
+
+    await Promise.resolve();
+    expect(mockRepo.findById).not.toHaveBeenCalled();
+    expect(mockRepo.save).not.toHaveBeenCalled();
   });
 });

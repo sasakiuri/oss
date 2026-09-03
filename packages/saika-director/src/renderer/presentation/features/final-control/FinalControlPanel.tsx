@@ -29,7 +29,9 @@ export function FinalControlPanel({
   const [decisions, setDecisions] = useState<FinalControlDecisionDto[]>([]);
   const [officialName, setOfficialName] = useState('');
   const [selectedLaneId, setSelectedLaneId] = useState('');
-  const [resolution, setResolution] = useState<'CLEAR_LOWEST' | 'SHOOT_OFF' | 'JURY_DECISION'>('CLEAR_LOWEST');
+  const [resolution, setResolution] = useState<
+    'CLEAR_LOWEST' | 'COUNTBACK' | 'FINAL_START_NUMBER' | 'SHOOT_OFF' | 'JURY_DECISION'
+  >('CLEAR_LOWEST');
   const [statement, setStatement] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,9 +42,24 @@ export function FinalControlPanel({
       lanes.map((lane) => ({
         laneId: lane.laneId,
         athleteName: lane.assignment?.athlete?.name || lane.laneAlias || lane.laneId.slice(0, 8),
+        ...(lane.assignment?.athlete?.startNumber
+          ? { finalStartNumber: lane.assignment.athlete.startNumber }
+          : {}),
         totalShotCount: lane.score?.competitionId === competitionId ? lane.score.totalShotCount : 0,
         totalScoreX10: lane.score?.competitionId === competitionId ? lane.score.totalScoreX10 : 0,
         finished: lane.competitionState?.competitionId === competitionId && lane.competitionState.phase === 'FINISHED',
+        ...(lane.score?.competitionId === competitionId
+          ? {
+              scoreBreakdown: lane.score.stages.map((stage) => ({
+                stageIndex: stage.stageIndex,
+                series: stage.series.map((series) => ({
+                  seriesIndex: series.seriesIndex,
+                  shotsX10: [...series.shots],
+                  seriesTotalX10: series.seriesTotalX10,
+                })),
+              })),
+            }
+          : {}),
       })),
     [competitionId, lanes],
   );
@@ -68,7 +85,14 @@ export function FinalControlPanel({
       setSelectedLaneId((current) =>
         assessmentResponse.data.candidateLaneIds.includes(current) ? current : candidate,
       );
-      setResolution(assessmentResponse.data.status === 'TIE' ? 'SHOOT_OFF' : 'CLEAR_LOWEST');
+      setResolution(
+        assessmentResponse.data.resolutionRequirement === 'COUNTBACK' ||
+          assessmentResponse.data.resolutionRequirement === 'FINAL_START_NUMBER'
+          ? assessmentResponse.data.resolutionRequirement
+          : assessmentResponse.data.status === 'TIE'
+            ? 'SHOOT_OFF'
+            : 'CLEAR_LOWEST',
+      );
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
@@ -161,10 +185,11 @@ export function FinalControlPanel({
         <div>
           <div className="flex items-center gap-2">
             <Medal size={17} aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-vscode-text">10m Final checkpoints</h2>
+            <h2 className="text-sm font-semibold text-vscode-text">Final placement checkpoints</h2>
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            ISSF 6.17.2. Director records the placing decision; Lane only stops the selected finalist.
+            {assessment?.ruleReference ?? 'Competition definition'}. Director records the placing decision; Lane only
+            stops the selected finalist.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={loading || saving} onClick={() => void load()}>
@@ -190,6 +215,7 @@ export function FinalControlPanel({
             <tr>
               <th className="py-1 pr-3">Lane</th>
               <th className="py-1 pr-3">Athlete</th>
+              <th className="py-1 pr-3">Start</th>
               <th className="py-1 pr-3">Shots</th>
               <th className="py-1">Total</th>
             </tr>
@@ -205,6 +231,7 @@ export function FinalControlPanel({
                   {lane.athleteName}
                   {lane.finished ? ' · retired' : ''}
                 </td>
+                <td className="py-1 pr-3 tabular-nums">{lane.finalStartNumber ?? '—'}</td>
                 <td className="py-1 pr-3 tabular-nums">{lane.totalShotCount}</td>
                 <td className="py-1 tabular-nums">{(lane.totalScoreX10 / 10).toFixed(1)}</td>
               </tr>
@@ -254,6 +281,18 @@ export function FinalControlPanel({
                 <option value="JURY_DECISION">Jury decision</option>
               </select>
             </label>
+          )}
+          {!pendingDecision && assessment?.resolutionRequirement === 'COUNTBACK' && (
+            <div className="text-xs text-vscode-text-muted">
+              Resolution
+              <div className={`${inputClass} flex items-center`}>ISSF countback</div>
+            </div>
+          )}
+          {!pendingDecision && assessment?.resolutionRequirement === 'FINAL_START_NUMBER' && (
+            <div className="text-xs text-vscode-text-muted">
+              Resolution
+              <div className={`${inputClass} flex items-center`}>ISSF Finals Start Number</div>
+            </div>
           )}
           <label className="text-xs text-vscode-text-muted md:col-span-2">
             {pendingDecision

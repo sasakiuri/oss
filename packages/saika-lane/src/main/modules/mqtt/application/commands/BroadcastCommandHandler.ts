@@ -25,14 +25,20 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import {
+  CommandAuthorizationPolicy,
+  type ICommandAuthorizationPolicy,
+} from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
   AdvanceSeriesCmdSchema,
+  CancelTimedTargetCmdSchema,
   EndSightingCmdSchema,
   FinishCompetitionCmdSchema,
   StartMatchCmdSchema,
   StartSightingCmdSchema,
   StartShootOffCmdSchema,
+  StartTimedTargetCmdSchema,
   StopShootOffCmdSchema,
   TimerExpiredCmdSchema,
   TimerStartedCmdSchema,
@@ -40,6 +46,8 @@ import {
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import { timedTargetProgramDurationMilliseconds } from '@/main/modules/timed-target/domain/TimedTargetSchedule';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
@@ -53,7 +61,9 @@ type BroadcastAction =
   | 'timer-started'
   | 'timer-expired'
   | 'start-shoot-off'
-  | 'stop-shoot-off';
+  | 'stop-shoot-off'
+  | 'start-timed-target'
+  | 'cancel-timed-target';
 
 const CLOCK_DRIFT_WARNING_THRESHOLD_MS = 5_000;
 const CLOCK_DRIFT_REJECT_THRESHOLD_MS = 30_000;
@@ -63,6 +73,7 @@ const TIMER_ACTIONS: ReadonlySet<BroadcastAction> = new Set([
   'start-match',
   'timer-started',
   'start-shoot-off',
+  'start-timed-target',
 ]);
 
 const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
@@ -75,6 +86,8 @@ const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
   'timer-expired': TimerExpiredCmdSchema,
   'start-shoot-off': StartShootOffCmdSchema,
   'stop-shoot-off': StopShootOffCmdSchema,
+  'start-timed-target': StartTimedTargetCmdSchema,
+  'cancel-timed-target': CancelTimedTargetCmdSchema,
 };
 
 /** Parsed parts of the topic */
@@ -100,6 +113,8 @@ export class BroadcastCommandHandler {
     private readonly interruptionControl?: ICompetitionInterruptionControl,
     private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
     private readonly shootOffControl?: ICompetitionShootOffControl,
+    private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
+    private readonly timedTargetControl?: ITimedTargetControl,
   ) {}
 
   /**
@@ -192,6 +207,15 @@ export class BroadcastCommandHandler {
 
     const command = parseResult.data as Record<string, unknown>;
     const commandId = command.commandId as string;
+    const authorization = this.commandAuthorization.assess({
+      issuedBy: command.issuedBy as string,
+      ...(typeof command.issuerId === 'string' ? { issuerId: command.issuerId } : {}),
+    });
+    if (!authorization.allowed) {
+      const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
+      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
+      return;
+    }
 
     // Idempotency check
     if (this.idempotencyGuard.check(commandId)) {
@@ -200,7 +224,13 @@ export class BroadcastCommandHandler {
     }
 
     // Targeted broadcast commands are ACKed only by their intended Lanes.
-    if (action === 'start-sighting' || action === 'start-shoot-off' || action === 'stop-shoot-off') {
+    if (
+      action === 'start-sighting' ||
+      action === 'start-shoot-off' ||
+      action === 'stop-shoot-off' ||
+      action === 'start-timed-target' ||
+      action === 'cancel-timed-target'
+    ) {
       const targetLaneIds = command.targetLaneIds as string[] | undefined;
       if (targetLaneIds && !targetLaneIds.includes(this.getLaneId())) {
         logger.info(`[BroadcastCommandHandler] Lane ${this.getLaneId()} not in targetLaneIds, skipping`, 'mqtt');
@@ -209,7 +239,7 @@ export class BroadcastCommandHandler {
     }
 
     // Clock drift check (timer-related actions only)
-    let doneWarning: string | undefined;
+    let doneWarning = authorization.warning;
     if (TIMER_ACTIONS.has(action as BroadcastAction)) {
       const issuedAt = command.issuedAt as string | undefined;
       if (issuedAt) {
@@ -220,7 +250,7 @@ export class BroadcastCommandHandler {
           await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
           return;
         } else if (drift > CLOCK_DRIFT_WARNING_THRESHOLD_MS) {
-          doneWarning = 'clock_drift_detected';
+          doneWarning = [doneWarning, 'clock_drift_detected'].filter(Boolean).join('; ') || undefined;
           logger.warn(`[BroadcastCommandHandler] Clock drift detected: driftMs=${drift}`, 'mqtt', {
             commandId,
             action,
@@ -255,13 +285,20 @@ export class BroadcastCommandHandler {
     competitionId: string,
   ): Promise<void> {
     if (this.safetyStopControl?.isStopped() && action === 'timer-expired') return;
-    if (action !== 'end-sighting' && action !== 'finish-competition' && action !== 'stop-shoot-off') {
+    if (
+      action !== 'end-sighting' &&
+      action !== 'finish-competition' &&
+      action !== 'stop-shoot-off' &&
+      action !== 'cancel-timed-target'
+    ) {
       this.assertSafetyAllows(action);
     }
     const interruption = this.interruptionControl?.get(competitionId);
     if (interruption) {
       if (action === 'timer-expired') return;
-      if (action !== 'stop-shoot-off') throw laneInterruptedError(interruption.interruptionId, action);
+      if (action !== 'stop-shoot-off' && action !== 'cancel-timed-target') {
+        throw laneInterruptedError(interruption.interruptionId, action);
+      }
     }
 
     switch (action) {
@@ -306,6 +343,15 @@ export class BroadcastCommandHandler {
         const matchStageIndex = this.firstScoredStageIndex(state);
         if (matchStageIndex < 0) {
           throw this.invalidState(action, state, 'a configured scored stage');
+        }
+        const matchStage = state.config.stages[matchStageIndex]!;
+        const independentlyTimed = matchStage.series.some((series) => series.timedTargetProgramId !== undefined);
+        const genericDuration = command.timerDurationSeconds as number | undefined;
+        if (independentlyTimed && genericDuration !== undefined) {
+          throw new Error('A timed-target match must not use a generic MATCH timer');
+        }
+        if (!independentlyTimed && genericDuration === undefined) {
+          throw new Error('A conventional match requires timerDurationSeconds');
         }
 
         if (state.currentStageIndex < matchStageIndex) {
@@ -423,33 +469,157 @@ export class BroadcastCommandHandler {
         break;
 
       case 'start-shoot-off': {
-        await this.waitUntil(command.timerStartAt as string);
-        this.assertSafetyAllows(action);
         const competition = await this.requireCompetition(competitionId);
         if (competition.config.name !== 'Final' || competition.phase !== 'SERIES_COMPLETE') {
           throw this.invalidState(action, competition, 'a completed Final series');
         }
+        const timedTarget = command.timedTarget as
+          { programId: string; participantExecution: 'SIMULTANEOUS' | 'SEQUENTIAL' } | undefined;
+        let timerStartAt = command.timerStartAt as string;
+        let timerDurationSeconds = command.timerDurationSeconds as number | undefined;
+        let timedSequenceId: string | null = null;
+
+        if (timedTarget) {
+          const program = competition.config.timedTarget?.programs.find(
+            (candidate) => candidate.id === timedTarget.programId && candidate.purpose === 'SHOOT_OFF',
+          );
+          if (!program) throw new Error(`Shoot-off timed target program ${timedTarget.programId} is unavailable`);
+          const programShots = program.exposures.reduce((sum, exposure) => sum + exposure.maximumShots, 0);
+          if (programShots !== command.shotsPerLane) {
+            throw new Error(`Shoot-off timed target program ${program.id} requires ${programShots} shots`);
+          }
+          const targetLaneIds = command.targetLaneIds as string[];
+          const laneIndex = targetLaneIds.indexOf(this.getLaneId());
+          if (laneIndex < 0) throw new Error(`Lane ${this.getLaneId()} has no shoot-off schedule`);
+          const programDurationMilliseconds = timedTargetProgramDurationMilliseconds(program);
+          const sequentialOffsetMilliseconds =
+            timedTarget.participantExecution === 'SEQUENTIAL'
+              ? laneIndex * (programDurationMilliseconds + program.minimumPauseAfterSeconds * 1_000)
+              : 0;
+          const loadAt = new Date(Date.parse(timerStartAt) + sequentialOffsetMilliseconds);
+          timerStartAt = loadAt.toISOString();
+          timerDurationSeconds = Math.ceil(programDurationMilliseconds / 1_000);
+          const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+          if (!targetProfileId) throw new Error('Timed target Final stage has no target scoring profile');
+          this.assertSafetyAllows(action);
+          const timedState = this.requireTimedTargetControl().start({
+            sequenceId: command.commandId as string,
+            competitionId,
+            program,
+            stageIndex: competition.currentStageIndex,
+            seriesIndex: competition.currentSeriesIndex,
+            targetProfileId,
+            loadAt,
+          });
+          timedSequenceId = timedState.sequenceId;
+        } else {
+          await this.waitUntil(timerStartAt);
+        }
+        if (timerDurationSeconds === undefined) throw new Error('Shoot-off duration is unavailable');
         // The competition lookup yields. Recheck the independent safety latch
         // immediately before the synchronous window write so a concurrent STOP
         // can never be followed by a newly opened shoot-off window.
-        this.assertSafetyAllows(action);
-        const state = this.requireShootOffControl().open({
-          competitionId,
-          runId: command.runId as string,
-          iteration: command.iteration as number,
-          timerStartAt: command.timerStartAt as string,
-          timerDurationSeconds: command.timerDurationSeconds as number,
-        });
-        if (state.status !== 'OPEN' && state.status !== 'SHOT_RECORDED') {
-          throw new Error(`Unexpected shoot-off window state: ${String(state.status)}`);
+        try {
+          this.assertSafetyAllows(action);
+          const state = this.requireShootOffControl().open({
+            competitionId,
+            runId: command.runId as string,
+            iteration: command.iteration as number,
+            timerStartAt,
+            timerDurationSeconds,
+            shotsPerLane: command.shotsPerLane as number,
+            ...(timedTarget ? { timedTargetProgramId: timedTarget.programId } : {}),
+          });
+          if (state.status !== 'OPEN' && state.status !== 'COMPLETE') {
+            throw new Error(`Unexpected shoot-off window state: ${String(state.status)}`);
+          }
+        } catch (error) {
+          if (timedSequenceId) {
+            this.requireTimedTargetControl().cancel({
+              sequenceId: timedSequenceId,
+              reason: 'Shoot-off acquisition window could not be opened',
+            });
+          }
+          throw error;
         }
         break;
       }
 
-      case 'stop-shoot-off':
+      case 'stop-shoot-off': {
         this.requireShootOffControl().close(competitionId, command.runId as string, command.iteration as number);
+        const timedState = this.timedTargetControl?.getState(competitionId);
+        if (
+          timedState?.purpose === 'SHOOT_OFF' &&
+          timedState.phase !== 'COMPLETE' &&
+          timedState.phase !== 'CANCELLED'
+        ) {
+          this.timedTargetControl?.cancel({
+            sequenceId: timedState.sequenceId,
+            reason: 'Shoot-off firing was closed by the Director',
+          });
+        }
         break;
+      }
+
+      case 'start-timed-target': {
+        const competition = await this.requireCompetition(competitionId);
+        if (
+          competition.phase !== 'ACTIVE' ||
+          competition.currentStageIndex !== command.stageIndex ||
+          competition.currentSeriesIndex !== command.seriesIndex
+        ) {
+          throw this.invalidState(action, competition, `active series ${command.stageIndex}:${command.seriesIndex}`);
+        }
+        const purpose = command.purpose as 'SIGHTING' | 'MATCH';
+        const expectedProgramId =
+          purpose === 'SIGHTING'
+            ? competition.currentStageConfig.sightingTimedTargetProgramId
+            : competition.currentSeriesConfig.timedTargetProgramId;
+        if (!expectedProgramId || expectedProgramId !== command.programId) {
+          throw new Error(
+            `Timed target program ${String(command.programId)} is not configured for ${purpose} at ${competition.currentStageIndex}:${competition.currentSeriesIndex}`,
+          );
+        }
+        const program = competition.config.timedTarget?.programs.find(
+          (candidate) => candidate.id === expectedProgramId,
+        );
+        if (!program || program.purpose !== purpose) {
+          throw new Error(`Timed target program ${expectedProgramId} is unavailable`);
+        }
+        const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+        if (!targetProfileId) throw new Error('Timed target stage has no target scoring profile');
+        // The repository lookup above yields. Recheck the independent safety
+        // latch immediately before arming the authoritative schedule.
+        this.assertSafetyAllows(action);
+        this.requireTimedTargetControl().start({
+          sequenceId: command.commandId as string,
+          competitionId,
+          program,
+          stageIndex: competition.currentStageIndex,
+          seriesIndex: competition.currentSeriesIndex,
+          targetProfileId,
+          loadAt: new Date(command.loadAt as string),
+        });
+        break;
+      }
+
+      case 'cancel-timed-target': {
+        const control = this.requireTimedTargetControl();
+        const current = control.getState(competitionId);
+        if (!current || current.sequenceId !== command.sequenceId) {
+          throw new Error(`Timed target sequence ${String(command.sequenceId)} is not current`);
+        }
+        if (current.phase !== 'COMPLETE' && current.phase !== 'CANCELLED') {
+          control.cancel({ sequenceId: current.sequenceId, reason: command.reason as string });
+        }
+        break;
+      }
     }
+  }
+
+  private requireTimedTargetControl(): ITimedTargetControl {
+    if (!this.timedTargetControl) throw new Error('Lane timed target control is unavailable');
+    return this.timedTargetControl;
   }
 
   private requireShootOffControl(): ICompetitionShootOffControl {
@@ -491,12 +661,10 @@ export class BroadcastCommandHandler {
   }
 
   private startTimer(command: Record<string, unknown>, competitionId: string): Promise<void> {
+    const durationSeconds = command.timerDurationSeconds as number | undefined;
+    if (durationSeconds === undefined) return Promise.resolve();
     this.assertSafetyAllows('timer-started');
-    return this.timerService.startAt(
-      competitionId,
-      command.timerStartAt as string,
-      command.timerDurationSeconds as number,
-    );
+    return this.timerService.startAt(competitionId, command.timerStartAt as string, durationSeconds);
   }
 
   private async startNextSeries(command: Record<string, unknown>, competitionId: string): Promise<void> {
