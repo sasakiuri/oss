@@ -16,6 +16,10 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import {
+  CommandAuthorizationPolicy,
+  type ICommandAuthorizationPolicy,
+} from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
@@ -68,6 +72,7 @@ export class PerLaneCommandHandler {
     private readonly getLaneId: () => string,
     _competitionId: string,
     private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
+    private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
   ) {}
 
   /**
@@ -163,6 +168,15 @@ export class PerLaneCommandHandler {
 
     const command = parseResult.data as Record<string, unknown>;
     const commandId = command.commandId as string;
+    const authorization = this.commandAuthorization.assess({
+      issuedBy: command.issuedBy as string,
+      ...(typeof command.issuerId === 'string' ? { issuerId: command.issuerId } : {}),
+    });
+    if (!authorization.allowed) {
+      const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
+      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
+      return;
+    }
 
     // Idempotency check
     if (this.idempotencyGuard.check(commandId)) {
@@ -175,7 +189,7 @@ export class PerLaneCommandHandler {
 
     try {
       const data = await this.executeAction(action as PerLaneAction, command, competitionId);
-      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, data);
+      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, data, authorization.warning);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorCode = (err as { code?: string }).code ?? 'MQTT_COMMAND_EXECUTION_FAILED';
@@ -302,6 +316,7 @@ export class PerLaneCommandHandler {
     errorCode?: string,
     errorMessage?: string,
     data?: Record<string, unknown>,
+    warning?: string,
   ): Promise<void> {
     const ack: CommandAckPayload = {
       commandId,
@@ -310,6 +325,7 @@ export class PerLaneCommandHandler {
       acknowledgedAt: new Date().toISOString(),
       ...(errorCode && errorMessage ? { error: { code: errorCode, message: errorMessage } } : {}),
       ...(data ? { data } : {}),
+      ...(warning ? { warning } : {}),
     };
 
     try {

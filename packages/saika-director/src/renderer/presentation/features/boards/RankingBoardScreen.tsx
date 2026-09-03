@@ -3,8 +3,12 @@ import type { LiveRankingDto } from '@/shared/types/LiveRankingDto';
 import { RankingTable } from './components/RankingTable';
 import { boardService } from '@/renderer/services';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
+import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
+import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
+import { RangeClockDisplay } from './components/RangeClockDisplay';
 
-export function RankingBoardScreen() {
+export function RankingBoardScreen({ config }: { config?: BoardWindowConfig }) {
+  const rangeClock = useAuthoritativeRangeClock(config?.competitionId);
   const loadFn = useCallback(async (): Promise<LiveRankingDto[]> => {
     const response = await boardService.getLiveRanking();
     if (response.success && Array.isArray(response.data)) {
@@ -32,6 +36,7 @@ export function RankingBoardScreen() {
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-vscode-text">Ranking Board</h1>
+        <RangeClockDisplay clock={rangeClock} compact />
         <span className="text-vscode-dimmed text-base">{rankings.length} athletes</span>
       </div>
 

@@ -3,7 +3,7 @@ import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionSh
 
 export interface ICompetitionShootOffShotOutbox {
   enqueue(payload: CompetitionShootOffShotPayload): void;
-  findByRound(runId: string, iteration: number, laneId: string): CompetitionShootOffShotPayload | null;
+  findByRound(runId: string, iteration: number, laneId: string): CompetitionShootOffShotPayload[];
   findPending(limit?: number): CompetitionShootOffShotPayload[];
   markPublished(shotId: string, publishedAt: Date): void;
 }

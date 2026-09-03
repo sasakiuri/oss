@@ -248,6 +248,38 @@ describe('ScoreCalculationServiceImpl', () => {
       expect(score.value).toBe(100);
     });
 
+    it('retains decimal source precision at the 25m Pistol Women Final hit boundary', () => {
+      const service = new ScoreCalculationServiceImpl();
+      const discipline = Discipline.pistol25m();
+
+      expect(
+        service.calculateScore(new ImpactPoint(42.24, 0), discipline, 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026').value,
+      ).toBe(102);
+      expect(
+        service.calculateScore(new ImpactPoint(42.25, 0), discipline, 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026').value,
+      ).toBe(101);
+    });
+
+    it('keeps separate cache entries for smallbore and Centre Fire gauges on the same face', () => {
+      const service = new ScoreCalculationServiceImpl();
+      const discipline = Discipline.pistol25m();
+      const smallbore = service.getTargetDesign(
+        discipline,
+        'ISSF_PISTOL_25M_PRECISION_2026',
+        'ISSF_SMALLBORE_5_60_2026',
+      );
+      const centreFire = service.getTargetDesign(
+        discipline,
+        'ISSF_PISTOL_25M_PRECISION_2026',
+        'ISSF_CENTER_FIRE_9_65_2026',
+      );
+
+      expect(smallbore).not.toBe(centreFire);
+      expect(smallbore.rings[0]?.radius).toBe(27.8);
+      expect(centreFire.rings[0]?.radius).toBe(29.825);
+      expect(service.getTargetDesign(discipline, smallbore.profileId, smallbore.scoringGaugeProfileId)).toBe(smallbore);
+    });
+
     it('should calculate 0.0 points from an impact outside the target', () => {
       const service = new ScoreCalculationServiceImpl();
       const impactPoint = new ImpactPoint(500, 0);

@@ -120,6 +120,26 @@ describe('SessionStorageSchema', () => {
     const result = SessionStorageSchema.safeParse(withDeviceScore);
     expect(result.success).toBe(true);
   });
+
+  it('validates optional scoring-geometry evidence identifiers', () => {
+    const valid = {
+      ...validSessionData,
+      allShots: [
+        {
+          ...validSessionData.allShots[0],
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
+        },
+      ],
+    };
+    expect(SessionStorageSchema.safeParse(valid).success).toBe(true);
+    expect(
+      SessionStorageSchema.safeParse({
+        ...valid,
+        allShots: [{ ...valid.allShots[0], scoringGaugeProfileId: 'unknown-gauge' }],
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('parseSessionStorageData', () => {

@@ -50,20 +50,34 @@ export class SqliteRelayReadinessRepository implements IRelayReadinessRepository
        ORDER BY recorded_at, rowid`,
       )
       .all(scope) as Row[];
-    return rows.map((row) =>
-      RelayReadinessEntry.reconstruct({
-        id: row.id,
-        competitionId: row.competition_id,
-        relayNumber: row.relay_number,
-        laneId: row.lane_id,
-        phase: row.phase,
-        requirement: row.requirement,
-        state: row.state,
-        source: row.source,
-        statement: row.statement,
-        officialName: row.official_name,
-        recordedAt: new Date(row.recorded_at),
-      }),
-    );
+    return rows.map(toEntry);
   }
+
+  findByRelay(scope: Omit<RelayReadinessScope, 'phase'>): RelayReadinessEntry[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM relay_readiness_entries
+       WHERE competition_id = @competitionId
+         AND relay_number = @relayNumber
+       ORDER BY recorded_at, rowid`,
+      )
+      .all(scope) as Row[];
+    return rows.map(toEntry);
+  }
+}
+
+function toEntry(row: Row): RelayReadinessEntry {
+  return RelayReadinessEntry.reconstruct({
+    id: row.id,
+    competitionId: row.competition_id,
+    relayNumber: row.relay_number,
+    laneId: row.lane_id,
+    phase: row.phase,
+    requirement: row.requirement,
+    state: row.state,
+    source: row.source,
+    statement: row.statement,
+    officialName: row.official_name,
+    recordedAt: new Date(row.recorded_at),
+  });
 }

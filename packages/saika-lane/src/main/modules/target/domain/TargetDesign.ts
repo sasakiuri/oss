@@ -6,9 +6,11 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { Discipline as DisciplineCode } from '@/shared/ipc/schemas/common';
 import {
   DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE,
-  TARGET_SCORING_PROFILES,
   getDefaultTargetScoringProfile,
+  getScoringGaugeProfile,
+  getScoringGaugeRadiusMm,
   getTargetScoringProfile,
+  type ScoringGaugeProfileId,
   type TargetScoringProfile,
   type TargetScoringProfileId,
 } from '@/shared/target';
@@ -49,23 +51,32 @@ export interface RingDefinition {
  * Score is represented as a ×10 integer; distance comparison is done using distance².
  */
 export class TargetDesign {
-  /** Backward-compatible default projectile radius lookup, derived from the profile registry. */
-  static readonly SHOT_RADIUS: Readonly<Record<DisciplineCode, number>> = Object.freeze(
+  /** Default scoring-gauge radius lookup, derived from each target face's fallback gauge. */
+  static readonly SCORING_GAUGE_RADIUS: Readonly<Record<DisciplineCode, number>> = Object.freeze(
     Object.fromEntries(
       Object.entries(DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE).map(([discipline, profileId]) => [
         discipline,
-        TARGET_SCORING_PROFILES[profileId].projectileRadiusMm,
+        getScoringGaugeRadiusMm(getTargetScoringProfile(profileId).defaultScoringGaugeProfileId),
       ]),
     ) as Record<DisciplineCode, number>,
   );
+
+  /** @deprecated Use SCORING_GAUGE_RADIUS or a design's scoringGaugeRadiusMm. */
+  static readonly SHOT_RADIUS = TargetDesign.SCORING_GAUGE_RADIUS;
 
   /**
    * Discipline (read-only)
    */
   readonly discipline: Discipline;
 
-  /** Target-face and gauge profile used to build this design. */
+  /** Target-face profile used to build this design. */
   readonly profileId: TargetScoringProfileId;
+
+  /** Independent scoring-gauge geometry selected for this design. */
+  readonly scoringGaugeProfileId: ScoringGaugeProfileId;
+
+  /** Radius of the selected scoring gauge, in millimetres. */
+  readonly scoringGaugeRadiusMm: number;
 
   /**
    * Array of ring definitions (read-only)
@@ -95,6 +106,8 @@ export class TargetDesign {
   private constructor(
     discipline: Discipline,
     profileId: TargetScoringProfileId,
+    scoringGaugeProfileId: ScoringGaugeProfileId,
+    scoringGaugeRadiusMm: number,
     rings: readonly RingDefinition[],
     xRingRadius: number,
   ) {
@@ -115,6 +128,8 @@ export class TargetDesign {
 
     this.discipline = discipline;
     this.profileId = profileId;
+    this.scoringGaugeProfileId = scoringGaugeProfileId;
+    this.scoringGaugeRadiusMm = scoringGaugeRadiusMm;
     // Freeze each ring definition, then freeze the entire array
     this.rings = Object.freeze(rings.map((ring) => Object.freeze({ ...ring })));
     this.xRingRadius = xRingRadius;
@@ -165,7 +180,12 @@ export class TargetDesign {
    * @returns true if equal, false otherwise
    */
   equals(other: TargetDesign): boolean {
-    if (!this.discipline.equals(other.discipline) || this.profileId !== other.profileId) {
+    if (
+      !this.discipline.equals(other.discipline) ||
+      this.profileId !== other.profileId ||
+      this.scoringGaugeProfileId !== other.scoringGaugeProfileId ||
+      this.xRingRadius !== other.xRingRadius
+    ) {
       return false;
     }
     if (this.rings.length !== other.rings.length) {
@@ -183,41 +203,62 @@ export class TargetDesign {
    * @param discipline - Discipline
    * @returns TargetDesign instance for the given discipline
    */
-  static forDiscipline(discipline: Discipline, profileId?: TargetScoringProfileId): TargetDesign {
+  static forDiscipline(
+    discipline: Discipline,
+    profileId?: TargetScoringProfileId,
+    scoringGaugeProfileId?: ScoringGaugeProfileId,
+  ): TargetDesign {
     const profile = profileId ? getTargetScoringProfile(profileId) : getDefaultTargetScoringProfile(discipline.value);
     if (profile.discipline !== discipline.value) {
       throw ErrorCatalog.createError('INVALID_TARGET_DESIGN', {
         detail: `Target profile ${profile.id} is for ${profile.discipline}, not ${discipline.value}`,
       });
     }
-    return this.fromProfile(discipline, profile);
+    return this.fromProfile(discipline, profile, scoringGaugeProfileId);
   }
 
   /** Creates a design directly from a target-face profile. */
-  static forProfile(profileId: TargetScoringProfileId): TargetDesign {
+  static forProfile(profileId: TargetScoringProfileId, scoringGaugeProfileId?: ScoringGaugeProfileId): TargetDesign {
     const profile = getTargetScoringProfile(profileId);
-    return this.fromProfile(Discipline.fromValue(profile.discipline), profile);
+    return this.fromProfile(Discipline.fromValue(profile.discipline), profile, scoringGaugeProfileId);
   }
 
-  private static fromProfile(discipline: Discipline, profile: TargetScoringProfile): TargetDesign {
+  private static fromProfile(
+    discipline: Discipline,
+    profile: TargetScoringProfile,
+    scoringGaugeProfileId?: ScoringGaugeProfileId,
+  ): TargetDesign {
+    const effectiveGaugeId = scoringGaugeProfileId ?? profile.defaultScoringGaugeProfileId;
+    const gauge = getScoringGaugeProfile(effectiveGaugeId);
+    if (!gauge.compatibleDisciplines.includes(discipline.value)) {
+      throw ErrorCatalog.createError('INVALID_TARGET_DESIGN', {
+        detail: `Scoring gauge ${gauge.id} is not compatible with ${discipline.value}`,
+      });
+    }
+    const gaugeRadiusMm = gauge.diameterMm / 2;
     const rings =
-      profile.granularity === 'DECIMAL' ? this.generateDecimalRings(profile) : this.generateIntegerRings(profile);
-    return new TargetDesign(discipline, profile.id, rings, profile.innerTenCenterRadiusMm);
+      profile.granularity === 'DECIMAL'
+        ? this.generateDecimalRings(profile, gaugeRadiusMm)
+        : this.generateIntegerRings(profile, gaugeRadiusMm);
+    const xRingRadius =
+      profile.innerTenRule.type === 'FIXED_CENTER_RADIUS'
+        ? profile.innerTenRule.radiusMm
+        : profile.innerTenRule.ringRadiusMm + gaugeRadiusMm;
+    return new TargetDesign(discipline, profile.id, effectiveGaugeId, gaugeRadiusMm, rings, xRingRadius);
   }
 
   /**
-   * Generates decimal ring definitions based on the formula in TARGET_SPEC.md (with shotRadius incorporated).
+   * Generates decimal ring definitions based on the formula in TARGET_SPEC.md (with the scoring gauge incorporated).
    *
-   * Each band's innerEdge/outerEdge is calculated as the inner-edge radius of the integer score ring + shotRadius,
+   * Each band's innerEdge/outerEdge is calculated as the inner-edge radius of the integer score ring plus the gauge radius,
    * and the range is divided into 10 equal parts to assign decimal scores.
    * Scores are ×10 integers (109, 108, ... 10).
    *
    * @param profile - Target scoring profile
    * @returns 100 ring definitions (109 to 10)
    */
-  private static generateDecimalRings(profile: TargetScoringProfile): RingDefinition[] {
+  private static generateDecimalRings(profile: TargetScoringProfile, scoringGaugeRadiusMm: number): RingDefinition[] {
     const ringLines = profile.ringLines;
-    const shotRadius = profile.projectileRadiusMm;
     const rings: RingDefinition[] = [];
 
     for (let band = 0; band < ringLines.length; band++) {
@@ -225,9 +266,9 @@ export class TargetDesign {
       const integerScore = ringLine.score;
 
       // innerEdge: for band 0, starts from center (0); for others, uses the previous band's outer edge
-      const innerEdge = band === 0 ? 0 : ringLines[band - 1]!.radiusMm + shotRadius;
-      // outerEdge: inner-edge of this band's integer ring + shotRadius
-      const outerEdge = ringLine.radiusMm + shotRadius;
+      const innerEdge = band === 0 ? 0 : ringLines[band - 1]!.radiusMm + scoringGaugeRadiusMm;
+      // outerEdge: inner-edge of this band's integer ring plus the scoring-gauge radius
+      const outerEdge = ringLine.radiusMm + scoringGaugeRadiusMm;
 
       const step = (outerEdge - innerEdge) / 10;
 
@@ -242,9 +283,9 @@ export class TargetDesign {
     return rings;
   }
 
-  private static generateIntegerRings(profile: TargetScoringProfile): RingDefinition[] {
+  private static generateIntegerRings(profile: TargetScoringProfile, scoringGaugeRadiusMm: number): RingDefinition[] {
     return profile.ringLines.map((ringLine) => {
-      const radius = ringLine.radiusMm + profile.projectileRadiusMm;
+      const radius = ringLine.radiusMm + scoringGaugeRadiusMm;
       return { score: ringLine.score * 10, radius, radiusSq: radius * radius };
     });
   }

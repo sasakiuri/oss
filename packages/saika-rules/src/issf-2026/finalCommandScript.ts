@@ -49,6 +49,15 @@ export function buildIssf10mFinalCommandScript(
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -options.callToLineLeadSeconds,
     }),
+    step(
+      options,
+      'presentation',
+      'ANNOUNCER',
+      'ANNOUNCEMENT',
+      'Present the finalists in firing-point order, followed by the Jury Member-in-Charge and Chief Range Officer.',
+      options.ruleReferences.callToLine,
+      { mode: 'MANUAL' },
+    ),
     step(options, 'take-positions', 'CRO', 'COMMAND', 'TAKE YOUR POSITIONS', options.ruleReferences.preparation, {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -options.takePositionsLeadSeconds,
@@ -70,6 +79,15 @@ export function buildIssf10mFinalCommandScript(
         durationSeconds: 300,
       },
     },
+    step(
+      options,
+      'welcome-and-format',
+      'ANNOUNCER',
+      'ANNOUNCEMENT',
+      'Welcome spectators, introduce the event, and explain the Final format during Preparation and Sighting.',
+      options.ruleReferences.preparation,
+      { mode: 'MANUAL' },
+    ),
     step(options, 'preparation-warning', 'CRO', 'COMMAND', '30 SECONDS', options.ruleReferences.preparation, {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -95,
@@ -81,6 +99,24 @@ export function buildIssf10mFinalCommandScript(
       }),
       effect: { type: 'CLOSE_FIRING', purpose: 'SIGHTING' },
     },
+    step(
+      options,
+      'brief-explanation',
+      'ANNOUNCER',
+      'ANNOUNCEMENT',
+      'Give the brief explanation of the Final before MATCH firing.',
+      options.ruleReferences.preparation,
+      { mode: 'MANUAL' },
+    ),
+    step(
+      options,
+      'match-targets-ready',
+      'OFFICIAL',
+      'CHECK',
+      'Confirm with the Control Room that all targets and the scoreboard are cleared and set to MATCH.',
+      options.ruleReferences.preparation,
+      { mode: 'MANUAL' },
+    ),
   ];
 
   let cumulativeMatchShots = 0;
@@ -155,42 +191,93 @@ export function buildIssf10mFinalCommandScript(
       });
 
       if (stage.checkpointEverySeries && (seriesIndex + 1) % stage.checkpointEverySeries === 0) {
+        const finalCheckpoint = lastSeries;
         main.push({
           ...step(
             options,
             `checkpoint-${cumulativeMatchShots}`,
             'OFFICIAL',
             'CHECK',
-            'Confirm the Final checkpoint, resolve any tie, and retire only the confirmed lowest participant.',
+            finalCheckpoint
+              ? 'Confirm the gold and silver medal positions and resolve any tie before Final completion.'
+              : 'Confirm the Final checkpoint, resolve any tie, and retire only the confirmed lowest participant.',
             options.ruleReferences.checkpoint,
             { mode: 'MANUAL' },
           ),
           effect: { type: 'CHECKPOINT', afterMatchShot: cumulativeMatchShots },
         });
+        main.push(
+          step(
+            options,
+            `safety-${cumulativeMatchShots}`,
+            'OFFICIAL',
+            'CHECK',
+            finalCheckpoint
+              ? 'Confirm all firearms are unloaded with actions open and safety flags inserted.'
+              : 'Confirm each eliminated finalist has unloaded, opened the action, inserted a safety flag, and stepped back.',
+            options.ruleReferences.checkpoint,
+            { mode: 'MANUAL' },
+          ),
+        );
       }
 
-      main.push(
-        step(
-          options,
-          `commentary-${stage.stageId}-${seriesNumber}`,
-          'ANNOUNCER',
-          'ANNOUNCEMENT',
-          'Comment on the current ranking and notable scores.',
-          `${options.ruleReferences.multiShot}, ${options.ruleReferences.singleShot}`,
-          { mode: 'MANUAL' },
-        ),
+      const firstFiveShotSeries = stage.shotsPerSeries > 1 && seriesIndex === 0;
+      const lastFiveShotSeries = stage.shotsPerSeries > 1 && seriesIndex === stage.seriesCount - 1;
+      const eliminationCheckpoint = Boolean(
+        stage.checkpointEverySeries && (seriesIndex + 1) % stage.checkpointEverySeries === 0,
       );
+      if (!lastSeries) {
+        main.push(
+          step(
+            options,
+            `commentary-${stage.stageId}-${seriesNumber}`,
+            'ANNOUNCER',
+            'ANNOUNCEMENT',
+            firstFiveShotSeries
+              ? 'Comment for 15-20 seconds on the current ranking and notable scores; do not announce individual shot scores.'
+              : lastFiveShotSeries
+                ? 'Comment for 15-20 seconds on the ranking and explain that single shots and eliminations now begin.'
+                : eliminationCheckpoint
+                  ? 'Recognize the eliminated finalist and comment for 15-20 seconds on the remaining ranking and notable scores.'
+                  : 'Comment for 15-20 seconds on the current ranking and indicate who may be eliminated after the next shot.',
+            `${options.ruleReferences.multiShot}, ${options.ruleReferences.singleShot}`,
+            { mode: 'MANUAL' },
+          ),
+        );
+      }
       previousTarget = target;
     }
   }
 
   if (!previousTarget) throw new Error('A Final command script requires at least one MATCH series');
+  main.push(
+    step(
+      options,
+      'completion-clearance',
+      'OFFICIAL',
+      'CHECK',
+      'Confirm with the Control Room that there are no unresolved ties or protests and that the current Final result list is approved.',
+      options.ruleReferences.completion,
+      { mode: 'MANUAL' },
+    ),
+  );
   main.push({
     ...step(options, 'declare-results', 'CRO', 'DECLARATION', 'RESULTS ARE FINAL', options.ruleReferences.completion, {
       mode: 'MANUAL',
     }),
     effect: { type: 'DECLARE_RESULTS' },
   });
+  main.push(
+    step(
+      options,
+      'medallist-presentation',
+      'ANNOUNCER',
+      'ANNOUNCEMENT',
+      'Present the bronze, silver, and gold medallists by country and name.',
+      options.ruleReferences.completion,
+      { mode: 'MANUAL' },
+    ),
+  );
 
   const shootOff: RuleCommandScriptStep[] = [
     step(
@@ -258,7 +345,16 @@ export function buildIssf10mFinalCommandScript(
     },
   ];
 
-  return { version: 'ISSF-2026-02', main, shootOff };
+  return {
+    version: 'ISSF-2026-02-conformance-2',
+    source: {
+      organization: 'ISSF',
+      title: 'Commands and Announcements for Finals 2026',
+      version: 'February 2026',
+    },
+    main,
+    shootOff,
+  };
 }
 
 function step(

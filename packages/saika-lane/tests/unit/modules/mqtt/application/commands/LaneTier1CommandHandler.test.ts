@@ -31,6 +31,7 @@ import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcReque
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import { LaneSafetyStopState, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
 
 import { createMockStorage } from '../../../../../helpers/mockDependencies';
 
@@ -103,6 +104,7 @@ describe('LaneTier1CommandHandler', () => {
   let shootOffControl: ICompetitionShootOffControl;
   let safetyStopControl: ILaneSafetyStopControl;
   let safetyStatePublisher: LaneSafetyStatePublisher;
+  let timedTargetControl: ITimedTargetControl;
   let handler: LaneTier1CommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -140,6 +142,15 @@ describe('LaneTier1CommandHandler', () => {
     safetyStatePublisher = {
       publishCurrentState: vi.fn().mockResolvedValue(undefined),
     } as unknown as LaneSafetyStatePublisher;
+    timedTargetControl = {
+      enforcementMode: 'REQUIRED',
+      start: vi.fn(),
+      cancel: vi.fn(),
+      getState: vi.fn().mockReturnValue(null),
+      tryAcceptShot: vi.fn(),
+      restore: vi.fn(),
+      dispose: vi.fn(),
+    } as unknown as ITimedTargetControl;
     handler = new LaneTier1CommandHandler(
       mqttClient,
       guard,
@@ -154,6 +165,8 @@ describe('LaneTier1CommandHandler', () => {
       safetyStatePublisher,
       undefined,
       shootOffControl,
+      undefined,
+      timedTargetControl,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -192,7 +205,7 @@ describe('LaneTier1CommandHandler', () => {
 
       await sendMessage('join-competition', cmd);
 
-      expect(mqttClient.subscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/#`, 1);
+      expect(mqttClient.subscribe).not.toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/#`, 1);
       expect(broadcastHandler.subscribeToCompetition).toHaveBeenCalledWith(COMPETITION_ID);
       expect(perLaneHandler.subscribeToCompetition).toHaveBeenCalledWith(COMPETITION_ID);
       expect(rpcHandler.subscribe).toHaveBeenCalledWith(COMPETITION_ID);
@@ -247,9 +260,16 @@ describe('LaneTier1CommandHandler', () => {
         iteration: 3,
         timerStartAt: '2026-09-02T00:00:00.000Z',
         timerDurationSeconds: 50,
+        shotsPerLane: 1,
         status: 'OPEN',
-        shotId: null,
+        recordedShotIds: [],
       });
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        competitionId: COMPETITION_ID,
+        purpose: 'SHOOT_OFF',
+        phase: 'ARMED',
+      } as ReturnType<ITimedTargetControl['getState']>);
 
       await sendMessage(
         'activate-safety-stop',
@@ -261,6 +281,10 @@ describe('LaneTier1CommandHandler', () => {
 
       expect(safetyStopControl.activate).toHaveBeenCalled();
       expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, 'e5555555-5555-4555-a555-555555555555', 3);
+      expect(timedTargetControl.cancel).toHaveBeenCalledWith({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        reason: 'Safety stop activated: Unsafe condition',
+      });
       expect(safetyStatePublisher.publishCurrentState).toHaveBeenCalled();
       const acknowledgements = vi
         .mocked(mqttClient.publish)
@@ -330,8 +354,9 @@ describe('LaneTier1CommandHandler', () => {
         iteration: 2,
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 50,
-        status: 'SHOT_RECORDED',
-        shotId: 'f6666666-6666-4666-a666-666666666666',
+        shotsPerLane: 1,
+        status: 'COMPLETE',
+        recordedShotIds: ['f6666666-6666-4666-a666-666666666666'],
       });
 
       (mqttClient.publish as ReturnType<typeof vi.fn>).mockClear();

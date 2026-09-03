@@ -9,6 +9,7 @@ const {
   getSnapshot,
   startMatchDirector,
   startSightingDirector,
+  startTimedTargetDirector,
   startEmbeddedBroker,
   stopEmbeddedBroker,
   directorCallbacks,
@@ -20,6 +21,7 @@ const {
   getSnapshot: vi.fn(),
   startMatchDirector: vi.fn(),
   startSightingDirector: vi.fn(),
+  startTimedTargetDirector: vi.fn(),
   startEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
   stopEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
   directorCallbacks: {
@@ -50,6 +52,7 @@ vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
     getSnapshot = getSnapshot;
     startMatch = startMatchDirector;
     startSighting = startSightingDirector;
+    startTimedTarget = startTimedTargetDirector;
     finishCompetition = finishCompetition;
   },
   sanitizeBrokerUrl: (value: string) => value,
@@ -64,7 +67,7 @@ vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({
   },
 }));
 
-import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import { mqttDirectorIdFromEnvironment, mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import {
   competitionTypeFromRulePack,
   RULE_PACK_CALL_TO_LINE_REQUIREMENT_ID,
@@ -74,7 +77,7 @@ import {
 } from '@/shared/competitionTypes';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
-import { ISSF_2026_AP60, ISSF_2026_AR60 } from '@sasakiuri/saika-rules';
+import { ISSF_2026_AP60, ISSF_2026_AR60, ISSF_2026_P25 } from '@sasakiuri/saika-rules';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -84,13 +87,25 @@ const ISSF_SIGHTING_REQUIREMENT_IDS = [
   RULE_PACK_SETUP_REQUIREMENT_ID,
 ];
 
+describe('mqttDirectorIdFromEnvironment', () => {
+  it('uses a distinct configured issuer identity and rejects an empty override', () => {
+    expect(mqttDirectorIdFromEnvironment({}, 'persisted-director')).toBe('persisted-director');
+    expect(mqttDirectorIdFromEnvironment({ SAIKA_MQTT_DIRECTOR_ID: ' director-a ' }, 'persisted-director')).toBe(
+      'director-a',
+    );
+    expect(() => mqttDirectorIdFromEnvironment({ SAIKA_MQTT_DIRECTOR_ID: '   ' }, 'persisted-director')).toThrow(
+      'SAIKA_MQTT_DIRECTOR_ID must not be empty',
+    );
+  });
+});
+
 interface MqttHandlers {
   getFiringWindowViolations(input: { competitionId: string }): Promise<unknown>;
   createCompetition(input: { competitionTypeId: string; laneIds: string[] }): Promise<unknown>;
   setBrokerConfig(input: { mode: 'embedded' | 'external'; url?: string; port?: number }): Promise<unknown>;
   startMatch(input: {
     competitionId: string;
-    durationSeconds: number;
+    durationSeconds?: number;
     acknowledgedRequirementIds?: string[];
   }): Promise<unknown>;
   startSighting(input: {
@@ -98,6 +113,14 @@ interface MqttHandlers {
     durationSeconds: number;
     targetLaneIds?: string[];
     acknowledgedRequirementIds?: string[];
+  }): Promise<unknown>;
+  startTimedTarget(input: {
+    competitionId: string;
+    programId: string;
+    purpose: 'SIGHTING' | 'MATCH';
+    stageIndex: number;
+    seriesIndex: number;
+    targetLaneIds?: string[];
   }): Promise<unknown>;
   executeFinalScriptStep(input: {
     competitionId: string;
@@ -112,9 +135,13 @@ interface MqttHandlers {
       text: string;
       ruleReference: string;
       timing: { mode: 'MANUAL' };
-      effect: { type: 'NONE' };
+      effect: { type: 'NONE' } | { type: 'DECLARE_RESULTS' };
     };
     eligibleLaneIds?: string[];
+    declarationConfirmation?: {
+      finalProtestsResolved: true;
+      resultProcessConfirmed: true;
+    };
   }): Promise<unknown>;
   finishCompetition(input: {
     competitionId: string;
@@ -131,6 +158,8 @@ function registerModule(eventType: string | null): {
   firingWindowViolations: Record<string, unknown>[];
   assertCompetitionDataAllowed: ReturnType<typeof vi.fn>;
   assertFinalExecutionAuthorized: ReturnType<typeof vi.fn>;
+  getFinalDeclarationStatus: ReturnType<typeof vi.fn>;
+  declareFinalResults: ReturnType<typeof vi.fn>;
 } {
   let handlers: MqttHandlers | null = null;
   const emitEvent = vi.fn();
@@ -161,11 +190,17 @@ function registerModule(eventType: string | null): {
   const firingWindowViolations: Record<string, unknown>[] = [];
   const violationKeys = new Set<string>();
   const assertCompetitionDataAllowed = vi.fn();
-  const assertFinalExecutionAuthorized = vi.fn();
+  const assertFinalExecutionAuthorized = vi.fn(() => ({ eventId: EVENT_ID, officialName: 'CRO A' }));
+  const getFinalDeclarationStatus = vi.fn();
+  const declareFinalResults = vi.fn();
   const competitionTypes = new Map(
-    [BR60S, BP60, competitionTypeFromRulePack(ISSF_2026_AR60), competitionTypeFromRulePack(ISSF_2026_AP60)].map(
-      (definition) => [definition.id, definition],
-    ),
+    [
+      BR60S,
+      BP60,
+      competitionTypeFromRulePack(ISSF_2026_AR60),
+      competitionTypeFromRulePack(ISSF_2026_AP60),
+      competitionTypeFromRulePack(ISSF_2026_P25),
+    ].map((definition) => [definition.id, definition]),
   );
 
   mqttModule.register({
@@ -225,6 +260,10 @@ function registerModule(eventType: string | null): {
       assertExecutionAuthorized: assertFinalExecutionAuthorized,
       observeShootOffShot: vi.fn(),
     } as never,
+    finalResultDeclarationService: {
+      getStatus: getFinalDeclarationStatus,
+      declare: declareFinalResults,
+    } as never,
   });
 
   if (!handlers) throw new Error('MQTT handlers were not registered');
@@ -237,6 +276,8 @@ function registerModule(eventType: string | null): {
     firingWindowViolations,
     assertCompetitionDataAllowed,
     assertFinalExecutionAuthorized,
+    getFinalDeclarationStatus,
+    declareFinalResults,
   };
 }
 
@@ -269,6 +310,12 @@ describe('mqttModule broker transitions', () => {
     startSightingDirector.mockResolvedValue({
       commandId: '77777777-7777-4777-8777-777777777777',
       action: 'start-sighting',
+      success: true,
+      lanes: [],
+    });
+    startTimedTargetDirector.mockResolvedValue({
+      commandId: '88888888-8888-4888-8888-888888888888',
+      action: 'start-timed-target',
       success: true,
       lanes: [],
     });
@@ -359,6 +406,39 @@ describe('mqttModule Final step authorization', () => {
     await expect(handlers.executeFinalScriptStep(input)).rejects.toThrow('was not confirmed');
     expect(assertFinalExecutionAuthorized).toHaveBeenCalledWith({ ...input, eligibleLaneIds: [] });
   });
+
+  it('does not replay a RESULTS ARE FINAL cue after the declaration gains a review blocker', async () => {
+    const { handlers, getFinalDeclarationStatus, declareFinalResults } = registerModule('AR60');
+    getFinalDeclarationStatus.mockResolvedValue({
+      declaration: { id: '55555555-5555-4555-8555-555555555555' },
+      declarationCurrent: false,
+      issues: ['Irregular shot case is unresolved'],
+    });
+
+    await expect(
+      handlers.executeFinalScriptStep({
+        competitionId: COMPETITION_ID,
+        runId: '33333333-3333-4333-8333-333333333333',
+        confirmationEntryId: '44444444-4444-4444-8444-444444444444',
+        branch: 'MAIN',
+        iteration: 0,
+        step: {
+          id: 'declare-results',
+          actor: 'CRO',
+          kind: 'DECLARATION',
+          text: 'RESULTS ARE FINAL',
+          ruleReference: '6.17.3(j)',
+          timing: { mode: 'MANUAL' },
+          effect: { type: 'DECLARE_RESULTS' },
+        },
+        declarationConfirmation: {
+          finalProtestsResolved: true,
+          resultProcessConfirmed: true,
+        },
+      }),
+    ).rejects.toThrow('no longer current or has review blockers');
+    expect(declareFinalResults).not.toHaveBeenCalled();
+  });
 });
 
 describe('mqttModule competition definition adapter', () => {
@@ -374,6 +454,12 @@ describe('mqttModule competition definition adapter', () => {
     startSightingDirector.mockResolvedValue({
       commandId: '77777777-7777-4777-8777-777777777777',
       action: 'start-sighting',
+      success: true,
+      lanes: [],
+    });
+    startTimedTargetDirector.mockResolvedValue({
+      commandId: '88888888-8888-4888-8888-888888888888',
+      action: 'start-timed-target',
       success: true,
       lanes: [],
     });
@@ -394,6 +480,18 @@ describe('mqttModule competition definition adapter', () => {
       shotsPerSeries: 10,
       totalSeries: 6,
       totalShots: 60,
+      definitionBinding: {
+        protocolVersion: 1,
+        compatibilityMode: 'REQUIRED',
+        rulePack: expect.objectContaining({
+          id: 'ISSF:2026:AR60:QUALIFICATION',
+          schemaVersion: 1,
+          fingerprint: {
+            algorithm: 'SHA-256',
+            value: expect.stringMatching(/^[a-f0-9]{64}$/),
+          },
+        }),
+      },
       laneIds: [],
     });
   });
@@ -561,6 +659,61 @@ describe('mqttModule competition definition adapter', () => {
     await handlers.startMatch({ competitionId: COMPETITION_ID, durationSeconds: 2_700 });
 
     expect(startMatchDirector).toHaveBeenCalledWith(COMPETITION_ID, 2_700);
+  });
+
+  it('separates conventional MATCH timers from independently timed 25m programs', async () => {
+    getSnapshot.mockReturnValue({
+      connected: true,
+      brokerUrl: 'mqtt://localhost:1883',
+      activeCompetitionId: COMPETITION_ID,
+      lanes: [],
+      competitions: [{ competitionId: COMPETITION_ID, competitionTypeId: 'AR60', phase: 'MATCH' }],
+      lastCommand: null,
+    });
+    const conventional = registerModule('AR60');
+    await expect(conventional.handlers.startMatch({ competitionId: COMPETITION_ID })).rejects.toThrow(
+      'requires a generic MATCH timer duration',
+    );
+
+    getSnapshot.mockReturnValue({
+      connected: true,
+      brokerUrl: 'mqtt://localhost:1883',
+      activeCompetitionId: COMPETITION_ID,
+      lanes: [],
+      competitions: [{ competitionId: COMPETITION_ID, competitionTypeId: 'P25', phase: 'SIGHTING_COMPLETE' }],
+      lastCommand: null,
+    });
+    const timed = registerModule('P25');
+    await timed.handlers.startMatch({ competitionId: COMPETITION_ID });
+
+    expect(startMatchDirector).toHaveBeenCalledWith(COMPETITION_ID, undefined);
+  });
+
+  it('accepts only the Rule Pack program bound to the current 25m stage and series', async () => {
+    getSnapshot.mockReturnValue({
+      connected: true,
+      brokerUrl: 'mqtt://localhost:1883',
+      activeCompetitionId: COMPETITION_ID,
+      lanes: [],
+      competitions: [{ competitionId: COMPETITION_ID, competitionTypeId: 'P25', phase: 'MATCH' }],
+      lastCommand: null,
+    });
+    const { handlers } = registerModule('P25');
+    const validInput = {
+      competitionId: COMPETITION_ID,
+      programId: 'P25_MATCH_PRECISION_240',
+      purpose: 'MATCH' as const,
+      stageIndex: 1,
+      seriesIndex: 0,
+    };
+
+    await handlers.startTimedTarget(validInput);
+    expect(startTimedTargetDirector).toHaveBeenCalledWith(validInput);
+
+    await expect(handlers.startTimedTarget({ ...validInput, programId: 'P25_MATCH_RAPID_3_7' })).rejects.toThrow(
+      'does not match MATCH at 1:0',
+    );
+    expect(startTimedTargetDirector).toHaveBeenCalledTimes(1);
   });
 });
 

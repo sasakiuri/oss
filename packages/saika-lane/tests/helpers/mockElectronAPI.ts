@@ -45,6 +45,10 @@ export interface MockedElectronAPI {
     getScoreSheet: ReturnType<typeof vi.fn>;
     openPrintWindow: ReturnType<typeof vi.fn>;
   };
+  timedTarget: {
+    getState: ReturnType<typeof vi.fn>;
+    cancel: ReturnType<typeof vi.fn>;
+  };
   window: {
     toggleFullscreen: ReturnType<typeof vi.fn>;
     minimize: ReturnType<typeof vi.fn>;
@@ -71,7 +75,9 @@ export interface MockedElectronAPI {
     timerTick: ReturnType<typeof vi.fn>;
     timerExpired: ReturnType<typeof vi.fn>;
     competitionInterruptionChanged: ReturnType<typeof vi.fn>;
+    safetyStopChanged: ReturnType<typeof vi.fn>;
     competitionCueChanged: ReturnType<typeof vi.fn>;
+    timedTargetSequenceChanged: ReturnType<typeof vi.fn>;
     seriesCompleted: ReturnType<typeof vi.fn>;
     stageAdvanced: ReturnType<typeof vi.fn>;
     competitionFinished: ReturnType<typeof vi.fn>;
@@ -148,6 +154,10 @@ export function createMockElectronAPI(): MockedElectronAPI {
       getScoreSheet: vi.fn(),
       openPrintWindow: vi.fn(),
     },
+    timedTarget: {
+      getState: vi.fn().mockResolvedValue({ success: true, data: null }),
+      cancel: vi.fn(),
+    },
     window: {
       toggleFullscreen: vi.fn(),
       minimize: vi.fn().mockResolvedValue({ success: true }),
@@ -210,7 +220,9 @@ export function createMockElectronAPI(): MockedElectronAPI {
       timerTick: vi.fn().mockReturnValue(() => {}),
       timerExpired: vi.fn().mockReturnValue(() => {}),
       competitionInterruptionChanged: vi.fn().mockReturnValue(() => {}),
+      safetyStopChanged: vi.fn().mockReturnValue(() => {}),
       competitionCueChanged: vi.fn().mockReturnValue(() => {}),
+      timedTargetSequenceChanged: vi.fn().mockReturnValue(() => {}),
       seriesCompleted: vi.fn().mockReturnValue(() => {}),
       stageAdvanced: vi.fn().mockReturnValue(() => {}),
       competitionFinished: vi.fn().mockReturnValue(() => {}),

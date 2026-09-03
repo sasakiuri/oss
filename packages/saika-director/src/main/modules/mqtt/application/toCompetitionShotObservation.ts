@@ -20,6 +20,8 @@ export function toCompetitionShotObservation(
     calculatedScoreX10: shot.calculatedScoreX10 ?? shot.rawScoreX10,
     calculatedScoreAvailable: shot.calculatedScoreX10 !== undefined,
     effectiveScoreX10: shot.effectiveScoreX10 ?? shot.rawScoreX10,
+    targetProfileId: shot.targetProfileId ?? null,
+    scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
     innerTen: shot.innerTen,
     mode: shot.mode,
     firedAt: new Date(shot.timestamp),

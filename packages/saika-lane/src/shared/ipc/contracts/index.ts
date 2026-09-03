@@ -87,6 +87,7 @@ export type {
   StageAdvancedEventPayload,
   TimerExpiredEventPayload,
   TimerTickEventPayload,
+  TimedTargetSequenceChangedEventPayload,
   SafetyStopChangedEventPayload,
 } from './events.contract';
 
@@ -94,7 +95,18 @@ export { windowContract } from './window.contract';
 export type { FullscreenStateDto, ToggleFullscreenResponse, WindowStateDto } from './window.contract';
 
 export { mqttContract } from './mqtt.contract';
-export type { ConnectMqttInput, LaneSafetyStateDto, MqttSettings, MqttStatus } from './mqtt.contract';
+export type {
+  ClearRangeOfficerRequestInput,
+  ConnectMqttInput,
+  LaneSafetyStateDto,
+  MqttSettings,
+  MqttStatus,
+  RangeOfficerRequestDto,
+  RequestRangeOfficerInput,
+} from './mqtt.contract';
+
+export { timedTargetContract } from './timedTarget.contract';
+export type { TimedTargetStateDto } from './timedTarget.contract';
 
 export { AppUpdateStateSchema, AppUpdateStatusSchema, updaterContract } from './updater.contract';
 export type { AppUpdateStateDto, AppUpdateStatus } from './updater.contract';

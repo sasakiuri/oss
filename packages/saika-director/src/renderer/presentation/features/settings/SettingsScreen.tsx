@@ -6,6 +6,7 @@ import { PageHeader } from '../shared/layout/PageHeader';
 import { Logger } from '@/shared/utils/Logger';
 import { competitionAnnouncementsService, mqttService } from '@/renderer/services';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { OperationalArchivesPanel } from './OperationalArchivesPanel';
 
 const logger = Logger.create('SettingsScreen');
 
@@ -424,6 +425,7 @@ export function SettingsScreen() {
             </div>
           </div>
         </section>
+        <OperationalArchivesPanel />
       </div>
     </div>
   );

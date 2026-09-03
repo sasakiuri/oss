@@ -20,6 +20,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -46,6 +47,7 @@ export interface ServiceRegistry {
   competitionInterruptionControl: ICompetitionInterruptionControl;
   competitionShootOffControl: ICompetitionShootOffControl;
   safetyStopControl: ILaneSafetyStopControl;
+  timedTargetControl: ITimedTargetControl;
   mainWindow: BrowserWindow;
   userDataPath: string;
 }

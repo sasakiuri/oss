@@ -1,4 +1,10 @@
-import { ISSF_2026_ARMIX_FINAL, ISSF_2026_AR60_FINAL, RulePackRegistry } from '@sasakiuri/saika-rules';
+import {
+  ISSF_2026_ARMIX_FINAL,
+  ISSF_2026_AR60_FINAL,
+  ISSF_2026_P25_FINAL,
+  ISSF_2026_RFPM_FINAL,
+  RulePackRegistry,
+} from '@sasakiuri/saika-rules';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -72,7 +78,103 @@ function createMixedTeamService() {
   };
 }
 
+function create25mService(pack: typeof ISSF_2026_P25_FINAL | typeof ISSF_2026_RFPM_FINAL) {
+  const competitionTypes = new CompetitionTypeRegistry();
+  competitionTypes.register(competitionTypeFromRulePack(pack));
+  const repository = new MemoryRepository();
+  return {
+    service: new FinalOperationService(repository, competitionTypes, new RulePackRegistry([pack])),
+    repository,
+  };
+}
+
 describe('FinalOperationService', () => {
+  it('persists the exact officially selected firing group for a Rapid Fire Final step', () => {
+    const { service } = create25mService(ISSF_2026_RFPM_FINAL);
+    let run = service.create({
+      competitionId,
+      competitionTypeId: 'RFPM_FINAL',
+      scheduledStartAt: '2026-09-02T03:00:00.000Z',
+      officialName: 'CRO A',
+    });
+    while (
+      run.currentStep?.step.effect.type !== 'RUN_TIMED_TARGET' ||
+      run.currentStep.step.effect.participantSelection !== 'OFFICIAL_SELECTED'
+    ) {
+      const confirmed = service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        officialName: 'CRO A',
+      });
+      run = service.recordExecution({
+        runId: run.id,
+        confirmationEntryId: confirmed.currentStep!.confirmationEntryId!,
+        status: 'DONE',
+        statement: 'Completed',
+        officialName: 'CRO A',
+      });
+    }
+
+    expect(() =>
+      service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        eligibleLaneIds: [laneA],
+        officialName: 'CRO A',
+      }),
+    ).toThrow('requires exactly 2');
+
+    const confirmed = service.confirmStep({
+      runId: run.id,
+      stepId: run.currentStep.step.id,
+      eligibleLaneIds: [laneA, laneB],
+      officialName: 'CRO A',
+    });
+    expect(confirmed.currentStep?.eligibleLaneIds).toEqual([laneA, laneB]);
+
+    run = service.recordExecution({
+      runId: run.id,
+      confirmationEntryId: confirmed.currentStep!.confirmationEntryId!,
+      status: 'DONE',
+      statement: 'First group completed',
+      officialName: 'CRO A',
+    });
+    while (
+      run.currentStep?.step.effect.type !== 'RUN_TIMED_TARGET' ||
+      run.currentStep.step.effect.participantSelection !== 'OFFICIAL_SELECTED'
+    ) {
+      const nextConfirmation = service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        officialName: 'CRO A',
+      });
+      run = service.recordExecution({
+        runId: run.id,
+        confirmationEntryId: nextConfirmation.currentStep!.confirmationEntryId!,
+        status: 'DONE',
+        statement: 'Completed',
+        officialName: 'CRO A',
+      });
+    }
+
+    expect(() =>
+      service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        eligibleLaneIds: [laneA, laneC],
+        officialName: 'CRO A',
+      }),
+    ).toThrow('already fired in this series group');
+    expect(() =>
+      service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        eligibleLaneIds: [laneC, laneD],
+        officialName: 'CRO A',
+      }),
+    ).not.toThrow();
+  });
+
   it('keeps a confirmed step pending until its execution succeeds', () => {
     const { service } = createService();
     const run = service.create({
@@ -399,6 +501,91 @@ describe('FinalOperationService', () => {
         { unitId: 'TEAM-A', scoreX10: 205 },
         { unitId: 'TEAM-B', scoreX10: 207 },
       ],
+    });
+  });
+
+  it('projects a 25m five-shot shoot-off to hits while preserving every decimal source score', () => {
+    const { service } = create25mService(ISSF_2026_P25_FINAL);
+    let run = service.create({
+      competitionId,
+      competitionTypeId: 'P25_FINAL',
+      scheduledStartAt: '2026-09-02T03:00:00.000Z',
+      officialName: 'CRO A',
+    });
+    while (run.currentStep?.step.effect.type !== 'CHECKPOINT') {
+      const confirmed = service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep!.step.id,
+        officialName: 'CRO A',
+      });
+      run = service.recordExecution({
+        runId: run.id,
+        confirmationEntryId: confirmed.currentStep!.confirmationEntryId!,
+        status: 'DONE',
+        statement: 'Completed',
+        officialName: 'CRO A',
+      });
+    }
+    run = service.startShootOff({
+      runId: run.id,
+      checkpointStepId: run.currentStep.step.id,
+      eligibleLaneIds: [laneA, laneB],
+      reason: 'Rank 8 is tied.',
+      officialName: 'Jury A',
+    });
+    expect(run.shootOff?.shotsPerLane).toBe(5);
+
+    while (run.currentStep) {
+      const confirmed = service.confirmStep({
+        runId: run.id,
+        stepId: run.currentStep.step.id,
+        officialName: 'CRO A',
+      });
+      run = service.recordExecution({
+        runId: run.id,
+        confirmationEntryId: confirmed.currentStep!.confirmationEntryId!,
+        status: 'DONE',
+        statement: 'Completed',
+        officialName: 'CRO A',
+      });
+    }
+
+    const scores = new Map([
+      [laneA, [102, 102, 102, 102, 102]],
+      [laneB, [101, 102, 103, 90, 109]],
+    ]);
+    let shotNumber = 10;
+    for (const [laneId, laneScores] of scores) {
+      for (const scoreX10 of laneScores) {
+        shotNumber += 1;
+        run = service.observeShootOffShot({
+          runId: run.id,
+          competitionId,
+          iteration: 1,
+          laneId,
+          shotId: `00000000-0000-4000-8000-${String(shotNumber).padStart(12, '0')}`,
+          scoreX10,
+          x: null,
+          y: null,
+          firedAt: '2026-09-02T03:10:00.000Z',
+        });
+      }
+    }
+    const laneBShots = run.shootOff?.shots.filter((shot) => shot.laneId === laneB) ?? [];
+    expect(laneBShots.map((shot) => shot.sourceScoreX10).sort((left, right) => left - right)).toEqual([
+      90, 101, 102, 103, 109,
+    ]);
+    expect(laneBShots.every((shot) => shot.scoreX10 === (shot.sourceScoreX10 >= 102 ? 10 : 0))).toBe(true);
+
+    run = service.closeShootOffRound({
+      runId: run.id,
+      statement: 'Lane B has three hits and is the unique lowest.',
+      officialName: 'Jury A',
+    });
+    expect(run.entries.at(-1)?.metadata).toMatchObject({
+      minimumScoreX10: 30,
+      eliminatedLaneId: laneB,
+      shotsPerLane: 5,
     });
   });
 });

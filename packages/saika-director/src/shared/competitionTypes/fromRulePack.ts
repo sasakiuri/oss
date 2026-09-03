@@ -1,4 +1,4 @@
-import type { CommandSequenceCapability, RulePack } from '@sasakiuri/saika-rules';
+import { identifyRulePack, type CommandSequenceCapability, type RulePack } from '@sasakiuri/saika-rules';
 import type {
   CompetitionTypeDefinition,
   FiringWindowDetectionPolicy,
@@ -22,6 +22,8 @@ export interface DirectorRulePackAdapterOptions {
   readonly firingWindowClockToleranceMilliseconds?: number;
   /** Evidence clock used only by Director's review detector. */
   readonly firingWindowTimestampSource?: FiringWindowTimestampSource;
+  /** Defaults to REQUIRED for an official, versioned Rule Pack. */
+  readonly compatibilityMode?: 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 }
 
 /** Adapts application-neutral rule capabilities to Director's control model. */
@@ -39,9 +41,15 @@ export function competitionTypeFromRulePack(
     id: pack.eventCode,
     name: pack.displayName,
     rulePackId: pack.id,
+    rulePackIdentity: identifyRulePack(pack),
+    compatibilityMode: options.compatibilityMode ?? 'REQUIRED',
     laneProtocol: {
       discipline: pack.discipline,
       acc: pack.capabilities.scoring.mode,
+      targetProfileId: pack.capabilities.target.scoringProfileId,
+      ...(pack.capabilities.target.scoringGaugeProfileId
+        ? { scoringGaugeProfileId: pack.capabilities.target.scoringGaugeProfileId }
+        : {}),
     },
     scoring: {
       minScore: pack.capabilities.scoring.minimumShotScore,
@@ -55,10 +63,24 @@ export function competitionTypeFromRulePack(
       ...(course.maximumParticipants !== undefined ? { maxParticipants: course.maximumParticipants } : {}),
       ...(course.minimumParticipants !== undefined ? { minParticipants: course.minimumParticipants } : {}),
       stages: course.stages.map((stage) => ({
+        id: stage.id,
         name: stage.name,
         type: stage.phase === 'PREPARATION' ? ('preparation' as const) : ('match' as const),
-        series: stage.series.map((series) => ({ shots: series.shots })),
+        series: stage.series.map((series) => ({
+          shots: series.shots,
+          ...(series.label ? { label: series.label } : {}),
+          ...(series.position ? { position: series.position } : {}),
+          ...(series.purpose ? { purpose: series.purpose } : {}),
+          ...(series.targetModeControl ? { targetModeControl: series.targetModeControl } : {}),
+          ...(series.timedTargetProgramId ? { timedTargetProgramId: series.timedTargetProgramId } : {}),
+        })),
         timer: { mode: stage.timer.mode, durationSec: stage.timer.durationSeconds },
+        ...(stage.seriesTransition ? { seriesTransition: stage.seriesTransition } : {}),
+        ...(stage.targetProfileId ? { targetProfileId: stage.targetProfileId } : {}),
+        ...(stage.scoringGaugeProfileId ? { scoringGaugeProfileId: stage.scoringGaugeProfileId } : {}),
+        ...(stage.sightingTimedTargetProgramId
+          ? { sightingTimedTargetProgramId: stage.sightingTimedTargetProgramId }
+          : {}),
         ...(stage.elimination
           ? {
               elimination: {
@@ -82,6 +104,22 @@ export function competitionTypeFromRulePack(
       totalShots: ranking.totalShots,
       totalSeries: ranking.totalSeries,
       ...(ranking.stage1Shots !== undefined ? { stage1Shots: ranking.stage1Shots } : {}),
+      ...(ranking.finalRuleReference ? { finalRuleReference: ranking.finalRuleReference } : {}),
+      ...(ranking.finalCheckpoints
+        ? {
+            finalCheckpoints: ranking.finalCheckpoints.map((checkpoint) => ({
+              ...checkpoint,
+              ...(checkpoint.tieResolution?.type === 'COUNTBACK_FOR_EXACT_TIE'
+                ? {
+                    tieResolution: {
+                      ...checkpoint.tieResolution,
+                      criteria: checkpoint.tieResolution.criteria.map((criterion) => ({ ...criterion })),
+                    },
+                  }
+                : {}),
+            })),
+          }
+        : {}),
       ...(ranking.strategy === 'ISSF_6_15_1_DECIMAL_RIFLE'
         ? { tieBreakPolicy: 'ISSF_DECIMAL_RIFLE' as const }
         : ranking.strategy === 'ISSF_6_15_1_FULL_RING'
@@ -89,6 +127,14 @@ export function competitionTypeFromRulePack(
           : {}),
     },
     ...(pack.capabilities.team ? { teamFormat: pack.capabilities.team.format } : {}),
+    ...(pack.capabilities.outdoorEliminationPlanning
+      ? { outdoorEliminationPlanning: { ...pack.capabilities.outdoorEliminationPlanning } }
+      : {}),
+    ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
+    ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
+    ...(pack.capabilities.finalSeriesAdjudication
+      ? { finalSeriesAdjudication: pack.capabilities.finalSeriesAdjudication }
+      : {}),
     ...(verification
       ? {
           resultVerification: {
@@ -171,5 +217,6 @@ function toPhaseStartRequirements(commands: CommandSequenceCapability): PhaseSta
 }
 
 function toRoundType(round: RulePack['round']): RoundType {
+  if (round === 'ELIMINATION') return 'Elimination';
   return round === 'QUALIFICATION' ? 'Qualification' : 'Final';
 }

@@ -24,10 +24,11 @@ describe('CompetitionShootOffShotPublisher', () => {
       iteration: 1,
       timerStartAt: '2026-09-02T03:00:00.000Z',
       timerDurationSeconds: 50,
+      shotsPerLane: 1,
       status: 'OPEN',
-      shotId: null,
+      recordedShotIds: [],
     };
-    const recordShot = vi.fn(() => ({ ...openState, status: 'SHOT_RECORDED' as const, shotId }));
+    const recordShot = vi.fn(() => ({ ...openState, status: 'COMPLETE' as const, recordedShotIds: [shotId] }));
     const control = {
       getState: vi.fn(() => openState),
       recordShot,
@@ -50,7 +51,7 @@ describe('CompetitionShootOffShotPublisher', () => {
       publishedAt: '2026-09-02T03:00:25.200Z',
     };
     const outbox = {
-      findByRound: vi.fn(() => persisted),
+      findByRound: vi.fn(() => [persisted]),
     } as unknown as ICompetitionShootOffShotOutbox;
     const storage = { get: vi.fn(() => laneId) } as unknown as ILocalStorage;
     const eventBus = { on: vi.fn(() => () => undefined) } as unknown as IEventBus;

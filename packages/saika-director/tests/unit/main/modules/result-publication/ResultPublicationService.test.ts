@@ -103,6 +103,30 @@ describe('ResultPublicationService', () => {
     expect(view.canRegisterProtest).toBe(false);
   });
 
+  it('rejects official publication while an independent verification blocker remains', async () => {
+    await service.publishPreliminary({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Officer',
+    });
+    now = new Date('2026-08-29T01:10:00.000Z');
+    readiness = {
+      ...readiness,
+      approvalId: 'approval-1',
+      approvalSnapshotRevision: REVISION,
+      verificationIssues: ['Irregular shot case is unresolved'],
+    };
+
+    await expect(
+      service.publishOfficial({
+        eventId: 'event-1',
+        resultScope: 'QUALIFICATION',
+        officialName: 'RTS Jury Member',
+      }),
+    ).rejects.toThrow('Irregular shot case is unresolved');
+    expect(repository.entries.map((entry) => entry.type)).toEqual(['PRELIMINARY_PUBLISHED']);
+  });
+
   it('reports an official publication that no longer matches current results', async () => {
     await service.publishPreliminary({
       eventId: 'event-1',
@@ -127,5 +151,57 @@ describe('ResultPublicationService', () => {
 
     expect(view.publicationCurrent).toBe(false);
     expect(view.issues).toContain('The current result list no longer matches the official publication');
+  });
+
+  it('reports a blocker that is raised after Official publication', async () => {
+    await service.publishPreliminary({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Officer',
+    });
+    now = new Date('2026-08-29T01:10:00.000Z');
+    readiness = {
+      ...readiness,
+      approvalId: 'approval-1',
+      approvalSnapshotRevision: REVISION,
+      verificationIssues: [],
+    };
+    await service.publishOfficial({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Jury Member',
+    });
+    readiness = { ...readiness, verificationIssues: ['Irregular shot case is unresolved'] };
+
+    const view = await service.getStatus('event-1', 'QUALIFICATION');
+
+    expect(view.publicationCurrent).toBe(false);
+    expect(view.issues).toContain('Irregular shot case is unresolved');
+  });
+
+  it('reports an Official publication whose RTS approval was replaced for the same revision', async () => {
+    await service.publishPreliminary({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Officer',
+    });
+    now = new Date('2026-08-29T01:10:00.000Z');
+    readiness = {
+      ...readiness,
+      approvalId: 'approval-1',
+      approvalSnapshotRevision: REVISION,
+      verificationIssues: [],
+    };
+    await service.publishOfficial({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Jury Member',
+    });
+    readiness = { ...readiness, approvalId: 'approval-2' };
+
+    const view = await service.getStatus('event-1', 'QUALIFICATION');
+
+    expect(view.publicationCurrent).toBe(false);
+    expect(view.issues).toContain('The current RTS approval no longer matches the official publication');
   });
 });

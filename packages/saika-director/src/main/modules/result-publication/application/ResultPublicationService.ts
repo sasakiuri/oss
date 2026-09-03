@@ -41,6 +41,15 @@ export class ResultPublicationService {
     const state = publication.stateAt(now);
     const readiness = await this.readiness.getCurrent(eventId, resultScope);
     const issues = buildOfficialPublicationIssues(state, readiness, now);
+    const sameRevision =
+      state.snapshotRevision !== null &&
+      readiness.snapshotRevision !== null &&
+      state.snapshotRevision === readiness.snapshotRevision;
+    const officialWorkflowCurrent =
+      state.status !== 'OFFICIAL' ||
+      (state.approvalId === readiness.approvalId &&
+        readiness.approvalSnapshotRevision === readiness.snapshotRevision &&
+        readiness.verificationIssues.length === 0);
     return {
       eventId,
       resultScope,
@@ -48,10 +57,7 @@ export class ResultPublicationService {
       preliminaryId: state.preliminaryId,
       publicationSnapshotRevision: state.snapshotRevision,
       currentSnapshotRevision: readiness.snapshotRevision,
-      publicationCurrent:
-        state.snapshotRevision !== null &&
-        readiness.snapshotRevision !== null &&
-        state.snapshotRevision === readiness.snapshotRevision,
+      publicationCurrent: sameRevision && officialWorkflowCurrent,
       postedAt: state.postedAt,
       protestEndsAt: state.protestEndsAt,
       openProtestReferences: state.openProtestReferences,
@@ -62,7 +68,7 @@ export class ResultPublicationService {
         state.status !== 'OFFICIAL' &&
         state.protestEndsAt !== null &&
         now.getTime() < state.protestEndsAt.getTime(),
-      canPublishOfficial: issues.length === 0,
+      canPublishOfficial: state.status !== 'OFFICIAL' && issues.length === 0,
       issues,
       history: publication.entries,
     };
@@ -134,12 +140,17 @@ export class ResultPublicationService {
       throw new Error('A current RTS result-list approval is required');
     }
     const publication = this.load(input.eventId, input.resultScope);
+    const publishedAt = this.clock.now();
+    const issues = buildOfficialPublicationIssues(publication.stateAt(publishedAt), readiness, publishedAt);
+    if (issues.length > 0) {
+      throw new Error(`Official results cannot be published: ${issues.join('; ')}`);
+    }
     const entry = publication.publishOfficial({
       currentSnapshotRevision: readiness.snapshotRevision,
       approvalSnapshotRevision: readiness.approvalSnapshotRevision,
       approvalId: readiness.approvalId,
       officialName: input.officialName,
-      publishedAt: this.clock.now(),
+      publishedAt,
     });
     this.repository.append(entry);
     return this.getStatus(input.eventId, input.resultScope);
@@ -156,7 +167,7 @@ function buildOfficialPublicationIssues(
   now: Date,
 ): string[] {
   if (state.status === 'OFFICIAL') {
-    const issues = ['Results are already official'];
+    const issues: string[] = [];
     if (
       state.snapshotRevision !== null &&
       readiness.snapshotRevision !== null &&
@@ -164,7 +175,17 @@ function buildOfficialPublicationIssues(
     ) {
       issues.push('The current result list no longer matches the official publication');
     }
-    return issues;
+    if (state.approvalId !== readiness.approvalId) {
+      issues.push('The current RTS approval no longer matches the official publication');
+    }
+    if (
+      readiness.snapshotRevision !== null &&
+      readiness.approvalSnapshotRevision !== null &&
+      readiness.approvalSnapshotRevision !== readiness.snapshotRevision
+    ) {
+      issues.push('The current RTS approval covers another result-list revision');
+    }
+    return [...new Set([...issues, ...readiness.verificationIssues])];
   }
   const issues: string[] = [];
   if (!readiness.supported) issues.push('This result scope does not yet support official publication');

@@ -1,3 +1,12 @@
+import type {
+  FinalTieResolutionPolicy,
+  FinalSeriesAdjudicationCapability,
+  OutdoorEliminationPlanningCapability,
+  RulePackIdentity,
+  ShotResultProjectionCapability,
+  TimedTargetCapability,
+} from '@sasakiuri/saika-rules';
+
 /**
  * Pure-data competition definition. RoundConfig creation is handled by an external factory.
  */
@@ -11,6 +20,11 @@ export type TimerMode = 'series' | 'stage' | 'shot';
 
 export interface SeriesDefinition {
   readonly shots: number; // 0 means unlimited (Preparation).
+  readonly label?: string;
+  readonly position?: 'KNEELING' | 'PRONE' | 'STANDING';
+  readonly purpose?: 'MATCH' | 'POSITION_CHANGE_AND_SIGHTING';
+  readonly targetModeControl?: 'RANGE_OFFICIAL' | 'ATHLETE';
+  readonly timedTargetProgramId?: string;
 }
 
 export interface TimerDefinition {
@@ -27,11 +41,16 @@ export interface EliminationRule {
 }
 
 export interface StageDefinition {
+  readonly id?: string;
   readonly name: string;
   readonly type: 'preparation' | 'match';
   readonly series: readonly SeriesDefinition[];
   readonly timer: TimerDefinition;
   readonly elimination?: EliminationRule;
+  readonly seriesTransition?: 'AUTOMATIC' | 'OFFICIAL_COMMAND';
+  readonly targetProfileId?: string;
+  readonly scoringGaugeProfileId?: string;
+  readonly sightingTimedTargetProgramId?: string;
 }
 
 export type RoundType = 'Elimination' | 'Qualification' | 'Final' | 'Individual';
@@ -54,6 +73,12 @@ export interface ResultFormat {
   readonly totalShots: number;
   readonly totalSeries: number;
   readonly stage1Shots?: number; // Finals only.
+  readonly finalRuleReference?: string;
+  readonly finalCheckpoints?: readonly {
+    readonly afterMatchShot: number;
+    readonly rank: number;
+    readonly tieResolution?: FinalTieResolutionPolicy;
+  }[];
   /** ISSF 6.15.1 qualification tie-break branch. */
   readonly tieBreakPolicy?: 'ISSF_FULL_RING' | 'ISSF_DECIMAL_RIFLE';
 }
@@ -113,6 +138,8 @@ export interface FiringWindowDetectionPolicy {
 export interface LaneProtocolCapability {
   readonly discipline: string;
   readonly acc: 'RING' | 'DECIMAL';
+  readonly targetProfileId?: string;
+  readonly scoringGaugeProfileId?: string;
 }
 
 export interface CompetitionTypeDefinition {
@@ -120,12 +147,22 @@ export interface CompetitionTypeDefinition {
   readonly name: string;
   /** Versioned rule source. Missing for local/JRSF definitions not yet migrated. */
   readonly rulePackId?: string;
+  /** Exact immutable source used for runtime compatibility and audit binding. */
+  readonly rulePackIdentity?: RulePackIdentity;
+  /** Runtime enforcement is an application policy and can be relaxed for practice operation. */
+  readonly compatibilityMode?: 'DISABLED' | 'ADVISORY' | 'REQUIRED';
   readonly scoring: ScoringConfig;
   readonly config: RoundDefinition;
   readonly rankingStrategyId: string;
   readonly displayHints: DisplayHints;
   readonly resultFormat: ResultFormat;
   readonly resultVerification?: ResultVerificationPolicy;
+  /** Optional venue-planning policy; execution and approval live in a separate Director module. */
+  readonly outdoorEliminationPlanning?: OutdoorEliminationPlanningCapability;
+  /** Optional 25m target schedule; execution remains in the dedicated Lane module. */
+  readonly timedTarget?: TimedTargetCapability;
+  /** Result-only scoring projection; Lane protocol still advertises source accuracy. */
+  readonly resultProjection?: ShotResultProjectionCapability;
   /** Team aggregation metadata; Lane still operates one athlete per firing point. */
   readonly teamFormat?: 'MIXED_PAIR';
   /** Optional so local competition types can operate without automatic reminders. */
@@ -134,6 +171,8 @@ export interface CompetitionTypeDefinition {
   readonly phaseStartRequirements?: PhaseStartRequirements;
   /** Optional review-only detection; local definitions may omit or replace it. */
   readonly firingWindowDetection?: FiringWindowDetectionPolicy;
+  /** Optional Jury guidance; evidence and score changes stay in independent Director ledgers. */
+  readonly finalSeriesAdjudication?: FinalSeriesAdjudicationCapability;
   /** Omit for definitions that cannot be run through the Lane MQTT protocol. */
   readonly laneProtocol?: LaneProtocolCapability;
 }

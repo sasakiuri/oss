@@ -39,18 +39,19 @@ export class CompetitionShootOffShotPublisher {
 
   private restoreRecordedShotFromOutbox(): void {
     const state = this.control.getState();
-    if (!state || state.status === 'SHOT_RECORDED') return;
+    if (!state || state.status === 'COMPLETE') return;
     const laneId = this.storage.get<string>('mqtt.laneId');
     if (!laneId) return;
     const persisted = this.outbox.findByRound(state.runId, state.iteration, laneId);
-    if (!persisted) return;
-    try {
-      this.control.recordShot(state.competitionId, persisted.shotId, new Date(persisted.firedAt));
-    } catch (error) {
-      getLogger().error('[CompetitionShootOffShotPublisher] Failed to restore captured shot state', 'mqtt', {
-        error: error instanceof Error ? error.message : String(error),
-        shotId: persisted.shotId,
-      });
+    for (const shot of persisted) {
+      try {
+        this.control.recordShot(state.competitionId, shot.shotId, new Date(shot.firedAt));
+      } catch (error) {
+        getLogger().error('[CompetitionShootOffShotPublisher] Failed to restore captured shot state', 'mqtt', {
+          error: error instanceof Error ? error.message : String(error),
+          shotId: shot.shotId,
+        });
+      }
     }
   }
 
@@ -86,6 +87,8 @@ export class CompetitionShootOffShotPublisher {
       firedAt: shot.timestamp.toISOString(),
       receivedAt: shot.receivedAt.toISOString(),
       ...(shot.sourceObservationId ? { observationId: shot.sourceObservationId } : {}),
+      ...(shot.targetProfileId ? { targetProfileId: shot.targetProfileId } : {}),
+      ...(shot.scoringGaugeProfileId ? { scoringGaugeProfileId: shot.scoringGaugeProfileId } : {}),
       publishedAt: new Date().toISOString(),
     };
     this.outbox.enqueue(payload);

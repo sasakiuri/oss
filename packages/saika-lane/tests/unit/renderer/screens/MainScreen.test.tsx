@@ -134,6 +134,9 @@ vi.mock('@/renderer/presentation/components/StatusBar', () => ({
 vi.mock('@/renderer/presentation/components/DebugPane', () => ({
   DebugPane: (props: Record<string, unknown>) => <div data-testid="debug-pane" {...filterProps(props)} />,
 }));
+vi.mock('@/renderer/presentation/components/RangeOfficerRequestControl', () => ({
+  RangeOfficerRequestControl: () => <div data-testid="range-officer-request-control" />,
+}));
 vi.mock('@/renderer/presentation/components/SettingsModal', () => ({
   SettingsModal: ({ isOpen, initialTab }: { isOpen: boolean; initialTab?: string }) =>
     isOpen ? (

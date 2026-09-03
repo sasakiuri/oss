@@ -23,6 +23,8 @@ export interface CompetitionStateDto {
   currentStageName: string;
   scored: boolean;
   shotsPerSeries: number;
+  targetProfileId?: string;
+  scoringGaugeProfileId?: string;
 }
 
 export interface CompetitionTypeDto {

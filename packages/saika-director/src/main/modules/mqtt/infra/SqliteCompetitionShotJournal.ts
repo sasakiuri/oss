@@ -16,6 +16,8 @@ interface CompetitionShotObservationRow {
   calculated_score_x10: number;
   calculated_score_available: number;
   effective_score_x10: number;
+  target_profile_id: string | null;
+  scoring_gauge_profile_id: string | null;
   inner_ten: number;
   mode: 'SIGHTING' | 'MATCH';
   fired_at: string;
@@ -40,13 +42,15 @@ export class SqliteCompetitionShotJournal implements ICompetitionShotJournal {
         `INSERT INTO mqtt_competition_shot_observations (
            id, competition_id, lane_id, session_id, shot_id, source_observation_id,
            x, y, legacy_raw_score_x10, device_score_x10, calculated_score_x10,
-           calculated_score_available, effective_score_x10, inner_ten, mode, fired_at, received_at, stage_index,
+           calculated_score_available, effective_score_x10, target_profile_id, scoring_gauge_profile_id,
+           inner_ten, mode, fired_at, received_at, stage_index,
            scored, series_index, shot_number_in_series, is_recorded, is_replay,
            published_at, observed_at, payload_json
          ) VALUES (
            @id, @competitionId, @laneId, @sessionId, @shotId, @sourceObservationId,
            @x, @y, @legacyRawScoreX10, @deviceScoreX10, @calculatedScoreX10,
-           @calculatedScoreAvailable, @effectiveScoreX10, @innerTen, @mode, @firedAt, @receivedAt, @stageIndex,
+           @calculatedScoreAvailable, @effectiveScoreX10, @targetProfileId, @scoringGaugeProfileId,
+           @innerTen, @mode, @firedAt, @receivedAt, @stageIndex,
            @scored, @seriesIndex, @shotNumberInSeries, @isRecorded, @isReplay,
            @publishedAt, @observedAt, @payloadJson
          )`,
@@ -92,6 +96,8 @@ function toDomain(row: CompetitionShotObservationRow): CompetitionShotObservatio
     calculatedScoreX10: row.calculated_score_x10,
     calculatedScoreAvailable: row.calculated_score_available === 1,
     effectiveScoreX10: row.effective_score_x10,
+    targetProfileId: row.target_profile_id,
+    scoringGaugeProfileId: row.scoring_gauge_profile_id,
     innerTen: row.inner_ten === 1,
     mode: row.mode,
     firedAt: new Date(row.fired_at),

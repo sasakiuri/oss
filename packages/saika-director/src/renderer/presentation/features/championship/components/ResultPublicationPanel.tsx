@@ -148,7 +148,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
               <div className="flex gap-2 border-l-2 border-vscode-warning pl-3 text-xs text-vscode-warning">
                 <TriangleAlert size={15} className="shrink-0" aria-hidden="true" />
                 {status.status === 'OFFICIAL'
-                  ? 'The current result list no longer matches the official publication. The journal remains unchanged; follow the event correction procedure.'
+                  ? 'The Official publication requires review because its result revision, RTS approval, or an operational blocker is no longer current. The journal remains unchanged; follow the event correction procedure.'
                   : 'The result list changed after preliminary publication. Publish the current revision again.'}
               </div>
             )}
@@ -240,9 +240,11 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
               </section>
             )}
 
-            {status.issues.length > 0 && status.status !== 'OFFICIAL' && (
+            {status.issues.length > 0 && (
               <section className="space-y-2 border-t border-vscode-border pt-4">
-                <h3 className="text-[13px] font-semibold text-vscode-text">Official publication blockers</h3>
+                <h3 className="text-[13px] font-semibold text-vscode-text">
+                  {status.status === 'OFFICIAL' ? 'Official publication review' : 'Official publication blockers'}
+                </h3>
                 <ul className="list-disc space-y-1 pl-5 text-xs text-vscode-text-muted">
                   {status.issues.map((issue) => (
                     <li key={issue}>{issue}</li>

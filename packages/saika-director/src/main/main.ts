@@ -45,6 +45,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 });
 
 import { createApp } from './composition/createContainer';
+import { applyPendingDatabaseRestoreSync } from './modules/operational-archives';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(appDir, '../preload/preload.mjs');
@@ -53,6 +54,16 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  const userDataPath = app.getPath('userData');
+  const restoreResult = applyPendingDatabaseRestoreSync(join(userDataPath, 'saika.db'), userDataPath);
+  if (restoreResult.error) {
+    crashLogger.error('Pending database restore was not applied', { error: restoreResult.error });
+  } else if (restoreResult.applied) {
+    crashLogger.info('Pending database restore applied', {
+      sourceFileName: restoreResult.sourceFileName,
+      recoveryPath: restoreResult.recoveryPath,
+    });
+  }
   const services = createApp(preloadPath);
   let mainWindow: BrowserWindow | null = null;
   let lifecycleStarted = false;

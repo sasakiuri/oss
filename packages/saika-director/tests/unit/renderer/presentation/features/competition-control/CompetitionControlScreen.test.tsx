@@ -83,6 +83,7 @@ vi.mock('@/renderer/presentation/features/range-interruptions', () => ({
 
 vi.mock('@/renderer/presentation/features/relay-readiness', () => ({
   RelayReadinessPanel: () => <div data-testid="relay-readiness-panel" />,
+  RelayAthleteLifecyclePanel: () => <div data-testid="relay-athlete-lifecycle-panel" />,
 }));
 
 vi.mock('@/renderer/presentation/features/production-operations', () => ({

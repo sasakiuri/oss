@@ -52,6 +52,39 @@ describe('EmbeddedMqttBroker', () => {
     broker = null;
   });
 
+  it('enforces configured credentials at the broker connection boundary', async () => {
+    broker = new EmbeddedMqttBroker({
+      port: 0,
+      security: {
+        mode: 'REQUIRED',
+        accounts: [
+          { username: 'director', password: 'director-secret', role: 'DIRECTOR' },
+          { username: 'lane', password: 'lane-secret', role: 'LANE' },
+        ],
+      },
+    });
+    await broker.start();
+    const brokerUrl = `mqtt://127.0.0.1:${broker.port}`;
+
+    await expect(
+      connectAsync(brokerUrl, {
+        clientId: 'saika-director-rejected',
+        username: 'director',
+        password: 'incorrect',
+        reconnectPeriod: 0,
+      }),
+    ).rejects.toThrow();
+
+    const director = await connectAsync(brokerUrl, {
+      clientId: 'saika-director-authorized',
+      username: 'director',
+      password: 'director-secret',
+      reconnectPeriod: 0,
+    });
+    mqttClients.push(director);
+    expect(director.connected).toBe(true);
+  });
+
   it('cleans up a failed startup and can be started again', async () => {
     broker = new EmbeddedMqttBroker({ port: 0 });
     await broker.start();
@@ -72,13 +105,22 @@ describe('EmbeddedMqttBroker', () => {
     database = new Database(':memory:');
     migration007MqttRetainedMessages.up(database);
     const store = new SqliteMqttRetainedMessageStore(database);
-    broker = new EmbeddedMqttBroker({ port: 0 }, store);
+    const security = {
+      mode: 'REQUIRED',
+      accounts: [
+        { username: 'director', password: 'director-secret', role: 'DIRECTOR' },
+        { username: 'lane', password: 'lane-secret', role: 'LANE' },
+      ],
+    } as const;
+    broker = new EmbeddedMqttBroker({ port: 0, security }, store);
     await broker.start();
 
     const topic = 'saika/competition/11111111-1111-4111-8111-111111111111/state';
     const payload = Buffer.from('{"phase":"MATCH"}');
     const publisher = await connectAsync(`mqtt://127.0.0.1:${broker.port}`, {
       clientId: 'retained-publisher',
+      username: 'director',
+      password: 'director-secret',
       reconnectPeriod: 0,
     });
     mqttClients.push(publisher);
@@ -93,10 +135,12 @@ describe('EmbeddedMqttBroker', () => {
     mqttClients.splice(mqttClients.indexOf(publisher), 1);
     await broker.stop();
 
-    secondBroker = new EmbeddedMqttBroker({ port: 0 }, store);
+    secondBroker = new EmbeddedMqttBroker({ port: 0, security }, store);
     await secondBroker.start();
     const subscriber = await connectAsync(`mqtt://127.0.0.1:${secondBroker.port}`, {
       clientId: 'retained-subscriber',
+      username: 'director',
+      password: 'director-secret',
       reconnectPeriod: 0,
     });
     mqttClients.push(subscriber);

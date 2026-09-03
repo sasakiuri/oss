@@ -39,6 +39,7 @@ import type { ITargetExaminationRepository } from '@/main/modules/target-examina
 import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
 import type { ICompetitionDataGuard } from '@/main/shared-infra/operations/CompetitionDataGuard';
 import type {
+  FinalResultDeclarationService,
   IResultPublicationPolicyResolver,
   IResultPublicationReadiness,
   IResultPublicationRepository,
@@ -48,6 +49,9 @@ import type { TeamResultsService } from '@/main/modules/team-results';
 import type { EstBackupVerificationService } from '@/main/modules/est-backup-verification';
 import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import type { FinalOperationService } from '@/main/modules/final-operations';
+import type { IIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
+import type { OperationalArchiveService } from '@/main/modules/operational-archives';
+import type { ResultsBookService } from '@/main/modules/results-books';
 
 // Re-export for convenience
 export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
@@ -92,6 +96,10 @@ export interface ServiceRegistry {
   readonly resultPublicationRepository: IResultPublicationRepository;
   readonly resultPublicationReadiness: IResultPublicationReadiness;
   readonly resultPublicationPolicyResolver: IResultPublicationPolicyResolver;
+  readonly finalResultDeclarationService: FinalResultDeclarationService;
+  readonly irregularShotCaseRepository: IIrregularShotCaseRepository;
+  readonly operationalArchiveService: OperationalArchiveService;
+  readonly resultsBookService: ResultsBookService;
 }
 
 // ---------------------------------------------------------------------------

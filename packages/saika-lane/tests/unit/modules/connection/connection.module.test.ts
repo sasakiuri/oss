@@ -84,6 +84,7 @@ describe('connection.module', () => {
         'sessionRepository',
         'competitionRepository',
         'competitionShootOffControl',
+        'timedTargetControl',
         'safetyStopControl',
         'usbManager',
         'ipcRouter',

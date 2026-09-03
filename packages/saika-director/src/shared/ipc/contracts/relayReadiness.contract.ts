@@ -1,8 +1,17 @@
 import { z } from 'zod';
 import { commandDataResponseSchema, defineContract, query, queryResponseSchema, command } from '../defineContract';
 
-const phaseSchema = z.enum(['SIGHTING', 'MATCH']);
-const requirementSchema = z.enum(['RANGE_EQUIPMENT_READY', 'TARGET_MODE_CONFIRMED', 'BACKUP_MEMORY_READY']);
+const phaseSchema = z.enum(['RELAY', 'SIGHTING', 'MATCH']);
+const operationalPhaseSchema = z.enum(['SIGHTING', 'MATCH']);
+const requirementSchema = z.enum([
+  'RANGE_EQUIPMENT_READY',
+  'TARGET_MODE_CONFIRMED',
+  'BACKUP_MEMORY_READY',
+  'TARGET_WHITE_SURFACE_CLEAR',
+  'TARGET_FRAME_MARKS_INDICATED',
+  'CONTROL_SHEET_RENEWED',
+  'BACKING_MATERIAL_CLEAR',
+]);
 const stateSchema = z.enum(['CONFIRMED', 'REVOKED']);
 const sourceSchema = z.enum(['MANUAL', 'LANE_REPORTED', 'IMPORT']);
 
@@ -11,6 +20,8 @@ const scopeSchema = z.object({
   relayNumber: z.number().int().positive(),
   phase: phaseSchema,
 });
+
+const assessmentScopeSchema = scopeSchema.extend({ phase: operationalPhaseSchema });
 
 const entrySchema = z.object({
   id: z.string().uuid(),
@@ -44,7 +55,10 @@ const assessmentSchema = z.object({
     z.object({
       requirement: requirementSchema,
       laneId: z.string().nullable(),
+      phase: phaseSchema,
+      label: z.string().min(1),
       ruleReference: z.string(),
+      required: z.boolean(),
       confirmed: z.boolean(),
       latestEntry: entrySchema.nullable(),
     }),
@@ -59,5 +73,8 @@ export type RelayReadinessAssessmentDto = z.infer<typeof assessmentSchema>;
 export const relayReadinessContract = defineContract('relayReadiness', {
   list: query(scopeSchema, queryResponseSchema(z.array(entrySchema))),
   record: command(recordSchema, commandDataResponseSchema(entrySchema)),
-  assess: query(scopeSchema.extend({ laneIds: z.array(z.string().min(1)) }), queryResponseSchema(assessmentSchema)),
+  assess: query(
+    assessmentScopeSchema.extend({ laneIds: z.array(z.string().min(1)) }),
+    queryResponseSchema(assessmentSchema),
+  ),
 });

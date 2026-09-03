@@ -7,6 +7,7 @@
  */
 
 import { RecordShotToken } from '@/main/composition/tokens';
+import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ShotData } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
@@ -20,8 +21,15 @@ import {
   createShotObservationEvidence,
   type ShotObservationCompetitionContext,
 } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
+import type { ITimedTargetControl, TimedTargetShotDecision } from '@/main/modules/timed-target';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import {
+  isScoringGaugeProfileId,
+  isTargetScoringProfileId,
+  type ScoringGaugeProfileId,
+  type TargetScoringProfileId,
+} from '@/shared/target';
 
 export interface ShotIngestionDeps {
   commandBus: CommandBus;
@@ -29,7 +37,8 @@ export interface ShotIngestionDeps {
   competitionRepository: ICompetitionRepository;
   shotObservationRepository: IShotObservationRepository;
   safetyStopReader?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
-  shootOffReader?: Pick<ICompetitionShootOffControl, 'canAcceptShot'>;
+  shootOffReader?: Pick<ICompetitionShootOffControl, 'canAcceptShot' | 'getState'>;
+  timedTargetReader?: Pick<ITimedTargetControl, 'tryAcceptShot'>;
   onObservationFinalized?: (evidenceId: string) => void;
 }
 
@@ -41,6 +50,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
     shotObservationRepository,
     safetyStopReader,
     shootOffReader,
+    timedTargetReader,
     onObservationFinalized,
   } = deps;
 
@@ -98,9 +108,42 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         logger.warn('Shot quarantined while Lane safety stop is active', 'usb', { safetyStopId });
         return;
       }
-      const acceptedByShootOff =
+      const shootOffCandidate =
         activeCompetition !== null && shootOffReader?.canAcceptShot(activeCompetition.id, shotData.timestamp) === true;
-      if (activeCompetition && !activeCompetition.canAcceptShot() && !acceptedByShootOff) {
+      const shootOffProgramId = shootOffCandidate ? shootOffReader?.getState()?.timedTargetProgramId : undefined;
+      // A Final shoot-off remains an independent acquisition window. A RulePack
+      // may add exact red/green target enforcement without putting these shots
+      // into the current MATCH series.
+      const timedTargetDecision =
+        activeCompetition && (!shootOffCandidate || shootOffProgramId)
+          ? assessTimedTargetShot(
+              activeCompetition,
+              observation.id,
+              shotData.timestamp,
+              timedTargetReader,
+              shootOffProgramId,
+            )
+          : null;
+      if (timedTargetDecision && !timedTargetDecision.allowed) {
+        await finalizeObservation({
+          observationId: observation.id,
+          type: 'REJECTED_TIMED_TARGET_WINDOW',
+          sessionId: activeCompetition!.sessionId,
+          detail: timedTargetDecision.reason,
+        });
+        logger.warn('Shot rejected outside the timed target recording window', 'usb', {
+          sequenceId: timedTargetDecision.sequenceId,
+          reason: timedTargetDecision.reason,
+        });
+        return;
+      }
+      const acceptedByShootOff = shootOffCandidate && (!shootOffProgramId || timedTargetDecision?.allowed === true);
+      if (
+        activeCompetition &&
+        !activeCompetition.canAcceptShot() &&
+        !acceptedByShootOff &&
+        !timedTargetDecision?.allowed
+      ) {
         await finalizeObservation({
           observationId: observation.id,
           type: 'REJECTED_COMPETITION_PHASE',
@@ -123,16 +166,26 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         return;
       }
 
-      const stageScored = activeCompetition?.currentStageConfig?.scored;
       const effectiveMode = acceptedByShootOff
         ? Mode.sighting()
-        : typeof stageScored === 'boolean'
-          ? stageScored
-            ? Mode.match()
-            : Mode.sighting()
-          : shotData.mode !== undefined
-            ? Mode.fromValue(shotData.mode)
-            : undefined;
+        : timedTargetDecision
+          ? timedTargetDecision.purpose === 'SIGHTING'
+            ? Mode.sighting()
+            : Mode.match()
+          : activeCompetition
+            ? Mode.fromValue(
+                resolveCompetitionShotMode(
+                  activeCompetition.currentStageConfig,
+                  activeCompetition.currentSeriesConfig,
+                  shotData.mode,
+                ),
+              )
+            : shotData.mode !== undefined
+              ? Mode.fromValue(shotData.mode)
+              : undefined;
+
+      const targetProfileId = resolveTargetProfileId(activeCompetition, timedTargetDecision);
+      const scoringGaugeProfileId = resolveScoringGaugeProfileId(activeCompetition);
 
       await commandBus.execute(RecordShotToken, {
         sessionId: activeSession.id,
@@ -144,12 +197,15 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         // A persisted competition stage is authoritative. Adapter context can
         // be stale immediately after restarting the app during MATCH.
         mode: effectiveMode,
+        ...(targetProfileId ? { targetProfileId } : {}),
+        ...(scoringGaugeProfileId ? { scoringGaugeProfileId } : {}),
       });
 
       await finalizeObservation({
         observationId: observation.id,
         type: 'RECORDED',
         sessionId: activeSession.id,
+        ...(timedTargetDecision?.warning ? { detail: timedTargetDecision.warning } : {}),
       });
 
       logger.debug('Shot recorded via USB', 'usb', {
@@ -190,4 +246,53 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
     ingestionQueue = result.catch(() => undefined);
     return result;
   };
+}
+
+function resolveScoringGaugeProfileId(
+  competition: Awaited<ReturnType<ICompetitionRepository['findActive']>>,
+): ScoringGaugeProfileId | undefined {
+  const value = competition?.currentStageConfig.scoringGaugeProfileId ?? competition?.config.scoringGaugeProfileId;
+  if (value === undefined) return undefined;
+  if (!isScoringGaugeProfileId(value)) throw new Error(`Unknown scoring gauge profile: ${value}`);
+  return value;
+}
+
+function assessTimedTargetShot(
+  competition: NonNullable<Awaited<ReturnType<ICompetitionRepository['findActive']>>>,
+  observationId: string,
+  firedAt: Date,
+  reader: ShotIngestionDeps['timedTargetReader'],
+  expectedShootOffProgramId?: string,
+): TimedTargetShotDecision | null {
+  const expectedMatchProgramId = competition.currentSeriesConfig.timedTargetProgramId;
+  if (!expectedMatchProgramId && !expectedShootOffProgramId) return null;
+  const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+  if (!targetProfileId) throw new Error('Timed target stage has no target scoring profile');
+  if (!reader) throw new Error('Timed target enforcement service is unavailable');
+  return reader.tryAcceptShot({
+    competitionId: competition.id,
+    stageIndex: competition.currentStageIndex,
+    seriesIndex: competition.currentSeriesIndex,
+    ...(expectedMatchProgramId ? { expectedMatchProgramId } : {}),
+    ...(competition.currentStageConfig.sightingTimedTargetProgramId
+      ? { expectedSightingProgramId: competition.currentStageConfig.sightingTimedTargetProgramId }
+      : {}),
+    ...(expectedShootOffProgramId ? { expectedShootOffProgramId } : {}),
+    targetProfileId,
+    observationId,
+    firedAt,
+  });
+}
+
+function resolveTargetProfileId(
+  competition: Awaited<ReturnType<ICompetitionRepository['findActive']>>,
+  timedTargetDecision: TimedTargetShotDecision | null,
+): TargetScoringProfileId | undefined {
+  const value =
+    timedTargetDecision?.targetProfileId ??
+    competition?.currentStageConfig.targetProfileId ??
+    competition?.config.targetProfileId;
+  if (value === undefined) return undefined;
+  if (!isTargetScoringProfileId(value)) throw new Error(`Unknown target scoring profile: ${value}`);
+  return value;
 }

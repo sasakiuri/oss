@@ -56,7 +56,8 @@ export class CompetitionShotPublisher {
     const shootOff = this.shootOffControl?.getState();
     if (
       shootOff?.competitionId === competition.id &&
-      (shootOff.shotId === event.shot.id || this.shootOffControl?.canAcceptShot(competition.id, event.shot.timestamp))
+      (shootOff.recordedShotIds.includes(event.shot.id) ||
+        this.shootOffControl?.canAcceptShot(competition.id, event.shot.timestamp))
     ) {
       return;
     }

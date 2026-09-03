@@ -104,6 +104,7 @@ export function calculateAutoZoom(
   discipline: Discipline,
   canvasRadius: number = 400,
   targetRadii?: Record<number, number>,
+  scoringGaugeRadiusMm: number = SHOT_RADIUS_BY_DISCIPLINE[discipline],
 ): number {
   const validShots = shots.filter(
     (shot): shot is Shot & { x: number; y: number } => shot.x !== null && shot.y !== null,
@@ -123,8 +124,7 @@ export function calculateAutoZoom(
     return initialZoom;
   }
 
-  const shotRadiusMm = SHOT_RADIUS_BY_DISCIPLINE[discipline];
-  const requiredRadiusMm = Math.max(...validShots.map((shot) => Math.hypot(shot.x, shot.y) + shotRadiusMm));
+  const requiredRadiusMm = Math.max(...validShots.map((shot) => Math.hypot(shot.x, shot.y) + scoringGaugeRadiusMm));
   const fitZoom = calculateZoomForRadius(canvasRadius, requiredRadiusMm, FIT_MARGIN_COEFFICIENT);
 
   if (validShotCount === 1) {

@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import type { RulePackRegistry } from '@sasakiuri/saika-rules';
+import { projectShotResult, type RulePackRegistry } from '@sasakiuri/saika-rules';
 
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type {
@@ -17,6 +17,7 @@ import type {
 
 import { projectFinalOperation, type FinalOperationProjection } from '../domain/FinalOperationProjector';
 import { normalizeShootOffUnits } from '../domain/FinalOperationShootOffUnit';
+import { inferShootOffShotsPerLane } from '../domain/FinalOperationShootOffFormat';
 import type {
   FinalOperationEntry,
   FinalOperationRun,
@@ -45,6 +46,11 @@ export interface FinalOperationExecutionAuthorizationInput {
   readonly iteration: number;
   readonly step: FinalOperationScriptStepDto;
   readonly eligibleLaneIds: readonly string[];
+}
+
+export interface FinalOperationExecutionAuthorization {
+  readonly eventId: string | null;
+  readonly officialName: string;
 }
 
 export class FinalOperationService {
@@ -88,7 +94,7 @@ export class FinalOperationService {
     return toDto(this.project(run));
   }
 
-  assertExecutionAuthorized(input: FinalOperationExecutionAuthorizationInput): void {
+  assertExecutionAuthorized(input: FinalOperationExecutionAuthorizationInput): FinalOperationExecutionAuthorization {
     const projection = this.requireActive(input.runId);
     if (projection.run.competitionId !== input.competitionId) {
       throw new Error(`Final run ${input.runId} does not belong to competition ${input.competitionId}`);
@@ -111,6 +117,11 @@ export class FinalOperationService {
     if (!sameUniqueIds(current.eligibleLaneIds, input.eligibleLaneIds)) {
       throw new Error('Final execution target Lanes do not match the confirmed step');
     }
+    const confirmation = projection.entries.find(
+      (entry) => entry.id === input.confirmationEntryId && entry.entryType === 'STEP_CONFIRMED',
+    );
+    if (!confirmation) throw new Error(`Final confirmation ${input.confirmationEntryId} is unavailable`);
+    return { eventId: projection.run.eventId, officialName: confirmation.officialName };
   }
 
   confirmStep(input: ConfirmFinalOperationStepPayload): FinalOperationRunDto {
@@ -124,13 +135,28 @@ export class FinalOperationService {
     const submittedLaneIds = [...new Set(input.eligibleLaneIds ?? [])];
     const participantSelection =
       'participantSelection' in current.step.effect ? current.step.effect.participantSelection : null;
-    if (branch === 'MAIN' && submittedLaneIds.length > 0 && participantSelection !== 'TIED_ONLY') {
+    if (
+      branch === 'MAIN' &&
+      submittedLaneIds.length > 0 &&
+      participantSelection !== 'TIED_ONLY' &&
+      participantSelection !== 'OFFICIAL_SELECTED'
+    ) {
       throw new Error(`Non-targeted Final step ${input.stepId} cannot be restricted to selected Lanes`);
     }
     const eligibleLaneIds =
       branch === 'SHOOT_OFF' ? [...(projection.shootOff?.eligibleLaneIds ?? [])] : submittedLaneIds;
     if (current.step.effect.type !== 'NONE' && participantSelection === 'TIED_ONLY' && eligibleLaneIds.length < 2) {
       throw new Error('A tied-only Final step requires at least two eligible Lanes');
+    }
+    if (participantSelection === 'OFFICIAL_SELECTED') {
+      const requiredCount =
+        current.step.effect.type === 'RUN_TIMED_TARGET' ? current.step.effect.requiredParticipantCount : undefined;
+      if (requiredCount === undefined || eligibleLaneIds.length !== requiredCount) {
+        throw new Error(
+          `Final step ${input.stepId} requires exactly ${requiredCount ?? 0} officially selected Lane(s)`,
+        );
+      }
+      assertNoRepeatedOfficialSelection(projection, current.step, eligibleLaneIds);
     }
     this.repository.appendEntry(
       stepEntry({
@@ -227,6 +253,7 @@ export class FinalOperationService {
     );
     const previousStarts = projection.entries.filter((entry) => entry.entryType === 'SHOOT_OFF_STARTED');
     const iteration = Math.max(0, ...previousStarts.map((entry) => entry.iteration)) + 1;
+    const shotsPerLane = inferShootOffShotsPerLane(projection.run.script.shootOff);
     this.repository.appendEntry({
       ...stepEntry({
         runId: projection.run.id,
@@ -241,6 +268,7 @@ export class FinalOperationService {
       }),
       metadata: {
         checkpointStepId: current.step.id,
+        shotsPerLane,
         units: units.map((unit) => ({ ...unit, laneIds: [...unit.laneIds] })),
       },
     });
@@ -269,20 +297,27 @@ export class FinalOperationService {
     const firingOpened = shootOff.steps.some(
       (step) =>
         step.status === 'COMPLETED' &&
-        step.step.effect.type === 'OPEN_FIRING' &&
+        (step.step.effect.type === 'OPEN_FIRING' || step.step.effect.type === 'RUN_TIMED_TARGET') &&
         step.step.effect.purpose === 'SHOOT_OFF',
     );
     if (!firingOpened) throw new Error(`Shoot-off round ${input.iteration} has not opened its firing window`);
-    const existing = shootOff.shots.find((shot) => shot.laneId === input.laneId);
-    if (existing?.shotId === input.shotId) return toDto(projection);
-    if (existing) throw new Error(`Lane ${input.laneId} already has a shot in shoot-off round ${input.iteration}`);
+    const laneShots = shootOff.shots.filter((shot) => shot.laneId === input.laneId);
+    if (laneShots.some((shot) => shot.shotId === input.shotId)) return toDto(projection);
+    if (laneShots.length >= shootOff.shotsPerLane) {
+      throw new Error(
+        `Lane ${input.laneId} already has ${shootOff.shotsPerLane} shot(s) in shoot-off round ${input.iteration}`,
+      );
+    }
+    const competitionType = this.competitionTypes.get(projection.run.competitionTypeId);
+    const result = projectShotResult(competitionType.resultProjection, input.scoreX10);
     this.repository.appendShootOffShot({
       id: crypto.randomUUID(),
       runId: projection.run.id,
       iteration: input.iteration,
       laneId: input.laneId,
       shotId: input.shotId,
-      scoreX10: input.scoreX10,
+      scoreX10: result.resultScoreX10,
+      sourceScoreX10: result.sourceScoreX10,
       x: input.x,
       y: input.y,
       firedAt: input.firedAt,
@@ -297,16 +332,26 @@ export class FinalOperationService {
     if (!shootOff || shootOff.status !== 'AWAITING_RESOLUTION') {
       throw new Error('The active shoot-off round has not completed its command script');
     }
-    const shotByLane = new Map(shootOff.shots.map((shot) => [shot.laneId, shot]));
-    const missingLaneIds = shootOff.eligibleLaneIds.filter((laneId) => !shotByLane.has(laneId));
+    const shotsByLane = new Map(
+      shootOff.eligibleLaneIds.map((laneId) => [laneId, shootOff.shots.filter((shot) => shot.laneId === laneId)]),
+    );
+    const missingLaneIds = shootOff.eligibleLaneIds.filter(
+      (laneId) => (shotsByLane.get(laneId)?.length ?? 0) < shootOff.shotsPerLane,
+    );
     if (missingLaneIds.length > 0) {
-      throw new Error(`Shoot-off shots are missing for Lane(s): ${missingLaneIds.join(', ')}`);
+      throw new Error(
+        `Shoot-off requires ${shootOff.shotsPerLane} shot(s) per Lane; incomplete Lane(s): ${missingLaneIds.join(', ')}`,
+      );
     }
     const unitScores = shootOff.units.map((unit) => ({
       unitId: unit.unitId,
       label: unit.label,
       laneIds: [...unit.laneIds],
-      scoreX10: unit.laneIds.reduce((total, laneId) => total + shotByLane.get(laneId)!.scoreX10, 0),
+      scoreX10: unit.laneIds.reduce(
+        (total, laneId) =>
+          total + (shotsByLane.get(laneId) ?? []).reduce((laneTotal, shot) => laneTotal + shot.scoreX10, 0),
+        0,
+      ),
     }));
     const minimumScore = Math.min(...unitScores.map((unit) => unit.scoreX10));
     const lowestUnits = unitScores.filter((unit) => unit.scoreX10 === minimumScore);
@@ -336,7 +381,13 @@ export class FinalOperationService {
         remainingTiedUnitIds,
         remainingTiedLaneIds: eliminatedLaneId ? [] : remainingTiedLaneIds,
         unitScores,
-        shots: shootOff.shots.map((shot) => ({ laneId: shot.laneId, shotId: shot.shotId, scoreX10: shot.scoreX10 })),
+        shotsPerLane: shootOff.shotsPerLane,
+        shots: shootOff.shots.map((shot) => ({
+          laneId: shot.laneId,
+          shotId: shot.shotId,
+          scoreX10: shot.scoreX10,
+          sourceScoreX10: shot.sourceScoreX10,
+        })),
       },
     });
     return toDto(this.project(projection.run));
@@ -421,6 +472,7 @@ function toDto(projection: FinalOperationProjection): FinalOperationRunDto {
     competitionTypeId: projection.run.competitionTypeId,
     rulePackId: projection.run.rulePackId,
     scriptVersion: projection.run.scriptVersion,
+    scriptSource: projection.run.script.source ? { ...projection.run.script.source } : null,
     scheduledStartAt: projection.run.scheduledStartAt,
     createdBy: projection.run.createdBy,
     createdAt: projection.run.createdAt,
@@ -434,6 +486,7 @@ function toDto(projection: FinalOperationProjection): FinalOperationRunDto {
           checkpointStepId: projection.shootOff.checkpointStepId,
           eligibleLaneIds: [...projection.shootOff.eligibleLaneIds],
           units: projection.shootOff.units.map((unit) => ({ ...unit, laneIds: [...unit.laneIds] })),
+          shotsPerLane: projection.shootOff.shotsPerLane,
           status: projection.shootOff.status,
           steps: projection.shootOff.steps.map(toStepDto),
           currentStep: projection.shootOff.currentStep ? toStepDto(projection.shootOff.currentStep) : null,
@@ -484,6 +537,7 @@ function toShootOffShotDto(shot: FinalOperationShootOffShot): FinalOperationRunD
     laneId: shot.laneId,
     shotId: shot.shotId,
     scoreX10: shot.scoreX10,
+    sourceScoreX10: shot.sourceScoreX10,
     x: shot.x,
     y: shot.y,
     firedAt: shot.firedAt,
@@ -500,4 +554,37 @@ function sameUniqueIds(expected: readonly string[], actual: readonly string[]): 
     expectedIds.size === actualIds.size &&
     [...expectedIds].every((id) => actualIds.has(id))
   );
+}
+
+function assertNoRepeatedOfficialSelection(
+  projection: FinalOperationProjection,
+  step: FinalOperationScriptStepDto,
+  selectedLaneIds: readonly string[],
+): void {
+  const targetEffect = step.effect;
+  if (targetEffect.type !== 'RUN_TIMED_TARGET' || !targetEffect.target) return;
+  const target = targetEffect.target;
+  const priorLaneIds = new Set(
+    projection.entries
+      .filter((entry) => {
+        const effect = entry.stepSnapshot?.effect;
+        return (
+          entry.entryType === 'STEP_CONFIRMED' &&
+          entry.branch === projection.currentBranch &&
+          entry.iteration === (projection.shootOff?.iteration ?? 0) &&
+          effect?.type === 'RUN_TIMED_TARGET' &&
+          effect.participantSelection === 'OFFICIAL_SELECTED' &&
+          effect.target !== undefined &&
+          effect.purpose === targetEffect.purpose &&
+          effect.target.stageId === target.stageId &&
+          effect.target.stageIndex === target.stageIndex &&
+          effect.target.seriesIndex === target.seriesIndex
+        );
+      })
+      .flatMap((entry) => entry.eligibleLaneIds),
+  );
+  const repeated = selectedLaneIds.filter((laneId) => priorLaneIds.has(laneId));
+  if (repeated.length > 0) {
+    throw new Error(`Officially selected Lane(s) already fired in this series group: ${repeated.join(', ')}`);
+  }
 }

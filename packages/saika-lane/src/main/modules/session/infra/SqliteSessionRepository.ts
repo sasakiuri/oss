@@ -7,6 +7,12 @@ import type { SessionStorageData } from '@/main/modules/session/domain/SessionFa
 import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import { withRepositoryErrorHandling } from '@/shared/errors/withRepositoryErrorHandling';
+import {
+  isScoringGaugeProfileId,
+  isTargetScoringProfileId,
+  type ScoringGaugeProfileId,
+  type TargetScoringProfileId,
+} from '@/shared/target';
 
 /**
  * Type definitions for DB rows
@@ -35,6 +41,8 @@ interface ShotRow {
   calculatedScore: number | null;
   receivedAt: string | null;
   observationId: string | null;
+  targetProfileId: string | null;
+  scoringGaugeProfileId: string | null;
 }
 
 /**
@@ -68,11 +76,13 @@ export class SqliteSessionRepository implements ISessionRepository {
     this.stmtUpsertShot = db.prepare(`
       INSERT INTO shots (
         id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen,
-        timestamp, mode, deviceScore, calculatedScore, receivedAt, observationId
+        timestamp, mode, deviceScore, calculatedScore, receivedAt, observationId, targetProfileId,
+        scoringGaugeProfileId
       )
       VALUES (
         @id, @sessionId, @shotNumber, @seriesNumber, @impactPointX, @impactPointY, @score, @innerTen,
-        @timestamp, @mode, @deviceScore, @calculatedScore, @receivedAt, @observationId
+        @timestamp, @mode, @deviceScore, @calculatedScore, @receivedAt, @observationId, @targetProfileId,
+        @scoringGaugeProfileId
       )
       ON CONFLICT(id) DO UPDATE SET
         sessionId = excluded.sessionId,
@@ -87,7 +97,9 @@ export class SqliteSessionRepository implements ISessionRepository {
         deviceScore = excluded.deviceScore,
         calculatedScore = excluded.calculatedScore,
         receivedAt = excluded.receivedAt,
-        observationId = excluded.observationId
+        observationId = excluded.observationId,
+        targetProfileId = excluded.targetProfileId,
+        scoringGaugeProfileId = excluded.scoringGaugeProfileId
     `);
 
     this.stmtSelectSession = db.prepare(`
@@ -104,7 +116,7 @@ export class SqliteSessionRepository implements ISessionRepository {
 
     this.stmtSelectShots = db.prepare(`
       SELECT id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen, timestamp, mode,
-             deviceScore, calculatedScore, receivedAt, observationId
+             deviceScore, calculatedScore, receivedAt, observationId, targetProfileId, scoringGaugeProfileId
       FROM shots
       WHERE sessionId = ?
       ORDER BY shotNumber ASC
@@ -167,6 +179,8 @@ export class SqliteSessionRepository implements ISessionRepository {
               calculatedScore: shot.calculatedScore.value,
               receivedAt: shot.receivedAt.toISOString(),
               observationId: shot.sourceObservationId ?? null,
+              targetProfileId: shot.targetProfileId ?? null,
+              scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
             });
           }
         });
@@ -218,6 +232,8 @@ export class SqliteSessionRepository implements ISessionRepository {
             calculatedScore: shot.calculatedScore.value,
             receivedAt: shot.receivedAt.toISOString(),
             observationId: shot.sourceObservationId ?? null,
+            targetProfileId: shot.targetProfileId ?? null,
+            scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
           });
         });
 
@@ -332,6 +348,8 @@ export class SqliteSessionRepository implements ISessionRepository {
       calculatedScore: shot.calculatedScore !== null ? shot.calculatedScore : undefined,
       receivedAt: shot.receivedAt ?? undefined,
       sourceObservationId: shot.observationId ?? undefined,
+      targetProfileId: parseTargetProfileId(shot.targetProfileId),
+      scoringGaugeProfileId: parseScoringGaugeProfileId(shot.scoringGaugeProfileId),
     }));
 
     // Reconstruct series from shots where seriesNumber > 0 (Session invariant: sequential from 1)
@@ -365,4 +383,16 @@ export class SqliteSessionRepository implements ISessionRepository {
 
     return SessionFactory.fromStorageData(storageData);
   }
+}
+
+function parseTargetProfileId(value: string | null): TargetScoringProfileId | undefined {
+  if (value === null) return undefined;
+  if (!isTargetScoringProfileId(value)) throw new Error(`Unknown persisted target scoring profile: ${value}`);
+  return value;
+}
+
+function parseScoringGaugeProfileId(value: string | null): ScoringGaugeProfileId | undefined {
+  if (value === null) return undefined;
+  if (!isScoringGaugeProfileId(value)) throw new Error(`Unknown persisted scoring gauge profile: ${value}`);
+  return value;
 }

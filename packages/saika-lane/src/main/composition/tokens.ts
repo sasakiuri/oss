@@ -15,6 +15,7 @@ import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
+import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
 // ---------------------------------------------------------------------------
 // Command Input Interfaces
@@ -37,6 +38,10 @@ export interface RecordShotInput {
   sourceObservationId?: string;
   /** Mode reported by the device (if omitted, the Session's mode is used) */
   mode?: Mode;
+  /** Stage-selected target face; omitted for discipline defaults and practice. */
+  targetProfileId?: TargetScoringProfileId;
+  /** Event-selected scoring geometry; omitted to use the target face's practice default. */
+  scoringGaugeProfileId?: ScoringGaugeProfileId;
 }
 
 /** Input for the mode switch command */

@@ -5,6 +5,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 export const SHOT_OBSERVATION_OUTCOMES = [
   'RECORDED',
   'REJECTED_COMPETITION_PHASE',
+  'REJECTED_TIMED_TARGET_WINDOW',
   'QUARANTINED_SAFETY_STOP',
   'NO_ACTIVE_SESSION',
   'PROCESSING_FAILED',

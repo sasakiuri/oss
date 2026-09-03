@@ -46,6 +46,7 @@ function setupMainModuleMocks(): void {
       loadURL = vi.fn();
       loadFile = vi.fn();
       on = vi.fn();
+      once = vi.fn();
       close = vi.fn();
       destroy = vi.fn();
       minimize = vi.fn();
@@ -226,7 +227,7 @@ function setupMainModuleMocks(): void {
   }));
   vi.doMock('@/main/shared-infra/sqlite/SqliteDb', () => ({
     createSqliteDb: vi.fn(() => ({
-      prepare: vi.fn(() => ({ all: vi.fn(() => []), run: vi.fn() })),
+      prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => undefined), run: vi.fn() })),
     })),
   }));
   vi.doMock('@/shared/ipc/contracts', async () => {

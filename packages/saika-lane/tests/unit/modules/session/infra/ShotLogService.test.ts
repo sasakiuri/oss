@@ -109,6 +109,8 @@ describe('formatJsonLine', () => {
       timestamp: new Date('2026-01-15T10:00:00.000Z'),
       receivedAt: new Date('2026-01-15T10:00:00.025Z'),
       sourceObservationId: '11111111-1111-4111-8111-111111111111',
+      targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+      scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
       shotNumber: 1,
       seriesNumber: 1,
       innerTen: false,
@@ -123,6 +125,8 @@ describe('formatJsonLine', () => {
       deviceScore: 99,
       receivedAt: '2026-01-15T10:00:00.025Z',
       observationId: '11111111-1111-4111-8111-111111111111',
+      targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+      scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
     });
   });
 

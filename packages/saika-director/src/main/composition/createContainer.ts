@@ -49,6 +49,9 @@ import {
   SqliteRangeInterruptionRepository,
 } from '@/main/modules/range-interruptions';
 import { relayReadinessModule } from '@/main/modules/relay-readiness';
+import { relayAthleteLifecycleModule } from '@/main/modules/relay-athlete-lifecycle';
+import { estChampionshipInspectionsModule } from '@/main/modules/est-championship-inspections';
+import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
 import {
   CompetitionTypeTeamTieBreakPolicyResolver,
   SqliteMixedTeamFinalResultRepository,
@@ -63,6 +66,27 @@ import {
 } from '@/main/modules/est-backup-verification';
 import { finalControlModule } from '@/main/modules/final-control';
 import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
+import {
+  irregularShotCasesModule,
+  IrregularShotPublicationBlocker,
+  SqliteIrregularShotCaseRepository,
+} from '@/main/modules/irregular-shot-cases';
+import {
+  CompetitionEvidenceBundleBuilder,
+  ElectronArchiveFileGateway,
+  OperationalArchiveService,
+  operationalArchivesModule,
+  SqliteCompetitionEvidenceSource,
+  SqliteDatabaseBackupGateway,
+} from '@/main/modules/operational-archives';
+import {
+  ResultWorkflowOfficialRevisionSource,
+  ResultsBookService,
+  resultsBooksModule,
+  SqliteResultsBookRepository,
+  SqliteResultsBookSource,
+  VerifiedResultsBookResultSnapshotSource,
+} from '@/main/modules/results-books';
 import { finalRecoveriesModule } from '@/main/modules/final-recoveries';
 import { startListsModule } from '@/main/modules/start-lists';
 import {
@@ -79,12 +103,21 @@ import {
   SqliteFinalPlacementReviewRepository,
 } from '@/main/modules/final-placement-review';
 import {
+  FinalResultDeclarationService,
+  GuardedResultPublicationReadiness,
   resultPublicationModule,
   RulePackResultPublicationPolicyResolver,
+  SqliteFinalResultDeclarationRepository,
   SqliteResultPublicationRepository,
   VerifiedResultPublicationReadiness,
 } from '@/main/modules/result-publication';
-import { ISSF_2026_10M_MIXED_RULE_PACKS, ISSF_2026_10M_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
+import {
+  ISSF_2026_25M_PISTOL_RULE_PACKS,
+  ISSF_2026_10M_MIXED_RULE_PACKS,
+  ISSF_2026_10M_RULE_PACKS,
+  ISSF_2026_50M_RIFLE_RULE_PACKS,
+  RulePackRegistry,
+} from '@sasakiuri/saika-rules';
 
 // Infrastructure
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -92,6 +125,7 @@ import { DebugLogStore } from '@/main/infrastructure/logging/Logger';
 import { ConsoleForwarder } from '@/main/infrastructure/logging/ConsoleForwarder';
 import { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
+import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { SqliteLaneControlRepository } from '@/main/modules/lane-control';
 import { LaneTimerService } from '@/main/modules/lane-control';
@@ -132,11 +166,17 @@ const modules = [
   targetExaminationsModule,
   rangeInterruptionsModule,
   relayReadinessModule,
+  relayAthleteLifecycleModule,
+  estChampionshipInspectionsModule,
+  eliminationPlanningModule,
   teamResultsModule,
   protestsModule,
   estBackupVerificationModule,
   finalControlModule,
   adjudicationCasesModule,
+  irregularShotCasesModule,
+  operationalArchivesModule,
+  resultsBooksModule,
   finalOperationsModule,
   finalRecoveriesModule,
   startListsModule,
@@ -218,10 +258,22 @@ export function createApp(preloadPath: string): AppServices {
   ]);
   const finalPlacementReviewRepository = new SqliteFinalPlacementReviewRepository(database);
   const resultPublicationRepository = new SqliteResultPublicationRepository(database);
-
+  const irregularShotCaseRepository = new SqliteIrregularShotCaseRepository(database);
+  const archiveFileGateway = new ElectronArchiveFileGateway();
+  const operationalArchiveService = new OperationalArchiveService(
+    new SqliteCompetitionEvidenceSource(database),
+    new CompetitionEvidenceBundleBuilder(app.getVersion()),
+    archiveFileGateway,
+    new SqliteDatabaseBackupGateway(database, dbPath, app.getPath('userData'), allMigrations.at(-1)?.version ?? 0),
+  );
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
-  const rulePackRegistry = new RulePackRegistry([...ISSF_2026_10M_RULE_PACKS, ...ISSF_2026_10M_MIXED_RULE_PACKS]);
+  const rulePackRegistry = new RulePackRegistry([
+    ...ISSF_2026_10M_RULE_PACKS,
+    ...ISSF_2026_10M_MIXED_RULE_PACKS,
+    ...ISSF_2026_50M_RIFLE_RULE_PACKS,
+    ...ISSF_2026_25M_PISTOL_RULE_PACKS,
+  ]);
   const finalOperationService = new FinalOperationService(
     new SqliteFinalOperationRepository(database),
     competitionTypeRegistry,
@@ -285,7 +337,31 @@ export function createApp(preloadPath: string): AppServices {
       ),
     ]),
   );
-  const resultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
+  const verifiedResultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
+  const resultPublicationReadiness = new GuardedResultPublicationReadiness(verifiedResultPublicationReadiness, [
+    new IrregularShotPublicationBlocker(
+      irregularShotCaseRepository,
+      rangeIncidentReportRepository,
+      scoringDecisionRepository,
+    ),
+  ]);
+  const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
+  const resultsBookService = new ResultsBookService(
+    new SqliteResultsBookRepository(database),
+    new SqliteResultsBookSource(
+      database,
+      new VerifiedResultsBookResultSnapshotSource(
+        resultVerificationService,
+        new ResultWorkflowOfficialRevisionSource(resultPublicationRepository, finalResultDeclarationRepository),
+        resultPublicationReadiness,
+      ),
+    ),
+    archiveFileGateway,
+  );
+  const finalResultDeclarationService = new FinalResultDeclarationService(
+    finalResultDeclarationRepository,
+    resultPublicationReadiness,
+  );
   const resultPublicationPolicyResolver = new RulePackResultPublicationPolicyResolver(
     queryBus,
     competitionTypeRegistry,
@@ -337,6 +413,10 @@ export function createApp(preloadPath: string): AppServices {
     resultPublicationRepository,
     resultPublicationReadiness,
     resultPublicationPolicyResolver,
+    finalResultDeclarationService,
+    irregularShotCaseRepository,
+    operationalArchiveService,
+    resultsBookService,
   };
 
   // === Module Registration via ModuleLoader ===

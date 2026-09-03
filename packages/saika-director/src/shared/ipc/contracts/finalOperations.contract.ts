@@ -6,10 +6,11 @@ const commandTarget = z.object({
   stageId: z.string().min(1),
   stageIndex: z.number().int().nonnegative(),
   seriesIndex: z.number().int().nonnegative(),
+  seriesCount: z.number().int().positive().optional(),
 });
 
 const commandTiming = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('SCHEDULED_START_OFFSET'), offsetSeconds: z.number().int().nonpositive() }),
+  z.object({ mode: z.literal('SCHEDULED_START_OFFSET'), offsetSeconds: z.number().int() }),
   z.object({ mode: z.literal('AFTER_PREVIOUS'), delaySeconds: z.number().int().nonnegative() }),
   z.object({
     mode: z.literal('TIME_OR_ALL_SHOTS'),
@@ -20,7 +21,8 @@ const commandTiming = z.discriminatedUnion('mode', [
 ]);
 
 const firingPurpose = z.enum(['SIGHTING', 'MATCH', 'SHOOT_OFF']);
-const participantSelection = z.enum(['ALL_ACTIVE', 'TIED_ONLY']);
+const timedTargetPurpose = z.enum(['SIGHTING', 'MATCH', 'SHOOT_OFF']);
+const participantSelection = z.enum(['ALL_ACTIVE', 'TIED_ONLY', 'OFFICIAL_SELECTED']);
 const commandEffect = z.discriminatedUnion('type', [
   z.object({ type: z.literal('NONE') }),
   z.object({
@@ -36,6 +38,17 @@ const commandEffect = z.discriminatedUnion('type', [
     durationSeconds: z.number().int().positive(),
     shotsPerParticipant: z.number().int().positive().optional(),
     target: commandTarget.optional(),
+  }),
+  z.object({
+    type: z.literal('RUN_TIMED_TARGET'),
+    purpose: timedTargetPurpose,
+    participantSelection,
+    programId: z.string().min(1),
+    shotsPerParticipant: z.number().int().positive(),
+    target: commandTarget.optional(),
+    requiredParticipantCount: z.number().int().positive().optional(),
+    participantExecution: z.enum(['SIMULTANEOUS', 'SEQUENTIAL']).optional(),
+    participantOrder: z.literal('FINAL_START_NUMBER_ASCENDING').optional(),
   }),
   z.object({ type: z.literal('CLOSE_FIRING'), purpose: firingPurpose, target: commandTarget.optional() }),
   z.object({ type: z.literal('CHECKPOINT'), afterMatchShot: z.number().int().positive().optional() }),
@@ -99,6 +112,7 @@ const shootOffShot = z.object({
   laneId: z.string().uuid(),
   shotId: z.string().uuid(),
   scoreX10: z.number().int().min(0).max(109),
+  sourceScoreX10: z.number().int().min(0).max(109),
   x: z.number().nullable(),
   y: z.number().nullable(),
   firedAt: z.string().datetime(),
@@ -119,6 +133,7 @@ const shootOffProjection = z.object({
   checkpointStepId: z.string().min(1),
   eligibleLaneIds: z.array(z.string().uuid()).min(2),
   units: z.array(shootOffUnit).min(2),
+  shotsPerLane: z.number().int().positive(),
   status: z.enum(['ACTIVE', 'AWAITING_RESOLUTION']),
   steps: z.array(stepProjection),
   currentStep: stepProjection.nullable(),
@@ -132,6 +147,13 @@ const run = z.object({
   competitionTypeId: z.string().min(1),
   rulePackId: z.string().min(1),
   scriptVersion: z.string().min(1),
+  scriptSource: z
+    .object({
+      organization: z.string().min(1),
+      title: z.string().min(1),
+      version: z.string().min(1),
+    })
+    .nullable(),
   scheduledStartAt: z.string().datetime(),
   createdBy: z.string().min(1),
   createdAt: z.string().datetime(),

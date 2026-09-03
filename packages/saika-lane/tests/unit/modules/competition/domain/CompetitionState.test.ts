@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { BR60S, P25, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { Timer } from '@/main/modules/competition/domain/Timer';
 import { DomainError } from '@/shared/errors/DomainError';
 
@@ -117,6 +117,45 @@ describe('CompetitionState aggregate root', () => {
       const state = createIdleState();
       expect(() => state.recordShotInSeries()).toThrow();
     });
+
+    it('advances automatically inside the 50m shared-time position block', () => {
+      let state = createIdleState(R3P_FINAL.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+      state = state.tickTimerBy(60);
+      for (let i = 0; i < 10; i++) state = state.recordShotInSeries();
+      expect(state).toMatchObject({ phase: 'ACTIVE', currentSeriesIndex: 1, seriesShotCount: 0 });
+      expect(state.timer.remainingSeconds).toBe(1260);
+
+      for (let i = 0; i < 10; i++) state = state.recordShotInSeries();
+      expect(state).toMatchObject({ phase: 'ACTIVE', currentSeriesIndex: 2, seriesShotCount: 0 });
+      expect(state.currentSeriesConfig).toMatchObject({
+        maxShots: 0,
+        purpose: 'POSITION_CHANGE_AND_SIGHTING',
+      });
+      expect(() => state.recordShotInSeries()).toThrow('POSITION_CHANGE_AND_SIGHTING');
+    });
+
+    it('keeps a 25m series active after five shots until its timed recording window closes', () => {
+      let state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+
+      for (let index = 0; index < 5; index += 1) state = state.recordShotInSeries();
+
+      expect(state).toMatchObject({ phase: 'ACTIVE', seriesShotCount: 5 });
+      expect(state.timer.totalSeconds).toBe(0);
+      state = state.completeTimedTargetSeries('P25_MATCH_PRECISION_240');
+      expect(state.phase).toBe('SERIES_COMPLETE');
+    });
+
+    it('does not let an unrelated timed program close the current 25m series', () => {
+      const state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+
+      try {
+        state.completeTimedTargetSeries('P25_MATCH_RAPID_3_7');
+        expect.fail('Expected an unrelated timed program to be rejected');
+      } catch (error) {
+        expect(error).toBeInstanceOf(DomainError);
+        expect((error as DomainError).code).toBe('INVALID_PHASE_TRANSITION');
+      }
+    });
   });
 
   describe('expireTimer()', () => {
@@ -159,6 +198,17 @@ describe('CompetitionState aggregate root', () => {
       expect(state.phase).toBe('SERIES_ENTERED');
       const next = state.startNextSeries();
       expect(next.phase).toBe('ACTIVE');
+    });
+
+    it('retains a shared stage timer when entering the next series', () => {
+      let state = createIdleState().startStage().expireTimer().advanceToNextStage().startNextSeries();
+      state = state.tickTimerBy(123);
+      for (let i = 0; i < 10; i++) state = state.recordShotInSeries();
+      state = state.advanceToNextStage();
+
+      const next = state.startNextSeries();
+      expect(next.timer.remainingSeconds).toBe(2700 - 123);
+      expect(next.timer.totalSeconds).toBe(2700);
     });
 
     it('transitions STAGE_ENTERED → ACTIVE', () => {

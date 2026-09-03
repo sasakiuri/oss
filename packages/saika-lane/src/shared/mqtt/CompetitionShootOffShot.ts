@@ -17,6 +17,8 @@ export const CompetitionShootOffShotPayloadSchema = z.object({
   firedAt: z.string().datetime(),
   receivedAt: z.string().datetime(),
   observationId: z.string().uuid().optional(),
+  targetProfileId: z.string().min(1).optional(),
+  scoringGaugeProfileId: z.string().min(1).optional(),
   publishedAt: z.string().datetime(),
 });
 

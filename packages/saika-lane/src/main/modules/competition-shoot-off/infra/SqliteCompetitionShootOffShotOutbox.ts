@@ -29,14 +29,15 @@ export class SqliteCompetitionShootOffShotOutbox implements ICompetitionShootOff
       });
   }
 
-  findByRound(runId: string, iteration: number, laneId: string): CompetitionShootOffShotPayload | null {
-    const row = this.db
+  findByRound(runId: string, iteration: number, laneId: string): CompetitionShootOffShotPayload[] {
+    const rows = this.db
       .prepare(
         `SELECT payload_json FROM competition_shoot_off_shot_outbox
-         WHERE run_id = ? AND iteration = ? AND lane_id = ?`,
+         WHERE run_id = ? AND iteration = ? AND lane_id = ?
+         ORDER BY created_at, rowid`,
       )
-      .get(runId, iteration, laneId) as OutboxRow | undefined;
-    return row ? CompetitionShootOffShotPayloadSchema.parse(JSON.parse(row.payload_json)) : null;
+      .all(runId, iteration, laneId) as OutboxRow[];
+    return rows.map((row) => CompetitionShootOffShotPayloadSchema.parse(JSON.parse(row.payload_json)));
   }
 
   findPending(limit = 100): CompetitionShootOffShotPayload[] {

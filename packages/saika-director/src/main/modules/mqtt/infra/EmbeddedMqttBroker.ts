@@ -1,6 +1,12 @@
 import { Aedes } from 'aedes';
 import { createServer, type Server } from 'node:net';
 import { Logger } from '@/shared/utils/Logger';
+import type { Client } from 'aedes';
+import {
+  EmbeddedMqttAccessPolicy,
+  type EmbeddedMqttSecurityConfig,
+  type MqttPrincipal,
+} from '../domain/EmbeddedMqttAccessPolicy';
 
 import type { MqttRetainedMessageStore } from './SqliteMqttRetainedMessageStore';
 
@@ -9,6 +15,7 @@ const logger = Logger.create('EmbeddedMqttBroker');
 export interface BrokerConfig {
   port: number;
   maxConnections?: number;
+  security?: EmbeddedMqttSecurityConfig;
 }
 
 export class EmbeddedMqttBroker {
@@ -16,6 +23,7 @@ export class EmbeddedMqttBroker {
   private server: Server | null = null;
   private _running = false;
   private config: BrokerConfig;
+  private readonly principals = new WeakMap<Client, MqttPrincipal>();
 
   constructor(
     config: BrokerConfig,
@@ -38,9 +46,33 @@ export class EmbeddedMqttBroker {
     if (this._running) return;
 
     try {
+      const access = new EmbeddedMqttAccessPolicy(this.config.security ?? { mode: 'DISABLED' });
       this.aedes = await Aedes.createBroker({
-        authorizePublish: (_client, packet, callback) => {
+        ...(access.enabled
+          ? {
+              authenticate: (client, username, password, callback) => {
+                const principal = access.authenticate(username, password);
+                if (principal) this.principals.set(client, principal);
+                callback(principal ? null : authenticationError(), principal !== null);
+              },
+              authorizeSubscribe: (client, subscription, callback) => {
+                const principal = this.principals.get(client);
+                callback(
+                  principal && access.canSubscribe(principal, client.id, subscription.topic)
+                    ? null
+                    : new Error('MQTT subscription is not authorized'),
+                  principal && access.canSubscribe(principal, client.id, subscription.topic) ? subscription : null,
+                );
+              },
+            }
+          : {}),
+        authorizePublish: (client, packet, callback) => {
           try {
+            const principal = client ? this.principals.get(client) : undefined;
+            if (access.enabled && (!principal || !access.canPublish(principal, client!.id, packet.topic))) {
+              callback(new Error('MQTT publication is not authorized'));
+              return;
+            }
             this.retainedMessageStore?.apply({
               topic: packet.topic,
               payload: Buffer.from(packet.payload),
@@ -136,4 +168,8 @@ export class EmbeddedMqttBroker {
       });
     }
   }
+}
+
+function authenticationError(): Error & { returnCode: number } {
+  return Object.assign(new Error('Bad MQTT username or password'), { returnCode: 4 });
 }

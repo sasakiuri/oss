@@ -13,6 +13,11 @@ export interface IResultPublicationReadiness {
   getCurrent(eventId: string, resultScope: ResultPublicationScope): Promise<ResultPublicationReadiness>;
 }
 
+/** Independent operational holds that may block official publication without changing scoring. */
+export interface IResultPublicationBlocker {
+  getIssues(eventId: string, resultScope: ResultPublicationScope): readonly string[] | Promise<readonly string[]>;
+}
+
 export interface ResultPublicationPolicy {
   readonly scoreProtestWindowMs: number;
 }

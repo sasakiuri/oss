@@ -18,5 +18,7 @@ export function emitPhaseChanged(eventBus: IEventBus, state: CompetitionState, p
     seriesIndex: state.currentSeriesIndex,
     stageName: state.currentStageConfig.name,
     scored: state.currentStageConfig.scored,
+    targetProfileId: state.currentStageConfig.targetProfileId ?? state.config.targetProfileId,
+    scoringGaugeProfileId: state.currentStageConfig.scoringGaugeProfileId ?? state.config.scoringGaugeProfileId,
   });
 }

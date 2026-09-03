@@ -41,7 +41,10 @@ export function FinalOperationPanel({
   const [officialName, setOfficialName] = useState('');
   const [scheduledStart, setScheduledStart] = useState(() => toLocalDateTime(new Date(Date.now() + 10 * 60_000)));
   const [statement, setStatement] = useState('');
+  const [finalProtestsResolved, setFinalProtestsResolved] = useState(false);
+  const [resultProcessConfirmed, setResultProcessConfirmed] = useState(false);
   const [selectedShootOffUnitIds, setSelectedShootOffUnitIds] = useState<Set<string>>(() => new Set());
+  const [selectedExecutionLaneIds, setSelectedExecutionLaneIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +73,19 @@ export function FinalOperationPanel({
     const timer = window.setInterval(() => void load(), 1_000);
     return () => window.clearInterval(timer);
   }, [load, run?.currentBranch, run?.status]);
+
+  useEffect(() => {
+    const current = run?.currentStep;
+    if (!current || current.status !== 'AWAITING_CONFIRMATION') return;
+    if (
+      current.step.effect.type !== 'RUN_TIMED_TARGET' ||
+      current.step.effect.participantSelection !== 'OFFICIAL_SELECTED'
+    ) {
+      setSelectedExecutionLaneIds(new Set());
+      return;
+    }
+    setSelectedExecutionLaneIds(new Set());
+  }, [run?.currentStep?.step.id, run?.currentStep?.status]);
 
   const completedCount = useMemo(
     () => run?.steps.filter((step) => step.status === 'COMPLETED' || step.status === 'SKIPPED').length ?? 0,
@@ -109,6 +125,10 @@ export function FinalOperationPanel({
         const confirmed = await finalOperationsService.confirmStep({
           runId: pendingRun.id,
           stepId: pendingRun.currentStep.step.id,
+          ...(pendingRun.currentStep.step.effect.type === 'RUN_TIMED_TARGET' &&
+          pendingRun.currentStep.step.effect.participantSelection === 'OFFICIAL_SELECTED'
+            ? { eligibleLaneIds: [...selectedExecutionLaneIds] }
+            : {}),
           ...(statement.trim() ? { statement: statement.trim() } : {}),
           officialName: officialName.trim(),
         });
@@ -121,6 +141,12 @@ export function FinalOperationPanel({
       if (!current || current.status !== 'AWAITING_EXECUTION' || !current.confirmationEntryId) {
         throw new Error('The confirmed Final step is not awaiting execution');
       }
+      if (
+        current.step.effect.type === 'DECLARE_RESULTS' &&
+        (!eventId || !finalProtestsResolved || !resultProcessConfirmed)
+      ) {
+        throw new Error('RESULTS ARE FINAL requires an event and both explicit confirmations');
+      }
       const execution = await mqttService.executeFinalScriptStep({
         competitionId,
         runId: pendingRun.id,
@@ -130,6 +156,14 @@ export function FinalOperationPanel({
         step: current.step,
         ...(current.eligibleLaneIds.length > 0 ? { eligibleLaneIds: current.eligibleLaneIds } : {}),
         ...(acknowledgedRequirementIds.length > 0 ? { acknowledgedRequirementIds } : {}),
+        ...(current.step.effect.type === 'DECLARE_RESULTS'
+          ? {
+              declarationConfirmation: {
+                finalProtestsResolved: true as const,
+                resultProcessConfirmed: true as const,
+              },
+            }
+          : {}),
       });
       if (!execution.success) {
         const recorded = await finalOperationsService.recordExecution({
@@ -162,6 +196,10 @@ export function FinalOperationPanel({
       if (!recorded.success) throw new Error(recorded.error.message);
       setRun(recorded.data);
       setStatement('');
+      if (current.step.effect.type === 'DECLARE_RESULTS') {
+        setFinalProtestsResolved(false);
+        setResultProcessConfirmed(false);
+      }
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
@@ -314,6 +352,17 @@ export function FinalOperationPanel({
     run?.currentStep?.status === 'AWAITING_CONFIRMATION' &&
     run.currentStep.step.effect.type === 'NONE' &&
     (run.currentStep.step.kind === 'CHECK' || run.currentStep.step.kind === 'ANNOUNCEMENT');
+  const isDeclaration = run?.currentStep?.step.effect.type === 'DECLARE_RESULTS';
+  const declarationReady = !isDeclaration || (Boolean(eventId) && finalProtestsResolved && resultProcessConfirmed);
+  const selectedExecutionCount =
+    run?.currentStep?.step.effect.type === 'RUN_TIMED_TARGET' &&
+    run.currentStep.step.effect.participantSelection === 'OFFICIAL_SELECTED'
+      ? run.currentStep.step.effect.requiredParticipantCount
+      : undefined;
+  const executionSelectionReady =
+    selectedExecutionCount === undefined ||
+    run?.currentStep?.status === 'AWAITING_EXECUTION' ||
+    selectedExecutionLaneIds.size === selectedExecutionCount;
 
   return (
     <div className="space-y-4">
@@ -368,6 +417,11 @@ export function FinalOperationPanel({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-vscode-text-muted">
             <span>{run.rulePackId}</span>
             <span>Script {run.scriptVersion}</span>
+            {run.scriptSource && (
+              <span title={run.scriptSource.title}>
+                {run.scriptSource.organization} · {run.scriptSource.version}
+              </span>
+            )}
             <span>
               {completedCount}/{run.steps.length} steps
             </span>
@@ -418,14 +472,51 @@ export function FinalOperationPanel({
                 </p>
               )}
 
+              {selectedExecutionCount !== undefined && run.currentStep.status === 'AWAITING_CONFIRMATION' && (
+                <div className="mt-4 rounded-[3px] border border-vscode-border p-3">
+                  <p className="text-xs font-semibold text-vscode-text">
+                    Select exactly {selectedExecutionCount} firing {selectedExecutionCount === 1 ? 'Lane' : 'Lanes'}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-vscode-text-muted">
+                    Follow the Finals Start Number order stated in the command. The selected set is persisted with the
+                    official confirmation and used only for this timed-target sequence.
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {shootOffCandidates.map((lane) => (
+                      <label key={lane.laneId} className="flex items-start gap-2 text-xs text-vscode-text">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={selectedExecutionLaneIds.has(lane.laneId)}
+                          onChange={(event) =>
+                            setSelectedExecutionLaneIds((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(lane.laneId);
+                              else next.delete(lane.laneId);
+                              return next;
+                            })
+                          }
+                        />
+                        <span>
+                          {laneLabel(lane)}
+                          {lane.assignment?.athlete?.startNumber
+                            ? ` · Start ${lane.assignment.athlete.startNumber}`
+                            : ' · Start number missing'}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {atMainCheckpoint && (
                 <div className="mt-4 rounded-[3px] border border-vscode-border p-3">
                   <p className="text-xs font-semibold text-vscode-text">
                     Shoot-off branch (only when the low score is tied)
                   </p>
                   <p className="mt-1 text-[11px] leading-5 text-vscode-text-muted">
-                    Select only the tied {competitorUnit === 'MIXED_TEAM' ? 'Teams' : 'Finalists'}. Each selected Lane's
-                    one shot is kept outside the normal MATCH score and attached to this checkpoint.
+                    Select only the tied {competitorUnit === 'MIXED_TEAM' ? 'Teams' : 'Finalists'}. Shoot-off shots are
+                    kept outside the normal MATCH score and attached to this checkpoint.
                   </p>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     {shootOffUnitOptions.map((unit) => (
@@ -494,8 +585,40 @@ export function FinalOperationPanel({
                   />
                 </label>
               </div>
+              {isDeclaration && (
+                <div className="mt-3 space-y-2 rounded-[3px] border border-vscode-border p-3 text-xs">
+                  {!eventId && (
+                    <p className="text-vscode-warning">
+                      Link this Final run to an event before declaring RESULTS ARE FINAL.
+                    </p>
+                  )}
+                  <label className="flex items-start gap-2 text-vscode-text">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={finalProtestsResolved}
+                      onChange={(event) => setFinalProtestsResolved(event.target.checked)}
+                    />
+                    All immediate Final protests and ties are resolved, as confirmed with the Control Room.
+                  </label>
+                  <label className="flex items-start gap-2 text-vscode-text">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={resultProcessConfirmed}
+                      onChange={(event) => setResultProcessConfirmed(event.target.checked)}
+                    />
+                    The current RTS result list, ranks, displayed identities, and approval are confirmed.
+                  </label>
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button disabled={disabled || saving || !officialName.trim()} onClick={() => void executeCurrentStep()}>
+                <Button
+                  disabled={
+                    disabled || saving || !officialName.trim() || !declarationReady || !executionSelectionReady
+                  }
+                  onClick={() => void executeCurrentStep()}
+                >
                   {run.currentStep.status === 'AWAITING_EXECUTION' ? 'Retry execution' : 'Confirm and execute'}
                 </Button>
                 {canSkip && (
@@ -525,10 +648,14 @@ export function FinalOperationPanel({
                 {run.shootOff.units.map((unit) => {
                   const shots = unit.laneIds.map((laneId) => ({
                     laneId,
-                    shot: run.shootOff?.shots.find((candidate) => candidate.laneId === laneId),
+                    shots: run.shootOff?.shots.filter((candidate) => candidate.laneId === laneId) ?? [],
                   }));
-                  const complete = shots.every(({ shot }) => shot);
-                  const totalX10 = shots.reduce((total, { shot }) => total + (shot?.scoreX10 ?? 0), 0);
+                  const complete = shots.every(({ shots: laneShots }) => laneShots.length === run.shootOff!.shotsPerLane);
+                  const totalX10 = shots.reduce(
+                    (total, { shots: laneShots }) =>
+                      total + laneShots.reduce((laneTotal, shot) => laneTotal + shot.scoreX10, 0),
+                    0,
+                  );
                   return (
                     <div key={unit.unitId} className="rounded-[3px] border border-vscode-border px-3 py-2 text-xs">
                       <div className="flex items-center justify-between gap-2">
@@ -538,9 +665,13 @@ export function FinalOperationPanel({
                         </span>
                       </div>
                       <div className="mt-1 space-y-0.5 text-[11px] text-vscode-text-muted">
-                        {shots.map(({ laneId, shot }) => (
+                        {shots.map(({ laneId, shots: laneShots }) => (
                           <div key={laneId}>
-                            {laneLabelById(lanes, laneId)} · {shot ? (shot.scoreX10 / 10).toFixed(1) : 'waiting'}
+                            {laneLabelById(lanes, laneId)} ·{' '}
+                            {laneShots.length > 0
+                              ? laneShots.map((shot) => (shot.scoreX10 / 10).toFixed(1)).join(', ')
+                              : 'waiting'}{' '}
+                            ({laneShots.length}/{run.shootOff!.shotsPerLane})
                           </div>
                         ))}
                       </div>
@@ -571,7 +702,8 @@ export function FinalOperationPanel({
                   disabled={
                     disabled ||
                     saving ||
-                    run.shootOff.shots.length !== run.shootOff.eligibleLaneIds.length ||
+                    run.shootOff.shots.length !==
+                      run.shootOff.eligibleLaneIds.length * run.shootOff.shotsPerLane ||
                     !statement.trim() ||
                     !officialName.trim()
                   }
@@ -606,7 +738,7 @@ async function confirmPhaseRequirements(
   phase: CompetitionPhase,
   step: FinalOperationScriptStepDto,
 ): Promise<string[] | null> {
-  if (step.effect.type !== 'OPEN_FIRING') return [];
+  if (step.effect.type !== 'OPEN_FIRING' && step.effect.type !== 'RUN_TIMED_TARGET') return [];
   const startPhase =
     step.effect.purpose === 'SIGHTING' && phase === 'NOT_STARTED'
       ? 'SIGHTING'

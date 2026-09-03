@@ -10,6 +10,7 @@ export type MqttErrorCode =
   | 'MQTT_UNKNOWN_COMMAND_ACTION'
   | 'MQTT_COMMAND_VALIDATION_FAILED'
   | 'MQTT_COMMAND_EXECUTION_FAILED'
+  | 'MQTT_COMMAND_UNAUTHORIZED'
   | 'MQTT_ALREADY_IN_COMPETITION'
   | 'MQTT_NOT_IN_COMPETITION'
   | 'MQTT_COMPETITION_STATE_TIMEOUT'
@@ -86,6 +87,15 @@ export const MQTT_ERRORS: ReadonlyArray<[MqttErrorCode, ErrorDefinition]> = [
       code: 'MQTT_COMMAND_EXECUTION_FAILED',
       message: 'MQTT command execution failed for action {{action}}: {{detail}}',
       userMessage: 'MQTT command execution failed: {{action}}',
+      severity: 'error',
+    },
+  ],
+  [
+    'MQTT_COMMAND_UNAUTHORIZED',
+    {
+      code: 'MQTT_COMMAND_UNAUTHORIZED',
+      message: 'MQTT command issuer is not trusted: {{detail}}',
+      userMessage: 'The command was rejected because its Director identity is not trusted.',
       severity: 'error',
     },
   ],

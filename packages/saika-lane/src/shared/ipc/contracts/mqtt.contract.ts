@@ -9,7 +9,16 @@
 
 import { z } from 'zod';
 
-import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
+
+import {
+  command,
+  commandDataResponseSchema,
+  CommandResponseSchema,
+  defineContract,
+  query,
+  queryResponseSchema,
+} from '../defineContract';
 
 // ============================================================
 // Shared schemas
@@ -80,6 +89,13 @@ const ConnectMqttInputSchema = z.object({
   autoConnect: z.boolean().optional(),
 });
 
+const RequestRangeOfficerInputSchema = z.object({
+  category: z.enum(['ASSISTANCE', 'EQUIPMENT', 'TARGET', 'SCORING', 'SAFETY', 'OTHER']),
+  message: z.string().trim().max(500).optional(),
+});
+
+const ClearRangeOfficerRequestInputSchema = z.object({ requestId: z.string().uuid() });
+
 // ============================================================
 // Contract definition
 // ============================================================
@@ -97,6 +113,19 @@ export const mqttContract = defineContract('mqtt', {
   getSafetyState: query(queryResponseSchema(LaneSafetyStateDtoSchema), {
     channel: 'mqtt:getSafetyState',
   }),
+  getRangeOfficerRequest: query(queryResponseSchema(RangeOfficerRequestPayloadSchema), {
+    channel: 'mqtt:getRangeOfficerRequest',
+  }),
+  requestRangeOfficer: command(
+    RequestRangeOfficerInputSchema,
+    commandDataResponseSchema(RangeOfficerRequestPayloadSchema),
+    { channel: 'mqtt:requestRangeOfficer' },
+  ),
+  clearRangeOfficerRequest: command(
+    ClearRangeOfficerRequestInputSchema,
+    commandDataResponseSchema(RangeOfficerRequestPayloadSchema),
+    { channel: 'mqtt:clearRangeOfficerRequest' },
+  ),
   saveMqttSettings: command(MqttSettingsSchema, CommandResponseSchema, {
     channel: 'mqtt:saveSettings',
   }),
@@ -113,3 +142,6 @@ export type MqttSettings = z.infer<typeof MqttSettingsSchema>;
 export type MqttStatus = z.infer<typeof MqttStatusSchema>;
 export type LaneSafetyStateDto = z.infer<typeof LaneSafetyStateDtoSchema>;
 export type ConnectMqttInput = z.infer<typeof ConnectMqttInputSchema>;
+export type RequestRangeOfficerInput = z.infer<typeof RequestRangeOfficerInputSchema>;
+export type ClearRangeOfficerRequestInput = z.infer<typeof ClearRangeOfficerRequestInputSchema>;
+export type RangeOfficerRequestDto = z.infer<typeof RangeOfficerRequestPayloadSchema>;

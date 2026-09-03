@@ -13,6 +13,8 @@ export interface CompetitionShotObservation {
   /** False for legacy payloads where the decimal value was reconstructed from rawScoreX10. */
   calculatedScoreAvailable: boolean;
   effectiveScoreX10: number;
+  targetProfileId: string | null;
+  scoringGaugeProfileId: string | null;
   innerTen: boolean;
   mode: 'SIGHTING' | 'MATCH';
   firedAt: Date;

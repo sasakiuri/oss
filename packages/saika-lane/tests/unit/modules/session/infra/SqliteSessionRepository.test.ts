@@ -97,6 +97,8 @@ describe('SqliteSessionRepository', () => {
           calculatedScore: new Score(103),
           receivedAt: new Date('2026-01-01T10:00:00.025Z'),
           sourceObservationId: '11111111-1111-4111-8111-111111111111',
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
         },
       );
 
@@ -108,6 +110,8 @@ describe('SqliteSessionRepository', () => {
       expect(shot?.score.value).toBe(101);
       expect(shot?.receivedAt.toISOString()).toBe('2026-01-01T10:00:00.025Z');
       expect(shot?.sourceObservationId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(shot?.targetProfileId).toBe('ISSF_PISTOL_25M_PRECISION_2026');
+      expect(shot?.scoringGaugeProfileId).toBe('ISSF_CENTER_FIRE_9_65_2026');
     });
 
     it('should correctly save and retrieve the innerTen flag', async () => {

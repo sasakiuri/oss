@@ -62,6 +62,22 @@ describe('FinalResultDeclarationService', () => {
       resultProcessConfirmed: true,
       officialName: 'CRO',
     });
+
+    readiness = { ...readiness, verificationIssues: ['Irregular shot case is unresolved'] };
+    const underReview = await service.getStatus(EVENT_ID);
+    expect(underReview.declarationCurrent).toBe(false);
+    expect(underReview.issues).toContain('Irregular shot case is unresolved');
+
+    readiness = {
+      ...readiness,
+      approvalId: '33333333-3333-4333-8333-333333333333',
+      verificationIssues: [],
+    };
+    const supersededApproval = await service.getStatus(EVENT_ID);
+    expect(supersededApproval).toMatchObject({ declarationCurrent: false, canDeclare: false });
+    expect(supersededApproval.issues).toContain(
+      'The current Final result or RTS approval no longer matches the RESULTS ARE FINAL declaration',
+    );
   });
 
   it('preserves the declaration and reports a later result revision as stale', async () => {
@@ -96,7 +112,9 @@ describe('FinalResultDeclarationService', () => {
     const stale = await service.getStatus(EVENT_ID);
 
     expect(stale).toMatchObject({ declarationCurrent: false, canDeclare: false });
-    expect(stale.issues).toContain('The current Final result list no longer matches the RESULTS ARE FINAL declaration');
+    expect(stale.issues).toContain(
+      'The current Final result or RTS approval no longer matches the RESULTS ARE FINAL declaration',
+    );
     await expect(
       service.declare({
         eventId: EVENT_ID,

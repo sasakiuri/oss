@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ISSF_2026_AP60, ISSF_2026_ARMIX30, ISSF_2026_AR60, ISSF_2026_AR60_FINAL } from '@sasakiuri/saika-rules';
+import {
+  ISSF_2026_AP60,
+  ISSF_2026_ARMIX30,
+  ISSF_2026_AR60,
+  ISSF_2026_AR60_FINAL,
+  ISSF_2026_P25_FINAL,
+  ISSF_2026_R3P_FINAL,
+} from '@sasakiuri/saika-rules';
 
 import {
   competitionTypeFromRulePack,
@@ -9,6 +16,7 @@ import {
   RULE_PACK_SETUP_REQUIREMENT_ID,
   RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
 } from '@/shared/competitionTypes';
+import { FinalOperationScriptStepDtoSchema } from '@/shared/ipc/contracts/finalOperations.contract';
 
 describe('competitionTypeFromRulePack', () => {
   it('maps the ISSF 10m qualification course and Lane protocol metadata', () => {
@@ -78,7 +86,12 @@ describe('competitionTypeFromRulePack', () => {
       { mode: 'stage', durationSec: 900 },
       { mode: 'stage', durationSec: 4500 },
     ]);
-    expect(pistol.laneProtocol).toEqual({ discipline: 'AIR_PISTOL_10M', acc: 'RING' });
+    expect(pistol.laneProtocol).toEqual({
+      discipline: 'AIR_PISTOL_10M',
+      acc: 'RING',
+      targetProfileId: 'ISSF_AIR_PISTOL_10M_2026',
+      scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
+    });
     expect(pistol.resultFormat.tieBreakPolicy).toBe('ISSF_FULL_RING');
   });
 
@@ -133,6 +146,73 @@ describe('competitionTypeFromRulePack', () => {
       clockToleranceMilliseconds: 2_500,
     });
     expect(ISSF_2026_AR60.capabilities.firingWindowReview).toBeDefined();
+  });
+
+  it('retains 50m position transitions and explicit placing checkpoints', () => {
+    const definition = competitionTypeFromRulePack(ISSF_2026_R3P_FINAL);
+
+    expect(definition.laneProtocol).toEqual({
+      discipline: 'RIFLE_50M',
+      acc: 'DECIMAL',
+      targetProfileId: 'ISSF_RIFLE_50M_2026',
+      scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
+    });
+    expect(definition.config.stages[1]?.series[2]).toEqual({
+      shots: 0,
+      label: 'Standing changeover and sighting',
+      position: 'STANDING',
+      purpose: 'POSITION_CHANGE_AND_SIGHTING',
+      targetModeControl: 'ATHLETE',
+    });
+    expect(definition.resultFormat.finalCheckpoints?.slice(0, 3)).toEqual([
+      {
+        afterMatchShot: 30,
+        rank: 8,
+        tieResolution: {
+          type: 'COUNTBACK_FOR_EXACT_TIE',
+          athleteCount: 2,
+          criteria: [
+            { type: 'SERIES_TOTAL', stageId: 'STANDING_SERIES', seriesIndex: 1 },
+            { type: 'SERIES_TOTAL', stageId: 'STANDING_SERIES', seriesIndex: 0 },
+            { type: 'REVERSE_SHOTS', stageId: 'KNEELING_PRONE_CHANGEOVER', seriesIndex: 1 },
+            { type: 'REVERSE_SHOTS', stageId: 'KNEELING_PRONE_CHANGEOVER', seriesIndex: 0 },
+          ],
+          otherwise: 'SHOOT_OFF',
+        },
+      },
+      { afterMatchShot: 30, rank: 7 },
+      { afterMatchShot: 31, rank: 6 },
+    ]);
+    for (const step of [
+      ...(ISSF_2026_R3P_FINAL.capabilities.commands?.finalScript?.main ?? []),
+      ...(ISSF_2026_R3P_FINAL.capabilities.commands?.finalScript?.shootOff ?? []),
+    ]) {
+      expect(FinalOperationScriptStepDtoSchema.parse(step)).toEqual(step);
+    }
+  });
+
+  it('adapts 25m HIT/MISS Finals without changing Lane source accuracy', () => {
+    const definition = competitionTypeFromRulePack(ISSF_2026_P25_FINAL);
+
+    expect(definition.laneProtocol).toEqual({
+      discipline: 'PISTOL_25M',
+      acc: 'DECIMAL',
+      targetProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
+      scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
+    });
+    expect(definition.resultProjection).toMatchObject({
+      type: 'HIT_MISS',
+      hitThresholdX10: 102,
+      displayUnit: 'HITS',
+    });
+    expect(definition.resultFormat.finalCheckpoints?.[0]).toEqual({
+      afterMatchShot: 20,
+      rank: 8,
+      tieResolution: { type: 'SHOOT_OFF' },
+    });
+    expect(definition.finalSeriesAdjudication?.incidents).toEqual([
+      expect.objectContaining({ kind: 'READY_POSITION', ruleReference: '6.17.5(j)' }),
+    ]);
   });
 
   it('enables team-result checks only when the event publishes team results', () => {

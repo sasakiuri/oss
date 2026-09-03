@@ -68,6 +68,26 @@ describe('MqttTransport', () => {
     );
   });
 
+  it('passes explicit credentials to MQTT.js without embedding them in the broker URL', async () => {
+    const transport = new MqttTransport(100);
+    const connecting = transport.connect('mqtt://broker.example:1883', 'director-test', {
+      username: 'director',
+      password: 'secret',
+    });
+
+    client.connected = true;
+    client.emit('connect');
+
+    await connecting;
+    expect(connectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: 'broker.example',
+        username: 'director',
+        password: 'secret',
+      }),
+    );
+  });
+
   it('rejects unsupported protocols before creating a client', async () => {
     const transport = new MqttTransport(100);
 

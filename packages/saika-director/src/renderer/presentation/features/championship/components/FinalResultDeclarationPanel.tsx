@@ -90,10 +90,19 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
               </div>
             </dl>
             {!status.declarationCurrent && (
-              <div className="flex gap-2 border-l-2 border-vscode-warning pl-3 text-xs text-vscode-warning">
-                <TriangleAlert size={15} className="shrink-0" aria-hidden="true" />
-                The current result list no longer matches this declaration. Follow the event correction procedure; the
-                declaration journal is unchanged.
+              <div className="space-y-2 border-l-2 border-vscode-warning pl-3 text-xs text-vscode-warning">
+                <div className="flex gap-2">
+                  <TriangleAlert size={15} className="shrink-0" aria-hidden="true" />
+                  The current Final result, RTS approval, or an operational blocker no longer matches this declaration.
+                  Follow the event correction procedure; the declaration journal is unchanged.
+                </div>
+                {status.issues.length > 0 && (
+                  <ul className="list-disc space-y-1 pl-7 text-vscode-text-muted">
+                    {status.issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </section>

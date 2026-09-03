@@ -36,6 +36,19 @@ import { migration036FinalOperations } from './036_final_operations';
 import { migration037AdjudicationCases } from './037_adjudication_cases';
 import { migration038FinalRecoveries } from './038_final_recoveries';
 import { migration039StartLists } from './039_start_lists';
+import { migration040IrregularShotCases } from './040_irregular_shot_cases';
+import { migration041IssfEstRelayChecklist } from './041_issf_est_relay_checklist';
+import { migration042EstChampionshipInspections } from './042_est_championship_inspections';
+import { migration043ResultsBooks } from './043_results_books';
+import { migration044EventRulePackBinding } from './044_event_rule_pack_binding';
+import { migration045FinalCountbackResolution } from './045_final_countback_resolution';
+import { migration046OutdoorEliminationPlans } from './046_outdoor_elimination_plans';
+import { migration047RelayAthleteLifecycle } from './047_relay_athlete_lifecycle';
+import { migration048TimedTargetObservationOutcome } from './048_timed_target_observation_outcome';
+import { migration049FinalStartNumberResolution } from './049_final_start_number_resolution';
+import { migration050MultiShotFinalShootOff } from './050_multi_shot_final_shoot_off';
+import { migration051FinalSeriesIrregularShotCases } from './051_final_series_irregular_shot_cases';
+import { migration052ScoringGeometryEvidence } from './052_scoring_geometry_evidence';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -75,4 +88,17 @@ export const allMigrations: Migration[] = [
   migration037AdjudicationCases,
   migration038FinalRecoveries,
   migration039StartLists,
+  migration040IrregularShotCases,
+  migration041IssfEstRelayChecklist,
+  migration042EstChampionshipInspections,
+  migration043ResultsBooks,
+  migration044EventRulePackBinding,
+  migration045FinalCountbackResolution,
+  migration046OutdoorEliminationPlans,
+  migration047RelayAthleteLifecycle,
+  migration048TimedTargetObservationOutcome,
+  migration049FinalStartNumberResolution,
+  migration050MultiShotFinalShootOff,
+  migration051FinalSeriesIrregularShotCases,
+  migration052ScoringGeometryEvidence,
 ];

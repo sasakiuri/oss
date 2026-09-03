@@ -6,6 +6,7 @@ import { ChampionshipId } from '../domain/ChampionshipId';
 import { EventType } from '../domain/EventType';
 import { Round } from '@/main/modules/lane-control';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
+import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
 interface EventRow {
   id: string;
@@ -14,6 +15,9 @@ interface EventRow {
   event_type: string;
   round: string;
   sort_order: number;
+  rule_pack_id?: string | null;
+  rule_pack_schema_version?: number | null;
+  rule_pack_fingerprint_sha256?: string | null;
 }
 
 export class SqliteEventRepository implements IEventRepository {
@@ -24,14 +28,23 @@ export class SqliteEventRepository implements IEventRepository {
 
   save(event: Event): void {
     const stmt = this.db.prepare(`
-      INSERT INTO events (id, championship_id, name, event_type, round, sort_order)
-      VALUES (@id, @championshipId, @name, @eventType, @round, @sortOrder)
+      INSERT INTO events (
+        id, championship_id, name, event_type, round, sort_order,
+        rule_pack_id, rule_pack_schema_version, rule_pack_fingerprint_sha256
+      )
+      VALUES (
+        @id, @championshipId, @name, @eventType, @round, @sortOrder,
+        @rulePackId, @rulePackSchemaVersion, @rulePackFingerprintSha256
+      )
       ON CONFLICT(id) DO UPDATE SET
         championship_id = excluded.championship_id,
         name = excluded.name,
         event_type = excluded.event_type,
         round = excluded.round,
-        sort_order = excluded.sort_order
+        sort_order = excluded.sort_order,
+        rule_pack_id = excluded.rule_pack_id,
+        rule_pack_schema_version = excluded.rule_pack_schema_version,
+        rule_pack_fingerprint_sha256 = excluded.rule_pack_fingerprint_sha256
     `);
     stmt.run({
       id: event.id.value,
@@ -40,13 +53,17 @@ export class SqliteEventRepository implements IEventRepository {
       eventType: event.eventType.value,
       round: event.round.value,
       sortOrder: event.sortOrder,
+      ...toBindingParams(event.rulePackIdentity),
     });
   }
 
   update(event: Event): void {
     const stmt = this.db.prepare(`
       UPDATE events
-      SET name = @name, event_type = @eventType, round = @round, sort_order = @sortOrder
+      SET name = @name, event_type = @eventType, round = @round, sort_order = @sortOrder,
+          rule_pack_id = @rulePackId,
+          rule_pack_schema_version = @rulePackSchemaVersion,
+          rule_pack_fingerprint_sha256 = @rulePackFingerprintSha256
       WHERE id = @id
     `);
     stmt.run({
@@ -55,6 +72,7 @@ export class SqliteEventRepository implements IEventRepository {
       eventType: event.eventType.value,
       round: event.round.value,
       sortOrder: event.sortOrder,
+      ...toBindingParams(event.rulePackIdentity),
     });
   }
 
@@ -96,6 +114,31 @@ export class SqliteEventRepository implements IEventRepository {
       EventType.create(row.event_type, this.registry),
       Round.create(row.round),
       row.sort_order,
+      toRulePackIdentity(row),
     );
   }
+}
+
+function toBindingParams(identity: RulePackIdentity | null): {
+  rulePackId: string | null;
+  rulePackSchemaVersion: number | null;
+  rulePackFingerprintSha256: string | null;
+} {
+  return {
+    rulePackId: identity?.id ?? null,
+    rulePackSchemaVersion: identity?.schemaVersion ?? null,
+    rulePackFingerprintSha256: identity?.fingerprint.value ?? null,
+  };
+}
+
+function toRulePackIdentity(row: EventRow): RulePackIdentity | null {
+  if (!row.rule_pack_id && row.rule_pack_schema_version == null && !row.rule_pack_fingerprint_sha256) return null;
+  if (!row.rule_pack_id || row.rule_pack_schema_version !== 1 || !row.rule_pack_fingerprint_sha256) {
+    throw new Error(`Event ${row.id} has an incomplete Rule Pack binding`);
+  }
+  return {
+    id: row.rule_pack_id,
+    schemaVersion: 1,
+    fingerprint: { algorithm: 'SHA-256', value: row.rule_pack_fingerprint_sha256 },
+  };
 }

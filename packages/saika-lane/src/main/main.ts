@@ -43,6 +43,12 @@ import {
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
+import {
+  SqliteTimedTargetSequenceRepository,
+  TimedTargetSequenceService,
+  timedTargetEnforcementModeFromEnvironment,
+  timedTargetModule,
+} from '@/main/modules/timed-target';
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
 import { type IEventBus, TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -191,9 +197,49 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     new CompetitionSafetyTimerFreezer(competitionRepository, timerService),
     eventBus,
   );
+  const timedTargetControl = new TimedTargetSequenceService(
+    new SqliteTimedTargetSequenceRepository(db),
+    {
+      publish: (state) => {
+        eventBus.emit({
+          type: 'TimedTargetSequenceChanged',
+          timestamp: Date.now(),
+          aggregateId: state.competitionId,
+          state,
+        });
+      },
+    },
+    timedTargetEnforcementModeFromEnvironment(process.env),
+  );
+
+  const cancelActiveTimedTarget = (reason: string, competitionId?: string | null): void => {
+    const state = timedTargetControl.getState(competitionId ?? undefined);
+    if (!state || state.phase === 'COMPLETE' || state.phase === 'CANCELLED') return;
+    timedTargetControl.cancel({ sequenceId: state.sequenceId, reason });
+  };
+  eventBus.on('SafetyStopChanged', (event) => {
+    if (event.status === 'STOPPED') cancelActiveTimedTarget(`Safety stop ${event.safetyStopId}: ${event.reason}`);
+  });
+  eventBus.on('CompetitionInterruptionChanged', (event) => {
+    if (event.status === 'PAUSED') {
+      cancelActiveTimedTarget(`Competition interruption ${event.interruptionId}`, event.aggregateId);
+    }
+  });
+  eventBus.on('CompetitionFinished', (event) => {
+    cancelActiveTimedTarget('Competition finished', event.aggregateId);
+  });
   const loader = new ModuleLoader();
   loader.load(
-    [targetModule, sessionModule, connectionModule, settingsModule, competitionModule, reportModule, mqttModule],
+    [
+      targetModule,
+      sessionModule,
+      timedTargetModule,
+      connectionModule,
+      settingsModule,
+      competitionModule,
+      reportModule,
+      mqttModule,
+    ],
     {
       database: db,
       commandBus,
@@ -212,6 +258,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       competitionInterruptionControl,
       competitionShootOffControl,
       safetyStopControl,
+      timedTargetControl,
       mainWindow,
       userDataPath: app.getPath('userData'),
     },
@@ -282,6 +329,8 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   // 4. Forward domain events to renderer via contract-based channels
   const eventForwarder = new ContractEventForwarder(eventBus, mainWindow);
   eventForwarder.start();
+  timedTargetControl.restore();
+  mainWindow.once('closed', () => timedTargetControl.dispose());
 
   // Run renderer-load initialization from a single did-finish-load hook.
   mainWindow.webContents.once('did-finish-load', () => {

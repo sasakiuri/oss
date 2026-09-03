@@ -10,6 +10,7 @@
 import { z } from 'zod';
 
 import { CompetitionCuePayloadSchema } from '@/shared/mqtt/CompetitionCue';
+import { TimedTargetStateSchema } from '@/shared/mqtt/TimedTargetState';
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
 import { defineEvent, defineEventContract } from '../defineContract';
@@ -130,6 +131,8 @@ const PhaseChangedEventSchema = z.object({
   seriesIndex: z.number(),
   stageName: z.string(),
   scored: z.boolean(),
+  targetProfileId: z.string().min(1).optional(),
+  scoringGaugeProfileId: z.string().min(1).optional(),
 });
 
 const TimerTickEventSchema = z.object({
@@ -156,6 +159,8 @@ const CompetitionCueChangedEventSchema = z.object({
   competitionId: z.string().uuid(),
   cue: CompetitionCuePayloadSchema.nullable(),
 });
+
+const TimedTargetSequenceChangedEventSchema = TimedTargetStateSchema;
 
 const SeriesCompletedEventSchema = z.object({
   stageIndex: z.number(),
@@ -236,6 +241,9 @@ export const eventsContract = defineEventContract('events', {
   competitionCueChanged: defineEvent(CompetitionCueChangedEventSchema, {
     channel: 'event:competitionCueChanged',
   }),
+  timedTargetSequenceChanged: defineEvent(TimedTargetSequenceChangedEventSchema, {
+    channel: 'event:timedTargetSequenceChanged',
+  }),
   seriesCompleted: defineEvent(SeriesCompletedEventSchema, {
     channel: 'event:seriesCompleted',
   }),
@@ -276,6 +284,7 @@ export type TimerTickEventPayload = z.infer<typeof TimerTickEventSchema>;
 export type TimerExpiredEventPayload = z.infer<typeof TimerExpiredEventSchema>;
 export type SafetyStopChangedEventPayload = z.infer<typeof SafetyStopChangedEventSchema>;
 export type CompetitionCueChangedEventPayload = z.infer<typeof CompetitionCueChangedEventSchema>;
+export type TimedTargetSequenceChangedEventPayload = z.infer<typeof TimedTargetSequenceChangedEventSchema>;
 export type SeriesCompletedEventPayload = z.infer<typeof SeriesCompletedEventSchema>;
 export type StageAdvancedEventPayload = z.infer<typeof StageAdvancedEventSchema>;
 export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinishedEventSchema>;

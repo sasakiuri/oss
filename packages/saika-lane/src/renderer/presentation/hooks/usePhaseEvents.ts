@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useEffect } from 'react';
 
+import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
+
 import { useCompetitionStore } from '../stores/competitionStore';
 
 /**
@@ -27,7 +29,17 @@ export function usePhaseEvents(): void {
 
   useEffect(() => {
     const unsubPhaseChanged = window.electronAPI.on.phaseChanged((data) => {
-      applyPhaseChange(data.newPhase, data.stageIndex, data.seriesIndex, data.stageName, data.scored);
+      applyPhaseChange(
+        data.newPhase,
+        data.stageIndex,
+        data.seriesIndex,
+        data.stageName,
+        data.scored,
+        data.targetProfileId && isTargetScoringProfileId(data.targetProfileId) ? data.targetProfileId : undefined,
+        data.scoringGaugeProfileId && isScoringGaugeProfileId(data.scoringGaugeProfileId)
+          ? data.scoringGaugeProfileId
+          : undefined,
+      );
     });
     return () => unsubPhaseChanged();
   }, [applyPhaseChange]);

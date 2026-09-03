@@ -4,10 +4,22 @@ import {
   ISSF_2026_AP60_FINAL,
   ISSF_2026_APMIX30,
   ISSF_2026_APMIX_FINAL,
+  ISSF_2026_CFP,
   ISSF_2026_AR60,
   ISSF_2026_AR60_FINAL,
   ISSF_2026_ARMIX30,
   ISSF_2026_ARMIX_FINAL,
+  ISSF_2026_R3P60,
+  ISSF_2026_R3P60_ELIMINATION,
+  ISSF_2026_R3P60_INDOOR,
+  ISSF_2026_R3P_FINAL,
+  ISSF_2026_RPR60,
+  ISSF_2026_RPR60_ELIMINATION,
+  ISSF_2026_P25,
+  ISSF_2026_P25_FINAL,
+  ISSF_2026_RFPM,
+  ISSF_2026_RFPM_FINAL,
+  ISSF_2026_STDP,
 } from '@sasakiuri/saika-rules';
 
 import type { CompetitionTypeDefinition } from './CompetitionTypeDefinition';
@@ -39,6 +51,18 @@ export const ARMIX30: CompetitionTypeDefinition = competitionTypeFromRulePack(IS
 export const APMIX30: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_APMIX30);
 export const ARMIX_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_ARMIX_FINAL);
 export const APMIX_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_APMIX_FINAL);
+export const R3P60: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_R3P60);
+export const R3P60_ELIMINATION: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_R3P60_ELIMINATION);
+export const R3P60_INDOOR: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_R3P60_INDOOR);
+export const RPR60: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_RPR60);
+export const RPR60_ELIMINATION: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_RPR60_ELIMINATION);
+export const R3P_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_R3P_FINAL);
+export const RFPM: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_RFPM);
+export const P25: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_P25);
+export const CFP: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_CFP);
+export const STDP: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_STDP);
+export const RFPM_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_RFPM_FINAL);
+export const P25_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(ISSF_2026_P25_FINAL);
 
 /**
  * BR60S — 10m Beam Rifle 60 shots standing
@@ -130,6 +154,18 @@ export const ALL_COMPETITION_TYPES: readonly CompetitionTypeDefinition[] = [
   APMIX30,
   ARMIX_FINAL,
   APMIX_FINAL,
+  R3P60,
+  R3P60_ELIMINATION,
+  R3P60_INDOOR,
+  RPR60,
+  RPR60_ELIMINATION,
+  R3P_FINAL,
+  RFPM,
+  P25,
+  CFP,
+  STDP,
+  RFPM_FINAL,
+  P25_FINAL,
   BR60S,
   BP60,
 ];

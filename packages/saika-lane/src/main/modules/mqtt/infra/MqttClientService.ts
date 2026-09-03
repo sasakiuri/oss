@@ -49,6 +49,9 @@ export class MqttClientService implements IMqttClientService {
       try {
         this.client = mqtt.connect(options.brokerUrl, {
           clientId: options.clientId,
+          ...(options.credentials
+            ? { username: options.credentials.username, password: options.credentials.password }
+            : {}),
           keepalive: options.keepalive ?? 60,
           reconnectPeriod: options.reconnectPeriod ?? 5000,
           will: willOption

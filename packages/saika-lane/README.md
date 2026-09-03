@@ -11,7 +11,8 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 - Score calculation and session recording
 - Director-authorized Lane-specific timer pause/resume with durable interruption recovery
 - Competition-independent durable safety STOP, timer gate, STOP / UNLOAD overlay, and quarantined-shot evidence
-- ISSF 2026 Individual and Mixed Team 10m Qualification/Final course definitions
+- ISSF 2026 Individual and Mixed Team 10m plus 50m Rifle Qualification/Final course definitions
+- ISSF 2026 25m Pistol qualification schedules with persisted LOAD, ATTENTION, red/green, and EST after-time boundaries
 - Synchronized series/single-shot timers and Director-authorized Final retirement snapshots
 
 ## Supported Devices
@@ -134,6 +135,22 @@ npm run test
 npm run lint
 ```
 
+## Runtime Policy Configuration
+
+The 25m timed-target engine is independent of the device adapter and can be adjusted for official, local, or practice operation.
+
+| Environment variable               | Values                             | Default    | Purpose                                                               |
+| ---------------------------------- | ---------------------------------- | ---------- | --------------------------------------------------------------------- |
+| `SAIKA_TIMED_TARGET_ENFORCEMENT`   | `REQUIRED`, `ADVISORY`, `DISABLED` | `REQUIRED` | Reject, warn about, or bypass shots outside the configured EST window |
+| `SAIKA_COMMAND_AUTHORIZATION_MODE` | `REQUIRED`, `ADVISORY`, `DISABLED` | `ADVISORY` | Reject, warn about, or bypass untrusted Director issuer IDs           |
+| `SAIKA_TRUSTED_DIRECTOR_IDS`       | Comma-separated IDs                | —          | Trusted IDs; at least one is required in `REQUIRED` mode              |
+| `SAIKA_MQTT_LANE_USERNAME`         | Non-empty string                   | —          | MQTT username; must be set together with the password                 |
+| `SAIKA_MQTT_LANE_PASSWORD`         | Non-empty string                   | —          | MQTT password; must be set together with the username                 |
+
+The original shot observation is retained in every timed-target enforcement mode. `ADVISORY` and `DISABLED` are
+operational policy choices and do not alter the versioned ISSF Rule Pack. Director issuer verification is independent
+of broker authentication: set the trusted ID to Director's `SAIKA_MQTT_DIRECTOR_ID` for strict operation.
+
 ## Windows Build
 
 A PowerShell build script is provided for building the Windows installer.
@@ -181,7 +198,8 @@ This is an **unofficial, independent** project. It is not affiliated with, endor
 
 ## Known Limitations
 
-- **MQTT authentication**: The current MQTT client does not support username/password or TLS client certificate authentication. On shared networks, consider using network-level isolation or a broker with built-in ACLs.
+- **MQTT client certificates**: Username/password authentication is supported, but TLS client-certificate selection is not currently configurable in Lane.
+- **25m physical target output**: The timing engine publishes a device-neutral state stream, but a production lamp or turning-target hardware adapter and automatic spoken `UNLOAD` command are not included. The CRO must use the approved range equipment and procedure.
 
 ## License
 

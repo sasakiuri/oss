@@ -20,6 +20,31 @@ export const LanePhaseSchema = z.enum([
   'FINISHED',
 ]);
 
+export const RulePackIdentitySchema = z.object({
+  id: z.string().min(1),
+  schemaVersion: z.literal(1),
+  fingerprint: z.object({
+    algorithm: z.literal('SHA-256'),
+    value: z.string().regex(/^[a-f0-9]{64}$/),
+  }),
+});
+
+export const CompetitionDefinitionBindingSchema = z
+  .object({
+    protocolVersion: z.literal(1),
+    compatibilityMode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+    rulePack: RulePackIdentitySchema.optional(),
+  })
+  .superRefine((binding, context) => {
+    if (binding.compatibilityMode === 'REQUIRED' && !binding.rulePack) {
+      context.addIssue({
+        code: 'custom',
+        path: ['rulePack'],
+        message: 'A required compatibility binding needs an exact Rule Pack identity',
+      });
+    }
+  });
+
 export const HardwareStatePayloadSchema = z.object({
   laneId: z.string().uuid(),
   laneAlias: z.string(),
@@ -30,6 +55,12 @@ export const HardwareStatePayloadSchema = z.object({
     connectionId: z.string().uuid().optional(),
   }),
   appVersion: z.string(),
+  capabilities: z
+    .object({
+      competitionProtocolVersions: z.array(z.literal(1)).min(1),
+      rulePacks: z.array(RulePackIdentitySchema),
+    })
+    .optional(),
   publishedAt: z.string().datetime(),
 });
 
@@ -54,6 +85,60 @@ export const LaneSafetyStatePayloadSchema = z.object({
   publishedAt: z.string().datetime(),
 });
 
+export const RangeOfficerRequestPayloadSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    laneId: z.string().uuid(),
+    status: z.enum(['ACTIVE', 'CLEARED']),
+    requestId: z.string().uuid().nullable(),
+    category: z.enum(['ASSISTANCE', 'EQUIPMENT', 'TARGET', 'SCORING', 'SAFETY', 'OTHER']).nullable(),
+    message: z.string().max(500).nullable(),
+    requestedAt: z.string().datetime().nullable(),
+    clearedAt: z.string().datetime().nullable(),
+    clearedBy: z.string().nullable(),
+    publishedAt: z.string().datetime(),
+  })
+  .superRefine((state, context) => {
+    if (state.status === 'ACTIVE') {
+      if (!state.requestId || !state.category || !state.requestedAt) {
+        context.addIssue({ code: 'custom', message: 'An active request requires identity, category and time' });
+      }
+      if (state.clearedAt || state.clearedBy) {
+        context.addIssue({ code: 'custom', message: 'An active request cannot contain clearance data' });
+      }
+    } else if (state.requestId && (!state.category || !state.requestedAt || !state.clearedAt || !state.clearedBy)) {
+      context.addIssue({ code: 'custom', message: 'A cleared request history is incomplete' });
+    }
+  });
+
+export const TimedTargetStatePayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  laneId: z.string().uuid(),
+  sequenceId: z.string().uuid(),
+  competitionId: z.string().uuid(),
+  programId: z.string().min(1),
+  programLabel: z.string().min(1),
+  purpose: z.enum(['SIGHTING', 'MATCH', 'SHOOT_OFF']),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  targetProfileId: z.string().min(1),
+  ruleReference: z.string().min(1),
+  phase: z.enum(['ARMED', 'LOAD', 'ATTENTION', 'FIRING', 'AFTER_TIME', 'BETWEEN_EXPOSURES', 'COMPLETE', 'CANCELLED']),
+  signal: z.enum(['RED', 'GREEN']),
+  shotWindowOpen: z.boolean(),
+  exposureIndex: z.number().int().nonnegative().nullable(),
+  exposureCount: z.number().int().positive(),
+  acceptedShotsInExposure: z.number().int().nonnegative(),
+  loadAt: z.string().datetime(),
+  attentionAt: z.string().datetime(),
+  completesAt: z.string().datetime(),
+  nextLoadAllowedAt: z.string().datetime(),
+  nextTransitionAt: z.string().datetime().nullable(),
+  terminalReason: z.string().nullable(),
+  enforcementMode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+  publishedAt: z.string().datetime(),
+});
+
 export const RawShotPayloadSchema = z.object({
   laneId: z.string().uuid(),
   shotId: z.string().uuid(),
@@ -66,6 +151,8 @@ export const RawShotPayloadSchema = z.object({
   effectiveScoreX10: z.number().int().min(0).max(109).optional(),
   observationId: z.string().uuid().optional(),
   receivedAt: z.string().datetime().optional(),
+  targetProfileId: z.string().min(1).optional(),
+  scoringGaugeProfileId: z.string().min(1).optional(),
   innerTen: z.boolean(),
   mode: z.enum(['SIGHTING', 'MATCH']),
   timestamp: z.string().datetime(),
@@ -80,6 +167,7 @@ export const ShotObservationEvidencePayloadSchema = z.object({
   outcome: z.enum([
     'RECORDED',
     'REJECTED_COMPETITION_PHASE',
+    'REJECTED_TIMED_TARGET_WINDOW',
     'QUARANTINED_SAFETY_STOP',
     'NO_ACTIVE_SESSION',
     'PROCESSING_FAILED',
@@ -128,6 +216,7 @@ export const CompetitionStatePayloadSchema = z.object({
   discipline: z.string(),
   roundName: z.string(),
   competitionUnit: z.enum(['INDIVIDUAL', 'MIXED_TEAM']).optional(),
+  definitionBinding: CompetitionDefinitionBindingSchema.optional(),
   acc: z.enum(['RING', 'DECIMAL']),
   phase: CompetitionPhaseSchema,
   shotsPerSeries: z.number().int().positive(),
@@ -163,7 +252,7 @@ export const CompetitionCuePayloadSchema = z.object({
   text: z.string().min(1),
   ruleReference: z.string().min(1),
   effect: z.object({
-    type: z.enum(['NONE', 'LOAD', 'OPEN_FIRING', 'CLOSE_FIRING', 'CHECKPOINT', 'DECLARE_RESULTS']),
+    type: z.enum(['NONE', 'LOAD', 'OPEN_FIRING', 'RUN_TIMED_TARGET', 'CLOSE_FIRING', 'CHECKPOINT', 'DECLARE_RESULTS']),
     purpose: z.enum(['SIGHTING', 'MATCH', 'SHOOT_OFF']).optional(),
   }),
   targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
@@ -223,11 +312,24 @@ export const LaneAssignmentPayloadSchema = z.object({
   publishedAt: z.string().datetime(),
 });
 
+const HitMissResultProjectionSchema = z.object({
+  type: z.literal('HIT_MISS'),
+  source: z.literal('EFFECTIVE_SCORE_X10'),
+  hitThresholdX10: z.number().int().min(0).max(109),
+  hitValueX10: z.literal(10),
+  missValueX10: z.literal(0),
+  displayUnit: z.literal('HITS'),
+  preserveSourceScore: z.literal(true),
+  ruleReference: z.string().min(1),
+});
+
 const SeriesScoreSchema = z.object({
   seriesIndex: z.number().int().min(0),
   shots: z.array(z.number().int().min(0).max(109)),
   seriesTotalX10: z.number().int().min(0),
   isComplete: z.boolean(),
+  sourceShotsX10: z.array(z.number().int().min(0).max(109)).optional(),
+  sourceSeriesTotalX10: z.number().int().min(0).optional(),
 });
 
 export const LaneScorePayloadSchema = z
@@ -238,11 +340,14 @@ export const LaneScorePayloadSchema = z
     totalScoreX10: z.number().int().min(0),
     totalShotCount: z.number().int().min(0),
     acc: z.enum(['RING', 'DECIMAL']),
+    resultProjection: HitMissResultProjectionSchema.optional(),
+    sourceTotalScoreX10: z.number().int().min(0).optional(),
     stages: z.array(
       z.object({
         stageIndex: z.number().int().min(0),
         stageName: z.string(),
         stageTotalX10: z.number().int().min(0),
+        sourceStageTotalX10: z.number().int().min(0).optional(),
         series: z.array(SeriesScoreSchema),
       }),
     ),
@@ -252,6 +357,7 @@ export const LaneScorePayloadSchema = z
   .superRefine((score, context) => {
     const stageIndices = new Set<number>();
     let declaredTotalX10 = 0;
+    let declaredSourceTotalX10 = 0;
     let recordedShotCount = 0;
 
     score.stages.forEach((stage, stagePosition) => {
@@ -266,6 +372,7 @@ export const LaneScorePayloadSchema = z
 
       const seriesIndices = new Set<number>();
       let declaredStageTotalX10 = 0;
+      let declaredSourceStageTotalX10 = 0;
       stage.series.forEach((series, seriesPosition) => {
         if (seriesIndices.has(series.seriesIndex)) {
           context.addIssue({
@@ -296,6 +403,48 @@ export const LaneScorePayloadSchema = z
           });
         }
 
+        if (score.resultProjection) {
+          if (!series.sourceShotsX10 || series.sourceSeriesTotalX10 === undefined) {
+            context.addIssue({
+              code: 'custom',
+              path: ['stages', stagePosition, 'series', seriesPosition],
+              message: 'Projected score series must preserve its source shots and total',
+            });
+          } else {
+            if (series.sourceShotsX10.length !== series.shots.length) {
+              context.addIssue({
+                code: 'custom',
+                path: ['stages', stagePosition, 'series', seriesPosition, 'sourceShotsX10'],
+                message: 'sourceShotsX10 must contain one value for every result shot',
+              });
+            }
+            const sourceShotTotalX10 = series.sourceShotsX10.reduce((sum, shot) => sum + shot, 0);
+            if (series.sourceSeriesTotalX10 !== sourceShotTotalX10) {
+              context.addIssue({
+                code: 'custom',
+                path: ['stages', stagePosition, 'series', seriesPosition, 'sourceSeriesTotalX10'],
+                message: `sourceSeriesTotalX10 must equal the source shot total ${sourceShotTotalX10}`,
+              });
+            }
+            series.shots.forEach((shot, shotPosition) => {
+              const sourceShot = series.sourceShotsX10?.[shotPosition];
+              if (sourceShot === undefined) return;
+              const expected =
+                sourceShot >= score.resultProjection!.hitThresholdX10
+                  ? score.resultProjection!.hitValueX10
+                  : score.resultProjection!.missValueX10;
+              if (shot !== expected) {
+                context.addIssue({
+                  code: 'custom',
+                  path: ['stages', stagePosition, 'series', seriesPosition, 'shots', shotPosition],
+                  message: `Projected shot must equal ${expected} for source score ${sourceShot}`,
+                });
+              }
+            });
+            declaredSourceStageTotalX10 += series.sourceSeriesTotalX10;
+          }
+        }
+
         recordedShotCount += series.shots.length;
         declaredStageTotalX10 += series.seriesTotalX10;
       });
@@ -307,7 +456,15 @@ export const LaneScorePayloadSchema = z
           message: `stageTotalX10 must equal the series total ${declaredStageTotalX10}`,
         });
       }
+      if (score.resultProjection && stage.sourceStageTotalX10 !== declaredSourceStageTotalX10) {
+        context.addIssue({
+          code: 'custom',
+          path: ['stages', stagePosition, 'sourceStageTotalX10'],
+          message: `sourceStageTotalX10 must equal the source series total ${declaredSourceStageTotalX10}`,
+        });
+      }
       declaredTotalX10 += stage.stageTotalX10;
+      declaredSourceTotalX10 += declaredSourceStageTotalX10;
     });
 
     if (score.totalScoreX10 !== declaredTotalX10) {
@@ -323,6 +480,22 @@ export const LaneScorePayloadSchema = z
         path: ['totalShotCount'],
         message: `totalShotCount must equal the recorded shot count ${recordedShotCount}`,
       });
+    }
+    if (score.resultProjection) {
+      if (score.acc !== 'DECIMAL') {
+        context.addIssue({
+          code: 'custom',
+          path: ['acc'],
+          message: 'HIT_MISS result projection requires DECIMAL source scoring',
+        });
+      }
+      if (score.sourceTotalScoreX10 !== declaredSourceTotalX10) {
+        context.addIssue({
+          code: 'custom',
+          path: ['sourceTotalScoreX10'],
+          message: `sourceTotalScoreX10 must equal the source stage total ${declaredSourceTotalX10}`,
+        });
+      }
     }
   });
 
@@ -358,12 +531,16 @@ export const CompetitionShootOffShotPayloadSchema = z.object({
   firedAt: z.string().datetime(),
   receivedAt: z.string().datetime(),
   observationId: z.string().uuid().optional(),
+  targetProfileId: z.string().min(1).optional(),
+  scoringGaugeProfileId: z.string().min(1).optional(),
   publishedAt: z.string().datetime(),
 });
 
 const CommandBaseSchema = z.object({
   commandId: z.string().uuid(),
   issuedBy: z.string().min(1),
+  /** Stable application principal; issuedBy may identify the authorizing official. */
+  issuerId: z.string().min(1).optional(),
   issuedAt: z.string().datetime(),
 });
 
@@ -400,7 +577,7 @@ export const EndSightingCommandSchema = CommandBaseSchema;
 
 export const StartMatchCommandSchema = CommandBaseSchema.extend({
   timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
+  timerDurationSeconds: z.number().int().positive().optional(),
 });
 
 export const TimerStartedCommandSchema = CommandBaseSchema.extend({
@@ -462,14 +639,44 @@ export const StartShootOffCommandSchema = CommandBaseSchema.extend({
   runId: z.string().uuid(),
   iteration: z.number().int().positive(),
   timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
+  timerDurationSeconds: z.number().int().positive().optional(),
+  shotsPerLane: z.number().int().positive(),
   targetLaneIds: z.array(z.string().uuid()).min(2),
+  timedTarget: z
+    .object({
+      programId: z.string().min(1),
+      participantExecution: z.enum(['SIMULTANEOUS', 'SEQUENTIAL']),
+    })
+    .optional(),
+}).superRefine((command, context) => {
+  if ((command.timerDurationSeconds === undefined) === (command.timedTarget === undefined)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['timerDurationSeconds'],
+      message: 'A shoot-off requires exactly one generic duration or timed-target program',
+    });
+  }
 });
 
 export const StopShootOffCommandSchema = CommandBaseSchema.extend({
   runId: z.string().uuid(),
   iteration: z.number().int().positive(),
   targetLaneIds: z.array(z.string().uuid()).min(2),
+});
+
+export const StartTimedTargetCommandSchema = CommandBaseSchema.extend({
+  programId: z.string().min(1),
+  purpose: z.enum(['SIGHTING', 'MATCH']),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  loadAt: z.string().datetime(),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
+});
+
+export const CancelTimedTargetCommandSchema = CommandBaseSchema.extend({
+  sequenceId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
 export const CommandAcknowledgementSchema = z.object({
@@ -494,8 +701,12 @@ export const ClockProbeAcknowledgementDataSchema = z.object({
 });
 
 export type CompetitionPhase = z.infer<typeof CompetitionPhaseSchema>;
+export type RulePackIdentityPayload = z.infer<typeof RulePackIdentitySchema>;
+export type CompetitionDefinitionBinding = z.infer<typeof CompetitionDefinitionBindingSchema>;
 export type HardwareStatePayload = z.infer<typeof HardwareStatePayloadSchema>;
 export type LaneSafetyStatePayload = z.infer<typeof LaneSafetyStatePayloadSchema>;
+export type RangeOfficerRequestPayload = z.infer<typeof RangeOfficerRequestPayloadSchema>;
+export type TimedTargetStatePayload = z.infer<typeof TimedTargetStatePayloadSchema>;
 export type RawShotPayload = z.infer<typeof RawShotPayloadSchema>;
 export type ShotObservationEvidencePayload = z.infer<typeof ShotObservationEvidencePayloadSchema>;
 export type ActiveCompetitionTimer = z.infer<typeof ActiveCompetitionTimerSchema>;

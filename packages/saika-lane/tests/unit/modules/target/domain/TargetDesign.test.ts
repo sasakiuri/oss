@@ -965,9 +965,10 @@ describe('TargetDesign value object', () => {
 
       expect(design.profileId).toBe('ISSF_PISTOL_25M_PRECISION_2026');
       expect(design.rings).toHaveLength(10);
-      expect(design.rings[0]).toMatchObject({ score: 100, radius: 29.5 });
-      expect(design.rings[1]).toMatchObject({ score: 90, radius: 54.5 });
-      expect(design.xRingRadius).toBe(17);
+      expect(design.scoringGaugeProfileId).toBe('ISSF_SMALLBORE_5_60_2026');
+      expect(design.rings[0]).toMatchObject({ score: 100, radius: 27.8 });
+      expect(design.rings[1]).toMatchObject({ score: 90, radius: 52.8 });
+      expect(design.xRingRadius).toBe(15.3);
     });
 
     it('builds the rapid-fire face without changing the discipline model', () => {
@@ -975,10 +976,29 @@ describe('TargetDesign value object', () => {
 
       expect(design.discipline.value).toBe('PISTOL_25M');
       expect(design.rings).toHaveLength(6);
-      expect(design.rings[0]).toMatchObject({ score: 100, radius: 54.5 });
-      expect(design.rings[1]).toMatchObject({ score: 90, radius: 94.5 });
-      expect(design.calculateScore(new ImpactPoint(54.5, 0)).value).toBe(100);
-      expect(design.calculateScore(new ImpactPoint(54.51, 0)).value).toBe(90);
+      expect(design.rings[0]).toMatchObject({ score: 100, radius: 52.8 });
+      expect(design.rings[1]).toMatchObject({ score: 90, radius: 92.8 });
+      expect(design.xRingRadius).toBe(27.8);
+      expect(design.calculateScore(new ImpactPoint(52.8, 0)).value).toBe(100);
+      expect(design.calculateScore(new ImpactPoint(52.81, 0)).value).toBe(90);
+    });
+
+    it('scores the same precision face with the Centre Fire measuring edge', () => {
+      const design = TargetDesign.forProfile('ISSF_PISTOL_25M_PRECISION_2026', 'ISSF_CENTER_FIRE_9_65_2026');
+
+      expect(design.scoringGaugeProfileId).toBe('ISSF_CENTER_FIRE_9_65_2026');
+      expect(design.scoringGaugeRadiusMm).toBe(4.825);
+      expect(design.rings[0]).toMatchObject({ score: 100, radius: 29.825 });
+      expect(design.rings[1]).toMatchObject({ score: 90, radius: 54.825 });
+      expect(design.xRingRadius).toBe(17.325);
+      expect(design.calculateScore(new ImpactPoint(29.825, 0)).value).toBe(100);
+      expect(design.calculateScore(new ImpactPoint(29.826, 0)).value).toBe(90);
+    });
+
+    it('rejects a scoring gauge that is incompatible with the target discipline', () => {
+      expect(() => TargetDesign.forProfile('ISSF_AIR_RIFLE_10M_2026', 'ISSF_CENTER_FIRE_9_65_2026')).toThrow(
+        'Invalid target design',
+      );
     });
 
     it('rejects a profile from another discipline', () => {

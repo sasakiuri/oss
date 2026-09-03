@@ -10,6 +10,7 @@ import {
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
 const laneId = '33333333-3333-4333-8333-333333333333';
+const otherLaneId = '44444444-4444-4444-8444-444444444444';
 
 class MemoryRepository implements IFinalRecoveryRepository {
   readonly cases: FinalRecoveryCase[] = [];
@@ -213,9 +214,125 @@ describe('FinalRecoveryService', () => {
     expect(rapidFire.guidance.remedies).not.toContain('COMPLETE_SERIES');
     expect(women.guidance.remedies).toContain('COMPLETE_SERIES');
     expect(women.guidance.remedies).not.toContain('REPEAT_SERIES');
+    expect(women.guidance.remedies).not.toContain('APPLY_RULE_PENALTY');
     expect(rapidFire.guidance.remedies).not.toContain('GRANT_TWO_MINUTE_SIGHTING');
     expect(rapidFire.guidance.limits.longDelayThresholdSeconds).toBeNull();
     expect(rapidFire.guidance.limits.sightingTimeSeconds).toBeNull();
+  });
+
+  it('keeps 25m sighting malfunctions as records without allowing a claim or repeat', () => {
+    const service = new FinalRecoveryService(new MemoryRepository());
+    expect(() =>
+      service.create({
+        competitionId,
+        procedureProfile: 'PISTOL_25M_RAPID_FIRE',
+        incidentType: 'MALFUNCTION',
+        phase: 'SIGHTING',
+        affectedLaneIds: [],
+        summary: 'A sighting-series malfunction was observed.',
+        openedBy: 'Range Officer A',
+      }),
+    ).toThrow('requires exactly one affected Lane');
+
+    const value = service.create({
+      competitionId,
+      procedureProfile: 'PISTOL_25M_RAPID_FIRE',
+      incidentType: 'MALFUNCTION',
+      phase: 'SIGHTING',
+      affectedLaneIds: [laneId],
+      summary: 'A sighting-series malfunction was observed.',
+      openedBy: 'Range Officer A',
+    });
+
+    expect(value.guidance.classifications).toEqual(['OTHER']);
+    expect(value.guidance.remedies).not.toContain('REPEAT_SERIES');
+    expect(() =>
+      service.appendEntry({
+        caseId: value.id,
+        type: 'JURY_RULING',
+        classification: 'ALLOWABLE_MALFUNCTION',
+        statement: 'Attempted claim.',
+        officialName: 'Range Officer A',
+      }),
+    ).toThrow('Classification ALLOWABLE_MALFUNCTION is not available');
+  });
+
+  it('allows only one active AM or NAM claim per Lane in a 25m Final', () => {
+    const repository = new MemoryRepository();
+    const service = new FinalRecoveryService(repository);
+    const first = service.create({
+      competitionId,
+      finalRunId: eventId,
+      procedureProfile: 'PISTOL_25M_WOMEN',
+      incidentType: 'MALFUNCTION',
+      phase: 'MATCH_SERIES',
+      affectedLaneIds: [laneId],
+      summary: 'First malfunction claim.',
+      openedBy: 'Range Officer A',
+    });
+    service.appendEntry({
+      caseId: first.id,
+      type: 'JURY_RULING',
+      classification: 'ALLOWABLE_MALFUNCTION',
+      statement: 'Allowable malfunction.',
+      officialName: 'Range Officer A',
+    });
+
+    const second = service.create({
+      competitionId,
+      finalRunId: eventId,
+      procedureProfile: 'PISTOL_25M_WOMEN',
+      incidentType: 'MALFUNCTION',
+      phase: 'MATCH_SERIES',
+      affectedLaneIds: [laneId],
+      summary: 'Further malfunction; displayed hits must be counted.',
+      openedBy: 'Range Officer B',
+    });
+    expect(() =>
+      service.appendEntry({
+        caseId: second.id,
+        type: 'JURY_RULING',
+        classification: 'NON_ALLOWABLE_MALFUNCTION',
+        statement: 'Attempted second claim.',
+        officialName: 'Range Officer B',
+      }),
+    ).toThrow('Only one ALLOWABLE or NON-ALLOWABLE malfunction may be claimed');
+
+    const otherLane = service.create({
+      competitionId,
+      finalRunId: eventId,
+      procedureProfile: 'PISTOL_25M_WOMEN',
+      incidentType: 'MALFUNCTION',
+      phase: 'MATCH_SERIES',
+      affectedLaneIds: [otherLaneId],
+      summary: 'First claim for a different finalist.',
+      openedBy: 'Range Officer B',
+    });
+    expect(() =>
+      service.appendEntry({
+        caseId: otherLane.id,
+        type: 'JURY_RULING',
+        classification: 'NON_ALLOWABLE_MALFUNCTION',
+        statement: 'Non-allowable malfunction.',
+        officialName: 'Range Officer B',
+      }),
+    ).not.toThrow();
+
+    service.appendEntry({
+      caseId: first.id,
+      type: 'VOID',
+      statement: 'The first case was opened against the wrong observation.',
+      officialName: 'Jury A',
+    });
+    expect(() =>
+      service.appendEntry({
+        caseId: second.id,
+        type: 'JURY_RULING',
+        classification: 'NON_ALLOWABLE_MALFUNCTION',
+        statement: 'Claim after the erroneous first record was voided.',
+        officialName: 'Range Officer B',
+      }),
+    ).not.toThrow();
   });
 
   it('rejects a classification outside the incident policy before appending it', () => {

@@ -8,7 +8,9 @@
 import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
+import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { mqttContract } from '@/shared/ipc/contracts';
@@ -27,10 +29,13 @@ import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
 import { LaneCompetitionStatePublisher } from './application/LaneCompetitionStatePublisher';
 import { LaneSafetyStatePublisher } from './application/LaneSafetyStatePublisher';
 import { LaneScorePublisher } from './application/LaneScorePublisher';
+import { RangeOfficerRequestPublisher } from './application/RangeOfficerRequestPublisher';
 import { RawShotPublisher } from './application/RawShotPublisher';
 import { RetainPublisher } from './application/RetainPublisher';
 import { RpcRequestHandler } from './application/RpcRequestHandler';
 import { ShotObservationEvidencePublisher } from './application/ShotObservationEvidencePublisher';
+import { TimedTargetStatePublisher } from './application/TimedTargetStatePublisher';
+import { commandAuthorizationPolicyFromEnvironment } from './domain/CommandAuthorizationPolicy';
 import { CommandIdempotencyGuard } from './infra/CommandIdempotencyGuard';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
@@ -46,8 +51,21 @@ type MqttDeps =
   | 'competitionInterruptionControl'
   | 'competitionShootOffControl'
   | 'safetyStopControl'
+  | 'timedTargetControl'
   | 'sessionRepository'
   | 'database';
+
+function mqttCredentialsFromEnvironment(
+  environment: Readonly<Record<string, string | undefined>>,
+): { username: string; password: string } | undefined {
+  const username = environment.SAIKA_MQTT_LANE_USERNAME?.trim();
+  const password = environment.SAIKA_MQTT_LANE_PASSWORD;
+  if (!username && !password) return undefined;
+  if (!username || !password) {
+    throw new Error('MQTT credentials require both SAIKA_MQTT_LANE_USERNAME and SAIKA_MQTT_LANE_PASSWORD');
+  }
+  return { username, password };
+}
 
 export const mqttModule: ModuleDefinition<MqttDeps> = {
   name: 'mqtt',
@@ -63,6 +81,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'competitionInterruptionControl',
     'competitionShootOffControl',
     'safetyStopControl',
+    'timedTargetControl',
     'sessionRepository',
     'database',
   ] as const,
@@ -78,6 +97,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     competitionInterruptionControl,
     competitionShootOffControl,
     safetyStopControl,
+    timedTargetControl,
     sessionRepository,
     database,
   }) {
@@ -85,9 +105,21 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const appVersion = app.getVersion();
     const idempotencyGuard = new CommandIdempotencyGuard();
     const getLaneId = (): string => settingsStore.getLaneId();
+    const definitionsById = new Map(ALL_COMPETITION_TYPES.map((definition) => [definition.id, definition]));
+    const rulePacks = ALL_COMPETITION_TYPES.flatMap((definition) =>
+      definition.rulePackIdentity ? [definition.rulePackIdentity] : [],
+    );
+    const commandAuthorization = commandAuthorizationPolicyFromEnvironment(process.env);
+    const mqttCredentials = mqttCredentialsFromEnvironment(process.env);
+    const rangeOfficerRequestService = new RangeOfficerRequestService(
+      new SqliteRangeOfficerRequestRepository(database),
+    );
 
     // Initialize publishers (they subscribe to EventBus events)
-    const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion);
+    const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion, {
+      competitionProtocolVersions: [1],
+      rulePacks,
+    });
     new CompetitionShootOffShotPublisher(
       mqttClient,
       eventBus,
@@ -122,6 +154,12 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
     const safetyStatePublisher = new LaneSafetyStatePublisher(mqttClient, eventBus, storage, safetyStopControl);
+    const rangeOfficerRequestPublisher = new RangeOfficerRequestPublisher(
+      mqttClient,
+      storage,
+      rangeOfficerRequestService,
+    );
+    const timedTargetStatePublisher = new TimedTargetStatePublisher(mqttClient, eventBus, storage, timedTargetControl);
 
     // Initialize retain publisher (handles reconnect republish + shot backlog replay)
     const retainPublisher = new RetainPublisher(
@@ -134,13 +172,21 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       scorePublisher,
       assignmentPublisher,
       safetyStatePublisher,
+      rangeOfficerRequestPublisher,
+      timedTargetStatePublisher,
     );
 
     // Initialize RPC handler
     const rpcHandler = new RpcRequestHandler(mqttClient, storage, queryBus);
 
     // Initialize competition state subscriber
-    const competitionStateSubscriber = new CompetitionStateSubscriber(mqttClient, commandBus, competitionRepository);
+    const competitionStateSubscriber = new CompetitionStateSubscriber(
+      mqttClient,
+      commandBus,
+      competitionRepository,
+      undefined,
+      (competitionTypeId) => definitionsById.get(competitionTypeId),
+    );
     const competitionCueSubscriber = new CompetitionCueSubscriber(mqttClient, eventBus, getLaneId);
 
     // Initialize command handlers (laneId is read dynamically via getter)
@@ -159,6 +205,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionInterruptionControl,
       safetyStopControl,
       competitionShootOffControl,
+      commandAuthorization,
+      timedTargetControl,
     );
 
     const perLaneHandler = new PerLaneCommandHandler(
@@ -173,6 +221,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       getLaneId,
       competitionId,
       safetyStopControl,
+      commandAuthorization,
     );
 
     const tier1Handler = new LaneTier1CommandHandler(
@@ -189,6 +238,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       safetyStatePublisher,
       competitionCueSubscriber,
       competitionShootOffControl,
+      commandAuthorization,
+      timedTargetControl,
     );
 
     // IPC handlers
@@ -214,6 +265,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           await mqttClient.connect({
             brokerUrl: input.brokerUrl,
             clientId: `saika-lane-${currentLaneId}`,
+            ...(mqttCredentials ? { credentials: mqttCredentials } : {}),
           });
 
           // Register reconnect callbacks (must be after connect so onConnect/onDisconnect work)
@@ -223,6 +275,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           hardwarePublisher.resumePublishing();
           hardwarePublisher.publishState();
           await safetyStatePublisher.publishCurrentState();
+          await rangeOfficerRequestPublisher.publishCurrentState();
+          await timedTargetStatePublisher.publishCurrentState();
           hardwarePublisher.startHeartbeat();
 
           // Subscribe to Tier1 commands
@@ -289,6 +343,28 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 
       getSafetyState: async () => toSafetyStateDto(safetyStopControl.getState()),
 
+      getRangeOfficerRequest: async () => toRangeOfficerRequestDto(getLaneId(), rangeOfficerRequestService.getState()),
+
+      requestRangeOfficer: async (input) => {
+        const state = rangeOfficerRequestService.request(input);
+        await rangeOfficerRequestPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn('[MQTT Module] Range Officer request retained locally for retry', 'mqtt', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+        return toRangeOfficerRequestDto(getLaneId(), state);
+      },
+
+      clearRangeOfficerRequest: async (input) => {
+        const state = rangeOfficerRequestService.clear({ ...input, clearedBy: 'Lane user' });
+        await rangeOfficerRequestPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn('[MQTT Module] Cleared Range Officer request retained locally for retry', 'mqtt', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+        return toRangeOfficerRequestDto(getLaneId(), state);
+      },
+
       saveMqttSettings: async (input) => {
         settingsStore.saveMqttSettings(input);
         hardwarePublisher.setRuntimeLaneAlias(null);
@@ -320,5 +396,23 @@ function toSafetyStateDto(state: ReturnType<import('@/main/modules/safety-stop')
     clearedBy: state?.clearedBy ?? null,
     clearanceReason: state?.clearanceReason ?? null,
     clearedAt: state?.clearedAt?.toISOString() ?? null,
+  };
+}
+
+function toRangeOfficerRequestDto(
+  laneId: string,
+  state: ReturnType<import('@/main/modules/range-officer-request').RangeOfficerRequestService['getState']>,
+) {
+  return {
+    schemaVersion: 1 as const,
+    laneId,
+    status: state?.status ?? ('CLEARED' as const),
+    requestId: state?.requestId ?? null,
+    category: state?.category ?? null,
+    message: state?.message ?? null,
+    requestedAt: state?.requestedAt.toISOString() ?? null,
+    clearedAt: state?.clearedAt?.toISOString() ?? null,
+    clearedBy: state?.clearedBy ?? null,
+    publishedAt: new Date().toISOString(),
   };
 }

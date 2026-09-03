@@ -51,7 +51,12 @@ export class SquaddingService {
       firstFiringPoint: input.firstFiringPoint,
       firingPointCount: input.firingPointCount,
       statusSectionPolicy: input.statusSectionPolicy,
-      round: definition.config.name === 'Final' ? 'Final' : 'Qualification',
+      round:
+        definition.config.name === 'Final'
+          ? 'Final'
+          : definition.config.name === 'Elimination'
+            ? 'Elimination'
+            : 'Qualification',
       ...(definition.teamFormat === 'MIXED_PAIR' ? { teamFormat: 'MIXED_PAIR' as const } : {}),
     });
     const participantSnapshotJson = canonicalJson(snapshot);

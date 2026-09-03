@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { migration010MqttCompetitionShotJournal } from '@/main/infrastructure/database/migrations/010_mqtt_competition_shot_journal';
+import { migration052ScoringGeometryEvidence } from '@/main/infrastructure/database/migrations/052_scoring_geometry_evidence';
 import type { CompetitionShotObservation } from '@/main/modules/mqtt/domain/ICompetitionShotJournal';
 import { SqliteCompetitionShotJournal } from '@/main/modules/mqtt/infra/SqliteCompetitionShotJournal';
 
@@ -12,6 +13,7 @@ describe('SqliteCompetitionShotJournal', () => {
   beforeEach(() => {
     database = new Database(':memory:');
     migration010MqttCompetitionShotJournal.up(database);
+    migration052ScoringGeometryEvidence.up(database);
     journal = new SqliteCompetitionShotJournal(database);
   });
 
@@ -32,6 +34,8 @@ describe('SqliteCompetitionShotJournal', () => {
       calculatedScoreX10: 103,
       calculatedScoreAvailable: true,
       effectiveScoreX10: 101,
+      targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+      scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
       innerTen: false,
       mode: 'MATCH',
       firedAt: new Date('2026-08-28T00:00:00.000Z'),

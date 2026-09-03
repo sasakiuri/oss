@@ -10,6 +10,7 @@ export { incidentReportsContract } from './incidentReports.contract';
 export { targetExaminationsContract } from './targetExaminations.contract';
 export { rangeInterruptionsContract } from './rangeInterruptions.contract';
 export { relayReadinessContract } from './relayReadiness.contract';
+export { relayAthleteLifecycleContract } from './relayAthleteLifecycle.contract';
 export { teamResultsContract } from './teamResults.contract';
 export { squaddingContract } from './squadding.contract';
 export { productionOperationsContract } from './productionOperations.contract';
@@ -20,6 +21,11 @@ export { finalControlContract } from './finalControl.contract';
 export { finalOperationsContract } from './finalOperations.contract';
 export { finalRecoveriesContract } from './finalRecoveries.contract';
 export { adjudicationCasesContract } from './adjudicationCases.contract';
+export { irregularShotCasesContract } from './irregularShotCases.contract';
+export { operationalArchivesContract } from './operationalArchives.contract';
+export { estChampionshipInspectionsContract } from './estChampionshipInspections.contract';
+export { eliminationPlanningContract } from './eliminationPlanning.contract';
+export { resultsBooksContract } from './resultsBooks.contract';
 export { startListsContract } from './startLists.contract';
 export { mixedTeamFinalControlContract } from './mixedTeamFinalControl.contract';
 export { finalPlacementReviewContract } from './finalPlacementReview.contract';
@@ -155,6 +161,14 @@ export type {
   RelayReadinessAssessmentDto,
 } from './relayReadiness.contract';
 
+export type {
+  RelayAthleteLifecycleScopePayload,
+  RelayAthleteIdentityPayload,
+  RecordRelayAthleteLifecyclePayload,
+  RelayAthleteLifecycleEntryDto,
+  RelayAthleteLifecycleAssessmentDto,
+} from './relayAthleteLifecycle.contract';
+
 export type { TeamResultFormatDto, TeamResultDto, MixedTeamFinalResultDto } from './teamResults.contract';
 export type {
   SquaddingAssignmentDto,
@@ -221,6 +235,38 @@ export type {
   UnlinkAdjudicationArtifactPayload,
   AdjudicationCaseDto,
 } from './adjudicationCases.contract';
+export type {
+  IrregularShotCaseDto,
+  ListIrregularShotCasesPayload,
+  CreateIrregularShotCasePayload,
+  AddIrregularShotEvidencePayload,
+  AppendIrregularShotCaseEntryPayload,
+} from './irregularShotCases.contract';
+export type {
+  DatabaseBackupInspectionDto,
+  EvidenceBundleReceiptDto,
+  DatabaseBackupReceiptDto,
+  RestoreCandidateDto,
+  PendingRestoreDto,
+} from './operationalArchives.contract';
+export type {
+  EstChampionshipInspectionAssessmentDto,
+  CreateEstInspectionPlanPayload,
+  RecordEstInspectionPayload,
+  RevokeEstInspectionPayload,
+} from './estChampionshipInspections.contract';
+export type {
+  OutdoorEliminationPlanDto,
+  CreateOutdoorEliminationPlanPayload,
+  OutdoorEliminationPlanEntryPayload,
+} from './eliminationPlanning.contract';
+export type {
+  ResultsBookWorkspaceDto,
+  ChampionshipOfficialRoleDto,
+  RecordCodeDto,
+  RecordResultBasisDto,
+  ResultsBookDto,
+} from './resultsBooks.contract';
 export type {
   CreateStartListVersionPayload,
   DistributeStartListPayload,

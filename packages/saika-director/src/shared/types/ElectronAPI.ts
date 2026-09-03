@@ -15,6 +15,7 @@ import type {
   targetExaminationsContract,
   rangeInterruptionsContract,
   relayReadinessContract,
+  relayAthleteLifecycleContract,
   teamResultsContract,
   protestsContract,
   estBackupVerificationContract,
@@ -22,6 +23,11 @@ import type {
   finalOperationsContract,
   finalRecoveriesContract,
   adjudicationCasesContract,
+  irregularShotCasesContract,
+  operationalArchivesContract,
+  estChampionshipInspectionsContract,
+  eliminationPlanningContract,
+  resultsBooksContract,
   startListsContract,
   mixedTeamFinalControlContract,
   squaddingContract,
@@ -116,6 +122,7 @@ export interface ElectronAPI {
   targetExaminations: InferBridge<typeof targetExaminationsContract>;
   rangeInterruptions: InferBridge<typeof rangeInterruptionsContract>;
   relayReadiness: InferBridge<typeof relayReadinessContract>;
+  relayAthleteLifecycle: InferBridge<typeof relayAthleteLifecycleContract>;
   teamResults: InferBridge<typeof teamResultsContract>;
   protests: InferBridge<typeof protestsContract>;
   estBackupVerification: InferBridge<typeof estBackupVerificationContract>;
@@ -123,6 +130,11 @@ export interface ElectronAPI {
   finalOperations: InferBridge<typeof finalOperationsContract>;
   finalRecoveries: InferBridge<typeof finalRecoveriesContract>;
   adjudicationCases: InferBridge<typeof adjudicationCasesContract>;
+  irregularShotCases: InferBridge<typeof irregularShotCasesContract>;
+  operationalArchives: InferBridge<typeof operationalArchivesContract>;
+  estChampionshipInspections: InferBridge<typeof estChampionshipInspectionsContract>;
+  eliminationPlanning: InferBridge<typeof eliminationPlanningContract>;
+  resultsBooks: InferBridge<typeof resultsBooksContract>;
   startLists: InferBridge<typeof startListsContract>;
   mixedTeamFinalControl: InferBridge<typeof mixedTeamFinalControlContract>;
   squadding: InferBridge<typeof squaddingContract>;

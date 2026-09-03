@@ -7,6 +7,7 @@ import type {
   FinalOperationShootOffShot,
 } from './IFinalOperationRepository';
 import { shootOffUnitsFromMetadata, type FinalOperationShootOffUnit } from './FinalOperationShootOffUnit';
+import { shootOffShotsPerLaneFromMetadata } from './FinalOperationShootOffFormat';
 
 export type FinalOperationStepStatus =
   'PENDING' | 'AWAITING_CONFIRMATION' | 'AWAITING_EXECUTION' | 'COMPLETED' | 'SKIPPED';
@@ -25,6 +26,7 @@ export interface FinalOperationShootOffProjection {
   readonly checkpointStepId: string;
   readonly eligibleLaneIds: readonly string[];
   readonly units: readonly FinalOperationShootOffUnit[];
+  readonly shotsPerLane: number;
   readonly status: 'ACTIVE' | 'AWAITING_RESOLUTION';
   readonly steps: readonly FinalOperationStepProjection[];
   readonly currentStep: FinalOperationStepProjection | null;
@@ -80,6 +82,7 @@ export function projectFinalOperation(
       checkpointStepId: activeShootOffStart.stepId!,
       eligibleLaneIds: activeShootOffStart.eligibleLaneIds,
       units: shootOffUnitsFromMetadata(activeShootOffStart.eligibleLaneIds, activeShootOffStart.metadata),
+      shotsPerLane: shootOffShotsPerLaneFromMetadata(activeShootOffStart.metadata, run.script.shootOff),
       status: branchCurrent ? 'ACTIVE' : 'AWAITING_RESOLUTION',
       steps: branchSteps,
       currentStep: branchCurrent,

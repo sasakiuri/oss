@@ -421,6 +421,11 @@ export class LaneControl {
 
     if (this.state.phase === 'ACTIVE' && stage.type === 'match') {
       const series = this.currentSeries;
+      if (series.shots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') {
+        throw new DomainError(ErrorCatalog.SHOT.CANNOT_EDIT_IN_PHASE, {
+          messageOverride: 'Cannot add a MATCH shot during position change and sighting',
+        });
+      }
       const nextShotNum = this.state.matchShots.length + 1;
       // Calculate seriesNumber from stageIndex/seriesIndex
       const seriesNumber = this.calculateGlobalSeriesNumber();
@@ -532,6 +537,8 @@ export class LaneControl {
       const s = this.state.config.stages[si]!;
       if (s.type !== 'match') continue;
       for (let ri = 0; ri < s.series.length; ri++) {
+        const series = s.series[ri]!;
+        if (series.shots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
         globalSeries++;
         if (si === this.state.stageIndex && ri === this.state.seriesIndex) {
           return globalSeries;

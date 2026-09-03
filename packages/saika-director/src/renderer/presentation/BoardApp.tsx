@@ -52,11 +52,11 @@ function BoardAppContent() {
     case 'target-board':
       return <TargetBoardScreen config={config} />;
     case 'ranking-board':
-      return <RankingBoardScreen />;
+      return <RankingBoardScreen config={config} />;
     case 'results-board':
       return <ResultsBoardScreen config={config} />;
     case 'final-board':
-      return <FinalBoardScreen />;
+      return <FinalBoardScreen config={config} />;
     case 'score-sheet-print':
       return <ScoreSheetPrintScreen config={config} />;
     case 'results-list-print':

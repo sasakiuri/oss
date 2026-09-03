@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 import type { Discipline } from '@/shared/ipc/contracts';
-import { getDefaultTargetScoringProfile } from '@/shared/target';
+import { getDefaultTargetScoringProfile, getScoringGaugeRadiusMm } from '@/shared/target';
 
-/** Per-discipline default projectile radius (mm), derived from target profiles. */
+/** Per-discipline fallback scoring-gauge radius (mm), derived from target profiles. */
 export const SHOT_RADIUS_BY_DISCIPLINE: Readonly<Record<Discipline, number>> = Object.freeze({
-  BEAM_RIFLE_10M: getDefaultTargetScoringProfile('BEAM_RIFLE_10M').projectileRadiusMm,
-  BEAM_PISTOL_10M: getDefaultTargetScoringProfile('BEAM_PISTOL_10M').projectileRadiusMm,
-  AIR_RIFLE_10M: getDefaultTargetScoringProfile('AIR_RIFLE_10M').projectileRadiusMm,
-  AIR_PISTOL_10M: getDefaultTargetScoringProfile('AIR_PISTOL_10M').projectileRadiusMm,
-  RIFLE_50M: getDefaultTargetScoringProfile('RIFLE_50M').projectileRadiusMm,
-  PISTOL_25M: getDefaultTargetScoringProfile('PISTOL_25M').projectileRadiusMm,
+  BEAM_RIFLE_10M: defaultGaugeRadius('BEAM_RIFLE_10M'),
+  BEAM_PISTOL_10M: defaultGaugeRadius('BEAM_PISTOL_10M'),
+  AIR_RIFLE_10M: defaultGaugeRadius('AIR_RIFLE_10M'),
+  AIR_PISTOL_10M: defaultGaugeRadius('AIR_PISTOL_10M'),
+  RIFLE_50M: defaultGaugeRadius('RIFLE_50M'),
+  PISTOL_25M: defaultGaugeRadius('PISTOL_25M'),
 });
+
+function defaultGaugeRadius(discipline: Discipline): number {
+  return getScoringGaugeRadiusMm(getDefaultTargetScoringProfile(discipline).defaultScoringGaugeProfileId);
+}

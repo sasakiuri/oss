@@ -68,6 +68,8 @@ function createTestShot(
     innerTen: boolean;
     receivedAt: Date;
     observationId: string;
+    targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026';
+    scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026';
   }>,
 ): Shot {
   const x = overrides && 'x' in overrides ? overrides.x : 1.5;
@@ -88,6 +90,8 @@ function createTestShot(
     calculatedScore: overrides?.calculatedScore === undefined ? undefined : new Score(overrides.calculatedScore),
     receivedAt: overrides?.receivedAt,
     sourceObservationId: overrides?.observationId,
+    targetProfileId: overrides?.targetProfileId,
+    scoringGaugeProfileId: overrides?.scoringGaugeProfileId,
   });
 }
 
@@ -137,6 +141,8 @@ describe('RawShotPublisher', () => {
       innerTen: false,
       receivedAt: new Date('2026-02-24T12:00:00.050Z'),
       observationId: '11111111-1111-4111-8111-111111111111',
+      targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+      scoringGaugeProfileId: 'ISSF_CENTER_FIRE_9_65_2026',
     });
     const event: ShotRecordedEvent = {
       type: 'ShotRecorded',
@@ -160,6 +166,8 @@ describe('RawShotPublisher', () => {
     expect(publishedPayload.effectiveScoreX10).toBe(98);
     expect(publishedPayload.receivedAt).toBe('2026-02-24T12:00:00.050Z');
     expect(publishedPayload.observationId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(publishedPayload.targetProfileId).toBe('ISSF_PISTOL_25M_PRECISION_2026');
+    expect(publishedPayload.scoringGaugeProfileId).toBe('ISSF_CENTER_FIRE_9_65_2026');
     expect(publishedPayload.innerTen).toBe(false);
     expect(publishedPayload.mode).toBe('MATCH');
     expect(publishedPayload.timestamp).toBe('2026-02-24T12:00:00.000Z');

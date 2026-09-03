@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 import type { Discipline } from '@/shared/ipc/contracts';
+import type { TargetScoringProfileId } from '@/shared/target';
 
 import { type TargetZoneConfig, getTargetZoneConfig } from './targetColors';
-import { getTargetRadii } from './targetRadii';
+import { getTargetRadii, getTargetRadiiForProfile } from './targetRadii';
 
 const SCORE_LABEL_FONT = 'bold 16px sans-serif';
 const LABEL_OFFSET = 10;
@@ -21,7 +22,11 @@ function drawScoreLabels(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  for (let score = 1; score <= config.maxLabelScore; score++) {
+  const scores = Object.keys(radii)
+    .map(Number)
+    .filter((score) => score <= config.maxLabelScore)
+    .sort((a, b) => a - b);
+  for (const score of scores) {
     const currentRadius = (radii[score] ?? 0) * scale;
     const nextRadius = (radii[score + 1] ?? 0) * scale;
 
@@ -50,7 +55,7 @@ export function drawTarget(
   centerY: number,
   scale: number,
   discipline: Discipline,
-  options?: { showLabels?: boolean; ringLineWidth?: number },
+  options?: { showLabels?: boolean; ringLineWidth?: number; targetProfileId?: TargetScoringProfileId },
 ): void {
   // Clear canvas
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -60,7 +65,9 @@ export function drawTarget(
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
   const config = getTargetZoneConfig(discipline);
-  const radii = getTargetRadii(discipline);
+  const radii = options?.targetProfileId
+    ? getTargetRadiiForProfile(options.targetProfileId)
+    : getTargetRadii(discipline);
 
   // Draw rings from outside to inside
   const ringScores = Object.keys(radii)

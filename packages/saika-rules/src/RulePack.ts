@@ -1,3 +1,5 @@
+import type { ShotResultProjectionCapability } from './ShotResultProjection';
+
 export interface RuleAuthority {
   readonly organization: string;
   readonly edition: string;
@@ -6,12 +8,18 @@ export interface RuleAuthority {
   readonly ruleReferences: readonly string[];
 }
 
-export type CompetitionRound = 'QUALIFICATION' | 'FINAL';
+export type CompetitionRound = 'ELIMINATION' | 'QUALIFICATION' | 'FINAL';
 export type ScoringMode = 'RING' | 'DECIMAL';
 export type RuleTimerMode = 'series' | 'stage' | 'shot';
+export type ShootingPosition = 'KNEELING' | 'PRONE' | 'STANDING';
+export type RuleSeriesPurpose = 'MATCH' | 'POSITION_CHANGE_AND_SIGHTING';
+export type TargetModeControl = 'RANGE_OFFICIAL' | 'ATHLETE';
+export type TimedTargetPurpose = 'SIGHTING' | 'MATCH' | 'SHOOT_OFF';
 
 export interface TargetCapability {
   readonly scoringProfileId: string;
+  /** Independent coordinate-scoring geometry selected by this event. */
+  readonly scoringGaugeProfileId?: string;
 }
 
 export interface ScoringCapability {
@@ -24,6 +32,15 @@ export interface ScoringCapability {
 export interface RuleSeries {
   /** Zero denotes unlimited sighting shots. */
   readonly shots: number;
+  /** Operational label retained by application adapters. */
+  readonly label?: string;
+  readonly position?: ShootingPosition;
+  /** Defaults to MATCH. The transition purpose must use zero shots. */
+  readonly purpose?: RuleSeriesPurpose;
+  /** Who may change the target between SIGHTING and MATCH while this series is current. */
+  readonly targetModeControl?: TargetModeControl;
+  /** Dedicated 25m timing program. Applications must not substitute their generic series timer. */
+  readonly timedTargetProgramId?: string;
 }
 
 export interface RuleTimer {
@@ -46,7 +63,15 @@ export interface RuleStage {
   readonly series: readonly RuleSeries[];
   readonly timer: RuleTimer;
   readonly requiresNewSession: boolean;
+  /** Continuous stages may advance internally without a new CRO command. */
+  readonly seriesTransition?: 'AUTOMATIC' | 'OFFICIAL_COMMAND';
   readonly elimination?: RuleElimination;
+  /** Overrides the Rule Pack's default scoring face while this stage is current. */
+  readonly targetProfileId?: string;
+  /** Overrides the Rule Pack's scoring gauge while this stage is current. */
+  readonly scoringGaugeProfileId?: string;
+  /** Optional commanded sighting series that runs before this MATCH stage. */
+  readonly sightingTimedTargetProgramId?: string;
 }
 
 export interface CourseOfFireCapability {
@@ -61,7 +86,45 @@ export interface RankingCapability {
   readonly totalShots: number;
   readonly totalSeries: number;
   readonly stage1Shots?: number;
+  /** Governing rule for Final placement checkpoints. */
+  readonly finalRuleReference?: string;
+  /** Explicit Final placing gates for formats that cannot be derived from a uniform interval. */
+  readonly finalCheckpoints?: readonly FinalRankingCheckpoint[];
 }
+
+export interface FinalRankingCheckpoint {
+  readonly afterMatchShot: number;
+  readonly rank: number;
+  /** Omitted checkpoints use the normal Final shoot-off rule. */
+  readonly tieResolution?: FinalTieResolutionPolicy;
+}
+
+export type FinalCountbackCriterion =
+  | {
+      readonly type: 'SERIES_TOTAL';
+      readonly stageId: string;
+      readonly seriesIndex: number;
+    }
+  | {
+      readonly type: 'REVERSE_SHOTS';
+      readonly stageId: string;
+      readonly seriesIndex: number;
+    };
+
+export type FinalTieResolutionPolicy =
+  | { readonly type: 'SHOOT_OFF' }
+  | {
+      /** The lower Finals Start Number ranks higher (ISSF 6.17.4). */
+      readonly type: 'FINAL_START_NUMBER';
+      readonly lowerNumberRanksHigher: true;
+    }
+  | {
+      /** Use countback only for this exact number of tied athletes; otherwise shoot off. */
+      readonly type: 'COUNTBACK_FOR_EXACT_TIE';
+      readonly athleteCount: number;
+      readonly criteria: readonly FinalCountbackCriterion[];
+      readonly otherwise: 'SHOOT_OFF';
+    };
 
 export interface VerificationCapability {
   readonly topIndividualResults: number;
@@ -80,10 +143,95 @@ export interface PublicationCapability {
   readonly scoreProtestWindowSeconds: number;
 }
 
+/** Venue-level planning rules for outdoor 50m/300m Elimination events. */
+export interface OutdoorEliminationPlanningCapability {
+  readonly venue: 'OUTDOOR';
+  readonly requiredWhenEntriesExceedUsableCapacity: true;
+  readonly waiverAuthority: 'TECHNICAL_DELEGATE';
+  readonly waiverReason: 'SCHEDULE_LIMITATIONS';
+  readonly completeCourseOfFire: true;
+  readonly randomSquadding: true;
+  readonly quotaMethod: 'PROPORTIONAL_RELAY_STARTS';
+  readonly balanceTeamsAndNationsAcrossRelays: true;
+  readonly minimumQualificationAthletes: number;
+  readonly preferredDaysBeforeQualification: number;
+}
+
+/** One visible/facing interval in a commanded 25m target program. */
+export interface TimedTargetExposure {
+  /** Firing time stated by the event rule, excluding EST tolerances. */
+  readonly nominalDurationMilliseconds: number;
+  /** Time the green signal remains on beyond the nominal duration (ISSF 6.4.13: 100ms). */
+  readonly signalExtensionMilliseconds: number;
+  /** Valid EST recording time after the green signal turns off (ISSF 6.4.13: 200ms). */
+  readonly recordingAfterTimeMilliseconds: number;
+  /** Maximum shots accepted in this individual exposure. */
+  readonly maximumShots: number;
+}
+
+/**
+ * Transport- and device-neutral timing data. A Lane adapter may drive lamps,
+ * turning targets, a renderer, or a test sink from the same absolute schedule.
+ */
+export interface TimedTargetProgram {
+  readonly id: string;
+  readonly label: string;
+  readonly purpose: TimedTargetPurpose;
+  readonly ruleReference: string;
+  readonly loadPreparationSeconds: number;
+  readonly attentionDelayMilliseconds: number;
+  readonly attentionToleranceMilliseconds: number;
+  /** Red/edge-on time from one green-off boundary to the next green-on boundary. */
+  readonly betweenExposuresMilliseconds: number;
+  /** Earliest permitted next LOAD, measured from the end of this program. */
+  readonly minimumPauseAfterSeconds: number;
+  readonly exposures: readonly TimedTargetExposure[];
+}
+
+export interface QualificationTimedTargetRecoveryCapability {
+  readonly procedure: 'QUALIFICATION';
+  /** An interruption longer than this requires one extra five-shot sighting series. */
+  readonly extraSightingInterruptionThresholdSeconds: number;
+  readonly interruptedSeriesTreatment: 'ANNUL_AND_REPEAT' | 'COMPLETE_REMAINING_SHOTS';
+  readonly precisionCompletionSecondsPerShot?: number;
+  readonly sightingMalfunctionClaimsAllowed: false;
+  readonly malfunctionClaims: {
+    readonly maximum: number;
+    readonly scope: 'EACH_30_SHOT_STAGE' | 'SIXTY_SHOT_MATCH';
+    readonly exceptionalTwoPartMaximumPerPart?: number;
+  };
+  readonly ruleReferences: readonly string[];
+}
+
+export interface FinalTimedTargetRecoveryCapability {
+  readonly procedure: 'FINAL';
+  readonly sightingMalfunctionClaimsAllowed: false;
+  readonly malfunctionClaims: {
+    readonly maximum: 1;
+    readonly scope: 'FINAL';
+  };
+  readonly allowableMalfunctionRemedy: 'REPEAT_SERIES' | 'COMPLETE_SERIES';
+  readonly remedyReadySeconds: number;
+  readonly nonAllowableMalfunctionPenaltyHits?: number;
+  readonly ruleReferences: readonly string[];
+}
+
+export type TimedTargetRecoveryCapability =
+  QualificationTimedTargetRecoveryCapability | FinalTimedTargetRecoveryCapability;
+
+export interface TimedTargetCapability {
+  readonly signalSystem: 'EST_RED_GREEN_OR_TURNING_TARGETS';
+  readonly programs: readonly TimedTargetProgram[];
+  /** Policy metadata only; Jury decisions and score changes remain outside the timing engine. */
+  readonly recovery: TimedTargetRecoveryCapability;
+}
+
 export type RuleCommandActor = 'OFFICIAL' | 'CRO' | 'ANNOUNCER';
 export type RuleCommandStepKind = 'CHECK' | 'COMMAND' | 'ANNOUNCEMENT' | 'DECLARATION';
 export type RuleCommandFiringPurpose = 'SIGHTING' | 'MATCH' | 'SHOOT_OFF';
-export type RuleCommandParticipantSelection = 'ALL_ACTIVE' | 'TIED_ONLY';
+export type RuleCommandParticipantSelection = 'ALL_ACTIVE' | 'TIED_ONLY' | 'OFFICIAL_SELECTED';
+export type RuleCommandParticipantExecution = 'SIMULTANEOUS' | 'SEQUENTIAL';
+export type RuleCommandParticipantOrder = 'FINAL_START_NUMBER_ASCENDING';
 
 export type RuleCommandStepTiming =
   | {
@@ -106,7 +254,37 @@ export interface RuleCommandSeriesTarget {
   readonly stageId: string;
   readonly stageIndex: number;
   readonly seriesIndex: number;
+  /** Contiguous series controlled by one firing window. Defaults to one. */
+  readonly seriesCount?: number;
 }
+
+type RuleCommandCourseTimedTargetEffect = {
+  /** Arms an absolute-time target program; the program owns all signal edges. */
+  readonly type: 'RUN_TIMED_TARGET';
+  readonly purpose: 'SIGHTING' | 'MATCH';
+  readonly participantSelection: RuleCommandParticipantSelection;
+  readonly programId: string;
+  readonly shotsPerParticipant: number;
+  readonly target: RuleCommandSeriesTarget;
+  /** Required for an operator-selected group so adapters can reject accidental over-selection. */
+  readonly requiredParticipantCount?: number;
+  readonly participantExecution?: never;
+  readonly participantOrder?: never;
+};
+
+type RuleCommandShootOffTimedTargetEffect = {
+  /** Runs the tie-breaking program without advancing or writing into the MATCH course of fire. */
+  readonly type: 'RUN_TIMED_TARGET';
+  readonly purpose: 'SHOOT_OFF';
+  readonly participantSelection: 'TIED_ONLY';
+  readonly programId: string;
+  readonly shotsPerParticipant: number;
+  readonly target?: never;
+  readonly requiredParticipantCount?: never;
+  readonly participantExecution: RuleCommandParticipantExecution;
+  /** Required only when participants must fire one after another. */
+  readonly participantOrder?: RuleCommandParticipantOrder;
+};
 
 export type RuleCommandEffect =
   | { readonly type: 'NONE' }
@@ -125,6 +303,8 @@ export type RuleCommandEffect =
       readonly shotsPerParticipant?: number;
       readonly target?: RuleCommandSeriesTarget;
     }
+  | RuleCommandCourseTimedTargetEffect
+  | RuleCommandShootOffTimedTargetEffect
   | {
       readonly type: 'CLOSE_FIRING';
       readonly purpose: RuleCommandFiringPurpose;
@@ -152,6 +332,12 @@ export interface RuleCommandScriptStep {
 
 export interface FinalCommandScriptCapability {
   readonly version: string;
+  /** Human-readable provenance retained with every immutable Final run. */
+  readonly source?: {
+    readonly organization: string;
+    readonly title: string;
+    readonly version: string;
+  };
   readonly main: readonly RuleCommandScriptStep[];
   /** Insertable repeatable branch used only for the selected tied participants. */
   readonly shootOff: readonly RuleCommandScriptStep[];
@@ -194,16 +380,53 @@ export interface FiringWindowReviewCapability {
   readonly rules: readonly FiringWindowReviewRule[];
 }
 
+export type FinalSeriesIncidentKind = 'LATE_OR_UNFIRED_SHOT' | 'MULTIPLE_SHOTS_SAME_TARGET' | 'READY_POSITION';
+
+export type FinalSeriesIncidentConsequence =
+  | {
+      readonly when: 'EACH_OCCURRENCE' | 'FIRST_VIOLATION';
+      readonly action: 'DEDUCT';
+      readonly amount: number;
+      readonly unit: 'HITS';
+      /** Describes the source-shot ruling separately from the result deduction. */
+      readonly sourceShotTreatment?: 'MISS';
+    }
+  | {
+      readonly when: 'SECOND_OR_LATER';
+      readonly action: 'DISQUALIFY';
+      readonly classification: 'DSQ';
+    };
+
+/** Rule metadata only; evidence capture and Jury scoring decisions remain application concerns. */
+export interface FinalSeriesIncidentRule {
+  readonly kind: FinalSeriesIncidentKind;
+  readonly label: string;
+  readonly ruleReference: string;
+  readonly reviewGuidance: readonly string[];
+  readonly minimumConcurringJuryMembers?: number;
+  readonly warningBeforePenalty: boolean;
+  readonly consequences: readonly FinalSeriesIncidentConsequence[];
+}
+
+export interface FinalSeriesAdjudicationCapability {
+  readonly incidents: readonly FinalSeriesIncidentRule[];
+}
+
 export interface RulePackCapabilities {
   readonly target: TargetCapability;
   readonly scoring: ScoringCapability;
+  /** Optional competition-result projection; acquisition scores remain unchanged. */
+  readonly resultProjection?: ShotResultProjectionCapability;
   readonly courseOfFire: CourseOfFireCapability;
   readonly ranking: RankingCapability;
   readonly verification?: VerificationCapability;
   readonly team?: TeamCapability;
   readonly publication?: PublicationCapability;
+  readonly outdoorEliminationPlanning?: OutdoorEliminationPlanningCapability;
+  readonly timedTarget?: TimedTargetCapability;
   readonly commands?: CommandSequenceCapability;
   readonly firingWindowReview?: FiringWindowReviewCapability;
+  readonly finalSeriesAdjudication?: FinalSeriesAdjudicationCapability;
 }
 
 /**
@@ -228,6 +451,10 @@ export function defineRulePack(pack: RulePack): RulePack {
   validateText(pack.discipline, 'discipline');
   validateText(pack.authority.organization, 'authority.organization');
   validateText(pack.authority.edition, 'authority.edition');
+  validateText(pack.capabilities.target.scoringProfileId, 'target.scoringProfileId');
+  if (pack.capabilities.target.scoringGaugeProfileId !== undefined) {
+    validateText(pack.capabilities.target.scoringGaugeProfileId, 'target.scoringGaugeProfileId');
+  }
   validateIsoDate(pack.authority.effectiveFrom, 'authority.effectiveFrom');
   if (pack.authority.effectiveUntil) {
     validateIsoDate(pack.authority.effectiveUntil, 'authority.effectiveUntil');
@@ -249,9 +476,25 @@ export function defineRulePack(pack: RulePack): RulePack {
       if (!Number.isInteger(series.shots) || series.shots < 0) {
         throw new Error(`Stage ${stage.id} series shots must be a non-negative integer`);
       }
-      if (stage.phase === 'MATCH' && series.shots === 0) {
-        throw new Error(`Match stage ${stage.id} cannot have unlimited shots`);
+      if (series.label !== undefined) validateText(series.label, `Stage ${stage.id} series label`);
+      if (stage.phase === 'MATCH' && series.shots === 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING') {
+        throw new Error(`Match stage ${stage.id} can use zero shots only for position change and sighting`);
       }
+      if (series.purpose === 'POSITION_CHANGE_AND_SIGHTING') {
+        if (stage.phase !== 'MATCH' || series.shots !== 0 || !series.position) {
+          throw new Error(`Stage ${stage.id} position-change series requires a MATCH stage, zero shots, and position`);
+        }
+      }
+      if (series.timedTargetProgramId !== undefined) {
+        validateText(series.timedTargetProgramId, `Stage ${stage.id} timedTargetProgramId`);
+      }
+    }
+    if (stage.targetProfileId !== undefined) validateText(stage.targetProfileId, `Stage ${stage.id} targetProfileId`);
+    if (stage.scoringGaugeProfileId !== undefined) {
+      validateText(stage.scoringGaugeProfileId, `Stage ${stage.id} scoringGaugeProfileId`);
+    }
+    if (stage.sightingTimedTargetProgramId !== undefined) {
+      validateText(stage.sightingTimedTargetProgramId, `Stage ${stage.id} sightingTimedTargetProgramId`);
     }
     if (stage.elimination) {
       if (!Number.isInteger(stage.elimination.athletesPerCheckpoint) || stage.elimination.athletesPerCheckpoint <= 0) {
@@ -272,19 +515,36 @@ export function defineRulePack(pack: RulePack): RulePack {
     .reduce((sum, series) => sum + series.shots, 0);
   const totalSeries = stages
     .filter((stage) => stage.phase === 'MATCH')
-    .reduce((sum, stage) => sum + stage.series.length, 0);
+    .flatMap((stage) => stage.series)
+    .filter((series) => (series.purpose ?? 'MATCH') === 'MATCH').length;
   if (pack.capabilities.ranking.totalShots !== totalShots) {
     throw new Error(`ranking.totalShots must equal the course of fire total (${totalShots})`);
   }
   if (pack.capabilities.ranking.totalSeries !== totalSeries) {
     throw new Error(`ranking.totalSeries must equal the course of fire total (${totalSeries})`);
   }
+  validateFinalRankingCheckpoints(pack);
+  validateShotResultProjection(pack);
   const publication = pack.capabilities.publication;
   if (
     publication &&
     (!Number.isInteger(publication.scoreProtestWindowSeconds) || publication.scoreProtestWindowSeconds <= 0)
   ) {
     throw new Error('publication.scoreProtestWindowSeconds must be a positive integer');
+  }
+  const eliminationPlanning = pack.capabilities.outdoorEliminationPlanning;
+  if (eliminationPlanning) {
+    if (pack.round !== 'ELIMINATION') {
+      throw new Error('outdoorEliminationPlanning is valid only for an ELIMINATION Rule Pack');
+    }
+    validatePositiveInteger(
+      eliminationPlanning.minimumQualificationAthletes,
+      'outdoorEliminationPlanning.minimumQualificationAthletes',
+    );
+    validatePositiveInteger(
+      eliminationPlanning.preferredDaysBeforeQualification,
+      'outdoorEliminationPlanning.preferredDaysBeforeQualification',
+    );
   }
   const commands = pack.capabilities.commands;
   if (commands) {
@@ -326,12 +586,193 @@ export function defineRulePack(pack: RulePack): RulePack {
       ruleIds.add(rule.id);
     }
   }
+  validateFinalSeriesAdjudication(pack);
+  validateTimedTargetCapability(pack);
   return deepFreeze(pack);
+}
+
+function validateFinalSeriesAdjudication(pack: RulePack): void {
+  const capability = pack.capabilities.finalSeriesAdjudication;
+  if (!capability) return;
+  if (pack.round !== 'FINAL') throw new Error('finalSeriesAdjudication is only valid for Finals');
+  if (capability.incidents.length === 0) throw new Error('finalSeriesAdjudication.incidents must not be empty');
+
+  const kinds = new Set<FinalSeriesIncidentKind>();
+  for (const incident of capability.incidents) {
+    if (kinds.has(incident.kind)) throw new Error('finalSeriesAdjudication incidents must have unique kinds');
+    kinds.add(incident.kind);
+    validateText(incident.label, `finalSeriesAdjudication ${incident.kind} label`);
+    validateText(incident.ruleReference, `finalSeriesAdjudication ${incident.kind} ruleReference`);
+    if (incident.reviewGuidance.length === 0) {
+      throw new Error(`finalSeriesAdjudication ${incident.kind} reviewGuidance must not be empty`);
+    }
+    incident.reviewGuidance.forEach((item) =>
+      validateText(item, `finalSeriesAdjudication ${incident.kind} reviewGuidance`),
+    );
+    if (incident.minimumConcurringJuryMembers !== undefined) {
+      validatePositiveInteger(
+        incident.minimumConcurringJuryMembers,
+        `finalSeriesAdjudication ${incident.kind} minimumConcurringJuryMembers`,
+      );
+    }
+    if (incident.consequences.length === 0) {
+      throw new Error(`finalSeriesAdjudication ${incident.kind} consequences must not be empty`);
+    }
+    for (const consequence of incident.consequences) {
+      if (consequence.action === 'DEDUCT') {
+        validatePositiveInteger(consequence.amount, `finalSeriesAdjudication ${incident.kind} deduction`);
+        if (pack.capabilities.resultProjection?.displayUnit !== 'HITS') {
+          throw new Error(
+            `finalSeriesAdjudication ${incident.kind} HIT deduction requires a HIT_MISS result projection`,
+          );
+        }
+      }
+    }
+  }
+}
+
+function validateTimedTargetCapability(pack: RulePack): void {
+  const capability = pack.capabilities.timedTarget;
+  const stages = pack.capabilities.courseOfFire.stages;
+  const hasReferences = stages.some(
+    (stage) =>
+      stage.sightingTimedTargetProgramId !== undefined ||
+      stage.series.some((series) => series.timedTargetProgramId !== undefined),
+  );
+  if (!capability) {
+    if (hasReferences) throw new Error('courseOfFire references a missing timedTarget capability');
+    return;
+  }
+  if (capability.programs.length === 0) throw new Error('timedTarget.programs must not be empty');
+
+  const programsById = new Map<string, TimedTargetProgram>();
+  for (const program of capability.programs) {
+    validateText(program.id, 'timedTarget.programs.id');
+    validateText(program.label, `Timed target program ${program.id} label`);
+    validateText(program.ruleReference, `Timed target program ${program.id} ruleReference`);
+    if (programsById.has(program.id)) throw new Error('timedTarget.programs must have unique IDs');
+    validatePositiveSeconds(
+      program.loadPreparationSeconds,
+      `Timed target program ${program.id} loadPreparationSeconds`,
+    );
+    validatePositiveInteger(
+      program.attentionDelayMilliseconds,
+      `Timed target program ${program.id} attentionDelayMilliseconds`,
+    );
+    validateNonNegativeInteger(
+      program.attentionToleranceMilliseconds,
+      `Timed target program ${program.id} attentionToleranceMilliseconds`,
+    );
+    validateNonNegativeInteger(
+      program.betweenExposuresMilliseconds,
+      `Timed target program ${program.id} betweenExposuresMilliseconds`,
+    );
+    validatePositiveSeconds(
+      program.minimumPauseAfterSeconds,
+      `Timed target program ${program.id} minimumPauseAfterSeconds`,
+    );
+    if (program.exposures.length === 0) throw new Error(`Timed target program ${program.id} requires an exposure`);
+    for (const exposure of program.exposures) {
+      validatePositiveInteger(
+        exposure.nominalDurationMilliseconds,
+        `Timed target program ${program.id} nominalDurationMilliseconds`,
+      );
+      validateNonNegativeInteger(
+        exposure.signalExtensionMilliseconds,
+        `Timed target program ${program.id} signalExtensionMilliseconds`,
+      );
+      validateNonNegativeInteger(
+        exposure.recordingAfterTimeMilliseconds,
+        `Timed target program ${program.id} recordingAfterTimeMilliseconds`,
+      );
+      validatePositiveInteger(exposure.maximumShots, `Timed target program ${program.id} maximumShots`);
+    }
+    programsById.set(program.id, program);
+  }
+
+  const referencedIds = new Set<string>();
+  for (const stage of stages) {
+    if (stage.sightingTimedTargetProgramId) {
+      const program = programsById.get(stage.sightingTimedTargetProgramId);
+      if (!program || program.purpose !== 'SIGHTING') {
+        throw new Error(`Stage ${stage.id} references an unavailable SIGHTING timed target program`);
+      }
+      referencedIds.add(program.id);
+    }
+    for (const series of stage.series) {
+      if (!series.timedTargetProgramId) continue;
+      const program = programsById.get(series.timedTargetProgramId);
+      if (!program || program.purpose !== 'MATCH' || stage.phase !== 'MATCH') {
+        throw new Error(`Stage ${stage.id} references an unavailable MATCH timed target program`);
+      }
+      const programShots = program.exposures.reduce((sum, exposure) => sum + exposure.maximumShots, 0);
+      if (programShots !== series.shots) {
+        throw new Error(`Timed target program ${program.id} shot limit must match its course-of-fire series`);
+      }
+      referencedIds.add(program.id);
+    }
+  }
+  for (const step of [
+    ...(pack.capabilities.commands?.finalScript?.main ?? []),
+    ...(pack.capabilities.commands?.finalScript?.shootOff ?? []),
+  ]) {
+    if (step.effect.type === 'RUN_TIMED_TARGET') referencedIds.add(step.effect.programId);
+  }
+  for (const id of programsById.keys()) {
+    if (!referencedIds.has(id)) {
+      throw new Error(`Timed target program ${id} is not referenced by the course of fire or Final command script`);
+    }
+  }
+
+  const recovery = capability.recovery;
+  if (recovery.procedure === 'QUALIFICATION') {
+    validatePositiveSeconds(
+      recovery.extraSightingInterruptionThresholdSeconds,
+      'timedTarget.recovery.extraSightingInterruptionThresholdSeconds',
+    );
+    if (recovery.precisionCompletionSecondsPerShot !== undefined) {
+      validatePositiveSeconds(
+        recovery.precisionCompletionSecondsPerShot,
+        'timedTarget.recovery.precisionCompletionSecondsPerShot',
+      );
+      if (recovery.interruptedSeriesTreatment !== 'COMPLETE_REMAINING_SHOTS') {
+        throw new Error('precisionCompletionSecondsPerShot requires COMPLETE_REMAINING_SHOTS');
+      }
+    }
+  } else {
+    validatePositiveSeconds(recovery.remedyReadySeconds, 'timedTarget.recovery.remedyReadySeconds');
+    if (recovery.nonAllowableMalfunctionPenaltyHits !== undefined) {
+      validatePositiveInteger(
+        recovery.nonAllowableMalfunctionPenaltyHits,
+        'timedTarget.recovery.nonAllowableMalfunctionPenaltyHits',
+      );
+    }
+  }
+  validatePositiveInteger(recovery.malfunctionClaims.maximum, 'timedTarget.recovery.malfunctionClaims.maximum');
+  if (
+    recovery.procedure === 'QUALIFICATION' &&
+    recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart !== undefined
+  ) {
+    validatePositiveInteger(
+      recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart,
+      'timedTarget.recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart',
+    );
+    if (recovery.malfunctionClaims.scope !== 'SIXTY_SHOT_MATCH') {
+      throw new Error('exceptionalTwoPartMaximumPerPart requires SIXTY_SHOT_MATCH scope');
+    }
+  }
+  if (recovery.ruleReferences.length === 0) throw new Error('timedTarget.recovery.ruleReferences must not be empty');
+  recovery.ruleReferences.forEach((reference) => validateText(reference, 'timedTarget.recovery.ruleReferences'));
 }
 
 function validateFinalCommandScript(pack: RulePack, script: FinalCommandScriptCapability): void {
   if (pack.round !== 'FINAL') throw new Error('commands.finalScript is only valid for Finals');
   validateText(script.version, 'commands.finalScript.version');
+  if (script.source) {
+    validateText(script.source.organization, 'commands.finalScript.source.organization');
+    validateText(script.source.title, 'commands.finalScript.source.title');
+    validateText(script.source.version, 'commands.finalScript.source.version');
+  }
   if (script.main.length === 0) throw new Error('commands.finalScript.main must not be empty');
   if (script.shootOff.length === 0) throw new Error('commands.finalScript.shootOff must not be empty');
 
@@ -355,8 +796,8 @@ function validateFinalCommandScript(pack: RulePack, script: FinalCommandScriptCa
 function validateCommandStepTiming(step: RuleCommandScriptStep): void {
   const timing = step.timing;
   if (timing.mode === 'SCHEDULED_START_OFFSET') {
-    if (!Number.isInteger(timing.offsetSeconds) || timing.offsetSeconds > 0) {
-      throw new Error(`Command step ${step.id} scheduled offset must be a non-positive integer`);
+    if (!Number.isInteger(timing.offsetSeconds)) {
+      throw new Error(`Command step ${step.id} scheduled offset must be an integer`);
     }
     return;
   }
@@ -385,18 +826,26 @@ function validateCommandEffect(pack: RulePack, step: RuleCommandScriptStep): voi
   }
 
   const target = effect.target;
-  if (effect.purpose === 'MATCH') {
+  const targetsCourseSeries =
+    effect.purpose === 'MATCH' || (effect.type === 'RUN_TIMED_TARGET' && effect.purpose === 'SIGHTING');
+  if (targetsCourseSeries) {
     if (!target) throw new Error(`Command step ${step.id} MATCH effect requires a series target`);
     const stage = pack.capabilities.courseOfFire.stages[target.stageIndex];
     if (!stage || stage.id !== target.stageId || stage.phase !== 'MATCH' || !stage.series[target.seriesIndex]) {
       throw new Error(`Command step ${step.id} targets an unavailable MATCH series`);
     }
-    if (effect.type === 'OPEN_FIRING') {
-      const series = stage.series[target.seriesIndex]!;
-      if (effect.shotsPerParticipant !== series.shots) {
+    const seriesCount = target.seriesCount ?? 1;
+    validatePositiveInteger(seriesCount, `Command step ${step.id} target seriesCount`);
+    const seriesRange = stage.series.slice(target.seriesIndex, target.seriesIndex + seriesCount);
+    if (seriesRange.length !== seriesCount) {
+      throw new Error(`Command step ${step.id} targets an unavailable MATCH series range`);
+    }
+    if (effect.type === 'OPEN_FIRING' || effect.type === 'RUN_TIMED_TARGET') {
+      const expectedShots = seriesRange.reduce((sum, series) => sum + series.shots, 0);
+      if (effect.shotsPerParticipant !== expectedShots) {
         throw new Error(`Command step ${step.id} shots must match its course-of-fire series`);
       }
-      if (effect.durationSeconds !== stage.timer.durationSeconds) {
+      if (effect.type === 'OPEN_FIRING' && effect.durationSeconds !== stage.timer.durationSeconds) {
         throw new Error(`Command step ${step.id} duration must match its course-of-fire timer`);
       }
     }
@@ -406,10 +855,132 @@ function validateCommandEffect(pack: RulePack, step: RuleCommandScriptStep): voi
 
   if (effect.type === 'OPEN_FIRING') {
     validatePositiveSeconds(effect.durationSeconds, `Command step ${step.id} effect durationSeconds`);
+    if (effect.purpose === 'SHOOT_OFF' && effect.shotsPerParticipant === undefined) {
+      throw new Error(`Command step ${step.id} SHOOT_OFF effect requires shotsPerParticipant`);
+    }
     if (effect.shotsPerParticipant !== undefined) {
       validatePositiveInteger(effect.shotsPerParticipant, `Command step ${step.id} effect shotsPerParticipant`);
     }
+    return;
   }
+
+  if (effect.type === 'RUN_TIMED_TARGET') {
+    validateText(effect.programId, `Command step ${step.id} programId`);
+    validatePositiveInteger(effect.shotsPerParticipant, `Command step ${step.id} effect shotsPerParticipant`);
+    if (effect.participantSelection === 'OFFICIAL_SELECTED') {
+      if (effect.requiredParticipantCount === undefined) {
+        throw new Error(`Command step ${step.id} OFFICIAL_SELECTED effect requires requiredParticipantCount`);
+      }
+      validatePositiveInteger(
+        effect.requiredParticipantCount,
+        `Command step ${step.id} effect requiredParticipantCount`,
+      );
+    } else if (effect.requiredParticipantCount !== undefined) {
+      throw new Error(`Command step ${step.id} requiredParticipantCount requires OFFICIAL_SELECTED`);
+    }
+
+    const program = pack.capabilities.timedTarget?.programs.find((candidate) => candidate.id === effect.programId);
+    if (!program || program.purpose !== effect.purpose) {
+      throw new Error(`Command step ${step.id} references an unavailable ${effect.purpose} timed target program`);
+    }
+    const programShots = program.exposures.reduce((sum, exposure) => sum + exposure.maximumShots, 0);
+    if (programShots !== effect.shotsPerParticipant) {
+      throw new Error(`Command step ${step.id} shot count must match timed target program ${program.id}`);
+    }
+    if (effect.purpose === 'SHOOT_OFF') {
+      if (effect.participantSelection !== 'TIED_ONLY') {
+        throw new Error(`Command step ${step.id} timed SHOOT_OFF must select tied participants only`);
+      }
+      if (effect.participantExecution !== 'SIMULTANEOUS' && effect.participantExecution !== 'SEQUENTIAL') {
+        throw new Error(`Command step ${step.id} timed SHOOT_OFF requires a participant execution mode`);
+      }
+      if (effect.participantExecution === 'SEQUENTIAL') {
+        if (effect.participantOrder !== 'FINAL_START_NUMBER_ASCENDING') {
+          throw new Error(`Command step ${step.id} sequential SHOOT_OFF requires a participant order`);
+        }
+      } else if (effect.participantOrder !== undefined) {
+        throw new Error(`Command step ${step.id} simultaneous SHOOT_OFF must not define a participant order`);
+      }
+      return;
+    }
+    if (effect.participantExecution !== undefined || effect.participantOrder !== undefined) {
+      throw new Error(`Command step ${step.id} participant execution metadata is only valid for a SHOOT_OFF`);
+    }
+    if (effect.purpose === 'SIGHTING') {
+      const stage = pack.capabilities.courseOfFire.stages[target!.stageIndex]!;
+      if (stage.sightingTimedTargetProgramId !== program.id) {
+        throw new Error(`Command step ${step.id} SIGHTING program does not match its target stage`);
+      }
+    } else if (effect.purpose === 'MATCH') {
+      const stage = pack.capabilities.courseOfFire.stages[target!.stageIndex]!;
+      const seriesCount = target!.seriesCount ?? 1;
+      const mismatched = stage.series
+        .slice(target!.seriesIndex, target!.seriesIndex + seriesCount)
+        .some((series) => series.timedTargetProgramId !== program.id);
+      if (mismatched) throw new Error(`Command step ${step.id} MATCH program does not match its target series`);
+    }
+  }
+}
+
+function validateFinalRankingCheckpoints(pack: RulePack): void {
+  const checkpoints = pack.capabilities.ranking.finalCheckpoints;
+  if (!checkpoints) return;
+  if (pack.round !== 'FINAL' || pack.capabilities.ranking.strategy !== 'FINAL_SCORE') {
+    throw new Error('ranking.finalCheckpoints is only valid for Finals');
+  }
+  const ranks = new Set<number>();
+  let previousShot = 0;
+  for (const checkpoint of checkpoints) {
+    validatePositiveInteger(checkpoint.afterMatchShot, 'ranking.finalCheckpoints.afterMatchShot');
+    if (checkpoint.afterMatchShot > pack.capabilities.ranking.totalShots) {
+      throw new Error('ranking.finalCheckpoints cannot exceed the course of fire');
+    }
+    if (checkpoint.afterMatchShot < previousShot) {
+      throw new Error('ranking.finalCheckpoints must be ordered by match shot');
+    }
+    if (!Number.isInteger(checkpoint.rank) || checkpoint.rank < 2) {
+      throw new Error('ranking.finalCheckpoints.rank must be an integer of at least two');
+    }
+    if (ranks.has(checkpoint.rank)) throw new Error('ranking.finalCheckpoints ranks must be unique');
+    validateFinalTieResolution(pack, checkpoint);
+    ranks.add(checkpoint.rank);
+    previousShot = checkpoint.afterMatchShot;
+  }
+}
+
+function validateFinalTieResolution(pack: RulePack, checkpoint: FinalRankingCheckpoint): void {
+  const resolution = checkpoint.tieResolution;
+  if (!resolution || resolution.type === 'SHOOT_OFF' || resolution.type === 'FINAL_START_NUMBER') return;
+  if (!Number.isInteger(resolution.athleteCount) || resolution.athleteCount < 2) {
+    throw new Error('Final countback athleteCount must be an integer of at least two');
+  }
+  if (resolution.criteria.length === 0) throw new Error('Final countback criteria must not be empty');
+  for (const criterion of resolution.criteria) {
+    validateText(criterion.stageId, 'Final countback stageId');
+    if (!Number.isInteger(criterion.seriesIndex) || criterion.seriesIndex < 0) {
+      throw new Error('Final countback seriesIndex must be a non-negative integer');
+    }
+    const stage = pack.capabilities.courseOfFire.stages.find((candidate) => candidate.id === criterion.stageId);
+    if (!stage?.series[criterion.seriesIndex] || stage.phase !== 'MATCH') {
+      throw new Error(`Final countback references unavailable series ${criterion.stageId}/${criterion.seriesIndex}`);
+    }
+  }
+}
+
+function validateShotResultProjection(pack: RulePack): void {
+  const projection = pack.capabilities.resultProjection;
+  if (!projection) return;
+  if (pack.capabilities.scoring.mode !== 'DECIMAL' || pack.capabilities.scoring.precision !== 1) {
+    throw new Error('HIT_MISS result projection requires DECIMAL source scoring');
+  }
+  validateNonNegativeInteger(projection.hitThresholdX10, 'resultProjection.hitThresholdX10');
+  if (projection.hitThresholdX10 > 109) {
+    throw new Error('resultProjection.hitThresholdX10 must not exceed 109');
+  }
+  if (projection.hitValueX10 !== 10 || projection.missValueX10 !== 0) {
+    throw new Error('HIT_MISS result projection must score one point per hit and zero per miss');
+  }
+  validateText(projection.ruleReference, 'resultProjection.ruleReference');
 }
 
 function deepFreeze<T>(value: T): T {
@@ -439,6 +1010,10 @@ function validatePositiveSeconds(value: number, name: string): void {
 
 function validatePositiveInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
+}
+
+function validateNonNegativeInteger(value: number, name: string): void {
+  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
 }
 
 function validateWarnings(values: readonly number[], upperBound: number | undefined, name: string): void {

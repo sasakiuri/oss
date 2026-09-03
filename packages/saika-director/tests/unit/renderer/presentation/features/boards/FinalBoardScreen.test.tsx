@@ -5,10 +5,11 @@ import { EventBusProvider } from '@/renderer/events/EventBusProvider';
 import { TestEventBus } from '@/renderer/events/TestEventBus';
 import { FinalBoardScreen } from '@/renderer/presentation/features/boards/FinalBoardScreen';
 
-const { getAll } = vi.hoisted(() => ({ getAll: vi.fn() }));
+const { getAll, getControlState } = vi.hoisted(() => ({ getAll: vi.fn(), getControlState: vi.fn() }));
 
 vi.mock('@/renderer/services', () => ({
   laneControlService: { getAll },
+  mqttService: { getControlState },
 }));
 
 function createLane(roundType: 'Qualification' | 'Final', playerName: string, channel: number) {
@@ -35,6 +36,17 @@ function createLane(roundType: 'Qualification' | 'Final', playerName: string, ch
 describe('FinalBoardScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getControlState.mockResolvedValue({
+      success: true,
+      data: {
+        connected: false,
+        brokerUrl: null,
+        activeCompetitionId: null,
+        lanes: [],
+        competitions: [],
+        lastCommand: null,
+      },
+    });
   });
 
   it('does not include qualification lanes in the final scoreboard', async () => {

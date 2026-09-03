@@ -3,6 +3,7 @@ import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
 /**
  * Shot entity
@@ -66,6 +67,12 @@ export class Shot {
   /** Link to the immutable pre-rule observation journal, when available. */
   readonly sourceObservationId?: string;
 
+  /** Target face used for Lane's independent coordinate score. */
+  readonly targetProfileId?: TargetScoringProfileId;
+
+  /** Rule-selected scoring gauge used for Lane's independent coordinate score. */
+  readonly scoringGaugeProfileId?: ScoringGaugeProfileId;
+
   /**
    * Private constructor
    * Prevents direct instantiation from outside; forces creation via static factory methods
@@ -93,6 +100,8 @@ export class Shot {
     calculatedScore?: Score,
     receivedAt?: Date,
     sourceObservationId?: string,
+    targetProfileId?: TargetScoringProfileId,
+    scoringGaugeProfileId?: ScoringGaugeProfileId,
   ) {
     this.id = id;
     this.impactPoint = impactPoint;
@@ -106,6 +115,8 @@ export class Shot {
     this.calculatedScore = calculatedScore ?? score;
     this.receivedAt = receivedAt ?? timestamp;
     this.sourceObservationId = sourceObservationId;
+    this.targetProfileId = targetProfileId;
+    this.scoringGaugeProfileId = scoringGaugeProfileId;
 
     // Guarantee immutability: freeze the object
     Object.freeze(this);
@@ -130,6 +141,8 @@ export class Shot {
     calculatedScore?: Score;
     receivedAt?: Date;
     sourceObservationId?: string;
+    targetProfileId?: TargetScoringProfileId;
+    scoringGaugeProfileId?: ScoringGaugeProfileId;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (props.shotNumber < 1) {
@@ -171,6 +184,8 @@ export class Shot {
       props.calculatedScore,
       props.receivedAt,
       props.sourceObservationId,
+      props.targetProfileId,
+      props.scoringGaugeProfileId,
     );
   }
 
@@ -194,6 +209,8 @@ export class Shot {
     calculatedScore?: Score;
     receivedAt?: Date;
     sourceObservationId?: string;
+    targetProfileId?: TargetScoringProfileId;
+    scoringGaugeProfileId?: ScoringGaugeProfileId;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (data.shotNumber < 1) {
@@ -233,6 +250,8 @@ export class Shot {
       data.calculatedScore,
       data.receivedAt,
       data.sourceObservationId,
+      data.targetProfileId,
+      data.scoringGaugeProfileId,
     );
   }
 

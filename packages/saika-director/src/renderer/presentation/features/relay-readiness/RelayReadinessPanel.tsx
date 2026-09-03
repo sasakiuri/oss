@@ -46,7 +46,7 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
       const response = await relayReadinessService.record({
         competitionId,
         relayNumber,
-        phase,
+        phase: item.phase,
         laneId: item.laneId,
         requirement: item.requirement,
         state,
@@ -99,8 +99,8 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
         {assessment?.items.map((item) => {
           const key = `${item.requirement}:${item.laneId ?? 'range'}`;
           const label = item.laneId
-            ? `${human(item.requirement)} · ${lanes.find((lane) => lane.laneId === item.laneId)?.label ?? item.laneId.slice(0, 8)}`
-            : human(item.requirement);
+            ? `${item.label} · ${lanes.find((lane) => lane.laneId === item.laneId)?.label ?? item.laneId.slice(0, 8)}`
+            : item.label;
           return (
             <li key={key} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
               <div>
@@ -114,6 +114,7 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
                 </p>
                 <p className="mt-0.5 text-vscode-text-muted">
                   {item.ruleReference}
+                  {!item.required ? ' · optional' : ''}
                   {item.latestEntry
                     ? ` · ${item.latestEntry.officialName} · ${new Date(item.latestEntry.recordedAt).toLocaleString()}`
                     : ''}
@@ -143,10 +144,3 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
 
 const inputClass =
   'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
-
-function human(value: string): string {
-  return value
-    .toLowerCase()
-    .replaceAll('_', ' ')
-    .replace(/^./, (character) => character.toUpperCase());
-}

@@ -24,10 +24,7 @@ export class FinalResultDeclarationService {
       currentSnapshotRevision: readiness.snapshotRevision,
       currentApprovalId: readiness.approvalId,
       declaration: declaration ? toDto(declaration) : null,
-      declarationCurrent:
-        declaration !== null &&
-        declaration.snapshotRevision === readiness.snapshotRevision &&
-        declaration.approvalId === readiness.approvalId,
+      declarationCurrent: declaration !== null && issues.length === 0,
       canDeclare: declaration === null && issues.length === 0,
       issues,
     };
@@ -69,10 +66,11 @@ function readinessIssues(readiness: ResultPublicationReadiness): string[] {
 }
 
 function declarationIssues(declaration: FinalResultDeclaration, readiness: ResultPublicationReadiness): string[] {
+  const issues = readinessIssues(readiness);
   if (declaration.snapshotRevision !== readiness.snapshotRevision || declaration.approvalId !== readiness.approvalId) {
-    return ['The current Final result list no longer matches the RESULTS ARE FINAL declaration'];
+    issues.unshift('The current Final result or RTS approval no longer matches the RESULTS ARE FINAL declaration');
   }
-  return [];
+  return [...new Set(issues)];
 }
 
 function toDto(declaration: FinalResultDeclaration): FinalResultDeclarationDto {

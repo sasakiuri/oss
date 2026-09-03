@@ -22,6 +22,31 @@ export const CompetitionPhaseSchema = z.enum([
   'MATCH_COMPLETE',
 ]);
 
+export const RulePackIdentitySchema = z.object({
+  id: z.string().min(1),
+  schemaVersion: z.literal(1),
+  fingerprint: z.object({
+    algorithm: z.literal('SHA-256'),
+    value: z.string().regex(/^[a-f0-9]{64}$/),
+  }),
+});
+
+export const CompetitionDefinitionBindingSchema = z
+  .object({
+    protocolVersion: z.literal(1),
+    compatibilityMode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+    rulePack: RulePackIdentitySchema.optional(),
+  })
+  .superRefine((binding, context) => {
+    if (binding.compatibilityMode === 'REQUIRED' && !binding.rulePack) {
+      context.addIssue({
+        code: 'custom',
+        path: ['rulePack'],
+        message: 'A required compatibility binding needs an exact Rule Pack identity',
+      });
+    }
+  });
+
 export const ActiveCompetitionTimerSchema = z.object({
   timerScope: z.enum(['STAGE', 'SERIES']),
   timerStartAt: z.string().datetime(),
@@ -40,6 +65,7 @@ export const CompetitionStatePayloadSchema = z.object({
   competitionTypeName: z.string(),
   discipline: z.string(),
   roundName: z.string(),
+  definitionBinding: CompetitionDefinitionBindingSchema.optional(),
   acc: z.enum(['RING', 'DECIMAL']),
   phase: CompetitionPhaseSchema,
   shotsPerSeries: z.number().int().positive(),

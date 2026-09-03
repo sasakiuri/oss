@@ -7,6 +7,7 @@ import type { ScoreDiscrepancyDetector } from '@/main/modules/session/domain/Sco
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE, getTargetScoringProfile } from '@/shared/target';
 
 /**
  * createRecordShotHandler
@@ -35,9 +36,16 @@ export function createRecordShotHandler(
       throw ErrorCatalog.createError('SESSION_NOT_FOUND');
     }
 
+    const targetProfileId =
+      input.targetProfileId ?? DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE[session.discipline.value];
+    const scoringGaugeProfileId =
+      input.scoringGaugeProfileId ?? getTargetScoringProfile(targetProfileId).defaultScoringGaugeProfileId;
+
     // For a miss shot (impactPoint: null), skip score calculation and use 0 points
     const calculatedScore =
-      input.impactPoint !== null ? scoreService.calculateScore(input.impactPoint, session.discipline) : Score.miss();
+      input.impactPoint !== null
+        ? scoreService.calculateScore(input.impactPoint, session.discipline, targetProfileId, scoringGaugeProfileId)
+        : Score.miss();
 
     // Detect discrepancy between device score and app-calculated score (non-miss shots only)
     if (input.deviceScore !== undefined && input.impactPoint !== null) {
@@ -62,7 +70,12 @@ export function createRecordShotHandler(
     const deviceScore = input.deviceScore !== undefined ? new Score(input.deviceScore) : undefined;
 
     // X ring determination (physical geometry)
-    const innerTen = scoreService.isInnerTen(input.impactPoint, session.discipline);
+    const innerTen = scoreService.isInnerTen(
+      input.impactPoint,
+      session.discipline,
+      targetProfileId,
+      scoringGaugeProfileId,
+    );
 
     const updatedSession = session.recordShot(
       input.impactPoint,
@@ -75,6 +88,8 @@ export function createRecordShotHandler(
         calculatedScore,
         receivedAt: input.receivedAt ?? new Date(),
         sourceObservationId: input.sourceObservationId,
+        targetProfileId,
+        scoringGaugeProfileId,
       },
     );
 

@@ -5,6 +5,8 @@ import { TargetBoardCard } from './components/TargetBoardCard';
 import { laneControlService } from '@/renderer/services';
 import { mapResponseToLaneControlDto } from '@/renderer/services/mappers/laneControlMapper';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
+import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
+import { RangeClockDisplay } from './components/RangeClockDisplay';
 
 interface Props {
   config: BoardWindowConfig;
@@ -12,6 +14,7 @@ interface Props {
 
 export function TargetBoardScreen({ config }: Props) {
   const laneRange = config.laneRange ?? { from: 1, to: 6 };
+  const rangeClock = useAuthoritativeRangeClock(config.competitionId);
 
   const loadFn = useCallback(async (): Promise<LaneControlDto[]> => {
     const response = await laneControlService.getAll();
@@ -68,6 +71,7 @@ export function TargetBoardScreen({ config }: Props) {
       {/* Header */}
       <div className="mb-3 flex items-center justify-between shrink-0">
         <h1 className="text-2xl font-bold text-zinc-100">Target Board</h1>
+        <RangeClockDisplay clock={rangeClock} compact />
         <span className="text-zinc-400 text-lg">
           Lanes {laneRange.from} - {laneRange.to}
         </span>

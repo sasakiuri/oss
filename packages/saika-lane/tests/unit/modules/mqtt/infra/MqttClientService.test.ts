@@ -102,6 +102,23 @@ describe('MqttClientService', () => {
       );
     });
 
+    it('should pass explicit credentials separately from the broker URL', async () => {
+      mockClient.on.mockImplementation((event: string, handler: Function) => {
+        if (event === 'connect') setTimeout(() => handler(), 0);
+      });
+
+      await service.connect({
+        brokerUrl: 'mqtt://localhost:1883',
+        clientId: 'test-client',
+        credentials: { username: 'lane', password: 'secret' },
+      });
+
+      expect(mqtt.connect).toHaveBeenCalledWith(
+        'mqtt://localhost:1883',
+        expect.objectContaining({ username: 'lane', password: 'secret' }),
+      );
+    });
+
     it('should use pendingWill when no will in connect options', async () => {
       service.setWill('lane/status', 'offline', 1, true);
 

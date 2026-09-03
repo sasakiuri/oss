@@ -158,6 +158,32 @@ describe('HardwareStatePublisher', () => {
     expect(publishedPayload.publishedAt).toBeDefined();
   });
 
+  it('advertises exact Rule Pack support when a capability catalog is supplied', () => {
+    const capablePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, '1.0.0', {
+      competitionProtocolVersions: [1],
+      rulePacks: [
+        {
+          id: 'ISSF:2026:AR60:QUALIFICATION',
+          schemaVersion: 1,
+          fingerprint: { algorithm: 'SHA-256', value: 'a'.repeat(64) },
+        },
+      ],
+    });
+
+    capablePublisher.publishState();
+
+    const publishedPayload = JSON.parse((mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls[0]![1] as string);
+    expect(publishedPayload.capabilities).toEqual({
+      competitionProtocolVersions: [1],
+      rulePacks: [
+        expect.objectContaining({
+          id: 'ISSF:2026:AR60:QUALIFICATION',
+          fingerprint: expect.objectContaining({ value: 'a'.repeat(64) }),
+        }),
+      ],
+    });
+  });
+
   it('should use the Lane alias supplied for the current MQTT connection', () => {
     publisher.setRuntimeLaneAlias('Lane 7');
     publisher.publishState();

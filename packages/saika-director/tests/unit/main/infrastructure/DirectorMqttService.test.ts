@@ -116,6 +116,48 @@ function hardwareState() {
   };
 }
 
+function activeTimedLaneState(laneId: string, stageIndex = 1, seriesIndex = 0) {
+  return {
+    competitionId: COMPETITION_ID,
+    laneId,
+    sessionId: laneId === LANE_ID ? SESSION_ID : '77777777-7777-4777-8777-777777777777',
+    phase: 'MATCH' as const,
+    currentStage: { index: stageIndex, name: 'Precision Stage', scored: true, totalSeries: 6 },
+    currentSeries: { index: seriesIndex, shotsRecorded: 0, maxShots: 5 },
+    publishedAt: '2026-09-03T00:00:02.000Z',
+  };
+}
+
+function completedTimedTargetState(laneId: string, nextLoadAllowedAt: string) {
+  return {
+    schemaVersion: 1 as const,
+    sequenceId: laneId === LANE_ID ? '99999999-9999-4999-8999-999999999991' : '99999999-9999-4999-8999-999999999992',
+    competitionId: COMPETITION_ID,
+    laneId,
+    programId: 'P25_SIGHTING_PRECISION_240',
+    programLabel: 'Precision sighting series',
+    purpose: 'SIGHTING' as const,
+    stageIndex: 1,
+    seriesIndex: 0,
+    targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+    ruleReference: '6.4.13, 8.7.6.4(a,g)',
+    phase: 'COMPLETE' as const,
+    signal: 'RED' as const,
+    shotWindowOpen: false,
+    exposureIndex: null,
+    exposureCount: 1,
+    acceptedShotsInExposure: 0,
+    loadAt: '2026-09-02T23:54:00.000Z',
+    attentionAt: '2026-09-02T23:55:00.000Z',
+    completesAt: '2026-09-02T23:59:07.300Z',
+    nextLoadAllowedAt,
+    nextTransitionAt: null,
+    terminalReason: 'All valid EST recording windows elapsed',
+    enforcementMode: 'REQUIRED' as const,
+    publishedAt: '2026-09-03T00:00:03.000Z',
+  };
+}
+
 function createService(
   transport: FakeMqttTransport,
   onStateChanged = vi.fn(),
@@ -312,6 +354,7 @@ describe('DirectorMqttService', () => {
     expect(transport.subscriptions).toEqual([
       'saika/lane/+/hardware/#',
       'saika/lane/+/safety/state',
+      'saika/lane/+/range-officer/request',
       'saika/lane/+/command/+/acknowledgement',
       'saika/competition/+/#',
     ]);
@@ -321,6 +364,125 @@ describe('DirectorMqttService', () => {
       hardware: { connection: { status: 'connected' } },
     });
     expect(onStateChanged).toHaveBeenCalled();
+  });
+
+  it('projects a retained Range Officer request without treating it as a safety STOP', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+    transport.emitMessage(`saika/lane/${LANE_ID}/range-officer/request`, {
+      schemaVersion: 1,
+      laneId: LANE_ID,
+      status: 'ACTIVE',
+      requestId: '77777777-7777-4777-8777-777777777777',
+      category: 'TARGET',
+      message: 'Please inspect the target',
+      requestedAt: '2026-09-03T00:00:00.000Z',
+      clearedAt: null,
+      clearedBy: null,
+      publishedAt: '2026-09-03T00:00:01.000Z',
+    });
+
+    expect(service.getSnapshot().lanes[0]).toMatchObject({
+      safetyState: null,
+      rangeOfficerRequest: {
+        status: 'ACTIVE',
+        category: 'TARGET',
+        message: 'Please inspect the target',
+      },
+    });
+  });
+
+  it('enters a timed-target MATCH without creating a generic range timer', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'SIGHTING_COMPLETE',
+      publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+    });
+
+    const starting = service.startMatch(COMPETITION_ID);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/start-match'))).toBe(true),
+    );
+    const command = publishedCommand(transport, 'start-match');
+    expect(command).not.toHaveProperty('timerDurationSeconds');
+    acknowledgeCompetitionCommand(transport, 'start-match', command.commandId);
+
+    await expect(starting).resolves.toMatchObject({ success: true });
+    expect(service.getSnapshot().competitions[0]).toMatchObject({ phase: 'MATCH' });
+    expect(service.getSnapshot().competitions[0]?.activeTimer).toBeUndefined();
+  });
+
+  it('projects Lane timed state and uses the latest one-minute boundary as one common LOAD time', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-03T00:00:00.000Z'));
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      startedAt: '2026-09-02T23:50:00.000Z',
+      publishedAt: '2026-09-03T00:00:01.000Z',
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID]) {
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${laneId}/state`, activeTimedLaneState(laneId));
+    }
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`,
+      completedTimedTargetState(LANE_ID, '2026-09-03T00:00:15.000Z'),
+    );
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${SECOND_LANE_ID}/timed-target/state`,
+      completedTimedTargetState(SECOND_LANE_ID, '2026-09-03T00:00:20.000Z'),
+    );
+
+    expect(service.getSnapshot().lanes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ laneId: LANE_ID, timedTargetState: expect.objectContaining({ phase: 'COMPLETE' }) }),
+        expect.objectContaining({
+          laneId: SECOND_LANE_ID,
+          timedTargetState: expect.objectContaining({ nextLoadAllowedAt: '2026-09-03T00:00:20.000Z' }),
+        }),
+      ]),
+    );
+
+    const starting = service.startTimedTarget({
+      competitionId: COMPETITION_ID,
+      programId: 'P25_MATCH_PRECISION_240',
+      purpose: 'MATCH',
+      stageIndex: 1,
+      seriesIndex: 0,
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/start-timed-target'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/start-timed-target'))!;
+    const command = JSON.parse(publication.payload) as {
+      commandId: string;
+      loadAt: string;
+      targetLaneIds: string[];
+    };
+    expect(command).toMatchObject({
+      loadAt: '2026-09-03T00:00:20.000Z',
+      targetLaneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    for (const laneId of command.targetLaneIds) {
+      transport.emitMessage(
+        `saika/competition/${COMPETITION_ID}/command/start-timed-target/acknowledgement/${laneId}`,
+        {
+          commandId: command.commandId,
+          laneId,
+          status: 'done',
+          acknowledgedAt: new Date().toISOString(),
+        },
+      );
+    }
+
+    await expect(starting).resolves.toMatchObject({ success: true });
+    now.mockRestore();
   });
 
   it('emits exact START and STOP boundaries when firing commands reach the broker', async () => {
@@ -1991,7 +2153,7 @@ describe('DirectorMqttService', () => {
     transport.emitDisconnected();
     transport.emitConnected();
 
-    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(8));
+    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(10));
     expect(service.getSnapshot()).toMatchObject({
       connected: true,
       activeCompetitionId: null,

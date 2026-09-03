@@ -35,10 +35,12 @@ export function resolveCompetitionShotPlacement(
   for (let stageIndex = 0; stageIndex < config.stages.length; stageIndex += 1) {
     const stage = config.stages[stageIndex]!;
     if (!stage.scored) continue;
-    if (remainingSeriesIndex < stage.series.length) {
-      return { stageIndex, seriesIndex: remainingSeriesIndex, shotNumberInSeries };
+    for (let seriesIndex = 0; seriesIndex < stage.series.length; seriesIndex += 1) {
+      const series = stage.series[seriesIndex]!;
+      if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
+      if (remainingSeriesIndex === 0) return { stageIndex, seriesIndex, shotNumberInSeries };
+      remainingSeriesIndex -= 1;
     }
-    remainingSeriesIndex -= stage.series.length;
   }
 
   return { stageIndex: fallbackStageIndex, seriesIndex: fallbackSeriesIndex, shotNumberInSeries };

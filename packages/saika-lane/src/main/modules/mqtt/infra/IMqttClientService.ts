@@ -12,6 +12,10 @@ export interface MqttConnectOptions {
   clientId: string;
   keepalive?: number;
   reconnectPeriod?: number;
+  credentials?: {
+    username: string;
+    password: string;
+  };
   will?: {
     topic: string;
     payload: string;

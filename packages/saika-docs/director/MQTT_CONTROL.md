@@ -20,10 +20,19 @@ Director の設定画面に表示されるホストの IPv4 アドレスとポ�
 ランタイムへの移行が成功した後だけ保存され、移行に失敗した場合は直前の設定と接続へ戻します。設定変更中に終了操作が
 始まった場合も、移行の完了またはロールバックを待ってから MQTT クライアントと内蔵ブローカーを停止します。
 
+内蔵 broker の認証を `SAIKA_MQTT_BROKER_AUTH_MODE=REQUIRED` にすると、Director／Lane account と role 別 topic ACL を有効にします。
+各 command は接続用 account とは別に安定した `issuerId` を持ち、Lane は `SAIKA_COMMAND_AUTHORIZATION_MODE` と
+`SAIKA_TRUSTED_DIRECTOR_IDS` で `DISABLED`／`ADVISORY`／`REQUIRED` を選択できます。設定値が不正、または required secret／trust ID が
+不足する場合は、弱い mode へ暗黙に切り替えず起動時に拒否します。環境変数と device 別認証の制約は [Director README](../../saika-director/README.md#mqtt-security-configuration) を参照してください。
+
 ## 競技参加
 
 Director は競技を作成すると、まず
 `saika/competition/{competitionId}/state` を Retain 付きで発行します。参加操作では次の順序を守ります。
+
+Rule Pack 由来の競技では、state に Rule Pack ID、schema version、canonical definition の SHA-256 fingerprint を含めます。
+Lane の hardware capability に同一 fingerprint があることを Director が送信前に検査し、Lane も retained state から独立に再検査します。
+`REQUIRED` の不一致では join を拒否し、local／legacy definition は policy に応じて advisory または disabled で運用できます。
 
 1. 対象 Lane を含む暫定競技状態を発行する。
 2. 各 Lane の `saika/lane/{laneId}/command/join-competition` へ個別コマンドを送る。
@@ -68,24 +77,25 @@ Mixed Team Final はteam pairを抽選し、Coachがprotest time終了前にRTS 
 
 ## コマンドと ACK
 
-| 操作                                     | 配信単位               | 主な効果                                               |
-| ---------------------------------------- | ---------------------- | ------------------------------------------------------ |
-| `join-competition` / `leave-competition` | Lane 個別              | 競技購読の開始・終了                                   |
-| `activate-safety-stop`                   | 競技非依存の Lane 個別 | durable safety latch、timer freeze、STOP / UNLOAD 表示 |
-| `clear-safety-stop`                      | 競技非依存の Lane 個別 | 明示安全確認後に latch を解除。timer は再開しない      |
-| `assign-athlete`                         | 競技内 Lane 個別       | 選手割当を保存し Retain 発行                           |
-| `reset-session`                          | 開始前の Lane 個別     | 確認後、全着弾・得点を消去                             |
-| `pause-timer`                            | 競技内 Lane 個別       | 中断 ID と正確な残り時間を永続化                       |
-| `resume-timer`                           | 競技内 Lane 個別       | official grant の時間・mode で再開                     |
-| `resume-match`                           | 競技内 Lane 個別       | 追加試射後に MATCH mode へ復帰                         |
-| `retire-finalist`                        | 競技内 Lane 個別       | Final snapshot を確定して競技終了                      |
-| `start-sighting` / `end-sighting`        | 競技ブロードキャスト   | 試射開始・終了                                         |
-| `start-match`                            | 競技ブロードキャスト   | 本射ステージと最初のシリーズを開始                     |
-| `timer-started` / `timer-expired`        | 競技ブロードキャスト   | 絶対開始時刻でタイマーを同期・満了                     |
-| `advance-series`                         | 競技ブロードキャスト   | 現シリーズを進め、次シリーズを開始                     |
-| `finish-competition`                     | 競技ブロードキャスト   | 競技を終了                                             |
+| 操作                                         | 配信単位               | 主な効果                                               |
+| -------------------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `join-competition` / `leave-competition`     | Lane 個別              | 競技購読の開始・終了                                   |
+| `activate-safety-stop`                       | 競技非依存の Lane 個別 | durable safety latch、timer freeze、STOP / UNLOAD 表示 |
+| `clear-safety-stop`                          | 競技非依存の Lane 個別 | 明示安全確認後に latch を解除。timer は再開しない      |
+| `assign-athlete`                             | 競技内 Lane 個別       | 選手割当を保存し Retain 発行                           |
+| `reset-session`                              | 開始前の Lane 個別     | 確認後、全着弾・得点を消去                             |
+| `pause-timer`                                | 競技内 Lane 個別       | 中断 ID と正確な残り時間を永続化                       |
+| `resume-timer`                               | 競技内 Lane 個別       | official grant の時間・mode で再開                     |
+| `resume-match`                               | 競技内 Lane 個別       | 追加試射後に MATCH mode へ復帰                         |
+| `retire-finalist`                            | 競技内 Lane 個別       | Final snapshot を確定して競技終了                      |
+| `start-sighting` / `end-sighting`            | 競技ブロードキャスト   | 試射開始・終了                                         |
+| `start-match`                                | 競技ブロードキャスト   | 本射ステージと最初のシリーズを開始                     |
+| `start-timed-target` / `cancel-timed-target` | 対象 Lane broadcast    | 25m absolute schedule の開始／取消と red 復帰          |
+| `timer-started` / `timer-expired`            | 競技ブロードキャスト   | 絶対開始時刻でタイマーを同期・満了                     |
+| `advance-series`                             | 競技ブロードキャスト   | 現シリーズを進め、次シリーズを開始                     |
+| `finish-competition`                         | 競技ブロードキャスト   | 競技を終了                                             |
 
-すべてのコマンドには UUID の `commandId`、`issuedBy`、ISO 8601 の `issuedAt` が含まれます。Lane は
+すべてのコマンドには UUID の `commandId`、安定した `issuerId`、表示用 `issuedBy`、ISO 8601 の `issuedAt` が含まれます。Lane は
 処理開始時に `executing`、完了時に `done`、失敗時に `error` を返します。Director は既定で 10 秒待ち、
 終端 ACK が届かなかった Lane を `timeout` として表示します。ブロードキャスト全体が成功するのは、対象 Lane
 すべてが `done` を返した場合だけです。
@@ -173,6 +183,18 @@ Lane は保存済みの所属と競技購読を復元するため、同じ終了
 最終スコアの `acc` も Director が保持する競技種別の採点方式と一致する必要があり、BR60S への整数圏指定や
 BP60 への小数点指定など、競技と異なる採点方式の成績は保存しません。
 
+## 25m timed-target sequence
+
+25m Qualification の `start-match` は generic timer を持たず、series ごとに `start-timed-target` を使用します。Director は
+現在の Rule Pack stage／series と program ID、全対象 Lane の safety／clock／position、前回 sequence の `nextLoadAllowedAt` を検査し、
+共通の絶対 `loadAt` を送ります。Lane はローカル Rule Pack から LOAD、ATTENTION、green／red、EST after-time を構築して
+append-only event として保存し、renderer と retained state を同じ projection から更新します。
+
+window 外の shot は元 observation を保持したまま `REJECTED_TIMED_TARGET_WINDOW` として score から除外します。
+`ADVISORY`／`DISABLED` の local policy、recovery sighting、Jury remedy は timing engine から独立しています。safety STOP または
+competition interruption は active sequence を cancel して red に戻します。物理 lamp／turning-target adapter と音声 `UNLOAD` は
+この MQTT sequence には含まれません。
+
 開始系コマンドの `timerStartAt` は、既定で送信時刻の 3 秒後です。Lane は受信直後ではなくこの絶対時刻まで
 待ってからタイマーを開始します。各 PC の時刻同期が前提です。
 試射開始を未完了の Lane だけに再送する場合は、最初の試射開始と同じ `timerStartAt` を再利用し、競技内の残り時間を
@@ -198,6 +220,8 @@ Director は `start-sighting`、`start-match`、`timer-started` の開始時刻�
 - 各 Lane の競技状態
 - 各 Lane の中断 ID、capture timer、再開予定、authorized timer、SIGHTING／MATCH 復帰状態
 - 各 Lane の competition-independent safety latch、停止理由、timer snapshot、clearance evidence
+- 各 Lane の active／cleared Range Officer request
+- 各 Lane の 25m timed-target sequence、signal、window、次回 LOAD 下限
 - 各 Lane の選手割当
 - 各 Lane の集計スコア
 - 各 Lane のハードウェア接続状態

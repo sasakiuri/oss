@@ -7,6 +7,7 @@
  */
 
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
 import { Discipline } from './Discipline';
 import { ImpactPoint } from './ImpactPoint';
@@ -44,6 +45,8 @@ export interface SessionStorageData {
     calculatedScore?: number;
     receivedAt?: string;
     sourceObservationId?: string;
+    targetProfileId?: TargetScoringProfileId;
+    scoringGaugeProfileId?: ScoringGaugeProfileId;
   }>;
   startedAt: string;
   finishedAt: string | null;
@@ -117,6 +120,8 @@ export class SessionFactory {
         calculatedScore,
         receivedAt: shotData.receivedAt ? new Date(shotData.receivedAt) : timestamp,
         sourceObservationId: shotData.sourceObservationId,
+        targetProfileId: shotData.targetProfileId,
+        scoringGaugeProfileId: shotData.scoringGaugeProfileId,
       });
     });
 

@@ -109,7 +109,10 @@ export const ISSF_2026_AR60: RulePack = defineRulePack({
   round: 'QUALIFICATION',
   authority,
   capabilities: {
-    target: { scoringProfileId: 'ISSF_AIR_RIFLE_10M_2026' },
+    target: {
+      scoringProfileId: 'ISSF_AIR_RIFLE_10M_2026',
+      scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
+    },
     scoring: { mode: 'DECIMAL', minimumShotScore: 0, maximumSeriesScore: 109, precision: 1 },
     courseOfFire: qualificationCourse,
     ranking: { strategy: 'ISSF_6_15_1_DECIMAL_RIFLE', totalShots: 60, totalSeries: 6 },
@@ -137,7 +140,10 @@ export const ISSF_2026_AP60: RulePack = defineRulePack({
   round: 'QUALIFICATION',
   authority,
   capabilities: {
-    target: { scoringProfileId: 'ISSF_AIR_PISTOL_10M_2026' },
+    target: {
+      scoringProfileId: 'ISSF_AIR_PISTOL_10M_2026',
+      scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
+    },
     scoring: { mode: 'RING', minimumShotScore: 0, maximumSeriesScore: 100, precision: 0 },
     courseOfFire: qualificationCourse,
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 6 },
@@ -169,10 +175,17 @@ function finalPack(eventCode: 'AR60_FINAL' | 'AP60_FINAL', discipline: string, d
     capabilities: {
       target: {
         scoringProfileId: discipline === 'AIR_RIFLE_10M' ? 'ISSF_AIR_RIFLE_10M_2026' : 'ISSF_AIR_PISTOL_10M_2026',
+        scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',
       },
       scoring: { mode: 'DECIMAL', minimumShotScore: 0, maximumSeriesScore: 109, precision: 1 },
       courseOfFire: finalCourse,
-      ranking: { strategy: 'FINAL_SCORE', totalShots: 24, totalSeries: 16, stage1Shots: 10 },
+      ranking: {
+        strategy: 'FINAL_SCORE',
+        totalShots: 24,
+        totalSeries: 16,
+        stage1Shots: 10,
+        finalRuleReference: '6.17.2',
+      },
       verification: finalVerification,
       commands: {
         preparationAndSightingSeconds: 300,

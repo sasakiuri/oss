@@ -13,6 +13,13 @@ export interface FinalScriptStepExecutionInput {
   readonly step: FinalOperationScriptStepDto;
   readonly eligibleLaneIds: readonly string[];
   readonly acknowledgedRequirementIds: readonly string[];
+  readonly declaration: {
+    readonly eventId: string;
+    readonly finalProtestsResolved: true;
+    readonly resultProcessConfirmed: true;
+    readonly statement: string;
+    readonly officialName: string;
+  } | null;
 }
 
 export interface FinalScriptStepExecutionPort {
@@ -26,9 +33,22 @@ export interface FinalScriptStepExecutionPort {
     step: FinalOperationScriptStepDto,
     acknowledgedRequirementIds: readonly string[],
   ): Promise<CommandExecutionResult | null>;
+  runTimedTarget(
+    step: FinalOperationScriptStepDto,
+    acknowledgedRequirementIds: readonly string[],
+    eligibleLaneIds: readonly string[],
+  ): Promise<CommandExecutionResult | null>;
   closeMatch(): Promise<CommandExecutionResult | null>;
-  openShootOff(durationSeconds: number, eligibleLaneIds: readonly string[]): Promise<CommandExecutionResult | null>;
+  openShootOff(
+    durationSeconds: number,
+    shotsPerLane: number,
+    eligibleLaneIds: readonly string[],
+  ): Promise<CommandExecutionResult | null>;
   closeShootOff(eligibleLaneIds: readonly string[]): Promise<CommandExecutionResult | null>;
+  declareResults(input: NonNullable<FinalScriptStepExecutionInput['declaration']>): Promise<{
+    readonly declarationId: string;
+    readonly replayed: boolean;
+  }>;
 }
 
 export interface FinalScriptStepExecutionResult {
@@ -36,6 +56,7 @@ export interface FinalScriptStepExecutionResult {
   readonly cueId: string;
   readonly cuePublished: true;
   readonly command: CommandExecutionResult | null;
+  readonly declarationId: string | null;
   readonly statement: string;
 }
 
@@ -68,19 +89,34 @@ export async function executeFinalScriptStep(
     ...(input.eligibleLaneIds.length > 0 ? { targetLaneIds: [...new Set(input.eligibleLaneIds)] } : {}),
     publishedAt: new Date().toISOString(),
   };
+  // A declaration must be durably accepted by the result workflow before it
+  // is presented to Lane. If cue publication fails, a retry reuses both the
+  // immutable declaration and this confirmation-scoped cue ID.
+  const declaration = input.step.effect.type === 'DECLARE_RESULTS' ? await executeDeclaration(input, port) : null;
   await port.publishCue(cue);
 
-  const command = await executeEffect(input, port);
+  const command = declaration ? null : await executeEffect(input, port);
   const success = command?.success ?? true;
   return {
     success,
     cueId,
     cuePublished: true,
     command,
-    statement: command
-      ? `${input.step.text}: ${command.action} ${success ? 'completed' : 'did not complete on every Lane'}`
-      : `${input.step.text}: cue published`,
+    declarationId: declaration?.declarationId ?? null,
+    statement: declaration
+      ? `${input.step.text}: declaration ${declaration.declarationId} ${declaration.replayed ? 'confirmed' : 'recorded'}; cue published`
+      : command
+        ? `${input.step.text}: ${command.action} ${success ? 'completed' : 'did not complete on every Lane'}`
+        : `${input.step.text}: cue published`,
   };
+}
+
+async function executeDeclaration(
+  input: FinalScriptStepExecutionInput,
+  port: FinalScriptStepExecutionPort,
+): Promise<{ readonly declarationId: string; readonly replayed: boolean }> {
+  if (!input.declaration) throw new Error('RESULTS ARE FINAL requires explicit declaration confirmations');
+  return port.declareResults(input.declaration);
 }
 
 async function executeEffect(
@@ -88,6 +124,20 @@ async function executeEffect(
   port: FinalScriptStepExecutionPort,
 ): Promise<CommandExecutionResult | null> {
   const effect = input.step.effect;
+  if (effect.type === 'RUN_TIMED_TARGET') {
+    if (
+      effect.participantSelection === 'OFFICIAL_SELECTED' &&
+      input.eligibleLaneIds.length !== effect.requiredParticipantCount
+    ) {
+      throw new Error(
+        `Timed-target step requires exactly ${effect.requiredParticipantCount ?? 0} officially selected Lanes`,
+      );
+    }
+    if (effect.participantSelection === 'TIED_ONLY' && input.eligibleLaneIds.length < 2) {
+      throw new Error('A tied-only timed-target step requires at least two eligible Lanes');
+    }
+    return port.runTimedTarget(input.step, input.acknowledgedRequirementIds, input.eligibleLaneIds);
+  }
   if (effect.type !== 'OPEN_FIRING' && effect.type !== 'CLOSE_FIRING') return null;
 
   if (effect.purpose === 'SIGHTING') {
@@ -103,7 +153,11 @@ async function executeEffect(
   if (input.eligibleLaneIds.length < 2) {
     throw new Error('A shoot-off step requires at least two eligible Lanes');
   }
-  return effect.type === 'OPEN_FIRING'
-    ? port.openShootOff(effect.durationSeconds, input.eligibleLaneIds)
-    : port.closeShootOff(input.eligibleLaneIds);
+  if (effect.type === 'OPEN_FIRING') {
+    if (effect.shotsPerParticipant === undefined) {
+      throw new Error('A shoot-off firing step requires a shot count');
+    }
+    return port.openShootOff(effect.durationSeconds, effect.shotsPerParticipant, input.eligibleLaneIds);
+  }
+  return port.closeShootOff(input.eligibleLaneIds);
 }

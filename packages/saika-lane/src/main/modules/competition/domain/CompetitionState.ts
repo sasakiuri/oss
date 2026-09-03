@@ -197,11 +197,15 @@ export class CompetitionState {
     const stageConfig = this.currentStageConfig;
     const seriesConfig = stageConfig.series[this.currentSeriesIndex];
 
-    // Use series timer if available, otherwise retain the stage timer
+    // Use series/stage timer when configured. A timed-target series is driven
+    // by its independent absolute schedule and must not inherit an expired
+    // preparation timer.
     let timer: Timer;
     if (seriesConfig?.timer) {
       timer = Timer.create(seriesConfig.timer.durationSeconds);
-    } else if ((this.phase === 'STAGE_ENTERED' || this.phase === 'SERIES_ENTERED') && stageConfig.timer) {
+    } else if (seriesConfig?.timedTargetProgramId) {
+      timer = Timer.create(0);
+    } else if (this.phase === 'STAGE_ENTERED' && stageConfig.timer) {
       timer = Timer.create(stageConfig.timer.durationSeconds);
     } else {
       timer = this.timer;
@@ -227,11 +231,34 @@ export class CompetitionState {
       });
     }
 
+    if (this.currentSeriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING') {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        from: 'POSITION_CHANGE_AND_SIGHTING',
+        to: 'MATCH_SHOT',
+      });
+    }
+
     const newShotCount = this.seriesShotCount + 1;
     const maxShots = this.currentSeriesConfig.maxShots;
 
+    // Timed-target completion is defined by the closing edge of its last EST
+    // recording window, not by arrival order of the fifth shot.
+    if (this.currentSeriesConfig.timedTargetProgramId) {
+      return this.with({ seriesShotCount: newShotCount });
+    }
+
     // If maxShots > 0 and the limit is reached, complete the series
     if (maxShots > 0 && newShotCount >= maxShots) {
+      const nextSeriesIndex = this.currentSeriesIndex + 1;
+      if (
+        this.currentStageConfig.seriesTransition === 'AUTOMATIC' &&
+        nextSeriesIndex < this.currentStageConfig.series.length
+      ) {
+        return this.with({
+          currentSeriesIndex: nextSeriesIndex,
+          seriesShotCount: 0,
+        });
+      }
       return this.with({
         phase: 'SERIES_COMPLETE',
         seriesShotCount: newShotCount,
@@ -241,6 +268,17 @@ export class CompetitionState {
     return this.with({
       seriesShotCount: newShotCount,
     });
+  }
+
+  /** Completes the current series only when its authoritative timed program closes. */
+  completeTimedTargetSeries(programId: string): CompetitionState {
+    this.assertNotFinished();
+    if (this.phase !== 'ACTIVE' || this.currentSeriesConfig.timedTargetProgramId !== programId) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Cannot complete timed target program ${programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
+      });
+    }
+    return this.with({ phase: 'SERIES_COMPLETE', timer: Timer.create(0) });
   }
 
   /**
