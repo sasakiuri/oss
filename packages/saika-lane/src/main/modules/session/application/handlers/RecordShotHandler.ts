@@ -96,13 +96,17 @@ export function createRecordShotHandler(
     // Retrieve the recorded shot (the last shot)
     const recordedShot = updatedSession.allShots[updatedSession.allShots.length - 1];
 
-    // Incrementally persist the session (INSERT only the single shot)
+    // Independent workflows persist their evidence through their own durable
+    // journal/outbox. Keeping the shot out of the normal Session is what makes
+    // later official adjudication explicit instead of silently changing score.
     if (!recordedShot) {
       throw ErrorCatalog.createError('INVALID_SESSION_STATE', {
         detail: 'No shot exists after recordShot',
       });
     }
-    await sessionRepository.saveShot(updatedSession, recordedShot);
+    if (input.acquisitionContext?.shotDisposition !== 'ISOLATED') {
+      await sessionRepository.saveShot(updatedSession, recordedShot);
+    }
 
     // Emit ShotRecorded event
     eventBus.emit({
@@ -112,6 +116,7 @@ export function createRecordShotHandler(
       shot: recordedShot,
       scoringMode: session.scoringMode,
       rawScore: session.scoringMode === 'RING' && rawScore.value !== finalScore.value ? rawScore.value : undefined,
+      ...(input.acquisitionContext ? { acquisitionContext: Object.freeze({ ...input.acquisitionContext }) } : {}),
     });
   };
 }

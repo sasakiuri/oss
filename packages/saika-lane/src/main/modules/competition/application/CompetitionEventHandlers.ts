@@ -23,6 +23,7 @@ export function createShotRecordedHandler(deps: {
 
   return async (event) => {
     try {
+      if (event?.acquisitionContext?.shotDisposition === 'ISOLATED') return;
       const state = await competitionRepository.findActive();
       if (!state || !state.canAcceptShot()) return;
 
@@ -98,7 +99,12 @@ export function createTimedTargetSequenceChangedHandler(deps: {
 }): (event: TimedTargetSequenceChangedEvent) => void {
   const { competitionRepository, eventBus } = deps;
   return (event) => {
-    if (event.state.purpose !== 'MATCH' || event.state.phase !== 'COMPLETE') return;
+    if (
+      event.state.purpose !== 'MATCH' ||
+      event.state.phase !== 'COMPLETE' ||
+      event.state.executionContext?.shotDisposition === 'ISOLATED'
+    )
+      return;
     void (async () => {
       try {
         const state = await competitionRepository.findById(event.state.competitionId);

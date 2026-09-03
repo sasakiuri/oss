@@ -1223,6 +1223,11 @@ export function CompetitionControlScreen() {
                   defaultLaneId={assignmentLaneId}
                   defaultPhase={activeCompetition.phase === 'SIGHTING' ? 'SIGHTING' : 'MATCH'}
                   defaultRemainingSeconds={estimateRemainingSeconds(activeCompetition.activeTimer)}
+                  qualificationTimedTargetCompetitionTypeId={
+                    activeCompetitionDefinition?.timedTarget?.recovery.procedure === 'QUALIFICATION'
+                      ? activeCompetition.competitionTypeId
+                      : undefined
+                  }
                   lanes={competitionLanes.map((lane) => ({
                     laneId: lane.laneId,
                     label: lane.firingPointNumber
@@ -1232,6 +1237,18 @@ export function CompetitionControlScreen() {
                     ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
                     ...(lane.competitionState?.interruption
                       ? { interruption: lane.competitionState.interruption }
+                      : {}),
+                    ...(lane.competitionState
+                      ? {
+                          seriesSnapshot: {
+                            stageIndex: lane.competitionState.currentStage.index,
+                            seriesIndex: lane.competitionState.currentSeries.index,
+                            recordedShots: lane.competitionState.currentSeries.shotsRecorded,
+                            maxShots: lane.competitionState.currentSeries.maxShots,
+                            seriesComplete: lane.competitionState.phase === 'SERIES_COMPLETE',
+                            capturedAt: lane.competitionState.publishedAt,
+                          },
+                        }
                       : {}),
                   }))}
                 />

@@ -119,11 +119,24 @@ export class SqliteSessionRepository implements ISessionRepository {
              deviceScore, calculatedScore, receivedAt, observationId, targetProfileId, scoringGaugeProfileId
       FROM shots
       WHERE sessionId = ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM qualification_recovery_adjudication_shots recovery_shot
+          WHERE recovery_shot.shot_id = shots.id
+            AND recovery_shot.disposition = 'ANNULLED_ORIGINAL'
+        )
       ORDER BY shotNumber ASC
     `);
 
     this.stmtDeleteSessionShots = db.prepare(`
-      DELETE FROM shots WHERE sessionId = ?
+      DELETE FROM shots
+      WHERE sessionId = ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM qualification_recovery_adjudication_shots recovery_shot
+          WHERE recovery_shot.shot_id = shots.id
+            AND recovery_shot.disposition = 'ANNULLED_ORIGINAL'
+        )
     `);
 
     this.stmtDeleteSession = db.prepare(`

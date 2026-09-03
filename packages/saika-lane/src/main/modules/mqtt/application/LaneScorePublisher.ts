@@ -39,6 +39,7 @@ export class LaneScorePublisher {
     this.queryBus = queryBus;
 
     eventBus.on('ShotRecorded', (event: ShotRecordedEvent) => {
+      if (event.acquisitionContext?.shotDisposition === 'ISOLATED') return;
       // Only publish score for MATCH shots
       if (event.shot.mode.value !== 'MATCH') return;
       void this.publishCurrentScore().catch((error: unknown) => this.logPublishError(error));

@@ -1,6 +1,7 @@
 export { defineRulePack } from './RulePack';
 export { canonicalJson, identifyRulePack } from './RulePackIdentity';
 export { projectShotResult } from './ShotResultProjection';
+export { recommendQualificationTimedTargetInterruption } from './QualificationTimedTargetInterruption';
 export type {
   CommandSequenceCapability,
   CompetitionRound,
@@ -20,6 +21,8 @@ export type {
   OutdoorEliminationPlanningCapability,
   PublicationCapability,
   QualificationTimedTargetRecoveryCapability,
+  QualificationTimedTargetSeriesRecoveryRule,
+  QualificationTimedTargetStageRecoveryRule,
   RankingCapability,
   RuleAuthority,
   RuleCommandActor,
@@ -49,6 +52,11 @@ export type {
   TimedTargetRecoveryCapability,
   VerificationCapability,
 } from './RulePack';
+export type {
+  QualificationTimedTargetInterruptionFacts,
+  QualificationTimedTargetInterruptionRecommendation,
+  QualificationTimedTargetSeriesRecoveryRecommendation,
+} from './QualificationTimedTargetInterruption';
 export type {
   HitMissResultProjectionCapability,
   ProjectedShotResult,

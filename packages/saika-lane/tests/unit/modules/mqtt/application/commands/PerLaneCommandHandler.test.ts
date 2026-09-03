@@ -28,6 +28,11 @@ import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/applicat
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type {
+  IQualificationRecoveryAdjudicationControl,
+  IQualificationRecoveryControl,
+  IQualificationRecoverySettlementControl,
+} from '@/main/modules/qualification-recovery';
 
 import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
 
@@ -50,6 +55,8 @@ const LANE_ID = 'a1111111-1111-4111-a111-111111111111';
 const COMPETITION_ID = 'b2222222-2222-4222-a222-222222222222';
 const SESSION_ID = 'd4444444-4444-4444-a444-444444444444';
 const INTERRUPTION_ID = 'e5555555-5555-4555-a555-555555555555';
+const RECOVERY_RUN_ID = 'f6666666-6666-4666-a666-666666666666';
+const RECOVERY_DECISION_ID = 'a7777777-7777-4777-a777-777777777777';
 
 function createMockCompetitionRepo(): ICompetitionRepository {
   return {
@@ -81,6 +88,10 @@ describe('PerLaneCommandHandler', () => {
   let scorePublisher: LaneScorePublisher;
   let competitionStatePublisher: LaneCompetitionStatePublisher;
   let interruptionControl: ICompetitionInterruptionControl;
+  let qualificationRecoveryControl: IQualificationRecoveryControl;
+  let qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
+  let qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
+  let qualificationRecoveryStatePublisher: { publishCurrentState: ReturnType<typeof vi.fn> };
   let handler: PerLaneCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -117,6 +128,50 @@ describe('PerLaneCommandHandler', () => {
       get: vi.fn().mockReturnValue(null),
       clear: vi.fn(),
     } as unknown as ICompetitionInterruptionControl;
+    qualificationRecoveryControl = {
+      start: vi.fn().mockResolvedValue({
+        runId: RECOVERY_RUN_ID,
+        sequenceId: RECOVERY_RUN_ID,
+        status: 'RUNNING',
+        shots: [],
+      }),
+      cancel: vi.fn().mockReturnValue({
+        runId: RECOVERY_RUN_ID,
+        sequenceId: RECOVERY_RUN_ID,
+        status: 'CANCELLED',
+      }),
+      get: vi.fn().mockReturnValue({ runId: RECOVERY_RUN_ID, competitionId: COMPETITION_ID }),
+      getLatest: vi.fn().mockReturnValue(null),
+      restoreActive: vi.fn().mockReturnValue(null),
+    } as unknown as IQualificationRecoveryControl;
+    qualificationRecoveryStatePublisher = { publishCurrentState: vi.fn().mockResolvedValue(undefined) };
+    qualificationRecoveryAdjudicationControl = {
+      get: vi.fn().mockReturnValue(null),
+      apply: vi.fn().mockResolvedValue({
+        id: 'adjudication-1',
+        runId: RECOVERY_RUN_ID,
+        competitionId: COMPETITION_ID,
+        treatment: 'COMPLETE_REMAINING_SHOTS',
+        authorizedShots: 2,
+        shots: [{ disposition: 'CREDITED_RECOVERY' }, { disposition: 'CREDITED_MISS' }],
+      }),
+    } as unknown as IQualificationRecoveryAdjudicationControl;
+    qualificationRecoverySettlementControl = {
+      get: vi.fn().mockReturnValue(null),
+      apply: vi.fn().mockResolvedValue({
+        id: 'settlement-1',
+        decisionId: RECOVERY_DECISION_ID,
+        competitionId: COMPETITION_ID,
+        treatment: 'KEEP_RECORDED_SERIES',
+        recordedShots: [
+          { shotId: 'shot-1' },
+          { shotId: 'shot-2' },
+          { shotId: 'shot-3' },
+          { shotId: 'shot-4' },
+          { shotId: 'shot-5' },
+        ],
+      }),
+    } as unknown as IQualificationRecoverySettlementControl;
     handler = new PerLaneCommandHandler(
       mqttClient,
       commandBus,
@@ -128,6 +183,12 @@ describe('PerLaneCommandHandler', () => {
       interruptionControl,
       () => LANE_ID,
       COMPETITION_ID,
+      undefined,
+      undefined,
+      qualificationRecoveryControl,
+      qualificationRecoveryStatePublisher,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -295,6 +356,151 @@ describe('PerLaneCommandHandler', () => {
       expect(interruptionControl.resumeMatch).toHaveBeenCalledWith({
         competitionId: COMPETITION_ID,
         interruptionId: INTERRUPTION_ID,
+      });
+    });
+  });
+
+  describe('Qualification recovery commands', () => {
+    function startCommand() {
+      return buildCommand({
+        runId: RECOVERY_RUN_ID,
+        decisionId: RECOVERY_DECISION_ID,
+        interruptionId: INTERRUPTION_ID,
+        stageIndex: 1,
+        seriesIndex: 0,
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+        expectedSeriesShotLimit: 5,
+        expectedRecordedShots: 3,
+        authorization: {
+          phase: 'SERIES_RECOVERY',
+          seriesRecovery: {
+            treatment: 'COMPLETE_REMAINING_SHOTS',
+            shotsToFire: 2,
+            execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48, totalSeconds: 96 },
+          },
+        },
+        loadAt: '2026-09-03T01:00:00.000Z',
+        officialName: 'Jury Member',
+        decisionRuleReference: '8.8.1(c-d)',
+        decidedAt: '2026-09-03T00:59:00.000Z',
+      });
+    }
+
+    it('starts only this Lane run and publishes its retained state before done', async () => {
+      await sendMessage('start-qualification-recovery', startCommand());
+
+      expect(qualificationRecoveryControl.start).toHaveBeenCalledWith({
+        runId: RECOVERY_RUN_ID,
+        decisionId: RECOVERY_DECISION_ID,
+        interruptionId: INTERRUPTION_ID,
+        competitionId: COMPETITION_ID,
+        stageIndex: 1,
+        seriesIndex: 0,
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+        expectedSeriesShotLimit: 5,
+        expectedRecordedShots: 3,
+        authorization: {
+          phase: 'SERIES_RECOVERY',
+          seriesRecovery: {
+            treatment: 'COMPLETE_REMAINING_SHOTS',
+            shotsToFire: 2,
+            execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48, totalSeconds: 96 },
+          },
+        },
+        loadAt: new Date('2026-09-03T01:00:00.000Z'),
+        officialName: 'Jury Member',
+        decisionRuleReference: '8.8.1(c-d)',
+        decidedAt: new Date('2026-09-03T00:59:00.000Z'),
+      });
+      expect(qualificationRecoveryStatePublisher.publishCurrentState).toHaveBeenCalledWith(COMPETITION_ID);
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({ status: 'done', data: { runId: RECOVERY_RUN_ID, status: 'RUNNING' } });
+    });
+
+    it('cancels by run ID without sharing the generic timer command', async () => {
+      await sendMessage(
+        'cancel-qualification-recovery',
+        buildCommand({ runId: RECOVERY_RUN_ID, reason: 'Jury cancelled the recovery' }),
+      );
+
+      expect(qualificationRecoveryControl.cancel).toHaveBeenCalledWith({
+        runId: RECOVERY_RUN_ID,
+        reason: 'Jury cancelled the recovery',
+      });
+      expect(interruptionControl.resume).not.toHaveBeenCalled();
+    });
+
+    it('applies completed recovery evidence through a distinct adjudication command', async () => {
+      await sendMessage(
+        'apply-qualification-recovery',
+        buildCommand({
+          runId: RECOVERY_RUN_ID,
+          appliedBy: 'Range Officer B',
+          statement: 'Recovery evidence checked.',
+          appliedAt: '2026-09-03T01:03:00.000Z',
+        }),
+      );
+
+      expect(qualificationRecoveryAdjudicationControl.apply).toHaveBeenCalledWith({
+        runId: RECOVERY_RUN_ID,
+        competitionId: COMPETITION_ID,
+        appliedBy: 'Range Officer B',
+        statement: 'Recovery evidence checked.',
+        appliedAt: new Date('2026-09-03T01:03:00.000Z'),
+      });
+      expect(competitionStatePublisher.publishCurrentState).toHaveBeenCalledWith(COMPETITION_ID);
+      expect(scorePublisher.publishCurrentScore).toHaveBeenCalledWith(COMPETITION_ID);
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({
+        status: 'done',
+        data: { runId: RECOVERY_RUN_ID, creditedShots: 2, creditedMisses: 1 },
+      });
+    });
+
+    it('settles a full recorded series without entering recovery firing or score adjudication', async () => {
+      await sendMessage(
+        'settle-qualification-recovery',
+        buildCommand({
+          decisionId: RECOVERY_DECISION_ID,
+          interruptionId: INTERRUPTION_ID,
+          stageIndex: 1,
+          seriesIndex: 0,
+          expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+          expectedSeriesShotLimit: 5,
+          expectedRecordedShots: 5,
+          treatment: 'KEEP_RECORDED_SERIES',
+          decisionOfficialName: 'Jury Member A',
+          decisionRuleReference: '8.8.1(c-d)',
+          decidedAt: '2026-09-03T01:02:00.000Z',
+          appliedBy: 'Jury Member B',
+          statement: 'The full recorded series was checked and retained.',
+          appliedAt: '2026-09-03T01:03:00.000Z',
+        }),
+      );
+
+      expect(qualificationRecoverySettlementControl.apply).toHaveBeenCalledWith({
+        decisionId: RECOVERY_DECISION_ID,
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+        stageIndex: 1,
+        seriesIndex: 0,
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+        expectedSeriesShotLimit: 5,
+        expectedRecordedShots: 5,
+        treatment: 'KEEP_RECORDED_SERIES',
+        decisionOfficialName: 'Jury Member A',
+        decisionRuleReference: '8.8.1(c-d)',
+        decidedAt: new Date('2026-09-03T01:02:00.000Z'),
+        appliedBy: 'Jury Member B',
+        statement: 'The full recorded series was checked and retained.',
+        appliedAt: new Date('2026-09-03T01:03:00.000Z'),
+      });
+      expect(qualificationRecoveryControl.start).not.toHaveBeenCalled();
+      expect(qualificationRecoveryAdjudicationControl.apply).not.toHaveBeenCalled();
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({
+        status: 'done',
+        data: { decisionId: RECOVERY_DECISION_ID, retainedShots: 5 },
       });
     });
   });

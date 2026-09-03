@@ -145,6 +145,55 @@ describe('CompetitionState aggregate root', () => {
       expect(state.phase).toBe('SERIES_COMPLETE');
     });
 
+    it('completes an interrupted Qualification series only after explicit recovery adjudication', () => {
+      let state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+      state = state.recordShotInSeries().recordShotInSeries();
+
+      const completed = state.applyQualificationRecovery({
+        programId: 'P25_MATCH_PRECISION_240',
+        treatment: 'COMPLETE_REMAINING_SHOTS',
+        expectedRecordedShots: 2,
+        authorizedShots: 3,
+      });
+
+      expect(completed.phase).toBe('SERIES_COMPLETE');
+      expect(completed.seriesShotCount).toBe(5);
+      expect(completed.timer.remainingSeconds).toBe(0);
+    });
+
+    it('settles a fully recorded Qualification series without adding recovery shots', () => {
+      let state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+      for (let index = 0; index < 5; index += 1) state = state.recordShotInSeries();
+
+      const settled = state.keepRecordedQualificationSeries({
+        programId: 'P25_MATCH_PRECISION_240',
+        expectedRecordedShots: 5,
+      });
+
+      expect(settled).toMatchObject({ phase: 'SERIES_COMPLETE', seriesShotCount: 5 });
+      expect(settled.timer.remainingSeconds).toBe(0);
+      expect(
+        settled.keepRecordedQualificationSeries({
+          programId: 'P25_MATCH_PRECISION_240',
+          expectedRecordedShots: 5,
+        }),
+      ).toBe(settled);
+    });
+
+    it('rejects a recovery result that does not fill the official series', () => {
+      let state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
+      state = state.recordShotInSeries().recordShotInSeries();
+
+      expect(() =>
+        state.applyQualificationRecovery({
+          programId: 'P25_MATCH_PRECISION_240',
+          treatment: 'COMPLETE_REMAINING_SHOTS',
+          expectedRecordedShots: 2,
+          authorizedShots: 2,
+        }),
+      ).toThrow();
+    });
+
     it('does not let an unrelated timed program close the current 25m series', () => {
       const state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
 

@@ -151,8 +151,16 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
       programs: rapidFirePrograms(),
       recovery: {
         procedure: 'QUALIFICATION',
-        extraSightingInterruptionThresholdSeconds: 900,
-        interruptedSeriesTreatment: 'ANNUL_AND_REPEAT',
+        interruption: {
+          extraSightingWhenLongerThanSeconds: 900,
+          extraSightingSeriesShots: 5,
+          extraSightingRuleReference: '8.8.1(a)',
+          stages: [1, 2].map((stageNumber) => ({
+            stageId: `STAGE_${stageNumber}`,
+            seriesRecovery: { treatment: 'ANNUL_AND_REPEAT' as const },
+            ruleReference: '8.8.1(b)',
+          })),
+        },
         sightingMalfunctionClaimsAllowed: false,
         malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
         ruleReferences: ['8.8.1(a-b)', '8.9.1(a,c)'],
@@ -254,9 +262,29 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
         programs: precisionRapidPrograms(prefix),
         recovery: {
           procedure: 'QUALIFICATION',
-          extraSightingInterruptionThresholdSeconds: 900,
-          interruptedSeriesTreatment: 'COMPLETE_REMAINING_SHOTS',
-          precisionCompletionSecondsPerShot: 48,
+          interruption: {
+            extraSightingWhenLongerThanSeconds: 900,
+            extraSightingSeriesShots: 5,
+            extraSightingRuleReference: '8.8.1(a)',
+            stages: [
+              {
+                stageId: 'PRECISION_STAGE',
+                seriesRecovery: {
+                  treatment: 'COMPLETE_REMAINING_SHOTS',
+                  completion: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48 },
+                },
+                ruleReference: '8.8.1(c-d)',
+              },
+              {
+                stageId: 'RAPID_FIRE_STAGE',
+                seriesRecovery: {
+                  treatment: 'COMPLETE_REMAINING_SHOTS',
+                  completion: { mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES' },
+                },
+                ruleReference: '8.8.1(c)',
+              },
+            ],
+          },
           sightingMalfunctionClaimsAllowed: false,
           malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
           ruleReferences: ['8.8.1(a,c-d)', '8.9.1(a,c)'],
@@ -345,8 +373,16 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
       programs: standardPrograms(),
       recovery: {
         procedure: 'QUALIFICATION',
-        extraSightingInterruptionThresholdSeconds: 900,
-        interruptedSeriesTreatment: 'ANNUL_AND_REPEAT',
+        interruption: {
+          extraSightingWhenLongerThanSeconds: 900,
+          extraSightingSeriesShots: 5,
+          extraSightingRuleReference: '8.8.1(a)',
+          stages: [150, 20, 10].map((seconds, index) => ({
+            stageId: `STAGE_${index + 1}_${seconds}_SECONDS`,
+            seriesRecovery: { treatment: 'ANNUL_AND_REPEAT' as const },
+            ruleReference: '8.8.1(b)',
+          })),
+        },
         sightingMalfunctionClaimsAllowed: false,
         malfunctionClaims: {
           maximum: 2,

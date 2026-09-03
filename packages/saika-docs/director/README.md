@@ -26,12 +26,14 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 - Rule Pack に応じた START／STOP 外 shot の要確認検知、重複抑止、追記型時刻証跡
 - ISSF 6.10.5〜6.10.9 の EST target examination、調査物の追記型 custody 記録、CLEAR LOG 前の evidence hold
 - ISSF 6.10.9／6.11.3 の中断台帳、規則 recommendation と official grant の分離、Lane 個別 STOP／再開
+- ISSF 8.8.1 の25m Qualification stage 別中断 recommendation と、Rule Pack snapshot から独立した official recovery decision
 - Preliminary 掲示、10分の score protest、RTS 承認後の Official 公表を分離した追記型ワークフロー
 - seed付き射座・relay draw、ISSF constraint検査、Technical Delegate承認、明示適用
 - 3名 Team／Mixed Team予選集計と、Mixed Team Finalのチーム単位成績
 - Individual／Mixed Team Finalのcheckpoint順位台帳とLane別脱落ACK
 - 外部音響向けmusic／Final production台帳と、Mixed Teamの30秒Time out台帳
 - 25m の Lane 主体 absolute schedule、red／green 状態、EST after-time、対象 Lane 共通 LOAD command
+- Rule 8.8.1 の追加試射／series recovery を isolated firing、明示的 score adjudication、無射撃 retain-series settlement に分離した実行 workflow
 - Lane からの Range Officer request、relay athlete lifecycle、屋外 Elimination plan を独立 module として管理
 
 ## 基本操作
@@ -50,6 +52,9 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
    START／STOP 外 shot の警告が出た場合は、時刻証跡を確認し、必要な処置を Jury decision として別途記録します。
    EST complaint／failure がある場合は `Target Examination` を開き、調査物を保全してから判断を追記します。
    選手に責任のない中断では `Range Interruptions` に開始時刻と残り時間を記録し、必要な Lane STOP、終了、official grant、再開を別々に実行します。
+   25m Qualification では Lane の stage／series／shot count snapshot を確認し、Rule 8.8.1 の recommendation を参考に official recovery decision を記録します。
+   追加試射または series recovery を決定した場合は、対象 Lane の isolated firing を実行し、series recovery の window 完了後に shot evidence を確認して
+   別操作で採点裁定します。完了済み series を維持する場合は、射撃や再採点を行わない retain-series settlement を適用します。
 7. 各操作後に全 Lane の ACK が `done` であることを確認します。`error` または `timeout` の Lane は、
    状態とネットワークを確認してから再操作します。
 
@@ -80,4 +85,7 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
   RTS Jury の許可と保全完了を確認して hold を解除した後、同じ操作を再実行してください。
 - close／void されていない Range Interruption record も同じ data guard に加わります。recommendation は自動付与されないため、
   Range Incident Report と権限者を確認してから official grant を記録してください。
+- 25m Qualification の recovery decision は recommendation と別の監査記録です。記録だけでは series の採点や Lane の schedule を変更しません。
+  追加試射、series recovery firing、score adjudication、`KEEP_RECORDED_SERIES` settlement は独立操作です。未発射の許可発数は adjudication 時に miss となるため、
+  Lane の completed state と shot evidence を確認してください。必要な adjudication または settlement が成功するまで interruption record は close できません。
 - 本ソフトウェアは非公式です。公式競技の唯一の採点・計時手段として使用しないでください。

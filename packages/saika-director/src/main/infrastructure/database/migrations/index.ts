@@ -49,6 +49,11 @@ import { migration049FinalStartNumberResolution } from './049_final_start_number
 import { migration050MultiShotFinalShootOff } from './050_multi_shot_final_shoot_off';
 import { migration051FinalSeriesIrregularShotCases } from './051_final_series_irregular_shot_cases';
 import { migration052ScoringGeometryEvidence } from './052_scoring_geometry_evidence';
+import { migration053QualificationTimedTargetInterruptions } from './053_qualification_timed_target_interruptions';
+import { migration054QualificationTimedTargetRecoveryDecisions } from './054_qualification_timed_target_recovery_decisions';
+import { migration055QualificationRecoveryExecutionEvents } from './055_qualification_recovery_execution_events';
+import { migration056QualificationRecoveryAdjudicationEvents } from './056_qualification_recovery_adjudication_events';
+import { migration057QualificationRecoverySettlements } from './057_qualification_recovery_settlements';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -101,4 +106,9 @@ export const allMigrations: Migration[] = [
   migration050MultiShotFinalShootOff,
   migration051FinalSeriesIrregularShotCases,
   migration052ScoringGeometryEvidence,
+  migration053QualificationTimedTargetInterruptions,
+  migration054QualificationTimedTargetRecoveryDecisions,
+  migration055QualificationRecoveryExecutionEvents,
+  migration056QualificationRecoveryAdjudicationEvents,
+  migration057QualificationRecoverySettlements,
 ];

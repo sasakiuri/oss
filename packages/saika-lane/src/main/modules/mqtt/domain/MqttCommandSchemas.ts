@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+import { QualificationRecoveryFiringAuthorizationSchema } from '@/shared/mqtt/QualificationRecovery';
+
 import { AthleteSchema } from './MqttAssignmentSchemas';
 
 // ============================================================
@@ -121,6 +123,67 @@ export const ResumeMatchCmdSchema = CommandBaseSchema.extend({
   interruptionId: z.string().uuid(),
 });
 
+export const StartQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  decisionId: z.string().uuid(),
+  interruptionId: z.string().uuid(),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  expectedMatchProgramId: z.string().trim().min(1).max(200),
+  expectedSeriesShotLimit: z.number().int().positive(),
+  expectedRecordedShots: z.number().int().nonnegative(),
+  authorization: QualificationRecoveryFiringAuthorizationSchema,
+  loadAt: z.string().datetime(),
+  officialName: z.string().trim().min(1).max(200),
+  decisionRuleReference: z.string().trim().min(1).max(500),
+  decidedAt: z.string().datetime(),
+}).superRefine((command, context) => {
+  if (command.expectedRecordedShots > command.expectedSeriesShotLimit) {
+    context.addIssue({
+      code: 'custom',
+      path: ['expectedRecordedShots'],
+      message: 'expectedRecordedShots must not exceed expectedSeriesShotLimit',
+    });
+  }
+});
+
+export const CancelQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+});
+
+export const ApplyQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
+  runId: z.string().uuid(),
+  appliedBy: z.string().trim().min(1).max(200),
+  statement: z.string().trim().min(1).max(1_000),
+  appliedAt: z.string().datetime(),
+});
+
+export const SettleQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
+  decisionId: z.string().uuid(),
+  interruptionId: z.string().uuid(),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  expectedMatchProgramId: z.string().trim().min(1).max(200),
+  expectedSeriesShotLimit: z.number().int().positive(),
+  expectedRecordedShots: z.number().int().nonnegative(),
+  treatment: z.literal('KEEP_RECORDED_SERIES'),
+  decisionOfficialName: z.string().trim().min(1).max(200),
+  decisionRuleReference: z.string().trim().min(1).max(500),
+  decidedAt: z.string().datetime(),
+  appliedBy: z.string().trim().min(1).max(200),
+  statement: z.string().trim().min(1).max(1_000),
+  appliedAt: z.string().datetime(),
+}).superRefine((command, context) => {
+  if (command.expectedRecordedShots !== command.expectedSeriesShotLimit) {
+    context.addIssue({
+      code: 'custom',
+      path: ['expectedRecordedShots'],
+      message: 'KEEP_RECORDED_SERIES requires every series shot to be recorded',
+    });
+  }
+});
+
 export const RetireFinalistCmdSchema = CommandBaseSchema.extend({
   checkpointId: z.string().uuid(),
   rank: z.number().int().min(2).max(99),
@@ -212,6 +275,10 @@ export type ResetSessionCmd = z.infer<typeof ResetSessionCmdSchema>;
 export type PauseTimerCmd = z.infer<typeof PauseTimerCmdSchema>;
 export type ResumeTimerCmd = z.infer<typeof ResumeTimerCmdSchema>;
 export type ResumeMatchCmd = z.infer<typeof ResumeMatchCmdSchema>;
+export type StartQualificationRecoveryCmd = z.infer<typeof StartQualificationRecoveryCmdSchema>;
+export type CancelQualificationRecoveryCmd = z.infer<typeof CancelQualificationRecoveryCmdSchema>;
+export type ApplyQualificationRecoveryCmd = z.infer<typeof ApplyQualificationRecoveryCmdSchema>;
+export type SettleQualificationRecoveryCmd = z.infer<typeof SettleQualificationRecoveryCmdSchema>;
 export type RetireFinalistCmd = z.infer<typeof RetireFinalistCmdSchema>;
 export type StartShootOffCmd = z.infer<typeof StartShootOffCmdSchema>;
 export type StopShootOffCmd = z.infer<typeof StopShootOffCmdSchema>;

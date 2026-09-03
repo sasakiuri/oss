@@ -13,6 +13,7 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 - Competition-independent durable safety STOP, timer gate, STOP / UNLOAD overlay, and quarantined-shot evidence
 - ISSF 2026 Individual and Mixed Team 10m plus 50m Rifle Qualification/Final course definitions
 - ISSF 2026 25m Pistol qualification schedules with persisted LOAD, ATTENTION, red/green, and EST after-time boundaries
+- Rule 8.8.1 recovery runs with isolated shot evidence, explicit score adjudication, and no-fire retain-series settlement
 - Synchronized series/single-shot timers and Director-authorized Final retirement snapshots
 
 ## Supported Devices

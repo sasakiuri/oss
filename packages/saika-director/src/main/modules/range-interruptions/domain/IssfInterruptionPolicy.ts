@@ -5,6 +5,7 @@ export type InterruptionRecommendationBasis =
   'MANUAL_REVIEW' | 'LOST_TIME' | 'LAST_FIVE_MINUTES' | 'SIGHTING_AND_FIVE_MINUTES' | 'TARGET_FAILURE_RECOVERY';
 
 export interface IssfInterruptionRecommendation {
+  type: 'MATCH_TIME';
   basis: InterruptionRecommendationBasis;
   lostTimeSeconds: number;
   baseRemainingSeconds: number;
@@ -138,6 +139,7 @@ function recommendation(input: {
   explanation: string;
 }): IssfInterruptionRecommendation {
   return {
+    type: 'MATCH_TIME',
     basis: input.basis,
     lostTimeSeconds: input.lostTimeSeconds,
     baseRemainingSeconds: input.base,

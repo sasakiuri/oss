@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
 import type { TimedTargetSequencePhase, TimedTargetSignal } from './TimedTargetSchedule';
 
 export type TimedTargetEnforcementMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
@@ -27,6 +28,7 @@ export interface TimedTargetState {
   readonly nextLoadAllowedAt: Date;
   readonly nextTransitionAt: Date | null;
   readonly terminalReason: string | null;
+  readonly executionContext?: TimedTargetExecutionContext;
 }
 
 export interface TimedTargetShotDecision {
@@ -38,6 +40,7 @@ export interface TimedTargetShotDecision {
   readonly exposureIndex: number | null;
   readonly warning: string | null;
   readonly reason: string;
+  readonly executionContext?: TimedTargetExecutionContext;
 }
 
 export interface ITimedTargetControl {
@@ -50,6 +53,7 @@ export interface ITimedTargetControl {
     seriesIndex: number;
     targetProfileId: string;
     loadAt: Date;
+    executionContext?: TimedTargetExecutionContext;
   }): TimedTargetState;
   cancel(input: { sequenceId: string; reason: string; cancelledAt?: Date }): TimedTargetState;
   getState(competitionId?: string): TimedTargetState | null;

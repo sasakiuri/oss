@@ -297,6 +297,28 @@ describe('LaneScorePublisher', () => {
     expect(mqttClient.publish).not.toHaveBeenCalled();
   });
 
+  it('should NOT publish the ordinary score for an isolated MATCH shot', async () => {
+    const event: ShotRecordedEvent = {
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-uuid',
+      shot: createMatchShot(),
+      scoringMode: 'DECIMAL',
+      acquisitionContext: {
+        shotDisposition: 'ISOLATED',
+        owner: 'qualification-recovery',
+        referenceId: 'recovery-run-1',
+      },
+    };
+
+    (eventBus as { emit: Function }).emit(event);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(competitionRepository.findActive).not.toHaveBeenCalled();
+    expect(queryBus.execute).not.toHaveBeenCalled();
+    expect(mqttClient.publish).not.toHaveBeenCalled();
+  });
+
   it('should include correct score payload', async () => {
     const event: ShotRecordedEvent = {
       type: 'ShotRecorded',

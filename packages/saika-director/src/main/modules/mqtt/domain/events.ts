@@ -1,7 +1,11 @@
 import type { DomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { FiringWindowViolation } from './IFiringWindowJournal';
-import type { ShotObservationEvidencePayload } from '@/shared/mqtt';
+import type {
+  QualificationRecoveryShotPayload,
+  QualificationRecoveryStatePayload,
+  ShotObservationEvidencePayload,
+} from '@/shared/mqtt';
 
 export interface ShotReceived extends DomainEvent {
   type: 'ShotReceived';
@@ -46,6 +50,20 @@ export interface ShotObservationEvidenceObserved extends DomainEvent {
   observedAt: Date;
 }
 
+export interface QualificationRecoveryStateObserved extends DomainEvent {
+  type: 'QualificationRecoveryStateObserved';
+  state: QualificationRecoveryStatePayload;
+  payloadJson: string;
+  observedAt: Date;
+}
+
+export interface QualificationRecoveryShotObserved extends DomainEvent {
+  type: 'QualificationRecoveryShotObserved';
+  shot: QualificationRecoveryShotPayload;
+  payloadJson: string;
+  observedAt: Date;
+}
+
 declare module '@/main/shared-infra/events/EventBus' {
   interface EventRegistry {
     ShotReceived: ShotReceived;
@@ -55,5 +73,7 @@ declare module '@/main/shared-infra/events/EventBus' {
     MqttControlStateChanged: MqttControlStateChanged;
     FiringWindowViolationDetected: FiringWindowViolationDetected;
     ShotObservationEvidenceObserved: ShotObservationEvidenceObserved;
+    QualificationRecoveryStateObserved: QualificationRecoveryStateObserved;
+    QualificationRecoveryShotObserved: QualificationRecoveryShotObserved;
   }
 }

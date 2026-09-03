@@ -15,6 +15,11 @@ import type { ICompetitionShootOffControl } from '@/main/modules/competition-sho
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type {
+  IQualificationRecoveryAdjudicationControl,
+  IQualificationRecoveryControl,
+  IQualificationRecoverySettlementControl,
+} from '@/main/modules/qualification-recovery';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -46,6 +51,9 @@ export interface ServiceRegistry {
   timerService: LaneTimerService;
   competitionInterruptionControl: ICompetitionInterruptionControl;
   competitionShootOffControl: ICompetitionShootOffControl;
+  qualificationRecoveryControl: IQualificationRecoveryControl;
+  qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
+  qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   safetyStopControl: ILaneSafetyStopControl;
   timedTargetControl: ITimedTargetControl;
   mainWindow: BrowserWindow;

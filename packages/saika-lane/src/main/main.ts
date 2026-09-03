@@ -22,6 +22,15 @@ import { connectionModule } from '@/main/modules/connection/connection.module';
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import {
+  QualificationRecoveryAdjudicationService,
+  QualificationRecoveryService,
+  QualificationRecoverySettlementService,
+  SqliteQualificationRecoveryAdjudicationRepository,
+  SqliteQualificationRecoveryRepository,
+  SqliteQualificationRecoverySettlementRepository,
+  SqliteQualificationRecoveryShotOutbox,
+} from '@/main/modules/qualification-recovery';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { reportModule } from '@/main/modules/report/report.module';
 import {
@@ -211,6 +220,31 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     },
     timedTargetEnforcementModeFromEnvironment(process.env),
   );
+  const qualificationRecoveryRepository = new SqliteQualificationRecoveryRepository(db);
+  const qualificationRecoveryControl = new QualificationRecoveryService(
+    qualificationRecoveryRepository,
+    competitionRepository,
+    competitionInterruptionControl,
+    timedTargetControl,
+    eventBus,
+  );
+  const qualificationRecoveryAdjudicationControl = new QualificationRecoveryAdjudicationService(
+    qualificationRecoveryControl,
+    new SqliteQualificationRecoveryShotOutbox(db),
+    new SqliteQualificationRecoveryAdjudicationRepository(db),
+    sessionRepository,
+    competitionRepository,
+    competitionInterruptionControl,
+    eventBus,
+  );
+  const qualificationRecoverySettlementControl = new QualificationRecoverySettlementService(
+    new SqliteQualificationRecoverySettlementRepository(db),
+    sessionRepository,
+    competitionRepository,
+    competitionInterruptionControl,
+    qualificationRecoveryControl,
+    eventBus,
+  );
 
   const cancelActiveTimedTarget = (reason: string, competitionId?: string | null): void => {
     const state = timedTargetControl.getState(competitionId ?? undefined);
@@ -257,6 +291,9 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
       mainWindow,
@@ -330,6 +367,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   const eventForwarder = new ContractEventForwarder(eventBus, mainWindow);
   eventForwarder.start();
   timedTargetControl.restore();
+  qualificationRecoveryControl.restoreActive();
   mainWindow.once('closed', () => timedTargetControl.dispose());
 
   // Run renderer-load initialization from a single did-finish-load hook.

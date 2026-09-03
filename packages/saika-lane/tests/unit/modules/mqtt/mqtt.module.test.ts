@@ -6,6 +6,11 @@ import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTime
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import type {
+  IQualificationRecoveryAdjudicationControl,
+  IQualificationRecoveryControl,
+  IQualificationRecoverySettlementControl,
+} from '@/main/modules/qualification-recovery';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
@@ -152,6 +157,9 @@ describe('mqtt.module', () => {
   let timerService: LaneTimerService;
   let competitionInterruptionControl: ICompetitionInterruptionControl;
   let competitionShootOffControl: ICompetitionShootOffControl;
+  let qualificationRecoveryControl: IQualificationRecoveryControl;
+  let qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
+  let qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   let safetyStopControl: ILaneSafetyStopControl;
   let timedTargetControl: ITimedTargetControl;
   let sessionRepository: ISessionRepository;
@@ -183,6 +191,21 @@ describe('mqtt.module', () => {
       canAcceptShot: vi.fn().mockReturnValue(false),
       recordShot: vi.fn(),
     } as unknown as ICompetitionShootOffControl;
+    qualificationRecoveryControl = {
+      start: vi.fn(),
+      cancel: vi.fn(),
+      get: vi.fn().mockReturnValue(null),
+      getLatest: vi.fn().mockReturnValue(null),
+      restoreActive: vi.fn().mockReturnValue(null),
+    };
+    qualificationRecoveryAdjudicationControl = {
+      apply: vi.fn(),
+      get: vi.fn().mockReturnValue(null),
+    };
+    qualificationRecoverySettlementControl = {
+      apply: vi.fn(),
+      get: vi.fn().mockReturnValue(null),
+    };
     safetyStopControl = createMockSafetyStopControl();
     timedTargetControl = {
       enforcementMode: 'REQUIRED',
@@ -215,6 +238,9 @@ describe('mqtt.module', () => {
       'timerService',
       'competitionInterruptionControl',
       'competitionShootOffControl',
+      'qualificationRecoveryControl',
+      'qualificationRecoveryAdjudicationControl',
+      'qualificationRecoverySettlementControl',
       'safetyStopControl',
       'timedTargetControl',
       'sessionRepository',
@@ -235,6 +261,9 @@ describe('mqtt.module', () => {
         timerService,
         competitionInterruptionControl,
         competitionShootOffControl,
+        qualificationRecoveryControl,
+        qualificationRecoveryAdjudicationControl,
+        qualificationRecoverySettlementControl,
         safetyStopControl,
         timedTargetControl,
         sessionRepository,
@@ -255,6 +284,9 @@ describe('mqtt.module', () => {
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
       sessionRepository,
@@ -277,6 +309,9 @@ describe('mqtt.module', () => {
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
       sessionRepository,
@@ -299,6 +334,9 @@ describe('mqtt.module', () => {
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
       sessionRepository,
@@ -332,6 +370,9 @@ describe('mqtt.module', () => {
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
       sessionRepository,

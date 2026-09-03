@@ -2,24 +2,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  applyQualificationRecoveryDirector,
+  settleQualificationRecoveryDirector,
+  cancelQualificationRecoveryDirector,
   connectDirector,
   createDirectorCompetition,
   disconnectDirector,
   finishCompetition,
   getSnapshot,
   startMatchDirector,
+  startQualificationRecoveryDirector,
   startSightingDirector,
   startTimedTargetDirector,
   startEmbeddedBroker,
   stopEmbeddedBroker,
   directorCallbacks,
 } = vi.hoisted(() => ({
+  applyQualificationRecoveryDirector: vi.fn(),
+  settleQualificationRecoveryDirector: vi.fn(),
+  cancelQualificationRecoveryDirector: vi.fn(),
   connectDirector: vi.fn().mockResolvedValue(undefined),
   createDirectorCompetition: vi.fn(),
   disconnectDirector: vi.fn().mockResolvedValue(undefined),
   finishCompetition: vi.fn(),
   getSnapshot: vi.fn(),
   startMatchDirector: vi.fn(),
+  startQualificationRecoveryDirector: vi.fn(),
   startSightingDirector: vi.fn(),
   startTimedTargetDirector: vi.fn(),
   startEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
@@ -27,6 +35,9 @@ const {
   directorCallbacks: {
     onStateChanged: null as ((snapshot: unknown) => void) | null,
     onCompetitionShotObserved: null as ((shot: Record<string, unknown>, payloadJson: string) => void) | null,
+    onQualificationRecoveryStateObserved: null as
+      ((state: Record<string, unknown>, payloadJson: string) => void) | null,
+    onQualificationRecoveryShotObserved: null as ((shot: Record<string, unknown>, payloadJson: string) => void) | null,
     onFiringBoundary: null as ((boundary: Record<string, unknown>) => void) | null,
   },
 }));
@@ -38,19 +49,27 @@ vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
       callbacks: {
         onStateChanged?: (snapshot: unknown) => void;
         onCompetitionShotObserved?: (shot: Record<string, unknown>, payloadJson: string) => void;
+        onQualificationRecoveryStateObserved?: (state: Record<string, unknown>, payloadJson: string) => void;
+        onQualificationRecoveryShotObserved?: (shot: Record<string, unknown>, payloadJson: string) => void;
         onFiringBoundary?: (boundary: Record<string, unknown>) => void;
       },
     ) {
       directorCallbacks.onStateChanged = callbacks.onStateChanged ?? null;
       directorCallbacks.onCompetitionShotObserved = callbacks.onCompetitionShotObserved ?? null;
+      directorCallbacks.onQualificationRecoveryStateObserved = callbacks.onQualificationRecoveryStateObserved ?? null;
+      directorCallbacks.onQualificationRecoveryShotObserved = callbacks.onQualificationRecoveryShotObserved ?? null;
       directorCallbacks.onFiringBoundary = callbacks.onFiringBoundary ?? null;
     }
 
     connect = connectDirector;
+    applyQualificationRecovery = applyQualificationRecoveryDirector;
+    settleQualificationRecovery = settleQualificationRecoveryDirector;
+    cancelQualificationRecovery = cancelQualificationRecoveryDirector;
     createCompetition = createDirectorCompetition;
     disconnect = disconnectDirector;
     getSnapshot = getSnapshot;
     startMatch = startMatchDirector;
+    startQualificationRecovery = startQualificationRecoveryDirector;
     startSighting = startSightingDirector;
     startTimedTarget = startTimedTargetDirector;
     finishCompetition = finishCompetition;
@@ -68,6 +87,11 @@ vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({
 }));
 
 import { mqttDirectorIdFromEnvironment, mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import {
+  ApplyQualificationRecoveryTransportToken,
+  StartQualificationRecoveryTransportToken,
+} from '@/main/modules/range-interruptions/domain/IQualificationRecoveryExecutionTransport';
+import { ApplyQualificationRecoverySettlementTransportToken } from '@/main/modules/range-interruptions/domain/IQualificationRecoverySettlementTransport';
 import {
   competitionTypeFromRulePack,
   RULE_PACK_CALL_TO_LINE_REQUIREMENT_ID,
@@ -160,6 +184,15 @@ function registerModule(eventType: string | null): {
   assertFinalExecutionAuthorized: ReturnType<typeof vi.fn>;
   getFinalDeclarationStatus: ReturnType<typeof vi.fn>;
   declareFinalResults: ReturnType<typeof vi.fn>;
+  startQualificationRecoveryTransport: (
+    input: Parameters<typeof startQualificationRecoveryDirector>[0],
+  ) => Promise<unknown>;
+  applyQualificationRecoveryTransport: (
+    input: Parameters<typeof applyQualificationRecoveryDirector>[0],
+  ) => Promise<unknown>;
+  applyQualificationRecoverySettlementTransport: (
+    input: Parameters<typeof settleQualificationRecoveryDirector>[0],
+  ) => Promise<unknown>;
 } {
   let handlers: MqttHandlers | null = null;
   const emitEvent = vi.fn();
@@ -193,6 +226,16 @@ function registerModule(eventType: string | null): {
   const assertFinalExecutionAuthorized = vi.fn(() => ({ eventId: EVENT_ID, officialName: 'CRO A' }));
   const getFinalDeclarationStatus = vi.fn();
   const declareFinalResults = vi.fn();
+  const commandHandlers = new Map<string, (input: unknown) => Promise<unknown>>();
+  const commandBus = {
+    register: vi.fn((token: { name: string }, handler: (input: unknown) => Promise<unknown>) =>
+      commandHandlers.set(token.name, handler),
+    ),
+    execute: vi.fn((token: { name: string }, input: unknown) => {
+      const handler = commandHandlers.get(token.name);
+      return handler ? handler(input) : publishResults(token, input);
+    }),
+  };
   const competitionTypes = new Map(
     [
       BR60S,
@@ -206,7 +249,7 @@ function registerModule(eventType: string | null): {
   mqttModule.register({
     database: {} as never,
     eventBus: { emit: emitEvent } as never,
-    commandBus: { execute: publishResults } as never,
+    commandBus: commandBus as never,
     queryBus: { execute: queryEvent } as never,
     ipcRouter: {
       register: vi.fn((_contract, registeredHandlers) => {
@@ -278,6 +321,12 @@ function registerModule(eventType: string | null): {
     assertFinalExecutionAuthorized,
     getFinalDeclarationStatus,
     declareFinalResults,
+    startQualificationRecoveryTransport: (input) =>
+      commandBus.execute(StartQualificationRecoveryTransportToken, input as never),
+    applyQualificationRecoveryTransport: (input) =>
+      commandBus.execute(ApplyQualificationRecoveryTransportToken, input as never),
+    applyQualificationRecoverySettlementTransport: (input) =>
+      commandBus.execute(ApplyQualificationRecoverySettlementTransportToken, input as never),
   };
 }
 
@@ -304,6 +353,24 @@ describe('mqttModule broker transitions', () => {
     startMatchDirector.mockResolvedValue({
       commandId: '66666666-6666-4666-8666-666666666666',
       action: 'start-match',
+      success: true,
+      lanes: [],
+    });
+    startQualificationRecoveryDirector.mockResolvedValue({
+      commandId: '99999999-9999-4999-8999-999999999999',
+      action: 'start-qualification-recovery',
+      success: true,
+      lanes: [],
+    });
+    applyQualificationRecoveryDirector.mockResolvedValue({
+      commandId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      action: 'apply-qualification-recovery',
+      success: true,
+      lanes: [],
+    });
+    settleQualificationRecoveryDirector.mockResolvedValue({
+      commandId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      action: 'settle-qualification-recovery',
       success: true,
       lanes: [],
     });
@@ -460,6 +527,24 @@ describe('mqttModule competition definition adapter', () => {
     startTimedTargetDirector.mockResolvedValue({
       commandId: '88888888-8888-4888-8888-888888888888',
       action: 'start-timed-target',
+      success: true,
+      lanes: [],
+    });
+    startQualificationRecoveryDirector.mockResolvedValue({
+      commandId: '99999999-9999-4999-8999-999999999999',
+      action: 'start-qualification-recovery',
+      success: true,
+      lanes: [],
+    });
+    applyQualificationRecoveryDirector.mockResolvedValue({
+      commandId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      action: 'apply-qualification-recovery',
+      success: true,
+      lanes: [],
+    });
+    settleQualificationRecoveryDirector.mockResolvedValue({
+      commandId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      action: 'settle-qualification-recovery',
       success: true,
       lanes: [],
     });
@@ -695,7 +780,14 @@ describe('mqttModule competition definition adapter', () => {
       brokerUrl: 'mqtt://localhost:1883',
       activeCompetitionId: COMPETITION_ID,
       lanes: [],
-      competitions: [{ competitionId: COMPETITION_ID, competitionTypeId: 'P25', phase: 'MATCH' }],
+      competitions: [
+        {
+          competitionId: COMPETITION_ID,
+          competitionTypeId: 'P25',
+          roundName: 'Qualification',
+          phase: 'MATCH',
+        },
+      ],
       lastCommand: null,
     });
     const { handlers } = registerModule('P25');
@@ -715,9 +807,138 @@ describe('mqttModule competition definition adapter', () => {
     );
     expect(startTimedTargetDirector).toHaveBeenCalledTimes(1);
   });
+
+  it('passes an explicit Qualification recovery authorization only when its Rule Pack facts match', async () => {
+    getSnapshot.mockReturnValue({
+      connected: true,
+      brokerUrl: 'mqtt://localhost:1883',
+      activeCompetitionId: COMPETITION_ID,
+      lanes: [],
+      competitions: [
+        {
+          competitionId: COMPETITION_ID,
+          competitionTypeId: 'P25',
+          roundName: 'Qualification',
+          phase: 'MATCH',
+        },
+      ],
+      lastCommand: null,
+    });
+    const { startQualificationRecoveryTransport } = registerModule('P25');
+    const validInput = {
+      competitionId: COMPETITION_ID,
+      laneId: '22222222-2222-4222-8222-222222222222',
+      runId: '33333333-3333-4333-8333-333333333333',
+      decisionId: '44444444-4444-4444-8444-444444444444',
+      interruptionId: '55555555-5555-4555-8555-555555555555',
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 0,
+      authorization: {
+        phase: 'SERIES_RECOVERY' as const,
+        seriesRecovery: {
+          treatment: 'ANNUL_AND_REPEAT' as const,
+          shotsToFire: 5,
+          execution: { mode: 'SAME_TIMED_TARGET_PROGRAM' as const },
+        },
+      },
+      officialName: 'Jury Member',
+      decisionRuleReference: 'ISSF 8.8.1.4(a)',
+      decidedAt: '2026-09-03T00:00:00.000Z',
+    };
+
+    await startQualificationRecoveryTransport(validInput);
+    expect(startQualificationRecoveryDirector).toHaveBeenCalledWith(validInput);
+
+    await expect(
+      startQualificationRecoveryTransport({ ...validInput, expectedMatchProgramId: 'P25_MATCH_RAPID_3_7' }),
+    ).rejects.toThrow('does not match 1:0');
+    expect(startQualificationRecoveryDirector).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers score adjudication as a separate recovery transport command', async () => {
+    const { applyQualificationRecoveryTransport } = registerModule('P25');
+    const input = {
+      competitionId: COMPETITION_ID,
+      laneId: '22222222-2222-4222-8222-222222222222',
+      runId: '33333333-3333-4333-8333-333333333333',
+      appliedBy: 'Jury Member B',
+      statement: 'The completed recovery evidence was checked and may be scored.',
+      appliedAt: '2026-09-03T00:03:01.000Z',
+    };
+
+    await applyQualificationRecoveryTransport(input);
+
+    expect(applyQualificationRecoveryDirector).toHaveBeenCalledWith(input);
+  });
+
+  it('registers no-fire settlement as a separate recovery transport command', async () => {
+    getSnapshot.mockReturnValue({
+      connected: true,
+      brokerUrl: 'mqtt://localhost:1883',
+      activeCompetitionId: COMPETITION_ID,
+      lanes: [],
+      competitions: [
+        {
+          competitionId: COMPETITION_ID,
+          competitionTypeId: 'P25',
+          roundName: 'Qualification',
+          phase: 'MATCH',
+        },
+      ],
+      lastCommand: null,
+    });
+    const { applyQualificationRecoverySettlementTransport } = registerModule('P25');
+    const input = {
+      competitionId: COMPETITION_ID,
+      laneId: '22222222-2222-4222-8222-222222222222',
+      decisionId: '33333333-3333-4333-8333-333333333333',
+      interruptionId: '44444444-4444-4444-8444-444444444444',
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 5,
+      treatment: 'KEEP_RECORDED_SERIES' as const,
+      decisionOfficialName: 'Jury Member A',
+      decisionRuleReference: 'ISSF 8.8.1(c-d)',
+      decidedAt: '2026-09-03T00:02:00.000Z',
+      appliedBy: 'Jury Member B',
+      statement: 'The full recorded series was checked and retained.',
+      appliedAt: '2026-09-03T00:03:01.000Z',
+    };
+
+    await applyQualificationRecoverySettlementTransport(input);
+
+    expect(settleQualificationRecoveryDirector).toHaveBeenCalledWith(input);
+  });
 });
 
 describe('mqttModule firing-point projection', () => {
+  it('emits Qualification recovery state and shot observations for the independent audit workflow', () => {
+    const { emitEvent } = registerModule('P25');
+    const state = { runId: '33333333-3333-4333-8333-333333333333' };
+    const shot = { shotId: '44444444-4444-4444-8444-444444444444' };
+    if (!directorCallbacks.onQualificationRecoveryStateObserved) {
+      throw new Error('Qualification recovery state callback was not registered');
+    }
+    if (!directorCallbacks.onQualificationRecoveryShotObserved) {
+      throw new Error('Qualification recovery shot callback was not registered');
+    }
+
+    directorCallbacks.onQualificationRecoveryStateObserved(state, JSON.stringify(state));
+    directorCallbacks.onQualificationRecoveryShotObserved(shot, JSON.stringify(shot));
+
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'QualificationRecoveryStateObserved', state }),
+    );
+    expect(emitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'QualificationRecoveryShotObserved', shot }),
+    );
+  });
+
   it('lets a connected replacement use the alias number of an offline Lane', () => {
     const offlineLaneId = '44444444-4444-4444-8444-444444444444';
     const replacementLaneId = '55555555-5555-4555-8555-555555555555';

@@ -20,6 +20,7 @@ Saika Director is the desktop control application for coordinating multiple
 - Review-only detection and append-only evidence for shots outside Rule Pack-defined START/STOP windows
 - Append-only ISSF target-examination custody records and evidence holds that guard Lane reset and retained-data cleanup
 - Append-only ISSF interruption records with separate recommendations, official grants, and Lane-specific timer control
+- Rule 8.8.1 Qualification recovery with isolated firing, explicit score adjudication, and no-fire retain-series settlement
 - Append-only preliminary, score-protest, RTS-approval, and official-publication workflow
 - Scope-separated Qualification/Final RTS verification and append-only RESULTS ARE FINAL declarations
 - ISSF 2026 Individual and Mixed Team 10m Qualification/Final Rule Packs and synchronized Final series control

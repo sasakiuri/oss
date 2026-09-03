@@ -21,6 +21,7 @@ import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
 import type { LaneSafetyStatePublisher } from './LaneSafetyStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
+import type { QualificationRecoveryStatePublisher } from './QualificationRecoveryStatePublisher';
 import type { RangeOfficerRequestPublisher } from './RangeOfficerRequestPublisher';
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
 import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
@@ -50,6 +51,8 @@ export class RetainPublisher {
     private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
     private readonly rangeOfficerRequestPublisher?: RangeOfficerRequestPublisher,
     private readonly timedTargetStatePublisher?: TimedTargetStatePublisher,
+    private readonly qualificationRecoveryStatePublisher?: QualificationRecoveryStatePublisher,
+    private readonly excludeCompetitionShotReplay: (shotId: string) => boolean = () => false,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -111,6 +114,7 @@ export class RetainPublisher {
       this.competitionStatePublisher.publishCurrentState(),
       this.scorePublisher.publishCurrentScore(),
       this.timedTargetStatePublisher?.publishCurrentState(competition.id),
+      this.qualificationRecoveryStatePublisher?.publishCurrentState(competition.id),
     ]);
     await this.assignmentPublisher.publishCurrentAssignment(competition.id);
 
@@ -131,7 +135,7 @@ export class RetainPublisher {
     const baseTopic = `saika/competition/${competitionId}/lane/${laneId}`;
     try {
       await Promise.all(
-        ['state', 'score', 'assignment', 'timed-target/state'].map((suffix) =>
+        ['state', 'score', 'assignment', 'timed-target/state', 'qualification-recovery/state'].map((suffix) =>
           this.mqttClient.publish(`${baseTopic}/${suffix}`, '', { qos: 1, retain: true }),
         ),
       );
@@ -147,7 +151,7 @@ export class RetainPublisher {
 
     // Filter shots recorded after disconnection (sorted by timestamp ascending)
     const backlogShots = session.allShots
-      .filter((shot: Shot) => shot.timestamp >= since)
+      .filter((shot: Shot) => shot.timestamp >= since && !this.excludeCompetitionShotReplay(shot.id))
       .sort((a: Shot, b: Shot) => a.timestamp.getTime() - b.timestamp.getTime());
 
     if (backlogShots.length === 0) return;

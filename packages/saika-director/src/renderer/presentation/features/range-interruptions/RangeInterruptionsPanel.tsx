@@ -9,6 +9,8 @@ import type {
   RangeInterruptionEntryTypeDto,
   RangeInterruptionPhaseDto,
   RangeInterruptionScopePayload,
+  QualificationTimedTargetInterruptionRecommendationDto,
+  QualificationTimedTargetRecoveryDecisionDto,
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -24,6 +26,8 @@ import {
   applyRangeResume,
   type RangeInterruptionRangeWorkflowPorts,
 } from './rangeInterruptionRangeWorkflow';
+import { QualificationRecoveryExecutionPanel } from './QualificationRecoveryExecutionPanel';
+import { QualificationRecoverySettlementPanel } from './QualificationRecoverySettlementPanel';
 
 export interface RangeInterruptionLaneOption {
   laneId: string;
@@ -33,6 +37,14 @@ export interface RangeInterruptionLaneOption {
   interruption?: {
     interruptionId: string;
     status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
+  };
+  seriesSnapshot?: {
+    stageIndex: number;
+    seriesIndex: number;
+    recordedShots: number;
+    maxShots: number;
+    seriesComplete: boolean;
+    capturedAt: string;
   };
 }
 
@@ -44,9 +56,11 @@ interface RangeInterruptionsPanelProps {
   defaultLaneId?: string;
   defaultPhase?: RangeInterruptionPhaseDto;
   defaultRemainingSeconds?: number;
+  qualificationTimedTargetCompetitionTypeId?: string;
 }
 
-type DetailAction = 'pause' | 'end' | 'recovery' | 'grant' | 'resume' | 'match' | 'entry' | null;
+type DetailAction =
+  'pause' | 'end' | 'recovery' | 'grant' | 'qualification-decision' | 'resume' | 'match' | 'entry' | null;
 
 const CAUSE_OPTIONS: ReadonlyArray<{
   value: RangeInterruptionCauseDto;
@@ -76,6 +90,7 @@ export function RangeInterruptionsPanel({
   defaultLaneId,
   defaultPhase = 'MATCH',
   defaultRemainingSeconds = 0,
+  qualificationTimedTargetCompetitionTypeId,
 }: RangeInterruptionsPanelProps) {
   const [cases, setCases] = useState<RangeInterruptionCaseDto[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
@@ -198,6 +213,7 @@ export function RangeInterruptionsPanel({
           defaultLaneId={defaultLaneId}
           defaultPhase={defaultPhase}
           defaultRemainingSeconds={defaultRemainingSeconds}
+          qualificationTimedTargetCompetitionTypeId={qualificationTimedTargetCompetitionTypeId}
           saving={saving}
           onCancel={() => setShowCreate(false)}
           onCreate={async (input) => {
@@ -285,6 +301,7 @@ function CreateInterruptionForm({
   defaultLaneId,
   defaultPhase,
   defaultRemainingSeconds,
+  qualificationTimedTargetCompetitionTypeId,
   saving,
   onCreate,
   onCancel,
@@ -294,6 +311,7 @@ function CreateInterruptionForm({
   defaultLaneId?: string;
   defaultPhase: RangeInterruptionPhaseDto;
   defaultRemainingSeconds: number;
+  qualificationTimedTargetCompetitionTypeId?: string;
   saving: boolean;
   onCreate: (input: Parameters<typeof rangeInterruptionsService.create>[0]) => Promise<void>;
   onCancel: () => void;
@@ -328,6 +346,21 @@ function CreateInterruptionForm({
           summary,
           details,
           openedBy,
+          ...(qualificationTimedTargetCompetitionTypeId &&
+          cause === 'ATHLETE_NON_FAULT' &&
+          phase === 'MATCH' &&
+          selectedLane?.seriesSnapshot
+            ? {
+                qualificationTimedTargetContext: {
+                  competitionTypeId: qualificationTimedTargetCompetitionTypeId,
+                  stageIndex: selectedLane.seriesSnapshot.stageIndex,
+                  seriesIndex: selectedLane.seriesSnapshot.seriesIndex,
+                  recordedShots: selectedLane.seriesSnapshot.recordedShots,
+                  seriesComplete: selectedLane.seriesSnapshot.seriesComplete,
+                  laneSnapshotCapturedAt: selectedLane.seriesSnapshot.capturedAt,
+                },
+              }
+            : {}),
         });
       }}
     >
@@ -418,6 +451,13 @@ function CreateInterruptionForm({
       </Field>
       <div className="rounded-[3px] border border-vscode-border px-3 py-2 text-xs leading-5 text-vscode-text-muted">
         <p>{causeOption.ruleReference}</p>
+        {qualificationTimedTargetCompetitionTypeId && cause === 'ATHLETE_NON_FAULT' && phase === 'MATCH' && (
+          <p>
+            {selectedLane?.seriesSnapshot
+              ? `ISSF 8.8.1 series facts will be snapshotted from stage ${selectedLane.seriesSnapshot.stageIndex}, series ${selectedLane.seriesSnapshot.seriesIndex} (${selectedLane.seriesSnapshot.recordedShots}/${selectedLane.seriesSnapshot.maxShots} shots).`
+              : 'Select a Lane with a live series snapshot to enable the ISSF 8.8.1 recommendation.'}
+          </p>
+        )}
         <p className="text-vscode-warning">Opening this ledger activates a data hold but does not stop any Lane.</p>
       </div>
       <div className="flex justify-end gap-2">
@@ -455,6 +495,7 @@ function InterruptionDetail({
   const pauseRecorded = interruption.entries.some((entry) => entry.type === 'PAUSE_APPLIED');
   const matchResumeRecorded = interruption.entries.some((entry) => entry.type === 'MATCH_RESUMED');
   const latestGrant = [...interruption.entries].reverse().find((entry) => entry.type === 'TIME_GRANTED') ?? null;
+  const latestQualificationDecision = interruption.qualificationTimedTargetRecoveryDecisions.at(-1) ?? null;
   const targetRecoveryAssessments = interruption.targetRecoveryAssessments ?? [];
   const laneControlAvailable = Boolean(competitionId && interruption.laneId);
   const rangeControlAvailable = Boolean(competitionId && !interruption.laneId && lanes.length > 0);
@@ -464,6 +505,17 @@ function InterruptionDetail({
   const operationalRecoveryComplete = laneControlAvailable
     ? laneRecoveryComplete
     : rangeBatchRecoveryComplete(interruption);
+  const qualificationDecisionRecorded =
+    !interruption.qualificationTimedTargetContext || latestQualificationDecision !== null;
+  const qualificationRecoveryComplete = qualificationSeriesRecoveryComplete(interruption, latestQualificationDecision);
+  const qualificationDecisionLocked = latestQualificationDecision
+    ? interruption.qualificationRecoveryExecutions
+        .filter((execution) => execution.decisionId === latestQualificationDecision.id)
+        .some(blocksQualificationDecisionSupersession) ||
+      interruption.qualificationRecoverySettlements.some(
+        (settlement) => settlement.decisionId === latestQualificationDecision.id,
+      )
+    : false;
   const missingScopes = additionalScopes.filter(
     (candidate) =>
       !interruption.scopes.some(
@@ -495,6 +547,12 @@ function InterruptionDetail({
           <Detail label="Phase" value={interruption.phase} />
           <Detail label="Time at interruption" value={formatDuration(interruption.remainingSecondsAtStart)} />
           <Detail label="Opened by" value={interruption.openedBy} />
+          {interruption.qualificationTimedTargetContext && (
+            <Detail
+              label="25m series snapshot"
+              value={`${interruption.qualificationTimedTargetContext.stageId} · series ${interruption.qualificationTimedTargetContext.seriesIndex} · ${interruption.qualificationTimedTargetContext.recordedShots}/${interruption.qualificationTimedTargetContext.seriesShotLimit} shots`}
+            />
+          )}
           <Detail
             label="Lane state"
             value={
@@ -522,9 +580,19 @@ function InterruptionDetail({
                 End interruption
               </Button>
             )}
-            {(interruption.status === 'ENDED' || interruption.status === 'GRANTED') && (
-              <Button size="sm" disabled={saving} onClick={() => onAction('grant')}>
-                Record official grant
+            {(interruption.status === 'ENDED' || interruption.status === 'GRANTED') &&
+              interruption.recommendation?.type !== 'QUALIFICATION_TIMED_TARGET' && (
+                <Button size="sm" disabled={saving} onClick={() => onAction('grant')}>
+                  Record official grant
+                </Button>
+              )}
+            {interruption.status === 'ENDED' && interruption.recommendation?.type === 'QUALIFICATION_TIMED_TARGET' && (
+              <Button
+                size="sm"
+                disabled={saving || qualificationDecisionLocked}
+                onClick={() => onAction('qualification-decision')}
+              >
+                {latestQualificationDecision ? 'Supersede recovery decision' : 'Record official recovery decision'}
               </Button>
             )}
             {interruption.cause === 'SINGLE_TARGET_FAILURE' && interruption.status === 'ENDED' && (
@@ -560,9 +628,94 @@ function InterruptionDetail({
             Complete the Lane resume sequence before closing or voiding this record.
           </p>
         )}
+        {!qualificationDecisionRecorded && (
+          <p className="mt-3 text-xs leading-5 text-vscode-warning">
+            Record an official 25m recovery decision before closing this record.
+          </p>
+        )}
+        {qualificationDecisionRecorded && !qualificationRecoveryComplete && (
+          <p className="mt-3 text-xs leading-5 text-vscode-warning">
+            Apply the authorized competition-series recovery or retain-series settlement before closing this record.
+          </p>
+        )}
+        {qualificationDecisionLocked && (
+          <p className="mt-3 text-xs leading-5 text-vscode-dimmed">
+            The latest recovery decision is locked after an operation is requested, while firing is active, or while
+            adjudication is pending.
+          </p>
+        )}
       </div>
 
       {interruption.recommendation && <RecommendationPanel interruption={interruption} />}
+
+      {interruption.qualificationTimedTargetRecoveryDecisions.length > 0 && (
+        <QualificationRecoveryDecisionHistory decisions={interruption.qualificationTimedTargetRecoveryDecisions} />
+      )}
+
+      {latestQualificationDecision && (
+        <>
+          <QualificationRecoveryExecutionPanel
+            interruption={interruption}
+            competitionId={competitionId}
+            saving={saving}
+            onStart={async (decisionId, phase) => {
+              if (!competitionId) return false;
+              return onMutate(async () => {
+                const response = await rangeInterruptionsService.startQualificationRecoveryExecution({
+                  caseId: interruption.id,
+                  decisionId,
+                  competitionId,
+                  phase,
+                });
+                if (!response.success) throw new Error(response.error.message);
+                return response.data;
+              });
+            }}
+            onCancel={(runId, reason) =>
+              onMutate(async () => {
+                const response = await rangeInterruptionsService.cancelQualificationRecoveryExecution({
+                  caseId: interruption.id,
+                  runId,
+                  reason,
+                });
+                if (!response.success) throw new Error(response.error.message);
+                return response.data;
+              })
+            }
+            onAdjudicate={(runId, appliedBy, statement) =>
+              onMutate(async () => {
+                const response = await rangeInterruptionsService.adjudicateQualificationRecoveryExecution({
+                  caseId: interruption.id,
+                  runId,
+                  appliedBy,
+                  statement,
+                });
+                if (!response.success) throw new Error(response.error.message);
+                return response.data;
+              })
+            }
+          />
+          <QualificationRecoverySettlementPanel
+            interruption={interruption}
+            competitionId={competitionId}
+            saving={saving}
+            onApply={async (decisionId, appliedBy, statement) => {
+              if (!competitionId) return false;
+              return onMutate(async () => {
+                const response = await rangeInterruptionsService.applyQualificationRecoverySettlement({
+                  caseId: interruption.id,
+                  decisionId,
+                  competitionId,
+                  appliedBy,
+                  statement,
+                });
+                if (!response.success) throw new Error(response.error.message);
+                return response.data;
+              });
+            }}
+          />
+        </>
+      )}
 
       {missingScopes.map((scope) => (
         <LinkScopeForm
@@ -628,6 +781,14 @@ function InterruptionDetail({
       )}
       {action === 'grant' && (
         <GrantForm interruption={interruption} saving={saving} onCancel={() => onAction(null)} onMutate={onMutate} />
+      )}
+      {action === 'qualification-decision' && (
+        <QualificationRecoveryDecisionForm
+          interruption={interruption}
+          saving={saving}
+          onCancel={() => onAction(null)}
+          onMutate={onMutate}
+        />
       )}
       {action === 'recovery' && (
         <TargetRecoveryForm
@@ -745,7 +906,9 @@ function InterruptionDetail({
       {action === 'entry' && (
         <GenericEntryForm
           interruption={interruption}
-          allowFinalization={operationalRecoveryComplete}
+          allowFinalization={
+            operationalRecoveryComplete && qualificationDecisionRecorded && qualificationRecoveryComplete
+          }
           saving={saving}
           onCancel={() => onAction(null)}
           onMutate={onMutate}
@@ -899,6 +1062,42 @@ function TargetRecoveryForm({ interruption, saving, onCancel, onMutate }: FormPr
 
 function RecommendationPanel({ interruption }: { interruption: RangeInterruptionCaseDto }) {
   const recommendation = interruption.recommendation!;
+  if (recommendation.type === 'QUALIFICATION_TIMED_TARGET') {
+    const recovery = recommendation.seriesRecovery;
+    const execution =
+      recovery.execution?.mode === 'SECONDS_PER_SHOT'
+        ? `${recovery.execution.secondsPerShot}s per shot · ${recovery.execution.totalSeconds}s total`
+        : recovery.execution?.mode === 'FIRST_EXPOSURE_OF_NEXT_SERIES'
+          ? 'Start on the first exposure of the next competition series'
+          : recovery.execution?.mode === 'SAME_TIMED_TARGET_PROGRAM'
+            ? 'Repeat with the same timed-target program'
+            : 'No recovery firing';
+    return (
+      <section className="rounded-[3px] border border-vscode-warning/60 bg-vscode-bg p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-vscode-warning">
+          <ClockAlert size={14} aria-hidden="true" /> ISSF 25m Qualification recommendation — not an authorization
+        </div>
+        <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+          <Detail label="Recorded interruption" value={formatDuration(recommendation.interruptionSeconds)} />
+          <Detail label="Stage" value={recommendation.stageId} />
+          <Detail
+            label="Extra sighting series"
+            value={
+              recommendation.extraSighting.required ? `${recommendation.extraSighting.shots} shots` : 'Not required'
+            }
+          />
+          <Detail label="Series treatment" value={formatEnum(recovery.treatment)} />
+          <Detail label="Recovery shots" value={String(recovery.shotsToFire)} />
+          <Detail label="Execution" value={execution} />
+          <Detail label="Rules" value={recommendation.ruleReferences.join('; ')} />
+        </dl>
+        <p className="mt-3 text-xs leading-5 text-vscode-text-muted">{recommendation.explanation}</p>
+        <p className="mt-2 text-xs leading-5 text-vscode-warning">
+          Record the Jury decision separately. This recommendation does not annul shots or start a Lane program.
+        </p>
+      </section>
+    );
+  }
   return (
     <section className="rounded-[3px] border border-vscode-warning/60 bg-vscode-bg p-3">
       <div className="flex items-center gap-2 text-xs font-semibold text-vscode-warning">
@@ -924,6 +1123,256 @@ function RecommendationPanel({ interruption }: { interruption: RangeInterruption
       <p className="mt-3 text-xs leading-5 text-vscode-text-muted">{recommendation.explanation}</p>
     </section>
   );
+}
+
+function QualificationRecoveryDecisionHistory({
+  decisions,
+}: {
+  decisions: readonly QualificationTimedTargetRecoveryDecisionDto[];
+}) {
+  return (
+    <section className="rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
+      <h4 className="text-[13px] font-semibold text-vscode-text">Official 25m recovery decisions</h4>
+      <div className="mt-2 space-y-2">
+        {decisions.map((decision, index) => (
+          <div key={decision.id} className="border-l-2 border-vscode-border pl-3 text-xs leading-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-vscode-text">
+                Decision {index + 1} · {decision.officialName}
+              </span>
+              <span className={decision.followsRecommendation ? 'text-vscode-success' : 'text-vscode-warning'}>
+                {decision.followsRecommendation ? 'Matches recommendation' : 'Official variance'}
+              </span>
+            </div>
+            <p className="text-vscode-text-muted">
+              {decision.authorizedRecovery.extraSightingSeriesShots} extra sighting shots ·{' '}
+              {formatEnum(decision.authorizedRecovery.seriesRecovery.treatment)} ·{' '}
+              {decision.authorizedRecovery.seriesRecovery.shotsToFire} recovery shots
+            </p>
+            <p className="whitespace-pre-wrap text-vscode-text">{decision.statement}</p>
+            <p className="text-vscode-dimmed">
+              {decision.ruleReference} · {decision.incidentReportReference} ·{' '}
+              {new Date(decision.decidedAt).toLocaleString()} · {decision.id.slice(0, 8)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onMutate }: FormProps) {
+  const recommendation = interruption.recommendation;
+  if (recommendation?.type !== 'QUALIFICATION_TIMED_TARGET') {
+    throw new Error('Qualification timed-target recommendation is unavailable');
+  }
+  const latest = interruption.qualificationTimedTargetRecoveryDecisions.at(-1) ?? null;
+  const suggested = latest?.authorizedRecovery ?? authorizedRecoveryFrom(recommendation);
+  const [extraSightingShots, setExtraSightingShots] = useState(String(suggested.extraSightingSeriesShots));
+  const [treatment, setTreatment] = useState(suggested.seriesRecovery.treatment);
+  const [shotsToFire, setShotsToFire] = useState(String(suggested.seriesRecovery.shotsToFire));
+  const [completionMode, setCompletionMode] = useState<'SECONDS_PER_SHOT' | 'FIRST_EXPOSURE_OF_NEXT_SERIES'>(
+    suggested.seriesRecovery.execution?.mode === 'SECONDS_PER_SHOT'
+      ? 'SECONDS_PER_SHOT'
+      : 'FIRST_EXPOSURE_OF_NEXT_SERIES',
+  );
+  const [secondsPerShot, setSecondsPerShot] = useState(
+    String(
+      suggested.seriesRecovery.execution?.mode === 'SECONDS_PER_SHOT'
+        ? suggested.seriesRecovery.execution.secondsPerShot
+        : 48,
+    ),
+  );
+  const [statement, setStatement] = useState('');
+  const [officialName, setOfficialName] = useState('');
+  const [incidentReportReference, setIncidentReportReference] = useState('');
+  const [ruleReference, setRuleReference] = useState(recommendation.ruleReferences.join('; '));
+  const [confirmed, setConfirmed] = useState(false);
+
+  return (
+    <form
+      className={formClass}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onMutate(async () => {
+          const recoveryShots = Number(shotsToFire);
+          const seriesRecovery =
+            treatment === 'KEEP_RECORDED_SERIES'
+              ? ({ treatment, shotsToFire: 0, execution: null } as const)
+              : treatment === 'ANNUL_AND_REPEAT'
+                ? ({
+                    treatment,
+                    shotsToFire: recoveryShots,
+                    execution: { mode: 'SAME_TIMED_TARGET_PROGRAM' },
+                  } as const)
+                : completionMode === 'SECONDS_PER_SHOT'
+                  ? ({
+                      treatment,
+                      shotsToFire: recoveryShots,
+                      execution: {
+                        mode: completionMode,
+                        secondsPerShot: Number(secondsPerShot),
+                        totalSeconds: Number(secondsPerShot) * recoveryShots,
+                      },
+                    } as const)
+                  : ({
+                      treatment,
+                      shotsToFire: recoveryShots,
+                      execution: { mode: completionMode },
+                    } as const);
+          const response = await rangeInterruptionsService.recordQualificationTimedTargetRecoveryDecision({
+            id: crypto.randomUUID(),
+            caseId: interruption.id,
+            ...(latest ? { supersedesDecisionId: latest.id } : {}),
+            authorizedRecovery: {
+              extraSightingSeriesShots: Number(extraSightingShots),
+              seriesRecovery,
+            },
+            statement,
+            officialName,
+            incidentReportReference,
+            ruleReference,
+            decidedAt: new Date().toISOString(),
+          });
+          if (!response.success) throw new Error(response.error.message);
+          onCancel();
+          return response.data;
+        });
+      }}
+    >
+      <h4 className="text-[13px] font-semibold text-vscode-text">
+        {latest ? 'Supersede official 25m recovery decision' : 'Record official 25m recovery decision'}
+      </h4>
+      <p className="text-xs leading-5 text-vscode-warning">
+        Suggested values are prefilled. Editing them records an explicit official variance; it still does not operate a
+        Lane or change a score.
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field label="Extra sighting series shots">
+          <input
+            required
+            type="number"
+            min={0}
+            step={1}
+            value={extraSightingShots}
+            onChange={(event) => setExtraSightingShots(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Series treatment">
+          <select
+            value={treatment}
+            onChange={(event) =>
+              setTreatment(
+                event.target.value as 'KEEP_RECORDED_SERIES' | 'ANNUL_AND_REPEAT' | 'COMPLETE_REMAINING_SHOTS',
+              )
+            }
+            className={inputClass}
+          >
+            <option value="KEEP_RECORDED_SERIES">Keep recorded series</option>
+            <option value="ANNUL_AND_REPEAT">Annul and repeat</option>
+            <option value="COMPLETE_REMAINING_SHOTS">Complete remaining shots</option>
+          </select>
+        </Field>
+        {treatment !== 'KEEP_RECORDED_SERIES' && (
+          <Field label="Authorized recovery shots">
+            <input
+              required
+              type="number"
+              min={treatment === 'ANNUL_AND_REPEAT' ? 1 : 0}
+              step={1}
+              value={shotsToFire}
+              onChange={(event) => setShotsToFire(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        )}
+        {treatment === 'COMPLETE_REMAINING_SHOTS' && (
+          <Field label="Completion timing">
+            <select
+              value={completionMode}
+              onChange={(event) =>
+                setCompletionMode(event.target.value as 'SECONDS_PER_SHOT' | 'FIRST_EXPOSURE_OF_NEXT_SERIES')
+              }
+              className={inputClass}
+            >
+              <option value="SECONDS_PER_SHOT">Seconds per shot</option>
+              <option value="FIRST_EXPOSURE_OF_NEXT_SERIES">First exposure of next series</option>
+            </select>
+          </Field>
+        )}
+        {treatment === 'COMPLETE_REMAINING_SHOTS' && completionMode === 'SECONDS_PER_SHOT' && (
+          <Field label="Seconds per shot">
+            <input
+              required
+              type="number"
+              min={1}
+              step={1}
+              value={secondsPerShot}
+              onChange={(event) => setSecondsPerShot(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        )}
+        <Field label="Range Incident Report reference">
+          <input
+            required
+            value={incidentReportReference}
+            onChange={(event) => setIncidentReportReference(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Official name">
+          <input
+            required
+            value={officialName}
+            onChange={(event) => setOfficialName(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <Field label="Rule reference">
+        <input
+          required
+          value={ruleReference}
+          onChange={(event) => setRuleReference(event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Decision statement">
+        <textarea
+          required
+          rows={3}
+          value={statement}
+          onChange={(event) => setStatement(event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <label className="flex items-start gap-2 text-xs text-vscode-warning">
+        <input
+          required
+          type="checkbox"
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
+          className="mt-0.5"
+        />
+        I confirm this is an official recovery decision, not an automatic Rule Pack action.
+      </label>
+      <FormButtons
+        saving={saving}
+        submitDisabled={!confirmed}
+        submitLabel={latest ? 'Supersede decision' : 'Record recovery decision'}
+        onCancel={onCancel}
+      />
+    </form>
+  );
+}
+
+function authorizedRecoveryFrom(recommendation: QualificationTimedTargetInterruptionRecommendationDto) {
+  return {
+    extraSightingSeriesShots: recommendation.extraSighting.shots,
+    seriesRecovery: recommendation.seriesRecovery,
+  };
 }
 
 function EndInterruptionForm({ interruption, saving, onCancel, onMutate }: FormProps) {
@@ -985,7 +1434,7 @@ function EndInterruptionForm({ interruption, saving, onCancel, onMutate }: FormP
 }
 
 function GrantForm({ interruption, saving, onCancel, onMutate }: FormProps) {
-  const recommendation = interruption.recommendation;
+  const recommendation = interruption.recommendation?.type === 'MATCH_TIME' ? interruption.recommendation : undefined;
   const [extensionSeconds, setExtensionSeconds] = useState(String(recommendation?.suggestedAdditionalSeconds ?? 0));
   const [authorizedRemainingSeconds, setAuthorizedRemainingSeconds] = useState(
     String(recommendation?.suggestedAuthorizedRemainingSeconds ?? interruption.remainingSecondsAtStart),
@@ -1396,6 +1845,33 @@ function formatDuration(seconds: number): string {
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
   const minutes = Math.floor(safe / 60);
   return `${minutes}:${String(safe % 60).padStart(2, '0')}`;
+}
+
+function qualificationSeriesRecoveryComplete(
+  interruption: RangeInterruptionCaseDto,
+  decision: QualificationTimedTargetRecoveryDecisionDto | null,
+): boolean {
+  if (!interruption.qualificationTimedTargetContext) return true;
+  if (!decision) return false;
+  const recovery = decision.authorizedRecovery.seriesRecovery;
+  if (recovery.treatment === 'KEEP_RECORDED_SERIES') {
+    return interruption.qualificationRecoverySettlements.some(
+      (settlement) => settlement.decisionId === decision.id && settlement.status === 'APPLIED',
+    );
+  }
+  return interruption.qualificationRecoveryExecutions.some(
+    (execution) =>
+      execution.decisionId === decision.id &&
+      execution.phase === 'SERIES_RECOVERY' &&
+      execution.status === 'ADJUDICATED',
+  );
+}
+
+function blocksQualificationDecisionSupersession(
+  execution: RangeInterruptionCaseDto['qualificationRecoveryExecutions'][number],
+): boolean {
+  if (execution.status === 'CANCELLED') return false;
+  return execution.phase !== 'EXTRA_SIGHTING' || execution.status !== 'COMPLETED';
 }
 
 function rangeTargetLaneIds(

@@ -105,6 +105,8 @@ const SECOND_COMPETITION_ID = '88888888-8888-4888-8888-888888888888';
 const SESSION_ID = '33333333-3333-4333-8333-333333333333';
 const PARTICIPANT_ID = '44444444-4444-4444-8444-444444444444';
 const INTERRUPTION_ID = '99999999-9999-4999-8999-999999999999';
+const RECOVERY_RUN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const RECOVERY_DECISION_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 function hardwareState() {
   return {
@@ -155,6 +157,89 @@ function completedTimedTargetState(laneId: string, nextLoadAllowedAt: string) {
     terminalReason: 'All valid EST recording windows elapsed',
     enforcementMode: 'REQUIRED' as const,
     publishedAt: '2026-09-03T00:00:03.000Z',
+  };
+}
+
+function pausedQualificationLaneState(recordedShots = 2) {
+  return {
+    ...activeTimedLaneState(LANE_ID, 1, 0),
+    currentSeries: { index: 0, shotsRecorded: recordedShots, maxShots: 5 },
+    interruption: {
+      interruptionId: INTERRUPTION_ID,
+      status: 'PAUSED' as const,
+      pausedAt: '2026-09-03T00:00:00.000Z',
+      capturedAt: '2026-09-03T00:00:00.000Z',
+      capturedRemainingSeconds: 120,
+      capturedTotalSeconds: 300,
+      resumeAt: null,
+      authorizedRemainingSeconds: null,
+      unlimitedSightingShots: null,
+    },
+  };
+}
+
+function qualificationRecoveryState(status: 'RUNNING' | 'COMPLETED' | 'CANCELLED' = 'RUNNING') {
+  return {
+    schemaVersion: 1 as const,
+    laneId: LANE_ID,
+    runId: RECOVERY_RUN_ID,
+    sequenceId: RECOVERY_RUN_ID,
+    decisionId: RECOVERY_DECISION_ID,
+    interruptionId: INTERRUPTION_ID,
+    competitionId: COMPETITION_ID,
+    stageIndex: 1,
+    seriesIndex: 0,
+    expectedMatchProgramId: 'P25_MATCH_PRECISION_300',
+    executionProgramId: 'P25_MATCH_PRECISION_300:qualification-recovery',
+    expectedSeriesShotLimit: 5,
+    expectedRecordedShots: 2,
+    authorization: {
+      phase: 'SERIES_RECOVERY' as const,
+      seriesRecovery: {
+        treatment: 'COMPLETE_REMAINING_SHOTS' as const,
+        shotsToFire: 3,
+        execution: { mode: 'SECONDS_PER_SHOT' as const, secondsPerShot: 48, totalSeconds: 144 },
+      },
+    },
+    targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+    loadAt: '2026-09-03T00:00:20.000Z',
+    officialName: 'Jury Member',
+    decisionRuleReference: 'ISSF 8.8.1.4(a)',
+    decidedAt: '2026-09-02T23:59:00.000Z',
+    startedAt: '2026-09-03T00:00:01.000Z',
+    status,
+    terminalReason: status === 'RUNNING' ? null : 'Recovery ended',
+    terminalAt: status === 'RUNNING' ? null : '2026-09-03T00:03:00.000Z',
+    shots: [],
+    publishedAt: '2026-09-03T00:00:02.000Z',
+  };
+}
+
+function qualificationRecoveryShot() {
+  return {
+    schemaVersion: 1 as const,
+    laneId: LANE_ID,
+    competitionId: COMPETITION_ID,
+    runId: RECOVERY_RUN_ID,
+    decisionId: RECOVERY_DECISION_ID,
+    interruptionId: INTERRUPTION_ID,
+    phase: 'SERIES_RECOVERY' as const,
+    stageIndex: 1,
+    seriesIndex: 0,
+    shotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    x: 1.1,
+    y: -0.2,
+    rawScoreX10: 101,
+    deviceScoreX10: 100,
+    calculatedScoreX10: 101,
+    effectiveScoreX10: 101,
+    innerTen: false,
+    firedAt: '2026-09-03T00:00:30.000Z',
+    receivedAt: '2026-09-03T00:00:30.010Z',
+    observationId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+    scoringGaugeProfileId: 'ISSF_PISTOL_25M_5_6MM_2026',
+    publishedAt: '2026-09-03T00:00:30.020Z',
   };
 }
 
@@ -483,6 +568,290 @@ describe('DirectorMqttService', () => {
 
     await expect(starting).resolves.toMatchObject({ success: true });
     now.mockRestore();
+  });
+
+  it('starts an isolated Qualification recovery only from the matching paused Lane snapshot', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-03T00:00:00.000Z'));
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      startedAt: '2026-09-02T23:50:00.000Z',
+      publishedAt: '2026-09-03T00:00:01.000Z',
+    });
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, pausedQualificationLaneState());
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`,
+      completedTimedTargetState(LANE_ID, '2026-09-03T00:00:20.000Z'),
+    );
+
+    const starting = service.startQualificationRecovery({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      runId: RECOVERY_RUN_ID,
+      decisionId: RECOVERY_DECISION_ID,
+      interruptionId: INTERRUPTION_ID,
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_300',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 2,
+      authorization: qualificationRecoveryState().authorization,
+      officialName: 'Jury Member',
+      decisionRuleReference: 'ISSF 8.8.1.4(a)',
+      decidedAt: '2026-09-02T23:59:00.000Z',
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/start-qualification-recovery'))!;
+    const command = JSON.parse(publication.payload) as { commandId: string; loadAt: string; issuedBy: string };
+    expect(publication.topic).toBe(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/start-qualification-recovery`,
+    );
+    expect(command).toMatchObject({ loadAt: '2026-09-03T00:00:20.000Z', issuedBy: 'Jury Member' });
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/start-qualification-recovery/acknowledgement`,
+      {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: '2026-09-03T00:00:01.000Z',
+      },
+    );
+
+    await expect(starting).resolves.toMatchObject({ success: true, action: 'start-qualification-recovery' });
+    now.mockRestore();
+  });
+
+  it('rejects a Qualification recovery when the decision snapshot no longer matches Lane shots', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+    });
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, pausedQualificationLaneState(3));
+
+    await expect(
+      service.startQualificationRecovery({
+        competitionId: COMPETITION_ID,
+        laneId: LANE_ID,
+        runId: RECOVERY_RUN_ID,
+        decisionId: RECOVERY_DECISION_ID,
+        interruptionId: INTERRUPTION_ID,
+        stageIndex: 1,
+        seriesIndex: 0,
+        expectedMatchProgramId: 'P25_MATCH_PRECISION_300',
+        expectedSeriesShotLimit: 5,
+        expectedRecordedShots: 2,
+        authorization: qualificationRecoveryState().authorization,
+        officialName: 'Jury Member',
+        decisionRuleReference: 'ISSF 8.8.1.4(a)',
+        decidedAt: '2026-09-02T23:59:00.000Z',
+      }),
+    ).rejects.toThrow('does not match Lane 3');
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
+  });
+
+  it('projects retained recovery state and forwards every isolated recovery shot delivery', async () => {
+    const onQualificationRecoveryStateObserved =
+      vi.fn<NonNullable<DirectorMqttCallbacks['onQualificationRecoveryStateObserved']>>();
+    const onQualificationRecoveryShotObserved =
+      vi.fn<NonNullable<DirectorMqttCallbacks['onQualificationRecoveryShotObserved']>>();
+    const service = createService(transport, vi.fn(), {
+      onQualificationRecoveryStateObserved,
+      onQualificationRecoveryShotObserved,
+    });
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    const stateTopic = `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/state`;
+    const shotTopic = `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/shot`;
+    const state = qualificationRecoveryState();
+    const shot = qualificationRecoveryShot();
+
+    transport.emitMessage(stateTopic, state);
+    transport.emitMessage(shotTopic, shot);
+    transport.emitMessage(shotTopic, shot);
+
+    expect(service.getSnapshot().lanes[0]).toMatchObject({
+      laneId: LANE_ID,
+      qualificationRecoveryState: { runId: RECOVERY_RUN_ID, status: 'RUNNING' },
+      lastQualificationRecoveryShot: { shotId: shot.shotId, runId: RECOVERY_RUN_ID },
+    });
+    expect(onQualificationRecoveryStateObserved).toHaveBeenCalledOnce();
+    expect(onQualificationRecoveryStateObserved).toHaveBeenCalledWith(state, JSON.stringify(state));
+    expect(onQualificationRecoveryShotObserved).toHaveBeenCalledTimes(2);
+    expect(onQualificationRecoveryShotObserved).toHaveBeenLastCalledWith(shot, JSON.stringify(shot));
+
+    transport.emitRawMessage(stateTopic, Buffer.alloc(0));
+    expect(service.getSnapshot().lanes[0]?.qualificationRecoveryState).toBeNull();
+    expect(onQualificationRecoveryStateObserved).toHaveBeenCalledOnce();
+  });
+
+  it('cancels a Qualification recovery through its Lane-addressed command', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/state`,
+      qualificationRecoveryState(),
+    );
+
+    const cancelling = service.cancelQualificationRecovery({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      runId: RECOVERY_RUN_ID,
+      reason: 'Jury cancelled the recovery run',
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/cancel-qualification-recovery'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/cancel-qualification-recovery'))!;
+    const command = JSON.parse(publication.payload) as { commandId: string; runId: string; reason: string };
+    expect(command).toMatchObject({
+      runId: RECOVERY_RUN_ID,
+      reason: 'Jury cancelled the recovery run',
+    });
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/cancel-qualification-recovery/acknowledgement`,
+      {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: '2026-09-03T00:00:03.000Z',
+      },
+    );
+
+    await expect(cancelling).resolves.toMatchObject({ success: true, action: 'cancel-qualification-recovery' });
+  });
+
+  it('applies a completed Qualification recovery through a distinct Lane-addressed command', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/state`,
+      qualificationRecoveryState('COMPLETED'),
+    );
+
+    const applying = service.applyQualificationRecovery({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      runId: RECOVERY_RUN_ID,
+      appliedBy: 'Jury Member B',
+      statement: 'The completed recovery evidence was checked and may be scored.',
+      appliedAt: '2026-09-03T00:03:01.000Z',
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/apply-qualification-recovery'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/apply-qualification-recovery'))!;
+    const command = JSON.parse(publication.payload) as {
+      commandId: string;
+      runId: string;
+      appliedBy: string;
+      statement: string;
+      appliedAt: string;
+      issuedBy: string;
+    };
+    expect(publication.topic).toBe(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/apply-qualification-recovery`,
+    );
+    expect(command).toMatchObject({
+      runId: RECOVERY_RUN_ID,
+      appliedBy: 'Jury Member B',
+      statement: 'The completed recovery evidence was checked and may be scored.',
+      appliedAt: '2026-09-03T00:03:01.000Z',
+      issuedBy: 'Jury Member B',
+    });
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/apply-qualification-recovery/acknowledgement`,
+      {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: '2026-09-03T00:03:02.000Z',
+      },
+    );
+
+    await expect(applying).resolves.toMatchObject({ success: true, action: 'apply-qualification-recovery' });
+  });
+
+  it('does not publish score application before the recovery firing window completes', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/state`,
+      qualificationRecoveryState('RUNNING'),
+    );
+
+    await expect(
+      service.applyQualificationRecovery({
+        competitionId: COMPETITION_ID,
+        laneId: LANE_ID,
+        runId: RECOVERY_RUN_ID,
+        appliedBy: 'Jury Member B',
+        statement: 'Premature application attempt.',
+        appliedAt: '2026-09-03T00:01:00.000Z',
+      }),
+    ).rejects.toThrow('is not completed');
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/apply-qualification-recovery'))).toBe(false);
+  });
+
+  it('settles a full recorded Qualification series through a distinct no-fire command', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+
+    const settling = service.settleQualificationRecovery({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      decisionId: '88888888-8888-4888-8888-888888888888',
+      interruptionId: '99999999-9999-4999-8999-999999999999',
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 5,
+      treatment: 'KEEP_RECORDED_SERIES',
+      decisionOfficialName: 'Jury Member A',
+      decisionRuleReference: 'ISSF 8.8.1(c-d)',
+      decidedAt: '2026-09-03T00:02:00.000Z',
+      appliedBy: 'Jury Member B',
+      statement: 'The full recorded series was checked and retained.',
+      appliedAt: '2026-09-03T00:03:01.000Z',
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/settle-qualification-recovery'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/settle-qualification-recovery'))!;
+    const command = JSON.parse(publication.payload) as { commandId: string; decisionId: string; issuedBy: string };
+    expect(publication.topic).toBe(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/settle-qualification-recovery`,
+    );
+    expect(command).toMatchObject({
+      decisionId: '88888888-8888-4888-8888-888888888888',
+      issuedBy: 'Jury Member B',
+      expectedRecordedShots: 5,
+      treatment: 'KEEP_RECORDED_SERIES',
+    });
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/settle-qualification-recovery/acknowledgement`,
+      {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: '2026-09-03T00:03:02.000Z',
+      },
+    );
+
+    await expect(settling).resolves.toMatchObject({ success: true, action: 'settle-qualification-recovery' });
   });
 
   it('emits exact START and STOP boundaries when firing commands reach the broker', async () => {

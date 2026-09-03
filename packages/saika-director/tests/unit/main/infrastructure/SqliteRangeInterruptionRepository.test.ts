@@ -1,9 +1,13 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { identifyRulePack, ISSF_2026_P25, recommendQualificationTimedTargetInterruption } from '@sasakiuri/saika-rules';
 
 import { migration020RangeInterruptions } from '@/main/infrastructure/database/migrations/020_range_interruptions';
 import { migration021TargetRecoveryAssessments } from '@/main/infrastructure/database/migrations/021_target_recovery_assessments';
+import { migration053QualificationTimedTargetInterruptions } from '@/main/infrastructure/database/migrations/053_qualification_timed_target_interruptions';
+import { migration054QualificationTimedTargetRecoveryDecisions } from '@/main/infrastructure/database/migrations/054_qualification_timed_target_recovery_decisions';
 import { RangeInterruptionCase } from '@/main/modules/range-interruptions/domain/RangeInterruptionCase';
+import { QualificationTimedTargetRecoveryDecision } from '@/main/modules/range-interruptions/domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionEntry } from '@/main/modules/range-interruptions/domain/RangeInterruptionEntry';
 import { RangeInterruptionScopeLink } from '@/main/modules/range-interruptions/domain/RangeInterruptionScopeLink';
 import { TargetRecoveryAssessment } from '@/main/modules/range-interruptions/domain/TargetRecoveryAssessment';
@@ -21,6 +25,8 @@ describe('SqliteRangeInterruptionRepository', () => {
     database.pragma('foreign_keys = ON');
     migration020RangeInterruptions.up(database);
     migration021TargetRecoveryAssessments.up(database);
+    migration053QualificationTimedTargetInterruptions.up(database);
+    migration054QualificationTimedTargetRecoveryDecisions.up(database);
     repository = new SqliteRangeInterruptionRepository(database);
   });
 
@@ -110,6 +116,81 @@ describe('SqliteRangeInterruptionRepository', () => {
     expect(() => database.prepare('DELETE FROM target_recovery_assessments WHERE id = ?').run(assessment.id)).toThrow(
       'append-only',
     );
+  });
+
+  it('round-trips the immutable 25m Qualification Rule Pack and Lane snapshot', () => {
+    const recovery = ISSF_2026_P25.capabilities.timedTarget?.recovery;
+    if (recovery?.procedure !== 'QUALIFICATION') throw new Error('Qualification recovery is unavailable');
+    const identity = identifyRulePack(ISSF_2026_P25);
+    const interruption = RangeInterruptionCase.create({
+      cause: 'ATHLETE_NON_FAULT',
+      phase: 'MATCH',
+      startedAt: new Date('2026-08-31T01:00:00.000Z'),
+      remainingSecondsAtStart: 0,
+      laneId: LANE_ID,
+      summary: '25m timed-target interruption',
+      details: 'Two shots were recorded before the technical interruption.',
+      openedBy: 'Range Officer A',
+      qualificationTimedTargetContext: {
+        competitionTypeId: 'P25',
+        rulePack: {
+          id: identity.id,
+          schemaVersion: identity.schemaVersion,
+          fingerprintSha256: identity.fingerprint.value,
+        },
+        stageId: 'PRECISION_STAGE',
+        stageIndex: 1,
+        seriesIndex: 0,
+        timedTargetProgramId: 'P25_MATCH_PRECISION_240',
+        seriesShotLimit: 5,
+        recordedShots: 2,
+        seriesComplete: false,
+        laneSnapshotCapturedAt: '2026-08-31T01:00:01.000Z',
+        recoveryCapability: recovery,
+      },
+    });
+    const scope = RangeInterruptionScopeLink.create({
+      caseId: interruption.id,
+      scopeType: 'COMPETITION',
+      scopeId: COMPETITION_ID,
+      linkedBy: 'Range Officer A',
+    });
+
+    repository.appendCase(interruption, [scope]);
+
+    const recommendation = recommendQualificationTimedTargetInterruption(recovery, {
+      stageId: 'PRECISION_STAGE',
+      interruptionSeconds: 901,
+      seriesShotLimit: 5,
+      recordedShots: 2,
+      seriesComplete: false,
+    });
+    const decision = QualificationTimedTargetRecoveryDecision.create({
+      caseId: interruption.id,
+      recommendation,
+      authorizedRecovery: {
+        extraSightingSeriesShots: recommendation.extraSighting.shots,
+        seriesRecovery: recommendation.seriesRecovery,
+      },
+      statement: 'The Jury authorizes the recommended recovery.',
+      officialName: 'Jury Member A',
+      incidentReportReference: 'RIR-25M-001',
+      ruleReference: recommendation.ruleReferences.join('; '),
+    });
+    repository.appendQualificationTimedTargetRecoveryDecision(decision);
+
+    expect(repository.findCaseById(interruption.id)).toEqual(interruption);
+    expect(
+      repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds([interruption.id]).get(interruption.id),
+    ).toEqual([decision]);
+    expect(() =>
+      database
+        .prepare('UPDATE range_interruption_cases SET qualification_timed_target_context_json = NULL WHERE id = ?')
+        .run(interruption.id),
+    ).toThrow('append-only');
+    expect(() =>
+      database.prepare('DELETE FROM qualification_timed_target_recovery_decisions WHERE id = ?').run(decision.id),
+    ).toThrow('append-only');
   });
 });
 

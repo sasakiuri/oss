@@ -16,6 +16,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import type { QualificationRecoveryStatePublisher } from '@/main/modules/mqtt/application/QualificationRecoveryStatePublisher';
 import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
@@ -23,22 +24,41 @@ import {
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
+  ApplyQualificationRecoveryCmdSchema,
   AssignAthleteCmdSchema,
+  CancelQualificationRecoveryCmdSchema,
   PauseTimerCmdSchema,
   ResetSessionCmdSchema,
   RetireFinalistCmdSchema,
   ResumeMatchCmdSchema,
   ResumeTimerCmdSchema,
+  SettleQualificationRecoveryCmdSchema,
+  StartQualificationRecoveryCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
 import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type {
+  IQualificationRecoveryAdjudicationControl,
+  IQualificationRecoveryControl,
+  IQualificationRecoverySettlementControl,
+  StartQualificationRecoveryRunInput,
+} from '@/main/modules/qualification-recovery';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 type PerLaneAction =
-  'assign-athlete' | 'reset-session' | 'pause-timer' | 'resume-timer' | 'resume-match' | 'retire-finalist';
+  | 'assign-athlete'
+  | 'reset-session'
+  | 'pause-timer'
+  | 'resume-timer'
+  | 'resume-match'
+  | 'start-qualification-recovery'
+  | 'cancel-qualification-recovery'
+  | 'apply-qualification-recovery'
+  | 'settle-qualification-recovery'
+  | 'retire-finalist';
 
 const ACTION_SCHEMAS: Record<PerLaneAction, z.ZodType> = {
   'assign-athlete': AssignAthleteCmdSchema,
@@ -46,6 +66,10 @@ const ACTION_SCHEMAS: Record<PerLaneAction, z.ZodType> = {
   'pause-timer': PauseTimerCmdSchema,
   'resume-timer': ResumeTimerCmdSchema,
   'resume-match': ResumeMatchCmdSchema,
+  'start-qualification-recovery': StartQualificationRecoveryCmdSchema,
+  'cancel-qualification-recovery': CancelQualificationRecoveryCmdSchema,
+  'apply-qualification-recovery': ApplyQualificationRecoveryCmdSchema,
+  'settle-qualification-recovery': SettleQualificationRecoveryCmdSchema,
   'retire-finalist': RetireFinalistCmdSchema,
 };
 
@@ -73,6 +97,13 @@ export class PerLaneCommandHandler {
     _competitionId: string,
     private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
     private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
+    private readonly qualificationRecoveryControl?: IQualificationRecoveryControl,
+    private readonly qualificationRecoveryStatePublisher?: Pick<
+      QualificationRecoveryStatePublisher,
+      'publishCurrentState'
+    >,
+    private readonly qualificationRecoveryAdjudicationControl?: IQualificationRecoveryAdjudicationControl,
+    private readonly qualificationRecoverySettlementControl?: IQualificationRecoverySettlementControl,
   ) {}
 
   /**
@@ -275,6 +306,109 @@ export class PerLaneCommandHandler {
         return { interruptionId: record.interruptionId, status: record.status };
       }
 
+      case 'start-qualification-recovery': {
+        this.assertSafetyCleared(action);
+        const control = this.requireQualificationRecoveryControl();
+        const record = await control.start({
+          runId: command.runId as string,
+          decisionId: command.decisionId as string,
+          interruptionId: command.interruptionId as string,
+          competitionId,
+          stageIndex: command.stageIndex as number,
+          seriesIndex: command.seriesIndex as number,
+          expectedMatchProgramId: command.expectedMatchProgramId as string,
+          expectedSeriesShotLimit: command.expectedSeriesShotLimit as number,
+          expectedRecordedShots: command.expectedRecordedShots as number,
+          authorization: command.authorization as StartQualificationRecoveryRunInput['authorization'],
+          loadAt: new Date(command.loadAt as string),
+          officialName: command.officialName as string,
+          decisionRuleReference: command.decisionRuleReference as string,
+          decidedAt: new Date(command.decidedAt as string),
+        });
+        await this.qualificationRecoveryStatePublisher?.publishCurrentState(competitionId);
+        return {
+          runId: record.runId,
+          sequenceId: record.sequenceId,
+          status: record.status,
+          recordedShots: record.shots.length,
+        };
+      }
+
+      case 'cancel-qualification-recovery': {
+        this.assertSafetyCleared(action);
+        const control = this.requireQualificationRecoveryControl();
+        const current = control.get(command.runId as string);
+        if (!current || current.competitionId !== competitionId) {
+          throw new Error(`Qualification recovery run ${command.runId as string} does not belong to this competition`);
+        }
+        const record = control.cancel({ runId: current.runId, reason: command.reason as string });
+        await this.qualificationRecoveryStatePublisher?.publishCurrentState(competitionId);
+        return { runId: record.runId, sequenceId: record.sequenceId, status: record.status };
+      }
+
+      case 'apply-qualification-recovery': {
+        const control = this.requireQualificationRecoveryAdjudicationControl();
+        const current = control.get(command.runId as string);
+        if (current && current.competitionId !== competitionId) {
+          throw new Error(`Qualification recovery run ${command.runId as string} does not belong to this competition`);
+        }
+        const record = await control.apply({
+          runId: command.runId as string,
+          competitionId,
+          appliedBy: command.appliedBy as string,
+          statement: command.statement as string,
+          appliedAt: new Date(command.appliedAt as string),
+        });
+        await Promise.all([
+          this.competitionStatePublisher.publishCurrentState(competitionId),
+          this.scorePublisher.publishCurrentScore(competitionId),
+        ]);
+        return {
+          adjudicationId: record.id,
+          runId: record.runId,
+          treatment: record.treatment,
+          creditedShots: record.authorizedShots,
+          creditedMisses: record.shots.filter((shot) => shot.disposition === 'CREDITED_MISS').length,
+        };
+      }
+
+      case 'settle-qualification-recovery': {
+        const control = this.requireQualificationRecoverySettlementControl();
+        const current = control.get(command.decisionId as string);
+        if (current && current.competitionId !== competitionId) {
+          throw new Error(
+            `Qualification recovery decision ${command.decisionId as string} does not belong to this competition`,
+          );
+        }
+        const record = await control.apply({
+          decisionId: command.decisionId as string,
+          competitionId,
+          interruptionId: command.interruptionId as string,
+          treatment: command.treatment as 'KEEP_RECORDED_SERIES',
+          stageIndex: command.stageIndex as number,
+          seriesIndex: command.seriesIndex as number,
+          expectedMatchProgramId: command.expectedMatchProgramId as string,
+          expectedSeriesShotLimit: command.expectedSeriesShotLimit as number,
+          expectedRecordedShots: command.expectedRecordedShots as number,
+          decisionOfficialName: command.decisionOfficialName as string,
+          decisionRuleReference: command.decisionRuleReference as string,
+          decidedAt: new Date(command.decidedAt as string),
+          appliedBy: command.appliedBy as string,
+          statement: command.statement as string,
+          appliedAt: new Date(command.appliedAt as string),
+        });
+        await Promise.all([
+          this.competitionStatePublisher.publishCurrentState(competitionId),
+          this.scorePublisher.publishCurrentScore(competitionId),
+        ]);
+        return {
+          settlementId: record.id,
+          decisionId: record.decisionId,
+          treatment: record.treatment,
+          retainedShots: record.recordedShots.length,
+        };
+      }
+
       case 'retire-finalist': {
         const competition = await this.competitionRepository.findById(competitionId);
         if (!competition) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: competitionId });
@@ -304,6 +438,25 @@ export class PerLaneCommandHandler {
     if (!this.safetyStopControl?.isStopped()) return;
     const safetyStopId = this.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
     throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
+  }
+
+  private requireQualificationRecoveryControl(): IQualificationRecoveryControl {
+    if (!this.qualificationRecoveryControl) throw new Error('Lane Qualification recovery control is unavailable');
+    return this.qualificationRecoveryControl;
+  }
+
+  private requireQualificationRecoveryAdjudicationControl(): IQualificationRecoveryAdjudicationControl {
+    if (!this.qualificationRecoveryAdjudicationControl) {
+      throw new Error('Lane Qualification recovery adjudication control is unavailable');
+    }
+    return this.qualificationRecoveryAdjudicationControl;
+  }
+
+  private requireQualificationRecoverySettlementControl(): IQualificationRecoverySettlementControl {
+    if (!this.qualificationRecoverySettlementControl) {
+      throw new Error('Qualification recovery settlement is unavailable');
+    }
+    return this.qualificationRecoverySettlementControl;
   }
 
   /**

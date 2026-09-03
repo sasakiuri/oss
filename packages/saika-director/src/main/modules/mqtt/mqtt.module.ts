@@ -42,6 +42,13 @@ import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.cont
 import { mqttContract, eventsContract, type MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { CompetitionTypeDefinition, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
 import { Logger } from '@/shared/utils/Logger';
+import {
+  ApplyQualificationRecoveryTransportToken,
+  ApplyQualificationRecoverySettlementTransportToken,
+  CancelQualificationRecoveryTransportToken,
+  StartQualificationRecoveryTransportToken,
+  type StartQualificationRecoveryTransportInput,
+} from '@/main/modules/range-interruptions';
 
 const logger = Logger.create('mqtt.module');
 
@@ -350,6 +357,26 @@ export const mqttModule: ModuleDefinition<
             logger.error(`Failed to record Final shoot-off shot ${shot.shotId}:`, error);
           }
         },
+        onQualificationRecoveryStateObserved: (state, payloadJson) => {
+          const observedAt = new Date();
+          eventBus.emit({
+            type: 'QualificationRecoveryStateObserved',
+            timestamp: observedAt.getTime(),
+            state,
+            payloadJson,
+            observedAt,
+          });
+        },
+        onQualificationRecoveryShotObserved: (shot, payloadJson) => {
+          const observedAt = new Date();
+          eventBus.emit({
+            type: 'QualificationRecoveryShotObserved',
+            timestamp: observedAt.getTime(),
+            shot,
+            payloadJson,
+            observedAt,
+          });
+        },
         onShotObservationEvidenceObserved: (evidence, payloadJson) => {
           try {
             const observedAt = new Date();
@@ -443,6 +470,66 @@ export const mqttModule: ModuleDefinition<
       void tail.then(() => activeControlOperations.delete(tail));
       return result;
     };
+
+    const assertQualificationRecoveryPosition = (input: {
+      competitionId: string;
+      stageIndex: number;
+      seriesIndex: number;
+      expectedMatchProgramId: string;
+      expectedSeriesShotLimit: number;
+    }): void => {
+      const competition = requireCompetition(input.competitionId);
+      const definition = competitionTypeRegistry.get(competition.competitionTypeId);
+      if (competition.roundName !== 'Qualification' || definition.config.name !== 'Qualification') {
+        throw new Error('Qualification recovery requires a Qualification competition');
+      }
+      if (definition.timedTarget?.recovery.procedure !== 'QUALIFICATION') {
+        throw new Error(`Competition type ${definition.id} has no Qualification recovery capability`);
+      }
+      const stage = definition.config.stages[input.stageIndex];
+      const series = stage?.series[input.seriesIndex];
+      if (!stage || !series || stage.type !== 'match') {
+        throw new Error(`Qualification recovery position ${input.stageIndex}:${input.seriesIndex} is not configured`);
+      }
+      if (series.timedTargetProgramId !== input.expectedMatchProgramId) {
+        throw new Error(
+          `Recovery program ${input.expectedMatchProgramId} does not match ${input.stageIndex}:${input.seriesIndex}`,
+        );
+      }
+      if (series.shots !== input.expectedSeriesShotLimit) {
+        throw new Error(
+          `Recovery shot limit ${input.expectedSeriesShotLimit} does not match ${input.stageIndex}:${input.seriesIndex}`,
+        );
+      }
+    };
+
+    const startQualificationRecovery = async (input: StartQualificationRecoveryTransportInput) => {
+      assertQualificationRecoveryPosition(input);
+      const result = await mqttService.startQualificationRecovery(input);
+      return { ...result, action: 'start-qualification-recovery' as const };
+    };
+
+    commandBus.register(StartQualificationRecoveryTransportToken, (input) =>
+      runWithControlLock(() => startQualificationRecovery(input)),
+    );
+    commandBus.register(CancelQualificationRecoveryTransportToken, async (input) => {
+      const result = await runWithControlLock(() => mqttService.cancelQualificationRecovery(input));
+      return { ...result, action: 'cancel-qualification-recovery' as const };
+    });
+    commandBus.register(ApplyQualificationRecoveryTransportToken, async (input) => {
+      const result = await runWithControlLock(() => mqttService.applyQualificationRecovery(input));
+      return { ...result, action: 'apply-qualification-recovery' as const };
+    });
+    commandBus.register(ApplyQualificationRecoverySettlementTransportToken, async (input) => {
+      const result = await runWithControlLock(() => {
+        assertQualificationRecoveryPosition(input);
+        if (input.expectedRecordedShots !== input.expectedSeriesShotLimit) {
+          throw new Error('KEEP_RECORDED_SERIES requires every series shot to be recorded');
+        }
+        return mqttService.settleQualificationRecovery(input);
+      });
+      return { ...result, action: 'settle-qualification-recovery' as const };
+    });
 
     const connectClient = async (config: RuntimeBrokerConfig): Promise<void> => {
       await mqttService.disconnect();

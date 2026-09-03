@@ -178,10 +178,21 @@ saika/
         ├── assignment                   # 選手配置 [Retain=ON, QoS 1]
         ├── score                        # スコア [Retain=ON, QoS 1]
         ├── shot                         # 競技コンテキスト付きショット [Retain=OFF, QoS 1]
+        ├── qualification-recovery/
+        │   ├── state                    # Rule 8.8.1 recovery run [Retain=ON, QoS 1]
+        │   └── shot                     # isolated recovery shot [Retain=OFF, QoS 1]
         ├── command/
         │   ├── assign-athlete           # 選手配置コマンド [QoS 1]
         │   │   └── acknowledgement      # ACK [QoS 1]
-        │   └── reset-session            # セッションリセット [QoS 1]
+        │   ├── reset-session            # セッションリセット [QoS 1]
+        │   │   └── acknowledgement
+        │   ├── start-qualification-recovery  # isolated recovery 開始 [QoS 1]
+        │   │   └── acknowledgement
+        │   ├── cancel-qualification-recovery # recovery 取消 [QoS 1]
+        │   │   └── acknowledgement
+        │   ├── apply-qualification-recovery  # recovery 採点裁定 [QoS 1]
+        │   │   └── acknowledgement
+        │   └── settle-qualification-recovery # full series の無射撃確定 [QoS 1]
         │       └── acknowledgement
         └── query/{requestId}/
             ├── request                  # RPC リクエスト [QoS 1]
@@ -296,6 +307,33 @@ saika/
 | QoS            | 1              |
 | Retain         | OFF            |
 | 発行タイミング | ショット記録時 |
+
+#### `saika/competition/{competitionId}/lane/{laneId}/qualification-recovery/state`
+
+| 項目           | 値                                                         |
+| -------------- | ---------------------------------------------------------- |
+| Publisher      | saika.lane                                                 |
+| Subscriber     | saika.director                                             |
+| QoS            | 1                                                          |
+| Retain         | ON                                                         |
+| 発行タイミング | recovery の開始、shot 記録、完了、取消、再起動からの復元時 |
+
+`runId`、official decision／interruption、stage／series／program／shot count の不変 binding、許可した
+`EXTRA_SIGHTING` または `SERIES_RECOVERY`、isolated shot ID、`RUNNING`／`COMPLETED`／`CANCELLED` を発行する。
+Director は Retain state を現在状態として使い、run の受信 event history は別途 append-only に保存する。
+
+#### `saika/competition/{competitionId}/lane/{laneId}/qualification-recovery/shot`
+
+| 項目           | 値                                                         |
+| -------------- | ---------------------------------------------------------- |
+| Publisher      | saika.lane                                                 |
+| Subscriber     | saika.director                                             |
+| QoS            | 1                                                          |
+| Retain         | OFF                                                        |
+| 発行タイミング | isolated recovery window 内で shot evidence を記録したとき |
+
+通常の competition shot と score へ混在させず、run／decision／interruption、stage／series、座標、装置点、独立計算点、
+採用点、発射／受信時刻、observation ID、target／gauge profile を発行する。QoS 再送は `shotId` で冪等に保存する。
 
 ---
 
@@ -963,6 +1001,24 @@ const ResetSessionCmd = z.object({
 壊さないため `INVALID_PHASE_TRANSITION` を返す。成功時はセッション ID・種目・モード・接続情報を維持し、
 着弾履歴と得点だけを消去して、0 点の Retain スコアを再発行する。Retain の発行完了後に `done` ACK を返し、
 発行に失敗した場合は `error` ACK を返す。
+
+##### Rule 8.8.1 Qualification recovery commands
+
+四つの command は同じ per-Lane namespace を使うが、射撃制御（start／cancel）、採点裁定、無射撃確定を三つの application port へ渡す。
+
+- `start-qualification-recovery` は `runId`、`decisionId`、`interruptionId`、stage／series、期待する MATCH program、
+  series 上限と記録済み発数、許可内容、絶対 `loadAt`、decision の official／rule／時刻を持つ。許可内容は5発の
+  `EXTRA_SIGHTING`、同一 program の `ANNUL_AND_REPEAT`、48秒／shot または次 series 最初の exposure を使う
+  `COMPLETE_REMAINING_SHOTS` のいずれかである。`KEEP_RECORDED_SERIES` は射撃許可に含めない。
+- `cancel-qualification-recovery` は `runId` と必須の取消理由を持ち、進行中の isolated timing sequence を red で終了する。
+- `apply-qualification-recovery` は completed series-recovery `runId` と adjudicating official、statement、`appliedAt` を持つ。
+  Lane は full shot evidence を検証し、未使用の許可発数を miss にしてから series を確定する。追加 sighting には適用できない。
+- `settle-qualification-recovery` は `KEEP_RECORDED_SERIES` 専用で、decision／interruption と同じ stage／series／program／shot count、
+  decision evidence、applying official、statement、`appliedAt` を持つ。記録済み発数が series 上限と一致するときだけ、元の
+  session shot を immutable evidence として snapshot し、score row を変更せず series を完了する。
+
+Lane は同じ `runId` または `decisionId` の同一 request を冪等に扱い、保存済み request と異なる retry を拒否する。
+採点または settlement 保存後に competition state の更新だけが失敗した場合は、同じ command で state transition と中断解除を再調整する。
 
 ### 4.10 ACK ペイロード
 
@@ -1817,30 +1873,37 @@ Lane ID と topic の結び付けは client ID に基づく。device ごとの�
 
 ### Tier 2: Competition
 
-| トピック                                                                      | Publisher | QoS | Retain | 説明                                             |
-| ----------------------------------------------------------------------------- | --------- | --- | ------ | ------------------------------------------------ |
-| `saika/competition/{id}/state`                                                | director  | 1   | ON     | 競技全体状態・フェーズ                           |
-| `saika/competition/{id}/command/start-sighting`                               | director  | 1   | OFF    | 全 lane 試射開始 broadcast                       |
-| `saika/competition/{id}/command/start-sighting/acknowledgement/{laneId}`      | lane      | 1   | OFF    | 試射開始 ACK                                     |
-| `saika/competition/{id}/command/end-sighting`                                 | director  | 1   | OFF    | 全 lane 試射終了 broadcast                       |
-| `saika/competition/{id}/command/end-sighting/acknowledgement/{laneId}`        | lane      | 1   | OFF    | 試射終了 ACK                                     |
-| `saika/competition/{id}/command/start-match`                                  | director  | 1   | OFF    | 全 lane 本射開始 broadcast                       |
-| `saika/competition/{id}/command/start-match/acknowledgement/{laneId}`         | lane      | 1   | OFF    | 本射開始 ACK                                     |
-| `saika/competition/{id}/command/timer-started`                                | director  | 1   | OFF    | タイマー開始通知 broadcast                       |
-| `saika/competition/{id}/command/timer-started/acknowledgement/{laneId}`       | lane      | 1   | OFF    | タイマー開始 ACK                                 |
-| `saika/competition/{id}/command/timer-expired`                                | director  | 1   | OFF    | タイマー満了通知 broadcast                       |
-| `saika/competition/{id}/command/timer-expired/acknowledgement/{laneId}`       | lane      | 1   | OFF    | タイマー満了 ACK                                 |
-| `saika/competition/{id}/command/advance-series`                               | director  | 1   | OFF    | 全 lane シリーズ進行 broadcast（例外ケース専用） |
-| `saika/competition/{id}/command/advance-series/acknowledgement/{laneId}`      | lane      | 1   | OFF    | シリーズ進行 ACK                                 |
-| `saika/competition/{id}/command/finish-competition`                           | director  | 1   | OFF    | 全 lane 競技終了 broadcast                       |
-| `saika/competition/{id}/command/finish-competition/acknowledgement/{laneId}`  | lane      | 1   | OFF    | 競技終了 ACK                                     |
-| `saika/competition/{id}/lane/{laneId}/state`                                  | lane      | 1   | ON     | レーン競技フェーズ・ステージ状態                 |
-| `saika/competition/{id}/lane/{laneId}/assignment`                             | lane      | 1   | ON     | 選手配置情報                                     |
-| `saika/competition/{id}/lane/{laneId}/score`                                  | lane      | 1   | ON     | 競技スコア                                       |
-| `saika/competition/{id}/lane/{laneId}/shot`                                   | lane      | 1   | OFF    | 競技コンテキスト付きショット                     |
-| `saika/competition/{id}/lane/{laneId}/command/assign-athlete`                 | director  | 1   | OFF    | 選手配置コマンド                                 |
-| `saika/competition/{id}/lane/{laneId}/command/assign-athlete/acknowledgement` | lane      | 1   | OFF    | 選手配置 ACK                                     |
-| `saika/competition/{id}/lane/{laneId}/command/reset-session`                  | director  | 1   | OFF    | セッションリセットコマンド                       |
-| `saika/competition/{id}/lane/{laneId}/command/reset-session/acknowledgement`  | lane      | 1   | OFF    | リセット ACK                                     |
-| `saika/competition/{id}/lane/{laneId}/query/{requestId}/request`              | director  | 1   | OFF    | RPC リクエスト                                   |
-| `saika/competition/{id}/lane/{laneId}/query/{requestId}/response`             | lane      | 1   | OFF    | RPC レスポンス                                   |
+| トピック                                                                         | Publisher | QoS | Retain | 説明                                             |
+| -------------------------------------------------------------------------------- | --------- | --- | ------ | ------------------------------------------------ |
+| `saika/competition/{id}/state`                                                   | director  | 1   | ON     | 競技全体状態・フェーズ                           |
+| `saika/competition/{id}/command/start-sighting`                                  | director  | 1   | OFF    | 全 lane 試射開始 broadcast                       |
+| `saika/competition/{id}/command/start-sighting/acknowledgement/{laneId}`         | lane      | 1   | OFF    | 試射開始 ACK                                     |
+| `saika/competition/{id}/command/end-sighting`                                    | director  | 1   | OFF    | 全 lane 試射終了 broadcast                       |
+| `saika/competition/{id}/command/end-sighting/acknowledgement/{laneId}`           | lane      | 1   | OFF    | 試射終了 ACK                                     |
+| `saika/competition/{id}/command/start-match`                                     | director  | 1   | OFF    | 全 lane 本射開始 broadcast                       |
+| `saika/competition/{id}/command/start-match/acknowledgement/{laneId}`            | lane      | 1   | OFF    | 本射開始 ACK                                     |
+| `saika/competition/{id}/command/timer-started`                                   | director  | 1   | OFF    | タイマー開始通知 broadcast                       |
+| `saika/competition/{id}/command/timer-started/acknowledgement/{laneId}`          | lane      | 1   | OFF    | タイマー開始 ACK                                 |
+| `saika/competition/{id}/command/timer-expired`                                   | director  | 1   | OFF    | タイマー満了通知 broadcast                       |
+| `saika/competition/{id}/command/timer-expired/acknowledgement/{laneId}`          | lane      | 1   | OFF    | タイマー満了 ACK                                 |
+| `saika/competition/{id}/command/advance-series`                                  | director  | 1   | OFF    | 全 lane シリーズ進行 broadcast（例外ケース専用） |
+| `saika/competition/{id}/command/advance-series/acknowledgement/{laneId}`         | lane      | 1   | OFF    | シリーズ進行 ACK                                 |
+| `saika/competition/{id}/command/finish-competition`                              | director  | 1   | OFF    | 全 lane 競技終了 broadcast                       |
+| `saika/competition/{id}/command/finish-competition/acknowledgement/{laneId}`     | lane      | 1   | OFF    | 競技終了 ACK                                     |
+| `saika/competition/{id}/lane/{laneId}/state`                                     | lane      | 1   | ON     | レーン競技フェーズ・ステージ状態                 |
+| `saika/competition/{id}/lane/{laneId}/assignment`                                | lane      | 1   | ON     | 選手配置情報                                     |
+| `saika/competition/{id}/lane/{laneId}/score`                                     | lane      | 1   | ON     | 競技スコア                                       |
+| `saika/competition/{id}/lane/{laneId}/shot`                                      | lane      | 1   | OFF    | 競技コンテキスト付きショット                     |
+| `saika/competition/{id}/lane/{laneId}/qualification-recovery/state`              | lane      | 1   | ON     | Rule 8.8.1 recovery run の現在状態               |
+| `saika/competition/{id}/lane/{laneId}/qualification-recovery/shot`               | lane      | 1   | OFF    | score から隔離した recovery shot evidence        |
+| `saika/competition/{id}/lane/{laneId}/command/start-qualification-recovery`      | director  | 1   | OFF    | 許可済み recovery firing の開始                  |
+| `saika/competition/{id}/lane/{laneId}/command/cancel-qualification-recovery`     | director  | 1   | OFF    | recovery firing の取消                           |
+| `saika/competition/{id}/lane/{laneId}/command/apply-qualification-recovery`      | director  | 1   | OFF    | completed recovery の採点裁定                    |
+| `saika/competition/{id}/lane/{laneId}/command/settle-qualification-recovery`     | director  | 1   | OFF    | full recorded series の無射撃確定                |
+| `saika/competition/{id}/lane/{laneId}/command/{recovery-action}/acknowledgement` | lane      | 1   | OFF    | 各 Qualification recovery command の ACK         |
+| `saika/competition/{id}/lane/{laneId}/command/assign-athlete`                    | director  | 1   | OFF    | 選手配置コマンド                                 |
+| `saika/competition/{id}/lane/{laneId}/command/assign-athlete/acknowledgement`    | lane      | 1   | OFF    | 選手配置 ACK                                     |
+| `saika/competition/{id}/lane/{laneId}/command/reset-session`                     | director  | 1   | OFF    | セッションリセットコマンド                       |
+| `saika/competition/{id}/lane/{laneId}/command/reset-session/acknowledgement`     | lane      | 1   | OFF    | リセット ACK                                     |
+| `saika/competition/{id}/lane/{laneId}/query/{requestId}/request`                 | director  | 1   | OFF    | RPC リクエスト                                   |
+| `saika/competition/{id}/lane/{laneId}/query/{requestId}/response`                | lane      | 1   | OFF    | RPC レスポンス                                   |

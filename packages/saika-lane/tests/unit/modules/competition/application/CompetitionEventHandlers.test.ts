@@ -140,6 +140,28 @@ describe('createShotRecordedHandler', () => {
     expect(mockRepo.save).not.toHaveBeenCalled();
   });
 
+  it('does not count an isolated MATCH shot in the ordinary competition series', async () => {
+    const event = {
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-1',
+      shot: { mode: Mode.match() },
+      scoringMode: 'DECIMAL',
+      acquisitionContext: {
+        shotDisposition: 'ISOLATED',
+        owner: 'qualification-recovery',
+        referenceId: 'recovery-run-1',
+      },
+    } as ShotRecordedEvent;
+
+    const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
+    await handler(event);
+
+    expect(mockRepo.findActive).not.toHaveBeenCalled();
+    expect(mockRepo.save).not.toHaveBeenCalled();
+    expect(mockEventBus.emit).not.toHaveBeenCalled();
+  });
+
   it('should not emit SeriesCompleted event when series is not yet complete', async () => {
     const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
@@ -403,6 +425,39 @@ describe('createTimedTargetSequenceChangedHandler', () => {
       timestamp: Date.now(),
       aggregateId: active.id,
       state: { purpose: 'SIGHTING', phase: 'COMPLETE' } as never,
+    });
+
+    await Promise.resolve();
+    expect(mockRepo.findById).not.toHaveBeenCalled();
+    expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('ignores an isolated MATCH acquisition owned by another workflow', async () => {
+    const mockRepo = {
+      save: vi.fn(),
+      findById: vi.fn(),
+      findBySessionId: vi.fn(),
+      findActive: vi.fn(),
+      delete: vi.fn(),
+    } satisfies ICompetitionRepository;
+    const mockEventBus = {
+      emit: vi.fn(),
+      on: vi.fn(() => vi.fn()),
+    } satisfies IEventBus;
+
+    createTimedTargetSequenceChangedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })({
+      type: 'TimedTargetSequenceChanged',
+      timestamp: Date.now(),
+      aggregateId: 'comp-1',
+      state: {
+        purpose: 'MATCH',
+        phase: 'COMPLETE',
+        executionContext: {
+          shotDisposition: 'ISOLATED',
+          owner: 'qualification-recovery',
+          referenceId: 'run-1',
+        },
+      } as never,
     });
 
     await Promise.resolve();
