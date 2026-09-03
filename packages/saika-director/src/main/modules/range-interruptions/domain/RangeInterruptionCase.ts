@@ -1,3 +1,8 @@
+import {
+  createQualificationTimedTargetInterruptionContext,
+  type QualificationTimedTargetInterruptionContext,
+} from './QualificationTimedTargetInterruptionContext';
+
 export const RANGE_INTERRUPTION_CAUSES = [
   'ATHLETE_NON_FAULT',
   'ALL_TARGET_FAILURE',
@@ -23,6 +28,7 @@ export interface CreateRangeInterruptionCaseProps {
   summary: string;
   details: string;
   openedBy: string;
+  qualificationTimedTargetContext?: QualificationTimedTargetInterruptionContext;
   createdAt?: Date;
 }
 
@@ -40,6 +46,7 @@ export class RangeInterruptionCase {
     readonly summary: string,
     readonly details: string,
     readonly openedBy: string,
+    readonly qualificationTimedTargetContext: QualificationTimedTargetInterruptionContext | null,
     readonly createdAt: Date,
   ) {
     Object.freeze(this);
@@ -63,6 +70,9 @@ export class RangeInterruptionCase {
       requiredText(props.summary, 'summary'),
       requiredText(props.details, 'details'),
       requiredText(props.openedBy, 'openedBy'),
+      props.qualificationTimedTargetContext
+        ? createQualificationTimedTargetInterruptionContext(props.qualificationTimedTargetContext)
+        : null,
       validDate(props.createdAt ?? new Date(), 'createdAt'),
     );
   }
@@ -79,6 +89,7 @@ export class RangeInterruptionCase {
     summary: string;
     details: string;
     openedBy: string;
+    qualificationTimedTargetContext: QualificationTimedTargetInterruptionContext | null;
     createdAt: Date;
   }): RangeInterruptionCase {
     validateCause(props.cause);
@@ -96,6 +107,9 @@ export class RangeInterruptionCase {
       props.summary,
       props.details,
       props.openedBy,
+      props.qualificationTimedTargetContext
+        ? createQualificationTimedTargetInterruptionContext(props.qualificationTimedTargetContext)
+        : null,
       validDate(props.createdAt, 'createdAt'),
     );
   }

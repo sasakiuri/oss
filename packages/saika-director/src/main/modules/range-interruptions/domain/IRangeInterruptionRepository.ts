@@ -3,6 +3,7 @@ import type { RangeInterruptionEntry } from './RangeInterruptionEntry';
 import type { RangeInterruptionScopeLink, RangeInterruptionScopeType } from './RangeInterruptionScopeLink';
 import type { TargetRecoveryAssessment } from './TargetRecoveryAssessment';
 import type { RangeInterruptionCommandBatch } from './RangeInterruptionCommandBatch';
+import type { QualificationTimedTargetRecoveryDecision } from './QualificationTimedTargetRecoveryDecision';
 
 export interface RangeInterruptionScope {
   scopeType: RangeInterruptionScopeType;
@@ -22,5 +23,9 @@ export interface IRangeInterruptionRepository {
   findTargetRecoveryAssessmentsByCaseIds(caseIds: readonly string[]): Map<string, TargetRecoveryAssessment[]>;
   appendCommandBatch(batch: RangeInterruptionCommandBatch, transitionEntry?: RangeInterruptionEntry): void;
   findCommandBatchesByCaseIds(caseIds: readonly string[]): Map<string, RangeInterruptionCommandBatch[]>;
+  appendQualificationTimedTargetRecoveryDecision(decision: QualificationTimedTargetRecoveryDecision): void;
+  findQualificationTimedTargetRecoveryDecisionsByCaseIds(
+    caseIds: readonly string[],
+  ): Map<string, QualificationTimedTargetRecoveryDecision[]>;
   findActiveDataHolds(scope: RangeInterruptionScope, laneId?: string): RangeInterruptionCase[];
 }

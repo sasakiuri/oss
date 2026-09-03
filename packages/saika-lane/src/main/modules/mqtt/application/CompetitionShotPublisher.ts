@@ -47,6 +47,10 @@ export class CompetitionShotPublisher {
   private async publishShot(event: ShotRecordedEvent): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
 
+    // An independent workflow owns this evidence and is responsible for its
+    // dedicated transport. Raw hardware evidence remains available separately.
+    if (event.acquisitionContext?.shotDisposition === 'ISOLATED') return;
+
     const competition = await this.competitionRepository.findActive();
     if (!competition) return;
 

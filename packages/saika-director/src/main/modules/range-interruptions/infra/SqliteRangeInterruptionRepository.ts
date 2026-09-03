@@ -2,6 +2,15 @@ import type Database from 'better-sqlite3';
 
 import type { IRangeInterruptionRepository, RangeInterruptionScope } from '../domain/IRangeInterruptionRepository';
 import {
+  createQualificationTimedTargetInterruptionContext,
+  type QualificationTimedTargetInterruptionContext,
+} from '../domain/QualificationTimedTargetInterruptionContext';
+import {
+  QualificationTimedTargetRecoveryDecision,
+  type QualificationTimedTargetAuthorizedRecovery,
+} from '../domain/QualificationTimedTargetRecoveryDecision';
+import type { QualificationTimedTargetInterruptionRecommendation } from '@sasakiuri/saika-rules';
+import {
   RangeInterruptionCase,
   type RangeInterruptionCause,
   type RangeInterruptionPhase,
@@ -31,6 +40,7 @@ interface CaseRow {
   summary: string;
   details: string;
   opened_by: string;
+  qualification_timed_target_context_json: string | null;
   created_at: string;
 }
 
@@ -85,6 +95,21 @@ interface CommandBatchRow {
   recorded_at: string;
 }
 
+interface QualificationTimedTargetRecoveryDecisionRow {
+  id: string;
+  case_id: string;
+  supersedes_decision_id: string | null;
+  recommendation_json: string;
+  authorized_recovery_json: string;
+  follows_recommendation: number;
+  statement: string;
+  official_name: string;
+  incident_report_reference: string;
+  rule_reference: string;
+  decided_at: string;
+  recorded_at: string;
+}
+
 export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepository {
   constructor(private readonly db: Database.Database) {}
 
@@ -100,16 +125,19 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
           `INSERT INTO range_interruption_cases (
              id, cause, phase, started_at, remaining_seconds_at_start,
              lane_id, firing_point_number, athlete_name, summary, details,
-             opened_by, created_at
+             opened_by, qualification_timed_target_context_json, created_at
            ) VALUES (
              @id, @cause, @phase, @startedAt, @remainingSecondsAtStart,
              @laneId, @firingPointNumber, @athleteName, @summary, @details,
-             @openedBy, @createdAt
+             @openedBy, @qualificationTimedTargetContextJson, @createdAt
            )`,
         )
         .run({
           ...interruption,
           startedAt: interruption.startedAt.toISOString(),
+          qualificationTimedTargetContextJson: interruption.qualificationTimedTargetContext
+            ? JSON.stringify(interruption.qualificationTimedTargetContext)
+            : null,
           createdAt: interruption.createdAt.toISOString(),
         });
       for (const scope of scopes) this.insertScope(scope);
@@ -259,6 +287,48 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
     );
   }
 
+  appendQualificationTimedTargetRecoveryDecision(decision: QualificationTimedTargetRecoveryDecision): void {
+    this.db
+      .prepare(
+        `INSERT INTO qualification_timed_target_recovery_decisions (
+           id, case_id, supersedes_decision_id, recommendation_json, authorized_recovery_json,
+           follows_recommendation, statement, official_name, incident_report_reference,
+           rule_reference, decided_at, recorded_at
+         ) VALUES (
+           @id, @caseId, @supersedesDecisionId, @recommendationJson, @authorizedRecoveryJson,
+           @followsRecommendation, @statement, @officialName, @incidentReportReference,
+           @ruleReference, @decidedAt, @recordedAt
+         )`,
+      )
+      .run({
+        id: decision.id,
+        caseId: decision.caseId,
+        supersedesDecisionId: decision.supersedesDecisionId,
+        recommendationJson: JSON.stringify(decision.recommendation),
+        authorizedRecoveryJson: JSON.stringify(decision.authorizedRecovery),
+        followsRecommendation: Number(decision.followsRecommendation),
+        statement: decision.statement,
+        officialName: decision.officialName,
+        incidentReportReference: decision.incidentReportReference,
+        ruleReference: decision.ruleReference,
+        decidedAt: decision.decidedAt.toISOString(),
+        recordedAt: decision.recordedAt.toISOString(),
+      });
+  }
+
+  findQualificationTimedTargetRecoveryDecisionsByCaseIds(
+    caseIds: readonly string[],
+  ): Map<string, QualificationTimedTargetRecoveryDecision[]> {
+    return this.findGrouped(
+      caseIds,
+      `SELECT * FROM qualification_timed_target_recovery_decisions
+       WHERE case_id IN (__PLACEHOLDERS__)
+       ORDER BY recorded_at, rowid`,
+      (row: QualificationTimedTargetRecoveryDecisionRow) => row.case_id,
+      toQualificationTimedTargetRecoveryDecision,
+    );
+  }
+
   findActiveDataHolds(scope: RangeInterruptionScope, laneId?: string): RangeInterruptionCase[] {
     const cases = this.findCasesByScope(scope).filter(
       (interruption) => laneId === undefined || interruption.laneId === null || interruption.laneId === laneId,
@@ -332,8 +402,18 @@ function toCase(row: CaseRow): RangeInterruptionCase {
     summary: row.summary,
     details: row.details,
     openedBy: row.opened_by,
+    qualificationTimedTargetContext:
+      row.qualification_timed_target_context_json === null
+        ? null
+        : parseQualificationTimedTargetContext(row.qualification_timed_target_context_json),
     createdAt: new Date(row.created_at),
   });
+}
+
+function parseQualificationTimedTargetContext(json: string): QualificationTimedTargetInterruptionContext {
+  return createQualificationTimedTargetInterruptionContext(
+    JSON.parse(json) as QualificationTimedTargetInterruptionContext,
+  );
 }
 
 function toScope(row: ScopeRow): RangeInterruptionScopeLink {
@@ -396,4 +476,23 @@ function toCommandBatch(row: CommandBatchRow): RangeInterruptionCommandBatch {
   if (batch.success !== (row.success === 1))
     throw new Error(`Stored range batch ${row.id} has inconsistent success state`);
   return batch;
+}
+
+function toQualificationTimedTargetRecoveryDecision(
+  row: QualificationTimedTargetRecoveryDecisionRow,
+): QualificationTimedTargetRecoveryDecision {
+  return QualificationTimedTargetRecoveryDecision.reconstruct({
+    id: row.id,
+    caseId: row.case_id,
+    supersedesDecisionId: row.supersedes_decision_id,
+    recommendation: JSON.parse(row.recommendation_json) as QualificationTimedTargetInterruptionRecommendation,
+    authorizedRecovery: JSON.parse(row.authorized_recovery_json) as QualificationTimedTargetAuthorizedRecovery,
+    followsRecommendation: row.follows_recommendation === 1,
+    statement: row.statement,
+    officialName: row.official_name,
+    incidentReportReference: row.incident_report_reference,
+    ruleReference: row.rule_reference,
+    decidedAt: new Date(row.decided_at),
+    recordedAt: new Date(row.recorded_at),
+  });
 }

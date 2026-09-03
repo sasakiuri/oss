@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
 
+const TimedTargetExecutionContextSchema = z.object({
+  shotDisposition: z.literal('ISOLATED'),
+  owner: z.string().trim().min(1).max(100),
+  referenceId: z.string().trim().min(1).max(200),
+});
+
 export const TimedTargetStateSchema = z.object({
   sequenceId: z.string().uuid(),
   competitionId: z.string().uuid(),
@@ -23,6 +29,7 @@ export const TimedTargetStateSchema = z.object({
   nextLoadAllowedAt: z.string().datetime(),
   nextTransitionAt: z.string().datetime().nullable(),
   terminalReason: z.string().nullable(),
+  executionContext: TimedTargetExecutionContextSchema.optional(),
 });
 
 export const TimedTargetStatePayloadSchema = TimedTargetStateSchema.extend({

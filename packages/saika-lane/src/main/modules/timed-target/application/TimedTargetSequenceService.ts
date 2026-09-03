@@ -112,6 +112,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
         exposureIndex: null,
         warning: null,
         reason: 'Timed target enforcement is disabled by local policy',
+        ...(contextual?.schedule.executionContext ? { executionContext: contextual.schedule.executionContext } : {}),
       });
     }
 
@@ -139,6 +140,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
         contextual.schedule.sequenceId,
         null,
         `Timed target program ${contextual.schedule.programId} does not match the expected ${expectedProgramId ?? 'sighting program'}`,
+        contextual.schedule.executionContext,
       );
     }
 
@@ -152,6 +154,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
         contextual.terminalStatus === 'CANCELLED'
           ? `Timed target sequence was cancelled: ${contextual.terminalReason ?? 'no reason recorded'}`
           : `Shot was observed during timed target phase ${projection.phase}`,
+        contextual.schedule.executionContext,
       );
     }
 
@@ -166,6 +169,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
         exposureIndex: alreadyRecorded.exposureIndex,
         warning: null,
         reason: 'Observation was already accepted in this timed target exposure',
+        ...(contextual.schedule.executionContext ? { executionContext: contextual.schedule.executionContext } : {}),
       });
     }
     const acceptedCount = contextual.acceptedShots.filter(
@@ -178,6 +182,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
         contextual.schedule.sequenceId,
         projection.exposureIndex,
         `Exposure ${projection.exposureIndex + 1} already contains its maximum of ${exposure.maximumShots} shot(s)`,
+        contextual.schedule.executionContext,
       );
     }
 
@@ -199,6 +204,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
       exposureIndex: projection.exposureIndex,
       warning: null,
       reason: 'Shot is inside the valid EST recording window',
+      ...(contextual.schedule.executionContext ? { executionContext: contextual.schedule.executionContext } : {}),
     });
   }
 
@@ -218,6 +224,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     sequenceId: string | null,
     exposureIndex: number | null,
     reason: string,
+    executionContext?: TimedTargetState['executionContext'],
   ): TimedTargetShotDecision {
     const allowed = this.enforcementMode === 'ADVISORY';
     return decision({
@@ -228,6 +235,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
       exposureIndex,
       warning: allowed ? reason : null,
       reason,
+      ...(executionContext ? { executionContext } : {}),
     });
   }
 
@@ -303,6 +311,9 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
             ? new Date(projected.nextTransitionAt.getTime())
             : null,
       terminalReason: record.terminalReason,
+      ...(record.schedule.executionContext
+        ? { executionContext: Object.freeze({ ...record.schedule.executionContext }) }
+        : {}),
     });
   }
 

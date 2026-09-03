@@ -112,6 +112,28 @@ describe('createRecordShotHandler', () => {
       );
     });
 
+    it('emits an isolated acquisition without storing it in the ordinary Session', async () => {
+      const acquisitionContext = {
+        shotDisposition: 'ISOLATED' as const,
+        owner: 'qualification-recovery',
+        referenceId: 'recovery-run-1',
+      };
+      (mockSessionRepository.findById as any).mockResolvedValue(testSession);
+      (mockScoreService.calculateScore as any).mockReturnValue(new Score(105));
+
+      await handler({
+        sessionId: testSession.id,
+        impactPoint: new ImpactPoint(5.2, -3.8),
+        timestamp: new Date(),
+        acquisitionContext,
+      });
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'ShotRecorded', acquisitionContext }),
+      );
+      expect(mockSessionRepository.saveShot).not.toHaveBeenCalled();
+    });
+
     it('should record multiple impact points sequentially', async () => {
       const impactPoint1 = new ImpactPoint(5.2, -3.8);
       const impactPoint2 = new ImpactPoint(-2.1, 4.5);

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
+
 export type TimedTargetSignal = 'RED' | 'GREEN';
 export type TimedTargetSequencePhase =
   'ARMED' | 'LOAD' | 'ATTENTION' | 'FIRING' | 'AFTER_TIME' | 'BETWEEN_EXPOSURES' | 'COMPLETE' | 'CANCELLED';
@@ -28,6 +30,7 @@ export interface TimedTargetSchedule {
   readonly exposures: readonly ScheduledTimedTargetExposure[];
   readonly completesAt: Date;
   readonly nextLoadAllowedAt: Date;
+  readonly executionContext?: TimedTargetExecutionContext;
 }
 
 export interface TimedTargetProjection {
@@ -63,6 +66,7 @@ export function buildTimedTargetSchedule(input: {
   seriesIndex: number;
   targetProfileId: string;
   loadAt: Date;
+  executionContext?: TimedTargetExecutionContext;
 }): TimedTargetSchedule {
   assertValidDate(input.loadAt, 'loadAt');
   const attentionAtMs = input.loadAt.getTime() + input.program.loadPreparationSeconds * 1_000;
@@ -96,6 +100,7 @@ export function buildTimedTargetSchedule(input: {
     exposures,
     completesAt,
     nextLoadAllowedAt: new Date(completesAt.getTime() + input.program.minimumPauseAfterSeconds * 1_000),
+    ...(input.executionContext ? { executionContext: validateExecutionContext(input.executionContext) } : {}),
   });
 }
 
@@ -163,6 +168,7 @@ export function parseTimedTargetSchedule(payload: string): TimedTargetSchedule {
       redAt: requiredDate(exposure.redAt, 'redAt'),
       recordingClosesAt: requiredDate(exposure.recordingClosesAt, 'recordingClosesAt'),
     })),
+    ...(value.executionContext ? { executionContext: validateExecutionContext(value.executionContext) } : {}),
   });
 }
 
@@ -193,7 +199,20 @@ function freezeSchedule(schedule: TimedTargetSchedule): TimedTargetSchedule {
         }),
       ),
     ),
+    ...(schedule.executionContext ? { executionContext: Object.freeze({ ...schedule.executionContext }) } : {}),
   });
+}
+
+function validateExecutionContext(context: TimedTargetExecutionContext): TimedTargetExecutionContext {
+  if (context.shotDisposition !== 'ISOLATED') throw new Error('Timed target shotDisposition is invalid');
+  const owner = context.owner.trim();
+  const referenceId = context.referenceId.trim();
+  if (!owner) throw new Error('Timed target execution context owner is required');
+  if (owner.length > 100) throw new Error('Timed target execution context owner must not exceed 100 characters');
+  if (!referenceId) throw new Error('Timed target execution context referenceId is required');
+  if (referenceId.length > 200)
+    throw new Error('Timed target execution context referenceId must not exceed 200 characters');
+  return Object.freeze({ shotDisposition: 'ISOLATED', owner, referenceId });
 }
 
 function requiredDate(value: string, name: string): Date {

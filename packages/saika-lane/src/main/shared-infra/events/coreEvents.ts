@@ -13,9 +13,11 @@
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import type { Phase } from '@/main/modules/competition/domain/Phase';
 import type { CompetitionCuePayload } from '@/main/modules/mqtt/domain/MqttCompetitionCueSchemas';
+import type { QualificationRecoveryRunRecord } from '@/main/modules/qualification-recovery/domain/QualificationRecoveryRun';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { Shot } from '@/main/modules/session/domain/Shot';
+import type { ShotAcquisitionContext } from '@/main/modules/session/domain/ShotAcquisitionContext';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type { TimedTargetState } from '@/main/modules/timed-target';
 
@@ -31,6 +33,7 @@ export interface ShotRecordedEvent extends DomainEvent {
   readonly shot: Shot;
   readonly scoringMode: 'RING' | 'DECIMAL';
   readonly rawScore?: number; // Only when RING mode and flooring occurs
+  readonly acquisitionContext?: ShotAcquisitionContext;
 }
 
 export interface ModeSwitchedEvent extends DomainEvent {
@@ -142,6 +145,11 @@ export interface TimedTargetSequenceChangedEvent extends DomainEvent {
   readonly state: TimedTargetState;
 }
 
+export interface QualificationRecoveryChangedEvent extends DomainEvent {
+  readonly type: 'QualificationRecoveryChanged';
+  readonly state: QualificationRecoveryRunRecord;
+}
+
 // ── MQTT Events ──
 
 export interface MqttConnectedEvent extends DomainEvent {
@@ -179,6 +187,7 @@ declare module './EventBus' {
     SafetyStopChanged: SafetyStopChangedEvent;
     ShotObservationRouted: ShotObservationRoutedEvent;
     TimedTargetSequenceChanged: TimedTargetSequenceChangedEvent;
+    QualificationRecoveryChanged: QualificationRecoveryChangedEvent;
     MqttConnected: MqttConnectedEvent;
     MqttDisconnected: MqttDisconnectedEvent;
     CompetitionCueChanged: CompetitionCueChangedEvent;

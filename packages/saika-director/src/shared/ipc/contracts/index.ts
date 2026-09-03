@@ -145,6 +145,11 @@ export type {
   TargetRecoveryAssessmentDto,
   RangeInterruptionCommandBatchDto,
   IssfInterruptionRecommendationDto,
+  QualificationTimedTargetContextDto,
+  QualificationTimedTargetInterruptionRecommendationDto,
+  QualificationTimedTargetRecoveryDecisionDto,
+  QualificationRecoveryExecutionDto,
+  QualificationRecoverySettlementDto,
   RangeInterruptionCaseDto,
   RangeInterruptionScopePayload,
   CreateRangeInterruptionCasePayload,
@@ -152,6 +157,11 @@ export type {
   AppendRangeInterruptionEntryPayload,
   RecordTargetRecoveryAssessmentPayload,
   RecordRangeCommandBatchPayload,
+  RecordQualificationTimedTargetRecoveryDecisionPayload,
+  StartQualificationRecoveryExecutionPayload,
+  CancelQualificationRecoveryExecutionPayload,
+  AdjudicateQualificationRecoveryExecutionPayload,
+  ApplyQualificationRecoverySettlementPayload,
 } from './rangeInterruptions.contract';
 
 export type {

@@ -87,6 +87,10 @@ Mixed Team Final はteam pairを抽選し、Coachがprotest time終了前にRTS 
 | `pause-timer`                                | 競技内 Lane 個別       | 中断 ID と正確な残り時間を永続化                       |
 | `resume-timer`                               | 競技内 Lane 個別       | official grant の時間・mode で再開                     |
 | `resume-match`                               | 競技内 Lane 個別       | 追加試射後に MATCH mode へ復帰                         |
+| `start-qualification-recovery`               | 競技内 Lane 個別       | Rule 8.8.1 の許可射撃を score から隔離して開始         |
+| `cancel-qualification-recovery`              | 競技内 Lane 個別       | 進行中の許可射撃を理由付きで取消                       |
+| `apply-qualification-recovery`               | 競技内 Lane 個別       | 完了した series recovery evidence を明示裁定           |
+| `settle-qualification-recovery`              | 競技内 Lane 個別       | 完了済み series を無射撃・無再採点で確定               |
 | `retire-finalist`                            | 競技内 Lane 個別       | Final snapshot を確定して競技終了                      |
 | `start-sighting` / `end-sighting`            | 競技ブロードキャスト   | 試射開始・終了                                         |
 | `start-match`                                | 競技ブロードキャスト   | 本射ステージと最初のシリーズを開始                     |
@@ -195,6 +199,28 @@ window 外の shot は元 observation を保持したまま `REJECTED_TIMED_TARG
 competition interruption は active sequence を cancel して red に戻します。物理 lamp／turning-target adapter と音声 `UNLOAD` は
 この MQTT sequence には含まれません。
 
+### Rule 8.8.1 Qualification recovery
+
+Director の interruption ledger に保存した最新 official decision は、それだけでは Lane を動作させません。追加 sighting または
+annul-and-repeat／remaining-shot completion を実施するときだけ、Director は一意な `runId` と decision／interruption、snapshot 済みの
+stage／series／program／shot count、許可内容、絶対 `loadAt` を `start-qualification-recovery` で対象 Lane へ送ります。
+Lane は retained competition／interruption state とローカル Rule Pack を照合し、通常の MATCH acquisition から隔離した sequence として実行します。
+
+Lane は run の現在状態を
+`saika/competition/{competitionId}/lane/{laneId}/qualification-recovery/state` に Retain 付きで発行します。各 recovery shot の座標、
+装置点、計算点、採用点、発射／受信時刻、observation ID は
+`saika/competition/{competitionId}/lane/{laneId}/qualification-recovery/shot` に Retain なしで発行し、Director も run の immutable binding と
+一致する delivery だけを追記保存します。安全停止等で中止するときは `cancel-qualification-recovery` を別途送ります。
+
+series recovery は全 recording window が終了し、Retain state 内の shot ID と Director の受信 evidence が一致した後にだけ
+`apply-qualification-recovery` を送れます。Lane はここで初めて `ANNUL_AND_REPEAT` または `COMPLETE_REMAINING_SHOTS` を MATCH score へ反映し、
+発射されなかった許可発数を miss として補います。追加 sighting にはこの command を使用せず、得点へ反映しません。
+
+`KEEP_RECORDED_SERIES` は firing command や adjudication command を使用せず、`settle-qualification-recovery` で処理します。Lane は full series と
+同一 session の shot evidence を検証・snapshot し、得点 row を変更せず series を完了して一致する pause を解除します。射撃制御
+（start／cancel）、採点裁定、無射撃確定は三つの application port に分かれます。retry は Director に保存済みの同じ immutable run／request を使い、
+Lane が受理済みの run では元の `loadAt`、adjudication／settlement では最初に保存した `appliedAt` を再利用します。
+
 開始系コマンドの `timerStartAt` は、既定で送信時刻の 3 秒後です。Lane は受信直後ではなくこの絶対時刻まで
 待ってからタイマーを開始します。各 PC の時刻同期が前提です。
 試射開始を未完了の Lane だけに再送する場合は、最初の試射開始と同じ `timerStartAt` を再利用し、競技内の残り時間を
@@ -222,6 +248,7 @@ Director は `start-sighting`、`start-match`、`timer-started` の開始時刻�
 - 各 Lane の competition-independent safety latch、停止理由、timer snapshot、clearance evidence
 - 各 Lane の active／cleared Range Officer request
 - 各 Lane の 25m timed-target sequence、signal、window、次回 LOAD 下限
+- 各 Lane の Qualification recovery run、許可内容、isolated shot ID、完了／取消状態
 - 各 Lane の選手割当
 - 各 Lane の集計スコア
 - 各 Lane のハードウェア接続状態

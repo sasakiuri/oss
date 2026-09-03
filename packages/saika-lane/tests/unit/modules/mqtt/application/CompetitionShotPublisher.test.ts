@@ -178,6 +178,27 @@ describe('CompetitionShotPublisher', () => {
     );
   });
 
+  it('leaves an isolated acquisition to its owning publisher', async () => {
+    const event: ShotRecordedEvent = {
+      type: 'ShotRecorded',
+      timestamp: Date.now(),
+      aggregateId: 'session-uuid',
+      shot: createSightingShot(),
+      scoringMode: 'DECIMAL',
+      acquisitionContext: {
+        shotDisposition: 'ISOLATED',
+        owner: 'qualification-recovery',
+        referenceId: 'recovery-run-1',
+      },
+    };
+
+    (eventBus as { emit: Function }).emit(event);
+    await Promise.resolve();
+
+    expect(competitionRepository.findActive).not.toHaveBeenCalled();
+    expect(mqttClient.publish).not.toHaveBeenCalled();
+  });
+
   it('should include correct payload fields', async () => {
     const shot = createMatchShot();
     const event: ShotRecordedEvent = {

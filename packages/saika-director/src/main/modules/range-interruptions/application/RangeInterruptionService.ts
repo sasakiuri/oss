@@ -9,12 +9,23 @@ import type {
   RangeInterruptionScopePayload,
   RecordTargetRecoveryAssessmentPayload,
   RecordRangeCommandBatchPayload,
+  RecordQualificationTimedTargetRecoveryDecisionPayload,
   TargetRecoveryAssessmentDto,
+  QualificationTimedTargetRecoveryDecisionDto,
+  QualificationRecoveryExecutionDto,
+  QualificationRecoverySettlementDto,
 } from '@/shared/ipc/contracts';
+import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 
 import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
-import { recommendIssfInterruption } from '../domain/IssfInterruptionPolicy';
+import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
+import type { QualificationRecoveryExecutionRecord } from '../domain/QualificationRecoveryExecution';
+import type { IQualificationRecoverySettlementRepository } from '../domain/IQualificationRecoverySettlementRepository';
+import type { QualificationRecoverySettlementRecord } from '../domain/QualificationRecoverySettlement';
+import { createQualificationTimedTargetInterruptionContext } from '../domain/QualificationTimedTargetInterruptionContext';
+import { QualificationTimedTargetRecoveryDecision } from '../domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionCase } from '../domain/RangeInterruptionCase';
+import { recommendRangeInterruption } from '../domain/RangeInterruptionRecommendationPolicy';
 import {
   getRangeInterruptionState,
   RangeInterruptionEntry,
@@ -30,7 +41,15 @@ import {
 
 /** Coordinates the independent, append-only interruption ledger and recommendation policy. */
 export class RangeInterruptionService {
-  constructor(private readonly repository: IRangeInterruptionRepository) {}
+  constructor(
+    private readonly repository: IRangeInterruptionRepository,
+    private readonly competitionTypes?: CompetitionTypeRegistry,
+    private readonly qualificationRecoveryExecutions?: Pick<IQualificationRecoveryExecutionRepository, 'findByCaseIds'>,
+    private readonly qualificationRecoverySettlements?: Pick<
+      IQualificationRecoverySettlementRepository,
+      'findByCaseIds'
+    >,
+  ) {}
 
   async listAll(): Promise<RangeInterruptionCaseDto[]> {
     return this.projectCases(this.repository.findAllCases());
@@ -46,9 +65,13 @@ export class RangeInterruptionService {
 
   async create(input: CreateRangeInterruptionCasePayload): Promise<RangeInterruptionCaseDto> {
     validateUniqueScopes(input.scopes);
+    const { qualificationTimedTargetContext: requestedContext, ...caseInput } = input;
     const interruption = RangeInterruptionCase.create({
-      ...input,
+      ...caseInput,
       startedAt: new Date(input.startedAt),
+      ...(requestedContext
+        ? { qualificationTimedTargetContext: this.resolveQualificationTimedTargetContext(input, requestedContext) }
+        : {}),
     });
     const scopes = input.scopes.map((scope) =>
       RangeInterruptionScopeLink.create({
@@ -59,7 +82,57 @@ export class RangeInterruptionService {
       }),
     );
     this.repository.appendCase(interruption, scopes);
-    return toDto(interruption, scopes, [], [], []);
+    return toDto(interruption, scopes, [], [], [], [], [], []);
+  }
+
+  private resolveQualificationTimedTargetContext(
+    input: CreateRangeInterruptionCasePayload,
+    requested: NonNullable<CreateRangeInterruptionCasePayload['qualificationTimedTargetContext']>,
+  ) {
+    if (input.cause !== 'ATHLETE_NON_FAULT') {
+      throw new Error('ISSF 8.8.1 Qualification recovery applies only to a safety or technical interruption');
+    }
+    if (input.phase !== 'MATCH') {
+      throw new Error('Qualification series recovery requires a MATCH interruption');
+    }
+    if (!input.laneId) throw new Error('Qualification series recovery requires an affected Lane');
+    if (!this.competitionTypes) throw new Error('Competition type policy registry is unavailable');
+
+    const definition = this.competitionTypes.get(requested.competitionTypeId);
+    const recovery = definition.timedTarget?.recovery;
+    if (recovery?.procedure !== 'QUALIFICATION') {
+      throw new Error(`Competition type ${definition.id} has no Qualification timed-target recovery policy`);
+    }
+    const stage = definition.config.stages[requested.stageIndex];
+    if (!stage || stage.type !== 'match' || !stage.id) {
+      throw new Error(`Competition type ${definition.id} has no MATCH stage ${requested.stageIndex}`);
+    }
+    const series = stage.series[requested.seriesIndex];
+    if (!series?.timedTargetProgramId || series.shots <= 0) {
+      throw new Error(
+        `Competition type ${definition.id} has no timed series at ${requested.stageIndex}:${requested.seriesIndex}`,
+      );
+    }
+    const identity = definition.rulePackIdentity;
+    return createQualificationTimedTargetInterruptionContext({
+      competitionTypeId: definition.id,
+      rulePack: identity
+        ? {
+            id: identity.id,
+            schemaVersion: identity.schemaVersion,
+            fingerprintSha256: identity.fingerprint.value,
+          }
+        : null,
+      stageId: stage.id,
+      stageIndex: requested.stageIndex,
+      seriesIndex: requested.seriesIndex,
+      timedTargetProgramId: series.timedTargetProgramId,
+      seriesShotLimit: series.shots,
+      recordedShots: requested.recordedShots,
+      seriesComplete: requested.seriesComplete,
+      laneSnapshotCapturedAt: requested.laneSnapshotCapturedAt,
+      recoveryCapability: recovery,
+    });
   }
 
   async linkScope(input: LinkRangeInterruptionScopePayload): Promise<RangeInterruptionCaseDto> {
@@ -83,6 +156,35 @@ export class RangeInterruptionService {
     const { interruption, state } = this.requireChangeableCase(input.caseId, {
       allowClosed: input.type === 'REOPENED' || input.type === 'VOID',
     });
+    if (
+      interruption.qualificationTimedTargetContext &&
+      (input.type === 'TIME_GRANTED' || input.type === 'RESUME_APPLIED' || input.type === 'MATCH_RESUMED')
+    ) {
+      throw new Error('Qualification timed-target recovery must use its separate decision and execution workflow');
+    }
+    if (interruption.qualificationTimedTargetContext && input.type === 'CLOSED') {
+      const decisions =
+        this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId]).get(input.caseId) ?? [];
+      const decision = decisions.at(-1);
+      if (!decision) {
+        throw new Error('Record an official Qualification recovery decision before closing this interruption');
+      }
+      if (decision.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES') {
+        const settlement = this.requireQualificationSettlements(input.caseId).find(
+          (candidate) => candidate.decisionId === decision.id,
+        );
+        if (settlement?.status !== 'APPLIED') {
+          throw new Error('Apply the Qualification retain-series settlement before closing this interruption');
+        }
+      } else {
+        const seriesExecution = this.requireQualificationExecutions(input.caseId).find(
+          (execution) => execution.decisionId === decision.id && execution.phase === 'SERIES_RECOVERY',
+        );
+        if (seriesExecution?.status !== 'ADJUDICATED') {
+          throw new Error('Adjudicate the authorized Qualification series recovery before closing this interruption');
+        }
+      }
+    }
     validateTransition(input.type, state);
 
     const occurredAt = new Date(input.occurredAt);
@@ -121,6 +223,72 @@ export class RangeInterruptionService {
         ...input,
         repairCompletedAt,
         assessedAt: input.assessedAt ? new Date(input.assessedAt) : undefined,
+      }),
+    );
+    return this.getById(input.caseId);
+  }
+
+  async recordQualificationTimedTargetRecoveryDecision(
+    input: RecordQualificationTimedTargetRecoveryDecisionPayload,
+  ): Promise<RangeInterruptionCaseDto> {
+    const { interruption, state } = this.requireChangeableCase(input.caseId);
+    if (!interruption.qualificationTimedTargetContext) {
+      throw new Error('This interruption has no Qualification timed-target policy snapshot');
+    }
+    if (state.status !== 'ENDED') {
+      throw new Error('End the interruption before recording a Qualification recovery decision');
+    }
+    if (state.endedEntry?.lostTimeSeconds === null || state.endedEntry === null) {
+      throw new Error('The interruption has no measured lost time');
+    }
+    const recommendation = recommendRangeInterruption(interruption, state.endedEntry.lostTimeSeconds);
+    if (recommendation.type !== 'QUALIFICATION_TIMED_TARGET') {
+      throw new Error('A Qualification timed-target recommendation is unavailable');
+    }
+
+    const prior =
+      this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId]).get(input.caseId) ?? [];
+    const latest = prior.at(-1) ?? null;
+    if (latest && input.supersedesDecisionId !== latest.id) {
+      throw new Error(`A new decision must supersede the latest decision ${latest.id}`);
+    }
+    if (!latest && input.supersedesDecisionId !== undefined) {
+      throw new Error('The first recovery decision must not supersede another decision');
+    }
+    if (latest && this.requireQualificationExecutions(input.caseId).some(blocksDecisionSupersession)) {
+      throw new Error(
+        'A Qualification recovery decision cannot be superseded while an execution remains active or requires adjudication',
+      );
+    }
+    if (
+      latest &&
+      latest.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES' &&
+      this.requireQualificationSettlements(input.caseId).some((settlement) => settlement.decisionId === latest.id)
+    ) {
+      throw new Error('A Qualification recovery decision cannot be superseded after settlement was requested');
+    }
+
+    validateAuthorizedRecoveryForContext(
+      interruption.qualificationTimedTargetContext,
+      input.authorizedRecovery.seriesRecovery,
+    );
+
+    const decidedAt = input.decidedAt ? new Date(input.decidedAt) : new Date();
+    if (decidedAt.getTime() < state.endedEntry.occurredAt.getTime()) {
+      throw new Error('A Qualification recovery decision cannot precede the end of the interruption');
+    }
+    this.repository.appendQualificationTimedTargetRecoveryDecision(
+      QualificationTimedTargetRecoveryDecision.create({
+        id: input.id,
+        caseId: input.caseId,
+        ...(input.supersedesDecisionId ? { supersedesDecisionId: input.supersedesDecisionId } : {}),
+        recommendation,
+        authorizedRecovery: input.authorizedRecovery,
+        statement: input.statement,
+        officialName: input.officialName,
+        incidentReportReference: input.incidentReportReference,
+        ruleReference: input.ruleReference,
+        decidedAt,
       }),
     );
     return this.getById(input.caseId);
@@ -185,6 +353,20 @@ export class RangeInterruptionService {
     return interruption;
   }
 
+  private requireQualificationExecutions(caseId: string): QualificationRecoveryExecutionRecord[] {
+    if (!this.qualificationRecoveryExecutions) {
+      throw new Error('Qualification recovery execution status is unavailable');
+    }
+    return this.qualificationRecoveryExecutions.findByCaseIds([caseId]).get(caseId) ?? [];
+  }
+
+  private requireQualificationSettlements(caseId: string): QualificationRecoverySettlementRecord[] {
+    if (!this.qualificationRecoverySettlements) {
+      throw new Error('Qualification recovery settlement status is unavailable');
+    }
+    return this.qualificationRecoverySettlements.findByCaseIds([caseId]).get(caseId) ?? [];
+  }
+
   private requireChangeableCase(
     caseId: string,
     options: { allowClosed?: boolean } = {},
@@ -205,6 +387,9 @@ export class RangeInterruptionService {
     const entries = this.repository.findEntriesByCaseIds(ids);
     const targetRecoveryAssessments = this.repository.findTargetRecoveryAssessmentsByCaseIds(ids);
     const commandBatches = this.repository.findCommandBatchesByCaseIds(ids);
+    const qualificationDecisions = this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds(ids);
+    const qualificationExecutions = this.qualificationRecoveryExecutions?.findByCaseIds(ids) ?? new Map();
+    const qualificationSettlements = this.qualificationRecoverySettlements?.findByCaseIds(ids) ?? new Map();
     return interruptions.map((interruption) =>
       toDto(
         interruption,
@@ -212,6 +397,9 @@ export class RangeInterruptionService {
         entries.get(interruption.id) ?? [],
         targetRecoveryAssessments.get(interruption.id) ?? [],
         commandBatches.get(interruption.id) ?? [],
+        qualificationDecisions.get(interruption.id) ?? [],
+        qualificationExecutions.get(interruption.id) ?? [],
+        qualificationSettlements.get(interruption.id) ?? [],
       ),
     );
   }
@@ -262,6 +450,33 @@ function elapsedSeconds(startedAt: Date, endedAt: Date): number {
   return Math.ceil(elapsedMs / 1000);
 }
 
+function blocksDecisionSupersession(execution: QualificationRecoveryExecutionRecord): boolean {
+  if (execution.status === 'CANCELLED') return false;
+  return execution.phase !== 'EXTRA_SIGHTING' || execution.status !== 'COMPLETED';
+}
+
+function validateAuthorizedRecoveryForContext(
+  context: NonNullable<RangeInterruptionCase['qualificationTimedTargetContext']>,
+  recovery: QualificationTimedTargetRecoveryDecision['authorizedRecovery']['seriesRecovery'],
+): void {
+  if (recovery.treatment === 'KEEP_RECORDED_SERIES') {
+    if (context.recordedShots !== context.seriesShotLimit) {
+      throw new Error('KEEP_RECORDED_SERIES requires every series shot to be recorded');
+    }
+    return;
+  }
+  if (recovery.shotsToFire <= 0) {
+    throw new Error('A series recovery must authorize at least one shot');
+  }
+  const creditedShots =
+    recovery.treatment === 'ANNUL_AND_REPEAT' ? recovery.shotsToFire : context.recordedShots + recovery.shotsToFire;
+  if (creditedShots !== context.seriesShotLimit) {
+    throw new Error(
+      `The authorized recovery credits ${creditedShots} shot(s), but the interrupted series requires ${context.seriesShotLimit}`,
+    );
+  }
+}
+
 function defaultRuleReference(cause: RangeInterruptionCase['cause']): string {
   if (cause === 'ALL_TARGET_FAILURE') return 'ISSF 6.10.9.1';
   if (cause === 'SINGLE_TARGET_FAILURE') return 'ISSF 6.10.9.2';
@@ -274,16 +489,23 @@ function toDto(
   entries: readonly RangeInterruptionEntry[],
   targetRecoveryAssessments: readonly TargetRecoveryAssessment[],
   commandBatches: readonly RangeInterruptionCommandBatch[],
+  qualificationDecisions: readonly QualificationTimedTargetRecoveryDecision[],
+  qualificationExecutions: readonly QualificationRecoveryExecutionRecord[],
+  qualificationSettlements: readonly QualificationRecoverySettlementRecord[],
 ): RangeInterruptionCaseDto {
   const state = getRangeInterruptionState(entries);
   const recommendation =
     state.endedEntry?.lostTimeSeconds === null || state.endedEntry === null
       ? null
-      : recommendIssfInterruption(
+      : recommendRangeInterruption(
           interruption,
           state.endedEntry.lostTimeSeconds,
           targetRecoveryAssessments.at(-1) ?? null,
         );
+  const recommendationDto =
+    recommendation?.type === 'QUALIFICATION_TIMED_TARGET'
+      ? { ...recommendation, ruleReferences: [...recommendation.ruleReferences] }
+      : recommendation;
   return {
     id: interruption.id,
     cause: interruption.cause,
@@ -301,9 +523,114 @@ function toDto(
     entries: entries.map(toEntryDto),
     targetRecoveryAssessments: targetRecoveryAssessments.map(toTargetRecoveryAssessmentDto),
     commandBatches: commandBatches.map(toCommandBatchDto),
+    qualificationTimedTargetContext: interruption.qualificationTimedTargetContext
+      ? {
+          competitionTypeId: interruption.qualificationTimedTargetContext.competitionTypeId,
+          rulePack: interruption.qualificationTimedTargetContext.rulePack,
+          stageId: interruption.qualificationTimedTargetContext.stageId,
+          stageIndex: interruption.qualificationTimedTargetContext.stageIndex,
+          seriesIndex: interruption.qualificationTimedTargetContext.seriesIndex,
+          timedTargetProgramId: interruption.qualificationTimedTargetContext.timedTargetProgramId,
+          seriesShotLimit: interruption.qualificationTimedTargetContext.seriesShotLimit,
+          recordedShots: interruption.qualificationTimedTargetContext.recordedShots,
+          seriesComplete: interruption.qualificationTimedTargetContext.seriesComplete,
+          laneSnapshotCapturedAt: interruption.qualificationTimedTargetContext.laneSnapshotCapturedAt,
+        }
+      : null,
+    qualificationTimedTargetRecoveryDecisions: qualificationDecisions.map(toQualificationRecoveryDecisionDto),
+    qualificationRecoveryExecutions: qualificationExecutions.map(toQualificationRecoveryExecutionDto),
+    qualificationRecoverySettlements: qualificationSettlements.map(toQualificationRecoverySettlementDto),
     status: state.status,
     dataHoldActive: state.dataHoldActive,
-    recommendation,
+    recommendation: recommendationDto,
+  };
+}
+
+function toQualificationRecoverySettlementDto(
+  settlement: QualificationRecoverySettlementRecord,
+): QualificationRecoverySettlementDto {
+  return {
+    settlementId: settlement.settlementId,
+    caseId: settlement.caseId,
+    decisionId: settlement.decisionId,
+    competitionId: settlement.competitionId,
+    laneId: settlement.laneId,
+    treatment: settlement.treatment,
+    stageIndex: settlement.stageIndex,
+    seriesIndex: settlement.seriesIndex,
+    expectedMatchProgramId: settlement.expectedMatchProgramId,
+    expectedSeriesShotLimit: settlement.expectedSeriesShotLimit,
+    expectedRecordedShots: settlement.expectedRecordedShots,
+    decisionOfficialName: settlement.decisionOfficialName,
+    decisionRuleReference: settlement.decisionRuleReference,
+    decidedAt: settlement.decidedAt.toISOString(),
+    appliedBy: settlement.appliedBy,
+    statement: settlement.statement,
+    appliedAt: settlement.appliedAt.toISOString(),
+    requestedAt: settlement.requestedAt.toISOString(),
+    status: settlement.status,
+    events: settlement.events.map((event) => ({
+      id: event.id,
+      type: event.type,
+      payload: event.payload,
+      occurredAt: event.occurredAt.toISOString(),
+      recordedAt: event.recordedAt.toISOString(),
+    })),
+  };
+}
+
+function toQualificationRecoveryExecutionDto(
+  execution: QualificationRecoveryExecutionRecord,
+): QualificationRecoveryExecutionDto {
+  return {
+    runId: execution.runId,
+    caseId: execution.caseId,
+    decisionId: execution.decisionId,
+    competitionId: execution.competitionId,
+    laneId: execution.laneId,
+    phase: execution.phase,
+    stageIndex: execution.stageIndex,
+    seriesIndex: execution.seriesIndex,
+    expectedMatchProgramId: execution.expectedMatchProgramId,
+    expectedSeriesShotLimit: execution.expectedSeriesShotLimit,
+    expectedRecordedShots: execution.expectedRecordedShots,
+    authorization: execution.authorization,
+    officialName: execution.officialName,
+    decisionRuleReference: execution.decisionRuleReference,
+    decidedAt: execution.decidedAt.toISOString(),
+    requestedAt: execution.requestedAt.toISOString(),
+    status: execution.status,
+    latestLaneState: execution.latestLaneState,
+    shots: [...execution.shots],
+    events: execution.events.map((event) => ({
+      id: event.id,
+      type: event.type,
+      payload: event.payload,
+      occurredAt: event.occurredAt.toISOString(),
+      recordedAt: event.recordedAt.toISOString(),
+    })),
+  };
+}
+
+function toQualificationRecoveryDecisionDto(
+  decision: QualificationTimedTargetRecoveryDecision,
+): QualificationTimedTargetRecoveryDecisionDto {
+  return {
+    id: decision.id,
+    caseId: decision.caseId,
+    supersedesDecisionId: decision.supersedesDecisionId,
+    recommendation: { ...decision.recommendation, ruleReferences: [...decision.recommendation.ruleReferences] },
+    authorizedRecovery: {
+      extraSightingSeriesShots: decision.authorizedRecovery.extraSightingSeriesShots,
+      seriesRecovery: decision.authorizedRecovery.seriesRecovery,
+    },
+    followsRecommendation: decision.followsRecommendation,
+    statement: decision.statement,
+    officialName: decision.officialName,
+    incidentReportReference: decision.incidentReportReference,
+    ruleReference: decision.ruleReference,
+    decidedAt: decision.decidedAt.toISOString(),
+    recordedAt: decision.recordedAt.toISOString(),
   };
 }
 

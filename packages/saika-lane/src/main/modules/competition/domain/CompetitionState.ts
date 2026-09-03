@@ -282,6 +282,73 @@ export class CompetitionState {
   }
 
   /**
+   * Applies an already-authorized Qualification recovery result.
+   *
+   * Scoring evidence is persisted by the recovery boundary. This transition
+   * only reconciles the competition state machine after that durable write.
+   */
+  applyQualificationRecovery(input: {
+    programId: string;
+    treatment: 'ANNUL_AND_REPEAT' | 'COMPLETE_REMAINING_SHOTS';
+    expectedRecordedShots: number;
+    authorizedShots: number;
+  }): CompetitionState {
+    this.assertNotFinished();
+    if (
+      (this.phase !== 'ACTIVE' && this.phase !== 'SERIES_COMPLETE') ||
+      this.currentSeriesConfig.timedTargetProgramId !== input.programId
+    ) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Cannot apply Qualification recovery for ${input.programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
+      });
+    }
+
+    const maxShots = this.currentSeriesConfig.maxShots;
+    const creditedSeriesShots =
+      input.treatment === 'ANNUL_AND_REPEAT'
+        ? input.authorizedShots
+        : input.expectedRecordedShots + input.authorizedShots;
+    if (creditedSeriesShots !== maxShots) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Qualification recovery credits ${creditedSeriesShots} shot(s), but this series requires ${maxShots}`,
+      });
+    }
+    if (this.seriesShotCount === maxShots && this.phase === 'SERIES_COMPLETE') return this;
+    if (this.seriesShotCount !== input.expectedRecordedShots) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Qualification recovery expected ${input.expectedRecordedShots} recorded shot(s), but the Lane has ${this.seriesShotCount}`,
+      });
+    }
+
+    return this.with({
+      phase: 'SERIES_COMPLETE',
+      seriesShotCount: maxShots,
+      timer: Timer.create(0),
+    });
+  }
+
+  /** Settles a full recorded Qualification series without entering the firing or scoring paths. */
+  keepRecordedQualificationSeries(input: { programId: string; expectedRecordedShots: number }): CompetitionState {
+    this.assertNotFinished();
+    if (
+      (this.phase !== 'ACTIVE' && this.phase !== 'SERIES_COMPLETE') ||
+      this.currentSeriesConfig.timedTargetProgramId !== input.programId
+    ) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Cannot retain Qualification series for ${input.programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
+      });
+    }
+    const maxShots = this.currentSeriesConfig.maxShots;
+    if (input.expectedRecordedShots !== maxShots || this.seriesShotCount !== maxShots) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Qualification retain-series decision requires ${maxShots} recorded shot(s), but the Lane has ${this.seriesShotCount}`,
+      });
+    }
+    if (this.phase === 'SERIES_COMPLETE') return this;
+    return this.with({ phase: 'SERIES_COMPLETE', timer: Timer.create(0) });
+  }
+
+  /**
    * Handles timer expiry (ACTIVE → SERIES_COMPLETE)
    *
    * Transitions to SERIES_COMPLETE regardless of series mode or stage mode.

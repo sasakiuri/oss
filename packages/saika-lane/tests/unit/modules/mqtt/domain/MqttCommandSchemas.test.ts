@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AdvanceSeriesCmdSchema,
+  ApplyQualificationRecoveryCmdSchema,
   AssignAthleteCmdSchema,
+  CancelQualificationRecoveryCmdSchema,
   CommandAckPayloadSchema,
   EndSightingCmdSchema,
   FinishCompetitionCmdSchema,
@@ -14,6 +16,7 @@ import {
   ResumeMatchCmdSchema,
   ResumeTimerCmdSchema,
   StartMatchCmdSchema,
+  StartQualificationRecoveryCmdSchema,
   StartSightingCmdSchema,
   StartShootOffCmdSchema,
   TimerExpiredCmdSchema,
@@ -421,6 +424,80 @@ describe('MqttCommandSchemas', () => {
           timerStartAt: new Date().toISOString(),
           authorizedRemainingSeconds: 0,
           unlimitedSightingShots: false,
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe('Qualification recovery command schemas', () => {
+    const start = () => ({
+      ...validBase(),
+      runId: crypto.randomUUID(),
+      decisionId: crypto.randomUUID(),
+      interruptionId: crypto.randomUUID(),
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_240',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 3,
+      authorization: {
+        phase: 'SERIES_RECOVERY',
+        seriesRecovery: {
+          treatment: 'COMPLETE_REMAINING_SHOTS',
+          shotsToFire: 2,
+          execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48, totalSeconds: 96 },
+        },
+      },
+      loadAt: '2026-09-03T01:00:00.000Z',
+      officialName: 'Jury Member',
+      decisionRuleReference: '8.8.1(c-d)',
+      decidedAt: '2026-09-03T00:59:00.000Z',
+    });
+
+    it('accepts a firing-only official recovery and its independent cancellation', () => {
+      const command = start();
+      expect(StartQualificationRecoveryCmdSchema.safeParse(command).success).toBe(true);
+      expect(
+        CancelQualificationRecoveryCmdSchema.safeParse({
+          ...validBase(),
+          runId: command.runId,
+          reason: 'Jury cancelled this recovery window',
+        }).success,
+      ).toBe(true);
+      expect(
+        ApplyQualificationRecoveryCmdSchema.safeParse({
+          ...validBase(),
+          runId: command.runId,
+          appliedBy: 'Range Officer B',
+          statement: 'Recovery evidence checked.',
+          appliedAt: '2026-09-03T01:03:00.000Z',
+        }).success,
+      ).toBe(true);
+    });
+
+    it('rejects KEEP_RECORDED_SERIES and zero-shot firing commands', () => {
+      expect(
+        StartQualificationRecoveryCmdSchema.safeParse({
+          ...start(),
+          authorization: {
+            phase: 'SERIES_RECOVERY',
+            seriesRecovery: { treatment: 'KEEP_RECORDED_SERIES', shotsToFire: 0, execution: null },
+          },
+        }).success,
+      ).toBe(false);
+      expect(
+        StartQualificationRecoveryCmdSchema.safeParse({
+          ...start(),
+          authorization: { phase: 'EXTRA_SIGHTING', shotsToFire: 0 },
+        }).success,
+      ).toBe(false);
+      expect(
+        ApplyQualificationRecoveryCmdSchema.safeParse({
+          ...validBase(),
+          runId: crypto.randomUUID(),
+          appliedBy: '',
+          statement: '',
+          appliedAt: '2026-09-03T01:03:00.000Z',
         }).success,
       ).toBe(false);
     });

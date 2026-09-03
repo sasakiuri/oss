@@ -142,6 +142,43 @@ describe('TimedTargetSequenceService', () => {
     ).toMatchObject({ allowed: true, purpose: 'SHOOT_OFF', targetProfileId: 'rapid-final' });
   });
 
+  it('round-trips an opaque isolated-acquisition owner without interpreting it', () => {
+    const service = createService();
+    const executionContext = {
+      shotDisposition: 'ISOLATED' as const,
+      owner: 'qualification-recovery',
+      referenceId: '00000000-0000-4000-8000-000000000099',
+    };
+    const state = service.start({
+      sequenceId: '00000000-0000-4000-8000-000000000001',
+      competitionId: '00000000-0000-4000-8000-000000000002',
+      program,
+      stageIndex: 1,
+      seriesIndex: 0,
+      targetProfileId: 'rapid',
+      loadAt: new Date('2026-09-03T00:00:03.000Z'),
+      executionContext,
+    });
+    expect(state.executionContext).toEqual(executionContext);
+
+    vi.setSystemTime(new Date('2026-09-03T00:01:10.100Z'));
+    expect(
+      service.tryAcceptShot({
+        competitionId: state.competitionId,
+        stageIndex: state.stageIndex,
+        seriesIndex: state.seriesIndex,
+        expectedMatchProgramId: state.programId,
+        targetProfileId: state.targetProfileId,
+        observationId: 'isolated-observation',
+        firedAt: new Date(),
+      }),
+    ).toMatchObject({ allowed: true, purpose: 'MATCH', executionContext });
+
+    service.dispose();
+    const restored = createService().getState(state.competitionId);
+    expect(restored?.executionContext).toEqual(executionContext);
+  });
+
   it('rejects an early shot in REQUIRED mode and preserves it as an advisory warning in ADVISORY mode', () => {
     const required = createService('REQUIRED');
     start(required);

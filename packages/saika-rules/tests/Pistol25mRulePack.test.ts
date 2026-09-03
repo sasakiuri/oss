@@ -8,6 +8,7 @@ import {
   ISSF_2026_CFP,
   ISSF_2026_P25,
   ISSF_2026_P25_FINAL,
+  recommendQualificationTimedTargetInterruption,
   ISSF_2026_RFPM,
   ISSF_2026_RFPM_FINAL,
   ISSF_2026_STDP,
@@ -178,7 +179,20 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
     expect(matchStages[0]?.sightingTimedTargetProgramId).toBe('RFP_SIGHTING_8');
     expect(matchStages[1]?.sightingTimedTargetProgramId).toBe('RFP_SIGHTING_8');
     expect(ISSF_2026_RFPM.capabilities.timedTarget?.recovery).toMatchObject({
-      interruptedSeriesTreatment: 'ANNUL_AND_REPEAT',
+      interruption: {
+        extraSightingWhenLongerThanSeconds: 900,
+        extraSightingSeriesShots: 5,
+        stages: [
+          expect.objectContaining({
+            stageId: 'STAGE_1',
+            seriesRecovery: { treatment: 'ANNUL_AND_REPEAT' },
+          }),
+          expect.objectContaining({
+            stageId: 'STAGE_2',
+            seriesRecovery: { treatment: 'ANNUL_AND_REPEAT' },
+          }),
+        ],
+      },
       malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
     });
   });
@@ -215,8 +229,24 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
       expect(duel?.exposures).toHaveLength(5);
       expect(duel?.exposures.every((entry) => entry.maximumShots === 1)).toBe(true);
       expect(pack.capabilities.timedTarget?.recovery).toMatchObject({
-        interruptedSeriesTreatment: 'COMPLETE_REMAINING_SHOTS',
-        precisionCompletionSecondsPerShot: 48,
+        interruption: {
+          stages: [
+            expect.objectContaining({
+              stageId: 'PRECISION_STAGE',
+              seriesRecovery: {
+                treatment: 'COMPLETE_REMAINING_SHOTS',
+                completion: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48 },
+              },
+            }),
+            expect.objectContaining({
+              stageId: 'RAPID_FIRE_STAGE',
+              seriesRecovery: {
+                treatment: 'COMPLETE_REMAINING_SHOTS',
+                completion: { mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES' },
+              },
+            }),
+          ],
+        },
       });
     }
     expect(ISSF_2026_P25.capabilities.target.scoringGaugeProfileId).toBe('ISSF_SMALLBORE_5_60_2026');
@@ -232,6 +262,78 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
       scope: 'SIXTY_SHOT_MATCH',
       exceptionalTwoPartMaximumPerPart: 1,
     });
+  });
+
+  it('recommends stage-specific Qualification recovery without authorizing or mutating it', () => {
+    const rapidRecovery = ISSF_2026_RFPM.capabilities.timedTarget?.recovery;
+    if (rapidRecovery?.procedure !== 'QUALIFICATION') throw new Error('Qualification recovery is unavailable');
+    expect(
+      recommendQualificationTimedTargetInterruption(rapidRecovery, {
+        stageId: 'STAGE_1',
+        interruptionSeconds: 900,
+        seriesShotLimit: 5,
+        recordedShots: 2,
+        seriesComplete: false,
+      }),
+    ).toMatchObject({
+      type: 'QUALIFICATION_TIMED_TARGET',
+      extraSighting: { required: false, shots: 0 },
+      seriesRecovery: {
+        treatment: 'ANNUL_AND_REPEAT',
+        shotsToFire: 5,
+        execution: { mode: 'SAME_TIMED_TARGET_PROGRAM' },
+      },
+    });
+
+    const pistolRecovery = ISSF_2026_P25.capabilities.timedTarget?.recovery;
+    if (pistolRecovery?.procedure !== 'QUALIFICATION') throw new Error('Qualification recovery is unavailable');
+    expect(
+      recommendQualificationTimedTargetInterruption(pistolRecovery, {
+        stageId: 'PRECISION_STAGE',
+        interruptionSeconds: 901,
+        seriesShotLimit: 5,
+        recordedShots: 2,
+        seriesComplete: false,
+      }),
+    ).toMatchObject({
+      extraSighting: { required: true, shots: 5 },
+      seriesRecovery: {
+        treatment: 'COMPLETE_REMAINING_SHOTS',
+        shotsToFire: 3,
+        execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48, totalSeconds: 144 },
+      },
+      ruleReferences: ['8.8.1(a)', '8.8.1(c-d)'],
+    });
+
+    expect(
+      recommendQualificationTimedTargetInterruption(pistolRecovery, {
+        stageId: 'RAPID_FIRE_STAGE',
+        interruptionSeconds: 45,
+        seriesShotLimit: 5,
+        recordedShots: 3,
+        seriesComplete: false,
+      }).seriesRecovery,
+    ).toEqual({
+      treatment: 'COMPLETE_REMAINING_SHOTS',
+      shotsToFire: 2,
+      execution: { mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES' },
+    });
+  });
+
+  it('retains a series observed as complete or already recorded in full', () => {
+    const recovery = ISSF_2026_STDP.capabilities.timedTarget?.recovery;
+    if (recovery?.procedure !== 'QUALIFICATION') throw new Error('Qualification recovery is unavailable');
+    for (const seriesComplete of [true, false]) {
+      expect(
+        recommendQualificationTimedTargetInterruption(recovery, {
+          stageId: 'STAGE_2_20_SECONDS',
+          interruptionSeconds: 30,
+          seriesShotLimit: 5,
+          recordedShots: 5,
+          seriesComplete,
+        }).seriesRecovery,
+      ).toEqual({ treatment: 'KEEP_RECORDED_SERIES', shotsToFire: 0, execution: null });
+    }
   });
 
   it('rejects an exposure program whose shot limit disagrees with the referenced series', () => {
@@ -252,6 +354,37 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
         },
       }),
     ).toThrow('shot limit must match its course-of-fire series');
+  });
+
+  it('rejects Qualification timed-target recovery with an unknown stage', () => {
+    const recovery = ISSF_2026_RFPM.capabilities.timedTarget?.recovery;
+    if (recovery?.procedure !== 'QUALIFICATION') throw new Error('Qualification recovery is unavailable');
+    expect(() =>
+      defineRulePack({
+        ...ISSF_2026_RFPM,
+        id: 'TEST:25M:INVALID-RECOVERY-STAGE',
+        capabilities: {
+          ...ISSF_2026_RFPM.capabilities,
+          timedTarget: {
+            ...ISSF_2026_RFPM.capabilities.timedTarget!,
+            recovery: {
+              ...recovery,
+              interruption: {
+                ...recovery.interruption,
+                stages: [
+                  ...recovery.interruption.stages,
+                  {
+                    stageId: 'UNKNOWN',
+                    seriesRecovery: { treatment: 'ANNUL_AND_REPEAT' },
+                    ruleReference: '8.8.1(b)',
+                  },
+                ],
+              },
+            },
+          },
+        },
+      }),
+    ).toThrow('UNKNOWN must reference a timed MATCH stage');
   });
 });
 

@@ -12,6 +12,7 @@ import type { SessionScoreDto, ShotHistoryDto } from '@/main/modules/session/app
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { Mode } from '@/main/modules/session/domain/Mode';
+import type { ShotAcquisitionContext } from '@/main/modules/session/domain/ShotAcquisitionContext';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
@@ -42,6 +43,8 @@ export interface RecordShotInput {
   targetProfileId?: TargetScoringProfileId;
   /** Event-selected scoring geometry; omitted to use the target face's practice default. */
   scoringGaugeProfileId?: ScoringGaugeProfileId;
+  /** Opaque owner for an acquisition intentionally isolated from the normal series. */
+  acquisitionContext?: ShotAcquisitionContext;
 }
 
 /** Input for the mode switch command */

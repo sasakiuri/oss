@@ -169,7 +169,8 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
       const effectiveMode = acceptedByShootOff
         ? Mode.sighting()
         : timedTargetDecision
-          ? timedTargetDecision.purpose === 'SIGHTING'
+          ? timedTargetDecision.executionContext?.shotDisposition === 'ISOLATED' ||
+            timedTargetDecision.purpose === 'SIGHTING'
             ? Mode.sighting()
             : Mode.match()
           : activeCompetition
@@ -199,6 +200,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         mode: effectiveMode,
         ...(targetProfileId ? { targetProfileId } : {}),
         ...(scoringGaugeProfileId ? { scoringGaugeProfileId } : {}),
+        ...(timedTargetDecision?.executionContext ? { acquisitionContext: timedTargetDecision.executionContext } : {}),
       });
 
       await finalizeObservation({

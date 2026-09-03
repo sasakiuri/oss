@@ -10,6 +10,7 @@ import { app } from 'electron';
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -29,6 +30,8 @@ import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
 import { LaneCompetitionStatePublisher } from './application/LaneCompetitionStatePublisher';
 import { LaneSafetyStatePublisher } from './application/LaneSafetyStatePublisher';
 import { LaneScorePublisher } from './application/LaneScorePublisher';
+import { QualificationRecoveryShotPublisher } from './application/QualificationRecoveryShotPublisher';
+import { QualificationRecoveryStatePublisher } from './application/QualificationRecoveryStatePublisher';
 import { RangeOfficerRequestPublisher } from './application/RangeOfficerRequestPublisher';
 import { RawShotPublisher } from './application/RawShotPublisher';
 import { RetainPublisher } from './application/RetainPublisher';
@@ -50,6 +53,9 @@ type MqttDeps =
   | 'timerService'
   | 'competitionInterruptionControl'
   | 'competitionShootOffControl'
+  | 'qualificationRecoveryControl'
+  | 'qualificationRecoveryAdjudicationControl'
+  | 'qualificationRecoverySettlementControl'
   | 'safetyStopControl'
   | 'timedTargetControl'
   | 'sessionRepository'
@@ -80,6 +86,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'timerService',
     'competitionInterruptionControl',
     'competitionShootOffControl',
+    'qualificationRecoveryControl',
+    'qualificationRecoveryAdjudicationControl',
+    'qualificationRecoverySettlementControl',
     'safetyStopControl',
     'timedTargetControl',
     'sessionRepository',
@@ -96,6 +105,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     timerService,
     competitionInterruptionControl,
     competitionShootOffControl,
+    qualificationRecoveryControl,
+    qualificationRecoveryAdjudicationControl,
+    qualificationRecoverySettlementControl,
     safetyStopControl,
     timedTargetControl,
     sessionRepository,
@@ -126,6 +138,14 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       storage,
       competitionShootOffControl,
       new SqliteCompetitionShootOffShotOutbox(database),
+    );
+    const qualificationRecoveryShotOutbox = new SqliteQualificationRecoveryShotOutbox(database);
+    new QualificationRecoveryShotPublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      qualificationRecoveryControl,
+      qualificationRecoveryShotOutbox,
     );
     new RawShotPublisher(mqttClient, eventBus, storage);
     new ShotObservationEvidencePublisher(
@@ -160,6 +180,12 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       rangeOfficerRequestService,
     );
     const timedTargetStatePublisher = new TimedTargetStatePublisher(mqttClient, eventBus, storage, timedTargetControl);
+    const qualificationRecoveryStatePublisher = new QualificationRecoveryStatePublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      qualificationRecoveryControl,
+    );
 
     // Initialize retain publisher (handles reconnect republish + shot backlog replay)
     const retainPublisher = new RetainPublisher(
@@ -174,6 +200,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       safetyStatePublisher,
       rangeOfficerRequestPublisher,
       timedTargetStatePublisher,
+      qualificationRecoveryStatePublisher,
+      (shotId) => qualificationRecoveryShotOutbox.hasShot(shotId),
     );
 
     // Initialize RPC handler
@@ -222,6 +250,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionId,
       safetyStopControl,
       commandAuthorization,
+      qualificationRecoveryControl,
+      qualificationRecoveryStatePublisher,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
     );
 
     const tier1Handler = new LaneTier1CommandHandler(
@@ -277,6 +309,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           await safetyStatePublisher.publishCurrentState();
           await rangeOfficerRequestPublisher.publishCurrentState();
           await timedTargetStatePublisher.publishCurrentState();
+          await qualificationRecoveryStatePublisher.publishCurrentState();
           hardwarePublisher.startHeartbeat();
 
           // Subscribe to Tier1 commands

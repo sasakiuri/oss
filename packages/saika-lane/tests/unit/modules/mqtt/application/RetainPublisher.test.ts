@@ -246,6 +246,41 @@ describe('RetainPublisher', () => {
     expect(payload2.shotNumberInSeries).toBe(2);
   });
 
+  it('does not replay shots durably owned by an isolated acquisition workflow', async () => {
+    const disconnectTime = new Date('2026-02-24T12:00:00Z');
+    const recoveryShot = createTestShot(new Date('2026-02-24T12:01:00Z'), 1);
+    const ordinaryShot = createTestShot(new Date('2026-02-24T12:02:00Z'), 2);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(
+      createMockSession([recoveryShot, ordinaryShot]) as unknown as NonNullable<
+        Awaited<ReturnType<ISessionRepository['findById']>>
+      >,
+    );
+    const publisher = new RetainPublisher(
+      mqttClient,
+      storage,
+      competitionRepository,
+      sessionRepository,
+      hardwarePublisher,
+      competitionStatePublisher,
+      scorePublisher,
+      assignmentPublisher,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (shotId) => shotId === recoveryShot.id,
+    );
+    (publisher as unknown as { disconnectedAt: Date }).disconnectedAt = disconnectTime;
+
+    await publisher.republish();
+
+    const shotPublishes = vi
+      .mocked(mqttClient.publish)
+      .mock.calls.filter((call) => (call[0] as string).includes('/shot'));
+    expect(shotPublishes).toHaveLength(1);
+    expect(JSON.parse(shotPublishes[0]![1] as string).shotId).toBe(ordinaryShot.id);
+  });
+
   it('should send shots in timestamp ascending order', async () => {
     const disconnectTime = new Date('2026-02-24T12:00:00Z');
     const laterShot = createTestShot(new Date('2026-02-24T12:05:00Z'), 1);
@@ -325,8 +360,8 @@ describe('RetainPublisher', () => {
   it('clears all lane-owned retained topics when leaving', async () => {
     await retainPublisher.clearCompetitionTopics('competition-id', 'lane-id');
 
-    expect(mqttClient.publish).toHaveBeenCalledTimes(4);
-    for (const suffix of ['state', 'score', 'assignment', 'timed-target/state']) {
+    expect(mqttClient.publish).toHaveBeenCalledTimes(5);
+    for (const suffix of ['state', 'score', 'assignment', 'timed-target/state', 'qualification-recovery/state']) {
       expect(mqttClient.publish).toHaveBeenCalledWith(`saika/competition/competition-id/lane/lane-id/${suffix}`, '', {
         qos: 1,
         retain: true,

@@ -11,6 +11,7 @@ export type {
   TimedTargetShotDecision,
   TimedTargetState,
 } from './domain/ITimedTargetControl';
+export type { TimedTargetExecutionContext } from './domain/TimedTargetExecutionContext';
 export type {
   ITimedTargetSequenceRepository,
   TimedTargetAcceptedShot,

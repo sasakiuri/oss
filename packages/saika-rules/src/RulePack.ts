@@ -188,12 +188,38 @@ export interface TimedTargetProgram {
   readonly exposures: readonly TimedTargetExposure[];
 }
 
+export type QualificationTimedTargetSeriesRecoveryRule =
+  | {
+      readonly treatment: 'ANNUL_AND_REPEAT';
+    }
+  | {
+      readonly treatment: 'COMPLETE_REMAINING_SHOTS';
+      readonly completion:
+        | {
+            readonly mode: 'SECONDS_PER_SHOT';
+            readonly secondsPerShot: number;
+          }
+        | {
+            readonly mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES';
+          };
+    };
+
+export interface QualificationTimedTargetStageRecoveryRule {
+  readonly stageId: string;
+  readonly seriesRecovery: QualificationTimedTargetSeriesRecoveryRule;
+  readonly ruleReference: string;
+}
+
 export interface QualificationTimedTargetRecoveryCapability {
   readonly procedure: 'QUALIFICATION';
-  /** An interruption longer than this requires one extra five-shot sighting series. */
-  readonly extraSightingInterruptionThresholdSeconds: number;
-  readonly interruptedSeriesTreatment: 'ANNUL_AND_REPEAT' | 'COMPLETE_REMAINING_SHOTS';
-  readonly precisionCompletionSecondsPerShot?: number;
+  readonly interruption: {
+    /** The threshold is strict: the interruption must be longer than this value. */
+    readonly extraSightingWhenLongerThanSeconds: number;
+    readonly extraSightingSeriesShots: number;
+    readonly extraSightingRuleReference: string;
+    /** Event-stage rules are explicit so applications do not infer recovery from labels or timer lengths. */
+    readonly stages: readonly QualificationTimedTargetStageRecoveryRule[];
+  };
   readonly sightingMalfunctionClaimsAllowed: false;
   readonly malfunctionClaims: {
     readonly maximum: number;
@@ -726,18 +752,54 @@ function validateTimedTargetCapability(pack: RulePack): void {
 
   const recovery = capability.recovery;
   if (recovery.procedure === 'QUALIFICATION') {
+    if (pack.round !== 'QUALIFICATION') {
+      throw new Error('Qualification timed-target recovery requires a Qualification Rule Pack');
+    }
     validatePositiveSeconds(
-      recovery.extraSightingInterruptionThresholdSeconds,
-      'timedTarget.recovery.extraSightingInterruptionThresholdSeconds',
+      recovery.interruption.extraSightingWhenLongerThanSeconds,
+      'timedTarget.recovery.interruption.extraSightingWhenLongerThanSeconds',
     );
-    if (recovery.precisionCompletionSecondsPerShot !== undefined) {
-      validatePositiveSeconds(
-        recovery.precisionCompletionSecondsPerShot,
-        'timedTarget.recovery.precisionCompletionSecondsPerShot',
-      );
-      if (recovery.interruptedSeriesTreatment !== 'COMPLETE_REMAINING_SHOTS') {
-        throw new Error('precisionCompletionSecondsPerShot requires COMPLETE_REMAINING_SHOTS');
+    validatePositiveInteger(
+      recovery.interruption.extraSightingSeriesShots,
+      'timedTarget.recovery.interruption.extraSightingSeriesShots',
+    );
+    validateText(
+      recovery.interruption.extraSightingRuleReference,
+      'timedTarget.recovery.interruption.extraSightingRuleReference',
+    );
+    if (recovery.interruption.stages.length === 0) {
+      throw new Error('Qualification timed-target recovery requires a stage rule');
+    }
+    const recoveryStageIds = new Set<string>();
+    for (const stageRule of recovery.interruption.stages) {
+      validateText(stageRule.stageId, 'timedTarget.recovery.interruption.stageId');
+      validateText(stageRule.ruleReference, `Timed-target recovery stage ${stageRule.stageId} ruleReference`);
+      if (recoveryStageIds.has(stageRule.stageId)) {
+        throw new Error('Qualification timed-target recovery stage IDs must be unique');
       }
+      recoveryStageIds.add(stageRule.stageId);
+      const stage = stages.find((candidate) => candidate.id === stageRule.stageId);
+      if (!stage || stage.phase !== 'MATCH' || !stage.series.some((series) => series.timedTargetProgramId)) {
+        throw new Error(`Timed-target recovery stage ${stageRule.stageId} must reference a timed MATCH stage`);
+      }
+      if (stageRule.seriesRecovery.treatment === 'COMPLETE_REMAINING_SHOTS') {
+        const completion = stageRule.seriesRecovery.completion;
+        if (completion.mode === 'SECONDS_PER_SHOT') {
+          validatePositiveSeconds(
+            completion.secondsPerShot,
+            `Timed-target recovery stage ${stageRule.stageId} secondsPerShot`,
+          );
+        }
+      }
+    }
+    const missingRecoveryStage = stages.find(
+      (stage) =>
+        stage.phase === 'MATCH' &&
+        stage.series.some((series) => series.timedTargetProgramId) &&
+        !recoveryStageIds.has(stage.id),
+    );
+    if (missingRecoveryStage) {
+      throw new Error(`Timed MATCH stage ${missingRecoveryStage.id} requires a Qualification recovery rule`);
     }
   } else {
     validatePositiveSeconds(recovery.remedyReadySeconds, 'timedTarget.recovery.remedyReadySeconds');

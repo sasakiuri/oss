@@ -12,6 +12,10 @@ export const mqttTopics = {
   competitionCue: (competitionId: string) => `saika/competition/${competitionId}/cue`,
   competitionShootOffShot: (competitionId: string, laneId: string) =>
     `saika/competition/${competitionId}/lane/${laneId}/shoot-off/shot`,
+  qualificationRecoveryState: (competitionId: string, laneId: string) =>
+    `saika/competition/${competitionId}/lane/${laneId}/qualification-recovery/state`,
+  qualificationRecoveryShot: (competitionId: string, laneId: string) =>
+    `saika/competition/${competitionId}/lane/${laneId}/qualification-recovery/shot`,
   competitionCommand: (competitionId: string, action: string) => `saika/competition/${competitionId}/command/${action}`,
   competitionCommandAcknowledgement: (competitionId: string, action: string, laneId: string) =>
     `saika/competition/${competitionId}/command/${action}/acknowledgement/${laneId}`,

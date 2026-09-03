@@ -383,6 +383,48 @@ describe('ShotIngestionHandler', () => {
     );
   });
 
+  it('records an isolated timed-target MATCH acquisition outside the competition series', async () => {
+    const competitionSession = buildSession();
+    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+      .startStage()
+      .expireTimer()
+      .advanceToNextStage()
+      .startNextSeries();
+    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+    deps.timedTargetReader = {
+      tryAcceptShot: vi.fn().mockReturnValue({
+        governed: true,
+        allowed: true,
+        purpose: 'MATCH',
+        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+        sequenceId: '00000000-0000-4000-8000-000000000001',
+        exposureIndex: 0,
+        warning: null,
+        reason: 'Shot is inside the isolated recovery window',
+        executionContext: {
+          shotDisposition: 'ISOLATED',
+          owner: 'qualification-recovery',
+          referenceId: '00000000-0000-4000-8000-000000000099',
+        },
+      }),
+    };
+
+    await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'RecordShot' }),
+      expect.objectContaining({
+        mode: expect.objectContaining({ value: 'SIGHTING' }),
+        acquisitionContext: {
+          shotDisposition: 'ISOLATED',
+          owner: 'qualification-recovery',
+          referenceId: '00000000-0000-4000-8000-000000000099',
+        },
+      }),
+    );
+  });
+
   it('should pass ImpactPoint with correct coordinates', async () => {
     const session = buildSession();
     sessionRepository.findActive = vi.fn().mockResolvedValue(session);
