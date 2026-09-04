@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 import type {
+  ClearEstComplaintSignalInput,
+  ClearQualificationMalfunctionSignalInput,
   ClearRangeOfficerRequestInput,
   ConnectMqttInput,
+  DeclareEstComplaintInput,
+  DeclareQualificationMalfunctionInput,
+  EstComplaintSignalDto,
   LaneSafetyStateDto,
   MqttSettings,
   MqttStatus,
+  QualificationMalfunctionSignalDto,
   RangeOfficerRequestDto,
   RequestRangeOfficerInput,
 } from '@/shared/ipc/contracts';
@@ -35,6 +41,32 @@ export const mqttService = {
 
   clearRangeOfficerRequest: createServiceMethod<ClearRangeOfficerRequestInput, RangeOfficerRequestDto>((input) =>
     window.electronAPI.mqtt.clearRangeOfficerRequest(input),
+  ),
+
+  getQualificationMalfunctionSignal: createVoidServiceMethod<QualificationMalfunctionSignalDto>(() =>
+    window.electronAPI.mqtt.getQualificationMalfunctionSignal(),
+  ),
+
+  declareQualificationMalfunction: createServiceMethod<
+    DeclareQualificationMalfunctionInput,
+    QualificationMalfunctionSignalDto
+  >((input) => window.electronAPI.mqtt.declareQualificationMalfunction(input)),
+
+  clearQualificationMalfunctionSignal: createServiceMethod<
+    ClearQualificationMalfunctionSignalInput,
+    QualificationMalfunctionSignalDto
+  >((input) => window.electronAPI.mqtt.clearQualificationMalfunctionSignal(input)),
+
+  getEstComplaintSignal: createVoidServiceMethod<EstComplaintSignalDto>(() =>
+    window.electronAPI.mqtt.getEstComplaintSignal(),
+  ),
+
+  declareEstComplaint: createServiceMethod<DeclareEstComplaintInput, EstComplaintSignalDto>((input) =>
+    window.electronAPI.mqtt.declareEstComplaint(input),
+  ),
+
+  clearEstComplaintSignal: createServiceMethod<ClearEstComplaintSignalInput, EstComplaintSignalDto>((input) =>
+    window.electronAPI.mqtt.clearEstComplaintSignal(input),
   ),
 
   saveMqttSettings: createCommandMethod<MqttSettings>((settings) => window.electronAPI.mqtt.saveMqttSettings(settings)),

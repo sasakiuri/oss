@@ -7,6 +7,7 @@ import {
   AssignAthleteCommandSchema,
   CancelQualificationRecoveryCommandSchema,
   CancelTimedTargetCommandSchema,
+  RecordTimedTargetUnloadCommandSchema,
   ClearSafetyStopCommandSchema,
   CommandAcknowledgementSchema,
   CompetitionCuePayloadSchema,
@@ -14,12 +15,14 @@ import {
   CompetitionShotPayloadSchema,
   CompetitionStatePayloadSchema,
   EndSightingCommandSchema,
+  EstComplaintSignalPayloadSchema,
   FinishCompetitionCommandSchema,
   HardwareStatePayloadSchema,
   JoinCompetitionCommandSchema,
   LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
+  QualificationMalfunctionSignalPayloadSchema,
   RangeOfficerRequestPayloadSchema,
   LaneScorePayloadSchema,
   LeaveCompetitionCommandSchema,
@@ -53,11 +56,13 @@ import {
   type CompetitionShootOffShotPayload,
   type CompetitionShotPayload,
   type CompetitionStatePayload,
+  type EstComplaintSignalPayload,
   type HardwareStatePayload,
   type LaneAssignmentPayload,
   type LaneCompetitionStatePayload,
   type LaneScorePayload,
   type LaneSafetyStatePayload,
+  type QualificationMalfunctionSignalPayload,
   type RangeOfficerRequestPayload,
   type TimedTargetStatePayload,
   type PendingCompetitionTimer,
@@ -114,6 +119,7 @@ export type DirectorCommandAction =
   | 'stop-shoot-off'
   | 'start-timed-target'
   | 'cancel-timed-target'
+  | 'record-timed-target-unload'
   | 'probe-clock';
 
 export type ShootOffTiming =
@@ -153,6 +159,8 @@ export interface DirectorLaneSnapshot {
   hardware: HardwareStatePayload | null;
   safetyState: LaneSafetyStatePayload | null;
   rangeOfficerRequest?: RangeOfficerRequestPayload | null;
+  qualificationMalfunctionSignal?: QualificationMalfunctionSignalPayload | null;
+  estComplaintSignal?: EstComplaintSignalPayload | null;
   timedTargetState?: TimedTargetStatePayload | null;
   qualificationRecoveryState?: QualificationRecoveryStatePayload | null;
   competitionState: LaneCompetitionStatePayload | null;
@@ -1541,6 +1549,11 @@ export class DirectorMqttService {
       throw new Error(`A timed target sequence is already active on Lane(s): ${stillActive.join(', ')}`);
     }
 
+    const awaitingUnload = targetLaneIds.filter((laneId) => {
+      const pause = this.lanes.get(laneId)?.timedTargetState?.commandPause;
+      return pause?.mode === 'REQUIRED' && !pause.unloadAt;
+    });
+    if (awaitingUnload.length) throw new Error(`Record UNLOAD before LOAD on Lane(s): ${awaitingUnload.join(', ')}`);
     const earliestLoadMs = targetLaneIds.reduce((latest, laneId) => {
       const nextLoad = this.lanes.get(laneId)?.timedTargetState?.nextLoadAllowedAt;
       return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
@@ -1562,6 +1575,43 @@ export class DirectorMqttService {
         mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'start-timed-target', laneId),
       payload: command,
       expectedLaneIds: targetLaneIds,
+    });
+  }
+
+  async recordTimedTargetUnload(input: {
+    competitionId: string;
+    sequenceId: string;
+    observedAt: string;
+    officialName: string;
+    targetLaneIds: readonly string[];
+  }): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, async () => {
+      this.requireCompetition(input.competitionId);
+      const targetLaneIds = [...new Set(input.targetLaneIds)];
+      if (!targetLaneIds.length) throw new Error('UNLOAD requires at least one Lane');
+      for (const laneId of targetLaneIds) {
+        this.requireCompetitionLane(input.competitionId, laneId);
+        const state = this.lanes.get(laneId)?.timedTargetState;
+        if (!state || state.sequenceId !== input.sequenceId || !['COMPLETE', 'CANCELLED'].includes(state.phase)) {
+          throw new Error(`UNLOAD sequence is not completed or cancelled on Lane ${laneId}`);
+        }
+      }
+      const command = RecordTimedTargetUnloadCommandSchema.parse(
+        this.commandBase({
+          sequenceId: input.sequenceId,
+          observedAt: input.observedAt,
+          officialName: input.officialName,
+          targetLaneIds,
+        }),
+      );
+      return this.publishCommand({
+        action: 'record-timed-target-unload',
+        topic: mqttTopics.competitionCommand(input.competitionId, 'record-timed-target-unload'),
+        acknowledgementTopic: (laneId) =>
+          mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'record-timed-target-unload', laneId),
+        payload: command,
+        expectedLaneIds: targetLaneIds,
+      });
     });
   }
 
@@ -1900,6 +1950,30 @@ export class DirectorMqttService {
       if (!state || state.laneId !== segments[2]) return;
       this.updateLane(state.laneId, {
         rangeOfficerRequest: state,
+        lastSeenAt: state.publishedAt,
+      });
+      return;
+    }
+
+    if (segments.length === 5 && segments[3] === 'qualification-malfunction' && segments[4] === 'signal') {
+      const state = this.parsePayload(
+        QualificationMalfunctionSignalPayloadSchema,
+        payload,
+        'qualification malfunction signal',
+      );
+      if (!state || state.laneId !== segments[2]) return;
+      this.updateLane(state.laneId, {
+        qualificationMalfunctionSignal: state,
+        lastSeenAt: state.publishedAt,
+      });
+      return;
+    }
+
+    if (segments.length === 5 && segments[3] === 'est-complaint' && segments[4] === 'signal') {
+      const state = this.parsePayload(EstComplaintSignalPayloadSchema, payload, 'EST complaint signal');
+      if (!state || state.laneId !== segments[2]) return;
+      this.updateLane(state.laneId, {
+        estComplaintSignal: state,
         lastSeenAt: state.publishedAt,
       });
       return;
@@ -2682,6 +2756,8 @@ export class DirectorMqttService {
         hardware: null,
         safetyState: null,
         rangeOfficerRequest: null,
+        qualificationMalfunctionSignal: null,
+        estComplaintSignal: null,
         timedTargetState: null,
         qualificationRecoveryState: null,
         competitionState: null,

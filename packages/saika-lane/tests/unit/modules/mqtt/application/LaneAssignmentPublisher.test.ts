@@ -65,6 +65,16 @@ describe('LaneAssignmentPublisher', () => {
     expect(mqttClient.publish).toHaveBeenCalledOnce();
   });
 
+  it('provides a competition-scoped read-only assignment snapshot', async () => {
+    const athlete = { startNumber: 7, id: 'athlete-7', name: 'Assigned Athlete' };
+    await publisher.assign(COMPETITION_ID, athlete);
+
+    expect(publisher.getCurrentAssignment(COMPETITION_ID)).toEqual(
+      expect.objectContaining({ competitionId: COMPETITION_ID, athlete }),
+    );
+    expect(publisher.getCurrentAssignment('different-competition')).toBeNull();
+  });
+
   it('clears only the matching competition assignment', async () => {
     await publisher.assign(COMPETITION_ID, null);
 

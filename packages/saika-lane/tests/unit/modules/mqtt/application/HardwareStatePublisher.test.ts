@@ -109,7 +109,7 @@ describe('HardwareStatePublisher', () => {
       aggregateId: 'conn-123',
       manufacturer: TargetManufacturer.sius(),
       portPath: '/dev/ttyUSB0',
-      deviceId: null,
+      deviceId: 'HS25',
     };
 
     (eventBus as { emit: Function }).emit(event);
@@ -118,6 +118,7 @@ describe('HardwareStatePublisher', () => {
     expect(publishedPayload.connection).toMatchObject({
       status: 'connected',
       manufacturer: 'SIUS',
+      deviceId: 'HS25',
       portPath: '/dev/ttyUSB0',
       connectionId: 'conn-123',
     });
@@ -168,6 +169,10 @@ describe('HardwareStatePublisher', () => {
           fingerprint: { algorithm: 'SHA-256', value: 'a'.repeat(64) },
         },
       ],
+      targetIntegration: {
+        schemaVersion: 1,
+        timedTarget: { actuation: 'NOT_INTEGRATED', feedback: 'NOT_INTEGRATED' },
+      },
     });
 
     capablePublisher.publishState();
@@ -181,6 +186,10 @@ describe('HardwareStatePublisher', () => {
           fingerprint: expect.objectContaining({ value: 'a'.repeat(64) }),
         }),
       ],
+      targetIntegration: {
+        schemaVersion: 1,
+        timedTarget: { actuation: 'NOT_INTEGRATED', feedback: 'NOT_INTEGRATED' },
+      },
     });
   });
 

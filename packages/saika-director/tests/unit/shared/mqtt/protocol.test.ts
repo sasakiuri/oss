@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApplyQualificationRecoveryCommandSchema,
+  EstComplaintSignalPayloadSchema,
+  HardwareStatePayloadSchema,
   LaneScorePayloadSchema,
+  QualificationMalfunctionSignalPayloadSchema,
   QualificationRecoveryFiringAuthorizationSchema,
   QualificationRecoveryShotPayloadSchema,
   QualificationRecoveryStatePayloadSchema,
@@ -13,6 +16,130 @@ import {
   StartShootOffCommandSchema,
   TimedTargetStatePayloadSchema,
 } from '@/shared/mqtt/protocol';
+
+describe('HardwareStatePayloadSchema', () => {
+  const legacyState = {
+    laneId: '11111111-1111-4111-8111-111111111111',
+    laneAlias: 'Lane 1',
+    connection: { status: 'connected', manufacturer: 'SIUS' },
+    appVersion: '0.3.0',
+    publishedAt: '2026-09-07T00:00:00.000Z',
+  };
+
+  it('keeps accepting Lane versions that do not report target integration', () => {
+    expect(HardwareStatePayloadSchema.safeParse(legacyState).success).toBe(true);
+  });
+
+  it('accepts exact device identity and explicit timed-target integration limits', () => {
+    const parsed = HardwareStatePayloadSchema.parse({
+      ...legacyState,
+      connection: { ...legacyState.connection, deviceId: 'HS25' },
+      capabilities: {
+        competitionProtocolVersions: [1],
+        rulePacks: [],
+        targetIntegration: {
+          schemaVersion: 1,
+          timedTarget: { actuation: 'NOT_INTEGRATED', feedback: 'NOT_INTEGRATED' },
+        },
+      },
+    });
+
+    expect(parsed.connection.deviceId).toBe('HS25');
+    expect(parsed.capabilities?.targetIntegration?.timedTarget).toEqual({
+      actuation: 'NOT_INTEGRATED',
+      feedback: 'NOT_INTEGRATED',
+    });
+  });
+});
+
+describe('EstComplaintSignalPayloadSchema', () => {
+  const activeSignal = {
+    schemaVersion: 1,
+    laneId: '11111111-1111-4111-8111-111111111111',
+    status: 'ACTIVE',
+    signalId: '22222222-2222-4222-8222-222222222222',
+    issue: 'SHOT_VALUE',
+    context: {
+      competitionId: '33333333-3333-4333-8333-333333333333',
+      sessionId: '44444444-4444-4444-8444-444444444444',
+      participantId: '55555555-5555-4555-8555-555555555555',
+      participantName: 'Test Athlete',
+      startNumber: '12',
+      phase: 'MATCH',
+      stageIndex: 1,
+      seriesIndex: 2,
+      seriesShotLimit: 5,
+      recordedShots: 3,
+      timedTargetProgramId: 'rapid-4s',
+      exposureIndex: 2,
+      lastShot: {
+        shotId: '66666666-6666-4666-8666-666666666666',
+        shotNumberInSeries: 3,
+        firedAt: '2026-09-04T00:00:00.000Z',
+        receivedAt: '2026-09-04T00:00:00.100Z',
+      },
+    },
+    message: null,
+    signalledAt: '2026-09-04T00:00:01.000Z',
+    clearedAt: null,
+    clearedBy: null,
+    publishedAt: '2026-09-04T00:00:02.000Z',
+  };
+
+  it('accepts a complete Lane observation snapshot', () => {
+    expect(EstComplaintSignalPayloadSchema.safeParse(activeSignal).success).toBe(true);
+  });
+
+  it('rejects a partial latest-shot snapshot', () => {
+    expect(
+      EstComplaintSignalPayloadSchema.safeParse({
+        ...activeSignal,
+        context: { ...activeSignal.context, lastShot: { shotId: activeSignal.context.lastShot.shotId } },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('QualificationMalfunctionSignalPayloadSchema', () => {
+  const activeSignal = {
+    schemaVersion: 1,
+    laneId: '11111111-1111-4111-8111-111111111111',
+    status: 'ACTIVE',
+    signalId: '22222222-2222-4222-8222-222222222222',
+    context: {
+      competitionId: '33333333-3333-4333-8333-333333333333',
+      sessionId: '44444444-4444-4444-8444-444444444444',
+      participantId: '55555555-5555-4555-8555-555555555555',
+      participantName: 'Test Athlete',
+      startNumber: '12',
+      phase: 'MATCH',
+      stageIndex: 1,
+      seriesIndex: 2,
+      seriesShotLimit: 5,
+      recordedShots: 3,
+      timedTargetProgramId: 'rapid-4s',
+      exposureIndex: 2,
+    },
+    message: null,
+    signalledAt: '2026-09-04T00:00:00.000Z',
+    clearedAt: null,
+    clearedBy: null,
+    publishedAt: '2026-09-04T00:00:01.000Z',
+  };
+
+  it('accepts a complete Lane observation snapshot', () => {
+    expect(QualificationMalfunctionSignalPayloadSchema.safeParse(activeSignal).success).toBe(true);
+  });
+
+  it('rejects a declaration whose shot count exceeds its captured series limit', () => {
+    expect(
+      QualificationMalfunctionSignalPayloadSchema.safeParse({
+        ...activeSignal,
+        context: { ...activeSignal.context, recordedShots: 6 },
+      }).success,
+    ).toBe(false);
+  });
+});
 
 const BASE_SCORE = {
   competitionId: '11111111-1111-4111-8111-111111111111',

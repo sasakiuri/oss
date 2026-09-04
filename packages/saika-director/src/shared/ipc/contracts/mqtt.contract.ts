@@ -3,10 +3,12 @@ import {
   AthleteSchema,
   CompetitionShotPayloadSchema,
   CompetitionStatePayloadSchema,
+  EstComplaintSignalPayloadSchema,
   HardwareStatePayloadSchema,
   LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
+  QualificationMalfunctionSignalPayloadSchema,
   QualificationRecoveryShotPayloadSchema,
   QualificationRecoveryStatePayloadSchema,
   RangeOfficerRequestPayloadSchema,
@@ -93,6 +95,7 @@ const CommandExecutionResultSchema = z.object({
     'stop-shoot-off',
     'start-timed-target',
     'cancel-timed-target',
+    'record-timed-target-unload',
     'probe-clock',
   ]),
   success: z.boolean(),
@@ -129,6 +132,24 @@ const SafetyStopAuditEntrySchema = z.object({
       acknowledgedAt: z.string().datetime().nullable(),
     }),
   ),
+  laneClearances: z.array(
+    z.object({
+      id: z.string().uuid(),
+      laneId: z.string().uuid(),
+      participantId: z.string().min(1).nullable(),
+      participantName: z.string().min(1).nullable(),
+      athleteConfirmationStatus: z.enum(['CONFIRMED', 'NOT_APPLICABLE']),
+      athleteConfirmedBy: z.string().min(1).nullable(),
+      notApplicableReason: z.string().min(1).nullable(),
+      firearmCondition: z.enum(['UNLOADED_SAFETY_FLAG_INSERTED', 'UNLOADED_ACTION_OPEN', 'NO_FIREARM_PRESENT']),
+      personnelClear: z.literal(true),
+      verifiedBy: z.string().min(1),
+      verificationNote: z.string().nullable(),
+      verifiedAt: z.string().datetime(),
+      recordedAt: z.string().datetime(),
+      ruleReferences: z.array(z.string().min(1)).min(1),
+    }),
+  ),
 });
 
 const DirectorLaneSnapshotSchema = z.object({
@@ -138,6 +159,8 @@ const DirectorLaneSnapshotSchema = z.object({
   hardware: HardwareStatePayloadSchema.nullable(),
   safetyState: LaneSafetyStatePayloadSchema.nullable().optional(),
   rangeOfficerRequest: RangeOfficerRequestPayloadSchema.nullable().optional(),
+  qualificationMalfunctionSignal: QualificationMalfunctionSignalPayloadSchema.nullable().optional(),
+  estComplaintSignal: EstComplaintSignalPayloadSchema.nullable().optional(),
   timedTargetState: TimedTargetStatePayloadSchema.nullable().optional(),
   qualificationRecoveryState: QualificationRecoveryStatePayloadSchema.nullable().optional(),
   competitionState: LaneCompetitionStatePayloadSchema.nullable(),
@@ -203,13 +226,39 @@ const ActivateSafetyStopSchema = z.object({
   officialName: z.string().trim().min(1).max(200),
 });
 
-const ClearSafetyStopSchema = z.object({
-  safetyStopId: z.string().uuid(),
-  laneIds: z.array(z.string().uuid()).min(1),
-  clearanceReason: z.string().trim().min(1).max(500),
-  officialName: z.string().trim().min(1).max(200),
-  confirmedSafe: z.literal(true),
-});
+const SafetyStopLaneClearanceInputSchema = z
+  .object({
+    laneId: z.string().uuid(),
+    participantId: z.string().min(1).nullable(),
+    participantName: z.string().min(1).nullable(),
+    athleteConfirmation: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('CONFIRMED'), confirmedBy: z.string().trim().min(1).max(200) }),
+      z.object({ status: z.literal('NOT_APPLICABLE'), reason: z.string().trim().min(1).max(500) }),
+    ]),
+    firearmCondition: z.enum(['UNLOADED_SAFETY_FLAG_INSERTED', 'UNLOADED_ACTION_OPEN', 'NO_FIREARM_PRESENT']),
+    personnelClear: z.literal(true),
+    verifiedBy: z.string().trim().min(1).max(200),
+    verificationNote: z.string().trim().max(1000).optional(),
+  })
+  .superRefine((clearance, context) => {
+    if ((clearance.participantId === null) !== (clearance.participantName === null)) {
+      context.addIssue({ code: 'custom', message: 'Athlete identity snapshot must be complete or absent' });
+    }
+  });
+
+const ClearSafetyStopSchema = z
+  .object({
+    safetyStopId: z.string().uuid(),
+    clearanceReason: z.string().trim().min(1).max(500),
+    officialName: z.string().trim().min(1).max(200),
+    laneClearances: z.array(SafetyStopLaneClearanceInputSchema).min(1),
+  })
+  .superRefine((request, context) => {
+    const laneIds = request.laneClearances.map((clearance) => clearance.laneId);
+    if (new Set(laneIds).size !== laneIds.length) {
+      context.addIssue({ code: 'custom', path: ['laneClearances'], message: 'Lane clearances must be unique' });
+    }
+  });
 
 export const ClockQualityAssessmentDtoSchema = z.object({
   policyId: z.string().min(1),
@@ -304,6 +353,14 @@ const StartTimedTargetSchema = z.object({
   targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
+const RecordTimedTargetUnloadSchema = z.object({
+  competitionId: z.string().uuid(),
+  sequenceId: z.string().uuid(),
+  observedAt: z.string().datetime(),
+  officialName: z.string().trim().min(1).max(200),
+  targetLaneIds: z.array(z.string().uuid()).min(1),
+});
+
 const CancelTimedTargetSchema = z.object({
   competitionId: z.string().uuid(),
   sequenceId: z.string().uuid(),
@@ -374,6 +431,8 @@ export type ShotObservationEvidenceDto = z.infer<typeof ShotObservationEvidenceD
 export type ClockQualityAssessmentDto = z.infer<typeof ClockQualityAssessmentDtoSchema>;
 export type LaneClockProbeResultDto = z.infer<typeof LaneClockProbeResultSchema>;
 export type SafetyStopAuditEntryDto = z.infer<typeof SafetyStopAuditEntrySchema>;
+export type SafetyStopLaneClearancePayload = z.infer<typeof SafetyStopLaneClearanceInputSchema>;
+export type ClearSafetyStopPayload = z.infer<typeof ClearSafetyStopSchema>;
 export type FinalScriptStepExecutionResultDto = z.infer<typeof FinalScriptStepExecutionResultSchema>;
 
 // ---------------------------------------------------------------------------
@@ -414,6 +473,10 @@ export const mqttContract = defineContract('mqtt', {
   endSighting: command(CompetitionSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   startMatch: command(StartMatchSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   startTimedTarget: command(StartTimedTargetSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
+  recordTimedTargetUnload: command(
+    RecordTimedTargetUnloadSchema,
+    commandDataResponseSchema(CommandExecutionResultSchema),
+  ),
   cancelTimedTarget: command(CancelTimedTargetSchema, commandDataResponseSchema(CommandExecutionResultSchema)),
   executeFinalScriptStep: command(
     ExecuteFinalScriptStepSchema,

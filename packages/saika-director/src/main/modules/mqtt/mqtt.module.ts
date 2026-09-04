@@ -15,6 +15,7 @@ import type {
 import { EmbeddedMqttBroker } from './infra/EmbeddedMqttBroker';
 import { SqliteMqttRetainedMessageStore } from './infra/SqliteMqttRetainedMessageStore';
 import { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJournal';
+import { SAFETY_STOP_CLEARANCE_RULE_REFERENCES, SafetyStopClearancePolicy } from './domain/SafetyStopClearancePolicy';
 import {
   DirectorMqttService,
   sanitizeBrokerUrl,
@@ -218,6 +219,7 @@ export const mqttModule: ModuleDefinition<
 
     const retainedMessageStore = new SqliteMqttRetainedMessageStore(database);
     const safetyStopAuditJournal = new SqliteSafetyStopAuditJournal(database);
+    const safetyStopClearancePolicy = new SafetyStopClearancePolicy();
     const embeddedBrokerSecurity = embeddedMqttSecurityFromEnvironment(process.env);
     const directorMqttCredentials = mqttCredentialsFromEnvironment(process.env);
     let embeddedMqttBroker = new EmbeddedMqttBroker(
@@ -628,6 +630,12 @@ export const mqttModule: ModuleDefinition<
             ...outcome,
             acknowledgedAt: outcome.acknowledgedAt?.toISOString() ?? null,
           })),
+          laneClearances: entry.laneClearances.map((clearance) => ({
+            ...clearance,
+            verifiedAt: clearance.verifiedAt.toISOString(),
+            recordedAt: clearance.recordedAt.toISOString(),
+            ruleReferences: [...clearance.ruleReferences],
+          })),
         })),
       probeLaneClock: (input) => runWithControlLock(() => mqttService.probeLaneClock(input.laneId)),
       activateSafetyStop: (input) =>
@@ -650,29 +658,51 @@ export const mqttModule: ModuleDefinition<
             occurredAt,
             recordedAt: new Date(),
             laneOutcomes: toSafetyLaneOutcomes(result),
+            laneClearances: [],
           });
           return result;
         }),
       clearSafetyStop: (input) =>
         runWithControlLock(async () => {
+          safetyStopClearancePolicy.validate(input, mqttService.getSnapshot());
           const occurredAt = new Date();
+          const targetLaneIds = input.laneClearances.map((clearance) => clearance.laneId);
           const result = await mqttService.clearSafetyStop(
-            input.laneIds,
+            targetLaneIds,
             input.safetyStopId,
             input.clearanceReason,
             input.officialName,
           );
+          const recordedAt = new Date();
           safetyStopAuditJournal.append({
             id: crypto.randomUUID(),
             safetyStopId: input.safetyStopId,
             operation: 'CLEAR',
-            targetLaneIds: [...new Set(input.laneIds)],
+            targetLaneIds,
             success: result.success,
             reason: input.clearanceReason,
             officialName: input.officialName,
             occurredAt,
-            recordedAt: new Date(),
+            recordedAt,
             laneOutcomes: toSafetyLaneOutcomes(result),
+            laneClearances: input.laneClearances.map((clearance) => ({
+              id: crypto.randomUUID(),
+              laneId: clearance.laneId,
+              participantId: clearance.participantId,
+              participantName: clearance.participantName,
+              athleteConfirmationStatus: clearance.athleteConfirmation.status,
+              athleteConfirmedBy:
+                clearance.athleteConfirmation.status === 'CONFIRMED' ? clearance.athleteConfirmation.confirmedBy : null,
+              notApplicableReason:
+                clearance.athleteConfirmation.status === 'NOT_APPLICABLE' ? clearance.athleteConfirmation.reason : null,
+              firearmCondition: clearance.firearmCondition,
+              personnelClear: true,
+              verifiedBy: clearance.verifiedBy,
+              verificationNote: clearance.verificationNote ?? null,
+              verifiedAt: occurredAt,
+              recordedAt,
+              ruleReferences: SAFETY_STOP_CLEARANCE_RULE_REFERENCES,
+            })),
           });
           return result;
         }),
@@ -815,6 +845,7 @@ export const mqttModule: ModuleDefinition<
           }
           return mqttService.startTimedTarget(input);
         }),
+      recordTimedTargetUnload: (input) => runWithControlLock(() => mqttService.recordTimedTargetUnload(input)),
       cancelTimedTarget: (input) => runWithControlLock(() => mqttService.cancelTimedTarget(input)),
       executeFinalScriptStep: (input) =>
         runWithControlLock(() => {

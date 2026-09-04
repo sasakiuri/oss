@@ -8,7 +8,7 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const ASSIGNMENT_STORAGE_KEY = 'mqtt.assignment';
 
-interface StoredAssignment {
+export interface LaneAssignmentSnapshot {
   competitionId: string;
   athlete: Athlete | null;
   assignedAt: string | null;
@@ -22,7 +22,7 @@ export class LaneAssignmentPublisher {
   ) {}
 
   async assign(competitionId: string, athlete: Athlete | null): Promise<LaneAssignmentPayload> {
-    const stored: StoredAssignment = {
+    const stored: LaneAssignmentSnapshot = {
       competitionId,
       athlete,
       assignedAt: athlete ? new Date().toISOString() : null,
@@ -32,19 +32,29 @@ export class LaneAssignmentPublisher {
   }
 
   async publishCurrentAssignment(competitionId: string): Promise<void> {
-    const stored = this.storage.get<StoredAssignment>(ASSIGNMENT_STORAGE_KEY);
+    const stored = this.storage.get<LaneAssignmentSnapshot>(ASSIGNMENT_STORAGE_KEY);
     if (!stored || stored.competitionId !== competitionId) return;
     await this.publish(stored);
   }
 
   clearStoredAssignment(competitionId: string): void {
-    const stored = this.storage.get<StoredAssignment>(ASSIGNMENT_STORAGE_KEY);
+    const stored = this.storage.get<LaneAssignmentSnapshot>(ASSIGNMENT_STORAGE_KEY);
     if (stored?.competitionId === competitionId) {
       this.storage.delete(ASSIGNMENT_STORAGE_KEY);
     }
   }
 
-  private async publish(stored: StoredAssignment): Promise<LaneAssignmentPayload> {
+  getCurrentAssignment(competitionId?: string): LaneAssignmentSnapshot | null {
+    const stored = this.storage.get<LaneAssignmentSnapshot>(ASSIGNMENT_STORAGE_KEY);
+    if (!stored || (competitionId && stored.competitionId !== competitionId)) return null;
+    return {
+      competitionId: stored.competitionId,
+      athlete: stored.athlete ? { ...stored.athlete } : null,
+      assignedAt: stored.assignedAt,
+    };
+  }
+
+  private async publish(stored: LaneAssignmentSnapshot): Promise<LaneAssignmentPayload> {
     const laneId = this.getLaneId();
     const payload = LaneAssignmentPayloadSchema.parse({
       competitionId: stored.competitionId,

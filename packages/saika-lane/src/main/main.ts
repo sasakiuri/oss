@@ -69,6 +69,12 @@ import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { AppUpdater } from '@/main/updater/AppUpdater';
 import { eventsContract, updaterContract, windowContract } from '@/shared/ipc/contracts';
 
+import {
+  TimedTargetCommandPause,
+  commandPauseModeFromEnvironment,
+} from './modules/command-observations/application/TimedTargetCommandPause';
+import { SqliteCommandObservationRepository } from './modules/command-observations/infra/SqliteCommandObservationRepository';
+
 const appDir = dirname(fileURLToPath(import.meta.url));
 const isWsl =
   process.platform === 'linux' &&
@@ -219,6 +225,11 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       },
     },
     timedTargetEnforcementModeFromEnvironment(process.env),
+    undefined,
+    new TimedTargetCommandPause(
+      new SqliteCommandObservationRepository(db),
+      commandPauseModeFromEnvironment(process.env),
+    ),
   );
   const qualificationRecoveryRepository = new SqliteQualificationRecoveryRepository(db);
   const qualificationRecoveryControl = new QualificationRecoveryService(

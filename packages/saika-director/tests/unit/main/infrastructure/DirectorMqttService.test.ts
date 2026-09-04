@@ -440,6 +440,8 @@ describe('DirectorMqttService', () => {
       'saika/lane/+/hardware/#',
       'saika/lane/+/safety/state',
       'saika/lane/+/range-officer/request',
+      'saika/lane/+/qualification-malfunction/signal',
+      'saika/lane/+/est-complaint/signal',
       'saika/lane/+/command/+/acknowledgement',
       'saika/competition/+/#',
     ]);
@@ -478,6 +480,98 @@ describe('DirectorMqttService', () => {
     });
   });
 
+  it('projects a retained qualification malfunction declaration without classifying it', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+    transport.emitMessage(`saika/lane/${LANE_ID}/qualification-malfunction/signal`, {
+      schemaVersion: 1,
+      laneId: LANE_ID,
+      status: 'ACTIVE',
+      signalId: '77777777-7777-4777-8777-777777777777',
+      context: {
+        competitionId: COMPETITION_ID,
+        sessionId: '66666666-6666-4666-8666-666666666666',
+        participantId: '55555555-5555-4555-8555-555555555555',
+        participantName: 'Test Athlete',
+        startNumber: '12',
+        phase: 'MATCH',
+        stageIndex: 1,
+        seriesIndex: 2,
+        seriesShotLimit: 5,
+        recordedShots: 3,
+        timedTargetProgramId: 'rapid-4s',
+        exposureIndex: 2,
+      },
+      message: 'Possible failure to fire',
+      signalledAt: '2026-09-04T00:00:00.000Z',
+      clearedAt: null,
+      clearedBy: null,
+      publishedAt: '2026-09-04T00:00:01.000Z',
+    });
+
+    const lane = service.getSnapshot().lanes[0];
+    expect(lane).toMatchObject({
+      safetyState: null,
+      qualificationMalfunctionSignal: {
+        status: 'ACTIVE',
+        context: { participantId: '55555555-5555-4555-8555-555555555555', recordedShots: 3 },
+      },
+    });
+    expect(lane?.qualificationMalfunctionSignal).not.toHaveProperty('classification');
+    expect(lane?.qualificationMalfunctionSignal).not.toHaveProperty('claimAssessment');
+  });
+
+  it('projects a retained EST complaint without adjudicating it', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+    transport.emitMessage(`saika/lane/${LANE_ID}/est-complaint/signal`, {
+      schemaVersion: 1,
+      laneId: LANE_ID,
+      status: 'ACTIVE',
+      signalId: '77777777-7777-4777-8777-777777777777',
+      issue: 'SHOT_VALUE',
+      context: {
+        competitionId: COMPETITION_ID,
+        sessionId: '66666666-6666-4666-8666-666666666666',
+        participantId: '55555555-5555-4555-8555-555555555555',
+        participantName: 'Test Athlete',
+        startNumber: '12',
+        phase: 'MATCH',
+        stageIndex: 1,
+        seriesIndex: 2,
+        seriesShotLimit: 5,
+        recordedShots: 3,
+        timedTargetProgramId: 'rapid-4s',
+        exposureIndex: 2,
+        lastShot: {
+          shotId: '44444444-4444-4444-8444-444444444444',
+          shotNumberInSeries: 3,
+          firedAt: '2026-09-04T00:00:00.000Z',
+          receivedAt: '2026-09-04T00:00:00.100Z',
+        },
+      },
+      message: 'Displayed value looks wrong',
+      signalledAt: '2026-09-04T00:00:01.000Z',
+      clearedAt: null,
+      clearedBy: null,
+      publishedAt: '2026-09-04T00:00:02.000Z',
+    });
+
+    const lane = service.getSnapshot().lanes[0];
+    expect(lane).toMatchObject({
+      safetyState: null,
+      estComplaintSignal: {
+        status: 'ACTIVE',
+        issue: 'SHOT_VALUE',
+        context: { participantId: '55555555-5555-4555-8555-555555555555', recordedShots: 3 },
+      },
+    });
+    expect(lane?.estComplaintSignal).not.toHaveProperty('timeliness');
+    expect(lane?.estComplaintSignal).not.toHaveProperty('decision');
+  });
+
   it('enters a timed-target MATCH without creating a generic range timer', async () => {
     const service = createService(transport);
     await service.connect('mqtt://localhost:1883');
@@ -499,6 +593,62 @@ describe('DirectorMqttService', () => {
     await expect(starting).resolves.toMatchObject({ success: true });
     expect(service.getSnapshot().competitions[0]).toMatchObject({ phase: 'MATCH' });
     expect(service.getSnapshot().competitions[0]?.activeTimer).toBeUndefined();
+  });
+
+  it('records actual UNLOAD with ACKs and blocks a required unrecorded command pause', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID]);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      publishedAt: new Date().toISOString(),
+    });
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, activeTimedLaneState(LANE_ID));
+    const state = completedTimedTargetState(LANE_ID, new Date().toISOString());
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`, {
+      ...state,
+      commandPause: {
+        mode: 'REQUIRED',
+        ruleReference: '8.7.6.4(d)',
+        minimumSeconds: 60,
+        unloadAt: null,
+        officialName: null,
+        nextLoadAllowedAt: null,
+        blocked: true,
+      },
+    });
+    await expect(
+      service.startTimedTarget({
+        competitionId: COMPETITION_ID,
+        programId: 'P25_MATCH_PRECISION_240',
+        purpose: 'MATCH',
+        stageIndex: 1,
+        seriesIndex: 0,
+      }),
+    ).rejects.toThrow('Record UNLOAD');
+    const observedAt = new Date().toISOString();
+    const recording = service.recordTimedTargetUnload({
+      competitionId: COMPETITION_ID,
+      sequenceId: state.sequenceId,
+      observedAt,
+      officialName: 'CRO',
+      targetLaneIds: [LANE_ID],
+    });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/record-timed-target-unload'))).toBe(true),
+    );
+    const publication = transport.publications.find((entry) => entry.topic.endsWith('/record-timed-target-unload'))!;
+    const command = JSON.parse(publication.payload) as { commandId: string };
+    expect(JSON.parse(publication.payload)).toMatchObject({
+      sequenceId: state.sequenceId,
+      observedAt,
+      officialName: 'CRO',
+      targetLaneIds: [LANE_ID],
+    });
+    acknowledgeCompetitionCommand(transport, 'record-timed-target-unload', command.commandId);
+    await expect(recording).resolves.toMatchObject({ success: true });
+    await service.disconnect();
   });
 
   it('projects Lane timed state and uses the latest one-minute boundary as one common LOAD time', async () => {
@@ -2522,7 +2672,7 @@ describe('DirectorMqttService', () => {
     transport.emitDisconnected();
     transport.emitConnected();
 
-    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(10));
+    await vi.waitFor(() => expect(transport.subscriptions).toHaveLength(14));
     expect(service.getSnapshot()).toMatchObject({
       connected: true,
       activeCompetitionId: null,

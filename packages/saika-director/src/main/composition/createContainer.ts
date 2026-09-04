@@ -53,6 +53,7 @@ import {
   SqliteTargetExaminationRepository,
   targetExaminationsModule,
 } from '@/main/modules/target-examinations';
+import { estComplaintsModule } from '@/main/modules/est-complaints';
 import {
   InterruptionCompetitionDataGuard,
   rangeInterruptionsModule,
@@ -61,6 +62,7 @@ import {
 import { relayReadinessModule } from '@/main/modules/relay-readiness';
 import { relayAthleteLifecycleModule } from '@/main/modules/relay-athlete-lifecycle';
 import { estChampionshipInspectionsModule } from '@/main/modules/est-championship-inspections';
+import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
 import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
 import {
   CompetitionTypeTeamTieBreakPolicyResolver,
@@ -104,6 +106,11 @@ import {
   VerifiedResultsBookResultSnapshotSource,
 } from '@/main/modules/results-books';
 import { finalRecoveriesModule } from '@/main/modules/final-recoveries';
+import {
+  QualificationMalfunctionPublicationBlocker,
+  qualificationMalfunctionsModule,
+  SqliteQualificationMalfunctionRepository,
+} from '@/main/modules/qualification-malfunctions';
 import { startListsModule } from '@/main/modules/start-lists';
 import {
   FinalOperationService,
@@ -181,10 +188,12 @@ const modules = [
   boardModule,
   competitionAnnouncementsModule,
   targetExaminationsModule,
+  estComplaintsModule,
   rangeInterruptionsModule,
   relayReadinessModule,
   relayAthleteLifecycleModule,
   estChampionshipInspectionsModule,
+  postCompetitionEquipmentControlModule,
   eliminationPlanningModule,
   teamResultsModule,
   protestsModule,
@@ -196,6 +205,7 @@ const modules = [
   resultsBooksModule,
   finalOperationsModule,
   finalRecoveriesModule,
+  qualificationMalfunctionsModule,
   startListsModule,
   mixedTeamFinalControlModule,
   squaddingModule,
@@ -384,6 +394,7 @@ export function createApp(preloadPath: string): AppServices {
       rangeIncidentReportRepository,
       scoringDecisionRepository,
     ),
+    new QualificationMalfunctionPublicationBlocker(new SqliteQualificationMalfunctionRepository(database)),
   ]);
   const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
   const resultsBookResultSnapshots = new VerifiedResultsBookResultSnapshotSource(

@@ -22,10 +22,12 @@ import type {
   finalControlContract,
   finalOperationsContract,
   finalRecoveriesContract,
+  qualificationMalfunctionsContract,
   adjudicationCasesContract,
   irregularShotCasesContract,
   operationalArchivesContract,
   estChampionshipInspectionsContract,
+  postCompetitionEquipmentControlContract,
   eliminationPlanningContract,
   resultsBooksContract,
   startListsContract,
@@ -41,6 +43,7 @@ import type {
   eventsContract,
   debugContract,
   athleteSanctionsContract,
+  estComplaintsContract,
 } from '@/shared/ipc/contracts';
 import type {
   CreateChampionshipPayload,
@@ -122,6 +125,7 @@ export interface ElectronAPI {
   competitionAnnouncements: InferBridge<typeof competitionAnnouncementsContract>;
   incidentReports: InferBridge<typeof incidentReportsContract>;
   targetExaminations: InferBridge<typeof targetExaminationsContract>;
+  estComplaints: InferBridge<typeof estComplaintsContract>;
   rangeInterruptions: InferBridge<typeof rangeInterruptionsContract>;
   relayReadiness: InferBridge<typeof relayReadinessContract>;
   relayAthleteLifecycle: InferBridge<typeof relayAthleteLifecycleContract>;
@@ -131,10 +135,12 @@ export interface ElectronAPI {
   finalControl: InferBridge<typeof finalControlContract>;
   finalOperations: InferBridge<typeof finalOperationsContract>;
   finalRecoveries: InferBridge<typeof finalRecoveriesContract>;
+  qualificationMalfunctions: InferBridge<typeof qualificationMalfunctionsContract>;
   adjudicationCases: InferBridge<typeof adjudicationCasesContract>;
   irregularShotCases: InferBridge<typeof irregularShotCasesContract>;
   operationalArchives: InferBridge<typeof operationalArchivesContract>;
   estChampionshipInspections: InferBridge<typeof estChampionshipInspectionsContract>;
+  postCompetitionEquipmentControl: InferBridge<typeof postCompetitionEquipmentControlContract>;
   eliminationPlanning: InferBridge<typeof eliminationPlanningContract>;
   resultsBooks: InferBridge<typeof resultsBooksContract>;
   startLists: InferBridge<typeof startListsContract>;

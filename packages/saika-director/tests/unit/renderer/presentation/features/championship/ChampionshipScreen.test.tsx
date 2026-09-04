@@ -75,6 +75,12 @@ vi.mock('@/renderer/presentation/features/championship/components/ResultsBookPan
   ResultsBookPanel: () => null,
 }));
 
+vi.mock('@/renderer/presentation/features/championship/components/PostCompetitionEquipmentControlPanel', () => ({
+  PostCompetitionEquipmentControlPanel: ({ eventId }: { eventId: string }) => (
+    <div>equipment control workspace {eventId}</div>
+  ),
+}));
+
 vi.mock('@/renderer/presentation/features/athlete-sanctions', () => ({
   AthleteSanctionsPanel: () => null,
 }));
@@ -183,5 +189,20 @@ describe('ChampionshipScreen', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Incidents' }));
 
     expect(screen.getByText(`incident workspace ${EVENT_ID}`)).toBeInTheDocument();
+  });
+
+  it('opens post-competition equipment control as an event-level workspace', async () => {
+    Object.assign(championshipState, {
+      selectedChampionship,
+      selectedEventId: EVENT_ID,
+      participants: [participant],
+    });
+    loadChampionshipDetail.mockResolvedValue({ success: true, data: selectedChampionship });
+    render(<ChampionshipScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Championship Test' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Equipment Control' }));
+
+    expect(screen.getByText(`equipment control workspace ${EVENT_ID}`)).toBeInTheDocument();
   });
 });

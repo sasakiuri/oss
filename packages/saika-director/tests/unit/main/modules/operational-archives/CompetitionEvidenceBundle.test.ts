@@ -45,6 +45,18 @@ describe('CompetitionEvidenceBundleBuilder', () => {
     expect(first.sections.find((section) => section.id === 'athlete-sanction-decisions')).toMatchObject({
       recordCount: 0,
     });
+    expect(first.sections.find((section) => section.id === 'qualification-malfunction-cases')).toMatchObject({
+      recordCount: 0,
+    });
+    expect(first.sections.find((section) => section.id === 'qualification-malfunction-entries')).toMatchObject({
+      recordCount: 0,
+    });
+    expect(first.sections.find((section) => section.id === 'post-competition-equipment-checks')).toMatchObject({
+      recordCount: 0,
+    });
+    expect(first.sections.find((section) => section.id === 'post-competition-equipment-check-entries')).toMatchObject({
+      recordCount: 0,
+    });
     expect(first.sections.every((section) => section.sha256.length === 64)).toBe(true);
   });
 

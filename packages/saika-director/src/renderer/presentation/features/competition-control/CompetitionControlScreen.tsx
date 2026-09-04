@@ -16,18 +16,20 @@ import type {
   MqttControlSnapshotDto,
   ShotObservationEvidenceDto,
 } from '@/shared/ipc/contracts';
-import type { Athlete } from '@/shared/mqtt';
+import type { Athlete, EstComplaintIssue } from '@/shared/mqtt';
 
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
 import { TargetExaminationsPanel } from '../target-examinations';
+import { EstComplaintInbox } from '../est-complaints';
 import { RangeInterruptionsPanel } from '../range-interruptions';
 import { SafetyStopPanel } from '../range-safety';
 import { FinalControlPanel } from '../final-control';
 import { FinalOperationPanel } from '../final-operations';
 import { FinalRecoveryPanel } from '../final-recoveries';
 import { IrregularShotCasesPanel } from '../irregular-shot-cases';
+import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
 import { RelayAthleteLifecyclePanel, RelayReadinessPanel } from '../relay-readiness';
 import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
 import { ProductionOperationsPanel } from '../production-operations';
@@ -67,6 +69,23 @@ function phaseStepIndex(phase: string | undefined): number {
 
 function formatActionName(action: string): string {
   return action.replaceAll('-', ' ');
+}
+
+function formatEstComplaintIssue(issue: EstComplaintIssue | null): string {
+  switch (issue) {
+    case 'SHOT_VALUE':
+      return 'Displayed shot value';
+    case 'SHOT_NOT_REGISTERED':
+      return 'Shot not registered or displayed';
+    case 'TARGET_FAILURE':
+      return 'Target failure';
+    case 'TARGET_MEDIA_ADVANCE':
+      return 'Paper or rubber strip advance';
+    case 'OTHER':
+      return 'Other EST issue';
+    default:
+      return 'EST issue';
+  }
 }
 
 function formatTimerDuration(seconds: number): string {
@@ -111,6 +130,7 @@ export function CompetitionControlScreen() {
   const [firingWindowViolations, setFiringWindowViolations] = useState<FiringWindowViolationDto[]>([]);
   const [shotObservationEvidence, setShotObservationEvidence] = useState<ShotObservationEvidenceDto[]>([]);
   const [clockQuality, setClockQuality] = useState<Record<string, ClockQualityAssessmentDto>>({});
+  const [targetExaminationVersion, setTargetExaminationVersion] = useState(0);
   const resultContexts = useCompetitionControlStore((state) => state.resultContexts);
   const setResultContext = useCompetitionControlStore((state) => state.setResultContext);
   const clearResultContext = useCompetitionControlStore((state) => state.clearResultContext);
@@ -603,6 +623,21 @@ export function CompetitionControlScreen() {
     [invokeCompetitionCommand],
   );
 
+  const recordTimedTargetUnload = useCallback(
+    async (sequenceId: string, targetLaneIds: string[], officialName: string, observedAt: string) => {
+      await invokeCompetitionCommand('record-timed-target-unload', (competitionId) =>
+        mqttService.recordTimedTargetUnload({
+          competitionId,
+          sequenceId,
+          targetLaneIds,
+          officialName,
+          observedAt,
+        }),
+      );
+    },
+    [invokeCompetitionCommand],
+  );
+
   const cancelTimedTarget = useCallback(
     async (sequenceId: string, targetLaneIds: string[]) => {
       const confirmed = await useConfirmDialogStore
@@ -677,6 +712,16 @@ export function CompetitionControlScreen() {
   const currentPhaseIndex = phaseStepIndex(activeCompetition?.phase);
   const unscoredObservations = shotObservationEvidence.filter((evidence) => evidence.outcome !== 'RECORDED');
   const activeRangeOfficerRequests = snapshot.lanes.filter((lane) => lane.rangeOfficerRequest?.status === 'ACTIVE');
+  const activeQualificationMalfunctionSignals = snapshot.lanes.filter(
+    (lane) => lane.qualificationMalfunctionSignal?.status === 'ACTIVE',
+  );
+  const activeEstComplaintSignals = snapshot.lanes.filter((lane) => lane.estComplaintSignal?.status === 'ACTIVE');
+  const competitionEstComplaintSignalIds = snapshot.lanes.flatMap((lane) => {
+    const signal = lane.estComplaintSignal;
+    return signal?.signalId && signal.context?.competitionId === activeCompetition?.competitionId
+      ? [signal.signalId]
+      : [];
+  });
 
   return (
     <div className="min-h-full">
@@ -715,6 +760,89 @@ export function CompetitionControlScreen() {
       <div className="p-5">
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-4">
+            {activeEstComplaintSignals.length > 0 && (
+              <section
+                className="border-2 border-cyan-500 bg-cyan-500/10 p-4"
+                aria-label="Active electronic target complaints"
+                aria-live="assertive"
+              >
+                <div className="flex items-center gap-2 text-cyan-300">
+                  <AlertTriangle size={19} aria-hidden="true" />
+                  <h2 className="text-sm font-bold">Electronic target complaint raised</h2>
+                </div>
+                <ul className="mt-2 space-y-2">
+                  {activeEstComplaintSignals.map((lane) => {
+                    const signal = lane.estComplaintSignal!;
+                    const context = signal.context!;
+                    return (
+                      <li key={signal.signalId ?? lane.laneId} className="text-sm text-vscode-text">
+                        <span className="font-semibold">
+                          {lane.firingPointNumber
+                            ? `Firing point ${lane.firingPointNumber}`
+                            : lane.laneAlias || lane.laneId}
+                        </span>
+                        {' · '}
+                        {context.startNumber ? `#${context.startNumber} ` : ''}
+                        {context.participantName}
+                        {' · '}
+                        {formatEstComplaintIssue(signal.issue)}
+                        {' · '}
+                        {context.phase}, stage {context.stageIndex + 1}, series {context.seriesIndex + 1}, shot{' '}
+                        {context.recordedShots}
+                        {context.exposureIndex === null ? '' : `, exposure ${context.exposureIndex + 1}`}
+                        {signal.message ? ` · ${signal.message}` : ''}
+                        {signal.signalledAt ? ` · ${new Date(signal.signalledAt).toLocaleTimeString()}` : ''}
+                        {lane.hardware?.connection.status !== 'connected' ? ' · Lane offline' : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-2 text-xs text-vscode-text-muted">
+                  This is a Lane observation, not a ruling on timeliness, validity, or score. Preserve the target and
+                  use Target examinations to open the official evidence record.
+                </p>
+              </section>
+            )}
+            {activeQualificationMalfunctionSignals.length > 0 && (
+              <section
+                className="border-2 border-vscode-error bg-vscode-error/10 p-4"
+                aria-label="Active qualification malfunction declarations"
+                aria-live="assertive"
+              >
+                <div className="flex items-center gap-2 text-vscode-error">
+                  <AlertTriangle size={19} aria-hidden="true" />
+                  <h2 className="text-sm font-bold">Possible qualification malfunction declared</h2>
+                </div>
+                <ul className="mt-2 space-y-2">
+                  {activeQualificationMalfunctionSignals.map((lane) => {
+                    const signal = lane.qualificationMalfunctionSignal!;
+                    const context = signal.context!;
+                    return (
+                      <li key={signal.signalId ?? lane.laneId} className="text-sm text-vscode-text">
+                        <span className="font-semibold">
+                          {lane.firingPointNumber
+                            ? `Firing point ${lane.firingPointNumber}`
+                            : lane.laneAlias || lane.laneId}
+                        </span>
+                        {' · '}
+                        {context.startNumber ? `#${context.startNumber} ` : ''}
+                        {context.participantName}
+                        {' · '}
+                        {context.phase}, stage {context.stageIndex + 1}, series {context.seriesIndex + 1}, shot{' '}
+                        {context.recordedShots}
+                        {signal.message ? ` · ${signal.message}` : ''}
+                        {signal.signalledAt ? ` · ${new Date(signal.signalledAt).toLocaleTimeString()}` : ''}
+                        {lane.hardware?.connection.status !== 'connected' ? ' · Lane offline' : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-2 text-xs text-vscode-text-muted">
+                  This is an athlete/Lane declaration, not an official classification or claim decision. Use it in
+                  Qualification malfunction cases to open the official record; classify it separately after inspection.
+                </p>
+              </section>
+            )}
             {activeRangeOfficerRequests.length > 0 && (
               <section
                 className="border-2 border-vscode-warning bg-vscode-warning/10 p-4"
@@ -917,6 +1045,7 @@ export function CompetitionControlScreen() {
                               {lane.hardware?.connection.manufacturer
                                 ? ` / ${lane.hardware.connection.manufacturer}`
                                 : ''}
+                              {lane.hardware?.connection.deviceId ? ` / ${lane.hardware.connection.deviceId}` : ''}
                             </td>
                             <td className="px-3 py-2.5">
                               <span
@@ -1121,6 +1250,7 @@ export function CompetitionControlScreen() {
                 disabled={baseControlsDisabled}
                 onStart={startTimedTarget}
                 onCancel={cancelTimedTarget}
+                onRecordUnload={recordTimedTargetUnload}
               />
             )}
 
@@ -1142,6 +1272,26 @@ export function CompetitionControlScreen() {
                 />
               </Card>
             )}
+
+            {activeCompetition &&
+              activeCompetition.roundName !== 'Final' &&
+              resultContext?.eventId &&
+              activeCompetitionDefinition?.qualificationMalfunction && (
+                <Card>
+                  <QualificationMalfunctionPanel
+                    key={`qualification-malfunctions:${activeCompetition.competitionId}:${resultContext.eventId}`}
+                    competitionId={activeCompetition.competitionId}
+                    eventId={resultContext.eventId}
+                    relayNumber={resultContext.relayNumber}
+                    lanes={competitionLanes}
+                    supportsExceptionalMatchParts={
+                      activeCompetitionDefinition.qualificationMalfunction.claimLimit
+                        ?.exceptionalTwoPartMaximumPerPart !== undefined
+                    }
+                    disabled={busyAction !== null}
+                  />
+                </Card>
+              )}
 
             {activeCompetition?.roundName === 'Final' && (
               <Card>
@@ -1257,20 +1407,30 @@ export function CompetitionControlScreen() {
 
             {activeCompetition && (
               <Card>
-                <TargetExaminationsPanel
-                  key={activeCompetition.competitionId}
-                  primaryScope={{ scopeType: 'COMPETITION', scopeId: activeCompetition.competitionId }}
-                  additionalScopes={resultContext ? [{ scopeType: 'EVENT', scopeId: resultContext.eventId }] : []}
-                  defaultLaneId={assignmentLaneId}
-                  lanes={competitionLanes.map((lane) => ({
-                    laneId: lane.laneId,
-                    label: lane.firingPointNumber
-                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                      : lane.laneAlias || lane.laneId.slice(0, 8),
-                    firingPointNumber: lane.firingPointNumber,
-                    ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
-                  }))}
-                />
+                <div className="space-y-5">
+                  <EstComplaintInbox
+                    competitionId={activeCompetition.competitionId}
+                    observedSignalIds={competitionEstComplaintSignalIds}
+                    relayNumber={resultContext?.relayNumber}
+                    onCaseOpened={() => setTargetExaminationVersion((version) => version + 1)}
+                  />
+                  <div className="border-t border-vscode-border pt-5">
+                    <TargetExaminationsPanel
+                      key={`${activeCompetition.competitionId}:${targetExaminationVersion}`}
+                      primaryScope={{ scopeType: 'COMPETITION', scopeId: activeCompetition.competitionId }}
+                      additionalScopes={resultContext ? [{ scopeType: 'EVENT', scopeId: resultContext.eventId }] : []}
+                      defaultLaneId={assignmentLaneId}
+                      lanes={competitionLanes.map((lane) => ({
+                        laneId: lane.laneId,
+                        label: lane.firingPointNumber
+                          ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                          : lane.laneAlias || lane.laneId.slice(0, 8),
+                        firingPointNumber: lane.firingPointNumber,
+                        ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
+                      }))}
+                    />
+                  </div>
+                </div>
               </Card>
             )}
           </div>

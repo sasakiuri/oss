@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+import { EstComplaintIssueSchema, EstComplaintSignalPayloadSchema } from '@/shared/mqtt/EstComplaintSignal';
+import { QualificationMalfunctionSignalPayloadSchema } from '@/shared/mqtt/QualificationMalfunctionSignal';
 import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
 
 import {
@@ -96,6 +98,19 @@ const RequestRangeOfficerInputSchema = z.object({
 
 const ClearRangeOfficerRequestInputSchema = z.object({ requestId: z.string().uuid() });
 
+const DeclareQualificationMalfunctionInputSchema = z.object({
+  message: z.string().trim().max(500).optional(),
+});
+
+const ClearQualificationMalfunctionSignalInputSchema = z.object({ signalId: z.string().uuid() });
+
+const DeclareEstComplaintInputSchema = z.object({
+  issue: EstComplaintIssueSchema,
+  message: z.string().trim().max(500).optional(),
+});
+
+const ClearEstComplaintSignalInputSchema = z.object({ signalId: z.string().uuid() });
+
 // ============================================================
 // Contract definition
 // ============================================================
@@ -126,6 +141,32 @@ export const mqttContract = defineContract('mqtt', {
     commandDataResponseSchema(RangeOfficerRequestPayloadSchema),
     { channel: 'mqtt:clearRangeOfficerRequest' },
   ),
+  getQualificationMalfunctionSignal: query(queryResponseSchema(QualificationMalfunctionSignalPayloadSchema), {
+    channel: 'mqtt:getQualificationMalfunctionSignal',
+  }),
+  declareQualificationMalfunction: command(
+    DeclareQualificationMalfunctionInputSchema,
+    commandDataResponseSchema(QualificationMalfunctionSignalPayloadSchema),
+    { channel: 'mqtt:declareQualificationMalfunction' },
+  ),
+  clearQualificationMalfunctionSignal: command(
+    ClearQualificationMalfunctionSignalInputSchema,
+    commandDataResponseSchema(QualificationMalfunctionSignalPayloadSchema),
+    { channel: 'mqtt:clearQualificationMalfunctionSignal' },
+  ),
+  getEstComplaintSignal: query(queryResponseSchema(EstComplaintSignalPayloadSchema), {
+    channel: 'mqtt:getEstComplaintSignal',
+  }),
+  declareEstComplaint: command(
+    DeclareEstComplaintInputSchema,
+    commandDataResponseSchema(EstComplaintSignalPayloadSchema),
+    { channel: 'mqtt:declareEstComplaint' },
+  ),
+  clearEstComplaintSignal: command(
+    ClearEstComplaintSignalInputSchema,
+    commandDataResponseSchema(EstComplaintSignalPayloadSchema),
+    { channel: 'mqtt:clearEstComplaintSignal' },
+  ),
   saveMqttSettings: command(MqttSettingsSchema, CommandResponseSchema, {
     channel: 'mqtt:saveSettings',
   }),
@@ -145,3 +186,9 @@ export type ConnectMqttInput = z.infer<typeof ConnectMqttInputSchema>;
 export type RequestRangeOfficerInput = z.infer<typeof RequestRangeOfficerInputSchema>;
 export type ClearRangeOfficerRequestInput = z.infer<typeof ClearRangeOfficerRequestInputSchema>;
 export type RangeOfficerRequestDto = z.infer<typeof RangeOfficerRequestPayloadSchema>;
+export type DeclareQualificationMalfunctionInput = z.infer<typeof DeclareQualificationMalfunctionInputSchema>;
+export type ClearQualificationMalfunctionSignalInput = z.infer<typeof ClearQualificationMalfunctionSignalInputSchema>;
+export type QualificationMalfunctionSignalDto = z.infer<typeof QualificationMalfunctionSignalPayloadSchema>;
+export type DeclareEstComplaintInput = z.infer<typeof DeclareEstComplaintInputSchema>;
+export type ClearEstComplaintSignalInput = z.infer<typeof ClearEstComplaintSignalInputSchema>;
+export type EstComplaintSignalDto = z.infer<typeof EstComplaintSignalPayloadSchema>;

@@ -131,6 +131,9 @@ export function competitionTypeFromRulePack(
       ? { outdoorEliminationPlanning: { ...pack.capabilities.outdoorEliminationPlanning } }
       : {}),
     ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
+    ...(pack.capabilities.qualificationMalfunction
+      ? { qualificationMalfunction: pack.capabilities.qualificationMalfunction }
+      : {}),
     ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
     ...(pack.capabilities.finalSeriesAdjudication
       ? { finalSeriesAdjudication: pack.capabilities.finalSeriesAdjudication }

@@ -15,17 +15,18 @@ vi.mock('@/renderer/services', () => ({
 }));
 
 const LANE_ID = '11111111-1111-4111-8111-111111111111';
+const SECOND_LANE_ID = '33333333-3333-4333-8333-333333333333';
 const STOP_ID = '77777777-7777-4777-8777-777777777777';
 
-function lane(stopped = false): DirectorLaneSnapshotDto {
+function lane(stopped = false, assigned = false, laneId = LANE_ID, firingPointNumber = 1): DirectorLaneSnapshotDto {
   return {
-    laneId: LANE_ID,
-    laneAlias: 'Lane 1',
-    firingPointNumber: 1,
+    laneId,
+    laneAlias: `Lane ${firingPointNumber}`,
+    firingPointNumber,
     hardware: null,
     safetyState: stopped
       ? {
-          laneId: LANE_ID,
+          laneId,
           status: 'STOPPED',
           safetyStopId: STOP_ID,
           reason: 'Emergency',
@@ -39,7 +40,19 @@ function lane(stopped = false): DirectorLaneSnapshotDto {
         }
       : null,
     competitionState: null,
-    assignment: null,
+    assignment: assigned
+      ? {
+          competitionId: '22222222-2222-4222-8222-222222222222',
+          laneId,
+          athlete: {
+            id: `athlete-${firingPointNumber}`,
+            name: `Athlete ${firingPointNumber}`,
+            startNumber: 100 + firingPointNumber,
+          },
+          assignedAt: '2026-09-01T00:30:00.000Z',
+          publishedAt: '2026-09-01T00:30:00.000Z',
+        }
+      : null,
     score: null,
     lastRawShot: null,
     lastCompetitionShot: null,
@@ -73,21 +86,42 @@ describe('SafetyStopPanel', () => {
     });
   });
 
-  it('requires explicit range-safe confirmation and states that clearing does not resume timers', async () => {
-    render(<SafetyStopPanel connected lanes={[lane(true)]} targetLaneIds={[LANE_ID]} />);
-    expect(screen.getByText(/does not restart any timer/i)).toBeInTheDocument();
-    const clearButton = screen.getByRole('button', { name: /Clear 1 Lane/ });
+  it('requires per-Lane athlete, firearm, and personnel checks and states that clearing does not resume timers', async () => {
+    render(
+      <SafetyStopPanel
+        connected
+        lanes={[lane(true, true), lane(true, true, SECOND_LANE_ID, 2)]}
+        targetLaneIds={[LANE_ID, SECOND_LANE_ID]}
+      />,
+    );
+    expect(screen.getByText(/does not restart a timer/i)).toBeInTheDocument();
+    let clearButton = screen.getByRole('button', { name: /Clear 0 verified Lane/ });
     expect(clearButton).toBeDisabled();
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByLabelText('Select safety clearance for Firing point 1'));
+    fireEvent.change(screen.getByLabelText('Athlete confirmation for Firing point 1'), {
+      target: { value: 'CONFIRMED' },
+    });
+    expect(clearButton).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Personnel clear for Firing point 1'));
+    clearButton = screen.getByRole('button', { name: /Clear 1 verified Lane/ });
     expect(clearButton).toBeEnabled();
     fireEvent.click(clearButton);
     await waitFor(() =>
       expect(clearSafetyStop).toHaveBeenCalledWith({
         safetyStopId: STOP_ID,
-        laneIds: [LANE_ID],
         clearanceReason: 'Range inspected and declared safe',
         officialName: 'Director',
-        confirmedSafe: true,
+        laneClearances: [
+          {
+            laneId: LANE_ID,
+            participantId: 'athlete-1',
+            participantName: 'Athlete 1',
+            athleteConfirmation: { status: 'CONFIRMED', confirmedBy: 'Athlete 1' },
+            firearmCondition: 'UNLOADED_SAFETY_FLAG_INSERTED',
+            personnelClear: true,
+            verifiedBy: 'Director',
+          },
+        ],
       }),
     );
   });

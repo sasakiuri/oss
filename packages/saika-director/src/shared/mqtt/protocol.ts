@@ -51,6 +51,7 @@ export const HardwareStatePayloadSchema = z.object({
   connection: z.object({
     status: z.enum(['connected', 'disconnected', 'offline']),
     manufacturer: z.string().optional(),
+    deviceId: z.string().min(1).nullable().optional(),
     portPath: z.string().optional(),
     connectionId: z.string().uuid().optional(),
   }),
@@ -59,6 +60,15 @@ export const HardwareStatePayloadSchema = z.object({
     .object({
       competitionProtocolVersions: z.array(z.literal(1)).min(1),
       rulePacks: z.array(RulePackIdentitySchema),
+      targetIntegration: z
+        .object({
+          schemaVersion: z.literal(1),
+          timedTarget: z.object({
+            actuation: z.enum(['INTEGRATED', 'NOT_INTEGRATED']),
+            feedback: z.enum(['INTEGRATED', 'NOT_INTEGRATED']),
+          }),
+        })
+        .optional(),
     })
     .optional(),
   publishedAt: z.string().datetime(),
@@ -111,6 +121,159 @@ export const RangeOfficerRequestPayloadSchema = z
     }
   });
 
+export const QualificationMalfunctionSignalContextSchema = z
+  .object({
+    competitionId: z.string().uuid(),
+    sessionId: z.string().uuid(),
+    participantId: z.string().min(1),
+    participantName: z.string().min(1),
+    startNumber: z.string().min(1).nullable(),
+    phase: z.enum(['SIGHTING', 'MATCH']),
+    stageIndex: z.number().int().nonnegative(),
+    seriesIndex: z.number().int().nonnegative(),
+    seriesShotLimit: z.number().int().positive().nullable(),
+    recordedShots: z.number().int().nonnegative(),
+    timedTargetProgramId: z.string().min(1).nullable(),
+    exposureIndex: z.number().int().nonnegative().nullable(),
+  })
+  .superRefine((snapshot, context) => {
+    if (snapshot.seriesShotLimit !== null && snapshot.recordedShots > snapshot.seriesShotLimit) {
+      context.addIssue({
+        code: 'custom',
+        path: ['recordedShots'],
+        message: 'Recorded shots cannot exceed the series shot limit',
+      });
+    }
+    if (snapshot.exposureIndex !== null && !snapshot.timedTargetProgramId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['exposureIndex'],
+        message: 'An exposure index requires a timed-target program',
+      });
+    }
+  });
+
+export const QualificationMalfunctionSignalPayloadSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    laneId: z.string().uuid(),
+    status: z.enum(['ACTIVE', 'CLEARED']),
+    signalId: z.string().uuid().nullable(),
+    context: QualificationMalfunctionSignalContextSchema.nullable(),
+    message: z.string().max(500).nullable(),
+    signalledAt: z.string().datetime().nullable(),
+    clearedAt: z.string().datetime().nullable(),
+    clearedBy: z.string().min(1).nullable(),
+    publishedAt: z.string().datetime(),
+  })
+  .superRefine((state, context) => {
+    if (state.status === 'ACTIVE') {
+      if (!state.signalId || !state.context || !state.signalledAt) {
+        context.addIssue({ code: 'custom', message: 'An active signal requires identity, context and time' });
+      }
+      if (state.clearedAt || state.clearedBy) {
+        context.addIssue({ code: 'custom', message: 'An active signal cannot contain clearance data' });
+      }
+      return;
+    }
+
+    if (state.signalId) {
+      if (!state.context || !state.signalledAt || !state.clearedAt || !state.clearedBy) {
+        context.addIssue({ code: 'custom', message: 'A cleared signal history is incomplete' });
+      }
+      return;
+    }
+
+    if (state.context || state.message || state.signalledAt || state.clearedAt || state.clearedBy) {
+      context.addIssue({ code: 'custom', message: 'An empty cleared state cannot contain signal history' });
+    }
+  });
+
+export const EstComplaintIssueSchema = z.enum([
+  'SHOT_VALUE',
+  'SHOT_NOT_REGISTERED',
+  'TARGET_FAILURE',
+  'TARGET_MEDIA_ADVANCE',
+  'OTHER',
+]);
+
+export const EstComplaintLastShotSchema = z.object({
+  shotId: z.string().uuid(),
+  shotNumberInSeries: z.number().int().positive(),
+  firedAt: z.string().datetime(),
+  receivedAt: z.string().datetime(),
+});
+
+export const EstComplaintSignalContextSchema = z
+  .object({
+    competitionId: z.string().uuid(),
+    sessionId: z.string().uuid(),
+    participantId: z.string().min(1),
+    participantName: z.string().min(1),
+    startNumber: z.string().min(1).nullable(),
+    phase: z.enum(['SIGHTING', 'MATCH']),
+    stageIndex: z.number().int().nonnegative(),
+    seriesIndex: z.number().int().nonnegative(),
+    seriesShotLimit: z.number().int().positive().nullable(),
+    recordedShots: z.number().int().nonnegative(),
+    timedTargetProgramId: z.string().min(1).nullable(),
+    exposureIndex: z.number().int().nonnegative().nullable(),
+    lastShot: EstComplaintLastShotSchema.nullable(),
+  })
+  .superRefine((snapshot, context) => {
+    if (snapshot.seriesShotLimit !== null && snapshot.recordedShots > snapshot.seriesShotLimit) {
+      context.addIssue({
+        code: 'custom',
+        path: ['recordedShots'],
+        message: 'Recorded shots cannot exceed the series shot limit',
+      });
+    }
+    if (snapshot.exposureIndex !== null && !snapshot.timedTargetProgramId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['exposureIndex'],
+        message: 'An exposure index requires a timed-target program',
+      });
+    }
+  });
+
+export const EstComplaintSignalPayloadSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    laneId: z.string().uuid(),
+    status: z.enum(['ACTIVE', 'CLEARED']),
+    signalId: z.string().uuid().nullable(),
+    issue: EstComplaintIssueSchema.nullable(),
+    context: EstComplaintSignalContextSchema.nullable(),
+    message: z.string().max(500).nullable(),
+    signalledAt: z.string().datetime().nullable(),
+    clearedAt: z.string().datetime().nullable(),
+    clearedBy: z.string().min(1).nullable(),
+    publishedAt: z.string().datetime(),
+  })
+  .superRefine((state, context) => {
+    if (state.status === 'ACTIVE') {
+      if (!state.signalId || !state.issue || !state.context || !state.signalledAt) {
+        context.addIssue({ code: 'custom', message: 'An active signal requires identity, issue, context and time' });
+      }
+      if (state.clearedAt || state.clearedBy) {
+        context.addIssue({ code: 'custom', message: 'An active signal cannot contain clearance data' });
+      }
+      return;
+    }
+
+    if (state.signalId) {
+      if (!state.issue || !state.context || !state.signalledAt || !state.clearedAt || !state.clearedBy) {
+        context.addIssue({ code: 'custom', message: 'A cleared signal history is incomplete' });
+      }
+      return;
+    }
+
+    if (state.issue || state.context || state.message || state.signalledAt || state.clearedAt || state.clearedBy) {
+      context.addIssue({ code: 'custom', message: 'An empty cleared state cannot contain signal history' });
+    }
+  });
+
 export const TimedTargetStatePayloadSchema = z.object({
   schemaVersion: z.literal(1),
   laneId: z.string().uuid(),
@@ -135,6 +298,18 @@ export const TimedTargetStatePayloadSchema = z.object({
   nextLoadAllowedAt: z.string().datetime(),
   nextTransitionAt: z.string().datetime().nullable(),
   terminalReason: z.string().nullable(),
+  commandPause: z
+    .object({
+      mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+      ruleReference: z.string().min(1),
+      minimumSeconds: z.number().positive(),
+      unloadAt: z.string().datetime().nullable(),
+      officialName: z.string().nullable(),
+      nextLoadAllowedAt: z.string().datetime().nullable(),
+      blocked: z.boolean(),
+    })
+    .optional(),
+
   executionContext: z
     .object({
       shotDisposition: z.literal('ISOLATED'),
@@ -844,6 +1019,13 @@ export const StartTimedTargetCommandSchema = CommandBaseSchema.extend({
   targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
+export const RecordTimedTargetUnloadCommandSchema = CommandBaseSchema.extend({
+  sequenceId: z.string().uuid(),
+  observedAt: z.string().datetime(),
+  officialName: z.string().trim().min(1).max(200),
+  targetLaneIds: z.array(z.string().uuid()).min(1),
+});
+
 export const CancelTimedTargetCommandSchema = CommandBaseSchema.extend({
   sequenceId: z.string().uuid(),
   reason: z.string().trim().min(1).max(500),
@@ -877,6 +1059,9 @@ export type CompetitionDefinitionBinding = z.infer<typeof CompetitionDefinitionB
 export type HardwareStatePayload = z.infer<typeof HardwareStatePayloadSchema>;
 export type LaneSafetyStatePayload = z.infer<typeof LaneSafetyStatePayloadSchema>;
 export type RangeOfficerRequestPayload = z.infer<typeof RangeOfficerRequestPayloadSchema>;
+export type QualificationMalfunctionSignalPayload = z.infer<typeof QualificationMalfunctionSignalPayloadSchema>;
+export type EstComplaintIssue = z.infer<typeof EstComplaintIssueSchema>;
+export type EstComplaintSignalPayload = z.infer<typeof EstComplaintSignalPayloadSchema>;
 export type TimedTargetStatePayload = z.infer<typeof TimedTargetStatePayloadSchema>;
 export type QualificationRecoveryFiringAuthorizationPayload = z.infer<
   typeof QualificationRecoveryFiringAuthorizationSchema

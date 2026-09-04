@@ -1,6 +1,7 @@
 import { defineRulePack, type RulePack } from '../RulePack';
 
 import { buildIssf10mFinalCommandScript } from './finalCommandScript';
+import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
   organization: 'ISSF',
@@ -118,6 +119,7 @@ export const ISSF_2026_AR60: RulePack = defineRulePack({
     ranking: { strategy: 'ISSF_6_15_1_DECIMAL_RIFLE', totalShots: 60, totalSeries: 6 },
     verification,
     publication,
+    qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
     firingWindowReview: qualificationFiringWindowReview,
     commands: {
       athleteCallToLineLeadSeconds: 1500,
@@ -149,6 +151,7 @@ export const ISSF_2026_AP60: RulePack = defineRulePack({
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 6 },
     verification,
     publication,
+    qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
     firingWindowReview: qualificationFiringWindowReview,
     commands: {
       athleteCallToLineLeadSeconds: 1500,

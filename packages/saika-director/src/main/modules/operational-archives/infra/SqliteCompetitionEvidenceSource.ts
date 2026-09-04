@@ -27,6 +27,8 @@ const RUNTIME_COMPETITION_IDS = `
     WHERE event_id IN (${EVENT_IDS})
   UNION SELECT competition_id FROM irregular_shot_cases
     WHERE event_id IN (${EVENT_IDS})
+  UNION SELECT competition_id FROM qualification_malfunction_cases
+    WHERE event_id IN (${EVENT_IDS})
 `;
 
 const DIRECT_EVENT_TABLES = [
@@ -46,6 +48,7 @@ const DIRECT_EVENT_TABLES = [
   'start_list_versions',
   'final_recovery_cases',
   'irregular_shot_cases',
+  'qualification_malfunction_cases',
 ] as const;
 
 const SECTION_QUERIES: readonly SectionQuery[] = [
@@ -71,6 +74,17 @@ const SECTION_QUERIES: readonly SectionQuery[] = [
     id: 'est-inspection-entries',
     sql: `SELECT * FROM est_inspection_entries
           WHERE plan_id IN (SELECT id FROM est_inspection_plans WHERE championship_id = @championshipId)`,
+  },
+  {
+    id: 'post-competition-equipment-checks',
+    sql: 'SELECT * FROM post_competition_equipment_checks WHERE championship_id = @championshipId',
+  },
+  {
+    id: 'post-competition-equipment-check-entries',
+    sql: `SELECT * FROM post_competition_equipment_check_entries
+          WHERE check_id IN (
+            SELECT id FROM post_competition_equipment_checks WHERE championship_id = @championshipId
+          )`,
   },
   {
     id: 'championship-official-entries',
@@ -135,6 +149,11 @@ const SECTION_QUERIES: readonly SectionQuery[] = [
     id: 'final-recovery-entries',
     sql: `SELECT * FROM final_recovery_entries
           WHERE case_id IN (SELECT id FROM final_recovery_cases WHERE event_id IN (${EVENT_IDS}))`,
+  },
+  {
+    id: 'qualification-malfunction-entries',
+    sql: `SELECT * FROM qualification_malfunction_entries
+          WHERE case_id IN (SELECT id FROM qualification_malfunction_cases WHERE event_id IN (${EVENT_IDS}))`,
   },
   {
     id: 'protest-cases',

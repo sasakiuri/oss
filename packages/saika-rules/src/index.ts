@@ -2,6 +2,11 @@ export { defineRulePack } from './RulePack';
 export { canonicalJson, identifyRulePack } from './RulePackIdentity';
 export { projectShotResult } from './ShotResultProjection';
 export { recommendQualificationTimedTargetInterruption } from './QualificationTimedTargetInterruption';
+export {
+  assessQualificationMalfunctionClaim,
+  settleQualificationMalfunctionRepeat,
+  validateQualificationMalfunctionCapability,
+} from './QualificationMalfunction';
 export type {
   CommandSequenceCapability,
   CompetitionRound,
@@ -52,6 +57,22 @@ export type {
   TimedTargetRecoveryCapability,
   VerificationCapability,
 } from './RulePack';
+export type {
+  QualificationMalfunctionAllowableTreatment,
+  QualificationMalfunctionCapability,
+  QualificationMalfunctionCauseRule,
+  QualificationMalfunctionClaimLimit,
+  QualificationMalfunctionClassification,
+  QualificationMalfunctionClaimAssessment,
+  QualificationMalfunctionClaimFacts,
+  QualificationMalfunctionCountedShot,
+  QualificationMalfunctionDocumentationPolicy,
+  QualificationMalfunctionRepairPolicy,
+  QualificationMalfunctionRepeatSettlement,
+  QualificationMalfunctionSeriesRow,
+  QualificationMalfunctionSeriesShot,
+  QualificationMalfunctionStageRule,
+} from './QualificationMalfunction';
 export type {
   QualificationTimedTargetInterruptionFacts,
   QualificationTimedTargetInterruptionRecommendation,

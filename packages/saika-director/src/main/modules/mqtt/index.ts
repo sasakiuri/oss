@@ -14,9 +14,12 @@ export { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJourn
 export type {
   ISafetyStopAuditJournal,
   SafetyStopAuditEntry,
+  SafetyStopFirearmCondition,
+  SafetyStopLaneClearance,
   SafetyStopAuditOperation,
   SafetyStopLaneOutcome,
 } from './domain/ISafetyStopAuditJournal';
+export { SafetyStopClearancePolicy, SAFETY_STOP_CLEARANCE_RULE_REFERENCES } from './domain/SafetyStopClearancePolicy';
 export type {
   FiringBoundarySignal,
   FiringCommandBoundary,

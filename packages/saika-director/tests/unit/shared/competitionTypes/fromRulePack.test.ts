@@ -6,6 +6,7 @@ import {
   ISSF_2026_AR60_FINAL,
   ISSF_2026_P25_FINAL,
   ISSF_2026_R3P_FINAL,
+  ISSF_2026_RFPM,
 } from '@sasakiuri/saika-rules';
 
 import {
@@ -212,6 +213,22 @@ describe('competitionTypeFromRulePack', () => {
     });
     expect(definition.finalSeriesAdjudication?.incidents).toEqual([
       expect.objectContaining({ kind: 'READY_POSITION', ruleReference: '6.17.5(j)' }),
+    ]);
+  });
+
+  it('exposes qualification malfunction policy without adding Director workflow state', () => {
+    const definition = competitionTypeFromRulePack(ISSF_2026_RFPM);
+
+    expect(definition.qualificationMalfunction).toBe(ISSF_2026_RFPM.capabilities.qualificationMalfunction);
+    expect(definition.qualificationMalfunction?.stages).toEqual([
+      expect.objectContaining({
+        stageId: 'STAGE_1',
+        allowableTreatment: expect.objectContaining({ type: 'REPEAT_FULL_SERIES', shots: 5 }),
+      }),
+      expect.objectContaining({
+        stageId: 'STAGE_2',
+        allowableTreatment: expect.objectContaining({ type: 'REPEAT_FULL_SERIES', shots: 5 }),
+      }),
     ]);
   });
 

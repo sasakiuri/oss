@@ -19,13 +19,23 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 interface HardwareState {
   status: 'connected' | 'disconnected' | 'offline';
   manufacturer?: string;
+  deviceId?: string | null;
   portPath?: string;
   connectionId?: string;
+}
+
+export interface LaneTargetIntegrationCapabilities {
+  readonly schemaVersion: 1;
+  readonly timedTarget: {
+    readonly actuation: 'INTEGRATED' | 'NOT_INTEGRATED';
+    readonly feedback: 'INTEGRATED' | 'NOT_INTEGRATED';
+  };
 }
 
 export interface LaneRuntimeCapabilities {
   readonly competitionProtocolVersions: readonly [1];
   readonly rulePacks: readonly RulePackIdentity[];
+  readonly targetIntegration?: LaneTargetIntegrationCapabilities;
 }
 
 export class HardwareStatePublisher {
@@ -52,6 +62,7 @@ export class HardwareStatePublisher {
       this.currentState = {
         status: 'connected',
         manufacturer: event.manufacturer.value,
+        deviceId: event.deviceId,
         portPath: event.portPath,
         connectionId: event.aggregateId,
       };
