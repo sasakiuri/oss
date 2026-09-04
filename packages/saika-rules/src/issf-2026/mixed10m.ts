@@ -1,6 +1,7 @@
 import { defineRulePack, type RulePack } from '../RulePack';
 
 import { buildIssf10mFinalCommandScript } from './finalCommandScript';
+import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
   organization: 'ISSF',
@@ -130,6 +131,7 @@ function mixedQualification(
       verification: { topIndividualResults: 0, topTeamResultsWhenPublished: 3 },
       team: { format: 'MIXED_PAIR', membersPerTeam: 2, maximumTeamsPerNation: 2, requiredGenders: ['F', 'M'] },
       publication: { preliminaryRequired: true, scoreProtestWindowSeconds: 600 },
+      qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
       firingWindowReview: mixedQualificationFiringWindowReview,
       commands: {
         athleteCallToLineLeadSeconds: 1500,

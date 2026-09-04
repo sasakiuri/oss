@@ -49,6 +49,16 @@ describe('ISSF 2026 10m Rule Packs', () => {
     expect(ISSF_2026_AR60.capabilities.target.scoringGaugeProfileId).toBe('ISSF_AIR_4_50_2026');
     expect(ISSF_2026_AP60.capabilities.scoring.mode).toBe('RING');
     expect(ISSF_2026_AP60.capabilities.publication?.scoreProtestWindowSeconds).toBe(600);
+    expect(ISSF_2026_AR60.capabilities.qualificationMalfunction).toMatchObject({
+      determinationAuthority: 'RANGE_OR_JURY_OFFICIAL',
+      repair: {
+        maximumSeconds: null,
+        completionScheduling: 'WITHIN_ORIGINAL_COMPETITION_TIME',
+        additionalSighting: { policy: 'JURY_MAY_ALLOW', shots: null },
+      },
+      nonAllowableTreatment: { unfiredShots: 'MISS', refirePermitted: false },
+      stages: [{ stageId: 'MATCH', allowableTreatment: { type: 'CONTINUE_WITHIN_ORIGINAL_TIME' } }],
+    });
     expect(ISSF_2026_AR60.capabilities.commands).toEqual(
       expect.objectContaining({
         athleteCallToLineLeadSeconds: 1500,

@@ -228,6 +228,13 @@ export const StartTimedTargetCmdSchema = CommandBaseSchema.extend({
   targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
 });
 
+export const RecordTimedTargetUnloadCmdSchema = CommandBaseSchema.extend({
+  sequenceId: z.string().uuid(),
+  observedAt: z.string().datetime(),
+  officialName: z.string().trim().min(1).max(200),
+  targetLaneIds: z.array(z.string().uuid()).min(1),
+});
+
 export const CancelTimedTargetCmdSchema = CommandBaseSchema.extend({
   sequenceId: z.string().uuid(),
   reason: z.string().trim().min(1).max(500),

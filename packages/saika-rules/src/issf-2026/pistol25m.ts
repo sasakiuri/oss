@@ -10,6 +10,7 @@ import {
   buildIssf25mPistolWomenFinalCommandScript,
   buildIssf25mRapidFirePistolMenFinalCommandScript,
 } from './pistol25mFinalCommandScript';
+import { buildIssf25mQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
   organization: 'ISSF',
@@ -140,6 +141,22 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
     verification,
     publication,
+    qualificationMalfunction: buildIssf25mQualificationMalfunction({
+      claimLimit: { sightingClaims: 'PROHIBITED', maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
+      stages: [1, 2].map((stageNumber) => ({
+        stageId: `STAGE_${stageNumber}`,
+        treatment: {
+          type: 'REPEAT_FULL_SERIES' as const,
+          shots: 5,
+          scoreCombination: 'LOWEST_PER_TARGET' as const,
+          scoreCount: 5,
+          secondMalfunction: 'ZERO_FILL_ROW_WITH_MOST_RECORDED_SHOTS' as const,
+          incidentForm: 'RFPM' as const,
+        },
+        ruleReference: '8.9.4.5',
+      })),
+      incidentForm: 'RFPM',
+    }),
     commands: {
       athleteCallToLineLeadSeconds: 600,
       preparationAndSightingSeconds: 180,
@@ -161,9 +178,7 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
             ruleReference: '8.8.1(b)',
           })),
         },
-        sightingMalfunctionClaimsAllowed: false,
-        malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
-        ruleReferences: ['8.8.1(a-b)', '8.9.1(a,c)'],
+        ruleReferences: ['8.8.1(a-b)'],
       },
     },
   },
@@ -195,7 +210,7 @@ function precisionRapidPrograms(prefix: 'P25' | 'CFP'): readonly TimedTargetProg
       label: 'Rapid-fire competition series',
       purpose: 'MATCH',
     }),
-  ];
+  ].map((program) => ({ ...program, unloadPause: { minimumSeconds: 60, ruleReference: '8.7.6.4(d)' } }));
 }
 
 function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: string }): RulePack {
@@ -251,6 +266,32 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
       ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
       verification,
       publication,
+      qualificationMalfunction: buildIssf25mQualificationMalfunction({
+        claimLimit: { sightingClaims: 'PROHIBITED', maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
+        stages: [
+          {
+            stageId: 'PRECISION_STAGE',
+            treatment: {
+              type: 'COMPLETE_REMAINING_SHOTS',
+              execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48 },
+              scoreCombination: 'NORMAL_SERIES',
+              incidentForm: 'IR',
+            },
+            ruleReference: '8.9.4.6',
+          },
+          {
+            stageId: 'RAPID_FIRE_STAGE',
+            treatment: {
+              type: 'COMPLETE_REMAINING_SHOTS',
+              execution: { mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES' },
+              scoreCombination: 'NORMAL_SERIES',
+              incidentForm: 'IR',
+            },
+            ruleReference: '8.9.4.6',
+          },
+        ],
+        incidentForm: 'IR',
+      }),
       commands: {
         athleteCallToLineLeadSeconds: 600,
         preparationAndSightingSeconds: 180,
@@ -285,9 +326,7 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
               },
             ],
           },
-          sightingMalfunctionClaimsAllowed: false,
-          malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
-          ruleReferences: ['8.8.1(a,c-d)', '8.9.1(a,c)'],
+          ruleReferences: ['8.8.1(a,c-d)'],
         },
       },
     },
@@ -322,7 +361,7 @@ function standardPrograms(): readonly TimedTargetProgram[] {
         ruleReference: '6.4.12(b), 6.4.13, 8.7.6.5(b-g)',
       }),
     ),
-  ];
+  ].map((program) => ({ ...program, unloadPause: { minimumSeconds: 60, ruleReference: '8.7.6.5(g)' } }));
 }
 
 function standardStage(seconds: 150 | 20 | 10, index: number) {
@@ -362,6 +401,27 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
     verification,
     publication,
+    qualificationMalfunction: buildIssf25mQualificationMalfunction({
+      claimLimit: {
+        sightingClaims: 'PROHIBITED',
+        maximum: 2,
+        scope: 'SIXTY_SHOT_MATCH',
+        exceptionalTwoPartMaximumPerPart: 1,
+      },
+      stages: [150, 20, 10].map((seconds, index) => ({
+        stageId: `STAGE_${index + 1}_${seconds}_SECONDS`,
+        treatment: {
+          type: 'REPEAT_FULL_SERIES' as const,
+          shots: 5,
+          scoreCombination: 'LOWEST_OVERALL' as const,
+          scoreCount: 5,
+          secondMalfunction: 'ZERO_FILL_ROW_WITH_MOST_RECORDED_SHOTS' as const,
+          incidentForm: 'STDP' as const,
+        },
+        ruleReference: '8.9.4.5',
+      })),
+      incidentForm: 'STDP',
+    }),
     commands: {
       athleteCallToLineLeadSeconds: 600,
       preparationAndSightingSeconds: 180,
@@ -383,13 +443,7 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
             ruleReference: '8.8.1(b)',
           })),
         },
-        sightingMalfunctionClaimsAllowed: false,
-        malfunctionClaims: {
-          maximum: 2,
-          scope: 'SIXTY_SHOT_MATCH',
-          exceptionalTwoPartMaximumPerPart: 1,
-        },
-        ruleReferences: ['8.7.6.5(h-i)', '8.8.1(a-b)', '8.9.1(b-c)'],
+        ruleReferences: ['8.7.6.5(h-i)', '8.8.1(a-b)'],
       },
     },
   },

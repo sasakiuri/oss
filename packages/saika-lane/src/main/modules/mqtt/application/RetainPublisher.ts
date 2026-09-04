@@ -16,11 +16,13 @@ import type { Shot } from '@/main/modules/session/domain/Shot';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import type { EstComplaintSignalPublisher } from './EstComplaintSignalPublisher';
 import type { HardwareStatePublisher } from './HardwareStatePublisher';
 import type { LaneAssignmentPublisher } from './LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from './LaneCompetitionStatePublisher';
 import type { LaneSafetyStatePublisher } from './LaneSafetyStatePublisher';
 import type { LaneScorePublisher } from './LaneScorePublisher';
+import type { QualificationMalfunctionSignalPublisher } from './QualificationMalfunctionSignalPublisher';
 import type { QualificationRecoveryStatePublisher } from './QualificationRecoveryStatePublisher';
 import type { RangeOfficerRequestPublisher } from './RangeOfficerRequestPublisher';
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
@@ -53,6 +55,8 @@ export class RetainPublisher {
     private readonly timedTargetStatePublisher?: TimedTargetStatePublisher,
     private readonly qualificationRecoveryStatePublisher?: QualificationRecoveryStatePublisher,
     private readonly excludeCompetitionShotReplay: (shotId: string) => boolean = () => false,
+    private readonly qualificationMalfunctionSignalPublisher?: QualificationMalfunctionSignalPublisher,
+    private readonly estComplaintSignalPublisher?: EstComplaintSignalPublisher,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -101,6 +105,8 @@ export class RetainPublisher {
     // Safety state is Lane-owned and must survive without competition membership.
     await this.safetyStatePublisher?.publishCurrentState();
     await this.rangeOfficerRequestPublisher?.publishCurrentState();
+    await this.qualificationMalfunctionSignalPublisher?.publishCurrentState();
+    await this.estComplaintSignalPublisher?.publishCurrentState();
 
     // 2. Re-publish competition-related Retain topics
     const competition = await this.competitionRepository.findActive();

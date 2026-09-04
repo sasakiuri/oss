@@ -8,6 +8,26 @@ export interface SafetyStopLaneOutcome {
   readonly acknowledgedAt: Date | null;
 }
 
+export type SafetyStopFirearmCondition =
+  'UNLOADED_SAFETY_FLAG_INSERTED' | 'UNLOADED_ACTION_OPEN' | 'NO_FIREARM_PRESENT';
+
+export interface SafetyStopLaneClearance {
+  readonly id: string;
+  readonly laneId: string;
+  readonly participantId: string | null;
+  readonly participantName: string | null;
+  readonly athleteConfirmationStatus: 'CONFIRMED' | 'NOT_APPLICABLE';
+  readonly athleteConfirmedBy: string | null;
+  readonly notApplicableReason: string | null;
+  readonly firearmCondition: SafetyStopFirearmCondition;
+  readonly personnelClear: true;
+  readonly verifiedBy: string;
+  readonly verificationNote: string | null;
+  readonly verifiedAt: Date;
+  readonly recordedAt: Date;
+  readonly ruleReferences: readonly string[];
+}
+
 export interface SafetyStopAuditEntry {
   readonly id: string;
   readonly safetyStopId: string;
@@ -19,6 +39,7 @@ export interface SafetyStopAuditEntry {
   readonly occurredAt: Date;
   readonly recordedAt: Date;
   readonly laneOutcomes: readonly SafetyStopLaneOutcome[];
+  readonly laneClearances: readonly SafetyStopLaneClearance[];
 }
 
 export interface ISafetyStopAuditJournal {

@@ -1,3 +1,7 @@
+import {
+  validateQualificationMalfunctionCapability,
+  type QualificationMalfunctionCapability,
+} from './QualificationMalfunction';
 import type { ShotResultProjectionCapability } from './ShotResultProjection';
 
 export interface RuleAuthority {
@@ -185,6 +189,8 @@ export interface TimedTargetProgram {
   readonly betweenExposuresMilliseconds: number;
   /** Earliest permitted next LOAD, measured from the end of this program. */
   readonly minimumPauseAfterSeconds: number;
+  /** Separate official-command pause; applications choose its enforcement policy. */
+  readonly unloadPause?: { readonly minimumSeconds: number; readonly ruleReference: string };
   readonly exposures: readonly TimedTargetExposure[];
 }
 
@@ -219,12 +225,6 @@ export interface QualificationTimedTargetRecoveryCapability {
     readonly extraSightingRuleReference: string;
     /** Event-stage rules are explicit so applications do not infer recovery from labels or timer lengths. */
     readonly stages: readonly QualificationTimedTargetStageRecoveryRule[];
-  };
-  readonly sightingMalfunctionClaimsAllowed: false;
-  readonly malfunctionClaims: {
-    readonly maximum: number;
-    readonly scope: 'EACH_30_SHOT_STAGE' | 'SIXTY_SHOT_MATCH';
-    readonly exceptionalTwoPartMaximumPerPart?: number;
   };
   readonly ruleReferences: readonly string[];
 }
@@ -453,6 +453,8 @@ export interface RulePackCapabilities {
   readonly commands?: CommandSequenceCapability;
   readonly firingWindowReview?: FiringWindowReviewCapability;
   readonly finalSeriesAdjudication?: FinalSeriesAdjudicationCapability;
+  /** Qualification/Elimination firearm-malfunction policy; adjudication remains application-owned. */
+  readonly qualificationMalfunction?: QualificationMalfunctionCapability;
 }
 
 /**
@@ -614,6 +616,12 @@ export function defineRulePack(pack: RulePack): RulePack {
   }
   validateFinalSeriesAdjudication(pack);
   validateTimedTargetCapability(pack);
+  if (pack.capabilities.qualificationMalfunction) {
+    validateQualificationMalfunctionCapability(pack.capabilities.qualificationMalfunction, {
+      round: pack.round,
+      stages: pack.capabilities.courseOfFire.stages,
+    });
+  }
   return deepFreeze(pack);
 }
 
@@ -698,6 +706,10 @@ function validateTimedTargetCapability(pack: RulePack): void {
       `Timed target program ${program.id} minimumPauseAfterSeconds`,
     );
     if (program.exposures.length === 0) throw new Error(`Timed target program ${program.id} requires an exposure`);
+    if (program.unloadPause) {
+      validatePositiveSeconds(program.unloadPause.minimumSeconds, `Timed target program ${program.id} unload pause`);
+      validateText(program.unloadPause.ruleReference, `Timed target program ${program.id} unload pause reference`);
+    }
     for (const exposure of program.exposures) {
       validatePositiveInteger(
         exposure.nominalDurationMilliseconds,
@@ -810,18 +822,8 @@ function validateTimedTargetCapability(pack: RulePack): void {
       );
     }
   }
-  validatePositiveInteger(recovery.malfunctionClaims.maximum, 'timedTarget.recovery.malfunctionClaims.maximum');
-  if (
-    recovery.procedure === 'QUALIFICATION' &&
-    recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart !== undefined
-  ) {
-    validatePositiveInteger(
-      recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart,
-      'timedTarget.recovery.malfunctionClaims.exceptionalTwoPartMaximumPerPart',
-    );
-    if (recovery.malfunctionClaims.scope !== 'SIXTY_SHOT_MATCH') {
-      throw new Error('exceptionalTwoPartMaximumPerPart requires SIXTY_SHOT_MATCH scope');
-    }
+  if (recovery.procedure === 'FINAL') {
+    validatePositiveInteger(recovery.malfunctionClaims.maximum, 'timedTarget.recovery.malfunctionClaims.maximum');
   }
   if (recovery.ruleReferences.length === 0) throw new Error('timedTarget.recovery.ruleReferences must not be empty');
   recovery.ruleReferences.forEach((reference) => validateText(reference, 'timedTarget.recovery.ruleReferences'));

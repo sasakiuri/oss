@@ -2,6 +2,7 @@ import type {
   FinalTieResolutionPolicy,
   FinalSeriesAdjudicationCapability,
   OutdoorEliminationPlanningCapability,
+  QualificationMalfunctionCapability,
   RulePackIdentity,
   ShotResultProjectionCapability,
   TimedTargetCapability,
@@ -161,6 +162,8 @@ export interface CompetitionTypeDefinition {
   readonly outdoorEliminationPlanning?: OutdoorEliminationPlanningCapability;
   /** Optional 25m target schedule; execution remains in the dedicated Lane module. */
   readonly timedTarget?: TimedTargetCapability;
+  /** Qualification malfunction policy; adjudication and execution stay in independent modules. */
+  readonly qualificationMalfunction?: QualificationMalfunctionCapability;
   /** Result-only scoring projection; Lane protocol still advertises source accuracy. */
   readonly resultProjection?: ShotResultProjectionCapability;
   /** Team aggregation metadata; Lane still operates one athlete per firing point. */

@@ -20,10 +20,12 @@ export { estBackupVerificationContract } from './estBackupVerification.contract'
 export { finalControlContract } from './finalControl.contract';
 export { finalOperationsContract } from './finalOperations.contract';
 export { finalRecoveriesContract } from './finalRecoveries.contract';
+export { qualificationMalfunctionsContract } from './qualificationMalfunctions.contract';
 export { adjudicationCasesContract } from './adjudicationCases.contract';
 export { irregularShotCasesContract } from './irregularShotCases.contract';
 export { operationalArchivesContract } from './operationalArchives.contract';
 export { estChampionshipInspectionsContract } from './estChampionshipInspections.contract';
+export { postCompetitionEquipmentControlContract } from './postCompetitionEquipmentControl.contract';
 export { eliminationPlanningContract } from './eliminationPlanning.contract';
 export { resultsBooksContract } from './resultsBooks.contract';
 export { startListsContract } from './startLists.contract';
@@ -35,6 +37,7 @@ export { mqttContract } from './mqtt.contract';
 export { eventsContract } from './events.contract';
 export { debugContract } from './debug.contract';
 export { athleteSanctionsContract } from './athleteSanctions.contract';
+export { estComplaintsContract } from './estComplaints.contract';
 
 // Common types (from defineContract)
 export type { CommandResponseDto, CommandResponse, IpcErrorDto, IpcError } from '../defineContract';
@@ -150,6 +153,13 @@ export type {
 } from './targetExaminations.contract';
 
 export type {
+  EstComplaintObservationDto,
+  EstComplaintTimingAdvisoryDto,
+  OpenEstComplaintTargetExaminationPayload,
+  OpenEstComplaintTargetExaminationResultDto,
+} from './estComplaints.contract';
+
+export type {
   RangeInterruptionScopeTypeDto,
   RangeInterruptionCauseDto,
   RangeInterruptionPhaseDto,
@@ -256,6 +266,12 @@ export type {
   FinalRecoveryRemedyDto,
 } from './finalRecoveries.contract';
 export type {
+  AppendQualificationMalfunctionEntryPayload,
+  CreateQualificationMalfunctionCasePayload,
+  QualificationMalfunctionCaseDto,
+  QualificationMalfunctionEntryDto,
+} from './qualificationMalfunctions.contract';
+export type {
   AdjudicationCaseScopePayload,
   CreateAdjudicationCasePayload,
   AppendAdjudicationCaseEntryPayload,
@@ -283,6 +299,14 @@ export type {
   RecordEstInspectionPayload,
   RevokeEstInspectionPayload,
 } from './estChampionshipInspections.contract';
+export type {
+  ConfirmEquipmentControlFailurePayload,
+  IssueEquipmentControlNoticePayload,
+  PostCompetitionEquipmentCheckDto,
+  RecordEquipmentControlTestPayload,
+  SelectEquipmentControlAthletesPayload,
+  VoidEquipmentControlCheckPayload,
+} from './postCompetitionEquipmentControl.contract';
 export type {
   OutdoorEliminationPlanDto,
   CreateOutdoorEliminationPlanPayload,
@@ -329,7 +353,7 @@ export type {
   RevokeFinalPlacementReviewPayload,
 } from './finalPlacementReview.contract';
 
-export type { SafetyStopAuditEntryDto } from './mqtt.contract';
+export type { ClearSafetyStopPayload, SafetyStopAuditEntryDto, SafetyStopLaneClearancePayload } from './mqtt.contract';
 
 // Lane Control types
 export type {

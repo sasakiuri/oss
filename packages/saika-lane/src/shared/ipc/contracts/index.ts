@@ -96,11 +96,17 @@ export type { FullscreenStateDto, ToggleFullscreenResponse, WindowStateDto } fro
 
 export { mqttContract } from './mqtt.contract';
 export type {
+  ClearEstComplaintSignalInput,
+  ClearQualificationMalfunctionSignalInput,
   ClearRangeOfficerRequestInput,
   ConnectMqttInput,
+  DeclareEstComplaintInput,
+  DeclareQualificationMalfunctionInput,
+  EstComplaintSignalDto,
   LaneSafetyStateDto,
   MqttSettings,
   MqttStatus,
+  QualificationMalfunctionSignalDto,
   RangeOfficerRequestDto,
   RequestRangeOfficerInput,
 } from './mqtt.contract';

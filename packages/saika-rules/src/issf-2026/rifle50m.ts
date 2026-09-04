@@ -1,5 +1,6 @@
 import { defineRulePack, type RulePack, type RuleSeries } from '../RulePack';
 
+import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 import { buildIssf50mThreePositionsFinalCommandScript } from './rifle50mFinalCommandScript';
 
 const authority = {
@@ -119,6 +120,7 @@ function threePositionsQualification(input: {
       ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 6 },
       verification,
       publication,
+      qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
       firingWindowReview: qualificationFiringWindowReview,
       commands: qualificationCommands([600, 300]),
     },
@@ -183,6 +185,7 @@ export const ISSF_2026_RPR60: RulePack = defineRulePack({
     ranking: { strategy: 'ISSF_6_15_1_DECIMAL_RIFLE', totalShots: 60, totalSeries: 6 },
     verification,
     publication,
+    qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
     firingWindowReview: qualificationFiringWindowReview,
     commands: qualificationCommands([600, 300]),
   },

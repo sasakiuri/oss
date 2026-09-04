@@ -30,6 +30,7 @@ export interface TimedTargetSchedule {
   readonly exposures: readonly ScheduledTimedTargetExposure[];
   readonly completesAt: Date;
   readonly nextLoadAllowedAt: Date;
+  readonly unloadPause?: TimedTargetProgram['unloadPause'];
   readonly executionContext?: TimedTargetExecutionContext;
 }
 
@@ -95,6 +96,7 @@ export function buildTimedTargetSchedule(input: {
     seriesIndex: input.seriesIndex,
     targetProfileId: input.targetProfileId,
     ruleReference: input.program.ruleReference,
+    ...(input.program.unloadPause ? { unloadPause: { ...input.program.unloadPause } } : {}),
     loadAt: input.loadAt,
     attentionAt: new Date(attentionAtMs),
     exposures,

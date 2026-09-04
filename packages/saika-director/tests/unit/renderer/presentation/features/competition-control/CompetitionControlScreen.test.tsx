@@ -77,8 +77,16 @@ vi.mock('@/renderer/presentation/features/target-examinations', () => ({
   TargetExaminationsPanel: () => <div data-testid="target-examinations-panel" />,
 }));
 
+vi.mock('@/renderer/presentation/features/est-complaints', () => ({
+  EstComplaintInbox: () => <div data-testid="est-complaint-inbox" />,
+}));
+
 vi.mock('@/renderer/presentation/features/range-interruptions', () => ({
   RangeInterruptionsPanel: () => <div data-testid="range-interruptions-panel" />,
+}));
+
+vi.mock('@/renderer/presentation/features/qualification-malfunctions', () => ({
+  QualificationMalfunctionPanel: () => <div data-testid="qualification-malfunction-panel" />,
 }));
 
 vi.mock('@/renderer/presentation/features/relay-readiness', () => ({
@@ -214,6 +222,111 @@ describe('CompetitionControlScreen', () => {
         lanes: [{ laneId: LANE_ID, status: 'done' }],
       },
     });
+  });
+
+  it('shows a Lane malfunction declaration as unclassified review information', async () => {
+    getControlState.mockResolvedValue({
+      success: true,
+      data: {
+        ...completedSnapshot,
+        lanes: [
+          {
+            ...completedSnapshot.lanes[0]!,
+            qualificationMalfunctionSignal: {
+              schemaVersion: 1,
+              laneId: LANE_ID,
+              status: 'ACTIVE',
+              signalId: '99999999-9999-4999-8999-999999999999',
+              context: {
+                competitionId: COMPETITION_ID,
+                sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                participantId: PARTICIPANT_ID,
+                participantName: 'Alex Smith',
+                startNumber: '12',
+                phase: 'MATCH',
+                stageIndex: 1,
+                seriesIndex: 2,
+                seriesShotLimit: 5,
+                recordedShots: 3,
+                timedTargetProgramId: 'rapid-4s',
+                exposureIndex: 2,
+              },
+              message: 'Possible failure to fire',
+              signalledAt: '2026-09-04T00:00:00.000Z',
+              clearedAt: null,
+              clearedBy: null,
+              publishedAt: '2026-09-04T00:00:01.000Z',
+            },
+          },
+        ],
+      },
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    expect(await screen.findByText('Possible qualification malfunction declared')).toBeInTheDocument();
+    expect(screen.getByText(/#12 Alex Smith/)).toBeInTheDocument();
+    expect(screen.getByText(/not an official classification or claim decision/)).toBeInTheDocument();
+  });
+
+  it('shows a Lane EST complaint as unadjudicated review information', async () => {
+    getControlState.mockResolvedValue({
+      success: true,
+      data: {
+        ...completedSnapshot,
+        lanes: [
+          {
+            ...completedSnapshot.lanes[0]!,
+            estComplaintSignal: {
+              schemaVersion: 1,
+              laneId: LANE_ID,
+              status: 'ACTIVE',
+              signalId: '99999999-9999-4999-8999-999999999999',
+              issue: 'SHOT_VALUE',
+              context: {
+                competitionId: COMPETITION_ID,
+                sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+                participantId: PARTICIPANT_ID,
+                participantName: 'Alex Smith',
+                startNumber: '12',
+                phase: 'MATCH',
+                stageIndex: 1,
+                seriesIndex: 2,
+                seriesShotLimit: 5,
+                recordedShots: 3,
+                timedTargetProgramId: 'rapid-4s',
+                exposureIndex: 2,
+                lastShot: {
+                  shotId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+                  shotNumberInSeries: 3,
+                  firedAt: '2026-09-04T00:00:00.000Z',
+                  receivedAt: '2026-09-04T00:00:00.100Z',
+                },
+              },
+              message: 'Displayed value looks wrong',
+              signalledAt: '2026-09-04T00:00:01.000Z',
+              clearedAt: null,
+              clearedBy: null,
+              publishedAt: '2026-09-04T00:00:02.000Z',
+            },
+          },
+        ],
+      },
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    expect(await screen.findByText('Electronic target complaint raised')).toBeInTheDocument();
+    expect(screen.getByText(/Displayed shot value/)).toBeInTheDocument();
+    expect(screen.getByText(/not a ruling on timeliness, validity, or score/)).toBeInTheDocument();
   });
 
   it('shows persisted firing-window evidence as review-only information', async () => {
@@ -1030,5 +1143,36 @@ describe('CompetitionControlScreen', () => {
         },
       });
     });
+  });
+
+  it('shows Qualification malfunction workflow only for a linked supported event', async () => {
+    useCompetitionControlStore.getState().setResultContext(COMPETITION_ID, {
+      eventId: EVENT_ID,
+      relayNumber: 1,
+    });
+    getControlState.mockResolvedValue({
+      success: true,
+      data: {
+        ...completedSnapshot,
+        competitions: [
+          {
+            ...completedSnapshot.competitions[0]!,
+            competitionTypeId: 'AR60',
+            competitionTypeName: '10m Air Rifle 60 shots',
+            discipline: 'AIR_RIFLE_10M',
+            phase: 'MATCH',
+            finishedAt: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <EventBusProvider bus={eventBus}>
+        <CompetitionControlScreen />
+      </EventBusProvider>,
+    );
+
+    expect(await screen.findByTestId('qualification-malfunction-panel')).toBeInTheDocument();
   });
 });

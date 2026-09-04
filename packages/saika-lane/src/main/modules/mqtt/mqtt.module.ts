@@ -10,6 +10,11 @@ import { app } from 'electron';
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
+import {
+  QualificationMalfunctionSignalService,
+  SqliteQualificationMalfunctionSignalRepository,
+} from '@/main/modules/qualification-malfunction-signal';
 import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
@@ -25,11 +30,18 @@ import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber
 import { CompetitionShootOffShotPublisher } from './application/CompetitionShootOffShotPublisher';
 import { CompetitionShotPublisher } from './application/CompetitionShotPublisher';
 import { CompetitionStateSubscriber } from './application/CompetitionStateSubscriber';
+import { EstComplaintSignalPublisher, toEstComplaintSignalPayload } from './application/EstComplaintSignalPublisher';
 import { HardwareStatePublisher } from './application/HardwareStatePublisher';
 import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
 import { LaneCompetitionStatePublisher } from './application/LaneCompetitionStatePublisher';
+import { LaneEstComplaintContextSource } from './application/LaneEstComplaintContextSource';
+import { LaneQualificationMalfunctionContextSource } from './application/LaneQualificationMalfunctionContextSource';
 import { LaneSafetyStatePublisher } from './application/LaneSafetyStatePublisher';
 import { LaneScorePublisher } from './application/LaneScorePublisher';
+import {
+  QualificationMalfunctionSignalPublisher,
+  toQualificationMalfunctionSignalPayload,
+} from './application/QualificationMalfunctionSignalPublisher';
 import { QualificationRecoveryShotPublisher } from './application/QualificationRecoveryShotPublisher';
 import { QualificationRecoveryStatePublisher } from './application/QualificationRecoveryStatePublisher';
 import { RangeOfficerRequestPublisher } from './application/RangeOfficerRequestPublisher';
@@ -126,11 +138,22 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const rangeOfficerRequestService = new RangeOfficerRequestService(
       new SqliteRangeOfficerRequestRepository(database),
     );
+    const qualificationMalfunctionSignalService = new QualificationMalfunctionSignalService(
+      new SqliteQualificationMalfunctionSignalRepository(database),
+    );
+    const estComplaintSignalService = new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(database));
 
     // Initialize publishers (they subscribe to EventBus events)
     const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion, {
       competitionProtocolVersions: [1],
       rulePacks,
+      targetIntegration: {
+        schemaVersion: 1,
+        timedTarget: {
+          actuation: 'NOT_INTEGRATED',
+          feedback: 'NOT_INTEGRATED',
+        },
+      },
     });
     new CompetitionShootOffShotPublisher(
       mqttClient,
@@ -173,12 +196,30 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionShootOffControl,
     );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
+    const qualificationMalfunctionContextSource = new LaneQualificationMalfunctionContextSource(
+      competitionRepository,
+      sessionRepository,
+      assignmentPublisher,
+      timedTargetControl,
+    );
+    const estComplaintContextSource = new LaneEstComplaintContextSource(
+      competitionRepository,
+      sessionRepository,
+      assignmentPublisher,
+      timedTargetControl,
+    );
     const safetyStatePublisher = new LaneSafetyStatePublisher(mqttClient, eventBus, storage, safetyStopControl);
     const rangeOfficerRequestPublisher = new RangeOfficerRequestPublisher(
       mqttClient,
       storage,
       rangeOfficerRequestService,
     );
+    const qualificationMalfunctionSignalPublisher = new QualificationMalfunctionSignalPublisher(
+      mqttClient,
+      storage,
+      qualificationMalfunctionSignalService,
+    );
+    const estComplaintSignalPublisher = new EstComplaintSignalPublisher(mqttClient, storage, estComplaintSignalService);
     const timedTargetStatePublisher = new TimedTargetStatePublisher(mqttClient, eventBus, storage, timedTargetControl);
     const qualificationRecoveryStatePublisher = new QualificationRecoveryStatePublisher(
       mqttClient,
@@ -202,6 +243,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       timedTargetStatePublisher,
       qualificationRecoveryStatePublisher,
       (shotId) => qualificationRecoveryShotOutbox.hasShot(shotId),
+      qualificationMalfunctionSignalPublisher,
+      estComplaintSignalPublisher,
     );
 
     // Initialize RPC handler
@@ -308,6 +351,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           hardwarePublisher.publishState();
           await safetyStatePublisher.publishCurrentState();
           await rangeOfficerRequestPublisher.publishCurrentState();
+          await qualificationMalfunctionSignalPublisher.publishCurrentState();
+          await estComplaintSignalPublisher.publishCurrentState();
           await timedTargetStatePublisher.publishCurrentState();
           await qualificationRecoveryStatePublisher.publishCurrentState();
           hardwarePublisher.startHeartbeat();
@@ -396,6 +441,59 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           });
         });
         return toRangeOfficerRequestDto(getLaneId(), state);
+      },
+
+      getQualificationMalfunctionSignal: async () =>
+        toQualificationMalfunctionSignalPayload(getLaneId(), qualificationMalfunctionSignalService.getState()),
+
+      declareQualificationMalfunction: async (input) => {
+        const context = await qualificationMalfunctionContextSource.capture();
+        const state = qualificationMalfunctionSignalService.signal({ context, message: input.message });
+        await qualificationMalfunctionSignalPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn('[MQTT Module] Qualification malfunction signal retained locally for retry', 'mqtt', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+        return toQualificationMalfunctionSignalPayload(getLaneId(), state);
+      },
+
+      clearQualificationMalfunctionSignal: async (input) => {
+        const state = qualificationMalfunctionSignalService.clear({ ...input, clearedBy: 'Lane user' });
+        await qualificationMalfunctionSignalPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn(
+            '[MQTT Module] Cleared qualification malfunction signal retained locally for retry',
+            'mqtt',
+            { error: error instanceof Error ? error.message : String(error) },
+          );
+        });
+        return toQualificationMalfunctionSignalPayload(getLaneId(), state);
+      },
+
+      getEstComplaintSignal: async () => toEstComplaintSignalPayload(getLaneId(), estComplaintSignalService.getState()),
+
+      declareEstComplaint: async (input) => {
+        const context = await estComplaintContextSource.capture();
+        const state = estComplaintSignalService.signal({
+          issue: input.issue,
+          context,
+          message: input.message,
+        });
+        await estComplaintSignalPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn('[MQTT Module] EST complaint signal retained locally for retry', 'mqtt', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+        return toEstComplaintSignalPayload(getLaneId(), state);
+      },
+
+      clearEstComplaintSignal: async (input) => {
+        const state = estComplaintSignalService.clear({ ...input, clearedBy: 'Lane user' });
+        await estComplaintSignalPublisher.publishCurrentState().catch((error: unknown) => {
+          getLogger().warn('[MQTT Module] Cleared EST complaint signal retained locally for retry', 'mqtt', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+        return toEstComplaintSignalPayload(getLaneId(), state);
       },
 
       saveMqttSettings: async (input) => {

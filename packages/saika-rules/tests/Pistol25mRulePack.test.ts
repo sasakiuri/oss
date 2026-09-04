@@ -193,7 +193,26 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
           }),
         ],
       },
-      malfunctionClaims: { maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
+    });
+    expect(ISSF_2026_RFPM.capabilities.qualificationMalfunction).toMatchObject({
+      determinationAuthority: 'RANGE_OFFICER',
+      claimLimit: { sightingClaims: 'PROHIBITED', maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
+      repair: {
+        maximumSeconds: 900,
+        juryMayExtend: true,
+        additionalSighting: { policy: 'JURY_MUST_ALLOW_SERIES', shots: 5 },
+      },
+      stages: [
+        expect.objectContaining({
+          stageId: 'STAGE_1',
+          allowableTreatment: expect.objectContaining({
+            type: 'REPEAT_FULL_SERIES',
+            scoreCombination: 'LOWEST_PER_TARGET',
+            incidentForm: 'RFPM',
+          }),
+        }),
+        expect.objectContaining({ stageId: 'STAGE_2' }),
+      ],
     });
   });
 
@@ -248,6 +267,24 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
           ],
         },
       });
+      expect(pack.capabilities.qualificationMalfunction?.stages).toEqual([
+        expect.objectContaining({
+          stageId: 'PRECISION_STAGE',
+          allowableTreatment: {
+            type: 'COMPLETE_REMAINING_SHOTS',
+            execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 48 },
+            scoreCombination: 'NORMAL_SERIES',
+            incidentForm: 'IR',
+          },
+        }),
+        expect.objectContaining({
+          stageId: 'RAPID_FIRE_STAGE',
+          allowableTreatment: expect.objectContaining({
+            type: 'COMPLETE_REMAINING_SHOTS',
+            execution: { mode: 'FIRST_EXPOSURE_OF_NEXT_SERIES' },
+          }),
+        }),
+      ]);
     }
     expect(ISSF_2026_P25.capabilities.target.scoringGaugeProfileId).toBe('ISSF_SMALLBORE_5_60_2026');
     expect(ISSF_2026_CFP.capabilities.target.scoringGaugeProfileId).toBe('ISSF_CENTER_FIRE_9_65_2026');
@@ -257,10 +294,18 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
     const matchStages = ISSF_2026_STDP.capabilities.courseOfFire.stages.slice(1);
     expect(matchStages.map((stage) => stage.timer.durationSeconds)).toEqual([150, 20, 10]);
     expect(matchStages.map((stage) => stage.series.length)).toEqual([4, 4, 4]);
-    expect(ISSF_2026_STDP.capabilities.timedTarget?.recovery.malfunctionClaims).toEqual({
+    expect(ISSF_2026_STDP.capabilities.qualificationMalfunction?.claimLimit).toEqual({
+      sightingClaims: 'PROHIBITED',
       maximum: 2,
       scope: 'SIXTY_SHOT_MATCH',
       exceptionalTwoPartMaximumPerPart: 1,
+    });
+    expect(ISSF_2026_STDP.capabilities.qualificationMalfunction?.stages).toHaveLength(3);
+    expect(ISSF_2026_STDP.capabilities.qualificationMalfunction?.stages[0]?.allowableTreatment).toMatchObject({
+      type: 'REPEAT_FULL_SERIES',
+      scoreCombination: 'LOWEST_OVERALL',
+      scoreCount: 5,
+      incidentForm: 'STDP',
     });
   });
 
@@ -385,6 +430,29 @@ describe('ISSF 2026 25m Pistol Rule Packs', () => {
         },
       }),
     ).toThrow('UNKNOWN must reference a timed MATCH stage');
+  });
+
+  it('rejects a Qualification malfunction policy that references a non-MATCH stage', () => {
+    expect(() =>
+      defineRulePack({
+        ...ISSF_2026_RFPM,
+        id: 'TEST:25M:INVALID-MALFUNCTION-STAGE',
+        capabilities: {
+          ...ISSF_2026_RFPM.capabilities,
+          qualificationMalfunction: {
+            ...ISSF_2026_RFPM.capabilities.qualificationMalfunction!,
+            stages: [
+              ...ISSF_2026_RFPM.capabilities.qualificationMalfunction!.stages,
+              {
+                stageId: 'PREPARATION',
+                allowableTreatment: { type: 'CONTINUE_WITHIN_ORIGINAL_TIME' },
+                ruleReference: '8.9',
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrow('PREPARATION must reference a MATCH stage');
   });
 });
 

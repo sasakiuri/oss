@@ -148,6 +148,13 @@ The 25m timed-target engine is independent of the device adapter and can be adju
 | `SAIKA_MQTT_LANE_USERNAME`         | Non-empty string                   | —          | MQTT username; must be set together with the password                 |
 | `SAIKA_MQTT_LANE_PASSWORD`         | Non-empty string                   | —          | MQTT password; must be set together with the username                 |
 
+`SAIKA_COMMAND_PAUSE_ENFORCEMENT` independently selects `ADVISORY` (default), `REQUIRED`, or `DISABLED`.
+P25/CFP and STDP Qualification programs carry an UNLOAD pause rule. Record the actual command and official in
+Director's timed-target panel. In required mode, a new LOAD needs that record and the program's minimum pause;
+Lane persists the evidence and restores the gate after restart. Advisory mode shows the pause without adding a
+start gate. Existing technical timing limits apply in every mode. RFPM and Final programs do not inherit this
+Qualification-specific command rule. The command is recorded; audio is not played automatically.
+
 The original shot observation is retained in every timed-target enforcement mode. `ADVISORY` and `DISABLED` are
 operational policy choices and do not alter the versioned ISSF Rule Pack. Director issuer verification is independent
 of broker authentication: set the trusted ID to Director's `SAIKA_MQTT_DIRECTOR_ID` for strict operation.

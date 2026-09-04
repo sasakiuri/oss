@@ -55,6 +55,11 @@ import { migration055QualificationRecoveryExecutionEvents } from './055_qualific
 import { migration056QualificationRecoveryAdjudicationEvents } from './056_qualification_recovery_adjudication_events';
 import { migration057QualificationRecoverySettlements } from './057_qualification_recovery_settlements';
 import { migration058AthleteIdentitiesAndSanctions } from './058_athlete_identities_and_sanctions';
+import { migration059QualificationMalfunctions } from './059_qualification_malfunctions';
+import { migration060QualificationMalfunctionSignalLink } from './060_qualification_malfunction_signal_link';
+import { migration061EstComplaintTargetExaminationLinks } from './061_est_complaint_target_examination_links';
+import { migration062RangeSafetyLaneClearances } from './062_range_safety_lane_clearances';
+import { migration063PostCompetitionEquipmentControl } from './063_post_competition_equipment_control';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -113,4 +118,9 @@ export const allMigrations: Migration[] = [
   migration056QualificationRecoveryAdjudicationEvents,
   migration057QualificationRecoverySettlements,
   migration058AthleteIdentitiesAndSanctions,
+  migration059QualificationMalfunctions,
+  migration060QualificationMalfunctionSignalLink,
+  migration061EstComplaintTargetExaminationLinks,
+  migration062RangeSafetyLaneClearances,
+  migration063PostCompetitionEquipmentControl,
 ];

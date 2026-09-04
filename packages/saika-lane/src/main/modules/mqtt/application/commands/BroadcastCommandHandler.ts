@@ -33,6 +33,7 @@ import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSc
 import {
   AdvanceSeriesCmdSchema,
   CancelTimedTargetCmdSchema,
+  RecordTimedTargetUnloadCmdSchema,
   EndSightingCmdSchema,
   FinishCompetitionCmdSchema,
   StartMatchCmdSchema,
@@ -63,7 +64,8 @@ type BroadcastAction =
   | 'start-shoot-off'
   | 'stop-shoot-off'
   | 'start-timed-target'
-  | 'cancel-timed-target';
+  | 'cancel-timed-target'
+  | 'record-timed-target-unload';
 
 const CLOCK_DRIFT_WARNING_THRESHOLD_MS = 5_000;
 const CLOCK_DRIFT_REJECT_THRESHOLD_MS = 30_000;
@@ -88,6 +90,7 @@ const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
   'stop-shoot-off': StopShootOffCmdSchema,
   'start-timed-target': StartTimedTargetCmdSchema,
   'cancel-timed-target': CancelTimedTargetCmdSchema,
+  'record-timed-target-unload': RecordTimedTargetUnloadCmdSchema,
 };
 
 /** Parsed parts of the topic */
@@ -229,7 +232,8 @@ export class BroadcastCommandHandler {
       action === 'start-shoot-off' ||
       action === 'stop-shoot-off' ||
       action === 'start-timed-target' ||
-      action === 'cancel-timed-target'
+      action === 'cancel-timed-target' ||
+      action === 'record-timed-target-unload'
     ) {
       const targetLaneIds = command.targetLaneIds as string[] | undefined;
       if (targetLaneIds && !targetLaneIds.includes(this.getLaneId())) {
@@ -289,14 +293,15 @@ export class BroadcastCommandHandler {
       action !== 'end-sighting' &&
       action !== 'finish-competition' &&
       action !== 'stop-shoot-off' &&
-      action !== 'cancel-timed-target'
+      action !== 'cancel-timed-target' &&
+      action !== 'record-timed-target-unload'
     ) {
       this.assertSafetyAllows(action);
     }
     const interruption = this.interruptionControl?.get(competitionId);
     if (interruption) {
       if (action === 'timer-expired') return;
-      if (action !== 'stop-shoot-off' && action !== 'cancel-timed-target') {
+      if (action !== 'stop-shoot-off' && action !== 'cancel-timed-target' && action !== 'record-timed-target-unload') {
         throw laneInterruptedError(interruption.interruptionId, action);
       }
     }
@@ -599,6 +604,20 @@ export class BroadcastCommandHandler {
           seriesIndex: competition.currentSeriesIndex,
           targetProfileId,
           loadAt: new Date(command.loadAt as string),
+        });
+        break;
+      }
+
+      case 'record-timed-target-unload': {
+        const control = this.requireTimedTargetControl();
+        const current = control.getState(competitionId);
+        if (!current || current.sequenceId !== command.sequenceId) throw new Error('UNLOAD sequence is not current');
+        if (!control.recordUnload) throw new Error('UNLOAD recording is unavailable');
+        control.recordUnload({
+          observationId: command.commandId as string,
+          sequenceId: command.sequenceId as string,
+          occurredAt: new Date(command.observedAt as string),
+          officialName: command.officialName as string,
         });
         break;
       }

@@ -29,6 +29,18 @@ export const TimedTargetStateSchema = z.object({
   nextLoadAllowedAt: z.string().datetime(),
   nextTransitionAt: z.string().datetime().nullable(),
   terminalReason: z.string().nullable(),
+  commandPause: z
+    .object({
+      mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+      ruleReference: z.string().min(1),
+      minimumSeconds: z.number().positive(),
+      unloadAt: z.string().datetime().nullable(),
+      officialName: z.string().nullable(),
+      nextLoadAllowedAt: z.string().datetime().nullable(),
+      blocked: z.boolean(),
+    })
+    .optional(),
+
   executionContext: TimedTargetExecutionContextSchema.optional(),
 });
 

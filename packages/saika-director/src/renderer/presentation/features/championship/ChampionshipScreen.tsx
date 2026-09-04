@@ -11,6 +11,7 @@ import {
   ListChecks,
   Pencil,
   Scale,
+  ShieldCheck,
   Target,
   Trophy,
   Users,
@@ -29,6 +30,7 @@ import { IncidentReportsView } from './components/IncidentReportsView';
 import { EstChampionshipInspectionPanel } from './components/EstChampionshipInspectionPanel';
 import { ResultsBookPanel } from './components/ResultsBookPanel';
 import { OutdoorEliminationPlanningPanel } from './components/OutdoorEliminationPlanningPanel';
+import { PostCompetitionEquipmentControlPanel } from './components/PostCompetitionEquipmentControlPanel';
 import { TargetExaminationsPanel } from '../target-examinations';
 import { RangeInterruptionsPanel } from '../range-interruptions';
 import { ProtestsPanel } from '../protests';
@@ -52,6 +54,7 @@ type EventTab =
   | 'incidents'
   | 'protests'
   | 'cases'
+  | 'equipment-control'
   | 'results';
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -578,6 +581,21 @@ export function ChampionshipScreen() {
                   <button
                     type="button"
                     role="tab"
+                    aria-selected={eventTab === 'equipment-control'}
+                    aria-controls="equipment-control-panel"
+                    onClick={() => setEventTab('equipment-control')}
+                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
+                      eventTab === 'equipment-control'
+                        ? 'border-vscode-primary text-vscode-text'
+                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
+                    }`}
+                  >
+                    <ShieldCheck size={15} aria-hidden="true" />
+                    Equipment Control
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
                     aria-selected={eventTab === 'results'}
                     aria-controls="results-panel"
                     onClick={() => setEventTab('results')}
@@ -667,6 +685,16 @@ export function ChampionshipScreen() {
                 {eventTab === 'cases' && (
                   <div id="cases-panel" role="tabpanel" className="p-4">
                     <AdjudicationCasesPanel key={selectedEventId} eventId={selectedEventId} />
+                  </div>
+                )}
+                {eventTab === 'equipment-control' && (
+                  <div id="equipment-control-panel" role="tabpanel" className="p-4">
+                    <PostCompetitionEquipmentControlPanel
+                      key={selectedEventId}
+                      championshipId={selectedChampionship.id}
+                      eventId={selectedEventId}
+                      participants={participants}
+                    />
                   </div>
                 )}
               </section>

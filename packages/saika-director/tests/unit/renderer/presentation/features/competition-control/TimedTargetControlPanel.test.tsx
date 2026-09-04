@@ -13,12 +13,12 @@ const SESSION_ID = '33333333-3333-4333-8333-333333333333';
 const SEQUENCE_ID = '44444444-4444-4444-8444-444444444444';
 const AT = '2026-09-03T00:00:00.000Z';
 
-function createLane(): DirectorLaneSnapshotDto {
+function createLane(hardware: DirectorLaneSnapshotDto['hardware'] = null): DirectorLaneSnapshotDto {
   return {
     laneId: LANE_ID,
     laneAlias: 'Lane 1',
     firingPointNumber: 1,
-    hardware: null,
+    hardware,
     competitionState: {
       competitionId: COMPETITION_ID,
       laneId: LANE_ID,
@@ -89,5 +89,136 @@ describe('TimedTargetControlPanel', () => {
       stageIndex: 1,
       seriesIndex: 0,
     });
+  });
+
+  it('requires external actuation verification when Lane reports no physical integration', () => {
+    render(
+      <TimedTargetControlPanel
+        definition={competitionTypeFromRulePack(ISSF_2026_P25)}
+        phase="MATCH"
+        lanes={[
+          createLane({
+            laneId: LANE_ID,
+            laneAlias: 'Lane 1',
+            connection: { status: 'connected', manufacturer: 'SIUS', deviceId: 'HS25' },
+            appVersion: '0.3.0',
+            capabilities: {
+              competitionProtocolVersions: [1],
+              rulePacks: [],
+              targetIntegration: {
+                schemaVersion: 1,
+                timedTarget: { actuation: 'NOT_INTEGRATED', feedback: 'NOT_INTEGRATED' },
+              },
+            },
+            publishedAt: AT,
+          }),
+        ]}
+        disabled={false}
+        onStart={vi.fn().mockResolvedValue(undefined)}
+        onCancel={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText('HS25')).toBeInTheDocument();
+    expect(screen.getByText('External actuation + verification')).toBeInTheDocument();
+    expect(screen.getByText(/Operate and visually verify the external signal system/)).toHaveTextContent(
+      'ISSF 8.7.6.3(h)',
+    );
+  });
+
+  it('records an actual UNLOAD time while a required pause gates the next LOAD', () => {
+    const lane = createLane();
+    lane.timedTargetState = {
+      schemaVersion: 1,
+      sequenceId: SEQUENCE_ID,
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      programId: 'P25_SIGHTING_PRECISION_240',
+      programLabel: 'Sighting',
+      purpose: 'SIGHTING',
+      stageIndex: 1,
+      seriesIndex: 0,
+      targetProfileId: 'precision',
+      ruleReference: '8.7.6.4',
+      phase: 'COMPLETE',
+      signal: 'RED',
+      shotWindowOpen: false,
+      exposureIndex: null,
+      exposureCount: 1,
+      acceptedShotsInExposure: 0,
+      loadAt: AT,
+      attentionAt: AT,
+      completesAt: AT,
+      nextLoadAllowedAt: AT,
+      nextTransitionAt: null,
+      terminalReason: null,
+      enforcementMode: 'REQUIRED',
+      publishedAt: AT,
+      commandPause: {
+        mode: 'REQUIRED',
+        ruleReference: '8.7.6.4(d)',
+        minimumSeconds: 60,
+        unloadAt: null,
+        officialName: null,
+        nextLoadAllowedAt: null,
+        blocked: true,
+      },
+    };
+    const onRecord = vi.fn().mockResolvedValue(undefined);
+    render(
+      <TimedTargetControlPanel
+        definition={competitionTypeFromRulePack(ISSF_2026_P25)}
+        phase="MATCH"
+        lanes={[lane]}
+        disabled={false}
+        onStart={vi.fn()}
+        onCancel={vi.fn()}
+        onRecordUnload={onRecord}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'LOAD / run match series' })).toBeDisabled();
+    const record = screen.getByRole('button', { name: 'Record UNLOAD (1 lanes)' });
+    expect(record).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Official recording UNLOAD'), { target: { value: 'CRO' } });
+    fireEvent.change(screen.getByLabelText('Actual UNLOAD time'), { target: { value: '2026-09-03T12:00:10.000' } });
+    fireEvent.click(record);
+    expect(onRecord).toHaveBeenCalledWith(
+      SEQUENCE_ID,
+      [LANE_ID],
+      'CRO',
+      new Date('2026-09-03T12:00:10.000').toISOString(),
+    );
+  });
+
+  it('does not request external verification when actuation and feedback are both integrated', () => {
+    const lane = createLane({
+      laneId: LANE_ID,
+      laneAlias: 'Lane 1',
+      connection: { status: 'connected', deviceId: 'future-adapter' },
+      appVersion: '1.0.0',
+      capabilities: {
+        competitionProtocolVersions: [1],
+        rulePacks: [],
+        targetIntegration: {
+          schemaVersion: 1,
+          timedTarget: { actuation: 'INTEGRATED', feedback: 'INTEGRATED' },
+        },
+      },
+      publishedAt: AT,
+    });
+
+    render(
+      <TimedTargetControlPanel
+        definition={competitionTypeFromRulePack(ISSF_2026_P25)}
+        phase="MATCH"
+        lanes={[lane]}
+        disabled={false}
+        onStart={vi.fn().mockResolvedValue(undefined)}
+        onCancel={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(screen.getByText('Integrated + feedback')).toBeInTheDocument();
+    expect(screen.queryByText(/Operate and visually verify the external signal system/)).not.toBeInTheDocument();
   });
 });

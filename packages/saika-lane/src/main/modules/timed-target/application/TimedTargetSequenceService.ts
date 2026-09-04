@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import type { ITimedTargetCommandPause, UnloadObservationInput } from '../domain/ITimedTargetCommandPause';
 import type {
   ITimedTargetControl,
   ITimedTargetStateSink,
@@ -39,6 +40,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     private readonly sink: ITimedTargetStateSink,
     readonly enforcementMode: TimedTargetEnforcementMode = 'REQUIRED',
     private readonly clock: TimedTargetClock = systemClock,
+    private readonly commandPause?: ITimedTargetCommandPause,
   ) {}
 
   start(input: Parameters<ITimedTargetControl['start']>[0]): TimedTargetState {
@@ -58,6 +60,8 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
       throw new Error(`Timed target sequence ${latest.schedule.sequenceId} is still active`);
     }
     if (latest) {
+      const pause = this.commandPause?.assess(latest, input.loadAt);
+      if (pause?.blocked) throw new Error('Record UNLOAD and wait for the required command pause before LOAD');
       const nextLoadAllowedAt = this.effectiveNextLoadAllowedAt(latest);
       if (input.loadAt.getTime() < nextLoadAllowedAt.getTime()) {
         throw new Error(`Next LOAD is not permitted before ${nextLoadAllowedAt.toISOString()}`);
@@ -70,6 +74,21 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     if (!record) throw new Error('Timed target sequence could not be restored after start');
     this.activate(record);
     return this.toState(record, now);
+  }
+
+  recordUnload(input: UnloadObservationInput): TimedTargetState {
+    if (!this.commandPause) throw new Error('Command observation journal is unavailable');
+    const initial = this.repository.findBySequenceId(input.sequenceId);
+    if (!initial) throw new Error('UNLOAD sequence does not exist');
+    this.refresh(initial.schedule.competitionId);
+    const record = this.repository.findLatest(initial.schedule.competitionId);
+    if (!record || record.schedule.sequenceId !== input.sequenceId)
+      throw new Error('UNLOAD sequence is no longer current');
+    const now = this.clock.now();
+    this.commandPause.recordUnload(record, input, now);
+    const state = this.toState(record, now);
+    this.publish(state);
+    return state;
   }
 
   cancel(input: Parameters<ITimedTargetControl['cancel']>[0]): TimedTargetState {
@@ -311,6 +330,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
             ? new Date(projected.nextTransitionAt.getTime())
             : null,
       terminalReason: record.terminalReason,
+      ...(this.commandPause ? { commandPause: this.commandPause.assess(record, at) } : {}),
       ...(record.schedule.executionContext
         ? { executionContext: Object.freeze({ ...record.schedule.executionContext }) }
         : {}),
@@ -319,10 +339,22 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
 
   private effectiveNextLoadAllowedAt(record: TimedTargetSequenceRecord): Date {
     if (record.terminalStatus !== 'CANCELLED' || !record.terminalAt) {
-      return new Date(record.schedule.nextLoadAllowedAt.getTime());
+      const pause = this.commandPause?.assess(record, this.clock.now());
+      return new Date(
+        Math.max(
+          record.schedule.nextLoadAllowedAt.getTime(),
+          pause?.mode === 'REQUIRED' && pause.nextLoadAllowedAt ? Date.parse(pause.nextLoadAllowedAt) : 0,
+        ),
+      );
     }
     const pauseMilliseconds = record.schedule.nextLoadAllowedAt.getTime() - record.schedule.completesAt.getTime();
-    return new Date(record.terminalAt.getTime() + pauseMilliseconds);
+    const pause = this.commandPause?.assess(record, this.clock.now());
+    return new Date(
+      Math.max(
+        record.terminalAt.getTime() + pauseMilliseconds,
+        pause?.mode === 'REQUIRED' && pause.nextLoadAllowedAt ? Date.parse(pause.nextLoadAllowedAt) : 0,
+      ),
+    );
   }
 
   private publish(state: TimedTargetState): void {

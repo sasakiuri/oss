@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import type { CommandPauseAssessment, UnloadObservationInput } from './ITimedTargetCommandPause';
 import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
 import type { TimedTargetSequencePhase, TimedTargetSignal } from './TimedTargetSchedule';
 
@@ -28,6 +29,7 @@ export interface TimedTargetState {
   readonly nextLoadAllowedAt: Date;
   readonly nextTransitionAt: Date | null;
   readonly terminalReason: string | null;
+  readonly commandPause?: CommandPauseAssessment;
   readonly executionContext?: TimedTargetExecutionContext;
 }
 
@@ -68,6 +70,7 @@ export interface ITimedTargetControl {
     observationId: string;
     firedAt: Date;
   }): TimedTargetShotDecision;
+  recordUnload?(input: UnloadObservationInput): TimedTargetState;
   restore(): void;
   dispose(): void;
 }

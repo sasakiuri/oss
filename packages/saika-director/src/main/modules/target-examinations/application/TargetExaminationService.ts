@@ -43,6 +43,11 @@ export class TargetExaminationService {
   }
 
   async create(input: CreateTargetExaminationCasePayload): Promise<TargetExaminationCaseDto> {
+    return this.createNow(input);
+  }
+
+  /** Synchronous variant used when a caller owns the surrounding SQLite transaction. */
+  createNow(input: CreateTargetExaminationCasePayload): TargetExaminationCaseDto {
     validateUniqueScopes(input.scopes);
     const examination = TargetExaminationCase.create({
       ...input,
