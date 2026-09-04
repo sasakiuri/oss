@@ -10,6 +10,12 @@ export {
   type IFinalResultsReader,
 } from './application/FinalResultsReader';
 export { ScoringDecisionTargetResolver } from './application/ScoringDecisionTargetResolver';
+export {
+  applyResultClassificationOverlay,
+  noResultClassificationOverlays,
+  type IResultClassificationOverlaySource,
+  type ResultClassificationOverlay,
+} from './application/ResultClassificationOverlaySource';
 
 // Composition-root adapter
 export { SqliteResultRepository } from './infra/SqliteResultRepository';

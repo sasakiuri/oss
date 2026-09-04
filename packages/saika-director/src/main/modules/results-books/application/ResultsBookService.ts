@@ -44,7 +44,7 @@ export class ResultsBookService {
         organization: entry.organization,
         appointedAt: entry.recordedAt.toISOString(),
       })),
-      eligibleRecordResults: [...(await this.source.eligibleRecordResults(championshipId))],
+      eligibleRecordResults: (await this.source.eligibleRecordResults(championshipId)).map(toEligibleResultDto),
       recordClaims: claims.map((claim) => toClaimDto(claim, claimEntries.get(claim.id) ?? [])),
       books: books.map((book) => this.toBookDto(book)),
     };
@@ -115,6 +115,9 @@ export class ResultsBookService {
     if (!source) throw new Error('The selected result is not an officially published result for this championship');
     if (source.entryStatus !== 'COMPETING') {
       throw new Error(`${source.entryStatus} entries cannot establish ISSF records`);
+    }
+    if (source.subjectKind === 'TEAM' && source.members?.length !== 3) {
+      throw new Error('A three-member Team record source must preserve all three member results');
     }
     assertRecordCode({
       code: input.code,
@@ -402,7 +405,7 @@ function toClaimDto(claim: RecordClaim, entries: readonly RecordClaimEntry[]) {
   return {
     id: claim.id,
     championshipId: claim.championshipId,
-    source: claim.source,
+    source: toEligibleResultDto(claim.source),
     code: claim.code,
     resultBasis: claim.resultBasis,
     benchmarkScoreX10: claim.benchmarkScoreX10,
@@ -420,6 +423,13 @@ function toClaimDto(claim: RecordClaim, entries: readonly RecordClaimEntry[]) {
       reference: entry.reference,
       recordedAt: entry.recordedAt.toISOString(),
     })),
+  };
+}
+
+function toEligibleResultDto(result: RecordClaim['source']): ResultsBookWorkspaceDto['eligibleRecordResults'][number] {
+  return {
+    ...result,
+    members: result.members?.map((member) => ({ ...member })),
   };
 }
 

@@ -6,12 +6,32 @@ import { toScoringDecisionDtos } from './application/toScoringDecisionDto';
 import { AppendScoringDecisionToken, RevokeScoringDecisionToken } from './tokens';
 
 export const scoringDecisionsModule: ModuleDefinition<
-  'commandBus' | 'ipcRouter' | 'scoringDecisionRepository' | 'scoringDecisionTargetResolver'
+  | 'commandBus'
+  | 'ipcRouter'
+  | 'scoringDecisionRepository'
+  | 'scoringDecisionTargetResolver'
+  | 'scoringDecisionAdmissionPolicy'
 > = {
   name: 'scoringDecisions',
-  deps: ['commandBus', 'ipcRouter', 'scoringDecisionRepository', 'scoringDecisionTargetResolver'] as const,
-  register({ commandBus, ipcRouter, scoringDecisionRepository, scoringDecisionTargetResolver }) {
-    const appendHandler = new AppendScoringDecisionHandler(scoringDecisionRepository, scoringDecisionTargetResolver);
+  deps: [
+    'commandBus',
+    'ipcRouter',
+    'scoringDecisionRepository',
+    'scoringDecisionTargetResolver',
+    'scoringDecisionAdmissionPolicy',
+  ] as const,
+  register({
+    commandBus,
+    ipcRouter,
+    scoringDecisionRepository,
+    scoringDecisionTargetResolver,
+    scoringDecisionAdmissionPolicy,
+  }) {
+    const appendHandler = new AppendScoringDecisionHandler(
+      scoringDecisionRepository,
+      scoringDecisionTargetResolver,
+      scoringDecisionAdmissionPolicy,
+    );
     const revokeHandler = new RevokeScoringDecisionHandler(scoringDecisionRepository);
 
     commandBus.register(AppendScoringDecisionToken, async (input) => appendHandler.execute(input));

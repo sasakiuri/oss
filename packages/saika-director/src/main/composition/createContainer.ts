@@ -39,6 +39,16 @@ import {
 } from '@/main/modules/result-verification';
 import { incidentReportsModule, SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import {
+  AthleteSanctionResultClassificationSource,
+  AthleteSanctionParticipantEligibilityReader,
+  AthleteSanctionService,
+  athleteSanctionsModule,
+  ChampionshipSanctionScoringDecisionAdmissionPolicy,
+  ManualAttestationSanctionAuthorizationResolver,
+  SqliteAthleteEntryReferenceSource,
+  SqliteAthleteSanctionRepository,
+} from '@/main/modules/athlete-sanctions';
+import {
   EvidenceHoldCompetitionDataGuard,
   SqliteTargetExaminationRepository,
   targetExaminationsModule,
@@ -60,6 +70,11 @@ import {
 } from '@/main/modules/team-results';
 import { protestsModule } from '@/main/modules/protests';
 import {
+  CanonicalCsvEstBackupRecordParser,
+  CanonicalJsonEstBackupRecordParser,
+  ElectronEstBackupRecordFileGateway,
+  EstBackupRecordImportService,
+  EstBackupRecordParserRegistry,
   EstBackupVerificationService,
   estBackupVerificationModule,
   SqliteEstBackupVerificationRepository,
@@ -80,6 +95,7 @@ import {
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
 import {
+  QualificationTeamRecordCandidateSource,
   ResultWorkflowOfficialRevisionSource,
   ResultsBookService,
   resultsBooksModule,
@@ -157,6 +173,7 @@ const logger = Logger.create('createApp');
 // Static module list (Vite/Electron safe — no dynamic import)
 const modules = [
   championshipModule,
+  athleteSanctionsModule,
   laneControlModule,
   scoringDecisionsModule,
   resultsModule,
@@ -259,6 +276,19 @@ export function createApp(preloadPath: string): AppServices {
   const finalPlacementReviewRepository = new SqliteFinalPlacementReviewRepository(database);
   const resultPublicationRepository = new SqliteResultPublicationRepository(database);
   const irregularShotCaseRepository = new SqliteIrregularShotCaseRepository(database);
+  const athleteSanctionRepository = new SqliteAthleteSanctionRepository(database);
+  const athleteEntryReferenceSource = new SqliteAthleteEntryReferenceSource(database);
+  const athleteSanctionService = new AthleteSanctionService(athleteSanctionRepository, athleteEntryReferenceSource);
+  const sanctionResultClassificationSource = new AthleteSanctionResultClassificationSource(
+    athleteSanctionRepository,
+    athleteEntryReferenceSource,
+  );
+  const participantEligibilityReader = new AthleteSanctionParticipantEligibilityReader(
+    athleteSanctionRepository,
+    athleteEntryReferenceSource,
+  );
+  const sanctionAuthorizationResolver = new ManualAttestationSanctionAuthorizationResolver();
+  const scoringDecisionAdmissionPolicy = new ChampionshipSanctionScoringDecisionAdmissionPolicy();
   const archiveFileGateway = new ElectronArchiveFileGateway();
   const operationalArchiveService = new OperationalArchiveService(
     new SqliteCompetitionEvidenceSource(database),
@@ -294,6 +324,7 @@ export function createApp(preloadPath: string): AppServices {
     resultRepository,
     scoringDecisionRepository,
     competitionTypeRegistry,
+    sanctionResultClassificationSource,
   );
   const finalResultsReader = new FinalResultsReader(
     queryBus,
@@ -301,6 +332,7 @@ export function createApp(preloadPath: string): AppServices {
     scoringDecisionRepository,
     finalPlacementReviewRepository,
     competitionTypeRegistry,
+    sanctionResultClassificationSource,
   );
   const scoringDecisionTargetResolver = new ScoringDecisionTargetResolver(
     queryBus,
@@ -313,6 +345,14 @@ export function createApp(preloadPath: string): AppServices {
     resultRepository,
     qualificationResultsReader,
     new CompetitionTypeTeamTieBreakPolicyResolver(queryBus, competitionTypeRegistry),
+  );
+  const estBackupRecordParsers = new EstBackupRecordParserRegistry([
+    new CanonicalJsonEstBackupRecordParser(),
+    new CanonicalCsvEstBackupRecordParser(),
+  ]);
+  const estBackupRecordImportService = new EstBackupRecordImportService(
+    new ElectronEstBackupRecordFileGateway(estBackupRecordParsers.supportedExtensions),
+    estBackupRecordParsers,
   );
   const estBackupVerificationService = new EstBackupVerificationService(
     new SqliteEstBackupVerificationRepository(database),
@@ -346,16 +386,16 @@ export function createApp(preloadPath: string): AppServices {
     ),
   ]);
   const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
+  const resultsBookResultSnapshots = new VerifiedResultsBookResultSnapshotSource(
+    resultVerificationService,
+    new ResultWorkflowOfficialRevisionSource(resultPublicationRepository, finalResultDeclarationRepository),
+    resultPublicationReadiness,
+  );
   const resultsBookService = new ResultsBookService(
     new SqliteResultsBookRepository(database),
-    new SqliteResultsBookSource(
-      database,
-      new VerifiedResultsBookResultSnapshotSource(
-        resultVerificationService,
-        new ResultWorkflowOfficialRevisionSource(resultPublicationRepository, finalResultDeclarationRepository),
-        resultPublicationReadiness,
-      ),
-    ),
+    new SqliteResultsBookSource(database, resultsBookResultSnapshots, [
+      new QualificationTeamRecordCandidateSource(database, teamResultsService, resultsBookResultSnapshots),
+    ]),
     archiveFileGateway,
   );
   const finalResultDeclarationService = new FinalResultDeclarationService(
@@ -395,7 +435,9 @@ export function createApp(preloadPath: string): AppServices {
     finalResultRepository,
     mixedTeamFinalResultRepository,
     teamResultsService,
+    estBackupRecordImportService,
     estBackupVerificationService,
+    scoringDecisionAdmissionPolicy,
     scoringDecisionRepository,
     scoringDecisionTargetResolver,
     competitionShotJournal,
@@ -417,6 +459,9 @@ export function createApp(preloadPath: string): AppServices {
     irregularShotCaseRepository,
     operationalArchiveService,
     resultsBookService,
+    athleteSanctionService,
+    participantEligibilityReader,
+    sanctionAuthorizationResolver,
   };
 
   // === Module Registration via ModuleLoader ===

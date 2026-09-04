@@ -33,6 +33,7 @@ import { TargetExaminationsPanel } from '../target-examinations';
 import { RangeInterruptionsPanel } from '../range-interruptions';
 import { ProtestsPanel } from '../protests';
 import { AdjudicationCasesPanel } from '../adjudication-cases';
+import { AthleteSanctionsPanel } from '../athlete-sanctions';
 import { useChampionshipStore } from '../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../hooks/useChampionshipActions';
 import type { ChampionshipDto, EventDto, SaveParticipantsPayload } from '@/shared/ipc/contracts/championship.contract';
@@ -395,6 +396,15 @@ export function ChampionshipScreen() {
             <Card>
               <EstChampionshipInspectionPanel
                 key={`est-inspection:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </Card>
+          </div>
+
+          <div className="px-5 pt-4">
+            <Card>
+              <AthleteSanctionsPanel
+                key={`athlete-sanctions:${selectedChampionship.id}`}
                 championshipId={selectedChampionship.id}
               />
             </Card>

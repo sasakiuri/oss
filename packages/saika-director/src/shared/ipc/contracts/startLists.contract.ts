@@ -19,7 +19,7 @@ const row = z.object({
   affiliation: z.string(),
   nationCode: z.string().nullable(),
   gender: z.enum(['M', 'F', 'X', 'UNSPECIFIED']),
-  entryStatus: z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB']),
+  entryStatus: z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB', 'AD_DSQ']),
   teamId: z.string().nullable(),
   teamName: z.string().nullable(),
   relayNumber: z.number().int().positive().nullable(),

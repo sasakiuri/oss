@@ -30,6 +30,7 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 - Preliminary 掲示、10分の score protest、RTS 承認後の Official 公表を分離した追記型ワークフロー
 - seed付き射座・relay draw、ISSF constraint検査、Technical Delegate承認、明示適用
 - 3名 Team／Mixed Team予選集計と、Mixed Team Finalのチーム単位成績
+- current Official 個人成績と3名 Team構成を不変 revision にした Team record claim候補
 - Individual／Mixed Team Finalのcheckpoint順位台帳とLane別脱落ACK
 - 外部音響向けmusic／Final production台帳と、Mixed Teamの30秒Time out台帳
 - 25m の Lane 主体 absolute schedule、red／green 状態、EST after-time、対象 Lane 共通 LOAD command

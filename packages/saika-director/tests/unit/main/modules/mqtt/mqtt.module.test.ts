@@ -307,6 +307,15 @@ function registerModule(eventType: string | null): {
       getStatus: getFinalDeclarationStatus,
       declare: declareFinalResults,
     } as never,
+    participantEligibilityReader: {
+      assess: (participantId: string) => ({
+        participantId,
+        eligible: true,
+        blockingCode: null,
+        decisionIds: [],
+        reason: null,
+      }),
+    },
   });
 
   if (!handlers) throw new Error('MQTT handlers were not registered');

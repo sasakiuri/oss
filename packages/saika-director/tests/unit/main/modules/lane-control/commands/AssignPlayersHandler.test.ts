@@ -244,6 +244,28 @@ describe('AssignPlayersHandler', () => {
     expect(mockEventBus.emit).not.toHaveBeenCalled();
   });
 
+  it('should reject a participant blocked by an independent eligibility policy', async () => {
+    const guarded = new AssignPlayersHandler(mockRepository, mockEventBus, competitionTypeRegistry, {
+      assess: (participantId) => ({
+        participantId,
+        eligible: false,
+        blockingCode: 'DQB',
+        decisionIds: ['sanction-1'],
+        reason: 'Championship disqualification',
+      }),
+    });
+
+    await expect(
+      guarded.execute({
+        assignments: [
+          { channel: 1, playerName: 'Blocked Player', affiliation: 'Club', participantId: 'participant-1' },
+        ],
+        eventType: 'BR60S',
+      }),
+    ).rejects.toThrow(/not eligible.*DQB.*Championship disqualification/);
+    expect(mockRepository.save).not.toHaveBeenCalled();
+  });
+
   it('should validate every existing lane before saving the first update', async () => {
     const activeLane = LaneControl.create('active-lane', Channel.create(2), QUALIFICATION_CONFIG).startPreparation();
     vi.mocked(mockRepository.findByChannel).mockImplementation((channel) => (channel === 2 ? activeLane : undefined));

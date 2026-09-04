@@ -40,6 +40,7 @@ import type {
   mqttContract,
   eventsContract,
   debugContract,
+  athleteSanctionsContract,
 } from '@/shared/ipc/contracts';
 import type {
   CreateChampionshipPayload,
@@ -112,6 +113,7 @@ export interface ElectronAPI {
   readonly appVersion: string;
   queries: IpcQueries;
   championship: IpcChampionship;
+  athleteSanctions: InferBridge<typeof athleteSanctionsContract>;
   laneControl: InferBridge<typeof laneControlContract>;
   results: InferBridge<typeof resultsContract>;
   scoringDecisions: InferBridge<typeof scoringDecisionsContract>;

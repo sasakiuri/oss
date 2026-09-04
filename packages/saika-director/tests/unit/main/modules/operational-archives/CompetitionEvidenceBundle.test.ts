@@ -41,6 +41,10 @@ describe('CompetitionEvidenceBundleBuilder', () => {
     expect(first.bundleSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(first.sections.length).toBeGreaterThan(30);
     expect(first.sections.find((section) => section.id === 'events')).toMatchObject({ recordCount: 1 });
+    expect(first.sections.find((section) => section.id === 'athlete-identities')).toMatchObject({ recordCount: 0 });
+    expect(first.sections.find((section) => section.id === 'athlete-sanction-decisions')).toMatchObject({
+      recordCount: 0,
+    });
     expect(first.sections.every((section) => section.sha256.length === 64)).toBe(true);
   });
 

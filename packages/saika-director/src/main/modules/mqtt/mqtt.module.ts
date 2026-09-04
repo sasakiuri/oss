@@ -49,6 +49,7 @@ import {
   StartQualificationRecoveryTransportToken,
   type StartQualificationRecoveryTransportInput,
 } from '@/main/modules/range-interruptions';
+import { assertParticipantEligible } from '@/main/shared-infra/operations/ParticipantEligibility';
 
 const logger = Logger.create('mqtt.module');
 
@@ -174,6 +175,7 @@ export const mqttModule: ModuleDefinition<
   | 'competitionDataGuard'
   | 'finalOperationService'
   | 'finalResultDeclarationService'
+  | 'participantEligibilityReader'
 > = {
   name: 'mqtt',
   deps: [
@@ -192,6 +194,7 @@ export const mqttModule: ModuleDefinition<
     'competitionDataGuard',
     'finalOperationService',
     'finalResultDeclarationService',
+    'participantEligibilityReader',
   ] as const,
   register(ctx): ModuleOutput {
     const {
@@ -210,6 +213,7 @@ export const mqttModule: ModuleDefinition<
       competitionDataGuard,
       finalOperationService,
       finalResultDeclarationService,
+      participantEligibilityReader,
     } = ctx;
 
     const retainedMessageStore = new SqliteMqttRetainedMessageStore(database);
@@ -713,7 +717,12 @@ export const mqttModule: ModuleDefinition<
           return mqttService.leaveCompetition(input.competitionId, input.laneIds);
         }),
       assignAthlete: (input) =>
-        runWithControlLock(() => mqttService.assignAthlete(input.competitionId, input.laneId, input.athlete)),
+        runWithControlLock(() => {
+          if (input.athlete && !input.athlete.id.startsWith('manual-')) {
+            assertParticipantEligible(participantEligibilityReader, input.athlete.id);
+          }
+          return mqttService.assignAthlete(input.competitionId, input.laneId, input.athlete);
+        }),
       resetSession: (input) =>
         runWithControlLock(() => {
           competitionDataGuard.assertAllowed({

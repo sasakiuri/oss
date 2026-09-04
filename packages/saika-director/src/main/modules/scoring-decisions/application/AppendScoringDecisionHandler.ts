@@ -4,17 +4,20 @@ import type { IScoringDecisionRepository } from '../domain/IScoringDecisionRepos
 import type { IScoringDecisionTargetResolver } from '../domain/IScoringDecisionTargetResolver';
 import { ScoringDecision } from '../domain/ScoringDecision';
 import { toScoringDecisionDto } from './toScoringDecisionDto';
+import { allowAllScoringDecisions, type IScoringDecisionAdmissionPolicy } from './ScoringDecisionAdmissionPolicy';
 
 export class AppendScoringDecisionHandler {
   constructor(
     private readonly decisions: IScoringDecisionRepository,
     private readonly targets: IScoringDecisionTargetResolver,
+    private readonly admissionPolicy: IScoringDecisionAdmissionPolicy = allowAllScoringDecisions,
   ) {}
 
   async execute(input: AddScoringDecisionPayload): Promise<ScoringDecisionDto> {
     const target = await this.targets.resolve(input.resultId, input.resultScope);
     if (!target) throw new Error(`${formatScope(input.resultScope)} result ${input.resultId} was not found`);
 
+    this.admissionPolicy.assertAllowed(input, target);
     validateTargetBounds(input, target.seriesShotCounts);
     const decision = ScoringDecision.create({
       ...target,

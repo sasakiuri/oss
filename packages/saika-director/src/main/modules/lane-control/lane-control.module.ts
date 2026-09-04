@@ -148,6 +148,7 @@ export const laneControlModule: ModuleDefinition<
   | 'debugLogStore'
   | 'ipcRouter'
   | 'laneTimerService'
+  | 'participantEligibilityReader'
 > = {
   name: 'lane-control',
   deps: [
@@ -159,6 +160,7 @@ export const laneControlModule: ModuleDefinition<
     'debugLogStore',
     'ipcRouter',
     'laneTimerService',
+    'participantEligibilityReader',
   ] as const,
   register(ctx): ModuleOutput {
     const {
@@ -170,6 +172,7 @@ export const laneControlModule: ModuleDefinition<
       debugLogStore,
       ipcRouter,
       laneTimerService,
+      participantEligibilityReader,
     } = ctx;
 
     // === Command Handlers ===
@@ -178,7 +181,12 @@ export const laneControlModule: ModuleDefinition<
     const startSeries = new StartSeriesHandler(laneControlRepository, eventBus);
     const finish = new FinishHandler(laneControlRepository, eventBus);
     const clear = new ClearLanesHandler(laneControlRepository, eventBus);
-    const assignPlayers = new AssignPlayersHandler(laneControlRepository, eventBus, competitionTypeRegistry);
+    const assignPlayers = new AssignPlayersHandler(
+      laneControlRepository,
+      eventBus,
+      competitionTypeRegistry,
+      participantEligibilityReader,
+    );
     const moveLane = new MoveLaneHandler(laneControlRepository, eventBus);
     const editShot = new EditShotHandler(laneControlRepository, eventBus);
     const deleteShot = new DeleteShotHandler(laneControlRepository, eventBus);
