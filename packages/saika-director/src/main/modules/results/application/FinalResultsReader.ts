@@ -24,6 +24,12 @@ import type { FinalRankedResultDto } from '@/shared/ipc/contracts';
 
 import type { FinalResult } from '../domain/FinalResult';
 import type { IFinalResultRepository } from '../domain/IFinalResultRepository';
+import {
+  applyResultClassificationOverlay,
+  noResultClassificationOverlays,
+  type IResultClassificationOverlaySource,
+  type ResultClassificationOverlay,
+} from './ResultClassificationOverlaySource';
 
 export interface IFinalResultsReader {
   getByEvent(eventId: string): Promise<FinalRankedResultDto[]>;
@@ -50,6 +56,7 @@ export class FinalResultsReader implements IFinalResultsReader {
     private readonly decisions: IScoringDecisionRepository,
     private readonly placementReviews: IFinalPlacementReviewRepository,
     private readonly competitionTypes: CompetitionTypeRegistry,
+    private readonly classificationOverlays: IResultClassificationOverlaySource = noResultClassificationOverlays,
   ) {}
 
   async getByEvent(eventId: string): Promise<FinalRankedResultDto[]> {
@@ -70,6 +77,9 @@ export class FinalResultsReader implements IFinalResultsReader {
       history.push(decision);
       decisionsByParticipant.set(decision.participantId, history);
     }
+    const overlaysByParticipant = new Map(
+      this.classificationOverlays.findByEventId(eventId).map((overlay) => [overlay.participantId, overlay]),
+    );
 
     const candidates = sortSourceResults(this.results.findByEventId(eventId)).map((result, index) =>
       this.projectResult(
@@ -78,6 +88,7 @@ export class FinalResultsReader implements IFinalResultsReader {
         stage1Shots,
         declaredSeriesShotCounts,
         decisionsByParticipant.get(result.participantId.value) ?? [],
+        overlaysByParticipant.get(result.participantId.value),
       ),
     );
     const scoringRevision = calculateSnapshotRevision(
@@ -116,19 +127,23 @@ export class FinalResultsReader implements IFinalResultsReader {
     stage1ShotCount: number,
     declaredSeriesShotCounts: readonly number[],
     history: readonly ScoringDecision[],
+    overlay: ResultClassificationOverlay | undefined,
   ): FinalProjectionCandidate {
     const sourceShots = [...result.stage1Shots, ...result.stage2Shots];
     const shotsX10 = sourceShots.map((score) => Math.round(score * 10));
     const seriesShotCounts = getAvailableSeriesShotCounts(declaredSeriesShotCounts, sourceShots.length);
     const sourceSeriesScoresX10 = sumScoresBySeries(shotsX10, seriesShotCounts);
-    const projection = this.projector.project(
-      {
-        totalScoreX10: Math.round(result.totalScore * 10),
-        seriesScoresX10: sourceSeriesScoresX10,
-        shotsX10,
-        seriesShotCounts,
-      },
-      history,
+    const projection = applyResultClassificationOverlay(
+      this.projector.project(
+        {
+          totalScoreX10: Math.round(result.totalScore * 10),
+          seriesScoresX10: sourceSeriesScoresX10,
+          shotsX10,
+          seriesShotCounts,
+        },
+        history,
+      ),
+      overlay,
     );
     const stage1SeriesCount = countCompletedSeriesAtBoundary(seriesShotCounts, stage1ShotCount);
     const stage1TotalX10 = projection.seriesScoresX10
@@ -136,10 +151,17 @@ export class FinalResultsReader implements IFinalResultsReader {
       .reduce((sum, score) => sum + score, 0);
     const stage2TotalX10 = projection.seriesScoresX10.slice(stage1SeriesCount).reduce((sum, score) => sum + score, 0);
     const activeDecisions = getActiveScoringDecisions(history);
-    const placementIntervention = activeDecisions.some((decision) => PLACEMENT_AFFECTING_DECISIONS.has(decision.type));
+    const placementIntervention =
+      overlay !== undefined || activeDecisions.some((decision) => PLACEMENT_AFFECTING_DECISIONS.has(decision.type));
     const projectedShots = projection.shotsX10.map((score) => score / 10);
     const resolvedSourceRank = sourceRank(result, sourceIndex);
-    const scoringRevision = calculateResultScoringRevision(result, resolvedSourceRank, activeDecisions, projection);
+    const scoringRevision = calculateResultScoringRevision(
+      result,
+      resolvedSourceRank,
+      activeDecisions,
+      overlay,
+      projection,
+    );
 
     return {
       placementIntervention,
@@ -226,6 +248,7 @@ function calculateResultScoringRevision(
   result: FinalResult,
   resolvedSourceRank: number,
   activeDecisions: readonly ScoringDecision[],
+  overlay: ResultClassificationOverlay | undefined,
   projection: ScoreDecisionProjection,
 ): string {
   const canonical = {
@@ -259,6 +282,7 @@ function calculateResultScoringRevision(
         ruleReference: decision.ruleReference,
         decidedAt: decision.decidedAt.toISOString(),
       })),
+    classificationOverlay: overlay ?? null,
     projection: {
       totalScoreX10: projection.totalScoreX10,
       seriesScoresX10: projection.seriesScoresX10,

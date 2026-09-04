@@ -209,6 +209,42 @@ describe('StartListService', () => {
     expect(value.distributions[0]?.finalReleaseBasis).toBe('PROTESTS_CLEARED');
     expect(() => database.prepare('DELETE FROM start_list_versions WHERE id = ?').run(value.id)).toThrow('append-only');
   });
+
+  it('makes an existing version stale and projects a sanctioned entry as a non-starter', () => {
+    let blocked = false;
+    const sanctionAwareService = new StartListService(database, new SqliteStartListRepository(database), {
+      assess: (participantId) => ({
+        participantId,
+        eligible: !blocked || participantId !== athleteA,
+        blockingCode: blocked && participantId === athleteA ? 'AD_DSQ' : null,
+        decisionIds: blocked && participantId === athleteA ? ['sanction-1'] : [],
+        reason: blocked && participantId === athleteA ? 'Championship disqualification' : null,
+      }),
+    });
+    const before = sanctionAwareService.createVersion({
+      eventId,
+      listKind: 'QUALIFICATION',
+      disciplineGroup: 'RIFLE_PISTOL',
+      distributionMode: 'PRINTED',
+      scheduledStartAt: '2026-09-05T01:00:00.000Z',
+      publicationDueAt: '2026-09-03T07:00:00.000Z',
+      createdBy: 'RTS A',
+    });
+
+    blocked = true;
+    expect(sanctionAwareService.list(eventId).find((version) => version.id === before.id)?.stale).toBe(true);
+    const after = sanctionAwareService.createVersion({
+      eventId,
+      listKind: 'QUALIFICATION',
+      disciplineGroup: 'RIFLE_PISTOL',
+      distributionMode: 'PRINTED',
+      scheduledStartAt: '2026-09-05T01:00:00.000Z',
+      publicationDueAt: '2026-09-03T07:00:00.000Z',
+      createdBy: 'RTS A',
+    });
+    expect(after.rows.find((row) => row.participantId === athleteA)?.entryStatus).toBe('AD_DSQ');
+    expect(after.findings.some((finding) => finding.code === 'NON_STARTERS_ALLOCATED')).toBe(true);
+  });
 });
 
 function seedEvent(database: Database.Database): void {

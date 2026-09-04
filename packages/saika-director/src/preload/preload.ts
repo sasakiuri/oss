@@ -35,6 +35,7 @@ import {
   mqttContract,
   debugContract,
   eventsContract,
+  athleteSanctionsContract,
 } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 import { buildProcedureBridge, buildEventBridge, buildAliasedBridge } from './buildPreloadAPI';
@@ -54,6 +55,8 @@ const electronAPI: ElectronAPI = {
     getChampionships: 'getAll',
     getChampionshipDetail: 'getDetail',
   }) as unknown as ElectronAPI['championship'],
+
+  athleteSanctions: buildProcedureBridge(athleteSanctionsContract),
 
   laneControl: buildProcedureBridge(laneControlContract),
   results: buildProcedureBridge(resultsContract),

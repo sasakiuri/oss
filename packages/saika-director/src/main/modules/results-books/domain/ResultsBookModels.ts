@@ -1,5 +1,17 @@
 import type { ChampionshipOfficialRole, RecordCode, RecordResultBasis } from './ResultsBookPolicy';
 
+export interface EligibleRecordMember {
+  readonly participantId: string;
+  readonly playerName: string;
+  readonly familyName: string;
+  readonly nationCode: string | null;
+  readonly gender: string;
+  readonly entryStatus: string;
+  readonly scoreX10: number;
+  readonly classificationCode: string | null;
+  readonly decisionCount: number;
+}
+
 export interface ChampionshipOfficialEntry {
   readonly id: string;
   readonly championshipId: string;
@@ -18,13 +30,15 @@ export interface EligibleRecordResult {
   readonly eventName: string;
   readonly resultScope: 'QUALIFICATION' | 'FINAL';
   readonly resultId: string;
-  readonly subjectKind: 'INDIVIDUAL' | 'MIXED_TEAM';
+  readonly subjectKind: 'INDIVIDUAL' | 'TEAM' | 'MIXED_TEAM';
   readonly subjectId: string;
   readonly subjectName: string;
   readonly nationCode: string | null;
   readonly entryStatus: string;
   readonly scoreX10: number;
   readonly snapshotRevision: string;
+  /** Immutable member evidence for aggregate record subjects. */
+  readonly members?: readonly EligibleRecordMember[];
 }
 
 export interface RecordClaim {
@@ -115,6 +129,36 @@ export interface ResultsBookResultSnapshot {
 /** Replaceable bridge to the current official result projection. */
 export interface IResultsBookResultSnapshotSource {
   load(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): Promise<ResultsBookResultSnapshot>;
+}
+
+/** Optional provider of record candidates derived outside the individual result projection. */
+export interface IResultsBookRecordCandidateSource {
+  eligibleRecordResults(championshipId: string): Promise<readonly EligibleRecordResult[]>;
+}
+
+export interface ResultsBookQualificationTeamResult {
+  readonly rank: number;
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly nationCode: string | null;
+  readonly eligible: boolean;
+  readonly totalScore: number;
+  readonly members: readonly {
+    readonly participantId: string;
+    readonly playerName: string;
+    readonly familyName: string;
+    readonly nationCode: string | null;
+    readonly gender: string;
+    readonly entryStatus: string;
+    readonly totalScore: number | null;
+    readonly classificationCode: string | null;
+    readonly decisionCount: number;
+  }[];
+}
+
+/** Narrow bridge to the existing official three-member Team projection. */
+export interface IResultsBookQualificationTeamSource {
+  getQualification(eventId: string, format: 'THREE_MEMBER'): Promise<readonly ResultsBookQualificationTeamResult[]>;
 }
 
 /** Resolves the immutable workflow entry that made a result revision official. */

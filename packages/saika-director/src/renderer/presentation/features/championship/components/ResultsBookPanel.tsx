@@ -326,7 +326,8 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
               <option value="">Select result</option>
               {workspace?.eligibleRecordResults.map((result) => (
                 <option key={recordResultKey(result)} value={recordResultKey(result)}>
-                  {result.eventName} · {result.subjectName} · {(result.scoreX10 / 10).toFixed(1)} · {result.entryStatus}
+                  {result.eventName} · {recordSubjectLabel(result.subjectKind)} · {result.subjectName} ·{' '}
+                  {(result.scoreX10 / 10).toFixed(1)} · {result.entryStatus}
                 </option>
               ))}
             </select>
@@ -420,12 +421,20 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-medium text-vscode-text">
-                    {claim.code} · {claim.source.eventName} · {claim.source.subjectName} ·{' '}
-                    {(claim.source.scoreX10 / 10).toFixed(1)}
+                    {claim.code} · {claim.source.eventName} · {recordSubjectLabel(claim.source.subjectKind)} ·{' '}
+                    {claim.source.subjectName} · {(claim.source.scoreX10 / 10).toFixed(1)}
                   </p>
                   <p className="mt-1 text-vscode-text-muted">
                     {claim.status} · {recordBasisLabel(claim.resultBasis)} · {claim.ruleReference}
                   </p>
+                  {claim.source.members?.length ? (
+                    <p className="mt-1 text-vscode-text-muted">
+                      Members:{' '}
+                      {claim.source.members
+                        .map((member) => `${member.playerName} ${(member.scoreX10 / 10).toFixed(1)}`)
+                        .join(' · ')}
+                    </p>
+                  ) : null}
                 </div>
                 <ClaimActions
                   claim={claim}
@@ -601,6 +610,12 @@ function Field({
 
 function recordResultKey(result: ResultsBookWorkspaceDto['eligibleRecordResults'][number]): string {
   return `${result.resultScope}:${result.resultId}`;
+}
+
+function recordSubjectLabel(subjectKind: ResultsBookWorkspaceDto['eligibleRecordResults'][number]['subjectKind']) {
+  if (subjectKind === 'MIXED_TEAM') return 'Mixed Team';
+  if (subjectKind === 'TEAM') return 'Team';
+  return 'Individual';
 }
 
 function scoreX10(value: string): number {

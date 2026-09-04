@@ -26,7 +26,11 @@ import type {
   IQualificationResultsReader,
   IResultRepository,
 } from '@/main/modules/results';
-import type { IScoringDecisionRepository, IScoringDecisionTargetResolver } from '@/main/modules/scoring-decisions';
+import type {
+  IScoringDecisionAdmissionPolicy,
+  IScoringDecisionRepository,
+  IScoringDecisionTargetResolver,
+} from '@/main/modules/scoring-decisions';
 import type {
   ICompetitionShotJournal,
   IFiringWindowJournal,
@@ -46,12 +50,17 @@ import type {
 } from '@/main/modules/result-publication';
 import type { IMixedTeamFinalResultRepository } from '@/main/modules/team-results';
 import type { TeamResultsService } from '@/main/modules/team-results';
-import type { EstBackupVerificationService } from '@/main/modules/est-backup-verification';
+import type {
+  EstBackupRecordImportService,
+  EstBackupVerificationService,
+} from '@/main/modules/est-backup-verification';
 import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import type { FinalOperationService } from '@/main/modules/final-operations';
 import type { IIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
 import type { OperationalArchiveService } from '@/main/modules/operational-archives';
 import type { ResultsBookService } from '@/main/modules/results-books';
+import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
+import type { IParticipantEligibilityReader } from '@/main/shared-infra/operations/ParticipantEligibility';
 
 // Re-export for convenience
 export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
@@ -78,7 +87,9 @@ export interface ServiceRegistry {
   readonly finalResultRepository: IFinalResultRepository;
   readonly mixedTeamFinalResultRepository: IMixedTeamFinalResultRepository;
   readonly teamResultsService: TeamResultsService;
+  readonly estBackupRecordImportService: EstBackupRecordImportService;
   readonly estBackupVerificationService: EstBackupVerificationService;
+  readonly scoringDecisionAdmissionPolicy: IScoringDecisionAdmissionPolicy;
   readonly scoringDecisionRepository: IScoringDecisionRepository;
   readonly scoringDecisionTargetResolver: IScoringDecisionTargetResolver;
   readonly competitionShotJournal: ICompetitionShotJournal;
@@ -100,6 +111,9 @@ export interface ServiceRegistry {
   readonly irregularShotCaseRepository: IIrregularShotCaseRepository;
   readonly operationalArchiveService: OperationalArchiveService;
   readonly resultsBookService: ResultsBookService;
+  readonly athleteSanctionService: AthleteSanctionService;
+  readonly participantEligibilityReader: IParticipantEligibilityReader;
+  readonly sanctionAuthorizationResolver: ISanctionAuthorizationResolver;
 }
 
 // ---------------------------------------------------------------------------

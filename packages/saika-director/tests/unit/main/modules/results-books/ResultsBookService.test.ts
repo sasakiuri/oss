@@ -5,6 +5,7 @@ import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import type { ArchiveFileGateway } from '@/main/modules/operational-archives';
 import {
+  type IResultsBookRecordCandidateSource,
   type IResultsBookResultSnapshotSource,
   ResultsBookService,
   SqliteResultsBookRepository,
@@ -22,7 +23,10 @@ describe('ResultsBookService', () => {
 
   afterEach(() => database?.close());
 
-  function setup(entryStatus = 'COMPETING') {
+  function setup(
+    entryStatus = 'COMPETING',
+    additionalRecordCandidates: readonly IResultsBookRecordCandidateSource[] = [],
+  ) {
     database = new Database(':memory:');
     database.pragma('foreign_keys = ON');
     new MigrationRunner(database).run(allMigrations);
@@ -111,7 +115,7 @@ describe('ResultsBookService', () => {
     };
     const service = new ResultsBookService(
       repository,
-      new SqliteResultsBookSource(database, snapshots),
+      new SqliteResultsBookSource(database, snapshots, additionalRecordCandidates),
       files,
       () => new Date('2026-09-02T07:00:00.000Z'),
     );
@@ -250,6 +254,133 @@ describe('ResultsBookService', () => {
     ).rejects.toThrow('cannot establish ISSF records');
   });
 
+  it('accepts a Team candidate from an independent source and detects when that aggregate changes', async () => {
+    let scoreDeltaX10 = 0;
+    const teamResultId = '77777777-7777-5777-8777-777777777777';
+    const candidateSource: IResultsBookRecordCandidateSource = {
+      eligibleRecordResults: vi.fn(async () => [
+        {
+          eventId: EVENT_ID,
+          eventName: '10m Air Rifle Women',
+          resultScope: 'QUALIFICATION' as const,
+          resultId: teamResultId,
+          subjectKind: 'TEAM' as const,
+          subjectId: 'JPN-WOMEN-A',
+          subjectName: 'Japan',
+          nationCode: 'JPN',
+          entryStatus: 'COMPETING',
+          scoreX10: 18886 + scoreDeltaX10,
+          snapshotRevision: (scoreDeltaX10 === 0 ? 'b' : 'c').repeat(64),
+          members: [
+            recordMember('33333333-3333-4333-8333-333333333331', 'Aiko Sato', 6324),
+            recordMember('33333333-3333-4333-8333-333333333332', 'Mei Ito', 6291),
+            recordMember('33333333-3333-4333-8333-333333333334', 'Yui Abe', 6271 + scoreDeltaX10),
+          ],
+        },
+      ]),
+    };
+    const { service, repository } = setup('COMPETING', [candidateSource]);
+
+    let workspace = await appointCertifiers(service);
+    const technicalDelegate = workspace.officials.find((official) => official.role === 'TECHNICAL_DELEGATE')!;
+    expect(workspace.eligibleRecordResults).toContainEqual(
+      expect.objectContaining({ resultId: teamResultId, subjectKind: 'TEAM', subjectName: 'Japan' }),
+    );
+    workspace = await service.createRecordClaim({
+      championshipId: CHAMPIONSHIP_ID,
+      resultId: teamResultId,
+      resultScope: 'QUALIFICATION',
+      code: 'QWR',
+      resultBasis: 'QUALIFICATION_OR_ELIMINATION',
+      benchmarkScoreX10: 18885,
+      olympicGamesConfirmed: false,
+      claimedBy: 'RTS Officer A',
+      achievedAt: '2026-09-02T05:30:00.000Z',
+    });
+    expect(workspace.recordClaims[0]?.source).toMatchObject({ subjectKind: 'TEAM', scoreX10: 18886 });
+    const claim = workspace.recordClaims[0]!;
+    workspace = await service.appendRecordClaimEntry({
+      championshipId: CHAMPIONSHIP_ID,
+      claimId: claim.id,
+      type: 'TD_CONFIRMED',
+      statement: 'Team composition and Official member results checked',
+      officialName: technicalDelegate.officialName,
+      appointmentId: technicalDelegate.appointmentId,
+    });
+    workspace = await service.appendRecordClaimEntry({
+      championshipId: CHAMPIONSHIP_ID,
+      claimId: claim.id,
+      type: 'SUBMITTED',
+      statement: 'Team record report submitted',
+      officialName: 'Secretary General A',
+    });
+    workspace = await service.appendRecordClaimEntry({
+      championshipId: CHAMPIONSHIP_ID,
+      claimId: claim.id,
+      type: 'TECHNICAL_COMMITTEE_VERIFIED',
+      statement: 'Team record report verified',
+      officialName: 'Technical Committee A',
+      reference: 'TC-TEAM-2026-001',
+    });
+    expect(workspace.recordClaims[0]?.status).toBe('VERIFIED');
+
+    workspace = await service.generateBook(CHAMPIONSHIP_ID, 'Results Officer A');
+    expect(workspace.books[0]?.findings).toEqual([]);
+    expect(JSON.parse(repository.findBooks(CHAMPIONSHIP_ID)[0]!.contentJson).newAndEqualledRecords).toMatchObject([
+      {
+        subjectKind: 'TEAM',
+        subjectName: 'Japan',
+        scoreX10: 18886,
+        members: [
+          { playerName: 'Aiko Sato', scoreX10: 6324 },
+          { playerName: 'Mei Ito', scoreX10: 6291 },
+          { playerName: 'Yui Abe', scoreX10: 6271 },
+        ],
+      },
+    ]);
+
+    scoreDeltaX10 = 1;
+    workspace = await service.generateBook(CHAMPIONSHIP_ID, 'Results Officer A');
+    expect(workspace.books[1]?.findings).toContain(
+      'Record claim QWR for Japan is not based on the current Official result',
+    );
+  });
+
+  it('rejects a Team claim when its replaceable source omits member evidence', async () => {
+    const candidateSource: IResultsBookRecordCandidateSource = {
+      eligibleRecordResults: vi.fn(async () => [
+        {
+          eventId: EVENT_ID,
+          eventName: '10m Air Rifle Women',
+          resultScope: 'QUALIFICATION' as const,
+          resultId: '77777777-7777-5777-8777-777777777777',
+          subjectKind: 'TEAM' as const,
+          subjectId: 'JPN-WOMEN-A',
+          subjectName: 'Japan',
+          nationCode: 'JPN',
+          entryStatus: 'COMPETING',
+          scoreX10: 18886,
+          snapshotRevision: 'b'.repeat(64),
+        },
+      ]),
+    };
+    const { service } = setup('COMPETING', [candidateSource]);
+
+    await expect(
+      service.createRecordClaim({
+        championshipId: CHAMPIONSHIP_ID,
+        resultId: '77777777-7777-5777-8777-777777777777',
+        resultScope: 'QUALIFICATION',
+        code: 'QWR',
+        resultBasis: 'QUALIFICATION_OR_ELIMINATION',
+        benchmarkScoreX10: 18885,
+        olympicGamesConfirmed: false,
+        claimedBy: 'RTS Officer A',
+        achievedAt: '2026-09-02T05:30:00.000Z',
+      }),
+    ).rejects.toThrow('must preserve all three member results');
+  });
+
   it('requires a new version when source data changes after signatures', async () => {
     const { service } = setup();
     let workspace = await appointCertifiers(service);
@@ -373,3 +504,17 @@ describe('ResultsBookService', () => {
     );
   });
 });
+
+function recordMember(participantId: string, playerName: string, scoreX10: number) {
+  return {
+    participantId,
+    playerName,
+    familyName: playerName.split(' ').at(-1) ?? playerName,
+    nationCode: 'JPN',
+    gender: 'F',
+    entryStatus: 'COMPETING',
+    scoreX10,
+    classificationCode: null,
+    decisionCount: 0,
+  };
+}

@@ -5,12 +5,12 @@ import type Database from 'better-sqlite3';
 import type {
   ChampionshipOfficialEntry,
   EligibleRecordResult,
+  IResultsBookRecordCandidateSource,
   IResultsBookResultSnapshotSource,
   IResultsBookSource,
   RecordClaim,
   ResultsBookBuildResult,
   ResultsBookProjectedResult,
-  ResultsBookResultSnapshot,
 } from '../domain/ResultsBookModels';
 
 interface EventRow {
@@ -63,6 +63,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
   constructor(
     private readonly db: Database.Database,
     private readonly snapshots: IResultsBookResultSnapshotSource,
+    private readonly additionalRecordCandidates: readonly IResultsBookRecordCandidateSource[] = [],
   ) {}
 
   async build(
@@ -149,9 +150,11 @@ export class SqliteResultsBookSource implements IResultsBookSource {
         code: claim.code,
         resultBasis: claim.resultBasis,
         eventName: claim.source.eventName,
+        subjectKind: claim.source.subjectKind,
         subjectName: claim.source.subjectName,
         nationCode: claim.source.nationCode,
         scoreX10: claim.source.scoreX10,
+        members: claim.source.members ?? [],
         achievedAt: claim.achievedAt.toISOString(),
         officialResultRevision: claim.source.snapshotRevision,
       })),
@@ -178,7 +181,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
       ].filter(Boolean);
       if (missing.length > 0) findings.push(`Participant ${participant.player_name} is missing ${missing.join(', ')}`);
     }
-    findings.push(...(await this.recordClaimFindings(claims)));
+    findings.push(...(await this.recordClaimFindings(championshipId, claims)));
     return { content, findings: [...new Set(findings)], sourceHash: digest(content) };
   }
 
@@ -198,7 +201,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
         }
       }),
     );
-    return loaded.flatMap(({ event, resultScope, snapshot }) => {
+    const projected = loaded.flatMap(({ event, resultScope, snapshot }) => {
       if (
         !snapshot ||
         snapshot.publicationIssues.length > 0 ||
@@ -226,6 +229,10 @@ export class SqliteResultsBookSource implements IResultsBookSource {
           } satisfies EligibleRecordResult;
         });
     });
+    const additional = (
+      await Promise.all(this.additionalRecordCandidates.map((source) => source.eligibleRecordResults(championshipId)))
+    ).flat();
+    return uniqueRecordCandidates([...projected, ...additional]);
   }
 
   private events(championshipId: string): EventRow[] {
@@ -338,49 +345,14 @@ export class SqliteResultsBookSource implements IResultsBookSource {
     return new Map(rows.map((row) => [row.result_id, row]));
   }
 
-  private async recordClaimFindings(claims: readonly RecordClaim[]): Promise<string[]> {
-    const snapshots = new Map<string, ResultsBookResultSnapshot>();
+  private async recordClaimFindings(championshipId: string, claims: readonly RecordClaim[]): Promise<string[]> {
     const findings: string[] = [];
+    if (claims.length === 0) return findings;
+    const currentCandidates = await this.eligibleRecordResults(championshipId);
+    const currentByKey = new Map(currentCandidates.map((candidate) => [recordCandidateKey(candidate), candidate]));
     for (const claim of claims) {
-      const key = `${claim.source.eventId}:${claim.source.resultScope}`;
-      let snapshot = snapshots.get(key);
-      if (!snapshot) {
-        try {
-          snapshot = await this.snapshots.load(claim.source.eventId, claim.source.resultScope);
-          snapshots.set(key, snapshot);
-        } catch (error) {
-          findings.push(
-            `Record claim ${claim.code} source is unavailable: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          continue;
-        }
-      }
-      const current = snapshot.results.find((result) => result.resultId === claim.source.resultId);
-      const detail = this.resultMetadata(claim.source.eventId, claim.source.resultScope).get(claim.source.resultId);
-      const currentSubjectKind = detail?.subject_kind ?? (current ? inferSubjectKind(current.participantId) : null);
-      const currentSubjectId = detail?.subject_id ?? current?.participantId ?? null;
-      const currentSubjectName = detail?.official_name ?? current?.playerName ?? null;
-      const currentNationCode = detail?.nation_code ?? null;
-      const currentEntryStatus = detail?.entry_status ?? 'COMPETING';
-      const currentEventName = this.db
-        .prepare('SELECT name FROM events WHERE id = ?')
-        .pluck()
-        .get(claim.source.eventId) as string | undefined;
-      if (
-        snapshot.publicationIssues.length > 0 ||
-        snapshot.officialPublicationRevision !== snapshot.snapshotRevision ||
-        claim.source.snapshotRevision !== snapshot.snapshotRevision ||
-        !current ||
-        current.rank <= 0 ||
-        current.classificationCode !== null ||
-        Math.round(current.totalScore * 10) !== claim.source.scoreX10 ||
-        currentSubjectKind !== claim.source.subjectKind ||
-        currentSubjectId !== claim.source.subjectId ||
-        currentSubjectName !== claim.source.subjectName ||
-        currentNationCode !== claim.source.nationCode ||
-        currentEntryStatus !== 'COMPETING' ||
-        currentEventName !== claim.source.eventName
-      ) {
+      const current = currentByKey.get(recordCandidateKey(claim.source));
+      if (!current || !sameRecordCandidate(current, claim.source)) {
         findings.push(
           `Record claim ${claim.code} for ${claim.source.subjectName} is not based on the current Official result`,
         );
@@ -424,6 +396,37 @@ function compareProjectedResults(left: ResultsBookProjectedResult, right: Result
 
 function inferSubjectKind(participantId: string): 'INDIVIDUAL' | 'MIXED_TEAM' {
   return participantId.startsWith('TEAM:') ? 'MIXED_TEAM' : 'INDIVIDUAL';
+}
+
+function recordCandidateKey(result: EligibleRecordResult): string {
+  return `${result.eventId}:${result.resultScope}:${result.resultId}`;
+}
+
+function sameRecordCandidate(left: EligibleRecordResult, right: EligibleRecordResult): boolean {
+  return (
+    left.eventName === right.eventName &&
+    left.subjectKind === right.subjectKind &&
+    left.subjectId === right.subjectId &&
+    left.subjectName === right.subjectName &&
+    left.nationCode === right.nationCode &&
+    left.entryStatus === right.entryStatus &&
+    left.scoreX10 === right.scoreX10 &&
+    left.snapshotRevision === right.snapshotRevision &&
+    JSON.stringify(left.members ?? []) === JSON.stringify(right.members ?? [])
+  );
+}
+
+function uniqueRecordCandidates(candidates: readonly EligibleRecordResult[]): EligibleRecordResult[] {
+  const byKey = new Map<string, EligibleRecordResult>();
+  for (const candidate of candidates) {
+    const key = recordCandidateKey(candidate);
+    const existing = byKey.get(key);
+    if (existing && !sameRecordCandidate(existing, candidate)) {
+      throw new Error(`Record candidate ${candidate.resultId} has conflicting sources`);
+    }
+    if (!existing) byKey.set(key, candidate);
+  }
+  return [...byKey.values()];
 }
 
 function digest(value: unknown): string {

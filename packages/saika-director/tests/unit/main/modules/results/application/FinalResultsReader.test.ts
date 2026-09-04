@@ -4,6 +4,7 @@ import { EventId, ParticipantId } from '@/main/modules/championship';
 import { FinalPlacementReviewEntry } from '@/main/modules/final-placement-review/domain/FinalPlacementReviewEntry';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review/domain/IFinalPlacementReviewRepository';
 import { FinalResultsReader } from '@/main/modules/results/application/FinalResultsReader';
+import type { ResultClassificationOverlay } from '@/main/modules/results';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import { FinalResultId } from '@/main/modules/results/domain/FinalResultId';
 import type { IFinalResultRepository } from '@/main/modules/results/domain/IFinalResultRepository';
@@ -76,7 +77,10 @@ describe('FinalResultsReader', () => {
     const placementReviews = {
       findByEventId: vi.fn(() => [...reviews]),
     } as unknown as IFinalPlacementReviewRepository;
-    const reader = new FinalResultsReader(queryBus, results, decisions, placementReviews, registry);
+    const overlays: ResultClassificationOverlay[] = [];
+    const reader = new FinalResultsReader(queryBus, results, decisions, placementReviews, registry, {
+      findByEventId: () => [...overlays],
+    });
 
     const snapshot = await reader.getSnapshot(eventId);
     const projected = snapshot.results[0]!;
@@ -146,6 +150,17 @@ describe('FinalResultsReader', () => {
     const stale = (await reader.getByEvent(eventId))[0]!;
     expect(stale).toMatchObject({ rank: 1, placementReviewId: null, placementReviewRequired: true });
     expect(stale.scoringRevision).not.toBe(projected.scoringRevision);
+
+    overlays.push({
+      participantId,
+      classificationCode: 'DQB',
+      decisionIds: ['championship-sanction-1'],
+      publicRemarks: ['DQB — championship sanction'],
+    });
+    const classified = (await reader.getByEvent(eventId))[0]!;
+    expect(classified).toMatchObject({ rank: 0, totalScore: 0, classificationCode: 'DQB', decisionCount: 3 });
+    expect(classified.remarks).toContain('DQB — championship sanction');
+    expect(classified.scoringRevision).not.toBe(stale.scoringRevision);
   });
 
   it('supports an incomplete current Final series and non-scoring remarks without placement review', async () => {

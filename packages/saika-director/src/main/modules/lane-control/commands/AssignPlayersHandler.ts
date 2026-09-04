@@ -8,12 +8,18 @@ import { buildRoundConfig } from '@/shared/constants/roundConfig';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
+import {
+  assertParticipantEligible,
+  allowAllParticipantEligibility,
+  type IParticipantEligibilityReader,
+} from '@/main/shared-infra/operations/ParticipantEligibility';
 
 export class AssignPlayersHandler {
   constructor(
     private readonly repository: ILaneControlRepository,
     private readonly eventBus: IEventBus,
     private readonly competitionTypeRegistry: CompetitionTypeRegistry,
+    private readonly participantEligibility: IParticipantEligibilityReader = allowAllParticipantEligibility,
   ) {}
 
   async execute(command: AssignPlayersCommand): Promise<void> {
@@ -26,6 +32,7 @@ export class AssignPlayersHandler {
       assignedChannels.add(assignment.channel);
 
       if (assignment.participantId) {
+        assertParticipantEligible(this.participantEligibility, assignment.participantId);
         if (assignedParticipantIds.has(assignment.participantId)) {
           throw DomainError.from(ErrorCatalog.LANE.DUPLICATE_PARTICIPANT_ASSIGNMENT);
         }

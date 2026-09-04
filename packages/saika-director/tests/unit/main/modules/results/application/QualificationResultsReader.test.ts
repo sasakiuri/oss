@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { EventId, ParticipantId } from '@/main/modules/championship';
 import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
+import type { ResultClassificationOverlay } from '@/main/modules/results';
 import type { IResultRepository } from '@/main/modules/results/domain/IResultRepository';
 import { Result } from '@/main/modules/results/domain/Result';
 import { ResultId } from '@/main/modules/results/domain/ResultId';
@@ -62,7 +63,10 @@ describe('QualificationResultsReader', () => {
     const registry = new CompetitionTypeRegistry();
     registry.registerStrategy(new IssfStandardStrategy());
     registry.register(BR60S);
-    const reader = new QualificationResultsReader(queryBus, resultRepository, decisionRepository, registry);
+    const overlays: ResultClassificationOverlay[] = [];
+    const reader = new QualificationResultsReader(queryBus, resultRepository, decisionRepository, registry, {
+      findByEventId: () => [...overlays],
+    });
 
     const before = (await reader.getByEvent(result.eventId.value))[0]!;
     expect(before).toMatchObject({
@@ -97,5 +101,16 @@ describe('QualificationResultsReader', () => {
     const after = (await reader.getByRelay(result.eventId.value, 1))[0]!;
     expect(after.decisionCount).toBe(1);
     expect(after.revision).not.toBe(before.revision);
+
+    overlays.push({
+      participantId: result.participantId.value,
+      classificationCode: 'DQB',
+      decisionIds: ['championship-sanction-1'],
+      publicRemarks: ['DQB — championship sanction'],
+    });
+    const classified = (await reader.getByEvent(result.eventId.value))[0]!;
+    expect(classified).toMatchObject({ rank: 0, totalScore: 0, classificationCode: 'DQB', decisionCount: 2 });
+    expect(classified.remarks).toContain('DQB — championship sanction');
+    expect(classified.revision).not.toBe(after.revision);
   });
 });

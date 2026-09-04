@@ -4,11 +4,15 @@ import { startListsContract } from '@/shared/ipc/contracts';
 import { StartListService } from './application/StartListService';
 import { SqliteStartListRepository } from './infra/SqliteStartListRepository';
 
-export const startListsModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const startListsModule: ModuleDefinition<'database' | 'ipcRouter' | 'participantEligibilityReader'> = {
   name: 'startLists',
-  deps: ['database', 'ipcRouter'] as const,
-  register({ database, ipcRouter }) {
-    const service = new StartListService(database, new SqliteStartListRepository(database));
+  deps: ['database', 'ipcRouter', 'participantEligibilityReader'] as const,
+  register({ database, ipcRouter, participantEligibilityReader }) {
+    const service = new StartListService(
+      database,
+      new SqliteStartListRepository(database),
+      participantEligibilityReader,
+    );
     ipcRouter.register(startListsContract, {
       list: async ({ eventId }) => service.list(eventId),
       createVersion: async (input) => service.createVersion(input),

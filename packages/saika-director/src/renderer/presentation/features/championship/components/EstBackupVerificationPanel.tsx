@@ -7,10 +7,13 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
   const [runs, setRuns] = useState<EstBackupVerificationRunDto[]>([]);
   const [kind, setKind] = useState<CreateEstBackupVerificationPayload['resultKind']>('INDIVIDUAL');
   const [keyType, setKeyType] = useState<CreateEstBackupVerificationPayload['keyType']>('START_NUMBER');
-  const [sourceName, setSourceName] = useState('Independent EST memory');
+  const [sourceName, setSourceName] = useState('');
+  const [sourceReference, setSourceReference] = useState('');
   const [recordsText, setRecordsText] = useState('[\n  { "key": "101", "rank": 1, "totalScore": 630.1 }\n]');
+  const [importedProvenance, setImportedProvenance] = useState(false);
   const [review, setReview] = useState('');
   const [official, setOfficial] = useState('');
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     const response = await estBackupVerificationService.list({ eventId });
@@ -46,6 +49,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
                 keyType,
                 sourceName,
                 records,
+                ...(sourceReference.trim() ? { sourceReference } : {}),
                 ...(review.trim() ? { interventionReviewStatement: review } : {}),
                 officialName: official,
               });
@@ -58,7 +62,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
           })();
         }}
       >
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field label="Result kind">
             <select
               value={kind}
@@ -89,13 +93,58 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
           <Field label="Printout or independent-memory source">
             <input required value={sourceName} onChange={(e) => setSourceName(e.target.value)} className={inputClass} />
           </Field>
+          <Field label="Source reference / media identifier">
+            <input
+              value={sourceReference}
+              onChange={(e) => setSourceReference(e.target.value)}
+              readOnly={importedProvenance}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-vscode-border p-2">
+          <span className="text-xs text-vscode-text-muted">
+            Import canonical JSON or CSV. The raw-file SHA-256 is retained as the source reference.
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={importing}
+            onClick={() => {
+              void (async () => {
+                setImporting(true);
+                try {
+                  const response = await estBackupVerificationService.importRecords();
+                  if (!response.success) throw new Error(response.error.message);
+                  if (response.data.status === 'CANCELLED') return;
+                  setRecordsText(JSON.stringify(response.data.records, null, 2));
+                  setSourceName(response.data.sourceName);
+                  setSourceReference(response.data.sourceReference);
+                  setImportedProvenance(true);
+                  setError(null);
+                } catch (caught) {
+                  setError(caught instanceof Error ? caught.message : 'Failed to import the EST backup source');
+                } finally {
+                  setImporting(false);
+                }
+              })();
+            }}
+          >
+            {importing ? 'Importing...' : 'Import JSON / CSV'}
+          </Button>
         </div>
         <Field label='Backup records JSON: [{ "key", "rank" (optional), "totalScore" }]'>
           <textarea
             required
             rows={6}
             value={recordsText}
-            onChange={(e) => setRecordsText(e.target.value)}
+            onChange={(e) => {
+              setRecordsText(e.target.value);
+              if (importedProvenance) {
+                setImportedProvenance(false);
+                setSourceReference('');
+              }
+            }}
             className={`${inputClass} font-mono`}
           />
         </Field>
@@ -121,6 +170,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               {run.items.filter((item) => item.status === 'MATCH').length}/
               {run.items.filter((item) => item.officialRank !== null).length} official subjects match · {run.sourceName}
             </span>
+            {run.sourceReference && <span className="block text-vscode-dimmed">{run.sourceReference}</span>}
             <span className="block text-vscode-dimmed">
               {run.officialName} · {new Date(run.verifiedAt).toLocaleString()} · snapshot{' '}
               {run.snapshotRevision.slice(0, 10)}

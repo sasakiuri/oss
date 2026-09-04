@@ -34,9 +34,23 @@ export { shootoffContract } from './shootoff.contract';
 export { mqttContract } from './mqtt.contract';
 export { eventsContract } from './events.contract';
 export { debugContract } from './debug.contract';
+export { athleteSanctionsContract } from './athleteSanctions.contract';
 
 // Common types (from defineContract)
 export type { CommandResponseDto, CommandResponse, IpcErrorDto, IpcError } from '../defineContract';
+
+export type {
+  AthleteIdentityDto,
+  AthleteIdentityLinkDto,
+  AthleteSanctionDecisionDto,
+  AthleteSanctionWorkspaceDto,
+  CreateAthleteIdentityPayload,
+  ImposeAthleteSanctionPayload,
+  LinkAthleteParticipantPayload,
+  RevokeAthleteSanctionPayload,
+  SynchronizeIssfAthleteIdentitiesPayload,
+  UnlinkAthleteParticipantPayload,
+} from './athleteSanctions.contract';
 
 // Championship types
 export type {
@@ -204,7 +218,11 @@ export type {
   RecordProtestEntryPayload,
   ProtestCaseDto,
 } from './protests.contract';
-export type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } from './estBackupVerification.contract';
+export type {
+  CreateEstBackupVerificationPayload,
+  EstBackupRecordImportReceiptDto,
+  EstBackupVerificationRunDto,
+} from './estBackupVerification.contract';
 export type {
   FinalControlLaneSnapshotDto,
   FinalCheckpointAssessmentDto,

@@ -14,6 +14,12 @@ import type { IResultRepository } from '../domain/IResultRepository';
 import { ProjectedQualificationResult } from '../domain/ProjectedQualificationResult';
 import { RankingService } from '../domain/RankingService';
 import type { Result } from '../domain/Result';
+import {
+  applyResultClassificationOverlay,
+  noResultClassificationOverlays,
+  type IResultClassificationOverlaySource,
+  type ResultClassificationOverlay,
+} from './ResultClassificationOverlaySource';
 
 export interface IQualificationResultsReader {
   getByEvent(eventId: string): Promise<RankedResultDto[]>;
@@ -30,6 +36,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
     private readonly results: IResultRepository,
     private readonly decisions: IScoringDecisionRepository,
     private readonly competitionTypes: CompetitionTypeRegistry,
+    private readonly classificationOverlays: IResultClassificationOverlaySource = noResultClassificationOverlays,
   ) {}
 
   async getByEvent(eventId: string): Promise<RankedResultDto[]> {
@@ -52,20 +59,29 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       targetDecisions.push(decision);
       decisionsByTarget.set(key, targetDecisions);
     }
+    const overlaysByParticipant = new Map(
+      this.classificationOverlays.findByEventId(eventId).map((overlay) => [overlay.participantId, overlay]),
+    );
 
     const histories = new Map<Result, readonly ScoringDecision[]>();
+    const appliedOverlays = new Map<Result, ResultClassificationOverlay | undefined>();
     const projectedResults = sourceResults.map((result) => {
       const history = decisionsByTarget.get(targetKey(result.participantId.value, result.relayNumber)) ?? [];
+      const overlay = overlaysByParticipant.get(result.participantId.value);
       histories.set(result, history);
+      appliedOverlays.set(result, overlay);
       const seriesCount = Math.max(1, result.seriesScores.length);
-      const projection = this.decisionProjector.project(
-        {
-          totalScoreX10: Math.round(result.totalScore * 10),
-          seriesScoresX10: result.seriesScores.map((score) => Math.round(score * 10)),
-          shotsX10: result.shots.map((score) => Math.round(score * 10)),
-          shotsPerSeries: Math.max(1, Math.ceil(result.shots.length / seriesCount)),
-        },
-        history,
+      const projection = applyResultClassificationOverlay(
+        this.decisionProjector.project(
+          {
+            totalScoreX10: Math.round(result.totalScore * 10),
+            seriesScoresX10: result.seriesScores.map((score) => Math.round(score * 10)),
+            shotsX10: result.shots.map((score) => Math.round(score * 10)),
+            shotsPerSeries: Math.max(1, Math.ceil(result.shots.length / seriesCount)),
+          },
+          history,
+        ),
+        overlay,
       );
       return new ProjectedQualificationResult(result, projection, strategy, definition.resultFormat);
     });
@@ -74,6 +90,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const source = ranked.result.source;
       const projection = ranked.result.projection;
       const history = histories.get(source) ?? [];
+      const overlay = appliedOverlays.get(source);
       const evidence = source.rankingShots.slice(0, definition.resultFormat.totalShots);
       const evidenceIssues = buildEvidenceIssues(evidence);
       const dtoWithoutRevision = {
@@ -106,7 +123,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
 
       return {
         ...dtoWithoutRevision,
-        revision: calculateResultRevision(source, history, dtoWithoutRevision),
+        revision: calculateResultRevision(source, history, overlay, dtoWithoutRevision),
       };
     });
   }
@@ -126,6 +143,7 @@ function targetKey(participantId: string, relayNumber: number): string {
 function calculateResultRevision(
   source: Result,
   history: readonly ScoringDecision[],
+  overlay: ResultClassificationOverlay | undefined,
   projected: Omit<RankedResultDto, 'revision'>,
 ): string {
   const canonical = {
@@ -157,6 +175,7 @@ function calculateResultRevision(
       decidedAt: decision.decidedAt.toISOString(),
       reversesDecisionId: decision.reversesDecisionId,
     })),
+    classificationOverlay: overlay ?? null,
     projected,
   };
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');

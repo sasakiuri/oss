@@ -2,6 +2,7 @@ import { createApiService } from './createApiService';
 
 export const laneControlService = createApiService('laneControl');
 export const championshipService = createApiService('championship');
+export const athleteSanctionsService = createApiService('athleteSanctions');
 export const boardService = createApiService('board');
 export const mqttService = createApiService('mqtt');
 export const resultsService = createApiService('results');

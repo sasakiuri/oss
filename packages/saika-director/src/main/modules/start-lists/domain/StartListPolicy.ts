@@ -23,7 +23,7 @@ export function assessStartListRows(rows: readonly StartListRowDto[]): StartList
     findings.push({
       code: 'NON_STARTERS_ALLOCATED',
       severity: 'WARNING',
-      message: `${nonStartersAssigned.length} DNS/DNF/DSQ/DQB athlete(s) still have an allocation.`,
+      message: `${nonStartersAssigned.length} DNS/DNF/DSQ/DQB/AD-DSQ athlete(s) still have an allocation.`,
       ruleReference: 'ISSF 6.6.5(a)',
     });
   }

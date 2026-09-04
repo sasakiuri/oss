@@ -27,7 +27,6 @@ const DECISION_OPTIONS: Array<{ value: AddDecisionType; label: string }> = [
   { value: 'ANNUL_SHOT', label: 'Annul shot' },
   { value: 'MARK_MISS', label: 'Mark miss' },
   { value: 'WARNING', label: 'Warning' },
-  { value: 'DISQUALIFICATION', label: 'Disqualification' },
   { value: 'MALFUNCTION', label: 'Malfunction' },
   { value: 'EXTRA_TIME', label: 'Extra time' },
   { value: 'REPEAT_SHOT', label: 'Repeated shot' },
@@ -48,10 +47,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
   const [points, setPoints] = useState('2.0');
   const [seriesNumber, setSeriesNumber] = useState('1');
   const [shotNumber, setShotNumber] = useState('1');
-  const [classificationCode, setClassificationCode] = useState<'DSQ' | 'DQB' | 'AD_DSQ'>('DSQ');
-  const [ruleReference, setRuleReference] = useState(
-    resultScope === 'FINAL' ? '6.17 / 6.14.6' : '6.14.6 / 6.14.7',
-  );
+  const [ruleReference, setRuleReference] = useState(resultScope === 'FINAL' ? '6.17 / 6.14.6' : '6.14.6 / 6.14.7');
   const [incidentReportNumber, setIncidentReportNumber] = useState('');
   const [publicRemark, setPublicRemark] = useState('');
   const [internalNote, setInternalNote] = useState('');
@@ -107,7 +103,6 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           ...(type === 'DEDUCTION' ? { pointsX10: Math.round(Number.parseFloat(points) * 10) } : {}),
           ...(showSeries ? { seriesIndex: parsedSeries } : {}),
           ...(showShot ? { shotIndex: parsedShot } : {}),
-          ...(type === 'DISQUALIFICATION' ? { classificationCode } : {}),
         };
         const response = await scoringDecisionsService.add(payload);
         if (!response.success) throw new Error(response.error.message);
@@ -122,7 +117,6 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
       }
     },
     [
-      classificationCode,
       effectivePolicy,
       incidentReportNumber,
       internalNote,
@@ -206,6 +200,10 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
 
         <form onSubmit={handleSubmit} className="space-y-3" aria-label="Add scoring decision">
           <h3 className="text-[13px] font-semibold text-vscode-text">Append official decision</h3>
+          <p className="border-l-2 border-vscode-border pl-2 text-xs text-vscode-text-muted">
+            Record DSQ, DQB, and AD-DSQ in Championship athlete identity and sanctions so every required phase or event
+            is covered.
+          </p>
           <label className="block text-xs text-vscode-text-muted">
             Decision
             <select
@@ -278,21 +276,6 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
                 </label>
               )}
             </div>
-          )}
-
-          {type === 'DISQUALIFICATION' && (
-            <label className="block text-xs text-vscode-text-muted">
-              Classification
-              <select
-                className={`${inputClass} mt-1`}
-                value={classificationCode}
-                onChange={(event) => setClassificationCode(event.target.value as typeof classificationCode)}
-              >
-                <option value="DSQ">DSQ</option>
-                <option value="DQB">DQB</option>
-                <option value="AD_DSQ">AD-DSQ</option>
-              </select>
-            </label>
           )}
 
           <div className="grid grid-cols-2 gap-3">

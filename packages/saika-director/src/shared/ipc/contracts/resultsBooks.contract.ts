@@ -23,18 +23,30 @@ const official = z.object({
   organization: z.string().nullable(),
   appointedAt: z.string().datetime(),
 });
+const eligibleRecordMember = z.object({
+  participantId: z.string().min(1),
+  playerName: z.string().min(1),
+  familyName: z.string().min(1),
+  nationCode: z.string().nullable(),
+  gender: z.string().min(1),
+  entryStatus: z.string().min(1),
+  scoreX10: z.number().int().nonnegative(),
+  classificationCode: z.string().nullable(),
+  decisionCount: z.number().int().nonnegative(),
+});
 const eligibleResult = z.object({
   eventId: uuid,
   eventName: z.string().min(1),
   resultScope: z.enum(['QUALIFICATION', 'FINAL']),
   resultId: uuid,
-  subjectKind: z.enum(['INDIVIDUAL', 'MIXED_TEAM']),
+  subjectKind: z.enum(['INDIVIDUAL', 'TEAM', 'MIXED_TEAM']),
   subjectId: z.string().min(1),
   subjectName: z.string().min(1),
   nationCode: z.string().nullable(),
   entryStatus: z.string().min(1),
   scoreX10: z.number().int().nonnegative(),
   snapshotRevision: z.string().regex(/^[a-f0-9]{64}$/),
+  members: z.array(eligibleRecordMember).optional(),
 });
 const claimEntry = z.object({
   id: uuid,

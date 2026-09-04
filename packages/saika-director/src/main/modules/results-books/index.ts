@@ -5,5 +5,6 @@ export * from './domain/ResultsBookModels';
 export * from './domain/ResultsBookPolicy';
 export { SqliteResultsBookRepository } from './infra/SqliteResultsBookRepository';
 export { SqliteResultsBookSource } from './infra/SqliteResultsBookSource';
+export { QualificationTeamRecordCandidateSource } from './infra/QualificationTeamRecordCandidateSource';
 export { VerifiedResultsBookResultSnapshotSource } from './infra/VerifiedResultsBookResultSnapshotSource';
 export { ResultWorkflowOfficialRevisionSource } from './infra/ResultWorkflowOfficialRevisionSource';

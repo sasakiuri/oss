@@ -8,6 +8,7 @@ import type {
   StartListApprovalPayload,
   StartListDistributionChannelDto,
   StartListEntryDto,
+  StartListRowDto,
   StartListVersionDto,
 } from '@/shared/ipc/contracts';
 
@@ -19,6 +20,10 @@ import type {
   StartListVersionRecord,
 } from '../domain/IStartListRepository';
 import { assessStartListRows, assertDistributionCoverage } from '../domain/StartListPolicy';
+import {
+  allowAllParticipantEligibility,
+  type IParticipantEligibilityReader,
+} from '@/main/shared-infra/operations/ParticipantEligibility';
 
 type StartListStatus = StartListVersionDto['status'];
 
@@ -29,6 +34,7 @@ export class StartListService {
   constructor(
     private readonly database: Database.Database,
     private readonly repository: IStartListRepository,
+    private readonly participantEligibility: IParticipantEligibilityReader = allowAllParticipantEligibility,
   ) {
     this.participants = new SqliteParticipantRepository(database);
     this.assignments = new SqliteFiringPointAssignmentRepository(database);
@@ -249,6 +255,10 @@ export class StartListService {
       .findByEventId(eventId)
       .map((participant) => {
         const assignment = assignmentsByParticipant.get(participant.id.value);
+        const eligibility = this.participantEligibility.assess(participant.id.value);
+        const projectedEntryStatus = eligibility.eligible
+          ? participant.officialEntry.entryStatus
+          : projectIneligibleEntryStatus(eligibility.blockingCode);
         return {
           participantId: participant.id.value,
           startNumber: participant.officialEntry.startNumber,
@@ -258,7 +268,7 @@ export class StartListService {
           affiliation: participant.affiliation,
           nationCode: participant.officialEntry.nationCode,
           gender: participant.officialEntry.gender,
-          entryStatus: participant.officialEntry.entryStatus,
+          entryStatus: projectedEntryStatus,
           teamId: participant.officialEntry.teamId,
           teamName: participant.officialEntry.teamName,
           relayNumber: assignment?.relayNumber ?? null,
@@ -268,6 +278,11 @@ export class StartListService {
       .sort(compareRows);
     return { eventName: event.name, competitionTypeId: event.event_type, rows };
   }
+}
+
+function projectIneligibleEntryStatus(code: string | null): StartListRowDto['entryStatus'] {
+  if (code === 'DSQ' || code === 'DQB' || code === 'AD_DSQ') return code;
+  return 'DQB';
 }
 
 function statusOf(value: StartListVersionRecord): StartListStatus {

@@ -51,6 +51,21 @@ const DIRECT_EVENT_TABLES = [
 const SECTION_QUERIES: readonly SectionQuery[] = [
   { id: 'championship', sql: 'SELECT * FROM championships WHERE id = @championshipId' },
   { id: 'events', sql: `SELECT * FROM events WHERE championship_id = @championshipId` },
+  { id: 'athlete-identities', sql: 'SELECT * FROM athlete_identities WHERE championship_id = @championshipId' },
+  {
+    id: 'athlete-identity-link-entries',
+    sql: `SELECT * FROM athlete_identity_link_entries
+          WHERE athlete_identity_id IN (
+            SELECT id FROM athlete_identities WHERE championship_id = @championshipId
+          )`,
+  },
+  {
+    id: 'athlete-sanction-decisions',
+    sql: `SELECT * FROM athlete_sanction_decisions
+          WHERE athlete_identity_id IN (
+            SELECT id FROM athlete_identities WHERE championship_id = @championshipId
+          )`,
+  },
   { id: 'est-inspection-plans', sql: 'SELECT * FROM est_inspection_plans WHERE championship_id = @championshipId' },
   {
     id: 'est-inspection-entries',

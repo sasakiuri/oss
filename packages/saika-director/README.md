@@ -26,6 +26,7 @@ Saika Director is the desktop control application for coordinating multiple
 - ISSF 2026 Individual and Mixed Team 10m Qualification/Final Rule Packs and synchronized Final series control
 - Independent Individual/Mixed Team Final checkpoint ledgers with per-Lane retirement acknowledgements
 - Official three-member and Mixed Team aggregation, including Mixed Team Final result persistence
+- Three-member Qualification Team record candidates derived from current Official member results through a replaceable source port
 - Reproducible seeded firing-point draws with ISSF constraints, Technical Delegate approval, and explicit application
 - Immutable Start List versions with content/paperless approvals, source-staleness checks, deadline status, CSV export, and distribution audit
 - Versioned Final command scripts with persistent official confirmations, Lane cues, execution retries, and branch-aware shoot-off shots

@@ -54,6 +54,7 @@ import { migration054QualificationTimedTargetRecoveryDecisions } from './054_qua
 import { migration055QualificationRecoveryExecutionEvents } from './055_qualification_recovery_execution_events';
 import { migration056QualificationRecoveryAdjudicationEvents } from './056_qualification_recovery_adjudication_events';
 import { migration057QualificationRecoverySettlements } from './057_qualification_recovery_settlements';
+import { migration058AthleteIdentitiesAndSanctions } from './058_athlete_identities_and_sanctions';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -111,4 +112,5 @@ export const allMigrations: Migration[] = [
   migration055QualificationRecoveryExecutionEvents,
   migration056QualificationRecoveryAdjudicationEvents,
   migration057QualificationRecoverySettlements,
+  migration058AthleteIdentitiesAndSanctions,
 ];
