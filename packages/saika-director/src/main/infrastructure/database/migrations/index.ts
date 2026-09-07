@@ -1,3 +1,5 @@
+import { migration066EvidenceFiles } from './066_evidence_files';
+import { migration065FinalRecoveryAllowanceSubjects } from './065_final_recovery_allowance_subjects';
 import type { Migration } from './Migration';
 import { migration003CreateSchema } from './003_create_schema';
 import { migration004AddResultsStatus } from './004_add_results_status';
@@ -61,6 +63,12 @@ import { migration061EstComplaintTargetExaminationLinks } from './061_est_compla
 import { migration062RangeSafetyLaneClearances } from './062_range_safety_lane_clearances';
 import { migration063PostCompetitionEquipmentControl } from './063_post_competition_equipment_control';
 
+import { migration064QualificationMalfunctionScoreSheets } from './064_qualification_malfunction_score_sheets';
+
+import { migration067QualificationResultSeries } from './067_qualification_result_series';
+
+import { migration068MalfunctionScoreApplications } from './068_malfunction_score_applications';
+
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
   migration004AddResultsStatus,
@@ -123,4 +131,9 @@ export const allMigrations: Migration[] = [
   migration061EstComplaintTargetExaminationLinks,
   migration062RangeSafetyLaneClearances,
   migration063PostCompetitionEquipmentControl,
+  migration064QualificationMalfunctionScoreSheets,
+  migration065FinalRecoveryAllowanceSubjects,
+  migration066EvidenceFiles,
+  migration067QualificationResultSeries,
+  migration068MalfunctionScoreApplications,
 ];

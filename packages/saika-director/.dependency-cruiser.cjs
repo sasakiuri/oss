@@ -90,6 +90,5 @@ module.exports = {
       mainFields: ['module', 'main', 'types'],
     },
     builtInModules: { add: ['electron'] },
-    cache: { strategy: 'content', compress: true },
   },
 };

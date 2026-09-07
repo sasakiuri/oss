@@ -368,24 +368,18 @@ MQTT 上で使用するフェーズ名は、saika.lane 内部実装（`Phase` �
 
 ### 3.3 例外フロー・特殊競技フェーズ
 
-現行の CompetitionPhase / LanePhase は予選（JRSF_BR_60S / JRSF_BP_60）の標準フローを対象とする。以下の例外フローは将来実装として設計上の方針を記録する。
+ISSF の Qualification / Final、shoot-off、停止・中断復旧の通信フローを説明します。
 
 #### 3.3.1 Shoot-off（同点決定戦）
 
-ISSF ルールでは同点時に Shoot-off（1発ずつの同点決定戦）を行う。
+同点処理は種目とラウンドの Rule Pack に従います。ISSF 決勝の shoot-off には、1発の比較と、25mの5発シリーズによる比較があります。
 
-| 対象フェーズ                       | 条件                                               |
-| ---------------------------------- | -------------------------------------------------- |
-| シリーズ完了時 (`SERIES_COMPLETE`) | 複数選手がシリーズスコアで同点かつ脱落境界上の場合 |
-| 競技終了時 (`MATCH_COMPLETE`)      | 最終順位が同点の場合                               |
+- Director は Final の判断記録と対象Laneを確認し、`start-shoot-off` / `stop-shoot-off` を実行します。
+- Lane は shoot-off の発を通常本射の得点から分離し、`saika/competition/{competitionId}/lane/{laneId}/shoot-off/shot` へ発行します。
+- 専用payloadの `runId`、`iteration`、`shotId` によって反復と証跡を識別します。通常の `CompetitionShotPayload` に将来のフラグを追加する方式ではありません。
+- 通常決勝への復帰と順位・脱落の確定は、DirectorのFinal運用と明示的な公式確認で行います。
 
-**暫定設計方針**:
-
-- `MATCH_COMPLETE` 後に director が `start-shootoff` コマンドを発行（将来定義）
-- Shoot-off 中は `LanePhase = MATCH`（本射と同様の扱い）
-- `isShootoff: boolean` フラグを `CompetitionShotPayload` に将来追加予定
-
-> **現在のステータス**: P2 タスク（未実装）。予選のみ実装済み。
+故障・EST不具合・誤号令に対する決勝復旧ケースの記録と、その再射実行の自動化は別の機能です。
 
 #### 3.3.2 決勝（Final）フロー
 
@@ -401,16 +395,14 @@ JRSF_BR_FIN / JRSF_BP_FIN は段階的脱落方式（1st Stage: 2×5発, 2nd Sta
 
 #### 3.3.3 中断・再開
 
-競技中の緊急中断（技術的トラブル・安全上の理由）に対応するフェーズ。
+競技と独立した安全STOP、およびLaneごとのタイマー中断・復旧が実装されています。
 
-**暫定設計方針**:
+- `pause-timer` は中断ID、捕捉時刻、停止時の残時間をLaneで記録します。
+- `resume-timer` は、公式に許可された残時間と共通の開始時刻を指定して再開します。`resume-match` は中断復旧の本射復帰を扱います。
+- 安全STOPの解除は中断・タイマー再開とは別の確認です。安全状態が解除されていなければ再開コマンドは拒否されます。
+- 25m Qualification の8.8.1中断復旧は、追加試射・別枠の復旧射・明示的な得点反映を持ちます。銃器故障の8.9による最低点比較を、この無効・再射で代用しません。
 
-- `SUSPENDED` フェーズを `CompetitionPhase` / `LanePhase` に将来追加
-- 中断コマンド `suspend-competition` / 再開コマンド `resume-competition` を将来追加
-- 中断理由を `SuspendedReason: string` フィールドで記録
-- 再開時のタイマー残り時間は director が管理・指定
-
-> **現在のステータス**: P3 タスク（将来対応）。現行設計では director の人的操作で代替。
+中断・安全状態は通常の `CompetitionPhase` と独立して扱います。`SUSPENDED` フェーズを追加する方式は、現行の再開操作の前提ではありません。
 
 ---
 

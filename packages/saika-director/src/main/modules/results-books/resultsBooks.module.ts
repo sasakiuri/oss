@@ -14,7 +14,7 @@ export const resultsBooksModule: ModuleDefinition<'ipcRouter' | 'resultsBookServ
       generateBook: (input) => resultsBookService.generateBook(input.championshipId, input.createdBy),
       signBook: (input) => resultsBookService.signBook(input),
       finalizeBook: (input) => resultsBookService.finalizeBook(input),
-      exportBook: (input) => resultsBookService.exportBook(input.bookId),
+      exportBook: (input) => resultsBookService.exportBook(input.bookId, input.format),
     });
   },
 };

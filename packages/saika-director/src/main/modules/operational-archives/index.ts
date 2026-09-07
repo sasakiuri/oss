@@ -13,3 +13,5 @@ export {
   applyPendingDatabaseRestoreSync,
   type PendingRestoreApplicationResult,
 } from './infra/PendingDatabaseRestoreCoordinator';
+
+export type { ICompetitionEvidenceAttachmentSource } from './application/ICompetitionEvidenceAttachmentSource';

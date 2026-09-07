@@ -5,6 +5,7 @@ interface ScoreSheetProps {
 }
 
 export function ScoreSheet({ data }: ScoreSheetProps) {
+  const seriesCount = Math.max(data.seriesScores.length, ...data.allShots.map((shot) => shot.seriesNumber));
   const now = new Date();
   const formattedDate = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')}`;
 
@@ -122,7 +123,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
       </div>
 
       <div className="series-sections-meyton">
-        {Array.from({ length: 6 }, (_, seriesIndex) => {
+        {Array.from({ length: seriesCount }, (_, seriesIndex) => {
           const seriesNumber = seriesIndex + 1;
           const seriesShots = getSeriesShots(seriesNumber);
           const intScore = getSeriesIntegerScore(seriesNumber);
@@ -149,7 +150,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
                   )}
                 </div>
                 <div className="shots-grid-5x2">
-                  {Array.from({ length: 2 }, (_, rowIdx) => (
+                  {Array.from({ length: Math.max(2, Math.ceil(seriesShots.length / 5)) }, (_, rowIdx) => (
                     <div key={rowIdx} className="shots-row">
                       {Array.from({ length: 5 }, (_, colIdx) => {
                         const shotIdx = rowIdx * 5 + colIdx;

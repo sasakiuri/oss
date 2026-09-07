@@ -1,5 +1,5 @@
 import type { DomainEvent } from '@/main/shared-infra/events/EventBus';
-import type { CompetitionAnnouncementPhase } from '../application/CompetitionAnnouncementPorts';
+import type { CompetitionAnnouncementPhase } from './CompetitionAnnouncementPhase';
 
 export interface CompetitionAnnouncementDue extends DomainEvent {
   readonly type: 'CompetitionAnnouncementDue';

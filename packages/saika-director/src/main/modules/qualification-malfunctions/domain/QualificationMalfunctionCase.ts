@@ -24,6 +24,7 @@ export const QUALIFICATION_MALFUNCTION_ENTRY_TYPES = [
   'REMEDY_AUTHORIZED',
   'EXECUTION_RECORDED',
   'SCORE_SETTLED',
+  'SCORE_REOPENED',
   'COMPLETED',
   'VOID',
 ] as const;
@@ -276,7 +277,12 @@ export class QualificationMalfunctionEntry {
       throw new Error('Only a repair extension may include repair seconds');
     }
     const artifactId = optionalText(props.artifactId);
-    if ((props.type === 'EXECUTION_RECORDED' || props.type === 'SCORE_SETTLED') && !artifactId) {
+    if (props.type === 'SCORE_REOPENED' && !['RTS_OFFICER', 'JURY_MEMBER'].includes(props.officialRole))
+      throw new Error('Only RTS or Jury may reopen settled scoring');
+    if (
+      (props.type === 'EXECUTION_RECORDED' || props.type === 'SCORE_SETTLED' || props.type === 'SCORE_REOPENED') &&
+      !artifactId
+    ) {
       throw new Error(`${props.type} requires an immutable artifact reference`);
     }
 
@@ -328,6 +334,7 @@ export function qualificationMalfunctionStatus(
       case 'REMEDY_AUTHORIZED':
         status = 'RECOVERY_AUTHORIZED';
         break;
+      case 'SCORE_REOPENED':
       case 'EXECUTION_RECORDED':
         status = 'EXECUTED';
         break;

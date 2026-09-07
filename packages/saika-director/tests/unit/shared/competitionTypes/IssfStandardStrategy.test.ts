@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { ResultFormat } from '@/shared/competitionTypes';
 import type { RankingShotEvidence } from '@/shared/competitionTypes';
+import { competitionTypeFromRulePack } from '@/shared/competitionTypes';
+import { ISSF_2026_RFPM, ISSF_2026_STDP, ISSF_2026_P25, ISSF_2026_CFP } from '@sasakiuri/saika-rules';
 
 describe('IssfStandardStrategy', () => {
   let strategy: IssfStandardStrategy;
@@ -113,6 +115,42 @@ describe('IssfStandardStrategy', () => {
   });
 
   describe('compareResults', () => {
+    it.each([ISSF_2026_RFPM, ISSF_2026_STDP, ISSF_2026_P25, ISSF_2026_CFP])(
+      'compares ten-shot blocks before individual shots for five-shot series ($id)',
+      (pack) => {
+        const format = competitionTypeFromRulePack(pack).resultFormat;
+        const a = {
+          totalScore: 593,
+          seriesScores: [...Array(10).fill(50), 45, 48],
+          shots: [...Array(50).fill(10), 9, 9, 9, 9, 9, 10, 10, 10, 10, 8],
+        };
+        const b = {
+          totalScore: 593,
+          seriesScores: [...Array(10).fill(50), 48, 45],
+          shots: [...Array(50).fill(10), 10, 10, 10, 9, 9, 9, 9, 9, 9, 9],
+        };
+        // Both last ten-shot blocks total 93; B wins on the last shot (9 versus 8).
+        // Comparing the final five-shot series alone would incorrectly rank A first.
+        expect(strategy.compareResults(a, b, format)).toBeGreaterThan(0);
+        expect(strategy.compareResults(b, a, format)).toBeLessThan(0);
+      },
+    );
+
+    it('uses adjusted ten-shot block totals before the last shot and preserves a local series policy', () => {
+      const format = competitionTypeFromRulePack(ISSF_2026_RFPM).resultFormat;
+      const a = { totalScore: 590, seriesScores: [...Array(10).fill(50), 45, 45], shots: [...Array(59).fill(10), 10] };
+      const b = {
+        totalScore: 590,
+        seriesScores: [...Array(9).fill(50), 49, 45, 46],
+        shots: [...Array(59).fill(10), 9],
+      };
+      expect(strategy.compareResults(a, b, format)).toBeGreaterThan(0);
+      const tiedA = { totalScore: 593, seriesScores: [...Array(10).fill(50), 45, 48], shots: [] };
+      const tiedB = { totalScore: 593, seriesScores: [...Array(10).fill(50), 48, 45], shots: [] };
+      const { tieBreakPolicy: _policy, ...localFormat } = format;
+      expect(strategy.compareResults(tiedA, tiedB, localFormat)).toBeLessThan(0);
+    });
+
     it('should return negative when a has higher totalScore', () => {
       const a = { totalScore: 590, seriesScores: [98, 98, 98, 99, 99, 98], shots: [] as number[] };
       const b = { totalScore: 580, seriesScores: [97, 97, 97, 97, 96, 96], shots: [] as number[] };

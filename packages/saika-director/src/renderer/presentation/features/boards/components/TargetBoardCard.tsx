@@ -55,7 +55,7 @@ export function TargetBoardCard({
       </div>
 
       <div className="grid grid-cols-3 gap-1">
-        {Array.from({ length: 6 }, (_, i) => {
+        {Array.from({ length: seriesScores.length }, (_, i) => {
           const score = seriesScores[i];
           return (
             <div key={i} className="flex items-center justify-center py-1 bg-zinc-800/50 rounded">

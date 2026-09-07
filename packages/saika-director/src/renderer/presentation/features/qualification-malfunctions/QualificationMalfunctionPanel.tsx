@@ -1,3 +1,4 @@
+import { MalfunctionScoreSheetPanel } from './MalfunctionScoreSheetPanel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Wrench } from 'lucide-react';
 
@@ -514,6 +515,8 @@ function MalfunctionDetail({
           </ol>
         )}
       </div>
+
+      <MalfunctionScoreSheetPanel value={value} disabled={disabled} onChanged={onChanged} />
 
       {value.status !== 'VOID' && (
         <AppendEntryForm

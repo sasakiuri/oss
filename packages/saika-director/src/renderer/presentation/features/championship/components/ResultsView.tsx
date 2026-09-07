@@ -325,7 +325,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                     {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
                   </td>
                   <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
-                    {result.scoreAdjustment > 0 ? `−${result.scoreAdjustment.toFixed(1)}` : '—'}
+                    {result.scoreAdjustment === 0
+                      ? '—'
+                      : `${result.scoreAdjustment > 0 ? '−' : '+'}${Math.abs(result.scoreAdjustment).toFixed(1)}`}
                   </td>
                   <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
                     {result.eliminatedAtShot !== undefined && (
@@ -505,7 +507,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                   {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
-                  {result.scoreAdjustment > 0 ? `−${result.scoreAdjustment.toFixed(1)}` : '—'}
+                  {result.scoreAdjustment === 0
+                    ? '—'
+                    : `${result.scoreAdjustment > 0 ? '−' : '+'}${Math.abs(result.scoreAdjustment).toFixed(1)}`}
                 </td>
                 <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
                   {result.remarks.length > 0 ? result.remarks.join('; ') : '—'}

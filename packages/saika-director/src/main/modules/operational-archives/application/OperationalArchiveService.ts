@@ -1,5 +1,7 @@
 import { basename } from 'node:path';
 
+import type { ICompetitionEvidenceAttachmentSource } from './ICompetitionEvidenceAttachmentSource';
+
 import type {
   DatabaseBackupReceiptDto,
   EvidenceBundleReceiptDto,
@@ -28,10 +30,18 @@ export class OperationalArchiveService {
     private readonly files: ArchiveFileGateway,
     private readonly backups: DatabaseBackupGateway,
     private readonly now: () => Date = () => new Date(),
+    private readonly attachments?: ICompetitionEvidenceAttachmentSource,
   ) {}
 
   async exportCompetitionEvidence(championshipId: string): Promise<EvidenceBundleReceiptDto> {
-    const bundle = this.bundleBuilder.build(this.evidenceSource, championshipId);
+    const championship = this.evidenceSource.getChampionship(championshipId);
+    if (!championship) throw new Error(`Championship ${championshipId} not found`);
+    const sections = this.evidenceSource.collect(championshipId);
+    const extraSections = (await this.attachments?.collect(sections)) ?? [];
+    const bundle = this.bundleBuilder.build(
+      { getChampionship: () => championship, collect: () => [...sections, ...extraSections] },
+      championshipId,
+    );
     const destination = await this.files.chooseEvidenceDestination(
       `${safeFileStem(bundle.championship.name)}-evidence-${dateStamp(this.now())}.json`,
     );

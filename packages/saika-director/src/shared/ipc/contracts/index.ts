@@ -1,3 +1,4 @@
+export { evidenceFilesContract, type EvidenceFileDto } from './evidenceFiles.contract';
 // Contract objects
 export { championshipContract } from './championship.contract';
 export { laneControlContract } from './laneControl.contract';
@@ -417,3 +418,16 @@ export type {
   FiringWindowViolationDetectedEvent,
   CompetitionAnnouncementDueEvent,
 } from './events.contract';
+
+export type {
+  MalfunctionScoreSheetInputDto,
+  MalfunctionScoreSheetPreviewDto,
+  MalfunctionScoreSheetDto,
+} from './qualificationMalfunctions.contract';
+
+export {
+  malfunctionScoreApplicationsContract,
+  type MalfunctionScoreApplicationRequestDto,
+  type MalfunctionScoreApplicationPreviewDto,
+  type MalfunctionScoreApplicationHistoryDto,
+} from './malfunctionScoreApplications.contract';

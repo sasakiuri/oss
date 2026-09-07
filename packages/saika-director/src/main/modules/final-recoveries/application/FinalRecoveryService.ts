@@ -1,3 +1,9 @@
+import type { FinalRecoveryAllowanceSubject } from '../domain/FinalRecoveryAuthorizationPolicy';
+import {
+  IssfFinalRecoveryAuthorizationPolicy,
+  type IFinalRecoveryAuthorizationPolicy,
+} from '../domain/FinalRecoveryAuthorizationPolicy';
+import type { IFinalRecoverySubjectSource } from '../domain/IFinalRecoverySubjectSource';
 import type {
   AppendFinalRecoveryEntryPayload,
   CreateFinalRecoveryCasePayload,
@@ -14,7 +20,11 @@ import type { IFinalRecoveryRepository } from '../domain/IFinalRecoveryRepositor
 import { getIssfFinalRecoveryGuidance } from '../domain/IssfFinalRecoveryPolicy';
 
 export class FinalRecoveryService {
-  constructor(private readonly repository: IFinalRecoveryRepository) {}
+  constructor(
+    private readonly repository: IFinalRecoveryRepository,
+    private readonly authorizationPolicy: IFinalRecoveryAuthorizationPolicy = new IssfFinalRecoveryAuthorizationPolicy(),
+    private readonly subjects?: IFinalRecoverySubjectSource,
+  ) {}
 
   listByCompetition(competitionId: string): FinalRecoveryCaseDto[] {
     return this.project(this.repository.findCasesByCompetition(competitionId));
@@ -27,6 +37,7 @@ export class FinalRecoveryService {
   create(input: CreateFinalRecoveryCasePayload): FinalRecoveryCaseDto {
     assert25mMalfunctionCaseShape(input);
     const value = FinalRecoveryCase.create({
+      allowanceSubject: this.subjects?.resolve(input) ?? input.allowanceSubject,
       competitionId: input.competitionId,
       ...(input.eventId ? { eventId: input.eventId } : {}),
       ...(input.finalRunId ? { finalRunId: input.finalRunId } : {}),
@@ -44,13 +55,53 @@ export class FinalRecoveryService {
     return this.project([value])[0]!;
   }
 
+  bindAllowanceSubject(input: {
+    caseId: string;
+    subject: FinalRecoveryAllowanceSubject;
+    officialName: string;
+    statement: string;
+  }): FinalRecoveryCaseDto {
+    return this.repository.executeInTransaction(() => {
+      const value = this.repository.findCaseById(input.caseId);
+      if (!value) throw new Error('Final recovery case not found');
+      const subject = FinalRecoveryCase.create({ ...value, allowanceSubject: input.subject }).allowanceSubject!;
+      if (value.allowanceSubject) {
+        if (JSON.stringify(value.allowanceSubject) === JSON.stringify(subject)) return this.project([value])[0]!;
+        throw new Error('The recovery allowance identity is already bound');
+      }
+      const note = FinalRecoveryEntry.create({
+        caseId: value.id,
+        type: 'NOTE',
+        officialName: input.officialName,
+        statement: `Allowance identity confirmed: ${subject.kind} ${subject.key}. ${input.statement.trim()}`,
+      });
+      if (!input.statement.trim()) throw new Error('An identity confirmation statement is required');
+      this.repository.appendAllowanceSubject(value.id, subject);
+      this.repository.appendEntry(note);
+      return this.project([this.repository.findCaseById(value.id)!])[0]!;
+    });
+  }
+
   appendEntry(input: AppendFinalRecoveryEntryPayload): FinalRecoveryCaseDto {
+    return this.repository.executeInTransaction(() => this.appendValidatedEntry(input));
+  }
+
+  private appendValidatedEntry(input: AppendFinalRecoveryEntryPayload): FinalRecoveryCaseDto {
     const value = this.repository.findCaseById(input.caseId);
     if (!value) throw new Error(`Final recovery case ${input.caseId} not found`);
     const entries = this.repository.findEntries([value.id]).get(value.id) ?? [];
     assertTransition(finalRecoveryStatus(entries), input.type);
     assertPolicySelection(value, input);
-    assert25mMalfunctionClaimAvailable(value, input, this.repository);
+    if (input.type === 'REMEDY_AUTHORIZED' && input.remedy) {
+      const cases = this.repository.findCasesByCompetition(value.competitionId);
+      const history = this.repository.findEntries(cases.map((candidate) => candidate.id));
+      this.authorizationPolicy.assertAuthorized({
+        recovery: value,
+        entries,
+        history: cases.map((recovery) => ({ recovery, entries: history.get(recovery.id) ?? [] })),
+        remedy: input.remedy,
+      });
+    }
     this.repository.appendEntry(
       FinalRecoveryEntry.create({
         caseId: value.id,
@@ -75,6 +126,7 @@ export class FinalRecoveryService {
       const entries = entriesByCase.get(value.id) ?? [];
       return {
         id: value.id,
+        allowanceSubject: value.allowanceSubject,
         competitionId: value.competitionId,
         eventId: value.eventId,
         finalRunId: value.finalRunId,
@@ -114,48 +166,6 @@ function assert25mMalfunctionCaseShape(input: CreateFinalRecoveryCasePayload): v
   if (!is25mMalfunction(input.procedureProfile, input.incidentType)) return;
   if (input.affectedLaneIds.length !== 1) {
     throw new Error('A 25m Final malfunction recovery case requires exactly one affected Lane');
-  }
-}
-
-function assert25mMalfunctionClaimAvailable(
-  value: FinalRecoveryCase,
-  input: AppendFinalRecoveryEntryPayload,
-  repository: IFinalRecoveryRepository,
-): void {
-  if (
-    !is25mMalfunction(value.procedureProfile, value.incidentType) ||
-    input.type !== 'JURY_RULING' ||
-    (input.classification !== 'ALLOWABLE_MALFUNCTION' && input.classification !== 'NON_ALLOWABLE_MALFUNCTION')
-  ) {
-    return;
-  }
-  if (value.phase === 'SIGHTING') {
-    throw new Error('A malfunction during a 25m Final sighting series may not be claimed');
-  }
-
-  const cases = repository.findCasesByCompetition(value.competitionId);
-  const entriesByCase = repository.findEntries(cases.map((candidate) => candidate.id));
-  const laneId = value.affectedLaneIds[0]!;
-  const priorClaim = cases.some((candidate) => {
-    if (
-      candidate.id === value.id ||
-      candidate.incidentType !== 'MALFUNCTION' ||
-      !is25mProfile(candidate.procedureProfile) ||
-      !candidate.affectedLaneIds.includes(laneId) ||
-      (value.finalRunId && candidate.finalRunId && candidate.finalRunId !== value.finalRunId)
-    ) {
-      return false;
-    }
-    const entries = entriesByCase.get(candidate.id) ?? [];
-    if (finalRecoveryStatus(entries) === 'VOID') return false;
-    return entries.some(
-      (entry) =>
-        entry.type === 'JURY_RULING' &&
-        (entry.classification === 'ALLOWABLE_MALFUNCTION' || entry.classification === 'NON_ALLOWABLE_MALFUNCTION'),
-    );
-  });
-  if (priorClaim) {
-    throw new Error('Only one ALLOWABLE or NON-ALLOWABLE malfunction may be claimed per Lane in a 25m Final');
   }
 }
 

@@ -38,3 +38,7 @@ export const mixedTeamTimeoutsService = createApiService('mixedTeamTimeouts');
 export const finalPlacementReviewService = createApiService('finalPlacementReview');
 export const shootoffService = createApiService('shootoff');
 export const debugService = createApiService('queries');
+
+export const evidenceFilesService = createApiService('evidenceFiles');
+
+export const malfunctionScoreApplicationsService = createApiService('malfunctionScoreApplications');

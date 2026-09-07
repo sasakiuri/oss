@@ -4,6 +4,7 @@ import { basename } from 'node:path';
 import type { ArchiveFileGateway } from '@/main/modules/operational-archives';
 import type { ResultsBookWorkspaceDto } from '@/shared/ipc/contracts';
 
+import type { IResultsBookDocumentExporter, ResultsBookDocumentFormat } from './IResultsBookDocumentExporter';
 import type { IResultsBookRepository } from '../domain/IResultsBookRepository';
 import type {
   ChampionshipOfficialEntry,
@@ -28,6 +29,7 @@ export class ResultsBookService {
     private readonly source: IResultsBookSource,
     private readonly files: ArchiveFileGateway,
     private readonly now: () => Date = () => new Date(),
+    private readonly documentExporter?: IResultsBookDocumentExporter,
   ) {}
 
   async getWorkspace(championshipId: string): Promise<ResultsBookWorkspaceDto> {
@@ -307,19 +309,16 @@ export class ResultsBookService {
     return this.getWorkspace(input.championshipId);
   }
 
-  async exportBook(bookId: string) {
+  async exportBook(bookId: string, format: 'JSON' | ResultsBookDocumentFormat = 'JSON') {
     const book = this.repository.findBookById(bookId);
     if (!book) throw new Error('Results Book not found');
     const finalization = this.repository.findFinalization(book.id);
     if (!finalization) throw new Error('Only a certified Results Book can be exported as official');
-    const destination = await this.files.chooseResultsBookDestination(
-      `official-results-book-v${book.versionNumber}.json`,
-    );
-    if (!destination) return { status: 'CANCELLED' as const };
     const content = JSON.parse(book.contentJson) as Record<string, unknown>;
     const draftCertification = isRecord(content.resultsCertification) ? content.resultsCertification : {};
-    const output = `${JSON.stringify({
+    const document = {
       ...content,
+      publicationVersion: { bookId: book.id, number: book.versionNumber, createdAt: book.createdAt.toISOString() },
       resultsCertification: {
         ...draftCertification,
         sourceHash: book.sourceHash,
@@ -335,7 +334,20 @@ export class ResultsBookService {
         finalizedAt: finalization.finalizedAt.toISOString(),
         statement: finalization.statement,
       },
-    })}\n`;
+    };
+    if (format !== 'JSON') {
+      if (!this.documentExporter) throw new Error('Readable Results Book export is unavailable');
+      return this.documentExporter.export(
+        document,
+        format,
+        `official-results-book-v${book.versionNumber}.${format.toLowerCase()}`,
+      );
+    }
+    const destination = await this.files.chooseResultsBookDestination(
+      `official-results-book-v${book.versionNumber}.json`,
+    );
+    if (!destination) return { status: 'CANCELLED' as const };
+    const output = `${JSON.stringify(document)}\n`;
     await this.files.writeUtf8Atomic(destination, output);
     return {
       status: 'COMPLETED' as const,

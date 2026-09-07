@@ -17,6 +17,8 @@ export function RankingTable({ rankings, showAverage = true }: RankingTableProps
     );
   }
 
+  const seriesCount = Math.max(...rankings.map((entry) => entry.seriesScores.length));
+
   return (
     <div className="overflow-auto border border-vscode-border rounded-lg">
       <table className="w-full text-vscode-text">
@@ -25,12 +27,11 @@ export function RankingTable({ rankings, showAverage = true }: RankingTableProps
             <th className="px-3 py-2 text-center w-16">Lane</th>
             <th className="px-3 py-2 text-left">Athlete</th>
             <th className="px-3 py-2 text-left">Affiliation</th>
-            <th className="px-3 py-2 text-right w-16">S1</th>
-            <th className="px-3 py-2 text-right w-16">S2</th>
-            <th className="px-3 py-2 text-right w-16">S3</th>
-            <th className="px-3 py-2 text-right w-16">S4</th>
-            <th className="px-3 py-2 text-right w-16">S5</th>
-            <th className="px-3 py-2 text-right w-16">S6</th>
+            {Array.from({ length: seriesCount }, (_, index) => (
+              <th key={index} className="px-3 py-2 text-right w-16">
+                S{index + 1}
+              </th>
+            ))}
             <th className="px-3 py-2 text-right w-20">Total</th>
             {showAverage && <th className="px-3 py-2 text-right w-16">Average</th>}
           </tr>
@@ -54,8 +55,8 @@ export function RankingTable({ rankings, showAverage = true }: RankingTableProps
               {/* Affiliation */}
               <td className="px-3 py-2 text-vscode-dimmed truncate">{entry.affiliation || '-'}</td>
 
-              {/* Series Scores (S1-S6) */}
-              {Array.from({ length: 6 }, (_, i) => (
+              {/* Series scores */}
+              {Array.from({ length: seriesCount }, (_, i) => (
                 <td key={i} className="px-3 py-2 text-right font-mono tabular-nums">
                   {entry.seriesScores[i] !== undefined && entry.seriesScores[i] > 0
                     ? entry.seriesScores[i].toFixed(1)

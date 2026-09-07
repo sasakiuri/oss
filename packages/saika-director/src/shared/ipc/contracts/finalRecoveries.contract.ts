@@ -71,7 +71,14 @@ const guidance = z.object({
   }),
 });
 
+const allowanceSubject = z.object({
+  kind: z.enum(['ATHLETE', 'TEAM']),
+  key: z.string().trim().min(1).max(300),
+  description: z.string().trim().min(1).max(300),
+});
+
 const recoveryCase = z.object({
+  allowanceSubject: allowanceSubject.nullable().optional(),
   id: uuid,
   competitionId: uuid,
   eventId: uuid.nullable(),
@@ -92,6 +99,7 @@ const recoveryCase = z.object({
 });
 
 const create = z.object({
+  allowanceSubject: allowanceSubject.optional(),
   competitionId: uuid,
   eventId: uuid.optional(),
   finalRunId: uuid.optional(),
@@ -162,6 +170,15 @@ export type CreateFinalRecoveryCasePayload = z.infer<typeof create>;
 export type AppendFinalRecoveryEntryPayload = z.infer<typeof appendEntry>;
 
 export const finalRecoveriesContract = defineContract('finalRecoveries', {
+  bindAllowanceSubject: command(
+    z.object({
+      caseId: uuid,
+      subject: allowanceSubject,
+      officialName: z.string().trim().min(1).max(200),
+      statement: z.string().trim().min(1).max(5000),
+    }),
+    commandDataResponseSchema(recoveryCase),
+  ),
   listByCompetition: query(z.object({ competitionId: uuid }), queryResponseSchema(z.array(recoveryCase))),
   listByEvent: query(z.object({ eventId: uuid }), queryResponseSchema(z.array(recoveryCase))),
   create: command(create, commandDataResponseSchema(recoveryCase)),

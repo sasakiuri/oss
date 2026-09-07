@@ -40,10 +40,12 @@ export class IssfStandardStrategy implements CompetitionTypeStrategy {
       }
     }
 
-    // ISSF 6.15.1(b), or 6.15.1(f) for decimal rifle: last 10-shot series backwards.
-    for (let i = format.totalSeries - 1; i >= 0; i--) {
-      const aScore = a.seriesScores[i] ?? 0;
-      const bScore = b.seriesScores[i] ?? 0;
+    // ISSF 6.15.1(b/f) compares ten-shot blocks, even when firing uses five-shot series.
+    // Sum effective series totals so recorded deductions participate in countback.
+    const blockSize = countbackSeriesPerBlock(format);
+    for (let end = format.totalSeries; end > 0; end -= blockSize) {
+      const aScore = sumSeries(a.seriesScores, Math.max(0, end - blockSize), end);
+      const bScore = sumSeries(b.seriesScores, Math.max(0, end - blockSize), end);
       if (aScore !== bScore) {
         return bScore - aScore;
       }
@@ -99,6 +101,21 @@ export class IssfStandardStrategy implements CompetitionTypeStrategy {
       stage2Shots: matchShots.slice(stage1Count),
     };
   }
+}
+
+function countbackSeriesPerBlock(format: ResultFormat): number {
+  if (format.tieBreakPolicy && format.totalShots >= 10 && format.totalShots % 10 === 0) {
+    const seriesPerTenShots = (10 * format.totalSeries) / format.totalShots;
+    if (Number.isInteger(seriesPerTenShots) && seriesPerTenShots >= 1) return seriesPerTenShots;
+  }
+  // Local formats without a declared ISSF branch retain their configured series comparison.
+  return 1;
+}
+
+function sumSeries(series: readonly number[], start: number, end: number): number {
+  let total = 0;
+  for (let index = start; index < end; index += 1) total += series[index] ?? 0;
+  return total;
 }
 
 function compareReverseNumbers(a: readonly number[], b: readonly number[], count: number): number {

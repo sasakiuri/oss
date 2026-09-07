@@ -9,55 +9,18 @@ import {
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
-import type { CompetitionShotPayload, LaneScorePayload } from '@/shared/mqtt';
+import type { CompetitionShotPayload } from '@/shared/mqtt';
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 
 import type { IResultRepository } from '../domain/IResultRepository';
 import { Result } from '../domain/Result';
 import { ResultId } from '../domain/ResultId';
-import type { PublishMqttResultsCommand, PublishMqttResultLane } from './PublishMqttResults';
-import {
-  assembleRankingEvidence,
-  type RankingSeriesEvidenceInput,
-  type RankingShotSourceEvidence,
-} from '../domain/RankingEvidenceAssembler';
+import { layoutQualificationScoreSeries } from '../domain/QualificationScoreLayout';
+import type { PublishMqttResultsCommand } from './PublishMqttResults';
+import { assembleRankingEvidence, type RankingShotSourceEvidence } from '../domain/RankingEvidenceAssembler';
 
 function scoreFromX10(value: number): number {
   return value / 10;
-}
-
-function seriesScores(lane: PublishMqttResultLane): number[] {
-  return (lane.score?.stages ?? [])
-    .slice()
-    .sort((a, b) => a.stageIndex - b.stageIndex)
-    .flatMap((stage) =>
-      stage.series
-        .slice()
-        .sort((a, b) => a.seriesIndex - b.seriesIndex)
-        .map((series) => scoreFromX10(series.seriesTotalX10)),
-    );
-}
-
-function shotScores(score: NonNullable<PublishMqttResultLane['score']>): number[] {
-  return score.stages
-    .slice()
-    .sort((a, b) => a.stageIndex - b.stageIndex)
-    .flatMap((stage) =>
-      stage.series
-        .slice()
-        .sort((a, b) => a.seriesIndex - b.seriesIndex)
-        .flatMap((series) => series.shots.map(scoreFromX10)),
-    );
-}
-
-function rankingSeries(score: LaneScorePayload): RankingSeriesEvidenceInput[] {
-  return score.stages.flatMap((stage) =>
-    stage.series.map((series) => ({
-      stageIndex: stage.stageIndex,
-      seriesIndex: series.seriesIndex,
-      scoresX10: series.shots,
-    })),
-  );
 }
 
 function journalEvidence(observation: CompetitionShotObservation): RankingShotSourceEvidence {
@@ -150,7 +113,6 @@ export class PublishMqttResultsHandler {
     );
 
     const definition = this.competitionTypeRegistry.get(event.eventType);
-    const strategy = this.competitionTypeRegistry.getStrategyFor(definition);
     const expectedAcc = definition.scoring.precision === 0 ? 'RING' : 'DECIMAL';
     const errors: string[] = [];
     const results: Result[] = [];
@@ -223,7 +185,18 @@ export class PublishMqttResultsHandler {
             )
             .map(payloadEvidence),
         ];
-        const rankingEvidence = assembleRankingEvidence(rankingSeries(score), sources);
+        const layout = layoutQualificationScoreSeries(
+          definition,
+          score.stages.flatMap((stage) =>
+            stage.series.map((series) => ({
+              stageIndex: stage.stageIndex,
+              seriesIndex: series.seriesIndex,
+              scoresX10: series.shots,
+              totalX10: series.seriesTotalX10,
+            })),
+          ),
+        );
+        const rankingEvidence = assembleRankingEvidence(layout, sources);
         const candidate = Result.create(
           ResultId.generate(),
           EventId.create(command.eventId),
@@ -231,8 +204,8 @@ export class PublishMqttResultsHandler {
           relayAssignment.playerName,
           relayAssignment.affiliation,
           scoreFromX10(score.totalScoreX10),
-          strategy.padSeries(seriesScores(lane), definition.resultFormat),
-          strategy.padShots(shotScores(score), definition.resultFormat),
+          layout.map((series) => scoreFromX10(series.totalX10)),
+          layout.flatMap((series) => series.scoresX10.map(scoreFromX10)),
           command.relayNumber,
           'published',
           definition.resultFormat,

@@ -221,9 +221,9 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
     });
   };
 
-  const exportBook = async (bookId: string) => {
+  const exportBook = async (bookId: string, format: 'JSON' | 'HTML' | 'PDF' = 'JSON') => {
     await run(async () => {
-      const response = await resultsBooksService.exportBook({ bookId });
+      const response = await resultsBooksService.exportBook({ bookId, format });
       if (!response.success) throw new Error(response.error.message);
     });
   };
@@ -494,9 +494,19 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
                       </Button>
                     )}
                     {book.status === 'CERTIFIED' && (
-                      <Button size="sm" variant="secondary" disabled={busy} onClick={() => void exportBook(book.id)}>
-                        <Download size={13} aria-hidden="true" /> Export official JSON
-                      </Button>
+                      <>
+                        {(['JSON', 'HTML', 'PDF'] as const).map((format) => (
+                          <Button
+                            key={format}
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => void exportBook(book.id, format)}
+                          >
+                            <Download size={13} aria-hidden="true" /> Export {format}
+                          </Button>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>

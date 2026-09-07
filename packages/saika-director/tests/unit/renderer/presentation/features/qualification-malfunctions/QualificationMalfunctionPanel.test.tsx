@@ -5,14 +5,27 @@ import { ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
 import { QualificationMalfunctionPanel } from '@/renderer/presentation/features/qualification-malfunctions';
 import type { DirectorLaneSnapshotDto, QualificationMalfunctionCaseDto } from '@/shared/ipc/contracts';
 
-const { appendEntry, create, listByCompetition } = vi.hoisted(() => ({
-  appendEntry: vi.fn(),
-  create: vi.fn(),
-  listByCompetition: vi.fn(),
-}));
+const { appendEntry, create, listByCompetition, listScoreSheets, previewScoreSheet, saveScoreSheet, getById } =
+  vi.hoisted(() => ({
+    appendEntry: vi.fn(),
+    listScoreSheets: vi.fn(),
+    previewScoreSheet: vi.fn(),
+    saveScoreSheet: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    listByCompetition: vi.fn(),
+  }));
 
 vi.mock('@/renderer/services', () => ({
-  qualificationMalfunctionsService: { appendEntry, create, listByCompetition },
+  qualificationMalfunctionsService: {
+    appendEntry,
+    create,
+    listByCompetition,
+    listScoreSheets,
+    previewScoreSheet,
+    saveScoreSheet,
+    getById,
+  },
 }));
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
@@ -24,8 +37,66 @@ const sourceSignalId = '77777777-7777-4777-8777-777777777777';
 describe('QualificationMalfunctionPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listScoreSheets.mockResolvedValue({ success: true, data: [] });
     listByCompetition.mockResolvedValue({ success: true, data: [] });
     create.mockResolvedValue({ success: true, data: malfunctionCase() });
+  });
+
+  it('requires explicit RFPM target mapping and invalidates the calculation preview when evidence changes', async () => {
+    const value = malfunctionCase({ status: 'EXECUTED' });
+    listByCompetition.mockResolvedValue({ success: true, data: [value] });
+    previewScoreSheet.mockImplementation(async (input) => ({
+      success: true,
+      data: {
+        input,
+        digest: 'a'.repeat(64),
+        calculation: {
+          form: 'RFPM',
+          totalX10: 90,
+          countedShots: [{ row: 'ORIGINAL', shotId: 'original-shot', scoreX10: 90, targetIndex: 2, addedZero: false }],
+        },
+      },
+    }));
+    render(
+      <QualificationMalfunctionPanel
+        competitionId={competitionId}
+        eventId={eventId}
+        relayNumber={2}
+        lanes={[laneSnapshot()]}
+        supportsExceptionalMatchParts={false}
+      />,
+    );
+    await screen.findByLabelText('Original shot 1 ID');
+    fireEvent.change(screen.getByLabelText('Original evidence source'), {
+      target: { value: 'Independent memory printout' },
+    });
+    fireEvent.change(screen.getByLabelText('Original shot 1 ID'), { target: { value: 'original-shot' } });
+    fireEvent.change(screen.getByLabelText('Original shot 1 score'), { target: { value: '9' } });
+    fireEvent.change(screen.getByLabelText('Confirming official'), { target: { value: 'RTS A' } });
+    fireEvent.change(screen.getByLabelText('Evidence confirmation statement'), {
+      target: { value: 'Verified target mapping.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview calculation' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Confirm the target number');
+    expect(previewScoreSheet).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Original shot 1 target'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview calculation' }));
+    await screen.findByRole('button', { name: 'Confirm and save calculation' });
+    expect(previewScoreSheet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        original: [
+          expect.objectContaining({
+            targetIndex: 2,
+            shotId: 'original-shot',
+            evidenceReference: 'Independent memory printout',
+          }),
+        ],
+      }),
+    );
+    expect(saveScoreSheet).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Original shot 1 score'), { target: { value: '8' } });
+    expect(screen.queryByRole('button', { name: 'Confirm and save calculation' })).not.toBeInTheDocument();
+    expect(appendEntry).not.toHaveBeenCalled();
   });
 
   it('opens a manual case from an assigned Lane snapshot without issuing a Lane command', async () => {

@@ -8,3 +8,5 @@ export { SqliteResultsBookSource } from './infra/SqliteResultsBookSource';
 export { QualificationTeamRecordCandidateSource } from './infra/QualificationTeamRecordCandidateSource';
 export { VerifiedResultsBookResultSnapshotSource } from './infra/VerifiedResultsBookResultSnapshotSource';
 export { ResultWorkflowOfficialRevisionSource } from './infra/ResultWorkflowOfficialRevisionSource';
+
+export { ElectronResultsBookDocumentExporter } from './infra/ElectronResultsBookDocumentExporter';

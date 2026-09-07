@@ -19,6 +19,8 @@ interface EventRow {
   event_type: string;
   round: string;
   sort_order: number;
+  rule_pack_id: string | null;
+  rule_pack_fingerprint_sha256: string | null;
 }
 
 interface ParticipantRow {
@@ -50,6 +52,8 @@ interface EventProjection {
   readonly eventId: string;
   readonly eventName: string;
   readonly eventType: string;
+  readonly rulePackId?: string | null;
+  readonly rulePackFingerprint?: string | null;
   readonly scope: 'QUALIFICATION' | 'FINAL';
   readonly snapshotRevision: string | null;
   readonly officialPublicationRevision: string | null;
@@ -238,7 +242,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
   private events(championshipId: string): EventRow[] {
     return this.db
       .prepare(
-        'SELECT id, name, event_type, round, sort_order FROM events WHERE championship_id = ? ORDER BY sort_order, id',
+        'SELECT id, name, event_type, round, sort_order, rule_pack_id, rule_pack_fingerprint_sha256 FROM events WHERE championship_id = ? ORDER BY sort_order, id',
       )
       .all(championshipId) as EventRow[];
   }
@@ -270,6 +274,8 @@ export class SqliteResultsBookSource implements IResultsBookSource {
         eventName: event.name,
         eventType: event.event_type,
         scope,
+        rulePackId: event.rule_pack_id,
+        rulePackFingerprint: event.rule_pack_fingerprint_sha256,
         snapshotRevision: snapshot.snapshotRevision,
         officialPublicationRevision: snapshot.officialPublicationRevision,
         publicationCurrent:

@@ -178,6 +178,7 @@ function CreateRecoveryForm({
   const [recoveryPhase, setRecoveryPhase] = useState<FinalRecoveryPhaseDto>(() => defaults.phase);
   const [affectedLaneIds, setAffectedLaneIds] = useState<Set<string>>(() => new Set());
   const [summary, setSummary] = useState('');
+  const [allowanceIdentity, setAllowanceIdentity] = useState('');
   const [officialName, setOfficialName] = useState('');
   const singleLaneRequired = is25mMalfunction(procedureProfile, incidentType);
 
@@ -198,6 +199,15 @@ function CreateRecoveryForm({
         ...(run ? { finalRunId: run.id } : {}),
         ...(currentStep
           ? { scriptStepId: currentStep.id, scriptStepSnapshot: `${currentStep.actor}: ${currentStep.text}` }
+          : {}),
+        ...(allowanceIdentity.trim()
+          ? {
+              allowanceSubject: {
+                kind: procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? ('TEAM' as const) : ('ATHLETE' as const),
+                key: allowanceIdentity.trim(),
+                description: `Official reference: ${allowanceIdentity.trim()}`,
+              },
+            }
           : {}),
         procedureProfile,
         incidentType,
@@ -304,6 +314,20 @@ function CreateRecoveryForm({
           />
         </label>
       </div>
+      {incidentType === 'MALFUNCTION' && (
+        <label className={`${labelClass} mt-3`}>
+          Athlete or team reference for manual operation
+          <input
+            value={allowanceIdentity}
+            onChange={(event) => setAllowanceIdentity(event.target.value)}
+            className={inputClass}
+          />
+          <span className="text-[11px] text-vscode-text-muted">
+            Assigned athlete/team identity is used when available. Otherwise enter a stable reference; use the same team
+            reference for both teammates and retain it after changing firing points.
+          </span>
+        </label>
+      )}
       {run?.currentStep && (
         <p className="mt-2 text-[11px] text-vscode-text-muted">
           Snapshot: {run.currentStep.step.actor} · {run.currentStep.step.text}
@@ -348,10 +372,34 @@ function RecoveryDetail({
   const [remainingTimeSeconds, setRemainingTimeSeconds] = useState('');
   const [grantedTimeSeconds, setGrantedTimeSeconds] = useState('');
   const [shotCount, setShotCount] = useState('');
+  const [subjectKey, setSubjectKey] = useState('');
 
   useEffect(() => {
     if (!options.includes(type)) setType(options[0] ?? 'NOTE');
   }, [options, type]);
+
+  const bindIdentity = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await finalRecoveriesService.bindAllowanceSubject({
+        caseId: value.id,
+        subject: {
+          kind: value.procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? 'TEAM' : 'ATHLETE',
+          key: subjectKey,
+          description: `Official reference: ${subjectKey}`,
+        },
+        officialName,
+        statement,
+      });
+      if (!response.success) throw new Error(response.error.message);
+      onChanged(response.data);
+    } catch (caught) {
+      setError(messageOf(caught));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const append = async () => {
     setSaving(true);
@@ -400,6 +448,13 @@ function RecoveryDetail({
         </p>
       </div>
 
+      {value.incidentType === 'MALFUNCTION' && (
+        <p className="text-xs text-vscode-text-muted">
+          {value.allowanceSubject
+            ? `Allowance identity: ${value.allowanceSubject.kind} · ${value.allowanceSubject.description} (${value.allowanceSubject.key})`
+            : 'No allowance identity captured. Confirm the original athlete or team reference below; notes and rulings remain available.'}
+        </p>
+      )}
       <section className="rounded-[3px] border border-vscode-border bg-vscode-bg-light p-3">
         <p className="text-xs font-semibold text-vscode-text">
           ISSF {value.guidance.ruleReferences.join(', ')} · decision aid
@@ -510,6 +565,30 @@ function RecoveryDetail({
               </>
             )}
           </div>
+          {!value.allowanceSubject && value.incidentType === 'MALFUNCTION' && (
+            <div className="space-y-2 border-t border-vscode-border pt-3">
+              <label className={labelClass}>
+                Original athlete or team reference
+                <input
+                  value={subjectKey}
+                  onChange={(event) => setSubjectKey(event.target.value)}
+                  className={inputClass}
+                />
+              </label>
+              <p className="text-[11px] text-vscode-text-muted">
+                Use the same identity as related cases. The official and statement above attest this permanent
+                association.
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={disabled || !subjectKey.trim() || !officialName.trim() || !statement.trim()}
+                onClick={() => void bindIdentity()}
+              >
+                Confirm allowance identity
+              </Button>
+            </div>
+          )}
           <Button
             size="sm"
             variant={type === 'VOID' ? 'danger' : 'primary'}

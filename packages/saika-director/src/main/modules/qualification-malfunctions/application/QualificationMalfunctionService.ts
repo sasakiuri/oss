@@ -296,6 +296,10 @@ function assertTransition(
   if (status === 'VOID') throw new Error('A void qualification malfunction case cannot be changed');
   if (next === 'NOTE') return;
   if (next === 'VOID') return;
+  if (next === 'SCORE_REOPENED') {
+    if (!['SETTLED', 'COMPLETED'].includes(status)) throw new Error('Only settled scoring may be reopened');
+    return;
+  }
   if (status === 'COMPLETED') {
     throw new Error('A completed qualification malfunction case only accepts notes or a void correction');
   }
@@ -362,10 +366,16 @@ function assertPolicyEntry(
       throw new Error(`The policy requires ${expected.remedy} with ${expected.shotsToFire} shots to fire`);
     }
   }
-  if ((input.type === 'EXECUTION_RECORDED' || input.type === 'SCORE_SETTLED') && !input.artifactId) {
+  if (
+    (input.type === 'EXECUTION_RECORDED' || input.type === 'SCORE_SETTLED' || input.type === 'SCORE_REOPENED') &&
+    !input.artifactId
+  ) {
     throw new Error(`${input.type} requires an immutable artifact reference`);
   }
-  if (input.type === 'SCORE_SETTLED' && !['RTS_OFFICER', 'JURY_MEMBER'].includes(input.officialRole)) {
+  if (
+    (input.type === 'SCORE_SETTLED' || input.type === 'SCORE_REOPENED') &&
+    !['RTS_OFFICER', 'JURY_MEMBER'].includes(input.officialRole)
+  ) {
     throw new Error('Score settlement must be recorded by RTS or a Jury member');
   }
 }

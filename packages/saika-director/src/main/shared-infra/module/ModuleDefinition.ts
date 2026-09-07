@@ -1,3 +1,5 @@
+import type { MalfunctionScoreApplicationService } from '@/main/modules/malfunction-score-applications';
+import type { EvidenceFileService } from '@/main/modules/evidence-files';
 /**
  * ModuleDefinition.ts
  *
@@ -70,6 +72,8 @@ export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shar
 // ---------------------------------------------------------------------------
 
 export interface ServiceRegistry {
+  readonly evidenceFileService: EvidenceFileService;
+  readonly malfunctionScoreApplicationService: MalfunctionScoreApplicationService;
   readonly database: Database.Database;
   readonly eventBus: TypedEventBus;
   readonly commandBus: CommandBus;

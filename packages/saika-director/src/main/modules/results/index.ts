@@ -1,5 +1,11 @@
 // Domain entities (used by tests)
 export { Result } from './domain/Result';
+export { qualificationScoreSourceDigest } from './application/QualificationScoreOverlaySource';
+export type {
+  IQualificationScoreOverlaySource,
+  QualificationScoreOverlay,
+  QualificationScoreOverlayHistory,
+} from './application/QualificationScoreOverlaySource';
 export { ResultId } from './domain/ResultId';
 export type { IResultRepository } from './domain/IResultRepository';
 export type { IFinalResultRepository } from './domain/IFinalResultRepository';

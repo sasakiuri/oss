@@ -52,6 +52,16 @@ const DIRECT_EVENT_TABLES = [
 ] as const;
 
 const SECTION_QUERIES: readonly SectionQuery[] = [
+  {
+    id: 'malfunction-score-applications',
+    sql: `SELECT * FROM malfunction_score_applications WHERE event_id IN (${EVENT_IDS})`,
+  },
+  {
+    id: 'malfunction-score-withdrawals',
+    sql: `SELECT * FROM malfunction_score_withdrawals
+      WHERE application_id IN (SELECT id FROM malfunction_score_applications WHERE event_id IN (${EVENT_IDS}))`,
+  },
+
   { id: 'championship', sql: 'SELECT * FROM championships WHERE id = @championshipId' },
   { id: 'events', sql: `SELECT * FROM events WHERE championship_id = @championshipId` },
   { id: 'athlete-identities', sql: 'SELECT * FROM athlete_identities WHERE championship_id = @championshipId' },
@@ -146,6 +156,11 @@ const SECTION_QUERIES: readonly SectionQuery[] = [
           WHERE run_id IN (SELECT id FROM final_operation_runs WHERE event_id IN (${EVENT_IDS}))`,
   },
   {
+    id: 'final-recovery-allowance-subjects',
+    sql: `SELECT * FROM final_recovery_allowance_subjects
+          WHERE case_id IN (SELECT id FROM final_recovery_cases WHERE event_id IN (${EVENT_IDS}))`,
+  },
+  {
     id: 'final-recovery-entries',
     sql: `SELECT * FROM final_recovery_entries
           WHERE case_id IN (SELECT id FROM final_recovery_cases WHERE event_id IN (${EVENT_IDS}))`,
@@ -153,6 +168,11 @@ const SECTION_QUERIES: readonly SectionQuery[] = [
   {
     id: 'qualification-malfunction-entries',
     sql: `SELECT * FROM qualification_malfunction_entries
+          WHERE case_id IN (SELECT id FROM qualification_malfunction_cases WHERE event_id IN (${EVENT_IDS}))`,
+  },
+  {
+    id: 'qualification-malfunction-score-sheets',
+    sql: `SELECT * FROM qualification_malfunction_score_sheets
           WHERE case_id IN (SELECT id FROM qualification_malfunction_cases WHERE event_id IN (${EVENT_IDS}))`,
   },
   {
