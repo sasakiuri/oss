@@ -10,10 +10,15 @@ import {
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
 const laneId = '33333333-3333-4333-8333-333333333333';
-const otherLaneId = '44444444-4444-4444-8444-444444444444';
 
 class MemoryRepository implements IFinalRecoveryRepository {
   readonly cases: FinalRecoveryCase[] = [];
+  executeInTransaction<T>(operation: () => T): T {
+    return operation();
+  }
+  appendAllowanceSubject(): void {
+    throw new Error('Use SQLite tests for identity persistence');
+  }
   readonly entries: FinalRecoveryEntry[] = [];
 
   appendCase(value: FinalRecoveryCase): void {
@@ -72,6 +77,7 @@ describe('FinalRecoveryService', () => {
       phase: 'MATCH_SINGLE',
       affectedLaneIds: [laneId],
       summary: 'The firearm did not discharge.',
+      allowanceSubject: { kind: 'ATHLETE', key: 'athlete-1', description: 'Finalist' },
       openedBy: 'Range Officer A',
     });
 
@@ -257,84 +263,6 @@ describe('FinalRecoveryService', () => {
     ).toThrow('Classification ALLOWABLE_MALFUNCTION is not available');
   });
 
-  it('allows only one active AM or NAM claim per Lane in a 25m Final', () => {
-    const repository = new MemoryRepository();
-    const service = new FinalRecoveryService(repository);
-    const first = service.create({
-      competitionId,
-      finalRunId: eventId,
-      procedureProfile: 'PISTOL_25M_WOMEN',
-      incidentType: 'MALFUNCTION',
-      phase: 'MATCH_SERIES',
-      affectedLaneIds: [laneId],
-      summary: 'First malfunction claim.',
-      openedBy: 'Range Officer A',
-    });
-    service.appendEntry({
-      caseId: first.id,
-      type: 'JURY_RULING',
-      classification: 'ALLOWABLE_MALFUNCTION',
-      statement: 'Allowable malfunction.',
-      officialName: 'Range Officer A',
-    });
-
-    const second = service.create({
-      competitionId,
-      finalRunId: eventId,
-      procedureProfile: 'PISTOL_25M_WOMEN',
-      incidentType: 'MALFUNCTION',
-      phase: 'MATCH_SERIES',
-      affectedLaneIds: [laneId],
-      summary: 'Further malfunction; displayed hits must be counted.',
-      openedBy: 'Range Officer B',
-    });
-    expect(() =>
-      service.appendEntry({
-        caseId: second.id,
-        type: 'JURY_RULING',
-        classification: 'NON_ALLOWABLE_MALFUNCTION',
-        statement: 'Attempted second claim.',
-        officialName: 'Range Officer B',
-      }),
-    ).toThrow('Only one ALLOWABLE or NON-ALLOWABLE malfunction may be claimed');
-
-    const otherLane = service.create({
-      competitionId,
-      finalRunId: eventId,
-      procedureProfile: 'PISTOL_25M_WOMEN',
-      incidentType: 'MALFUNCTION',
-      phase: 'MATCH_SERIES',
-      affectedLaneIds: [otherLaneId],
-      summary: 'First claim for a different finalist.',
-      openedBy: 'Range Officer B',
-    });
-    expect(() =>
-      service.appendEntry({
-        caseId: otherLane.id,
-        type: 'JURY_RULING',
-        classification: 'NON_ALLOWABLE_MALFUNCTION',
-        statement: 'Non-allowable malfunction.',
-        officialName: 'Range Officer B',
-      }),
-    ).not.toThrow();
-
-    service.appendEntry({
-      caseId: first.id,
-      type: 'VOID',
-      statement: 'The first case was opened against the wrong observation.',
-      officialName: 'Jury A',
-    });
-    expect(() =>
-      service.appendEntry({
-        caseId: second.id,
-        type: 'JURY_RULING',
-        classification: 'NON_ALLOWABLE_MALFUNCTION',
-        statement: 'Claim after the erroneous first record was voided.',
-        officialName: 'Range Officer B',
-      }),
-    ).not.toThrow();
-  });
-
   it('rejects a classification outside the incident policy before appending it', () => {
     const repository = new MemoryRepository();
     const service = new FinalRecoveryService(repository);
@@ -390,5 +318,90 @@ describe('FinalRecoveryService', () => {
       }),
     ).toThrow('Remedy COMPLETE_SERIES is not available');
     expect(repository.entries).toHaveLength(1);
+  });
+});
+
+describe('Final malfunction authorization integration', () => {
+  function setup(profile: 'PISTOL_25M_RAPID_FIRE' | 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' = 'PISTOL_25M_RAPID_FIRE') {
+    const repository = new MemoryRepository();
+    const service = new FinalRecoveryService(repository);
+    const create = (lane = laneId) =>
+      service.create({
+        competitionId,
+        finalRunId: eventId,
+        procedureProfile: profile,
+        incidentType: 'MALFUNCTION',
+        phase: 'MATCH_SERIES',
+        affectedLaneIds: [lane],
+        summary: 'Observed fault',
+        openedBy: 'RO',
+        allowanceSubject: {
+          kind: profile === 'PISTOL_25M_RAPID_FIRE' ? 'ATHLETE' : 'TEAM',
+          key: 'subject-1',
+          description: 'Official identity',
+        },
+      });
+    const classify = (id: string, classification: 'ALLOWABLE_MALFUNCTION' | 'NON_ALLOWABLE_MALFUNCTION') =>
+      service.appendEntry({
+        caseId: id,
+        type: 'JURY_RULING',
+        classification,
+        officialName: 'RO',
+        statement: 'Examined fault',
+      });
+    return { service, repository, create, classify };
+  }
+
+  it('records subsequent RFPM fault classifications and penalties without granting a refire', () => {
+    const f = setup();
+    const first = f.create();
+    f.classify(first.id, 'ALLOWABLE_MALFUNCTION');
+    const second = f.create();
+    expect(f.classify(second.id, 'NON_ALLOWABLE_MALFUNCTION').status).toBe('RULING_RECORDED');
+    const before = f.repository.entries.length;
+    expect(() =>
+      f.service.appendEntry({
+        caseId: second.id,
+        type: 'REMEDY_AUTHORIZED',
+        remedy: 'REPEAT_SERIES',
+        statement: 'Refire',
+        officialName: 'Jury',
+      }),
+    ).toThrow('ALLOWABLE ruling');
+    expect(f.repository.entries).toHaveLength(before);
+    expect(
+      f.service.appendEntry({
+        caseId: second.id,
+        type: 'REMEDY_AUTHORIZED',
+        remedy: 'APPLY_RULE_PENALTY',
+        statement: 'Record two-hit penalty in scoring ledger',
+        officialName: 'Jury',
+      }).status,
+    ).toBe('RECOVERY_AUTHORIZED');
+  });
+
+  it('keeps a completed Mixed Team allowance consumed for the other partner', () => {
+    const f = setup('RIFLE_PISTOL_10M_50M_MIXED_TEAM');
+    const first = f.create();
+    f.classify(first.id, 'ALLOWABLE_MALFUNCTION');
+    f.service.appendEntry({
+      caseId: first.id,
+      type: 'REMEDY_AUTHORIZED',
+      remedy: 'COMPLETE_SERIES',
+      statement: 'Complete',
+      officialName: 'Jury',
+    });
+    f.service.appendEntry({ caseId: first.id, type: 'COMPLETED', statement: 'Done', officialName: 'Jury' });
+    const second = f.create('44444444-4444-4444-8444-444444444444');
+    f.classify(second.id, 'ALLOWABLE_MALFUNCTION');
+    expect(() =>
+      f.service.appendEntry({
+        caseId: second.id,
+        type: 'REMEDY_AUTHORIZED',
+        remedy: 'COMPLETE_SERIES',
+        statement: 'Complete',
+        officialName: 'Jury',
+      }),
+    ).toThrow('already used');
   });
 });

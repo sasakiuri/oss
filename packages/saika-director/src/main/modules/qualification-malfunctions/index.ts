@@ -10,3 +10,7 @@ export * from './domain/QualificationMalfunctionCase';
 export * from './infra/ObservedQualificationMalfunctionSignalSource';
 export * from './infra/SqliteQualificationMalfunctionRepository';
 export * from './qualificationMalfunctions.module';
+
+export * from './domain/MalfunctionScoreSheet';
+export * from './application/MalfunctionScoreSheetPorts';
+export * from './infra/SqliteMalfunctionScoreSheetRepository';

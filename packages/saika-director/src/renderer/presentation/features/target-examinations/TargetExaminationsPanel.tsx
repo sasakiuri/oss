@@ -1,3 +1,4 @@
+import { EvidenceFilesPanel } from './EvidenceFilesPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileSearch, Link, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
 
@@ -554,6 +555,11 @@ function CaseDetail({
                     SHA-256 {item.contentHashSha256}
                   </code>
                 )}
+                <EvidenceFilesPanel
+                  caseId={examination.id}
+                  evidenceId={item.id}
+                  canImport={examination.status === 'OPEN'}
+                />
               </li>
             ))}
           </ul>

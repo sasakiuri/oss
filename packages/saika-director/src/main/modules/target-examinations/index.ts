@@ -5,3 +5,4 @@ export { SqliteTargetExaminationRepository } from './infra/SqliteTargetExaminati
 export type { ITargetExaminationRepository, TargetExaminationScope } from './domain/ITargetExaminationRepository';
 export type { ITargetExaminationWorkflowPolicy } from './domain/ITargetExaminationWorkflowPolicy';
 export { IssfTargetExaminationWorkflowPolicy } from './domain/IssfTargetExaminationWorkflowPolicy';
+export { getTargetExaminationState } from './domain/TargetExaminationEntry';

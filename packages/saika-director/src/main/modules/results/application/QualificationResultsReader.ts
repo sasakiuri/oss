@@ -15,6 +15,11 @@ import { ProjectedQualificationResult } from '../domain/ProjectedQualificationRe
 import { RankingService } from '../domain/RankingService';
 import type { Result } from '../domain/Result';
 import {
+  applyQualificationScoreOverlays,
+  noQualificationScoreOverlays,
+  type IQualificationScoreOverlaySource,
+} from './QualificationScoreOverlaySource';
+import {
   applyResultClassificationOverlay,
   noResultClassificationOverlays,
   type IResultClassificationOverlaySource,
@@ -37,6 +42,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
     private readonly decisions: IScoringDecisionRepository,
     private readonly competitionTypes: CompetitionTypeRegistry,
     private readonly classificationOverlays: IResultClassificationOverlaySource = noResultClassificationOverlays,
+    private readonly scoreOverlays: IQualificationScoreOverlaySource = noQualificationScoreOverlays,
   ) {}
 
   async getByEvent(eventId: string): Promise<RankedResultDto[]> {
@@ -65,25 +71,42 @@ export class QualificationResultsReader implements IQualificationResultsReader {
 
     const histories = new Map<Result, readonly ScoringDecision[]>();
     const appliedOverlays = new Map<Result, ResultClassificationOverlay | undefined>();
+    const scoreOverlayRevisions = new Map<Result, string>();
     const projectedResults = sourceResults.map((result) => {
       const history = decisionsByTarget.get(targetKey(result.participantId.value, result.relayNumber)) ?? [];
       const overlay = overlaysByParticipant.get(result.participantId.value);
       histories.set(result, history);
       appliedOverlays.set(result, overlay);
+      const scoreHistory = this.scoreOverlays.forResult(result);
+      scoreOverlayRevisions.set(result, scoreHistory.revision);
+      const base = applyQualificationScoreOverlays(result, scoreHistory);
       const seriesCount = Math.max(1, result.seriesScores.length);
       const projection = applyResultClassificationOverlay(
         this.decisionProjector.project(
           {
-            totalScoreX10: Math.round(result.totalScore * 10),
-            seriesScoresX10: result.seriesScores.map((score) => Math.round(score * 10)),
-            shotsX10: result.shots.map((score) => Math.round(score * 10)),
+            totalScoreX10: base.totalScoreX10,
+            seriesScoresX10: base.seriesScoresX10,
+            shotsX10: base.shotsX10,
             shotsPerSeries: Math.max(1, Math.ceil(result.shots.length / seriesCount)),
           },
           history,
         ),
         overlay,
       );
-      return new ProjectedQualificationResult(result, projection, strategy, definition.resultFormat);
+      return new ProjectedQualificationResult(
+        result,
+        {
+          ...projection,
+          scoreAdjustmentX10: Math.round(result.totalScore * 10) - projection.totalScoreX10,
+          remarks: [...base.remarks, ...projection.remarks],
+          activeDecisionIds: [...base.ids, ...projection.activeDecisionIds],
+          issues: [...base.issues, ...projection.issues],
+        },
+        strategy,
+        definition.resultFormat,
+        base.rankingShots,
+        base.shotsX10.map((score) => score / 10),
+      );
     });
 
     return this.rankingService.calculateRankings(projectedResults).map((ranked) => {
@@ -91,8 +114,18 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const projection = ranked.result.projection;
       const history = histories.get(source) ?? [];
       const overlay = appliedOverlays.get(source);
-      const evidence = source.rankingShots.slice(0, definition.resultFormat.totalShots);
+      const evidence = ranked.result.rankingShots.slice(0, definition.resultFormat.totalShots);
       const evidenceIssues = buildEvidenceIssues(evidence);
+      if (source.seriesScores.length !== definition.resultFormat.totalSeries) {
+        evidenceIssues.push(
+          `Stored result has ${source.seriesScores.length} series; the Rule Pack requires ${definition.resultFormat.totalSeries}. Reconcile the original Lane result before official approval`,
+        );
+      }
+      if (source.shots.length !== definition.resultFormat.totalShots) {
+        evidenceIssues.push(
+          `Stored result has ${source.shots.length} shot slots; the Rule Pack requires ${definition.resultFormat.totalShots}`,
+        );
+      }
       const dtoWithoutRevision = {
         id: source.id.value,
         participantId: source.participantId.value,
@@ -123,7 +156,13 @@ export class QualificationResultsReader implements IQualificationResultsReader {
 
       return {
         ...dtoWithoutRevision,
-        revision: calculateResultRevision(source, history, overlay, dtoWithoutRevision),
+        revision: calculateResultRevision(
+          source,
+          history,
+          overlay,
+          dtoWithoutRevision,
+          scoreOverlayRevisions.get(source),
+        ),
       };
     });
   }
@@ -145,6 +184,7 @@ function calculateResultRevision(
   history: readonly ScoringDecision[],
   overlay: ResultClassificationOverlay | undefined,
   projected: Omit<RankedResultDto, 'revision'>,
+  scoreOverlayRevision?: string,
 ): string {
   const canonical = {
     source: {
@@ -176,6 +216,7 @@ function calculateResultRevision(
       reversesDecisionId: decision.reversesDecisionId,
     })),
     classificationOverlay: overlay ?? null,
+    ...(scoreOverlayRevision ? { scoreOverlayRevision } : {}),
     projected,
   };
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');

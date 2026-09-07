@@ -6,10 +6,28 @@
  * Centralizes all dependency construction in the composition root.
  */
 
+import { ElectronResultsBookDocumentExporter } from '@/main/modules/results-books';
 import { app } from 'electron';
 import { join } from 'path';
 
-import { championshipModule, SqliteParticipantRepository } from '@/main/modules/championship';
+import {
+  evidenceFilesModule,
+  EvidenceFileService,
+  NodeEvidenceFileStore,
+  SqliteEvidenceFileRepository,
+  ElectronEvidenceFileTransfer,
+  TargetEvidenceFileSubjectSource,
+  EvidenceFileArchiveSource,
+} from '@/main/modules/evidence-files';
+
+import {
+  MalfunctionScoreApplicationService,
+  SqliteMalfunctionScoreApplicationRepository,
+  ResultMalfunctionScoreTargetSource,
+  MalfunctionQualificationScoreOverlaySource,
+  malfunctionScoreApplicationsModule,
+} from '@/main/modules/malfunction-score-applications';
+import { championshipModule, SqliteParticipantRepository, SqliteEventRepository } from '@/main/modules/championship';
 import { laneControlModule } from '@/main/modules/lane-control';
 import {
   FinalResultsReader,
@@ -109,6 +127,7 @@ import { finalRecoveriesModule } from '@/main/modules/final-recoveries';
 import {
   QualificationMalfunctionPublicationBlocker,
   qualificationMalfunctionsModule,
+  SqliteMalfunctionScoreSheetRepository,
   SqliteQualificationMalfunctionRepository,
 } from '@/main/modules/qualification-malfunctions';
 import { startListsModule } from '@/main/modules/start-lists';
@@ -179,6 +198,8 @@ const logger = Logger.create('createApp');
 
 // Static module list (Vite/Electron safe — no dynamic import)
 const modules = [
+  malfunctionScoreApplicationsModule,
+  evidenceFilesModule,
   championshipModule,
   athleteSanctionsModule,
   laneControlModule,
@@ -299,12 +320,22 @@ export function createApp(preloadPath: string): AppServices {
   );
   const sanctionAuthorizationResolver = new ManualAttestationSanctionAuthorizationResolver();
   const scoringDecisionAdmissionPolicy = new ChampionshipSanctionScoringDecisionAdmissionPolicy();
+  const evidenceFileStore = new NodeEvidenceFileStore(join(app.getPath('userData'), 'evidence-files'));
+  const evidenceFileRepository = new SqliteEvidenceFileRepository(database);
+  const evidenceFileService = new EvidenceFileService(
+    evidenceFileRepository,
+    evidenceFileStore,
+    new ElectronEvidenceFileTransfer(),
+    new TargetEvidenceFileSubjectSource(targetExaminationRepository),
+  );
   const archiveFileGateway = new ElectronArchiveFileGateway();
   const operationalArchiveService = new OperationalArchiveService(
     new SqliteCompetitionEvidenceSource(database),
     new CompetitionEvidenceBundleBuilder(app.getVersion()),
     archiveFileGateway,
     new SqliteDatabaseBackupGateway(database, dbPath, app.getPath('userData'), allMigrations.at(-1)?.version ?? 0),
+    undefined,
+    new EvidenceFileArchiveSource(evidenceFileRepository, evidenceFileStore),
   );
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
@@ -329,12 +360,25 @@ export function createApp(preloadPath: string): AppServices {
   const queryBus = new QueryBus();
   queryBus.use(new QueryLoggingMiddleware());
 
+  const malfunctionScoreApplicationRepository = new SqliteMalfunctionScoreApplicationRepository(database);
+  const malfunctionScoreCases = new SqliteQualificationMalfunctionRepository(database);
+  const malfunctionScoreApplicationService = new MalfunctionScoreApplicationService(
+    malfunctionScoreCases,
+    new SqliteMalfunctionScoreSheetRepository(database),
+    malfunctionScoreApplicationRepository,
+    new ResultMalfunctionScoreTargetSource(
+      resultRepository,
+      new SqliteEventRepository(database, competitionTypeRegistry),
+      competitionTypeRegistry,
+    ),
+  );
   const qualificationResultsReader = new QualificationResultsReader(
     queryBus,
     resultRepository,
     scoringDecisionRepository,
     competitionTypeRegistry,
     sanctionResultClassificationSource,
+    new MalfunctionQualificationScoreOverlaySource(malfunctionScoreApplicationRepository, malfunctionScoreCases),
   );
   const finalResultsReader = new FinalResultsReader(
     queryBus,
@@ -408,6 +452,8 @@ export function createApp(preloadPath: string): AppServices {
       new QualificationTeamRecordCandidateSource(database, teamResultsService, resultsBookResultSnapshots),
     ]),
     archiveFileGateway,
+    undefined,
+    new ElectronResultsBookDocumentExporter(),
   );
   const finalResultDeclarationService = new FinalResultDeclarationService(
     finalResultDeclarationRepository,
@@ -460,6 +506,8 @@ export function createApp(preloadPath: string): AppServices {
     resultVerificationService,
     rangeIncidentReportRepository,
     targetExaminationRepository,
+    evidenceFileService,
+    malfunctionScoreApplicationService,
     rangeInterruptionRepository,
     competitionDataGuard,
     finalPlacementReviewRepository,

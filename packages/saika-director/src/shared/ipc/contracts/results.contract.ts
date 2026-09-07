@@ -35,7 +35,7 @@ const RankedResultDtoSchema = z.object({
   seriesScores: z.array(z.number()),
   baseTotalScore: z.number(),
   totalScore: z.number(),
-  scoreAdjustment: z.number().nonnegative(),
+  scoreAdjustment: z.number(),
   deductionTotal: z.number().nonnegative(),
   remarks: z.array(z.string()),
   classificationCode: z.enum(['DSQ', 'DQB', 'AD_DSQ']).nullable(),

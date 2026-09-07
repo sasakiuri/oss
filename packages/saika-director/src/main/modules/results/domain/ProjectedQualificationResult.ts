@@ -15,6 +15,8 @@ export class ProjectedQualificationResult implements IRankable<ProjectedQualific
     readonly projection: ScoreDecisionProjection,
     private readonly strategy: CompetitionTypeStrategy,
     private readonly format: ResultFormat,
+    private readonly sourceRankingShots: readonly RankingShotEvidence[] = source.rankingShots,
+    private readonly sourceShots: readonly number[] = source.shots,
   ) {}
 
   get totalScore(): number {
@@ -30,8 +32,8 @@ export class ProjectedQualificationResult implements IRankable<ProjectedQualific
   }
 
   get rankingShots(): readonly RankingShotEvidence[] {
-    return this.source.rankingShots.map((evidence, index) => {
-      const originalShot = this.source.shots[index] ?? 0;
+    return this.sourceRankingShots.map((evidence, index) => {
+      const originalShot = this.sourceShots[index] ?? 0;
       const projectedShot = this.shots[index] ?? 0;
       if (projectedShot === originalShot) return evidence;
       return {

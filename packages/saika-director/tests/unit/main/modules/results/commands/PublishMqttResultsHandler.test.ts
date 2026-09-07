@@ -246,7 +246,8 @@ describe('PublishMqttResultsHandler', () => {
     expect(response).toEqual({ savedCount: 1, errors: [] });
     const saved = vi.mocked(repository.replaceByCompetitionId).mock.calls[0]![3][0]!;
     expect(saved.totalScore).toBe(20.5);
-    expect(saved.rankingShots).toEqual([
+    expect(saved.rankingShots).toHaveLength(60);
+    expect(saved.rankingShots.slice(0, 2)).toEqual([
       {
         ringScore: 10,
         decimalScore: 10.4,

@@ -1,3 +1,4 @@
+import type { FinalRecoveryAllowanceSubject } from '../domain/FinalRecoveryAuthorizationPolicy';
 import type Database from 'better-sqlite3';
 
 import {
@@ -13,6 +14,7 @@ import {
 import type { IFinalRecoveryRepository } from '../domain/IFinalRecoveryRepository';
 
 interface CaseRow {
+  allowance_subject_json: string | null;
   id: string;
   competition_id: string;
   event_id: string | null;
@@ -48,22 +50,33 @@ interface EntryRow {
 export class SqliteFinalRecoveryRepository implements IFinalRecoveryRepository {
   constructor(private readonly db: Database.Database) {}
 
+  executeInTransaction<T>(operation: () => T): T {
+    return this.db.transaction(operation)();
+  }
+
+  appendAllowanceSubject(caseId: string, subject: FinalRecoveryAllowanceSubject): void {
+    this.db
+      .prepare('INSERT INTO final_recovery_allowance_subjects (case_id, subject_json) VALUES (?, ?)')
+      .run(caseId, JSON.stringify(subject));
+  }
+
   appendCase(value: FinalRecoveryCase): void {
     this.db
       .prepare(
         `INSERT INTO final_recovery_cases (
           id, competition_id, event_id, final_run_id, script_step_id, script_step_snapshot,
           procedure_profile, incident_type, phase, affected_lane_ids_json, summary,
-          opened_by, occurred_at, created_at
+          opened_by, occurred_at, created_at, allowance_subject_json
         ) VALUES (
           @id, @competitionId, @eventId, @finalRunId, @scriptStepId, @scriptStepSnapshot,
           @procedureProfile, @incidentType, @phase, @affectedLaneIdsJson, @summary,
-          @openedBy, @occurredAt, @createdAt
+          @openedBy, @occurredAt, @createdAt, @allowanceSubjectJson
         )`,
       )
       .run({
         ...value,
         affectedLaneIdsJson: JSON.stringify(value.affectedLaneIds),
+        allowanceSubjectJson: value.allowanceSubject ? JSON.stringify(value.allowanceSubject) : null,
         occurredAt: value.occurredAt.toISOString(),
         createdAt: value.createdAt.toISOString(),
       });
@@ -88,7 +101,7 @@ export class SqliteFinalRecoveryRepository implements IFinalRecoveryRepository {
   }
 
   findCaseById(id: string): FinalRecoveryCase | null {
-    const row = this.db.prepare('SELECT * FROM final_recovery_cases WHERE id = ?').get(id) as CaseRow | undefined;
+    const row = this.db.prepare(`${caseSelect} WHERE c.id = ?`).get(id) as CaseRow | undefined;
     return row ? toCase(row) : null;
   }
 
@@ -116,9 +129,7 @@ export class SqliteFinalRecoveryRepository implements IFinalRecoveryRepository {
 
   private findCases(column: 'competition_id' | 'event_id', id: string): FinalRecoveryCase[] {
     return (
-      this.db
-        .prepare(`SELECT * FROM final_recovery_cases WHERE ${column} = ? ORDER BY occurred_at, rowid`)
-        .all(id) as CaseRow[]
+      this.db.prepare(`${caseSelect} WHERE c.${column} = ? ORDER BY c.occurred_at, c.rowid`).all(id) as CaseRow[]
     ).map(toCase);
   }
 }
@@ -130,6 +141,7 @@ function toCase(row: CaseRow): FinalRecoveryCase {
   }
   return FinalRecoveryCase.reconstruct({
     id: row.id,
+    allowanceSubject: row.allowance_subject_json ? JSON.parse(row.allowance_subject_json) : null,
     competitionId: row.competition_id,
     eventId: row.event_id,
     finalRunId: row.final_run_id,
@@ -163,3 +175,6 @@ function toEntry(row: EntryRow): FinalRecoveryEntry {
     recordedAt: new Date(row.recorded_at),
   });
 }
+
+const caseSelect = `SELECT c.*, COALESCE(c.allowance_subject_json, s.subject_json) AS allowance_subject_json
+  FROM final_recovery_cases c LEFT JOIN final_recovery_allowance_subjects s ON s.case_id = c.id`;

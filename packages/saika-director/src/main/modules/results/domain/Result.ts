@@ -18,8 +18,7 @@ export type ResultStatus = 'published' | 'confirmed';
 /**
  * Qualification result entity. An optional ResultFormat configures series and shot counts;
  * the backward-compatible default is six series and 60 shots.
- *
- * @limitation The database still has series1-series6 columns; arbitrary series counts require a JSON migration.
+ * New persisted results retain the exact series and shot counts supplied by the format.
  */
 export class Result implements IRankable<Result> {
   private _shotsCache: readonly number[] | null = null;

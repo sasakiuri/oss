@@ -1,3 +1,6 @@
+import { MalfunctionScoreSheetService } from './application/MalfunctionScoreSheetService';
+import { SqliteMalfunctionScoreSheetRepository } from './infra/SqliteMalfunctionScoreSheetRepository';
+import { ElectronMalfunctionScoreSheetExporter } from './infra/ElectronMalfunctionScoreSheetExporter';
 import { SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { qualificationMalfunctionsContract } from '@/shared/ipc/contracts';
@@ -15,8 +18,14 @@ export const qualificationMalfunctionsModule: ModuleDefinition<
   deps: ['database', 'eventBus', 'ipcRouter', 'competitionTypeRegistry', 'laneControlRepository'] as const,
   register({ database, eventBus, ipcRouter, competitionTypeRegistry, laneControlRepository }) {
     const signals = new ObservedQualificationMalfunctionSignalSource();
+    const repository = new SqliteQualificationMalfunctionRepository(database);
+    const scoreSheets = new MalfunctionScoreSheetService(
+      repository,
+      new SqliteMalfunctionScoreSheetRepository(database),
+      new ElectronMalfunctionScoreSheetExporter(),
+    );
     const service = new QualificationMalfunctionService(
-      new SqliteQualificationMalfunctionRepository(database),
+      repository,
       new RegistryQualificationMalfunctionPolicyResolver(
         new SqliteEventRepository(database, competitionTypeRegistry),
         competitionTypeRegistry,
@@ -28,6 +37,10 @@ export const qualificationMalfunctionsModule: ModuleDefinition<
       signals,
     );
     ipcRouter.register(qualificationMalfunctionsContract, {
+      previewScoreSheet: async (input) => scoreSheets.preview(input),
+      saveScoreSheet: async ({ input, id, expectedDigest }) => scoreSheets.save(input, id, expectedDigest),
+      listScoreSheets: async ({ caseId }) => scoreSheets.list(caseId),
+      exportScoreSheet: async ({ id }) => scoreSheets.export(id),
       listByCompetition: async ({ competitionId }) => service.listByCompetition(competitionId),
       listByEvent: async ({ eventId }) => service.listByEvent(eventId),
       getById: async ({ caseId }) => service.getById(caseId),

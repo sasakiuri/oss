@@ -16,6 +16,7 @@ const entryType = z.enum([
   'REMEDY_AUTHORIZED',
   'EXECUTION_RECORDED',
   'SCORE_SETTLED',
+  'SCORE_REOPENED',
   'COMPLETED',
   'VOID',
 ]);
@@ -277,7 +278,88 @@ export type QualificationMalfunctionEntryDto = z.infer<typeof entry>;
 export type CreateQualificationMalfunctionCasePayload = z.infer<typeof create>;
 export type AppendQualificationMalfunctionEntryPayload = z.infer<typeof appendEntry>;
 
+const scoreEvidence = z.object({
+  shotId: z.string().trim().min(1).max(200),
+  scoreX10: z.number().int().min(0).max(100).multipleOf(10),
+  targetIndex: z.number().int().min(0).max(4).optional(),
+  evidenceReference: z.string().trim().min(1).max(1000),
+  outcome: z.enum(['HIT', 'MISS', 'LATE', 'UNFIRED']),
+});
+export const MalfunctionScoreSheetInputSchema = z.object({
+  caseId: uuid,
+  original: z.array(scoreEvidence).max(5),
+  recovery: z.array(scoreEvidence).max(5),
+  secondMalfunction: z
+    .object({
+      zeroFillRow: z.enum(['ORIGINAL', 'REPEAT']),
+      evidenceReference: z.string().trim().min(1).max(1000),
+    })
+    .optional(),
+  officialName: z.string().trim().min(1).max(200),
+  officialRole: z.enum(['RTS_OFFICER', 'JURY_MEMBER']),
+  statement: z.string().trim().min(1).max(2000),
+});
+const countedShot = z.object({
+  row: z.enum(['ORIGINAL', 'REPEAT']),
+  shotId: z.string().nullable(),
+  scoreX10: z.number().int(),
+  targetIndex: z.number().int().nullable(),
+  addedZero: z.boolean(),
+});
+const scoreCalculation = z.object({
+  form: z.enum(['RFPM', 'STDP', 'IR']),
+  ruleReference: z.string(),
+  authorizationId: uuid,
+  executionEntryId: uuid,
+  executionArtifactId: z.string(),
+  combination: z.enum(['LOWEST_PER_TARGET', 'LOWEST_OVERALL', 'NORMAL_SERIES']),
+  countedShots: z.array(countedShot),
+  discardedShotIds: z.array(z.string()),
+  addedZeros: z.array(countedShot),
+  totalX10: z.number().int().nonnegative(),
+});
+const scoreSheetPreview = z.object({
+  digest: z.string().regex(/^[a-f0-9]{64}$/),
+  input: MalfunctionScoreSheetInputSchema,
+  calculation: scoreCalculation,
+  context: z.object({
+    competitionId: uuid,
+    eventId: uuid,
+    participantId: z.string(),
+    athleteName: z.string(),
+    startNumber: z.string().nullable(),
+    laneId: z.string(),
+    laneChannel: z.number().int(),
+    stageIndex: z.number().int(),
+    seriesIndex: z.number().int(),
+    rulePackIdentity: rulePackIdentity.nullable(),
+  }),
+});
+const scoreSheet = scoreSheetPreview.extend({
+  id: uuid,
+  version: z.number().int().positive(),
+  recordedAt: z.string().datetime(),
+});
+const scoreSheetExport = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('CANCELLED') }),
+  z.object({ status: z.literal('COMPLETED'), path: z.string(), sha256: z.string(), sizeBytes: z.number().int() }),
+]);
+export type MalfunctionScoreSheetInputDto = z.infer<typeof MalfunctionScoreSheetInputSchema>;
+export type MalfunctionScoreSheetPreviewDto = z.infer<typeof scoreSheetPreview>;
+export type MalfunctionScoreSheetDto = z.infer<typeof scoreSheet>;
+
 export const qualificationMalfunctionsContract = defineContract('qualificationMalfunctions', {
+  previewScoreSheet: query(MalfunctionScoreSheetInputSchema, queryResponseSchema(scoreSheetPreview)),
+  saveScoreSheet: command(
+    z.object({
+      id: uuid,
+      expectedDigest: z.string().regex(/^[a-f0-9]{64}$/),
+      input: MalfunctionScoreSheetInputSchema,
+    }),
+    commandDataResponseSchema(scoreSheet),
+  ),
+  listScoreSheets: query(z.object({ caseId: uuid }), queryResponseSchema(z.array(scoreSheet))),
+  exportScoreSheet: command(z.object({ id: uuid }), commandDataResponseSchema(scoreSheetExport)),
   listByCompetition: query(z.object({ competitionId: uuid }), queryResponseSchema(z.array(malfunctionCase))),
   listByEvent: query(z.object({ eventId: uuid }), queryResponseSchema(z.array(malfunctionCase))),
   getById: query(z.object({ caseId: uuid }), queryResponseSchema(malfunctionCase)),

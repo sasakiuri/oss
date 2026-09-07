@@ -1,3 +1,4 @@
+import { migration065FinalRecoveryAllowanceSubjects } from '@/main/infrastructure/database/migrations/065_final_recovery_allowance_subjects';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -57,6 +58,7 @@ describe('migration038FinalRecoveries', () => {
 
   it('persists and protects append-only recovery records', () => {
     migration038FinalRecoveries.up(database);
+    migration065FinalRecoveryAllowanceSubjects.up(database);
     const service = new FinalRecoveryService(new SqliteFinalRecoveryRepository(database));
     let value = service.create({
       competitionId,
@@ -83,5 +85,39 @@ describe('migration038FinalRecoveries', () => {
     expect(() => database.prepare('DELETE FROM final_recovery_entries WHERE case_id = ?').run(value.id)).toThrow(
       'append-only',
     );
+  });
+  it('binds legacy identities without rewriting facts, survives restart and rejects rebinding', () => {
+    migration038FinalRecoveries.up(database);
+    database
+      .prepare(
+        `INSERT INTO final_recovery_cases (id, competition_id, procedure_profile, incident_type, phase,
+      affected_lane_ids_json, summary, opened_by, occurred_at, created_at) VALUES (?, ?, 'PISTOL_25M_RAPID_FIRE',
+      'MALFUNCTION', 'MATCH_SERIES', ?, 'Original fault', 'RO', ?, ?)`,
+      )
+      .run(caseId, competitionId, JSON.stringify([laneId]), '2026-09-07T00:00:00.000Z', '2026-09-07T00:00:00.000Z');
+    migration065FinalRecoveryAllowanceSubjects.up(database);
+    const service = new FinalRecoveryService(new SqliteFinalRecoveryRepository(database));
+    expect(service.listByCompetition(competitionId)[0]?.allowanceSubject).toBeNull();
+    const input = {
+      caseId,
+      subject: { kind: 'ATHLETE' as const, key: 'athlete-1', description: 'Original finalist' },
+      officialName: 'Jury',
+      statement: 'Matched original start list',
+    };
+    service.bindAllowanceSubject(input);
+    service.bindAllowanceSubject(input);
+    const restored = new FinalRecoveryService(new SqliteFinalRecoveryRepository(database)).listByCompetition(
+      competitionId,
+    )[0]!;
+    expect(restored.allowanceSubject).toEqual(input.subject);
+    expect(restored.summary).toBe('Original fault');
+    expect(restored.entries).toHaveLength(1);
+    expect(() => service.bindAllowanceSubject({ ...input, subject: { ...input.subject, key: 'other' } })).toThrow(
+      'already bound',
+    );
+    expect(() => database.prepare('DELETE FROM final_recovery_allowance_subjects').run()).toThrow('append-only');
+    expect(
+      database.prepare('SELECT allowance_subject_json FROM final_recovery_cases WHERE id = ?').get(caseId),
+    ).toEqual({ allowance_subject_json: null });
   });
 });

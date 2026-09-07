@@ -13,6 +13,8 @@ import type {
   competitionAnnouncementsContract,
   incidentReportsContract,
   targetExaminationsContract,
+  evidenceFilesContract,
+  malfunctionScoreApplicationsContract,
   rangeInterruptionsContract,
   relayReadinessContract,
   relayAthleteLifecycleContract,
@@ -125,6 +127,8 @@ export interface ElectronAPI {
   competitionAnnouncements: InferBridge<typeof competitionAnnouncementsContract>;
   incidentReports: InferBridge<typeof incidentReportsContract>;
   targetExaminations: InferBridge<typeof targetExaminationsContract>;
+  evidenceFiles: InferBridge<typeof evidenceFilesContract>;
+  malfunctionScoreApplications: InferBridge<typeof malfunctionScoreApplicationsContract>;
   estComplaints: InferBridge<typeof estComplaintsContract>;
   rangeInterruptions: InferBridge<typeof rangeInterruptionsContract>;
   relayReadiness: InferBridge<typeof relayReadinessContract>;

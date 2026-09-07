@@ -179,5 +179,8 @@ export const resultsBooksContract = defineContract('resultsBooks', {
     }),
     commandDataResponseSchema(workspace),
   ),
-  exportBook: command(z.object({ bookId: uuid }), commandDataResponseSchema(bookExport)),
+  exportBook: command(
+    z.object({ bookId: uuid, format: z.enum(['JSON', 'HTML', 'PDF']).optional() }),
+    commandDataResponseSchema(bookExport),
+  ),
 });

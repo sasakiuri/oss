@@ -1,4 +1,6 @@
-export type CompetitionAnnouncementPhase = 'PREPARATION' | 'MATCH';
+import type { CompetitionAnnouncementPhase } from '../domain/CompetitionAnnouncementPhase';
+
+export type { CompetitionAnnouncementPhase } from '../domain/CompetitionAnnouncementPhase';
 
 /** Transport-neutral view of an authoritative running competition timer. */
 export interface RunningCompetitionTimer {

@@ -26,6 +26,7 @@ interface ResultRow {
   source_competition_id: string | null;
   source_lane_id: string | null;
   ranking_shots_detail: string;
+  series_scores_json: string | null;
 }
 
 export class SqliteResultRepository implements IResultRepository {
@@ -36,13 +37,13 @@ export class SqliteResultRepository implements IResultRepository {
       INSERT OR REPLACE INTO results (
         id, event_id, participant_id, player_name, family_name, affiliation,
         total_score, series1, series2, series3, series4, series5, series6,
-        shots_detail, ranking_shots_detail, relay_number, confirmed_at, status,
+        shots_detail, ranking_shots_detail, series_scores_json, relay_number, confirmed_at, status,
         source_competition_id, source_lane_id
       )
       VALUES (
         @id, @eventId, @participantId, @playerName, @familyName, @affiliation,
         @totalScore, @series1, @series2, @series3, @series4, @series5, @series6,
-        @shotsDetail, @rankingShotsDetail, @relayNumber, @confirmedAt, @status,
+        @shotsDetail, @rankingShotsDetail, @seriesScoresJson, @relayNumber, @confirmedAt, @status,
         @sourceCompetitionId, @sourceLaneId
       )
     `);
@@ -63,6 +64,7 @@ export class SqliteResultRepository implements IResultRepository {
       series6: seriesScores[5] ?? 0,
       shotsDetail: JSON.stringify(result.shots),
       rankingShotsDetail: JSON.stringify(result.rankingShots),
+      seriesScoresJson: JSON.stringify(seriesScores),
       relayNumber: result.relayNumber,
       confirmedAt: result.confirmedAt.toISOString(),
       status: result.status,
@@ -149,6 +151,25 @@ export class SqliteResultRepository implements IResultRepository {
   }
 
   private toEntity(row: ResultRow): Result {
+    if (row.series_scores_json !== null) {
+      return Result.reconstruct(
+        ResultId.reconstruct(row.id),
+        EventId.reconstruct(row.event_id),
+        ParticipantId.reconstruct(row.participant_id),
+        row.player_name,
+        row.affiliation,
+        row.total_score,
+        parseScoreArray(row.series_scores_json, row.id, 'series'),
+        parseScoreArray(row.shots_detail, row.id, 'shots'),
+        row.relay_number,
+        new Date(row.confirmed_at),
+        row.status,
+        row.source_competition_id,
+        row.family_name ?? row.player_name,
+        row.source_lane_id,
+        parseRankingShots(row.ranking_shots_detail),
+      );
+    }
     return Result.reconstructFromJson(
       ResultId.reconstruct(row.id),
       EventId.reconstruct(row.event_id),
@@ -167,6 +188,14 @@ export class SqliteResultRepository implements IResultRepository {
       parseRankingShots(row.ranking_shots_detail),
     );
   }
+}
+
+function parseScoreArray(json: string, resultId: string, field: string): number[] {
+  const value: unknown = JSON.parse(json);
+  if (!Array.isArray(value) || !value.every((score) => typeof score === 'number' && Number.isFinite(score))) {
+    throw new Error(`Result ${resultId} has invalid stored ${field} scores`);
+  }
+  return value;
 }
 
 function parseRankingShots(value: string | null | undefined): RankingShotEvidence[] {

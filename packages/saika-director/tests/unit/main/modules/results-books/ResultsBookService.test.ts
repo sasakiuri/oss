@@ -113,13 +113,25 @@ describe('ResultsBookService', () => {
         written.content = content;
       }),
     };
+    const documentExporter = {
+      export: vi.fn(
+        async (_document: Readonly<Record<string, unknown>>, _format: 'HTML' | 'PDF', fileName: string) => ({
+          status: 'COMPLETED' as const,
+          path: `/tmp/${fileName}`,
+          fileName,
+          sizeBytes: 100,
+          sha256: 'a'.repeat(64),
+        }),
+      ),
+    };
     const service = new ResultsBookService(
       repository,
       new SqliteResultsBookSource(database, snapshots, additionalRecordCandidates),
       files,
       () => new Date('2026-09-02T07:00:00.000Z'),
+      documentExporter,
     );
-    return { service, repository, written, snapshotState };
+    return { service, repository, written, snapshotState, documentExporter };
   }
 
   async function appointCertifiers(service: ResultsBookService) {
@@ -141,7 +153,7 @@ describe('ResultsBookService', () => {
   }
 
   it('keeps open record claims out of the official book and certifies a verified claim', async () => {
-    const { service, repository, written } = setup();
+    const { service, repository, written, documentExporter } = setup();
     let workspace = await appointCertifiers(service);
     const technicalDelegate = workspace.officials.find((official) => official.role === 'TECHNICAL_DELEGATE')!;
 
@@ -190,6 +202,9 @@ describe('ResultsBookService', () => {
 
     workspace = await service.generateBook(CHAMPIONSHIP_ID, 'Results Officer A');
     const book = workspace.books[1]!;
+    await expect(service.exportBook(book.id, 'HTML')).rejects.toThrow('certified');
+    await expect(service.exportBook(book.id, 'PDF')).rejects.toThrow('certified');
+    expect(documentExporter.export).not.toHaveBeenCalled();
     expect(book.findings).toEqual([]);
     const content = JSON.parse(repository.findBookById(book.id)!.contentJson);
     expect(content.newAndEqualledRecords).toMatchObject([
@@ -229,6 +244,20 @@ describe('ResultsBookService', () => {
     expect(certification.requiredRoles).toEqual(['TECHNICAL_DELEGATE', 'JURY_CHAIR']);
     expect(certification.requiredSigners).toHaveLength(2);
     expect(certification.signatures).toHaveLength(2);
+    await service.exportBook(book.id, 'HTML');
+    await service.exportBook(book.id, 'PDF');
+    expect(documentExporter.export).toHaveBeenNthCalledWith(
+      1,
+      JSON.parse(written.content),
+      'HTML',
+      `official-results-book-v${book.versionNumber}.html`,
+    );
+    expect(documentExporter.export).toHaveBeenNthCalledWith(
+      2,
+      JSON.parse(written.content),
+      'PDF',
+      `official-results-book-v${book.versionNumber}.pdf`,
+    );
 
     database!.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run('OOC', PARTICIPANT_ID);
     workspace = await service.generateBook(CHAMPIONSHIP_ID, 'Results Officer A');

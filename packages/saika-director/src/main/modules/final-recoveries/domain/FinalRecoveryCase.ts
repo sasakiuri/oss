@@ -1,3 +1,5 @@
+import type { FinalRecoveryAllowanceSubject } from './FinalRecoveryAuthorizationPolicy';
+
 export const FINAL_RECOVERY_PROCEDURE_PROFILES = [
   'RIFLE_PISTOL_10M_50M',
   'RIFLE_PISTOL_10M_50M_MIXED_TEAM',
@@ -73,6 +75,7 @@ export class FinalRecoveryCase {
     readonly openedBy: string,
     readonly occurredAt: Date,
     readonly createdAt: Date,
+    readonly allowanceSubject: FinalRecoveryAllowanceSubject | null,
   ) {
     Object.freeze(this.affectedLaneIds);
     Object.freeze(this);
@@ -93,6 +96,7 @@ export class FinalRecoveryCase {
     openedBy: string;
     occurredAt?: Date;
     createdAt?: Date;
+    allowanceSubject?: FinalRecoveryAllowanceSubject | null;
   }): FinalRecoveryCase {
     if (!FINAL_RECOVERY_PROCEDURE_PROFILES.includes(props.procedureProfile)) {
       throw new Error('Final recovery procedure profile is invalid');
@@ -117,6 +121,7 @@ export class FinalRecoveryCase {
       requiredText(props.openedBy, 'openedBy'),
       validDate(props.occurredAt ?? new Date(), 'occurredAt'),
       validDate(props.createdAt ?? new Date(), 'createdAt'),
+      normalizeSubject(props.allowanceSubject),
     );
   }
 
@@ -251,4 +256,17 @@ function optionalNonNegativeInteger(value: number | null | undefined, name: stri
 function validDate(value: Date, name: string): Date {
   if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
   return new Date(value.getTime());
+}
+
+function normalizeSubject(
+  subject: FinalRecoveryAllowanceSubject | null | undefined,
+): FinalRecoveryAllowanceSubject | null {
+  if (!subject) return null;
+  if (subject.kind !== 'ATHLETE' && subject.kind !== 'TEAM')
+    throw new Error('Invalid recovery allowance identity kind');
+  return Object.freeze({
+    kind: subject.kind,
+    key: requiredText(subject.key, 'Allowance identity'),
+    description: requiredText(subject.description, 'Allowance identity description'),
+  });
 }

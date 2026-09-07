@@ -4,7 +4,7 @@
 
 Saika Lane の競技種別（CompetitionType）に関する設計資料。
 
-> 現行実装の登録済み種別は `AR60`、`AP60`、`BR60S`、`BP60` です。将来案を含む記述には未実装であることを明記しています。公式な競技規則は [参照元](../SOURCES.md) を確認してください。
+競技種別の定義は Lane の [competitionTypes.ts](../../saika-lane/src/main/modules/competition/domain/competitionTypes.ts) と共通の Rule Pack を参照してください。公式な競技規則は [参照元](../SOURCES.md) を確認してください。
 
 ---
 
@@ -74,7 +74,7 @@ CompetitionTypeDefinition
 AR60とAP60の時間は電子標的を使用する60発Qualificationに対応する。紙標的使用時などの別条件は
 Saika Laneの現行定義には含めない。
 
-この2種目は `@sasakiuri/saika-rules` の Edition 2025 Second Print 07/2026 Rule Pack を共通ソースとし、
+ISSF種目は `@sasakiuri/saika-rules` の Edition 2025 Second Print 07/2026 Rule Pack を共通ソースとし、
 Lane と Director が個別の adapter でローカル競技定義へ変換する。国内ルールの BR60S / BP60 は独立定義のまま扱う。
 
 ---
