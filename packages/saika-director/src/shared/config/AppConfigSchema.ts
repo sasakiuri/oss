@@ -49,6 +49,12 @@ export const AppConfigSchema = z.object({
   'mqtt.director.id': z.string().min(1).default('saika-director'),
   'mqtt.commandTimeoutMs': z.coerce.number().int().min(100).max(60_000).default(10_000),
   'mqtt.startDelayMs': z.coerce.number().int().min(0).max(30_000).default(3_000),
+  'clockQuality.mode': z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']).default('ADVISORY'),
+  'clockQuality.maxAbsoluteOffsetMilliseconds': z.coerce.number().int().positive().default(250),
+  'clockQuality.maxUncertaintyMilliseconds': z.coerce.number().int().positive().default(100),
+  'clockQuality.maxSampleAgeMilliseconds': z.coerce.number().int().positive().default(300_000),
+  'resultPublication.requireIncidentReports': PersistedBooleanSchema.default(true),
+  'resultPublication.requireFinalRecoveriesComplete': PersistedBooleanSchema.default(true),
   'competitionAnnouncements.enabled': PersistedBooleanSchema.default(true),
 });
 

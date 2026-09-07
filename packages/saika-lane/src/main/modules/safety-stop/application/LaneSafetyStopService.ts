@@ -23,6 +23,7 @@ export class LaneSafetyStopService implements ILaneSafetyStopControl {
     private readonly repository: ILaneSafetyStopRepository,
     private readonly timerFreezer: ISafetyTimerFreezer,
     private readonly eventBus: IEventBus,
+    private readonly canClear: () => boolean = () => true,
   ) {
     this.state = repository.getCurrent();
   }
@@ -90,6 +91,8 @@ export class LaneSafetyStopService implements ILaneSafetyStopControl {
       throw new Error(`Safety stop ${input.safetyStopId} does not match active stop ${current.safetyStopId}`);
     }
     if (current.status === 'CLEAR') return current;
+    if (!this.canClear())
+      throw new Error('Complete or cancel the pending state transfer before clearing the Lane STOP');
 
     const cleared = current.clear({
       clearedBy: input.clearedBy,

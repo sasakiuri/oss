@@ -102,6 +102,7 @@ export type {
   ConnectMqttInput,
   DeclareEstComplaintInput,
   DeclareQualificationMalfunctionInput,
+  EstComplaintContextDto,
   EstComplaintSignalDto,
   LaneSafetyStateDto,
   MqttSettings,

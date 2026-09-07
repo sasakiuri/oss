@@ -45,6 +45,7 @@ export interface QualificationTimedTargetInterruptionRecommendation {
     readonly shots: number;
   };
   readonly seriesRecovery: QualificationTimedTargetSeriesRecoveryRecommendation;
+  readonly minimumPauseAfterSightingSeconds?: number;
   readonly ruleReferences: readonly string[];
   readonly explanation: string;
 }

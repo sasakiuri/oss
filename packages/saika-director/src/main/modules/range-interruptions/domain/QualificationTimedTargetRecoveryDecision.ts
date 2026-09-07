@@ -5,6 +5,7 @@ import type {
 
 export interface QualificationTimedTargetAuthorizedRecovery {
   readonly extraSightingSeriesShots: number;
+  readonly minimumPauseAfterSightingSeconds?: number;
   readonly seriesRecovery: QualificationTimedTargetSeriesRecoveryRecommendation;
 }
 
@@ -96,6 +97,11 @@ function validateAuthorizedRecovery(
 ): QualificationTimedTargetAuthorizedRecovery {
   const value = clone(input);
   nonNegativeInteger(value.extraSightingSeriesShots, 'extraSightingSeriesShots');
+  if (value.minimumPauseAfterSightingSeconds !== undefined) {
+    nonNegativeInteger(value.minimumPauseAfterSightingSeconds, 'minimumPauseAfterSightingSeconds');
+    if (value.minimumPauseAfterSightingSeconds > 0 && value.extraSightingSeriesShots === 0)
+      throw new Error('A sighting pause requires an authorized sighting series');
+  }
   const recovery = value.seriesRecovery;
   switch (recovery.treatment) {
     case 'KEEP_RECORDED_SERIES':
@@ -128,6 +134,7 @@ function authorizationMatchesRecommendation(
 ): boolean {
   return (
     authorized.extraSightingSeriesShots === recommendation.extraSighting.shots &&
+    (authorized.minimumPauseAfterSightingSeconds ?? 0) === (recommendation.minimumPauseAfterSightingSeconds ?? 0) &&
     JSON.stringify(authorized.seriesRecovery) === JSON.stringify(recommendation.seriesRecovery)
   );
 }

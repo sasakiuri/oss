@@ -1,8 +1,10 @@
-import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { MoveLaneCommand } from './LaneCommands';
-import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
+
+import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
+
+import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
+import type { MoveLaneCommand } from './LaneCommands';
 
 export class MoveLaneHandler {
   constructor(
@@ -30,6 +32,12 @@ export class MoveLaneHandler {
       throw DomainError.from(ErrorCatalog.LANE.TARGET_NOT_EMPTY, {
         laneId: command.toLaneId,
       });
+    }
+
+    if (fromLane.phase !== 'IDLE' || toLane.phase !== 'IDLE') {
+      throw new Error(
+        'Use Reserve Lane transfer for a live competition; both Lanes must be IDLE for a local assignment move',
+      );
     }
 
     const updatedTo = toLane.transferDataFrom(fromLane);

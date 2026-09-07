@@ -4,3 +4,6 @@ export { SqliteRelayReadinessRepository } from './infra/SqliteRelayReadinessRepo
 export * from './domain/IRelayReadinessRepository';
 export * from './domain/RelayReadinessEntry';
 export * from './domain/RelayReadinessPolicy';
+
+export { SqliteRelayStartSettingsRepository } from './infra/SqliteRelayStartSettingsRepository';
+export * from './domain/IRelayStartSettingsRepository';

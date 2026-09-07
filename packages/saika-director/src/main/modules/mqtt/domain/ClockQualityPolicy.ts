@@ -101,9 +101,8 @@ export class ClockQualityPolicy implements IClockQualityPolicy {
 
   isUsable(assessment: ClockQualityAssessment, now = new Date()): boolean {
     if (this.mode !== 'REQUIRED') return true;
-    return (
-      assessment.status === 'GOOD' && now.getTime() - Date.parse(assessment.sampledAt) <= this.maxSampleAgeMilliseconds
-    );
+    const age = now.getTime() - Date.parse(assessment.sampledAt);
+    return assessment.status === 'GOOD' && age >= 0 && age <= this.maxSampleAgeMilliseconds;
   }
 
   private base(

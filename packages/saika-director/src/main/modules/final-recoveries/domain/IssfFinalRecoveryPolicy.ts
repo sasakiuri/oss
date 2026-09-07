@@ -133,7 +133,9 @@ function estGuidance(profile: FinalRecoveryProcedureProfile, phase: FinalRecover
         ]
       : [
           'The Jury Member-in-Charge, a second Competition Jury Member, and one RTS determine miss versus target malfunction.',
-          'Unless credible evidence establishes a miss, authorize the event-specific replacement shot or series.',
+          profile === 'PISTOL_25M_WOMEN'
+            ? 'Unless credible evidence establishes a miss, authorize one shot to replace the unexpected zero; remaining-shot completion belongs to the separate firearm malfunction procedure.'
+            : 'Unless credible evidence establishes a miss, authorize the event-specific replacement shot or series.',
           'If the replacement does not register, move the athlete to a reserve target before completing the replacement.',
           is10mOr50m
             ? 'If the delay exceeds five minutes, give all 10m/50m finalists two minutes sighting time before resumption.'

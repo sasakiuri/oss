@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { EventId, ParticipantId } from '@/main/modules/championship';
 import { FinalPlacementReviewEntry } from '@/main/modules/final-placement-review/domain/FinalPlacementReviewEntry';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review/domain/IFinalPlacementReviewRepository';
+import type { IResultScoreCorrectionSource, ResultClassificationOverlay } from '@/main/modules/results';
 import { FinalResultsReader } from '@/main/modules/results/application/FinalResultsReader';
-import type { ResultClassificationOverlay } from '@/main/modules/results';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import { FinalResultId } from '@/main/modules/results/domain/FinalResultId';
 import type { IFinalResultRepository } from '@/main/modules/results/domain/IFinalResultRepository';
@@ -78,9 +78,24 @@ describe('FinalResultsReader', () => {
       findByEventId: vi.fn(() => [...reviews]),
     } as unknown as IFinalPlacementReviewRepository;
     const overlays: ResultClassificationOverlay[] = [];
-    const reader = new FinalResultsReader(queryBus, results, decisions, placementReviews, registry, {
-      findByEventId: () => [...overlays],
+    let correction: IResultScoreCorrectionSource['project'] = (basis) => ({
+      shots: basis.shots,
+      revision: '',
+      ids: [],
+      remarks: [],
+      issues: [],
     });
+    const reader = new FinalResultsReader(
+      queryBus,
+      results,
+      decisions,
+      placementReviews,
+      registry,
+      {
+        findByEventId: () => [...overlays],
+      },
+      { project: (basis) => correction(basis) },
+    );
 
     const snapshot = await reader.getSnapshot(eventId);
     const projected = snapshot.results[0]!;
@@ -161,6 +176,44 @@ describe('FinalResultsReader', () => {
     expect(classified).toMatchObject({ rank: 0, totalScore: 0, classificationCode: 'DQB', decisionCount: 3 });
     expect(classified.remarks).toContain('DQB — championship sanction');
     expect(classified.scoringRevision).not.toBe(stale.scoringRevision);
+
+    overlays.length = 0;
+    history.splice(1); // Keep the independent one-point scoring decision.
+    const issues: string[] = [];
+    correction = (basis) => ({
+      shots: basis.shots.map((shot, index) => (index === 0 ? { ...shot, scoreX10: 109 } : shot)),
+      revision: 'correction-v1',
+      ids: ['restoration'],
+      remarks: ['Jury score correction applied'],
+      issues,
+    });
+    const correctedSnapshot = await reader.getSnapshot(eventId);
+    expect(correctedSnapshot.results[0]).toMatchObject({
+      totalScore: 239.9,
+      baseTotalScore: 240,
+      deductionTotal: 1,
+      stage1Total: 100.9,
+      stage2Total: 139,
+      decisionCount: 2,
+      placementReviewRequired: true,
+    });
+    reviews.push(
+      FinalPlacementReviewEntry.createReview({
+        eventId,
+        scoringRevision: correctedSnapshot.scoringRevision,
+        placements: [{ resultId: result.id.value, participantId, rank: 2 }],
+        ruleReference: '6.17',
+        statement: 'Corrected evidence reviewed',
+        officialName: 'Jury',
+      }),
+    );
+    expect((await reader.getByEvent(eventId))[0]!.placementReviewRequired).toBe(false);
+    issues.push('Jury evidence changed');
+    const correctionStale = await reader.getSnapshot(eventId);
+    expect(correctionStale.scoringRevision).not.toBe(correctedSnapshot.scoringRevision);
+    expect(correctionStale.results[0]).toMatchObject({ placementReviewRequired: true, placementReviewId: null });
+    expect(correctionStale.results[0]!.projectionIssues).toContain('Jury evidence changed');
+    expect(result.totalScore).toBe(240);
   });
 
   it('supports an incomplete current Final series and non-scoring remarks without placement review', async () => {

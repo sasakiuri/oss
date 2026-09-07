@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { IncidentReportPublicationBlocker } from '@/main/modules/incident-reports';
 import { IncidentReportService } from '@/main/modules/incident-reports/application/IncidentReportService';
 import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports/domain/IRangeIncidentReportRepository';
 import type { RangeIncidentReport } from '@/main/modules/incident-reports/domain/RangeIncidentReport';
@@ -69,7 +70,12 @@ function harness(history: ScoringDecision[] = []) {
       sortOrder: 0,
     })),
   } as unknown as QueryBus;
-  return { service: new IncidentReportService(queryBus, repository, decisions), reports, entries };
+  return {
+    service: new IncidentReportService(queryBus, repository, decisions),
+    blocker: new IncidentReportPublicationBlocker(repository, decisions),
+    reports,
+    entries,
+  };
 }
 
 async function createReport(service: IncidentReportService, serialNumber = 'IR-42') {
@@ -90,10 +96,11 @@ async function createReport(service: IncidentReportService, serialNumber = 'IR-4
 
 describe('IncidentReportService', () => {
   it('links substantive decisions by serial and projects signatures and forwarding independently', async () => {
-    const { service } = harness([decision('ir-42')]);
+    const { service, blocker } = harness([decision('ir-42')]);
     const created = await createReport(service);
 
     expect(created.linkedDecisions).toHaveLength(1);
+    expect(blocker.getIssues(EVENT_ID, 'QUALIFICATION')).toEqual([]);
     expect(created.missingSignatureRoles).not.toContain('RANGE_OFFICER');
     expect(created.forwarded).toBe(false);
 
@@ -118,7 +125,7 @@ describe('IncidentReportService', () => {
 
   it('distinguishes missing, unknown, and voided report references in the decision coverage audit', async () => {
     const history = [decision(), decision('IR-NOT-REGISTERED'), decision('IR-VOID')];
-    const { service } = harness(history);
+    const { service, blocker } = harness(history);
     const report = await createReport(service, 'IR-VOID');
     await service.appendEntry({
       reportId: report.id,
@@ -129,12 +136,36 @@ describe('IncidentReportService', () => {
 
     const status = await service.listByEvent(EVENT_ID);
 
+    expect(blocker.getIssues(EVENT_ID, 'QUALIFICATION')).toHaveLength(3);
+    expect(blocker.getIssues(EVENT_ID, 'FINAL')).toEqual([]);
     expect(status).toMatchObject({ requiredDecisionCount: 3, coveredDecisionCount: 0 });
     expect(status.uncoveredDecisions.map((item) => item.coverageIssue)).toEqual([
       'MISSING_REFERENCE',
       'REPORT_NOT_FOUND',
       'REPORT_VOIDED',
     ]);
+  });
+
+  it('clears a report hold only when its scoring decision is revoked', () => {
+    const original = decision();
+    const history = [original];
+    const { blocker } = harness(history);
+    expect(blocker.getIssues(EVENT_ID, 'QUALIFICATION')).toHaveLength(1);
+    history.push(
+      ScoringDecision.createRevocation({
+        eventId: EVENT_ID,
+        participantId: original.participantId,
+        relayNumber: 1,
+        resultScope: 'QUALIFICATION',
+        resultIdAtDecision: RESULT_ID,
+        sourceCompetitionId: null,
+        reversesDecisionId: original.id,
+        ruleReference: 'Jury review',
+        reason: 'Decision withdrawn',
+        officialName: 'Jury',
+      }),
+    );
+    expect(blocker.getIssues(EVENT_ID, 'QUALIFICATION')).toEqual([]);
   });
 
   it('keeps voiding append-only and rejects later entries or duplicate serials', async () => {

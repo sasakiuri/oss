@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { identifyRulePack, ISSF_2026_AR60_FINAL } from '@sasakiuri/saika-rules';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,7 @@ import { EstComplaintSignalControl } from '@/renderer/presentation/components/Es
 
 const mocks = vi.hoisted(() => ({
   getSignal: vi.fn(),
+  getContext: vi.fn(),
   declare: vi.fn(),
   clear: vi.fn(),
   getMqttStatus: vi.fn(),
@@ -15,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/renderer/services/mqttService', () => ({
   mqttService: {
     getEstComplaintSignal: mocks.getSignal,
+    getEstComplaintContext: mocks.getContext,
     declareEstComplaint: mocks.declare,
     clearEstComplaintSignal: mocks.clear,
     getMqttStatus: mocks.getMqttStatus,
@@ -68,6 +71,7 @@ describe('EstComplaintSignalControl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getSignal.mockResolvedValue(emptyState);
+    mocks.getContext.mockResolvedValue(activeState.context);
     mocks.getMqttStatus.mockResolvedValue({ status: 'connected' });
     mocks.declare.mockResolvedValue(activeState);
     mocks.clear.mockResolvedValue({
@@ -76,6 +80,25 @@ describe('EstComplaintSignalControl', () => {
       clearedAt: '2026-09-04T00:01:00.000Z',
       clearedBy: 'Lane user',
     });
+  });
+
+  it('shows the Final-specific score-protest and missing-shot procedures before submission', async () => {
+    const pack = ISSF_2026_AR60_FINAL;
+    mocks.getContext.mockResolvedValue({
+      ...activeState.context,
+      rules: {
+        round: pack.round,
+        identity: identifyRulePack(pack),
+        procedures: pack.capabilities.estComplaints!.procedures,
+      },
+    });
+    render(<EstComplaintSignalControl />);
+    fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+    expect(await screen.findByText(/not permitted in Finals/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
+    expect(await screen.findByText(/Final EST procedure/)).toBeInTheDocument();
+    expect(screen.queryByText(/No repeat series/)).not.toBeInTheDocument();
+    expect(mocks.declare).not.toHaveBeenCalled();
   });
 
   it('sends only the complaint issue and observation while main captures trusted context', async () => {
@@ -109,5 +132,53 @@ describe('EstComplaintSignalControl', () => {
     fireEvent.click(screen.getByRole('button', { name: /Clear after official acknowledgement/ }));
 
     await waitFor(() => expect(mocks.clear).toHaveBeenCalledWith({ signalId: activeState.signalId }));
+  });
+
+  it.each([
+    ['BEFORE_NEXT_SHOT', /before the next shot/i],
+    ['AFTER_SERIES', /Continue the five-shot series/i],
+  ] as const)(
+    'keeps %s guidance consistent before and after a missing-shot complaint',
+    async (notification, guidance) => {
+      const context = {
+        ...activeState.context,
+        missingShotProcedure: { notification, seriesRepeatAllowed: false, ruleReference: '8.10.3' },
+      };
+      mocks.getContext.mockResolvedValue(context);
+      mocks.declare.mockResolvedValue({ ...activeState, issue: 'SHOT_NOT_REGISTERED', context });
+      render(<EstComplaintSignalControl />);
+      fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+      fireEvent.change(await screen.findByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
+
+      expect(await screen.findByText(guidance)).toBeInTheDocument();
+      expect(mocks.declare).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Raise EST complaint' }));
+      await screen.findByRole('button', { name: /Clear after official acknowledgement/ });
+      expect(screen.getByText(guidance)).toBeInTheDocument();
+      expect(screen.queryByText(/do not fire another shot unless instructed/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/including STOP and UNLOAD/)).toBeInTheDocument();
+    },
+  );
+
+  it('allows a complaint when preview is unavailable and shows the freshly captured procedure', async () => {
+    mocks.getContext.mockRejectedValue(new Error('No active session'));
+    mocks.declare.mockResolvedValue({
+      ...activeState,
+      issue: 'SHOT_NOT_REGISTERED',
+      context: {
+        ...activeState.context,
+        missingShotProcedure: {
+          notification: 'AFTER_SERIES',
+          seriesRepeatAllowed: false,
+          ruleReference: '8.10.3',
+        },
+      },
+    });
+    render(<EstComplaintSignalControl />);
+    fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+    fireEvent.change(await screen.findByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
+    expect(await screen.findByText(/Confirm the procedure with the Range Officer/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Raise EST complaint' }));
+    expect(await screen.findByText(/Continue the five-shot series/)).toBeInTheDocument();
   });
 });

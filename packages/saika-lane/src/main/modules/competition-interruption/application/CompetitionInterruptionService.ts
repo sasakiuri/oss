@@ -79,6 +79,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     const competition = await this.requireActiveCompetition(input.competitionId);
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
+      preserveSeries: true,
       mode: input.unlimitedSightingShots ? Mode.sighting() : Mode.match(),
     });
     await this.timerService.resumeAt(
@@ -115,7 +116,11 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     if (current.status !== 'SIGHTING') throw new Error('MATCH fire can only resume after authorized sighting shots');
 
     const competition = await this.requireActiveCompetition(input.competitionId);
-    await this.commandBus.execute(SwitchModeToken, { sessionId: competition.sessionId, mode: Mode.match() });
+    await this.commandBus.execute(SwitchModeToken, {
+      sessionId: competition.sessionId,
+      mode: Mode.match(),
+      preserveSeries: true,
+    });
     const applied = LaneInterruptionRecord.create({
       competitionId: current.competitionId,
       interruptionId: current.interruptionId,
@@ -162,6 +167,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
         : current.status;
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
+      preserveSeries: true,
       mode: restoredStatus === 'SIGHTING' ? Mode.sighting() : Mode.match(),
     });
     await this.timerService.resumeAt(

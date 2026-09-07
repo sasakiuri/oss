@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { MqttBrokerUrlSchema } from '@/shared/config/AppConfigSchema';
 import {
   AthleteSchema,
   CompetitionShotPayloadSchema,
@@ -17,7 +19,6 @@ import {
   RawShotPayloadSchema,
   ShotObservationEvidencePayloadSchema,
 } from '@/shared/mqtt';
-import { MqttBrokerUrlSchema } from '@/shared/config/AppConfigSchema';
 
 import {
   CommandResponseSchema,
@@ -27,6 +28,7 @@ import {
   query,
   queryResponseSchema,
 } from '../defineContract';
+
 import { FinalOperationScriptStepDtoSchema } from './finalOperations.contract';
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,10 @@ const CommandExecutionResultSchema = z.object({
     'cancel-timed-target',
     'record-timed-target-unload',
     'probe-clock',
+    'reserve-lane-transfer',
+    'start-malfunction-firing',
+    'read-malfunction-firing',
+    'cancel-malfunction-firing',
   ]),
   success: z.boolean(),
   lanes: z.array(LaneCommandResultSchema),
@@ -259,6 +265,14 @@ const ClearSafetyStopSchema = z
       context.addIssue({ code: 'custom', path: ['laneClearances'], message: 'Lane clearances must be unique' });
     }
   });
+
+export const ClockQualitySettingsSchema = z.object({
+  mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+  maxAbsoluteOffsetMilliseconds: z.number().int().positive(),
+  maxUncertaintyMilliseconds: z.number().int().positive(),
+  maxSampleAgeMilliseconds: z.number().int().positive(),
+});
+export type ClockQualitySettingsDto = z.infer<typeof ClockQualitySettingsSchema>;
 
 export const ClockQualityAssessmentDtoSchema = z.object({
   policyId: z.string().min(1),
@@ -450,6 +464,8 @@ export const mqttContract = defineContract('mqtt', {
   getControlState: query(queryResponseSchema(MqttControlSnapshotSchema)),
   getFiringWindowViolations: query(CompetitionSchema, queryResponseSchema(z.array(FiringWindowViolationDtoSchema))),
   getShotObservationEvidence: query(CompetitionSchema, queryResponseSchema(z.array(ShotObservationEvidenceDtoSchema))),
+  getClockQualitySettings: query(queryResponseSchema(ClockQualitySettingsSchema)),
+  setClockQualitySettings: command(ClockQualitySettingsSchema, commandDataResponseSchema(ClockQualitySettingsSchema)),
   getClockQuality: query(queryResponseSchema(z.record(z.string().uuid(), ClockQualityAssessmentDtoSchema))),
   getSafetyStopAudit: query(
     z.object({ safetyStopId: z.string().uuid().optional() }),

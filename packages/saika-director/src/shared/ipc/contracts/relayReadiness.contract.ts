@@ -1,5 +1,13 @@
 import { z } from 'zod';
+
 import { commandDataResponseSchema, defineContract, query, queryResponseSchema, command } from '../defineContract';
+
+const startSettingsSchema = z.object({
+  competitionId: z.string().min(1),
+  relayNumber: z.number().int().positive(),
+  mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+});
+export type RelayStartSettingsDto = z.infer<typeof startSettingsSchema>;
 
 const phaseSchema = z.enum(['RELAY', 'SIGHTING', 'MATCH']);
 const operationalPhaseSchema = z.enum(['SIGHTING', 'MATCH']);
@@ -71,6 +79,8 @@ export type RelayReadinessEntryDto = z.infer<typeof entrySchema>;
 export type RelayReadinessAssessmentDto = z.infer<typeof assessmentSchema>;
 
 export const relayReadinessContract = defineContract('relayReadiness', {
+  getStartSettings: query(z.object({ competitionId: z.string().min(1) }), queryResponseSchema(startSettingsSchema)),
+  setStartSettings: command(startSettingsSchema, commandDataResponseSchema(startSettingsSchema)),
   list: query(scopeSchema, queryResponseSchema(z.array(entrySchema))),
   record: command(recordSchema, commandDataResponseSchema(entrySchema)),
   assess: query(

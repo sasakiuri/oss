@@ -89,6 +89,9 @@ vi.mock('@/renderer/presentation/features/qualification-malfunctions', () => ({
   QualificationMalfunctionPanel: () => <div data-testid="qualification-malfunction-panel" />,
 }));
 
+vi.mock('@/renderer/presentation/features/est-championship-inspections/EstInspectionStartPanel', () => ({
+  EstInspectionStartPanel: () => null,
+}));
 vi.mock('@/renderer/presentation/features/relay-readiness', () => ({
   RelayReadinessPanel: () => <div data-testid="relay-readiness-panel" />,
   RelayAthleteLifecyclePanel: () => <div data-testid="relay-athlete-lifecycle-panel" />,

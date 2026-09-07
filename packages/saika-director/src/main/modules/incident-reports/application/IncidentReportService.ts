@@ -15,6 +15,10 @@ import type {
   UncoveredIncidentDecisionDto,
 } from '@/shared/ipc/contracts';
 
+import {
+  inspectIncidentReportCoverage,
+  normalizeIncidentReportSerial as normalizeSerial,
+} from '../domain/IncidentReportCoverage';
 import type { IRangeIncidentReportRepository } from '../domain/IRangeIncidentReportRepository';
 import { RangeIncidentReport } from '../domain/RangeIncidentReport';
 import {
@@ -27,18 +31,6 @@ import {
 const REQUIRED_SIGNATURE_ROLES: readonly IncidentReportOfficialRole[] = INCIDENT_REPORT_OFFICIAL_ROLES.filter(
   (role) => role !== 'OTHER_OFFICIAL',
 );
-
-const REPORT_REQUIRED_DECISION_TYPES = new Set([
-  'DEDUCTION',
-  'ANNUL_SHOT',
-  'MARK_MISS',
-  'WARNING',
-  'DISQUALIFICATION',
-  'MALFUNCTION',
-  'EXTRA_TIME',
-  'REPEAT_SHOT',
-  'REPEAT_SERIES',
-]);
 
 /** Coordinates the independent Form IR ledger and optional scoring-decision references. */
 export class IncidentReportService {
@@ -119,31 +111,16 @@ export class IncidentReportService {
   private buildEventStatus(eventId: string, reports: readonly RangeIncidentReport[]): IncidentReportEventStatusDto {
     const entriesByReport = this.repository.findEntriesByReportIds(reports.map((report) => report.id));
     const history = this.findDecisionHistory(eventId);
-    const active = getActiveScoringDecisions(history).filter((decision) =>
-      REPORT_REQUIRED_DECISION_TYPES.has(decision.type),
+    const coverage = inspectIncidentReportCoverage(getActiveScoringDecisions(history), reports, entriesByReport);
+    const uncoveredDecisions = coverage.uncovered.map(({ decision, coverageIssue }) =>
+      toUncoveredDecisionDto(decision, coverageIssue),
     );
-    const reportBySerial = new Map(
-      reports.map((report) => [
-        normalizeSerial(report.serialNumber),
-        { report, entries: entriesByReport.get(report.id) ?? [] },
-      ]),
-    );
-    const uncoveredDecisions: UncoveredIncidentDecisionDto[] = [];
-    for (const decision of active) {
-      const reference = decision.incidentReportNumber;
-      const linked = reference ? reportBySerial.get(normalizeSerial(reference)) : undefined;
-      if (!reference) uncoveredDecisions.push(toUncoveredDecisionDto(decision, 'MISSING_REFERENCE'));
-      else if (!linked) uncoveredDecisions.push(toUncoveredDecisionDto(decision, 'REPORT_NOT_FOUND'));
-      else if (isRangeIncidentReportVoided(linked.entries)) {
-        uncoveredDecisions.push(toUncoveredDecisionDto(decision, 'REPORT_VOIDED'));
-      }
-    }
 
     return {
       eventId,
       reports: reports.map((report) => toReportDto(report, entriesByReport.get(report.id) ?? [], history)),
-      requiredDecisionCount: active.length,
-      coveredDecisionCount: active.length - uncoveredDecisions.length,
+      requiredDecisionCount: coverage.requiredDecisions.length,
+      coveredDecisionCount: coverage.requiredDecisions.length - uncoveredDecisions.length,
       uncoveredDecisions,
     };
   }
@@ -239,8 +216,4 @@ function toUncoveredDecisionDto(
     incidentReportNumber: decision.incidentReportNumber,
     coverageIssue,
   };
-}
-
-function normalizeSerial(value: string): string {
-  return value.trim().toUpperCase();
 }

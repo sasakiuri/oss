@@ -43,6 +43,29 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
     if (latest?.status === 'RUNNING') {
       throw new Error(`Qualification recovery run ${latest.runId} is still active`);
     }
+    if (input.authorization.phase === 'SERIES_RECOVERY' && input.authorization.sightingPrerequisite) {
+      const prerequisite = input.authorization.sightingPrerequisite;
+      const sighting = this.repository.findByRunId(prerequisite.runId);
+      if (!Number.isInteger(prerequisite.minimumPauseSeconds) || prerequisite.minimumPauseSeconds < 0) {
+        throw new Error('The sighting pause must be a non-negative integer');
+      }
+      if (
+        !sighting ||
+        sighting.status !== 'COMPLETED' ||
+        sighting.authorization.phase !== 'EXTRA_SIGHTING' ||
+        sighting.decisionId !== input.decisionId ||
+        sighting.interruptionId !== input.interruptionId ||
+        sighting.competitionId !== input.competitionId ||
+        sighting.stageIndex !== input.stageIndex ||
+        sighting.seriesIndex !== input.seriesIndex ||
+        !sighting.terminalAt
+      ) {
+        throw new Error('The authorized sighting prerequisite has no matching completed Lane evidence');
+      }
+      if (input.loadAt.getTime() < sighting.terminalAt.getTime() + prerequisite.minimumPauseSeconds * 1000) {
+        throw new Error('Recovery LOAD must wait until the pause after sighting ends');
+      }
+    }
 
     const interruption = this.interruptionControl.get(input.competitionId);
     if (!interruption) throw new Error(`Competition ${input.competitionId} has no paused interruption`);

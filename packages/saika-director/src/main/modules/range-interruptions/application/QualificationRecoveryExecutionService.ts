@@ -1,6 +1,10 @@
-import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
+import type { QualificationTimedTargetSeriesRecoveryRecommendation } from '@sasakiuri/saika-rules';
+
+import type { QualificationRecoveryShotPayload, QualificationRecoveryStatePayload } from '@/shared/mqtt';
+
 import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
 import type { IQualificationRecoveryExecutionTransport } from '../domain/IQualificationRecoveryExecutionTransport';
+import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
 import {
   createQualificationRecoveryExecutionEvent,
   createQualificationRecoveryExecutionStart,
@@ -10,9 +14,8 @@ import {
   type QualificationRecoveryExecutionRecord,
   type QualificationRecoveryExecutionStart,
 } from '../domain/QualificationRecoveryExecution';
+import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
 import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
-import type { QualificationRecoveryShotPayload, QualificationRecoveryStatePayload } from '@/shared/mqtt';
-import type { QualificationTimedTargetSeriesRecoveryRecommendation } from '@sasakiuri/saika-rules';
 
 export interface StartQualificationRecoveryExecutionInput {
   readonly caseId: string;
@@ -70,10 +73,17 @@ export class QualificationRecoveryExecutionService {
       throw new Error(`Only the latest Qualification recovery decision ${decision.id} can be executed`);
     }
 
+    const sightingPrerequisite =
+      input.phase === 'SERIES_RECOVERY'
+        ? requireQualificationSighting(decision, this.listByCase(input.caseId), this.now())
+        : undefined;
     const authorization =
       input.phase === 'EXTRA_SIGHTING'
         ? extraSightingAuthorization(decision.authorizedRecovery.extraSightingSeriesShots)
-        : seriesRecoveryAuthorization(decision.authorizedRecovery.seriesRecovery);
+        : {
+            ...seriesRecoveryAuthorization(decision.authorizedRecovery.seriesRecovery),
+            ...(sightingPrerequisite ? { sightingPrerequisite } : {}),
+          };
     const requested = createQualificationRecoveryExecutionStart({
       runId: crypto.randomUUID(),
       caseId: interruption.id,

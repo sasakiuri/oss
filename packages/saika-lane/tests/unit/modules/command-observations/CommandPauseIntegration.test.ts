@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ISSF_2026_P25, ISSF_2026_RFPM, ISSF_2026_STDP, ISSF_2026_P25_FINAL } from '@sasakiuri/saika-rules';
+import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TimedTargetCommandPause } from '@/main/modules/command-observations/application/TimedTargetCommandPause';
@@ -125,15 +126,19 @@ describe('UNLOAD command pause integration', () => {
     const directory = mkdtempSync(join(tmpdir(), 'saika-command-pause-'));
     const file = join(directory, 'lane.db');
     try {
-      const previous = createSqliteDb(file);
-      previous.exec('DROP TABLE official_command_observations');
+      const previous = new Database(file);
+      previous.exec(
+        "CREATE TABLE retained_v15_evidence (id TEXT PRIMARY KEY, evidence TEXT NOT NULL); INSERT INTO retained_v15_evidence VALUES ('original', 'unchanged')",
+      );
       previous.pragma('user_version = 15');
       previous.close();
       const upgraded = createSqliteDb(file);
       try {
-        expect(upgraded.pragma('user_version', { simple: true })).toBe(16);
+        expect(upgraded.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(16);
         expect(new SqliteCommandObservationRepository(upgraded).findBySequence('new')).toEqual([]);
-        expect(new SqliteTimedTargetSequenceRepository(upgraded).findLatest()).toBeNull();
+        expect(upgraded.prepare('SELECT * FROM retained_v15_evidence').all()).toEqual([
+          { id: 'original', evidence: 'unchanged' },
+        ]);
       } finally {
         upgraded.close();
       }

@@ -135,11 +135,15 @@ export class IssfRelayReadinessPolicy implements IRelayReadinessPolicy {
           .filter(
             (entry) =>
               entry.requirement === required.requirement &&
-              entry.phase === required.phase &&
+              (required.requirement === 'TARGET_MODE_CONFIRMED' || entry.phase === required.phase) &&
               entry.laneId === required.laneId,
           )
           .at(-1) ?? null;
-      return { ...required, confirmed: latestEntry?.state === 'CONFIRMED', latestEntry };
+      return {
+        ...required,
+        confirmed: latestEntry?.state === 'CONFIRMED' && latestEntry.phase === required.phase,
+        latestEntry,
+      };
     });
     const ready = items.filter((item) => item.required).every((item) => item.confirmed);
     return { mode: this.mode, ready, mayStart: this.mode !== 'REQUIRED' || ready, items };

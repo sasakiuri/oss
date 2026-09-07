@@ -1,4 +1,9 @@
 import type {
+  CompetitionStartScope,
+  CompetitionStartIssue,
+  ICompetitionStartReadinessSource,
+} from '@/main/shared-infra/operations/CompetitionStartReadiness';
+import type {
   RecordRelayReadinessPayload,
   RelayReadinessAssessmentDto,
   RelayReadinessEntryDto,
@@ -6,15 +11,40 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import type { IRelayReadinessRepository } from '../domain/IRelayReadinessRepository';
-import type { IRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
-import { IssfRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
+import type { IRelayStartSettingsRepository, RelayStartSettings } from '../domain/IRelayStartSettingsRepository';
 import { RelayReadinessEntry, type RelayReadinessOperationalPhase } from '../domain/RelayReadinessEntry';
+import type { IRelayReadinessPolicy, RelayReadinessMode } from '../domain/RelayReadinessPolicy';
+import { IssfRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
 
-export class RelayReadinessService {
+export class RelayReadinessService implements ICompetitionStartReadinessSource {
   constructor(
     private readonly repository: IRelayReadinessRepository,
-    private readonly policy: IRelayReadinessPolicy = new IssfRelayReadinessPolicy(),
+    private readonly policy: IRelayReadinessPolicy | ((mode: RelayReadinessMode) => IRelayReadinessPolicy) = (mode) =>
+      new IssfRelayReadinessPolicy(mode),
+    private readonly startSettings?: IRelayStartSettingsRepository,
   ) {}
+
+  getStartSettings(competitionId: string): RelayStartSettings {
+    return this.startSettings?.find(competitionId) ?? { competitionId, relayNumber: 1, mode: 'ADVISORY' };
+  }
+
+  setStartSettings(settings: RelayStartSettings): RelayStartSettings {
+    if (!this.startSettings) throw new Error('Relay start settings are not configured');
+    this.startSettings.save(settings);
+    return this.getStartSettings(settings.competitionId);
+  }
+
+  getStartIssues(scope: CompetitionStartScope): readonly CompetitionStartIssue[] {
+    const settings = this.getStartSettings(scope.competitionId);
+    const assessment = this.assessment({ ...scope, laneIds: [...scope.laneIds], relayNumber: settings.relayNumber });
+    return assessment.items
+      .filter((item) => item.required && !item.confirmed)
+      .map((item) => ({
+        code: `RELAY_${item.requirement}`,
+        message: `Relay ${settings.relayNumber}: ${item.label}${item.laneId ? ` (${item.laneId})` : ''}`,
+        blocking: !assessment.mayStart,
+      }));
+  }
 
   async list(input: RelayReadinessScopePayload): Promise<RelayReadinessEntryDto[]> {
     return this.repository.findByScope(input).map(toEntryDto);
@@ -36,7 +66,18 @@ export class RelayReadinessService {
       laneIds: string[];
     },
   ): Promise<RelayReadinessAssessmentDto> {
-    const assessment = this.policy.assess({
+    return this.assessment(input);
+  }
+
+  private assessment(input: {
+    competitionId: string;
+    relayNumber: number;
+    phase: RelayReadinessOperationalPhase;
+    laneIds: string[];
+  }): RelayReadinessAssessmentDto {
+    const policy =
+      typeof this.policy === 'function' ? this.policy(this.getStartSettings(input.competitionId).mode) : this.policy;
+    const assessment = policy.assess({
       phase: input.phase,
       laneIds: input.laneIds,
       entries: this.repository.findByRelay(input),

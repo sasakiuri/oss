@@ -53,6 +53,27 @@ const DIRECT_EVENT_TABLES = [
 
 const SECTION_QUERIES: readonly SectionQuery[] = [
   {
+    id: 'final-recovery-firing-runs',
+    sql: `SELECT * FROM final_recovery_firing_runs WHERE competition_id IN (${RUNTIME_COMPETITION_IDS})`,
+  },
+  {
+    id: 'final-recovery-firing-evidence',
+    sql: `SELECT * FROM final_recovery_firing_evidence WHERE run_id IN (SELECT id FROM final_recovery_firing_runs WHERE competition_id IN (${RUNTIME_COMPETITION_IDS}))`,
+  },
+  {
+    id: 'reserve-lane-transfers',
+    sql: `SELECT * FROM reserve_lane_transfers WHERE competition_id IN (${RUNTIME_COMPETITION_IDS})`,
+  },
+  {
+    id: 'reserve-lane-transfer-events',
+    sql: `SELECT * FROM reserve_lane_transfer_events WHERE transfer_id IN (SELECT id FROM reserve_lane_transfers WHERE competition_id IN (${RUNTIME_COMPETITION_IDS}))`,
+  },
+  { id: 'score-corrections', sql: `SELECT * FROM score_corrections WHERE event_id IN (${EVENT_IDS})` },
+  {
+    id: 'score-correction-withdrawals',
+    sql: `SELECT * FROM score_correction_withdrawals WHERE application_id IN (SELECT id FROM score_corrections WHERE event_id IN (${EVENT_IDS}))`,
+  },
+  {
     id: 'malfunction-score-applications',
     sql: `SELECT * FROM malfunction_score_applications WHERE event_id IN (${EVENT_IDS})`,
   },

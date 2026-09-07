@@ -25,6 +25,12 @@ export function competitionTypeFromRulePack(pack: RulePack): CompetitionTypeDefi
     ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
     ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
     config: {
+      round: pack.round,
+      ...(pack.capabilities.estComplaints ? { estComplaints: pack.capabilities.estComplaints } : {}),
+      rulePackIdentity: identifyRulePack(pack),
+      ...(pack.capabilities.qualificationMalfunction
+        ? { qualificationMalfunction: pack.capabilities.qualificationMalfunction }
+        : {}),
       name: pack.round === 'ELIMINATION' ? 'Elimination' : pack.round === 'QUALIFICATION' ? 'Qualification' : 'Final',
       shotsPerSeries,
       acc: pack.capabilities.scoring.mode,
@@ -35,6 +41,7 @@ export function competitionTypeFromRulePack(pack: RulePack): CompetitionTypeDefi
       ...(pack.capabilities.timedTarget ? { timedTarget: pack.capabilities.timedTarget } : {}),
       ...(pack.capabilities.resultProjection ? { resultProjection: pack.capabilities.resultProjection } : {}),
       stages: stages.map((stage) => ({
+        id: stage.id,
         name: stage.name,
         scored: stage.phase === 'MATCH',
         series: stage.series.map((series) => toSeriesDefinition(stage, series)),

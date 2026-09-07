@@ -9,7 +9,9 @@
 
 import { z } from 'zod';
 
+import { MalfunctionFiringRequestSchema } from '@/shared/mqtt/MalfunctionFiring';
 import { QualificationRecoveryFiringAuthorizationSchema } from '@/shared/mqtt/QualificationRecovery';
+import { ReserveLaneTransferActionSchema } from '@/shared/mqtt/ReserveLaneTransfer';
 
 import { AthleteSchema } from './MqttAssignmentSchemas';
 
@@ -28,6 +30,8 @@ const CommandBaseSchema = z.object({
 // ============================================================
 // Tier 1 Lane Commands
 // ============================================================
+
+export const ReserveLaneTransferCmdSchema = CommandBaseSchema.extend({ transfer: ReserveLaneTransferActionSchema });
 
 export const JoinCompetitionCmdSchema = CommandBaseSchema.extend({
   competitionId: z.string().uuid(),
@@ -101,6 +105,14 @@ export const FinishCompetitionCmdSchema = CommandBaseSchema;
 
 export const AssignAthleteCmdSchema = CommandBaseSchema.extend({
   athlete: AthleteSchema.nullable(),
+});
+
+export const StartMalfunctionFiringCmdSchema = CommandBaseSchema.extend({ request: MalfunctionFiringRequestSchema });
+export const ReadMalfunctionFiringCmdSchema = CommandBaseSchema.extend({ runId: z.string().uuid() });
+export const CancelMalfunctionFiringCmdSchema = CommandBaseSchema.extend({
+  request: MalfunctionFiringRequestSchema.optional(),
+  runId: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
 });
 
 export const ResetSessionCmdSchema = CommandBaseSchema.extend({

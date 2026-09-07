@@ -1,3 +1,4 @@
+import { identifyRulePack, ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EstComplaintCaseService } from '@/main/modules/est-complaints';
@@ -132,6 +133,7 @@ function snapshot(): EstComplaintSignalSnapshot {
     status: 'ACTIVE',
     issue: 'SHOT_VALUE',
     context: {
+      rules: { round: 'QUALIFICATION', identity: identifyRulePack(ISSF_2026_RFPM), procedures: [] },
       competitionId,
       sessionId: '77777777-7777-4777-8777-777777777777',
       participantId: 'athlete-a',

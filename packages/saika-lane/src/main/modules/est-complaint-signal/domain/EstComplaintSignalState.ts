@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: MIT
+import {
+  validateEstComplaintCapability,
+  type EstComplaintRuleContext,
+  type MissingShotComplaintProcedure,
+} from '@sasakiuri/saika-rules';
 
 export const EST_COMPLAINT_ISSUES = [
   'SHOT_VALUE',
@@ -20,6 +25,8 @@ export interface EstComplaintLastShotSnapshot {
 }
 
 export interface EstComplaintSignalContext {
+  readonly rules?: EstComplaintRuleContext;
+  readonly missingShotProcedure?: MissingShotComplaintProcedure;
   readonly competitionId: string;
   readonly sessionId: string;
   readonly participantId: string;
@@ -130,7 +137,22 @@ function copyContext(context: EstComplaintSignalContext): EstComplaintSignalCont
     throw new Error('An exposure index requires a timed-target program');
   }
 
+  const procedure = context.missingShotProcedure;
+  if (
+    procedure &&
+    (!['BEFORE_NEXT_SHOT', 'AFTER_SERIES'].includes(procedure.notification) || procedure.seriesRepeatAllowed !== false)
+  )
+    throw new Error('Invalid missing-shot complaint procedure');
   return Object.freeze({
+    ...(context.rules ? { rules: copyRuleContext(context.rules) } : {}),
+    ...(procedure
+      ? {
+          missingShotProcedure: Object.freeze({
+            ...procedure,
+            ruleReference: requiredText(procedure.ruleReference, 'missingShotProcedure.ruleReference'),
+          }),
+        }
+      : {}),
     competitionId: requiredText(context.competitionId, 'competitionId'),
     sessionId: requiredText(context.sessionId, 'sessionId'),
     participantId: requiredText(context.participantId, 'participantId'),
@@ -205,4 +227,24 @@ function validIsoDate(value: string, name: string): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) throw new Error(`${name} must be a valid timestamp`);
   return parsed.toISOString();
+}
+
+function copyRuleContext(rules: EstComplaintRuleContext): EstComplaintRuleContext {
+  validateEstComplaintCapability(rules);
+  if (
+    !['ELIMINATION', 'QUALIFICATION', 'FINAL'].includes(rules.round) ||
+    rules.identity.schemaVersion !== 1 ||
+    rules.identity.fingerprint.algorithm !== 'SHA-256' ||
+    !/^[a-f0-9]{64}$/.test(rules.identity.fingerprint.value)
+  )
+    throw new Error('Invalid EST complaint rule context');
+  return Object.freeze({
+    round: rules.round,
+    identity: Object.freeze({
+      ...rules.identity,
+      id: requiredText(rules.identity.id, 'rule identity'),
+      fingerprint: Object.freeze({ ...rules.identity.fingerprint }),
+    }),
+    procedures: Object.freeze(rules.procedures.map((procedure) => Object.freeze({ ...procedure }))),
+  });
 }

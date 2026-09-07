@@ -42,3 +42,9 @@ export const debugService = createApiService('queries');
 export const evidenceFilesService = createApiService('evidenceFiles');
 
 export const malfunctionScoreApplicationsService = createApiService('malfunctionScoreApplications');
+
+export const scoreCorrectionsService = createApiService('scoreCorrections');
+
+export const reserveLaneTransfersService = createApiService('reserveLaneTransfers');
+
+export const finalRecoveryFiringService = createApiService('finalRecoveryFiring');

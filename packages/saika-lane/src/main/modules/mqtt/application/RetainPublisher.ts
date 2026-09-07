@@ -150,6 +150,12 @@ export class RetainPublisher {
     }
   }
 
+  async replayTransferredSession(competitionId: string): Promise<void> {
+    const competition = await this.competitionRepository.findById(competitionId);
+    if (!competition) throw new Error('Transferred competition not found');
+    await this.replayBacklog(competitionId, competition.sessionId, new Date(0));
+  }
+
   private async replayBacklog(competitionId: string, sessionId: string, since: Date): Promise<void> {
     const logger = getLogger();
     const session = await this.sessionRepository.findById(sessionId);

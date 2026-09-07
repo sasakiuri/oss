@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { AppConfigSchema } from '@/shared/config/AppConfigSchema';
 import type { AppConfig, AppConfigKey } from '@/shared/config/AppConfigSchema';
 
@@ -101,6 +102,12 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'clockQuality.mode': 'ADVISORY',
+        'clockQuality.maxAbsoluteOffsetMilliseconds': 250,
+        'clockQuality.maxUncertaintyMilliseconds': 100,
+        'clockQuality.maxSampleAgeMilliseconds': 300_000,
+        'resultPublication.requireIncidentReports': true,
+        'resultPublication.requireFinalRecoveriesComplete': true,
         'competitionAnnouncements.enabled': true,
       });
     });
@@ -114,6 +121,12 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'clockQuality.mode': 'ADVISORY',
+        'clockQuality.maxAbsoluteOffsetMilliseconds': 250,
+        'clockQuality.maxUncertaintyMilliseconds': 100,
+        'clockQuality.maxSampleAgeMilliseconds': 300_000,
+        'resultPublication.requireIncidentReports': true,
+        'resultPublication.requireFinalRecoveriesComplete': true,
         'competitionAnnouncements.enabled': true,
       });
     });
@@ -141,6 +154,12 @@ describe('AppConfigSchema', () => {
         'mqtt.director.id': 'saika-director',
         'mqtt.commandTimeoutMs': 10000,
         'mqtt.startDelayMs': 3000,
+        'clockQuality.mode': 'ADVISORY',
+        'clockQuality.maxAbsoluteOffsetMilliseconds': 250,
+        'clockQuality.maxUncertaintyMilliseconds': 100,
+        'clockQuality.maxSampleAgeMilliseconds': 300_000,
+        'resultPublication.requireIncidentReports': true,
+        'resultPublication.requireFinalRecoveriesComplete': true,
         'competitionAnnouncements.enabled': true,
       };
       expect(config['mqtt.broker.port']).toBeTypeOf('number');

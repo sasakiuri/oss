@@ -183,6 +183,35 @@ describe('QualificationRecoveryService', () => {
     });
   });
 
+  it('checks the completed sighting run and pause from durable Lane evidence after restart', async () => {
+    const input = precisionCompletionInput();
+    await recovery.start({ ...input, runId: 'sighting-1', authorization: { phase: 'EXTRA_SIGHTING', shotsToFire: 5 } });
+    await vi.advanceTimersByTimeAsync(320_000);
+    const completed = recovery.get('sighting-1')!;
+    expect(completed.status).toBe('COMPLETED');
+    const authorization = {
+      ...input.authorization,
+      sightingPrerequisite: { runId: 'sighting-1', minimumPauseSeconds: 60 },
+    };
+    const restored = new QualificationRecoveryService(
+      new SqliteQualificationRecoveryRepository(db),
+      competitionRepository,
+      { get: () => interruption },
+      timedTarget,
+      eventBus,
+    );
+    const boundary = completed.terminalAt!.getTime() + 60_000;
+    await expect(restored.start({ ...input, authorization, loadAt: new Date(boundary - 1) })).rejects.toThrow(
+      'pause after sighting',
+    );
+    await expect(
+      restored.start({ ...input, authorization, decisionId: 'another-decision', loadAt: new Date(boundary) }),
+    ).rejects.toThrow('matching completed Lane evidence');
+    await expect(restored.start({ ...input, authorization, loadAt: new Date(boundary) })).resolves.toMatchObject({
+      status: 'RUNNING',
+    });
+  });
+
   it('is idempotent for the same run and rejects reuse with another authorization', async () => {
     const input = precisionCompletionInput();
     const first = await recovery.start(input);

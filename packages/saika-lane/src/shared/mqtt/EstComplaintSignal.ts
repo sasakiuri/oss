@@ -17,8 +17,42 @@ export const EstComplaintLastShotSchema = z.object({
   receivedAt: z.string().datetime(),
 });
 
+export const EstComplaintRuleContextSchema = z.object({
+  round: z.enum(['ELIMINATION', 'QUALIFICATION', 'FINAL']),
+  identity: z.object({
+    id: z.string().min(1),
+    schemaVersion: z.literal(1),
+    fingerprint: z.object({ algorithm: z.literal('SHA-256'), value: z.string().regex(/^[a-f0-9]{64}$/) }),
+  }),
+  procedures: z
+    .array(
+      z.object({
+        phase: z.enum(['SIGHTING', 'MATCH']),
+        issue: EstComplaintIssueSchema,
+        review: z.enum(['SCORE_PROTEST', 'EST_COMPLAINT', 'FINAL_EST_COMPLAINT', 'OFFICIAL_REVIEW']),
+        ruleReference: z.string().min(1),
+        athleteGuidance: z.string().min(1),
+        officialGuidance: z.string().min(1),
+      }),
+    )
+    .readonly()
+    .superRefine((procedures, context) => {
+      const keys = procedures.map((procedure) => `${procedure.phase}:${procedure.issue}`);
+      if (new Set(keys).size !== keys.length)
+        context.addIssue({ code: 'custom', message: 'Duplicate EST complaint procedures' });
+    }),
+});
+
 export const EstComplaintSignalContextSchema = z
   .object({
+    rules: EstComplaintRuleContextSchema.optional(),
+    missingShotProcedure: z
+      .object({
+        notification: z.enum(['BEFORE_NEXT_SHOT', 'AFTER_SERIES']),
+        seriesRepeatAllowed: z.literal(false),
+        ruleReference: z.string().min(1),
+      })
+      .optional(),
     competitionId: z.string().uuid(),
     sessionId: z.string().uuid(),
     participantId: z.string().min(1),

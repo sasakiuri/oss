@@ -1,5 +1,6 @@
 import {
   recommendQualificationTimedTargetInterruption,
+  recommendQualificationTargetFailure,
   type QualificationTimedTargetInterruptionRecommendation,
 } from '@sasakiuri/saika-rules';
 
@@ -18,13 +19,31 @@ export function recommendRangeInterruption(
 ): RangeInterruptionRecommendation {
   const context = interruption.qualificationTimedTargetContext;
   if (context) {
-    return recommendQualificationTimedTargetInterruption(context.recoveryCapability, {
+    const facts = {
       stageId: context.stageId,
       interruptionSeconds: lostTimeSeconds,
       seriesShotLimit: context.seriesShotLimit,
       recordedShots: context.recordedShots,
       seriesComplete: context.seriesComplete,
-    });
+    };
+    if (interruption.cause === 'ALL_TARGET_FAILURE' || interruption.cause === 'SINGLE_TARGET_FAILURE') {
+      if (!context.recoveryCapability.targetFailure) {
+        return {
+          type: 'MATCH_TIME',
+          basis: 'MANUAL_REVIEW',
+          lostTimeSeconds,
+          baseRemainingSeconds: interruption.remainingSecondsAtStart,
+          suggestedAdditionalSeconds: 0,
+          suggestedAuthorizedRemainingSeconds: interruption.remainingSecondsAtStart,
+          unlimitedSightingShots: false,
+          ruleReferences: 'ISSF 8.10',
+          explanation:
+            'The captured Rule Pack has no target-failure policy. Preserve this legacy case and create a separately reviewed recovery case with the current policy; no automatic remedy is suggested.',
+        };
+      }
+      return recommendQualificationTargetFailure(context.recoveryCapability.targetFailure, facts);
+    }
+    return recommendQualificationTimedTargetInterruption(context.recoveryCapability, facts);
   }
   return recommendIssfInterruption(interruption, lostTimeSeconds, targetRecovery);
 }

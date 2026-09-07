@@ -19,7 +19,7 @@ export class VerifiedResultPublicationReadiness implements IResultPublicationRea
       snapshotRevision: status.snapshotRevision,
       approvalId: status.currentApproval?.id ?? null,
       approvalSnapshotRevision: status.currentApproval?.snapshotRevision ?? null,
-      verificationIssues: status.currentApproval ? [] : status.issues,
+      verificationIssues: status.issues,
     };
   }
 }

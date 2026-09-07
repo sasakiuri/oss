@@ -11,18 +11,25 @@ import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
+import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
 import {
   QualificationMalfunctionSignalService,
   SqliteQualificationMalfunctionSignalRepository,
 } from '@/main/modules/qualification-malfunction-signal';
 import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
+import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
+import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
+import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
+import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { mqttContract } from '@/shared/ipc/contracts';
 import type { MqttSettings } from '@/shared/ipc/contracts/mqtt.contract';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
 
+import { AssignedFinalRecoveryFiringContextSource } from './application/AssignedFinalRecoveryFiringContextSource';
+import { AssignedMalfunctionFiringContextSource } from './application/AssignedMalfunctionFiringContextSource';
 import { BroadcastCommandHandler } from './application/commands/BroadcastCommandHandler';
 import { LaneTier1CommandHandler } from './application/commands/LaneTier1CommandHandler';
 import { PerLaneCommandHandler } from './application/commands/PerLaneCommandHandler';
@@ -51,6 +58,7 @@ import { RpcRequestHandler } from './application/RpcRequestHandler';
 import { ShotObservationEvidencePublisher } from './application/ShotObservationEvidencePublisher';
 import { TimedTargetStatePublisher } from './application/TimedTargetStatePublisher';
 import { commandAuthorizationPolicyFromEnvironment } from './domain/CommandAuthorizationPolicy';
+import { AthleteSchema } from './domain/MqttAssignmentSchemas';
 import { CommandIdempotencyGuard } from './infra/CommandIdempotencyGuard';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
@@ -196,6 +204,51 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionShootOffControl,
     );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
+    const reserveTransferControl = new ReserveLaneTransferService(
+      new SqliteReserveLaneTransferJournal(database),
+      new StoredReserveLaneTransferState(
+        competitionRepository,
+        sessionRepository,
+        {
+          read: (competitionId) => assignmentPublisher.getCurrentAssignment(competitionId),
+          restore: async (competitionId, json) => {
+            await assignmentPublisher.assign(
+              competitionId,
+              json === null ? null : AthleteSchema.parse(JSON.parse(json).athlete),
+            );
+          },
+        },
+        safetyStopControl,
+        competitionInterruptionControl,
+        eventBus,
+      ),
+      getLaneId,
+    );
+    const malfunctionFiringControl = new MalfunctionFiringService(
+      new SqliteMalfunctionFiringRepository(database),
+      {
+        prepare: (request) =>
+          request.workflow === 'FINAL_RECOVERY'
+            ? new AssignedFinalRecoveryFiringContextSource(
+                competitionRepository,
+                assignmentPublisher,
+                () => !safetyStopControl.isStopped(),
+              ).prepare(request)
+            : new AssignedMalfunctionFiringContextSource(
+                competitionRepository,
+                assignmentPublisher,
+                () => !safetyStopControl.isStopped(),
+              ).prepare(request),
+      },
+      timedTargetControl,
+      eventBus,
+      undefined,
+      (runId) =>
+        new SqliteTimedTargetSequenceRepository(database)
+          .findBySequenceId(runId)
+          ?.acceptedShots.map((shot) => shot.observationId) ?? [],
+    );
+    eventBus.on('MqttConnected', () => malfunctionFiringControl.restore());
     const qualificationMalfunctionContextSource = new LaneQualificationMalfunctionContextSource(
       competitionRepository,
       sessionRepository,
@@ -297,6 +350,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       qualificationRecoveryStatePublisher,
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
+      malfunctionFiringControl,
+      reserveTransferControl,
+      (competitionId) => retainPublisher.replayTransferredSession(competitionId),
     );
 
     const tier1Handler = new LaneTier1CommandHandler(
@@ -470,6 +526,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       },
 
       getEstComplaintSignal: async () => toEstComplaintSignalPayload(getLaneId(), estComplaintSignalService.getState()),
+      getEstComplaintContext: () => estComplaintContextSource.capture(),
 
       declareEstComplaint: async (input) => {
         const context = await estComplaintContextSource.capture();

@@ -1,9 +1,11 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultPublicationContract, type ResultPublicationStatusDto } from '@/shared/ipc/contracts';
+
 import { ResultPublicationService, type ResultPublicationView } from './application/ResultPublicationService';
 import type { ResultPublicationEntry } from './domain/ResultPublicationEntry';
 
 export const resultPublicationModule: ModuleDefinition<
+  | 'appConfigService'
   | 'ipcRouter'
   | 'resultPublicationRepository'
   | 'resultPublicationReadiness'
@@ -12,6 +14,7 @@ export const resultPublicationModule: ModuleDefinition<
 > = {
   name: 'resultPublication',
   deps: [
+    'appConfigService',
     'ipcRouter',
     'resultPublicationRepository',
     'resultPublicationReadiness',
@@ -19,6 +22,7 @@ export const resultPublicationModule: ModuleDefinition<
     'finalResultDeclarationService',
   ] as const,
   register({
+    appConfigService,
     ipcRouter,
     resultPublicationRepository,
     resultPublicationReadiness,
@@ -30,7 +34,19 @@ export const resultPublicationModule: ModuleDefinition<
       resultPublicationReadiness,
       resultPublicationPolicyResolver,
     );
+    const getReviewSettings = () => ({
+      requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
+      requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+    });
     ipcRouter.register(resultPublicationContract, {
+      getReviewSettings: async () => getReviewSettings(),
+      setReviewSettings: async (input) => {
+        appConfigService.setMany({
+          'resultPublication.requireIncidentReports': input.requireIncidentReports,
+          'resultPublication.requireFinalRecoveriesComplete': input.requireFinalRecoveriesComplete,
+        });
+        return getReviewSettings();
+      },
       getStatus: async (input) => toDto(await service.getStatus(input.eventId, input.resultScope)),
       publishPreliminary: async (input) => toDto(await service.publishPreliminary(input)),
       registerProtest: async (input) => toDto(await service.registerProtest(input)),

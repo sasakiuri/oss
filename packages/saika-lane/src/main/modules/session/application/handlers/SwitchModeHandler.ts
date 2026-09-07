@@ -37,7 +37,7 @@ export function createSwitchModeHandler(
     const previousMode = session.mode;
 
     // Switch the mode (a new session instance is returned)
-    const updatedSession = session.switchMode(input.mode);
+    const updatedSession = input.preserveSeries ? session.resumeMode(input.mode) : session.switchMode(input.mode);
 
     // Persist the session
     await sessionRepository.save(updatedSession);

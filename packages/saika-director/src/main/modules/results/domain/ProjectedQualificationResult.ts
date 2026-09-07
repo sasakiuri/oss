@@ -66,6 +66,10 @@ export class ProjectedQualificationResult implements IRankable<ProjectedQualific
     );
   }
 
+  comparisonIssuesAgainst(other: ProjectedQualificationResult): readonly string[] {
+    return this.strategy.assessComparison?.(this.toRankingInput(), other.toRankingInput(), this.format).issues ?? [];
+  }
+
   private toRankingInput(): QualificationRankingInput {
     return {
       totalScore: this.totalScore,

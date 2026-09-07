@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { EventId, ParticipantId } from '@/main/modules/championship';
+import type { IResultScoreCorrectionSource, ResultClassificationOverlay } from '@/main/modules/results';
 import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
-import type { ResultClassificationOverlay } from '@/main/modules/results';
 import type { IResultRepository } from '@/main/modules/results/domain/IResultRepository';
 import { Result } from '@/main/modules/results/domain/Result';
 import { ResultId } from '@/main/modules/results/domain/ResultId';
@@ -64,9 +64,24 @@ describe('QualificationResultsReader', () => {
     registry.registerStrategy(new IssfStandardStrategy());
     registry.register(BR60S);
     const overlays: ResultClassificationOverlay[] = [];
-    const reader = new QualificationResultsReader(queryBus, resultRepository, decisionRepository, registry, {
-      findByEventId: () => [...overlays],
+    let correction: IResultScoreCorrectionSource['project'] = (basis) => ({
+      shots: basis.shots,
+      revision: '',
+      ids: [],
+      remarks: [],
+      issues: [],
     });
+    const reader = new QualificationResultsReader(
+      queryBus,
+      resultRepository,
+      decisionRepository,
+      registry,
+      {
+        findByEventId: () => [...overlays],
+      },
+      undefined,
+      { project: (basis) => correction(basis) },
+    );
 
     const before = (await reader.getByEvent(result.eventId.value))[0]!;
     expect(before).toMatchObject({
@@ -112,5 +127,42 @@ describe('QualificationResultsReader', () => {
     expect(classified).toMatchObject({ rank: 0, totalScore: 0, classificationCode: 'DQB', decisionCount: 2 });
     expect(classified.remarks).toContain('DQB — championship sanction');
     expect(classified.revision).not.toBe(after.revision);
+
+    overlays.length = 0;
+    correction = (basis) => ({
+      shots: basis.shots.map((shot, index) =>
+        index === 0
+          ? {
+              scoreX10: 109,
+              ranking: { ...shot.ranking, decimalScore: 10.9 },
+            }
+          : shot,
+      ),
+      revision: 'correction-v1',
+      ids: ['restoration'],
+      remarks: ['Jury score correction applied'],
+      issues: [],
+    });
+    const corrected = (await reader.getByEvent(result.eventId.value))[0]!;
+    expect(corrected).toMatchObject({
+      baseTotalScore: 612,
+      totalScore: 612.7,
+      seriesScores: [102.7, 102, 102, 102, 102, 102],
+      decisionCount: 2,
+    });
+    expect(corrected.revision).not.toBe(after.revision);
+    expect(result.shots[0]).toBe(10.2);
+    expect(result.totalScore).toBe(612);
+    correction = (basis) => ({
+      shots: basis.shots,
+      revision: 'correction-v1',
+      ids: ['restoration'],
+      remarks: [],
+      issues: ['Jury evidence changed'],
+    });
+    const staleCorrection = (await reader.getByEvent(result.eventId.value))[0]!;
+    expect(staleCorrection.totalScore).toBe(612);
+    expect(staleCorrection.projectionIssues).toContain('Jury evidence changed');
+    expect(staleCorrection.revision).not.toBe(corrected.revision);
   });
 });

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { ISSF_2026_AP60, ISSF_2026_AR60, ISSF_2026_P25 } from '@sasakiuri/saika-rules';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -99,9 +100,8 @@ import {
   RULE_PACK_SETUP_REQUIREMENT_ID,
   RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
 } from '@/shared/competitionTypes';
-import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
-import { ISSF_2026_AP60, ISSF_2026_AR60, ISSF_2026_P25 } from '@sasakiuri/saika-rules';
+import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -247,6 +247,7 @@ function registerModule(eventType: string | null): {
   );
 
   mqttModule.register({
+    competitionStartReadiness: { assertAllowed: vi.fn() },
     database: {} as never,
     eventBus: { emit: emitEvent } as never,
     commandBus: commandBus as never,

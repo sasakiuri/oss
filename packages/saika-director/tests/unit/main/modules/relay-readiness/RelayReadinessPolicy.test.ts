@@ -54,6 +54,21 @@ describe('IssfRelayReadinessPolicy', () => {
     expect(match.ready).toBe(false);
   });
 
+  it('requires renewed confirmation after the target changes to the other mode', () => {
+    const policy = new IssfRelayReadinessPolicy('REQUIRED');
+    const sighting = policy.assess({ phase: 'SIGHTING', laneIds: [LANE_A], entries: [] });
+    const entries = sighting.items.map(confirmation);
+    const matchItem = policy
+      .assess({ phase: 'MATCH', laneIds: [LANE_A], entries })
+      .items.find((item) => item.requirement === 'TARGET_MODE_CONFIRMED')!;
+    entries.push(confirmation(matchItem));
+    expect(policy.assess({ phase: 'MATCH', laneIds: [LANE_A], entries }).mayStart).toBe(true);
+    expect(policy.assess({ phase: 'SIGHTING', laneIds: [LANE_A], entries }).mayStart).toBe(false);
+    entries.push(confirmation(sighting.items.find((item) => item.requirement === 'TARGET_MODE_CONFIRMED')!));
+    expect(policy.assess({ phase: 'SIGHTING', laneIds: [LANE_A], entries }).mayStart).toBe(true);
+    expect(policy.assess({ phase: 'MATCH', laneIds: [LANE_A], entries }).mayStart).toBe(false);
+  });
+
   it('supports a replaceable checklist with non-blocking local checks', () => {
     const localChecklist: IRelayReadinessChecklist = {
       definitions: () => [

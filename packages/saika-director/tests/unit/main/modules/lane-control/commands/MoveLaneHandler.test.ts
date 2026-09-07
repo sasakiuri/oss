@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MoveLaneHandler } from '@/main/modules/lane-control/commands/MoveLaneHandler';
-import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
+
 import type { MoveLaneCommand } from '@/main/modules/lane-control/commands/LaneCommands';
-import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
+import { MoveLaneHandler } from '@/main/modules/lane-control/commands/MoveLaneHandler';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
+import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
+import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Player } from '@/main/modules/lane-control/domain/Player';
+import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
 import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
 
 function createIdleLane(id: string, channel: number): LaneControl {
@@ -67,6 +69,16 @@ describe('MoveLaneHandler', () => {
     expect(updatedTo.id).toBe('to-lane');
     expect(updatedTo.player?.name).toBe('Taro Yamada');
     expect(updatedTo.channel.value).toBe(2);
+  });
+
+  it('requires the reserve-transfer workflow after competition has started', async () => {
+    const source = createIdleLaneWithPlayer('from-lane', 1).startPreparation();
+    const target = createIdleLane('to-lane', 2);
+    vi.mocked(mockRepository.findById).mockImplementation((id) => (id === source.id ? source : target));
+    await expect(handler.execute({ fromLaneId: source.id, toLaneId: target.id })).rejects.toThrow(
+      'Reserve Lane transfer',
+    );
+    expect(mockRepository.save).not.toHaveBeenCalled();
   });
 
   it('should clear the source lane', async () => {

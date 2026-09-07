@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import {
   QualificationRecoveryFiringAuthorizationSchema,
   QualificationRecoveryShotPayloadSchema,
@@ -139,6 +140,7 @@ const QualificationTimedTargetInterruptionRecommendationDtoSchema = z.object({
   type: z.literal('QUALIFICATION_TIMED_TARGET'),
   interruptionSeconds: z.number().int().nonnegative(),
   stageId: z.string().min(1),
+  minimumPauseAfterSightingSeconds: z.number().int().nonnegative().optional(),
   extraSighting: z.object({
     required: z.boolean(),
     shots: z.number().int().nonnegative(),
@@ -169,6 +171,7 @@ const QualificationTimedTargetContextDtoSchema = z.object({
 
 const QualificationTimedTargetAuthorizedRecoverySchema = z.object({
   extraSightingSeriesShots: z.number().int().nonnegative(),
+  minimumPauseAfterSightingSeconds: z.number().int().nonnegative().optional(),
   seriesRecovery: QualificationTimedTargetSeriesRecoveryRecommendationDtoSchema,
 });
 

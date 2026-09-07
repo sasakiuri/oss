@@ -1,56 +1,65 @@
 // SPDX-License-Identifier: MIT
 import { networkInterfaces } from 'node:os';
 
-import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
-import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
-import type {
-  DebugLogEmitted,
-  FiringWindowViolationDetected,
-  ShotObservationEvidenceObserved,
-  LaneConnected,
-  MqttConnectionError,
-  MqttControlStateChanged,
-  ShotReceived,
-} from './domain/events';
-import { EmbeddedMqttBroker } from './infra/EmbeddedMqttBroker';
-import { SqliteMqttRetainedMessageStore } from './infra/SqliteMqttRetainedMessageStore';
-import { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJournal';
-import { SAFETY_STOP_CLEARANCE_RULE_REFERENCES, SafetyStopClearancePolicy } from './domain/SafetyStopClearancePolicy';
+import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
 import {
-  DirectorMqttService,
-  sanitizeBrokerUrl,
-  type CompetitionResultLane,
-  type CommandBatchResult,
-  type MqttControlSnapshot,
-} from './infra/DirectorMqttService';
-import { FiringPointNumberResolver } from './application/FiringPointNumberResolver';
-import { assertPhaseStartReady } from './application/PhaseStartGuard';
-import { toCompetitionShotObservation } from './application/toCompetitionShotObservation';
-import { FiringWindowDetectionService } from './application/FiringWindowDetectionService';
-import { toFiringWindowViolationDto } from './application/toFiringWindowViolationDto';
-import { executeFinalScriptStep } from './application/FinalScriptStepExecutor';
-import { orderFinalShootOffLaneIds } from './application/FinalShootOffParticipantOrder';
-import type { ClockQualityAssessment } from './domain/ClockQualityPolicy';
-import { embeddedMqttSecurityFromEnvironment } from './domain/EmbeddedMqttAccessPolicy';
-import type { MqttCredentials } from './infra/MqttTransport';
+  ApplyQualificationRecoverySettlementTransportToken,
+  ApplyQualificationRecoveryTransportToken,
+  CancelQualificationRecoveryTransportToken,
+  StartQualificationRecoveryTransportToken,
+  type StartQualificationRecoveryTransportInput,
+} from '@/main/modules/range-interruptions';
+import {
+  ResumeReserveLaneToken,
+  ResumeReserveMatchToken,
+  TransferReserveLaneToken,
+  ReserveTransferDataGuard,
+  SqliteReserveTransferRepository,
+} from '@/main/modules/reserve-lane-transfers';
 import {
   PublishMqttFinalResultsToken,
   PublishMqttMixedTeamFinalResultsToken,
   PublishMqttResultsToken,
 } from '@/main/modules/results';
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
-import { mqttContract, eventsContract, type MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import type { CompetitionTypeDefinition, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
-import { Logger } from '@/shared/utils/Logger';
-import {
-  ApplyQualificationRecoveryTransportToken,
-  ApplyQualificationRecoverySettlementTransportToken,
-  CancelQualificationRecoveryTransportToken,
-  StartQualificationRecoveryTransportToken,
-  type StartQualificationRecoveryTransportInput,
-} from '@/main/modules/range-interruptions';
+import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
+import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import { assertParticipantEligible } from '@/main/shared-infra/operations/ParticipantEligibility';
+import type { CompetitionTypeDefinition, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
+import { eventsContract, mqttContract, type MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
+import { Logger } from '@/shared/utils/Logger';
+
+import { executeFinalScriptStep } from './application/FinalScriptStepExecutor';
+import { orderFinalShootOffLaneIds } from './application/FinalShootOffParticipantOrder';
+import { FiringPointNumberResolver } from './application/FiringPointNumberResolver';
+import { FiringWindowDetectionService } from './application/FiringWindowDetectionService';
+import { assertPhaseStartReady } from './application/PhaseStartGuard';
+import { toCompetitionShotObservation } from './application/toCompetitionShotObservation';
+import { toFiringWindowViolationDto } from './application/toFiringWindowViolationDto';
+import { ClockQualityPolicy, type ClockQualityAssessment } from './domain/ClockQualityPolicy';
+import { embeddedMqttSecurityFromEnvironment } from './domain/EmbeddedMqttAccessPolicy';
+import type {
+  DebugLogEmitted,
+  FiringWindowViolationDetected,
+  LaneConnected,
+  MqttConnectionError,
+  MqttControlStateChanged,
+  ShotObservationEvidenceObserved,
+  ShotReceived,
+} from './domain/events';
+import { SAFETY_STOP_CLEARANCE_RULE_REFERENCES, SafetyStopClearancePolicy } from './domain/SafetyStopClearancePolicy';
+import {
+  DirectorMqttService,
+  sanitizeBrokerUrl,
+  type CommandBatchResult,
+  type CompetitionResultLane,
+  type MqttControlSnapshot,
+} from './infra/DirectorMqttService';
+import { EmbeddedMqttBroker } from './infra/EmbeddedMqttBroker';
+import type { MqttCredentials } from './infra/MqttTransport';
+import { SqliteMqttRetainedMessageStore } from './infra/SqliteMqttRetainedMessageStore';
+import { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJournal';
 
 const logger = Logger.create('mqtt.module');
 
@@ -161,6 +170,7 @@ function assertCommandSucceeded(
 }
 
 export const mqttModule: ModuleDefinition<
+  | 'competitionStartReadiness'
   | 'database'
   | 'eventBus'
   | 'commandBus'
@@ -180,6 +190,7 @@ export const mqttModule: ModuleDefinition<
 > = {
   name: 'mqtt',
   deps: [
+    'competitionStartReadiness',
     'database',
     'eventBus',
     'commandBus',
@@ -328,6 +339,12 @@ export const mqttModule: ModuleDefinition<
       });
     };
 
+    const readClockQualitySettings = () => ({
+      mode: appConfigService.get('clockQuality.mode'),
+      maxAbsoluteOffsetMilliseconds: appConfigService.get('clockQuality.maxAbsoluteOffsetMilliseconds'),
+      maxUncertaintyMilliseconds: appConfigService.get('clockQuality.maxUncertaintyMilliseconds'),
+      maxSampleAgeMilliseconds: appConfigService.get('clockQuality.maxSampleAgeMilliseconds'),
+    });
     const mqttService = new DirectorMqttService(
       {
         directorId: mqttDirectorIdFromEnvironment(process.env, appConfigService.get('mqtt.director.id')),
@@ -336,6 +353,12 @@ export const mqttModule: ModuleDefinition<
         ...(directorMqttCredentials ? { credentials: directorMqttCredentials } : {}),
       },
       {
+        assertPhaseStartAllowed: (scope) => ctx.competitionStartReadiness.assertAllowed(scope),
+        assertCompetitionFinishAllowed: (competitionId) =>
+          new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database)).assertAllowed({
+            competitionId,
+            operation: 'CLEAR_COMPETITION_DATA',
+          }),
         onStateChanged: handleSnapshot,
         onCompetitionShotObserved: (shot, payloadJson) => {
           try {
@@ -435,7 +458,28 @@ export const mqttModule: ModuleDefinition<
           });
         },
       },
+      undefined,
+      new ClockQualityPolicy(readClockQualitySettings()),
     );
+    commandBus.register(FinalFiringContextToken, async ({ competitionId, laneId }) =>
+      mqttService.getFinalFiringContext(competitionId, laneId),
+    );
+    commandBus.register(FinalFiringTransportToken, (input) => mqttService.executeFinalFiring(input));
+    commandBus.register(TransferReserveLaneToken, (input) => mqttService.transferReserveLane(input));
+    commandBus.register(ResumeReserveLaneToken, async (input) => {
+      const result = await mqttService.resumeLaneTimer(
+        input.competitionId,
+        input.laneId,
+        input.transferId,
+        input.grant.remainingSeconds,
+        input.grant.unlimitedSightingShots,
+      );
+      if (!result.success) throw new Error(result.lanes[0]?.error?.message ?? 'Lane resume was not acknowledged');
+    });
+    commandBus.register(ResumeReserveMatchToken, async (input) => {
+      const result = await mqttService.resumeLaneMatch(input.competitionId, input.laneId, input.transferId);
+      if (!result.success) throw new Error(result.lanes[0]?.error?.message ?? 'MATCH resume was not acknowledged');
+    });
 
     const requireCompetition = (competitionId: string) => {
       const competition = mqttService.getSnapshot().competitions.find((state) => state.competitionId === competitionId);
@@ -619,6 +663,19 @@ export const mqttModule: ModuleDefinition<
           ...record.evidence,
           observedAt: record.observedAt.toISOString(),
         })),
+      getClockQualitySettings: async () => readClockQualitySettings(),
+      setClockQualitySettings: (input) =>
+        runWithControlLock(async () => {
+          const policy = new ClockQualityPolicy(input);
+          appConfigService.setMany({
+            'clockQuality.mode': input.mode,
+            'clockQuality.maxAbsoluteOffsetMilliseconds': input.maxAbsoluteOffsetMilliseconds,
+            'clockQuality.maxUncertaintyMilliseconds': input.maxUncertaintyMilliseconds,
+            'clockQuality.maxSampleAgeMilliseconds': input.maxSampleAgeMilliseconds,
+          });
+          mqttService.setClockQualityPolicy(policy);
+          return readClockQualitySettings();
+        }),
       getClockQuality: async () => mqttService.getClockQuality() as Record<string, ClockQualityAssessment>,
       getSafetyStopAudit: async (input) =>
         safetyStopAuditJournal.find(input.safetyStopId).map((entry) => ({

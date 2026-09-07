@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ClockAlert, Link, PauseCircle, Play, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { mqttService, rangeInterruptionsService } from '@/renderer/services';
 import type {
@@ -14,6 +14,9 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+
+import { QualificationRecoveryExecutionPanel } from './QualificationRecoveryExecutionPanel';
+import { QualificationRecoverySettlementPanel } from './QualificationRecoverySettlementPanel';
 import {
   applyLaneMatchResume,
   applyLanePause,
@@ -26,8 +29,6 @@ import {
   applyRangeResume,
   type RangeInterruptionRangeWorkflowPorts,
 } from './rangeInterruptionRangeWorkflow';
-import { QualificationRecoveryExecutionPanel } from './QualificationRecoveryExecutionPanel';
-import { QualificationRecoverySettlementPanel } from './QualificationRecoverySettlementPanel';
 
 export interface RangeInterruptionLaneOption {
   laneId: string;
@@ -347,7 +348,7 @@ function CreateInterruptionForm({
           details,
           openedBy,
           ...(qualificationTimedTargetCompetitionTypeId &&
-          cause === 'ATHLETE_NON_FAULT' &&
+          ['ATHLETE_NON_FAULT', 'ALL_TARGET_FAILURE', 'SINGLE_TARGET_FAILURE'].includes(cause) &&
           phase === 'MATCH' &&
           selectedLane?.seriesSnapshot
             ? {
@@ -451,13 +452,15 @@ function CreateInterruptionForm({
       </Field>
       <div className="rounded-[3px] border border-vscode-border px-3 py-2 text-xs leading-5 text-vscode-text-muted">
         <p>{causeOption.ruleReference}</p>
-        {qualificationTimedTargetCompetitionTypeId && cause === 'ATHLETE_NON_FAULT' && phase === 'MATCH' && (
-          <p>
-            {selectedLane?.seriesSnapshot
-              ? `ISSF 8.8.1 series facts will be snapshotted from stage ${selectedLane.seriesSnapshot.stageIndex}, series ${selectedLane.seriesSnapshot.seriesIndex} (${selectedLane.seriesSnapshot.recordedShots}/${selectedLane.seriesSnapshot.maxShots} shots).`
-              : 'Select a Lane with a live series snapshot to enable the ISSF 8.8.1 recommendation.'}
-          </p>
-        )}
+        {qualificationTimedTargetCompetitionTypeId &&
+          ['ATHLETE_NON_FAULT', 'ALL_TARGET_FAILURE', 'SINGLE_TARGET_FAILURE'].includes(cause) &&
+          phase === 'MATCH' && (
+            <p>
+              {selectedLane?.seriesSnapshot
+                ? `ISSF 8.8.1 series facts will be snapshotted from stage ${selectedLane.seriesSnapshot.stageIndex}, series ${selectedLane.seriesSnapshot.seriesIndex} (${selectedLane.seriesSnapshot.recordedShots}/${selectedLane.seriesSnapshot.maxShots} shots).`
+                : 'Select a Lane with a live series snapshot to enable the ISSF 8.8.1 recommendation.'}
+            </p>
+          )}
         <p className="text-vscode-warning">Opening this ledger activates a data hold but does not stop any Lane.</p>
       </div>
       <div className="flex justify-end gap-2">
@@ -1088,6 +1091,12 @@ function RecommendationPanel({ interruption }: { interruption: RangeInterruption
           />
           <Detail label="Series treatment" value={formatEnum(recovery.treatment)} />
           <Detail label="Recovery shots" value={String(recovery.shotsToFire)} />
+          {recommendation.minimumPauseAfterSightingSeconds !== undefined && (
+            <Detail
+              label="Pause after sighting"
+              value={formatDuration(recommendation.minimumPauseAfterSightingSeconds)}
+            />
+          )}
           <Detail label="Execution" value={execution} />
           <Detail label="Rules" value={recommendation.ruleReferences.join('; ')} />
         </dl>
@@ -1146,6 +1155,7 @@ function QualificationRecoveryDecisionHistory({
             </div>
             <p className="text-vscode-text-muted">
               {decision.authorizedRecovery.extraSightingSeriesShots} extra sighting shots ·{' '}
+              {decision.authorizedRecovery.minimumPauseAfterSightingSeconds ?? 0}s pause ·{' '}
               {formatEnum(decision.authorizedRecovery.seriesRecovery.treatment)} ·{' '}
               {decision.authorizedRecovery.seriesRecovery.shotsToFire} recovery shots
             </p>
@@ -1168,6 +1178,9 @@ function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onM
   }
   const latest = interruption.qualificationTimedTargetRecoveryDecisions.at(-1) ?? null;
   const suggested = latest?.authorizedRecovery ?? authorizedRecoveryFrom(recommendation);
+  const [sightingPauseSeconds, setSightingPauseSeconds] = useState(
+    String(suggested.minimumPauseAfterSightingSeconds ?? 0),
+  );
   const [extraSightingShots, setExtraSightingShots] = useState(String(suggested.extraSightingSeriesShots));
   const [treatment, setTreatment] = useState(suggested.seriesRecovery.treatment);
   const [shotsToFire, setShotsToFire] = useState(String(suggested.seriesRecovery.shotsToFire));
@@ -1226,6 +1239,9 @@ function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onM
             ...(latest ? { supersedesDecisionId: latest.id } : {}),
             authorizedRecovery: {
               extraSightingSeriesShots: Number(extraSightingShots),
+              ...(suggested.minimumPauseAfterSightingSeconds !== undefined || Number(sightingPauseSeconds) > 0
+                ? { minimumPauseAfterSightingSeconds: Number(sightingPauseSeconds) }
+                : {}),
               seriesRecovery,
             },
             statement,
@@ -1257,6 +1273,17 @@ function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onM
             value={extraSightingShots}
             onChange={(event) => setExtraSightingShots(event.target.value)}
             className={inputClass}
+          />
+        </Field>
+        <Field label="Pause after sighting (seconds)">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={sightingPauseSeconds}
+            onChange={(event) => setSightingPauseSeconds(event.target.value)}
+            className={inputClass}
+            required
           />
         </Field>
         <Field label="Series treatment">
@@ -1371,6 +1398,9 @@ function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onM
 function authorizedRecoveryFrom(recommendation: QualificationTimedTargetInterruptionRecommendationDto) {
   return {
     extraSightingSeriesShots: recommendation.extraSighting.shots,
+    ...(recommendation.minimumPauseAfterSightingSeconds !== undefined
+      ? { minimumPauseAfterSightingSeconds: recommendation.minimumPauseAfterSightingSeconds }
+      : {}),
     seriesRecovery: recommendation.seriesRecovery,
   };
 }

@@ -16,6 +16,7 @@ export interface FinalRecoveryAuthorizationContext {
   readonly entries: readonly FinalRecoveryEntry[];
   readonly history: readonly { recovery: FinalRecoveryCase; entries: readonly FinalRecoveryEntry[] }[];
   readonly remedy: FinalRecoveryRemedy;
+  readonly shotCount?: number;
 }
 
 /** Consumer-owned boundary; local procedures can supply a different policy. */
@@ -27,8 +28,16 @@ const malfunctionFiring = new Set<FinalRecoveryRemedy>(['REPEAT_SINGLE_SHOT', 'R
 
 /** Validates an official remedy; never classifies a malfunction or applies a score. */
 export class IssfFinalRecoveryAuthorizationPolicy implements IFinalRecoveryAuthorizationPolicy {
-  assertAuthorized({ recovery, entries, history, remedy }: FinalRecoveryAuthorizationContext): void {
+  assertAuthorized({ recovery, entries, history, remedy, shotCount }: FinalRecoveryAuthorizationContext): void {
     if (recovery.procedureProfile === 'GENERAL') return;
+    if (
+      recovery.incidentType === 'EST_FAILURE' &&
+      recovery.procedureProfile === 'PISTOL_25M_WOMEN' &&
+      remedy === 'COMPLETE_SERIES' &&
+      shotCount !== undefined &&
+      shotCount !== 1
+    )
+      throw new Error('P25 Final EST replacement authorizes one missing shot under 6.17.1.8(b)');
     const ruling = [...entries].reverse().find((entry) => entry.type === 'JURY_RULING')?.classification;
     if (recovery.incidentType === 'INCORRECT_COMMAND' && remedy !== 'OTHER' && remedy !== 'CONTINUE') {
       if (ruling !== 'COMMAND_CONFIRMED')

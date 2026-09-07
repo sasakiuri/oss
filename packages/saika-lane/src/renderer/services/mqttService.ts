@@ -6,6 +6,7 @@ import type {
   ConnectMqttInput,
   DeclareEstComplaintInput,
   DeclareQualificationMalfunctionInput,
+  EstComplaintContextDto,
   EstComplaintSignalDto,
   LaneSafetyStateDto,
   MqttSettings,
@@ -59,6 +60,9 @@ export const mqttService = {
 
   getEstComplaintSignal: createVoidServiceMethod<EstComplaintSignalDto>(() =>
     window.electronAPI.mqtt.getEstComplaintSignal(),
+  ),
+  getEstComplaintContext: createVoidServiceMethod<EstComplaintContextDto>(() =>
+    window.electronAPI.mqtt.getEstComplaintContext(),
   ),
 
   declareEstComplaint: createServiceMethod<DeclareEstComplaintInput, EstComplaintSignalDto>((input) =>

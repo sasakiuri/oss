@@ -131,8 +131,10 @@ describe('IssfStandardStrategy', () => {
         };
         // Both last ten-shot blocks total 93; B wins on the last shot (9 versus 8).
         // Comparing the final five-shot series alone would incorrectly rank A first.
-        expect(strategy.compareResults(a, b, format)).toBeGreaterThan(0);
-        expect(strategy.compareResults(b, a, format)).toBeLessThan(0);
+        const checkedA = { ...a, rankingShots: evidence(a.shots, Array(60).fill(false)) };
+        const checkedB = { ...b, rankingShots: evidence(b.shots, Array(60).fill(false)) };
+        expect(strategy.compareResults(checkedA, checkedB, format)).toBeGreaterThan(0);
+        expect(strategy.compareResults(checkedB, checkedA, format)).toBeLessThan(0);
       },
     );
 
@@ -144,7 +146,13 @@ describe('IssfStandardStrategy', () => {
         seriesScores: [...Array(9).fill(50), 49, 45, 46],
         shots: [...Array(59).fill(10), 9],
       };
-      expect(strategy.compareResults(a, b, format)).toBeGreaterThan(0);
+      expect(
+        strategy.compareResults(
+          { ...a, rankingShots: evidence(a.shots, Array(60).fill(false)) },
+          { ...b, rankingShots: evidence(b.shots, Array(60).fill(false)) },
+          format,
+        ),
+      ).toBeGreaterThan(0);
       const tiedA = { totalScore: 593, seriesScores: [...Array(10).fill(50), 45, 48], shots: [] };
       const tiedB = { totalScore: 593, seriesScores: [...Array(10).fill(50), 48, 45], shots: [] };
       const { tieBreakPolicy: _policy, ...localFormat } = format;

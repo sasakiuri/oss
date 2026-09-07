@@ -13,6 +13,7 @@ export type QualificationRecoveryFiringAuthorization =
   | {
       readonly phase: 'SERIES_RECOVERY';
       readonly seriesRecovery: QualificationTimedTargetSeriesRecoveryRecommendation;
+      readonly sightingPrerequisite?: { readonly runId: string; readonly minimumPauseSeconds: number };
     };
 
 export interface QualificationRecoveryProgramInput {

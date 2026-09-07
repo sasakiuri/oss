@@ -1,12 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
 import { BellRing, Copy, RefreshCw, Settings2 } from 'lucide-react';
-import { Input } from '../shared/common/Input';
-import { Button } from '../shared/common/Button';
-import { PageHeader } from '../shared/layout/PageHeader';
-import { Logger } from '@/shared/utils/Logger';
-import { competitionAnnouncementsService, mqttService } from '@/renderer/services';
+import { useState, useEffect, useCallback } from 'react';
+
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { competitionAnnouncementsService, mqttService } from '@/renderer/services';
+import { Logger } from '@/shared/utils/Logger';
+
+import { Button } from '../shared/common/Button';
+import { Input } from '../shared/common/Input';
+import { PageHeader } from '../shared/layout/PageHeader';
+
+import { ClockQualitySettingsPanel } from './ClockQualitySettingsPanel';
 import { OperationalArchivesPanel } from './OperationalArchivesPanel';
+import { ResultPublicationSettingsPanel } from './ResultPublicationSettingsPanel';
 
 const logger = Logger.create('SettingsScreen');
 
@@ -425,6 +430,8 @@ export function SettingsScreen() {
             </div>
           </div>
         </section>
+        <ClockQualitySettingsPanel />
+        <ResultPublicationSettingsPanel />
         <OperationalArchivesPanel />
       </div>
     </div>

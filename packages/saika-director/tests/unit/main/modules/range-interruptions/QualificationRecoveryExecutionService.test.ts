@@ -1,9 +1,9 @@
+import { ISSF_2026_P25 } from '@sasakiuri/saika-rules';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ISSF_2026_P25 } from '@sasakiuri/saika-rules';
 
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { allMigrations } from '@/main/infrastructure/database/migrations';
+import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { QualificationRecoveryExecutionService } from '@/main/modules/range-interruptions/application/QualificationRecoveryExecutionService';
 import { RangeInterruptionService } from '@/main/modules/range-interruptions/application/RangeInterruptionService';
 import type { IQualificationRecoveryExecutionTransport } from '@/main/modules/range-interruptions/domain/IQualificationRecoveryExecutionTransport';
@@ -61,6 +61,38 @@ describe('QualificationRecoveryExecutionService', () => {
   });
 
   afterEach(() => database.close());
+
+  it('requires persisted sighting completion and the full pause before target-failure recovery', async () => {
+    const interruption = await createDecidedInterruption(rangeService, true);
+    const decision = interruption.qualificationTimedTargetRecoveryDecisions[0]!;
+    expect(decision.authorizedRecovery.minimumPauseAfterSightingSeconds).toBe(60);
+    const input = {
+      caseId: interruption.id,
+      decisionId: decision.id,
+      competitionId: COMPETITION_ID,
+      phase: 'SERIES_RECOVERY' as const,
+    };
+    await expect(executionService.start(input)).rejects.toThrow('Complete the authorized extra sighting');
+    const sighting = await executionService.start({ ...input, phase: 'EXTRA_SIGHTING' });
+    expect(
+      executionService.observeState({
+        ...recoveryState(sighting.runId, interruption.id, decision.id),
+        authorization: sighting.authorization,
+        decisionRuleReference: decision.ruleReference,
+        status: 'COMPLETED',
+        terminalReason: 'Sighting completed',
+        terminalAt: '2026-09-03T01:22:00.000Z',
+        publishedAt: '2026-09-03T01:22:00.100Z',
+      }),
+    ).toBe(true);
+    now = new Date('2026-09-03T01:22:59.999Z');
+    await expect(executionService.start(input)).rejects.toThrow('pause after sighting');
+    now = new Date('2026-09-03T01:23:00.000Z');
+    const execution = await executionService.start(input);
+    expect(execution.authorization).toMatchObject({
+      sightingPrerequisite: { runId: sighting.runId, minimumPauseSeconds: 60 },
+    });
+  });
 
   it('derives separate sighting and series runs from the latest immutable decision', async () => {
     const interruption = await createDecidedInterruption(rangeService);
@@ -421,10 +453,10 @@ describe('QualificationRecoveryExecutionService', () => {
   });
 });
 
-async function createDecidedInterruption(service: RangeInterruptionService) {
+async function createDecidedInterruption(service: RangeInterruptionService, targetFailure = false) {
   const opened = await service.create({
     scopes: [{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }],
-    cause: 'ATHLETE_NON_FAULT',
+    cause: targetFailure ? 'ALL_TARGET_FAILURE' : 'ATHLETE_NON_FAULT',
     phase: 'MATCH',
     startedAt: '2026-09-03T01:00:00.000Z',
     remainingSecondsAtStart: 0,
@@ -454,6 +486,9 @@ async function createDecidedInterruption(service: RangeInterruptionService) {
     caseId: opened.id,
     authorizedRecovery: {
       extraSightingSeriesShots: ended.recommendation.extraSighting.shots,
+      ...(ended.recommendation.minimumPauseAfterSightingSeconds !== undefined
+        ? { minimumPauseAfterSightingSeconds: ended.recommendation.minimumPauseAfterSightingSeconds }
+        : {}),
       seriesRecovery: ended.recommendation.seriesRecovery,
     },
     statement: 'The Jury authorizes the Rule Pack recommendation.',

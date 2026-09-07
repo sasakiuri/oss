@@ -158,7 +158,11 @@ describe('CompetitionInterruptionService', () => {
     expect(timerService.resumeAt).toHaveBeenCalledWith(COMPETITION_ID, '2026-08-31T01:10:00.000Z', 540);
     expect(commandBus.execute).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ sessionId: 'session-1', mode: expect.objectContaining({ value: 'SIGHTING' }) }),
+      expect.objectContaining({
+        sessionId: 'session-1',
+        preserveSeries: true,
+        mode: expect.objectContaining({ value: 'SIGHTING' }),
+      }),
     );
     expect(restartedEventBus.emit).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'CompetitionInterruptionChanged', status: 'SIGHTING' }),

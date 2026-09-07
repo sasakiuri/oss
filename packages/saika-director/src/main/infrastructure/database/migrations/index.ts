@@ -1,6 +1,3 @@
-import { migration066EvidenceFiles } from './066_evidence_files';
-import { migration065FinalRecoveryAllowanceSubjects } from './065_final_recovery_allowance_subjects';
-import type { Migration } from './Migration';
 import { migration003CreateSchema } from './003_create_schema';
 import { migration004AddResultsStatus } from './004_add_results_status';
 import { migration005AddFinalResults } from './005_add_final_results';
@@ -62,12 +59,17 @@ import { migration060QualificationMalfunctionSignalLink } from './060_qualificat
 import { migration061EstComplaintTargetExaminationLinks } from './061_est_complaint_target_examination_links';
 import { migration062RangeSafetyLaneClearances } from './062_range_safety_lane_clearances';
 import { migration063PostCompetitionEquipmentControl } from './063_post_competition_equipment_control';
-
 import { migration064QualificationMalfunctionScoreSheets } from './064_qualification_malfunction_score_sheets';
-
+import { migration065FinalRecoveryAllowanceSubjects } from './065_final_recovery_allowance_subjects';
+import { migration066EvidenceFiles } from './066_evidence_files';
 import { migration067QualificationResultSeries } from './067_qualification_result_series';
-
 import { migration068MalfunctionScoreApplications } from './068_malfunction_score_applications';
+import { migration069ScoreCorrections } from './069_score_corrections';
+import { migration070ReserveLaneTransfers } from './070_reserve_lane_transfers';
+import { migration071FinalRecoveryFiring } from './071_final_recovery_firing';
+import { migration072RelayReadinessStartSettings } from './072_relay_readiness_start_settings';
+import { migration073EstInspectionStartSettings } from './073_est_inspection_start_settings';
+import type { Migration } from './Migration';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -136,4 +138,9 @@ export const allMigrations: Migration[] = [
   migration066EvidenceFiles,
   migration067QualificationResultSeries,
   migration068MalfunctionScoreApplications,
+  migration069ScoreCorrections,
+  migration070ReserveLaneTransfers,
+  migration071FinalRecoveryFiring,
+  migration072RelayReadinessStartSettings,
+  migration073EstInspectionStartSettings,
 ];
