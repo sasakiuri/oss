@@ -61,7 +61,30 @@ export class LaneEstComplaintContextSource implements IEstComplaintSignalContext
     const configuredProgramId =
       session.mode.value === 'SIGHTING' ? stage.sightingTimedTargetProgramId : series.timedTargetProgramId;
 
+    const recovery = competition.config.timedTarget?.recovery;
+    const procedure =
+      session.mode.value === 'MATCH' && recovery?.procedure === 'QUALIFICATION'
+        ? recovery.missingShotComplaints?.find((item) => item.stageId === stage.id)
+        : undefined;
     return {
+      ...(competition.config.rulePackIdentity && competition.config.round
+        ? {
+            rules: {
+              round: competition.config.round,
+              identity: competition.config.rulePackIdentity,
+              procedures: competition.config.estComplaints?.procedures ?? [],
+            },
+          }
+        : {}),
+      ...(procedure
+        ? {
+            missingShotProcedure: {
+              notification: procedure.notification,
+              seriesRepeatAllowed: procedure.seriesRepeatAllowed,
+              ruleReference: procedure.ruleReference,
+            },
+          }
+        : {}),
       competitionId: competition.id,
       sessionId: competition.sessionId,
       participantId: assignment.athlete.id,

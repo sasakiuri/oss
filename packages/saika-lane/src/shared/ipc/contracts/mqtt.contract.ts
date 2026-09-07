@@ -9,7 +9,11 @@
 
 import { z } from 'zod';
 
-import { EstComplaintIssueSchema, EstComplaintSignalPayloadSchema } from '@/shared/mqtt/EstComplaintSignal';
+import {
+  EstComplaintIssueSchema,
+  EstComplaintSignalContextSchema,
+  EstComplaintSignalPayloadSchema,
+} from '@/shared/mqtt/EstComplaintSignal';
 import { QualificationMalfunctionSignalPayloadSchema } from '@/shared/mqtt/QualificationMalfunctionSignal';
 import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
 
@@ -157,6 +161,9 @@ export const mqttContract = defineContract('mqtt', {
   getEstComplaintSignal: query(queryResponseSchema(EstComplaintSignalPayloadSchema), {
     channel: 'mqtt:getEstComplaintSignal',
   }),
+  getEstComplaintContext: query(queryResponseSchema(EstComplaintSignalContextSchema), {
+    channel: 'mqtt:getEstComplaintContext',
+  }),
   declareEstComplaint: command(
     DeclareEstComplaintInputSchema,
     commandDataResponseSchema(EstComplaintSignalPayloadSchema),
@@ -192,3 +199,4 @@ export type QualificationMalfunctionSignalDto = z.infer<typeof QualificationMalf
 export type DeclareEstComplaintInput = z.infer<typeof DeclareEstComplaintInputSchema>;
 export type ClearEstComplaintSignalInput = z.infer<typeof ClearEstComplaintSignalInputSchema>;
 export type EstComplaintSignalDto = z.infer<typeof EstComplaintSignalPayloadSchema>;
+export type EstComplaintContextDto = z.infer<typeof EstComplaintSignalContextSchema>;

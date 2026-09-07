@@ -17,3 +17,5 @@ export type {
   IResultPublicationReadiness,
   ResultPublicationReadiness,
 } from './application/ResultPublicationPorts';
+
+export { OptionalResultPublicationBlocker } from './application/OptionalResultPublicationBlocker';

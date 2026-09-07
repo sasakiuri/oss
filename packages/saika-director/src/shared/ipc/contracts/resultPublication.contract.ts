@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
 const uuidSchema = z.string().uuid();
@@ -116,7 +117,15 @@ const DeclareFinalResultsInputSchema = z.object({
   officialName: officialNameSchema,
 });
 
+const reviewSettingsSchema = z.object({
+  requireIncidentReports: z.boolean(),
+  requireFinalRecoveriesComplete: z.boolean(),
+});
+export type ResultPublicationReviewSettingsDto = z.infer<typeof reviewSettingsSchema>;
+
 export const resultPublicationContract = defineContract('resultPublication', {
+  getReviewSettings: query(queryResponseSchema(reviewSettingsSchema)),
+  setReviewSettings: command(reviewSettingsSchema, commandDataResponseSchema(reviewSettingsSchema)),
   getStatus: query(eventScopeInput, queryResponseSchema(ResultPublicationStatusDtoSchema)),
   publishPreliminary: command(
     PublishPreliminaryResultsInputSchema,

@@ -1,7 +1,16 @@
 export { defineRulePack } from './RulePack';
+export { findEstComplaintProcedure, validateEstComplaintCapability } from './EstComplaint';
+export type {
+  EstComplaintCapability,
+  EstComplaintProcedure,
+  EstComplaintRuleContext,
+  RuleEstComplaintIssue,
+} from './EstComplaint';
 export { canonicalJson, identifyRulePack } from './RulePackIdentity';
 export { projectShotResult } from './ShotResultProjection';
 export { recommendQualificationTimedTargetInterruption } from './QualificationTimedTargetInterruption';
+export { planQualificationMalfunctionFiring } from './QualificationMalfunctionFiring';
+export type { QualificationMalfunctionFiringPlan } from './QualificationMalfunctionFiring';
 export {
   assessQualificationMalfunctionClaim,
   settleQualificationMalfunctionRepeat,
@@ -86,3 +95,11 @@ export type {
 export type { RulePackIdentity } from './RulePackIdentity';
 export { RulePackRegistry } from './RulePackRegistry';
 export * from './issf-2026';
+export { recommendQualificationTargetFailure } from './QualificationTargetFailure';
+
+export * from './RecoveryFiringPlan';
+export * from './FinalRecoveryFiring';
+
+export * from './MissingShotComplaint';
+
+export type { MissingShotComplaintProcedure } from './RulePack';

@@ -67,6 +67,36 @@ describe('FinalRecoveryService', () => {
     expect(value.entries).toEqual([]);
   });
 
+  it('rejects a multi-shot P25 EST authorization in the independent Jury ledger', () => {
+    const service = new FinalRecoveryService(new MemoryRepository());
+    const value = service.create({
+      competitionId,
+      eventId,
+      procedureProfile: 'PISTOL_25M_WOMEN',
+      incidentType: 'EST_FAILURE',
+      phase: 'MATCH_SERIES',
+      affectedLaneIds: [laneId],
+      summary: 'Missing indication',
+      openedBy: 'RO',
+    });
+    service.appendEntry({
+      caseId: value.id,
+      type: 'JURY_RULING',
+      classification: 'TARGET_MALFUNCTION',
+      statement: 'No credible miss evidence',
+      officialName: 'Jury',
+    });
+    const authorization = {
+      caseId: value.id,
+      type: 'REMEDY_AUTHORIZED' as const,
+      remedy: 'COMPLETE_SERIES' as const,
+      statement: 'Replace missing shot',
+      officialName: 'Jury',
+    };
+    expect(() => service.appendEntry({ ...authorization, shotCount: 3 })).toThrow('one missing shot');
+    expect(service.appendEntry({ ...authorization, shotCount: 1 }).status).toBe('RECOVERY_AUTHORIZED');
+  });
+
   it('requires a ruling before append-only recovery authorization and resumption', () => {
     const repository = new MemoryRepository();
     const service = new FinalRecoveryService(repository);

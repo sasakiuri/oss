@@ -25,6 +25,12 @@ export interface QualificationRankingInput {
   readonly familyName?: string;
 }
 
+export interface QualificationComparison {
+  readonly comparison: number;
+  /** Missing evidence is distinct from an established equal rank. */
+  readonly issues: readonly string[];
+}
+
 /**
  * Competition-specific result processing strategy.
  * Encapsulates shot/series padding, ranking, and stage-splitting logic.
@@ -43,6 +49,13 @@ export interface CompetitionTypeStrategy {
    * @returns Negative when a ranks higher, zero for a tie, positive when b ranks higher.
    */
   compareResults(a: QualificationRankingInput, b: QualificationRankingInput, format: ResultFormat): number;
+
+  /** Optional evidence assessment; local strategies can retain their own comparison policy. */
+  assessComparison?(
+    a: QualificationRankingInput,
+    b: QualificationRankingInput,
+    format: ResultFormat,
+  ): QualificationComparison;
 
   /** Orders an unresolved tie for display without assigning different ranks (Rule 6.15.1(e)). */
   compareEqualResultsForDisplay?(a: QualificationRankingInput, b: QualificationRankingInput): number;

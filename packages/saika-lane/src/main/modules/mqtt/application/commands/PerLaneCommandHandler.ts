@@ -13,6 +13,7 @@ import type { z } from 'zod';
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import type { IMalfunctionFiringControl, MalfunctionFiringRequest } from '@/main/modules/malfunction-firing';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
@@ -24,7 +25,11 @@ import {
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
+  ReserveLaneTransferCmdSchema,
   ApplyQualificationRecoveryCmdSchema,
+  StartMalfunctionFiringCmdSchema,
+  ReadMalfunctionFiringCmdSchema,
+  CancelMalfunctionFiringCmdSchema,
   AssignAthleteCmdSchema,
   CancelQualificationRecoveryCmdSchema,
   PauseTimerCmdSchema,
@@ -43,12 +48,19 @@ import type {
   IQualificationRecoverySettlementControl,
   StartQualificationRecoveryRunInput,
 } from '@/main/modules/qualification-recovery';
+import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { MalfunctionFiringEvidenceSchema } from '@/shared/mqtt/MalfunctionFiring';
+import type { ReserveLaneTransferAction } from '@/shared/mqtt/ReserveLaneTransfer';
 
 type PerLaneAction =
+  | 'reserve-lane-transfer'
+  | 'start-malfunction-firing'
+  | 'read-malfunction-firing'
+  | 'cancel-malfunction-firing'
   | 'assign-athlete'
   | 'reset-session'
   | 'pause-timer'
@@ -61,6 +73,10 @@ type PerLaneAction =
   | 'retire-finalist';
 
 const ACTION_SCHEMAS: Record<PerLaneAction, z.ZodType> = {
+  'reserve-lane-transfer': ReserveLaneTransferCmdSchema,
+  'start-malfunction-firing': StartMalfunctionFiringCmdSchema,
+  'read-malfunction-firing': ReadMalfunctionFiringCmdSchema,
+  'cancel-malfunction-firing': CancelMalfunctionFiringCmdSchema,
   'assign-athlete': AssignAthleteCmdSchema,
   'reset-session': ResetSessionCmdSchema,
   'pause-timer': PauseTimerCmdSchema,
@@ -104,6 +120,9 @@ export class PerLaneCommandHandler {
     >,
     private readonly qualificationRecoveryAdjudicationControl?: IQualificationRecoveryAdjudicationControl,
     private readonly qualificationRecoverySettlementControl?: IQualificationRecoverySettlementControl,
+    private readonly malfunctionFiringControl?: IMalfunctionFiringControl,
+    private readonly reserveTransferControl?: IReserveLaneTransferControl,
+    private readonly replayTransferredSession?: (competitionId: string) => Promise<void>,
   ) {}
 
   /**
@@ -240,7 +259,54 @@ export class PerLaneCommandHandler {
     command: Record<string, unknown>,
     competitionId: string,
   ): Promise<Record<string, unknown> | undefined> {
+    if (action !== 'reserve-lane-transfer' && action !== 'read-malfunction-firing')
+      this.reserveTransferControl?.assertMutationAllowed();
     switch (action) {
+      case 'reserve-lane-transfer': {
+        if (!this.reserveTransferControl) throw new Error('Reserve transfer is unavailable');
+        const transfer = command.transfer as ReserveLaneTransferAction;
+        const transferCompetitionId =
+          transfer.operation === 'PREPARE_SOURCE'
+            ? transfer.request.competitionId
+            : 'bundle' in transfer
+              ? transfer.bundle.request.competitionId
+              : competitionId;
+        if (transferCompetitionId !== competitionId) throw new Error('Transfer belongs to another competition');
+        const bundle = await this.reserveTransferControl.execute(competitionId, transfer);
+        if (bundle.request.competitionId !== competitionId) throw new Error('Transfer belongs to another competition');
+        if (transfer.operation === 'ACTIVATE_TARGET') await this.replayTransferredSession?.(competitionId);
+        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        await this.scorePublisher.publishCurrentScore(competitionId);
+        return { bundle };
+      }
+      case 'start-malfunction-firing': {
+        this.assertSafetyCleared(action);
+        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
+        const request = command.request as MalfunctionFiringRequest;
+        if (request.competitionId !== competitionId) throw new Error('Firing request has a different competition');
+        return { evidence: MalfunctionFiringEvidenceSchema.parse(await this.malfunctionFiringControl.start(request)) };
+      }
+      case 'read-malfunction-firing': {
+        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
+        return {
+          evidence: MalfunctionFiringEvidenceSchema.parse(
+            this.malfunctionFiringControl.read(competitionId, command.runId as string),
+          ),
+        };
+      }
+      case 'cancel-malfunction-firing': {
+        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
+        return {
+          evidence: MalfunctionFiringEvidenceSchema.parse(
+            this.malfunctionFiringControl.cancel(
+              competitionId,
+              command.runId as string,
+              command.reason as string,
+              command.request as MalfunctionFiringRequest | undefined,
+            ),
+          ),
+        };
+      }
       case 'assign-athlete': {
         const athlete = command.athlete as Athlete | null;
         await this.assignmentPublisher.assign(competitionId, athlete);

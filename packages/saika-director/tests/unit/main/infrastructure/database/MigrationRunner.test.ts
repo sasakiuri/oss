@@ -8,11 +8,12 @@
  * The MigrationRunner logic is implicitly tested by any test that uses DatabaseManager
  * or by running the app itself.
  */
-import { describe, it, expect, vi } from 'vitest';
 import type Database from 'better-sqlite3';
+import { describe, it, expect, vi } from 'vitest';
+
+import { allMigrations } from '@/main/infrastructure/database/migrations';
 import type { Migration } from '@/main/infrastructure/database/migrations/Migration';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
-import { allMigrations } from '@/main/infrastructure/database/migrations';
 
 describe('MigrationRunner', () => {
   describe('allMigrations', () => {
@@ -32,9 +33,11 @@ describe('MigrationRunner', () => {
       }
     });
 
-    it('should have version 66 as the latest', () => {
+    it('registers per-competition start policy settings after the firing ledger', () => {
       const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(68);
+      expect(maxVersion).toBe(73);
+      expect(allMigrations.at(-1)?.name).toBe('est_inspection_start_settings');
+      expect(allMigrations.at(-2)?.name).toBe('relay_readiness_start_settings');
     });
   });
 

@@ -1,3 +1,5 @@
+import { findEstComplaintProcedure, missingShotComplaintGuidance } from '@sasakiuri/saika-rules';
+
 import type { EstComplaintTimingAdvisoryDto } from '@/shared/ipc/contracts';
 
 import type { EstComplaintSignalSnapshot } from './IEstComplaintSignalSource';
@@ -8,7 +10,42 @@ const THREE_MINUTES_MS = 3 * 60 * 1000;
 export class EstComplaintTimingPolicy {
   assess(snapshot: EstComplaintSignalSnapshot): EstComplaintTimingAdvisoryDto {
     const elapsedMilliseconds = elapsedSinceLastShot(snapshot);
+    const procedure = findEstComplaintProcedure(snapshot.context.rules, snapshot.context.phase, snapshot.issue);
+    if (procedure)
+      return {
+        advisoryOnly: true,
+        status: procedure.review === 'OFFICIAL_REVIEW' ? 'REQUIRES_OFFICIAL_REVIEW' : 'SEPARATE_TARGET_PROCEDURE',
+        elapsedMilliseconds,
+        ruleReference: procedure.ruleReference,
+        guidance: procedure.officialGuidance,
+      };
+    if (
+      (!snapshot.context.rules && !snapshot.context.missingShotProcedure) ||
+      snapshot.context.rules?.round === 'FINAL'
+    )
+      return {
+        advisoryOnly: true,
+        status: 'REQUIRES_OFFICIAL_REVIEW',
+        elapsedMilliseconds,
+        ruleReference: snapshot.context.rules?.identity.id ?? 'Event-specific EST procedure',
+        guidance:
+          'Confirm the round and applicable procedure with the Jury. This observation does not establish a score-protest deadline or authorize replacement firing.',
+      };
 
+    if (snapshot.issue === 'SHOT_NOT_REGISTERED') {
+      const procedure = snapshot.context.missingShotProcedure;
+      return {
+        advisoryOnly: true,
+        status: procedure ? 'SEPARATE_TARGET_PROCEDURE' : 'REQUIRES_OFFICIAL_REVIEW',
+        elapsedMilliseconds,
+        ruleReference: procedure
+          ? `ISSF ${procedure.ruleReference}`
+          : 'ISSF 6.10.8; verify applicability of 6.10.9.3 or 8.10.3',
+        guidance: procedure
+          ? missingShotComplaintGuidance(procedure)
+          : 'Confirm the event and stage before selecting the missing-shot procedure. This snapshot does not establish a notification deadline or authorize extra firing.',
+      };
+    }
     if (snapshot.issue === 'TARGET_FAILURE') {
       return advisory(
         'TARGET_FAILURE_EXCEPTION',

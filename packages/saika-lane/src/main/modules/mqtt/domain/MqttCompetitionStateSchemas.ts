@@ -72,6 +72,7 @@ export const CompetitionStatePayloadSchema = z.object({
   totalSeries: z.number().int().positive(),
   totalShots: z.number().int().positive(),
   laneIds: z.array(z.string().uuid()),
+  transferredSourceLaneIds: z.array(z.string().uuid()).optional(),
   pendingJoinLaneIds: z.array(z.string().uuid()).optional(),
   pendingSightingLaneIds: z.array(z.string().uuid()).optional(),
   startedAt: z.string().datetime().nullable(),

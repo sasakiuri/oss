@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
 import {
   DirectorMqttService,
   type DirectorMqttCallbacks,
@@ -385,6 +386,78 @@ describe('DirectorMqttService', () => {
     vi.restoreAllMocks();
   });
 
+  it('enforces a runtime clock policy change before publishing any start intent', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    service.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'REQUIRED' }));
+    const publicationCount = transport.publications.length;
+    await expect(service.startSighting(COMPETITION_ID, 900)).rejects.toThrow('Fresh GOOD clock-quality samples');
+    expect(transport.publications).toHaveLength(publicationCount);
+    expect(service.getSnapshot().competitions[0]?.pendingTimer).toBeUndefined();
+
+    service.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'ADVISORY' }));
+    const start = service.startSighting(COMPETITION_ID, 900);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-sighting'))).toBe(true),
+    );
+    acknowledgeCompetitionCommand(transport, 'start-sighting', publishedCommand(transport, 'start-sighting').commandId);
+    expect((await start).success).toBe(true);
+    await service.disconnect();
+  });
+
+  it('checks actual start participants before publishing sighting or match commands', async () => {
+    const assertPhaseStartAllowed = vi.fn(() => {
+      throw new Error('Relay checks outstanding');
+    });
+    const service = createService(transport, vi.fn(), { assertPhaseStartAllowed });
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    const count = transport.publications.length;
+    await expect(service.startSighting(COMPETITION_ID, 900)).rejects.toThrow('Relay checks outstanding');
+    expect(assertPhaseStartAllowed).toHaveBeenCalledWith({
+      competitionId: COMPETITION_ID,
+      phase: 'SIGHTING',
+      laneIds: [LANE_ID],
+    });
+    expect(transport.publications).toHaveLength(count);
+    const state = service.getSnapshot().competitions[0]!;
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...state,
+      phase: 'SIGHTING_COMPLETE',
+      publishedAt: new Date().toISOString(),
+    });
+    await expect(service.startMatch(COMPETITION_ID, 4500)).rejects.toThrow('Relay checks outstanding');
+    expect(assertPhaseStartAllowed).toHaveBeenLastCalledWith({
+      competitionId: COMPETITION_ID,
+      phase: 'MATCH',
+      laneIds: [LANE_ID],
+    });
+    expect(transport.publications).toHaveLength(count);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...state,
+      phase: 'MATCH',
+      publishedAt: new Date().toISOString(),
+    });
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, activeTimedLaneState(LANE_ID));
+    await expect(
+      service.startTimedTarget({
+        competitionId: COMPETITION_ID,
+        purpose: 'SIGHTING',
+        programId: 'P25_SIGHTING_PRECISION_240',
+        stageIndex: 1,
+        seriesIndex: 0,
+      }),
+    ).rejects.toThrow('Relay checks outstanding');
+    expect(assertPhaseStartAllowed).toHaveBeenLastCalledWith({
+      competitionId: COMPETITION_ID,
+      phase: 'SIGHTING',
+      laneIds: [LANE_ID],
+    });
+    expect(transport.publications).toHaveLength(count);
+    await service.disconnect();
+  });
+
   it('cleans up the transport when topic subscription fails during connection', async () => {
     transport.subscribeError = new Error('subscription rejected');
     const service = createService(transport);
@@ -570,6 +643,90 @@ describe('DirectorMqttService', () => {
     });
     expect(lane?.estComplaintSignal).not.toHaveProperty('timeliness');
     expect(lane?.estComplaintSignal).not.toHaveProperty('decision');
+  });
+
+  it('routes Final recovery cancellation with the immutable request and permits evidence reads under STOP', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      roundName: 'Final',
+      phase: 'MATCH',
+      definitionBinding: {
+        protocolVersion: 1,
+        compatibilityMode: 'REQUIRED',
+        rulePack: { id: 'P25_FINAL', schemaVersion: 1, fingerprint: { algorithm: 'SHA-256', value: 'a'.repeat(64) } },
+      },
+      publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+    });
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, activeTimedLaneState(LANE_ID));
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/assignment`, {
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      athlete: { id: PARTICIPANT_ID, name: 'Finalist', startNumber: 1 },
+      assignedAt: null,
+      publishedAt: new Date().toISOString(),
+    });
+    expect(service.getFinalFiringContext(COMPETITION_ID, LANE_ID)).toMatchObject({
+      participantId: PARTICIPANT_ID,
+      seriesShotLimit: 5,
+    });
+    const request = {
+      workflow: 'FINAL_RECOVERY' as const,
+      finalIncident: 'MALFUNCTION' as const,
+      runId: RECOVERY_RUN_ID,
+      caseId: INTERRUPTION_ID,
+      authorizationId: RECOVERY_DECISION_ID,
+      competitionId: COMPETITION_ID,
+      sessionId: SESSION_ID,
+      participantId: PARTICIPANT_ID,
+      rulePackFingerprint: 'a'.repeat(64),
+      stageIndex: 1,
+      seriesIndex: 0,
+      recordedShots: 0,
+      remedy: 'COMPLETE_REMAINING_SHOTS' as const,
+      shotsToFire: 5,
+      officialName: 'Jury',
+      decidedAt: new Date().toISOString(),
+      loadAt: new Date(Date.now() + 10000).toISOString(),
+    };
+    await expect(service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' })).rejects.toThrow(
+      /safety STOP/,
+    );
+    for (const operation of ['CANCEL', 'READ'] as const) {
+      const pending = service.executeFinalFiring({
+        laneId: LANE_ID,
+        request,
+        operation,
+        reason: 'Withdraw before LOAD',
+      });
+      const action = operation === 'CANCEL' ? 'cancel-malfunction-firing' : 'read-malfunction-firing';
+      await vi.waitFor(
+        () => expect(transport.publications.some((entry) => entry.topic.endsWith('/' + action))).toBe(true),
+        { interval: 1 },
+      );
+      const command = JSON.parse(transport.publications.find((entry) => entry.topic.endsWith('/' + action))!.payload);
+      if (operation === 'CANCEL') expect(command.request).toEqual(request);
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/${action}/acknowledgement`, {
+        commandId: command.commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+        data: {
+          evidence: {
+            request,
+            status: 'CANCELLED',
+            terminalReason: 'Withdraw before LOAD',
+            captureIssues: [],
+            startedAt: null,
+            targetProfileId: null,
+            shots: [],
+          },
+        },
+      });
+      await expect(pending).resolves.toMatchObject({ status: 'CANCELLED' });
+    }
   });
 
   it('enters a timed-target MATCH without creating a generic range timer', async () => {

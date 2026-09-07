@@ -288,6 +288,21 @@ export class Session {
    * @returns New Session instance
    * @throws {Error} If the session is already finished
    */
+  resumeMode(newMode: Mode): Session {
+    if (this.isFinished)
+      throw ErrorCatalog.createError('SESSION_ALREADY_FINISHED', { detail: 'Cannot resume a finished session' });
+    return new Session(
+      this.id,
+      this.discipline,
+      newMode,
+      this.series,
+      this.allShots,
+      this.startedAt,
+      this.finishedAt,
+      this.scoringMode,
+    );
+  }
+
   switchMode(newMode: Mode, maxShots?: number): Session {
     // Business rule: cannot switch mode on a finished session
     if (this.isFinished) {

@@ -24,7 +24,13 @@ const QualificationSeriesRecoverySchema = z.union([
 export const QualificationRecoveryFiringAuthorizationSchema = z
   .union([
     z.object({ phase: z.literal('EXTRA_SIGHTING'), shotsToFire: z.number().int().positive() }),
-    z.object({ phase: z.literal('SERIES_RECOVERY'), seriesRecovery: QualificationSeriesRecoverySchema }),
+    z.object({
+      phase: z.literal('SERIES_RECOVERY'),
+      seriesRecovery: QualificationSeriesRecoverySchema,
+      sightingPrerequisite: z
+        .object({ runId: z.string().uuid(), minimumPauseSeconds: z.number().int().nonnegative() })
+        .optional(),
+    }),
   ])
   .superRefine((authorization, context) => {
     if (

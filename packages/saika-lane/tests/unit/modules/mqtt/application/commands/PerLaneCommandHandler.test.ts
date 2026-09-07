@@ -22,6 +22,7 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import type { IMalfunctionFiringControl, MalfunctionFiringRun } from '@/main/modules/malfunction-firing';
 import { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
@@ -33,6 +34,7 @@ import type {
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
+import type { MalfunctionFiringRequestPayload } from '@/shared/mqtt/MalfunctionFiring';
 
 import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
 
@@ -92,6 +94,8 @@ describe('PerLaneCommandHandler', () => {
   let qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
   let qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   let qualificationRecoveryStatePublisher: { publishCurrentState: ReturnType<typeof vi.fn> };
+  let malfunctionFiringControl: IMalfunctionFiringControl;
+  let safetyStopped: boolean;
   let handler: PerLaneCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -172,6 +176,12 @@ describe('PerLaneCommandHandler', () => {
         ],
       }),
     } as unknown as IQualificationRecoverySettlementControl;
+    safetyStopped = false;
+    malfunctionFiringControl = {
+      start: vi.fn().mockImplementation(async (request) => firingEvidence(request)),
+      read: vi.fn().mockImplementation(() => firingEvidence(firingRequest())),
+      cancel: vi.fn().mockImplementation(() => ({ ...firingEvidence(firingRequest()), status: 'CANCELLED' })),
+    };
     handler = new PerLaneCommandHandler(
       mqttClient,
       commandBus,
@@ -183,12 +193,13 @@ describe('PerLaneCommandHandler', () => {
       interruptionControl,
       () => LANE_ID,
       COMPETITION_ID,
-      undefined,
+      { isStopped: () => safetyStopped, getState: () => null },
       undefined,
       qualificationRecoveryControl,
       qualificationRecoveryStatePublisher,
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
+      malfunctionFiringControl,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -502,6 +513,87 @@ describe('PerLaneCommandHandler', () => {
         status: 'done',
         data: { decisionId: RECOVERY_DECISION_ID, retainedShots: 5 },
       });
+    });
+  });
+
+  function firingRequest(): MalfunctionFiringRequestPayload {
+    return {
+      runId: RECOVERY_RUN_ID,
+      competitionId: COMPETITION_ID,
+      caseId: INTERRUPTION_ID,
+      authorizationId: RECOVERY_DECISION_ID,
+      participantId: 'athlete-1',
+      sessionId: SESSION_ID,
+      rulePackFingerprint: 'a'.repeat(64),
+      stageIndex: 1,
+      seriesIndex: 0,
+      recordedShots: 2,
+      remedy: 'COMPLETE_REMAINING_SHOTS',
+      shotsToFire: 3,
+      officialName: 'RO',
+      decidedAt: '2026-09-07T00:00:00.000Z',
+      loadAt: '2026-09-07T00:01:00.000Z',
+    };
+  }
+  function firingEvidence(request: MalfunctionFiringRequestPayload) {
+    return {
+      request,
+      status: 'COMPLETED',
+      captureIssues: [],
+      terminalReason: 'Completed',
+      startedAt: request.loadAt,
+      targetProfileId: 'ISSF_25M_PRECISION',
+      shots: [],
+    } as unknown as MalfunctionFiringRun;
+  }
+
+  describe('isolated malfunction firing commands', () => {
+    it('returns validated durable evidence in the ACK without publishing normal scores', async () => {
+      await sendMessage('start-malfunction-firing', buildCommand({ request: firingRequest() }));
+      expect(malfunctionFiringControl.start).toHaveBeenCalledWith(firingRequest());
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({ status: 'done', data: { evidence: firingEvidence(firingRequest()) } });
+      expect(scorePublisher.publishCurrentScore).not.toHaveBeenCalled();
+      expect(commandBus.execute).not.toHaveBeenCalled();
+    });
+
+    it.each(['start-malfunction-firing', 'read-malfunction-firing', 'cancel-malfunction-firing'])(
+      'validates %s before invoking acquisition',
+      async (action) => {
+        await sendMessage(action, buildCommand({ runId: 'invalid', request: { ...firingRequest(), shotsToFire: 6 } }));
+        expect(malfunctionFiringControl.start).not.toHaveBeenCalled();
+        expect(malfunctionFiringControl.read).not.toHaveBeenCalled();
+        expect(malfunctionFiringControl.cancel).not.toHaveBeenCalled();
+        const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+        expect(ack).toMatchObject({ status: 'error', error: { code: 'MQTT_COMMAND_VALIDATION_FAILED' } });
+      },
+    );
+
+    it('rejects a cross-competition authorization before execution', async () => {
+      await sendMessage(
+        'start-malfunction-firing',
+        buildCommand({ request: { ...firingRequest(), competitionId: LANE_ID } }),
+      );
+      expect(malfunctionFiringControl.start).not.toHaveBeenCalled();
+    });
+
+    it('allows evidence retrieval and cancellation during STOP while blocking new firing', async () => {
+      safetyStopped = true;
+      await sendMessage('start-malfunction-firing', buildCommand({ request: firingRequest() }));
+      expect(malfunctionFiringControl.start).not.toHaveBeenCalled();
+      guard.clear();
+      await sendMessage('read-malfunction-firing', buildCommand({ runId: RECOVERY_RUN_ID }));
+      expect(malfunctionFiringControl.read).toHaveBeenCalledWith(COMPETITION_ID, RECOVERY_RUN_ID);
+      guard.clear();
+      await sendMessage('cancel-malfunction-firing', buildCommand({ runId: RECOVERY_RUN_ID, reason: 'Official stop' }));
+      expect(malfunctionFiringControl.cancel).toHaveBeenCalledWith(
+        COMPETITION_ID,
+        RECOVERY_RUN_ID,
+        'Official stop',
+        undefined,
+      );
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack).toMatchObject({ status: 'done', data: { evidence: { status: 'CANCELLED' } } });
     });
   });
 

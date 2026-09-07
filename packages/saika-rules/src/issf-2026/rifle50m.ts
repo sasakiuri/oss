@@ -1,5 +1,6 @@
 import { defineRulePack, type RulePack, type RuleSeries } from '../RulePack';
 
+import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 import { buildIssf50mThreePositionsFinalCommandScript } from './rifle50mFinalCommandScript';
 
@@ -217,6 +218,7 @@ export const ISSF_2026_R3P_FINAL: RulePack = defineRulePack({
   round: 'FINAL',
   authority,
   capabilities: {
+    estComplaints: ISSF_2026_FINAL_EST_COMPLAINTS,
     target: {
       scoringProfileId: 'ISSF_RIFLE_50M_2026',
       scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',

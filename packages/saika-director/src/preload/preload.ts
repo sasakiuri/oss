@@ -1,4 +1,5 @@
 import { contextBridge } from 'electron';
+
 import {
   championshipContract,
   laneControlContract,
@@ -11,6 +12,9 @@ import {
   targetExaminationsContract,
   evidenceFilesContract,
   malfunctionScoreApplicationsContract,
+  scoreCorrectionsContract,
+  reserveLaneTransfersContract,
+  finalRecoveryFiringContract,
   rangeInterruptionsContract,
   relayReadinessContract,
   relayAthleteLifecycleContract,
@@ -43,6 +47,7 @@ import {
   estComplaintsContract,
 } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
+
 import { buildProcedureBridge, buildEventBridge, buildAliasedBridge } from './buildPreloadAPI';
 
 declare const __APP_VERSION__: string;
@@ -73,6 +78,9 @@ const electronAPI: ElectronAPI = {
   targetExaminations: buildProcedureBridge(targetExaminationsContract),
   evidenceFiles: buildProcedureBridge(evidenceFilesContract),
   malfunctionScoreApplications: buildProcedureBridge(malfunctionScoreApplicationsContract),
+  scoreCorrections: buildProcedureBridge(scoreCorrectionsContract),
+  reserveLaneTransfers: buildProcedureBridge(reserveLaneTransfersContract),
+  finalRecoveryFiring: buildProcedureBridge(finalRecoveryFiringContract),
   estComplaints: buildProcedureBridge(estComplaintsContract),
   rangeInterruptions: buildProcedureBridge(rangeInterruptionsContract),
   relayReadiness: buildProcedureBridge(relayReadinessContract),

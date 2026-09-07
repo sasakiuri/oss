@@ -9,6 +9,7 @@ import {
   type QualificationRecoverySettlementRecord,
   type QualificationRecoverySettlementRequest,
 } from '../domain/QualificationRecoverySettlement';
+import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
 import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
 
 export interface ApplyQualificationRecoverySettlementInput {
@@ -60,6 +61,11 @@ export class QualificationRecoverySettlementService {
     if (context.recordedShots !== context.seriesShotLimit) {
       throw new Error('KEEP_RECORDED_SERIES requires every series shot to be recorded');
     }
+    requireQualificationSighting(
+      decision,
+      this.executionRepository.findByCaseIds([input.caseId]).get(input.caseId) ?? [],
+      this.now(),
+    );
     const unsafeExecution = (this.executionRepository.findByCaseIds([input.caseId]).get(input.caseId) ?? []).find(
       (execution) =>
         execution.decisionId === decision.id &&

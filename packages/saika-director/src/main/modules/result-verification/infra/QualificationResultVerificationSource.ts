@@ -64,7 +64,10 @@ export class QualificationResultVerificationSource implements IResultVerificatio
         status: result.status,
         evidenceSummary: result.evidenceSummary,
       })),
-      issues: teamReadiness.issues,
+      issues: [
+        ...teamReadiness.issues,
+        ...results.flatMap((result) => result.projectionIssues.map((issue) => `${result.playerName}: ${issue}`)),
+      ],
     };
   }
 }

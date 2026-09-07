@@ -1,3 +1,4 @@
+import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type {
   AppendRangeInterruptionEntryPayload,
   CreateRangeInterruptionCasePayload,
@@ -15,29 +16,28 @@ import type {
   QualificationRecoveryExecutionDto,
   QualificationRecoverySettlementDto,
 } from '@/shared/ipc/contracts';
-import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 
-import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
 import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
-import type { QualificationRecoveryExecutionRecord } from '../domain/QualificationRecoveryExecution';
 import type { IQualificationRecoverySettlementRepository } from '../domain/IQualificationRecoverySettlementRepository';
+import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
+import type { QualificationRecoveryExecutionRecord } from '../domain/QualificationRecoveryExecution';
 import type { QualificationRecoverySettlementRecord } from '../domain/QualificationRecoverySettlement';
 import { createQualificationTimedTargetInterruptionContext } from '../domain/QualificationTimedTargetInterruptionContext';
 import { QualificationTimedTargetRecoveryDecision } from '../domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionCase } from '../domain/RangeInterruptionCase';
-import { recommendRangeInterruption } from '../domain/RangeInterruptionRecommendationPolicy';
-import {
-  getRangeInterruptionState,
-  RangeInterruptionEntry,
-  type RangeInterruptionState,
-} from '../domain/RangeInterruptionEntry';
-import { RangeInterruptionScopeLink } from '../domain/RangeInterruptionScopeLink';
-import { TargetRecoveryAssessment } from '../domain/TargetRecoveryAssessment';
 import {
   RangeInterruptionCommandBatch,
   type RangeCommandLaneOutcome,
   type RangeCommandOperation,
 } from '../domain/RangeInterruptionCommandBatch';
+import {
+  getRangeInterruptionState,
+  RangeInterruptionEntry,
+  type RangeInterruptionState,
+} from '../domain/RangeInterruptionEntry';
+import { recommendRangeInterruption } from '../domain/RangeInterruptionRecommendationPolicy';
+import { RangeInterruptionScopeLink } from '../domain/RangeInterruptionScopeLink';
+import { TargetRecoveryAssessment } from '../domain/TargetRecoveryAssessment';
 
 /** Coordinates the independent, append-only interruption ledger and recommendation policy. */
 export class RangeInterruptionService {
@@ -89,7 +89,7 @@ export class RangeInterruptionService {
     input: CreateRangeInterruptionCasePayload,
     requested: NonNullable<CreateRangeInterruptionCasePayload['qualificationTimedTargetContext']>,
   ) {
-    if (input.cause !== 'ATHLETE_NON_FAULT') {
+    if (!['ATHLETE_NON_FAULT', 'ALL_TARGET_FAILURE', 'SINGLE_TARGET_FAILURE'].includes(input.cause)) {
       throw new Error('ISSF 8.8.1 Qualification recovery applies only to a safety or technical interruption');
     }
     if (input.phase !== 'MATCH') {
@@ -622,6 +622,9 @@ function toQualificationRecoveryDecisionDto(
     recommendation: { ...decision.recommendation, ruleReferences: [...decision.recommendation.ruleReferences] },
     authorizedRecovery: {
       extraSightingSeriesShots: decision.authorizedRecovery.extraSightingSeriesShots,
+      ...(decision.authorizedRecovery.minimumPauseAfterSightingSeconds !== undefined
+        ? { minimumPauseAfterSightingSeconds: decision.authorizedRecovery.minimumPauseAfterSightingSeconds }
+        : {}),
       seriesRecovery: decision.authorizedRecovery.seriesRecovery,
     },
     followsRecommendation: decision.followsRecommendation,

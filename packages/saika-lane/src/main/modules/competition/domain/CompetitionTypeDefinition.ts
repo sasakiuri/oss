@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: MIT
-import type { RulePackIdentity, ShotResultProjectionCapability, TimedTargetCapability } from '@sasakiuri/saika-rules';
+import type {
+  CompetitionRound,
+  EstComplaintCapability,
+  QualificationMalfunctionCapability,
+  RulePackIdentity,
+  ShotResultProjectionCapability,
+  TimedTargetCapability,
+} from '@sasakiuri/saika-rules';
 
 /**
  * CompetitionTypeDefinition — competition type definition interfaces
@@ -35,6 +42,7 @@ export type SeriesDefinition = SeriesOperationalMetadata &
   );
 
 export interface StageDefinition {
+  readonly id?: string;
   readonly name: string;
   readonly scored: boolean;
   readonly series: readonly SeriesDefinition[];
@@ -48,6 +56,10 @@ export interface StageDefinition {
 }
 
 export interface RoundConfig {
+  readonly round?: CompetitionRound;
+  readonly estComplaints?: EstComplaintCapability;
+  readonly rulePackIdentity?: RulePackIdentity;
+  readonly qualificationMalfunction?: QualificationMalfunctionCapability;
   readonly name: string;
   readonly stages: readonly StageDefinition[];
   /** Standard number of shots per series (default: 10) */

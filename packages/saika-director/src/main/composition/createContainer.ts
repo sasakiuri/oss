@@ -6,59 +6,27 @@
  * Centralizes all dependency construction in the composition root.
  */
 
-import { ElectronResultsBookDocumentExporter } from '@/main/modules/results-books';
-import { app } from 'electron';
 import { join } from 'path';
 
 import {
-  evidenceFilesModule,
-  EvidenceFileService,
-  NodeEvidenceFileStore,
-  SqliteEvidenceFileRepository,
-  ElectronEvidenceFileTransfer,
-  TargetEvidenceFileSubjectSource,
-  EvidenceFileArchiveSource,
-} from '@/main/modules/evidence-files';
+  ISSF_2026_10M_MIXED_RULE_PACKS,
+  ISSF_2026_10M_RULE_PACKS,
+  ISSF_2026_25M_PISTOL_RULE_PACKS,
+  ISSF_2026_50M_RIFLE_RULE_PACKS,
+  RulePackRegistry,
+} from '@sasakiuri/saika-rules';
+import { app } from 'electron';
 
+import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
+import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
+import { allMigrations } from '@/main/infrastructure/database/migrations';
+import { ConsoleForwarder } from '@/main/infrastructure/logging/ConsoleForwarder';
+import { DebugLogStore } from '@/main/infrastructure/logging/Logger';
+import { WindowManager } from '@/main/infrastructure/window/WindowManager';
+import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
 import {
-  MalfunctionScoreApplicationService,
-  SqliteMalfunctionScoreApplicationRepository,
-  ResultMalfunctionScoreTargetSource,
-  MalfunctionQualificationScoreOverlaySource,
-  malfunctionScoreApplicationsModule,
-} from '@/main/modules/malfunction-score-applications';
-import { championshipModule, SqliteParticipantRepository, SqliteEventRepository } from '@/main/modules/championship';
-import { laneControlModule } from '@/main/modules/lane-control';
-import {
-  FinalResultsReader,
-  QualificationResultsReader,
-  resultsModule,
-  ScoringDecisionTargetResolver,
-  SqliteFinalResultRepository,
-  SqliteResultRepository,
-} from '@/main/modules/results';
-import { scoringDecisionsModule, SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
-import { shootoffModule } from '@/main/modules/shootoff';
-import { boardModule } from '@/main/modules/board';
-import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
-import {
-  mqttModule,
-  SqliteCompetitionShotJournal,
-  SqliteFiringWindowJournal,
-  SqliteShotObservationEvidenceJournal,
-} from '@/main/modules/mqtt';
-import {
-  FinalResultVerificationSource,
-  QualificationResultVerificationSource,
-  resultVerificationModule,
-  ResultVerificationService,
-  ResultVerificationSourceRegistry,
-  SqliteResultVerificationRepository,
-} from '@/main/modules/result-verification';
-import { incidentReportsModule, SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
-import {
-  AthleteSanctionResultClassificationSource,
   AthleteSanctionParticipantEligibilityReader,
+  AthleteSanctionResultClassificationSource,
   AthleteSanctionService,
   athleteSanctionsModule,
   ChampionshipSanctionScoringDecisionAdmissionPolicy,
@@ -66,46 +34,79 @@ import {
   SqliteAthleteEntryReferenceSource,
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
-import {
-  EvidenceHoldCompetitionDataGuard,
-  SqliteTargetExaminationRepository,
-  targetExaminationsModule,
-} from '@/main/modules/target-examinations';
-import { estComplaintsModule } from '@/main/modules/est-complaints';
-import {
-  InterruptionCompetitionDataGuard,
-  rangeInterruptionsModule,
-  SqliteRangeInterruptionRepository,
-} from '@/main/modules/range-interruptions';
-import { relayReadinessModule } from '@/main/modules/relay-readiness';
-import { relayAthleteLifecycleModule } from '@/main/modules/relay-athlete-lifecycle';
-import { estChampionshipInspectionsModule } from '@/main/modules/est-championship-inspections';
-import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
+import { boardModule } from '@/main/modules/board';
+import { championshipModule, SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
+import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
 import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
-import {
-  CompetitionTypeTeamTieBreakPolicyResolver,
-  SqliteMixedTeamFinalResultRepository,
-  teamResultsModule,
-  TeamResultsService,
-} from '@/main/modules/team-results';
-import { protestsModule } from '@/main/modules/protests';
 import {
   CanonicalCsvEstBackupRecordParser,
   CanonicalJsonEstBackupRecordParser,
   ElectronEstBackupRecordFileGateway,
   EstBackupRecordImportService,
   EstBackupRecordParserRegistry,
-  EstBackupVerificationService,
   estBackupVerificationModule,
+  EstBackupVerificationService,
   SqliteEstBackupVerificationRepository,
 } from '@/main/modules/est-backup-verification';
+import {
+  EstInspectionStartService,
+  SqliteEstInspectionStartSettingsRepository,
+  SqliteEstChampionshipInspectionRepository,
+  estChampionshipInspectionsModule,
+} from '@/main/modules/est-championship-inspections';
+import { estComplaintsModule } from '@/main/modules/est-complaints';
+import {
+  ElectronEvidenceFileTransfer,
+  EvidenceFileArchiveSource,
+  EvidenceFileService,
+  evidenceFilesModule,
+  NodeEvidenceFileStore,
+  SqliteEvidenceFileRepository,
+  TargetEvidenceFileSubjectSource,
+} from '@/main/modules/evidence-files';
 import { finalControlModule } from '@/main/modules/final-control';
-import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
+import {
+  FinalOperationService,
+  finalOperationsModule,
+  SqliteFinalOperationRepository,
+} from '@/main/modules/final-operations';
+import {
+  finalPlacementReviewModule,
+  SqliteFinalPlacementReviewRepository,
+} from '@/main/modules/final-placement-review';
+import {
+  FinalRecoveryPublicationBlocker,
+  SqliteFinalRecoveryEventScope,
+  finalRecoveriesModule,
+  SqliteFinalRecoveryRepository,
+} from '@/main/modules/final-recoveries';
+import { finalRecoveryFiringModule, SqliteFinalFiringRepository } from '@/main/modules/final-recovery-firing';
+import {
+  IncidentReportPublicationBlocker,
+  incidentReportsModule,
+  SqliteRangeIncidentReportRepository,
+} from '@/main/modules/incident-reports';
 import {
   irregularShotCasesModule,
   IrregularShotPublicationBlocker,
   SqliteIrregularShotCaseRepository,
 } from '@/main/modules/irregular-shot-cases';
+import { laneControlModule, LaneTimerService, SqliteLaneControlRepository } from '@/main/modules/lane-control';
+import {
+  MalfunctionQualificationScoreOverlaySource,
+  MalfunctionScoreApplicationService,
+  malfunctionScoreApplicationsModule,
+  ResultMalfunctionScoreTargetSource,
+  SqliteMalfunctionScoreApplicationRepository,
+} from '@/main/modules/malfunction-score-applications';
+import { mixedTeamFinalControlModule } from '@/main/modules/mixed-team-final-control';
+import { mixedTeamTimeoutsModule } from '@/main/modules/mixed-team-timeouts';
+import {
+  mqttModule,
+  SqliteCompetitionShotJournal,
+  SqliteFiringWindowJournal,
+  SqliteShotObservationEvidenceJournal,
+} from '@/main/modules/mqtt';
 import {
   CompetitionEvidenceBundleBuilder,
   ElectronArchiveFileGateway,
@@ -114,37 +115,34 @@ import {
   SqliteCompetitionEvidenceSource,
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
-import {
-  QualificationTeamRecordCandidateSource,
-  ResultWorkflowOfficialRevisionSource,
-  ResultsBookService,
-  resultsBooksModule,
-  SqliteResultsBookRepository,
-  SqliteResultsBookSource,
-  VerifiedResultsBookResultSnapshotSource,
-} from '@/main/modules/results-books';
-import { finalRecoveriesModule } from '@/main/modules/final-recoveries';
+import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
+import { productionOperationsModule } from '@/main/modules/production-operations';
+import { protestsModule } from '@/main/modules/protests';
 import {
   QualificationMalfunctionPublicationBlocker,
   qualificationMalfunctionsModule,
   SqliteMalfunctionScoreSheetRepository,
   SqliteQualificationMalfunctionRepository,
 } from '@/main/modules/qualification-malfunctions';
-import { startListsModule } from '@/main/modules/start-lists';
 import {
-  FinalOperationService,
-  finalOperationsModule,
-  SqliteFinalOperationRepository,
-} from '@/main/modules/final-operations';
-import { mixedTeamFinalControlModule } from '@/main/modules/mixed-team-final-control';
-import { squaddingModule } from '@/main/modules/squadding';
-import { productionOperationsModule } from '@/main/modules/production-operations';
-import { mixedTeamTimeoutsModule } from '@/main/modules/mixed-team-timeouts';
+  InterruptionCompetitionDataGuard,
+  rangeInterruptionsModule,
+  SqliteRangeInterruptionRepository,
+} from '@/main/modules/range-interruptions';
+import { relayAthleteLifecycleModule } from '@/main/modules/relay-athlete-lifecycle';
 import {
-  finalPlacementReviewModule,
-  SqliteFinalPlacementReviewRepository,
-} from '@/main/modules/final-placement-review';
+  relayReadinessModule,
+  RelayReadinessService,
+  SqliteRelayReadinessRepository,
+  SqliteRelayStartSettingsRepository,
+} from '@/main/modules/relay-readiness';
 import {
+  reserveLaneTransfersModule,
+  ReserveTransferDataGuard,
+  SqliteReserveTransferRepository,
+} from '@/main/modules/reserve-lane-transfers';
+import {
+  OptionalResultPublicationBlocker,
   FinalResultDeclarationService,
   GuardedResultPublicationReadiness,
   resultPublicationModule,
@@ -154,51 +152,83 @@ import {
   VerifiedResultPublicationReadiness,
 } from '@/main/modules/result-publication';
 import {
-  ISSF_2026_25M_PISTOL_RULE_PACKS,
-  ISSF_2026_10M_MIXED_RULE_PACKS,
-  ISSF_2026_10M_RULE_PACKS,
-  ISSF_2026_50M_RIFLE_RULE_PACKS,
-  RulePackRegistry,
-} from '@sasakiuri/saika-rules';
-
-// Infrastructure
-import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { DebugLogStore } from '@/main/infrastructure/logging/Logger';
-import { ConsoleForwarder } from '@/main/infrastructure/logging/ConsoleForwarder';
-import { WindowManager } from '@/main/infrastructure/window/WindowManager';
-import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
-import { SqliteLaneControlRepository } from '@/main/modules/lane-control';
-import { LaneTimerService } from '@/main/modules/lane-control';
-import { DomainEventForwarder } from '@/main/shared-infra/ipc/DomainEventForwarder';
-import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import { AppLifecycle } from '@/main/shared-infra/lifecycle/AppLifecycle';
-import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
-import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
-
-// Application Layer (type-safe CQRS buses)
+  FinalResultVerificationSource,
+  QualificationResultVerificationSource,
+  resultVerificationModule,
+  ResultVerificationService,
+  ResultVerificationSourceRegistry,
+  SqliteResultVerificationRepository,
+} from '@/main/modules/result-verification';
+import {
+  FinalResultsReader,
+  QualificationResultsReader,
+  resultsModule,
+  ScoringDecisionTargetResolver,
+  SqliteFinalResultRepository,
+  SqliteResultRepository,
+} from '@/main/modules/results';
+import {
+  ElectronResultsBookDocumentExporter,
+  QualificationTeamRecordCandidateSource,
+  ResultsBookService,
+  resultsBooksModule,
+  ResultWorkflowOfficialRevisionSource,
+  SqliteResultsBookRepository,
+  SqliteResultsBookSource,
+  VerifiedResultsBookResultSnapshotSource,
+} from '@/main/modules/results-books';
+import {
+  ExaminationScoreCorrectionCaseSource,
+  CompositeScoreCorrectionCaseSource,
+  FinalFiringScoreCorrectionCaseSource,
+  ScoreCorrectionService,
+  scoreCorrectionsModule,
+  SqliteScoreCorrectionRepository,
+  StoredScoreCorrectionTargetSource,
+} from '@/main/modules/score-corrections';
+import { scoringDecisionsModule, SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
+import { shootoffModule } from '@/main/modules/shootoff';
+import { squaddingModule } from '@/main/modules/squadding';
+import { startListsModule } from '@/main/modules/start-lists';
+import {
+  EvidenceHoldCompetitionDataGuard,
+  SqliteTargetExaminationRepository,
+  targetExaminationsModule,
+} from '@/main/modules/target-examinations';
+import {
+  CompetitionTypeTeamTieBreakPolicyResolver,
+  SqliteMixedTeamFinalResultRepository,
+  teamResultsModule,
+  TeamResultsService,
+} from '@/main/modules/team-results';
 import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
-import { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import {
   CommandLoggingMiddleware,
   QueryLoggingMiddleware,
 } from '@/main/shared-infra/cqrs/middleware/LoggingMiddleware';
-
+import { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import type { PhaseChanged, TimerExpired, TimerTick } from '@/main/shared-infra/events/coreEvents';
+import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
+import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { DomainEventForwarder } from '@/main/shared-infra/ipc/DomainEventForwarder';
+import type { EventForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
+import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import { AppLifecycle } from '@/main/shared-infra/lifecycle/AppLifecycle';
+import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
+import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
+import { CompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
+import { CompositeCompetitionDataGuard } from '@/main/shared-infra/operations/CompositeCompetitionDataGuard';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
 import { eventsContract } from '@/shared/ipc/contracts';
-import type { EventForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
-import type { PhaseChanged, TimerTick, TimerExpired } from '@/main/shared-infra/events/coreEvents';
-import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import { Logger } from '@/shared/utils/Logger';
-import { CompositeCompetitionDataGuard } from '@/main/shared-infra/operations/CompositeCompetitionDataGuard';
 
 const logger = Logger.create('createApp');
 
 // Static module list (Vite/Electron safe — no dynamic import)
 const modules = [
   malfunctionScoreApplicationsModule,
+  scoreCorrectionsModule,
   evidenceFilesModule,
   championshipModule,
   athleteSanctionsModule,
@@ -233,6 +263,8 @@ const modules = [
   productionOperationsModule,
   mixedTeamTimeoutsModule,
   mqttModule,
+  reserveLaneTransfersModule,
+  finalRecoveryFiringModule,
   resultVerificationModule,
   resultPublicationModule,
   incidentReportsModule,
@@ -301,6 +333,7 @@ export function createApp(preloadPath: string): AppServices {
   const targetExaminationRepository = new SqliteTargetExaminationRepository(database);
   const rangeInterruptionRepository = new SqliteRangeInterruptionRepository(database);
   const competitionDataGuard = new CompositeCompetitionDataGuard([
+    new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database)),
     new EvidenceHoldCompetitionDataGuard(targetExaminationRepository),
     new InterruptionCompetitionDataGuard(rangeInterruptionRepository),
   ]);
@@ -372,13 +405,35 @@ export function createApp(preloadPath: string): AppServices {
       competitionTypeRegistry,
     ),
   );
+  const qualificationOverlays = new MalfunctionQualificationScoreOverlaySource(
+    malfunctionScoreApplicationRepository,
+    malfunctionScoreCases,
+  );
+  const scoreCorrectionService = new ScoreCorrectionService(
+    new SqliteScoreCorrectionRepository(database),
+    new StoredScoreCorrectionTargetSource(
+      resultRepository,
+      finalResultRepository,
+      new SqliteEventRepository(database, competitionTypeRegistry),
+      competitionTypeRegistry,
+      qualificationOverlays,
+    ),
+    new CompositeScoreCorrectionCaseSource([
+      new ExaminationScoreCorrectionCaseSource(targetExaminationRepository),
+      new FinalFiringScoreCorrectionCaseSource(
+        new SqliteFinalRecoveryRepository(database),
+        new SqliteFinalFiringRepository(database),
+      ),
+    ]),
+  );
   const qualificationResultsReader = new QualificationResultsReader(
     queryBus,
     resultRepository,
     scoringDecisionRepository,
     competitionTypeRegistry,
     sanctionResultClassificationSource,
-    new MalfunctionQualificationScoreOverlaySource(malfunctionScoreApplicationRepository, malfunctionScoreCases),
+    qualificationOverlays,
+    scoreCorrectionService,
   );
   const finalResultsReader = new FinalResultsReader(
     queryBus,
@@ -387,6 +442,7 @@ export function createApp(preloadPath: string): AppServices {
     finalPlacementReviewRepository,
     competitionTypeRegistry,
     sanctionResultClassificationSource,
+    scoreCorrectionService,
   );
   const scoringDecisionTargetResolver = new ScoringDecisionTargetResolver(
     queryBus,
@@ -431,6 +487,16 @@ export function createApp(preloadPath: string): AppServices {
       ),
     ]),
   );
+  const relayReadinessService = new RelayReadinessService(
+    new SqliteRelayReadinessRepository(database),
+    undefined,
+    new SqliteRelayStartSettingsRepository(database),
+  );
+  const estInspectionStartService = new EstInspectionStartService(
+    new SqliteEstInspectionStartSettingsRepository(database),
+    new SqliteEstChampionshipInspectionRepository(database),
+  );
+  const competitionStartReadiness = new CompetitionStartReadiness([relayReadinessService, estInspectionStartService]);
   const verifiedResultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
   const resultPublicationReadiness = new GuardedResultPublicationReadiness(verifiedResultPublicationReadiness, [
     new IrregularShotPublicationBlocker(
@@ -439,6 +505,16 @@ export function createApp(preloadPath: string): AppServices {
       scoringDecisionRepository,
     ),
     new QualificationMalfunctionPublicationBlocker(new SqliteQualificationMalfunctionRepository(database)),
+    new OptionalResultPublicationBlocker(
+      new IncidentReportPublicationBlocker(rangeIncidentReportRepository, scoringDecisionRepository),
+      () => appConfigService.get('resultPublication.requireIncidentReports'),
+    ),
+    new OptionalResultPublicationBlocker(
+      new FinalRecoveryPublicationBlocker(new SqliteFinalRecoveryRepository(database), (eventId) =>
+        new SqliteFinalRecoveryEventScope(database).competitionIds(eventId),
+      ),
+      () => appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+    ),
   ]);
   const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
   const resultsBookResultSnapshots = new VerifiedResultsBookResultSnapshotSource(
@@ -475,6 +551,9 @@ export function createApp(preloadPath: string): AppServices {
 
   // === Build ServiceRegistry ===
   const registry: ServiceRegistry = {
+    estInspectionStartService,
+    relayReadinessService,
+    competitionStartReadiness,
     database,
     eventBus,
     commandBus,
@@ -508,6 +587,7 @@ export function createApp(preloadPath: string): AppServices {
     targetExaminationRepository,
     evidenceFileService,
     malfunctionScoreApplicationService,
+    scoreCorrectionService,
     rangeInterruptionRepository,
     competitionDataGuard,
     finalPlacementReviewRepository,

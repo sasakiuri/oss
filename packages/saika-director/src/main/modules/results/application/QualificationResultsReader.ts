@@ -7,13 +7,15 @@ import {
   type ScoringDecision,
 } from '@/main/modules/scoring-decisions';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import { sumScoresBySeries } from '@/shared/competitionTypes';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { RankedResultDto } from '@/shared/ipc/contracts';
 
 import type { IResultRepository } from '../domain/IResultRepository';
 import { ProjectedQualificationResult } from '../domain/ProjectedQualificationResult';
-import { RankingService } from '../domain/RankingService';
+import { QualificationRankingService } from '../domain/QualificationRankingService';
 import type { Result } from '../domain/Result';
+
 import {
   applyQualificationScoreOverlays,
   noQualificationScoreOverlays,
@@ -25,6 +27,11 @@ import {
   type IResultClassificationOverlaySource,
   type ResultClassificationOverlay,
 } from './ResultClassificationOverlaySource';
+import {
+  qualificationCorrectionBasis,
+  noResultScoreCorrections,
+  type IResultScoreCorrectionSource,
+} from './ResultScoreCorrectionSource';
 
 export interface IQualificationResultsReader {
   getByEvent(eventId: string): Promise<RankedResultDto[]>;
@@ -33,7 +40,7 @@ export interface IQualificationResultsReader {
 
 /** Public read port for consumers that need the official qualification projection. */
 export class QualificationResultsReader implements IQualificationResultsReader {
-  private readonly rankingService = new RankingService();
+  private readonly rankingService = new QualificationRankingService();
   private readonly decisionProjector = new ScoringDecisionProjector();
 
   constructor(
@@ -43,6 +50,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
     private readonly competitionTypes: CompetitionTypeRegistry,
     private readonly classificationOverlays: IResultClassificationOverlaySource = noResultClassificationOverlays,
     private readonly scoreOverlays: IQualificationScoreOverlaySource = noQualificationScoreOverlays,
+    private readonly corrections: IResultScoreCorrectionSource = noResultScoreCorrections,
   ) {}
 
   async getByEvent(eventId: string): Promise<RankedResultDto[]> {
@@ -80,6 +88,26 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const scoreHistory = this.scoreOverlays.forResult(result);
       scoreOverlayRevisions.set(result, scoreHistory.revision);
       const base = applyQualificationScoreOverlays(result, scoreHistory);
+      const basis = qualificationCorrectionBasis(result, scoreHistory);
+      const correction = this.corrections.project(basis);
+      if (correction.revision) scoreOverlayRevisions.set(result, `${scoreHistory.revision}:${correction.revision}`);
+      if (correction.ids.length && !correction.issues.length) {
+        const correctedScores = correction.shots.map((shot) => shot.scoreX10);
+        const before = sumScoresBySeries(base.shotsX10, basis.seriesShotCounts);
+        const after = sumScoresBySeries(correctedScores, basis.seriesShotCounts);
+        base.totalScoreX10 +=
+          correctedScores.reduce((sum, score) => sum + score, 0) - base.shotsX10.reduce((sum, score) => sum + score, 0);
+        base.seriesScoresX10.splice(
+          0,
+          base.seriesScoresX10.length,
+          ...base.seriesScoresX10.map((score, index) => score + after[index]! - before[index]!),
+        );
+        base.shotsX10.splice(0, base.shotsX10.length, ...correctedScores);
+        base.rankingShots.splice(0, base.rankingShots.length, ...correction.shots.map((shot) => shot.ranking));
+      }
+      base.ids.push(...correction.ids);
+      base.remarks.push(...correction.remarks);
+      base.issues.push(...correction.issues);
       const seriesCount = Math.max(1, result.seriesScores.length);
       const projection = applyResultClassificationOverlay(
         this.decisionProjector.project(
@@ -115,7 +143,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const history = histories.get(source) ?? [];
       const overlay = appliedOverlays.get(source);
       const evidence = ranked.result.rankingShots.slice(0, definition.resultFormat.totalShots);
-      const evidenceIssues = buildEvidenceIssues(evidence);
+      const evidenceIssues = [...ranked.issues, ...buildEvidenceIssues(evidence)];
       if (source.seriesScores.length !== definition.resultFormat.totalSeries) {
         evidenceIssues.push(
           `Stored result has ${source.seriesScores.length} series; the Rule Pack requires ${definition.resultFormat.totalSeries}. Reconcile the original Lane result before official approval`,

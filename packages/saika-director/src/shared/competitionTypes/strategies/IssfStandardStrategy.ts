@@ -4,6 +4,7 @@ import type {
   RankingShotEvidence,
 } from '../CompetitionTypeStrategy';
 import type { ResultFormat } from '../CompetitionTypeDefinition';
+import { assessIssfQualificationComparison } from './IssfQualificationComparison';
 
 /**
  * ISSF-standard strategy for full-ring and decimal qualification formats.
@@ -28,6 +29,20 @@ export class IssfStandardStrategy implements CompetitionTypeStrategy {
   }
 
   compareResults(a: QualificationRankingInput, b: QualificationRankingInput, format: ResultFormat): number {
+    return this.assessComparison(a, b, format).comparison;
+  }
+
+  assessComparison(a: QualificationRankingInput, b: QualificationRankingInput, format: ResultFormat) {
+    return format.tieBreakPolicy
+      ? assessIssfQualificationComparison(a, b, format)
+      : { comparison: this.compareLegacyResults(a, b, format), issues: [] };
+  }
+
+  private compareLegacyResults(
+    a: QualificationRankingInput,
+    b: QualificationRankingInput,
+    format: ResultFormat,
+  ): number {
     if (a.totalScore !== b.totalScore) {
       return b.totalScore - a.totalScore;
     }

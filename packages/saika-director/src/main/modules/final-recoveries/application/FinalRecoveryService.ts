@@ -1,9 +1,3 @@
-import type { FinalRecoveryAllowanceSubject } from '../domain/FinalRecoveryAuthorizationPolicy';
-import {
-  IssfFinalRecoveryAuthorizationPolicy,
-  type IFinalRecoveryAuthorizationPolicy,
-} from '../domain/FinalRecoveryAuthorizationPolicy';
-import type { IFinalRecoverySubjectSource } from '../domain/IFinalRecoverySubjectSource';
 import type {
   AppendFinalRecoveryEntryPayload,
   CreateFinalRecoveryCasePayload,
@@ -11,12 +5,18 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import {
+  type FinalRecoveryAllowanceSubject,
+  IssfFinalRecoveryAuthorizationPolicy,
+  type IFinalRecoveryAuthorizationPolicy,
+} from '../domain/FinalRecoveryAuthorizationPolicy';
+import {
   FinalRecoveryCase,
   FinalRecoveryEntry,
   finalRecoveryStatus,
   type FinalRecoveryStatus,
 } from '../domain/FinalRecoveryCase';
 import type { IFinalRecoveryRepository } from '../domain/IFinalRecoveryRepository';
+import type { IFinalRecoverySubjectSource } from '../domain/IFinalRecoverySubjectSource';
 import { getIssfFinalRecoveryGuidance } from '../domain/IssfFinalRecoveryPolicy';
 
 export class FinalRecoveryService {
@@ -100,6 +100,7 @@ export class FinalRecoveryService {
         entries,
         history: cases.map((recovery) => ({ recovery, entries: history.get(recovery.id) ?? [] })),
         remedy: input.remedy,
+        ...(input.shotCount !== undefined ? { shotCount: input.shotCount } : {}),
       });
     }
     this.repository.appendEntry(

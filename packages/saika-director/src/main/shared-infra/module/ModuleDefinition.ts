@@ -1,5 +1,3 @@
-import type { MalfunctionScoreApplicationService } from '@/main/modules/malfunction-score-applications';
-import type { EvidenceFileService } from '@/main/modules/evidence-files';
 /**
  * ModuleDefinition.ts
  *
@@ -10,59 +8,64 @@ import type { EvidenceFileService } from '@/main/modules/evidence-files';
  * subset, enforcing the principle of least privilege at the type level.
  */
 
+import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';
-import type { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
-import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
-import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
-import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
-import type { ILaneControlRepository } from '@/main/modules/lane-control';
-import type { LaneTimerService } from '@/main/modules/lane-control';
+
 import type { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
-import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
+import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
+import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
+import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
 import type {
-  IFinalResultRepository,
-  IFinalResultsReader,
-  IQualificationResultsReader,
-  IResultRepository,
-} from '@/main/modules/results';
-import type {
-  IScoringDecisionAdmissionPolicy,
-  IScoringDecisionRepository,
-  IScoringDecisionTargetResolver,
-} from '@/main/modules/scoring-decisions';
+  EstBackupRecordImportService,
+  EstBackupVerificationService,
+} from '@/main/modules/est-backup-verification';
+import type { EstInspectionStartService } from '@/main/modules/est-championship-inspections';
+import type { EvidenceFileService } from '@/main/modules/evidence-files';
+import type { FinalOperationService } from '@/main/modules/final-operations';
+import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
+import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
+import type { IIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
+import type { ILaneControlRepository, LaneTimerService } from '@/main/modules/lane-control';
+import type { MalfunctionScoreApplicationService } from '@/main/modules/malfunction-score-applications';
 import type {
   ICompetitionShotJournal,
   IFiringWindowJournal,
   IShotObservationEvidenceJournal,
 } from '@/main/modules/mqtt';
-import type { IResultVerificationRepository, ResultVerificationService } from '@/main/modules/result-verification';
-import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
-import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
-import type { ITargetExaminationRepository } from '@/main/modules/target-examinations';
+import type { OperationalArchiveService } from '@/main/modules/operational-archives';
 import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
-import type { ICompetitionDataGuard } from '@/main/shared-infra/operations/CompetitionDataGuard';
+import type { RelayReadinessService } from '@/main/modules/relay-readiness';
 import type {
   FinalResultDeclarationService,
   IResultPublicationPolicyResolver,
   IResultPublicationReadiness,
   IResultPublicationRepository,
 } from '@/main/modules/result-publication';
-import type { IMixedTeamFinalResultRepository } from '@/main/modules/team-results';
-import type { TeamResultsService } from '@/main/modules/team-results';
+import type { IResultVerificationRepository, ResultVerificationService } from '@/main/modules/result-verification';
 import type {
-  EstBackupRecordImportService,
-  EstBackupVerificationService,
-} from '@/main/modules/est-backup-verification';
-import type { RulePackRegistry } from '@sasakiuri/saika-rules';
-import type { FinalOperationService } from '@/main/modules/final-operations';
-import type { IIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
-import type { OperationalArchiveService } from '@/main/modules/operational-archives';
+  IFinalResultRepository,
+  IFinalResultsReader,
+  IQualificationResultsReader,
+  IResultRepository,
+} from '@/main/modules/results';
 import type { ResultsBookService } from '@/main/modules/results-books';
-import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
+import type { ScoreCorrectionService } from '@/main/modules/score-corrections';
+import type {
+  IScoringDecisionAdmissionPolicy,
+  IScoringDecisionRepository,
+  IScoringDecisionTargetResolver,
+} from '@/main/modules/scoring-decisions';
+import type { ITargetExaminationRepository } from '@/main/modules/target-examinations';
+import type { IMixedTeamFinalResultRepository, TeamResultsService } from '@/main/modules/team-results';
+import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
+import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import type { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
+import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import type { ICompetitionDataGuard } from '@/main/shared-infra/operations/CompetitionDataGuard';
+import type { ICompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import type { IParticipantEligibilityReader } from '@/main/shared-infra/operations/ParticipantEligibility';
+import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 
 // Re-export for convenience
 export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
@@ -72,6 +75,10 @@ export type { EventForwardingRule, TransformerForwardingRule } from '@/main/shar
 // ---------------------------------------------------------------------------
 
 export interface ServiceRegistry {
+  readonly estInspectionStartService: EstInspectionStartService;
+  readonly competitionStartReadiness: ICompetitionStartReadiness;
+  readonly relayReadinessService: RelayReadinessService;
+  readonly scoreCorrectionService: ScoreCorrectionService;
   readonly evidenceFileService: EvidenceFileService;
   readonly malfunctionScoreApplicationService: MalfunctionScoreApplicationService;
   readonly database: Database.Database;

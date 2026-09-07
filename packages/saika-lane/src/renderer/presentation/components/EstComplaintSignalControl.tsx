@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 
+import { findEstComplaintProcedure, missingShotComplaintGuidance } from '@sasakiuri/saika-rules';
 import { CheckCircle2, MonitorX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { mqttService } from '@/renderer/services/mqttService';
-import type { DeclareEstComplaintInput, EstComplaintSignalDto } from '@/shared/ipc/contracts';
+import type { DeclareEstComplaintInput, EstComplaintContextDto, EstComplaintSignalDto } from '@/shared/ipc/contracts';
 
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
 
 const issues: Array<{ value: DeclareEstComplaintInput['issue']; label: string }> = [
   { value: 'SHOT_VALUE', label: 'Displayed shot value' },
-  { value: 'SHOT_NOT_REGISTERED', label: 'Shot not registered or displayed' },
+  { value: 'SHOT_NOT_REGISTERED', label: 'Shot missing or unexpected zero' },
   { value: 'TARGET_FAILURE', label: 'Target failure' },
   { value: 'TARGET_MEDIA_ADVANCE', label: 'Paper or rubber strip advance' },
   { value: 'OTHER', label: 'Other EST issue' },
@@ -25,6 +26,8 @@ export function EstComplaintSignalControl() {
   const [mqttConnected, setMqttConnected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<EstComplaintContextDto | null>(null);
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
 
   const refresh = async () => {
     try {
@@ -40,6 +43,37 @@ export function EstComplaintSignalControl() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || state?.status === 'ACTIVE') return;
+    let disposed = false;
+    let pending = false;
+    const load = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const context = await mqttService.getEstComplaintContext();
+        if (!disposed) {
+          setPreview(context);
+          setPreviewUnavailable(false);
+        }
+      } catch {
+        if (!disposed) {
+          setPreview(null);
+          setPreviewUnavailable(true);
+        }
+      } finally {
+        pending = false;
+      }
+    };
+    setPreview(null);
+    void load();
+    const timer = setInterval(() => void load(), 1_000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, [isOpen, state?.status]);
 
   const declare = async () => {
     setBusy(true);
@@ -78,6 +112,13 @@ export function EstComplaintSignalControl() {
   const active = state?.status === 'ACTIVE';
   const snapshot = state?.context;
   const issueLabel = issues.find((item) => item.value === state?.issue)?.label ?? state?.issue;
+  const displayedIssue = active ? state.issue : issue;
+  const displayedContext = active ? snapshot : preview;
+  const procedure = displayedContext?.missingShotProcedure;
+  const ruleProcedure =
+    displayedContext &&
+    displayedIssue &&
+    findEstComplaintProcedure(displayedContext.rules, displayedContext.phase, displayedIssue);
 
   return (
     <>
@@ -98,6 +139,21 @@ export function EstComplaintSignalControl() {
       </button>
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Electronic target complaint" className="max-w-xl">
+        {ruleProcedure && (
+          <p className="mb-4 rounded border border-cyan-500 bg-cyan-950/40 p-3 text-sm text-cyan-100" role="status">
+            {ruleProcedure.athleteGuidance} ({ruleProcedure.ruleReference})
+          </p>
+        )}
+        {!ruleProcedure && displayedIssue === 'SHOT_NOT_REGISTERED' && procedure && (
+          <p className="mb-4 rounded border border-cyan-500 bg-cyan-950/40 p-3 text-sm text-cyan-100" role="status">
+            ISSF {procedure.ruleReference}: {missingShotComplaintGuidance(procedure)}
+          </p>
+        )}
+        {!active && previewUnavailable && (
+          <p className="mb-4 text-sm text-amber-300">
+            The current event procedure is unavailable. Confirm the procedure with the Range Officer.
+          </p>
+        )}
         {active ? (
           <div className="space-y-4">
             <div className="rounded border border-cyan-500 bg-cyan-950/40 p-4" role="status" aria-live="assertive">
@@ -146,8 +202,8 @@ export function EstComplaintSignalControl() {
               </p>
             )}
             <p className="rounded border border-amber-500 bg-amber-950/40 p-3 text-sm text-amber-100">
-              Wait for the Range Officer and do not fire another shot unless instructed. This signal does not decide
-              whether the complaint is timely or valid and does not change a score or timer.
+              Follow range commands, including STOP and UNLOAD. This signal does not decide whether the complaint is
+              timely or valid and does not change a score or timer.
             </p>
             <div className="flex justify-end">
               <Button variant="secondary" disabled={busy} onClick={() => void clear()}>
@@ -159,8 +215,8 @@ export function EstComplaintSignalControl() {
         ) : (
           <div className="space-y-4">
             <p className="rounded border border-cyan-500 bg-cyan-950/40 p-3 text-sm text-cyan-100">
-              Raise the complaint immediately and wait for the Range Officer. Saika will capture the current athlete,
-              competition position, shot count, and latest recorded shot for official review.
+              Follow the applicable complaint procedure. Saika will capture the current athlete, competition position,
+              shot count, and latest recorded shot for official review.
             </p>
             <label className="block text-sm font-medium text-zinc-200">
               Complaint

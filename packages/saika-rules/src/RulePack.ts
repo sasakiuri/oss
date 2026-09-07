@@ -1,3 +1,4 @@
+import { validateEstComplaintCapability, type EstComplaintCapability } from './EstComplaint';
 import {
   validateQualificationMalfunctionCapability,
   type QualificationMalfunctionCapability,
@@ -216,8 +217,22 @@ export interface QualificationTimedTargetStageRecoveryRule {
   readonly ruleReference: string;
 }
 
+export interface MissingShotComplaintProcedure {
+  readonly notification: 'BEFORE_NEXT_SHOT' | 'AFTER_SERIES';
+  readonly seriesRepeatAllowed: false;
+  readonly ruleReference: string;
+}
+
 export interface QualificationTimedTargetRecoveryCapability {
+  readonly missingShotComplaints?: readonly (MissingShotComplaintProcedure & { readonly stageId: string })[];
   readonly procedure: 'QUALIFICATION';
+  /** Target-system failure is independent from ordinary interruption duration. */
+  readonly targetFailure?: {
+    readonly extraSightingSeriesShots: number;
+    readonly minimumPauseAfterSightingSeconds: number;
+    readonly stages: readonly QualificationTimedTargetStageRecoveryRule[];
+    readonly ruleReferences: readonly string[];
+  };
   readonly interruption: {
     /** The threshold is strict: the interruption must be longer than this value. */
     readonly extraSightingWhenLongerThanSeconds: number;
@@ -439,6 +454,7 @@ export interface FinalSeriesAdjudicationCapability {
 }
 
 export interface RulePackCapabilities {
+  readonly estComplaints?: EstComplaintCapability;
   readonly target: TargetCapability;
   readonly scoring: ScoringCapability;
   /** Optional competition-result projection; acquisition scores remain unchanged. */
@@ -473,6 +489,7 @@ export interface RulePack {
 }
 
 export function defineRulePack(pack: RulePack): RulePack {
+  if (pack.capabilities.estComplaints) validateEstComplaintCapability(pack.capabilities.estComplaints);
   validateText(pack.id, 'id');
   validateText(pack.eventCode, 'eventCode');
   validateText(pack.displayName, 'displayName');
@@ -812,6 +829,47 @@ function validateTimedTargetCapability(pack: RulePack): void {
     );
     if (missingRecoveryStage) {
       throw new Error(`Timed MATCH stage ${missingRecoveryStage.id} requires a Qualification recovery rule`);
+    }
+    if (recovery.missingShotComplaints) {
+      const ids = new Set<string>();
+      for (const procedure of recovery.missingShotComplaints) {
+        if (ids.has(procedure.stageId) || !recoveryStageIds.has(procedure.stageId))
+          throw new Error('Missing-shot complaint procedures require unique timed MATCH stage IDs');
+        ids.add(procedure.stageId);
+        if (
+          !['BEFORE_NEXT_SHOT', 'AFTER_SERIES'].includes(procedure.notification) ||
+          procedure.seriesRepeatAllowed !== false
+        )
+          throw new Error('Invalid missing-shot notification or repeat policy');
+        validateText(procedure.ruleReference, 'missingShotComplaints.ruleReference');
+      }
+    }
+    if (recovery.targetFailure) {
+      const failure = recovery.targetFailure;
+      validatePositiveInteger(failure.extraSightingSeriesShots, 'targetFailure.extraSightingSeriesShots');
+      validatePositiveSeconds(
+        failure.minimumPauseAfterSightingSeconds,
+        'targetFailure.minimumPauseAfterSightingSeconds',
+      );
+      if (failure.ruleReferences.length === 0) throw new Error('Target failure rule references are required');
+      failure.ruleReferences.forEach((reference) => validateText(reference, 'targetFailure.ruleReference'));
+      const ids = failure.stages.map((stage) => stage.stageId);
+      if (
+        new Set(ids).size !== ids.length ||
+        ids.length !== recoveryStageIds.size ||
+        ids.some((id) => !recoveryStageIds.has(id))
+      ) {
+        throw new Error('Target failure stages must match the timed MATCH stages');
+      }
+      for (const stage of failure.stages) {
+        validateText(stage.ruleReference, 'targetFailure.stage.ruleReference');
+        if (
+          stage.seriesRecovery.treatment === 'COMPLETE_REMAINING_SHOTS' &&
+          stage.seriesRecovery.completion.mode === 'SECONDS_PER_SHOT'
+        ) {
+          validatePositiveSeconds(stage.seriesRecovery.completion.secondsPerShot, 'targetFailure.secondsPerShot');
+        }
+      }
     }
   } else {
     validatePositiveSeconds(recovery.remedyReadySeconds, 'timedTarget.recovery.remedyReadySeconds');

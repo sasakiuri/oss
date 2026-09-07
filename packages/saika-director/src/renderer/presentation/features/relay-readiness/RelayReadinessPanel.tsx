@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardCheck, RefreshCw, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { relayReadinessService } from '@/renderer/services';
-import type { RelayReadinessAssessmentDto } from '@/shared/ipc/contracts';
+import type { RelayReadinessAssessmentDto, RelayStartSettingsDto } from '@/shared/ipc/contracts';
+
 import { Button } from '../shared/common/Button';
 
 interface RelayReadinessPanelProps {
@@ -12,7 +13,16 @@ interface RelayReadinessPanelProps {
   lanes: readonly { laneId: string; label: string }[];
 }
 
-export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }: RelayReadinessPanelProps) {
+export function RelayReadinessPanel({
+  competitionId,
+  relayNumber,
+  phase: suggestedPhase,
+  lanes,
+}: RelayReadinessPanelProps) {
+  const [phase, setPhase] = useState(suggestedPhase);
+  useEffect(() => setPhase(suggestedPhase), [suggestedPhase]);
+  const [startSettings, setStartSettings] = useState<RelayStartSettingsDto | null>(null);
+  const [mode, setMode] = useState<RelayStartSettingsDto['mode']>('ADVISORY');
   const [assessment, setAssessment] = useState<RelayReadinessAssessmentDto | null>(null);
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('Operational readiness checked');
@@ -23,17 +33,41 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await relayReadinessService.assess({ competitionId, relayNumber, phase, laneIds });
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      const [response, settings] = await Promise.all([
+        relayReadinessService.assess({ competitionId, relayNumber, phase, laneIds }),
+        relayReadinessService.getStartSettings({ competitionId }),
+      ]);
+      if (!settings.success) throw new Error(settings.error.message);
+      setStartSettings(settings.data);
+      setMode(settings.data.mode);
+      if (!response.success) {
+        setError(response.error.message);
+        return;
+      }
+      setAssessment(response.data);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
     }
-    setAssessment(response.data);
   }, [competitionId, laneIdsKey, phase, relayNumber]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const saveStartSettings = async () => {
+    setSavingKey('start-settings');
+    setError(null);
+    try {
+      const response = await relayReadinessService.setStartSettings({ competitionId, relayNumber, mode });
+      if (!response.success) throw new Error(response.error.message);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSavingKey(null);
+    }
+  };
 
   const record = async (
     item: NonNullable<RelayReadinessAssessmentDto['items'][number]>,
@@ -81,6 +115,47 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
         </Button>
       </header>
       {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      <label className="block text-xs text-vscode-text-muted">
+        Check target mode
+        <select
+          className={inputClass}
+          value={phase}
+          disabled={savingKey !== null}
+          onChange={(event) => setPhase(event.target.value as 'SIGHTING' | 'MATCH')}
+        >
+          <option value="SIGHTING">Sighting</option>
+          <option value="MATCH">Match</option>
+        </select>
+      </label>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-vscode-text-muted">
+          Relay start checks
+          <select
+            className={inputClass}
+            value={mode}
+            disabled={!startSettings || savingKey !== null}
+            onChange={(event) => setMode(event.target.value as RelayStartSettingsDto['mode'])}
+          >
+            <option value="ADVISORY">Advisory</option>
+            <option value="REQUIRED">Required</option>
+            <option value="DISABLED">Disabled</option>
+          </select>
+        </label>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!startSettings || savingKey !== null}
+          onClick={() => void saveStartSettings()}
+        >
+          Apply start checks to relay {relayNumber}
+        </Button>
+      </div>
+      {startSettings && (
+        <p className="text-xs text-vscode-text-muted">
+          START uses relay {startSettings.relayNumber} in {startSettings.mode.toLowerCase()} mode for this competition.
+          Required mode checks every participating Lane before sighting and match start, including Final scripts.
+        </p>
+      )}
       <div className="grid gap-2 md:grid-cols-2">
         <label className="text-xs text-vscode-text-muted">
           Official name
@@ -134,8 +209,7 @@ export function RelayReadinessPanel({ competitionId, relayNumber, phase, lanes }
       </ul>
       {assessment?.mode === 'ADVISORY' && !assessment.ready && (
         <p className="text-xs text-vscode-warning">
-          Advisory mode records missing checks without blocking START. The policy can be replaced with REQUIRED for
-          stricter events.
+          Advisory mode records missing checks without blocking START. Select Required to enforce this relay checklist.
         </p>
       )}
     </div>

@@ -33,6 +33,8 @@ import {
 } from '@/main/modules/qualification-recovery';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { reportModule } from '@/main/modules/report/report.module';
+import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
+import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
 import {
   CompetitionSafetyTimerFreezer,
   LaneSafetyStopService,
@@ -54,9 +56,9 @@ import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
 import {
   SqliteTimedTargetSequenceRepository,
-  TimedTargetSequenceService,
   timedTargetEnforcementModeFromEnvironment,
   timedTargetModule,
+  TimedTargetSequenceService,
 } from '@/main/modules/timed-target';
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
@@ -70,8 +72,8 @@ import { AppUpdater } from '@/main/updater/AppUpdater';
 import { eventsContract, updaterContract, windowContract } from '@/shared/ipc/contracts';
 
 import {
-  TimedTargetCommandPause,
   commandPauseModeFromEnvironment,
+  TimedTargetCommandPause,
 } from './modules/command-observations/application/TimedTargetCommandPause';
 import { SqliteCommandObservationRepository } from './modules/command-observations/infra/SqliteCommandObservationRepository';
 
@@ -188,6 +190,9 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     },
   });
 
+  const reserveTransferJournal = new SqliteReserveLaneTransferJournal(db);
+  commandBus.use(new ReserveTransferCommandGuard(() => reserveTransferJournal.pending()));
+
   // Add middleware
   commandBus.use(new CommandLoggingMiddleware());
   queryBus.use(new QueryLoggingMiddleware());
@@ -197,7 +202,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
   const timerService = new LaneTimerService(
     competitionRepository,
     eventBus,
-    () => safetyStopControl?.isStopped() !== true,
+    () => safetyStopControl?.isStopped() !== true && !reserveTransferJournal.pending(),
   );
   const competitionInterruptionRepository = new LocalCompetitionInterruptionRepository(storage);
   const competitionInterruptionControl = new CompetitionInterruptionService(
@@ -211,6 +216,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     new SqliteLaneSafetyStopRepository(db),
     new CompetitionSafetyTimerFreezer(competitionRepository, timerService),
     eventBus,
+    () => !reserveTransferJournal.pending(),
   );
   const timedTargetControl = new TimedTargetSequenceService(
     new SqliteTimedTargetSequenceRepository(db),

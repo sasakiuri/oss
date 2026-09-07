@@ -3,6 +3,21 @@ import { z } from 'zod';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
 const uuid = z.string().uuid();
+const startSettings = z.object({
+  competitionId: uuid,
+  championshipId: uuid.nullable(),
+  mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+  laneTargets: z
+    .array(
+      z.object({
+        laneId: uuid,
+        targetIdentifiers: z.array(z.string().trim().min(1).max(200)).min(1).max(5).readonly(),
+      }),
+    )
+    .max(500)
+    .readonly(),
+});
+export type EstInspectionStartSettingsDto = z.infer<typeof startSettings>;
 const outcome = z.enum(['PASSED', 'FAILED']);
 const entry = z.object({
   id: uuid,
@@ -69,6 +84,8 @@ export type RecordEstInspectionPayload = z.infer<typeof record>;
 export type RevokeEstInspectionPayload = z.infer<typeof revoke>;
 
 export const estChampionshipInspectionsContract = defineContract('estChampionshipInspections', {
+  getStartSettings: query(z.object({ competitionId: uuid }), queryResponseSchema(startSettings)),
+  setStartSettings: command(startSettings, commandDataResponseSchema(startSettings)),
   get: query(z.object({ championshipId: uuid }), queryResponseSchema(assessment)),
   createPlan: command(createPlan, commandDataResponseSchema(assessment)),
   record: command(record, commandDataResponseSchema(assessment)),

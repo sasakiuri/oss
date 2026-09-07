@@ -1,11 +1,13 @@
 import {
   defineRulePack,
   type RulePack,
+  type QualificationTimedTargetRecoveryCapability,
   type RuleSeries,
   type TimedTargetProgram,
   type TimedTargetPurpose,
 } from '../RulePack';
 
+import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import {
   buildIssf25mPistolWomenFinalCommandScript,
   buildIssf25mRapidFirePistolMenFinalCommandScript,
@@ -166,8 +168,14 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
     timedTarget: {
       signalSystem: 'EST_RED_GREEN_OR_TURNING_TARGETS',
       programs: rapidFirePrograms(),
-      recovery: {
+      recovery: withTargetFailure({
         procedure: 'QUALIFICATION',
+        missingShotComplaints: [1, 2].map((stageNumber) => ({
+          stageId: `STAGE_${stageNumber}`,
+          notification: 'AFTER_SERIES' as const,
+          seriesRepeatAllowed: false as const,
+          ruleReference: '8.10.3(c-d), 6.10.8',
+        })),
         interruption: {
           extraSightingWhenLongerThanSeconds: 900,
           extraSightingSeriesShots: 5,
@@ -179,7 +187,7 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
           })),
         },
         ruleReferences: ['8.8.1(a-b)'],
-      },
+      }),
     },
   },
 });
@@ -301,8 +309,22 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
       timedTarget: {
         signalSystem: 'EST_RED_GREEN_OR_TURNING_TARGETS',
         programs: precisionRapidPrograms(prefix),
-        recovery: {
+        recovery: withTargetFailure({
           procedure: 'QUALIFICATION',
+          missingShotComplaints: [
+            {
+              stageId: 'PRECISION_STAGE',
+              notification: 'BEFORE_NEXT_SHOT',
+              seriesRepeatAllowed: false,
+              ruleReference: '8.10.3(a-b,d), 6.10.8',
+            },
+            {
+              stageId: 'RAPID_FIRE_STAGE',
+              notification: 'AFTER_SERIES',
+              seriesRepeatAllowed: false,
+              ruleReference: '8.10.3(c-d), 6.10.8',
+            },
+          ],
           interruption: {
             extraSightingWhenLongerThanSeconds: 900,
             extraSightingSeriesShots: 5,
@@ -327,7 +349,7 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
             ],
           },
           ruleReferences: ['8.8.1(a,c-d)'],
-        },
+        }),
       },
     },
   });
@@ -431,8 +453,22 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
     timedTarget: {
       signalSystem: 'EST_RED_GREEN_OR_TURNING_TARGETS',
       programs: standardPrograms(),
-      recovery: {
+      recovery: withTargetFailure({
         procedure: 'QUALIFICATION',
+        missingShotComplaints: [
+          {
+            stageId: 'STAGE_1_150_SECONDS',
+            notification: 'BEFORE_NEXT_SHOT',
+            seriesRepeatAllowed: false,
+            ruleReference: '8.10.3(a-b,d), 6.10.8',
+          },
+          ...[20, 10].map((seconds, index) => ({
+            stageId: `STAGE_${index + 2}_${seconds}_SECONDS`,
+            notification: 'AFTER_SERIES' as const,
+            seriesRepeatAllowed: false as const,
+            ruleReference: '8.10.3(c-d), 6.10.8',
+          })),
+        ],
         interruption: {
           extraSightingWhenLongerThanSeconds: 900,
           extraSightingSeriesShots: 5,
@@ -444,7 +480,7 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
           })),
         },
         ruleReferences: ['8.7.6.5(h-i)', '8.8.1(a-b)'],
-      },
+      }),
     },
   },
 });
@@ -556,6 +592,7 @@ export const ISSF_2026_RFPM_FINAL: RulePack = defineRulePack({
     ruleReferences: ['6.4.12', '6.4.13', '6.17.4'],
   },
   capabilities: {
+    estComplaints: ISSF_2026_FINAL_EST_COMPLAINTS,
     target: {
       scoringProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
       scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
@@ -708,6 +745,7 @@ export const ISSF_2026_P25_FINAL: RulePack = defineRulePack({
     ruleReferences: ['6.4.12', '6.4.13', '6.17.5'],
   },
   capabilities: {
+    estComplaints: ISSF_2026_FINAL_EST_COMPLAINTS,
     target: {
       scoringProfileId: 'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
       scoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
@@ -822,3 +860,22 @@ export const ISSF_2026_25M_PISTOL_RULE_PACKS = Object.freeze([
   ...ISSF_2026_25M_PISTOL_QUALIFICATION_RULE_PACKS,
   ...ISSF_2026_25M_PISTOL_FINAL_RULE_PACKS,
 ]);
+
+/** The stage treatments coincide, but target failure has its own restart requirements and references. */
+function withTargetFailure(
+  recovery: QualificationTimedTargetRecoveryCapability,
+): QualificationTimedTargetRecoveryCapability {
+  return {
+    ...recovery,
+    targetFailure: {
+      extraSightingSeriesShots: 5,
+      minimumPauseAfterSightingSeconds: 60,
+      ruleReferences: ['8.10.1(c)', '8.10.2'],
+      stages: recovery.interruption.stages.map((stage) => ({
+        stageId: stage.stageId,
+        seriesRecovery: stage.seriesRecovery,
+        ruleReference: stage.seriesRecovery.treatment === 'ANNUL_AND_REPEAT' ? '8.10.1(e)' : '8.10.1(d), 8.9.4.6',
+      })),
+    },
+  };
+}

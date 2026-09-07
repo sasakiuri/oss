@@ -105,6 +105,7 @@ export function buildPreloadAPI(): ElectronAPI {
       declareQualificationMalfunction: mqtt.declareQualificationMalfunction,
       clearQualificationMalfunctionSignal: mqtt.clearQualificationMalfunctionSignal,
       getEstComplaintSignal: mqtt.getEstComplaintSignal,
+      getEstComplaintContext: mqtt.getEstComplaintContext,
       declareEstComplaint: mqtt.declareEstComplaint,
       clearEstComplaintSignal: mqtt.clearEstComplaintSignal,
       saveMqttSettings: mqtt.saveMqttSettings,

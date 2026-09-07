@@ -194,6 +194,7 @@ export type {
   RecordRelayReadinessPayload,
   RelayReadinessEntryDto,
   RelayReadinessAssessmentDto,
+  RelayStartSettingsDto,
 } from './relayReadiness.contract';
 
 export type {
@@ -431,3 +432,14 @@ export {
   type MalfunctionScoreApplicationPreviewDto,
   type MalfunctionScoreApplicationHistoryDto,
 } from './malfunctionScoreApplications.contract';
+
+export {
+  scoreCorrectionsContract,
+  type ScoreCorrectionRequestDto,
+  type ScoreCorrectionPreviewDto,
+  type ScoreCorrectionWorkspaceDto,
+} from './scoreCorrections.contract';
+
+export { reserveLaneTransfersContract, type ReserveTransferWorkspaceDto } from './reserveLaneTransfers.contract';
+
+export * from './finalRecoveryFiring.contract';

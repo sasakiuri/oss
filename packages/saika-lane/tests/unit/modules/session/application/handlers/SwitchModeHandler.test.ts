@@ -6,6 +6,7 @@ import { createSwitchModeHandler } from '@/main/modules/session/application/hand
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
+import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -38,6 +39,24 @@ describe('createSwitchModeHandler', () => {
 
     // Create handler
     handler = createSwitchModeHandler(mockSessionRepository, mockEventBus);
+  });
+
+  it('continues an unfinished MATCH series across extra sighting and repeated resume commands', async () => {
+    let current = testSession.resumeMode(Mode.match()).recordShot(null, new Score(100), new Date());
+    vi.mocked(mockSessionRepository.findById).mockImplementation(async () => current);
+    vi.mocked(mockSessionRepository.save).mockImplementation(async (session) => {
+      current = session;
+    });
+    await handler({ sessionId: current.id, mode: Mode.sighting(), preserveSeries: true });
+    current = current.recordShot(null, new Score(90), new Date());
+    await handler({ sessionId: current.id, mode: Mode.match(), preserveSeries: true });
+    await handler({ sessionId: current.id, mode: Mode.match(), preserveSeries: true });
+    current = current.recordShot(null, new Score(80), new Date());
+    expect(current.series).toHaveLength(1);
+    expect(current.series[0]!.count).toBe(2);
+    expect(current.matchShots.map((shot) => shot.seriesNumber)).toEqual([1, 1]);
+    expect(current.totalScore).toBe(180);
+    expect(current.sightingShots).toHaveLength(1);
   });
 
   describe('Success cases', () => {

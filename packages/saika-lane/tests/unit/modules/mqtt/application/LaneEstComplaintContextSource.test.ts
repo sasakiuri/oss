@@ -3,19 +3,22 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { AR60_FINAL, P25 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import { EstComplaintSignalState } from '@/main/modules/est-complaint-signal';
 import { LaneEstComplaintContextSource } from '@/main/modules/mqtt/application/LaneEstComplaintContextSource';
 import type { ILaneAssignmentSnapshotSource } from '@/main/modules/mqtt/application/LaneQualificationMalfunctionContextSource';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Session } from '@/main/modules/session/domain/Session';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import { EstComplaintSignalContextSchema } from '@/shared/mqtt/EstComplaintSignal';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const sessionId = '22222222-2222-4222-8222-222222222222';
 const shotId = '33333333-3333-4333-8333-333333333333';
 
-function contextSource(options: { assigned?: boolean; withShot?: boolean } = {}) {
+function contextSource(options: { assigned?: boolean; withShot?: boolean; precision?: boolean; final?: boolean } = {}) {
   const competition = {
     id: competitionId,
     sessionId,
@@ -24,8 +27,17 @@ function contextSource(options: { assigned?: boolean; withShot?: boolean } = {})
     currentSeriesIndex: 0,
     seriesShotCount: options.withShot === false ? 0 : 1,
     config: {
+      ...(options.final
+        ? {
+            round: AR60_FINAL.config.round,
+            rulePackIdentity: AR60_FINAL.config.rulePackIdentity,
+            estComplaints: AR60_FINAL.config.estComplaints,
+          }
+        : {}),
+      ...(options.precision ? { timedTarget: P25.config.timedTarget } : {}),
       stages: [
         {
+          id: options.precision ? 'PRECISION_STAGE' : 'stage',
           scored: true,
           series: [{ maxShots: 10, purpose: 'STANDARD', timedTargetProgramId: 'rapid-4s' }],
         },
@@ -72,6 +84,16 @@ function contextSource(options: { assigned?: boolean; withShot?: boolean } = {})
 }
 
 describe('LaneEstComplaintContextSource', () => {
+  it('preserves Final rule identity and procedures through immutable storage and the wire contract', async () => {
+    const context = await contextSource({ final: true }).capture();
+    const signal = EstComplaintSignalState.signal({ issue: 'SHOT_NOT_REGISTERED', context });
+    const restored = EstComplaintSignalState.create({ ...signal, context: JSON.parse(JSON.stringify(signal.context)) });
+    const decoded = EstComplaintSignalContextSchema.parse(restored.context);
+    expect(decoded.rules?.round).toBe('FINAL');
+    expect(decoded.rules?.identity).toEqual(AR60_FINAL.config.rulePackIdentity);
+    expect(decoded.rules?.procedures).toEqual(AR60_FINAL.config.estComplaints?.procedures);
+    expect(Object.isFrozen(signal.context.rules?.procedures)).toBe(true);
+  });
   it('captures trusted athlete, competition and latest-shot context from Lane state', async () => {
     await expect(contextSource().capture()).resolves.toEqual({
       competitionId,
@@ -93,6 +115,15 @@ describe('LaneEstComplaintContextSource', () => {
         receivedAt: '2026-09-04T00:00:00.100Z',
       },
     });
+  });
+
+  it('preserves the stage policy through the Lane signal and wire schema', async () => {
+    const context = await contextSource({ precision: true }).capture();
+    expect(context.missingShotProcedure?.notification).toBe('BEFORE_NEXT_SHOT');
+    const signal = EstComplaintSignalState.signal({ issue: 'SHOT_NOT_REGISTERED', context });
+    expect(EstComplaintSignalContextSchema.parse(signal.context).missingShotProcedure).toEqual(
+      context.missingShotProcedure,
+    );
   });
 
   it('allows target failures before a shot has been recorded', async () => {

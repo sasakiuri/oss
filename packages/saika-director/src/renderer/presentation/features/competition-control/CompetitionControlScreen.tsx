@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BellRing, Check, Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { championshipService, mqttService } from '@/renderer/services';
 import { useEvent } from '@/renderer/presentation/hooks/useEvent';
-import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
-import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { useCompetitionControlStore } from '@/renderer/presentation/stores/domain/competitionControl.store';
+import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNavigationStore } from '@/renderer/presentation/stores/ui/navigation.store';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { championshipService, mqttService } from '@/renderer/services';
 import type { CompetitionStartPhase } from '@/shared/competitionTypes';
 import type {
   ClockQualityAssessmentDto,
@@ -18,27 +18,29 @@ import type {
 } from '@/shared/ipc/contracts';
 import type { Athlete, EstComplaintIssue } from '@/shared/mqtt';
 
-import { Button } from '../shared/common/Button';
-import { Card } from '../shared/common/Card';
-import { PageHeader } from '../shared/layout/PageHeader';
-import { TargetExaminationsPanel } from '../target-examinations';
+import { EstInspectionStartPanel } from '../est-championship-inspections/EstInspectionStartPanel';
 import { EstComplaintInbox } from '../est-complaints';
-import { RangeInterruptionsPanel } from '../range-interruptions';
-import { SafetyStopPanel } from '../range-safety';
 import { FinalControlPanel } from '../final-control';
 import { FinalOperationPanel } from '../final-operations';
 import { FinalRecoveryPanel } from '../final-recoveries';
 import { IrregularShotCasesPanel } from '../irregular-shot-cases';
-import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
-import { RelayAthleteLifecyclePanel, RelayReadinessPanel } from '../relay-readiness';
 import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
-import { ProductionOperationsPanel } from '../production-operations';
 import { MixedTeamTimeoutPanel } from '../mixed-team-timeouts';
-import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './components/ChampionshipAssignmentPanel';
+import { ProductionOperationsPanel } from '../production-operations';
+import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
+import { RangeInterruptionsPanel } from '../range-interruptions';
+import { ReserveLaneTransferPanel } from '../range-interruptions/ReserveLaneTransferPanel';
+import { SafetyStopPanel } from '../range-safety';
+import { RelayAthleteLifecyclePanel, RelayReadinessPanel } from '../relay-readiness';
+import { Button } from '../shared/common/Button';
+import { Card } from '../shared/common/Card';
+import { PageHeader } from '../shared/layout/PageHeader';
+import { TargetExaminationsPanel } from '../target-examinations';
+
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
+import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './components/ChampionshipAssignmentPanel';
 import { buildPhaseStartConfirmation } from './phaseStartRequirements';
 import { findAdvanceSeriesSource } from './progressPlanning';
-import { TimedTargetControlPanel } from './TimedTargetControlPanel';
 import {
   asSupportedLaneCompetitionType,
   getLaneCompetitionDefinition,
@@ -46,6 +48,7 @@ import {
   LANE_COMPETITION_TYPES,
   type SupportedLaneCompetitionType,
 } from './supportedCompetitionTypes';
+import { TimedTargetControlPanel } from './TimedTargetControlPanel';
 
 const EMPTY_SNAPSHOT: MqttControlSnapshotDto = {
   connected: false,
@@ -1241,6 +1244,19 @@ export function CompetitionControlScreen() {
               </Card>
             )}
 
+            {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+              <Card>
+                <EstInspectionStartPanel
+                  key={`inspection:${activeCompetition.competitionId}`}
+                  competitionId={activeCompetition.competitionId}
+                  lanes={competitionLanes.map((lane) => ({
+                    laneId: lane.laneId,
+                    label: lane.laneAlias || lane.laneId.slice(0, 8),
+                  }))}
+                />
+              </Card>
+            )}
+
             {activeCompetition && activeCompetitionDefinition?.timedTarget && (
               <TimedTargetControlPanel
                 key={`timed-target:${activeCompetition.competitionId}`}
@@ -1361,6 +1377,18 @@ export function CompetitionControlScreen() {
 
             {activeCompetition && (
               <Card>
+                {activeCompetition.roundName !== 'Final' && (
+                  <ReserveLaneTransferPanel
+                    key={`transfer:${activeCompetition.competitionId}`}
+                    competitionId={activeCompetition.competitionId}
+                    lanes={competitionLanes.map((lane) => ({
+                      laneId: lane.laneId,
+                      label: lane.firingPointNumber
+                        ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
+                        : lane.laneAlias || lane.laneId.slice(0, 8),
+                    }))}
+                  />
+                )}
                 <RangeInterruptionsPanel
                   key={activeCompetition.competitionId}
                   primaryScope={{ scopeType: 'COMPETITION', scopeId: activeCompetition.competitionId }}

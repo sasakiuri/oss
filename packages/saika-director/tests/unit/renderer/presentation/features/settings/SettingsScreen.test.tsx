@@ -37,6 +37,13 @@ vi.mock('@/renderer/presentation/stores/ui/notifications.store', () => ({
     selector({ addNotification }),
 }));
 
+vi.mock('@/renderer/presentation/features/settings/ResultPublicationSettingsPanel', () => ({
+  ResultPublicationSettingsPanel: () => null,
+}));
+vi.mock('@/renderer/presentation/features/settings/ClockQualitySettingsPanel', () => ({
+  ClockQualitySettingsPanel: () => null,
+}));
+
 vi.mock('@/renderer/presentation/features/settings/OperationalArchivesPanel', () => ({
   OperationalArchivesPanel: () => null,
 }));

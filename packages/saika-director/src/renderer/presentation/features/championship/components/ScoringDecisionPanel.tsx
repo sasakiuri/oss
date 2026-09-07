@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 
 import { scoringDecisionsService } from '@/renderer/services';
 import type { AddScoringDecisionPayload, ScoringDecisionDto } from '@/shared/ipc/contracts';
+
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
+
+import { ScoreCorrectionPanel } from './ScoreCorrectionPanel';
 
 interface ScoringDecisionPanelProps {
   result: {
@@ -198,6 +201,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
 
         {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
 
+        <ScoreCorrectionPanel resultId={result.id} resultScope={resultScope} onChanged={onChanged} />
         <form onSubmit={handleSubmit} className="space-y-3" aria-label="Add scoring decision">
           <h3 className="text-[13px] font-semibold text-vscode-text">Append official decision</h3>
           <p className="border-l-2 border-vscode-border pl-2 text-xs text-vscode-text-muted">

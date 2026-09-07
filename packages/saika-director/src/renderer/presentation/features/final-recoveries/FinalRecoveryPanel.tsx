@@ -14,6 +14,7 @@ import type {
 import type { CompetitionPhase } from '@/shared/mqtt';
 
 import { Button } from '../shared/common/Button';
+import { FinalRecoveryFiringPanel } from './FinalRecoveryFiringPanel';
 import { getFinalRecoveryDefaults } from './finalRecoveryDefaults';
 
 interface FinalRecoveryPanelProps {
@@ -447,6 +448,8 @@ function RecoveryDetail({
           {value.scriptStepSnapshot ? ` · ${value.scriptStepSnapshot}` : ''}
         </p>
       </div>
+
+      <FinalRecoveryFiringPanel key={value.id} value={value} disabled={disabled} />
 
       {value.incidentType === 'MALFUNCTION' && (
         <p className="text-xs text-vscode-text-muted">

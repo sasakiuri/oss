@@ -1,5 +1,6 @@
 import { defineRulePack, type RulePack } from '../RulePack';
 
+import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import { buildIssf10mFinalCommandScript } from './finalCommandScript';
 import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
@@ -156,6 +157,7 @@ function mixedFinal(eventCode: 'ARMIX_FINAL' | 'APMIX_FINAL', discipline: string
     round: 'FINAL',
     authority,
     capabilities: {
+      estComplaints: ISSF_2026_FINAL_EST_COMPLAINTS,
       target: {
         scoringProfileId: discipline === 'AIR_RIFLE_10M' ? 'ISSF_AIR_RIFLE_10M_2026' : 'ISSF_AIR_PISTOL_10M_2026',
         scoringGaugeProfileId: 'ISSF_AIR_4_50_2026',

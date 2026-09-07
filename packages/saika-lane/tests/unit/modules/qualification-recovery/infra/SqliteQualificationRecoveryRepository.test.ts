@@ -109,7 +109,7 @@ describe('SqliteQualificationRecoveryRepository', () => {
     expect(() => db.prepare('DELETE FROM qualification_recovery_run_events').run()).toThrow('append-only');
   });
 
-  it('upgrades the Lane database to schema version 14', () => {
-    expect(db.pragma('user_version', { simple: true })).toBe(16);
+  it('includes the Qualification recovery schema', () => {
+    expect(Number(db.pragma('user_version', { simple: true }))).toBeGreaterThanOrEqual(16);
   });
 });

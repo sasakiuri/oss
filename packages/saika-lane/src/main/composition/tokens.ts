@@ -51,6 +51,7 @@ export interface RecordShotInput {
 export interface SwitchModeInput {
   sessionId: string;
   mode: Mode;
+  preserveSeries?: boolean;
 }
 
 /** Input for the session reset command */

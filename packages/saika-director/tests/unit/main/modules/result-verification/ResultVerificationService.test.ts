@@ -13,6 +13,7 @@ import type { ResultVerificationCheck } from '@/main/modules/result-verification
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { RankedResultDto } from '@/shared/ipc/contracts';
+import { VerifiedResultPublicationReadiness } from '@/main/modules/result-publication/infra/QualificationResultPublicationReadiness';
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const RESULT_ONE_ID = '22222222-2222-4222-8222-222222222222';
@@ -121,6 +122,50 @@ function harness(
 }
 
 describe('ResultVerificationService', () => {
+  it('blocks approval and publication for unresolved ranks outside the backup-check cutoff', async () => {
+    const { service, getResults, setResults } = harness({ topIndividualResults: 1, topTeamResults: 0 });
+    const first = getResults()[0]!;
+    await service.addCheck({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      resultId: first.id,
+      resultRevision: first.revision,
+      evidenceSource: 'INDEPENDENT_MEMORY',
+      evidenceReference: 'External printout',
+      comparisonStatus: 'MATCHED',
+      manualInterventionsReviewed: true,
+      officialName: 'RTS Jury',
+    });
+    const before = await service.getStatus(EVENT_ID);
+    await service.approve({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      snapshotRevision: before.snapshotRevision,
+      statement: 'Verified',
+      officialName: 'RTS Jury',
+    });
+    setResults(
+      getResults().map((result, index) =>
+        index === 1 ? { ...result, projectionIssues: ['Qualification tie needs inner-ten evidence'] } : result,
+      ),
+    );
+    const after = await service.getStatus(EVENT_ID);
+    expect(after.requiredIndividualChecks).toBe(1);
+    expect(after.readyForApproval).toBe(false);
+    expect(after.issues).toContain('Athlete 2: Qualification tie needs inner-ten evidence');
+    await expect(
+      service.approve({
+        eventId: EVENT_ID,
+        resultScope: 'QUALIFICATION',
+        snapshotRevision: after.snapshotRevision,
+        statement: 'Verified',
+        officialName: 'RTS Jury',
+      }),
+    ).rejects.toThrow('not ready');
+    const publication = await new VerifiedResultPublicationReadiness(service).getCurrent(EVENT_ID, 'QUALIFICATION');
+    expect(publication.verificationIssues).toContain('Athlete 2: Qualification tie needs inner-ten evidence');
+  });
+
   it('requires current matched top-result checks before appending an RTS Jury approval', async () => {
     const { service, checks, approvals, getResults } = harness();
 
