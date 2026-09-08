@@ -44,6 +44,9 @@ const {
   startSighting: vi.fn(),
 }));
 
+vi.mock('@/renderer/presentation/features/operational-profiles/OperationalProfilePanel', () => ({
+  OperationalProfilePanel: () => null,
+}));
 vi.mock('@/renderer/services', () => ({
   mqttService: {
     getControlState,

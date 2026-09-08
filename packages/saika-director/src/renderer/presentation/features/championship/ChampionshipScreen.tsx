@@ -27,6 +27,7 @@ import { ParticipantEditor } from './components/ParticipantEditor';
 import { FiringPointAssignmentEditor } from './components/FiringPointAssignmentEditor';
 import { ResultsView } from './components/ResultsView';
 import { IncidentReportsView } from './components/IncidentReportsView';
+import { EquipmentRegistryPanel } from './components/EquipmentRegistryPanel';
 import { EstChampionshipInspectionPanel } from './components/EstChampionshipInspectionPanel';
 import { ResultsBookPanel } from './components/ResultsBookPanel';
 import { OutdoorEliminationPlanningPanel } from './components/OutdoorEliminationPlanningPanel';
@@ -419,6 +420,12 @@ export function ChampionshipScreen() {
                 key={`results-book:${selectedChampionship.id}`}
                 championshipId={selectedChampionship.id}
               />
+            </Card>
+          </div>
+
+          <div className="px-5 pt-4">
+            <Card>
+              <EquipmentRegistryPanel key={selectedChampionship.id} championshipId={selectedChampionship.id} />
             </Card>
           </div>
 

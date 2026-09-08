@@ -1,3 +1,6 @@
+import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
+import { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
 import { contextBridge } from 'electron';
 
 import {
@@ -53,6 +56,8 @@ import { buildProcedureBridge, buildEventBridge, buildAliasedBridge } from './bu
 declare const __APP_VERSION__: string;
 
 const electronAPI: ElectronAPI = {
+  operatorAccess: buildProcedureBridge(operatorAccessContract),
+  equipmentRegistry: buildProcedureBridge(equipmentRegistryContract),
   appVersion: __APP_VERSION__,
   queries: buildProcedureBridge(debugContract),
   mqtt: buildProcedureBridge(mqttContract),
@@ -66,6 +71,7 @@ const electronAPI: ElectronAPI = {
     getChampionshipDetail: 'getDetail',
   }) as unknown as ElectronAPI['championship'],
 
+  operationalProfiles: buildProcedureBridge(operationalProfilesContract),
   athleteSanctions: buildProcedureBridge(athleteSanctionsContract),
 
   laneControl: buildProcedureBridge(laneControlContract),

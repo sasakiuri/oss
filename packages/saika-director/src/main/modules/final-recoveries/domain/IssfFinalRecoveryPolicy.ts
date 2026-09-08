@@ -42,6 +42,16 @@ function malfunctionGuidance(
   profile: FinalRecoveryProcedureProfile,
   phase: FinalRecoveryPhase,
 ): FinalRecoveryGuidanceDto {
+  if (phase === 'OTHER' && profile !== 'GENERAL')
+    return {
+      ruleReferences: ['6.17.1.6', '6.17.1.14(u)'],
+      checklist: [
+        'Identify the actual firing phase before applying a match malfunction remedy. Record an irregular-case Jury decision separately if the phase cannot be established.',
+      ],
+      classifications: ['OTHER'],
+      remedies: ['NONE', 'CONTINUE', 'OTHER'],
+      limits: { ...emptyLimits },
+    };
   if (profile === 'PISTOL_25M_RAPID_FIRE') {
     if (phase === 'SIGHTING') return sightingMalfunctionGuidance('6.17.4(o)');
     return {
@@ -73,6 +83,16 @@ function malfunctionGuidance(
     };
   }
 
+  if (phase === 'SIGHTING' && profile !== 'GENERAL')
+    return {
+      ruleReferences: ['6.17.1.6'],
+      checklist: [
+        'Record the sighting malfunction and any safety action. The match single-shot and series malfunction allowances do not grant additional sighting time; continue within the original sighting period or record a separate Jury decision.',
+      ],
+      classifications: ['OTHER'],
+      remedies: ['NONE', 'CONTINUE', 'OTHER'],
+      limits: { ...emptyLimits },
+    };
   const isSeries = phase === 'MATCH_SERIES';
   const mixedTeam = profile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM';
   return {
@@ -90,6 +110,9 @@ function malfunctionGuidance(
       isSeries
         ? 'Preserve fired shots and record the remaining time when the malfunction was claimed.'
         : 'For an ALLOWABLE single-shot malfunction, direct the athlete to repeat the shot after repair or replacement.',
+      isSeries
+        ? 'If repair or replacement is completed within one minute, the completion time is the remaining time at the claim plus the actual repair time, capped at 60 additional seconds.'
+        : 'The one-minute repair limit is separate from the firing time for the repeated shot; use the applicable event command.',
       'Document the malfunction in the independent Range Incident Report or malfunction form.',
     ],
     classifications: ['ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION'],
@@ -136,7 +159,9 @@ function estGuidance(profile: FinalRecoveryProcedureProfile, phase: FinalRecover
           profile === 'PISTOL_25M_WOMEN'
             ? 'Unless credible evidence establishes a miss, authorize one shot to replace the unexpected zero; remaining-shot completion belongs to the separate firearm malfunction procedure.'
             : 'Unless credible evidence establishes a miss, authorize the event-specific replacement shot or series.',
-          'If the replacement does not register, move the athlete to a reserve target before completing the replacement.',
+          is10mOr50m
+            ? 'If the replacement does not register, move the athlete to a reserve target and give that athlete two minutes Preparation and Sighting Time before the missing competition shot.'
+            : 'If the replacement does not register, move the athlete to a reserve target before completing the replacement.',
           is10mOr50m
             ? 'If the delay exceeds five minutes, give all 10m/50m finalists two minutes sighting time before resumption.'
             : 'Use the event-specific 25m procedure; the two-minute sighting provision in Rule 6.17.1.8(d) applies only to 10m/50m Finals.',

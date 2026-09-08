@@ -48,3 +48,9 @@ export const scoreCorrectionsService = createApiService('scoreCorrections');
 export const reserveLaneTransfersService = createApiService('reserveLaneTransfers');
 
 export const finalRecoveryFiringService = createApiService('finalRecoveryFiring');
+
+export const operationalProfilesService = createApiService('operationalProfiles');
+
+export const equipmentRegistryService = createApiService('equipmentRegistry');
+
+export const operatorAccessService = createApiService('operatorAccess');

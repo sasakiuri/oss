@@ -171,23 +171,31 @@ function CreateRecoveryForm({
   setError: (value: string | null) => void;
   onCreated: (value: FinalRecoveryCaseDto) => void;
 }) {
-  const defaults = getFinalRecoveryDefaults(competitionTypeId, phase);
+  const [affectedLaneIds, setAffectedLaneIds] = useState<Set<string>>(() => new Set());
+  const relevantStates = lanes
+    .filter((lane) => affectedLaneIds.size === 0 || affectedLaneIds.has(lane.laneId))
+    .map((lane) => lane.competitionState)
+    .filter((state) => state?.competitionId === competitionId);
+  const shotLimits = new Set(relevantStates.map((state) => state!.currentSeries.maxShots));
+  const effect = run?.currentStep?.step.effect;
+  const purpose = effect && 'purpose' in effect ? effect.purpose : undefined;
+  const shotsPerParticipant = shotLimits.size === 1 ? [...shotLimits][0] : undefined;
+  const defaults = getFinalRecoveryDefaults(competitionTypeId, phase, { purpose, shotsPerParticipant });
   const [procedureProfile, setProcedureProfile] = useState<FinalRecoveryProcedureProfileDto>(
     () => defaults.procedureProfile,
   );
   const [incidentType, setIncidentType] = useState<FinalRecoveryIncidentTypeDto>('MALFUNCTION');
   const [recoveryPhase, setRecoveryPhase] = useState<FinalRecoveryPhaseDto>(() => defaults.phase);
-  const [affectedLaneIds, setAffectedLaneIds] = useState<Set<string>>(() => new Set());
   const [summary, setSummary] = useState('');
   const [allowanceIdentity, setAllowanceIdentity] = useState('');
   const [officialName, setOfficialName] = useState('');
   const singleLaneRequired = is25mMalfunction(procedureProfile, incidentType);
 
   useEffect(() => {
-    const next = getFinalRecoveryDefaults(competitionTypeId, phase);
+    const next = getFinalRecoveryDefaults(competitionTypeId, phase, { purpose, shotsPerParticipant });
     setProcedureProfile(next.procedureProfile);
     setRecoveryPhase(next.phase);
-  }, [competitionTypeId, phase]);
+  }, [competitionTypeId, phase, purpose, shotsPerParticipant]);
 
   const submit = async () => {
     setSaving(true);

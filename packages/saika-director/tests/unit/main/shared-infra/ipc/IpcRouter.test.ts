@@ -65,6 +65,31 @@ describe('IpcRouter', () => {
   }
 
   describe('register', () => {
+    it('runs the invocation policy before commands, including void inputs, and wraps its rejection', async () => {
+      const invoke = vi.fn(async () => {
+        throw new Error('Operator permission required');
+      });
+      router = new IpcRouter({ invoke });
+      const handler = vi.fn(async () => undefined);
+      router.register(
+        defineContract('protected', {
+          edit: command(z.object({ value: z.string() }), commandDataResponseSchema(z.unknown())),
+          reset: command(z.void(), commandDataResponseSchema(z.unknown())),
+        }),
+        { edit: handler, reset: handler },
+      );
+      const sender = { sender: { id: 42 } };
+      expect(await getRegisteredHandler(0)(sender, { value: 'new' })).toMatchObject({
+        success: false,
+        error: { message: 'Operator permission required' },
+      });
+      expect(await getRegisteredHandler(1)(sender, undefined)).toMatchObject({ success: false });
+      expect(invoke).toHaveBeenCalledWith(
+        { namespace: 'protected', operation: 'reset', kind: 'command', senderId: 42 },
+        expect.any(Function),
+      );
+      expect(handler).not.toHaveBeenCalled();
+    });
     it('should register ipcMain.handle for each procedure in the contract', () => {
       const contract = defineContract('myNs', {
         cmd1: command(z.void(), z.object({ ok: z.boolean() })),

@@ -1,3 +1,5 @@
+import { OperationalProfileService } from '@/main/modules/operational-profiles';
+import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
 // SPDX-License-Identifier: MIT
 import { networkInterfaces } from 'node:os';
 
@@ -170,6 +172,8 @@ function assertCommandSucceeded(
 }
 
 export const mqttModule: ModuleDefinition<
+  | 'relayReadinessService'
+  | 'estInspectionStartService'
   | 'competitionStartReadiness'
   | 'database'
   | 'eventBus'
@@ -190,6 +194,8 @@ export const mqttModule: ModuleDefinition<
 > = {
   name: 'mqtt',
   deps: [
+    'relayReadinessService',
+    'estInspectionStartService',
     'competitionStartReadiness',
     'database',
     'eventBus',
@@ -608,6 +614,68 @@ export const mqttModule: ModuleDefinition<
     const reconnectClient = async (): Promise<void> => {
       await connectClient(readBrokerConfig());
     };
+
+    const operationalProfiles = new OperationalProfileService(
+      [
+        {
+          id: 'relay',
+          label: 'Relay readiness',
+          scope: 'COMPETITION',
+          read: (competitionId) => {
+            const value = ctx.relayReadinessService.getStartSettings(competitionId);
+            return { mode: value.mode, context: JSON.stringify(value) };
+          },
+          write: (competitionId, mode) => {
+            ctx.relayReadinessService.setStartSettings({
+              ...ctx.relayReadinessService.getStartSettings(competitionId),
+              mode,
+            });
+          },
+        },
+        {
+          id: 'inspection',
+          label: 'EST inspection',
+          scope: 'COMPETITION',
+          read: (competitionId) => {
+            const value = ctx.estInspectionStartService.getSettings(competitionId);
+            return { mode: value.mode, context: JSON.stringify(value) };
+          },
+          write: (competitionId, mode) => {
+            ctx.estInspectionStartService.saveSettings({
+              ...ctx.estInspectionStartService.getSettings(competitionId),
+              mode,
+            });
+          },
+        },
+        {
+          id: 'clock',
+          label: 'Clock quality',
+          scope: 'DIRECTOR',
+          read: () => ({ mode: readClockQualitySettings().mode, context: JSON.stringify(readClockQualitySettings()) }),
+          write: (_competitionId, mode) => {
+            if (
+              mqttService
+                .getSnapshot()
+                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
+            )
+              throw new Error('Finish active competitions before changing the shared clock policy');
+            const settings = { ...readClockQualitySettings(), mode };
+            const policy = new ClockQualityPolicy(settings);
+            appConfigService.set('clockQuality.mode', mode);
+            mqttService.setClockQualityPolicy(policy);
+          },
+        },
+      ],
+      (competitionId) => {
+        const competition = mqttService.getSnapshot().competitions.find((item) => item.competitionId === competitionId);
+        if (!competition || competition.phase !== 'NOT_STARTED')
+          throw new Error('Select a competition that has not started before applying an operational profile');
+      },
+    );
+    ipcRouter.register(operationalProfilesContract, {
+      preview: (input) => operationalProfiles.preview(input),
+      apply: (input) => runWithControlLock(() => operationalProfiles.apply(input)),
+    });
 
     ipcRouter.register(mqttContract, {
       getBrokerConfig: () => runWithRuntimeLock(async () => readBrokerConfig()),

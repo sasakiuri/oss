@@ -15,6 +15,7 @@ export interface FinalRecoveryDefaults {
 export function getFinalRecoveryDefaults(
   competitionTypeId: string | undefined,
   phase: CompetitionPhase,
+  firingContext?: { purpose?: 'SIGHTING' | 'MATCH' | 'SHOOT_OFF'; shotsPerParticipant?: number },
 ): FinalRecoveryDefaults {
   const supportedType = asSupportedLaneCompetitionType(competitionTypeId);
   const definition = supportedType ? getLaneCompetitionDefinition(supportedType) : null;
@@ -35,7 +36,20 @@ export function getFinalRecoveryDefaults(
     return { procedureProfile, phase: 'SIGHTING' };
   }
   if (phase === 'MATCH' || phase === 'MATCH_COMPLETE') {
-    return { procedureProfile, phase: definition?.timedTarget ? 'MATCH_SERIES' : 'MATCH_SINGLE' };
+    if (firingContext?.purpose === 'SHOOT_OFF') return { procedureProfile, phase: 'SHOOT_OFF' };
+    if (firingContext?.purpose === 'SIGHTING') return { procedureProfile, phase: 'SIGHTING' };
+    const shots = firingContext?.shotsPerParticipant;
+    return {
+      procedureProfile,
+      phase:
+        shots && shots > 1
+          ? 'MATCH_SERIES'
+          : shots === 1
+            ? 'MATCH_SINGLE'
+            : definition?.timedTarget
+              ? 'MATCH_SERIES'
+              : 'OTHER',
+    };
   }
   return { procedureProfile, phase: 'OTHER' };
 }

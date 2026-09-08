@@ -53,6 +53,10 @@ const DIRECT_EVENT_TABLES = [
 
 const SECTION_QUERIES: readonly SectionQuery[] = [
   {
+    id: 'equipment-registry-entries',
+    sql: 'SELECT * FROM equipment_registry_entries WHERE championship_id = @championshipId',
+  },
+  {
     id: 'final-recovery-firing-runs',
     sql: `SELECT * FROM final_recovery_firing_runs WHERE competition_id IN (${RUNTIME_COMPETITION_IDS})`,
   },

@@ -67,6 +67,10 @@ vi.mock('@/renderer/presentation/features/championship/components/IncidentReport
   IncidentReportsView: ({ eventId }: { eventId: string }) => <div>incident workspace {eventId}</div>,
 }));
 
+vi.mock('@/renderer/presentation/features/championship/components/EquipmentRegistryPanel', () => ({
+  EquipmentRegistryPanel: () => null,
+}));
+
 vi.mock('@/renderer/presentation/features/championship/components/EstChampionshipInspectionPanel', () => ({
   EstChampionshipInspectionPanel: () => null,
 }));
