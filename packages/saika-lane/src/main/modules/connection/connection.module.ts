@@ -10,6 +10,7 @@ import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composit
 import type { Connection } from '@/main/modules/connection/domain/Connection';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
+import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
@@ -20,6 +21,7 @@ import { SessionContextCache } from './infra/SessionContextCache';
 import { createShotIngestionHandler } from './infra/ShotIngestionHandler';
 
 type ConnectionDeps =
+  | 'adapterRegistry'
   | 'commandBus'
   | 'database'
   | 'eventBus'
@@ -36,6 +38,7 @@ type ConnectionDeps =
 export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   name: 'connection',
   deps: [
+    'adapterRegistry',
     'commandBus',
     'database',
     'eventBus',
@@ -50,6 +53,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     'mainWindow',
   ] as const,
   register({
+    adapterRegistry,
     commandBus,
     database,
     eventBus,
@@ -152,7 +156,12 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     });
 
     // Register IPC handlers via IpcRouter
-    const connectionHandlers = createConnectionIpcHandlers({ commandBus, eventBus, usbManager });
+    const connectionHandlers = createConnectionIpcHandlers({
+      commandBus,
+      eventBus,
+      usbManager,
+      targetConnectionSupport: new TargetConnectionSupport(adapterRegistry),
+    });
     ipcRouter.register(connectionContract, connectionHandlers);
 
     // Register shot ingestion handler: USB data → RecordShot command

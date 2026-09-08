@@ -10,6 +10,8 @@ export const TARGET_SCORING_PROFILE_IDS = [
   'ISSF_AIR_RIFLE_10M_2026',
   'ISSF_AIR_PISTOL_10M_2026',
   'ISSF_RIFLE_50M_2026',
+  'ISSF_RIFLE_300M_2026',
+  'ISSF_PISTOL_50M_2026',
   'ISSF_PISTOL_25M_PRECISION_2026',
   'ISSF_PISTOL_25M_RAPID_FIRE_2026',
   'ISSF_PISTOL_25M_RAPID_FIRE_DECIMAL_2026',
@@ -71,6 +73,19 @@ const ISSF_2026_EDITION = '2025 Second Print 07/2026, effective 1 July 2026';
 function rings(...entries: ReadonlyArray<readonly [score: number, radiusMm: number]>): readonly TargetRingLine[] {
   return Object.freeze(entries.map(([score, radiusMm]) => Object.freeze({ score, radiusMm })));
 }
+
+const pistolPrecisionRings = rings(
+  [10, 25],
+  [9, 50],
+  [8, 75],
+  [7, 100],
+  [6, 125],
+  [5, 150],
+  [4, 175],
+  [3, 200],
+  [2, 225],
+  [1, 250],
+);
 
 function freezeProfile(profile: TargetScoringProfile): TargetScoringProfile {
   return Object.freeze({
@@ -181,13 +196,44 @@ export const TARGET_SCORING_PROFILES: Readonly<Record<TargetScoringProfileId, Ta
     innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 2.5 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.2', '7.7.5'] },
   }),
+  ISSF_RIFLE_300M_2026: freezeProfile({
+    id: 'ISSF_RIFLE_300M_2026',
+    discipline: 'RIFLE_300M',
+    displayName: 'ISSF 300m Rifle (2026)',
+    granularity: 'DECIMAL',
+    defaultScoringGaugeProfileId: 'ISSF_RIFLE_8_00_2026',
+    ringLines: rings(
+      [10, 50],
+      [9, 100],
+      [8, 150],
+      [7, 200],
+      [6, 250],
+      [5, 300],
+      [4, 350],
+      [3, 400],
+      [2, 450],
+      [1, 500],
+    ),
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 25 },
+    authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.1'] },
+  }),
+  ISSF_PISTOL_50M_2026: freezeProfile({
+    id: 'ISSF_PISTOL_50M_2026',
+    discipline: 'PISTOL_50M',
+    displayName: 'ISSF 50m Pistol (2026)',
+    granularity: 'DECIMAL',
+    defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
+    ringLines: pistolPrecisionRings,
+    innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 12.5 },
+    authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.5'] },
+  }),
   ISSF_PISTOL_25M_PRECISION_2026: freezeProfile({
     id: 'ISSF_PISTOL_25M_PRECISION_2026',
     discipline: 'PISTOL_25M',
     displayName: 'ISSF 25m Precision / 50m Pistol Target (2026)',
     granularity: 'INTEGER',
     defaultScoringGaugeProfileId: 'ISSF_SMALLBORE_5_60_2026',
-    ringLines: rings([10, 25], [9, 50], [8, 75], [7, 100], [6, 125], [5, 150], [4, 175], [3, 200], [2, 225], [1, 250]),
+    ringLines: pistolPrecisionRings,
     innerTenRule: { type: 'SCORING_GAUGE_TOUCHES_RING', ringRadiusMm: 12.5 },
     authority: { organization: 'ISSF', edition: ISSF_2026_EDITION, ruleRefs: ['6.3.4.5'] },
   }),
@@ -224,6 +270,8 @@ export const DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE: Readonly<Record<Disci
     AIR_RIFLE_10M: 'ISSF_AIR_RIFLE_10M_2026',
     AIR_PISTOL_10M: 'ISSF_AIR_PISTOL_10M_2026',
     RIFLE_50M: 'ISSF_RIFLE_50M_2026',
+    RIFLE_300M: 'ISSF_RIFLE_300M_2026',
+    PISTOL_50M: 'ISSF_PISTOL_50M_2026',
     // Backward-compatible training default. Timed 25m competitions override
     // this with the precision or rapid-fire profile selected by their stage.
     PISTOL_25M: 'ISSF_PISTOL_25M_PRECISION_2026',

@@ -1,18 +1,12 @@
+import { ISSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button } from '../../shared/common/Button';
+
 import type { EventDto } from '@/shared/ipc/contracts/championship.contract';
 
+import { Button } from '../../shared/common/Button';
+
 const EVENT_TYPE_LABELS: Record<string, string> = {
-  AR60: '10m Air Rifle 60 shots',
-  AP60: '10m Air Pistol 60 shots',
-  AR60_FINAL: '10m Air Rifle Final',
-  AP60_FINAL: '10m Air Pistol Final',
-  R3P60: '50m Rifle 3 Positions 60 shots (Outdoor)',
-  R3P60_ELIMINATION: '50m Rifle 3 Positions 60 shots (Outdoor Elimination)',
-  R3P60_INDOOR: '50m Rifle 3 Positions 60 shots (Indoor)',
-  RPR60: '50m Rifle Prone 60 shots',
-  RPR60_ELIMINATION: '50m Rifle Prone 60 shots (Outdoor Elimination)',
-  R3P_FINAL: '50m Rifle 3 Positions Final',
+  ...Object.fromEntries(ISSF_2026_RULE_PACKS.map((pack) => [pack.eventCode, pack.displayName])),
   BR60S: 'BR60S',
   BP60: 'BP60',
   BR60S_FINAL: 'BR60S Final',

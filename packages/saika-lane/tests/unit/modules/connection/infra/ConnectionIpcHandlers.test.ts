@@ -16,6 +16,9 @@ import {
   createConnectionIpcHandlers,
   type ConnectionIpcHandlersDeps,
 } from '@/main/modules/connection/infra/ConnectionIpcHandlers';
+import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
+import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+import { targetModule } from '@/main/modules/target/target.module';
 
 import { createMockCommandBus, createMockEventBus, createMockUSBManager } from '../../../../helpers/mockDependencies';
 
@@ -30,7 +33,9 @@ describe('ConnectionIpcHandlers', () => {
     commandBus = createMockCommandBus();
     eventBus = createMockEventBus();
     usbManager = createMockUSBManager();
-    deps = { commandBus, eventBus, usbManager };
+    const adapterRegistry = new AdapterRegistry();
+    targetModule.register({ adapterRegistry });
+    deps = { commandBus, eventBus, usbManager, targetConnectionSupport: new TargetConnectionSupport(adapterRegistry) };
   });
 
   afterEach(() => {
@@ -341,6 +346,15 @@ describe('ConnectionIpcHandlers', () => {
         'DISAG_KT_RDT_ZIE_1_PISTOL',
       ]);
     });
+
+    it.each(['SIUS', 'MEYTON'] as const)(
+      'omits unavailable %s devices from the connection choices',
+      async (manufacturer) => {
+        expect(await createConnectionIpcHandlers(deps).getDevicesByManufacturer({ manufacturer })).toEqual({
+          devices: [],
+        });
+      },
+    );
 
     it('should throw on invalid manufacturer', async () => {
       const handlers = createConnectionIpcHandlers(deps);

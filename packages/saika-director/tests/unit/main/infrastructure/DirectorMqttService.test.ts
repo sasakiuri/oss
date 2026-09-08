@@ -391,18 +391,56 @@ describe('DirectorMqttService', () => {
     await service.connect('mqtt://localhost:1883');
     await createCompetition(service);
     service.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'REQUIRED' }));
+    expect(service.getClockStartIssues([LANE_ID])).toEqual([
+      expect.objectContaining({ code: 'CLOCK_QUALITY', blocking: true }),
+    ]);
     const publicationCount = transport.publications.length;
     await expect(service.startSighting(COMPETITION_ID, 900)).rejects.toThrow('Fresh GOOD clock-quality samples');
     expect(transport.publications).toHaveLength(publicationCount);
     expect(service.getSnapshot().competitions[0]?.pendingTimer).toBeUndefined();
 
+    service.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'DISABLED' }));
+    expect(service.getClockStartIssues([LANE_ID])).toEqual([]);
     service.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'ADVISORY' }));
+    expect(service.getClockStartIssues([LANE_ID])).toEqual([
+      expect.objectContaining({ code: 'CLOCK_QUALITY', blocking: false }),
+    ]);
     const start = service.startSighting(COMPETITION_ID, 900);
     await vi.waitFor(() =>
       expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-sighting'))).toBe(true),
     );
     acknowledgeCompetitionCommand(transport, 'start-sighting', publishedCommand(transport, 'start-sighting').commandId);
     expect((await start).success).toBe(true);
+    await service.disconnect();
+  });
+
+  it.each(['ADVISORY', 'REQUIRED'] as const)('reports expired clock samples under %s policy', async (mode) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-08T00:00:00.000Z'));
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, hardwareState());
+    service.setClockQualityPolicy(new ClockQualityPolicy({ mode, maxSampleAgeMilliseconds: 1000 }));
+    const probe = service.probeLaneClock(LANE_ID);
+    await vi.advanceTimersByTimeAsync(0);
+    const command = publishedCommand(transport, 'probe-clock');
+    transport.emitMessage(`saika/lane/${LANE_ID}/command/probe-clock/acknowledgement`, {
+      commandId: command.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+      data: {
+        directorSentAt: new Date().toISOString(),
+        laneReceivedAt: new Date().toISOString(),
+        laneSentAt: new Date().toISOString(),
+      },
+    });
+    expect((await probe).assessment.status).toBe('GOOD');
+    expect(service.getClockStartIssues([LANE_ID])).toEqual([]);
+    vi.setSystemTime(new Date('2026-09-08T00:00:01.001Z'));
+    expect(service.getClockStartIssues([LANE_ID])).toEqual([
+      expect.objectContaining({ code: 'CLOCK_QUALITY', blocking: mode === 'REQUIRED' }),
+    ]);
     await service.disconnect();
   });
 

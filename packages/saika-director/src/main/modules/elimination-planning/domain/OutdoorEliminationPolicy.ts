@@ -51,7 +51,10 @@ export class OutdoorEliminationPolicy {
   plan(input: OutdoorEliminationPlanInput): OutdoorEliminationPlan {
     positiveInteger(input.entryCount, 'entryCount');
     positiveInteger(input.usableFiringPoints, 'usableFiringPoints');
-    if (input.usableFiringPoints < this.capability.minimumQualificationAthletes) {
+    if (
+      this.capability.minimumQualificationAthletes !== undefined &&
+      input.usableFiringPoints < this.capability.minimumQualificationAthletes
+    ) {
       throw new Error(
         `Usable capacity ${input.usableFiringPoints} is below the required minimum of ${this.capability.minimumQualificationAthletes} Qualification athletes`,
       );

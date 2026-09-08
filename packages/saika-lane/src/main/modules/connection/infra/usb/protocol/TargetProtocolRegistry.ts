@@ -25,8 +25,8 @@ export class TargetProtocolRegistry {
       new RedDotTargetProtocol(),
       new BPT216TargetProtocol(),
       new DirectSerialTargetProtocol('MT201', (config) => config.deviceId === 'MT201'),
-      // Preserve the established transparent serial behavior for existing
-      // SIUS, Meyton, Custom, and manufacturer-routed configurations.
+      // Transparent transport for installed readers that do not need a framed
+      // session. USBConnectionManager separately requires a matching reader.
       new DirectSerialTargetProtocol('DIRECT_SERIAL', () => true),
     ]);
   }

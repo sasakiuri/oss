@@ -77,6 +77,7 @@ describe('connection.module', () => {
 
     it('should declare correct dependencies', () => {
       expect(connectionModule.deps).toEqual([
+        'adapterRegistry',
         'commandBus',
         'database',
         'eventBus',

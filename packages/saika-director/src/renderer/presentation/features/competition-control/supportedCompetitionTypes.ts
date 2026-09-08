@@ -1,4 +1,12 @@
 import {
+  ISSF_2026_R300_3P60,
+  ISSF_2026_R300_3P60_ELIMINATION,
+  ISSF_2026_R300_PR60,
+  ISSF_2026_R300_PR60_ELIMINATION,
+  ISSF_2026_R300_STD60,
+  ISSF_2026_R300_STD60_ELIMINATION,
+  ISSF_2026_FP60,
+  ISSF_2026_FP60_ELIMINATION,
   ISSF_2026_AP60,
   ISSF_2026_AP60_FINAL,
   ISSF_2026_APMIX30,
@@ -20,14 +28,15 @@ import {
   ISSF_2026_RFPM_FINAL,
   ISSF_2026_STDP,
 } from '@sasakiuri/saika-rules';
-import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
-import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
-import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
+
 import type {
   CompetitionTypeDefinition,
   PhaseStartRequirement,
   PhaseStartRequirements,
 } from '@/shared/competitionTypes';
+import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
+import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
 
 export const LANE_COMPETITION_TYPES = [
   'BR60S',
@@ -52,11 +61,27 @@ export const LANE_COMPETITION_TYPES = [
   'STDP',
   'RFPM_FINAL',
   'P25_FINAL',
+  'R300_3P60',
+  'R300_3P60_ELIMINATION',
+  'R300_PR60',
+  'R300_PR60_ELIMINATION',
+  'R300_STD60',
+  'R300_STD60_ELIMINATION',
+  'FP60',
+  'FP60_ELIMINATION',
 ] as const;
 
 export type SupportedLaneCompetitionType = (typeof LANE_COMPETITION_TYPES)[number];
 
 const definitions: Readonly<Record<SupportedLaneCompetitionType, CompetitionTypeDefinition>> = Object.freeze({
+  R300_3P60: competitionTypeFromRulePack(ISSF_2026_R300_3P60),
+  R300_3P60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_R300_3P60_ELIMINATION),
+  R300_PR60: competitionTypeFromRulePack(ISSF_2026_R300_PR60),
+  R300_PR60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_R300_PR60_ELIMINATION),
+  R300_STD60: competitionTypeFromRulePack(ISSF_2026_R300_STD60),
+  R300_STD60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_R300_STD60_ELIMINATION),
+  FP60: competitionTypeFromRulePack(ISSF_2026_FP60),
+  FP60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_FP60_ELIMINATION),
   BR60S,
   BP60,
   AR60: competitionTypeFromRulePack(ISSF_2026_AR60),

@@ -11,6 +11,8 @@ const {
   disconnectDirector,
   finishCompetition,
   getSnapshot,
+  getClockStartIssues,
+  getOperationalStartIssues,
   startMatchDirector,
   startQualificationRecoveryDirector,
   startSightingDirector,
@@ -27,6 +29,8 @@ const {
   disconnectDirector: vi.fn().mockResolvedValue(undefined),
   finishCompetition: vi.fn(),
   getSnapshot: vi.fn(),
+  getClockStartIssues: vi.fn(() => []),
+  getOperationalStartIssues: vi.fn(() => []),
   startMatchDirector: vi.fn(),
   startQualificationRecoveryDirector: vi.fn(),
   startSightingDirector: vi.fn(),
@@ -69,6 +73,7 @@ vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
     createCompetition = createDirectorCompetition;
     disconnect = disconnectDirector;
     getSnapshot = getSnapshot;
+    getClockStartIssues = getClockStartIssues;
     startMatch = startMatchDirector;
     startQualificationRecovery = startQualificationRecoveryDirector;
     startSighting = startSightingDirector;
@@ -124,6 +129,7 @@ describe('mqttDirectorIdFromEnvironment', () => {
 });
 
 interface MqttHandlers {
+  getStartReadiness(input: { competitionId: string; phase: 'SIGHTING' | 'MATCH' }): Promise<unknown>;
   getFiringWindowViolations(input: { competitionId: string }): Promise<unknown>;
   createCompetition(input: { competitionTypeId: string; laneIds: string[] }): Promise<unknown>;
   setBrokerConfig(input: { mode: 'embedded' | 'external'; url?: string; port?: number }): Promise<unknown>;
@@ -249,7 +255,7 @@ function registerModule(eventType: string | null): {
   mqttModule.register({
     relayReadinessService: { getStartSettings: vi.fn(), setStartSettings: vi.fn() } as never,
     estInspectionStartService: { getSettings: vi.fn(), saveSettings: vi.fn() } as never,
-    competitionStartReadiness: { assertAllowed: vi.fn() },
+    competitionStartReadiness: { assertAllowed: vi.fn(), getStartIssues: getOperationalStartIssues },
     database: {} as never,
     eventBus: { emit: emitEvent } as never,
     commandBus: commandBus as never,
@@ -398,6 +404,19 @@ describe('mqttModule broker transitions', () => {
       success: true,
       lanes: [],
     });
+  });
+
+  it('assesses saved policies against server-side membership without starting fire', async () => {
+    const { handlers } = registerModule('BR60S');
+    getSnapshot.mockReturnValue({ competitions: [{ competitionId: COMPETITION_ID, laneIds: ['joined-lane'] }] });
+    const scope = { competitionId: COMPETITION_ID, phase: 'MATCH' as const };
+    expect(await handlers.getStartReadiness(scope)).toMatchObject({ ...scope, laneIds: ['joined-lane'], issues: [] });
+    expect(getOperationalStartIssues).toHaveBeenCalledWith({ ...scope, laneIds: ['joined-lane'] });
+    expect(getClockStartIssues).toHaveBeenCalledWith(['joined-lane']);
+    expect(startMatchDirector).not.toHaveBeenCalled();
+    expect(startSightingDirector).not.toHaveBeenCalled();
+    getSnapshot.mockReturnValue({ competitions: [] });
+    await expect(handlers.getStartReadiness(scope)).rejects.toThrow('Competition not found');
   });
 
   it('serializes overlapping broker configuration changes', async () => {

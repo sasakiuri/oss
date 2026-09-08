@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { connectionService } from '@/renderer/services/connectionService';
-import type { Discipline, TargetDeviceDto, TargetManufacturer } from '@/shared/ipc/contracts';
+import type { TargetDeviceDto, TargetManufacturer } from '@/shared/ipc/contracts';
 
 /**
  * useDeviceList
@@ -23,6 +23,7 @@ export function useDeviceList(manufacturer: TargetManufacturer) {
     async (mfr: TargetManufacturer, signal?: AbortSignal, preserveSelection = false) => {
       setIsLoadingDevices(true);
       setDeviceError(null);
+      setDeviceOptions([]);
 
       if (!preserveSelection) {
         setSelectedDeviceId('');
@@ -35,14 +36,16 @@ export function useDeviceList(manufacturer: TargetManufacturer) {
         if (signal?.aborted) return;
 
         setDeviceOptions(devices);
+        setSelectedDeviceId((current) => (devices.some((device) => device.id === current) ? current : ''));
 
         if (devices.length === 1 && devices[0]) {
           const device = devices[0];
           setSelectedDeviceId(device.id);
-          if (device.supportedDisciplines.length > 0) {
+          const current = useSessionStore.getState().discipline;
+          if (!current || !device.supportedDisciplines.includes(current)) {
             const firstDiscipline = device.supportedDisciplines[0];
             if (firstDiscipline) {
-              setDiscipline(firstDiscipline as Discipline);
+              setDiscipline(firstDiscipline);
             }
           }
         }

@@ -50,6 +50,10 @@ vi.mock('@/renderer/presentation/features/operational-profiles/OperationalProfil
 vi.mock('@/renderer/services', () => ({
   mqttService: {
     getControlState,
+    getStartReadiness: vi.fn(async (scope) => ({
+      success: true,
+      data: { ...scope, checkedAt: new Date().toISOString(), laneIds: [], issues: [] },
+    })),
     getFiringWindowViolations,
     getShotObservationEvidence,
     createCompetition,

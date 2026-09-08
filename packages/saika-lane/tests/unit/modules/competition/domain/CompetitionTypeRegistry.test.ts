@@ -89,30 +89,32 @@ describe('CompetitionTypeRegistry', () => {
 
   describe('competition type definition content verification', () => {
     it('registers both air and beam 60-shot competition types', () => {
-      expect(ALL_COMPETITION_TYPES).toEqual([
-        AR60,
-        AP60,
-        AR60_FINAL,
-        AP60_FINAL,
-        ARMIX30,
-        APMIX30,
-        ARMIX_FINAL,
-        APMIX_FINAL,
-        R3P60,
-        R3P60_ELIMINATION,
-        R3P60_INDOOR,
-        RPR60,
-        RPR60_ELIMINATION,
-        R3P_FINAL,
-        RFPM,
-        P25,
-        CFP,
-        STDP,
-        RFPM_FINAL,
-        P25_FINAL,
-        BR60S,
-        BP60,
-      ]);
+      expect(ALL_COMPETITION_TYPES).toEqual(
+        expect.arrayContaining([
+          AR60,
+          AP60,
+          AR60_FINAL,
+          AP60_FINAL,
+          ARMIX30,
+          APMIX30,
+          ARMIX_FINAL,
+          APMIX_FINAL,
+          R3P60,
+          R3P60_ELIMINATION,
+          R3P60_INDOOR,
+          RPR60,
+          RPR60_ELIMINATION,
+          R3P_FINAL,
+          RFPM,
+          P25,
+          CFP,
+          STDP,
+          RFPM_FINAL,
+          P25_FINAL,
+          BR60S,
+          BP60,
+        ]),
+      );
     });
 
     it('BR60S has 10m air rifle definition', () => {

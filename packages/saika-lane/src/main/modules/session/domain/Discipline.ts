@@ -74,6 +74,14 @@ export class Discipline {
     return new Discipline('RIFLE_50M', '50m Rifle', 50, 250.0);
   }
 
+  static rifle300m(): Discipline {
+    return new Discipline('RIFLE_300M', '300m Rifle', 300, 1300);
+  }
+
+  static pistol50m(): Discipline {
+    return new Discipline('PISTOL_50M', '50m Pistol', 50, 550);
+  }
+
   /**
    * Creates a 25m Pistol instance
    *
@@ -127,6 +135,8 @@ export class Discipline {
       AIR_PISTOL_10M: () => Discipline.airPistol10m(),
       R50M: () => Discipline.rifle50m(),
       RIFLE_50M: () => Discipline.rifle50m(),
+      RIFLE_300M: () => Discipline.rifle300m(),
+      PISTOL_50M: () => Discipline.pistol50m(),
       P25M: () => Discipline.pistol25m(),
       PISTOL_25M: () => Discipline.pistol25m(),
       BR60S: () => Discipline.beamRifle10m(),

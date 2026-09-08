@@ -8,13 +8,7 @@
 
 import { join } from 'path';
 
-import {
-  ISSF_2026_10M_MIXED_RULE_PACKS,
-  ISSF_2026_10M_RULE_PACKS,
-  ISSF_2026_25M_PISTOL_RULE_PACKS,
-  ISSF_2026_50M_RIFLE_RULE_PACKS,
-  RulePackRegistry,
-} from '@sasakiuri/saika-rules';
+import { ISSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
 import { app } from 'electron';
 
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
@@ -38,6 +32,7 @@ import { boardModule } from '@/main/modules/board';
 import { championshipModule, SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
 import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
 import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
+import { equipmentRegistryModule } from '@/main/modules/equipment-registry';
 import {
   CanonicalCsvEstBackupRecordParser,
   CanonicalJsonEstBackupRecordParser,
@@ -122,7 +117,6 @@ import {
   registerOperatorAccess,
   SessionSanctionAuthorizationResolver,
 } from '@/main/modules/operator-access';
-import { equipmentRegistryModule } from '@/main/modules/equipment-registry';
 import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
 import { productionOperationsModule } from '@/main/modules/production-operations';
 import { protestsModule } from '@/main/modules/protests';
@@ -387,12 +381,7 @@ export function createApp(preloadPath: string): AppServices {
   );
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
-  const rulePackRegistry = new RulePackRegistry([
-    ...ISSF_2026_10M_RULE_PACKS,
-    ...ISSF_2026_10M_MIXED_RULE_PACKS,
-    ...ISSF_2026_50M_RIFLE_RULE_PACKS,
-    ...ISSF_2026_25M_PISTOL_RULE_PACKS,
-  ]);
+  const rulePackRegistry = new RulePackRegistry(ISSF_2026_RULE_PACKS);
   const finalOperationService = new FinalOperationService(
     new SqliteFinalOperationRepository(database),
     competitionTypeRegistry,
