@@ -116,6 +116,7 @@ vi.mock('@/renderer/presentation/components/DeviceSelector', () => ({
   DeviceSelector: (props: {
     selectedManufacturer: string;
     selectedDeviceId: string;
+    deviceOptions: TargetDeviceDto[];
     manufacturerOptions: { value: string; label: string }[];
     onManufacturerChange: (v: string) => void;
     onDeviceChange: (v: string) => void;
@@ -124,7 +125,10 @@ vi.mock('@/renderer/presentation/components/DeviceSelector', () => ({
       <button data-testid="manufacturer-select-trigger" onClick={() => props.onManufacturerChange('DISAG')}>
         Select Manufacturer
       </button>
-      <button data-testid="device-select-trigger" onClick={() => props.onDeviceChange('MT201')}>
+      <button
+        data-testid="device-select-trigger"
+        onClick={() => props.onDeviceChange(props.deviceOptions[0]?.id ?? '')}
+      >
         Select Device
       </button>
       <span data-testid="selected-manufacturer">{props.selectedManufacturer}</span>
@@ -171,10 +175,12 @@ describe('SettingsConnectionTab', () => {
       expect(screen.getByTestId('device-selector')).toBeInTheDocument();
     });
 
-    it('offers KOHTO and DISAG as target manufacturers', () => {
+    it('offers KOHTO, DISAG and Custom CSV serial connections', () => {
       render(<SettingsConnectionTab />);
 
-      expect(screen.getByTestId('manufacturer-options')).toHaveTextContent('KOHTO:Kohto Electronics,DISAG:DISAG');
+      expect(screen.getByTestId('manufacturer-options')).toHaveTextContent(
+        'KOHTO:Kohto Electronics,DISAG:DISAG,CUSTOM:Custom (CSV serial)',
+      );
     });
 
     it('displays the Connect button by default (disconnected state)', () => {
@@ -184,6 +190,27 @@ describe('SettingsConnectionTab', () => {
   });
 
   describe('connection', () => {
+    it.each([
+      { deviceOptions: [] },
+      { isLoadingDevices: true },
+      { deviceError: 'Device query failed' },
+      { selectedDeviceId: 'removed-profile' },
+    ])('disables connection until an available profile is resolved: %j', (override) => {
+      mockUseDeviceList.mockReturnValue({ ...defaultDeviceListResult, ...override });
+      render(<SettingsConnectionTab />);
+      fireEvent.click(screen.getByTestId('port-select-trigger'));
+      expect(screen.getByText('Connect')).toBeDisabled();
+      fireEvent.click(screen.getByText('Connect'));
+      expect(mockConnect).not.toHaveBeenCalled();
+    });
+
+    it('does not connect a stale device profile while the manufacturer changes', () => {
+      render(<SettingsConnectionTab />);
+      fireEvent.click(screen.getByTestId('port-select-trigger'));
+      fireEvent.click(screen.getByTestId('manufacturer-select-trigger'));
+      expect(screen.getByText('Connect')).toBeDisabled();
+    });
+
     it('clicking Connect calls connect with the correct arguments', async () => {
       // Simulate a state where selectedDeviceId is set
       mockUseDeviceList.mockReturnValue({
@@ -432,7 +459,7 @@ describe('SettingsConnectionTab', () => {
         expect(mockSaveConnectionSettings).toHaveBeenCalledWith({
           portName: '/dev/ttyUSB0',
           manufacturer: 'KOHTO',
-          deviceId: undefined,
+          deviceId: 'MT201',
           serialNumber: 'ABC123',
           vendorId: '0403',
           productId: '6001',
@@ -491,6 +518,38 @@ describe('SettingsConnectionTab', () => {
   });
 
   describe('discipline setting on device selection', () => {
+    it.each(['RIFLE_300M', 'PISTOL_50M'] as const)(
+      'preserves %s when restoring and selecting Custom input',
+      async (discipline) => {
+        useSessionStore.getState().setDiscipline(discipline);
+        mockUseDeviceList.mockReturnValue({
+          ...defaultDeviceListResult,
+          selectedDeviceId: 'CUSTOM',
+          deviceOptions: [
+            {
+              id: 'CUSTOM',
+              manufacturer: 'CUSTOM',
+              displayName: 'Custom',
+              baudRate: 9600,
+              supportedDisciplines: ['AIR_RIFLE_10M', 'RIFLE_300M', 'PISTOL_50M'],
+            },
+          ],
+        });
+        mockGetConnectionSettings.mockResolvedValueOnce({
+          portName: '/dev/ttyUSB0',
+          manufacturer: 'CUSTOM',
+          deviceId: 'CUSTOM',
+        });
+        render(<SettingsConnectionTab />);
+        await waitFor(() => expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('CUSTOM'));
+        fireEvent.click(screen.getByTestId('device-select-trigger'));
+        expect(mockSetDiscipline).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByText('Connect'));
+        await waitFor(() => expect(mockConnect).toHaveBeenCalledWith('/dev/ttyUSB0', 'CUSTOM', 'CUSTOM', 9600));
+        await waitFor(() => expect(mockSaveUserPreferences).toHaveBeenCalledWith({ discipline }));
+      },
+    );
+
     it('sets the first supportedDiscipline when device changes', () => {
       render(<SettingsConnectionTab />);
 

@@ -9,6 +9,7 @@
 import { z } from 'zod';
 
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { DisciplineSchema } from '@/shared/ipc/schemas/common';
 import { SCORING_GAUGE_PROFILE_IDS, TARGET_SCORING_PROFILE_IDS } from '@/shared/target';
 
 const ImpactPointSchema = z.object({
@@ -41,14 +42,7 @@ const SeriesStorageSchema = z.object({
 
 export const SessionStorageSchema = z.object({
   id: z.string(),
-  discipline: z.union([
-    z.literal('AIR_RIFLE_10M'),
-    z.literal('AIR_PISTOL_10M'),
-    z.literal('RIFLE_50M'),
-    z.literal('PISTOL_25M'),
-    z.literal('BEAM_RIFLE_10M'),
-    z.literal('BEAM_PISTOL_10M'),
-  ]),
+  discipline: DisciplineSchema,
   mode: z.union([z.literal('SIGHTING'), z.literal('MATCH')]),
   series: z.array(SeriesStorageSchema),
   allShots: z.array(ShotStorageSchema),

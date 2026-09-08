@@ -9,6 +9,8 @@ export const SHOT_RADIUS_BY_DISCIPLINE: Readonly<Record<Discipline, number>> = O
   AIR_RIFLE_10M: defaultGaugeRadius('AIR_RIFLE_10M'),
   AIR_PISTOL_10M: defaultGaugeRadius('AIR_PISTOL_10M'),
   RIFLE_50M: defaultGaugeRadius('RIFLE_50M'),
+  RIFLE_300M: defaultGaugeRadius('RIFLE_300M'),
+  PISTOL_50M: defaultGaugeRadius('PISTOL_50M'),
   PISTOL_25M: defaultGaugeRadius('PISTOL_25M'),
 });
 

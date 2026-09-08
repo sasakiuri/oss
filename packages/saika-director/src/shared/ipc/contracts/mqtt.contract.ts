@@ -453,6 +453,17 @@ export type FinalScriptStepExecutionResultDto = z.infer<typeof FinalScriptStepEx
 // Contract
 // ---------------------------------------------------------------------------
 
+const StartReadinessScopeSchema = z.object({
+  competitionId: z.string().uuid(),
+  phase: z.enum(['SIGHTING', 'MATCH']),
+});
+const StartReadinessSchema = StartReadinessScopeSchema.extend({
+  checkedAt: z.string().datetime(),
+  laneIds: z.array(z.string().uuid()),
+  issues: z.array(z.object({ code: z.string(), message: z.string(), blocking: z.boolean() })),
+});
+export type CompetitionStartReadinessDto = z.infer<typeof StartReadinessSchema>;
+
 export const mqttContract = defineContract('mqtt', {
   getBrokerConfig: query(queryResponseSchema(BrokerConfigSchema)),
   setBrokerConfig: command(SetBrokerConfigPayloadSchema, CommandResponseSchema),
@@ -462,6 +473,7 @@ export const mqttContract = defineContract('mqtt', {
   connect: command(CommandResponseSchema),
   disconnect: command(CommandResponseSchema),
   getControlState: query(queryResponseSchema(MqttControlSnapshotSchema)),
+  getStartReadiness: query(StartReadinessScopeSchema, queryResponseSchema(StartReadinessSchema)),
   getFiringWindowViolations: query(CompetitionSchema, queryResponseSchema(z.array(FiringWindowViolationDtoSchema))),
   getShotObservationEvidence: query(CompetitionSchema, queryResponseSchema(z.array(ShotObservationEvidenceDtoSchema))),
   getClockQualitySettings: query(queryResponseSchema(ClockQualitySettingsSchema)),

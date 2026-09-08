@@ -22,6 +22,8 @@ export const DisciplineSchema = z.union([
   z.literal('AIR_RIFLE_10M'),
   z.literal('AIR_PISTOL_10M'),
   z.literal('RIFLE_50M'),
+  z.literal('RIFLE_300M'),
+  z.literal('PISTOL_50M'),
   z.literal('PISTOL_25M'),
   z.literal('BEAM_RIFLE_10M'),
   z.literal('BEAM_PISTOL_10M'),

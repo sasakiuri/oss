@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
-import type { CompetitionStartScope } from '@/main/shared-infra/operations/CompetitionStartReadiness';
+import type {
+  CompetitionStartIssue,
+  CompetitionStartScope,
+} from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import {
   ActivateSafetyStopCommandSchema,
   AdvanceSeriesCommandSchema,
@@ -3477,15 +3480,35 @@ export class DirectorMqttService {
     return result;
   }
 
-  private assertClockQualityForTimedCommands(laneIds: readonly string[]): void {
-    if (this.clockQualityPolicy.mode !== 'REQUIRED') return;
-    const unusable = laneIds.filter((laneId) => {
+  getClockStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
+    const mode = this.clockQualityPolicy.mode;
+    if (mode === 'DISABLED') return [];
+    const now = new Date();
+    return laneIds.flatMap((laneId) => {
       const assessment = this.clockQualityByLaneId.get(laneId);
-      return assessment === undefined || !this.clockQualityPolicy.isUsable(assessment);
+      const age = assessment ? now.getTime() - Date.parse(assessment.sampledAt) : NaN;
+      const healthy =
+        assessment &&
+        (mode === 'REQUIRED'
+          ? this.clockQualityPolicy.isUsable(assessment, now)
+          : assessment.status === 'GOOD' && age >= 0 && age <= assessment.maxSampleAgeMilliseconds);
+      return healthy
+        ? []
+        : [
+            {
+              code: 'CLOCK_QUALITY',
+              message: `Probe Lane ${laneId}: a fresh GOOD clock-quality sample is missing.`,
+              blocking: mode === 'REQUIRED',
+            },
+          ];
     });
-    if (unusable.length > 0) {
+  }
+
+  private assertClockQualityForTimedCommands(laneIds: readonly string[]): void {
+    const issues = this.getClockStartIssues(laneIds).filter((issue) => issue.blocking);
+    if (issues.length > 0) {
       throw new Error(
-        `Fresh GOOD clock-quality samples are required before timed commands; probe Lane(s): ${unusable.join(', ')}`,
+        `Fresh GOOD clock-quality samples are required before timed commands; ${issues.map((issue) => issue.message).join('; ')}`,
       );
     }
   }

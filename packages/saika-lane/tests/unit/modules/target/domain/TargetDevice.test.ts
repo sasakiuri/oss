@@ -292,7 +292,7 @@ describe('TargetDevice value object', () => {
         expect(device.dataBits).toBe(8);
         expect(device.stopBits).toBe(1);
         expect(device.parity).toBe('none');
-        expect(device.supportedDisciplines).toHaveLength(6);
+        expect(device.supportedDisciplines).toHaveLength(8);
       });
 
       it('should support all disciplines for Custom Device', () => {

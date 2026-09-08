@@ -23,7 +23,7 @@ export type TargetColorPalette = {
 
 /** Per-discipline zone configuration */
 export type TargetZoneConfig = {
-  readonly innerZoneStartScore: 4 | 7;
+  readonly innerZoneStartScore: 4 | 5 | 7;
   readonly maxLabelScore: 8;
   readonly colors: TargetColorPalette;
 };
@@ -42,6 +42,8 @@ const TARGET_ZONE_CONFIG: Record<Discipline, TargetZoneConfig> = {
   AIR_PISTOL_10M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
   BEAM_PISTOL_10M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
   RIFLE_50M: { innerZoneStartScore: 4, maxLabelScore: 8, colors: DEFAULT_COLORS },
+  RIFLE_300M: { innerZoneStartScore: 5, maxLabelScore: 8, colors: DEFAULT_COLORS },
+  PISTOL_50M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
   PISTOL_25M: { innerZoneStartScore: 7, maxLabelScore: 8, colors: DEFAULT_COLORS },
 };
 

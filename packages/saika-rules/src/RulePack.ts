@@ -158,7 +158,7 @@ export interface OutdoorEliminationPlanningCapability {
   readonly randomSquadding: true;
   readonly quotaMethod: 'PROPORTIONAL_RELAY_STARTS';
   readonly balanceTeamsAndNationsAcrossRelays: true;
-  readonly minimumQualificationAthletes: number;
+  readonly minimumQualificationAthletes?: number;
   readonly preferredDaysBeforeQualification: number;
 }
 
@@ -582,10 +582,12 @@ export function defineRulePack(pack: RulePack): RulePack {
     if (pack.round !== 'ELIMINATION') {
       throw new Error('outdoorEliminationPlanning is valid only for an ELIMINATION Rule Pack');
     }
-    validatePositiveInteger(
-      eliminationPlanning.minimumQualificationAthletes,
-      'outdoorEliminationPlanning.minimumQualificationAthletes',
-    );
+    if (eliminationPlanning.minimumQualificationAthletes !== undefined) {
+      validatePositiveInteger(
+        eliminationPlanning.minimumQualificationAthletes,
+        'outdoorEliminationPlanning.minimumQualificationAthletes',
+      );
+    }
     validatePositiveInteger(
       eliminationPlanning.preferredDaysBeforeQualification,
       'outdoorEliminationPlanning.preferredDaysBeforeQualification',

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { ISSF_2026_FP60_ELIMINATION } from '@sasakiuri/saika-rules';
 import { describe, expect, it } from 'vitest';
 
 import { OutdoorEliminationPolicy } from '@/main/modules/elimination-planning';
@@ -17,6 +18,14 @@ const policy = new OutdoorEliminationPolicy({
 });
 
 describe('OutdoorEliminationPolicy', () => {
+  it('allocates a small 50m Pistol field without borrowing a Rifle minimum', () => {
+    const pistolPolicy = new OutdoorEliminationPolicy(
+      ISSF_2026_FP60_ELIMINATION.capabilities.outdoorEliminationPlanning!,
+    );
+    const plan = pistolPolicy.plan({ entryCount: 10, usableFiringPoints: 6, relayStartCounts: [6, 4] });
+    expect(plan.qualificationPlaces).toBe(6);
+    expect(plan.relayQuotas.map((relay) => relay.qualifyCount)).toEqual([4, 2]);
+  });
   it('does not require Elimination when all entries fit the usable capacity', () => {
     expect(policy.plan({ entryCount: 60, usableFiringPoints: 60 })).toMatchObject({
       status: 'NOT_REQUIRED',

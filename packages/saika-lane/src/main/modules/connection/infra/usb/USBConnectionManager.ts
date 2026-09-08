@@ -4,10 +4,12 @@ import type { SerialPort } from 'serialport';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { Mode } from '@/main/modules/session/domain/Mode';
+import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type {
   IUSBConnectionManager,
@@ -53,6 +55,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
   private readonly emitter: USBEventEmitter;
   private readonly lifecycle: USBConnectionLifecycle;
   private readonly pipeline: USBDataPipeline;
+  private readonly targetConnectionSupport: TargetConnectionSupport;
   private sessionContextProvider: SessionContextProvider | null = null;
   private activeProtocol: { readonly port: SerialPort; readonly session: TargetProtocolSession } | null = null;
 
@@ -60,6 +63,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
     adapterRegistry: AdapterRegistry,
     private readonly protocolRegistry = TargetProtocolRegistry.createDefault(),
   ) {
+    this.targetConnectionSupport = new TargetConnectionSupport(adapterRegistry);
     this.emitter = new USBEventEmitter();
     const dataParser = new SerialDataParser(SerialDataParser.defaultParsers());
     const dataConversionService = new DataConversionService(adapterRegistry);
@@ -161,6 +165,8 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private validateConfig(config: USBConnectionConfig): void {
+    const reason = this.targetConnectionSupport.unavailableReason(config.manufacturer.value, config.deviceId);
+    if (reason) throw ErrorCatalog.createError('INVALID_TARGET', { reason });
     this.protocolRegistry.resolve(config).validate(config, this.sessionContextProvider);
   }
 }

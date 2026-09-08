@@ -12,14 +12,17 @@ export interface CompetitionStartIssue {
 export interface ICompetitionStartReadinessSource {
   getStartIssues(scope: CompetitionStartScope): readonly CompetitionStartIssue[];
 }
-export interface ICompetitionStartReadiness {
+export interface ICompetitionStartReadiness extends ICompetitionStartReadinessSource {
   assertAllowed(scope: CompetitionStartScope): void;
 }
 
 export class CompetitionStartReadiness implements ICompetitionStartReadiness {
   constructor(private readonly sources: readonly ICompetitionStartReadinessSource[]) {}
+  getStartIssues(scope: CompetitionStartScope): readonly CompetitionStartIssue[] {
+    return this.sources.flatMap((source) => source.getStartIssues(scope));
+  }
   assertAllowed(scope: CompetitionStartScope): void {
-    const issues = this.sources.flatMap((source) => source.getStartIssues(scope)).filter((issue) => issue.blocking);
+    const issues = this.getStartIssues(scope).filter((issue) => issue.blocking);
     if (issues.length)
       throw new Error(`Cannot start ${scope.phase}: ${issues.map((issue) => issue.message).join('; ')}`);
   }

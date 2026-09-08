@@ -43,10 +43,13 @@ export const DeviceSelector: React.FC<DeviceSelectorProps> = ({
           label: device.displayName,
         }))}
         placeholder={
-          isLoadingDevices ? 'Loading...' : deviceOptions.length === 0 ? 'No devices found' : 'Select a device'
+          isLoadingDevices ? 'Loading...' : deviceOptions.length === 0 ? 'No supported devices' : 'Select a device'
         }
         disabled={isLoadingDevices || deviceOptions.length === 0}
       />
+      {selectedManufacturer && !isLoadingDevices && !deviceError && deviceOptions.length === 0 && (
+        <p className="text-sm text-vscode-text-muted">No serial connection is available for this manufacturer.</p>
+      )}
       {deviceError && (
         <div className="text-sm text-red-400" role="alert">
           {deviceError}

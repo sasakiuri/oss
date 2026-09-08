@@ -1,10 +1,9 @@
-import { OperationalProfileService } from '@/main/modules/operational-profiles';
-import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
 // SPDX-License-Identifier: MIT
 import { networkInterfaces } from 'node:os';
 
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
+import { OperationalProfileService } from '@/main/modules/operational-profiles';
 import {
   ApplyQualificationRecoverySettlementTransportToken,
   ApplyQualificationRecoveryTransportToken,
@@ -29,6 +28,7 @@ import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/
 import { assertParticipantEligible } from '@/main/shared-infra/operations/ParticipantEligibility';
 import type { CompetitionTypeDefinition, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
 import { eventsContract, mqttContract, type MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
 import { Logger } from '@/shared/utils/Logger';
 
@@ -724,6 +724,21 @@ export const mqttModule: ModuleDefinition<
       connect: () => runWithRuntimeLock(reconnectClient),
       disconnect: () => runWithRuntimeLock(() => mqttService.disconnect()),
       getControlState: async () => toControlSnapshotDto(mqttService.getSnapshot()),
+      getStartReadiness: async (input) => {
+        const competition = mqttService
+          .getSnapshot()
+          .competitions.find((item) => item.competitionId === input.competitionId);
+        if (!competition) throw new Error('Competition not found');
+        const scope = { ...input, laneIds: competition.laneIds };
+        return {
+          ...scope,
+          checkedAt: new Date().toISOString(),
+          issues: [
+            ...ctx.competitionStartReadiness.getStartIssues(scope),
+            ...mqttService.getClockStartIssues(scope.laneIds),
+          ],
+        };
+      },
       getFiringWindowViolations: async (input) =>
         firingWindowJournal.findViolationsByCompetition(input.competitionId).map(toFiringWindowViolationDto),
       getShotObservationEvidence: async (input) =>

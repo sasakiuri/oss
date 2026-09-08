@@ -87,6 +87,12 @@ describe('Relay start enforcement', () => {
       service,
       { getStartIssues: () => [{ code: 'INSPECTION', message: 'Inspection failed', blocking: true }] },
     ]);
+    expect(guard.getStartIssues(scope)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ blocking: false }),
+        expect.objectContaining({ code: 'INSPECTION', blocking: true }),
+      ]),
+    );
     expect(() => guard.assertAllowed(scope)).toThrow('Inspection failed');
   });
 });

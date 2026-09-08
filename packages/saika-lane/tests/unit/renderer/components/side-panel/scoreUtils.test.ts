@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { calculateSeriesScores, DISCIPLINE_LABELS, toArrowDirection } from '@/renderer/presentation/utils/scoreUtils';
 
 describe('DISCIPLINE_LABELS', () => {
-  it('labels are defined for all 6 disciplines', () => {
-    expect(Object.keys(DISCIPLINE_LABELS)).toHaveLength(6);
+  it('labels are defined for all 8 disciplines', () => {
+    expect(Object.keys(DISCIPLINE_LABELS)).toHaveLength(8);
     expect(DISCIPLINE_LABELS.AIR_RIFLE_10M).toBe('10m Air Rifle');
     expect(DISCIPLINE_LABELS.AIR_PISTOL_10M).toBe('10m Air Pistol');
     expect(DISCIPLINE_LABELS.RIFLE_50M).toBe('50m Rifle');
+    expect(DISCIPLINE_LABELS.RIFLE_300M).toBe('300m Rifle');
+    expect(DISCIPLINE_LABELS.PISTOL_50M).toBe('50m Pistol');
     expect(DISCIPLINE_LABELS.PISTOL_25M).toBe('25m Pistol');
     expect(DISCIPLINE_LABELS.BEAM_RIFLE_10M).toBe('10m Beam Rifle');
     expect(DISCIPLINE_LABELS.BEAM_PISTOL_10M).toBe('10m Beam Pistol');

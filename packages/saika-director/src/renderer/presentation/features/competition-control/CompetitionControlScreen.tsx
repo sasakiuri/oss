@@ -1,4 +1,3 @@
-import { OperationalProfilePanel } from '../operational-profiles/OperationalProfilePanel';
 // SPDX-License-Identifier: MIT
 import { AlertTriangle, BellRing, Check, Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +26,7 @@ import { FinalRecoveryPanel } from '../final-recoveries';
 import { IrregularShotCasesPanel } from '../irregular-shot-cases';
 import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
 import { MixedTeamTimeoutPanel } from '../mixed-team-timeouts';
+import { OperationalProfilePanel } from '../operational-profiles/OperationalProfilePanel';
 import { ProductionOperationsPanel } from '../production-operations';
 import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
 import { RangeInterruptionsPanel } from '../range-interruptions';
@@ -39,6 +39,7 @@ import { PageHeader } from '../shared/layout/PageHeader';
 import { TargetExaminationsPanel } from '../target-examinations';
 
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
+import { CompetitionStartReadinessPanel } from './CompetitionStartReadinessPanel';
 import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './components/ChampionshipAssignmentPanel';
 import { buildPhaseStartConfirmation } from './phaseStartRequirements';
 import { findAdvanceSeriesSource } from './progressPlanning';
@@ -1567,6 +1568,13 @@ export function CompetitionControlScreen() {
                 </Button>
               </div>
 
+              {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+                <CompetitionStartReadinessPanel
+                  key={`${activeCompetition.competitionId}:${activeCompetition.phase}`}
+                  competitionId={activeCompetition.competitionId}
+                  phase={['NOT_STARTED', 'SIGHTING'].includes(activeCompetition.phase) ? 'SIGHTING' : 'MATCH'}
+                />
+              )}
               <p className="mb-2 mt-4 text-[11px] font-semibold text-vscode-text-muted">Course of fire</p>
               <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
                 <Button

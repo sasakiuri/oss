@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import {
+  ISSF_2026_300M_RIFLE_RULE_PACKS,
+  ISSF_2026_50M_PISTOL_RULE_PACKS,
   ISSF_2026_AP60,
   ISSF_2026_AP60_FINAL,
   ISSF_2026_APMIX30,
@@ -168,4 +170,6 @@ export const ALL_COMPETITION_TYPES: readonly CompetitionTypeDefinition[] = [
   P25_FINAL,
   BR60S,
   BP60,
+  ...ISSF_2026_300M_RIFLE_RULE_PACKS.map(competitionTypeFromRulePack),
+  ...ISSF_2026_50M_PISTOL_RULE_PACKS.map(competitionTypeFromRulePack),
 ];

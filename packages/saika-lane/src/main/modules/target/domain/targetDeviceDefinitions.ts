@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { Discipline } from '@/shared/ipc/schemas/common';
+
 import type { SerialConfig } from './TargetDevice';
 
 export const DISAG_RED_DOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
@@ -55,14 +57,7 @@ export interface DeviceDefinition {
   readonly modelName: string;
   readonly displayName: string;
   readonly serialConfig: SerialConfig;
-  readonly supportedDisciplines: readonly (
-    | 'BEAM_RIFLE_10M'
-    | 'BEAM_PISTOL_10M'
-    | 'AIR_RIFLE_10M'
-    | 'AIR_PISTOL_10M'
-    | 'RIFLE_50M'
-    | 'PISTOL_25M'
-  )[];
+  readonly supportedDisciplines: readonly Discipline[];
 }
 
 export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
@@ -149,6 +144,8 @@ export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
       'AIR_RIFLE_10M',
       'AIR_PISTOL_10M',
       'RIFLE_50M',
+      'RIFLE_300M',
+      'PISTOL_50M',
       'PISTOL_25M',
       'BEAM_RIFLE_10M',
       'BEAM_PISTOL_10M',

@@ -8,6 +8,7 @@ export const SCORING_GAUGE_PROFILE_IDS = [
   'ISSF_AIR_4_50_2026',
   'ISSF_SMALLBORE_5_60_2026',
   'ISSF_CENTER_FIRE_9_65_2026',
+  'ISSF_RIFLE_8_00_2026',
 ] as const;
 
 export type ScoringGaugeProfileId = (typeof SCORING_GAUGE_PROFILE_IDS)[number];
@@ -86,7 +87,7 @@ export const SCORING_GAUGE_PROFILES: Readonly<Record<ScoringGaugeProfileId, Scor
     displayName: 'ISSF Smallbore 5.60 mm measuring edge (2026)',
     diameterMm: 5.6,
     geometryKind: 'MEASURING_EDGE_DIAMETER',
-    compatibleDisciplines: ['RIFLE_50M', 'PISTOL_25M'],
+    compatibleDisciplines: ['RIFLE_50M', 'PISTOL_25M', 'PISTOL_50M'],
     authority: {
       organization: 'ISSF',
       edition: ISSF_2026_EDITION,
@@ -103,6 +104,18 @@ export const SCORING_GAUGE_PROFILES: Readonly<Record<ScoringGaugeProfileId, Scor
       organization: 'ISSF',
       edition: ISSF_2026_EDITION,
       ruleRefs: ['8.4.3.3', 'Paper Target Scoring 1.4.1', 'Paper Target Scoring 5.2.1'],
+    },
+  }),
+  ISSF_RIFLE_8_00_2026: freezeProfile({
+    id: 'ISSF_RIFLE_8_00_2026',
+    displayName: 'ISSF 300m Rifle 8.00 mm measuring edge (2026)',
+    diameterMm: 8,
+    geometryKind: 'MEASURING_EDGE_DIAMETER',
+    compatibleDisciplines: ['RIFLE_300M'],
+    authority: {
+      organization: 'ISSF',
+      edition: ISSF_2026_EDITION,
+      ruleRefs: ['6.3.4.1', 'Paper Target Scoring 1.4.2'],
     },
   }),
 });

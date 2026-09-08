@@ -122,10 +122,10 @@ describe('DeviceSelector', () => {
       expect(selects[1]).toBeDisabled();
     });
 
-    it('shows "No devices found" placeholder when devices are empty', () => {
+    it('shows "No supported devices" placeholder when devices are empty', () => {
       render(<DeviceSelector {...defaultProps({ deviceOptions: [] })} />);
 
-      expect(screen.getByText('No devices found')).toBeInTheDocument();
+      expect(screen.getByText('No supported devices')).toBeInTheDocument();
     });
   });
 

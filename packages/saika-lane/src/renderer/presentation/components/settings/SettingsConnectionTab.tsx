@@ -23,7 +23,7 @@ import { useDeviceList } from '@/renderer/presentation/hooks/useDeviceList';
 import { usePortList } from '@/renderer/presentation/hooks/usePortList';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { settingsService } from '@/renderer/services/settingsService';
-import type { ConnectionSettingsDto, Discipline, TargetManufacturer } from '@/shared/ipc/contracts';
+import type { ConnectionSettingsDto, TargetManufacturer } from '@/shared/ipc/contracts';
 import { resolveSavedConnectionPort } from '@/shared/settings/resolveSavedConnectionPort';
 
 /**
@@ -32,6 +32,7 @@ import { resolveSavedConnectionPort } from '@/shared/settings/resolveSavedConnec
 const MANUFACTURER_OPTIONS: SelectOption[] = [
   { value: 'KOHTO', label: 'Kohto Electronics' },
   { value: 'DISAG', label: 'DISAG' },
+  { value: 'CUSTOM', label: 'Custom (CSV serial)' },
 ];
 
 /**
@@ -58,6 +59,12 @@ export const SettingsConnectionTab: React.FC = () => {
     fetchDevices,
     setDiscipline,
   } = useDeviceList(selectedManufacturer);
+
+  const selectedDevice = deviceOptions.find(
+    (device) =>
+      device.manufacturer === selectedManufacturer &&
+      (device.id === selectedDeviceId || (!selectedDeviceId && deviceOptions.length === 1)),
+  );
 
   // Ref to capture current manufacturer for mount-only effect
   const selectedManufacturerRef = useRef(selectedManufacturer);
@@ -144,10 +151,11 @@ export const SettingsConnectionTab: React.FC = () => {
       setPendingSavedDeviceId(null);
       setSelectedDeviceId(value);
       const selectedDevice = deviceOptions.find((d) => d.id === value);
-      if (selectedDevice && selectedDevice.supportedDisciplines.length > 0) {
+      const current = useSessionStore.getState().discipline;
+      if (selectedDevice && (!current || !selectedDevice.supportedDisciplines.includes(current))) {
         const firstDiscipline = selectedDevice.supportedDisciplines[0];
         if (firstDiscipline) {
-          setDiscipline(firstDiscipline as Discipline);
+          setDiscipline(firstDiscipline);
         }
       }
       clearError();
@@ -156,20 +164,19 @@ export const SettingsConnectionTab: React.FC = () => {
   );
 
   const handleConnect = useCallback(async () => {
-    if (!selectedPort) return;
+    if (!selectedPort || !selectedDevice || isLoadingDevices || deviceError) return;
 
-    const selectedDevice = deviceOptions.find((d) => d.id === selectedDeviceId);
     const selectedPortInfo = ports.find((port) => port.path === selectedPort);
-    const baudRate = selectedDevice?.baudRate;
+    const baudRate = selectedDevice.baudRate;
 
-    await connect(selectedPort, selectedManufacturer, selectedDeviceId || undefined, baudRate);
+    await connect(selectedPort, selectedManufacturer, selectedDevice.id, baudRate);
 
     // Save connection settings
     try {
       await settingsService.saveConnectionSettings({
         portName: selectedPort,
         manufacturer: selectedManufacturer,
-        deviceId: selectedDeviceId || undefined,
+        deviceId: selectedDevice.id,
         serialNumber: selectedPortInfo?.serialNumber,
         vendorId: selectedPortInfo?.vendorId,
         productId: selectedPortInfo?.productId,
@@ -187,7 +194,7 @@ export const SettingsConnectionTab: React.FC = () => {
         // Save failure is non-critical
       }
     }
-  }, [selectedPort, selectedManufacturer, selectedDeviceId, deviceOptions, ports, connect]);
+  }, [selectedPort, selectedManufacturer, selectedDevice, isLoadingDevices, deviceError, ports, connect]);
 
   const handleDisconnect = useCallback(async () => {
     await disconnect();
@@ -201,7 +208,8 @@ export const SettingsConnectionTab: React.FC = () => {
       portError !== null ||
       isRestoredSavedPort ||
       ports.some((port) => port.path === selectedPort));
-  const isConnectDisabled = !isSelectedPortAvailable || isConnecting || (deviceOptions.length > 1 && !selectedDeviceId);
+  const isConnectDisabled =
+    !isSelectedPortAvailable || isConnecting || isLoadingDevices || !!deviceError || !selectedDevice;
 
   return (
     <div className="flex flex-col gap-4 p-4">

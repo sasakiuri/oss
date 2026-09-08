@@ -18,6 +18,7 @@ import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { DisagAdapter } from '@/main/modules/target/adapters/DisagAdapter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+import { targetModule } from '@/main/modules/target/target.module';
 
 import { validRedDotFrame, validRedDotPistolFrame } from '../../../../../helpers/redDotFixtures';
 
@@ -169,7 +170,9 @@ describe('USBConnectionManager', () => {
     mockPortInstances.length = 0;
     autoRedDotHandshake = true;
     mockDataParserInstance = null;
-    manager = new USBConnectionManager(new AdapterRegistry());
+    const adapterRegistry = new AdapterRegistry();
+    targetModule.register({ adapterRegistry });
+    manager = new USBConnectionManager(adapterRegistry);
     manager.setSessionContextProvider(() => ({
       discipline: Discipline.airRifle10m(),
       mode: Mode.sighting(),
@@ -181,6 +184,29 @@ describe('USBConnectionManager', () => {
   });
 
   describe('connect()', () => {
+    it.each([
+      { manufacturer: TargetManufacturer.sius(), deviceId: 'HS10' },
+      { manufacturer: TargetManufacturer.meyton(), deviceId: 'MEYTON_DEFAULT' },
+      { manufacturer: TargetManufacturer.kohto(), deviceId: 'unknown-model' },
+      { manufacturer: TargetManufacturer.sius(), deviceId: 'MT201' },
+      { manufacturer: TargetManufacturer.sius() },
+    ])('rejects an unavailable or mismatched reader before opening the port ($deviceId)', async (device) => {
+      await expect(manager.connect({ portName: 'COM3', ...device })).rejects.toThrow();
+      expect(SerialPort).not.toHaveBeenCalled();
+    });
+
+    it('keeps an active connection intact when a replacement device is unavailable', async () => {
+      await manager.connect({ portName: 'COM3', manufacturer: TargetManufacturer.custom() });
+      const port = mockPortInstance;
+      await expect(
+        manager.connect({ portName: 'COM4', manufacturer: TargetManufacturer.sius(), deviceId: 'HS10' }),
+      ).rejects.toThrow();
+      await manager.sendMode(Mode.match());
+      expect(port.close).not.toHaveBeenCalled();
+      expect(port.write).toHaveBeenCalledWith(Buffer.from('R'), expect.any(Function));
+      expect(SerialPort).toHaveBeenCalledTimes(1);
+    });
+
     it('should connect successfully', async () => {
       const config: USBConnectionConfig = {
         portName: 'COM3',
@@ -201,7 +227,7 @@ describe('USBConnectionManager', () => {
     it('should apply default connection settings correctly', async () => {
       const config: USBConnectionConfig = {
         portName: 'COM3',
-        manufacturer: TargetManufacturer.sius(),
+        manufacturer: TargetManufacturer.custom(),
       };
 
       await manager.connect(config);

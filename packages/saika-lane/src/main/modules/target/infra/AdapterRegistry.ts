@@ -132,6 +132,10 @@ export class AdapterRegistry {
     return this.deviceAdapters.get(deviceId);
   }
 
+  hasDeviceAdapter(deviceId: string): boolean {
+    return this.deviceAdapters.has(deviceId);
+  }
+
   /**
    * Returns the list of registered manufacturer IDs.
    *
