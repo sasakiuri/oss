@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OperationalProfilePanel } from '@/renderer/presentation/features/operational-profiles/OperationalProfilePanel';
@@ -7,6 +7,40 @@ import { operationalProfilesService } from '@/renderer/services';
 vi.mock('@/renderer/services', () => ({ operationalProfilesService: { preview: vi.fn(), apply: vi.fn() } }));
 
 describe('OperationalProfilePanel', () => {
+  it('keeps authentication required when selecting advisory checks and offers only supported modes', async () => {
+    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) => ({
+      success: true,
+      data: {
+        competitionId: input.competitionId,
+        fingerprint: 'a'.repeat(64),
+        changes: [
+          {
+            id: 'access',
+            label: 'Authentication',
+            scope: 'DIRECTOR',
+            before: 'REQUIRED',
+            after: input.modes.access ?? 'REQUIRED',
+            context: '',
+            supportedModes: ['DISABLED', 'REQUIRED'],
+          },
+          {
+            id: 'clock',
+            label: 'Clock quality',
+            scope: 'DIRECTOR',
+            before: 'REQUIRED',
+            after: input.modes.clock ?? 'REQUIRED',
+            context: '',
+          },
+        ],
+      },
+    }));
+    render(<OperationalProfilePanel competitionId="competition" onApplied={() => {}} />);
+    const access = await screen.findByLabelText('Authentication mode');
+    expect(within(access).queryByRole('option', { name: 'Advisory' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use advisory checks' }));
+    await waitFor(() => expect(screen.getByLabelText('Clock quality mode')).toHaveValue('ADVISORY'));
+    expect(screen.getByLabelText('Authentication mode')).toHaveValue('REQUIRED');
+  });
   it('previews mode changes before applying and displays an individual failure', async () => {
     vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) => ({
       success: true,

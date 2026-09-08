@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';
 
 const uuid = z.string().uuid();
 const officialRole = z.enum([
@@ -22,6 +23,7 @@ const official = z.object({
   officialName: z.string().min(1),
   organization: z.string().nullable(),
   appointedAt: z.string().datetime(),
+  officialActorId: uuid.nullable().optional(),
 });
 const eligibleRecordMember = z.object({
   participantId: z.string().min(1),
@@ -71,8 +73,18 @@ const claim = z.object({
   status: z.enum(['DRAFT', 'TD_CONFIRMED', 'SUBMITTED', 'VERIFIED', 'REJECTED', 'VOID']),
   entries: z.array(claimEntry),
 });
-const signer = z.object({ appointmentId: uuid, role: officialRole, officialName: z.string().min(1) });
-const signature = signer.extend({ id: uuid, statement: z.string().min(1), signedAt: z.string().datetime() });
+const signer = z.object({
+  appointmentId: uuid,
+  role: officialRole,
+  officialName: z.string().min(1),
+  officialActorId: uuid.nullable().optional(),
+});
+const signature = signer.extend({
+  id: uuid,
+  statement: z.string().min(1),
+  signedAt: z.string().datetime(),
+  signingEvidence: officialSigningEvidenceSchema.nullable().optional(),
+});
 const book = z.object({
   id: uuid,
   championshipId: uuid,
@@ -119,6 +131,7 @@ export const resultsBooksContract = defineContract('resultsBooks', {
       organization: z.string().trim().min(1).max(200).optional(),
       statement: z.string().trim().min(1).max(2000),
       recordedBy: z.string().trim().min(1).max(200),
+      officialActorId: uuid.optional(),
     }),
     commandDataResponseSchema(workspace),
   ),
@@ -163,6 +176,7 @@ export const resultsBooksContract = defineContract('resultsBooks', {
   ),
   signBook: command(
     z.object({
+      ...officialSigningRequestFields,
       championshipId: uuid,
       bookId: uuid,
       appointmentId: uuid,

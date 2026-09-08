@@ -37,6 +37,16 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
   );
   const [revocationReason, setRevocationReason] = useState('');
   const [showRevocation, setShowRevocation] = useState(false);
+  const [signatureMethod, setSignatureMethod] = useState<'SELF' | 'EXTERNAL'>('SELF');
+  const [signatureRecorder, setSignatureRecorder] = useState('');
+  const [signatureReference, setSignatureReference] = useState('');
+  const signatureIncomplete = signatureMethod === 'EXTERNAL' && !signatureReference.trim();
+
+  const resetSignature = useCallback(() => {
+    setSignatureMethod('SELF');
+    setSignatureRecorder('');
+    setSignatureReference('');
+  }, []);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -131,15 +141,34 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
         snapshotRevision: status.snapshotRevision,
         statement: approvalStatement,
         officialName: approvalOfficialName,
+        method: signatureMethod,
+        ...(signatureMethod === 'EXTERNAL'
+          ? {
+              ...(signatureRecorder.trim() ? { recordedBy: signatureRecorder } : {}),
+              evidenceReference: signatureReference,
+            }
+          : {}),
       });
       if (!response.success) throw new Error(response.error.message);
+      resetSignature();
       await loadStatus();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Failed to approve the result list');
     } finally {
       setSaving(false);
     }
-  }, [approvalOfficialName, approvalStatement, eventId, loadStatus, resultScope, status]);
+  }, [
+    approvalOfficialName,
+    approvalStatement,
+    eventId,
+    loadStatus,
+    resultScope,
+    status,
+    signatureMethod,
+    signatureRecorder,
+    signatureReference,
+    resetSignature,
+  ]);
 
   const revokeApproval = useCallback(async () => {
     if (!status?.currentApproval) return;
@@ -150,8 +179,16 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
         approvalId: status.currentApproval.id,
         reason: revocationReason,
         officialName: revocationOfficialName,
+        method: signatureMethod,
+        ...(signatureMethod === 'EXTERNAL'
+          ? {
+              ...(signatureRecorder.trim() ? { recordedBy: signatureRecorder } : {}),
+              evidenceReference: signatureReference,
+            }
+          : {}),
       });
       if (!response.success) throw new Error(response.error.message);
+      resetSignature();
       setShowRevocation(false);
       setRevocationReason('');
       setRevocationOfficialName('');
@@ -161,7 +198,16 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
     } finally {
       setSaving(false);
     }
-  }, [loadStatus, revocationOfficialName, revocationReason, status]);
+  }, [
+    loadStatus,
+    revocationOfficialName,
+    revocationReason,
+    status,
+    signatureMethod,
+    signatureRecorder,
+    signatureReference,
+    resetSignature,
+  ]);
 
   return (
     <Modal isOpen onClose={onClose} title={`RTS result verification${eventName ? ` — ${eventName}` : ''}`} size="xl">
@@ -367,8 +413,48 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
           <section className="space-y-3 border-t border-vscode-border pt-4">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} aria-hidden="true" />
-              <h3 className="text-[13px] font-semibold text-vscode-text">Official Final Results sign-off</h3>
+              <h3 className="text-[13px] font-semibold text-vscode-text">Official Results sign-off</h3>
             </div>
+            {(!status.currentApproval || showRevocation) && (
+              <div className="space-y-2 text-xs text-vscode-text-muted">
+                <p>
+                  Personal signatures use the signed-in operator and require the RTS Jury role. With access control
+                  disabled, the entered name is recorded as a manual confirmation.
+                </p>
+                <label className="block">
+                  Signature method
+                  <select
+                    className={`${inputClass} mt-1`}
+                    value={signatureMethod}
+                    onChange={(event) => setSignatureMethod(event.target.value as typeof signatureMethod)}
+                  >
+                    <option value="SELF">Personal signature / manual confirmation</option>
+                    <option value="EXTERNAL">Record an external signature</option>
+                  </select>
+                </label>
+                {signatureMethod === 'EXTERNAL' && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label>
+                      Recorded by (when signed out)
+                      <input
+                        className={`${inputClass} mt-1`}
+                        value={signatureRecorder}
+                        onChange={(event) => setSignatureRecorder(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Signed form / signature evidence reference
+                      <input
+                        className={`${inputClass} mt-1`}
+                        required
+                        value={signatureReference}
+                        onChange={(event) => setSignatureReference(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
             {status.currentApproval ? (
               <div className="rounded-[3px] border border-vscode-success/50 bg-vscode-success/5 p-3 text-xs">
                 <p className="font-semibold text-vscode-success">Current result-list revision approved</p>
@@ -377,7 +463,15 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                   {status.currentApproval.officialName} · {new Date(status.currentApproval.recordedAt).toLocaleString()}
                 </p>
                 {!showRevocation ? (
-                  <Button size="sm" variant="danger" className="mt-3" onClick={() => setShowRevocation(true)}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    className="mt-3"
+                    onClick={() => {
+                      resetSignature();
+                      setShowRevocation(true);
+                    }}
+                  >
                     Revoke approval
                   </Button>
                 ) : (
@@ -402,7 +496,9 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                       <Button
                         size="sm"
                         variant="danger"
-                        disabled={saving || !revocationReason.trim() || !revocationOfficialName.trim()}
+                        disabled={
+                          saving || signatureIncomplete || !revocationReason.trim() || !revocationOfficialName.trim()
+                        }
                         onClick={revokeApproval}
                       >
                         Append revocation
@@ -438,7 +534,11 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                   <Button
                     size="sm"
                     disabled={
-                      !status.readyForApproval || !approvalOfficialName.trim() || !approvalStatement.trim() || saving
+                      !status.readyForApproval ||
+                      !approvalOfficialName.trim() ||
+                      !approvalStatement.trim() ||
+                      saving ||
+                      signatureIncomplete
                     }
                     onClick={approve}
                   >
@@ -460,6 +560,11 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                       <span className="font-medium text-vscode-text">{entry.type}</span> · {entry.officialName} ·{' '}
                       {new Date(entry.recordedAt).toLocaleString()}
                       <span className="block">{entry.statement}</span>
+                      <span className="block">
+                        {entry.signingEvidence?.method ?? 'LEGACY'}
+                        {entry.signingEvidence && ` · recorded by ${entry.signingEvidence.recordedBy}`}
+                        {entry.signingEvidence?.evidenceReference && ` · ${entry.signingEvidence.evidenceReference}`}
+                      </span>
                       {entry.type === 'APPROVAL' && entry.active && !entry.current && (
                         <span className="text-vscode-warning">Superseded by a changed result-list revision</span>
                       )}

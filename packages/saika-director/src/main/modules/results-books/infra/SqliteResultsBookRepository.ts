@@ -17,6 +17,7 @@ interface OfficialRow {
   operation: 'APPOINT' | 'REVOKE';
   role: ChampionshipOfficialRole;
   official_name: string;
+  official_actor_id: string | null;
   organization: string | null;
   statement: string;
   recorded_by: string;
@@ -64,6 +65,7 @@ interface SignatureRow {
   official_name: string;
   statement: string;
   signed_at: string;
+  signing_evidence_json: string | null;
 }
 interface FinalizationRow {
   id: string;
@@ -82,13 +84,13 @@ export class SqliteResultsBookRepository implements IResultsBookRepository {
       .prepare(
         `INSERT INTO championship_official_entries (
       id, championship_id, operation, role, official_name, organization, statement, recorded_by, recorded_at,
-      reverses_entry_id
+      reverses_entry_id, official_actor_id
     ) VALUES (
       @id, @championshipId, @operation, @role, @officialName, @organization, @statement, @recordedBy, @recordedAt,
-      @reversesEntryId
+      @reversesEntryId, @officialActorId
     )`,
       )
-      .run({ ...entry, recordedAt: entry.recordedAt.toISOString() });
+      .run({ ...entry, officialActorId: entry.officialActorId ?? null, recordedAt: entry.recordedAt.toISOString() });
   }
 
   findOfficialEntries(championshipId: string): ChampionshipOfficialEntry[] {
@@ -102,6 +104,7 @@ export class SqliteResultsBookRepository implements IResultsBookRepository {
       operation: row.operation,
       role: row.role,
       officialName: row.official_name,
+      officialActorId: row.official_actor_id,
       organization: row.organization,
       statement: row.statement,
       recordedBy: row.recorded_by,
@@ -211,12 +214,13 @@ export class SqliteResultsBookRepository implements IResultsBookRepository {
     this.db
       .prepare(
         `INSERT INTO results_book_signatures (
-      id, book_id, appointment_id, role, official_name, statement, signed_at
-    ) VALUES (@id, @bookId, @appointmentId, @role, @officialName, @statement, @signedAt)`,
+      id, book_id, appointment_id, role, official_name, statement, signed_at, signing_evidence_json
+    ) VALUES (@id, @bookId, @appointmentId, @role, @officialName, @statement, @signedAt, @signingEvidenceJson)`,
       )
       .run({
         ...signature,
         signedAt: signature.signedAt.toISOString(),
+        signingEvidenceJson: signature.signingEvidence ? JSON.stringify(signature.signingEvidence) : null,
       });
   }
 
@@ -233,6 +237,9 @@ export class SqliteResultsBookRepository implements IResultsBookRepository {
       officialName: row.official_name,
       statement: row.statement,
       signedAt: new Date(row.signed_at),
+      signingEvidence: row.signing_evidence_json
+        ? (JSON.parse(row.signing_evidence_json) as ResultsBookSignature['signingEvidence'])
+        : null,
     }));
   }
 

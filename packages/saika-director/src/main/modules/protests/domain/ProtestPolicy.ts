@@ -72,7 +72,7 @@ export class IssfProtestPolicy implements IProtestPolicy {
       issues.push(`Record the triggering decision time for the ${filingWindowMinutes}-minute deadline`);
     }
     if (requirement.formRequired && !protest.formReference) {
-      issues.push('A formal protest or appeal requires Form P metadata');
+      issues.push(`Record the ${protest.kind === 'APPEAL' ? 'Form AP' : 'Form P'} reference`);
     }
     if (
       (requirement.expectedFeeEuro > 0 && protest.feePaidEuro !== requirement.expectedFeeEuro) ||

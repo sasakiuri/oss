@@ -1,4 +1,5 @@
 import { join } from 'path';
+
 import { BrowserWindow, app } from 'electron';
 
 import type { BoardType, BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
@@ -204,6 +205,8 @@ export class WindowManager {
         return 'Print Results List';
       case 'incident-report-print':
         return 'Print Range Incident Report';
+      case 'protest-print':
+        return 'Print Protest or Appeal';
       case 'final-board':
         return 'Final Board';
       default:

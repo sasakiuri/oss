@@ -39,6 +39,12 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
   currentActor(): OperatorAccount | null {
     return this.context.getStore() ?? null;
   }
+  signingAccounts(): { id: string; name: string }[] {
+    return this.store
+      .accounts()
+      .filter((account) => !account.disabled)
+      .map(({ id, name }) => ({ id, name }));
+  }
   status(senderId: number): OperatorAccessStatus {
     const actor = this.actor(senderId);
     return {
@@ -80,6 +86,14 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
     this.audit(this.actor(senderId), 'operatorAccess.setEnabled', 'ACCEPTED');
     this.store.setEnabled(enabled);
     return this.status(senderId);
+  }
+  setEnabledForCurrentActor(enabled: boolean): void {
+    const current = this.currentActor();
+    const account = current && this.store.accounts().find((value) => value.id === current.id);
+    if (!account || account.disabled || !account.permissions.includes('ADMIN'))
+      throw new Error('Create and sign in as an administrator before changing access control');
+    this.audit(publicAccount(account), 'operatorAccess.setEnabled', 'ACCEPTED');
+    this.store.setEnabled(enabled);
   }
   administration(senderId: number) {
     this.assertAdmin(senderId);

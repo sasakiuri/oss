@@ -15,14 +15,14 @@ export class ElectronEstBackupRecordFileGateway implements IEstBackupRecordFileG
     if (extensions.length === 0) throw new Error('At least one EST backup file extension is required');
   }
 
-  async chooseSource(): Promise<SelectedEstBackupRecordFile | null> {
+  async chooseSource(extensions = this.extensions): Promise<SelectedEstBackupRecordFile | null> {
     const result = await dialog.showOpenDialog({
       title: 'Import EST printout or independent-memory records',
       properties: ['openFile'],
       filters: [
         {
           name: 'EST backup records',
-          extensions: this.extensions.map((extension) => extension.replace(/^\./, '')),
+          extensions: extensions.map((extension) => extension.replace(/^\./, '')),
         },
       ],
     });

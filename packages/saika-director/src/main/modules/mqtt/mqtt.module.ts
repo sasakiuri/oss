@@ -191,6 +191,7 @@ export const mqttModule: ModuleDefinition<
   | 'finalOperationService'
   | 'finalResultDeclarationService'
   | 'participantEligibilityReader'
+  | 'operationalSettingTargets'
 > = {
   name: 'mqtt',
   deps: [
@@ -213,6 +214,7 @@ export const mqttModule: ModuleDefinition<
     'finalOperationService',
     'finalResultDeclarationService',
     'participantEligibilityReader',
+    'operationalSettingTargets',
   ] as const,
   register(ctx): ModuleOutput {
     const {
@@ -617,6 +619,19 @@ export const mqttModule: ModuleDefinition<
 
     const operationalProfiles = new OperationalProfileService(
       [
+        ...ctx.operationalSettingTargets.map((target) => ({
+          ...target,
+          write: (competitionId: string, mode: Parameters<typeof target.write>[1]) => {
+            if (
+              target.scope === 'DIRECTOR' &&
+              mqttService
+                .getSnapshot()
+                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
+            )
+              throw new Error('Finish active competitions before changing a shared Director policy');
+            return target.write(competitionId, mode);
+          },
+        })),
         {
           id: 'relay',
           label: 'Relay readiness',

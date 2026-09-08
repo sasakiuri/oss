@@ -41,6 +41,9 @@ vi.mock('@/renderer/presentation/features/print/IncidentReportPrintScreen', () =
     <div>incident report {config.reportId}</div>
   ),
 }));
+vi.mock('@/renderer/presentation/features/print/ProtestPrintScreen', () => ({
+  ProtestPrintScreen: ({ config }: { config: { protestId?: string } }) => <div>protest {config.protestId}</div>,
+}));
 
 describe('BoardApp', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -89,5 +92,11 @@ describe('BoardApp', () => {
     render(<BoardApp />);
 
     expect(await screen.findByText(`incident report ${REPORT_ID}`)).toBeInTheDocument();
+  });
+
+  it('routes a protest print configuration without losing the case ID', async () => {
+    getConfig.mockResolvedValue({ success: true, data: { type: 'protest-print', protestId: REPORT_ID } });
+    render(<BoardApp />);
+    expect(await screen.findByText(`protest ${REPORT_ID}`)).toBeInTheDocument();
   });
 });

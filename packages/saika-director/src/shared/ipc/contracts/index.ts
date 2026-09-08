@@ -233,6 +233,7 @@ export type {
 export type {
   CreateEstBackupVerificationPayload,
   EstBackupRecordImportReceiptDto,
+  EstBackupColumnMappingDto,
   EstBackupVerificationRunDto,
 } from './estBackupVerification.contract';
 export type {
@@ -400,6 +401,7 @@ export type {
   OpenScoreSheetPrintPayload,
   OpenResultsListPrintPayload,
   OpenIncidentReportPrintPayload,
+  OpenProtestPrintPayload,
 } from './board.contract';
 
 // Event types

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, BookOpen, Download, RefreshCw, UserPlus } from 'lucide-react';
 
-import { resultsBooksService } from '@/renderer/services';
+import { resultsBooksService, operatorAccessService } from '@/renderer/services';
 import type {
   ChampionshipOfficialRoleDto,
   RecordCodeDto,
@@ -57,6 +57,8 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
   const [organization, setOrganization] = useState('');
   const [appointmentStatement, setAppointmentStatement] = useState('Appointment recorded for this championship');
   const [recordedBy, setRecordedBy] = useState('');
+  const [officialActorId, setOfficialActorId] = useState('');
+  const [signingAccounts, setSigningAccounts] = useState<{ id: string; name: string }[]>([]);
 
   const [resultKey, setResultKey] = useState('');
   const [recordCode, setRecordCode] = useState<RecordCodeDto>('WR');
@@ -73,6 +75,9 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
 
   const [bookCreatedBy, setBookCreatedBy] = useState('');
   const [signatureStatement, setSignatureStatement] = useState('I certify this Results Book version');
+  const [signatureMethod, setSignatureMethod] = useState<'SELF' | 'EXTERNAL'>('SELF');
+  const [signatureRecorder, setSignatureRecorder] = useState('');
+  const [signatureEvidence, setSignatureEvidence] = useState('');
   const [finalizedBy, setFinalizedBy] = useState('');
   const [finalizationStatement, setFinalizationStatement] = useState(
     'Required contents and certification signatures have been verified',
@@ -80,9 +85,18 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await resultsBooksService.getWorkspace({ championshipId });
-    if (!response.success) setError(response.error.message);
-    else setWorkspace(response.data);
+    try {
+      const [response, accounts] = await Promise.all([
+        resultsBooksService.getWorkspace({ championshipId }),
+        operatorAccessService.getSigningAccounts(),
+      ]);
+      if (!response.success) setError(response.error.message);
+      else setWorkspace(response.data);
+      if (accounts.success) setSigningAccounts(accounts.data);
+      else setError(accounts.error.message);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
   }, [championshipId]);
 
   useEffect(() => {
@@ -126,11 +140,13 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
         ...(organization.trim() ? { organization: organization.trim() } : {}),
         statement: appointmentStatement.trim(),
         recordedBy: recordedBy.trim(),
+        ...(officialActorId ? { officialActorId } : {}),
       });
       if (!response.success) throw new Error(response.error.message);
       setWorkspace(response.data);
       setOfficialName('');
       setOrganization('');
+      setOfficialActorId('');
     });
   };
 
@@ -202,6 +218,13 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
         bookId,
         appointmentId,
         statement: signatureStatement.trim(),
+        method: signatureMethod,
+        ...(signatureMethod === 'EXTERNAL'
+          ? {
+              ...(signatureRecorder.trim() ? { recordedBy: signatureRecorder.trim() } : {}),
+              evidenceReference: signatureEvidence.trim(),
+            }
+          : {}),
       });
       if (!response.success) throw new Error(response.error.message);
       setWorkspace(response.data);
@@ -279,6 +302,25 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
             </select>
           </label>
           <Field label="Official name" value={officialName} onChange={setOfficialName} />
+          <label className="flex flex-col gap-1 text-xs text-vscode-text-muted">
+            Signing account (optional)
+            <select
+              className={inputClass}
+              value={officialActorId}
+              onChange={(event) => {
+                setOfficialActorId(event.target.value);
+                const account = signingAccounts.find((item) => item.id === event.target.value);
+                if (account) setOfficialName(account.name);
+              }}
+            >
+              <option value="">Manual / external signature</option>
+              {signingAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <Field label="Organization (optional)" value={organization} onChange={setOrganization} />
           <Field label="Recorded by" value={recordedBy} onChange={setRecordedBy} />
           <Field
@@ -287,6 +329,9 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
             onChange={setAppointmentStatement}
           />
         </div>
+        <p className="mt-2 text-xs text-vscode-text-muted">
+          Link an account for personal signing. Changes to appointments require administration when sign-in is required.
+        </p>
         <Button className="mt-3" size="sm" disabled={!canAppoint} onClick={() => void appoint()}>
           <UserPlus size={13} aria-hidden="true" /> Record appointment
         </Button>
@@ -463,6 +508,38 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
           <Field label="Finalized by" value={finalizedBy} onChange={setFinalizedBy} />
           <Field label="Finalization statement" value={finalizationStatement} onChange={setFinalizationStatement} />
         </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <label className="flex flex-col gap-1 text-xs text-vscode-text-muted">
+            Signature method
+            <select
+              className={inputClass}
+              value={signatureMethod}
+              onChange={(event) => setSignatureMethod(event.target.value as 'SELF' | 'EXTERNAL')}
+            >
+              <option value="SELF">Personal signature</option>
+              <option value="EXTERNAL">Record an external signature</option>
+            </select>
+          </label>
+          {signatureMethod === 'EXTERNAL' && (
+            <>
+              <Field
+                label="Recorded by (uses signed-in operator when available)"
+                value={signatureRecorder}
+                onChange={setSignatureRecorder}
+              />
+              <Field
+                label="Signed document / evidence reference"
+                value={signatureEvidence}
+                onChange={setSignatureEvidence}
+              />
+            </>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-vscode-text-muted">
+          Personal signing checks the linked account when signed in. Without sign-in, it is recorded as a manual
+          confirmation. External signatures require evidence and retain the recorder separately from the appointed
+          official.
+        </p>
         <Button className="mt-3" size="sm" disabled={!bookCreatedBy.trim() || busy} onClick={() => void generateBook()}>
           Generate immutable version
         </Button>
@@ -520,6 +597,9 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
                 <ul className="mt-2 space-y-1">
                   {book.requiredSigners.map((signer) => {
                     const signed = signedAppointments.has(signer.appointmentId);
+                    const evidence = book.signatures.find(
+                      (signature) => signature.appointmentId === signer.appointmentId,
+                    )?.signingEvidence;
                     return (
                       <li
                         key={signer.appointmentId}
@@ -527,15 +607,22 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
                       >
                         <span>
                           {roleLabel(signer.role)} · {signer.officialName} · {signed ? 'signed' : 'signature required'}
+                          {signed && ` · ${evidence?.method ?? 'Legacy record'}`}
+                          {evidence && ` · recorded by ${evidence.recordedBy}`}
+                          {evidence?.evidenceReference && ` · ${evidence.evidenceReference}`}
                         </span>
                         {!signed && book.status === 'DRAFT' && (
                           <Button
                             size="sm"
                             variant="secondary"
-                            disabled={busy || !signatureStatement.trim()}
+                            disabled={
+                              busy ||
+                              !signatureStatement.trim() ||
+                              (signatureMethod === 'EXTERNAL' && !signatureEvidence.trim())
+                            }
                             onClick={() => void signBook(book.id, signer.appointmentId)}
                           >
-                            Sign
+                            {signatureMethod === 'EXTERNAL' ? 'Record signature' : 'Sign'}
                           </Button>
                         )}
                       </li>

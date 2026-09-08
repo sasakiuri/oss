@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import {
   CommandResponseSchema,
   commandDataResponseSchema,
@@ -52,6 +53,10 @@ const OpenIncidentReportPrintPayloadSchema = z.object({
   reportId: uuidSchema,
 });
 
+const OpenProtestPrintPayloadSchema = z.object({
+  protestId: uuidSchema,
+});
+
 const BoardWindowConfigSchema = z.object({
   type: z.enum([
     'target-board',
@@ -61,6 +66,7 @@ const BoardWindowConfigSchema = z.object({
     'score-sheet-print',
     'results-list-print',
     'incident-report-print',
+    'protest-print',
   ]),
   laneRange: z.object({ from: z.number(), to: z.number() }).optional(),
   competitionId: uuidSchema.optional(),
@@ -73,6 +79,7 @@ const BoardWindowConfigSchema = z.object({
   round: z.string().optional(),
   eventType: z.string().optional(),
   reportId: uuidSchema.optional(),
+  protestId: uuidSchema.optional(),
 });
 
 const LiveRankingDtoSchema = z.object({
@@ -98,6 +105,7 @@ export type OpenFinalBoardPayload = z.infer<typeof OpenFinalBoardPayloadSchema>;
 export type OpenScoreSheetPrintPayload = z.infer<typeof OpenScoreSheetPrintPayloadSchema>;
 export type OpenResultsListPrintPayload = z.infer<typeof OpenResultsListPrintPayloadSchema>;
 export type OpenIncidentReportPrintPayload = z.infer<typeof OpenIncidentReportPrintPayloadSchema>;
+export type OpenProtestPrintPayload = z.infer<typeof OpenProtestPrintPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -111,6 +119,7 @@ export const boardContract = defineContract('board', {
   openScoreSheetPrint: command(OpenScoreSheetPrintPayloadSchema, commandDataResponseSchema(z.string())),
   openResultsListPrint: command(OpenResultsListPrintPayloadSchema, commandDataResponseSchema(z.string())),
   openIncidentReportPrint: command(OpenIncidentReportPrintPayloadSchema, commandDataResponseSchema(z.string())),
+  openProtestPrint: command(OpenProtestPrintPayloadSchema, commandDataResponseSchema(z.string())),
   closeBoard: command(z.string().min(1), CommandResponseSchema),
   getConfig: query(queryResponseSchema(BoardWindowConfigSchema.nullable())),
   getLiveRanking: query(queryResponseSchema(z.array(LiveRankingDtoSchema))),

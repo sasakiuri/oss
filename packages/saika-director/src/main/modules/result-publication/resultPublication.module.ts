@@ -37,6 +37,7 @@ export const resultPublicationModule: ModuleDefinition<
     const getReviewSettings = () => ({
       requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
       requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+      requireProtestCasesComplete: appConfigService.get('resultPublication.requireProtestCasesComplete'),
     });
     ipcRouter.register(resultPublicationContract, {
       getReviewSettings: async () => getReviewSettings(),
@@ -44,6 +45,7 @@ export const resultPublicationModule: ModuleDefinition<
         appConfigService.setMany({
           'resultPublication.requireIncidentReports': input.requireIncidentReports,
           'resultPublication.requireFinalRecoveriesComplete': input.requireFinalRecoveriesComplete,
+          'resultPublication.requireProtestCasesComplete': input.requireProtestCasesComplete,
         });
         return getReviewSettings();
       },

@@ -1,4 +1,5 @@
 import type { BackupRecord } from './EstBackupComparator';
+import { parseDelimitedRows } from './parseDelimitedRows';
 
 const MAX_RECORDS = 1000;
 const MAX_KEY_LENGTH = 200;
@@ -8,11 +9,13 @@ export type EstBackupRecordFormat = string;
 export interface ParsedEstBackupRecords {
   readonly format: EstBackupRecordFormat;
   readonly records: readonly BackupRecord[];
+  readonly sourceDescription?: string;
 }
 
 /** A replaceable adapter for one external EST backup representation. */
 export interface EstBackupRecordParser {
   readonly format: EstBackupRecordFormat;
+  readonly sourceDescription?: string;
   readonly extensions: readonly string[];
   supports(fileName: string): boolean;
   parse(source: string): readonly BackupRecord[];
@@ -33,12 +36,18 @@ export class EstBackupRecordParserRegistry {
   }
 
   parse(fileName: string, source: string): ParsedEstBackupRecords {
-    const parser = this.parsers.find((candidate) => candidate.supports(fileName));
+    const candidates = this.parsers.filter((candidate) => candidate.supports(fileName));
+    if (candidates.length > 1) throw new Error('Multiple EST backup parsers support this file; select a single format');
+    const parser = candidates[0];
     if (!parser) {
       const supported = this.supportedExtensions.join(', ');
       throw new Error(`Unsupported EST backup file type; expected one of: ${supported}`);
     }
-    return { format: parser.format, records: normalizeRecords(parser.parse(source)) };
+    return {
+      format: parser.format,
+      records: normalizeRecords(parser.parse(source)),
+      ...(parser.sourceDescription ? { sourceDescription: parser.sourceDescription } : {}),
+    };
   }
 }
 
@@ -76,7 +85,7 @@ export class CanonicalCsvEstBackupRecordParser implements EstBackupRecordParser 
   }
 
   parse(source: string): readonly BackupRecord[] {
-    const rows = parseCsvRows(stripBom(source)).filter((row) => row.some((field) => field.trim().length > 0));
+    const rows = parseDelimitedRows(stripBom(source)).filter((row) => row.some((field) => field.trim().length > 0));
     if (rows.length < 2) throw new Error('The EST backup CSV requires a header and at least one record');
 
     const headers = rows[0]!.map(normalizeHeader);
@@ -129,60 +138,6 @@ function normalizeJsonRecord(value: unknown, position: number): BackupRecord {
     throw new Error(`EST backup JSON record ${position} has a non-numeric rank`);
   }
   return { key: value.key, totalScore: value.totalScore, rank: value.rank as number | null | undefined };
-}
-
-function parseCsvRows(source: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let quoted = false;
-  let quoteClosed = false;
-
-  const finishField = () => {
-    row.push(field);
-    field = '';
-    quoteClosed = false;
-  };
-  const finishRow = () => {
-    finishField();
-    rows.push(row);
-    row = [];
-  };
-
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index]!;
-    if (quoted) {
-      if (character !== '"') {
-        field += character;
-      } else if (source[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        quoted = false;
-        quoteClosed = true;
-      }
-      continue;
-    }
-    if (character === '"') {
-      if (field.length > 0 || quoteClosed) throw new Error('The EST backup CSV has an unexpected quote');
-      quoted = true;
-    } else if (character === ',') {
-      finishField();
-    } else if (character === '\n') {
-      finishRow();
-    } else if (character === '\r') {
-      if (source[index + 1] === '\n') index += 1;
-      finishRow();
-    } else {
-      if (quoteClosed && character.trim().length > 0) {
-        throw new Error('The EST backup CSV has content after a closing quote');
-      }
-      if (!quoteClosed) field += character;
-    }
-  }
-  if (quoted) throw new Error('The EST backup CSV has an unterminated quoted field');
-  if (field.length > 0 || row.length > 0 || quoteClosed) finishRow();
-  return rows;
 }
 
 function findColumn(headers: readonly string[], aliases: readonly string[], label: string): number;

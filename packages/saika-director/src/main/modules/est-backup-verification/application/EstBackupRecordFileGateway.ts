@@ -7,5 +7,5 @@ export interface SelectedEstBackupRecordFile {
 
 /** Keeps Electron file access outside the EST comparison and parsing policies. */
 export interface IEstBackupRecordFileGateway {
-  chooseSource(): Promise<SelectedEstBackupRecordFile | null>;
+  chooseSource(extensions?: readonly string[]): Promise<SelectedEstBackupRecordFile | null>;
 }

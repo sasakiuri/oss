@@ -8,6 +8,7 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+const defaultModes: OperationalProfileMode[] = ['DISABLED', 'ADVISORY', 'REQUIRED'];
 
 export function OperationalProfilePanel({
   competitionId,
@@ -45,6 +46,17 @@ export function OperationalProfilePanel({
     setError(null);
     setPreview(null);
   };
+  const chooseSupported = (mode: OperationalProfileMode) => {
+    if (!preview) return;
+    choose(
+      Object.fromEntries(
+        preview.changes.map((change) => [
+          change.id,
+          (change.supportedModes ?? defaultModes).includes(mode) ? mode : change.after,
+        ]),
+      ),
+    );
+  };
   const apply = async () => {
     if (!preview) return;
     setBusy(true);
@@ -69,8 +81,9 @@ export function OperationalProfilePanel({
     <section aria-label="Operational profile" className="space-y-3">
       <h2 className="text-sm font-semibold">Operational profile</h2>
       <p className="text-xs text-vscode-text-muted">
-        Review the changes before saving. Required checks must be completed before START. Clock policy applies to all
-        competitions on this Director; its configured tolerances stay the same.
+        Review each change before saving. Readiness checks apply before START; publication checks apply before official
+        results are issued. Settings marked All competitions affect this Director. Changing authentication requires a
+        signed-in administrator. Advisory presets preserve settings that have no advisory mode.
       </p>
       {error && (
         <p role="alert" className="text-xs text-vscode-error">
@@ -79,20 +92,10 @@ export function OperationalProfilePanel({
       )}
       <fieldset disabled={busy} className="space-y-3">
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={!preview}
-            onClick={() => choose(Object.fromEntries(preview!.changes.map((change) => [change.id, 'REQUIRED'])))}
-          >
+          <Button size="sm" variant="secondary" disabled={!preview} onClick={() => chooseSupported('REQUIRED')}>
             Require all listed checks
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={!preview}
-            onClick={() => choose(Object.fromEntries(preview!.changes.map((change) => [change.id, 'ADVISORY'])))}
-          >
+          <Button size="sm" variant="secondary" disabled={!preview} onClick={() => chooseSupported('ADVISORY')}>
             Use advisory checks
           </Button>
         </div>
@@ -121,9 +124,11 @@ export function OperationalProfilePanel({
                         choose({ ...modes, [change.id]: event.target.value as OperationalProfileMode })
                       }
                     >
-                      <option value="ADVISORY">Advisory</option>
-                      <option value="REQUIRED">Required</option>
-                      <option value="DISABLED">Disabled</option>
+                      {(change.supportedModes ?? defaultModes).map((mode) => (
+                        <option key={mode} value={mode}>
+                          {mode === 'ADVISORY' ? 'Advisory' : mode === 'REQUIRED' ? 'Required' : 'Disabled'}
+                        </option>
+                      ))}
                     </select>
                   </td>
                 </tr>

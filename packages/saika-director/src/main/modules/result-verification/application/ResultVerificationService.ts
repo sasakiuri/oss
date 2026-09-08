@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 
 import type {
   AddVerificationCheckPayload,
@@ -24,6 +25,7 @@ export class ResultVerificationService {
   constructor(
     private readonly repository: IResultVerificationRepository,
     private readonly sources: IResultVerificationSourceResolver,
+    private readonly signing: IOfficialSigningPolicy = new OfficialSigningPolicy(),
   ) {}
 
   async getStatus(
@@ -143,6 +145,7 @@ export class ResultVerificationService {
   }
 
   async approve(input: ApproveResultListPayload): Promise<ResultListApprovalDto> {
+    const signingEvidence = this.signing.authorize({ ...input, requiredRole: 'RTS_JURY' });
     const status = await this.getStatus(input.eventId, input.resultScope);
     if (status.snapshotRevision !== input.snapshotRevision) {
       throw new Error('The result list changed after this approval form was opened; reload before approving');
@@ -163,13 +166,15 @@ export class ResultVerificationService {
       requiredTeamChecks: status.requiredTeamChecks,
       checkIds,
       statement: input.statement,
-      officialName: input.officialName,
+      officialName: signingEvidence.method === 'AUTHENTICATED' ? signingEvidence.recordedBy : input.officialName,
+      signingEvidence,
     });
     this.repository.appendApprovalEntry(approval);
     return toApprovalDto(approval, true, status.snapshotRevision);
   }
 
   async revokeApproval(input: RevokeResultListApprovalPayload): Promise<ResultListApprovalDto> {
+    const signingEvidence = this.signing.authorize({ ...input, requiredRole: 'RTS_JURY' });
     const approval = this.repository.findApprovalEntryById(input.approvalId);
     if (!approval) throw new Error(`Approval ${input.approvalId} was not found`);
     if (approval.type !== 'APPROVAL') throw new Error('A revocation entry cannot be revoked');
@@ -179,7 +184,8 @@ export class ResultVerificationService {
     }
     const revocation = ResultListApprovalEntry.createRevocation(approval, {
       reason: input.reason,
-      officialName: input.officialName,
+      officialName: signingEvidence.method === 'AUTHENTICATED' ? signingEvidence.recordedBy : input.officialName,
+      signingEvidence,
     });
     this.repository.appendApprovalEntry(revocation);
     return toApprovalDto(revocation, false, approval.snapshotRevision);
@@ -279,6 +285,7 @@ function toApprovalDto(
     officialName: entry.officialName,
     recordedAt: entry.recordedAt.toISOString(),
     reversesApprovalId: entry.reversesApprovalId,
+    signingEvidence: entry.signingEvidence,
     active,
     current: active && entry.type === 'APPROVAL' && entry.snapshotRevision === currentSnapshotRevision,
   };

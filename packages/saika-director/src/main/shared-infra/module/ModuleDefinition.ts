@@ -33,6 +33,7 @@ import type {
   IShotObservationEvidenceJournal,
 } from '@/main/modules/mqtt';
 import type { OperationalArchiveService } from '@/main/modules/operational-archives';
+import type { OperationalSettingTarget } from '@/main/modules/operational-profiles';
 import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
 import type { RelayReadinessService } from '@/main/modules/relay-readiness';
 import type {
@@ -121,6 +122,7 @@ export interface ServiceRegistry {
   readonly finalResultDeclarationService: FinalResultDeclarationService;
   readonly irregularShotCaseRepository: IIrregularShotCaseRepository;
   readonly operationalArchiveService: OperationalArchiveService;
+  readonly operationalSettingTargets: readonly OperationalSettingTarget[];
   readonly resultsBookService: ResultsBookService;
   readonly athleteSanctionService: AthleteSanctionService;
   readonly participantEligibilityReader: IParticipantEligibilityReader;

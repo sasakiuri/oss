@@ -15,7 +15,8 @@ export type BoardType =
   | 'final-board'
   | 'score-sheet-print'
   | 'results-list-print'
-  | 'incident-report-print';
+  | 'incident-report-print'
+  | 'protest-print';
 
 /**
  * Board window configuration.
@@ -44,4 +45,6 @@ export interface BoardWindowConfig {
   eventType?: string;
   /** Incident Report Print: report ID. */
   reportId?: string;
+  /** Protest Print: protest or appeal case ID. */
+  protestId?: string;
 }

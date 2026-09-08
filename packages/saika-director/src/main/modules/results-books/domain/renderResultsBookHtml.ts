@@ -38,12 +38,23 @@ td { white-space: pre-wrap; } tr { break-inside: avoid; } thead { display: table
 <section id="certification"><h2>Results Certification</h2>
 <p>Certified by ${escape(certification.finalizedBy)} · ${escape(certification.finalizedAt)}</p>
 <p>${escape(certification.statement)}</p>
-${table(rows(certification.signatures), [
-  ['Role', 'role'],
-  ['Official', 'officialName'],
-  ['Statement', 'statement'],
-  ['Signed at', 'signedAt'],
-])}
+${table(
+  rows(certification.signatures).map((signature) => ({
+    ...signature,
+    method: row(signature.signingEvidence).method ?? 'LEGACY',
+    recordedBy: row(signature.signingEvidence).recordedBy ?? '',
+    evidenceReference: row(signature.signingEvidence).evidenceReference ?? '',
+  })),
+  [
+    ['Role', 'role'],
+    ['Official', 'officialName'],
+    ['Statement', 'statement'],
+    ['Signed at', 'signedAt'],
+    ['Method', 'method'],
+    ['Recorded by', 'recordedBy'],
+    ['Evidence', 'evidenceReference'],
+  ],
+)}
 <p class="revision">Source revision: ${escape(certification.sourceHash)}<br>Book: ${escape(version.bookId)} · Version ${escape(version.number)}</p></section>
 ${section('officials', 'Competition Officials', rows(document.competitionOfficials), [
   ['Role', 'role'],

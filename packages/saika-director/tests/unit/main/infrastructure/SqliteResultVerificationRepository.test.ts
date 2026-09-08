@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { migration013ResultVerification } from '@/main/infrastructure/database/migrations/013_result_verification';
+import { migration077ResultApprovalSigningIdentity } from '@/main/infrastructure/database/migrations/077_result_approval_signing_identity';
 import { ResultListApprovalEntry } from '@/main/modules/result-verification/domain/ResultListApprovalEntry';
 import { ResultVerificationCheck } from '@/main/modules/result-verification/domain/ResultVerificationCheck';
 import { SqliteResultVerificationRepository } from '@/main/modules/result-verification/infra/SqliteResultVerificationRepository';
@@ -14,6 +15,7 @@ describe('SqliteResultVerificationRepository', () => {
     database = new Database(':memory:');
     database.pragma('foreign_keys = ON');
     migration013ResultVerification.up(database);
+    migration077ResultApprovalSigningIdentity.up(database);
     repository = new SqliteResultVerificationRepository(database);
   });
 
@@ -47,6 +49,12 @@ describe('SqliteResultVerificationRepository', () => {
       statement: 'Official Final Results verified',
       officialName: 'RTS Jury B',
       recordedAt: new Date('2026-08-28T00:01:00.000Z'),
+      signingEvidence: {
+        method: 'AUTHENTICATED',
+        actorId: '33333333-3333-4333-8333-333333333333',
+        recordedBy: 'RTS Jury B',
+        evidenceReference: null,
+      },
     });
     const revocation = ResultListApprovalEntry.createRevocation(approval, {
       reason: 'Superseded after a corrected result',

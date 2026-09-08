@@ -102,6 +102,7 @@ import {
   SqliteFiringWindowJournal,
   SqliteShotObservationEvidenceJournal,
 } from '@/main/modules/mqtt';
+import { OfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   CompetitionEvidenceBundleBuilder,
   ElectronArchiveFileGateway,
@@ -110,6 +111,7 @@ import {
   SqliteCompetitionEvidenceSource,
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
+import { booleanOperationalSetting } from '@/main/modules/operational-profiles';
 import {
   OperatorAccessService,
   SqliteOperatorAccessStore,
@@ -119,7 +121,12 @@ import {
 } from '@/main/modules/operator-access';
 import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
 import { productionOperationsModule } from '@/main/modules/production-operations';
-import { protestsModule } from '@/main/modules/protests';
+import {
+  protestsModule,
+  ProtestPublicationBlocker,
+  SqliteProtestEventScope,
+  SqliteProtestRepository,
+} from '@/main/modules/protests';
 import {
   QualificationMalfunctionPublicationBlocker,
   qualificationMalfunctionsModule,
@@ -356,6 +363,14 @@ export function createApp(preloadPath: string): AppServices {
   );
   const operatorAccessStore = new SqliteOperatorAccessStore(database);
   const operatorAccessService = new OperatorAccessService(operatorAccessStore, directorOperatorPermission);
+  const officialSigningPolicy = new OfficialSigningPolicy({
+    currentActor: () => {
+      const actor = operatorAccessService.currentActor();
+      return actor ? { id: actor.id, name: actor.name, roles: actor.officialRoles } : null;
+    },
+    authenticationRequired: () => operatorAccessStore.enabled(),
+    findActiveAccount: (id) => operatorAccessService.signingAccounts().find((actor) => actor.id === id) ?? null,
+  });
   const sanctionAuthorizationResolver = new SessionSanctionAuthorizationResolver(
     () => operatorAccessService.currentActor(),
     () => operatorAccessStore.enabled(),
@@ -490,6 +505,7 @@ export function createApp(preloadPath: string): AppServices {
         competitionTypeRegistry,
       ),
     ]),
+    officialSigningPolicy,
   );
   const relayReadinessService = new RelayReadinessService(
     new SqliteRelayReadinessRepository(database),
@@ -503,6 +519,12 @@ export function createApp(preloadPath: string): AppServices {
   const competitionStartReadiness = new CompetitionStartReadiness([relayReadinessService, estInspectionStartService]);
   const verifiedResultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
   const resultPublicationReadiness = new GuardedResultPublicationReadiness(verifiedResultPublicationReadiness, [
+    new OptionalResultPublicationBlocker(
+      new ProtestPublicationBlocker(new SqliteProtestRepository(database), (eventId, resultScope) =>
+        new SqliteProtestEventScope(database).competitionIds(eventId, resultScope),
+      ),
+      () => appConfigService.get('resultPublication.requireProtestCasesComplete'),
+    ),
     new IrregularShotPublicationBlocker(
       irregularShotCaseRepository,
       rangeIncidentReportRepository,
@@ -534,6 +556,7 @@ export function createApp(preloadPath: string): AppServices {
     archiveFileGateway,
     undefined,
     new ElectronResultsBookDocumentExporter(),
+    officialSigningPolicy,
   );
   const finalResultDeclarationService = new FinalResultDeclarationService(
     finalResultDeclarationRepository,
@@ -556,6 +579,32 @@ export function createApp(preloadPath: string): AppServices {
 
   // === Build ServiceRegistry ===
   const registry: ServiceRegistry = {
+    operationalSettingTargets: [
+      booleanOperationalSetting({
+        id: 'publication-protests',
+        label: 'Completed protest cases before official publication',
+        read: () => appConfigService.get('resultPublication.requireProtestCasesComplete'),
+        write: (required) => appConfigService.set('resultPublication.requireProtestCasesComplete', required),
+      }),
+      booleanOperationalSetting({
+        id: 'operator-access',
+        label: 'Operator authentication',
+        read: () => operatorAccessStore.enabled(),
+        write: (required) => operatorAccessService.setEnabledForCurrentActor(required),
+      }),
+      booleanOperationalSetting({
+        id: 'publication-incidents',
+        label: 'Incident reports before official publication',
+        read: () => appConfigService.get('resultPublication.requireIncidentReports'),
+        write: (required) => appConfigService.set('resultPublication.requireIncidentReports', required),
+      }),
+      booleanOperationalSetting({
+        id: 'publication-recoveries',
+        label: 'Completed final recoveries before official publication',
+        read: () => appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+        write: (required) => appConfigService.set('resultPublication.requireFinalRecoveriesComplete', required),
+      }),
+    ],
     estInspectionStartService,
     relayReadinessService,
     competitionStartReadiness,
