@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';
 import {
   reconstructResultPublicationEntry,
@@ -59,6 +60,8 @@ function toPayload(entry: ResultPublicationEntry): Record<string, string> {
         postedAt: entry.postedAt.toISOString(),
         protestEndsAt: entry.protestEndsAt.toISOString(),
         officialName: entry.officialName,
+        ...(entry.postingLocation !== undefined ? { postingLocation: entry.postingLocation } : {}),
+        ...(entry.postingReference !== undefined ? { postingReference: entry.postingReference } : {}),
       };
     case 'PROTEST_REGISTERED':
       return { protestReference: entry.protestReference };
@@ -95,6 +98,12 @@ function toEntry(row: ResultPublicationEntryRow): ResultPublicationEntry {
         postedAt: parseDate(requiredString(payload, 'postedAt'), 'postedAt'),
         protestEndsAt: parseDate(requiredString(payload, 'protestEndsAt'), 'protestEndsAt'),
         officialName: requiredString(payload, 'officialName'),
+        ...(payload.postingLocation !== undefined
+          ? { postingLocation: requiredString(payload, 'postingLocation') }
+          : {}),
+        ...(payload.postingReference !== undefined
+          ? { postingReference: requiredString(payload, 'postingReference') }
+          : {}),
       });
     case 'PROTEST_REGISTERED':
       return reconstructResultPublicationEntry({

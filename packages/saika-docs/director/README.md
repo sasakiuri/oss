@@ -62,6 +62,25 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
 コマンド、Retain、再接続の詳細は [MQTT 制御・運用](./MQTT_CONTROL.md)、トピックとペイロードの
 完全な設計は [Lane MQTT 連携設計](../lane/MQTT_DESIGN.md) を参照してください。
 
+## 独立バックアップ資料の保存と印刷
+
+EST backup verification のファイル取り込みは、原文、SHA-256、列の対応、読み取った全レコードを種目に関連付けて保存します。
+Retained source files から Print source を開くと、競技成績の確定や照合を待たずに取り込み資料を印刷できます。
+Include original source text で原文を追加でき、Use source records で保存済み資料を照合へ戻せます。
+読み出し時は原文と取り込みレコードの整合性を検査します。元ファイルを移動した後やアプリ再起動後も利用できます。
+
+資料の保管は成績照合・RTS承認と独立しています。数値を編集すると元資料への関連付けを解除し、手入力資料として扱います。
+機器や記憶媒体が主ESTコンピューターから独立していることは実構成で確認してください。
+保存資料は大会の evidence export とDBバックアップにも含まれます。
+
+## 抗議・上訴様式への転記
+
+抗議・上訴の印刷画面にある転記補助を開くと、記録済みの内容を項目ごとにコピーできます。日時の表示には指定した IANA タイムゾーンを使います（初期値 UTC）。受付日時には実際の受付時刻を使い、登録時刻からは補完しません。
+
+種目名・Jury 名・国名・受付担当者名は転記時に補足できます。この入力は一時的なもので、抗議台帳や結果承認を変更しません。会議時刻、通知時刻、署名など記録から確定できない項目は手動で完成させます。一部認容の判断を二択へ変換したり、未記録の納付額を規定額で埋めたりすることはありません。
+
+提出には [公式 Protest Form (P)](https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=29&iist=377&file=Protest-Form.pdf)・[公式 Appeal Form (AP)](https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=29&iist=377&file=Appeal-Form.pdf) の各欄を確認し、必要な署名を行ってください。上訴には元の公式抗議様式を添付します。Director の運用記録の印刷物は、この添付様式を代替しません。
+
 ## 運用上の注意
 
 - Director と Lane の時計を同期してください。開始時刻は絶対時刻で配信されます。
@@ -90,3 +109,9 @@ Electron アプリケーションです。各 Lane が射撃、採点、セッ�
   追加試射、series recovery firing、score adjudication、`KEEP_RECORDED_SERIES` settlement は独立操作です。未発射の許可発数は adjudication 時に miss となるため、
   Lane の completed state と shot evidence を確認してください。必要な adjudication または settlement が成功するまで interruption record は close できません。
 - 本ソフトウェアは非公式です。公式競技の唯一の採点・計時手段として使用しないでください。
+
+## 大会開始前の設定を一括適用する
+
+Operational profile で射群準備、射座検査、時計、バックアップ取得、操作権限などの設定変更を一覧で確認して適用します。項目ごとに必須・警告・無効を選べます（認証など二値の項目には警告モードはありません）。大会単位と Director 全体に適用される項目を確認してください。一部の適用に失敗した場合は結果を確認して再度適用できます。
+
+Lane の測定証拠チェックも独立して選択できます。Lane で現在の機器構成を記録し、測定サンプルと有効期限を持つタイミングプロファイルを適用してください。Director でこの項目を必須にすると、最新の Lane 報告、測定根拠、期限、機器構成、適用中の時間幅が一致するまで時刻付き開始操作を止めます。数値だけの手入力は証拠として扱いません。警告・無効を選んで手動運用することもできます。このチェックと時計同期、実機の標的信号のチェックは別々に設定します。

@@ -46,6 +46,8 @@ export interface MockedElectronAPI {
     openPrintWindow: ReturnType<typeof vi.fn>;
   };
   timedTarget: {
+    getTimingSettings: ReturnType<typeof vi.fn>;
+    setTimingSettings: ReturnType<typeof vi.fn>;
     getState: ReturnType<typeof vi.fn>;
     cancel: ReturnType<typeof vi.fn>;
   };
@@ -155,6 +157,11 @@ export function createMockElectronAPI(): MockedElectronAPI {
       openPrintWindow: vi.fn(),
     },
     timedTarget: {
+      getTimingSettings: vi.fn().mockResolvedValue({
+        success: true,
+        data: { mode: 'BOUNDED', maximumReceiptDelayMilliseconds: null, clockUncertaintyMilliseconds: null },
+      }),
+      setTimingSettings: vi.fn(),
       getState: vi.fn().mockResolvedValue({ success: true, data: null }),
       cancel: vi.fn(),
     },

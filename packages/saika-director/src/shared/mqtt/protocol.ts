@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
 
+import { ShotTimingSettingsSchema } from './ShotTimingSettings';
+import { TimingEvidenceReportSchema } from './TimingEvidenceReport';
+
 export const CompetitionPhaseSchema = z.enum([
   'NOT_STARTED',
   'SIGHTING',
@@ -60,6 +63,13 @@ export const HardwareStatePayloadSchema = z.object({
     .object({
       competitionProtocolVersions: z.array(z.literal(1)).min(1),
       rulePacks: z.array(RulePackIdentitySchema),
+      timingEvidence: TimingEvidenceReportSchema.optional(),
+      timedTargetPolicy: z
+        .object({
+          enforcementMode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+          shotTiming: ShotTimingSettingsSchema.optional(),
+        })
+        .optional(),
       targetIntegration: z
         .object({
           schemaVersion: z.literal(1),
@@ -352,6 +362,7 @@ export const TimedTargetStatePayloadSchema = z.object({
     })
     .optional(),
   enforcementMode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),
+  timingSettings: ShotTimingSettingsSchema.optional(),
   publishedAt: z.string().datetime(),
 });
 
@@ -493,6 +504,7 @@ export const ShotObservationEvidencePayloadSchema = z.object({
     'RECORDED',
     'REJECTED_COMPETITION_PHASE',
     'REJECTED_TIMED_TARGET_WINDOW',
+    'QUARANTINED_TIMING_REVIEW',
     'QUARANTINED_SAFETY_STOP',
     'NO_ACTIVE_SESSION',
     'PROCESSING_FAILED',
@@ -501,6 +513,8 @@ export const ShotObservationEvidencePayloadSchema = z.object({
   y: z.number().nullable(),
   deviceScoreX10: z.number().min(0).max(109).nullable(),
   firedAt: z.string().datetime(),
+  // Missing on older Lane versions; omission means unknown provenance.
+  timestampSource: z.enum(['LANE_RECEIPT', 'DEVICE_REPORTED', 'UNKNOWN']).optional(),
   receivedAt: z.string().datetime(),
   reportedMode: z.enum(['SIGHTING', 'MATCH']).nullable(),
   rawFrameHex: z

@@ -132,6 +132,8 @@ export function TimedTargetControlPanel({
               <th className="px-3 py-2 text-left">Lane</th>
               <th className="px-3 py-2 text-left">Target device</th>
               <th className="px-3 py-2 text-left">Physical signals</th>
+              <th className="px-3 py-2 text-left">Firing-window enforcement</th>
+              <th className="px-3 py-2 text-left">Shot timing</th>
               <th className="px-3 py-2 text-left">Program</th>
               <th className="px-3 py-2 text-left">Signal / phase</th>
               <th className="px-3 py-2 text-right">Next edge</th>
@@ -151,6 +153,10 @@ export function TimedTargetControlPanel({
                   <td className="px-3 py-2 text-vscode-text-muted">
                     {physicalSignalLabel(lane.hardware?.capabilities?.targetIntegration?.timedTarget)}
                   </td>
+                  <td className="px-3 py-2 text-vscode-text-muted">
+                    {lane.hardware?.capabilities?.timedTargetPolicy?.enforcementMode.toLowerCase() ?? 'Not reported'}
+                  </td>
+                  <td className="px-3 py-2 text-vscode-text-muted">{shotTimingLabel(lane)}</td>
                   <td className="px-3 py-2 text-vscode-text-muted">{state?.programLabel ?? 'Not run'}</td>
                   <td
                     className={`px-3 py-2 font-semibold ${
@@ -262,6 +268,13 @@ export function TimedTargetControlPanel({
       </p>
     </Card>
   );
+}
+
+function shotTimingLabel(lane: DirectorLaneSnapshotDto): string {
+  const timing = lane.hardware?.capabilities?.timedTargetPolicy?.shotTiming;
+  if (!timing) return 'Not reported';
+  if (timing.mode === 'TIMESTAMP') return 'Supplied timestamp only';
+  return `Review uncertain timing; reception ${timing.maximumReceiptDelayMilliseconds ?? 'unknown'} ms; clock ±${timing.clockUncertaintyMilliseconds ?? 'unknown'} ms`;
 }
 
 function laneLabel(lane: DirectorLaneSnapshotDto): string {

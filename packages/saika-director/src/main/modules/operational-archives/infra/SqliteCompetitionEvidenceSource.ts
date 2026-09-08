@@ -41,9 +41,11 @@ const DIRECT_EVENT_TABLES = [
   'result_verification_checks',
   'result_list_approval_entries',
   'result_publication_entries',
+  'publication_review_policies',
   'final_result_declarations',
   'final_placement_review_entries',
   'est_backup_verification_runs',
+  'est_backup_sources',
   'range_incident_reports',
   'start_list_versions',
   'final_recovery_cases',
@@ -52,6 +54,10 @@ const DIRECT_EVENT_TABLES = [
 ] as const;
 
 const SECTION_QUERIES: readonly SectionQuery[] = [
+  {
+    id: 'observation-reviews',
+    sql: `SELECT * FROM observation_reviews WHERE competition_id IN (${RUNTIME_COMPETITION_IDS})`,
+  },
   {
     id: 'equipment-registry-entries',
     sql: 'SELECT * FROM equipment_registry_entries WHERE championship_id = @championshipId',

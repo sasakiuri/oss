@@ -190,6 +190,9 @@ export class ResultPublication {
     postedAt: Date;
     protestWindowMs: number;
     officialName: string;
+    recordedAt?: Date;
+    postingLocation?: string;
+    postingReference?: string;
   }): PreliminaryPublishedEntry {
     validateDate(props.postedAt, 'postedAt');
     if (!Number.isInteger(props.protestWindowMs) || props.protestWindowMs <= 0) {
@@ -203,6 +206,9 @@ export class ResultPublication {
     if (this.currentCycle?.preliminary.snapshotRevision === props.snapshotRevision) {
       throw new Error('This result-list revision is already published as preliminary');
     }
+    if (this.currentCycle && props.postedAt.getTime() < this.currentCycle.preliminary.postedAt.getTime()) {
+      throw new Error('A revised result list cannot be posted before the previous publication');
+    }
     return createPreliminaryPublishedEntry({
       eventId: this.eventId,
       resultScope: this.resultScope,
@@ -210,6 +216,9 @@ export class ResultPublication {
       postedAt: props.postedAt,
       protestEndsAt: new Date(props.postedAt.getTime() + props.protestWindowMs),
       officialName: props.officialName,
+      recordedAt: props.recordedAt,
+      postingLocation: props.postingLocation,
+      postingReference: props.postingReference,
     });
   }
 

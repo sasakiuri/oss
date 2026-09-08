@@ -95,6 +95,8 @@ import {
   type ICompetitionDefinitionCompatibilityPolicy,
 } from '../domain/CompetitionDefinitionCompatibilityPolicy';
 import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
+import { LaneTimingEvidencePolicy } from '../domain/LaneTimingEvidencePolicy';
+import { TimedTargetReadinessPolicy, type ITimedTargetReadinessPolicy } from '../domain/TimedTargetReadinessPolicy';
 
 import { MqttTransport, type IMqttTransport, type MqttCredentials } from './MqttTransport';
 
@@ -391,6 +393,7 @@ export class DirectorMqttService {
   private operationTails = new Map<string, Promise<void>>();
   private clockQualityByLaneId = new Map<string, ClockQualityAssessment>();
   private readonly credentials: MqttCredentials | undefined;
+  private timingEvidencePolicy = new LaneTimingEvidencePolicy();
 
   constructor(
     options: DirectorMqttOptions,
@@ -398,6 +401,7 @@ export class DirectorMqttService {
     transport: IMqttTransport = new MqttTransport(),
     private clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
     private readonly definitionCompatibilityPolicy: ICompetitionDefinitionCompatibilityPolicy = new CompetitionDefinitionCompatibilityPolicy(),
+    private timedTargetReadinessPolicy: ITimedTargetReadinessPolicy = new TimedTargetReadinessPolicy(),
   ) {
     this.directorId = options.directorId;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
@@ -412,6 +416,48 @@ export class DirectorMqttService {
   setClockQualityPolicy(policy: IClockQualityPolicy): void {
     this.clockQualityPolicy = policy;
     this.clockQualityByLaneId.clear();
+  }
+
+  setTimedTargetReadinessPolicy(policy: ITimedTargetReadinessPolicy): void {
+    this.timedTargetReadinessPolicy = policy;
+  }
+
+  setTimingEvidencePolicy(policy: LaneTimingEvidencePolicy): void {
+    this.timingEvidencePolicy = policy;
+  }
+
+  getTimingEvidenceStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
+    return laneIds.flatMap((laneId) => {
+      const hardware = this.lanes.get(laneId)?.hardware;
+      return this.timingEvidencePolicy.assess(laneId, {
+        connected: this.connected && hardware?.connection.status === 'connected',
+        reportedAt: hardware?.publishedAt,
+        connection: hardware?.connection,
+        evidence: hardware?.capabilities?.timingEvidence,
+        settings: hardware?.capabilities?.timedTargetPolicy?.shotTiming,
+      });
+    });
+  }
+
+  getTimedTargetStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
+    return laneIds.flatMap((laneId) => {
+      const hardware = this.lanes.get(laneId)?.hardware;
+      const policy = hardware?.capabilities?.timedTargetPolicy;
+      const physical = hardware?.capabilities?.targetIntegration?.timedTarget;
+      return this.timedTargetReadinessPolicy.assess(laneId, {
+        connected: this.connected && hardware?.connection.status === 'connected',
+        reportedAt: hardware?.publishedAt,
+        enforcementMode: policy?.enforcementMode,
+        shotTiming: policy?.shotTiming,
+        physicalActuation: physical?.actuation,
+        physicalFeedback: physical?.feedback,
+      });
+    });
+  }
+
+  private assertTimedTargetReadiness(laneIds: readonly string[]): void {
+    const issues = this.getTimedTargetStartIssues(laneIds).filter((issue) => issue.blocking);
+    if (issues.length) throw new Error(`Timed target readiness: ${issues.map((issue) => issue.message).join('; ')}`);
   }
 
   getClockQuality(laneId?: string): Readonly<Record<string, ClockQualityAssessment>> | ClockQualityAssessment | null {
@@ -849,8 +895,9 @@ export class DirectorMqttService {
         throw new Error(`Shoot-off Lanes are not at a completed Final series: ${notReady.join(', ')}`);
       }
       this.assertSafetyCleared(targetLaneIds, 'start a Final shoot-off');
-      this.assertClockQualityForTimedCommands(targetLaneIds);
+      this.assertTimedCommandReadiness(targetLaneIds);
       if (timing.type === 'TIMED_TARGET') {
+        this.assertTimedTargetReadiness(targetLaneIds);
         const stillActive = targetLaneIds.filter((laneId) => {
           const timedState = this.lanes.get(laneId)?.timedTargetState;
           return timedState && timedState.phase !== 'COMPLETE' && timedState.phase !== 'CANCELLED';
@@ -1027,7 +1074,8 @@ export class DirectorMqttService {
       if (input.request.workflow !== 'FINAL_RECOVERY') throw new Error('Final firing workflow is required');
       if (input.operation === 'START') {
         this.getFinalFiringContext(competitionId, input.laneId);
-        this.assertClockQualityForTimedCommands([input.laneId]);
+        this.assertTimedCommandReadiness([input.laneId]);
+        this.assertTimedTargetReadiness([input.laneId]);
         if (this.lanes.get(input.laneId)?.safetyState?.status !== 'CLEAR')
           throw new Error('Clear the Lane safety STOP before authorized recovery firing');
       }
@@ -1142,7 +1190,7 @@ export class DirectorMqttService {
   ): Promise<CommandBatchResult> {
     return this.runCompetitionOperation(competitionId, async () => {
       const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
-      this.assertClockQualityForTimedCommands(uniqueLaneIds);
+      this.assertTimedCommandReadiness(uniqueLaneIds);
       const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
       const commands = await Promise.all(
         uniqueLaneIds.map((laneId) =>
@@ -1173,7 +1221,7 @@ export class DirectorMqttService {
     this.requireActiveFiringPhase(competitionId, 'resume a Lane timer');
     this.requireCompetitionLane(competitionId, laneId);
     this.assertSafetyCleared([laneId], 'resume a Lane timer');
-    if (!clockQualityAlreadyChecked) this.assertClockQualityForTimedCommands([laneId]);
+    if (!clockQualityAlreadyChecked) this.assertTimedCommandReadiness([laneId]);
     const command = ResumeTimerCommandSchema.parse(
       this.commandBase({
         interruptionId,
@@ -1252,7 +1300,8 @@ export class DirectorMqttService {
     this.requireCompetitionPhase(input.competitionId, 'MATCH', 'start a Qualification recovery');
     this.requireCompetitionLane(input.competitionId, input.laneId);
     this.assertSafetyCleared([input.laneId], 'start a Qualification recovery');
-    this.assertClockQualityForTimedCommands([input.laneId]);
+    this.assertTimedCommandReadiness([input.laneId]);
+    this.assertTimedTargetReadiness([input.laneId]);
 
     const lane = this.lanes.get(input.laneId);
     const laneState = lane?.competitionState;
@@ -1482,7 +1531,7 @@ export class DirectorMqttService {
     expectedLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
     this.callbacks.assertPhaseStartAllowed?.({ competitionId, phase: 'SIGHTING', laneIds: expectedLaneIds });
     this.assertSafetyCleared(expectedLaneIds, 'start sighting');
-    this.assertClockQualityForTimedCommands(expectedLaneIds);
+    this.assertTimedCommandReadiness(expectedLaneIds);
     let commandState = state;
     let activeTimer: ActiveCompetitionTimer;
     if (isTargetedContinuation && state.activeTimer) {
@@ -1621,7 +1670,7 @@ export class DirectorMqttService {
     if (durationSeconds !== undefined)
       this.callbacks.assertPhaseStartAllowed?.({ competitionId, phase: 'MATCH', laneIds: state.laneIds });
     this.assertSafetyCleared(state.laneIds, 'start match');
-    this.assertClockQualityForTimedCommands(state.laneIds);
+    this.assertTimedCommandReadiness(state.laneIds);
     if (durationSeconds === undefined) {
       const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
       const result = await this.publishBroadcast(competitionId, 'start-match', { timerStartAt });
@@ -1686,7 +1735,8 @@ export class DirectorMqttService {
     if (targetLaneIds.length === 0) throw new Error('A timed target sequence requires at least one Lane');
     targetLaneIds.forEach((laneId) => this.requireCompetitionLane(input.competitionId, laneId));
     this.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
-    this.assertClockQualityForTimedCommands(targetLaneIds);
+    this.assertTimedCommandReadiness(targetLaneIds);
+    this.assertTimedTargetReadiness(targetLaneIds);
 
     const notReady = await this.waitForTimedTargetLaneReadiness(
       input.competitionId,
@@ -1719,7 +1769,8 @@ export class DirectorMqttService {
       laneIds: targetLaneIds,
     });
     this.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
-    this.assertClockQualityForTimedCommands(targetLaneIds);
+    this.assertTimedCommandReadiness(targetLaneIds);
+    this.assertTimedTargetReadiness(targetLaneIds);
     const earliestLoadMs = targetLaneIds.reduce((latest, laneId) => {
       const nextLoad = this.lanes.get(laneId)?.timedTargetState?.nextLoadAllowedAt;
       return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
@@ -1830,7 +1881,7 @@ export class DirectorMqttService {
       throw new Error(`Cannot restart timer while competition ${competitionId} is in phase ${state.phase}`);
     }
     this.assertSafetyCleared(state.laneIds, 'restart a timer');
-    this.assertClockQualityForTimedCommands(state.laneIds);
+    this.assertTimedCommandReadiness(state.laneIds);
     const prepared = await this.retainTimerIntent(state, 'timer-started', {
       timerScope,
       timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
@@ -1883,7 +1934,7 @@ export class DirectorMqttService {
   ): Promise<CommandExecutionResult> {
     const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'advance series');
     this.assertSafetyCleared(state.laneIds, 'advance series');
-    if (nextSeriesTimer) this.assertClockQualityForTimedCommands(state.laneIds);
+    if (nextSeriesTimer) this.assertTimedCommandReadiness(state.laneIds);
     const timerStartAt = nextSeriesTimer ? new Date(Date.now() + this.startDelayMs).toISOString() : undefined;
     const result = await this.publishBroadcast(competitionId, 'advance-series', {
       stageIndex,
@@ -3502,6 +3553,13 @@ export class DirectorMqttService {
             },
           ];
     });
+  }
+
+  private assertTimedCommandReadiness(laneIds: readonly string[]): void {
+    const evidenceIssues = this.getTimingEvidenceStartIssues(laneIds).filter((issue) => issue.blocking);
+    if (evidenceIssues.length)
+      throw new Error(`Timing evidence: ${evidenceIssues.map((issue) => issue.message).join('; ')}`);
+    this.assertClockQualityForTimedCommands(laneIds);
   }
 
   private assertClockQualityForTimedCommands(laneIds: readonly string[]): void {

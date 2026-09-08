@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Clock3, FileCheck2, History, TriangleAlert } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+
 import { resultPublicationService } from '@/renderer/services';
 import type { ResultPublicationStatusDto } from '@/shared/ipc/contracts';
+
+import { ObservationReviewsPanel } from '../../observation-reviews/ObservationReviewsPanel';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 
@@ -20,6 +23,10 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [officialName, setOfficialName] = useState('');
+  const [postingLocation, setPostingLocation] = useState('');
+  const [postingReference, setPostingReference] = useState('');
+  const [postingTimeMode, setPostingTimeMode] = useState('NOW');
+  const [postingTime, setPostingTime] = useState('');
   const [protestReference, setProtestReference] = useState('');
   const [selectedProtest, setSelectedProtest] = useState<string | null>(null);
   const [resolution, setResolution] = useState('');
@@ -81,9 +88,15 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
           eventId,
           resultScope: 'QUALIFICATION',
           officialName,
+          posting: {
+            snapshotRevision: status!.currentSnapshotRevision!,
+            location: postingLocation.trim(),
+            ...(postingReference.trim() ? { reference: postingReference.trim() } : {}),
+            ...(postingTimeMode === 'EARLIER' ? { postedAt: new Date(postingTime).toISOString() } : {}),
+          },
         }),
       ),
-    [eventId, officialName, run],
+    [eventId, officialName, run, status, postingLocation, postingReference, postingTimeMode, postingTime],
   );
 
   const registerProtest = useCallback(
@@ -163,15 +176,74 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
               />
             </label>
 
+            {status.status !== 'OFFICIAL' && (
+              <fieldset className="space-y-3 border-t border-vscode-border pt-4" disabled={saving}>
+                <legend className="text-[13px] font-semibold">Preliminary posting</legend>
+                <p className="text-xs text-vscode-text-muted">
+                  Record this after the result list is visible. The score protest deadline starts at the actual posting
+                  time.
+                </p>
+                <label className="block text-xs">
+                  Posting destination
+                  <input
+                    className={`${inputClass} mt-1`}
+                    value={postingLocation}
+                    maxLength={300}
+                    onChange={(event) => setPostingLocation(event.target.value)}
+                  />
+                </label>
+                <label className="block text-xs">
+                  Posting time
+                  <select
+                    className={`${inputClass} mt-1`}
+                    value={postingTimeMode}
+                    onChange={(event) => setPostingTimeMode(event.target.value)}
+                  >
+                    <option value="NOW">Displayed now</option>
+                    <option value="EARLIER">Record an earlier posting</option>
+                  </select>
+                </label>
+                {postingTimeMode === 'EARLIER' && (
+                  <label className="block text-xs">
+                    Actual posting time (local)
+                    <input
+                      className={`${inputClass} mt-1`}
+                      type="datetime-local"
+                      step="1"
+                      value={postingTime}
+                      onChange={(event) => setPostingTime(event.target.value)}
+                    />
+                  </label>
+                )}
+                <label className="block text-xs">
+                  Posting reference (optional)
+                  <input
+                    className={`${inputClass} mt-1`}
+                    value={postingReference}
+                    maxLength={1000}
+                    onChange={(event) => setPostingReference(event.target.value)}
+                  />
+                </label>
+              </fieldset>
+            )}
+
             <section className="flex flex-wrap gap-2 border-t border-vscode-border pt-4">
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={saving || !officialName.trim() || status.status === 'OFFICIAL'}
+                disabled={
+                  saving ||
+                  !officialName.trim() ||
+                  !postingLocation.trim() ||
+                  !status.currentSnapshotRevision ||
+                  (postingTimeMode === 'EARLIER' && !postingTime) ||
+                  status.status === 'OFFICIAL' ||
+                  (status.preliminaryId !== null && status.publicationCurrent)
+                }
                 onClick={publishPreliminary}
               >
                 <Clock3 size={14} aria-hidden="true" />
-                {status.preliminaryId ? 'Publish revised preliminary' : 'Publish preliminary'}
+                {status.preliminaryId ? 'Record revised posting' : 'Record preliminary posting'}
               </Button>
               <Button
                 size="sm"
@@ -265,6 +337,13 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                   {status.history.map((entry) => (
                     <li key={entry.id}>
                       {formatDate(entry.recordedAt)} · {entry.type.replaceAll('_', ' ')}
+                      {entry.type === 'PRELIMINARY_PUBLISHED' && entry.postingLocation && (
+                        <span>
+                          {' '}
+                          · Posted {formatDate(entry.postedAt)} · {entry.postingLocation}
+                          {entry.postingReference ? ` · ${entry.postingReference}` : ''}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -273,6 +352,10 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
           </>
         )}
       </div>
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm">Review target observations</summary>
+        <ObservationReviewsPanel key={eventId} eventId={eventId} resultScope="QUALIFICATION" />
+      </details>
     </Modal>
   );
 }

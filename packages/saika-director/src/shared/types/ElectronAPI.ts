@@ -1,12 +1,3 @@
-import type { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
-import type { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
-import type { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
-/**
- * ElectronAPI - Renderer-side type definitions for the preload bridge.
- *
- * Uses InferBridge/InferEventBridge where method names match contract keys.
- * Championship uses manual types because their method names differ from contract keys.
- */
 import type {
   adjudicationCasesContract,
   athleteSanctionsContract,
@@ -23,6 +14,7 @@ import type {
   DeleteEventPayload,
   eliminationPlanningContract,
   estBackupVerificationContract,
+  backupCaptureReadinessContract,
   estChampionshipInspectionsContract,
   estComplaintsContract,
   eventsContract,
@@ -50,12 +42,14 @@ import type {
   relayAthleteLifecycleContract,
   relayReadinessContract,
   resultPublicationContract,
+  publicationReviewPolicyContract,
   resultsBooksContract,
   resultsContract,
   resultVerificationContract,
   SaveFiringPointAssignmentsPayload,
   SaveParticipantsPayload,
   scoreCorrectionsContract,
+  observationReviewsContract,
   reserveLaneTransfersContract,
   finalRecoveryFiringContract,
   scoringDecisionsContract,
@@ -67,6 +61,15 @@ import type {
   UpdateChampionshipPayload,
   UpdateEventPayload,
 } from '@/shared/ipc/contracts';
+import type { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import type { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
+import type { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
+/**
+ * ElectronAPI - Renderer-side type definitions for the preload bridge.
+ *
+ * Uses InferBridge/InferEventBridge where method names match contract keys.
+ * Championship uses manual types because their method names differ from contract keys.
+ */
 import type { InferBridge, InferEventBridge } from '@/shared/ipc/defineContract';
 
 // ---------------------------------------------------------------------------
@@ -131,12 +134,14 @@ export interface ElectronAPI {
   scoringDecisions: InferBridge<typeof scoringDecisionsContract>;
   resultVerification: InferBridge<typeof resultVerificationContract>;
   resultPublication: InferBridge<typeof resultPublicationContract>;
+  publicationReviewPolicy: InferBridge<typeof publicationReviewPolicyContract>;
   competitionAnnouncements: InferBridge<typeof competitionAnnouncementsContract>;
   incidentReports: InferBridge<typeof incidentReportsContract>;
   targetExaminations: InferBridge<typeof targetExaminationsContract>;
   evidenceFiles: InferBridge<typeof evidenceFilesContract>;
   malfunctionScoreApplications: InferBridge<typeof malfunctionScoreApplicationsContract>;
   scoreCorrections: InferBridge<typeof scoreCorrectionsContract>;
+  observationReviews: InferBridge<typeof observationReviewsContract>;
   reserveLaneTransfers: InferBridge<typeof reserveLaneTransfersContract>;
   finalRecoveryFiring: InferBridge<typeof finalRecoveryFiringContract>;
   estComplaints: InferBridge<typeof estComplaintsContract>;
@@ -146,6 +151,7 @@ export interface ElectronAPI {
   teamResults: InferBridge<typeof teamResultsContract>;
   protests: InferBridge<typeof protestsContract>;
   estBackupVerification: InferBridge<typeof estBackupVerificationContract>;
+  backupCaptureReadiness: InferBridge<typeof backupCaptureReadinessContract>;
   finalControl: InferBridge<typeof finalControlContract>;
   finalOperations: InferBridge<typeof finalOperationsContract>;
   finalRecoveries: InferBridge<typeof finalRecoveriesContract>;

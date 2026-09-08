@@ -19,6 +19,7 @@ for (const namespace of [
   'relayReadiness',
   'relayAthleteLifecycle',
   'operationalProfiles',
+  'backupCaptureReadiness',
 ])
   groups[namespace] = 'OPERATE';
 for (const namespace of [
@@ -26,6 +27,7 @@ for (const namespace of [
   'scoringDecisions',
   'resultVerification',
   'resultPublication',
+  'publicationReviewPolicy',
   'incidentReports',
   'targetExaminations',
   'estComplaints',
@@ -38,6 +40,7 @@ for (const namespace of [
   'irregularShotCases',
   'malfunctionScoreApplications',
   'scoreCorrections',
+  'observationReviews',
   'finalPlacementReview',
   'resultsBooks',
   'athleteSanctions',
@@ -48,7 +51,7 @@ for (const namespace of ['estChampionshipInspections', 'equipmentRegistry', 'pos
 
 /** Unclassified commands require administration until deliberately assigned a narrower permission. */
 export function directorOperatorPermission({ namespace, operation }: IpcInvocation): OperatorPermission {
-  if (namespace === 'board' && operation === 'openProtestPrint') return 'OFFICIATE';
+  if (namespace === 'board' && ['openProtestPrint', 'openEstBackupSourcePrint'].includes(operation)) return 'OFFICIATE';
   if (namespace === 'resultsBooks' && ['appointOfficial', 'revokeOfficial'].includes(operation)) return 'ADMIN';
   if (
     ['finalControl', 'mixedTeamFinalControl'].includes(namespace) &&

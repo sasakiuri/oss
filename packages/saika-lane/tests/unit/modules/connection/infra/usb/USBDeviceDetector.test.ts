@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { USBDeviceDetector } from '@/main/modules/connection/infra/usb/USBDeviceDetector';
 
-// Mock electron
+// Exercise the packaged application's port API. Development diagnostics load native bindings
+// with require(), which bypasses the serialport mock and would enumerate the host's real devices.
 vi.mock('electron', () => ({
-  app: { isPackaged: false },
+  app: { isPackaged: true },
 }));
 
 // Mock createLogger

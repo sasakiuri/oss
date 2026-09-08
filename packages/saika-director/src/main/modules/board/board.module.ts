@@ -127,6 +127,11 @@ export const boardModule: ModuleDefinition<'queryBus' | 'ipcRouter' | 'windowMan
           type: 'protest-print',
           protestId: input.protestId,
         }),
+      openEstBackupSourcePrint: async (input) =>
+        windowManager.createBoardWindow('est-backup-source-print', {
+          type: 'est-backup-source-print',
+          sourceId: input.sourceId,
+        }),
       closeBoard: (input) => {
         windowManager.closeBoardWindow(input);
         return Promise.resolve(undefined);

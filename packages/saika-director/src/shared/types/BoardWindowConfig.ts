@@ -16,7 +16,8 @@ export type BoardType =
   | 'score-sheet-print'
   | 'results-list-print'
   | 'incident-report-print'
-  | 'protest-print';
+  | 'protest-print'
+  | 'est-backup-source-print';
 
 /**
  * Board window configuration.
@@ -47,4 +48,6 @@ export interface BoardWindowConfig {
   reportId?: string;
   /** Protest Print: protest or appeal case ID. */
   protestId?: string;
+  /** Retained EST backup source to print independently of live scores. */
+  sourceId?: string;
 }

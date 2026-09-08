@@ -1,3 +1,4 @@
+import { ObservationReviewsPanel } from '../../observation-reviews/ObservationReviewsPanel';
 import { useCallback, useEffect, useState } from 'react';
 import { FileCheck2, TriangleAlert } from 'lucide-react';
 
@@ -175,6 +176,10 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
           </>
         )}
       </div>
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm">Review target observations</summary>
+        <ObservationReviewsPanel key={eventId} eventId={eventId} resultScope="FINAL" />
+      </details>
     </Modal>
   );
 }

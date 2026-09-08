@@ -1,11 +1,13 @@
 export { evidenceFilesContract, type EvidenceFileDto } from './evidenceFiles.contract';
+export * from './observationReviews.contract';
 // Contract objects
 export { championshipContract } from './championship.contract';
 export { laneControlContract } from './laneControl.contract';
 export { resultsContract } from './results.contract';
 export { scoringDecisionsContract } from './scoringDecisions.contract';
 export { resultVerificationContract } from './resultVerification.contract';
-export { resultPublicationContract } from './resultPublication.contract';
+export { resultPublicationContract, type ResultPublicationReviewSettingsDto } from './resultPublication.contract';
+export { publicationReviewPolicyContract } from './publicationReviewPolicy.contract';
 export { competitionAnnouncementsContract } from './competitionAnnouncements.contract';
 export { incidentReportsContract } from './incidentReports.contract';
 export { targetExaminationsContract } from './targetExaminations.contract';
@@ -18,6 +20,7 @@ export { productionOperationsContract } from './productionOperations.contract';
 export { mixedTeamTimeoutsContract } from './mixedTeamTimeouts.contract';
 export { protestsContract } from './protests.contract';
 export { estBackupVerificationContract } from './estBackupVerification.contract';
+export { backupCaptureReadinessContract } from './backupCaptureReadiness.contract';
 export { finalControlContract } from './finalControl.contract';
 export { finalOperationsContract } from './finalOperations.contract';
 export { finalRecoveriesContract } from './finalRecoveries.contract';
@@ -235,6 +238,9 @@ export type {
   EstBackupRecordImportReceiptDto,
   EstBackupColumnMappingDto,
   EstBackupVerificationRunDto,
+  ApplyEstBackupChecksPayload,
+  EstBackupCheckPreviewDto,
+  EstBackupCheckReceiptDto,
 } from './estBackupVerification.contract';
 export type {
   FinalControlLaneSnapshotDto,

@@ -83,6 +83,33 @@ describe('HardwareStatePublisher', () => {
     expect(eventBus.on).toHaveBeenCalledWith('ConnectionLost', expect.any(Function));
   });
 
+  it('reports effective timing settings again on each heartbeat and keeps the will offline', () => {
+    let mode: 'BOUNDED' | 'TIMESTAMP' = 'BOUNDED';
+    publisher = new HardwareStatePublisher(mqttClient, eventBus, storage, '1.0.0', () => ({
+      competitionProtocolVersions: [1],
+      rulePacks: [],
+      timedTargetPolicy: {
+        enforcementMode: 'ADVISORY',
+        shotTiming: {
+          mode,
+          maximumReceiptDelayMilliseconds: null,
+          clockUncertaintyMilliseconds: null,
+        },
+      },
+    }));
+    publisher.publishState();
+    expect(JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1])).toMatchObject({
+      capabilities: { timedTargetPolicy: { enforcementMode: 'ADVISORY', shotTiming: { mode: 'BOUNDED' } } },
+    });
+    mode = 'TIMESTAMP';
+    publisher.startHeartbeat();
+    vi.advanceTimersByTime(60_000);
+    expect(JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1])).toMatchObject({
+      capabilities: { timedTargetPolicy: { shotTiming: { mode: 'TIMESTAMP' } } },
+    });
+    expect(JSON.parse(publisher.getWillPayload())).toMatchObject({ connection: { status: 'offline' } });
+  });
+
   it('should publish connected state on ConnectionEstablished', () => {
     const event: ConnectionEstablishedEvent = {
       type: 'ConnectionEstablished',

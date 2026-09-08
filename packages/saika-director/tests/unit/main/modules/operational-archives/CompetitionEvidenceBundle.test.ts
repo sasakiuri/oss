@@ -1,13 +1,19 @@
+import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
+import { EstBackupSourceService, SqliteEstBackupSourceRepository } from '@/main/modules/est-backup-sources';
 import {
   CompetitionEvidenceBundleBuilder,
   SqliteCompetitionEvidenceSource,
   canonicalJson,
 } from '@/main/modules/operational-archives';
+import {
+  PublicationReviewPolicyService,
+  SqlitePublicationReviewPolicyRepository,
+} from '@/main/modules/publication-review-policies';
 
 describe('CompetitionEvidenceBundleBuilder', () => {
   let database: Database.Database | undefined;
@@ -30,6 +36,42 @@ describe('CompetitionEvidenceBundleBuilder', () => {
       )
       .run(eventId, championshipId, '10m Air Rifle', 'AR60', 'Qualification', 1);
 
+    const policy = new PublicationReviewPolicyService(
+      new SqlitePublicationReviewPolicyRepository(database),
+      () => ({
+        requireObservationReviews: true,
+        requireIncidentReports: true,
+        requireEquipmentChecksComplete: true,
+        requireProtestCasesComplete: true,
+        requireFinalRecoveriesComplete: true,
+      }),
+      () => true,
+    );
+    const settings = policy.get(eventId, 'QUALIFICATION');
+    const entry = policy.save({
+      eventId,
+      resultScope: 'QUALIFICATION',
+      mode: 'PINNED',
+      settings: settings.effectiveSettings,
+      expectedRevision: settings.revision,
+      officialName: 'RTS official',
+      reason: 'Event publication requirements',
+    }).history[0]!;
+
+    const content = '[{"key":"001","totalScore":630.1}]';
+    const retained = new EstBackupSourceService(
+      new SqliteEstBackupSourceRepository(database),
+      (id) => id === eventId,
+    ).retain(eventId, content, {
+      status: 'IMPORTED',
+      fileName: 'backup.json',
+      sourceName: 'Memory export',
+      sourceReference: 'Memory A',
+      sizeBytes: Buffer.byteLength(content),
+      sha256: createHash('sha256').update(content).digest('hex'),
+      format: 'JSON',
+      records: [{ key: '001', totalScore: 630.1 }],
+    });
     const source = new SqliteCompetitionEvidenceSource(database);
     const builder = new CompetitionEvidenceBundleBuilder('0.3.0', {
       now: () => new Date('2026-09-02T06:00:00.000Z'),
@@ -41,6 +83,14 @@ describe('CompetitionEvidenceBundleBuilder', () => {
     expect(first.bundleSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(first.sections.length).toBeGreaterThan(30);
     expect(first.sections.find((section) => section.id === 'events')).toMatchObject({ recordCount: 1 });
+    expect(first.sections.find((section) => section.id === 'est-backup-sources')).toMatchObject({
+      recordCount: 1,
+      records: [{ id: retained.id, event_id: eventId, payload_json: JSON.stringify(retained) }],
+    });
+    expect(first.sections.find((section) => section.id === 'publication-review-policies')).toMatchObject({
+      recordCount: 1,
+      records: [{ event_id: eventId, payload_json: JSON.stringify(entry) }],
+    });
     expect(first.sections.find((section) => section.id === 'athlete-identities')).toMatchObject({ recordCount: 0 });
     expect(first.sections.find((section) => section.id === 'athlete-sanction-decisions')).toMatchObject({
       recordCount: 0,

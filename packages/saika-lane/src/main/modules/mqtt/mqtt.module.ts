@@ -77,6 +77,7 @@ type MqttDeps =
   | 'qualificationRecoveryAdjudicationControl'
   | 'qualificationRecoverySettlementControl'
   | 'safetyStopControl'
+  | 'timingProfileService'
   | 'timedTargetControl'
   | 'sessionRepository'
   | 'database';
@@ -111,6 +112,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'qualificationRecoverySettlementControl',
     'safetyStopControl',
     'timedTargetControl',
+    'timingProfileService',
     'sessionRepository',
     'database',
   ] as const,
@@ -130,6 +132,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     qualificationRecoverySettlementControl,
     safetyStopControl,
     timedTargetControl,
+    timingProfileService,
     sessionRepository,
     database,
   }) {
@@ -152,9 +155,14 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const estComplaintSignalService = new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(database));
 
     // Initialize publishers (they subscribe to EventBus events)
-    const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion, {
+    const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion, () => ({
+      timingEvidence: timingProfileService.evidenceReport(),
       competitionProtocolVersions: [1],
       rulePacks,
+      timedTargetPolicy: {
+        enforcementMode: timedTargetControl.enforcementMode,
+        ...(timedTargetControl.timingSettings ? { shotTiming: timedTargetControl.timingSettings } : {}),
+      },
       targetIntegration: {
         schemaVersion: 1,
         timedTarget: {
@@ -162,7 +170,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           feedback: 'NOT_INTEGRATED',
         },
       },
-    });
+    }));
+    timingProfileService.subscribe(() => hardwarePublisher.publishState());
     new CompetitionShootOffShotPublisher(
       mqttClient,
       eventBus,

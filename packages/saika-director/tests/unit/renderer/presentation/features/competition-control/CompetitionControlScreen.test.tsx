@@ -47,6 +47,9 @@ const {
 vi.mock('@/renderer/presentation/features/operational-profiles/OperationalProfilePanel', () => ({
   OperationalProfilePanel: () => null,
 }));
+vi.mock('@/renderer/presentation/features/backup-capture-readiness/BackupCaptureReadinessPanel', () => ({
+  BackupCaptureReadinessPanel: () => null,
+}));
 vi.mock('@/renderer/services', () => ({
   mqttService: {
     getControlState,

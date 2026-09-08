@@ -56,10 +56,12 @@ import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
 import {
   SqliteTimedTargetSequenceRepository,
+  BoundedShotTimingPolicy,
   timedTargetEnforcementModeFromEnvironment,
   timedTargetModule,
   TimedTargetSequenceService,
 } from '@/main/modules/timed-target';
+import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
 import { type IEventBus, TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -69,7 +71,7 @@ import { getLogger, initializeLogger } from '@/main/shared-infra/logging';
 import { ModuleLoader } from '@/main/shared-infra/module';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { AppUpdater } from '@/main/updater/AppUpdater';
-import { eventsContract, updaterContract, windowContract } from '@/shared/ipc/contracts';
+import { ConnectionSettingsSchema, eventsContract, updaterContract, windowContract } from '@/shared/ipc/contracts';
 
 import {
   commandPauseModeFromEnvironment,
@@ -218,6 +220,11 @@ function initializeApplication(mainWindow: BrowserWindow): void {
     eventBus,
     () => !reserveTransferJournal.pending(),
   );
+  const timingProfileService = new TimingProfileService(new StoredTimingProfiles(storage), {
+    // AppSettingsStore maintains this snapshot; assessment must not trigger settings-file writes.
+    connection: () => ConnectionSettingsSchema.nullable().parse(storage.get('connectionSettings') ?? null),
+    hasActiveCompetition: async () => !!(await competitionRepository.findActive()),
+  });
   const timedTargetControl = new TimedTargetSequenceService(
     new SqliteTimedTargetSequenceRepository(db),
     {
@@ -236,6 +243,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       new SqliteCommandObservationRepository(db),
       commandPauseModeFromEnvironment(process.env),
     ),
+    new BoundedShotTimingPolicy(() => timingProfileService.effectiveSettings()),
   );
   const qualificationRecoveryRepository = new SqliteQualificationRecoveryRepository(db);
   const qualificationRecoveryControl = new QualificationRecoveryService(
@@ -313,6 +321,7 @@ function initializeApplication(mainWindow: BrowserWindow): void {
       qualificationRecoverySettlementControl,
       safetyStopControl,
       timedTargetControl,
+      timingProfileService,
       mainWindow,
       userDataPath: app.getPath('userData'),
     },

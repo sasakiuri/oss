@@ -12,17 +12,24 @@ describe('ResultPublicationSettingsPanel', () => {
   it('saves each review requirement independently', async () => {
     getReviewSettings.mockResolvedValue({
       success: true,
-      data: { requireIncidentReports: true, requireFinalRecoveriesComplete: true, requireProtestCasesComplete: true },
+      data: {
+        requireIncidentReports: true,
+        requireFinalRecoveriesComplete: true,
+        requireProtestCasesComplete: true,
+        requireEquipmentChecksComplete: true,
+      },
     });
     setReviewSettings.mockImplementation(async (data) => ({ success: true, data }));
     render(<ResultPublicationSettingsPanel />);
     fireEvent.click(await screen.findByLabelText('Require completed or voided Final recovery cases'));
+    fireEvent.click(screen.getByLabelText('Require completed equipment checks and recorded Jury adjudications'));
     fireEvent.click(screen.getByRole('button', { name: 'Save official result checks' }));
     await waitFor(() =>
       expect(setReviewSettings).toHaveBeenCalledWith({
         requireIncidentReports: true,
         requireFinalRecoveriesComplete: false,
         requireProtestCasesComplete: true,
+        requireEquipmentChecksComplete: false,
       }),
     );
     expect(await screen.findByRole('status')).toHaveTextContent('checks saved');

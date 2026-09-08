@@ -2,6 +2,8 @@
 
 import type Database from 'better-sqlite3';
 
+import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
+
 import type { IShotObservationRepository } from '../domain/IShotObservationRepository';
 import {
   ShotObservation,
@@ -19,6 +21,7 @@ interface ObservationRow {
   received_at: string;
   reported_mode: 'SIGHTING' | 'MATCH' | null;
   raw_frame_hex: string | null;
+  timestamp_source: ShotTimestampSource;
 }
 
 interface OutcomeRow {
@@ -39,9 +42,9 @@ export class SqliteShotObservationRepository implements IShotObservationReposito
   constructor(private readonly db: Database.Database) {
     this.insertObservation = db.prepare(`
       INSERT INTO shot_observations (
-        id, x, y, device_score_x10, fired_at, received_at, reported_mode, raw_frame_hex
+        id, x, y, device_score_x10, fired_at, received_at, reported_mode, raw_frame_hex, timestamp_source
       ) VALUES (
-        @id, @x, @y, @deviceScoreX10, @firedAt, @receivedAt, @reportedMode, @rawFrameHex
+        @id, @x, @y, @deviceScoreX10, @firedAt, @receivedAt, @reportedMode, @rawFrameHex, @timestampSource
       )
     `);
     this.insertOutcome = db.prepare(`
@@ -67,6 +70,7 @@ export class SqliteShotObservationRepository implements IShotObservationReposito
       receivedAt: observation.receivedAt.toISOString(),
       reportedMode: observation.reportedMode,
       rawFrameHex: observation.rawFrameHex,
+      timestampSource: observation.timestampSource,
     });
   }
 
@@ -122,6 +126,7 @@ export class SqliteShotObservationRepository implements IShotObservationReposito
       receivedAt: new Date(row.received_at),
       reportedMode: row.reported_mode,
       rawFrameHex: row.raw_frame_hex,
+      timestampSource: row.timestamp_source,
     });
   }
 

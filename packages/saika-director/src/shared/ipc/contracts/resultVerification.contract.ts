@@ -94,6 +94,7 @@ const ResultVerificationStatusDtoSchema = z.object({
 });
 
 const AddVerificationCheckInputSchema = z.object({
+  expectedPreviousCheckId: uuidSchema.nullable().optional(),
   eventId: uuidSchema,
   resultScope: resultScopeSchema,
   resultId: uuidSchema,

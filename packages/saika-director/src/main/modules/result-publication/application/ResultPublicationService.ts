@@ -1,6 +1,7 @@
-import { ResultPublication, type ResultPublicationStatus } from '../domain/ResultPublication';
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';
+import { ResultPublication, type ResultPublicationStatus } from '../domain/ResultPublication';
 import type { ResultPublicationEntry, ResultPublicationScope } from '../domain/ResultPublicationEntry';
+
 import type {
   IResultPublicationPolicyResolver,
   IResultPublicationReadiness,
@@ -78,6 +79,8 @@ export class ResultPublicationService {
     eventId: string;
     resultScope: ResultPublicationScope;
     officialName: string;
+    /** Optional external posting facts; absent for legacy record-at-operation-time callers. */
+    posting?: { snapshotRevision: string; postedAt?: string; location: string; reference?: string };
   }): Promise<ResultPublicationView> {
     const readiness = await this.readiness.getCurrent(input.eventId, input.resultScope);
     if (!readiness.supported) throw new Error(`Result publication is not supported for ${input.resultScope}`);
@@ -85,10 +88,24 @@ export class ResultPublicationService {
       throw new Error('No result list is available for preliminary publication');
     }
     const policy = await this.policies.resolve(input.eventId, input.resultScope);
+    // Re-read after asynchronous policy resolution so a prepared posting cannot silently change revisions.
+    const current = await this.readiness.getCurrent(input.eventId, input.resultScope);
+    if (
+      current.snapshotRevision !== readiness.snapshotRevision ||
+      (input.posting && input.posting.snapshotRevision !== current.snapshotRevision)
+    ) {
+      throw new Error(
+        'The result list changed; reload and confirm the displayed revision before recording its posting',
+      );
+    }
+    const recordedAt = this.clock.now();
     const publication = this.load(input.eventId, input.resultScope);
     const entry = publication.publishPreliminary({
       snapshotRevision: readiness.snapshotRevision,
-      postedAt: this.clock.now(),
+      postedAt: input.posting?.postedAt ? new Date(input.posting.postedAt) : recordedAt,
+      recordedAt,
+      postingLocation: input.posting?.location,
+      postingReference: input.posting?.reference,
       protestWindowMs: policy.scoreProtestWindowMs,
       officialName: input.officialName,
     });

@@ -1,12 +1,19 @@
+import { useState } from 'react';
+
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
+
 import { ResultsView } from '../championship/components/ResultsView';
+import { Button } from '../shared/common/Button';
+
+import { PublishedResultsSummary } from './PublishedResultsSummary';
 
 interface Props {
   config: BoardWindowConfig;
 }
 
 export function ResultsBoardScreen({ config }: Props) {
-  const { competitionId, eventId, round } = config;
+  const { eventId, eventName, round } = config;
+  const [details, setDetails] = useState(false);
 
   if (!eventId) {
     return (
@@ -21,13 +28,28 @@ export function ResultsBoardScreen({ config }: Props) {
     <div className="min-h-screen bg-vscode-bg p-4 flex flex-col">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-vscode-text">Results Board</h1>
-        {competitionId && <span className="text-vscode-dimmed text-base">Competition ID: {competitionId}</span>}
+        <h1 className="text-xl font-bold text-vscode-text">{eventName ?? 'Results Board'}</h1>
+        <Button size="sm" variant="secondary" onClick={() => setDetails(!details)}>
+          {details ? 'Show publication summary' : 'Show detailed results'}
+        </Button>
       </div>
 
       {/* Results View */}
       <div className="flex-1 overflow-auto">
-        <ResultsView eventId={eventId} round={round} readOnly />
+        {details ? (
+          <>
+            <p className="mb-4 text-vscode-dimmed">
+              Detailed results · Use the publication summary to check current publication status.
+            </p>
+            <ResultsView eventId={eventId} eventName={eventName} round={round} readOnly />
+          </>
+        ) : (
+          <PublishedResultsSummary
+            key={`${eventId}:${round}`}
+            eventId={eventId}
+            resultScope={round === 'Final' ? 'FINAL' : 'QUALIFICATION'}
+          />
+        )}
       </div>
     </div>
   );

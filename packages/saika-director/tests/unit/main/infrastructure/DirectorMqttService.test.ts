@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
+import { LaneTimingEvidencePolicy } from '@/main/modules/mqtt/domain/LaneTimingEvidencePolicy';
+import { TimedTargetReadinessPolicy } from '@/main/modules/mqtt/domain/TimedTargetReadinessPolicy';
 import {
   DirectorMqttService,
   type DirectorMqttCallbacks,
@@ -386,6 +388,151 @@ describe('DirectorMqttService', () => {
     vi.restoreAllMocks();
   });
 
+  it('checks every selected Lane before a timed start and accepts measured settings with external signals', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      publishedAt: new Date().toISOString(),
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${laneId}/state`, activeTimedLaneState(laneId));
+    service.setTimedTargetReadinessPolicy(
+      new TimedTargetReadinessPolicy(() => ({
+        windowEnforcement: 'REQUIRED',
+        boundedShotTiming: 'REQUIRED',
+        physicalSignals: 'DISABLED',
+      })),
+    );
+    const capabilities = {
+      competitionProtocolVersions: [1],
+      rulePacks: [],
+      timedTargetPolicy: {
+        enforcementMode: 'REQUIRED',
+        shotTiming: {
+          mode: 'BOUNDED',
+          maximumReceiptDelayMilliseconds: 200,
+          clockUncertaintyMilliseconds: 20,
+        },
+      },
+      targetIntegration: { schemaVersion: 1, timedTarget: { actuation: 'NOT_INTEGRATED', feedback: 'NOT_INTEGRATED' } },
+    };
+    transport.emitMessage(`saika/lane/${LANE_ID}/hardware/state`, { ...hardwareState(), capabilities });
+    transport.emitMessage(`saika/lane/${SECOND_LANE_ID}/hardware/state`, {
+      ...hardwareState(),
+      laneId: SECOND_LANE_ID,
+    });
+    const input = {
+      competitionId: COMPETITION_ID,
+      programId: 'P25_MATCH_PRECISION_240',
+      purpose: 'MATCH' as const,
+      stageIndex: 1,
+      seriesIndex: 0,
+    };
+    const before = transport.publications.length;
+    await expect(service.startTimedTarget(input)).rejects.toThrow('Timed target readiness');
+    expect(transport.publications).toHaveLength(before);
+    expect(service.getTimedTargetStartIssues([LANE_ID, SECOND_LANE_ID])).toHaveLength(2);
+    transport.emitMessage(`saika/lane/${SECOND_LANE_ID}/hardware/state`, {
+      ...hardwareState(),
+      laneId: SECOND_LANE_ID,
+      capabilities,
+    });
+    expect(service.getTimedTargetStartIssues([LANE_ID, SECOND_LANE_ID])).toEqual([]);
+    const starting = service.startTimedTarget(input);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-timed-target'))).toBe(true),
+    );
+    const commandId = publishedCommand(transport, 'start-timed-target').commandId;
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(
+        `saika/competition/${COMPETITION_ID}/command/start-timed-target/acknowledgement/${laneId}`,
+        {
+          commandId,
+          laneId,
+          status: 'done',
+          acknowledgedAt: new Date().toISOString(),
+        },
+      );
+    expect((await starting).success).toBe(true);
+    await service.disconnect();
+  });
+
+  it('keeps timed shoot-off readiness independent from generic shoot-off timing', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      roundName: 'Final',
+      publishedAt: new Date().toISOString(),
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${laneId}/state`, {
+        ...activeTimedLaneState(laneId),
+        phase: 'SERIES_COMPLETE',
+      });
+    service.setTimedTargetReadinessPolicy(
+      new TimedTargetReadinessPolicy(() => ({
+        windowEnforcement: 'REQUIRED',
+        boundedShotTiming: 'ADVISORY',
+        physicalSignals: 'DISABLED',
+      })),
+    );
+    const before = transport.publications.length;
+    await expect(
+      service.startShootOff(
+        COMPETITION_ID,
+        RECOVERY_RUN_ID,
+        1,
+        { type: 'TIMED_TARGET', programId: 'P25_FINAL_SHOOT_OFF', participantExecution: 'SIMULTANEOUS' },
+        5,
+        [LANE_ID, SECOND_LANE_ID],
+      ),
+    ).rejects.toThrow('Timed target readiness');
+    expect(transport.publications).toHaveLength(before);
+    const starting = service.startShootOff(
+      COMPETITION_ID,
+      RECOVERY_RUN_ID,
+      1,
+      { type: 'GENERIC', durationSeconds: 50 },
+      1,
+      [LANE_ID, SECOND_LANE_ID],
+    );
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-shoot-off'))).toBe(true),
+    );
+    const commandId = publishedCommand(transport, 'start-shoot-off').commandId;
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/command/start-shoot-off/acknowledgement/${laneId}`, {
+        commandId,
+        laneId,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+      });
+    expect((await starting).success).toBe(true);
+    await service.disconnect();
+  });
+
+  it('requires measured Lane evidence before publishing start intent while leaving manual operation selectable', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetition(service);
+    service.setTimingEvidencePolicy(new LaneTimingEvidencePolicy(() => 'REQUIRED'));
+    const before = transport.publications.length;
+    await expect(service.startSighting(COMPETITION_ID, 900)).rejects.toThrow('Timing evidence');
+    expect(transport.publications).toHaveLength(before);
+    expect(service.getSnapshot().competitions[0]?.pendingTimer).toBeUndefined();
+    service.setTimingEvidencePolicy(new LaneTimingEvidencePolicy(() => 'ADVISORY'));
+    expect(service.getTimingEvidenceStartIssues([LANE_ID]).every((issue) => !issue.blocking)).toBe(true);
+    service.setTimingEvidencePolicy(new LaneTimingEvidencePolicy(() => 'DISABLED'));
+    expect(service.getTimingEvidenceStartIssues([LANE_ID])).toEqual([]);
+    await service.disconnect();
+  });
+
   it('enforces a runtime clock policy change before publishing any start intent', async () => {
     const service = createService(transport);
     await service.connect('mqtt://localhost:1883');
@@ -732,6 +879,18 @@ describe('DirectorMqttService', () => {
     await expect(service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' })).rejects.toThrow(
       /safety STOP/,
     );
+    service.setTimedTargetReadinessPolicy(
+      new TimedTargetReadinessPolicy(() => ({
+        windowEnforcement: 'REQUIRED',
+        boundedShotTiming: 'ADVISORY',
+        physicalSignals: 'ADVISORY',
+      })),
+    );
+    const publicationCount = transport.publications.length;
+    await expect(service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' })).rejects.toThrow(
+      'Timed target readiness',
+    );
+    expect(transport.publications).toHaveLength(publicationCount);
     for (const operation of ['CANCEL', 'READ'] as const) {
       const pending = service.executeFinalFiring({
         laneId: LANE_ID,
@@ -932,7 +1091,7 @@ describe('DirectorMqttService', () => {
       completedTimedTargetState(LANE_ID, '2026-09-03T00:00:20.000Z'),
     );
 
-    const starting = service.startQualificationRecovery({
+    const recoveryInput = {
       competitionId: COMPETITION_ID,
       laneId: LANE_ID,
       runId: RECOVERY_RUN_ID,
@@ -947,7 +1106,19 @@ describe('DirectorMqttService', () => {
       officialName: 'Jury Member',
       decisionRuleReference: 'ISSF 8.8.1.4(a)',
       decidedAt: '2026-09-02T23:59:00.000Z',
-    });
+    };
+    service.setTimedTargetReadinessPolicy(
+      new TimedTargetReadinessPolicy(() => ({
+        windowEnforcement: 'REQUIRED',
+        boundedShotTiming: 'ADVISORY',
+        physicalSignals: 'DISABLED',
+      })),
+    );
+    const publicationCount = transport.publications.length;
+    await expect(service.startQualificationRecovery(recoveryInput)).rejects.toThrow('Timed target readiness');
+    expect(transport.publications).toHaveLength(publicationCount);
+    service.setTimedTargetReadinessPolicy(new TimedTargetReadinessPolicy());
+    const starting = service.startQualificationRecovery(recoveryInput);
     await vi.waitFor(() =>
       expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(true),
     );

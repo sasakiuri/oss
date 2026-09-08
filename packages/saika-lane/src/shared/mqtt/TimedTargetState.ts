@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
 
+import { TimedTargetTimingSettingsSchema } from './TimedTargetTimingSettings';
+
 const TimedTargetExecutionContextSchema = z.object({
   shotDisposition: z.literal('ISOLATED'),
   owner: z.string().trim().min(1).max(100),
@@ -29,6 +31,7 @@ export const TimedTargetStateSchema = z.object({
   nextLoadAllowedAt: z.string().datetime(),
   nextTransitionAt: z.string().datetime().nullable(),
   terminalReason: z.string().nullable(),
+  timingSettings: TimedTargetTimingSettingsSchema.optional(),
   commandPause: z
     .object({
       mode: z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']),

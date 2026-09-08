@@ -51,7 +51,8 @@ export function CompetitionStartReadinessPanel({
         </Button>
       </div>
       <p className="text-vscode-text-muted">
-        Saved relay, EST inspection and clock settings for the joined Lanes. START checks the current conditions again.
+        Relay, EST inspection, clock and timed target settings for the joined Lanes. Firing commands check the current
+        conditions again. Timed target checks apply when a target program starts.
       </p>
       {error ? (
         <p role="alert">Could not check readiness: {error}</p>

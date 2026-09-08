@@ -15,6 +15,8 @@ import type {
 } from '@/shared/ipc/contracts';
 import { compareEstBackup, type OfficialBackupSubject } from '../domain/EstBackupComparator';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
+import type { IEstBackupSubjectSource } from './IEstBackupSubjectSource';
+import { backupRecordsDigest, type IEstBackupSourceReader } from '@/main/modules/est-backup-sources';
 
 const ISSF_TEAM_RESULTS_TO_VERIFY = 3;
 
@@ -28,6 +30,8 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
     private readonly participants: Pick<IParticipantRepository, 'findByEventId'>,
     private readonly qualificationResults: IQualificationResultsReader,
     private readonly teamResults: TeamQualificationResultsReader,
+    private readonly finalSubjects?: IEstBackupSubjectSource,
+    private readonly sources?: IEstBackupSourceReader,
   ) {}
 
   async list(eventId: string): Promise<EstBackupVerificationRunDto[]> {
@@ -35,17 +39,35 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
   }
 
   async verify(input: CreateEstBackupVerificationPayload): Promise<EstBackupVerificationRunDto> {
+    if (input.sourceId) {
+      if (!this.sources) throw new Error('Backup source reading is not installed');
+      const source = this.sources.get(input.sourceId);
+      if (
+        source.eventId !== input.eventId ||
+        source.recordsSha256 !== backupRecordsDigest(input.records) ||
+        source.sourceReference !== input.sourceReference
+      )
+        throw new Error(
+          'The comparison no longer matches its retained source; reload the source or use manual records',
+        );
+    }
+    const scope = input.resultScope ?? 'QUALIFICATION';
+    if (scope === 'FINAL' && !this.finalSubjects) throw new Error('Final backup comparison is not installed');
     const official =
-      input.resultKind === 'INDIVIDUAL'
-        ? await this.individualSubjects(input.eventId, input.keyType)
-        : await this.teamSubjects(input.eventId, input.resultKind, input.keyType);
+      scope === 'FINAL'
+        ? await this.finalSubjects!.load(input)
+        : input.resultKind === 'INDIVIDUAL'
+          ? await this.individualSubjects(input.eventId, input.keyType)
+          : await this.teamSubjects(input.eventId, input.resultKind, input.keyType);
     const items = compareEstBackup(official, input.records);
     const interventionsPresent = official.some((subject) => subject.interventionCount > 0);
     const interventionReviewStatement = input.interventionReviewStatement?.trim() || null;
     const comparedOfficialItems = items.filter((item) => item.officialRank !== null);
     const run: EstBackupVerificationRunDto = {
       id: input.id ?? crypto.randomUUID(),
+      ...(input.sourceId ? { sourceId: input.sourceId } : {}),
       eventId: input.eventId,
+      resultScope: scope,
       resultKind: input.resultKind,
       keyType: input.keyType,
       sourceName: input.sourceName.trim(),
@@ -54,6 +76,7 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
       snapshotRevision: calculateSubjectRevision(official),
       interventionReviewStatement,
       verified:
+        official.length > 0 &&
         comparedOfficialItems.length === official.length &&
         comparedOfficialItems.every((item) => item.status === 'MATCH') &&
         (!interventionsPresent || interventionReviewStatement !== null),
@@ -107,7 +130,12 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
         ? null
         : (this.repository
             .findByEvent(request.eventId)
-            .filter((run) => run.resultKind === request.resultKind && run.snapshotRevision === snapshotRevision)
+            .filter(
+              (run) =>
+                (run.resultScope ?? 'QUALIFICATION') === 'QUALIFICATION' &&
+                run.resultKind === request.resultKind &&
+                run.snapshotRevision === snapshotRevision,
+            )
             .at(-1) ?? null);
     const checkedResults = latestCurrentRun?.verified
       ? Math.min(
@@ -155,6 +183,7 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
               : participant.officialEntry.issfId;
         if (!key) throw new Error(`${result.playerName} has no ${keyType} for backup comparison`);
         return {
+          resultBinding: { resultId: result.id, participantId: result.participantId, resultRevision: result.revision },
           key,
           name: result.playerName,
           rank: result.rank,

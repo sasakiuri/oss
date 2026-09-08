@@ -64,6 +64,28 @@ export function ResultPublicationSettingsPanel() {
           <label className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
+              checked={settings.requireObservationReviews}
+              onChange={(event) => {
+                setSettings({ ...settings, requireObservationReviews: event.target.checked });
+                setSaved(false);
+              }}
+            />
+            Require official review of unscored shots and firing-window evidence
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={settings.requireEquipmentChecksComplete}
+              onChange={(event) => {
+                setSettings({ ...settings, requireEquipmentChecksComplete: event.target.checked });
+                setSaved(false);
+              }}
+            />
+            Require completed equipment checks and recorded Jury adjudications
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
               checked={settings.requireProtestCasesComplete}
               onChange={(event) => {
                 setSettings({ ...settings, requireProtestCasesComplete: event.target.checked });

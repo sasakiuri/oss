@@ -207,6 +207,8 @@ export class WindowManager {
         return 'Print Range Incident Report';
       case 'protest-print':
         return 'Print Protest or Appeal';
+      case 'est-backup-source-print':
+        return 'Print Retained EST Backup Source';
       case 'final-board':
         return 'Final Board';
       default:

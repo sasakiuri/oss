@@ -130,6 +130,13 @@ describe('UNLOAD command pause integration', () => {
       previous.exec(
         "CREATE TABLE retained_v15_evidence (id TEXT PRIMARY KEY, evidence TEXT NOT NULL); INSERT INTO retained_v15_evidence VALUES ('original', 'unchanged')",
       );
+      // Present since schema version 2; later migrations may extend this evidence table.
+      previous.exec(`CREATE TABLE shot_observations (
+        id TEXT PRIMARY KEY, x REAL, y REAL, device_score_x10 REAL,
+        fired_at TEXT NOT NULL, received_at TEXT NOT NULL,
+        reported_mode TEXT CHECK(reported_mode IN ('SIGHTING', 'MATCH') OR reported_mode IS NULL),
+        raw_frame_hex TEXT
+      );`);
       previous.pragma('user_version = 15');
       previous.close();
       const upgraded = createSqliteDb(file);

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { migration022ShotObservationEvidence } from '@/main/infrastructure/database/migrations/022_shot_observation_evidence';
 import { SqliteShotObservationEvidenceJournal } from '@/main/modules/mqtt/infra/SqliteShotObservationEvidenceJournal';
-import type { ShotObservationEvidencePayload } from '@/shared/mqtt';
+import { ShotObservationEvidencePayloadSchema, type ShotObservationEvidencePayload } from '@/shared/mqtt';
 
 const evidence: ShotObservationEvidencePayload = {
   evidenceVersion: 1,
@@ -55,4 +55,20 @@ describe('SqliteShotObservationEvidenceJournal', () => {
       database.prepare('DELETE FROM mqtt_shot_observation_evidence WHERE evidence_id = ?').run(evidence.evidenceId),
     ).toThrow('append-only');
   });
+
+  it.each(['LANE_RECEIPT', 'DEVICE_REPORTED', 'UNKNOWN'] as const)(
+    'retains %s provenance after transport and reload',
+    (timestampSource) => {
+      const payloadJson = JSON.stringify({ ...evidence, timestampSource });
+      journal.append({
+        evidence: ShotObservationEvidencePayloadSchema.parse(JSON.parse(payloadJson)),
+        payloadJson,
+        observedAt: new Date(),
+      });
+      expect(journal.findByCompetition(evidence.competition!.competitionId)[0]?.evidence.timestampSource).toBe(
+        timestampSource,
+      );
+      expect(() => ShotObservationEvidencePayloadSchema.parse({ ...evidence, timestampSource: 'INFERRED' })).toThrow();
+    },
+  );
 });

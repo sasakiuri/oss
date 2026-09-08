@@ -13,6 +13,7 @@ import type {
   ITimedTargetSequenceRepository,
   TimedTargetSequenceRecord,
 } from '../domain/ITimedTargetSequenceRepository';
+import type { IShotTimingPolicy } from '../domain/ShotTimingPolicy';
 import {
   buildTimedTargetSchedule,
   projectTimedTargetSchedule,
@@ -41,7 +42,12 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     readonly enforcementMode: TimedTargetEnforcementMode = 'REQUIRED',
     private readonly clock: TimedTargetClock = systemClock,
     private readonly commandPause?: ITimedTargetCommandPause,
+    private readonly shotTimingPolicy?: IShotTimingPolicy,
   ) {}
+
+  get timingSettings() {
+    return this.shotTimingPolicy?.settings;
+  }
 
   start(input: Parameters<ITimedTargetControl['start']>[0]): TimedTargetState {
     const requestedSchedule = buildTimedTargetSchedule(input);
@@ -163,6 +169,20 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
       );
     }
 
+    const timing = this.shotTimingPolicy?.assess(input, contextual.schedule);
+    if (timing?.requiresReview && contextual.terminalStatus !== 'CANCELLED') {
+      return decision({
+        allowed: false,
+        timingReviewRequired: true,
+        purpose: contextual.schedule.purpose,
+        targetProfileId: contextual.schedule.targetProfileId,
+        sequenceId: contextual.schedule.sequenceId,
+        exposureIndex: null,
+        warning: null,
+        reason: `${timing.reason}; sequenceId=${contextual.schedule.sequenceId}`,
+        ...(contextual.schedule.executionContext ? { executionContext: contextual.schedule.executionContext } : {}),
+      });
+    }
     const projection = projectTimedTargetSchedule(contextual.schedule, input.firedAt);
     if (!projection.shotWindowOpen || projection.exposureIndex === null || contextual.terminalStatus === 'CANCELLED') {
       return this.outsideWindowDecision(
@@ -223,6 +243,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
       exposureIndex: projection.exposureIndex,
       warning: null,
       reason: 'Shot is inside the valid EST recording window',
+      ...(timing ? { timingEvidence: timing.reason } : {}),
       ...(contextual.schedule.executionContext ? { executionContext: contextual.schedule.executionContext } : {}),
     });
   }
@@ -330,6 +351,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
             ? new Date(projected.nextTransitionAt.getTime())
             : null,
       terminalReason: record.terminalReason,
+      ...(this.timingSettings ? { timingSettings: this.timingSettings } : {}),
       ...(this.commandPause ? { commandPause: this.commandPause.assess(record, at) } : {}),
       ...(record.schedule.executionContext
         ? { executionContext: Object.freeze({ ...record.schedule.executionContext }) }

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
+
 import type {
   IResultPublicationPolicyResolver,
   IResultPublicationReadiness,
   PublicationClock,
   ResultPublicationReadiness,
 } from '@/main/modules/result-publication/application/ResultPublicationPorts';
+import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
 import type { IResultPublicationRepository } from '@/main/modules/result-publication/domain/IResultPublicationRepository';
 import type {
   ResultPublicationEntry,
@@ -62,6 +63,62 @@ describe('ResultPublicationService', () => {
     expect(view.protestEndsAt).toEqual(new Date('2026-08-29T01:10:00.000Z'));
     expect(view.canRegisterProtest).toBe(true);
     expect(view.canPublishOfficial).toBe(false);
+  });
+
+  it('starts the deadline at an earlier actual posting while retaining the later recording time', async () => {
+    const view = await service.publishPreliminary({
+      eventId: 'event-1',
+      resultScope: 'QUALIFICATION',
+      officialName: 'RTS Officer',
+      posting: {
+        snapshotRevision: REVISION,
+        postedAt: '2026-08-29T00:55:00.000Z',
+        location: 'Range scoreboard',
+        reference: 'Printed list 17',
+      },
+    });
+    expect(view.protestEndsAt).toEqual(new Date('2026-08-29T01:05:00.000Z'));
+    expect(repository.entries[0]).toMatchObject({
+      recordedAt: now,
+      postingLocation: 'Range scoreboard',
+      postingReference: 'Printed list 17',
+      postedAt: new Date('2026-08-29T00:55:00.000Z'),
+    });
+  });
+
+  it.each([
+    { snapshotRevision: 'b'.repeat(64), location: 'Board' },
+    { snapshotRevision: REVISION, location: 'Board', postedAt: '2026-08-29T01:01:00.000Z' },
+    { snapshotRevision: REVISION, location: '  ' },
+    { snapshotRevision: REVISION, location: 'Board', postedAt: 'invalid' },
+  ])('rejects invalid posting facts without changing the journal: %j', async (posting) => {
+    await expect(
+      service.publishPreliminary({
+        eventId: 'event-1',
+        resultScope: 'QUALIFICATION',
+        officialName: 'RTS Officer',
+        posting,
+      }),
+    ).rejects.toThrow();
+    expect(repository.entries).toEqual([]);
+  });
+
+  it('rejects a revision change during asynchronous policy resolution', async () => {
+    service = new ResultPublicationService(
+      repository,
+      { getCurrent: async () => readiness },
+      {
+        resolve: async () => {
+          readiness = { ...readiness, snapshotRevision: 'b'.repeat(64) };
+          return { scoreProtestWindowMs: 600_000 };
+        },
+      },
+      { now: () => now },
+    );
+    await expect(
+      service.publishPreliminary({ eventId: 'event-1', resultScope: 'QUALIFICATION', officialName: 'RTS Officer' }),
+    ).rejects.toThrow('result list changed');
+    expect(repository.entries).toEqual([]);
   });
 
   it('marks a preliminary publication stale when the result revision changes', async () => {

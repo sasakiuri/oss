@@ -103,6 +103,10 @@ vi.mock('@/renderer/presentation/hooks/useAudioPlayback', () => ({
 }));
 
 // Mock SettingsConnectionTab
+vi.mock('@/renderer/presentation/components/settings/ShotTimingSettingsPanel', () => ({
+  ShotTimingSettingsPanel: () => <div data-testid="shot-timing-settings">Shot timing</div>,
+}));
+
 vi.mock('@/renderer/presentation/components/settings/SettingsConnectionTab', () => ({
   SettingsConnectionTab: () => <div data-testid="settings-connection-tab">ConnectionTab</div>,
 }));
@@ -945,8 +949,7 @@ describe('SettingsModal', () => {
     it('does not overwrite user edits when the initial JSON load resolves after typing starts', async () => {
       let resolveSettings: ((value: Awaited<ReturnType<typeof settingsService.getAppSettings>>) => void) | undefined;
       let resolveMetadata:
-        | ((value: Awaited<ReturnType<typeof settingsService.getSettingsFileInfo>>) => void)
-        | undefined;
+        ((value: Awaited<ReturnType<typeof settingsService.getSettingsFileInfo>>) => void) | undefined;
 
       mockGetAppSettings.mockImplementationOnce(
         () =>

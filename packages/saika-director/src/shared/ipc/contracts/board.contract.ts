@@ -67,6 +67,7 @@ const BoardWindowConfigSchema = z.object({
     'results-list-print',
     'incident-report-print',
     'protest-print',
+    'est-backup-source-print',
   ]),
   laneRange: z.object({ from: z.number(), to: z.number() }).optional(),
   competitionId: uuidSchema.optional(),
@@ -80,6 +81,7 @@ const BoardWindowConfigSchema = z.object({
   eventType: z.string().optional(),
   reportId: uuidSchema.optional(),
   protestId: uuidSchema.optional(),
+  sourceId: uuidSchema.optional(),
 });
 
 const LiveRankingDtoSchema = z.object({
@@ -120,6 +122,7 @@ export const boardContract = defineContract('board', {
   openResultsListPrint: command(OpenResultsListPrintPayloadSchema, commandDataResponseSchema(z.string())),
   openIncidentReportPrint: command(OpenIncidentReportPrintPayloadSchema, commandDataResponseSchema(z.string())),
   openProtestPrint: command(OpenProtestPrintPayloadSchema, commandDataResponseSchema(z.string())),
+  openEstBackupSourcePrint: command(z.object({ sourceId: uuidSchema }), commandDataResponseSchema(z.string())),
   closeBoard: command(z.string().min(1), CommandResponseSchema),
   getConfig: query(queryResponseSchema(BoardWindowConfigSchema.nullable())),
   getLiveRanking: query(queryResponseSchema(z.array(LiveRankingDtoSchema))),

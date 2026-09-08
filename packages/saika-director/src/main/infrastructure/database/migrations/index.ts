@@ -69,13 +69,18 @@ import { migration070ReserveLaneTransfers } from './070_reserve_lane_transfers';
 import { migration071FinalRecoveryFiring } from './071_final_recovery_firing';
 import { migration072RelayReadinessStartSettings } from './072_relay_readiness_start_settings';
 import { migration073EstInspectionStartSettings } from './073_est_inspection_start_settings';
-import type { Migration } from './Migration';
-
 import { migration074EquipmentRegistry } from './074_equipment_registry';
-
 import { migration075OperatorAccess } from './075_operator_access';
 import { migration076ResultsBookSigningIdentity } from './076_results_book_signing_identity';
 import { migration077ResultApprovalSigningIdentity } from './077_result_approval_signing_identity';
+import { migration078ShotTimingReviewOutcome } from './078_shot_timing_review_outcome';
+import { migration079ObservationReviews } from './079_observation_reviews';
+import { migration080EstBackupResultScope } from './080_est_backup_result_scope';
+import { migration081PublicationReviewPolicies } from './081_publication_review_policies';
+import { migration082EstBackupSources } from './082_est_backup_sources';
+import { migration083EstBackupCapturePlans } from './083_est_backup_capture_plans';
+import { migration084BackupCaptureReadiness } from './084_backup_capture_readiness';
+import type { Migration } from './Migration';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -153,4 +158,11 @@ export const allMigrations: Migration[] = [
   migration075OperatorAccess,
   migration076ResultsBookSigningIdentity,
   migration077ResultApprovalSigningIdentity,
+  migration078ShotTimingReviewOutcome,
+  migration079ObservationReviews,
+  migration080EstBackupResultScope,
+  migration081PublicationReviewPolicies,
+  migration082EstBackupSources,
+  migration083EstBackupCapturePlans,
+  migration084BackupCaptureReadiness,
 ];

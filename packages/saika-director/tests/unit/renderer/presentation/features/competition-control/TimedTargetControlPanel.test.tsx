@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { fireEvent, render, screen } from '@testing-library/react';
 import { ISSF_2026_P25 } from '@sasakiuri/saika-rules';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TimedTargetControlPanel } from '@/renderer/presentation/features/competition-control/TimedTargetControlPanel';
@@ -65,6 +65,39 @@ function createLane(hardware: DirectorLaneSnapshotDto['hardware'] = null): Direc
 }
 
 describe('TimedTargetControlPanel', () => {
+  it('shows reported policy settings before any target sequence has run', () => {
+    const lane = createLane({
+      laneId: LANE_ID,
+      laneAlias: 'Lane 1',
+      connection: { status: 'connected' },
+      appVersion: '0.4.0',
+      publishedAt: AT,
+      capabilities: {
+        competitionProtocolVersions: [1],
+        rulePacks: [],
+        timedTargetPolicy: {
+          enforcementMode: 'DISABLED',
+          shotTiming: { mode: 'BOUNDED', maximumReceiptDelayMilliseconds: null, clockUncertaintyMilliseconds: 15 },
+        },
+      },
+    });
+    lane.timedTargetState = undefined;
+    render(
+      <TimedTargetControlPanel
+        definition={competitionTypeFromRulePack(ISSF_2026_P25)}
+        phase="MATCH"
+        lanes={[lane]}
+        disabled={false}
+        onStart={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('cell', { name: 'disabled' })).toBeVisible();
+    expect(
+      screen.getByRole('cell', { name: 'Review uncertain timing; reception unknown ms; clock ±15 ms' }),
+    ).toBeVisible();
+  });
+
   it('keeps match restart available after cancellation without coupling it to transient sighting telemetry', () => {
     const onStart = vi.fn().mockResolvedValue(undefined);
     render(

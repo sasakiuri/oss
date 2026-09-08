@@ -1,20 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import { estBackupVerificationService } from '@/renderer/services';
 import type {
   CreateEstBackupVerificationPayload,
   EstBackupVerificationRunDto,
   EstBackupColumnMappingDto,
 } from '@/shared/ipc/contracts';
+
 import { Button } from '../../shared/common/Button';
 
-export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: string; onClose: () => void }) {
+import { EstBackupCapturePanel } from './EstBackupCapturePanel';
+import { EstBackupResultChecksPanel } from './EstBackupResultChecksPanel';
+import { EstBackupSourcesPanel } from './EstBackupSourcesPanel';
+
+export function EstBackupVerificationPanel({
+  eventId,
+  resultScope = 'QUALIFICATION',
+  initialKind = 'INDIVIDUAL',
+  onClose,
+}: {
+  eventId: string;
+  resultScope?: 'QUALIFICATION' | 'FINAL';
+  initialKind?: CreateEstBackupVerificationPayload['resultKind'];
+  onClose: () => void;
+}) {
   const [runs, setRuns] = useState<EstBackupVerificationRunDto[]>([]);
-  const [kind, setKind] = useState<CreateEstBackupVerificationPayload['resultKind']>('INDIVIDUAL');
-  const [keyType, setKeyType] = useState<CreateEstBackupVerificationPayload['keyType']>('START_NUMBER');
+  const [kind, setKind] = useState<CreateEstBackupVerificationPayload['resultKind']>(initialKind);
+  const [keyType, setKeyType] = useState<CreateEstBackupVerificationPayload['keyType']>(
+    initialKind === 'INDIVIDUAL' ? 'START_NUMBER' : 'TEAM_ID',
+  );
   const [sourceName, setSourceName] = useState('');
   const [sourceReference, setSourceReference] = useState('');
   const [recordsText, setRecordsText] = useState('[\n  { "key": "101", "rank": 1, "totalScore": 630.1 }\n]');
   const [importedProvenance, setImportedProvenance] = useState(false);
+  const [sourceId, setSourceId] = useState<string | undefined>();
+  const [sourceGeneration, setSourceGeneration] = useState(0);
+  const onCaptured = useCallback(() => setSourceGeneration((value) => value + 1), []);
   const [review, setReview] = useState('');
   const [official, setOfficial] = useState('');
   const [importing, setImporting] = useState(false);
@@ -29,8 +50,8 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     const response = await estBackupVerificationService.list({ eventId });
-    if (response.success) setRuns(response.data);
-  }, [eventId]);
+    if (response.success) setRuns(response.data.filter((run) => (run.resultScope ?? 'QUALIFICATION') === resultScope));
+  }, [eventId, resultScope]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -40,7 +61,8 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
         <div>
           <h3 className="text-[13px] font-semibold text-vscode-text">EST printout / independent-memory verification</h3>
           <p className="text-xs text-vscode-text-muted">
-            Top 10 individual / top 3 team comparison required by ISSF 6.14.8.
+            {resultScope === 'FINAL' ? 'Final' : 'Qualification'} · Top individual / team results from an independent
+            source.
           </p>
         </div>
         <Button size="sm" variant="secondary" onClick={onClose}>
@@ -57,10 +79,12 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               const records = JSON.parse(recordsText) as CreateEstBackupVerificationPayload['records'];
               const response = await estBackupVerificationService.verify({
                 eventId,
+                resultScope,
                 resultKind: kind,
                 keyType,
                 sourceName,
                 records,
+                ...(sourceId ? { sourceId } : {}),
                 ...(sourceReference.trim() ? { sourceReference } : {}),
                 ...(review.trim() ? { interventionReviewStatement: review } : {}),
                 officialName: official,
@@ -86,7 +110,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               className={inputClass}
             >
               <option value="INDIVIDUAL">Individual</option>
-              <option value="TEAM">Team</option>
+              {resultScope === 'QUALIFICATION' && <option value="TEAM">Team</option>}
               <option value="MIXED_TEAM">Mixed Team</option>
             </select>
           </Field>
@@ -204,16 +228,18 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               void (async () => {
                 setImporting(true);
                 try {
-                  const response =
-                    fileLayout === 'MAPPED'
-                      ? await estBackupVerificationService.importDelimitedRecords(mapping)
-                      : await estBackupVerificationService.importRecords();
+                  const response = await estBackupVerificationService.captureRecords({
+                    eventId,
+                    ...(fileLayout === 'MAPPED' ? { mapping } : {}),
+                  });
                   if (!response.success) throw new Error(response.error.message);
                   if (response.data.status === 'CANCELLED') return;
                   setRecordsText(JSON.stringify(response.data.records, null, 2));
                   setSourceName(response.data.sourceName);
                   setSourceReference(response.data.sourceReference);
                   setImportedProvenance(true);
+                  setSourceId(response.data.sourceId);
+                  setSourceGeneration((value) => value + 1);
                   setError(null);
                 } catch (caught) {
                   setError(caught instanceof Error ? caught.message : 'Failed to import the EST backup source');
@@ -235,6 +261,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               setRecordsText(e.target.value);
               if (importedProvenance) {
                 setImportedProvenance(false);
+                setSourceId(undefined);
                 setSourceReference('');
               }
             }}
@@ -253,6 +280,25 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
           Compare and retain
         </Button>
       </form>
+      <EstBackupCapturePanel
+        key={`capture-${eventId}`}
+        eventId={eventId}
+        mapping={fileLayout === 'MAPPED' ? mapping : undefined}
+        onCaptured={onCaptured}
+      />
+      <EstBackupSourcesPanel
+        key={eventId}
+        eventId={eventId}
+        generation={sourceGeneration}
+        onSelected={(source) => {
+          setRecordsText(JSON.stringify(source.records, null, 2));
+          setSourceName(source.sourceName);
+          setSourceReference(source.sourceReference);
+          setSourceId(source.id);
+          setImportedProvenance(true);
+          setError(null);
+        }}
+      />
       <div className="space-y-2">
         {[...runs].reverse().map((run) => (
           <div key={run.id} className="border-l-2 border-vscode-border pl-3 text-xs">
@@ -268,6 +314,9 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               {run.officialName} · {new Date(run.verifiedAt).toLocaleString()} · snapshot{' '}
               {run.snapshotRevision.slice(0, 10)}
             </span>
+            {(run.resultKind === 'INDIVIDUAL' || run.resultScope === 'FINAL') && run.verified && (
+              <EstBackupResultChecksPanel run={run} />
+            )}
           </div>
         ))}
       </div>
