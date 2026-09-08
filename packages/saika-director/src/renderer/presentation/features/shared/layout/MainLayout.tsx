@@ -1,5 +1,6 @@
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
+import { OperatorAccessPanel } from '../../operator-access/OperatorAccessPanel';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -14,6 +15,9 @@ export function MainLayout({ children }: MainLayoutProps) {
       >
         Skip to main content
       </a>
+      <div className="border-b border-vscode-border px-3 py-1 text-right">
+        <OperatorAccessPanel />
+      </div>
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main

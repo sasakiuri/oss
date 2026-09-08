@@ -115,6 +115,14 @@ import {
   SqliteCompetitionEvidenceSource,
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
+import {
+  OperatorAccessService,
+  SqliteOperatorAccessStore,
+  directorOperatorPermission,
+  registerOperatorAccess,
+  SessionSanctionAuthorizationResolver,
+} from '@/main/modules/operator-access';
+import { equipmentRegistryModule } from '@/main/modules/equipment-registry';
 import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
 import { productionOperationsModule } from '@/main/modules/production-operations';
 import { protestsModule } from '@/main/modules/protests';
@@ -245,6 +253,7 @@ const modules = [
   relayAthleteLifecycleModule,
   estChampionshipInspectionsModule,
   postCompetitionEquipmentControlModule,
+  equipmentRegistryModule,
   eliminationPlanningModule,
   teamResultsModule,
   protestsModule,
@@ -351,7 +360,13 @@ export function createApp(preloadPath: string): AppServices {
     athleteSanctionRepository,
     athleteEntryReferenceSource,
   );
-  const sanctionAuthorizationResolver = new ManualAttestationSanctionAuthorizationResolver();
+  const operatorAccessStore = new SqliteOperatorAccessStore(database);
+  const operatorAccessService = new OperatorAccessService(operatorAccessStore, directorOperatorPermission);
+  const sanctionAuthorizationResolver = new SessionSanctionAuthorizationResolver(
+    () => operatorAccessService.currentActor(),
+    () => operatorAccessStore.enabled(),
+    new ManualAttestationSanctionAuthorizationResolver(),
+  );
   const scoringDecisionAdmissionPolicy = new ChampionshipSanctionScoringDecisionAdmissionPolicy();
   const evidenceFileStore = new NodeEvidenceFileStore(join(app.getPath('userData'), 'evidence-files'));
   const evidenceFileRepository = new SqliteEvidenceFileRepository(database);
@@ -544,7 +559,8 @@ export function createApp(preloadPath: string): AppServices {
   );
 
   // IPC Router
-  const ipcRouter = new IpcRouter();
+  const ipcRouter = new IpcRouter(operatorAccessService);
+  registerOperatorAccess(ipcRouter, operatorAccessService);
 
   // Timer Service
   const laneTimerService = new LaneTimerService(laneControlRepository, eventBus);

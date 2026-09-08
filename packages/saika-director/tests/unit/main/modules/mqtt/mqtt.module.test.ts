@@ -247,6 +247,8 @@ function registerModule(eventType: string | null): {
   );
 
   mqttModule.register({
+    relayReadinessService: { getStartSettings: vi.fn(), setStartSettings: vi.fn() } as never,
+    estInspectionStartService: { getSettings: vi.fn(), saveSettings: vi.fn() } as never,
     competitionStartReadiness: { assertAllowed: vi.fn() },
     database: {} as never,
     eventBus: { emit: emitEvent } as never,

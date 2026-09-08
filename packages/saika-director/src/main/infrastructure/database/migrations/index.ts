@@ -71,6 +71,10 @@ import { migration072RelayReadinessStartSettings } from './072_relay_readiness_s
 import { migration073EstInspectionStartSettings } from './073_est_inspection_start_settings';
 import type { Migration } from './Migration';
 
+import { migration074EquipmentRegistry } from './074_equipment_registry';
+
+import { migration075OperatorAccess } from './075_operator_access';
+
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
   migration004AddResultsStatus,
@@ -143,4 +147,6 @@ export const allMigrations: Migration[] = [
   migration071FinalRecoveryFiring,
   migration072RelayReadinessStartSettings,
   migration073EstInspectionStartSettings,
+  migration074EquipmentRegistry,
+  migration075OperatorAccess,
 ];

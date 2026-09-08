@@ -1,3 +1,4 @@
+import { OperationalProfilePanel } from '../operational-profiles/OperationalProfilePanel';
 // SPDX-License-Identifier: MIT
 import { AlertTriangle, BellRing, Check, Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -122,6 +123,7 @@ function commandSummary(result: MqttCommandExecutionResultDto): string {
 export function CompetitionControlScreen() {
   const addNotification = useNotificationStore((state) => state.addNotification);
   const setActiveScreen = useNavigationStore((state) => state.setActiveScreen);
+  const [operationalSettingsRevision, setOperationalSettingsRevision] = useState(0);
   const [snapshot, setSnapshot] = useState<MqttControlSnapshotDto>(EMPTY_SNAPSHOT);
   const [selectedLaneIds, setSelectedLaneIds] = useState<Set<string>>(new Set());
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
@@ -1223,10 +1225,20 @@ export function CompetitionControlScreen() {
               </Card>
             )}
 
+            {activeCompetition?.phase === 'NOT_STARTED' && (
+              <Card>
+                <OperationalProfilePanel
+                  key={activeCompetition.competitionId}
+                  competitionId={activeCompetition.competitionId}
+                  onApplied={() => setOperationalSettingsRevision((value) => value + 1)}
+                />
+              </Card>
+            )}
+
             {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
               <Card>
                 <RelayReadinessPanel
-                  key={`${activeCompetition.competitionId}:${activeCompetition.phase}`}
+                  key={`${activeCompetition.competitionId}:${activeCompetition.phase}:${operationalSettingsRevision}`}
                   competitionId={activeCompetition.competitionId}
                   relayNumber={resultContext?.relayNumber ?? 1}
                   phase={
@@ -1247,7 +1259,7 @@ export function CompetitionControlScreen() {
             {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
               <Card>
                 <EstInspectionStartPanel
-                  key={`inspection:${activeCompetition.competitionId}`}
+                  key={`inspection:${activeCompetition.competitionId}:${operationalSettingsRevision}`}
                   competitionId={activeCompetition.competitionId}
                   lanes={competitionLanes.map((lane) => ({
                     laneId: lane.laneId,

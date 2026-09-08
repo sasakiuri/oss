@@ -5,6 +5,7 @@ import { toIpcError } from './toIpcError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { Logger } from '@/shared/utils/Logger';
 import type { CommandResponse, IpcError } from '@/shared/ipc/contracts';
+import type { IpcInvocationMiddleware } from './IpcInvocationMiddleware';
 
 const logger = Logger.create('IpcRouter');
 
@@ -26,6 +27,7 @@ interface QueryErrorResponse {
  */
 export class IpcRouter {
   private registeredChannels = new Set<string>();
+  constructor(private readonly middleware?: IpcInvocationMiddleware) {}
 
   /**
    * Register all procedures from a contract with their handlers.
@@ -52,6 +54,13 @@ export class IpcRouter {
       const isQuery = proc.kind === 'query';
 
       ipcMain.handle(channel, async (event, payload) => {
+        const invoke = (next: () => Promise<unknown>) =>
+          this.middleware
+            ? this.middleware.invoke(
+                { namespace: contract.namespace, operation: key, kind: proc.kind, senderId: event.sender.id },
+                next,
+              )
+            : next();
         // 1. Validate input (skip for z.void())
         if (!isVoidInput) {
           const parseResult = proc.input.safeParse(payload);
@@ -96,16 +105,16 @@ export class IpcRouter {
 
           // 2. Call handler with validated data, wrap result/error
           if (isQuery) {
-            return this.wrapQuery(() => handler(parseResult.data, event), key, proc.output);
+            return this.wrapQuery(() => invoke(() => handler(parseResult.data, event)), key, proc.output);
           }
-          return this.wrapCommand(() => handler(parseResult.data, event), key, proc.output);
+          return this.wrapCommand(() => invoke(() => handler(parseResult.data, event)), key, proc.output);
         }
 
         // Void input — call handler with no args
         if (isQuery) {
-          return this.wrapQuery(() => handler(event), key, proc.output);
+          return this.wrapQuery(() => invoke(() => handler(event)), key, proc.output);
         }
-        return this.wrapCommand(() => handler(event), key, proc.output);
+        return this.wrapCommand(() => invoke(() => handler(event)), key, proc.output);
       });
     }
   }

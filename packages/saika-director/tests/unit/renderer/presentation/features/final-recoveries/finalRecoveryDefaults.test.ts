@@ -15,7 +15,7 @@ describe('Final recovery defaults', () => {
   });
 
   it('keeps non-timed and Mixed Team defaults independent of competition IDs', () => {
-    expect(getFinalRecoveryDefaults('ARMIX_FINAL', 'MATCH')).toEqual({
+    expect(getFinalRecoveryDefaults('ARMIX_FINAL', 'MATCH', { shotsPerParticipant: 1 })).toEqual({
       procedureProfile: 'RIFLE_PISTOL_10M_50M_MIXED_TEAM',
       phase: 'MATCH_SINGLE',
     });
@@ -23,5 +23,15 @@ describe('Final recovery defaults', () => {
       procedureProfile: 'RIFLE_PISTOL_10M_50M',
       phase: 'SIGHTING',
     });
+  });
+
+  it('uses the current series capacity and shoot-off purpose, and leaves an unknown phase for review', () => {
+    expect(getFinalRecoveryDefaults('AR60_FINAL', 'MATCH', { shotsPerParticipant: 5 }).phase).toBe('MATCH_SERIES');
+    expect(getFinalRecoveryDefaults('R3P_FINAL', 'MATCH', { shotsPerParticipant: 10 }).phase).toBe('MATCH_SERIES');
+    expect(getFinalRecoveryDefaults('AR60_FINAL', 'MATCH', { shotsPerParticipant: 1 }).phase).toBe('MATCH_SINGLE');
+    expect(getFinalRecoveryDefaults('P25_FINAL', 'MATCH', { shotsPerParticipant: 5, purpose: 'SHOOT_OFF' }).phase).toBe(
+      'SHOOT_OFF',
+    );
+    expect(getFinalRecoveryDefaults('AR60_FINAL', 'MATCH').phase).toBe('OTHER');
   });
 });

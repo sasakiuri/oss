@@ -443,3 +443,9 @@ export {
 export { reserveLaneTransfersContract, type ReserveTransferWorkspaceDto } from './reserveLaneTransfers.contract';
 
 export * from './finalRecoveryFiring.contract';
+
+export * from './operationalProfiles.contract';
+
+export * from './equipmentRegistry.contract';
+
+export * from './operatorAccess.contract';
