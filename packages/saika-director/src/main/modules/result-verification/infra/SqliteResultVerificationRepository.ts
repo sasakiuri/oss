@@ -44,6 +44,7 @@ interface ApprovalRow {
   official_name: string;
   recorded_at: string;
   reverses_approval_id: string | null;
+  signing_evidence_json: string | null;
 }
 
 export class SqliteResultVerificationRepository implements IResultVerificationRepository {
@@ -84,16 +85,17 @@ export class SqliteResultVerificationRepository implements IResultVerificationRe
         `INSERT INTO result_list_approval_entries (
            id, event_id, result_scope, entry_type, snapshot_revision,
            required_individual_checks, required_team_checks, check_ids_json,
-           statement, official_name, recorded_at, reverses_approval_id
+           statement, official_name, recorded_at, reverses_approval_id, signing_evidence_json
          ) VALUES (
            @id, @eventId, @resultScope, @type, @snapshotRevision,
            @requiredIndividualChecks, @requiredTeamChecks, @checkIdsJson,
-           @statement, @officialName, @recordedAt, @reversesApprovalId
+           @statement, @officialName, @recordedAt, @reversesApprovalId, @signingEvidenceJson
          )`,
       )
       .run({
         ...entry,
         checkIdsJson: JSON.stringify(entry.checkIds),
+        signingEvidenceJson: entry.signingEvidence ? JSON.stringify(entry.signingEvidence) : null,
         recordedAt: entry.recordedAt.toISOString(),
       });
   }
@@ -151,6 +153,9 @@ function toApproval(row: ApprovalRow): ResultListApprovalEntry {
     officialName: row.official_name,
     recordedAt: new Date(row.recorded_at),
     reversesApprovalId: row.reverses_approval_id,
+    signingEvidence: row.signing_evidence_json
+      ? (JSON.parse(row.signing_evidence_json) as ResultListApprovalEntry['signingEvidence'])
+      : null,
   });
 }
 

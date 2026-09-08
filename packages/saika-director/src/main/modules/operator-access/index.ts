@@ -10,6 +10,7 @@ export { SessionSanctionAuthorizationResolver } from './SessionSanctionAuthoriza
 export function registerOperatorAccess(ipcRouter: IpcRouter, service: OperatorAccessService) {
   const sender = (event: unknown) => (event as IpcMainInvokeEvent).sender.id;
   ipcRouter.register(operatorAccessContract, {
+    getSigningAccounts: async () => service.signingAccounts(),
     status: async (event) => service.status(sender(event)),
     signIn: async (input, event) => service.signIn(sender(event), input.name, input.password),
     signOut: async (event) => service.signOut(sender(event)),

@@ -74,6 +74,8 @@ import type { Migration } from './Migration';
 import { migration074EquipmentRegistry } from './074_equipment_registry';
 
 import { migration075OperatorAccess } from './075_operator_access';
+import { migration076ResultsBookSigningIdentity } from './076_results_book_signing_identity';
+import { migration077ResultApprovalSigningIdentity } from './077_result_approval_signing_identity';
 
 export const allMigrations: Migration[] = [
   migration003CreateSchema,
@@ -149,4 +151,6 @@ export const allMigrations: Migration[] = [
   migration073EstInspectionStartSettings,
   migration074EquipmentRegistry,
   migration075OperatorAccess,
+  migration076ResultsBookSigningIdentity,
+  migration077ResultApprovalSigningIdentity,
 ];

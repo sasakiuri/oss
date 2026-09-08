@@ -15,6 +15,7 @@ const preview = z.object({
       id: z.string(),
       label: z.string(),
       scope: z.enum(['COMPETITION', 'DIRECTOR']),
+      supportedModes: z.array(mode).min(1).max(3).optional(),
       before: mode,
       after: mode,
       context: z.string(),

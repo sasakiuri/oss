@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 
 import type { ArchiveFileGateway } from '@/main/modules/operational-archives';
+import {
+  OfficialSigningPolicy,
+  type IOfficialSigningPolicy,
+  type OfficialSigningRequest,
+} from '@/main/modules/official-signing';
 import type { ResultsBookWorkspaceDto } from '@/shared/ipc/contracts';
 
 import type { IResultsBookDocumentExporter, ResultsBookDocumentFormat } from './IResultsBookDocumentExporter';
@@ -30,6 +35,7 @@ export class ResultsBookService {
     private readonly files: ArchiveFileGateway,
     private readonly now: () => Date = () => new Date(),
     private readonly documentExporter?: IResultsBookDocumentExporter,
+    private readonly signing: IOfficialSigningPolicy = new OfficialSigningPolicy(),
   ) {}
 
   async getWorkspace(championshipId: string): Promise<ResultsBookWorkspaceDto> {
@@ -43,6 +49,7 @@ export class ResultsBookService {
         appointmentId: entry.id,
         role: entry.role,
         officialName: entry.officialName,
+        officialActorId: entry.officialActorId ?? null,
         organization: entry.organization,
         appointedAt: entry.recordedAt.toISOString(),
       })),
@@ -59,9 +66,18 @@ export class ResultsBookService {
     organization?: string;
     statement: string;
     recordedBy: string;
+    officialActorId?: string;
   }): Promise<ResultsBookWorkspaceDto> {
+    const account = input.officialActorId ? this.signing.resolveAccount(input.officialActorId) : null;
+    const officialName = account?.name ?? required(input.officialName, 'officialName');
     const active = activeOfficials(this.repository.findOfficialEntries(input.championshipId));
-    if (active.some((entry) => entry.role === input.role && entry.officialName === input.officialName.trim())) {
+    if (
+      active.some(
+        (entry) =>
+          entry.role === input.role &&
+          (entry.officialName === officialName || (account && entry.officialActorId === account.id)),
+      )
+    ) {
       throw new Error('This official already has an active appointment in that role');
     }
     this.repository.appendOfficialEntry({
@@ -69,7 +85,8 @@ export class ResultsBookService {
       championshipId: input.championshipId,
       operation: 'APPOINT',
       role: input.role,
-      officialName: required(input.officialName, 'officialName'),
+      officialName,
+      officialActorId: account?.id ?? null,
       organization: optional(input.organization),
       statement: required(input.statement, 'statement'),
       recordedBy: required(input.recordedBy, 'recordedBy'),
@@ -212,8 +229,14 @@ export class ResultsBookService {
         role: entry.role,
         officialName: entry.officialName,
         organization: entry.organization,
+        officialActorId: entry.officialActorId ?? null,
       })),
-    ).map(({ appointmentId, role, officialName }) => ({ appointmentId, role, officialName }));
+    ).map(({ appointmentId, role, officialName, officialActorId }) => ({
+      appointmentId,
+      role,
+      officialName,
+      officialActorId,
+    }));
     const findings = [...built.findings];
     if (!officials.some((entry) => entry.role === 'TECHNICAL_DELEGATE')) {
       findings.push('No active Technical Delegate is appointed');
@@ -241,12 +264,14 @@ export class ResultsBookService {
     return this.getWorkspace(championshipId);
   }
 
-  async signBook(input: {
-    championshipId: string;
-    bookId: string;
-    appointmentId: string;
-    statement: string;
-  }): Promise<ResultsBookWorkspaceDto> {
+  async signBook(
+    input: Pick<OfficialSigningRequest, 'method' | 'recordedBy' | 'evidenceReference'> & {
+      championshipId: string;
+      bookId: string;
+      appointmentId: string;
+      statement: string;
+    },
+  ): Promise<ResultsBookWorkspaceDto> {
     const book = this.requireBook(input.bookId, input.championshipId);
     if (this.repository.findFinalization(book.id))
       throw new Error('A certified Results Book cannot receive more signatures');
@@ -259,12 +284,18 @@ export class ResultsBookService {
     if (this.repository.findSignatures(book.id).some((signature) => signature.appointmentId === signer.appointmentId)) {
       throw new Error('This official already signed this Results Book version');
     }
+    const signingEvidence = this.signing.authorize({
+      ...input,
+      officialName: signer.officialName,
+      officialActorId: signer.officialActorId,
+    });
     this.repository.appendSignature({
       id: crypto.randomUUID(),
       bookId: book.id,
       ...signer,
       statement: required(input.statement, 'statement'),
       signedAt: this.now(),
+      signingEvidence,
     });
     return this.getWorkspace(input.championshipId);
   }
@@ -298,6 +329,20 @@ export class ResultsBookService {
     if (current.sourceHash !== book.sourceHash) {
       throw new Error('Results Book source data changed; generate and sign a new version');
     }
+    const currentSigners = activeOfficials(this.repository.findOfficialEntries(input.championshipId)).filter(
+      (entry) => entry.role === 'TECHNICAL_DELEGATE' || entry.role.endsWith('_JURY_CHAIR'),
+    );
+    if (
+      currentSigners.length !== book.requiredSigners.length ||
+      book.requiredSigners.some(
+        (signer) =>
+          !currentSigners.some(
+            (entry) =>
+              entry.id === signer.appointmentId && (entry.officialActorId ?? null) === (signer.officialActorId ?? null),
+          ),
+      )
+    )
+      throw new Error('Official appointments changed; generate and sign a new Results Book version');
     this.repository.appendFinalization({
       id: crypto.randomUUID(),
       bookId: book.id,
@@ -329,6 +374,7 @@ export class ResultsBookService {
           officialName: signature.officialName,
           statement: signature.statement,
           signedAt: signature.signedAt.toISOString(),
+          signingEvidence: signature.signingEvidence ?? null,
         })),
         finalizedBy: finalization.officialName,
         finalizedAt: finalization.finalizedAt.toISOString(),
@@ -399,6 +445,7 @@ export class ResultsBookService {
         officialName: signature.officialName,
         statement: signature.statement,
         signedAt: signature.signedAt.toISOString(),
+        signingEvidence: signature.signingEvidence ?? null,
       })),
       createdBy: book.createdBy,
       createdAt: book.createdAt.toISOString(),

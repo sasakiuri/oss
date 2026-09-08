@@ -35,7 +35,7 @@ describe('MigrationRunner', () => {
 
     it('registers per-competition start policy settings after the firing ledger', () => {
       const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(75);
+      expect(maxVersion).toBe(77);
       expect(allMigrations.find((migration) => migration.version === 73)?.name).toBe('est_inspection_start_settings');
       expect(allMigrations.find((migration) => migration.version === 72)?.name).toBe('relay_readiness_start_settings');
     });

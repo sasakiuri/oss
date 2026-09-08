@@ -1,4 +1,5 @@
 import type { ChampionshipOfficialRole, RecordCode, RecordResultBasis } from './ResultsBookPolicy';
+import type { OfficialSigningEvidence } from '../../official-signing';
 
 export interface EligibleRecordMember {
   readonly participantId: string;
@@ -18,6 +19,7 @@ export interface ChampionshipOfficialEntry {
   readonly operation: 'APPOINT' | 'REVOKE';
   readonly role: ChampionshipOfficialRole;
   readonly officialName: string;
+  readonly officialActorId?: string | null;
   readonly organization: string | null;
   readonly statement: string;
   readonly recordedBy: string;
@@ -76,6 +78,7 @@ export interface ResultsBookVersion {
     appointmentId: string;
     role: ChampionshipOfficialRole;
     officialName: string;
+    officialActorId?: string | null;
   }[];
   readonly createdBy: string;
   readonly createdAt: Date;
@@ -89,6 +92,8 @@ export interface ResultsBookSignature {
   readonly officialName: string;
   readonly statement: string;
   readonly signedAt: Date;
+  /** Absent only on records created before signing provenance was introduced. */
+  readonly signingEvidence?: OfficialSigningEvidence | null;
 }
 
 export interface ResultsBookFinalization {

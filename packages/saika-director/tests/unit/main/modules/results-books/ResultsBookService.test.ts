@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import type { ArchiveFileGateway } from '@/main/modules/operational-archives';
+import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   type IResultsBookRecordCandidateSource,
   type IResultsBookResultSnapshotSource,
@@ -26,6 +27,7 @@ describe('ResultsBookService', () => {
   function setup(
     entryStatus = 'COMPETING',
     additionalRecordCandidates: readonly IResultsBookRecordCandidateSource[] = [],
+    signing?: IOfficialSigningPolicy,
   ) {
     database = new Database(':memory:');
     database.pragma('foreign_keys = ON');
@@ -130,6 +132,7 @@ describe('ResultsBookService', () => {
       files,
       () => new Date('2026-09-02T07:00:00.000Z'),
       documentExporter,
+      signing,
     );
     return { service, repository, written, snapshotState, documentExporter };
   }
@@ -151,6 +154,117 @@ describe('ResultsBookService', () => {
     });
     return workspace;
   }
+
+  it('preserves signing identity through storage and rejects signing another official appointment', async () => {
+    const actor = { id: '77777777-7777-4777-8777-777777777777', name: 'TD A' };
+    const signing = new OfficialSigningPolicy({
+      currentActor: () => actor,
+      authenticationRequired: () => true,
+      findActiveAccount: (id) => (id === actor.id ? actor : null),
+    });
+    const { service, repository } = setup('COMPETING', [], signing);
+    await service.appointOfficial({
+      championshipId: CHAMPIONSHIP_ID,
+      role: 'TECHNICAL_DELEGATE',
+      officialName: 'Ignored client name',
+      officialActorId: actor.id,
+      statement: 'Appointment',
+      recordedBy: 'Administrator',
+    });
+    await service.appointOfficial({
+      championshipId: CHAMPIONSHIP_ID,
+      role: 'RTS_JURY_CHAIR',
+      officialName: 'RTS Chair',
+      statement: 'Appointment',
+      recordedBy: 'Administrator',
+    });
+    const workspace = await service.generateBook(CHAMPIONSHIP_ID, 'Recorder');
+    const book = workspace.books[0]!;
+    const delegate = book.requiredSigners.find((signer) => signer.role === 'TECHNICAL_DELEGATE')!;
+    const chair = book.requiredSigners.find((signer) => signer.role === 'RTS_JURY_CHAIR')!;
+    expect(delegate).toMatchObject({ officialName: actor.name, officialActorId: actor.id });
+    await expect(
+      service.signBook({
+        championshipId: CHAMPIONSHIP_ID,
+        bookId: book.id,
+        appointmentId: chair.appointmentId,
+        statement: 'Approve',
+      }),
+    ).rejects.toThrow('Link this official');
+    expect(repository.findSignatures(book.id)).toHaveLength(0);
+    await service.signBook({
+      championshipId: CHAMPIONSHIP_ID,
+      bookId: book.id,
+      appointmentId: delegate.appointmentId,
+      statement: 'Approve',
+    });
+    await expect(
+      service.signBook({
+        championshipId: CHAMPIONSHIP_ID,
+        bookId: book.id,
+        appointmentId: chair.appointmentId,
+        statement: 'Approve',
+        method: 'EXTERNAL',
+      }),
+    ).rejects.toThrow('evidence');
+    const signed = await service.signBook({
+      championshipId: CHAMPIONSHIP_ID,
+      bookId: book.id,
+      appointmentId: chair.appointmentId,
+      statement: 'Paper signed by chair',
+      method: 'EXTERNAL',
+      evidenceReference: 'Cabinet 2 / form 5',
+    });
+    expect(signed.books[0]!.signatures.map((signature) => signature.signingEvidence)).toEqual([
+      { method: 'AUTHENTICATED', actorId: actor.id, recordedBy: actor.name, evidenceReference: null },
+      { method: 'EXTERNAL', actorId: actor.id, recordedBy: actor.name, evidenceReference: 'Cabinet 2 / form 5' },
+    ]);
+    expect(() => database!.prepare('UPDATE results_book_signatures SET signing_evidence_json = NULL').run()).toThrow();
+    await service.finalizeBook({
+      championshipId: CHAMPIONSHIP_ID,
+      bookId: book.id,
+      officialName: actor.name,
+      statement: 'Checked',
+    });
+    await service.exportBook(book.id, 'HTML');
+    const stored = repository.findSignatures(book.id);
+    expect(stored[0]!.signingEvidence?.actorId).toBe(actor.id);
+  });
+
+  it('requires new signatures when a signed appointment is revoked and recreated with the same name', async () => {
+    const { service } = setup();
+    await appointCertifiers(service);
+    const book = (await service.generateBook(CHAMPIONSHIP_ID, 'Recorder')).books[0]!;
+    for (const signer of book.requiredSigners)
+      await service.signBook({
+        championshipId: CHAMPIONSHIP_ID,
+        bookId: book.id,
+        appointmentId: signer.appointmentId,
+        statement: 'Checked',
+      });
+    const delegate = book.requiredSigners.find((signer) => signer.role === 'TECHNICAL_DELEGATE')!;
+    await service.revokeOfficial({
+      championshipId: CHAMPIONSHIP_ID,
+      appointmentId: delegate.appointmentId,
+      statement: 'Reassigned',
+      recordedBy: 'Administrator',
+    });
+    await service.appointOfficial({
+      championshipId: CHAMPIONSHIP_ID,
+      role: delegate.role,
+      officialName: delegate.officialName,
+      statement: 'New appointment',
+      recordedBy: 'Administrator',
+    });
+    await expect(
+      service.finalizeBook({
+        championshipId: CHAMPIONSHIP_ID,
+        bookId: book.id,
+        officialName: 'RTS Chair',
+        statement: 'Checked',
+      }),
+    ).rejects.toThrow(/changed/);
+  });
 
   it('keeps open record claims out of the official book and certifies a verified claim', async () => {
     const { service, repository, written, documentExporter } = setup();

@@ -1,5 +1,5 @@
 import type { EstBackupRecordImportReceiptDto } from '@/shared/ipc/contracts';
-import type { EstBackupRecordParserRegistry } from '../domain/EstBackupRecordParser';
+import { EstBackupRecordParserRegistry, type EstBackupRecordParser } from '../domain/EstBackupRecordParser';
 import type { IEstBackupRecordFileGateway } from './EstBackupRecordFileGateway';
 
 export class EstBackupRecordImportService {
@@ -8,10 +8,11 @@ export class EstBackupRecordImportService {
     private readonly parsers: EstBackupRecordParserRegistry,
   ) {}
 
-  async importRecords(): Promise<EstBackupRecordImportReceiptDto> {
-    const source = await this.files.chooseSource();
+  async importRecords(parser?: EstBackupRecordParser): Promise<EstBackupRecordImportReceiptDto> {
+    const parsers = parser ? new EstBackupRecordParserRegistry([parser]) : this.parsers;
+    const source = await this.files.chooseSource(parsers.supportedExtensions);
     if (!source) return { status: 'CANCELLED' };
-    const parsed = this.parsers.parse(source.fileName, source.content);
+    const parsed = parsers.parse(source.fileName, source.content);
     return {
       status: 'IMPORTED',
       fileName: source.fileName,
@@ -19,7 +20,7 @@ export class EstBackupRecordImportService {
       sha256: source.sha256,
       format: parsed.format,
       sourceName: source.fileName,
-      sourceReference: `${parsed.format}; ${source.sizeBytes} bytes; SHA-256 ${source.sha256}`,
+      sourceReference: `${parsed.format}; ${source.sizeBytes} bytes; SHA-256 ${source.sha256}${parsed.sourceDescription ? `; ${parsed.sourceDescription}` : ''}`,
       records: [...parsed.records],
     };
   }

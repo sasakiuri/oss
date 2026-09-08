@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { estBackupVerificationService } from '@/renderer/services';
-import type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
+import type {
+  CreateEstBackupVerificationPayload,
+  EstBackupVerificationRunDto,
+  EstBackupColumnMappingDto,
+} from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 
 export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: string; onClose: () => void }) {
@@ -14,6 +18,14 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
   const [review, setReview] = useState('');
   const [official, setOfficial] = useState('');
   const [importing, setImporting] = useState(false);
+  const [fileLayout, setFileLayout] = useState<'CANONICAL' | 'MAPPED'>('CANONICAL');
+  const [mapping, setMapping] = useState<EstBackupColumnMappingDto>({
+    delimiter: ';',
+    decimalSeparator: '.',
+    keyColumn: 'Bib',
+    totalScoreColumn: 'Total',
+    rankColumn: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     const response = await estBackupVerificationService.list({ eventId });
@@ -102,19 +114,100 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
             />
           </Field>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[3px] border border-vscode-border p-2">
+        <fieldset disabled={importing} className="space-y-3 rounded-[3px] border border-vscode-border p-2">
+          <Field label="File layout">
+            <select
+              className={inputClass}
+              value={fileLayout}
+              onChange={(event) => setFileLayout(event.target.value as typeof fileLayout)}
+            >
+              <option value="CANONICAL">Canonical JSON / CSV</option>
+              <option value="MAPPED">Column-mapped delimited text</option>
+            </select>
+          </Field>
+          {fileLayout === 'MAPPED' && (
+            <div className="space-y-2">
+              <p className="text-xs text-vscode-text-muted">
+                Enter the exact header names from the exported file. Keys keep leading zeros. Check that the chosen key
+                column matches the Comparison key above. Files must use UTF-8.
+              </p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Key column">
+                  <input
+                    className={inputClass}
+                    maxLength={100}
+                    value={mapping.keyColumn}
+                    onChange={(event) => setMapping({ ...mapping, keyColumn: event.target.value })}
+                  />
+                </Field>
+                <Field label="Total score column">
+                  <input
+                    className={inputClass}
+                    maxLength={100}
+                    value={mapping.totalScoreColumn}
+                    onChange={(event) => setMapping({ ...mapping, totalScoreColumn: event.target.value })}
+                  />
+                </Field>
+                <Field label="Rank column (optional)">
+                  <input
+                    className={inputClass}
+                    maxLength={100}
+                    value={mapping.rankColumn ?? ''}
+                    onChange={(event) => setMapping({ ...mapping, rankColumn: event.target.value || null })}
+                  />
+                </Field>
+                <Field label="Column separator">
+                  <select
+                    className={inputClass}
+                    value={mapping.delimiter}
+                    onChange={(event) =>
+                      setMapping({
+                        ...mapping,
+                        delimiter: event.target.value as EstBackupColumnMappingDto['delimiter'],
+                      })
+                    }
+                  >
+                    <option value=";">Semicolon</option>
+                    <option value=",">Comma</option>
+                    <option value={'\t'}>Tab</option>
+                  </select>
+                </Field>
+                <Field label="Decimal separator">
+                  <select
+                    className={inputClass}
+                    value={mapping.decimalSeparator}
+                    onChange={(event) =>
+                      setMapping({
+                        ...mapping,
+                        decimalSeparator: event.target.value as EstBackupColumnMappingDto['decimalSeparator'],
+                      })
+                    }
+                  >
+                    <option value=".">Point (630.1)</option>
+                    <option value=",">Comma (630,1)</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+          )}
           <span className="text-xs text-vscode-text-muted">
-            Import canonical JSON or CSV. The raw-file SHA-256 is retained as the source reference.
+            Review the imported records before comparison. The original file hash and any column mapping are retained in
+            the source reference.
           </span>
           <Button
             size="sm"
             variant="secondary"
-            disabled={importing}
+            disabled={
+              importing || (fileLayout === 'MAPPED' && (!mapping.keyColumn.trim() || !mapping.totalScoreColumn.trim()))
+            }
             onClick={() => {
               void (async () => {
                 setImporting(true);
                 try {
-                  const response = await estBackupVerificationService.importRecords();
+                  const response =
+                    fileLayout === 'MAPPED'
+                      ? await estBackupVerificationService.importDelimitedRecords(mapping)
+                      : await estBackupVerificationService.importRecords();
                   if (!response.success) throw new Error(response.error.message);
                   if (response.data.status === 'CANCELLED') return;
                   setRecordsText(JSON.stringify(response.data.records, null, 2));
@@ -130,9 +223,9 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
               })();
             }}
           >
-            {importing ? 'Importing...' : 'Import JSON / CSV'}
+            {importing ? 'Importing...' : fileLayout === 'MAPPED' ? 'Import delimited file' : 'Import JSON / CSV'}
           </Button>
-        </div>
+        </fieldset>
         <Field label='Backup records JSON: [{ "key", "rank" (optional), "totalScore" }]'>
           <textarea
             required
@@ -156,7 +249,7 @@ export function EstBackupVerificationPanel({ eventId, onClose }: { eventId: stri
             <input required value={official} onChange={(e) => setOfficial(e.target.value)} className={inputClass} />
           </Field>
         </div>
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" disabled={importing}>
           Compare and retain
         </Button>
       </form>

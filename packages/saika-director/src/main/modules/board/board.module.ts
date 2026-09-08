@@ -4,13 +4,14 @@
  *
  */
 
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
-import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
-import { boardContract } from '@/shared/ipc/contracts';
 import type { IpcMainInvokeEvent } from 'electron';
 
 import { type LaneControl, GetAllLanesToken } from '@/main/modules/lane-control';
+import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
+import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { boardContract } from '@/shared/ipc/contracts';
 import type { LiveRankingDto } from '@/shared/types/LiveRankingDto';
+
 import { GetEventByIdToken } from '../championship/championship.module';
 
 // Inline query token
@@ -120,6 +121,11 @@ export const boardModule: ModuleDefinition<'queryBus' | 'ipcRouter' | 'windowMan
         windowManager.createBoardWindow('incident-report-print', {
           type: 'incident-report-print',
           reportId: input.reportId,
+        }),
+      openProtestPrint: async (input) =>
+        windowManager.createBoardWindow('protest-print', {
+          type: 'protest-print',
+          protestId: input.protestId,
         }),
       closeBoard: (input) => {
         windowManager.closeBoardWindow(input);

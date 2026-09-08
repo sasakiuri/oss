@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto';
 
 export type OperationalMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
+const allModes: readonly OperationalMode[] = ['DISABLED', 'ADVISORY', 'REQUIRED'];
 export interface OperationalSettingTarget {
   readonly id: string;
   readonly label: string;
   readonly scope: 'COMPETITION' | 'DIRECTOR';
+  readonly supportedModes?: readonly OperationalMode[];
   read(
     competitionId: string,
   ): { mode: OperationalMode; context: string } | Promise<{ mode: OperationalMode; context: string }>;
@@ -23,21 +25,35 @@ export class OperationalProfileService {
   ) {
     if (new Set(targets.map((target) => target.id)).size !== targets.length)
       throw new Error('Duplicate operational setting target');
+    for (const target of targets) {
+      const supported = target.supportedModes ?? allModes;
+      if (
+        supported.length === 0 ||
+        new Set(supported).size !== supported.length ||
+        supported.some((mode) => !allModes.includes(mode))
+      )
+        throw new Error(`Invalid supported modes for ${target.id}`);
+    }
   }
 
   async preview(input: OperationalProfileSelection) {
     this.assertEditable(input.competitionId);
     for (const [key, mode] of Object.entries(input.modes)) {
-      if (!this.targets.some((target) => target.id === key)) throw new Error(`Unknown operational setting: ${key}`);
-      if (!['DISABLED', 'ADVISORY', 'REQUIRED'].includes(mode)) throw new Error(`Invalid operational mode: ${mode}`);
+      const target = this.targets.find((target) => target.id === key);
+      if (!target) throw new Error(`Unknown operational setting: ${key}`);
+      if (!(target.supportedModes ?? allModes).includes(mode))
+        throw new Error(`Unsupported operational mode for ${key}: ${mode}`);
     }
     const changes = await Promise.all(
       this.targets.map(async (target) => {
         const current = await target.read(input.competitionId);
+        const supportedModes = [...(target.supportedModes ?? allModes)];
+        if (!supportedModes.includes(current.mode)) throw new Error(`Unsupported current mode for ${target.id}`);
         return {
           id: target.id,
           label: target.label,
           scope: target.scope,
+          supportedModes,
           before: current.mode,
           after: input.modes[target.id] ?? current.mode,
           context: current.context,

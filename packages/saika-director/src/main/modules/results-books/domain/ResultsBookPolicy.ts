@@ -34,6 +34,7 @@ export interface ActiveChampionshipOfficial {
   readonly appointmentId: string;
   readonly role: ChampionshipOfficialRole;
   readonly officialName: string;
+  readonly officialActorId?: string | null;
   readonly organization: string | null;
 }
 

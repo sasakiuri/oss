@@ -1,3 +1,5 @@
+import type { OfficialSigningEvidence } from '../../official-signing';
+
 export type ResultApprovalEntryType = 'APPROVAL' | 'REVOCATION';
 export type ResultApprovalScope = 'QUALIFICATION' | 'FINAL';
 
@@ -25,13 +27,19 @@ export class ResultListApprovalEntry {
     readonly officialName: string,
     readonly recordedAt: Date,
     readonly reversesApprovalId: string | null,
+    readonly signingEvidence: OfficialSigningEvidence | null,
   ) {
     Object.freeze(this.checkIds);
     Object.freeze(this);
   }
 
   static createApproval(
-    target: ResultListApprovalTarget & { statement: string; officialName: string; recordedAt?: Date },
+    target: ResultListApprovalTarget & {
+      statement: string;
+      officialName: string;
+      recordedAt?: Date;
+      signingEvidence?: OfficialSigningEvidence;
+    },
   ): ResultListApprovalEntry {
     validateTarget(target);
     validateText(target.statement, 'statement');
@@ -49,12 +57,13 @@ export class ResultListApprovalEntry {
       target.officialName.trim(),
       validDate(target.recordedAt),
       null,
+      target.signingEvidence ? Object.freeze({ ...target.signingEvidence }) : null,
     );
   }
 
   static createRevocation(
     approval: ResultListApprovalEntry,
-    props: { reason: string; officialName: string; recordedAt?: Date },
+    props: { reason: string; officialName: string; recordedAt?: Date; signingEvidence?: OfficialSigningEvidence },
   ): ResultListApprovalEntry {
     if (approval.type !== 'APPROVAL') throw new Error('Only an approval can be revoked');
     validateText(props.reason, 'reason');
@@ -72,6 +81,7 @@ export class ResultListApprovalEntry {
       props.officialName.trim(),
       validDate(props.recordedAt),
       approval.id,
+      props.signingEvidence ? Object.freeze({ ...props.signingEvidence }) : null,
     );
   }
 
@@ -88,6 +98,7 @@ export class ResultListApprovalEntry {
     officialName: string;
     recordedAt: Date;
     reversesApprovalId: string | null;
+    signingEvidence?: OfficialSigningEvidence | null;
   }): ResultListApprovalEntry {
     return new ResultListApprovalEntry(
       props.id,
@@ -102,6 +113,7 @@ export class ResultListApprovalEntry {
       props.officialName,
       new Date(props.recordedAt.getTime()),
       props.reversesApprovalId,
+      props.signingEvidence ? Object.freeze({ ...props.signingEvidence }) : null,
     );
   }
 }

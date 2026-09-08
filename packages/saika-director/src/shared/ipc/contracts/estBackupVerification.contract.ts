@@ -3,6 +3,19 @@ import { command, commandDataResponseSchema, defineContract, query, queryRespons
 
 const resultKind = z.enum(['INDIVIDUAL', 'TEAM', 'MIXED_TEAM']);
 const keyType = z.enum(['PARTICIPANT_ID', 'START_NUMBER', 'ISSF_ID', 'TEAM_ID']);
+const columnName = z.string().trim().min(1).max(100);
+const columnMapping = z
+  .object({
+    delimiter: z.enum([',', ';', '\t']),
+    decimalSeparator: z.enum(['.', ',']),
+    keyColumn: columnName,
+    totalScoreColumn: columnName,
+    rankColumn: columnName.nullable(),
+  })
+  .refine((value) => {
+    const columns = [value.keyColumn, value.totalScoreColumn, value.rankColumn].filter((column) => column !== null);
+    return new Set(columns).size === columns.length;
+  }, 'Select different columns for key, total score, and rank');
 const backupRecord = z.object({
   key: z.string().trim().min(1).max(200),
   rank: z.number().int().positive().nullable().optional(),
@@ -38,7 +51,7 @@ const create = z.object({
   resultKind,
   keyType,
   sourceName: z.string().trim().min(1).max(200),
-  sourceReference: z.string().trim().min(1).max(500).optional(),
+  sourceReference: z.string().trim().min(1).max(4000).optional(),
   records: z.array(backupRecord).min(1).max(1000),
   interventionReviewStatement: z.string().trim().min(1).max(2000).optional(),
   officialName: z.string().trim().min(1).max(200),
@@ -53,17 +66,19 @@ const importReceipt = z.discriminatedUnion('status', [
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
     format: z.string().trim().min(1).max(100),
     sourceName: z.string().trim().min(1).max(200),
-    sourceReference: z.string().trim().min(1).max(500),
+    sourceReference: z.string().trim().min(1).max(4000),
     records: z.array(backupRecord).min(1).max(1000),
   }),
 ]);
 
 export type CreateEstBackupVerificationPayload = z.infer<typeof create>;
+export type EstBackupColumnMappingDto = z.infer<typeof columnMapping>;
 export type EstBackupVerificationRunDto = z.infer<typeof run>;
 export type EstBackupRecordImportReceiptDto = z.infer<typeof importReceipt>;
 
 export const estBackupVerificationContract = defineContract('estBackupVerification', {
   list: query(z.object({ eventId: z.string().uuid() }), queryResponseSchema(z.array(run))),
   importRecords: command(commandDataResponseSchema(importReceipt)),
+  importDelimitedRecords: command(columnMapping, commandDataResponseSchema(importReceipt)),
   verify: command(create, commandDataResponseSchema(run)),
 });

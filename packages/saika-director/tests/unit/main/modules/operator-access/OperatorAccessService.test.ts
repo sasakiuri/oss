@@ -61,6 +61,30 @@ async function setup() {
 }
 
 describe('Operator access', () => {
+  it('requires a current administrator when profiles change authentication, including while access control is disabled', async () => {
+    const { service, store } = await setup();
+    service.setEnabled(1, false);
+    const profile = { ...request, namespace: 'operationalProfiles', operation: 'apply' };
+    await expect(service.invoke(profile, async () => service.setEnabledForCurrentActor(true))).rejects.toThrow(
+      'administrator',
+    );
+    expect(store.enabled()).toBe(false);
+    await service.invoke({ ...profile, senderId: 1 }, async () => service.setEnabledForCurrentActor(true));
+    expect(store.enabled()).toBe(true);
+    expect(store.entries).toContainEqual(
+      expect.objectContaining({
+        actorName: administrator.name,
+        operation: 'operatorAccess.setEnabled',
+        outcome: 'ACCEPTED',
+      }),
+    );
+    service.setEnabled(1, false);
+    await service.invoke({ ...profile, senderId: 1 }, async () => {
+      store.users[0]!.disabled = true;
+      expect(() => service.setEnabledForCurrentActor(true)).toThrow('administrator');
+    });
+    expect(store.enabled()).toBe(false);
+  });
   it('defaults to manual operation and hashes passwords without returning credentials', async () => {
     const store = new MemoryStore();
     const service = new OperatorAccessService(store, directorOperatorPermission);
@@ -70,6 +94,9 @@ describe('Operator access', () => {
     expect(JSON.stringify(result)).not.toContain('password');
     expect(JSON.stringify(store.users)).not.toContain(administrator.password);
     expect(store.users[0]!.passwordHash).toHaveLength(128);
+    expect(service.signingAccounts()).toEqual([{ id: result.actor!.id, name: administrator.name }]);
+    store.users[0]!.disabled = true;
+    expect(service.signingAccounts()).toEqual([]);
   });
   it('checks permissions before invoking a handler, retains read access and always permits a safety stop', async () => {
     const { service, store } = await setup();
@@ -99,6 +126,12 @@ describe('Operator access', () => {
       'OFFICIATE',
     );
     expect(directorOperatorPermission({ ...request, namespace: 'futureModule' })).toBe('ADMIN');
+    expect(directorOperatorPermission({ ...request, namespace: 'resultsBooks', operation: 'appointOfficial' })).toBe(
+      'ADMIN',
+    );
+    expect(directorOperatorPermission({ ...request, namespace: 'resultsBooks', operation: 'signBook' })).toBe(
+      'OFFICIATE',
+    );
   });
   it('revokes sessions after account changes, expires inactive sessions and protects the last administrator', async () => {
     const { service, advance } = await setup();

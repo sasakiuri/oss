@@ -55,6 +55,7 @@ export const AppConfigSchema = z.object({
   'clockQuality.maxSampleAgeMilliseconds': z.coerce.number().int().positive().default(300_000),
   'resultPublication.requireIncidentReports': PersistedBooleanSchema.default(true),
   'resultPublication.requireFinalRecoveriesComplete': PersistedBooleanSchema.default(true),
+  'resultPublication.requireProtestCasesComplete': PersistedBooleanSchema.default(true),
   'competitionAnnouncements.enabled': PersistedBooleanSchema.default(true),
 });
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';
 
 const uuidSchema = z.string().uuid();
 const revisionSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -30,6 +31,7 @@ const ResultVerificationCheckDtoSchema = z.object({
 });
 
 const ResultListApprovalDtoSchema = z.object({
+  signingEvidence: officialSigningEvidenceSchema.nullable().optional(),
   id: uuidSchema,
   eventId: uuidSchema,
   resultScope: z.enum(['QUALIFICATION', 'FINAL']),
@@ -105,6 +107,7 @@ const AddVerificationCheckInputSchema = z.object({
 });
 
 const ApproveResultListInputSchema = z.object({
+  ...officialSigningRequestFields,
   eventId: uuidSchema,
   resultScope: resultScopeSchema,
   snapshotRevision: revisionSchema,
@@ -113,6 +116,7 @@ const ApproveResultListInputSchema = z.object({
 });
 
 const RevokeResultListApprovalInputSchema = z.object({
+  ...officialSigningRequestFields,
   approvalId: uuidSchema,
   reason: z.string().trim().min(1).max(1000),
   officialName: z.string().trim().min(1).max(200),

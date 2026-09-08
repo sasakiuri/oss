@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+
 import type { IProtestRepository } from '../domain/IProtestRepository';
 import { ProtestCase, type ProtestKind, type ProtestScopeType } from '../domain/ProtestCase';
 import { ProtestEntry, type ProtestEntryType } from '../domain/ProtestEntry';
@@ -84,9 +85,7 @@ export class SqliteProtestRepository implements IProtestRepository {
     const result = new Map(caseIds.map((id) => [id, [] as ProtestEntry[]]));
     if (caseIds.length === 0) return result;
     const rows = this.db
-      .prepare(
-        `SELECT * FROM protest_entries WHERE case_id IN (${caseIds.map(() => '?').join(',')}) ORDER BY occurred_at, rowid`,
-      )
+      .prepare(`SELECT * FROM protest_entries WHERE case_id IN (${caseIds.map(() => '?').join(',')}) ORDER BY rowid`)
       .all(...caseIds) as EntryRow[];
     for (const row of rows) result.get(row.case_id)?.push(toEntry(row));
     return result;

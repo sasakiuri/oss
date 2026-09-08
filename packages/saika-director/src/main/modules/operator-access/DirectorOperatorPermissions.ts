@@ -48,6 +48,8 @@ for (const namespace of ['estChampionshipInspections', 'equipmentRegistry', 'pos
 
 /** Unclassified commands require administration until deliberately assigned a narrower permission. */
 export function directorOperatorPermission({ namespace, operation }: IpcInvocation): OperatorPermission {
+  if (namespace === 'board' && operation === 'openProtestPrint') return 'OFFICIATE';
+  if (namespace === 'resultsBooks' && ['appointOfficial', 'revokeOfficial'].includes(operation)) return 'ADMIN';
   if (
     ['finalControl', 'mixedTeamFinalControl'].includes(namespace) &&
     ['recordDecision', 'voidDecision'].includes(operation)

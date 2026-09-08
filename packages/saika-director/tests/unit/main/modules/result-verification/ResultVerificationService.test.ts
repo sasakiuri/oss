@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { OfficialSigningPolicy, type IOfficialSigningPolicy, type SigningActor } from '@/main/modules/official-signing';
 
 import type { IQualificationResultsReader } from '@/main/modules/results';
 import {
@@ -62,6 +63,7 @@ function harness(
   options: {
     teamFormat?: 'MIXED_PAIR';
     teamVerification?: ITeamResultVerificationReadiness;
+    signing?: IOfficialSigningPolicy;
   } = {},
 ) {
   let results = [
@@ -109,6 +111,7 @@ function harness(
     new ResultVerificationSourceRegistry([
       new QualificationResultVerificationSource(queryBus, reader, competitionTypes, options.teamVerification),
     ]),
+    options.signing,
   );
   return {
     service,
@@ -122,6 +125,70 @@ function harness(
 }
 
 describe('ResultVerificationService', () => {
+  it('requires the RTS role for personal approvals and preserves separate revocation provenance', async () => {
+    let actor: SigningActor = { id: TEAM_RUN_ID, name: 'Current RTS official', roles: ['JURY_MEMBER'] };
+    const signing = new OfficialSigningPolicy({
+      currentActor: () => actor,
+      authenticationRequired: () => true,
+      findActiveAccount: () => actor,
+    });
+    const { service, approvals, getResults } = harness({ topIndividualResults: 1, topTeamResults: 0 }, { signing });
+    await service.addCheck({
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION',
+      resultId: RESULT_ONE_ID,
+      resultRevision: getResults()[0]!.revision,
+      evidenceSource: 'INDEPENDENT_MEMORY',
+      evidenceReference: 'Memory 12',
+      comparisonStatus: 'MATCHED',
+      manualInterventionsReviewed: true,
+      officialName: 'Check official',
+    });
+    const status = await service.getStatus(EVENT_ID);
+    const request = {
+      eventId: EVENT_ID,
+      resultScope: 'QUALIFICATION' as const,
+      snapshotRevision: status.snapshotRevision,
+      statement: 'Results verified',
+      officialName: 'Supplied name',
+    };
+    await expect(service.approve(request)).rejects.toThrow('required official role');
+    expect(approvals).toHaveLength(0);
+    actor = { ...actor, roles: ['RTS_JURY'] };
+    const approval = await service.approve(request);
+    expect(approval).toMatchObject({
+      officialName: actor.name,
+      signingEvidence: { method: 'AUTHENTICATED', actorId: actor.id, recordedBy: actor.name },
+    });
+
+    actor = { ...actor, roles: [] };
+    const revoke = { approvalId: approval.id, reason: 'Correction needed', officialName: 'External RTS official' };
+    await expect(service.revokeApproval(revoke)).rejects.toThrow('required official role');
+    await expect(service.revokeApproval({ ...revoke, method: 'EXTERNAL' })).rejects.toThrow('evidence');
+    expect(approvals).toHaveLength(1);
+    const revocation = await service.revokeApproval({
+      ...revoke,
+      method: 'EXTERNAL',
+      recordedBy: 'Forged recorder',
+      evidenceReference: 'Signed RTS form 42',
+    });
+    expect(revocation).toMatchObject({
+      officialName: 'External RTS official',
+      signingEvidence: {
+        method: 'EXTERNAL',
+        actorId: actor.id,
+        recordedBy: actor.name,
+        evidenceReference: 'Signed RTS form 42',
+      },
+    });
+    const revoked = await service.getStatus(EVENT_ID);
+    expect(revoked.currentApproval).toBeNull();
+    expect(revoked.approvalHistory).toHaveLength(2);
+    expect(revoked.approvalHistory.find((entry) => entry.id === approval.id)?.signingEvidence?.method).toBe(
+      'AUTHENTICATED',
+    );
+  });
+
   it('blocks approval and publication for unresolved ranks outside the backup-check cutoff', async () => {
     const { service, getResults, setResults } = harness({ topIndividualResults: 1, topTeamResults: 0 });
     const first = getResults()[0]!;

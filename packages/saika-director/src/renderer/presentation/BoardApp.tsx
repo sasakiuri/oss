@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
-import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
+
 import { ElectronEventBus } from '@/renderer/events/ElectronEventBus';
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
-import { TargetBoardScreen } from './features/boards/TargetBoardScreen';
+import { boardService } from '@/renderer/services';
+import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
+
+import { FinalBoardScreen } from './features/boards/FinalBoardScreen';
 import { RankingBoardScreen } from './features/boards/RankingBoardScreen';
 import { ResultsBoardScreen } from './features/boards/ResultsBoardScreen';
-import { FinalBoardScreen } from './features/boards/FinalBoardScreen';
-import { ScoreSheetPrintScreen } from './features/print/ScoreSheetPrintScreen';
-import { ResultsListPrintScreen } from './features/print/ResultsListPrintScreen';
+import { TargetBoardScreen } from './features/boards/TargetBoardScreen';
 import { IncidentReportPrintScreen } from './features/print/IncidentReportPrintScreen';
+import { ProtestPrintScreen } from './features/print/ProtestPrintScreen';
+import { ResultsListPrintScreen } from './features/print/ResultsListPrintScreen';
+import { ScoreSheetPrintScreen } from './features/print/ScoreSheetPrintScreen';
 import { ErrorBoundary } from './features/shared/common';
-import { boardService } from '@/renderer/services';
+
 
 function BoardAppContent() {
   const [config, setConfig] = useState<BoardWindowConfig | null>(null);
@@ -63,6 +67,8 @@ function BoardAppContent() {
       return <ResultsListPrintScreen config={config} />;
     case 'incident-report-print':
       return <IncidentReportPrintScreen config={config} />;
+    case 'protest-print':
+      return <ProtestPrintScreen config={config} />;
     default:
       return (
         <div className="min-h-screen bg-vscode-bg flex items-center justify-center">

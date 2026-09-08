@@ -94,6 +94,11 @@ vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({
 
 import { mqttDirectorIdFromEnvironment, mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import {
+  booleanOperationalSetting,
+  type OperationalProfileService,
+  type OperationalSettingTarget,
+} from '@/main/modules/operational-profiles';
+import {
   ApplyQualificationRecoveryTransportToken,
   StartQualificationRecoveryTransportToken,
 } from '@/main/modules/range-interruptions/domain/IQualificationRecoveryExecutionTransport';
@@ -179,7 +184,11 @@ interface MqttHandlers {
   }): Promise<unknown>;
 }
 
-function registerModule(eventType: string | null): {
+function registerModule(
+  eventType: string | null,
+  operationalSettingTargets: readonly OperationalSettingTarget[] = [],
+): {
+  profiles: Pick<OperationalProfileService, 'preview' | 'apply'>;
   handlers: MqttHandlers;
   publishResults: ReturnType<typeof vi.fn>;
   queryEvent: ReturnType<typeof vi.fn>;
@@ -201,6 +210,7 @@ function registerModule(eventType: string | null): {
   ) => Promise<unknown>;
 } {
   let handlers: MqttHandlers | null = null;
+  let profiles: Pick<OperationalProfileService, 'preview' | 'apply'> | null = null;
   const emitEvent = vi.fn();
   const publishResults = vi.fn().mockResolvedValue({
     savedCount: 0,
@@ -224,6 +234,7 @@ function registerModule(eventType: string | null): {
     ['mqtt.director.id', 'director-test'],
     ['mqtt.commandTimeoutMs', 100],
     ['mqtt.startDelayMs', 0],
+    ['clockQuality.mode', 'ADVISORY'],
   ]);
   const firingWindowBoundaries: Record<string, unknown>[] = [];
   const firingWindowViolations: Record<string, unknown>[] = [];
@@ -253,8 +264,12 @@ function registerModule(eventType: string | null): {
   );
 
   mqttModule.register({
-    relayReadinessService: { getStartSettings: vi.fn(), setStartSettings: vi.fn() } as never,
-    estInspectionStartService: { getSettings: vi.fn(), saveSettings: vi.fn() } as never,
+    operationalSettingTargets,
+    relayReadinessService: {
+      getStartSettings: vi.fn(() => ({ mode: 'ADVISORY' })),
+      setStartSettings: vi.fn(),
+    } as never,
+    estInspectionStartService: { getSettings: vi.fn(() => ({ mode: 'ADVISORY' })), saveSettings: vi.fn() } as never,
     competitionStartReadiness: { assertAllowed: vi.fn(), getStartIssues: getOperationalStartIssues },
     database: {} as never,
     eventBus: { emit: emitEvent } as never,
@@ -262,6 +277,10 @@ function registerModule(eventType: string | null): {
     queryBus: { execute: queryEvent } as never,
     ipcRouter: {
       register: vi.fn((_contract, registeredHandlers) => {
+        if (_contract.namespace === 'operationalProfiles') {
+          profiles = registeredHandlers as Pick<OperationalProfileService, 'preview' | 'apply'>;
+          return;
+        }
         handlers = registeredHandlers as MqttHandlers;
       }),
     } as never,
@@ -328,7 +347,9 @@ function registerModule(eventType: string | null): {
   });
 
   if (!handlers) throw new Error('MQTT handlers were not registered');
+  if (!profiles) throw new Error('Operational profile handlers were not registered');
   return {
+    profiles,
     handlers,
     publishResults,
     queryEvent,
@@ -349,6 +370,34 @@ function registerModule(eventType: string | null): {
 }
 
 describe('mqttModule broker transitions', () => {
+  it('blocks injected shared policy changes while another competition is active and allows a fresh idle retry', async () => {
+    let required = false;
+    const write = vi.fn((value: boolean) => {
+      required = value;
+    });
+    const { profiles } = registerModule('BR60S', [
+      booleanOperationalSetting({ id: 'access', label: 'Authentication', read: () => required, write }),
+    ]);
+    getSnapshot.mockReturnValue({
+      competitions: [
+        { competitionId: COMPETITION_ID, phase: 'NOT_STARTED' },
+        { competitionId: 'other', phase: 'MATCH' },
+      ],
+    });
+    const selection = { competitionId: COMPETITION_ID, modes: { access: 'REQUIRED' as const } };
+    const result = await profiles.apply({ ...selection, fingerprint: (await profiles.preview(selection)).fingerprint });
+    expect(result.results[0]).toMatchObject({
+      id: 'access',
+      status: 'FAILED',
+      message: expect.stringContaining('active competitions'),
+    });
+    expect(write).not.toHaveBeenCalled();
+    getSnapshot.mockReturnValue({ competitions: [{ competitionId: COMPETITION_ID, phase: 'NOT_STARTED' }] });
+    expect(
+      (await profiles.apply({ ...selection, fingerprint: (await profiles.preview(selection)).fingerprint })).complete,
+    ).toBe(true);
+    expect(required).toBe(true);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     connectDirector.mockResolvedValue(undefined);

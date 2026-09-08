@@ -120,6 +120,7 @@ const DeclareFinalResultsInputSchema = z.object({
 const reviewSettingsSchema = z.object({
   requireIncidentReports: z.boolean(),
   requireFinalRecoveriesComplete: z.boolean(),
+  requireProtestCasesComplete: z.boolean(),
 });
 export type ResultPublicationReviewSettingsDto = z.infer<typeof reviewSettingsSchema>;
 

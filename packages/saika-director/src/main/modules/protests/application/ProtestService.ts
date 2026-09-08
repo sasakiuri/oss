@@ -4,6 +4,7 @@ import type {
   ProtestScopePayload,
   RecordProtestEntryPayload,
 } from '@/shared/ipc/contracts';
+
 import type { IProtestRepository } from '../domain/IProtestRepository';
 import { ProtestCase } from '../domain/ProtestCase';
 import { ProtestEntry, protestStatus } from '../domain/ProtestEntry';
@@ -19,6 +20,12 @@ export class ProtestService {
     return this.project(this.repository.findCasesByScope(scope.scopeType, scope.scopeId));
   }
 
+  async getById(caseId: string): Promise<ProtestCaseDto> {
+    const protest = this.repository.findCaseById(caseId);
+    if (!protest) throw new Error(`Protest ${caseId} not found`);
+    return this.project([protest])[0]!;
+  }
+
   async create(input: CreateProtestPayload): Promise<ProtestCaseDto> {
     if (input.kind === 'APPEAL') {
       const parent = input.parentProtestId ? this.repository.findCaseById(input.parentProtestId) : null;
@@ -26,7 +33,10 @@ export class ProtestService {
       if (parent.scopeType !== input.scopeType || parent.scopeId !== input.scopeId) {
         throw new Error('An appeal must use the same scope as its parent protest');
       }
-      if (parent.kind === 'FINAL_VERBAL') throw new Error('A Finals Protest Jury decision cannot be appealed');
+      if (!this.policy.assess(parent).appealPermitted) throw new Error('This protest decision cannot be appealed');
+      if (protestStatus(this.repository.findEntries([parent.id]).get(parent.id) ?? []) === 'VOID') {
+        throw new Error('A void protest cannot be appealed');
+      }
     }
     const protest = ProtestCase.create({
       ...input,

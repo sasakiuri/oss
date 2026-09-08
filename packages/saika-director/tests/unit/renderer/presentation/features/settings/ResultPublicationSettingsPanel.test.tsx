@@ -12,7 +12,7 @@ describe('ResultPublicationSettingsPanel', () => {
   it('saves each review requirement independently', async () => {
     getReviewSettings.mockResolvedValue({
       success: true,
-      data: { requireIncidentReports: true, requireFinalRecoveriesComplete: true },
+      data: { requireIncidentReports: true, requireFinalRecoveriesComplete: true, requireProtestCasesComplete: true },
     });
     setReviewSettings.mockImplementation(async (data) => ({ success: true, data }));
     render(<ResultPublicationSettingsPanel />);
@@ -22,6 +22,7 @@ describe('ResultPublicationSettingsPanel', () => {
       expect(setReviewSettings).toHaveBeenCalledWith({
         requireIncidentReports: true,
         requireFinalRecoveriesComplete: false,
+        requireProtestCasesComplete: true,
       }),
     );
     expect(await screen.findByRole('status')).toHaveTextContent('checks saved');

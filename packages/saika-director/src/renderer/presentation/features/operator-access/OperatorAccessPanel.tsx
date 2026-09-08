@@ -20,6 +20,7 @@ const officialRoles: [OperatorAccount['officialRoles'][number], string][] = [
   ['JURY_MEMBER', 'Jury member'],
   ['EQUIPMENT_CONTROL_JURY', 'Equipment Control Jury'],
   ['ANTI_DOPING_AUTHORITY', 'Anti-doping authority'],
+  ['RTS_JURY', 'RTS Jury (result approval)'],
 ];
 const blank: OperatorAccount = { id: '', name: '', permissions: [], officialRoles: [], disabled: false };
 
@@ -228,7 +229,7 @@ export function OperatorAccessPanel() {
               )}
               <p className="text-sm text-vscode-text-muted">
                 No operation permissions gives read access. Championship setup and account administration require
-                Administration. Assign sanction signing roles separately according to the official's actual appointment.
+                Administration. Assign official signing roles separately according to the official's actual appointment.
               </p>
               <div className="flex flex-wrap gap-4">
                 {officialRoles.map(([role, label]) => (

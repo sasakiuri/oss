@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
 const uuid = z.string().uuid();
@@ -85,6 +86,7 @@ export type ProtestCaseDto = z.infer<typeof protest>;
 
 export const protestsContract = defineContract('protests', {
   list: query(scope, queryResponseSchema(z.array(protest))),
+  getById: query(z.object({ caseId: uuid }), queryResponseSchema(protest)),
   create: command(create, commandDataResponseSchema(protest)),
   recordEntry: command(recordEntry, commandDataResponseSchema(protest)),
 });

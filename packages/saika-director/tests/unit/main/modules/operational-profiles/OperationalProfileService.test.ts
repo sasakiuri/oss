@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   OperationalProfileService,
+  booleanOperationalSetting,
   type OperationalMode,
   type OperationalSettingTarget,
 } from '@/main/modules/operational-profiles';
@@ -31,6 +32,27 @@ function harness() {
 }
 
 describe('OperationalProfileService', () => {
+  it('exposes binary modes and rejects unsupported selections before any setting is written', async () => {
+    let required = false;
+    const write = vi.fn((value: boolean) => {
+      required = value;
+    });
+    const target = booleanOperationalSetting({ id: 'access', label: 'Authentication', read: () => required, write });
+    const service = new OperationalProfileService([target], () => {});
+    await expect(service.preview({ competitionId: 'competition', modes: { access: 'ADVISORY' } })).rejects.toThrow(
+      'Unsupported',
+    );
+    expect(write).not.toHaveBeenCalled();
+    const selection = { competitionId: 'competition', modes: { access: 'REQUIRED' as const } };
+    const preview = await service.preview(selection);
+    expect(preview.changes[0]).toMatchObject({
+      before: 'DISABLED',
+      after: 'REQUIRED',
+      supportedModes: ['DISABLED', 'REQUIRED'],
+    });
+    expect((await service.apply({ ...selection, fingerprint: preview.fingerprint })).complete).toBe(true);
+    expect(required).toBe(true);
+  });
   it('requires a current preview and preserves each selected setting independently', async () => {
     const { service, state, targets } = harness();
     const selection = { competitionId: 'competition-1', modes: { relay: 'REQUIRED' as const } };

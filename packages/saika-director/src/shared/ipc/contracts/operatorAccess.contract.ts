@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
 export const operatorPermissionSchema = z.enum(['ADMIN', 'OPERATE', 'OFFICIATE', 'EQUIPMENT']);
-export const operatorOfficialRoleSchema = z.enum(['JURY_MEMBER', 'EQUIPMENT_CONTROL_JURY', 'ANTI_DOPING_AUTHORITY']);
+export const operatorOfficialRoleSchema = z.enum([
+  'JURY_MEMBER',
+  'EQUIPMENT_CONTROL_JURY',
+  'ANTI_DOPING_AUTHORITY',
+  'RTS_JURY',
+]);
 const name = z.string().trim().min(1).max(150);
 const account = z.object({
   id: z.string().uuid(),
@@ -21,7 +26,7 @@ export const saveOperatorAccountSchema = z.object({
   id: z.string().uuid().nullable(),
   name,
   permissions: z.array(operatorPermissionSchema).max(4),
-  officialRoles: z.array(operatorOfficialRoleSchema).max(3),
+  officialRoles: z.array(operatorOfficialRoleSchema).max(4),
   disabled: z.boolean(),
   password: z.string().min(10).max(200).nullable(),
 });
@@ -38,6 +43,7 @@ export type OperatorAccessStatus = z.infer<typeof status>;
 export type OperatorAuditEntry = z.infer<typeof audit>;
 export type OperatorPermission = z.infer<typeof operatorPermissionSchema>;
 export const operatorAccessContract = defineContract('operatorAccess', {
+  getSigningAccounts: query(z.void(), queryResponseSchema(z.array(z.object({ id: z.string().uuid(), name })))),
   status: query(z.void(), queryResponseSchema(status)),
   signIn: command(z.object({ name, password: z.string().min(1).max(200) }), commandDataResponseSchema(status)),
   signOut: command(z.void(), commandDataResponseSchema(status)),

@@ -108,6 +108,7 @@ describe('AppConfigSchema', () => {
         'clockQuality.maxSampleAgeMilliseconds': 300_000,
         'resultPublication.requireIncidentReports': true,
         'resultPublication.requireFinalRecoveriesComplete': true,
+        'resultPublication.requireProtestCasesComplete': true,
         'competitionAnnouncements.enabled': true,
       });
     });
@@ -127,6 +128,7 @@ describe('AppConfigSchema', () => {
         'clockQuality.maxSampleAgeMilliseconds': 300_000,
         'resultPublication.requireIncidentReports': true,
         'resultPublication.requireFinalRecoveriesComplete': true,
+        'resultPublication.requireProtestCasesComplete': true,
         'competitionAnnouncements.enabled': true,
       });
     });
@@ -160,6 +162,7 @@ describe('AppConfigSchema', () => {
         'clockQuality.maxSampleAgeMilliseconds': 300_000,
         'resultPublication.requireIncidentReports': true,
         'resultPublication.requireFinalRecoveriesComplete': true,
+        'resultPublication.requireProtestCasesComplete': true,
         'competitionAnnouncements.enabled': true,
       };
       expect(config['mqtt.broker.port']).toBeTypeOf('number');

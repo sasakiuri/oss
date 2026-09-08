@@ -64,6 +64,17 @@ export function ResultPublicationSettingsPanel() {
           <label className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
+              checked={settings.requireProtestCasesComplete}
+              onChange={(event) => {
+                setSettings({ ...settings, requireProtestCasesComplete: event.target.checked });
+                setSaved(false);
+              }}
+            />
+            Require closed or voided protest and appeal cases
+          </label>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
               checked={settings.requireIncidentReports}
               onChange={(event) => {
                 setSettings({ ...settings, requireIncidentReports: event.target.checked });

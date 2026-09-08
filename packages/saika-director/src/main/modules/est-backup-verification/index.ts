@@ -1,5 +1,7 @@
 export { estBackupVerificationModule } from './estBackupVerification.module';
 export { EstBackupRecordImportService } from './application/EstBackupRecordImportService';
+export { ColumnMappedEstBackupRecordParser } from './domain/ColumnMappedEstBackupRecordParser';
+export type { EstBackupColumnMapping } from './domain/ColumnMappedEstBackupRecordParser';
 export type {
   IEstBackupRecordFileGateway,
   SelectedEstBackupRecordFile,
