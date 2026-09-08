@@ -14,7 +14,7 @@ import { ProtestPrintScreen } from './features/print/ProtestPrintScreen';
 import { ResultsListPrintScreen } from './features/print/ResultsListPrintScreen';
 import { ScoreSheetPrintScreen } from './features/print/ScoreSheetPrintScreen';
 import { ErrorBoundary } from './features/shared/common';
-
+import { EstBackupSourcePrintScreen } from './features/print/EstBackupSourcePrintScreen';
 
 function BoardAppContent() {
   const [config, setConfig] = useState<BoardWindowConfig | null>(null);
@@ -69,6 +69,8 @@ function BoardAppContent() {
       return <IncidentReportPrintScreen config={config} />;
     case 'protest-print':
       return <ProtestPrintScreen config={config} />;
+    case 'est-backup-source-print':
+      return <EstBackupSourcePrintScreen config={config} />;
     default:
       return (
         <div className="min-h-screen bg-vscode-bg flex items-center justify-center">

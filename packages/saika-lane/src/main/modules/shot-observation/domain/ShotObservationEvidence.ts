@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { Phase } from '@/main/modules/competition/domain/Phase';
+import { parseShotTimestampSource, type ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 import type { ShotObservation, ShotObservationOutcome, ShotObservationOutcomeType } from './ShotObservation';
 
@@ -22,6 +23,7 @@ export interface ShotObservationEvidence {
   readonly y: number | null;
   readonly deviceScoreX10: number | null;
   readonly firedAt: Date;
+  readonly timestampSource: ShotTimestampSource;
   readonly receivedAt: Date;
   readonly reportedMode: 'SIGHTING' | 'MATCH' | null;
   readonly rawFrameHex: string | null;
@@ -46,6 +48,7 @@ export function createShotObservationEvidence(
     y: observation.y,
     deviceScoreX10: observation.deviceScoreX10,
     firedAt: observation.firedAt,
+    timestampSource: observation.timestampSource,
     receivedAt: observation.receivedAt,
     reportedMode: observation.reportedMode,
     rawFrameHex: observation.rawFrameHex,
@@ -77,6 +80,7 @@ export function parseShotObservationEvidence(payloadJson: string): ShotObservati
     y: nullableNumber(value.y, 'y'),
     deviceScoreX10: nullableNumber(value.deviceScoreX10, 'deviceScoreX10'),
     firedAt: requiredDate(value.firedAt, 'firedAt'),
+    timestampSource: parseShotTimestampSource(value.timestampSource),
     receivedAt: requiredDate(value.receivedAt, 'receivedAt'),
     reportedMode: value.reportedMode as 'SIGHTING' | 'MATCH' | null,
     rawFrameHex: nullableString(value.rawFrameHex, 'rawFrameHex'),

@@ -104,6 +104,34 @@ describe('LaneTimerService', () => {
   });
 
   describe('startAt()', () => {
+    it('expires immediately if loading the competition crosses the original deadline', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 2_000);
+        return state;
+      });
+
+      await timerService.startAt('comp-1', new Date().toISOString(), 1);
+
+      expect(mockEventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'TimerExpired' }));
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('keeps the absolute deadline when a command arrives between whole seconds', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      const receivedAt = Date.now();
+      await timerService.startAt('comp-1', new Date(receivedAt - 1_500).toISOString(), 60);
+
+      vi.setSystemTime(receivedAt + 58_499);
+      await timerService.processTick();
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'TimerExpired' }));
+
+      vi.setSystemTime(receivedAt + 58_500);
+      await timerService.processTick();
+      expect(mockEventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'TimerExpired' }));
+    });
+
     it('recent past time: timer starts with remaining time', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
@@ -213,6 +241,46 @@ describe('LaneTimerService', () => {
   });
 
   describe('processTick()', () => {
+    it('does not count the same wall-clock interval twice after a rollback', async () => {
+      const startedAt = Date.now();
+      timerService.start('comp-1', 600, 600);
+      for (const elapsedMs of [10_000, 5_000, 10_000, 11_000]) {
+        vi.setSystemTime(startedAt + elapsedMs);
+        await timerService.processTick();
+      }
+
+      expect(mockEventBus.emit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: 'TimerTick', remainingSeconds: 589 }),
+      );
+    });
+
+    it('does not accumulate rounding errors across delayed callbacks', async () => {
+      timerService.start('comp-1', 600, 600);
+      for (let tick = 0; tick < 10; tick += 1) {
+        vi.setSystemTime(Date.now() + 1_499);
+        await timerService.processTick();
+      }
+
+      expect(mockEventBus.emit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: 'TimerTick', remainingSeconds: 586 }),
+      );
+    });
+
+    it('does not expire early when callbacks occur within the same second', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      timerService.start('comp-1', 2, 600);
+      for (let tick = 0; tick < 3; tick += 1) {
+        vi.setSystemTime(Date.now() + 600);
+        await timerService.processTick();
+      }
+
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'TimerExpired' }));
+      expect(mockEventBus.emit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: 'TimerTick', remainingSeconds: 1 }),
+      );
+    });
+
     it('TimerTick event is emitted from in-memory state', async () => {
       timerService.start('comp-1', 600, 600);
       vi.setSystemTime(Date.now() + 1000); // simulate 1 second elapsed
@@ -399,6 +467,92 @@ describe('LaneTimerService', () => {
   });
 
   describe('interruption controls', () => {
+    it('does not stop a replacement timer while loading the interrupted competition', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      let releaseRead!: (value: CompetitionState) => void;
+      vi.mocked(mockCompetitionRepo.findById).mockImplementationOnce(
+        () =>
+          new Promise<CompetitionState>((resolve) => {
+            releaseRead = resolve;
+          }),
+      );
+      timerService.start('comp-1', 600, 600);
+      const pause = timerService.pause('comp-1');
+      timerService.start('comp-1', 900, 900);
+      releaseRead(state);
+
+      await expect(pause).rejects.toThrow('timer changed');
+      expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mockEventBus.emit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: 'TimerTick', remainingSeconds: 899 }),
+      );
+    });
+
+    it('does not stop or report a stale pause over a replacement timer during persistence', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      let releaseSave!: () => void;
+      vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseSave = resolve;
+          }),
+      );
+      timerService.start('comp-1', 600, 600);
+      const pause = timerService.pause('comp-1');
+      await Promise.resolve();
+      timerService.start('comp-1', 900, 900);
+      vi.clearAllMocks();
+      releaseSave();
+
+      await expect(pause).rejects.toThrow('timer changed');
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mockEventBus.emit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: 'TimerTick', remainingSeconds: 899 }),
+      );
+    });
+
+    it('keeps the countdown frozen while saving the interrupted time', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      let releaseSave!: () => void;
+      vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseSave = resolve;
+          }),
+      );
+      timerService.start('comp-1', 600, 600);
+      vi.setSystemTime(Date.now() + 10_000);
+
+      const pause = timerService.pause('comp-1');
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(600_000);
+      releaseSave();
+
+      await expect(pause).resolves.toEqual({ remainingSeconds: 590, totalSeconds: 600 });
+      expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(1);
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'TimerExpired' }));
+      expect(mockEventBus.emit).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'PhaseChanged' }));
+    });
+
+    it('remains stopped when persisting the interrupted time fails', async () => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      vi.mocked(mockCompetitionRepo.save).mockRejectedValueOnce(new Error('storage unavailable'));
+      timerService.start('comp-1', 600, 600);
+
+      await expect(timerService.pause('comp-1')).rejects.toThrow('storage unavailable');
+      vi.clearAllMocks();
+      await vi.advanceTimersByTimeAsync(600_000);
+
+      expect(vi.getTimerCount()).toBe(0);
+      expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+    });
+
     it('freezes and persists the exact in-memory remaining time', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);

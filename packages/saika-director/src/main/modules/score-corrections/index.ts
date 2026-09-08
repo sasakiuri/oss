@@ -9,3 +9,5 @@ export { scoreCorrectionsModule } from './scoreCorrections.module';
 
 export { CompositeScoreCorrectionCaseSource } from './infra/CompositeScoreCorrectionCaseSource';
 export { FinalFiringScoreCorrectionCaseSource } from './infra/FinalFiringScoreCorrectionCaseSource';
+
+export type { IScoreCorrectionRepository } from './domain/ScoreCorrection';

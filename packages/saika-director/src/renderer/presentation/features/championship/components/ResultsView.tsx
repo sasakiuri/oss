@@ -196,14 +196,39 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     }
   }, [eventId, eventName, selectedRelay]);
 
+  const backupControls = !readOnly && (
+    <div className="space-y-3">
+      <Button size="sm" variant="secondary" onClick={() => setBackupVerificationOpen(true)}>
+        EST backup verification
+      </Button>
+      {backupVerificationOpen && (
+        <EstBackupVerificationPanel
+          key={`${eventId}:${round}`}
+          eventId={eventId}
+          resultScope={isFinal ? 'FINAL' : 'QUALIFICATION'}
+          initialKind={isFinal && mixedFinalResults.length > 0 ? 'MIXED_TEAM' : 'INDIVIDUAL'}
+          onClose={() => setBackupVerificationOpen(false)}
+        />
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="border-y border-vscode-border py-4 text-[13px] text-vscode-text-muted">Loading results…</div>
+      <div className="space-y-3">
+        <p className="border-y border-vscode-border py-4 text-[13px] text-vscode-text-muted">Loading results…</p>
+        {backupControls}
+      </div>
     );
   }
 
   if (error) {
-    return <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>;
+    return (
+      <div className="space-y-3">
+        <p className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</p>
+        {backupControls}
+      </div>
+    );
   }
 
   if (isFinal) {
@@ -223,6 +248,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             </div>
           )}
           <MixedTeamFinalResultsTable results={mixedFinalResults} />
+          {backupControls}
           {!readOnly && verificationOpen && (
             <ResultVerificationPanel
               eventId={eventId}
@@ -280,6 +306,8 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             One or more Final placements require jury review. Source elimination ranks are preserved until reviewed.
           </div>
         )}
+
+        {backupControls}
 
         <div className="overflow-auto border border-vscode-border rounded">
           <table className="w-full text-vscode-text">
@@ -396,6 +424,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       <div className="border-y border-vscode-border py-4">
         <p className="text-[13px] font-medium text-vscode-text">No results</p>
         <p className="mt-1 text-xs text-vscode-text-muted">Results appear when the competition ends.</p>
+        {backupControls}
       </div>
     );
   }
@@ -564,7 +593,11 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       )}
       {!isFinal && teamResultsOpen && <TeamResultsPanel eventId={eventId} onClose={() => setTeamResultsOpen(false)} />}
       {!isFinal && backupVerificationOpen && (
-        <EstBackupVerificationPanel eventId={eventId} onClose={() => setBackupVerificationOpen(false)} />
+        <EstBackupVerificationPanel
+          key={`${eventId}:${round}`}
+          eventId={eventId}
+          onClose={() => setBackupVerificationOpen(false)}
+        />
       )}
     </div>
   );

@@ -28,11 +28,18 @@ import {
   SqliteAthleteEntryReferenceSource,
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
+import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/BackupCaptureReadinessService';
+import { SqliteBackupCaptureReadinessSettingsRepository } from '@/main/modules/backup-capture-readiness/SqliteBackupCaptureReadinessSettingsRepository';
 import { boardModule } from '@/main/modules/board';
 import { championshipModule, SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
 import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
 import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
 import { equipmentRegistryModule } from '@/main/modules/equipment-registry';
+import { ElectronEstBackupFeedSelector } from '@/main/modules/est-backup-capture/ElectronEstBackupFeedSelector';
+import { EstBackupCaptureService } from '@/main/modules/est-backup-capture/EstBackupCaptureService';
+import { EstBackupParserReferences } from '@/main/modules/est-backup-capture/EstBackupParserReferences';
+import { SqliteEstBackupCapturePlanRepository } from '@/main/modules/est-backup-capture/SqliteEstBackupCapturePlanRepository';
+import { EstBackupSourceService, SqliteEstBackupSourceRepository } from '@/main/modules/est-backup-sources';
 import {
   CanonicalCsvEstBackupRecordParser,
   CanonicalJsonEstBackupRecordParser,
@@ -41,6 +48,8 @@ import {
   EstBackupRecordParserRegistry,
   estBackupVerificationModule,
   EstBackupVerificationService,
+  EstBackupResultCheckService,
+  FinalEstBackupSubjectSource,
   SqliteEstBackupVerificationRepository,
 } from '@/main/modules/est-backup-verification';
 import {
@@ -102,6 +111,14 @@ import {
   SqliteFiringWindowJournal,
   SqliteShotObservationEvidenceJournal,
 } from '@/main/modules/mqtt';
+import {
+  observationReviewsModule,
+  ObservationReviewService,
+  SqliteObservationReviewRepository,
+  StoredReviewSubjects,
+  AppliedReviewCorrections,
+  ObservationReviewPublicationBlocker,
+} from '@/main/modules/observation-reviews';
 import { OfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   CompetitionEvidenceBundleBuilder,
@@ -119,7 +136,12 @@ import {
   registerOperatorAccess,
   SessionSanctionAuthorizationResolver,
 } from '@/main/modules/operator-access';
-import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
+import {
+  postCompetitionEquipmentControlModule,
+  EquipmentControlPublicationBlocker,
+  StoredEquipmentControlPublicationSource,
+  SqlitePostCompetitionEquipmentCheckRepository,
+} from '@/main/modules/post-competition-equipment-control';
 import { productionOperationsModule } from '@/main/modules/production-operations';
 import {
   protestsModule,
@@ -127,6 +149,12 @@ import {
   SqliteProtestEventScope,
   SqliteProtestRepository,
 } from '@/main/modules/protests';
+import {
+  PublicationReviewPolicyService,
+  PolicyBoundVerificationSource,
+  SqlitePublicationReviewPolicyRepository,
+  registerPublicationReviewPolicies,
+} from '@/main/modules/publication-review-policies';
 import {
   QualificationMalfunctionPublicationBlocker,
   qualificationMalfunctionsModule,
@@ -230,12 +258,14 @@ import { CompositeCompetitionDataGuard } from '@/main/shared-infra/operations/Co
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
 import { eventsContract } from '@/shared/ipc/contracts';
+import { backupCaptureReadinessContract } from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
 import { Logger } from '@/shared/utils/Logger';
 
 const logger = Logger.create('createApp');
 
 // Static module list (Vite/Electron safe — no dynamic import)
 const modules = [
+  observationReviewsModule,
   malfunctionScoreApplicationsModule,
   scoreCorrectionsModule,
   evidenceFilesModule,
@@ -349,6 +379,7 @@ export function createApp(preloadPath: string): AppServices {
   ]);
   const finalPlacementReviewRepository = new SqliteFinalPlacementReviewRepository(database);
   const resultPublicationRepository = new SqliteResultPublicationRepository(database);
+  const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
   const irregularShotCaseRepository = new SqliteIrregularShotCaseRepository(database);
   const athleteSanctionRepository = new SqliteAthleteSanctionRepository(database);
   const athleteEntryReferenceSource = new SqliteAthleteEntryReferenceSource(database);
@@ -371,6 +402,26 @@ export function createApp(preloadPath: string): AppServices {
     authenticationRequired: () => operatorAccessStore.enabled(),
     findActiveAccount: (id) => operatorAccessService.signingAccounts().find((actor) => actor.id === id) ?? null,
   });
+  const policyEvents = new SqliteEventRepository(database, competitionTypeRegistry);
+  const publicationReviewPolicies = new PublicationReviewPolicyService(
+    new SqlitePublicationReviewPolicyRepository(database),
+    () => ({
+      requireObservationReviews: appConfigService.get('resultPublication.requireObservationReviews'),
+      requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
+      requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+      requireProtestCasesComplete: appConfigService.get('resultPublication.requireProtestCasesComplete'),
+      requireEquipmentChecksComplete: appConfigService.get('resultPublication.requireEquipmentChecksComplete'),
+    }),
+    (eventId, scope) => {
+      const event = policyEvents.findById(eventId);
+      if (!event || event.round.value !== (scope === 'FINAL' ? 'Final' : 'Qualification')) return false;
+      return (
+        !resultPublicationRepository.findByEvent(eventId, scope).some((entry) => entry.type === 'OFFICIAL_PUBLISHED') &&
+        (scope !== 'FINAL' || finalResultDeclarationRepository.findByEvent(eventId) === null)
+      );
+    },
+    officialSigningPolicy,
+  );
   const sanctionAuthorizationResolver = new SessionSanctionAuthorizationResolver(
     () => operatorAccessService.currentActor(),
     () => operatorAccessStore.enabled(),
@@ -445,6 +496,18 @@ export function createApp(preloadPath: string): AppServices {
       ),
     ]),
   );
+  const reviewCompetitionScope = new SqliteProtestEventScope(database);
+  const observationReviewService = new ObservationReviewService(
+    new StoredReviewSubjects(shotObservationEvidenceJournal, firingWindowJournal),
+    new SqliteObservationReviewRepository(database),
+    new AppliedReviewCorrections(
+      new SqliteScoreCorrectionRepository(database),
+      scoreCorrectionService,
+      (eventId, scope) => reviewCompetitionScope.competitionIds(eventId, scope),
+    ),
+    undefined,
+    (eventId, scope) => reviewCompetitionScope.competitionIds(eventId, scope),
+  );
   const qualificationResultsReader = new QualificationResultsReader(
     queryBus,
     resultRepository,
@@ -479,33 +542,69 @@ export function createApp(preloadPath: string): AppServices {
     new CanonicalJsonEstBackupRecordParser(),
     new CanonicalCsvEstBackupRecordParser(),
   ]);
+  const estBackupSourceService = new EstBackupSourceService(
+    new SqliteEstBackupSourceRepository(database),
+    (id) => policyEvents.findById(id) !== null,
+  );
   const estBackupRecordImportService = new EstBackupRecordImportService(
     new ElectronEstBackupRecordFileGateway(estBackupRecordParsers.supportedExtensions),
     estBackupRecordParsers,
+    estBackupSourceService,
+  );
+  const estBackupFeedSelector = new ElectronEstBackupFeedSelector();
+  const estBackupParserReferences = new EstBackupParserReferences();
+  const estBackupCapturePlans = new SqliteEstBackupCapturePlanRepository(database);
+  const estBackupCaptureService = new EstBackupCaptureService(
+    estBackupFeedSelector,
+    estBackupRecordImportService,
+    (id) => policyEvents.findById(id) !== null,
+    estBackupRecordParsers.supportedExtensions,
+    undefined,
+    undefined,
+    {
+      plans: estBackupCapturePlans,
+      restoreFeed: (reference) => estBackupFeedSelector.restore(reference),
+      describeParser: (parser) => estBackupParserReferences.describe(parser),
+      restoreParser: (reference) => estBackupParserReferences.restore(reference),
+    },
+  );
+  const finalVerificationSource = new FinalResultVerificationSource(
+    queryBus,
+    finalResultsReader,
+    mixedTeamFinalResultRepository,
+    competitionTypeRegistry,
   );
   const estBackupVerificationService = new EstBackupVerificationService(
     new SqliteEstBackupVerificationRepository(database),
     participantRepository,
     qualificationResultsReader,
     teamResultsService,
+    new FinalEstBackupSubjectSource(finalVerificationSource, participantRepository),
+    estBackupSourceService,
   );
   const resultVerificationService = new ResultVerificationService(
     resultVerificationRepository,
-    new ResultVerificationSourceRegistry([
-      new QualificationResultVerificationSource(
-        queryBus,
-        qualificationResultsReader,
-        competitionTypeRegistry,
-        estBackupVerificationService,
+    new ResultVerificationSourceRegistry(
+      [
+        new QualificationResultVerificationSource(
+          queryBus,
+          qualificationResultsReader,
+          competitionTypeRegistry,
+          estBackupVerificationService,
+        ),
+        finalVerificationSource,
+      ].map(
+        (source) =>
+          new PolicyBoundVerificationSource(source, (eventId, scope) =>
+            publicationReviewPolicies.approvalRevision(eventId, scope),
+          ),
       ),
-      new FinalResultVerificationSource(
-        queryBus,
-        finalResultsReader,
-        mixedTeamFinalResultRepository,
-        competitionTypeRegistry,
-      ),
-    ]),
+    ),
     officialSigningPolicy,
+  );
+  const estBackupResultCheckService = new EstBackupResultCheckService(
+    new SqliteEstBackupVerificationRepository(database),
+    resultVerificationService,
   );
   const relayReadinessService = new RelayReadinessService(
     new SqliteRelayReadinessRepository(database),
@@ -516,14 +615,40 @@ export function createApp(preloadPath: string): AppServices {
     new SqliteEstInspectionStartSettingsRepository(database),
     new SqliteEstChampionshipInspectionRepository(database),
   );
-  const competitionStartReadiness = new CompetitionStartReadiness([relayReadinessService, estInspectionStartService]);
+  const backupCaptureReadiness = new BackupCaptureReadinessService(
+    new SqliteBackupCaptureReadinessSettingsRepository(database),
+    (eventId) => estBackupCaptureService.status(eventId),
+    (eventId) => policyEvents.findById(eventId) !== null,
+  );
+  const competitionStartReadiness = new CompetitionStartReadiness([
+    relayReadinessService,
+    estInspectionStartService,
+    backupCaptureReadiness,
+  ]);
   const verifiedResultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
   const resultPublicationReadiness = new GuardedResultPublicationReadiness(verifiedResultPublicationReadiness, [
+    new OptionalResultPublicationBlocker(
+      new ObservationReviewPublicationBlocker(observationReviewService, (eventId, scope) =>
+        reviewCompetitionScope.competitionIds(eventId, scope),
+      ),
+      (eventId, scope) => publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireObservationReviews,
+    ),
+    new OptionalResultPublicationBlocker(
+      new EquipmentControlPublicationBlocker(
+        new StoredEquipmentControlPublicationSource(
+          new SqlitePostCompetitionEquipmentCheckRepository(database),
+          athleteSanctionRepository,
+          athleteEntryReferenceSource,
+        ),
+      ),
+      (eventId, scope) =>
+        publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireEquipmentChecksComplete,
+    ),
     new OptionalResultPublicationBlocker(
       new ProtestPublicationBlocker(new SqliteProtestRepository(database), (eventId, resultScope) =>
         new SqliteProtestEventScope(database).competitionIds(eventId, resultScope),
       ),
-      () => appConfigService.get('resultPublication.requireProtestCasesComplete'),
+      (eventId, scope) => publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireProtestCasesComplete,
     ),
     new IrregularShotPublicationBlocker(
       irregularShotCaseRepository,
@@ -533,16 +658,16 @@ export function createApp(preloadPath: string): AppServices {
     new QualificationMalfunctionPublicationBlocker(new SqliteQualificationMalfunctionRepository(database)),
     new OptionalResultPublicationBlocker(
       new IncidentReportPublicationBlocker(rangeIncidentReportRepository, scoringDecisionRepository),
-      () => appConfigService.get('resultPublication.requireIncidentReports'),
+      (eventId, scope) => publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireIncidentReports,
     ),
     new OptionalResultPublicationBlocker(
       new FinalRecoveryPublicationBlocker(new SqliteFinalRecoveryRepository(database), (eventId) =>
         new SqliteFinalRecoveryEventScope(database).competitionIds(eventId),
       ),
-      () => appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
+      (eventId, scope) =>
+        publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireFinalRecoveriesComplete,
     ),
   ]);
-  const finalResultDeclarationRepository = new SqliteFinalResultDeclarationRepository(database);
   const resultsBookResultSnapshots = new VerifiedResultsBookResultSnapshotSource(
     resultVerificationService,
     new ResultWorkflowOfficialRevisionSource(resultPublicationRepository, finalResultDeclarationRepository),
@@ -573,13 +698,49 @@ export function createApp(preloadPath: string): AppServices {
   // IPC Router
   const ipcRouter = new IpcRouter(operatorAccessService);
   registerOperatorAccess(ipcRouter, operatorAccessService);
+  registerPublicationReviewPolicies(ipcRouter, publicationReviewPolicies);
+  ipcRouter.register(backupCaptureReadinessContract, {
+    get: async ({ competitionId }) => backupCaptureReadiness.get(competitionId),
+    save: async (input) => backupCaptureReadiness.save(input),
+    sources: async () =>
+      estBackupCapturePlans.list().flatMap((plan) => {
+        const event = policyEvents.findById(plan.eventId);
+        return event ? [{ eventId: plan.eventId, label: `${event.name} · ${plan.sourceLabel}` }] : [];
+      }),
+  });
 
   // Timer Service
   const laneTimerService = new LaneTimerService(laneControlRepository, eventBus);
 
   // === Build ServiceRegistry ===
   const registry: ServiceRegistry = {
+    observationReviewService,
     operationalSettingTargets: [
+      {
+        id: 'backup-capture',
+        label: 'Independent backup capture availability',
+        scope: 'COMPETITION',
+        read: (competitionId) => {
+          const current = backupCaptureReadiness.get(competitionId);
+          return { mode: current.settings.mode, context: current.revision };
+        },
+        write: (competitionId, mode) => {
+          const current = backupCaptureReadiness.get(competitionId);
+          backupCaptureReadiness.save({ ...current.settings, mode, expectedRevision: current.revision });
+        },
+      },
+      booleanOperationalSetting({
+        id: 'publication-observations',
+        label: 'Reviewed unscored shots and firing-window evidence before official publication',
+        read: () => appConfigService.get('resultPublication.requireObservationReviews'),
+        write: (required) => appConfigService.set('resultPublication.requireObservationReviews', required),
+      }),
+      booleanOperationalSetting({
+        id: 'publication-equipment',
+        label: 'Completed equipment checks and adjudications before official publication',
+        read: () => appConfigService.get('resultPublication.requireEquipmentChecksComplete'),
+        write: (required) => appConfigService.set('resultPublication.requireEquipmentChecksComplete', required),
+      }),
       booleanOperationalSetting({
         id: 'publication-protests',
         label: 'Completed protest cases before official publication',
@@ -626,6 +787,9 @@ export function createApp(preloadPath: string): AppServices {
     mixedTeamFinalResultRepository,
     teamResultsService,
     estBackupRecordImportService,
+    estBackupCaptureService,
+    estBackupSourceService,
+    estBackupResultCheckService,
     estBackupVerificationService,
     scoringDecisionAdmissionPolicy,
     scoringDecisionRepository,

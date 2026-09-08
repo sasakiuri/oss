@@ -59,7 +59,13 @@ describe('ProtestPrintScreen', () => {
     render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: APPEAL_ID }} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Cannot load the original protest');
     expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
-    getById.mockResolvedValue({ success: true, data: protestFixture({ status: 'CLOSED' }) });
+    getById.mockImplementation(async ({ caseId }: { caseId: string }) => ({
+      success: true,
+      data:
+        caseId === APPEAL_ID
+          ? protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID, status: 'CLOSED' })
+          : protestFixture(),
+    }));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(await screen.findByText('Status: CLOSED')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Print' })).toBeEnabled();
@@ -74,5 +80,19 @@ describe('ProtestPrintScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Connection lost');
     expect(screen.queryByRole('heading', { name: 'Written protest record' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
+  });
+
+  it('discards temporary transfer entries on refresh and refuses a mismatched record', async () => {
+    getById.mockResolvedValue({ success: true, data: protestFixture() });
+    render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: PROTEST_ID }} />);
+    fireEvent.click(await screen.findByText('Transfer values to a protest or appeal form'));
+    fireEvent.change(screen.getByLabelText('Event for transfer'), { target: { value: 'Rifle' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(await screen.findByText('Transfer values to a protest or appeal form'));
+    expect(screen.getByLabelText('Event for transfer')).toHaveValue('');
+    getById.mockResolvedValue({ success: true, data: protestFixture({ id: APPEAL_ID }) });
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not match');
+    expect(screen.queryByText('Transfer values to a protest or appeal form')).not.toBeInTheDocument();
   });
 });

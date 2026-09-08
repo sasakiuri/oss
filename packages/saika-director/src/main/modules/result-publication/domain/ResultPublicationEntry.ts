@@ -17,6 +17,8 @@ export interface PreliminaryPublishedEntry extends ResultPublicationEntryBase {
   readonly postedAt: Date;
   readonly protestEndsAt: Date;
   readonly officialName: string;
+  readonly postingLocation?: string;
+  readonly postingReference?: string;
 }
 
 export interface ProtestRegisteredEntry extends ResultPublicationEntryBase {
@@ -45,6 +47,9 @@ export function createPreliminaryPublishedEntry(props: {
   postedAt: Date;
   protestEndsAt: Date;
   officialName: string;
+  recordedAt?: Date;
+  postingLocation?: string;
+  postingReference?: string;
 }): PreliminaryPublishedEntry {
   const id = crypto.randomUUID();
   return reconstructResultPublicationEntry({
@@ -57,7 +62,9 @@ export function createPreliminaryPublishedEntry(props: {
     postedAt: props.postedAt,
     protestEndsAt: props.protestEndsAt,
     officialName: props.officialName,
-    recordedAt: props.postedAt,
+    recordedAt: props.recordedAt ?? props.postedAt,
+    ...(props.postingLocation !== undefined ? { postingLocation: props.postingLocation } : {}),
+    ...(props.postingReference !== undefined ? { postingReference: props.postingReference } : {}),
   });
 }
 
@@ -139,6 +146,9 @@ export function reconstructResultPublicationEntry(entry: ResultPublicationEntry)
       validateText(entry.officialName, 'officialName');
       const postedAt = validDate(entry.postedAt, 'postedAt');
       const protestEndsAt = validDate(entry.protestEndsAt, 'protestEndsAt');
+      if (postedAt.getTime() > entry.recordedAt.getTime()) throw new Error('Posting time cannot be in the future');
+      if (entry.postingLocation !== undefined) validateText(entry.postingLocation, 'postingLocation');
+      if (entry.postingReference !== undefined) validateText(entry.postingReference, 'postingReference');
       if (protestEndsAt.getTime() <= postedAt.getTime()) {
         throw new Error('protestEndsAt must be after postedAt');
       }
@@ -149,6 +159,8 @@ export function reconstructResultPublicationEntry(entry: ResultPublicationEntry)
         protestEndsAt,
         recordedAt: validDate(entry.recordedAt, 'recordedAt'),
         officialName: entry.officialName.trim(),
+        ...(entry.postingLocation !== undefined ? { postingLocation: entry.postingLocation.trim() } : {}),
+        ...(entry.postingReference !== undefined ? { postingReference: entry.postingReference.trim() } : {}),
       });
     }
     case 'PROTEST_REGISTERED':

@@ -1,4 +1,10 @@
+export interface BackupResultBinding {
+  resultId: string;
+  participantId: string;
+  resultRevision: string;
+}
 export interface OfficialBackupSubject {
+  resultBinding?: BackupResultBinding;
   key: string;
   name: string;
   rank: number;
@@ -11,6 +17,7 @@ export interface BackupRecord {
   totalScore: number;
 }
 export interface BackupComparisonItem {
+  resultBinding?: BackupResultBinding;
   key: string;
   name: string;
   officialRank: number | null;
@@ -34,11 +41,14 @@ export function compareEstBackup(
     if (!Number.isFinite(record.totalScore)) throw new Error(`Invalid backup total for ${key}`);
     backupByKey.set(key, { ...record, key });
   }
+  if (new Set(official.map((subject) => subject.key)).size !== official.length)
+    throw new Error('Official comparison keys must be unique');
   const items = official.map((subject): BackupComparisonItem => {
     const record = backupByKey.get(subject.key);
     backupByKey.delete(subject.key);
     if (!record)
       return {
+        ...(subject.resultBinding ? { resultBinding: subject.resultBinding } : {}),
         key: subject.key,
         name: subject.name,
         officialRank: subject.rank,
@@ -51,6 +61,7 @@ export function compareEstBackup(
     const scoreMatches = Math.abs(record.totalScore - subject.totalScore) < 0.000_001;
     const rankMatches = record.rank === undefined || record.rank === null || record.rank === subject.rank;
     return {
+      ...(subject.resultBinding ? { resultBinding: subject.resultBinding } : {}),
       key: subject.key,
       name: subject.name,
       officialRank: subject.rank,

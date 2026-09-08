@@ -18,6 +18,7 @@ import type {
 } from '@/shared/ipc/contracts';
 import type { Athlete, EstComplaintIssue } from '@/shared/mqtt';
 
+import { BackupCaptureReadinessPanel } from '../backup-capture-readiness/BackupCaptureReadinessPanel';
 import { EstInspectionStartPanel } from '../est-championship-inspections/EstInspectionStartPanel';
 import { EstComplaintInbox } from '../est-complaints';
 import { FinalControlPanel } from '../final-control';
@@ -26,6 +27,7 @@ import { FinalRecoveryPanel } from '../final-recoveries';
 import { IrregularShotCasesPanel } from '../irregular-shot-cases';
 import { MixedTeamFinalControlPanel } from '../mixed-team-final-control';
 import { MixedTeamTimeoutPanel } from '../mixed-team-timeouts';
+import { ObservationReviewsPanel } from '../observation-reviews/ObservationReviewsPanel';
 import { OperationalProfilePanel } from '../operational-profiles/OperationalProfilePanel';
 import { ProductionOperationsPanel } from '../production-operations';
 import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
@@ -41,6 +43,7 @@ import { TargetExaminationsPanel } from '../target-examinations';
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
 import { CompetitionStartReadinessPanel } from './CompetitionStartReadinessPanel';
 import { ChampionshipAssignmentPanel, type ChampionshipResultContext } from './components/ChampionshipAssignmentPanel';
+import { ObservationTimestamps } from './ObservationTimestamps';
 import { buildPhaseStartConfirmation } from './phaseStartRequirements';
 import { findAdvanceSeriesSource } from './progressPlanning';
 import {
@@ -1270,6 +1273,15 @@ export function CompetitionControlScreen() {
               </Card>
             )}
 
+            {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+              <Card>
+                <BackupCaptureReadinessPanel
+                  key={`backup:${activeCompetition.competitionId}:${operationalSettingsRevision}`}
+                  competitionId={activeCompetition.competitionId}
+                />
+              </Card>
+            )}
+
             {activeCompetition && activeCompetitionDefinition?.timedTarget && (
               <TimedTargetControlPanel
                 key={`timed-target:${activeCompetition.competitionId}`}
@@ -1669,6 +1681,13 @@ export function CompetitionControlScreen() {
               </div>
             )}
 
+            {activeCompetition && (
+              <ObservationReviewsPanel
+                key={activeCompetition.competitionId}
+                competitionId={activeCompetition.competitionId}
+              />
+            )}
+
             {unscoredObservations.length > 0 && (
               <details className="mt-4 border-l-2 border-vscode-warning bg-vscode-warning/5 px-3 py-2.5">
                 <summary className="cursor-pointer text-xs font-semibold text-vscode-warning">
@@ -1686,10 +1705,7 @@ export function CompetitionControlScreen() {
                           {lane?.laneAlias || `Lane ${evidence.laneId.slice(0, 8)}`} ·{' '}
                           {evidence.outcome.replaceAll('_', ' ')}
                         </p>
-                        <p className="text-vscode-text-muted">
-                          Fired {new Date(evidence.firedAt).toLocaleString()} · received{' '}
-                          {new Date(evidence.receivedAt).toLocaleString()}
-                        </p>
+                        <ObservationTimestamps evidence={evidence} />
                         <p className="text-vscode-dimmed">
                           Stage {evidence.competition?.stageIndex ?? '—'} · series{' '}
                           {evidence.competition?.seriesIndex ?? '—'} · observation {evidence.observationId.slice(0, 8)}

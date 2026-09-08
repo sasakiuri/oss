@@ -332,8 +332,8 @@ export function ScoreCorrectionPanel({
       {workspace?.history.map(({ application, withdrawal }) => (
         <div key={application.id} className="mt-3 border-t border-vscode-border pt-2 text-xs">
           <p>
-            {withdrawal ? 'Withdrawn' : 'Active'} · {application.recordedAt} · {application.request.officialName}:{' '}
-            {application.request.statement}
+            {withdrawal ? 'Withdrawn' : 'Active'} · Correction {application.id} · {application.recordedAt} ·{' '}
+            {application.request.officialName}: {application.request.statement}
           </p>
           {!withdrawal && (
             <button

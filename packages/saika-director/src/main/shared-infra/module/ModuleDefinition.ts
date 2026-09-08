@@ -15,8 +15,11 @@ import type { AppConfigService } from '@/main/infrastructure/config/AppConfigSer
 import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
+import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture/EstBackupCaptureService';
+import type { EstBackupSourceService } from '@/main/modules/est-backup-sources';
 import type {
   EstBackupRecordImportService,
+  EstBackupResultCheckService,
   EstBackupVerificationService,
 } from '@/main/modules/est-backup-verification';
 import type { EstInspectionStartService } from '@/main/modules/est-championship-inspections';
@@ -32,6 +35,7 @@ import type {
   IFiringWindowJournal,
   IShotObservationEvidenceJournal,
 } from '@/main/modules/mqtt';
+import type { ObservationReviewService } from '@/main/modules/observation-reviews';
 import type { OperationalArchiveService } from '@/main/modules/operational-archives';
 import type { OperationalSettingTarget } from '@/main/modules/operational-profiles';
 import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
@@ -80,6 +84,7 @@ export interface ServiceRegistry {
   readonly competitionStartReadiness: ICompetitionStartReadiness;
   readonly relayReadinessService: RelayReadinessService;
   readonly scoreCorrectionService: ScoreCorrectionService;
+  readonly observationReviewService: ObservationReviewService;
   readonly evidenceFileService: EvidenceFileService;
   readonly malfunctionScoreApplicationService: MalfunctionScoreApplicationService;
   readonly database: Database.Database;
@@ -100,7 +105,10 @@ export interface ServiceRegistry {
   readonly mixedTeamFinalResultRepository: IMixedTeamFinalResultRepository;
   readonly teamResultsService: TeamResultsService;
   readonly estBackupRecordImportService: EstBackupRecordImportService;
+  readonly estBackupSourceService: EstBackupSourceService;
+  readonly estBackupResultCheckService: EstBackupResultCheckService;
   readonly estBackupVerificationService: EstBackupVerificationService;
+  readonly estBackupCaptureService: EstBackupCaptureService;
   readonly scoringDecisionAdmissionPolicy: IScoringDecisionAdmissionPolicy;
   readonly scoringDecisionRepository: IScoringDecisionRepository;
   readonly scoringDecisionTargetResolver: IScoringDecisionTargetResolver;

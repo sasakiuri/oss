@@ -72,6 +72,7 @@ export class ShotObservationEvidencePublisher {
       y: evidence.y,
       deviceScoreX10: evidence.deviceScoreX10,
       firedAt: evidence.firedAt.toISOString(),
+      timestampSource: evidence.timestampSource,
       receivedAt: evidence.receivedAt.toISOString(),
       reportedMode: evidence.reportedMode,
       rawFrameHex: evidence.rawFrameHex,

@@ -5,6 +5,7 @@ import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
 import { ProtestSheet } from './components/ProtestSheet';
+import { ProtestFormTransferPanel } from './components/ProtestFormTransferPanel';
 
 interface PrintSnapshot {
   caseId: string;
@@ -26,12 +27,19 @@ export function ProtestPrintScreen({ config }: { config: BoardWindowConfig }) {
       const response = await protestsService.getById({ caseId: config.protestId });
       if (!response.success) throw new Error(response.error.message);
       const protest = response.data;
+      if (protest.id !== config.protestId) throw new Error('The loaded protest does not match the requested record');
       let parent: ProtestCaseDto | null = null;
       if (protest.kind === 'APPEAL') {
         if (!protest.parentProtestId) throw new Error('The original protest reference is missing');
         const original = await protestsService.getById({ caseId: protest.parentProtestId });
         if (!original.success) throw new Error(`Cannot load the original protest: ${original.error.message}`);
         parent = original.data;
+        if (
+          parent.id !== protest.parentProtestId ||
+          parent.scopeType !== protest.scopeType ||
+          parent.scopeId !== protest.scopeId
+        )
+          throw new Error('The original protest does not match this appeal');
       }
       if (!cancelled) {
         setSnapshot({ caseId: config.protestId, protest, parent, loadedAt: new Date().toISOString() });
@@ -69,6 +77,11 @@ export function ProtestPrintScreen({ config }: { config: BoardWindowConfig }) {
         <p role="alert">{error}</p>
       ) : current ? (
         <>
+          <ProtestFormTransferPanel
+            key={`${current.caseId}:${current.loadedAt}`}
+            protest={current.protest}
+            parent={current.parent}
+          />
           <ProtestSheet protest={current.protest} loadedAt={current.loadedAt} />
           {current.parent && (
             <div className="page-break">

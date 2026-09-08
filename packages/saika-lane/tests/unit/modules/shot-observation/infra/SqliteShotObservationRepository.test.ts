@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
-import type Database from 'better-sqlite3';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ShotObservation, createShotObservationOutcome } from '@/main/modules/shot-observation/domain/ShotObservation';
-import { createShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
+import {
+  createShotObservationEvidence,
+  parseShotObservationEvidence,
+  serializeShotObservationEvidence,
+} from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
@@ -19,40 +27,45 @@ describe('SqliteShotObservationRepository', () => {
 
   afterEach(() => database.close());
 
-  it('round-trips immutable pre-rule evidence and append-only outcomes', async () => {
-    const observation = ShotObservation.create({
-      x: 1.25,
-      y: -0.75,
-      deviceScoreX10: 98.5,
-      firedAt: new Date('2026-08-28T00:00:00.000Z'),
-      receivedAt: new Date('2026-08-28T00:00:00.020Z'),
-      reportedMode: 'MATCH',
-      rawFrameHex: 'aabbcc',
-    });
-    const outcome = createShotObservationOutcome({
-      observationId: observation.id,
-      type: 'REJECTED_COMPETITION_PHASE',
-      sessionId: 'session-1',
-      detail: 'MATCH_COMPLETE',
-      decidedAt: new Date('2026-08-28T00:00:00.030Z'),
-    });
+  it.each(['UNKNOWN', 'LANE_RECEIPT', 'DEVICE_REPORTED'] as const)(
+    'preserves %s timestamps with pre-rule evidence',
+    async (timestampSource) => {
+      const observation = ShotObservation.create({
+        x: 1.25,
+        y: -0.75,
+        deviceScoreX10: 98.5,
+        firedAt: new Date('2026-08-28T00:00:00.000Z'),
+        receivedAt: new Date('2026-08-28T00:00:00.020Z'),
+        reportedMode: 'MATCH',
+        rawFrameHex: 'aabbcc',
+        timestampSource,
+      });
+      const outcome = createShotObservationOutcome({
+        observationId: observation.id,
+        type: 'REJECTED_COMPETITION_PHASE',
+        sessionId: 'session-1',
+        detail: 'MATCH_COMPLETE',
+        decidedAt: new Date('2026-08-28T00:00:00.030Z'),
+      });
 
-    await repository.append(observation);
-    await repository.appendOutcome(outcome);
+      await repository.append(observation);
+      await repository.appendOutcome(outcome);
 
-    const restored = await repository.findById(observation.id);
-    expect(restored).toMatchObject({
-      id: observation.id,
-      x: 1.25,
-      y: -0.75,
-      deviceScoreX10: 98.5,
-      reportedMode: 'MATCH',
-      rawFrameHex: 'aabbcc',
-    });
-    expect(restored?.firedAt.toISOString()).toBe('2026-08-28T00:00:00.000Z');
-    expect(restored?.receivedAt.toISOString()).toBe('2026-08-28T00:00:00.020Z');
-    expect(await repository.findOutcomes(observation.id)).toEqual([outcome]);
-  });
+      const restored = await repository.findById(observation.id);
+      expect(restored).toMatchObject({
+        id: observation.id,
+        x: 1.25,
+        y: -0.75,
+        deviceScoreX10: 98.5,
+        reportedMode: 'MATCH',
+        rawFrameHex: 'aabbcc',
+        timestampSource,
+      });
+      expect(restored?.firedAt.toISOString()).toBe('2026-08-28T00:00:00.000Z');
+      expect(restored?.receivedAt.toISOString()).toBe('2026-08-28T00:00:00.020Z');
+      expect(await repository.findOutcomes(observation.id)).toEqual([outcome]);
+    },
+  );
 
   it('atomically queues an outcome for transport and retains it after acknowledgement', async () => {
     const observation = ShotObservation.create({
@@ -62,6 +75,7 @@ describe('SqliteShotObservationRepository', () => {
       firedAt: new Date('2026-08-28T00:00:00.000Z'),
       receivedAt: new Date('2026-08-28T00:00:00.010Z'),
       reportedMode: 'MATCH',
+      timestampSource: 'LANE_RECEIPT',
     });
     const outcome = createShotObservationOutcome({
       observationId: observation.id,
@@ -83,6 +97,13 @@ describe('SqliteShotObservationRepository', () => {
     expect(await repository.findOutcomes(observation.id)).toEqual([outcome]);
     expect(await outbox.findPending()).toEqual([evidence]);
 
+    const legacy = JSON.parse(serializeShotObservationEvidence(evidence));
+    delete legacy.timestampSource;
+    expect(parseShotObservationEvidence(JSON.stringify(legacy))).toMatchObject({ timestampSource: 'UNKNOWN' });
+    expect(() => parseShotObservationEvidence(JSON.stringify({ ...legacy, timestampSource: 'INFERRED' }))).toThrow(
+      'timestamp source',
+    );
+
     await outbox.markPublished(evidence.evidenceId, new Date('2026-08-28T00:00:01.000Z'));
     expect(await outbox.findPending()).toEqual([]);
     expect(
@@ -90,5 +111,34 @@ describe('SqliteShotObservationRepository', () => {
         .prepare('SELECT payload_json FROM shot_observation_evidence_outbox WHERE evidence_id = ?')
         .get(evidence.evidenceId),
     ).toBeTruthy();
+  });
+
+  it('upgrades legacy observations without inventing a device timestamp or losing the original values', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'saika-time-source-'));
+    const path = join(directory, 'lane.sqlite');
+    try {
+      const initial = createSqliteDb(path);
+      initial.close();
+      const legacy = new Database(path);
+      legacy.exec(`ALTER TABLE shot_observations DROP COLUMN timestamp_source;
+        PRAGMA user_version = 18;
+        INSERT INTO shot_observations (id, fired_at, received_at)
+        VALUES ('legacy-shot', '2026-08-28T00:00:00.000Z', '2026-08-28T00:00:00.020Z');`);
+      legacy.close();
+      const upgraded = createSqliteDb(path);
+      try {
+        expect(await new SqliteShotObservationRepository(upgraded).findById('legacy-shot')).toMatchObject({
+          timestampSource: 'UNKNOWN',
+          firedAt: new Date('2026-08-28T00:00:00.000Z'),
+          receivedAt: new Date('2026-08-28T00:00:00.020Z'),
+        });
+      } finally {
+        upgraded.close();
+      }
+      const reopened = createSqliteDb(path);
+      reopened.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

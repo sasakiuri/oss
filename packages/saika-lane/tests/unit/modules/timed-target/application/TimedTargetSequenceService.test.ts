@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TimedTargetSequenceService } from '@/main/modules/timed-target/application/TimedTargetSequenceService';
 import type { TimedTargetState } from '@/main/modules/timed-target/domain/ITimedTargetControl';
+import { BoundedShotTimingPolicy } from '@/main/modules/timed-target/domain/ShotTimingPolicy';
 import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target/infra/SqliteTimedTargetSequenceRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
@@ -62,6 +63,50 @@ describe('TimedTargetSequenceService', () => {
       loadAt: new Date('2026-09-03T00:00:03.000Z'),
     });
   }
+
+  it('preserves uncertain timing for review without consuming a shot slot or extending the schedule', () => {
+    const repository = new SqliteTimedTargetSequenceRepository(db);
+    const service = new TimedTargetSequenceService(
+      repository,
+      { publish: () => {} },
+      'REQUIRED',
+      undefined,
+      undefined,
+      new BoundedShotTimingPolicy(() => ({
+        mode: 'BOUNDED',
+        maximumReceiptDelayMilliseconds: 300,
+        clockUncertaintyMilliseconds: 20,
+      })),
+    );
+    const state = start(service);
+    const input = {
+      competitionId: state.competitionId,
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'MATCH_4',
+      targetProfileId: 'rapid',
+      observationId: 'held',
+      firedAt: new Date('2026-09-03T00:01:14.450Z'),
+      timestampSource: 'LANE_RECEIPT' as const,
+    };
+    expect(service.tryAcceptShot(input)).toMatchObject({
+      allowed: false,
+      timingReviewRequired: true,
+      reason: expect.stringContaining('maximumReceiptDelayMs=300'),
+    });
+    expect(repository.findBySequenceId(state.sequenceId)?.acceptedShots).toHaveLength(0);
+    expect(
+      service.tryAcceptShot({ ...input, observationId: 'certain', firedAt: new Date('2026-09-03T00:01:11.000Z') }),
+    ).toMatchObject({ allowed: true, timingEvidence: expect.stringContaining('source=LANE_RECEIPT') });
+    expect(repository.findBySequenceId(state.sequenceId)?.acceptedShots).toHaveLength(1);
+    expect(repository.findBySequenceId(state.sequenceId)?.schedule.completesAt).toEqual(state.completesAt);
+    service.cancel({ sequenceId: state.sequenceId, reason: 'STOP' });
+    expect(service.tryAcceptShot({ ...input, observationId: 'cancelled' })).toMatchObject({
+      allowed: false,
+      reason: expect.stringContaining('cancelled'),
+    });
+    service.dispose();
+  });
 
   it('drives absolute LOAD, ATTENTION, GREEN, after-time and COMPLETE states', async () => {
     const service = createService();

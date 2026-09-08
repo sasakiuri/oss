@@ -26,6 +26,7 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import type { TimingProfileService } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -56,6 +57,7 @@ export interface ServiceRegistry {
   qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   safetyStopControl: ILaneSafetyStopControl;
   timedTargetControl: ITimedTargetControl;
+  timingProfileService: TimingProfileService;
   mainWindow: BrowserWindow;
   userDataPath: string;
 }

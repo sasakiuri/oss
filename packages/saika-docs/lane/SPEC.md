@@ -235,6 +235,19 @@ SIUS、Meyton、Custom と `DISAG_DEFAULT` は内部定義を持つが、現行 
 
 MQTT の有効化、Broker URL、射座エイリアス、自動接続、Lane ID を設定し、Broker への接続・切断を操作する。
 
+#### 計時測定データとプロファイル
+
+Shot timing の Measured timing profiles では、手入力した上限値または測定 JSON からプロファイルを作成する。
+測定 JSON は `kind`（`RECEIPT_DELAY` / `CLOCK_OFFSET`）、`valueMilliseconds`、
+`uncertaintyMilliseconds` を持つ配列で、UTF-8、256 KiB 以下、最大2,000サンプルとする。
+受信遅延は非負、時計差は符号付きとし、各測定の不確かさを必ず指定する。
+
+各種別の `abs(valueMilliseconds) + uncertaintyMilliseconds` の最大値に、運用者が明示した余裕を加え、
+ミリ秒単位で切り上げた値を候補にする。サンプルのない種別は不明のまま保持する。
+この候補は測定範囲からの推定であり、設備の全運転条件を保証するものではない。
+解析は設定を変更しない。保存時に再計算し、入力テキスト・SHA-256・計算方式・余裕をプロファイルに残す。
+適用は競技終了後の別操作とし、手入力による設定と独立して選択できる。射撃可能時間は変更しない。
+
 #### JSON タブ
 
 正本となる `settings.json` 全体を JSON として表示・編集する。保存時は IPC スキーマで検証し、空の MQTT Lane ID は既存の安定した ID を維持する。

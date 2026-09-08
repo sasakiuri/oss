@@ -21,6 +21,7 @@ const evidence: ShotObservationEvidence = Object.freeze({
   y: 2,
   deviceScoreX10: 104,
   firedAt: new Date('2026-08-31T01:00:00.000Z'),
+  timestampSource: 'LANE_RECEIPT',
   receivedAt: new Date('2026-08-31T01:00:00.010Z'),
   reportedMode: 'MATCH',
   rawFrameHex: 'aabb',
@@ -60,6 +61,7 @@ describe('ShotObservationEvidencePublisher', () => {
     expect(payload).toMatchObject({
       evidenceVersion: 1,
       evidenceId: evidence.evidenceId,
+      timestampSource: 'LANE_RECEIPT',
       outcome: 'REJECTED_COMPETITION_PHASE',
       competition: { phase: 'SERIES_COMPLETE', stageScored: true },
     });

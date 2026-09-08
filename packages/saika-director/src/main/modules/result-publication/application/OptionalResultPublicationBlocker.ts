@@ -4,9 +4,9 @@ import type { IResultPublicationBlocker } from './ResultPublicationPorts';
 export class OptionalResultPublicationBlocker implements IResultPublicationBlocker {
   constructor(
     private readonly source: IResultPublicationBlocker,
-    private readonly enabled: () => boolean,
+    private readonly enabled: (eventId: string, resultScope: 'QUALIFICATION' | 'FINAL') => boolean,
   ) {}
   getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL') {
-    return this.enabled() ? this.source.getIssues(eventId, resultScope) : [];
+    return this.enabled(eventId, resultScope) ? this.source.getIssues(eventId, resultScope) : [];
   }
 }

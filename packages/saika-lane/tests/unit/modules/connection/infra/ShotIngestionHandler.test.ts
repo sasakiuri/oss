@@ -218,48 +218,55 @@ describe('ShotIngestionHandler', () => {
     expect(shotObservationRepository.append).toHaveBeenCalledWith(expect.objectContaining({ reportedMode: 'MATCH' }));
   });
 
-  it('preserves but does not score a 25m shot outside the authoritative recording window', async () => {
-    const competitionSession = buildSession();
-    const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
-      .startStage()
-      .expireTimer()
-      .advanceToNextStage()
-      .startNextSeries();
-    sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
-    competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
-    deps.timedTargetReader = {
-      tryAcceptShot: vi.fn().mockReturnValue({
-        governed: true,
-        allowed: false,
-        purpose: 'MATCH',
-        targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
-        sequenceId: '00000000-0000-4000-8000-000000000001',
-        exposureIndex: null,
-        warning: null,
-        reason: 'Shot was observed during timed target phase ATTENTION',
-      }),
-    };
-
-    await createShotIngestionHandler(deps)(shotData);
-
-    expect(commandBus.execute).not.toHaveBeenCalled();
-    expect(shotObservationRepository.append).toHaveBeenCalledOnce();
-    expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'REJECTED_TIMED_TARGET_WINDOW',
-        sessionId: competitionSession.id,
-        detail: expect.stringContaining('ATTENTION'),
-      }),
-      expect.objectContaining({
-        outcome: 'REJECTED_TIMED_TARGET_WINDOW',
-        competition: expect.objectContaining({
-          competitionId: activeCompetition.id,
-          stageIndex: 1,
-          seriesIndex: 0,
+  it.each([false, true])(
+    'preserves unscored 25m evidence and distinguishes timing review (%s) from an outside-window decision',
+    async (review) => {
+      const competitionSession = buildSession();
+      const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+        .startStage()
+        .expireTimer()
+        .advanceToNextStage()
+        .startNextSeries();
+      sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+      competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+      deps.timedTargetReader = {
+        tryAcceptShot: vi.fn().mockReturnValue({
+          governed: true,
+          allowed: false,
+          timingReviewRequired: review,
+          purpose: 'MATCH',
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          sequenceId: '00000000-0000-4000-8000-000000000001',
+          exposureIndex: null,
+          warning: null,
+          reason: 'Shot was observed during timed target phase ATTENTION',
         }),
-      }),
-    );
-  });
+      };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(deps.timedTargetReader.tryAcceptShot).toHaveBeenCalledWith(
+        expect.objectContaining({ timestampSource: 'LANE_RECEIPT' }),
+      );
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      expect(shotObservationRepository.append).toHaveBeenCalledOnce();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: review ? 'QUARANTINED_TIMING_REVIEW' : 'REJECTED_TIMED_TARGET_WINDOW',
+          sessionId: competitionSession.id,
+          detail: expect.stringContaining('ATTENTION'),
+        }),
+        expect.objectContaining({
+          outcome: review ? 'QUARANTINED_TIMING_REVIEW' : 'REJECTED_TIMED_TARGET_WINDOW',
+          competition: expect.objectContaining({
+            competitionId: activeCompetition.id,
+            stageIndex: 1,
+            seriesIndex: 0,
+          }),
+        }),
+      );
+    },
+  );
 
   it('keeps an independent Final shoot-off window outside the completed MATCH timed-target guard', async () => {
     const competitionSession = buildSession();
@@ -439,18 +446,24 @@ describe('ShotIngestionHandler', () => {
     expect(input.impactPoint.y).toBe(-2.3);
   });
 
-  it('should pass timestamp from shot data', async () => {
-    const session = buildSession();
-    sessionRepository.findActive = vi.fn().mockResolvedValue(session);
-    competitionRepository.findActive = vi.fn().mockResolvedValue(null);
+  it.each([undefined, 'DEVICE_REPORTED', 'UNKNOWN'] as const)(
+    'preserves shot timestamps with source %s',
+    async (timestampSource) => {
+      const session = buildSession();
+      sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+      competitionRepository.findActive = vi.fn().mockResolvedValue(null);
 
-    const handler = createShotIngestionHandler(deps);
-    await handler(shotData);
+      const handler = createShotIngestionHandler(deps);
+      await handler({ ...shotData, ...(timestampSource ? { timestampSource } : {}) });
 
-    const callArgs = (commandBus.execute as ReturnType<typeof vi.fn>).mock.calls[0]!;
-    const input = callArgs[1] as { timestamp: Date };
-    expect(input.timestamp).toEqual(new Date('2026-01-15T10:00:00Z'));
-  });
+      const callArgs = (commandBus.execute as ReturnType<typeof vi.fn>).mock.calls[0]!;
+      const input = callArgs[1] as { timestamp: Date };
+      expect(input.timestamp).toEqual(new Date('2026-01-15T10:00:00Z'));
+      expect(shotObservationRepository.append).toHaveBeenCalledWith(
+        expect.objectContaining({ timestampSource: timestampSource ?? 'LANE_RECEIPT' }),
+      );
+    },
+  );
 
   it('should reject shot when competition guard rejects', async () => {
     const session = buildSession();
@@ -469,6 +482,7 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({ type: 'REJECTED_COMPETITION_PHASE' }),
       expect.objectContaining({
         outcome: 'REJECTED_COMPETITION_PHASE',
+        timestampSource: 'LANE_RECEIPT',
         competition: expect.objectContaining({ competitionId: competition.id, phase: 'SERIES_COMPLETE' }),
       }),
     );

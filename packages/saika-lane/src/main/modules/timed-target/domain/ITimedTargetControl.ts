@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import type { TimedTargetTimingSettings } from '@/shared/mqtt/TimedTargetTimingSettings';
+import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
+
 import type { CommandPauseAssessment, UnloadObservationInput } from './ITimedTargetCommandPause';
 import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
 import type { TimedTargetSequencePhase, TimedTargetSignal } from './TimedTargetSchedule';
@@ -31,9 +34,12 @@ export interface TimedTargetState {
   readonly terminalReason: string | null;
   readonly commandPause?: CommandPauseAssessment;
   readonly executionContext?: TimedTargetExecutionContext;
+  readonly timingSettings?: TimedTargetTimingSettings;
 }
 
 export interface TimedTargetShotDecision {
+  readonly timingReviewRequired?: boolean;
+  readonly timingEvidence?: string;
   readonly governed: true;
   readonly allowed: boolean;
   readonly purpose: TimedTargetPurpose;
@@ -47,6 +53,7 @@ export interface TimedTargetShotDecision {
 
 export interface ITimedTargetControl {
   readonly enforcementMode: TimedTargetEnforcementMode;
+  readonly timingSettings?: TimedTargetTimingSettings;
   start(input: {
     sequenceId: string;
     competitionId: string;
@@ -69,6 +76,7 @@ export interface ITimedTargetControl {
     targetProfileId: string;
     observationId: string;
     firedAt: Date;
+    timestampSource?: ShotTimestampSource;
   }): TimedTargetShotDecision;
   recordUnload?(input: UnloadObservationInput): TimedTargetState;
   restore(): void;

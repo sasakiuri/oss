@@ -39,6 +39,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { MqttSettingsTab } from './settings/MqttSettingsTab';
 import { SettingsConnectionTab } from './settings/SettingsConnectionTab';
 import { SettingsTargetTab } from './settings/SettingsTargetTab';
+import { ShotTimingSettingsPanel } from './settings/ShotTimingSettingsPanel';
 
 /**
  * SettingsModal component props
@@ -552,7 +553,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {activeTab === 'target' && <SettingsTargetTab />}
 
-        {activeTab === 'connection' && <SettingsConnectionTab />}
+        {activeTab === 'connection' && (
+          <>
+            <SettingsConnectionTab />
+            <ShotTimingSettingsPanel />
+          </>
+        )}
 
         {activeTab === 'mqtt' && <MqttSettingsTab />}
 

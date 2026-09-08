@@ -3,8 +3,10 @@ import type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } 
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
 
 interface Row {
+  source_id: string | null;
   id: string;
   event_id: string;
+  result_scope: 'QUALIFICATION' | 'FINAL';
   result_kind: EstBackupVerificationRunDto['resultKind'];
   key_type: EstBackupVerificationRunDto['keyType'];
   source_name: string;
@@ -24,15 +26,17 @@ export class SqliteEstBackupVerificationRepository implements IEstBackupVerifica
     this.db
       .prepare(
         `INSERT INTO est_backup_verification_runs (
-      id, event_id, result_kind, key_type, source_name, source_reference, records_json, comparison_json,
-      snapshot_revision, intervention_review_statement, verified, official_name, verified_at
+      id, event_id, result_scope, result_kind, key_type, source_name, source_reference, records_json, comparison_json,
+      snapshot_revision, intervention_review_statement, verified, official_name, verified_at, source_id
     ) VALUES (
-      @id, @eventId, @resultKind, @keyType, @sourceName, @sourceReference, @recordsJson, @comparisonJson,
-      @snapshotRevision, @interventionReviewStatement, @verified, @officialName, @verifiedAt
+      @id, @eventId, @resultScope, @resultKind, @keyType, @sourceName, @sourceReference, @recordsJson, @comparisonJson,
+      @snapshotRevision, @interventionReviewStatement, @verified, @officialName, @verifiedAt, @sourceId
     )`,
       )
       .run({
         ...run,
+        sourceId: run.sourceId ?? null,
+        resultScope: run.resultScope ?? 'QUALIFICATION',
         recordsJson: JSON.stringify(records),
         comparisonJson: JSON.stringify(run.items),
         verified: Number(run.verified),
@@ -45,7 +49,9 @@ export class SqliteEstBackupVerificationRepository implements IEstBackupVerifica
         .all(eventId) as Row[]
     ).map((row) => ({
       id: row.id,
+      ...(row.source_id ? { sourceId: row.source_id } : {}),
       eventId: row.event_id,
+      resultScope: row.result_scope,
       resultKind: row.result_kind,
       keyType: row.key_type,
       sourceName: row.source_name,

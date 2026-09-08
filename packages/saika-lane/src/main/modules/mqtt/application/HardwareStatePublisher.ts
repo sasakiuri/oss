@@ -14,6 +14,8 @@ import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientSe
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import type { TimedTargetTimingSettings } from '@/shared/mqtt/TimedTargetTimingSettings';
+import type { TimingEvidenceReport } from '@/shared/mqtt/TimingEvidenceReport';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 interface HardwareState {
@@ -35,7 +37,12 @@ export interface LaneTargetIntegrationCapabilities {
 export interface LaneRuntimeCapabilities {
   readonly competitionProtocolVersions: readonly [1];
   readonly rulePacks: readonly RulePackIdentity[];
+  readonly timingEvidence?: TimingEvidenceReport;
   readonly targetIntegration?: LaneTargetIntegrationCapabilities;
+  readonly timedTargetPolicy?: {
+    readonly enforcementMode: 'DISABLED' | 'ADVISORY' | 'REQUIRED';
+    readonly shotTiming?: TimedTargetTimingSettings;
+  };
 }
 
 export class HardwareStatePublisher {
@@ -52,7 +59,7 @@ export class HardwareStatePublisher {
     eventBus: IEventBus,
     storage: ILocalStorage,
     appVersion: string,
-    private readonly capabilities?: LaneRuntimeCapabilities,
+    private readonly capabilities?: LaneRuntimeCapabilities | (() => LaneRuntimeCapabilities),
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -95,12 +102,13 @@ export class HardwareStatePublisher {
   }
 
   private buildPayload(connection: HardwareState = this.currentState): string {
+    const capabilities = typeof this.capabilities === 'function' ? this.capabilities() : this.capabilities;
     return JSON.stringify({
       laneId: this.getLaneId(),
       laneAlias: this.getLaneAlias(),
       connection,
       appVersion: this.appVersion,
-      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
+      ...(capabilities ? { capabilities } : {}),
       publishedAt: new Date().toISOString(),
     });
   }
@@ -159,13 +167,6 @@ export class HardwareStatePublisher {
   }
 
   getWillPayload(): string {
-    return JSON.stringify({
-      laneId: this.getLaneId(),
-      laneAlias: this.getLaneAlias(),
-      connection: { status: 'offline' },
-      appVersion: this.appVersion,
-      ...(this.capabilities ? { capabilities: this.capabilities } : {}),
-      publishedAt: new Date().toISOString(),
-    });
+    return this.buildPayload({ status: 'offline' });
   }
 }

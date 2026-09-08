@@ -690,5 +690,12 @@ export function createSqliteDb(dbPath: string): Database.Database {
       db.pragma('user_version = 18');
     })();
   }
+  if (currentVersion < 19) {
+    db.transaction(() => {
+      db.exec(`ALTER TABLE shot_observations ADD COLUMN timestamp_source TEXT NOT NULL DEFAULT 'UNKNOWN'
+        CHECK(timestamp_source IN ('UNKNOWN', 'LANE_RECEIPT', 'DEVICE_REPORTED'));`);
+      db.pragma('user_version = 19');
+    })();
+  }
   return db;
 }

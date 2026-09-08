@@ -3,7 +3,7 @@ import { networkInterfaces } from 'node:os';
 
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
-import { OperationalProfileService } from '@/main/modules/operational-profiles';
+import { OperationalProfileService, type OperationalSettingTarget } from '@/main/modules/operational-profiles';
 import {
   ApplyQualificationRecoverySettlementTransportToken,
   ApplyQualificationRecoveryTransportToken,
@@ -50,7 +50,9 @@ import type {
   ShotObservationEvidenceObserved,
   ShotReceived,
 } from './domain/events';
+import { LaneTimingEvidencePolicy } from './domain/LaneTimingEvidencePolicy';
 import { SAFETY_STOP_CLEARANCE_RULE_REFERENCES, SafetyStopClearancePolicy } from './domain/SafetyStopClearancePolicy';
+import { TimedTargetReadinessPolicy } from './domain/TimedTargetReadinessPolicy';
 import {
   DirectorMqttService,
   sanitizeBrokerUrl,
@@ -353,6 +355,11 @@ export const mqttModule: ModuleDefinition<
       maxUncertaintyMilliseconds: appConfigService.get('clockQuality.maxUncertaintyMilliseconds'),
       maxSampleAgeMilliseconds: appConfigService.get('clockQuality.maxSampleAgeMilliseconds'),
     });
+    const readTimedTargetReadinessSettings = () => ({
+      windowEnforcement: appConfigService.get('timedTargetReadiness.windowEnforcement'),
+      boundedShotTiming: appConfigService.get('timedTargetReadiness.boundedShotTiming'),
+      physicalSignals: appConfigService.get('timedTargetReadiness.physicalSignals'),
+    });
     const mqttService = new DirectorMqttService(
       {
         directorId: mqttDirectorIdFromEnvironment(process.env, appConfigService.get('mqtt.director.id')),
@@ -469,6 +476,10 @@ export const mqttModule: ModuleDefinition<
       undefined,
       new ClockQualityPolicy(readClockQualitySettings()),
     );
+    mqttService.setTimingEvidencePolicy(
+      new LaneTimingEvidencePolicy(() => appConfigService.get('timingEvidence.mode')),
+    );
+    mqttService.setTimedTargetReadinessPolicy(new TimedTargetReadinessPolicy(readTimedTargetReadinessSettings));
     commandBus.register(FinalFiringContextToken, async ({ competitionId, laneId }) =>
       mqttService.getFinalFiringContext(competitionId, laneId),
     );
@@ -663,6 +674,24 @@ export const mqttModule: ModuleDefinition<
           },
         },
         {
+          id: 'timing-evidence',
+          label: 'Lane measurement evidence, expiry and installation match',
+          scope: 'DIRECTOR',
+          read: () => ({
+            mode: appConfigService.get('timingEvidence.mode'),
+            context: 'Applies before timed commands on every selected Lane.',
+          }),
+          write: (_competitionId, mode) => {
+            if (
+              mqttService
+                .getSnapshot()
+                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
+            )
+              throw new Error('Finish active competitions before changing shared timing evidence policy');
+            appConfigService.set('timingEvidence.mode', mode);
+          },
+        },
+        {
           id: 'clock',
           label: 'Clock quality',
           scope: 'DIRECTOR',
@@ -680,6 +709,30 @@ export const mqttModule: ModuleDefinition<
             mqttService.setClockQualityPolicy(policy);
           },
         },
+        ...(
+          [
+            ['windowEnforcement', 'Lane firing-window enforcement'],
+            ['boundedShotTiming', 'Lane measured shot timing'],
+            ['physicalSignals', 'Integrated target signals'],
+          ] as const
+        ).map(([key, label]): OperationalSettingTarget => ({
+          id: `timed-target-${key}`,
+          label,
+          scope: 'DIRECTOR',
+          read: () => ({
+            mode: readTimedTargetReadinessSettings()[key],
+            context: 'Applies before timed target firing on every selected Lane.',
+          }),
+          write: (_competitionId, mode) => {
+            if (
+              mqttService
+                .getSnapshot()
+                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
+            )
+              throw new Error('Finish active competitions before changing a shared timed target policy');
+            appConfigService.set(`timedTargetReadiness.${key}`, mode);
+          },
+        })),
       ],
       (competitionId) => {
         const competition = mqttService.getSnapshot().competitions.find((item) => item.competitionId === competitionId);
@@ -751,6 +804,10 @@ export const mqttModule: ModuleDefinition<
           issues: [
             ...ctx.competitionStartReadiness.getStartIssues(scope),
             ...mqttService.getClockStartIssues(scope.laneIds),
+            ...mqttService.getTimingEvidenceStartIssues(scope.laneIds),
+            ...(competitionTypeRegistry.get(competition.competitionTypeId).timedTarget
+              ? mqttService.getTimedTargetStartIssues(scope.laneIds)
+              : []),
           ],
         };
       },

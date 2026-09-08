@@ -1,6 +1,7 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultPublicationContract, type ResultPublicationStatusDto } from '@/shared/ipc/contracts';
 
+import { ResultBoardSnapshotService } from './application/ResultBoardSnapshotService';
 import { ResultPublicationService, type ResultPublicationView } from './application/ResultPublicationService';
 import type { ResultPublicationEntry } from './domain/ResultPublicationEntry';
 
@@ -11,6 +12,7 @@ export const resultPublicationModule: ModuleDefinition<
   | 'resultPublicationReadiness'
   | 'resultPublicationPolicyResolver'
   | 'finalResultDeclarationService'
+  | 'resultVerificationService'
 > = {
   name: 'resultPublication',
   deps: [
@@ -20,6 +22,7 @@ export const resultPublicationModule: ModuleDefinition<
     'resultPublicationReadiness',
     'resultPublicationPolicyResolver',
     'finalResultDeclarationService',
+    'resultVerificationService',
   ] as const,
   register({
     appConfigService,
@@ -28,24 +31,31 @@ export const resultPublicationModule: ModuleDefinition<
     resultPublicationReadiness,
     resultPublicationPolicyResolver,
     finalResultDeclarationService,
+    resultVerificationService,
   }) {
     const service = new ResultPublicationService(
       resultPublicationRepository,
       resultPublicationReadiness,
       resultPublicationPolicyResolver,
     );
+    const boards = new ResultBoardSnapshotService(resultVerificationService, service, finalResultDeclarationService);
     const getReviewSettings = () => ({
+      requireObservationReviews: appConfigService.get('resultPublication.requireObservationReviews'),
       requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
       requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
       requireProtestCasesComplete: appConfigService.get('resultPublication.requireProtestCasesComplete'),
+      requireEquipmentChecksComplete: appConfigService.get('resultPublication.requireEquipmentChecksComplete'),
     });
     ipcRouter.register(resultPublicationContract, {
+      getBoardSnapshot: ({ eventId, resultScope }) => boards.getSnapshot(eventId, resultScope),
       getReviewSettings: async () => getReviewSettings(),
       setReviewSettings: async (input) => {
         appConfigService.setMany({
+          'resultPublication.requireObservationReviews': input.requireObservationReviews,
           'resultPublication.requireIncidentReports': input.requireIncidentReports,
           'resultPublication.requireFinalRecoveriesComplete': input.requireFinalRecoveriesComplete,
           'resultPublication.requireProtestCasesComplete': input.requireProtestCasesComplete,
+          'resultPublication.requireEquipmentChecksComplete': input.requireEquipmentChecksComplete,
         });
         return getReviewSettings();
       },
@@ -95,6 +105,8 @@ function toEntryDto(entry: ResultPublicationEntry): ResultPublicationStatusDto['
         ...base,
         type: entry.type,
         snapshotRevision: entry.snapshotRevision,
+        postingLocation: entry.postingLocation,
+        postingReference: entry.postingReference,
         postedAt: entry.postedAt.toISOString(),
         protestEndsAt: entry.protestEndsAt.toISOString(),
         officialName: entry.officialName,

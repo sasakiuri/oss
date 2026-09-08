@@ -5,6 +5,7 @@ import { resultVerificationService } from '@/renderer/services';
 import type { ResultVerificationStatusDto, VerificationResultItemDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
+import { PublicationReviewPolicyPanel } from './PublicationReviewPolicyPanel';
 
 interface ResultVerificationPanelProps {
   eventId: string;
@@ -37,6 +38,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
   );
   const [revocationReason, setRevocationReason] = useState('');
   const [showRevocation, setShowRevocation] = useState(false);
+  const [showReviewPolicy, setShowReviewPolicy] = useState(false);
   const [signatureMethod, setSignatureMethod] = useState<'SELF' | 'EXTERNAL'>('SELF');
   const [signatureRecorder, setSignatureRecorder] = useState('');
   const [signatureReference, setSignatureReference] = useState('');
@@ -212,6 +214,17 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
   return (
     <Modal isOpen onClose={onClose} title={`RTS result verification${eventName ? ` — ${eventName}` : ''}`} size="xl">
       <div className="space-y-5">
+        <Button size="sm" variant="secondary" disabled={saving} onClick={() => setShowReviewPolicy((value) => !value)}>
+          {showReviewPolicy ? 'Hide event review settings' : 'Event review settings'}
+        </Button>
+        {showReviewPolicy && (
+          <PublicationReviewPolicyPanel
+            key={`${eventId}:${resultScope}`}
+            eventId={eventId}
+            resultScope={resultScope}
+            onChanged={loadStatus}
+          />
+        )}
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard
             label="Required individual checks"

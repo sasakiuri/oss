@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { parseShotTimestampSource, type ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 export const SHOT_OBSERVATION_OUTCOMES = [
   'RECORDED',
   'REJECTED_COMPETITION_PHASE',
   'REJECTED_TIMED_TARGET_WINDOW',
+  'QUARANTINED_TIMING_REVIEW',
   'QUARANTINED_SAFETY_STOP',
   'NO_ACTIVE_SESSION',
   'PROCESSING_FAILED',
@@ -24,6 +26,7 @@ export class ShotObservation {
     readonly receivedAt: Date,
     readonly reportedMode: 'SIGHTING' | 'MATCH' | null,
     readonly rawFrameHex: string | null,
+    readonly timestampSource: ShotTimestampSource,
   ) {
     Object.freeze(this);
   }
@@ -36,6 +39,7 @@ export class ShotObservation {
     receivedAt?: Date;
     reportedMode?: 'SIGHTING' | 'MATCH';
     rawFrameHex?: string;
+    timestampSource?: ShotTimestampSource;
   }): ShotObservation {
     const receivedAt = props.receivedAt ?? new Date();
     if (!Number.isFinite(props.firedAt.getTime()) || !Number.isFinite(receivedAt.getTime())) {
@@ -54,6 +58,7 @@ export class ShotObservation {
       new Date(receivedAt.getTime()),
       props.reportedMode ?? null,
       props.rawFrameHex ?? null,
+      parseShotTimestampSource(props.timestampSource),
     );
   }
 
@@ -66,6 +71,7 @@ export class ShotObservation {
     receivedAt: Date;
     reportedMode: 'SIGHTING' | 'MATCH' | null;
     rawFrameHex: string | null;
+    timestampSource?: ShotTimestampSource;
   }): ShotObservation {
     return new ShotObservation(
       props.id,
@@ -76,6 +82,7 @@ export class ShotObservation {
       props.receivedAt,
       props.reportedMode,
       props.rawFrameHex,
+      parseShotTimestampSource(props.timestampSource),
     );
   }
 }

@@ -1,4 +1,10 @@
 export { PostCompetitionEquipmentControlService } from './application/PostCompetitionEquipmentControlService';
+export {
+  EquipmentControlPublicationBlocker,
+  type EquipmentControlPublicationItem,
+  type IEquipmentControlPublicationSource,
+} from './application/EquipmentControlPublicationBlocker';
+export { StoredEquipmentControlPublicationSource } from './infra/StoredEquipmentControlPublicationSource';
 export type {
   EquipmentControlSubject,
   IEquipmentControlSubjectSource,

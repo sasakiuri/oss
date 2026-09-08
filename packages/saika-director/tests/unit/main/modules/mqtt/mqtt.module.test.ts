@@ -12,6 +12,8 @@ const {
   finishCompetition,
   getSnapshot,
   getClockStartIssues,
+  getTimedTargetStartIssues,
+  getTimingEvidenceStartIssues,
   getOperationalStartIssues,
   startMatchDirector,
   startQualificationRecoveryDirector,
@@ -30,6 +32,8 @@ const {
   finishCompetition: vi.fn(),
   getSnapshot: vi.fn(),
   getClockStartIssues: vi.fn(() => []),
+  getTimedTargetStartIssues: vi.fn(() => []),
+  getTimingEvidenceStartIssues: vi.fn(() => []),
   getOperationalStartIssues: vi.fn(() => []),
   startMatchDirector: vi.fn(),
   startQualificationRecoveryDirector: vi.fn(),
@@ -74,6 +78,10 @@ vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
     disconnect = disconnectDirector;
     getSnapshot = getSnapshot;
     getClockStartIssues = getClockStartIssues;
+    getTimedTargetStartIssues = getTimedTargetStartIssues;
+    setTimedTargetReadinessPolicy = vi.fn();
+    setTimingEvidencePolicy = vi.fn();
+    getTimingEvidenceStartIssues = getTimingEvidenceStartIssues;
     startMatch = startMatchDirector;
     startQualificationRecovery = startQualificationRecoveryDirector;
     startSighting = startSightingDirector;
@@ -235,6 +243,10 @@ function registerModule(
     ['mqtt.commandTimeoutMs', 100],
     ['mqtt.startDelayMs', 0],
     ['clockQuality.mode', 'ADVISORY'],
+    ['timingEvidence.mode', 'DISABLED'],
+    ['timedTargetReadiness.windowEnforcement', 'ADVISORY'],
+    ['timedTargetReadiness.boundedShotTiming', 'ADVISORY'],
+    ['timedTargetReadiness.physicalSignals', 'ADVISORY'],
   ]);
   const firingWindowBoundaries: Record<string, unknown>[] = [];
   const firingWindowViolations: Record<string, unknown>[] = [];
@@ -287,6 +299,9 @@ function registerModule(
     debugLogStore: { addEntry: vi.fn() } as never,
     appConfigService: {
       get: (key: string) => config.get(key),
+      set: (key: string, value: unknown) => {
+        config.set(key, value);
+      },
       setMany: (values: Record<string, unknown>) => {
         for (const [key, value] of Object.entries(values)) config.set(key, value);
       },
@@ -457,15 +472,53 @@ describe('mqttModule broker transitions', () => {
 
   it('assesses saved policies against server-side membership without starting fire', async () => {
     const { handlers } = registerModule('BR60S');
-    getSnapshot.mockReturnValue({ competitions: [{ competitionId: COMPETITION_ID, laneIds: ['joined-lane'] }] });
+    getSnapshot.mockReturnValue({
+      competitions: [{ competitionId: COMPETITION_ID, competitionTypeId: 'BR60S', laneIds: ['joined-lane'] }],
+    });
     const scope = { competitionId: COMPETITION_ID, phase: 'MATCH' as const };
     expect(await handlers.getStartReadiness(scope)).toMatchObject({ ...scope, laneIds: ['joined-lane'], issues: [] });
     expect(getOperationalStartIssues).toHaveBeenCalledWith({ ...scope, laneIds: ['joined-lane'] });
     expect(getClockStartIssues).toHaveBeenCalledWith(['joined-lane']);
+    expect(getTimingEvidenceStartIssues).toHaveBeenCalledWith(['joined-lane']);
+    expect(getTimedTargetStartIssues).not.toHaveBeenCalled();
     expect(startMatchDirector).not.toHaveBeenCalled();
     expect(startSightingDirector).not.toHaveBeenCalled();
     getSnapshot.mockReturnValue({ competitions: [] });
     await expect(handlers.getStartReadiness(scope)).rejects.toThrow('Competition not found');
+  });
+
+  it('exposes independent timed target policies and includes their checks only for target programs', async () => {
+    const { profiles, handlers, config } = registerModule('P25');
+    getSnapshot.mockReturnValue({
+      competitions: [
+        { competitionId: COMPETITION_ID, competitionTypeId: 'P25', phase: 'NOT_STARTED', laneIds: ['joined-lane'] },
+      ],
+    });
+    const modes = {
+      'timed-target-windowEnforcement': 'REQUIRED' as const,
+      'timing-evidence': 'REQUIRED' as const,
+      'timed-target-physicalSignals': 'DISABLED' as const,
+    };
+    const selection = { competitionId: COMPETITION_ID, modes };
+    expect(
+      await profiles.apply({ ...selection, fingerprint: (await profiles.preview(selection)).fingerprint }),
+    ).toMatchObject({ complete: true });
+    expect(config.get('timedTargetReadiness.windowEnforcement')).toBe('REQUIRED');
+    expect(config.get('timingEvidence.mode')).toBe('REQUIRED');
+    expect(config.get('timedTargetReadiness.physicalSignals')).toBe('DISABLED');
+    expect(config.get('timedTargetReadiness.boundedShotTiming')).toBe('ADVISORY');
+    await handlers.getStartReadiness({ competitionId: COMPETITION_ID, phase: 'MATCH' });
+    expect(getTimedTargetStartIssues).toHaveBeenCalledWith(['joined-lane']);
+    getSnapshot.mockReturnValue({
+      competitions: [
+        { competitionId: COMPETITION_ID, phase: 'NOT_STARTED' },
+        { competitionId: 'another-event', phase: 'MATCH' },
+      ],
+    });
+    const changed = { ...selection, modes: { 'timed-target-windowEnforcement': 'DISABLED' as const } };
+    const result = await profiles.apply({ ...changed, fingerprint: (await profiles.preview(changed)).fingerprint });
+    expect(result.complete).toBe(false);
+    expect(config.get('timedTargetReadiness.windowEnforcement')).toBe('REQUIRED');
   });
 
   it('serializes overlapping broker configuration changes', async () => {

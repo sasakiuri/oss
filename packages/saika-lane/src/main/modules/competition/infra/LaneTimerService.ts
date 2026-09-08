@@ -15,7 +15,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
  */
 export class LaneTimerService {
   private intervalId: ReturnType<typeof setInterval> | null = null;
-  private lastTickTime: number = 0;
+  private expiresAtMs: number = 0;
   private competitionId: string | null = null;
   private remainingSeconds: number = 0;
   private totalSeconds: number = 0;
@@ -35,12 +35,16 @@ export class LaneTimerService {
    * @param totalSeconds - Total duration of the timer in seconds
    */
   start(competitionId: string, remainingSeconds: number, totalSeconds: number): void {
+    this.startUntil(competitionId, Date.now() + remainingSeconds * 1000, totalSeconds);
+  }
+
+  private startUntil(competitionId: string, expiresAtMs: number, totalSeconds: number): void {
     this.stop();
     this.assertRunPermitted();
     this.competitionId = competitionId;
-    this.remainingSeconds = remainingSeconds;
+    this.expiresAtMs = expiresAtMs;
+    this.remainingSeconds = this.remainingAt(Date.now());
     this.totalSeconds = totalSeconds;
-    this.lastTickTime = Date.now();
 
     // Emit the initial tick immediately to eliminate UI delay
     this.emitInitialTick();
@@ -126,7 +130,8 @@ export class LaneTimerService {
         this.assertRunPermitted();
       }
 
-      this.start(competitionId, remainingSeconds, durationSeconds);
+      this.startUntil(competitionId, startMs + durationSeconds * 1000, durationSeconds);
+      if (this.remainingSeconds === 0) await this.processTick();
     } catch (error) {
       if (isTimerRunBlockedError(error)) throw error;
       getLogger().error(
@@ -147,6 +152,7 @@ export class LaneTimerService {
       this.intervalId = null;
     }
     this.competitionId = null;
+    this.expiresAtMs = 0;
     this.remainingSeconds = 0;
     this.totalSeconds = 0;
   }
@@ -155,18 +161,24 @@ export class LaneTimerService {
    * Freezes and persists the exact in-memory countdown for a Lane-specific interruption.
    */
   async pause(competitionId: string): Promise<{ remainingSeconds: number; totalSeconds: number }> {
+    const readGeneration = this.startGeneration;
     const state = await this.competitionRepository.findById(competitionId);
+    if (readGeneration !== this.startGeneration) throw new Error('Competition timer changed while pausing');
     if (!state || state.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
 
     let remainingSeconds = state.timer.remainingSeconds;
     let totalSeconds = state.timer.totalSeconds;
     if (this.competitionId === competitionId) {
-      const elapsedSeconds = Math.max(0, Math.round((Date.now() - this.lastTickTime) / 1000));
-      remainingSeconds = Math.max(0, this.remainingSeconds - elapsedSeconds);
+      remainingSeconds = Math.min(this.remainingSeconds, this.remainingAt(Date.now()));
       totalSeconds = this.totalSeconds;
     }
 
+    // Stop before persistence so a delayed or failed save cannot let the old
+    // countdown expire or continue firing timer events during an interruption.
+    this.stop();
+    const pauseGeneration = this.startGeneration;
     await this.competitionRepository.save(state.replaceTimer(remainingSeconds, totalSeconds));
+    if (pauseGeneration !== this.startGeneration) throw new Error('Competition timer changed while pausing');
     this.eventBus.emit({
       type: 'TimerTick',
       timestamp: Date.now(),
@@ -175,7 +187,6 @@ export class LaneTimerService {
       totalSeconds,
       formattedRemaining: this.formatRemaining(remainingSeconds),
     });
-    this.stop();
     return { remainingSeconds, totalSeconds };
   }
 
@@ -234,7 +245,7 @@ export class LaneTimerService {
   /**
    * Processes one tick
    *
-   * Calculates accurate elapsed seconds with Date.now()-based drift correction.
+   * Derives remaining seconds from the deadline without rounding each callback's elapsed time.
    * For normal ticks, decrements in-memory remainingSeconds and emits only a TimerTick event.
    * Persists to the repository only on expiry.
    */
@@ -247,13 +258,11 @@ export class LaneTimerService {
     const competitionId = this.competitionId;
     const generation = this.startGeneration;
 
-    const now = Date.now();
-    const elapsedSeconds = Math.round((now - this.lastTickTime) / 1000);
-    this.lastTickTime = now;
-
-    if (elapsedSeconds <= 0) return;
-
-    this.remainingSeconds = Math.max(0, this.remainingSeconds - elapsedSeconds);
+    const remainingSeconds = this.remainingAt(Date.now());
+    // Retain subsecond time across callbacks and do not increase the displayed
+    // countdown after a wall-clock rollback. Only a new start authorizes more time.
+    if (remainingSeconds >= this.remainingSeconds && this.remainingSeconds > 0) return;
+    this.remainingSeconds = Math.min(this.remainingSeconds, remainingSeconds);
 
     // Emit TimerTick event (from in-memory state)
     this.eventBus.emit({
@@ -318,6 +327,10 @@ export class LaneTimerService {
     const min = Math.floor(clamped / 60);
     const sec = clamped % 60;
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+
+  private remainingAt(nowMs: number): number {
+    return Math.max(0, Math.ceil((this.expiresAtMs - nowMs) / 1000));
   }
 
   private assertRunPermitted(): void {

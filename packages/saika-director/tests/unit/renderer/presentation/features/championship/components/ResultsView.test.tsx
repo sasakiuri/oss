@@ -26,6 +26,9 @@ const {
   getPlacementReviewStatus,
   recordPlacementReview,
   revokePlacementReview,
+  listBackupRuns,
+  listBackupSources,
+  openEstBackupSourcePrint,
 } = vi.hoisted(() => ({
   getByEvent: vi.fn(),
   getByRelay: vi.fn(),
@@ -48,12 +51,16 @@ const {
   getPlacementReviewStatus: vi.fn(),
   recordPlacementReview: vi.fn(),
   revokePlacementReview: vi.fn(),
+  listBackupRuns: vi.fn(),
+  listBackupSources: vi.fn(),
+  openEstBackupSourcePrint: vi.fn(),
 }));
 
 vi.mock('@/renderer/services', () => ({
   resultsService: { getByEvent, getByRelay, getFinalByEvent, confirm },
   teamResultsService: { getMixedFinal },
-  boardService: { openResultsListPrint },
+  boardService: { openResultsListPrint, openEstBackupSourcePrint },
+  estBackupVerificationService: { list: listBackupRuns, listSources: listBackupSources },
   scoringDecisionsService: { listByResult, add, revoke },
   resultVerificationService: {
     getStatus: getVerificationStatus,
@@ -142,6 +149,20 @@ const finalResult: FinalRankedResultDto = {
 describe('ResultsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listBackupRuns.mockResolvedValue({ success: true, data: [] });
+    listBackupSources.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: 'source-1',
+          eventId: 'event-1',
+          fileName: 'backup.csv',
+          recordCount: 2,
+          importedAt: '2026-09-09T00:00:00.000Z',
+        },
+      ],
+    });
+    openEstBackupSourcePrint.mockResolvedValue({ success: true });
     listByResult.mockResolvedValue({ success: true, data: { decisions: [] } });
     add.mockResolvedValue({ success: true, data: {} });
     getVerificationStatus.mockResolvedValue({
@@ -240,6 +261,24 @@ describe('ResultsView', () => {
         history: [],
       },
     });
+  });
+
+  it.each(['empty', 'failed'] as const)('prints retained sources when result loading is %s', async (state) => {
+    getByEvent.mockResolvedValueOnce(
+      state === 'empty'
+        ? { success: true, data: { results: [] } }
+        : { success: false, error: { message: 'Results unavailable' } },
+    );
+    const { rerender } = render(<ResultsView eventId="event-1" />);
+    await screen.findByText(state === 'empty' ? 'No results' : 'Results unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'EST backup verification' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print source' }));
+    expect(openEstBackupSourcePrint).toHaveBeenCalledWith({ sourceId: 'source-1' });
+    expect(listBackupSources).toHaveBeenCalledWith({ eventId: 'event-1' });
+    await act(async () => rerender(<ResultsView eventId="event-2" />));
+    expect(screen.queryByRole('button', { name: 'Print source' })).not.toBeInTheDocument();
+    await act(async () => rerender(<ResultsView eventId="event-2" readOnly />));
+    expect(screen.queryByRole('button', { name: 'EST backup verification' })).not.toBeInTheDocument();
   });
 
   it('opens the independent RTS result-verification workflow', async () => {

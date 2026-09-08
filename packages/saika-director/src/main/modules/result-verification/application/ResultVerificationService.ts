@@ -117,6 +117,12 @@ export class ResultVerificationService {
     if (result.revision !== input.resultRevision) {
       throw new Error('The result changed after this verification form was opened; reload and compare it again');
     }
+    if (
+      input.expectedPreviousCheckId !== undefined &&
+      (result.currentCheck?.id ?? null) !== input.expectedPreviousCheckId
+    ) {
+      throw new Error('The verification record changed; reload before recording another check');
+    }
     if (result.rank < 1 || result.classificationCode !== null) {
       throw new Error('Only ranked results can be verified');
     }

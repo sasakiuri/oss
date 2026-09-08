@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
+
 import { migration003CreateSchema } from '@/main/infrastructure/database/migrations/003_create_schema';
 import { migration017ResultPublication } from '@/main/infrastructure/database/migrations/017_result_publication';
 import { ResultPublication } from '@/main/modules/result-publication/domain/ResultPublication';
@@ -62,6 +63,21 @@ describe('SqliteResultPublicationRepository', () => {
     expect(restored.stateAt(new Date('2026-08-29T01:10:00.000Z'))).toEqual(
       expect.objectContaining({ status: 'PROTEST_PENDING', openProtestReferences: ['P-001'] }),
     );
+  });
+
+  it('preserves actual posting facts separately from the entry timestamp', () => {
+    const repository = setup();
+    const entry = ResultPublication.empty('event-1', 'QUALIFICATION').publishPreliminary({
+      snapshotRevision: REVISION,
+      postedAt: new Date('2026-08-29T01:00:00Z'),
+      recordedAt: new Date('2026-08-29T01:04:00Z'),
+      protestWindowMs: 600_000,
+      officialName: 'RTS Officer',
+      postingLocation: 'Main scoreboard',
+      postingReference: 'List 17',
+    });
+    repository.append(entry);
+    expect(repository.findByEvent('event-1', 'QUALIFICATION')).toEqual([entry]);
   });
 
   it('prevents update and delete of journal entries', () => {

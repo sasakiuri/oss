@@ -19,6 +19,8 @@ const ResultPublicationEntryDtoSchema = z.discriminatedUnion('type', [
   z.object({
     ...entryBase,
     type: z.literal('PRELIMINARY_PUBLISHED'),
+    postingLocation: z.string().trim().min(1).max(300).optional(),
+    postingReference: z.string().trim().min(1).max(1000).optional(),
     snapshotRevision: revisionSchema,
     postedAt: z.string().datetime(),
     protestEndsAt: z.string().datetime(),
@@ -90,6 +92,27 @@ const FinalResultDeclarationStatusDtoSchema = z.object({
 const eventScopeInput = z.object({ eventId: uuidSchema, resultScope: resultScopeSchema });
 const officialNameSchema = z.string().trim().min(1).max(200);
 
+const ResultBoardSnapshotDtoSchema = z.object({
+  eventId: uuidSchema,
+  resultScope: resultScopeSchema,
+  snapshotRevision: revisionSchema,
+  checkedAt: z.string().datetime(),
+  state: z.enum(['DRAFT', 'PRELIMINARY', 'PROTEST_PENDING', 'PROTEST_CLOSED', 'OFFICIAL', 'FINAL', 'REVIEW_REQUIRED']),
+  postedAt: z.string().datetime().nullable(),
+  protestEndsAt: z.string().datetime().nullable(),
+  results: z.array(
+    z.object({
+      resultId: uuidSchema,
+      rank: z.number().int().nonnegative(),
+      playerName: z.string(),
+      affiliation: z.string(),
+      totalScore: z.number().nonnegative(),
+      classificationCode: z.enum(['DSQ', 'DQB', 'AD_DSQ']).nullable(),
+    }),
+  ),
+});
+export type ResultBoardSnapshotDto = z.infer<typeof ResultBoardSnapshotDtoSchema>;
+
 export type ResultPublicationEntryDto = z.infer<typeof ResultPublicationEntryDtoSchema>;
 export type ResultPublicationStatusDto = z.infer<typeof ResultPublicationStatusDtoSchema>;
 export type PublishPreliminaryResultsPayload = z.infer<typeof PublishPreliminaryResultsInputSchema>;
@@ -100,7 +123,17 @@ export type FinalResultDeclarationDto = z.infer<typeof FinalResultDeclarationDto
 export type FinalResultDeclarationStatusDto = z.infer<typeof FinalResultDeclarationStatusDtoSchema>;
 export type DeclareFinalResultsPayload = z.infer<typeof DeclareFinalResultsInputSchema>;
 
-const PublishPreliminaryResultsInputSchema = eventScopeInput.extend({ officialName: officialNameSchema });
+const PublishPreliminaryResultsInputSchema = eventScopeInput.extend({
+  officialName: officialNameSchema,
+  posting: z
+    .object({
+      snapshotRevision: revisionSchema,
+      postedAt: z.string().datetime().optional(),
+      location: z.string().trim().min(1).max(300),
+      reference: z.string().trim().min(1).max(1000).optional(),
+    })
+    .optional(),
+});
 const RegisterResultProtestInputSchema = eventScopeInput.extend({
   protestReference: z.string().trim().min(1).max(200),
 });
@@ -117,14 +150,17 @@ const DeclareFinalResultsInputSchema = z.object({
   officialName: officialNameSchema,
 });
 
-const reviewSettingsSchema = z.object({
+export const reviewSettingsSchema = z.object({
+  requireObservationReviews: z.boolean().default(true),
   requireIncidentReports: z.boolean(),
   requireFinalRecoveriesComplete: z.boolean(),
   requireProtestCasesComplete: z.boolean(),
+  requireEquipmentChecksComplete: z.boolean(),
 });
 export type ResultPublicationReviewSettingsDto = z.infer<typeof reviewSettingsSchema>;
 
 export const resultPublicationContract = defineContract('resultPublication', {
+  getBoardSnapshot: query(eventScopeInput, queryResponseSchema(ResultBoardSnapshotDtoSchema)),
   getReviewSettings: query(queryResponseSchema(reviewSettingsSchema)),
   setReviewSettings: command(reviewSettingsSchema, commandDataResponseSchema(reviewSettingsSchema)),
   getStatus: query(eventScopeInput, queryResponseSchema(ResultPublicationStatusDtoSchema)),

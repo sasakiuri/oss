@@ -1,6 +1,3 @@
-import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
-import { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
-import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
 import { contextBridge } from 'electron';
 
 import {
@@ -10,12 +7,14 @@ import {
   scoringDecisionsContract,
   resultVerificationContract,
   resultPublicationContract,
+  publicationReviewPolicyContract,
   competitionAnnouncementsContract,
   incidentReportsContract,
   targetExaminationsContract,
   evidenceFilesContract,
   malfunctionScoreApplicationsContract,
   scoreCorrectionsContract,
+  observationReviewsContract,
   reserveLaneTransfersContract,
   finalRecoveryFiringContract,
   rangeInterruptionsContract,
@@ -24,6 +23,7 @@ import {
   teamResultsContract,
   protestsContract,
   estBackupVerificationContract,
+  backupCaptureReadinessContract,
   finalControlContract,
   finalOperationsContract,
   finalRecoveriesContract,
@@ -49,6 +49,9 @@ import {
   athleteSanctionsContract,
   estComplaintsContract,
 } from '@/shared/ipc/contracts';
+import { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
+import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
 import { buildProcedureBridge, buildEventBridge, buildAliasedBridge } from './buildPreloadAPI';
@@ -79,12 +82,14 @@ const electronAPI: ElectronAPI = {
   scoringDecisions: buildProcedureBridge(scoringDecisionsContract),
   resultVerification: buildProcedureBridge(resultVerificationContract),
   resultPublication: buildProcedureBridge(resultPublicationContract),
+  publicationReviewPolicy: buildProcedureBridge(publicationReviewPolicyContract),
   competitionAnnouncements: buildProcedureBridge(competitionAnnouncementsContract),
   incidentReports: buildProcedureBridge(incidentReportsContract),
   targetExaminations: buildProcedureBridge(targetExaminationsContract),
   evidenceFiles: buildProcedureBridge(evidenceFilesContract),
   malfunctionScoreApplications: buildProcedureBridge(malfunctionScoreApplicationsContract),
   scoreCorrections: buildProcedureBridge(scoreCorrectionsContract),
+  observationReviews: buildProcedureBridge(observationReviewsContract),
   reserveLaneTransfers: buildProcedureBridge(reserveLaneTransfersContract),
   finalRecoveryFiring: buildProcedureBridge(finalRecoveryFiringContract),
   estComplaints: buildProcedureBridge(estComplaintsContract),
@@ -94,6 +99,7 @@ const electronAPI: ElectronAPI = {
   teamResults: buildProcedureBridge(teamResultsContract),
   protests: buildProcedureBridge(protestsContract),
   estBackupVerification: buildProcedureBridge(estBackupVerificationContract),
+  backupCaptureReadiness: buildProcedureBridge(backupCaptureReadinessContract),
   finalControl: buildProcedureBridge(finalControlContract),
   finalOperations: buildProcedureBridge(finalOperationsContract),
   finalRecoveries: buildProcedureBridge(finalRecoveriesContract),

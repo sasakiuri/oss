@@ -30,6 +30,7 @@ import {
   type ScoringGaugeProfileId,
   type TargetScoringProfileId,
 } from '@/shared/target';
+import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 export interface ShotIngestionDeps {
   commandBus: CommandBus;
@@ -61,6 +62,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
       y: shotData.y,
       deviceScoreX10: shotData.score,
       firedAt: shotData.timestamp,
+      timestampSource: shotData.timestampSource ?? 'LANE_RECEIPT',
       receivedAt: new Date(),
       reportedMode: shotData.mode,
       rawFrameHex: shotData.raw?.toString('hex'),
@@ -122,19 +124,26 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
               shotData.timestamp,
               timedTargetReader,
               shootOffProgramId,
+              observation.timestampSource,
             )
           : null;
       if (timedTargetDecision && !timedTargetDecision.allowed) {
         await finalizeObservation({
           observationId: observation.id,
-          type: 'REJECTED_TIMED_TARGET_WINDOW',
+          type: timedTargetDecision.timingReviewRequired ? 'QUARANTINED_TIMING_REVIEW' : 'REJECTED_TIMED_TARGET_WINDOW',
           sessionId: activeCompetition!.sessionId,
           detail: timedTargetDecision.reason,
         });
-        logger.warn('Shot rejected outside the timed target recording window', 'usb', {
-          sequenceId: timedTargetDecision.sequenceId,
-          reason: timedTargetDecision.reason,
-        });
+        logger.warn(
+          timedTargetDecision.timingReviewRequired
+            ? 'Shot held for timing review'
+            : 'Shot rejected outside the timed target recording window',
+          'usb',
+          {
+            sequenceId: timedTargetDecision.sequenceId,
+            reason: timedTargetDecision.reason,
+          },
+        );
         return;
       }
       const acceptedByShootOff = shootOffCandidate && (!shootOffProgramId || timedTargetDecision?.allowed === true);
@@ -207,7 +216,9 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         observationId: observation.id,
         type: 'RECORDED',
         sessionId: activeSession.id,
-        ...(timedTargetDecision?.warning ? { detail: timedTargetDecision.warning } : {}),
+        ...(timedTargetDecision?.warning || timedTargetDecision?.timingEvidence
+          ? { detail: timedTargetDecision.warning ?? timedTargetDecision.timingEvidence }
+          : {}),
       });
 
       logger.debug('Shot recorded via USB', 'usb', {
@@ -265,6 +276,7 @@ function assessTimedTargetShot(
   firedAt: Date,
   reader: ShotIngestionDeps['timedTargetReader'],
   expectedShootOffProgramId?: string,
+  timestampSource?: ShotTimestampSource,
 ): TimedTargetShotDecision | null {
   const expectedMatchProgramId = competition.currentSeriesConfig.timedTargetProgramId;
   if (!expectedMatchProgramId && !expectedShootOffProgramId) return null;
@@ -283,6 +295,7 @@ function assessTimedTargetShot(
     targetProfileId,
     observationId,
     firedAt,
+    timestampSource,
   });
 }
 

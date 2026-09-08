@@ -4,6 +4,7 @@ import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionSta
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
+import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 /** Synchronously supplies the discipline and mode of the active competition. */
 export type SessionContextProvider = () => Pick<AdapterContext, 'discipline' | 'mode'>;
@@ -109,9 +110,10 @@ export interface ShotData {
   y: number | null;
 
   /**
-   * Reception timestamp
+   * Reception timestamp unless timestampSource explicitly identifies another source.
    */
   timestamp: Date;
+  timestampSource?: ShotTimestampSource;
 
   /**
    * Score reported by the target device (×10 integer)
