@@ -12,18 +12,47 @@ const columnMapping = z
     keyColumn: columnName,
     totalScoreColumn: columnName,
     rankColumn: columnName.nullable(),
+    shotScoreColumns: z.array(columnName).max(1000).optional(),
+    seriesScoreColumns: z.array(columnName).max(1000).optional(),
   })
   .refine((value) => {
-    const columns = [value.keyColumn, value.totalScoreColumn, value.rankColumn].filter((column) => column !== null);
+    const columns = [
+      value.keyColumn,
+      value.totalScoreColumn,
+      value.rankColumn,
+      ...(value.shotScoreColumns ?? []),
+      ...(value.seriesScoreColumns ?? []),
+    ].filter((column) => column !== null);
     return new Set(columns).size === columns.length;
   }, 'Select different columns for key, total score, and rank');
+const scoreDetails = {
+  shotScores: z.array(z.number().finite()).max(1000).optional(),
+  seriesScores: z.array(z.number().finite()).max(1000).optional(),
+};
 const backupRecord = z.object({
+  ...scoreDetails,
   key: z.string().trim().min(1).max(200),
   rank: z.number().int().positive().nullable().optional(),
   totalScore: z.number(),
 });
 export const EstBackupColumnMappingSchema = columnMapping;
 const item = z.object({
+  detailChecks: z
+    .array(
+      z.object({
+        kind: z.enum(['SERIES', 'SHOTS']),
+        required: z.boolean(),
+        status: z.enum(['MATCH', 'MISMATCH', 'MISSING', 'UNAVAILABLE', 'NOT_REQUESTED']),
+        values: z.array(
+          z.object({
+            position: z.number().int().positive(),
+            official: z.number().nullable(),
+            backup: z.number().nullable(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
   key: z.string(),
   name: z.string(),
   officialRank: z.number().int().positive().nullable(),
@@ -57,6 +86,7 @@ const run = z.object({
   verifiedAt: z.string().datetime(),
 });
 const create = z.object({
+  detailRequirement: z.enum(['AVAILABLE', 'SERIES', 'SHOTS', 'BOTH']).optional(),
   sourceId: z.string().uuid().optional(),
   id: z.string().uuid().optional(),
   eventId: z.string().uuid(),

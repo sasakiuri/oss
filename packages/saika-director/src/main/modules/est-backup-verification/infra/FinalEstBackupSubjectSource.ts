@@ -1,5 +1,6 @@
 import type { IParticipantRepository } from '@/main/modules/championship';
 import type { IResultVerificationSource } from '@/main/modules/result-verification';
+
 import type { IEstBackupSubjectSource } from '../application/IEstBackupSubjectSource';
 
 /** Adapts the same immutable Final revisions used by individual and Mixed Team RTS checks. */
@@ -47,6 +48,8 @@ export class FinalEstBackupSubjectSource implements IEstBackupSubjectSource {
         name: result.playerName,
         rank: result.rank,
         totalScore: result.totalScore,
+        ...(result.shotScores ? { shotScores: [...result.shotScores] } : {}),
+        ...(result.seriesScores ? { seriesScores: [...result.seriesScores] } : {}),
         interventionCount: result.decisionCount,
       };
     });

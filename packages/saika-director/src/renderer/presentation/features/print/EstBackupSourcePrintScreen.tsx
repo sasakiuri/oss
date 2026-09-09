@@ -83,6 +83,37 @@ export function EstBackupSourcePrintScreen({ config }: { config: BoardWindowConf
               ))}
             </tbody>
           </table>
+          {current.records
+            .filter((record) => record.shotScores || record.seriesScores)
+            .map((record) => (
+              <section key={record.key} className="my-4">
+                <h2 className="text-sm font-bold">Source detail: {record.key}</h2>
+                {(
+                  [
+                    ['Series', record.seriesScores],
+                    ['Shot', record.shotScores],
+                  ] as const
+                ).map(
+                  ([label, scores]) =>
+                    scores && (
+                      <div key={label} className="my-2">
+                        <h3 className="font-semibold">{label} scores (position: value)</h3>
+                        {scores.length ? (
+                          <div className="grid grid-cols-5 gap-1">
+                            {scores.map((score, index) => (
+                              <span key={index}>
+                                {index + 1}: {score}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>No detail supplied</p>
+                        )}
+                      </div>
+                    ),
+                )}
+              </section>
+            ))}
           {includeOriginal && (
             <section className="page-break">
               <h2 className="text-lg font-bold">Original source text</h2>

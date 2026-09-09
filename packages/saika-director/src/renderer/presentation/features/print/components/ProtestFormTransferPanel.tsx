@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { createProtestFormTransfer } from '@/shared/forms/ProtestFormTransfer';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 
+import { ProtestOfficialFormPanel } from './ProtestOfficialFormPanel';
+
 export function ProtestFormTransferPanel({
   protest,
   parent,
@@ -86,6 +88,7 @@ export function ProtestFormTransferPanel({
               ). The operational printout does not replace that attachment.
             </p>
           )}
+          <ProtestOfficialFormPanel key={transfer.caseId} transfer={transfer} />
           <div className="mt-3 space-y-2">
             {transfer.fields.map((field) => (
               <div key={field.label} className="rounded border p-2">
