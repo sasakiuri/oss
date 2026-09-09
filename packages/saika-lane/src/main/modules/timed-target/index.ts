@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 export { BoundedShotTimingPolicy, type IShotTimingPolicy } from './domain/ShotTimingPolicy';
-export { readTimingSettings } from './infra/StoredTimingSettings';
 export {
   TimedTargetSequenceService,
   timedTargetEnforcementModeFromEnvironment,

@@ -549,6 +549,65 @@ describe('RedDotProtocolSession', () => {
     expect(session.getState()).toBe('AWAITING_RESPONSE');
   });
 
+  it('discards an expired response timeout queued behind an idle response', async () => {
+    const port = new FakeRedDotPort();
+    const onWarning = vi.fn();
+    const session = createSession(port, { onWarning });
+    await startFormally(port, session);
+    await vi.advanceTimersByTimeAsync(100);
+
+    // Queue the response first, then expire its timer before the queue drains.
+    port.emitData(Buffer.from([RED_DOT_NAK]));
+    vi.advanceTimersByTime(300);
+    await flushPromises();
+
+    expect(onWarning).not.toHaveBeenCalledWith('RESPONSE_TIMEOUT');
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+    expect(port.writes).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(port.writes).toHaveLength(5);
+  });
+
+  it('ignores an expired poll queued behind a shot received before the deadline', async () => {
+    const port = new FakeRedDotPort();
+    const onFrame = vi.fn();
+    const session = createSession(port, { onFrame });
+    await startFormally(port, session);
+    port.deferDrains = true;
+
+    port.emitData(validRedDotFrame());
+    vi.advanceTimersByTime(100);
+    await flushPromises();
+    expect(session.getState()).toBe('WRITING_REPLY');
+    expect(port.writes.at(-1)).toEqual(Buffer.from([RED_DOT_ACK]));
+
+    port.deferDrains = false;
+    port.completeNextDrain();
+    await flushPromises();
+    expect(onFrame).toHaveBeenCalledOnce();
+    expect(port.writes).toHaveLength(4);
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(port.writes).toHaveLength(5);
+  });
+
+  it('waits a full polling interval after a response timeout', async () => {
+    const port = new FakeRedDotPort();
+    const onWarning = vi.fn();
+    const session = createSession(port, { onWarning });
+    await startFormally(port, session);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(onWarning).toHaveBeenCalledWith('RESPONSE_TIMEOUT');
+    expect(session.getState()).toBe('POLL_SCHEDULED');
+    expect(port.writes).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(99);
+    expect(port.writes).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(port.writes.at(-1)).toEqual(Buffer.from([RED_DOT_ENQ]));
+    expect(port.writes).toHaveLength(5);
+  });
+
   it('removes its listener and cancels pending initialization when stopped', async () => {
     const port = new FakeRedDotPort();
     const session = createSession(port);

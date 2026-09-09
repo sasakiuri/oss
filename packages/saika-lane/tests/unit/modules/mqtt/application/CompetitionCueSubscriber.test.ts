@@ -6,7 +6,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 }));
 
 import { CompetitionCueSubscriber } from '@/main/modules/mqtt/application/CompetitionCueSubscriber';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
@@ -76,6 +76,15 @@ describe('CompetitionCueSubscriber', () => {
     messageHandler(`saika/competition/${COMPETITION_ID}/cue`, Buffer.from(JSON.stringify(cue([OTHER_LANE_ID]))));
 
     expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ cue: null }));
+  });
+
+  it('forwards Director timed-target cues through the shared contract', async () => {
+    const subscriber = new CompetitionCueSubscriber(mqttClient, eventBus, () => LANE_ID);
+    await subscriber.subscribe(COMPETITION_ID);
+    const payload = { ...cue(), effect: { type: 'RUN_TIMED_TARGET', purpose: 'MATCH' } };
+    messageHandler(`saika/competition/${COMPETITION_ID}/cue`, Buffer.from(JSON.stringify(payload)));
+
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ cue: payload }));
   });
 
   it('clears renderer state when the competition subscription ends', async () => {

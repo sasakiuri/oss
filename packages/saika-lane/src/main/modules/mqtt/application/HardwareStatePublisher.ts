@@ -10,7 +10,7 @@
 
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

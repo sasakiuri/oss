@@ -71,10 +71,6 @@ export function buildQualificationRecoveryProgram(input: QualificationRecoveryPr
   return limitProgramToShots(input.matchProgram, recovery.shotsToFire, 'series completion');
 }
 
-export function qualificationRecoveryProgramMaximumShots(program: TimedTargetProgram): number {
-  return maximumShots(program);
-}
-
 function limitProgramToShots(program: TimedTargetProgram, shotsToFire: number, label: string): TimedTargetProgram {
   positiveInteger(shotsToFire, 'shotsToFire');
   const availableShots = maximumShots(program);

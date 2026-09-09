@@ -2,6 +2,63 @@
 module.exports = {
   extends: 'dependency-cruiser/configs/recommended',
   forbidden: [
+    {
+      name: 'no-settings-policy-to-runtime',
+      comment: 'Settings normalization and its consumer port depend only on shared IPC contracts.',
+      severity: 'error',
+      from: { path: '^src/main/modules/settings/application/(SettingsDocument|IAppSettingsStore)\\.ts$' },
+      to: { path: '^src/', pathNot: '^src/shared/ipc/' },
+    },
+    {
+      name: 'no-protocol-timer-to-runtime',
+      comment: 'Serialized deadlines use injected clocks and queues without depending on a device session.',
+      severity: 'error',
+      from: { path: '^src/main/modules/connection/infra/usb/SerializedProtocolTimer\\.ts$' },
+      to: {},
+    },
+    {
+      name: 'no-migration-definitions-to-runtime',
+      comment: 'Historical migrations are self-contained and must not change with current application code.',
+      severity: 'error',
+      from: { path: '^src/main/shared-infra/sqlite/migrations/([0-9]{3}_[^/]+|SessionSchema|Migration)\\.ts$' },
+      to: { path: '^src/', pathNot: '^src/main/shared-infra/sqlite/migrations/Migration\\.ts$' },
+    },
+    {
+      name: 'no-feature-to-migration-internals',
+      comment: 'Features consume repositories; schema upgrades belong to database initialization.',
+      severity: 'error',
+      from: { path: '^src/main/modules/' },
+      to: { path: '^src/main/shared-infra/sqlite/migrations/' },
+    },
+    {
+      name: 'no-command-processing-to-handlers',
+      comment: 'Command receipt and deduplication must remain independent of competition handlers.',
+      severity: 'error',
+      from: {
+        path: '^src/main/modules/mqtt/application/commands/(LaneCommandProcessor|CommandIdempotencyGuard)\\.ts$',
+      },
+      to: {
+        path: '^src/main/modules/mqtt/application/commands/(BroadcastCommandHandler|PerLaneCommandHandler|LaneTier1CommandHandler)\\.ts$',
+      },
+    },
+    {
+      name: 'no-mqtt-application-to-adapters-or-registration',
+      comment: 'MQTT application components depend on transport ports and application contracts.',
+      severity: 'error',
+      from: { path: '^src/main/modules/mqtt/application/' },
+      to: { path: '^src/main/modules/mqtt/(infra/|mqtt\\.module\\.ts$)' },
+    },
+    {
+      name: 'no-feature-to-bootstrap',
+      comment: 'Feature modules may use CQRS tokens, but must not construct the application.',
+      severity: 'error',
+      from: { path: '^src/main/modules/' },
+      to: {
+        path: '^src/main/(composition/|startup/|window/|main\\.ts$)',
+        pathNot: '^src/main/composition/tokens\\.ts$',
+        dependencyTypesNot: ['type-only'],
+      },
+    },
     // === Process boundary rules (severity: error) ===
     {
       name: 'no-renderer-to-main',

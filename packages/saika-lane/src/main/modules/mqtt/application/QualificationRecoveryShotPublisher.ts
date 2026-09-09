@@ -11,7 +11,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { QualificationRecoveryShotPayload } from '@/shared/mqtt/QualificationRecovery';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 export class QualificationRecoveryShotPublisher {
   private drainTail = Promise.resolve();

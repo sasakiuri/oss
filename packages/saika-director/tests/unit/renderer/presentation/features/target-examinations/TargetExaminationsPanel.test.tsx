@@ -1,13 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TargetExaminationsPanel } from '@/renderer/presentation/features/target-examinations';
 import type { TargetExaminationCaseDto } from '@/shared/ipc/contracts';
 
-const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
-const EVENT_ID = '22222222-2222-4222-8222-222222222222';
-const CASE_ID = '33333333-3333-4333-8333-333333333333';
-const LANE_ID = '44444444-4444-4444-8444-444444444444';
+import { CASE_ID, COMPETITION_ID, EVENT_ID, LANE_ID, caseFixture, deferred } from './fixtures';
 
 const { listAll, listByScope, create, linkScope, addEvidence, appendEntry } = vi.hoisted(() => ({
   listAll: vi.fn(),
@@ -21,54 +18,6 @@ const { listAll, listByScope, create, linkScope, addEvidence, appendEntry } = vi
 vi.mock('@/renderer/services', () => ({
   targetExaminationsService: { listAll, listByScope, create, linkScope, addEvidence, appendEntry },
 }));
-
-function caseFixture(overrides: Partial<TargetExaminationCaseDto> = {}): TargetExaminationCaseDto {
-  return {
-    id: CASE_ID,
-    issueKind: 'NO_SHOT_INDICATION',
-    occurredAt: '2026-08-31T01:00:00.000Z',
-    laneId: LANE_ID,
-    firingPointNumber: 12,
-    relayNumber: 1,
-    athleteName: 'Alex Athlete',
-    shotId: null,
-    summary: 'Expected shot was not shown',
-    details: 'The monitor remained unchanged after the athlete reported firing.',
-    ruleReferences: 'ISSF 6.10.5, 6.10.8',
-    openedBy: 'RTS Officer A',
-    createdAt: '2026-08-31T01:00:01.000Z',
-    scopes: [
-      {
-        id: '55555555-5555-4555-8555-555555555555',
-        caseId: CASE_ID,
-        scopeType: 'COMPETITION',
-        scopeId: COMPETITION_ID,
-        linkedBy: 'RTS Officer A',
-        note: 'Linked when opened',
-        linkedAt: '2026-08-31T01:00:01.000Z',
-      },
-    ],
-    evidence: [],
-    entries: [],
-    status: 'OPEN',
-    evidenceHoldActive: true,
-    workflow: {
-      policyId: 'ISSF-2026-TARGET-EXAMINATION-V1',
-      advisoryOnly: true,
-      readyForJuryDecision: false,
-      steps: [
-        {
-          id: 'est-log-print',
-          label: 'Secure the EST LOG print',
-          ruleReference: 'ISSF 6.10.8.1.g',
-          status: 'MISSING',
-          guidance: 'Do not clear the LOG until the RTS Jury authorizes release of the evidence hold.',
-        },
-      ],
-    },
-    ...overrides,
-  };
-}
 
 describe('TargetExaminationsPanel', () => {
   beforeEach(() => {
@@ -158,5 +107,74 @@ describe('TargetExaminationsPanel', () => {
     expect(listAll).toHaveBeenCalledOnce();
     expect(listByScope).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Open case' })).not.toBeInTheDocument();
+  });
+  it.each(['action', 'evidence'] as const)('does not carry an %s draft to another case', async (kind) => {
+    const second = caseFixture({ id: '66666666-6666-4666-8666-666666666666', summary: 'Second case' });
+    listByScope.mockResolvedValue({ success: true, data: [second, caseFixture()] });
+    render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
+    await screen.findByRole('heading', { name: 'Expected shot was not shown' });
+    const button = kind === 'action' ? 'Record action' : 'Add evidence';
+    const field = kind === 'action' ? 'Statement / authorization' : 'Description';
+    fireEvent.click(screen.getByRole('button', { name: button }));
+    fireEvent.change(screen.getByLabelText(field), { target: { value: 'Facts for the first case only' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Second case/ }));
+
+    expect(screen.queryByLabelText(field)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: button }));
+    expect(screen.getByLabelText(field)).toHaveValue('');
+  });
+
+  it('keeps the newly created case when the initial list completes late', async () => {
+    const initial = deferred<{ success: true; data: TargetExaminationCaseDto[] }>();
+    listByScope.mockReturnValueOnce(initial.promise);
+    render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open case' }));
+    fireEvent.change(screen.getByLabelText('Summary'), { target: { value: 'New examination' } });
+    fireEvent.change(screen.getByLabelText('Observed facts'), { target: { value: 'Monitor did not update.' } });
+    fireEvent.change(screen.getByLabelText('Opened by'), { target: { value: 'RTS Officer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open case and hold data' }));
+    await screen.findByRole('heading', { name: 'Expected shot was not shown' });
+
+    await act(async () => initial.resolve({ success: true, data: [] }));
+
+    expect(screen.getByRole('heading', { name: 'Expected shot was not shown' })).toBeInTheDocument();
+  });
+  it('keeps the newly selected case after an action for the previous case completes', async () => {
+    const second = caseFixture({ id: '66666666-6666-4666-8666-666666666666', summary: 'Second case' });
+    listByScope.mockResolvedValue({ success: true, data: [second, caseFixture()] });
+    const pending = deferred<{ success: true; data: TargetExaminationCaseDto }>();
+    appendEntry.mockReturnValueOnce(pending.promise);
+    render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
+    await screen.findByRole('heading', { name: 'Expected shot was not shown' });
+    fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
+    fireEvent.change(screen.getByLabelText('Statement / authorization'), { target: { value: 'First case note' } });
+    fireEvent.change(screen.getByLabelText('Official name'), { target: { value: 'RTS Officer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Append action' }));
+    fireEvent.click(screen.getByRole('button', { name: /Second case/ }));
+
+    await act(async () => pending.resolve({ success: true, data: caseFixture() }));
+
+    expect(appendEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ caseId: CASE_ID, statement: 'First case note' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Second case' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
+    expect(screen.getByLabelText('Statement / authorization')).toHaveValue('');
+  });
+
+  it('retains an action draft when its command fails so the official can retry', async () => {
+    appendEntry.mockResolvedValueOnce({ success: false, error: { message: 'Unable to append action' } });
+    render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
+    await screen.findByRole('heading', { name: 'Expected shot was not shown' });
+    fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
+    fireEvent.change(screen.getByLabelText('Statement / authorization'), { target: { value: 'Retain this note' } });
+    fireEvent.change(screen.getByLabelText('Official name'), { target: { value: 'RTS Officer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Append action' }));
+
+    await screen.findByText('Unable to append action');
+
+    expect(screen.getByLabelText('Statement / authorization')).toHaveValue('Retain this note');
+    expect(screen.getByRole('button', { name: 'Append action' })).toBeEnabled();
   });
 });

@@ -30,9 +30,19 @@ Proposed --> Accepted --> Deprecated
 
 ## Index
 
-| ADR                                   | Title                     | Status   |
-| ------------------------------------- | ------------------------- | -------- |
-| [0001](0001-monorepo-toolchain.md)    | Monorepo Toolchain        | Accepted |
-| [0002](0002-electron-architecture.md) | Electron App Architecture | Accepted |
-| [0003](0003-ipc-contract-system.md)   | IPC Contract System       | Accepted |
-| [0004](0004-versioned-rule-packs.md)  | Versioned Rule Packs      | Accepted |
+| ADR                                                         | Title                                                | Status   |
+| ----------------------------------------------------------- | ---------------------------------------------------- | -------- |
+| [0001](0001-monorepo-toolchain.md)                          | Monorepo Toolchain                                   | Accepted |
+| [0002](0002-electron-architecture.md)                       | Electron App Architecture                            | Accepted |
+| [0003](0003-ipc-contract-system.md)                         | IPC Contract System                                  | Accepted |
+| [0004](0004-versioned-rule-packs.md)                        | Versioned Rule Packs                                 | Accepted |
+| [0005](0005-application-composition-and-wire-contracts.md)  | Application Composition and Shared MQTT Contracts    | Proposed |
+| [0006](0006-director-mqtt-application-boundaries.md)        | Director MQTT Application Boundaries                 | Proposed |
+| [0007](0007-mqtt-lifecycle-and-command-processing.md)       | MQTT Lifecycle Ownership and Lane Command Processing | Proposed |
+| [0008](0008-director-renderer-state-and-view-boundaries.md) | Director Renderer State and View Boundaries          | Proposed |
+| [0009](0009-lane-database-migration-boundaries.md)          | Lane Database Migration Boundaries                   | Proposed |
+| [0010](0010-director-command-workflow-boundaries.md)        | Director Command Workflow Boundaries                 | Proposed |
+| [0011](0011-rule-pack-validation-boundaries.md)             | Rule Pack Validation Boundaries                      | Proposed |
+| [0012](0012-serial-protocol-deadline-ownership.md)          | Serial Protocol Deadline Ownership                   | Proposed |
+| [0013](0013-lane-settings-document-boundaries.md)           | Lane Settings Document Boundaries                    | Proposed |
+| [0014](0014-target-examination-workspace-boundaries.md)     | Target Examination Workspace Boundaries              | Proposed |

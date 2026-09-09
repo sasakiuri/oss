@@ -10,7 +10,7 @@
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 

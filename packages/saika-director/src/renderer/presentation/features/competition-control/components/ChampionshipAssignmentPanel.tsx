@@ -20,8 +20,6 @@ interface ChampionshipAssignmentPanelProps {
   onApply: (plan: FiringPointAssignmentPlan, resultContext: ChampionshipResultContext) => Promise<void>;
 }
 
-export type { ChampionshipResultContext } from '@/renderer/presentation/stores/domain/competitionControl.store';
-
 function formatFiringPoints(firingPointNumbers: number[]): string {
   return firingPointNumbers.map((number) => `firing point ${number}`).join(', ');
 }

@@ -65,7 +65,7 @@ const config: KnipConfig = {
     "packages/saika-director/src/shared/constants/roundConfig.ts": ["exports"],
     "packages/saika-director/src/shared/logging/LoggerFactory.ts": ["exports"],
   },
-  ignoreBinaries: ["tsc", "vitest", "electron-rebuild", "electron-builder"],
+  ignoreBinaries: ["vitest", "electron-rebuild"],
   ignoreDependencies: [
     // Workspace package used in root eslint.config.mjs (resolved via npm workspaces)
     "@sasakiuri/eslint-config",

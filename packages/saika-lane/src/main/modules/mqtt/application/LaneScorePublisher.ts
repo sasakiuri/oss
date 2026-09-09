@@ -12,7 +12,7 @@ import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiu
 
 import { GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

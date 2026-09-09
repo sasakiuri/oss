@@ -7,7 +7,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { QualificationRecoveryStatePayloadSchema } from '@/shared/mqtt/QualificationRecovery';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 export class QualificationRecoveryStatePublisher {
   private publicationQueue: Promise<void> = Promise.resolve();

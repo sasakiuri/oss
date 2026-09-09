@@ -93,4 +93,50 @@ test.describe('Saika Director', () => {
 
     await applicationExited;
   });
+
+  test('keeps examination drafts and saved actions attached to the selected case', async () => {
+    running = await launchDirector();
+    const page = await running.app.firstWindow();
+    const caseIds = await page.evaluate(async () => {
+      const api = window.electronAPI.targetExaminations;
+      const ids: string[] = [];
+      for (const summary of ['First target examination', 'Second target examination']) {
+        const response = await api.create({
+          scopes: [{ scopeType: 'COMPETITION', scopeId: '11111111-1111-4111-8111-111111111111' }],
+          issueKind: 'NO_SHOT_INDICATION',
+          occurredAt: new Date().toISOString(),
+          summary,
+          details: 'Monitor did not show the reported shot.',
+          ruleReferences: 'ISSF 6.10.8',
+          openedBy: 'RTS Officer',
+        });
+        if (!response.success) throw new Error(response.error.message);
+        ids.push(response.data.id);
+      }
+      return ids;
+    });
+
+    await page.getByRole('button', { name: 'Target Examinations', exact: true }).click();
+    await page.getByRole('button', { name: /First target examination/ }).click();
+    await page.getByRole('button', { name: 'Record action', exact: true }).click();
+    await page.getByLabel('Statement / authorization').fill('Unsubmitted first case note');
+    await page.getByRole('button', { name: /Second target examination/ }).click();
+    await expect(page.getByLabel('Statement / authorization')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Record action', exact: true }).click();
+    await expect(page.getByLabel('Statement / authorization')).toHaveValue('');
+    await page.getByLabel('Statement / authorization').fill('Second case evidence examined');
+    await page.getByLabel('Official name', { exact: true }).fill('RTS Jury');
+    await page.getByRole('button', { name: 'Append action', exact: true }).click();
+    await expect(page.getByText('Second case evidence examined', { exact: true })).toBeVisible();
+
+    const cases = await page.evaluate(async () => {
+      const response = await window.electronAPI.targetExaminations.listAll();
+      if (!response.success) throw new Error(response.error.message);
+      return response.data;
+    });
+    expect(cases.find((item) => item.id === caseIds[0])?.entries).toEqual([]);
+    expect(cases.find((item) => item.id === caseIds[1])?.entries).toEqual([
+      expect.objectContaining({ statement: 'Second case evidence examined', officialName: 'RTS Jury' }),
+    ]);
+  });
 });

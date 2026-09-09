@@ -7,7 +7,7 @@ import type { IConnectionRepository } from '@/main/modules/connection/domain/ICo
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
-import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
+import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';

@@ -8,12 +8,11 @@
  * executes assign-athlete / reset-session via CommandBus.
  */
 
-import type { z } from 'zod';
-
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { IMalfunctionFiringControl, MalfunctionFiringRequest } from '@/main/modules/malfunction-firing';
+import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
@@ -22,8 +21,8 @@ import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
-import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import {
   ReserveLaneTransferCmdSchema,
   ApplyQualificationRecoveryCmdSchema,
@@ -40,8 +39,6 @@ import {
   SettleQualificationRecoveryCmdSchema,
   StartQualificationRecoveryCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
-import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
@@ -51,10 +48,11 @@ import type {
 import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
-import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { MalfunctionFiringEvidenceSchema } from '@/shared/mqtt/MalfunctionFiring';
 import type { ReserveLaneTransferAction } from '@/shared/mqtt/ReserveLaneTransfer';
+
+import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
 
 type PerLaneAction =
   | 'reserve-lane-transfer'
@@ -72,7 +70,7 @@ type PerLaneAction =
   | 'settle-qualification-recovery'
   | 'retire-finalist';
 
-const ACTION_SCHEMAS: Record<PerLaneAction, z.ZodType> = {
+const ACTION_SCHEMAS: LaneCommandSchemas<PerLaneAction> = {
   'reserve-lane-transfer': ReserveLaneTransferCmdSchema,
   'start-malfunction-firing': StartMalfunctionFiringCmdSchema,
   'read-malfunction-firing': ReadMalfunctionFiringCmdSchema,
@@ -97,13 +95,14 @@ interface ParsedPerLaneTopic {
 }
 
 export class PerLaneCommandHandler {
+  private readonly processor: LaneCommandProcessor;
   private subscribedTopic: string | null = null;
   private messageUnsubscribe: (() => void) | null = null;
 
   constructor(
     private readonly mqttClient: IMqttClientService,
     private readonly commandBus: CommandBus,
-    private readonly idempotencyGuard: CommandIdempotencyGuard,
+    idempotencyGuard: CommandIdempotencyGuard,
     private readonly competitionRepository: ICompetitionRepository,
     private readonly assignmentPublisher: LaneAssignmentPublisher,
     private readonly scorePublisher: LaneScorePublisher,
@@ -112,7 +111,7 @@ export class PerLaneCommandHandler {
     private readonly getLaneId: () => string,
     _competitionId: string,
     private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
-    private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
+    commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
     private readonly qualificationRecoveryControl?: IQualificationRecoveryControl,
     private readonly qualificationRecoveryStatePublisher?: Pick<
       QualificationRecoveryStatePublisher,
@@ -123,7 +122,15 @@ export class PerLaneCommandHandler {
     private readonly malfunctionFiringControl?: IMalfunctionFiringControl,
     private readonly reserveTransferControl?: IReserveLaneTransferControl,
     private readonly replayTransferredSession?: (competitionId: string) => Promise<void>,
-  ) {}
+  ) {
+    this.processor = new LaneCommandProcessor(
+      mqttClient,
+      idempotencyGuard,
+      commandAuthorization,
+      getLaneId,
+      'PerLaneCommandHandler',
+    );
+  }
 
   /**
    * Subscribes to lane-specific commands
@@ -183,72 +190,14 @@ export class PerLaneCommandHandler {
   /**
    * Processes a command
    */
-  private async handleCommand(parsed: ParsedPerLaneTopic, payload: Buffer): Promise<void> {
-    const logger = getLogger();
-    const { action, competitionId } = parsed;
-    const ackTopic = `saika/competition/${competitionId}/lane/${this.getLaneId()}/command/${action}/acknowledgement`;
-
-    // JSON parse
-    let rawData: unknown;
-    try {
-      rawData = JSON.parse(payload.toString());
-    } catch {
-      logger.error('[PerLaneCommandHandler] Failed to parse JSON', 'mqtt', { action });
-      return;
-    }
-
-    // Action schema validation
-    const schema = ACTION_SCHEMAS[action as PerLaneAction];
-    if (!schema) {
-      const error = ErrorCatalog.createError('MQTT_UNKNOWN_COMMAND_ACTION', { action });
-      await this.publishAck(ackTopic, '', 'error', error.code, error.message);
-      return;
-    }
-
-    const parseResult = schema.safeParse(rawData);
-    if (!parseResult.success) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_VALIDATION_FAILED', {
-        action,
-        detail: parseResult.error.message,
-      });
-      const commandId = (rawData as { commandId?: string }).commandId ?? '';
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
-
-    const command = parseResult.data as Record<string, unknown>;
-    const commandId = command.commandId as string;
-    const authorization = this.commandAuthorization.assess({
-      issuedBy: command.issuedBy as string,
-      ...(typeof command.issuerId === 'string' ? { issuerId: command.issuerId } : {}),
+  private handleCommand(parsed: ParsedPerLaneTopic, payload: Buffer): Promise<void> {
+    return this.processor.handle<PerLaneAction>({
+      action: parsed.action,
+      payload,
+      schemas: ACTION_SCHEMAS,
+      acknowledgementTopic: `saika/competition/${parsed.competitionId}/lane/${this.getLaneId()}/command/${parsed.action}/acknowledgement`,
+      execute: (action, command) => this.executeAction(action, command, parsed.competitionId),
     });
-    if (!authorization.allowed) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
-
-    // Idempotency check
-    if (this.idempotencyGuard.check(commandId)) {
-      logger.info(`[PerLaneCommandHandler] Duplicate command skipped: ${commandId}`, 'mqtt');
-      return;
-    }
-
-    // executing ACK
-    await this.publishAck(ackTopic, commandId, 'executing');
-
-    try {
-      const data = await this.executeAction(action as PerLaneAction, command, competitionId);
-      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, data, authorization.warning);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorCode = (err as { code?: string }).code ?? 'MQTT_COMMAND_EXECUTION_FAILED';
-      logger.error(`[PerLaneCommandHandler] Command failed: ${action}`, 'mqtt', {
-        error: errorMessage,
-        commandId,
-      });
-      await this.publishAck(ackTopic, commandId, 'error', errorCode, errorMessage);
-    }
   }
 
   /**
@@ -523,36 +472,5 @@ export class PerLaneCommandHandler {
       throw new Error('Qualification recovery settlement is unavailable');
     }
     return this.qualificationRecoverySettlementControl;
-  }
-
-  /**
-   * Publishes an ACK
-   */
-  private async publishAck(
-    topic: string,
-    commandId: string,
-    status: CommandAckPayload['status'],
-    errorCode?: string,
-    errorMessage?: string,
-    data?: Record<string, unknown>,
-    warning?: string,
-  ): Promise<void> {
-    const ack: CommandAckPayload = {
-      commandId,
-      laneId: this.getLaneId(),
-      status,
-      acknowledgedAt: new Date().toISOString(),
-      ...(errorCode && errorMessage ? { error: { code: errorCode, message: errorMessage } } : {}),
-      ...(data ? { data } : {}),
-      ...(warning ? { warning } : {}),
-    };
-
-    try {
-      await this.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
-    } catch (err) {
-      getLogger().error('[PerLaneCommandHandler] Failed to publish ACK', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
   }
 }

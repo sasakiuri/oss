@@ -10,8 +10,8 @@
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { mapToLanePhase } from '@/main/modules/mqtt/domain/PhaseMapper';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

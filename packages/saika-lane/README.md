@@ -119,6 +119,11 @@ For a proposed minimal Debian kiosk setup with audio, printing, and MQTT, see th
 
 ## Getting Started
 
+The Electron entry delegates service construction, feature registration, startup device connection and window
+controls to separate composition units. MQTT schemas are shared with Director through
+[`@sasakiuri/saika-protocol`](../saika-protocol/). See
+[ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the design and extension workflow.
+
 ```bash
 # Install dependencies
 npm install

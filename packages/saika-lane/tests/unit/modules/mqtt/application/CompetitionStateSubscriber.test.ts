@@ -8,7 +8,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 
 import { createMockCommandBus } from '../../../../helpers/mockDependencies';
 

@@ -8,7 +8,7 @@ import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/La
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';

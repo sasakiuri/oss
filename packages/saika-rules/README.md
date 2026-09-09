@@ -2,8 +2,15 @@
 
 Application-neutral, versioned competition rule packs used by Saika Lane and Saika Director.
 
-Each capability is optional. Consumers adapt only the capabilities they support, so target scoring,
-course-of-fire control, ranking, verification, and publication can evolve independently.
+Public type contracts live in `src/RulePack.ts`. `defineRulePack` delegates to focused validators under
+`src/validation/` before freezing the definition; existing imports remain supported. Cross-capability checks use
+the supplied pack without loading an edition catalog. Run `npm run test` for rule and compatibility tests and
+`npm run depcruise` for dependency boundaries. See
+[ADR-0011](../../docs/adr/0011-rule-pack-validation-boundaries.md) for extension guidance and fingerprint compatibility.
+
+Core capabilities define the target, scoring, course of fire and ranking. Optional capabilities add verification,
+publication, commands, recovery and other event-specific policies. Consumers adapt the capabilities they support,
+so these responsibilities can evolve independently.
 
 The package contains no Electron, renderer, persistence, MQTT, or application-domain imports. A Rule Pack identifies
 its authority, edition, effective range, and rule references. Saika Lane and Saika Director convert it through their

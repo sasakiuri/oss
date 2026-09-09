@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { EstComplaintSignalState, type EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
 import { EstComplaintSignalPublisher } from '@/main/modules/mqtt/application/EstComplaintSignalPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const laneId = '11111111-1111-4111-8111-111111111111';

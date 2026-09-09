@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 

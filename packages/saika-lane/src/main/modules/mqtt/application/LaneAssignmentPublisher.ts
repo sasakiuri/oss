@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Publishes and persists the lane's retained athlete assignment. */
 
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { Athlete, LaneAssignmentPayload } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import { LaneAssignmentPayloadSchema } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const ASSIGNMENT_STORAGE_KEY = 'mqtt.assignment';

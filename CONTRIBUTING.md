@@ -28,6 +28,57 @@ npx turbo dev
 npx turbo test
 ```
 
+On machines with limited resources, bound workspace and test-worker parallelism:
+
+```bash
+npx turbo test --concurrency=1 -- --maxWorkers=2 --minWorkers=1
+```
+
+### Extending Director Controls
+
+Competition control and interruption records separate view composition, state lifetimes, command workflows and
+pure recovery checks. Follow [ADR-0008](docs/adr/0008-director-renderer-state-and-view-boundaries.md) when extending
+these features. Keep IPC calls in their owning hooks/workflows, pass callbacks to competition display panels, and
+place shared types outside the parent view. Cover asynchronous changes with deferred-response tests as well as
+existing screen tests. Run `npx turbo depcruise` to check dependency direction.
+
+### Extending MQTT Commands and Database Storage
+
+Director's recovery, interruption and safety workflows receive explicit command and context ports. Keep competition
+and safety queue acquisition in `DirectorMqttService` so new commands share ordering with existing controls. Read
+state when the queued operation executes and cover partial failures and pending acknowledgements. See
+[ADR-0010](docs/adr/0010-director-command-workflow-boundaries.md).
+
+For Lane storage, append a named, consecutive migration under `src/main/shared-infra/sqlite/migrations/` and register
+it in `allMigrations`. Leave transaction and version bookkeeping to the runner. Keep historical migrations independent
+of current feature code; test upgrades with existing records, rollback and reopen behavior. See
+[ADR-0009](docs/adr/0009-lane-database-migration-boundaries.md). Run `npx turbo depcruise` for both boundaries.
+
+### Extending Rule Packs and Serial Protocols
+
+Rule Pack type contracts stay in `saika-rules/src/RulePack.ts`; capability validation lives under `validation/`.
+Keep validation order explicit in `defineRulePack` and check relationships through the public factory. The compatibility
+suite records all shipped fingerprints: change these only when intentionally changing rule content. See
+[ADR-0011](docs/adr/0011-rule-pack-validation-boundaries.md). `npx turbo depcruise` also checks the rule package's
+independence from applications, runtime libraries and concrete edition imports inside validators.
+
+USB protocol deadlines that use `SerializedProtocolTimer` share their session's existing queue. Supply a live session
+and state guard, cancel on shutdown and replacement, and test expiry while serial work is pending. Cancellation can
+suppress queued work but cannot retract an in-flight serial write. See
+[ADR-0012](docs/adr/0012-serial-protocol-deadline-ownership.md).
+
+### Extending Settings and Target Examinations
+
+Lane settings transformations live in `settings/application/SettingsDocument.ts`. Keep file I/O and Lane identity
+allocation in `AppSettingsStore` and electron-store reads/projections in `LegacySettingsBridge`. Consumers import
+`application/IAppSettingsStore`. Preserve raw device migration inputs, Lane ID precedence and explicit preference
+defaults; see [ADR-0013](docs/adr/0013-lane-settings-document-boundaries.md).
+
+Director target-examination forms receive `TargetExaminationCommands` callbacks from their workspace hook. Keep
+case drafts under the keyed `CaseDetail`, and put display policy and types outside parent views. Extend deferred
+query/command tests when changing asynchronous behavior; see
+[ADR-0014](docs/adr/0014-target-examination-workspace-boundaries.md). Run `npx turbo depcruise` to enforce both boundaries.
+
 ### Code Style
 
 This project uses **ESLint 9** and **Prettier 3** with shared configurations. Run the following to lint and auto-fix:
@@ -113,6 +164,7 @@ that tag. Shared configuration packages remain independently versioned.
    ```bash
    npx turbo test
    npx turbo lint
+   npx turbo depcruise
    npm run syncpack
    ```
 5. **Submit a PR** to `1.x` with a clear description of the changes.

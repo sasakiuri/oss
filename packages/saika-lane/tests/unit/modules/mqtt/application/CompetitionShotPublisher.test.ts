@@ -5,7 +5,7 @@ import type { CompetitionState } from '@/main/modules/competition/domain/Competi
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { CompetitionShotPublisher } from '@/main/modules/mqtt/application/CompetitionShotPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';

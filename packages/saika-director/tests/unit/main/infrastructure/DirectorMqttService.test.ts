@@ -1,104 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DirectorMqttService } from '@/main/modules/mqtt/application/DirectorMqttService';
+import type { DirectorMqttCallbacks, MqttControlSnapshot } from '@/main/modules/mqtt/application/DirectorMqttTypes';
 import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
 import { LaneTimingEvidencePolicy } from '@/main/modules/mqtt/domain/LaneTimingEvidencePolicy';
 import { TimedTargetReadinessPolicy } from '@/main/modules/mqtt/domain/TimedTargetReadinessPolicy';
-import {
-  DirectorMqttService,
-  type DirectorMqttCallbacks,
-  type MqttControlSnapshot,
-} from '@/main/modules/mqtt/infra/DirectorMqttService';
-import type { IMqttTransport, MqttMessageHandler } from '@/main/modules/mqtt/infra/MqttTransport';
 
-class FakeMqttTransport implements IMqttTransport {
-  connected = false;
-  connectCalls = 0;
-  disconnectCalls = 0;
-  disconnectError: Error | null = null;
-  subscribeError: Error | null = null;
-  subscribeBarrier: Promise<void> | null = null;
-  publishBarrierForTopic: ((topic: string) => Promise<void> | null) | null = null;
-  publishErrorForTopic: ((topic: string) => Error | null) | null = null;
-  subscriptions: string[] = [];
-  publications: Array<{
-    topic: string;
-    payload: string;
-    options: { qos: 0 | 1 | 2; retain: boolean };
-  }> = [];
-  private messageHandlers = new Set<MqttMessageHandler>();
-  private connectedHandlers = new Set<() => void>();
-  private disconnectedHandlers = new Set<() => void>();
-  private errorHandlers = new Set<(error: Error) => void>();
-
-  async connect(): Promise<void> {
-    this.connectCalls += 1;
-    this.connected = true;
-  }
-
-  async disconnect(): Promise<void> {
-    this.disconnectCalls += 1;
-    this.connected = false;
-    this.disconnectedHandlers.forEach((handler) => handler());
-    if (this.disconnectError) throw this.disconnectError;
-  }
-
-  async publish(topic: string, payload: string, options: { qos: 0 | 1 | 2; retain: boolean }): Promise<void> {
-    await this.publishBarrierForTopic?.(topic);
-    const error = this.publishErrorForTopic?.(topic);
-    if (error) throw error;
-    this.publications.push({ topic, payload, options });
-  }
-
-  async subscribe(topic: string): Promise<void> {
-    await this.subscribeBarrier;
-    if (this.subscribeError) throw this.subscribeError;
-    this.subscriptions.push(topic);
-  }
-
-  onMessage(handler: MqttMessageHandler): () => void {
-    this.messageHandlers.add(handler);
-    return () => this.messageHandlers.delete(handler);
-  }
-
-  onConnected(handler: () => void): () => void {
-    this.connectedHandlers.add(handler);
-    return () => this.connectedHandlers.delete(handler);
-  }
-
-  onDisconnected(handler: () => void): () => void {
-    this.disconnectedHandlers.add(handler);
-    return () => this.disconnectedHandlers.delete(handler);
-  }
-
-  onError(handler: (error: Error) => void): () => void {
-    this.errorHandlers.add(handler);
-    return () => this.errorHandlers.delete(handler);
-  }
-
-  isConnected(): boolean {
-    return this.connected;
-  }
-
-  emitMessage(topic: string, payload: unknown): void {
-    const buffer = Buffer.from(JSON.stringify(payload));
-    this.messageHandlers.forEach((handler) => handler(topic, buffer));
-  }
-
-  emitRawMessage(topic: string, payload: Buffer): void {
-    this.messageHandlers.forEach((handler) => handler(topic, payload));
-  }
-
-  emitConnected(): void {
-    this.connected = true;
-    this.connectedHandlers.forEach((handler) => handler());
-  }
-
-  emitDisconnected(): void {
-    this.connected = false;
-    this.disconnectedHandlers.forEach((handler) => handler());
-  }
-}
+import { FakeMqttTransport } from '../../../helpers/FakeMqttTransport';
 
 const LANE_ID = '11111111-1111-4111-8111-111111111111';
 const SECOND_LANE_ID = '55555555-5555-4555-8555-555555555555';
@@ -1172,6 +1081,73 @@ describe('DirectorMqttService', () => {
       }),
     ).rejects.toThrow('does not match Lane 3');
     expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
+  });
+
+  it('rechecks a queued recovery against the latest Lane state after an interruption command completes', async () => {
+    const service = new DirectorMqttService(
+      { directorId: 'director-test', commandTimeoutMs: 10_000, startDelayMs: 0 },
+      {},
+      transport,
+    );
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+    });
+    const laneTopic = `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`;
+    transport.emitMessage(laneTopic, pausedQualificationLaneState());
+
+    const pausing = service.pauseLaneTimer(COMPETITION_ID, LANE_ID, INTERRUPTION_ID);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/pause-timer'))).toBe(true),
+    );
+    const pause = transport.publications.find((entry) => entry.topic.endsWith('/pause-timer'))!;
+    const pauseCommand = JSON.parse(pause.payload) as { commandId: string };
+    const recovery = service.startQualificationRecovery({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      runId: RECOVERY_RUN_ID,
+      decisionId: RECOVERY_DECISION_ID,
+      interruptionId: INTERRUPTION_ID,
+      stageIndex: 1,
+      seriesIndex: 0,
+      expectedMatchProgramId: 'P25_MATCH_PRECISION_300',
+      expectedSeriesShotLimit: 5,
+      expectedRecordedShots: 2,
+      authorization: qualificationRecoveryState().authorization,
+      officialName: 'Jury Member',
+      decisionRuleReference: 'ISSF 8.8.1.4(a)',
+      decidedAt: '2026-09-02T23:59:00.000Z',
+    });
+    const rejected = expect(recovery).rejects.toThrow('does not match Lane 3');
+    await Promise.resolve();
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
+    transport.emitMessage(laneTopic, pausedQualificationLaneState(3));
+    transport.emitMessage(`${pause.topic}/acknowledgement`, {
+      commandId: pauseCommand.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+    await expect(pausing).resolves.toMatchObject({ success: true });
+    await rejected;
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
+
+    // A failed recovery releases the same queue for subsequent controls.
+    const resuming = service.resumeLaneMatch(COMPETITION_ID, LANE_ID, INTERRUPTION_ID);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/resume-match'))).toBe(true),
+    );
+    const resume = transport.publications.find((entry) => entry.topic.endsWith('/resume-match'))!;
+    transport.emitMessage(`${resume.topic}/acknowledgement`, {
+      commandId: (JSON.parse(resume.payload) as { commandId: string }).commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+    await expect(resuming).resolves.toMatchObject({ success: true });
   });
 
   it('projects retained recovery state and forwards every isolated recovery shot delivery', async () => {
@@ -3672,6 +3648,52 @@ describe('DirectorMqttService', () => {
       acknowledgedAt: new Date().toISOString(),
     });
     await expect(clearing).resolves.toMatchObject({ success: true });
+  });
+
+  it('sends safety STOP while a competition command is awaiting acknowledgement and queues clearance behind STOP', async () => {
+    const service = new DirectorMqttService(
+      { directorId: 'director-test', commandTimeoutMs: 10_000, startDelayMs: 0 },
+      {},
+      transport,
+    );
+    await service.connect('mqtt://localhost:1883');
+    transport.emitMessage(`saika/lane/${LANE_ID}/state`, hardwareState());
+    const created = await createCompetition(service);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      publishedAt: new Date().toISOString(),
+    });
+    const pausing = service.pauseLaneTimer(COMPETITION_ID, LANE_ID, INTERRUPTION_ID);
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/pause-timer'))).toBe(true),
+    );
+    const stopping = service.activateSafetyStop([LANE_ID], INTERRUPTION_ID, 'Range inspection', 'CRO');
+    const clearing = service.clearSafetyStop([LANE_ID], INTERRUPTION_ID, 'Range checked', 'CRO');
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/activate-safety-stop'))).toBe(true),
+    );
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/clear-safety-stop'))).toBe(false);
+
+    const acknowledge = (action: string) => {
+      const publication = transport.publications.find((entry) => entry.topic.endsWith(`/command/${action}`))!;
+      transport.emitMessage(`${publication.topic}/acknowledgement`, {
+        commandId: (JSON.parse(publication.payload) as { commandId: string }).commandId,
+        laneId: LANE_ID,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+      });
+    };
+    acknowledge('activate-safety-stop');
+    await expect(stopping).resolves.toMatchObject({ success: true });
+    await vi.waitFor(() =>
+      expect(transport.publications.some((entry) => entry.topic.endsWith('/clear-safety-stop'))).toBe(true),
+    );
+    acknowledge('clear-safety-stop');
+    await expect(clearing).resolves.toMatchObject({ success: true });
+    acknowledge('pause-timer');
+    await expect(pausing).resolves.toMatchObject({ success: true });
+    await service.disconnect();
   });
 
   it('blocks a firing start while a Lane safety STOP is retained', async () => {

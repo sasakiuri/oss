@@ -118,4 +118,21 @@ describe('ModuleLoader', () => {
 
     expect(registerSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects duplicate module names before installing any handlers', () => {
+    const register = vi.fn();
+    const mod: ModuleDefinition = { name: 'duplicate', deps: [], register };
+    expect(() => loader.load([mod, mod], registry)).toThrow('Duplicate module name: "duplicate"');
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing dependencies anywhere in the catalog before registration starts', () => {
+    const register = vi.fn();
+    const modules: ModuleDefinition[] = [
+      { name: 'first', deps: ['commandBus'], register },
+      { name: 'missing', deps: ['settingsStore'], register },
+    ];
+    expect(() => loader.load(modules, registry)).toThrow('Module "missing" requires service "settingsStore"');
+    expect(register).not.toHaveBeenCalled();
+  });
 });

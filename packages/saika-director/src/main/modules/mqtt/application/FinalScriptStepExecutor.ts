@@ -2,7 +2,7 @@
 import type { FinalOperationScriptStepDto } from '@/shared/ipc/contracts';
 import type { CompetitionCuePayload } from '@/shared/mqtt';
 
-import type { CommandExecutionResult } from '../infra/DirectorMqttService';
+import type { CommandExecutionResult } from './DirectorMqttTypes';
 
 export interface FinalScriptStepExecutionInput {
   readonly competitionId: string;

@@ -6,7 +6,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the transactional shot-evidence outbox without affecting scoring. */
 export class ShotObservationEvidencePublisher {

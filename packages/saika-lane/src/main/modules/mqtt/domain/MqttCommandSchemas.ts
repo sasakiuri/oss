@@ -1,280 +1,45 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT Command Schemas
- *
- * @description
- * Zod-based schemas for all MQTT command payloads.
- * Covers Tier 1 lane commands, broadcast commands, per-lane commands, and ACK.
- */
-
+import { CommandAcknowledgementSchema as CommandAckPayloadSchema } from '@sasakiuri/saika-protocol/Acknowledgement';
+import { createCommandSchemas } from '@sasakiuri/saika-protocol/commands';
 import { z } from 'zod';
 
-import { MalfunctionFiringRequestSchema } from '@/shared/mqtt/MalfunctionFiring';
-import { QualificationRecoveryFiringAuthorizationSchema } from '@/shared/mqtt/QualificationRecovery';
-import { ReserveLaneTransferActionSchema } from '@/shared/mqtt/ReserveLaneTransfer';
+export { CommandAckPayloadSchema };
 
-import { AthleteSchema } from './MqttAssignmentSchemas';
-
-// ============================================================
-// Common base schema
-// ============================================================
-
-const CommandBaseSchema = z.object({
-  commandId: z.string().uuid(),
-  issuedBy: z.string(),
-  /** Stable application principal; issuedBy may remain the human official for audit. */
-  issuerId: z.string().min(1).optional(),
-  issuedAt: z.string().datetime(),
-});
-
-// ============================================================
-// Tier 1 Lane Commands
-// ============================================================
-
-export const ReserveLaneTransferCmdSchema = CommandBaseSchema.extend({ transfer: ReserveLaneTransferActionSchema });
-
-export const JoinCompetitionCmdSchema = CommandBaseSchema.extend({
-  competitionId: z.string().uuid(),
-});
-
-export const LeaveCompetitionCmdSchema = CommandBaseSchema.extend({
-  competitionId: z.string().uuid(),
-});
-
-export const ProbeClockCmdSchema = CommandBaseSchema.extend({
-  directorSentAt: z.string().datetime(),
-});
-
-export const ActivateSafetyStopCmdSchema = CommandBaseSchema.extend({
-  safetyStopId: z.string().uuid(),
-  reason: z.string().trim().min(1).max(500),
-});
-
-export const ClearSafetyStopCmdSchema = CommandBaseSchema.extend({
-  safetyStopId: z.string().uuid(),
-  clearanceReason: z.string().trim().min(1).max(500),
-  confirmedSafe: z.literal(true),
-});
-
-// ============================================================
-// Broadcast Commands
-// ============================================================
-
-export const StartSightingCmdSchema = CommandBaseSchema.extend({
-  timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
-  targetLaneIds: z.array(z.string().uuid()).optional(),
-});
-
-export const EndSightingCmdSchema = CommandBaseSchema;
-
-export const StartMatchCmdSchema = CommandBaseSchema.extend({
-  timerStartAt: z.string().datetime(),
-  /** Omitted when an independent timed-target program owns every firing window. */
-  timerDurationSeconds: z.number().int().positive().optional(),
-});
-
-export const TimerStartedCmdSchema = CommandBaseSchema.extend({
-  timerScope: z.enum(['STAGE', 'SERIES']),
-  timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive(),
-  stageIndex: z.number().int().min(0),
-  seriesIndex: z.number().int().min(0).nullable(),
-});
-
-export const TimerExpiredCmdSchema = CommandBaseSchema.extend({
-  timerScope: z.enum(['STAGE', 'SERIES']),
-  stageIndex: z.number().int().min(0),
-  seriesIndex: z.number().int().min(0).nullable(),
-  expiredAt: z.string().datetime(),
-});
-
-export const AdvanceSeriesCmdSchema = CommandBaseSchema.extend({
-  stageIndex: z.number().int().min(0),
-  fromSeriesIndex: z.number().int().min(0),
-  resumeOnly: z.boolean().optional(),
-  timerStartAt: z.string().datetime().optional(),
-  timerDurationSeconds: z.number().int().positive().optional(),
-});
-
-export const FinishCompetitionCmdSchema = CommandBaseSchema;
-
-// ============================================================
-// Per-Lane Commands
-// ============================================================
-
-export const AssignAthleteCmdSchema = CommandBaseSchema.extend({
-  athlete: AthleteSchema.nullable(),
-});
-
-export const StartMalfunctionFiringCmdSchema = CommandBaseSchema.extend({ request: MalfunctionFiringRequestSchema });
-export const ReadMalfunctionFiringCmdSchema = CommandBaseSchema.extend({ runId: z.string().uuid() });
-export const CancelMalfunctionFiringCmdSchema = CommandBaseSchema.extend({
-  request: MalfunctionFiringRequestSchema.optional(),
-  runId: z.string().uuid(),
-  reason: z.string().trim().min(1).max(500),
-});
-
-export const ResetSessionCmdSchema = CommandBaseSchema.extend({
-  reason: z.string().optional(),
-});
-
-export const PauseTimerCmdSchema = CommandBaseSchema.extend({
-  interruptionId: z.string().uuid(),
-  pausedAt: z.string().datetime(),
-});
-
-export const ResumeTimerCmdSchema = CommandBaseSchema.extend({
-  interruptionId: z.string().uuid(),
-  timerStartAt: z.string().datetime(),
-  authorizedRemainingSeconds: z.number().int().positive(),
-  unlimitedSightingShots: z.boolean(),
-});
-
-export const ResumeMatchCmdSchema = CommandBaseSchema.extend({
-  interruptionId: z.string().uuid(),
-});
-
-export const StartQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
-  runId: z.string().uuid(),
-  decisionId: z.string().uuid(),
-  interruptionId: z.string().uuid(),
-  stageIndex: z.number().int().nonnegative(),
-  seriesIndex: z.number().int().nonnegative(),
-  expectedMatchProgramId: z.string().trim().min(1).max(200),
-  expectedSeriesShotLimit: z.number().int().positive(),
-  expectedRecordedShots: z.number().int().nonnegative(),
-  authorization: QualificationRecoveryFiringAuthorizationSchema,
-  loadAt: z.string().datetime(),
-  officialName: z.string().trim().min(1).max(200),
-  decisionRuleReference: z.string().trim().min(1).max(500),
-  decidedAt: z.string().datetime(),
-}).superRefine((command, context) => {
-  if (command.expectedRecordedShots > command.expectedSeriesShotLimit) {
-    context.addIssue({
-      code: 'custom',
-      path: ['expectedRecordedShots'],
-      message: 'expectedRecordedShots must not exceed expectedSeriesShotLimit',
-    });
-  }
-});
-
-export const CancelQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
-  runId: z.string().uuid(),
-  reason: z.string().trim().min(1).max(500),
-});
-
-export const ApplyQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
-  runId: z.string().uuid(),
-  appliedBy: z.string().trim().min(1).max(200),
-  statement: z.string().trim().min(1).max(1_000),
-  appliedAt: z.string().datetime(),
-});
-
-export const SettleQualificationRecoveryCmdSchema = CommandBaseSchema.extend({
-  decisionId: z.string().uuid(),
-  interruptionId: z.string().uuid(),
-  stageIndex: z.number().int().nonnegative(),
-  seriesIndex: z.number().int().nonnegative(),
-  expectedMatchProgramId: z.string().trim().min(1).max(200),
-  expectedSeriesShotLimit: z.number().int().positive(),
-  expectedRecordedShots: z.number().int().nonnegative(),
-  treatment: z.literal('KEEP_RECORDED_SERIES'),
-  decisionOfficialName: z.string().trim().min(1).max(200),
-  decisionRuleReference: z.string().trim().min(1).max(500),
-  decidedAt: z.string().datetime(),
-  appliedBy: z.string().trim().min(1).max(200),
-  statement: z.string().trim().min(1).max(1_000),
-  appliedAt: z.string().datetime(),
-}).superRefine((command, context) => {
-  if (command.expectedRecordedShots !== command.expectedSeriesShotLimit) {
-    context.addIssue({
-      code: 'custom',
-      path: ['expectedRecordedShots'],
-      message: 'KEEP_RECORDED_SERIES requires every series shot to be recorded',
-    });
-  }
-});
-
-export const RetireFinalistCmdSchema = CommandBaseSchema.extend({
-  checkpointId: z.string().uuid(),
-  rank: z.number().int().min(2).max(99),
-  afterShot: z.number().int().positive(),
-});
-
-export const StartShootOffCmdSchema = CommandBaseSchema.extend({
-  runId: z.string().uuid(),
-  iteration: z.number().int().positive(),
-  timerStartAt: z.string().datetime(),
-  timerDurationSeconds: z.number().int().positive().optional(),
-  shotsPerLane: z.number().int().positive(),
-  targetLaneIds: z.array(z.string().uuid()).min(2),
-  timedTarget: z
-    .object({
-      programId: z.string().min(1),
-      participantExecution: z.enum(['SIMULTANEOUS', 'SEQUENTIAL']),
-    })
-    .optional(),
-}).superRefine((command, context) => {
-  if ((command.timerDurationSeconds === undefined) === (command.timedTarget === undefined)) {
-    context.addIssue({
-      code: 'custom',
-      path: ['timerDurationSeconds'],
-      message: 'A shoot-off requires exactly one generic duration or timed-target program',
-    });
-  }
-});
-
-export const StopShootOffCmdSchema = CommandBaseSchema.extend({
-  runId: z.string().uuid(),
-  iteration: z.number().int().positive(),
-  targetLaneIds: z.array(z.string().uuid()).min(2),
-});
-
-export const StartTimedTargetCmdSchema = CommandBaseSchema.extend({
-  programId: z.string().min(1),
-  purpose: z.enum(['SIGHTING', 'MATCH']),
-  stageIndex: z.number().int().nonnegative(),
-  seriesIndex: z.number().int().nonnegative(),
-  loadAt: z.string().datetime(),
-  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
-});
-
-export const RecordTimedTargetUnloadCmdSchema = CommandBaseSchema.extend({
-  sequenceId: z.string().uuid(),
-  observedAt: z.string().datetime(),
-  officialName: z.string().trim().min(1).max(200),
-  targetLaneIds: z.array(z.string().uuid()).min(1),
-});
-
-export const CancelTimedTargetCmdSchema = CommandBaseSchema.extend({
-  sequenceId: z.string().uuid(),
-  reason: z.string().trim().min(1).max(500),
-  targetLaneIds: z.array(z.string().uuid()).min(1).optional(),
-});
-
-// ============================================================
-// ACK
-// ============================================================
-
-export const CommandAckPayloadSchema = z.object({
-  commandId: z.string().uuid(),
-  laneId: z.string().uuid(),
-  status: z.enum(['executing', 'done', 'error']),
-  error: z
-    .object({
-      code: z.string(),
-      message: z.string(),
-    })
-    .optional(),
-  warning: z.string().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
-  acknowledgedAt: z.string().datetime(),
-});
-
-// ============================================================
-// Exported inferred types
-// ============================================================
+// Preserve compatibility with legacy Lane senders that omitted the human-readable issuer label.
+export const {
+  CommandBaseSchema,
+  ReserveLaneTransferCommandSchema: ReserveLaneTransferCmdSchema,
+  JoinCompetitionCommandSchema: JoinCompetitionCmdSchema,
+  LeaveCompetitionCommandSchema: LeaveCompetitionCmdSchema,
+  ProbeClockCommandSchema: ProbeClockCmdSchema,
+  ActivateSafetyStopCommandSchema: ActivateSafetyStopCmdSchema,
+  ClearSafetyStopCommandSchema: ClearSafetyStopCmdSchema,
+  StartSightingCommandSchema: StartSightingCmdSchema,
+  EndSightingCommandSchema: EndSightingCmdSchema,
+  StartMatchCommandSchema: StartMatchCmdSchema,
+  TimerStartedCommandSchema: TimerStartedCmdSchema,
+  TimerExpiredCommandSchema: TimerExpiredCmdSchema,
+  AdvanceSeriesCommandSchema: AdvanceSeriesCmdSchema,
+  FinishCompetitionCommandSchema: FinishCompetitionCmdSchema,
+  AssignAthleteCommandSchema: AssignAthleteCmdSchema,
+  StartMalfunctionFiringCommandSchema: StartMalfunctionFiringCmdSchema,
+  ReadMalfunctionFiringCommandSchema: ReadMalfunctionFiringCmdSchema,
+  CancelMalfunctionFiringCommandSchema: CancelMalfunctionFiringCmdSchema,
+  ResetSessionCommandSchema: ResetSessionCmdSchema,
+  PauseTimerCommandSchema: PauseTimerCmdSchema,
+  ResumeTimerCommandSchema: ResumeTimerCmdSchema,
+  ResumeMatchCommandSchema: ResumeMatchCmdSchema,
+  StartQualificationRecoveryCommandSchema: StartQualificationRecoveryCmdSchema,
+  CancelQualificationRecoveryCommandSchema: CancelQualificationRecoveryCmdSchema,
+  ApplyQualificationRecoveryCommandSchema: ApplyQualificationRecoveryCmdSchema,
+  SettleQualificationRecoveryCommandSchema: SettleQualificationRecoveryCmdSchema,
+  RetireFinalistCommandSchema: RetireFinalistCmdSchema,
+  StartShootOffCommandSchema: StartShootOffCmdSchema,
+  StopShootOffCommandSchema: StopShootOffCmdSchema,
+  StartTimedTargetCommandSchema: StartTimedTargetCmdSchema,
+  RecordTimedTargetUnloadCommandSchema: RecordTimedTargetUnloadCmdSchema,
+  CancelTimedTargetCommandSchema: CancelTimedTargetCmdSchema,
+} = createCommandSchemas(z.string());
 
 export type CommandBase = z.infer<typeof CommandBaseSchema>;
 export type JoinCompetitionCmd = z.infer<typeof JoinCompetitionCmdSchema>;

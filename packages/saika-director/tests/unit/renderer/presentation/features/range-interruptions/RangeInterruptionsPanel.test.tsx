@@ -64,44 +64,6 @@ vi.mock('@/renderer/services', () => ({
   mqttService: { pauseLaneTimer, resumeLaneTimer, resumeLaneMatch },
 }));
 
-function fixture(overrides: Partial<RangeInterruptionCaseDto> = {}): RangeInterruptionCaseDto {
-  return {
-    id: INTERRUPTION_ID,
-    cause: 'ATHLETE_NON_FAULT',
-    phase: 'MATCH',
-    startedAt: '2026-08-31T01:00:00.000Z',
-    remainingSecondsAtStart: 240,
-    laneId: LANE_ID,
-    firingPointNumber: 12,
-    athleteName: 'Alex Athlete',
-    summary: 'Athlete stopped through no fault',
-    details: 'The target carrier blocked the athlete.',
-    openedBy: 'Range Officer A',
-    createdAt: '2026-08-31T01:00:01.000Z',
-    scopes: [
-      {
-        id: '55555555-5555-4555-8555-555555555555',
-        caseId: INTERRUPTION_ID,
-        scopeType: 'COMPETITION',
-        scopeId: COMPETITION_ID,
-        linkedBy: 'Range Officer A',
-        note: 'Linked when opened',
-        linkedAt: '2026-08-31T01:00:01.000Z',
-      },
-    ],
-    entries: [],
-    targetRecoveryAssessments: [],
-    qualificationTimedTargetContext: null,
-    qualificationTimedTargetRecoveryDecisions: [],
-    qualificationRecoveryExecutions: [],
-    qualificationRecoverySettlements: [],
-    status: 'OPEN',
-    dataHoldActive: true,
-    recommendation: null,
-    ...overrides,
-  };
-}
-
 function qualificationFixture(executionStatus?: QualificationRecoveryExecutionDto['status']): RangeInterruptionCaseDto {
   const seriesRecovery = {
     treatment: 'COMPLETE_REMAINING_SHOTS' as const,
@@ -688,3 +650,5 @@ describe('RangeInterruptionsPanel', () => {
     expect(screen.getByRole('option', { name: 'Close record and release hold' })).toBeInTheDocument();
   });
 });
+
+import { fixture } from './fixtures';

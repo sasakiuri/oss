@@ -2,6 +2,7 @@ import { ClockAlert } from 'lucide-react';
 
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
+
 import { RangeInterruptionsPanel } from './RangeInterruptionsPanel';
 
 /** Global archive for interruption records whose live competition is no longer retained. */

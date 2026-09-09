@@ -6,7 +6,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 export class CompetitionShootOffShotPublisher {
   private drainTail = Promise.resolve();

@@ -23,6 +23,3 @@ export class VerifiedResultPublicationReadiness implements IResultPublicationRea
     };
   }
 }
-
-/** @deprecated Use VerifiedResultPublicationReadiness for new composition roots. */
-export class QualificationResultPublicationReadiness extends VerifiedResultPublicationReadiness {}
