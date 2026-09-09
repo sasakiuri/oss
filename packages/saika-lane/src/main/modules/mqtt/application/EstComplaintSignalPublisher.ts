@@ -4,7 +4,7 @@ import type { EstComplaintSignalService, EstComplaintSignalState } from '@/main/
 import { EstComplaintSignalPayloadSchema, type EstComplaintSignalPayload } from '@/shared/mqtt/EstComplaintSignal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes Lane-owned EST complaint observations without issuing a competition-control command. */
 export class EstComplaintSignalPublisher {

@@ -52,15 +52,6 @@ export function requiredResultsBookSigners(
   return officials.filter((official) => isResultsBookCertifier(official.role));
 }
 
-export function assertRequiredCertificationRoles(officials: readonly ActiveChampionshipOfficial[]): void {
-  if (!officials.some((official) => official.role === 'TECHNICAL_DELEGATE')) {
-    throw new Error('At least one active Technical Delegate is required');
-  }
-  if (!officials.some((official) => official.role.endsWith('_JURY_CHAIR'))) {
-    throw new Error('At least one active Jury Chairman is required');
-  }
-}
-
 export function recordClaimStatus(entries: readonly RecordClaimEntryLike[]): RecordClaimStatus {
   let status: RecordClaimStatus = 'DRAFT';
   for (const entry of entries) {

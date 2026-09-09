@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ShotObservationEvidencePublisher } from '@/main/modules/mqtt/application/ShotObservationEvidencePublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

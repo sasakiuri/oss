@@ -14,12 +14,14 @@
     "lint": "eslint .",
     "fix": "eslint --fix . && prettier --write .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/prettier-config": "*",
     "@sasakiuri/typescript-config": "*",
+    "dependency-cruiser": "17.4.3",
     "eslint": "^9",
     "prettier": "^3.6.2",
     "typescript": "5.7.3",

@@ -29,14 +29,15 @@ export interface WindowInfo {
  */
 export class WindowManager {
   private windows = new Map<string, WindowInfo>();
-  private preloadPath: string;
 
   /**
    * @param preloadPath Absolute path to the preload script.
+   * @param rendererDirectory Absolute path to the built renderer assets.
    */
-  constructor(preloadPath: string) {
-    this.preloadPath = preloadPath;
-  }
+  constructor(
+    private readonly preloadPath: string,
+    private readonly rendererDirectory: string,
+  ) {}
 
   /**
    * Registers the main window.
@@ -85,8 +86,8 @@ export class WindowManager {
     const loadPromise = devServerUrl
       ? // Development: load from the Vite dev server.
         boardWindow.loadURL(`${devServerUrl}board.html?windowId=${windowId}&type=${type}`)
-      : // Production: load the built file.
-        boardWindow.loadFile(join(app.getAppPath(), 'dist/renderer/board.html'), {
+      : // The composition root supplies the asset directory independently of Electron's launch path.
+        boardWindow.loadFile(join(this.rendererDirectory, 'board.html'), {
           query: { windowId, type },
         });
     void loadPromise.catch((error) => {
@@ -164,14 +165,19 @@ export class WindowManager {
   }
 
   /**
-   * Closes all board windows.
+   * Closes all board windows and waits for their native resources to be released.
    */
-  closeAllBoardWindows(): void {
-    for (const info of this.windows.values()) {
-      if (info.type !== 'main' && !info.window.isDestroyed()) {
-        info.window.close();
-      }
-    }
+  async closeAllBoardWindows(): Promise<void> {
+    const boards = [...this.windows.values()].filter((info) => info.type !== 'main' && !info.window.isDestroyed());
+    await Promise.all(
+      boards.map(
+        ({ window }) =>
+          new Promise<void>((resolve) => {
+            window.once('closed', () => resolve());
+            window.close();
+          }),
+      ),
+    );
   }
 
   /**

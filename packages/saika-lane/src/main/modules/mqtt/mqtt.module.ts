@@ -31,6 +31,7 @@ import type { InferHandlers } from '@/shared/ipc/defineContract';
 import { AssignedFinalRecoveryFiringContextSource } from './application/AssignedFinalRecoveryFiringContextSource';
 import { AssignedMalfunctionFiringContextSource } from './application/AssignedMalfunctionFiringContextSource';
 import { BroadcastCommandHandler } from './application/commands/BroadcastCommandHandler';
+import { CommandIdempotencyGuard } from './application/commands/CommandIdempotencyGuard';
 import { LaneTier1CommandHandler } from './application/commands/LaneTier1CommandHandler';
 import { PerLaneCommandHandler } from './application/commands/PerLaneCommandHandler';
 import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber';
@@ -59,7 +60,6 @@ import { ShotObservationEvidencePublisher } from './application/ShotObservationE
 import { TimedTargetStatePublisher } from './application/TimedTargetStatePublisher';
 import { commandAuthorizationPolicyFromEnvironment } from './domain/CommandAuthorizationPolicy';
 import { AthleteSchema } from './domain/MqttAssignmentSchemas';
-import { CommandIdempotencyGuard } from './infra/CommandIdempotencyGuard';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
 type MqttDeps =

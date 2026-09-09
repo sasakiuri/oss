@@ -4,7 +4,6 @@ export { QualificationRecoveryAdjudicationService } from './application/Qualific
 export { QualificationRecoverySettlementService } from './application/QualificationRecoverySettlementService';
 export {
   buildQualificationRecoveryProgram,
-  qualificationRecoveryProgramMaximumShots,
   type QualificationRecoveryFiringAuthorization,
   type QualificationRecoveryProgramInput,
 } from './domain/QualificationRecoveryProgram';

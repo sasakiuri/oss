@@ -23,6 +23,18 @@ export interface ModuleLoadResult {
 
 export class ModuleLoader {
   load(modules: readonly ModuleDefinition[], registry: ServiceRegistry): ModuleLoadResult {
+    // Validate the entire catalog before any module installs handlers or listeners.
+    const names = new Set<string>();
+    for (const mod of modules) {
+      if (names.has(mod.name)) throw new Error(`Duplicate module name: "${mod.name}"`);
+      names.add(mod.name);
+      for (const dep of mod.deps) {
+        if (!Object.hasOwn(registry, dep) || registry[dep] === undefined) {
+          throw new Error(`Module "${mod.name}" requires service "${dep}"`);
+        }
+      }
+    }
+
     const lifecycleEntries: LifecycleEntry[] = [];
     const eventForwardingRules: (EventForwardingRule | TransformerForwardingRule)[] = [];
 

@@ -30,12 +30,12 @@
       "cache": false
     },
     "depcruise": {
-      "dependsOn": [],
+      "dependsOn": ["^depcruise"],
       "inputs": [
+        "package.json",
         "src/**/*.ts",
         "src/**/*.tsx",
         ".dependency-cruiser.cjs",
-        ".dependency-cruiser-known-violations.json",
         "tsconfig.json"
       ]
     },
@@ -48,7 +48,7 @@
       "env": ["ANALYZE"]
     },
     "typecheck": {
-      "dependsOn": [],
+      "dependsOn": ["^typecheck"],
       "outputs": []
     }
   },

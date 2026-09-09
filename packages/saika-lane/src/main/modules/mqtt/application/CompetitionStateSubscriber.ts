@@ -10,11 +10,11 @@ import {
   CompetitionDefinitionCompatibilityPolicy,
   type LocalCompetitionDefinitionIdentity,
 } from '@/main/modules/mqtt/domain/CompetitionDefinitionCompatibilityPolicy';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import {
   CompetitionStatePayloadSchema,
   type CompetitionStatePayload,
 } from '@/main/modules/mqtt/domain/MqttCompetitionStateSchemas';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

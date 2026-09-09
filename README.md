@@ -15,6 +15,8 @@ Saika Director coordinates Lane instances over MQTT, including competition membe
 | [`@sasakiuri/saika-lane`](packages/saika-lane/)         | Electronic target display system (Electron + React + TypeScript) |
 | [`@sasakiuri/saika-director`](packages/saika-director/) | MQTT competition controller (Electron + React + TypeScript)      |
 | [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Specifications, design notes, and test scenarios for Saika apps  |
+| [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders           |
+| [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation            |
 | `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                      |
 | `@sasakiuri/prettier-config`                            | Shared Prettier configuration                                    |
 | `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                   |

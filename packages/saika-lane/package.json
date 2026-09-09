@@ -53,7 +53,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
-    "depcruise": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "license-report": "node ../../scripts/generate-third-party-licenses.mjs --workspace=@sasakiuri/saika-lane",
     "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check --workspace=@sasakiuri/saika-lane",
     "license-artifacts:check": "node ../../scripts/verify-packaged-licenses.mjs --workspace=@sasakiuri/saika-lane",
@@ -62,6 +62,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sasakiuri/saika-protocol": "*",
     "@sasakiuri/saika-rules": "*",
     "better-sqlite3": "^13.0.3",
     "electron-store": "10.0.0",

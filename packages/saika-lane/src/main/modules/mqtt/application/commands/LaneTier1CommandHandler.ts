@@ -9,9 +9,8 @@
  * On join, starts subscriptions for BroadcastCommandHandler / PerLaneCommandHandler.
  */
 
-import type { z } from 'zod';
-
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { CompetitionCueSubscriber } from '@/main/modules/mqtt/application/CompetitionCueSubscriber';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
 import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
@@ -21,7 +20,7 @@ import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
-import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import {
   ActivateSafetyStopCmdSchema,
   ClearSafetyStopCmdSchema,
@@ -29,8 +28,6 @@ import {
   LeaveCompetitionCmdSchema,
   ProbeClockCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
-import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -38,12 +35,13 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
+import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
 import type { PerLaneCommandHandler } from './PerLaneCommandHandler';
 
 type Tier1Action =
   'join-competition' | 'leave-competition' | 'probe-clock' | 'activate-safety-stop' | 'clear-safety-stop';
 
-const ACTION_SCHEMAS: Record<Tier1Action, z.ZodType> = {
+const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = {
   'join-competition': JoinCompetitionCmdSchema,
   'leave-competition': LeaveCompetitionCmdSchema,
   'probe-clock': ProbeClockCmdSchema,
@@ -58,13 +56,14 @@ interface ParsedTier1Topic {
 }
 
 export class LaneTier1CommandHandler {
+  private readonly processor: LaneCommandProcessor;
   private subscribedTopic: string | null = null;
   private messageUnsubscribe: (() => void) | null = null;
   private currentCompetitionId: string | null = null;
 
   constructor(
     private readonly mqttClient: IMqttClientService,
-    private readonly idempotencyGuard: CommandIdempotencyGuard,
+    idempotencyGuard: CommandIdempotencyGuard,
     private readonly broadcastHandler: BroadcastCommandHandler,
     private readonly perLaneHandler: PerLaneCommandHandler,
     private readonly rpcHandler: RpcRequestHandler,
@@ -76,9 +75,17 @@ export class LaneTier1CommandHandler {
     private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
     private readonly competitionCueSubscriber?: CompetitionCueSubscriber,
     private readonly competitionShootOffControl?: ICompetitionShootOffControl,
-    private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
+    commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
     private readonly timedTargetControl?: ITimedTargetControl,
-  ) {}
+  ) {
+    this.processor = new LaneCommandProcessor(
+      mqttClient,
+      idempotencyGuard,
+      commandAuthorization,
+      getLaneId,
+      'LaneTier1CommandHandler',
+    );
+  }
 
   /**
    * Subscribes to Tier1 commands
@@ -166,73 +173,14 @@ export class LaneTier1CommandHandler {
   /**
    * Processes a command
    */
-  private async handleCommand(parsed: ParsedTier1Topic, payload: Buffer): Promise<void> {
-    const logger = getLogger();
-    const laneReceivedAt = new Date();
-    const { action } = parsed;
-    const ackTopic = `saika/lane/${this.getLaneId()}/command/${action}/acknowledgement`;
-
-    // JSON parse
-    let rawData: unknown;
-    try {
-      rawData = JSON.parse(payload.toString());
-    } catch {
-      logger.error('[LaneTier1CommandHandler] Failed to parse JSON', 'mqtt', { action });
-      return;
-    }
-
-    // Action schema validation
-    const schema = ACTION_SCHEMAS[action as Tier1Action];
-    if (!schema) {
-      const error = ErrorCatalog.createError('MQTT_UNKNOWN_COMMAND_ACTION', { action });
-      await this.publishAck(ackTopic, '', 'error', error.code, error.message);
-      return;
-    }
-
-    const parseResult = schema.safeParse(rawData);
-    if (!parseResult.success) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_VALIDATION_FAILED', {
-        action,
-        detail: parseResult.error.message,
-      });
-      const commandId = (rawData as { commandId?: string }).commandId ?? '';
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
-
-    const command = parseResult.data as Record<string, unknown>;
-    const commandId = command.commandId as string;
-    const authorization = this.commandAuthorization.assess({
-      issuedBy: command.issuedBy as string,
-      ...(typeof command.issuerId === 'string' ? { issuerId: command.issuerId } : {}),
+  private handleCommand(parsed: ParsedTier1Topic, payload: Buffer): Promise<void> {
+    return this.processor.handle<Tier1Action>({
+      action: parsed.action,
+      payload,
+      schemas: ACTION_SCHEMAS,
+      acknowledgementTopic: `saika/lane/${this.getLaneId()}/command/${parsed.action}/acknowledgement`,
+      execute: (action, command, receivedAt) => this.executeAction(action, command, receivedAt),
     });
-    if (!authorization.allowed) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
-
-    // Idempotency check
-    if (this.idempotencyGuard.check(commandId)) {
-      logger.info(`[LaneTier1CommandHandler] Duplicate command skipped: ${commandId}`, 'mqtt');
-      return;
-    }
-
-    // executing ACK
-    await this.publishAck(ackTopic, commandId, 'executing');
-
-    try {
-      const data = await this.executeAction(action as Tier1Action, command, laneReceivedAt);
-      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, data, authorization.warning);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorCode = (err as { code?: string }).code ?? 'MQTT_COMMAND_EXECUTION_FAILED';
-      logger.error(`[LaneTier1CommandHandler] Command failed: ${action}`, 'mqtt', {
-        error: errorMessage,
-        commandId,
-      });
-      await this.publishAck(ackTopic, commandId, 'error', errorCode, errorMessage);
-    }
   }
 
   /**
@@ -368,37 +316,6 @@ export class LaneTier1CommandHandler {
       this.competitionStateSubscriber.unsubscribe(),
       this.competitionCueSubscriber?.unsubscribe(),
     ]);
-  }
-
-  /**
-   * Publishes an ACK
-   */
-  private async publishAck(
-    topic: string,
-    commandId: string,
-    status: CommandAckPayload['status'],
-    errorCode?: string,
-    errorMessage?: string,
-    data?: Record<string, unknown>,
-    warning?: string,
-  ): Promise<void> {
-    const ack: CommandAckPayload = {
-      commandId,
-      laneId: this.getLaneId(),
-      status,
-      acknowledgedAt: new Date().toISOString(),
-      ...(errorCode && errorMessage ? { error: { code: errorCode, message: errorMessage } } : {}),
-      ...(data ? { data } : {}),
-      ...(warning ? { warning } : {}),
-    };
-
-    try {
-      await this.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
-    } catch (err) {
-      getLogger().error('[LaneTier1CommandHandler] Failed to publish ACK', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
   }
 }
 

@@ -9,8 +9,8 @@
  */
 
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

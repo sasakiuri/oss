@@ -10,7 +10,7 @@ import {
 } from '@/shared/mqtt/QualificationMalfunctionSignal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the Lane-owned declaration without issuing a competition-control command. */
 export class QualificationMalfunctionSignalPublisher {

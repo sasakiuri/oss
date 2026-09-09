@@ -130,6 +130,9 @@ jobs:
       - name: Rebuild better-sqlite3 for Node.js tests
         run: npm rebuild better-sqlite3
 
+      - name: Test shared MQTT contracts
+        run: npm run test --workspace=@sasakiuri/saika-protocol
+
       - name: Test Saika Director
         run: npm run test:coverage --workspace=@sasakiuri/saika-director
 

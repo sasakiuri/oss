@@ -1,10 +1,7 @@
 export { resultPublicationModule } from './resultPublication.module';
 export { SqliteResultPublicationRepository } from './infra/SqliteResultPublicationRepository';
 export { SqliteFinalResultDeclarationRepository } from './infra/SqliteFinalResultDeclarationRepository';
-export {
-  QualificationResultPublicationReadiness,
-  VerifiedResultPublicationReadiness,
-} from './infra/QualificationResultPublicationReadiness';
+export { VerifiedResultPublicationReadiness } from './infra/VerifiedResultPublicationReadiness';
 export { RulePackResultPublicationPolicyResolver } from './infra/RulePackResultPublicationPolicyResolver';
 export { FinalResultDeclarationService } from './application/FinalResultDeclarationService';
 export { GuardedResultPublicationReadiness } from './application/GuardedResultPublicationReadiness';

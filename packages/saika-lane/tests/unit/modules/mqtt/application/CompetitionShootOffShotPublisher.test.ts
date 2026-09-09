@@ -6,7 +6,7 @@ import type {
   ICompetitionShootOffShotOutbox,
 } from '@/main/modules/competition-shoot-off';
 import { CompetitionShootOffShotPublisher } from '@/main/modules/mqtt/application/CompetitionShootOffShotPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

@@ -86,10 +86,13 @@ if (!hasSingleInstanceLock) {
     services.windowManager.registerMainWindow(mainWindow);
 
     const devServerUrl = resolveDevServerUrl(app.isPackaged, process.env.VITE_DEV_SERVER_URL);
+    const loadingWindow = mainWindow;
     const loadPromise = devServerUrl
-      ? mainWindow.loadURL(devServerUrl)
-      : mainWindow.loadFile(join(appDir, '../renderer/index.html'));
+      ? loadingWindow.loadURL(devServerUrl)
+      : loadingWindow.loadFile(join(appDir, '../renderer/index.html'));
     void loadPromise.catch((error) => {
+      // Closing a loading window rejects the load promise; shutdown must not open an error dialog.
+      if (isQuitting || loadingWindow.isDestroyed()) return;
       crashLogger.logError('Failed to load the main window', error);
       dialog.showErrorBox('Display Error', 'Failed to load the window. Please restart the application.');
     });

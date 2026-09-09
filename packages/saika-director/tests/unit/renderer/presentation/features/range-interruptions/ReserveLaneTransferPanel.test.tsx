@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+
 import { ReserveLaneTransferPanel } from '@/renderer/presentation/features/range-interruptions/ReserveLaneTransferPanel';
 
 const { workspace, complete } = vi.hoisted(() => ({ workspace: vi.fn(), complete: vi.fn() }));

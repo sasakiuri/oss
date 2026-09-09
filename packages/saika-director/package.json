@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
+    "@sasakiuri/saika-protocol": "*",
     "@sasakiuri/saika-rules": "*",
     "aedes": "^1.1.1",
     "better-sqlite3": "^13.0.3",

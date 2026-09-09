@@ -51,7 +51,7 @@ const {
   },
 }));
 
-vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
+vi.mock('@/main/modules/mqtt/application/DirectorMqttService', () => ({
   DirectorMqttService: class {
     constructor(
       _options: unknown,
@@ -88,7 +88,6 @@ vi.mock('@/main/modules/mqtt/infra/DirectorMqttService', () => ({
     startTimedTarget = startTimedTargetDirector;
     finishCompetition = finishCompetition;
   },
-  sanitizeBrokerUrl: (value: string) => value,
 }));
 
 vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({

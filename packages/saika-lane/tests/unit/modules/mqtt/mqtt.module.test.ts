@@ -13,7 +13,7 @@ import type {
 } from '@/main/modules/qualification-recovery';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
-import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
+import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';

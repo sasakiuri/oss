@@ -9,8 +9,6 @@
  * Implements the 2-phase ACK (executing → done/error) pattern.
  */
 
-import type { z } from 'zod';
-
 import {
   AdvanceStageToken,
   EndStageToken,
@@ -23,13 +21,14 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
-import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import {
   AdvanceSeriesCmdSchema,
   CancelTimedTargetCmdSchema,
@@ -44,14 +43,14 @@ import {
   TimerExpiredCmdSchema,
   TimerStartedCmdSchema,
 } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
-import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/infra/CommandIdempotencyGuard';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { timedTargetProgramDurationMilliseconds } from '@/main/modules/timed-target/domain/TimedTargetSchedule';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+
+import { LaneCommandProcessor, type LaneCommandSchemas, type CommandPreparation } from './LaneCommandProcessor';
 
 type BroadcastAction =
   | 'start-sighting'
@@ -78,7 +77,7 @@ const TIMER_ACTIONS: ReadonlySet<BroadcastAction> = new Set([
   'start-timed-target',
 ]);
 
-const ACTION_SCHEMAS: Record<BroadcastAction, z.ZodType> = {
+const ACTION_SCHEMAS: LaneCommandSchemas<BroadcastAction> = {
   'start-sighting': StartSightingCmdSchema,
   'end-sighting': EndSightingCmdSchema,
   'start-match': StartMatchCmdSchema,
@@ -100,6 +99,7 @@ interface ParsedBroadcastTopic {
 }
 
 export class BroadcastCommandHandler {
+  private readonly processor: LaneCommandProcessor;
   private subscribedTopic: string | null = null;
   private messageUnsubscribe: (() => void) | null = null;
 
@@ -110,15 +110,23 @@ export class BroadcastCommandHandler {
     private readonly competitionRepository: ICompetitionRepository,
     private readonly competitionStatePublisher: LaneCompetitionStatePublisher,
     private readonly scorePublisher: LaneScorePublisher,
-    private readonly idempotencyGuard: CommandIdempotencyGuard,
+    idempotencyGuard: CommandIdempotencyGuard,
     private readonly getLaneId: () => string,
     _competitionId: string,
     private readonly interruptionControl?: ICompetitionInterruptionControl,
     private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
     private readonly shootOffControl?: ICompetitionShootOffControl,
-    private readonly commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
+    commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
     private readonly timedTargetControl?: ITimedTargetControl,
-  ) {}
+  ) {
+    this.processor = new LaneCommandProcessor(
+      mqttClient,
+      idempotencyGuard,
+      commandAuthorization,
+      getLaneId,
+      'BroadcastCommandHandler',
+    );
+  }
 
   /**
    * Subscribes to competition broadcast commands
@@ -175,57 +183,20 @@ export class BroadcastCommandHandler {
   /**
    * Processes a command
    */
-  private async handleCommand(parsed: ParsedBroadcastTopic, payload: Buffer): Promise<void> {
-    const logger = getLogger();
-    const { action, competitionId } = parsed;
-    const ackTopic = `saika/competition/${competitionId}/command/${action}/acknowledgement/${this.getLaneId()}`;
-
-    // JSON parse
-    let rawData: unknown;
-    try {
-      rawData = JSON.parse(payload.toString());
-    } catch {
-      logger.error('[BroadcastCommandHandler] Failed to parse JSON', 'mqtt', { action });
-      return;
-    }
-
-    // Action schema validation
-    const schema = ACTION_SCHEMAS[action as BroadcastAction];
-    if (!schema) {
-      const error = ErrorCatalog.createError('MQTT_UNKNOWN_COMMAND_ACTION', { action });
-      await this.publishAck(ackTopic, '', 'error', error.code, error.message);
-      return;
-    }
-
-    const parseResult = schema.safeParse(rawData);
-    if (!parseResult.success) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_VALIDATION_FAILED', {
-        action,
-        detail: parseResult.error.message,
-      });
-      const commandId = (rawData as { commandId?: string }).commandId ?? '';
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
-
-    const command = parseResult.data as Record<string, unknown>;
-    const commandId = command.commandId as string;
-    const authorization = this.commandAuthorization.assess({
-      issuedBy: command.issuedBy as string,
-      ...(typeof command.issuerId === 'string' ? { issuerId: command.issuerId } : {}),
+  private handleCommand(parsed: ParsedBroadcastTopic, payload: Buffer): Promise<void> {
+    return this.processor.handle<BroadcastAction>({
+      action: parsed.action,
+      payload,
+      schemas: ACTION_SCHEMAS,
+      acknowledgementTopic: `saika/competition/${parsed.competitionId}/command/${parsed.action}/acknowledgement/${this.getLaneId()}`,
+      prepare: (action, command) => this.prepareCommand(action, command),
+      execute: (action, command) => this.executeAction(action, command, parsed.competitionId),
     });
-    if (!authorization.allowed) {
-      const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
-      await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-      return;
-    }
+  }
 
-    // Idempotency check
-    if (this.idempotencyGuard.check(commandId)) {
-      logger.info(`[BroadcastCommandHandler] Duplicate command skipped: ${commandId}`, 'mqtt');
-      return;
-    }
-
+  private prepareCommand(action: BroadcastAction, command: Record<string, unknown>): CommandPreparation {
+    const logger = getLogger();
+    const commandId = command.commandId;
     // Targeted broadcast commands are ACKed only by their intended Lanes.
     if (
       action === 'start-sighting' ||
@@ -238,23 +209,22 @@ export class BroadcastCommandHandler {
       const targetLaneIds = command.targetLaneIds as string[] | undefined;
       if (targetLaneIds && !targetLaneIds.includes(this.getLaneId())) {
         logger.info(`[BroadcastCommandHandler] Lane ${this.getLaneId()} not in targetLaneIds, skipping`, 'mqtt');
-        return;
+        return { skip: true };
       }
     }
 
     // Clock drift check (timer-related actions only)
-    let doneWarning = authorization.warning;
-    if (TIMER_ACTIONS.has(action as BroadcastAction)) {
+    let warning: string | undefined;
+    if (TIMER_ACTIONS.has(action)) {
       const issuedAt = command.issuedAt as string | undefined;
       if (issuedAt) {
         const drift = Math.abs(Date.now() - new Date(issuedAt).getTime());
         if (drift > CLOCK_DRIFT_REJECT_THRESHOLD_MS) {
           const error = ErrorCatalog.createError('MQTT_CLOCK_OUT_OF_SYNC', { driftMs: drift });
           logger.error(`[BroadcastCommandHandler] Clock out of sync: driftMs=${drift}`, 'mqtt', { commandId, action });
-          await this.publishAck(ackTopic, commandId, 'error', error.code, error.message);
-          return;
+          throw error;
         } else if (drift > CLOCK_DRIFT_WARNING_THRESHOLD_MS) {
-          doneWarning = [doneWarning, 'clock_drift_detected'].filter(Boolean).join('; ') || undefined;
+          warning = 'clock_drift_detected';
           logger.warn(`[BroadcastCommandHandler] Clock drift detected: driftMs=${drift}`, 'mqtt', {
             commandId,
             action,
@@ -263,21 +233,7 @@ export class BroadcastCommandHandler {
       }
     }
 
-    // executing ACK
-    await this.publishAck(ackTopic, commandId, 'executing');
-
-    try {
-      await this.executeAction(action as BroadcastAction, command, competitionId);
-      await this.publishAck(ackTopic, commandId, 'done', undefined, undefined, doneWarning);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorCode = (err as { code?: string }).code ?? 'MQTT_COMMAND_EXECUTION_FAILED';
-      logger.error(`[BroadcastCommandHandler] Command failed: ${action}`, 'mqtt', {
-        error: errorMessage,
-        commandId,
-      });
-      await this.publishAck(ackTopic, commandId, 'error', errorCode, errorMessage);
-    }
+    return { warning };
   }
 
   /**
@@ -713,35 +669,6 @@ export class BroadcastCommandHandler {
     const delayMs = new Date(absoluteTime).getTime() - Date.now();
     if (delayMs > 0) {
       await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  /**
-   * Publishes an ACK
-   */
-  private async publishAck(
-    topic: string,
-    commandId: string,
-    status: CommandAckPayload['status'],
-    errorCode?: string,
-    errorMessage?: string,
-    warning?: string,
-  ): Promise<void> {
-    const ack: CommandAckPayload = {
-      commandId,
-      laneId: this.getLaneId(),
-      status,
-      acknowledgedAt: new Date().toISOString(),
-      ...(errorCode && errorMessage ? { error: { code: errorCode, message: errorMessage } } : {}),
-      ...(warning ? { warning } : {}),
-    };
-
-    try {
-      await this.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
-    } catch (err) {
-      getLogger().error('[BroadcastCommandHandler] Failed to publish ACK', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
   }
 }

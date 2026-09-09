@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import {
   CompetitionCuePayloadSchema,
   type CompetitionCuePayload,
 } from '@/main/modules/mqtt/domain/MqttCompetitionCueSchemas';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 

@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 
 import { createMockStorage } from '../../../../helpers/mockDependencies';
 

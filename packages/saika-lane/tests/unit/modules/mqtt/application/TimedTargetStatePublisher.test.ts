@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TimedTargetStatePublisher } from '@/main/modules/mqtt/application/TimedTargetStatePublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

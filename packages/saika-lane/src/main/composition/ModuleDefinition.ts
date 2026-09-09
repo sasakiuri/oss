@@ -14,7 +14,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
@@ -23,7 +23,7 @@ import type {
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
-import type { IAppSettingsStore } from '@/main/modules/settings/infra/IAppSettingsStore';
+import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import type { TimingProfileService } from '@/main/modules/timing-profiles';

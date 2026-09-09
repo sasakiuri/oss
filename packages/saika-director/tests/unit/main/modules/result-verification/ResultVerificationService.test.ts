@@ -14,7 +14,7 @@ import type { ResultVerificationCheck } from '@/main/modules/result-verification
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { RankedResultDto } from '@/shared/ipc/contracts';
-import { VerifiedResultPublicationReadiness } from '@/main/modules/result-publication/infra/QualificationResultPublicationReadiness';
+import { VerifiedResultPublicationReadiness } from '@/main/modules/result-publication/infra/VerifiedResultPublicationReadiness';
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const RESULT_ONE_ID = '22222222-2222-4222-8222-222222222222';

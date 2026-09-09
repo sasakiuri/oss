@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { QualificationRecoveryShotPublisher } from '@/main/modules/mqtt/application/QualificationRecoveryShotPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';

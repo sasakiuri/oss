@@ -3,7 +3,7 @@ import type { RangeOfficerRequestService } from '@/main/modules/range-officer-re
 import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the Lane-owned assistance signal without mutating competition control. */
 export class RangeOfficerRequestPublisher {

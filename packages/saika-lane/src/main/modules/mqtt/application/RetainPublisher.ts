@@ -10,7 +10,7 @@
  */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

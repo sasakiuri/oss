@@ -47,6 +47,16 @@ competitions.
 
 ## Development
 
+Application construction is divided into explicit factories under `src/main/composition/`, with a static feature
+catalog and dependency validation before registration. MQTT schemas are shared with Lane through
+[`@sasakiuri/saika-protocol`](../saika-protocol/). See
+[ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the design and extension workflow.
+
+Inside the MQTT feature, application components separately own competition workflows, incoming message validation,
+Lane state projections and command acknowledgements. IPC handler factories group competition, Final and safety
+operations; the module supplies their dependencies and the concrete transport. See
+[ADR-0006](../../docs/adr/0006-director-mqtt-application-boundaries.md) for the responsibility map and concurrency rules.
+
 From the repository root:
 
 ```bash

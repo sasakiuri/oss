@@ -6,13 +6,15 @@ This document describes the high-level architecture of the `@sasakiuri/oss` mono
 
 The repository uses **npm workspaces** for dependency management and **Turborepo** for
 build orchestration (caching, parallel task execution, dependency-aware pipelines).
-**Changesets** handles independent versioning per package.
+**Changesets** versions Lane, Director and Docs as a fixed suite group; shared configuration packages retain
+independent versions.
 
 ```
 oss/
 ├── packages/
 │   ├── saika-lane/             # Electron desktop app -- electronic target display
 │   ├── saika-director/         # Electron desktop app -- multi-Lane competition control
+│   ├── saika-protocol/         # Shared MQTT schemas and topic contracts
 │   ├── saika-rules/            # Versioned, application-neutral competition Rule Packs
 │   ├── saika-docs/             # Product specifications and interoperability references
 │   ├── eslint-config/          # @sasakiuri/eslint-config
@@ -48,6 +50,71 @@ This dependency direction is one-way:
 saika-rules  <-  Lane adapter  <-  Lane domain/application
              <-  Director adapter  <-  Director domain/application
 ```
+
+## Application Composition and MQTT Control
+
+Lane and Director are independently deployed modular monoliths. Their Electron entry points delegate service
+construction and lifecycle to explicit factories under `src/main/composition/`. A static module catalog declares
+feature dependencies and is validated before registration. Shared wire schemas live in `saika-protocol`; shared
+competition authority lives in `saika-rules`. See [ADR-0005](docs/adr/0005-application-composition-and-wire-contracts.md).
+
+Director's MQTT feature separates competition coordination from communication and state bookkeeping:
+
+| Component                                             | Responsibility                                                                             |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `mqtt.module.ts`                                      | Construct adapters, register handlers, configure broker lifecycle and event forwarding     |
+| `application/create*ControlHandlers.ts`               | Adapt IPC requests to competition, Final and safety-stop workflows                         |
+| `application/DirectorMqttService.ts`                  | Coordinate membership, firing, recovery, timers and competition cleanup                    |
+| `application/DirectorMqttConnection.ts`               | Own transport listeners, subscription readiness and reconnect retries                      |
+| `application/DirectorLaneReadiness.ts`                | Evaluate current Lane capabilities and own expiring clock assessments                      |
+| `application/LaneHardwareMonitor.ts`                  | Expire stale heartbeats without altering report timestamps                                 |
+| `application/CompetitionExpiryScheduler.ts`           | Retry original timer deadlines and invalidate obsolete expiry work on session shutdown     |
+| `application/DirectorMqttReceiver.ts`                 | Validate wire payloads and identities, route retained clears and deliveries                |
+| `application/DirectorMqttState.ts`                    | Project broker-scoped Lane state, retain shot history and await correlated final snapshots |
+| `application/MqttCommandDispatcher.ts`                | Publish commands, correlate acknowledgements and enforce deadlines                         |
+| `domain/IMqttTransport.ts` / `infra/MqttTransport.ts` | Define the network port and implement the MQTT adapter                                     |
+
+`KeyedOperationQueue` serializes operations sharing competition or membership resources. `RuntimeOperationGate`
+coordinates concurrent controls with exclusive broker transitions. Dependency-cruiser enforces the application's
+dependency on ports instead of MQTT adapters or registration code. See
+[ADR-0006](docs/adr/0006-director-mqtt-application-boundaries.md) for ordering guarantees and extension guidance.
+
+Director's `QualificationRecoveryCommands`, `RangeInterruptionCommands` and `RangeSafetyCommands` own focused
+Lane-command workflows behind consumer-owned context interfaces and `DirectorCommandPort`. The service retains
+queue acquisition: recovery and interruptions share the competition key, while safety STOP and clearance use their
+independent safety key. Workflows read live state when their turn begins and preserve per-Lane failure outcomes.
+See [ADR-0010](docs/adr/0010-director-command-workflow-boundaries.md) for ordering and extension guidance.
+
+Lane's `application/commands/LaneCommandProcessor.ts` owns JSON/schema validation, issuer authorization,
+deduplication and acknowledgements. Tier1, broadcast and per-Lane handlers supply their typed schema registries,
+command preparation and competition operations. The MQTT port lives in `domain/IMqttClientService.ts`; the concrete
+client remains in infrastructure. Both applications prohibit application dependencies on MQTT adapters, including
+type-only imports. Lane's architecture check runs without a historical violation allowlist.
+
+See [ADR-0007](docs/adr/0007-mqtt-lifecycle-and-command-processing.md) for lifecycle ownership, command extension
+guidance and the guarantees around stale callbacks and command receipt.
+
+## Director Renderer Boundaries
+
+Director's competition screen composes focused display panels and four hooks: `useMqttControlSnapshot` owns broker
+projection synchronization, `useCompetitionEvidence` owns selected-competition evidence, `useCompetitionSelection`
+owns Lane/competition selection, and `useCompetitionCommands` owns confirmations, commands and result linkage.
+The extracted display panels receive typed state and callbacks; they do not call IPC services directly.
+
+Interruption records use `useRangeInterruptionCases` for query ordering, selection and mutation recovery. Each scope
+visit owns a separate lifetime so obsolete queries or mutation completions cannot update a different workspace.
+The parent panel composes individual forms and the detail workflow; pure recovery checks live in
+`interruptionRecoveryState`. Main-process domain guards remain authoritative for all operations.
+
+Dependency-cruiser enforces these boundaries, including type-only imports. See
+[ADR-0008](docs/adr/0008-director-renderer-state-and-view-boundaries.md) for ownership, lifecycle guarantees and
+extension guidance.
+
+Target examinations follow the same ownership model: `useTargetExaminationCases` owns ordered queries and commands,
+while a workspace keyed by scope and a detail keyed by case isolate form drafts. Forms submit typed callbacks;
+`examinationPresentation` owns pure display policy. A pending command cannot undo a newer case selection, and a
+departed workspace cannot refresh or close forms in the current visit. See
+[ADR-0014](docs/adr/0014-target-examination-workspace-boundaries.md).
 
 ## Saika Lane Architecture
 
@@ -376,7 +443,17 @@ Three persistence paths serve different access patterns:
 shots and scores with indexed lookups. The database file lives at
 `{userData}/saika-lane.db`.
 
-**AppSettingsStore** owns the canonical settings document. **electron-store**
+Lane's `SqliteDb.ts` owns connection setup and closes the handle if initialization fails. An explicit migration
+catalog separates historical SQL from `MigrationRunner`, which applies all pending changes and `user_version`
+updates in one immediate transaction. Versions 0 through 19 retain their existing upgrade results; unsupported newer
+databases are rejected. Migration definitions are independent of current feature code. Director keeps its separate
+`schema_meta` runner and compatibility policy. See
+[ADR-0009](docs/adr/0009-lane-database-migration-boundaries.md).
+
+**AppSettingsStore** owns the canonical settings document. Its application-owned port exposes settings operations,
+`SettingsDocument` contains deterministic normalization and DTO projections, and `LegacySettingsBridge` owns the
+existing electron-store completion/synchronization policy. File recovery, identity generation and write ordering
+stay in the facade. See [ADR-0013](docs/adr/0013-lane-settings-document-boundaries.md). **electron-store**
 provides key-value persistence for compatibility settings, connection history,
 and competition state through `LocalStorageAdapter`, which implements
 `ILocalStorage`.

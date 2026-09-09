@@ -12,7 +12,7 @@ import mqtt from 'mqtt';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import type { IMqttClientService, MqttConnectOptions, MqttPublishOptions } from './IMqttClientService';
+import type { IMqttClientService, MqttConnectOptions, MqttPublishOptions } from '../domain/IMqttClientService';
 
 /**
  * Masks the userinfo (username:password) portion of an MQTT broker URL.

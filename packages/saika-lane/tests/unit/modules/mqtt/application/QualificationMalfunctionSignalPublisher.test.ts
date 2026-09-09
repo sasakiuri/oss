@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { QualificationMalfunctionSignalPublisher } from '@/main/modules/mqtt/application/QualificationMalfunctionSignalPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
 import { QualificationMalfunctionSignalState } from '@/main/modules/qualification-malfunction-signal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

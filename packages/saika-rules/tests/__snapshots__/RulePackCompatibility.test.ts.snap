@@ -1,0 +1,230 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Rule Pack compatibility > retains the identity of every shipped pack used by stored results and MQTT bindings 1`] = `
+[
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "b98e7b3c35985a724c99bbd470f65670a1ab12ffff083e723a57e6d31101dadc",
+    },
+    "id": "ISSF:2026:AR60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "7f2f082044efe7a10a44bbe8e0fea34b7664303890354baf42fc4ef278721ee1",
+    },
+    "id": "ISSF:2026:AP60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "0def43d783a949a2eb54f18ec9703f7cf61ae8f11479b10a097681b6fcb8b4fa",
+    },
+    "id": "ISSF:2026:AR60_FINAL:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "395cee73526b3a4bd10364a316a99f6eda81a3680b7b4818602af9feb0faa4be",
+    },
+    "id": "ISSF:2026:AP60_FINAL:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "d0e7f47e61a3e20ec287a7122a0b4817a73a43367276a6ce18ac99d97c42462c",
+    },
+    "id": "ISSF:2026:ARMIX30:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "b95cacadecba52fce3ab0449e97cbddf7488af7fc42b96d6248f945ec9a00e62",
+    },
+    "id": "ISSF:2026:APMIX30:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "e114c30cf15d2e69a98bebbe562aa2ba23bedaf37b44fb9bf287f67a9e6eb22c",
+    },
+    "id": "ISSF:2026:ARMIX_FINAL:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "9b8734a0dd3e1e7bbf9733c2920b47462c80db9a46a376050257414bba66e604",
+    },
+    "id": "ISSF:2026:APMIX_FINAL:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "16f5427e056fa72a150720aaf0ad9a0d147383f87834f8531b68a2308d9dfca5",
+    },
+    "id": "ISSF:2026:R3P60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "6d8a95dfb37ec4a95d7ad28d41690ce864dc3cc124a2a8b2fe490cb104de9518",
+    },
+    "id": "ISSF:2026:R3P60:QUALIFICATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "e866febd5b0c3c3352ba89385c32e807d427ec0f31c3693a21e05afd7073919d",
+    },
+    "id": "ISSF:2026:R3P60:QUALIFICATION:INDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "2141085bf3275cdbad0a2363f7bae0d5c2da984251efea34d7e1ba514019cc65",
+    },
+    "id": "ISSF:2026:RPR60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "770d9c308470c041862097f9f35c3fa6a5642a128031bc68f0113f872ec08a94",
+    },
+    "id": "ISSF:2026:RPR60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "527e6b96562dd362beb68f2f5e39acde0920f73ec7569cbe70ccf434ea7751a6",
+    },
+    "id": "ISSF:2026:R3P35:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "2017d79acb4b7eae7da796d6a9771efc0973bda9455220d57209ba32319b6204",
+    },
+    "id": "ISSF:2026:RFPM:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "72aad8bd2c7255ee95e3f062f9198aec374e741d77814f47aa0674816a990fa6",
+    },
+    "id": "ISSF:2026:P25:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "3d8dc17c25f6ae445af8b1bad8aefac46f812d20ef1f5c45ba43b388468b0710",
+    },
+    "id": "ISSF:2026:CFP:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "d4c9c3ad7e8ac33d8556131410d1c3bd7b4898ad4ffc5860d48ab12d692567c6",
+    },
+    "id": "ISSF:2026:STDP:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "028ee7d28bff62e7234e7d9e9778531f159f7e26ba9d668f78ab799db2fdff2c",
+    },
+    "id": "ISSF:2026:RFPM:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "bd631d1a073105ac997bbd48c94b46f74e5c2007e00a6515d590973e96364d0c",
+    },
+    "id": "ISSF:2026:P25:FINAL",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "7ba463d37820a9b6a9fa2f4fb40394b080febb3f65e5f5a9d078740896953bab",
+    },
+    "id": "ISSF:2026:R300_3P60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "2a44990f997603f920e6e113fffd7dfeea9c7345a1cc337f400f80159bcd6a6d",
+    },
+    "id": "ISSF:2026:R300_3P60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "93863723fc68d77ed01d9c2d42617ecf5e4e574d6df64014a5f34dbaaf86d421",
+    },
+    "id": "ISSF:2026:R300_PR60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "69960ac7786ae12c5a5b93fb5ec6d949d0c125c137e84e595753aab273d6ae12",
+    },
+    "id": "ISSF:2026:R300_PR60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "1cccd706c374ceefcb893aa67153ebfced0bec716fb0721b82a5f530f49df151",
+    },
+    "id": "ISSF:2026:R300_STD60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "2a5473f2797853adce91f9e3876defd17985a0bd22e8362efbc6db2afd6273db",
+    },
+    "id": "ISSF:2026:R300_STD60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "05658a1d090f5f6ca9d8132417d62a89be47b3482de7b197c82f7e15bd8a2520",
+    },
+    "id": "ISSF:2026:FP60:QUALIFICATION",
+    "schemaVersion": 1,
+  },
+  {
+    "fingerprint": {
+      "algorithm": "SHA-256",
+      "value": "ceaa739fd24736f67e2ac10dda4ba4061362187842d1af7c17a5a786226f4130",
+    },
+    "id": "ISSF:2026:FP60:ELIMINATION:OUTDOOR",
+    "schemaVersion": 1,
+  },
+]
+`;

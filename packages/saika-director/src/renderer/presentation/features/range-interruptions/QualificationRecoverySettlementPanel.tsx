@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
 
 import type { QualificationRecoverySettlementDto, RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 

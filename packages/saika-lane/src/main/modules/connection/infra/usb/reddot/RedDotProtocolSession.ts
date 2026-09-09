@@ -7,6 +7,8 @@ import {
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
+import { type ProtocolTimerClock, SerializedProtocolTimer } from '../SerializedProtocolTimer';
+
 export const RED_DOT_ENQ = 0x05;
 export const RED_DOT_ACK = 0x06;
 export const RED_DOT_NAK = 0x15;
@@ -34,10 +36,8 @@ export interface RedDotSerialPort {
   drain(callback: (error?: Error | null) => void): unknown;
 }
 
-export interface RedDotProtocolClock {
+export interface RedDotProtocolClock extends ProtocolTimerClock {
   now(): Date;
-  setTimeout(callback: () => void, delayMs: number): unknown;
-  clearTimeout(handle: unknown): void;
 }
 
 export interface RedDotProtocolSessionOptions {
@@ -77,7 +77,6 @@ export class RedDotProtocolSession {
   private readonly pollIntervalMs: number;
   private readonly responseTimeoutMs: number;
   private readonly maxInvalidResponsesPerPoll: number;
-  private readonly clock: RedDotProtocolClock;
   private readonly scanner: RedDotStreamScanner;
   private state: RedDotProtocolState = 'STOPPED';
   private running = false;
@@ -85,10 +84,8 @@ export class RedDotProtocolSession {
   private initializationMode: RedDotInitializationMode | null = null;
   private generation = 0;
   private invalidResponseCount = 0;
-  private pollTimer: unknown = null;
-  private responseTimer: unknown = null;
-  private pollTimerGeneration = 0;
-  private responseTimerGeneration = 0;
+  private readonly pollTimer: SerializedProtocolTimer;
+  private readonly responseTimer: SerializedProtocolTimer;
   private readiness: Readiness | null = null;
   private operationQueue: Promise<void> = Promise.resolve();
   private receiptSequence = 0;
@@ -112,10 +109,12 @@ export class RedDotProtocolSession {
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
     this.responseTimeoutMs = options.responseTimeoutMs ?? 300;
     this.maxInvalidResponsesPerPoll = options.maxInvalidResponsesPerPoll ?? 3;
-    this.clock = options.clock ?? defaultClock;
+    const clock = options.clock ?? defaultClock;
+    this.pollTimer = new SerializedProtocolTimer(clock, (operation) => this.runSerialized(operation));
+    this.responseTimer = new SerializedProtocolTimer(clock, (operation) => this.runSerialized(operation));
     this.scanner = new RedDotStreamScanner({
       maxBufferBytes: options.maxBufferBytes ?? 4096,
-      now: () => this.clock.now(),
+      now: () => clock.now(),
     });
   }
 
@@ -211,8 +210,8 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearPollTimer();
-    this.clearResponseTimer();
+    this.pollTimer.cancel();
+    this.responseTimer.cancel();
     this.state = 'PROBING';
     await this.writeAndDrain(Buffer.from([RED_DOT_ENQ]), 'PROBE_ENQ', generation);
 
@@ -229,8 +228,8 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearPollTimer();
-    this.clearResponseTimer();
+    this.pollTimer.cancel();
+    this.responseTimer.cancel();
     this.state = 'INITIALIZING_TARGET_TYPE';
     this.lastReceiptBeforeTargetTypeCommand = this.receiptSequence;
     await this.writeAndDrain(Buffer.from(RED_DOT_SET_TARGET_TYPE_COMMAND), 'SET_TARGET_TYPE', generation);
@@ -248,7 +247,7 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearResponseTimer();
+    this.responseTimer.cancel();
     this.state = 'INITIALIZING_TARGET_TYPE';
 
     // If the command was accepted but its ACK was lost, the target may still be
@@ -269,8 +268,8 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearPollTimer();
-    this.clearResponseTimer();
+    this.pollTimer.cancel();
+    this.responseTimer.cancel();
     await this.writeAndDrain(Buffer.from([RED_DOT_ENQ]), 'ENQ', generation);
 
     if (!this.isActive(generation)) {
@@ -329,7 +328,7 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearResponseTimer();
+    this.responseTimer.cancel();
     this.state = 'INITIALIZING_TARGET_TYPE';
     const targetTypeByte = this.options.targetType === 'RIFLE' ? RED_DOT_RIFLE_TARGET_TYPE : RED_DOT_PISTOL_TARGET_TYPE;
     await this.writeAndDrain(Buffer.from([targetTypeByte]), `TARGET_TYPE_${this.options.targetType}`, generation);
@@ -348,7 +347,7 @@ export class RedDotProtocolSession {
     }
 
     if (this.state === 'AWAITING_PROBE_RESPONSE') {
-      this.clearResponseTimer();
+      this.responseTimer.cancel();
       await this.beginTargetTypeInitialization(generation);
     }
   }
@@ -359,9 +358,9 @@ export class RedDotProtocolSession {
   ): Promise<boolean> {
     const previousState = this.state;
     const wasInitialized = this.wasInitializedWhenCandidateStarted(event.startedAtReceiptSequence);
-    this.clearPollTimer();
+    this.pollTimer.cancel();
     if (wasInitialized || previousState === 'AWAITING_PROBE_RESPONSE') {
-      this.clearResponseTimer();
+      this.responseTimer.cancel();
     }
     this.invalidResponseCount += 1;
     this.warn(event.error.code, event.error.offset === undefined ? {} : { offset: event.error.offset });
@@ -400,9 +399,9 @@ export class RedDotProtocolSession {
   private async acceptFrame(event: Extract<RedDotStreamEvent, { type: 'frame' }>, generation: number): Promise<void> {
     const previousState = this.state;
     const wasInitialized = this.wasInitializedWhenCandidateStarted(event.startedAtReceiptSequence);
-    this.clearPollTimer();
+    this.pollTimer.cancel();
     if (wasInitialized || previousState === 'AWAITING_PROBE_RESPONSE') {
-      this.clearResponseTimer();
+      this.responseTimer.cancel();
     }
     this.state = 'WRITING_REPLY';
     await this.writeAndDrain(Buffer.from([RED_DOT_ACK]), 'ACK', generation);
@@ -485,148 +484,83 @@ export class RedDotProtocolSession {
       return;
     }
 
-    this.clearPollTimer();
-    this.clearResponseTimer();
+    this.pollTimer.cancel();
+    this.responseTimer.cancel();
     this.invalidResponseCount = 0;
     this.state = 'POLL_SCHEDULED';
-    const timerGeneration = this.pollTimerGeneration;
-    this.pollTimer = this.clock.setTimeout(() => {
-      if (timerGeneration !== this.pollTimerGeneration) {
-        return;
-      }
-      this.pollTimer = null;
-      void this.runSerialized(async () => {
-        if (timerGeneration !== this.pollTimerGeneration || this.state !== 'POLL_SCHEDULED') {
-          return;
-        }
-        await this.beginPoll(generation);
-      }).catch((error: unknown) => {
-        this.handleConnectionFailure(error, generation);
-      });
-    }, this.pollIntervalMs);
+    this.pollTimer.schedule(this.pollIntervalMs, {
+      isCurrent: () => this.isActive(generation) && this.state === 'POLL_SCHEDULED',
+      run: () => this.beginPoll(generation),
+      onError: (error) => this.handleConnectionFailure(error, generation),
+    });
   }
 
   private startProbeTimer(generation: number): void {
-    this.clearResponseTimer();
-    const timerGeneration = this.responseTimerGeneration;
-    this.responseTimer = this.clock.setTimeout(() => {
-      if (timerGeneration !== this.responseTimerGeneration) {
-        return;
-      }
-      this.responseTimer = null;
-      void this.runSerialized(async () => {
-        if (
-          timerGeneration !== this.responseTimerGeneration ||
-          !this.isActive(generation) ||
-          this.state !== 'AWAITING_PROBE_RESPONSE'
-        ) {
-          return;
-        }
-        this.scanner.clear();
-        this.warn(
-          'PROBE_RESPONSE_TIMEOUT',
-          { timeoutMs: this.responseTimeoutMs, targetType: this.options.targetType },
-          '[RedDot] Initial ENQ probe timed out; attempting target-type initialization',
-        );
-        await this.beginTargetTypeInitialization(generation);
-      }).catch((error: unknown) => {
-        this.handleConnectionFailure(error, generation);
-      });
-    }, this.responseTimeoutMs);
+    this.scheduleResponse(this.responseTimeoutMs, generation, 'AWAITING_PROBE_RESPONSE', async () => {
+      this.scanner.clear();
+      this.warn(
+        'PROBE_RESPONSE_TIMEOUT',
+        { timeoutMs: this.responseTimeoutMs, targetType: this.options.targetType },
+        '[RedDot] Initial ENQ probe timed out; attempting target-type initialization',
+      );
+      await this.beginTargetTypeInitialization(generation);
+    });
   }
 
   private startResponseTimer(generation: number): void {
-    this.clearResponseTimer();
-    const timerGeneration = this.responseTimerGeneration;
-    this.responseTimer = this.clock.setTimeout(() => {
-      if (timerGeneration !== this.responseTimerGeneration) {
-        return;
-      }
-      this.responseTimer = null;
-      void this.runSerialized(async () => {
-        if (
-          timerGeneration !== this.responseTimerGeneration ||
-          !this.isActive(generation) ||
-          this.state !== 'AWAITING_RESPONSE'
-        ) {
-          return;
-        }
-        this.scanner.clear();
-        this.warn('RESPONSE_TIMEOUT');
-        this.schedulePoll(generation);
-      }).catch((error: unknown) => {
-        this.handleConnectionFailure(error, generation);
-      });
-    }, this.responseTimeoutMs);
+    this.scheduleResponse(this.responseTimeoutMs, generation, 'AWAITING_RESPONSE', () => {
+      this.scanner.clear();
+      this.warn('RESPONSE_TIMEOUT');
+      this.schedulePoll(generation);
+    });
   }
 
   private startInitializationTimer(generation: number): void {
-    this.clearResponseTimer();
-    const timerGeneration = this.responseTimerGeneration;
-    this.responseTimer = this.clock.setTimeout(() => {
-      if (timerGeneration !== this.responseTimerGeneration) {
+    this.scheduleResponse(this.initializationTimeoutMs, generation, 'AWAITING_TARGET_TYPE_ACK', async () => {
+      this.scanner.clear();
+      if (this.options.targetType === 'RIFLE') {
+        await this.beginRifleFallback(generation, 'TARGET_TYPE_ACK_TIMEOUT');
         return;
       }
-      this.responseTimer = null;
-      void this.runSerialized(async () => {
-        if (
-          timerGeneration !== this.responseTimerGeneration ||
-          !this.isActive(generation) ||
-          this.state !== 'AWAITING_TARGET_TYPE_ACK'
-        ) {
-          return;
-        }
-        this.scanner.clear();
-        if (this.options.targetType === 'RIFLE') {
-          await this.beginRifleFallback(generation, 'TARGET_TYPE_ACK_TIMEOUT');
-          return;
-        }
 
-        this.failInitialization(
-          generation,
-          'TARGET_TYPE_ACK_TIMEOUT',
-          '[RedDot] Pistol target-type initialization failed; legacy polling is disabled',
-        );
-      }).catch((error: unknown) => {
-        this.handleConnectionFailure(error, generation);
-      });
-    }, this.initializationTimeoutMs);
+      this.failInitialization(
+        generation,
+        'TARGET_TYPE_ACK_TIMEOUT',
+        '[RedDot] Pistol target-type initialization failed; legacy polling is disabled',
+      );
+    });
   }
 
   private startFallbackSettleTimer(generation: number, reason: string): void {
-    this.clearResponseTimer();
-    const timerGeneration = this.responseTimerGeneration;
-    this.responseTimer = this.clock.setTimeout(() => {
-      if (timerGeneration !== this.responseTimerGeneration) {
-        return;
-      }
-      this.responseTimer = null;
-      void this.runSerialized(async () => {
-        if (
-          timerGeneration !== this.responseTimerGeneration ||
-          !this.isActive(generation) ||
-          this.state !== 'FALLBACK_SETTLING'
-        ) {
-          return;
-        }
-        this.warn(
-          'RIFLE_LEGACY_POLLING_FALLBACK',
-          {
-            reason,
-            targetType: this.options.targetType,
-            targetTypeByte: RED_DOT_RIFLE_TARGET_TYPE,
-            initializationMode: 'LEGACY_RIFLE_FALLBACK',
-            initializationTimeoutMs: this.initializationTimeoutMs,
-            settleMs: this.fallbackSettleMs,
-            pollIntervalMs: this.pollIntervalMs,
-          },
-          '[RedDot] Rifle target-type ACK was not confirmed; legacy ENQ polling fallback is active',
-        );
-        this.completeInitialization('LEGACY_RIFLE_FALLBACK', generation);
-      }).catch((error: unknown) => {
-        this.handleConnectionFailure(error, generation);
-      });
-    }, this.fallbackSettleMs);
+    this.scheduleResponse(this.fallbackSettleMs, generation, 'FALLBACK_SETTLING', () => {
+      this.warn(
+        'RIFLE_LEGACY_POLLING_FALLBACK',
+        {
+          reason,
+          targetType: this.options.targetType,
+          targetTypeByte: RED_DOT_RIFLE_TARGET_TYPE,
+          initializationMode: 'LEGACY_RIFLE_FALLBACK',
+          initializationTimeoutMs: this.initializationTimeoutMs,
+          settleMs: this.fallbackSettleMs,
+          pollIntervalMs: this.pollIntervalMs,
+        },
+        '[RedDot] Rifle target-type ACK was not confirmed; legacy ENQ polling fallback is active',
+      );
+      this.completeInitialization('LEGACY_RIFLE_FALLBACK', generation);
+    });
+  }
+
+  private scheduleResponse(
+    delayMs: number,
+    generation: number,
+    expectedState: RedDotProtocolState,
+    run: () => void | Promise<void>,
+  ): void {
+    this.responseTimer.schedule(delayMs, {
+      isCurrent: () => this.isActive(generation) && this.state === expectedState,
+      run,
+      onError: (error) => this.handleConnectionFailure(error, generation),
+    });
   }
 
   private failInitialization(generation: number, reason: string, message: string): void {
@@ -743,8 +677,8 @@ export class RedDotProtocolSession {
   private stopInternal(): void {
     this.generation += 1;
     this.running = false;
-    this.clearPollTimer();
-    this.clearResponseTimer();
+    this.pollTimer.cancel();
+    this.responseTimer.cancel();
     this.scanner.clear();
     this.initialized = false;
     this.initializationMode = null;
@@ -756,21 +690,5 @@ export class RedDotProtocolSession {
 
   private isActive(generation: number): boolean {
     return this.running && generation === this.generation;
-  }
-
-  private clearPollTimer(): void {
-    this.pollTimerGeneration += 1;
-    if (this.pollTimer !== null) {
-      this.clock.clearTimeout(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  private clearResponseTimer(): void {
-    this.responseTimerGeneration += 1;
-    if (this.responseTimer !== null) {
-      this.clock.clearTimeout(this.responseTimer);
-      this.responseTimer = null;
-    }
   }
 }

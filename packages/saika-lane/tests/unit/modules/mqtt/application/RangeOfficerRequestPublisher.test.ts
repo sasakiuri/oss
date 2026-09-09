@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { RangeOfficerRequestPublisher } from '@/main/modules/mqtt/application/RangeOfficerRequestPublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/infra/IMqttClientService';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import { RangeOfficerRequestState } from '@/main/modules/range-officer-request';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

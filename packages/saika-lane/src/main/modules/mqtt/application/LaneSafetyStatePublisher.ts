@@ -4,7 +4,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import type { IMqttClientService } from '../infra/IMqttClientService';
+import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the durable safety latch independently of competition membership. */
 export class LaneSafetyStatePublisher {
