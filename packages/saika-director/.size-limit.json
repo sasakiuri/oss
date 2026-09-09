@@ -1,7 +1,21 @@
 [
   {
-    "name": "Renderer bundle",
-    "path": "dist/renderer/**/*.js",
+    "name": "Renderer application",
+    "path": [
+      "dist/renderer/**/*.js",
+      "!dist/renderer/assets/ProtestPdfWriter-*.js",
+      "!dist/renderer/assets/fontkit.es-*.js"
+    ],
     "limit": "500 KB"
+  },
+  {
+    "name": "Optional PDF form output (loaded on export)",
+    "path": "dist/renderer/assets/ProtestPdfWriter-*.js",
+    "limit": "180 KB"
+  },
+  {
+    "name": "Optional custom fonts (loaded when a font is supplied)",
+    "path": "dist/renderer/assets/fontkit.es-*.js",
+    "limit": "280 KB"
   }
 ]

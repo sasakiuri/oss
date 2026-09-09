@@ -19,9 +19,13 @@ export type {
   EstBackupRecordParser,
   ParsedEstBackupRecords,
 } from './domain/EstBackupRecordParser';
-export { ElectronEstBackupRecordFileGateway } from './infra/ElectronEstBackupRecordFileGateway';
+export {
+  ElectronEstBackupRecordFileGateway,
+  chooseEstBackupSourcePath,
+} from './infra/ElectronEstBackupRecordFileGateway';
 export { SqliteEstBackupVerificationRepository } from './infra/SqliteEstBackupVerificationRepository';
 export type { IEstBackupVerificationRepository } from './domain/IEstBackupVerificationRepository';
 export * from './domain/EstBackupComparator';
 export { FinalEstBackupSubjectSource } from './infra/FinalEstBackupSubjectSource';
 export type { IEstBackupSubjectSource } from './application/IEstBackupSubjectSource';
+export { readEstBackupRecordFile } from './infra/readEstBackupRecordFile';

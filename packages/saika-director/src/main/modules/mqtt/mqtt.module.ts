@@ -3,7 +3,11 @@ import { networkInterfaces } from 'node:os';
 
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
-import { OperationalProfileService, type OperationalSettingTarget } from '@/main/modules/operational-profiles';
+import {
+  OperationalProfileService,
+  directorOperationalPresets,
+  type OperationalSettingTarget,
+} from '@/main/modules/operational-profiles';
 import {
   ApplyQualificationRecoverySettlementTransportToken,
   ApplyQualificationRecoveryTransportToken,
@@ -739,6 +743,7 @@ export const mqttModule: ModuleDefinition<
         if (!competition || competition.phase !== 'NOT_STARTED')
           throw new Error('Select a competition that has not started before applying an operational profile');
       },
+      directorOperationalPresets,
     );
     ipcRouter.register(operationalProfilesContract, {
       preview: (input) => operationalProfiles.preview(input),

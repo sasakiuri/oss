@@ -39,6 +39,34 @@ test.describe('Saika Director', () => {
     await expect(window.getByRole('button', { name: 'Save and connect' })).toBeEnabled();
   });
 
+  test('stores reusable operational settings through the application bridge', async () => {
+    running = await launchDirector();
+    const page = await running.app.firstWindow();
+    const outcome = await page.evaluate(async () => {
+      const api = window.electronAPI.operationalTemplates;
+      const created = await api.save({
+        name: 'External range',
+        description: '',
+        modes: { relay: 'REQUIRED' },
+        expectedRevision: 0,
+      });
+      if (!created.success) throw new Error(created.error.message);
+      const listed = await api.list({});
+      const removed = await api.remove({ id: created.data.id, expectedRevision: created.data.revision });
+      return { created, listed, removed, after: await api.list({}) };
+    });
+    expect(outcome.created).toMatchObject({
+      success: true,
+      data: { name: 'External range', revision: 1, modes: { relay: 'REQUIRED' } },
+    });
+    expect(outcome.listed).toMatchObject({
+      success: true,
+      data: [expect.objectContaining({ name: 'External range' })],
+    });
+    expect(outcome.removed.success).toBe(true);
+    expect(outcome.after).toEqual({ success: true, data: [] });
+  });
+
   test('quits the whole application when the main window closes with a board still open', async () => {
     test.skip(process.platform === 'darwin', 'macOS keeps the application active after closing its main window');
     running = await launchDirector();

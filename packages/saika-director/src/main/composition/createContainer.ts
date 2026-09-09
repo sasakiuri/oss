@@ -28,17 +28,22 @@ import {
   SqliteAthleteEntryReferenceSource,
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
-import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/BackupCaptureReadinessService';
-import { SqliteBackupCaptureReadinessSettingsRepository } from '@/main/modules/backup-capture-readiness/SqliteBackupCaptureReadinessSettingsRepository';
+import {
+  BackupCaptureReadinessService,
+  SqliteBackupCaptureReadinessSettingsRepository,
+} from '@/main/modules/backup-capture-readiness';
 import { boardModule } from '@/main/modules/board';
 import { championshipModule, SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
 import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
 import { eliminationPlanningModule } from '@/main/modules/elimination-planning';
 import { equipmentRegistryModule } from '@/main/modules/equipment-registry';
-import { ElectronEstBackupFeedSelector } from '@/main/modules/est-backup-capture/ElectronEstBackupFeedSelector';
-import { EstBackupCaptureService } from '@/main/modules/est-backup-capture/EstBackupCaptureService';
-import { EstBackupParserReferences } from '@/main/modules/est-backup-capture/EstBackupParserReferences';
-import { SqliteEstBackupCapturePlanRepository } from '@/main/modules/est-backup-capture/SqliteEstBackupCapturePlanRepository';
+import { operationalTemplatesModule } from '@/main/modules/operational-templates';
+import {
+  ElectronEstBackupFeedSelector,
+  EstBackupCaptureService,
+  EstBackupParserReferences,
+  SqliteEstBackupCapturePlanRepository,
+} from '@/main/modules/est-backup-capture';
 import { EstBackupSourceService, SqliteEstBackupSourceRepository } from '@/main/modules/est-backup-sources';
 import {
   CanonicalCsvEstBackupRecordParser,
@@ -285,6 +290,7 @@ const modules = [
   estChampionshipInspectionsModule,
   postCompetitionEquipmentControlModule,
   equipmentRegistryModule,
+  operationalTemplatesModule,
   eliminationPlanningModule,
   teamResultsModule,
   protestsModule,

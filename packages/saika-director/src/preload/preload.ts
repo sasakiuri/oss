@@ -51,6 +51,7 @@ import {
 } from '@/shared/ipc/contracts';
 import { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
 import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
+import { operationalTemplatesContract } from '@/shared/ipc/contracts/operationalTemplates.contract';
 import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
@@ -75,6 +76,7 @@ const electronAPI: ElectronAPI = {
   }) as unknown as ElectronAPI['championship'],
 
   operationalProfiles: buildProcedureBridge(operationalProfilesContract),
+  operationalTemplates: buildProcedureBridge(operationalTemplatesContract),
   athleteSanctions: buildProcedureBridge(athleteSanctionsContract),
 
   laneControl: buildProcedureBridge(laneControlContract),

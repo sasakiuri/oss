@@ -19,6 +19,7 @@ for (const namespace of [
   'relayReadiness',
   'relayAthleteLifecycle',
   'operationalProfiles',
+  'operationalTemplates',
   'backupCaptureReadiness',
 ])
   groups[namespace] = 'OPERATE';

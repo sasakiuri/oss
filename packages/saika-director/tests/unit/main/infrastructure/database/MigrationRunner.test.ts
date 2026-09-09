@@ -33,9 +33,10 @@ describe('MigrationRunner', () => {
       }
     });
 
-    it('registers per-competition start policy settings after the firing ledger', () => {
+    it('registers reusable operation templates after the competition start policies', () => {
       const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(84);
+      expect(maxVersion).toBe(85);
+      expect(allMigrations.find((migration) => migration.version === 85)?.name).toBe('operational_setting_templates');
       expect(allMigrations.find((migration) => migration.version === 73)?.name).toBe('est_inspection_start_settings');
       expect(allMigrations.find((migration) => migration.version === 72)?.name).toBe('relay_readiness_start_settings');
     });
