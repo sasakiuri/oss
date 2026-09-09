@@ -1,7 +1,6 @@
 import { basename, isAbsolute } from 'node:path';
 
-import { chooseEstBackupSourcePath } from '@/main/modules/est-backup-verification/infra/ElectronEstBackupRecordFileGateway';
-import { readEstBackupRecordFile } from '@/main/modules/est-backup-verification/infra/readEstBackupRecordFile';
+import { chooseEstBackupSourcePath, readEstBackupRecordFile } from '@/main/modules/est-backup-verification';
 
 import type { EstBackupAdapterReference } from './EstBackupCapturePersistence';
 import type { IEstBackupFeedSelector } from './EstBackupCaptureService';

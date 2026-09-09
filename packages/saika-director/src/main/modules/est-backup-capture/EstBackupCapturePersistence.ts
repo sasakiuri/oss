@@ -1,4 +1,4 @@
-import type { EstBackupRecordParser } from '@/main/modules/est-backup-verification/domain/EstBackupRecordParser';
+import type { EstBackupRecordParser } from '@/main/modules/est-backup-verification';
 
 import type { IEstBackupFeed } from './EstBackupCaptureService';
 import type { EstBackupSnapshotMode } from './EstBackupSnapshotPolicy';

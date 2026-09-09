@@ -1,15 +1,26 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { OperationalModeSchema as mode, OperationalModesSchema as modes } from './operationalSettings.schema';
 
-const mode = z.enum(['DISABLED', 'ADVISORY', 'REQUIRED']);
 const selection = z.object({
   competitionId: z.string().uuid(),
-  modes: z.record(z.string().min(1).max(100), mode).refine((value) => Object.keys(value).length <= 100),
+  modes,
 });
 const preview = z.object({
   competitionId: z.string().uuid(),
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  presets: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        description: z.string(),
+        modes,
+        issues: z.array(z.string()),
+      }),
+    )
+    .optional(),
   changes: z.array(
     z.object({
       id: z.string(),

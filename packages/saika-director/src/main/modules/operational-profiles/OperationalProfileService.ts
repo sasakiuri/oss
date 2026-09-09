@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { assessOperationalPresets, type OperationalProfilePreset } from './OperationalProfilePreset';
+
 export type OperationalMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 const allModes: readonly OperationalMode[] = ['DISABLED', 'ADVISORY', 'REQUIRED'];
 export interface OperationalSettingTarget {
@@ -22,6 +24,7 @@ export class OperationalProfileService {
   constructor(
     private readonly targets: readonly OperationalSettingTarget[],
     private readonly assertEditable: (competitionId: string) => void,
+    private readonly presets: readonly OperationalProfilePreset[] = [],
   ) {
     if (new Set(targets.map((target) => target.id)).size !== targets.length)
       throw new Error('Duplicate operational setting target');
@@ -62,6 +65,7 @@ export class OperationalProfileService {
     );
     return {
       competitionId: input.competitionId,
+      presets: assessOperationalPresets(this.presets, this.targets),
       changes,
       fingerprint: createHash('sha256')
         .update(JSON.stringify({ competitionId: input.competitionId, changes }))

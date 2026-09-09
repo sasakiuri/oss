@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { operationalProfilesService } from '@/renderer/services';
 import type {
@@ -8,21 +8,33 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { OperationalTemplatePanel } from './OperationalTemplatePanel';
+
 const defaultModes: OperationalProfileMode[] = ['DISABLED', 'ADVISORY', 'REQUIRED'];
 
-export function OperationalProfilePanel({
-  competitionId,
-  onApplied,
-}: {
+interface OperationalProfilePanelProps {
   competitionId: string;
   onApplied: () => void;
-}) {
+}
+
+export function OperationalProfilePanel(props: OperationalProfilePanelProps) {
+  return <OperationalProfileEditor key={props.competitionId} {...props} />;
+}
+
+function OperationalProfileEditor({ competitionId, onApplied }: OperationalProfilePanelProps) {
   const [modes, setModes] = useState<Record<string, OperationalProfileMode>>({});
   const [preview, setPreview] = useState<OperationalProfilePreviewDto | null>(null);
   const [result, setResult] = useState<OperationalProfileResultDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     let disposed = false;
     setPreview(null);
@@ -67,14 +79,17 @@ export function OperationalProfilePanel({
         modes,
         fingerprint: preview.fingerprint,
       });
+      if (!mounted.current) return;
       if (!response.success) throw new Error(response.error.message);
       setResult(response.data);
       onApplied();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      if (mounted.current) setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
-      setBusy(false);
-      setRefresh((value) => value + 1);
+      if (mounted.current) {
+        setBusy(false);
+        setRefresh((value) => value + 1);
+      }
     }
   };
   return (
@@ -91,6 +106,34 @@ export function OperationalProfilePanel({
         </p>
       )}
       <fieldset disabled={busy} className="space-y-3">
+        <OperationalTemplatePanel
+          modes={modes}
+          settings={preview?.changes ?? null}
+          onChoose={(selected) => choose({ ...modes, ...selected })}
+          disabled={busy}
+        />
+        {!!preview?.presets?.length && (
+          <div className="space-y-2" aria-label="Suggested settings">
+            <p className="text-xs text-vscode-text-muted">
+              Add a suggestion to your proposed settings, then adjust individual items below. Saving settings does not
+              confirm equipment readiness.
+            </p>
+            {preview.presets.map((preset) => (
+              <div key={preset.id} className="space-y-1">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={preset.issues.length > 0}
+                  onClick={() => choose({ ...modes, ...preset.modes })}
+                >
+                  {preset.label}
+                </Button>
+                <p className="text-xs text-vscode-text-muted">{preset.description}</p>
+                {preset.issues.length > 0 && <p className="text-xs">Unavailable with the installed settings.</p>}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" disabled={!preview} onClick={() => chooseSupported('REQUIRED')}>
             Require all listed checks

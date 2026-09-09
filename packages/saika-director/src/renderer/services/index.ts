@@ -53,6 +53,7 @@ export const reserveLaneTransfersService = createApiService('reserveLaneTransfer
 export const finalRecoveryFiringService = createApiService('finalRecoveryFiring');
 
 export const operationalProfilesService = createApiService('operationalProfiles');
+export const operationalTemplatesService = createApiService('operationalTemplates');
 
 export const equipmentRegistryService = createApiService('equipmentRegistry');
 

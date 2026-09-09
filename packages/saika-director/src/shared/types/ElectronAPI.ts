@@ -63,6 +63,7 @@ import type {
 } from '@/shared/ipc/contracts';
 import type { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
 import type { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
+import type { operationalTemplatesContract } from '@/shared/ipc/contracts/operationalTemplates.contract';
 import type { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
 /**
  * ElectronAPI - Renderer-side type definitions for the preload bridge.
@@ -124,6 +125,7 @@ export interface ElectronAPI {
   operatorAccess: InferBridge<typeof operatorAccessContract>;
   equipmentRegistry: InferBridge<typeof equipmentRegistryContract>;
   operationalProfiles: InferBridge<typeof operationalProfilesContract>;
+  operationalTemplates: InferBridge<typeof operationalTemplatesContract>;
   /** Application version from package.json. */
   readonly appVersion: string;
   queries: IpcQueries;

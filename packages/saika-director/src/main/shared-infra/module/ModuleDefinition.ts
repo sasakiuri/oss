@@ -15,7 +15,7 @@ import type { AppConfigService } from '@/main/infrastructure/config/AppConfigSer
 import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
-import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture/EstBackupCaptureService';
+import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture';
 import type { EstBackupSourceService } from '@/main/modules/est-backup-sources';
 import type {
   EstBackupRecordImportService,
