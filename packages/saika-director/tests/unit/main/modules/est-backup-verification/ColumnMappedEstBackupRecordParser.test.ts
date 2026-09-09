@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   ColumnMappedEstBackupRecordParser,
   EstBackupRecordParserRegistry,
@@ -42,6 +43,18 @@ describe('Column-mapped EST backups', () => {
       new EstBackupRecordParserRegistry([parser]).parse('export.TSV', 'Bib\tTotal\tName\n00101\t630.1\tA').records,
     ).toEqual([{ key: '00101', rank: null, totalScore: 630.1 }]);
     expect(() => parse('bib;Total;Place\n001;630,1;1')).toThrow('column named "Bib"');
+  });
+
+  it('reads detail columns in the selected order and validates every selected value', () => {
+    const columns = { shotScoreColumns: ['First', 'Second'], seriesScoreColumns: ['Series 1'] };
+    const source = 'Bib;Total;Place;Second;Series 1;First\n001;20,3;1;10,1;20,3;10,2';
+    expect(parse(source, columns).records).toEqual([
+      { key: '001', rank: 1, totalScore: 20.3, shotScores: [10.2, 10.1], seriesScores: [20.3] },
+    ]);
+    expect(parse(source, columns).sourceDescription).toContain('shotScoreColumns');
+    expect(() => parse(source.replace('10,2', ''), columns)).toThrow('invalid detail score');
+    expect(() => parse(source, { ...columns, shotScoreColumns: ['First', 'First'] })).toThrow('different columns');
+    expect(() => parse(source, { ...columns, shotScoreColumns: ['Absent'] })).toThrow('exactly one column');
   });
 
   it.each([

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { defineContract, command, query, queryResponseSchema, commandDataResponseSchema } from '../defineContract';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +26,7 @@ const ConfirmResultsResponseSchema = z.object({
 });
 
 const RankedResultDtoSchema = z.object({
+  shotScores: z.array(z.number()).optional(),
   id: z.string(),
   participantId: z.string(),
   rank: z.number(),

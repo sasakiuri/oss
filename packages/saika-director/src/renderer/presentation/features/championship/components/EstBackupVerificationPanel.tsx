@@ -29,6 +29,8 @@ export function EstBackupVerificationPanel({
   const [keyType, setKeyType] = useState<CreateEstBackupVerificationPayload['keyType']>(
     initialKind === 'INDIVIDUAL' ? 'START_NUMBER' : 'TEAM_ID',
   );
+  const [detailRequirement, setDetailRequirement] =
+    useState<NonNullable<CreateEstBackupVerificationPayload['detailRequirement']>>('AVAILABLE');
   const [sourceName, setSourceName] = useState('');
   const [sourceReference, setSourceReference] = useState('');
   const [recordsText, setRecordsText] = useState('[\n  { "key": "101", "rank": 1, "totalScore": 630.1 }\n]');
@@ -47,6 +49,11 @@ export function EstBackupVerificationPanel({
     totalScoreColumn: 'Total',
     rankColumn: null,
   });
+  const selectedMapping = {
+    ...mapping,
+    shotScoreColumns: mapping.shotScoreColumns?.map((name) => name.trim()).filter(Boolean),
+    seriesScoreColumns: mapping.seriesScoreColumns?.map((name) => name.trim()).filter(Boolean),
+  };
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     const response = await estBackupVerificationService.list({ eventId });
@@ -84,6 +91,7 @@ export function EstBackupVerificationPanel({
                 keyType,
                 sourceName,
                 records,
+                detailRequirement,
                 ...(sourceId ? { sourceId } : {}),
                 ...(sourceReference.trim() ? { sourceReference } : {}),
                 ...(review.trim() ? { interventionReviewStatement: review } : {}),
@@ -180,6 +188,22 @@ export function EstBackupVerificationPanel({
                     onChange={(event) => setMapping({ ...mapping, rankColumn: event.target.value || null })}
                   />
                 </Field>
+                <Field label="Shot score columns in firing order (one per line, optional)">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    value={(mapping.shotScoreColumns ?? []).join('\n')}
+                    onChange={(event) => setMapping({ ...mapping, shotScoreColumns: event.target.value.split('\n') })}
+                  />
+                </Field>
+                <Field label="Series score columns in order (one per line, optional)">
+                  <textarea
+                    rows={3}
+                    className={inputClass}
+                    value={(mapping.seriesScoreColumns ?? []).join('\n')}
+                    onChange={(event) => setMapping({ ...mapping, seriesScoreColumns: event.target.value.split('\n') })}
+                  />
+                </Field>
                 <Field label="Column separator">
                   <select
                     className={inputClass}
@@ -230,7 +254,7 @@ export function EstBackupVerificationPanel({
                 try {
                   const response = await estBackupVerificationService.captureRecords({
                     eventId,
-                    ...(fileLayout === 'MAPPED' ? { mapping } : {}),
+                    ...(fileLayout === 'MAPPED' ? { mapping: selectedMapping } : {}),
                   });
                   if (!response.success) throw new Error(response.error.message);
                   if (response.data.status === 'CANCELLED') return;
@@ -252,6 +276,24 @@ export function EstBackupVerificationPanel({
             {importing ? 'Importing...' : fileLayout === 'MAPPED' ? 'Import delimited file' : 'Import JSON / CSV'}
           </Button>
         </fieldset>
+        <Field label="Required comparison detail">
+          <select
+            className={inputClass}
+            value={detailRequirement}
+            onChange={(event) => setDetailRequirement(event.target.value as typeof detailRequirement)}
+          >
+            <option value="AVAILABLE">Compare all supplied details</option>
+            <option value="SERIES">Require every series</option>
+            <option value="SHOTS">Require every shot</option>
+            <option value="BOTH">Require every series and shot</option>
+          </select>
+        </Field>
+        <p className="text-xs text-vscode-text-muted">
+          Optional shotScores and seriesScores are ordered numeric arrays, starting at 1. JSON accepts arrays; canonical
+          CSV accepts JSON arrays in quoted columns with those names. Values use the current official scoring
+          projection, including corrections; deductions may apply only to series or totals. Missing official detail
+          remains unavailable. Team aggregates support series where supplied by the result source.
+        </p>
         <Field label='Backup records JSON: [{ "key", "rank" (optional), "totalScore" }]'>
           <textarea
             required
@@ -283,7 +325,7 @@ export function EstBackupVerificationPanel({
       <EstBackupCapturePanel
         key={`capture-${eventId}`}
         eventId={eventId}
-        mapping={fileLayout === 'MAPPED' ? mapping : undefined}
+        mapping={fileLayout === 'MAPPED' ? selectedMapping : undefined}
         onCaptured={onCaptured}
       />
       <EstBackupSourcesPanel
@@ -314,6 +356,52 @@ export function EstBackupVerificationPanel({
               {run.officialName} · {new Date(run.verifiedAt).toLocaleString()} · snapshot{' '}
               {run.snapshotRevision.slice(0, 10)}
             </span>
+            <details className="mt-2">
+              <summary>Comparison details</summary>
+              {run.items.map((item) => (
+                <div key={item.key} className="my-2">
+                  <b>
+                    {item.name} ({item.key}): {item.status}
+                  </b>
+                  <p>
+                    Total: {item.officialTotalScore ?? 'Unavailable'} / {item.backupTotalScore ?? 'Missing'} · Rank:{' '}
+                    {item.officialRank ?? '-'} / {item.backupRank ?? '-'}
+                  </p>
+                  {!item.detailChecks && <p>Historical aggregate comparison; no detail checks recorded.</p>}
+                  {item.detailChecks?.map((check) => (
+                    <div key={check.kind}>
+                      <span>
+                        {check.kind}: {check.status}
+                        {check.required ? ' (required)' : ''}
+                      </span>
+                      {check.values.length > 0 && (
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr>
+                              <th>Position</th>
+                              <th>Official</th>
+                              <th>Backup</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {check.values.map((value) => (
+                              <tr
+                                key={value.position}
+                                className={value.official === value.backup ? '' : 'text-vscode-warning'}
+                              >
+                                <td>{value.position}</td>
+                                <td>{value.official ?? 'Unavailable'}</td>
+                                <td>{value.backup ?? 'Missing'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </details>
             {(run.resultKind === 'INDIVIDUAL' || run.resultScope === 'FINAL') && run.verified && (
               <EstBackupResultChecksPanel run={run} />
             )}

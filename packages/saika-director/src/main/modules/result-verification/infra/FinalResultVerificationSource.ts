@@ -69,6 +69,8 @@ function toIndividualResult(result: FinalRankedResultDto): VerifiableResult {
   const shotCount = result.stage1Shots.length + result.stage2Shots.length;
   return {
     resultId: result.id,
+    shotScores: [...result.stage1Shots, ...result.stage2Shots],
+    seriesScores: result.seriesScores,
     participantId: result.participantId,
     revision: result.scoringRevision,
     rank: result.rank,

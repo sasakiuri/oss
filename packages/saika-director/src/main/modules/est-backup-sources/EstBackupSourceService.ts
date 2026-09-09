@@ -68,6 +68,8 @@ export function backupRecordsDigest(records: EstBackupSourceDto['records']): str
           key: record.key,
           rank: record.rank ?? null,
           totalScore: record.totalScore,
+          ...(record.shotScores !== undefined ? { shotScores: record.shotScores } : {}),
+          ...(record.seriesScores !== undefined ? { seriesScores: record.seriesScores } : {}),
         })),
       ),
     )

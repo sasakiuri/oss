@@ -92,6 +92,8 @@ export class CanonicalCsvEstBackupRecordParser implements EstBackupRecordParser 
     const keyIndex = findColumn(headers, ['key', 'participantid', 'startnumber', 'issfid', 'teamid'], 'key');
     const totalIndex = findColumn(headers, ['totalscore', 'score', 'total'], 'totalScore');
     const rankIndex = findColumn(headers, ['rank', 'place', 'position'], 'rank', false);
+    const shotIndex = findColumn(headers, ['shotscores'], 'shotScores', false);
+    const seriesIndex = findColumn(headers, ['seriesscores'], 'seriesScores', false);
 
     return rows.slice(1).map((row, index) => {
       const lineNumber = index + 2;
@@ -102,7 +104,14 @@ export class CanonicalCsvEstBackupRecordParser implements EstBackupRecordParser 
       if (rank !== null && (!Number.isInteger(rank) || rank <= 0)) {
         throw new Error(`CSV line ${lineNumber} has an invalid rank`);
       }
-      return { key, rank, totalScore };
+      const details = (column: number | null) =>
+        column === null || !row[column]?.trim() ? undefined : (JSON.parse(row[column]!) as unknown);
+      return {
+        key,
+        rank,
+        totalScore,
+        ...normalizeDetails({ shotScores: details(shotIndex), seriesScores: details(seriesIndex) }),
+      };
     });
   }
 }
@@ -124,7 +133,7 @@ function normalizeRecords(records: readonly BackupRecord[]): readonly BackupReco
     if (record.rank !== undefined && record.rank !== null && (!Number.isInteger(record.rank) || record.rank <= 0)) {
       throw new Error(`EST backup record ${index + 1} has an invalid rank`);
     }
-    return { key, rank: record.rank ?? null, totalScore: record.totalScore };
+    return { key, rank: record.rank ?? null, totalScore: record.totalScore, ...normalizeDetails(record) };
   });
 }
 
@@ -137,7 +146,12 @@ function normalizeJsonRecord(value: unknown, position: number): BackupRecord {
   if (value.rank !== undefined && value.rank !== null && typeof value.rank !== 'number') {
     throw new Error(`EST backup JSON record ${position} has a non-numeric rank`);
   }
-  return { key: value.key, totalScore: value.totalScore, rank: value.rank as number | null | undefined };
+  return {
+    key: value.key,
+    totalScore: value.totalScore,
+    rank: value.rank as number | null | undefined,
+    ...normalizeDetails(value),
+  };
 }
 
 function findColumn(headers: readonly string[], aliases: readonly string[], label: string): number;
@@ -188,4 +202,23 @@ function stripBom(value: string): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeDetails(value: {
+  shotScores?: unknown;
+  seriesScores?: unknown;
+}): Pick<BackupRecord, 'shotScores' | 'seriesScores'> {
+  const details: Pick<BackupRecord, 'shotScores' | 'seriesScores'> = {};
+  for (const key of ['shotScores', 'seriesScores'] as const) {
+    const scores = value[key];
+    if (scores === undefined) continue;
+    if (
+      !Array.isArray(scores) ||
+      scores.length > 1000 ||
+      scores.some((score) => typeof score !== 'number' || !Number.isFinite(score))
+    )
+      throw new Error(`Backup ${key} must be an ordered array of finite numbers (at most 1000)`);
+    details[key] = [...scores] as number[];
+  }
+  return details;
 }

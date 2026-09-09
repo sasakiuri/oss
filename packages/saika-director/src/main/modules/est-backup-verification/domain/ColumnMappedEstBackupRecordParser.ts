@@ -8,6 +8,8 @@ export interface EstBackupColumnMapping {
   readonly keyColumn: string;
   readonly totalScoreColumn: string;
   readonly rankColumn: string | null;
+  readonly shotScoreColumns?: readonly string[];
+  readonly seriesScoreColumns?: readonly string[];
 }
 
 /** Explicit mappings preserve exporter-specific column names without guessing a device protocol. */
@@ -24,16 +26,26 @@ export class ColumnMappedEstBackupRecordParser implements EstBackupRecordParser 
       if (!value.trim() || value.trim().length > 100) throw new Error('Column names must contain 1 to 100 characters');
       return value.trim();
     };
+    const columns = (values: readonly string[]) => {
+      if (values.length > 1000) throw new Error('At most 1000 detail columns are supported');
+      return Object.freeze(values.map(column));
+    };
     this.mapping = Object.freeze({
       delimiter: mapping.delimiter,
       decimalSeparator: mapping.decimalSeparator,
       keyColumn: column(mapping.keyColumn),
       totalScoreColumn: column(mapping.totalScoreColumn),
       rankColumn: mapping.rankColumn === null ? null : column(mapping.rankColumn),
+      ...(mapping.shotScoreColumns?.length ? { shotScoreColumns: columns(mapping.shotScoreColumns) } : {}),
+      ...(mapping.seriesScoreColumns?.length ? { seriesScoreColumns: columns(mapping.seriesScoreColumns) } : {}),
     });
-    const selected = [this.mapping.keyColumn, this.mapping.totalScoreColumn, this.mapping.rankColumn].filter(
-      (value) => value !== null,
-    );
+    const selected = [
+      this.mapping.keyColumn,
+      this.mapping.totalScoreColumn,
+      this.mapping.rankColumn,
+      ...(this.mapping.shotScoreColumns ?? []),
+      ...(this.mapping.seriesScoreColumns ?? []),
+    ].filter((value) => value !== null);
     if (new Set(selected).size !== selected.length)
       throw new Error('Select different columns for key, total score, and rank');
     this.sourceDescription = `Mapping ${JSON.stringify(this.mapping)}`;
@@ -57,6 +69,8 @@ export class ColumnMappedEstBackupRecordParser implements EstBackupRecordParser 
     const keyIndex = locate(this.mapping.keyColumn);
     const scoreIndex = locate(this.mapping.totalScoreColumn);
     const rankIndex = this.mapping.rankColumn === null ? null : locate(this.mapping.rankColumn);
+    const shotIndices = this.mapping.shotScoreColumns?.map(locate);
+    const seriesIndices = this.mapping.seriesScoreColumns?.map(locate);
     return rows.slice(1).map((row, index) => {
       if (row.length !== headers.length)
         throw new Error(`Delimited record ${index + 1} has ${row.length} fields; expected ${headers.length}`);
@@ -71,7 +85,21 @@ export class ColumnMappedEstBackupRecordParser implements EstBackupRecordParser 
       const rank = rawRank ? Number(rawRank) : null;
       if (rank !== null && (!/^\d+$/.test(rawRank) || !Number.isSafeInteger(rank) || rank <= 0))
         throw new Error(`Delimited record ${index + 1} has an invalid rank`);
-      return { key: row[keyIndex]!.trim(), rank, totalScore };
+      const readDetails = (indices: readonly number[]) =>
+        indices.map((columnIndex) => {
+          const value = row[columnIndex]!.trim();
+          const parsed = Number(value.replace(',', '.'));
+          if (!pattern.test(value) || !Number.isFinite(parsed))
+            throw new Error(`Delimited record ${index + 1} has an invalid detail score in ${headers[columnIndex]}`);
+          return parsed;
+        });
+      return {
+        key: row[keyIndex]!.trim(),
+        rank,
+        totalScore,
+        ...(shotIndices ? { shotScores: readDetails(shotIndices) } : {}),
+        ...(seriesIndices ? { seriesScores: readDetails(seriesIndices) } : {}),
+      };
     });
   }
 }

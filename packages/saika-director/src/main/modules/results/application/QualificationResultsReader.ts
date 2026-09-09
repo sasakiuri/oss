@@ -163,6 +163,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
         affiliation: source.affiliation,
         relayNumber: source.relayNumber,
         seriesScores: [...ranked.result.seriesScores],
+        shotScores: [...ranked.result.shots],
         baseTotalScore: source.totalScore,
         totalScore: ranked.result.totalScore,
         scoreAdjustment: projection.scoreAdjustmentX10 / 10,

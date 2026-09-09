@@ -20,7 +20,7 @@ describe('EST source printing', () => {
         recordCount: 1,
         sizeBytes: 40,
         content: '<script>source text</script>',
-        records: [{ key: '001', totalScore: 601.2 }],
+        records: [{ key: '001', totalScore: 601.2, shotScores: [10.2, 9.8], seriesScores: [100.1] }],
       },
     });
     const { container, rerender } = render(
@@ -28,6 +28,9 @@ describe('EST source printing', () => {
     );
     expect(await screen.findByText('001')).toBeVisible();
     expect(screen.getByText('601.2')).toBeVisible();
+    expect(screen.getByText('1: 10.2')).toBeVisible();
+    expect(screen.getByText('2: 9.8')).toBeVisible();
+    expect(screen.getByText('1: 100.1')).toBeVisible();
     expect(screen.queryByText('<script>source text</script>')).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Include original source text' }));
     expect(screen.getByText('<script>source text</script>')).toBeVisible();

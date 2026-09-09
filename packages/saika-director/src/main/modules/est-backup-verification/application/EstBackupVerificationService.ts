@@ -1,22 +1,25 @@
 import { createHash } from 'node:crypto';
+
 import type { IParticipantRepository } from '@/main/modules/championship';
-import type { IQualificationResultsReader } from '@/main/modules/results';
+import { backupRecordsDigest, type IEstBackupSourceReader } from '@/main/modules/est-backup-sources';
 import type {
   ITeamResultVerificationReadiness,
   TeamResultVerificationKind,
   TeamResultVerificationReadiness,
   TeamResultVerificationReadinessRequest,
 } from '@/main/modules/result-verification';
+import type { IQualificationResultsReader } from '@/main/modules/results';
 import type {
   CreateEstBackupVerificationPayload,
   EstBackupVerificationRunDto,
   TeamResultDto,
   TeamResultFormatDto,
 } from '@/shared/ipc/contracts';
+
 import { compareEstBackup, type OfficialBackupSubject } from '../domain/EstBackupComparator';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
+
 import type { IEstBackupSubjectSource } from './IEstBackupSubjectSource';
-import { backupRecordsDigest, type IEstBackupSourceReader } from '@/main/modules/est-backup-sources';
 
 const ISSF_TEAM_RESULTS_TO_VERIFY = 3;
 
@@ -59,7 +62,7 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
         : input.resultKind === 'INDIVIDUAL'
           ? await this.individualSubjects(input.eventId, input.keyType)
           : await this.teamSubjects(input.eventId, input.resultKind, input.keyType);
-    const items = compareEstBackup(official, input.records);
+    const items = compareEstBackup(official, input.records, input.detailRequirement);
     const interventionsPresent = official.some((subject) => subject.interventionCount > 0);
     const interventionReviewStatement = input.interventionReviewStatement?.trim() || null;
     const comparedOfficialItems = items.filter((item) => item.officialRank !== null);
@@ -188,6 +191,8 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
           name: result.playerName,
           rank: result.rank,
           totalScore: result.totalScore,
+          seriesScores: result.seriesScores,
+          ...(result.shotScores ? { shotScores: result.shotScores } : {}),
           interventionCount: result.decisionCount,
         };
       });
@@ -219,6 +224,7 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
         name: team.teamName,
         rank: team.rank,
         totalScore: team.totalScore,
+        seriesScores: team.tieEvidence.seriesTotals,
         interventionCount: team.members.reduce((sum, member) => sum + member.decisionCount, 0),
       })),
     };

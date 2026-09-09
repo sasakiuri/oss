@@ -10,6 +10,8 @@ export interface VerificationEvidenceSummary {
 
 /** Scope-neutral result shape consumed by the verification workflow. */
 export interface VerifiableResult {
+  readonly shotScores?: number[];
+  readonly seriesScores?: number[];
   readonly resultId: string;
   readonly participantId: string;
   readonly revision: string;
