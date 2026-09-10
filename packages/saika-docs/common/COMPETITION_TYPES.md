@@ -1,165 +1,99 @@
+---
+description: Saika の競技種別ごとの射数、時間、採点方式と Rule Pack の対応を説明します。
+---
+
 <!-- SPDX-License-Identifier: MIT -->
 
 # 競技種別定義
 
-Saika Lane の競技種別（CompetitionType）に関する設計資料。
+[文書一覧](../INDEX.md)
 
-競技種別の定義は Lane の [competitionTypes.ts](../../saika-lane/src/main/modules/competition/domain/competitionTypes.ts) と共通の Rule Pack を参照してください。公式な競技規則は [参照元](../SOURCES.md) を確認してください。
+Lane と Director で使用する競技種別の一覧と、進行・採点の定義を説明します。Lane 単独では「Settings」→「Target」、Director では種目の「Type」と制御画面の「Competition type」で選びます。大会の種目と、Lane を参加させる競技は同じ種別に揃えてください。
 
----
+この一覧は Saika の実装範囲を示します。競技種別を選べることは、対応する実機の接続や標的信号の出力を保証しません。機器の実装状況は [Lane 製品仕様](../lane/SPEC.md) を参照してください。
 
-## CompetitionTypeDefinition 概念構造
+## 対応する競技種別
 
-```
-CompetitionTypeDefinition
-├── id: string                    # 種別ID（例: 'BR60S'）
-├── name: string                  # 表示名（例: '10m ビームライフル60発立射'）
-├── rulePackId?: string           # 版管理された規則定義（ISSF種目）
-├── discipline: string            # Saika種目（例: 'BEAM_RIFLE_10M'）
-└── config: RoundConfig           # この CompetitionType の唯一のラウンド定義
-    ├── name: string              # ラウンド種別名（例: 'Qualification', 'Final'）
-    ├── shotsPerSeries: number    # 標準発数（デフォルト10）
-    ├── acc: 'RING' | 'DECIMAL'   # 整数圏／小数点採点
-    └── stages: StageDefinition[]
-        ├── name: string          # ステージ名（例: '試射', '本射'）
-        ├── scored: boolean              # 採点対象ステージか否か
-        ├── series: SeriesDefinition[]
-        │   ├── maxShots: number         # 最大発数（0 = 無制限）
-        │   ├── timer?: TimerDefinition  # シリーズ全体タイマー（timer と shotTimer は排他）
-        │   └── shotTimer?: TimerDefinition  # ショットタイマー：1発ごとにリセット
-        └── timer?: TimerDefinition      # ステージ全体タイマー
-            └── durationSeconds: number
-```
+射数と時間は各選手の通常進行に対する値です。追加試射、再射、同点処理は含みません。本書のラウンド表記は [用語集](./GLOSSARY.md#大会と競技の構造) に従います。
 
-> 1つの CompetitionTypeDefinition には 1つの RoundConfig が紐づく。
-> 例: 「BR60S Qualification」と「BR Final」は別々の CompetitionTypeDefinition として定義される。
+### 10m ビーム・エア競技
 
-### ISSF ラウンド種別
+| ID                           | 種目・ラウンド                           | 本射             | 採点                               |
+| ---------------------------- | ---------------------------------------- | ---------------- | ---------------------------------- |
+| `BR60S`                      | ビームライフル立射・予選                 | 60 発 / 45 分    | 小数点                             |
+| `BP60`                       | ビームピストル・予選                     | 60 発 / 45 分    | 整数点                             |
+| `AR60`                       | エアライフル・予選                       | 60 発 / 75 分    | 小数点                             |
+| `AP60`                       | エアピストル・予選                       | 60 発 / 75 分    | 整数点                             |
+| `AR60_FINAL`、`AP60_FINAL`   | エアライフル・エアピストルの個人決勝     | 最大 24 発       | 小数点                             |
+| `ARMIX30`、`APMIX30`         | エアライフル・エアピストルの混合団体予選 | 30 発 / 40 分    | ライフルは小数点、ピストルは整数点 |
+| `ARMIX_FINAL`、`APMIX_FINAL` | エアライフル・エアピストルの混合団体決勝 | 各選手最大 24 発 | 小数点                             |
 
-| RoundType     | 和名   | 説明                                                                                                                                                |
-| ------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Elimination   | 予選   | Qualification（本選）の出場者を絞り込むラウンド。出場者が少ない場合は省略される。Final 内の脱落進行方式を「Elimination（Stage）」と呼ぶ場合もある。 |
-| Qualification | 本選   | 決勝進出者を決定するラウンド                                                                                                                        |
-| Final         | 決勝   | 上位選手による最終順位決定ラウンド                                                                                                                  |
-| Individual    | 個人戦 | 単独で完結するラウンド（予選・決勝の区分なし）                                                                                                      |
+準備・試射は、ビーム予選が10分、エア予選が15分、上記の決勝が5分です。予選の本射は10発ごとに集計し、シリーズが変わっても全体のタイマーは継続します。
 
-> ISSF ルール改定により新しい RoundType が追加される可能性がある。コード上の実装は各アプリのコードベースに委ねる。本ドキュメントは概念レベルの定義を記載する。
+個人決勝は5発を250秒で撃つシリーズが2回あり、その後は1発50秒で最大14発です。混合団体決勝は5発のシリーズが3回あり、その後は1発50秒で最大9発です。脱落や同点処理は Director の決勝進行で確認します。ビーム決勝の `BR60S_FINAL` と `BP60_FINAL` は Director の大会管理に登録されていますが、Lane には対応する定義がありません。上の一覧は Lane と Director で共通に使う種別です。
 
----
+### 50m・300m ライフルと 50m ピストル
 
-## ISSF 10m Air 系
+| ID                                     | 種目・ラウンド                                      | 本射                     | 採点   |
+| -------------------------------------- | --------------------------------------------------- | ------------------------ | ------ |
+| `R3P60`                                | 50m ライフル三姿勢・屋外予選                        | 各姿勢 20 発 / 計 105 分 | 整数点 |
+| `R3P60_INDOOR`                         | 50m ライフル三姿勢・屋内予選                        | 各姿勢 20 発 / 計 90 分  | 整数点 |
+| `R3P60_ELIMINATION`                    | 50m ライフル三姿勢・屋外 Elimination                | 各姿勢 20 発 / 計 105 分 | 整数点 |
+| `RPR60`、`RPR60_ELIMINATION`           | 50m ライフル伏射・予選 / Elimination                | 60 発 / 50 分            | 小数点 |
+| `R3P_FINAL`                            | 50m ライフル三姿勢・決勝                            | 最大 35 発               | 小数点 |
+| `R300_3P60`、`R300_3P60_ELIMINATION`   | 300m ライフル三姿勢・予選 / Elimination             | 各姿勢 20 発 / 計 105 分 | 整数点 |
+| `R300_PR60`、`R300_PR60_ELIMINATION`   | 300m ライフル伏射・予選 / Elimination               | 60 発 / 60 分            | 整数点 |
+| `R300_STD60`、`R300_STD60_ELIMINATION` | 300m スタンダードライフル三姿勢・予選 / Elimination | 各姿勢 20 発 / 計 105 分 | 整数点 |
+| `FP60`、`FP60_ELIMINATION`             | 50m ピストル・予選 / Elimination                    | 60 発 / 90 分            | 整数点 |
 
-### AR60 (Qualification)
+予選と Elimination の準備・試射は15分です。三姿勢は膝射、伏射、立射の順に進みます。上記は電子標的用の定義です。紙標的の持ち時間は含みません。決勝の姿勢変更や個別の開始指示は、選択した Rule Pack の進行に従います。
 
-| ステージ                 | 種別          | シリーズ       | タイマー                    |
-| ------------------------ | ------------- | -------------- | --------------------------- |
-| Preparation and Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
-| Match                    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+### 25m ピストル
 
-- Saika種目: `AIR_RIFLE_10M`
-- 採点方式: 小数点（0.1点刻み）
-- 使用標的: `ISSF_AIR_RIFLE_10M_2026`
+| ID           | 種目・ラウンド                           | 本射                                     | 結果の集計 |
+| ------------ | ---------------------------------------- | ---------------------------------------- | ---------- |
+| `RFPM`       | ラピッドファイアピストル・予選           | 30 発を 2 ステージ                       | 整数点     |
+| `P25`、`CFP` | ピストル・センターファイアピストルの予選 | 精密 30 発、速射 30 発                   | 整数点     |
+| `STDP`       | スタンダードピストル・予選               | 150 秒、20 秒、10 秒の各ステージで 20 発 | 整数点     |
+| `RFPM_FINAL` | ラピッドファイアピストル・決勝           | 最大 8 シリーズ、各 5 発                 | ヒット数   |
+| `P25_FINAL`  | ピストル・決勝                           | 最大 10 シリーズ、各 5 発                | ヒット数   |
 
-### AP60 (Qualification)
+25m はシリーズごとの標的時間制御を使用します。予選全体を共通の本射タイマーで計時しません。決勝の元の得点データは小数点で保持し、結果の集計には Rule Pack のヒット判定を適用します。標的信号と開始・中止の操作は [25m の進行](../director/OPERATIONS.md#25m-の標的時間制御) を参照してください。
 
-| ステージ                 | 種別          | シリーズ       | タイマー                    |
-| ------------------------ | ------------- | -------------- | --------------------------- |
-| Preparation and Sighting | scored: false | 1 × 無制限発数 | 900秒（15分）, stage timer  |
-| Match                    | scored: true  | 6 × 10発       | 4500秒（75分）, stage timer |
+## 定義の構造
 
-- Saika種目: `AIR_PISTOL_10M`
-- 採点方式: 整数圏
-- 使用標的: `ISSF_AIR_PISTOL_10M_2026`
+1つの `CompetitionTypeDefinition` は1つのラウンドを表します。予選から決勝へ進む場合は、対応する別の競技種別を選んで競技を作成します。
 
-AR60とAP60の時間は電子標的を使用する60発Qualificationに対応する。紙標的使用時などの別条件は
-Saika Laneの現行定義には含めない。
+| 項目                                        | 役割                                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `id` / `name`                               | 選択・通信に使う識別子と表示名です。                                   |
+| `discipline`                                | 標的装置との適合性を確認する種目です。                                 |
+| `rulePackId` / `rulePackIdentity`           | 使用する規則定義の版と内容を識別します。ローカル種別では省略されます。 |
+| `targetProfileId` / `scoringGaugeProfileId` | 標的面と採点ゲージを指定します。ステージ単位の上書きもあります。       |
+| `config.stages`                             | ステージと、その中のシリーズを順序付きで定義します。                   |
+| `scored` / `requiresNewSession`             | 採点対象かどうかと、開始時に新しいセッションを作るかを指定します。     |
+| `maxShots`                                  | シリーズの上限射数です。`0` は無制限を表します。                       |
+| `timedTarget` / `resultProjection`          | 25m などの標的時間制御と、ヒット数などの結果集計を定義します。         |
 
-ISSF種目は `@sasakiuri/saika-rules` の Edition 2025 Second Print 07/2026 Rule Pack を共通ソースとし、
-Lane と Director が個別の adapter でローカル競技定義へ変換する。国内ルールの BR60S / BP60 は独立定義のまま扱う。
+### タイマーの配置
 
----
+| 設定                         | 動作                                                               |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `StageDefinition.timer`      | ステージ全体のタイマーです。シリーズ間でも継続します。             |
+| `SeriesDefinition.timer`     | シリーズ単位のタイマーです。次のシリーズでは新しい時間を使います。 |
+| `SeriesDefinition.shotTimer` | 1 発ごとの制限時間です。個別の開始指示を伴う決勝で使用します。     |
+| `timedTargetProgramId`       | シリーズに対応する標的時間制御のプログラムを指定します。           |
 
-## タイマー配置と動作モード
+同じシリーズに `timer` と `shotTimer` は併記できません。試射時間を延長するなどの運用上の措置は、中断・復旧の操作として記録します。
 
-| 配置場所                     | 動作                                           | 使用例                        |
-| ---------------------------- | ---------------------------------------------- | ----------------------------- |
-| `StageDefinition.timer`      | ステージ全体で1つのタイマー。シリーズ間も継続  | Qualification Match           |
-| `SeriesDefinition.timer`     | シリーズ単位のタイマー。シリーズ開始でリセット | Preparation / Final 1st Stage |
-| `SeriesDefinition.shotTimer` | 1発ごとにタイマーリセット                      | Final 2nd Stage               |
+## 実装の参照先
 
----
+| 確認する内容                        | 参照先                                                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Lane の登録一覧とビーム競技の定義   | [competitionTypes.ts](../../saika-lane/src/main/modules/competition/domain/competitionTypes.ts)                           |
+| Director の登録一覧                 | [registerBuiltinCompetitionTypes.ts](../../saika-director/src/shared/competitionTypes/registerBuiltinCompetitionTypes.ts) |
+| 型と各項目の制約                    | [CompetitionTypeDefinition.ts](../../saika-lane/src/main/modules/competition/domain/CompetitionTypeDefinition.ts)         |
+| ISSF 種別の版・射数・時間・裁定機能 | [共通 Rule Pack](../../saika-rules/src/issf-2026/)                                                                        |
+| Rule Pack から Lane への変換        | [fromRulePack.ts](../../saika-lane/src/main/modules/competition/domain/fromRulePack.ts)                                   |
 
-## JRSF_BR 系
-
-### BR60S (Qualification)
-
-| ステージ    | 種別          | シリーズ       | タイマー                    |
-| ----------- | ------------- | -------------- | --------------------------- |
-| Preparation | scored: false | 1 × 無制限発数 | 600秒（10分）, series timer |
-| Match       | scored: true  | 6 × 10発       | 2700秒（45分）, stage timer |
-
-- 採点方式: 小数点（0.1点刻み）
-- 最大人数: 無制限
-- 使用標的: JRSF_BR_10M
-
-### JRSF_BR_FIN (Final)
-
-> **Note**: 現時点（saika.lane）では未実装。将来実装予定。
-
-| ステージ    | 種別          | シリーズ       | タイマー                   |
-| ----------- | ------------- | -------------- | -------------------------- |
-| Preparation | scored: false | 1 × 無制限発数 | 300秒（5分）, series timer |
-| 1st Stage   | scored: true  | 2 × 5発        | 250秒, series timer        |
-| 2nd Stage   | scored: true  | 7 × 2発        | 50秒/発, shot timer        |
-
-- 採点方式: 小数点（0.1点刻み）
-- 最大人数: 8人
-- 使用標的: JRSF_BR_10M
-
-#### 脱落ルール (2nd Stage)
-
-| 項目     | 値                                      |
-| -------- | --------------------------------------- |
-| 脱落人数 | 1人 / 判定                              |
-| 判定単位 | シリーズ                                |
-| 境界同点 | シュートオフ                            |
-| 判定条件 | max(1, 9 − 参加人数) ≤ シリーズ番号 ≤ 7 |
-
----
-
-## JRSF_BP 系
-
-### BP60 (Qualification)
-
-| ステージ    | 種別          | シリーズ       | タイマー                    |
-| ----------- | ------------- | -------------- | --------------------------- |
-| Preparation | scored: false | 1 × 無制限発数 | 600秒（10分）, series timer |
-| Match       | scored: true  | 6 × 10発       | 2700秒（45分）, stage timer |
-
-- 採点方式: 整数点（小数切り捨て）
-- 最大人数: 無制限
-- 使用標的: JRSF_BP_10M
-
-### JRSF_BP_FIN (Final)
-
-> **Note**: 現時点（saika.lane）では未実装。将来実装予定。
-
-| ステージ    | 種別          | シリーズ       | タイマー                   |
-| ----------- | ------------- | -------------- | -------------------------- |
-| Preparation | scored: false | 1 × 無制限発数 | 300秒（5分）, series timer |
-| 1st Stage   | scored: true  | 2 × 5発        | 250秒, series timer        |
-| 2nd Stage   | scored: true  | 7 × 2発        | 50秒/発, shot timer        |
-
-- 採点方式: 小数点（0.1点刻み）
-  > **Note**: BP60（予選）は整数点採点だが、JRSF_BP_FIN（決勝）は ISSF Final ルールに準拠し小数点採点を採用。意図的な設計。
-- 最大人数: 8人
-- 使用標的: JRSF_BP_10M
-
-#### 脱落ルール (2nd Stage)
-
-| 項目     | 値                                      |
-| -------- | --------------------------------------- |
-| 脱落人数 | 1人 / 判定                              |
-| 判定単位 | シリーズ                                |
-| 境界同点 | シュートオフ                            |
-| 判定条件 | max(1, 9 − 参加人数) ≤ シリーズ番号 ≤ 7 |
+ISSF 種別は共通の Rule Pack を各アプリ用の定義へ変換します。`BR60S` と `BP60` はローカル定義です。連携時は両アプリを同じ版に揃え、参加時の互換性確認を通してください。本書は Saika の定義を説明する資料です。公式規則の確認先は [参照元](../SOURCES.md) にまとめています。

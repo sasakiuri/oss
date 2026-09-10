@@ -1,0 +1,14 @@
+Noto Sans JP
+License: SIL Open Font License 1.1 (see OFL.txt).
+
+NotoSansJP.ttf: Japanese variable font, from the Google Fonts notosansjp family.
+https://github.com/google/fonts/tree/main/ofl/notosansjp
+SHA-256: c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f
+
+NotoSansJP-Docs.woff2: static weight 400 subset of the above font,
+created with fontTools 4.57.0 for the documentation and shared UI character set.
+Next.js preloads this subset. Uncovered glyphs use the complete Fontsource family.
+The complete font is retained for PDF generation.
+Regenerate after content:generate with scripts/subset-font.py in an isolated
+Python environment containing fonttools[woff]==4.57.0. Normal npm builds use the
+checked-in subset and need no Python toolchain.

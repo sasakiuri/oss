@@ -46,3 +46,4 @@ Proposed --> Accepted --> Deprecated
 | [0012](0012-serial-protocol-deadline-ownership.md)          | Serial Protocol Deadline Ownership                   | Proposed |
 | [0013](0013-lane-settings-document-boundaries.md)           | Lane Settings Document Boundaries                    | Proposed |
 | [0014](0014-target-examination-workspace-boundaries.md)     | Target Examination Workspace Boundaries              | Proposed |
+| [0015](0015-nextjs-documentation-reference.md)              | Next.js Documentation Reference                      | Accepted |

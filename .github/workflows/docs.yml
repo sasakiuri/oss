@@ -1,0 +1,95 @@
+name: Docs
+
+on:
+  workflow_call:
+    secrets:
+      SENTRY_AUTH_TOKEN:
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:5178
+      CI: "true"
+      NEXT_PUBLIC_RELEASE: ${{ github.sha }}
+      NEXT_PUBLIC_APP_ENV: preview
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+      - run: npm install --global npm@10.9.4
+      - run: npm ci --ignore-scripts
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+      - name: Test artifact verification tools
+        run: |
+          node --test scripts/check-required-ci.test.mjs
+          npm run test:artifacts --workspace=@sasakiuri/saika-docs
+      - name: Validate architecture, contracts, types, lint, and coverage
+        run: npm run check --workspace=@sasakiuri/saika-docs
+      - name: Install browser engines
+        run: npm run test:install --workspace=@sasakiuri/saika-docs
+      - name: Build application
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+        run: npm run build --workspace=@sasakiuri/saika-docs
+      - name: Preview authentication boundaries
+        run: npm run test:preview --workspace=@sasakiuri/saika-docs
+      - name: Browser, accessibility, metadata, security, and visual tests
+        run: npm run test:e2e:run --workspace=@sasakiuri/saika-docs
+      - name: Storybook interaction and accessibility tests
+        run: npm run test:storybook --workspace=@sasakiuri/saika-docs
+      - name: Lighthouse performance budgets
+        run: npm run lhci:run --workspace=@sasakiuri/saika-docs
+      - name: Static export and hosting headers
+        env:
+          NEXT_PUBLIC_BASE_PATH: /saika
+          NEXT_PUBLIC_SITE_URL: https://docs.example.test/saika
+        run: npm run build:static --workspace=@sasakiuri/saika-docs
+      - name: Verify exported routes and assets
+        env:
+          NEXT_PUBLIC_BASE_PATH: /saika
+          NEXT_PUBLIC_SITE_URL: https://docs.example.test/saika
+        run: npm run test:static --workspace=@sasakiuri/saika-docs
+      - name: Verify sealed artifact and offline browsing
+        env:
+          NEXT_PUBLIC_BASE_PATH: /saika
+        run: |
+          npm run artifact:verify --workspace=@sasakiuri/saika-docs
+          npm run test:offline --workspace=@sasakiuri/saika-docs -- --output=test-results/offline
+          npm run artifact:verify --workspace=@sasakiuri/saika-docs
+      - name: Upload verified static artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-static-${{ github.sha }}
+          path: packages/saika-docs/out/
+          if-no-files-found: error
+      - name: Summarize quality reports
+        if: always()
+        run: npm run reports:summary --workspace=@sasakiuri/saika-docs
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-quality-reports
+          include-hidden-files: true
+          path: |
+            packages/saika-docs/coverage/
+            packages/saika-docs/playwright-report/
+            packages/saika-docs/test-results/
+            packages/saika-docs/.lighthouse.reports/
+            packages/saika-docs/reports/
+          retention-days: 14
+          if-no-files-found: warn

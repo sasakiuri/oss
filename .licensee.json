@@ -15,30 +15,59 @@
       "Unlicense",
       "WTFPL",
       "Python-2.0",
-      "BlueOak-1.0.0"
+      "BlueOak-1.0.0",
+      "Zlib",
+      "OFL-1.1"
     ]
+  },
+  "packages": {
+    "khroma": "2.1.0",
+    "boundary": "1.0.1",
+    "structured-source": "3.0.2",
+    "tiny-segmenter": "0.2.0",
+    "zlibjs": "0.2.0"
   },
   "corrections": true,
   "ignore": [
     {
       "scope": "@sasakiuri",
-      "reason": "Own packages — not third-party dependencies"
+      "reason": "Own packages \u2014 not third-party dependencies"
     },
     {
       "prefix": "spawndamnit",
-      "reason": "MIT license but declared as 'SEE LICENSE IN LICENSE' — licensee cannot detect SPDX identifier"
+      "reason": "MIT license but declared as 'SEE LICENSE IN LICENSE' \u2014 licensee cannot detect SPDX identifier"
     },
     {
       "prefix": "@cspell/dict-en-common-misspellings",
-      "reason": "CC-BY-SA-4.0 — already in the allowed SPDX list but licensee fails to match the non-standard identifier 'CC BY-SA 4.0'"
+      "reason": "CC-BY-SA-4.0 \u2014 already in the allowed SPDX list but licensee fails to match the non-standard identifier 'CC BY-SA 4.0'"
     },
     {
       "prefix": "@axe-core",
-      "reason": "MPL-2.0 — compatible with MIT for bundled use; not modified or distributed as a library"
+      "reason": "MPL-2.0 \u2014 compatible with MIT for bundled use; not modified or distributed as a library"
     },
     {
       "prefix": "axe-core",
-      "reason": "MPL-2.0 — compatible with MIT for bundled use; not modified or distributed as a library"
+      "reason": "MPL-2.0 \u2014 compatible with MIT for bundled use; not modified or distributed as a library"
+    },
+    {
+      "prefix": "lightningcss",
+      "reason": "Unmodified MPL-2.0 CSS compiler used by Next.js and Tailwind; retain the dependency license."
+    },
+    {
+      "prefix": "@img/sharp-libvips",
+      "reason": "Unmodified LGPL-3.0-or-later shared native libraries used by Next.js image optimization; retain the dependency license."
+    },
+    {
+      "prefix": "@img/sharp-wasm32",
+      "reason": "Unmodified optional Apache-2.0 / LGPL-3.0-or-later / MIT image processor used by Next.js; retain the dependency licenses."
+    },
+    {
+      "prefix": "@sentry/cli",
+      "reason": "Unmodified FSL-1.1-MIT source-map upload build tool requested for the Next.js reference; retain its license, do not relicense it as MIT."
+    },
+    {
+      "prefix": "postcss-values-parser",
+      "reason": "Unmodified MPL-2.0 parser used by the CSS build toolchain; retain its license."
     }
   ]
 }

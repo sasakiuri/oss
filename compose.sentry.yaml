@@ -1,0 +1,8 @@
+# Opt in only when uploading source maps: docker compose -f compose.yaml -f compose.sentry.yaml build docs
+services:
+  docs:
+    build:
+      secrets: [sentry_auth_token]
+secrets:
+  sentry_auth_token:
+    environment: SENTRY_AUTH_TOKEN

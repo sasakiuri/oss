@@ -1,0 +1,39 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Saika Next.js route inventory",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/catalog/": {
+      "get": {
+        "operationId": "get__api_catalog_",
+        "responses": {
+          "default": {
+            "description": "See the route-specific validated response and Problem contract"
+          }
+        }
+      }
+    },
+    "/api/health/": {
+      "get": {
+        "operationId": "get__api_health_",
+        "responses": {
+          "default": {
+            "description": "See the route-specific validated response and Problem contract"
+          }
+        }
+      }
+    },
+    "/api/vitals/": {
+      "post": {
+        "operationId": "post__api_vitals_",
+        "responses": {
+          "default": {
+            "description": "See the route-specific validated response and Problem contract"
+          }
+        }
+      }
+    }
+  }
+}

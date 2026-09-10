@@ -298,3 +298,16 @@ updates:
         applies-to: version-updates
         update-types:
           - major
+
+  - package-ecosystem: npm
+    directory: /packages/saika-docs
+    schedule: { interval: weekly }
+    groups:
+      docs-compatible:
+        update-types: [minor, patch]
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directories: [/docker/docs, /docker/pdf]
+    schedule: { interval: weekly }

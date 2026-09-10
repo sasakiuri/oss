@@ -5,7 +5,27 @@ const config: KnipConfig = {
   workspaces: {
     ".": {
       entry: ["*.config.{js,mjs,cjs,ts}"],
+      ignoreDependencies: [
+        "stylelint", // Pins the shared config peer; Docs executes the CLI.
+        "textlint-rule-*", // Textlint loads rules from configuration.
+      ],
       project: ["*.{js,mjs,cjs,ts}"],
+    },
+    "packages/saika-docs": {
+      entry: [
+        "src/app/**/{page,route}.server.{ts,tsx}",
+        "src/proxy.server.ts",
+        "tests/{e2e,offline}/**/*.spec.ts",
+        "playwright.*.config.ts",
+        "vitest.mutation.config.ts",
+        "playwright.config.ts",
+        "scripts/**/*.{ts,mjs}",
+        "test-runner-jest.config.cjs",
+      ],
+      // Independent Playwright installations can conflict when evaluated in Knip's process.
+      playwright: false,
+      // Textlint loads these rule and dictionary modules by configuration, not static imports.
+      ignoreDependencies: ["textlint-rule-*", "sudachi-synonyms-dictionary"],
     },
     "packages/saika-lane": {
       entry: [
@@ -46,6 +66,8 @@ const config: KnipConfig = {
       project: ["**/*.js"],
     },
     "packages/typescript-config": {
+      // The consuming application supplies this TypeScript language service plugin.
+      ignoreUnresolved: ["^next$"],
       entry: ["*.json"],
       project: ["**/*.json"],
     },
@@ -54,6 +76,12 @@ const config: KnipConfig = {
   // imported application even though the current runtime entry does not call
   // them directly.
   ignoreIssues: {
+    // Knip 6 checks re-exported symbols that Knip 5 did not report. These are stable Electron module interfaces.
+    "packages/saika-director/src/**/index.ts": ["exports"],
+    "packages/saika-lane/src/**/index.ts": ["exports"],
+    "packages/saika-director/src/main/infrastructure/logging/Logger.ts": [
+      "exports",
+    ],
     "packages/saika-director/src/main/composition/createContainer.ts": [
       "exports",
     ],
@@ -65,10 +93,15 @@ const config: KnipConfig = {
     "packages/saika-director/src/shared/constants/roundConfig.ts": ["exports"],
     "packages/saika-director/src/shared/logging/LoggerFactory.ts": ["exports"],
   },
-  ignoreBinaries: ["vitest", "electron-rebuild"],
+  ignoreBinaries: [
+    "playwright",
+    "weasyprint",
+    "pandoc",
+    "pdfinfo",
+    "pdftotext",
+  ],
   ignoreDependencies: [
     // Workspace package used in root eslint.config.mjs (resolved via npm workspaces)
-    "@sasakiuri/eslint-config",
     // Native addon dynamically loaded by serialport at runtime
     "@serialport/bindings-cpp",
     // Stylelint shared configs loaded via "extends", not direct import

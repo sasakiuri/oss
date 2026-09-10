@@ -1,6 +1,5 @@
 {
   "name": "OSS Monorepo",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
@@ -21,6 +20,9 @@
       ]
     }
   },
-  "postCreateCommand": "npm install",
-  "remoteUser": "node"
+  "postCreateCommand": "npm ci --ignore-scripts",
+  "remoteUser": "node",
+  "build": {
+    "dockerfile": "Dockerfile"
+  }
 }

@@ -494,7 +494,10 @@ check_author_email() {
 
 check_tracked_files() {
   local tracked
-  tracked=$(git ls-files -- CLAUDE.md '**/CLAUDE.md' .claude/ claude/ .env '.env.local' '.env.*.local' 2>/dev/null || true)
+  tracked=$(git ls-files -- \
+    AGENTS.md '**/AGENTS.md' AGENTS.local.md '**/AGENTS.local.md' \
+    CLAUDE.md '**/CLAUDE.md' .agents/ '**/.agents/**' .claude/ '**/.claude/**' claude/ '**/claude/**' \
+    .local/ '**/.local/**' .env '.env.local' '.env.*.local' 2>/dev/null || true)
 
   if [[ -n "$tracked" ]]; then
     echo "Files that should not be tracked in a public release:"

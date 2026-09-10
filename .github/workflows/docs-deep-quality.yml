@@ -1,0 +1,21 @@
+name: Docs deep quality
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 18 * * 0"
+permissions:
+  contents: read
+jobs:
+  deterministic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: ./.github/actions/setup-node
+      - run: npm run test:mutation --workspace=@sasakiuri/saika-docs
+      - run: npm run test:reproducible --workspace=@sasakiuri/saika-docs
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: docs-deep-quality
+          path: packages/saika-docs/reports/

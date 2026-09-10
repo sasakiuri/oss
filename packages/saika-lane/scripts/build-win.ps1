@@ -72,7 +72,8 @@ function Should-RunStep {
 
 function Invoke-Robocopy {
     param([string]$Source, [string]$Dest, [string[]]$ExcludeDirs)
-    $roboArgs = @($Source, $Dest, '/MIR')
+    $roboArgs = @($Source, $Dest, '/MIR', '/XF', 'AGENTS.md', 'AGENTS.local.md', 'CLAUDE.md')
+    $ExcludeDirs += @('.local', '.local-reference', '.agents', '.claude', 'claude', '.tools', '.tmp')
     if ($ExcludeDirs.Count -gt 0) {
         $roboArgs += '/XD'
         $roboArgs += $ExcludeDirs
@@ -123,7 +124,7 @@ if ($SkipCopy) {
     # 2b: Copy saika-lane package
     Write-Host '  Copying packages/saika-lane...' -ForegroundColor DarkGray
     $saikaLaneSrc = Join-Path $WslMonorepoRoot 'packages\saika-lane'
-    Invoke-Robocopy $saikaLaneSrc $PackageDir @('node_modules', '.git', 'release', 'dist', 'logs', '.claude')
+    Invoke-Robocopy $saikaLaneSrc $PackageDir @('node_modules', '.git', 'release', 'dist', 'logs')
     Write-Success 'saika-lane copied'
 
     # 2c: Copy shared config packages (workspace dependencies)

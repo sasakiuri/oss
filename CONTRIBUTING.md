@@ -22,6 +22,73 @@ npx turbo dev
 
 ## Development Workflow
 
+### Next.js Documentation and Frontend Reference
+
+Saika Docs renders the existing Markdown files with Next.js App Router. It is
+also this repository's reference application for future Next.js development.
+See [the architecture and tool selection](docs/adr/0015-nextjs-documentation-reference.md).
+
+From the repository root:
+
+```bash
+npm run dev --workspace=@sasakiuri/saika-docs
+```
+
+Open `http://localhost:5175`. The content watcher regenerates the document
+catalog when Markdown changes, including new and deleted files. Next.js then
+refreshes the browser. Keep editing the original `.md` files and using relative
+links. `README.md` becomes the directory index, `INDEX.md` becomes `/documents/`,
+and other filenames become lowercase with underscores replaced by hyphens.
+The generator rejects duplicate routes and broken document/heading links.
+Application source and license links target GitHub, using `DOCS_SOURCE_REF`
+(default `1.x`) to select a branch, tag, or commit.
+
+```bash
+npm run check --workspace=@sasakiuri/saika-docs
+npm run depcruise --workspace=@sasakiuri/saika-docs
+npm run test:e2e --workspace=@sasakiuri/saika-docs
+npm run storybook --workspace=@sasakiuri/saika-docs
+npm run build-storybook --workspace=@sasakiuri/saika-docs
+npm run analyze --workspace=@sasakiuri/saika-docs
+npm run lhci --workspace=@sasakiuri/saika-docs
+```
+
+Storybook runs at `http://localhost:6006`. Browser tests use their own production
+server on port 5178, and include mobile and accessibility checks. Install the
+browser engines with `npm run test:install --workspace=@sasakiuri/saika-docs`.
+`test:vrt` compares local visual snapshots; `test:vrt:update` refreshes them after
+review. Keep browser/OS/font versions consistent when comparing snapshots.
+Local Lighthouse reports stay under `.lighthouse.reports/`. CI includes them in its quality artifacts.
+`CHROME_PATH` can select an installed Chromium binary for Lighthouse.
+
+For a production Next.js server:
+
+```bash
+npm run build --workspace=@sasakiuri/saika-docs
+npm run start --workspace=@sasakiuri/saika-docs
+```
+
+For static hosting:
+
+```bash
+npm run build:static --workspace=@sasakiuri/saika-docs
+npm run preview --workspace=@sasakiuri/saika-docs
+```
+
+The static export is `packages/saika-docs/out/`, previewed on port 4175. Use an
+HTTP server, rather than opening files directly. Set `NEXT_PUBLIC_BASE_PATH`
+(e.g. `/saika-docs`) before building for a subdirectory and mount the export at
+that path. Set `NEXT_PUBLIC_SITE_URL` to the full public URL, including that
+subdirectory, to populate the sitemap. Static hosting must supply HTTP security
+headers itself; the Next.js server supplies the configured headers automatically.
+
+Optional environment settings are listed in `packages/saika-docs/.env.example`.
+Sentry initializes only when `NEXT_PUBLIC_SENTRY_DSN` is set. Its default
+configuration disables personal data, performance sampling, and replay capture.
+CI and local builds need no service credentials. The exact `khroma@2.1.0`
+license-check allowance covers Mermaid's dependency, which ships an MIT `license`
+file but omits its package license field.
+
 ### Running Tests
 
 ```bash
@@ -84,9 +151,18 @@ query/command tests when changing asynchronous behavior; see
 This project uses **ESLint 9** and **Prettier 3** with shared configurations. Run the following to lint and auto-fix:
 
 ```bash
-npx turbo lint    # Check for issues
-npx turbo fix     # Auto-fix lint + formatting
+npm run lint     # Check workspace code and repository text
+npm run fix      # Auto-fix lint + formatting
 ```
+
+Japanese prose uses a half-width space between Japanese characters and English
+words: `これは instanton 解です` and `ここでは MQTT protocol が使用されます`.
+The root textlint configuration checks Markdown and plain-text documents across
+the repository, including headings, table cells, and styled text. Numbers and
+punctuation do not require spaces. Code, link destinations, generated changelogs,
+and third-party notices are excluded. Run `npm run lint:text` to check spacing or
+`npm run fix:text` to insert missing spaces. The rule also runs before commits
+and in CI, independently of the Saika Docs legacy textlint baseline.
 
 ### Building
 
@@ -163,7 +239,7 @@ that tag. Shared configuration packages remain independently versioned.
 4. **Run checks** -- ensure the following all pass:
    ```bash
    npx turbo test
-   npx turbo lint
+   npm run lint
    npx turbo depcruise
    npm run syncpack
    ```
@@ -181,3 +257,5 @@ Use [GitHub Issues](https://github.com/sasakiuri/oss/issues) to report bugs or s
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
+See [the Next.js reference guide](docs/reference-nextjs.md) for document APIs, telemetry, local development, PDF output, and the textlint baseline policy.

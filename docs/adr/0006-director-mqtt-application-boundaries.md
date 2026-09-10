@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (implemented locally; pending review)
+Proposed (implemented locally)
 
 Lifecycle ownership and Lane command processing are further refined by
 [ADR-0007](0007-mqtt-lifecycle-and-command-processing.md).

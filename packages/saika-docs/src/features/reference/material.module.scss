@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MIT */
+.example {
+  padding-block: 1rem;
+  container-type: inline-size;
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

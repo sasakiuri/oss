@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (implemented locally; pending review)
+Proposed (implemented locally)
 
 ## Date
 

@@ -1,0 +1,17 @@
+node_modules/**
+.next/**
+.generated/**
+out/**
+dist/**
+coverage/**
+storybook-static/**
+playwright-report/**
+test-results/**
+CHANGELOG.md
+reports/**
+.lighthouse.reports/**
+
+LICENSE
+THIRD-PARTY-LICENSES.txt
+# Font license and provenance records retain their source wording.
+assets/fonts/**

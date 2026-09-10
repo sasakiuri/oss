@@ -1,190 +1,190 @@
-# AWS リソース命名規則 v1.2
+# AWS resource naming convention v1.2
 
-- 状態: 確定(独立レビュー 1 巡目の critical/major 反映済み)
-- 作成日: 2026-08-16
-- 適用範囲: 全リポジトリの AWS リソース
-- 根拠: 既存リポジトリで実運用中の `${var.project}-${var.environment}-${var.region_code}` プレフィックスを標準として昇格し、観測された表記揺れ(`prod`/`prd`、PascalCase 手動リソース)に裁定を与える
-- 本書の例ではプロジェクト名として `nilay` を使用する
+- Status: Final
+- Created: 2026-08-16
+- Scope: AWS resources across all repositories
+- Rationale: Standardize the `${var.project}-${var.environment}-${var.region_code}` prefix already used in production and resolve variations such as `prod`/`prd` and manually created PascalCase resources
+- Examples in this document use `nilay` as the project name
 
-## 1. 基本形式
+## 1. Basic format
 
 ```
 {project}-{env}-{region}-{component}[-{qualifier}][-{account_id}]
 ```
 
-厳密な定義は付録 A の形式文法(ABNF)を正とする。
+The formal grammar (ABNF) in Appendix A is authoritative for the exact definition.
 
-例:
+Examples:
 
-| リソース        | 名前                                   |
-| --------------- | -------------------------------------- |
-| ALB             | `nilay-prd-apne1-alb-app`              |
-| EC2 (Name タグ) | `nilay-prd-apne1-app`                  |
-| RDS             | `nilay-prd-apne1-rds-postgres`         |
-| tfstate S3      | `nilay-prd-apne1-tfstate-123456789012` |
-| CodeBuild       | `nilay-prd-apne1-build`                |
-| IAM ロール      | `nilay-prd-apne1-ec2-app-role`         |
+| Resource       | Name                                   |
+| -------------- | -------------------------------------- |
+| ALB            | `nilay-prd-apne1-alb-app`              |
+| EC2 (Name tag) | `nilay-prd-apne1-app`                  |
+| RDS            | `nilay-prd-apne1-rds-postgres`         |
+| tfstate S3     | `nilay-prd-apne1-tfstate-123456789012` |
+| CodeBuild      | `nilay-prd-apne1-build`                |
+| IAM role       | `nilay-prd-apne1-ec2-app-role`         |
 
-## 2. 各要素の定義
+## 2. Field definitions
 
 ### 2.1 project
 
-- **先頭は英字**、以降は小文字英数字(ハイフン不可 = 1 トークン)。正規表現: `^[a-z][a-z0-9]{0,11}$`
-- 先頭英字を必須とするのは、RDS DB 識別子が「先頭文字は英字」を要求するため(名前全体が project で始まる)
-- **12 文字以内、8 文字以内を推奨**(§4 の長さバジェットによる)
-- 12 文字を超える場合は短縮名を定義して README に対応を記録する(例: `nilaycustomerportal`(19 文字)→ `nilaycp`)
-- 例: `nilay`
+- **Start with a letter**, followed by lowercase alphanumeric characters (no hyphens; a single token). Regular expression: `^[a-z][a-z0-9]{0,11}$`
+- A leading letter is required because RDS DB identifiers must start with a letter, and the full name starts with project
+- **Maximum 12 characters; 8 or fewer recommended** (based on the length budget in §4)
+- For names longer than 12 characters, define an abbreviation and record the mapping in the README (for example, `nilaycustomerportal` (19 characters) → `nilaycp`)
+- Example: `nilay`
 
-### 2.2 env(環境コード)— 3 文字固定
+### 2.2 env (environment code): exactly 3 characters
 
-| コード | 意味                       |
-| ------ | -------------------------- |
-| `dev`  | 開発                       |
-| `stg`  | 検証(staging)              |
-| `prd`  | 本番                       |
-| `sbx`  | サンドボックス・実験(任意) |
-| `shr`  | 環境横断の共有基盤(任意)   |
+| Code  | Meaning                                              |
+| ----- | ---------------------------------------------------- |
+| `dev` | Development                                          |
+| `stg` | Staging                                              |
+| `prd` | Production                                           |
+| `sbx` | Sandbox / experiments (optional)                     |
+| `shr` | Shared infrastructure across environments (optional) |
 
-**裁定**: `prod` は不採用。`prd` に統一する(3 文字固定でバジェット計算が安定するため)。既存の `prod` リソースは §7 の grandfathering 対象。
+**Decision**: Use `prd`, not `prod`, to keep the length budget calculation stable at 3 characters. Existing `prod` resources are covered by the grandfathering policy in §7.
 
-### 2.3 region(リージョンコード)— allowlist 管理
+### 2.3 region (region code): allowlist management
 
-リージョンコードは**下表の allowlist で厳密管理**する(正規表現のみの検証は不可)。新リージョン利用時は本表への追記を必須とする。
+Region codes are **strictly controlled by the allowlist below**; regular-expression validation alone is insufficient. Add any new region to this table before using it.
 
-| AWS リージョン | コード  | 長さ |
-| -------------- | ------- | ---- |
-| ap-northeast-1 | `apne1` | 5    |
-| ap-northeast-3 | `apne3` | 5    |
-| ap-southeast-1 | `apse1` | 5    |
-| us-east-1      | `use1`  | 4    |
-| us-west-2      | `usw2`  | 4    |
-| eu-west-1      | `euw1`  | 4    |
-| eu-central-1   | `euc1`  | 4    |
+| AWS region     | Code    | Length |
+| -------------- | ------- | ------ |
+| ap-northeast-1 | `apne1` | 5      |
+| ap-northeast-3 | `apne3` | 5      |
+| ap-southeast-1 | `apse1` | 5      |
+| us-east-1      | `use1`  | 4      |
+| us-west-2      | `usw2`  | 4      |
+| eu-west-1      | `euw1`  | 4      |
+| eu-central-1   | `euc1`  | 4      |
 
-- 長さは 4〜5 文字で変動する。**長さバジェット(§4)は実際のコード長で計算し、固定長を仮定しない**(安全側の概算には最長の 5 を使う)
-- グローバルサービス(IAM, CloudFront, Route53, `us-east-1` 固定の ACM 等)も、**そのスタックのホームリージョンのコードをそのまま使う**。プレフィックスの一様性(grep 容易性・Terraform 実装の単純さ)を純粋性より優先する。
+- Length varies from 4 to 5 characters. **Calculate the length budget (§4) using the actual code length; do not assume a fixed length**. Use the maximum of 5 for a conservative estimate
+- Global services (IAM, CloudFront, Route53, ACM fixed to `us-east-1`, and similar services) also **use the code of the stack's home region unchanged**. Prioritize a uniform prefix for easy searching and simple Terraform implementation over strict geographic accuracy
 
-### 2.4 component(コンポーネント)
+### 2.4 component
 
-リソースの役割を表す標準語彙。`{service}-{role}` の順(例: `ec2-app`, `rds-postgres`, `alb-app`)。
+Use standard vocabulary describing the resource's role, in `{service}-{role}` order (for example, `ec2-app`, `rds-postgres`, `alb-app`).
 
-- **各トークンは先頭英字**(`[a-z][a-z0-9]*`)。数字始まりのトークンは禁止(逆解析の一意性のため。付録 A 参照)。数字を含む語は英字を先頭に置く(例: `225labo` → `labo225`)
-- 標準語彙(既存資産から採録): `app`, `alb`, `rds-postgres`, `tfstate`, `tfstate-lock`, `build`, `pipeline`, `codedeploy`, `codepipeline-artifact`, `static`, `events`
+- **Each token must start with a letter** (`[a-z][a-z0-9]*`). Tokens starting with a digit are prohibited to ensure unambiguous parsing (see Appendix A). Put a letter first in terms containing digits (for example, `225labo` → `labo225`)
+- Standard vocabulary (drawn from existing resources): `app`, `alb`, `rds-postgres`, `tfstate`, `tfstate-lock`, `build`, `pipeline`, `codedeploy`, `codepipeline-artifact`, `static`, `events`
 
-### 2.5 qualifier(任意)
+### 2.5 qualifier (optional)
 
-同種リソースが複数ある場合のみ付与。**必ず数字で始まる 1〜2 文字**とする(逆解析の一意性のため。付録 A 参照):
+Add only when multiple resources of the same kind exist. **Must start with a digit and contain 1–2 characters** to ensure unambiguous parsing (see Appendix A):
 
-- 連番: `-1`〜`-9`、2 桁は `-10`〜`-99`(先頭 0 不可)
-- AZ サフィックス: 数字 + 英字 1 文字(例: `-1a`, `-1c`)
+- Sequence number: `-1` through `-9`, or two digits from `-10` through `-99` (no leading zero)
+- AZ suffix: a digit followed by one letter (for example, `-1a`, `-1c`)
 
 ### 2.6 account_id
 
-**グローバル名前空間を持つリソース(S3 バケットのみ)** に必須。12 桁の AWS アカウント ID を末尾に付与する。それ以外のリソースには付けない。
+Required for **resources with a global namespace (S3 buckets only)**. Append the 12-digit AWS account ID. Do not add it to other resources.
 
-## 3. 文字種規則
+## 3. Character rules
 
-- **全リソース小文字ケバブケース**(`a-z0-9-`)。S3 の制約(小文字必須)に全体を合わせることで、サービス間でのコピー・参照時の変換を不要にする
-- ハイフンの連続(`--`)、先頭・末尾ハイフンは禁止(RDS・ALB の制約)
-- アンダースコア禁止(RDS 識別子で使用不可のため)
-- PascalCase・アンダースコア・ドット区切り(例: `Nilay_Portal-Stg-Apne1-CodeBuild` のような形式)は新規作成では禁止。既存は §7 対象
+- **Use lowercase kebab-case for all resources** (`a-z0-9-`). Aligning with S3's lowercase requirement avoids conversions when copying or referencing names across services
+- Consecutive hyphens (`--`) and leading or trailing hyphens are prohibited (RDS and ALB restrictions)
+- Underscores are prohibited because RDS identifiers do not allow them
+- PascalCase, underscores, and dot-separated names (such as the form `Nilay_Portal-Stg-Apne1-CodeBuild`) are prohibited for new resources. Existing resources are covered by §7
 
-### 3.1 文字種の明示的例外(この 3 つ以外の例外は認めない)
+### 3.1 Explicit character exceptions (only these three are allowed)
 
-| 例外                 | 内容                                                                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| CloudWatch Logs      | ロググループ名はスラッシュ区切りパス。AWS 既定グループは `/aws/{service}/{リソース名}` を維持、独自グループは `/{project}/{env}/{component}` |
-| KMS エイリアス       | AWS 必須の `alias/` プレフィックスを許可: `alias/{prefix}-{用途}`                                                                            |
-| Route53 / ドメイン名 | ドット区切り。ドメイン設計の管轄で本規則の対象外                                                                                             |
+| Exception              | Details                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CloudWatch Logs        | Log group names are slash-separated paths. Keep `/aws/{service}/{resource-name}` for AWS default groups; use `/{project}/{env}/{component}` for custom groups |
+| KMS aliases            | Allow the AWS-required `alias/` prefix: `alias/{prefix}-{purpose}`                                                                                            |
+| Route53 / domain names | Dot-separated; governed by domain design and outside the scope of this convention                                                                             |
 
-## 4. 長さバジェット
+## 4. Length budget
 
-名前長の計算式(全サービス共通・1 行で統一):
+Use this common formula for name length across all services:
 
 ```
 name_len = len(project) + 1 + 3 + 1 + len(region) + 1 + len(component)
            [ + 1 + len(qualifier) ]
-           [ + 1 + 12 ]              # S3 のみ (account_id)
+           [ + 1 + 12 ]              # S3 only (account_id)
 ```
 
-最も厳しい制約は **ALB / ターゲットグループの 32 文字**。
+The strictest limit is **32 characters for ALBs and target groups**.
 
-**component に使える最大文字数**(qualifier なしの場合)。`prefix_len = len(project) + 1 + 3 + 1 + len(region)`(例: `nilay-prd-apne1` = 15 文字):
+**Maximum component length** without a qualifier. `prefix_len = len(project) + 1 + 3 + 1 + len(region)` (for example, `nilay-prd-apne1` = 15 characters):
 
-| 制約リソース             | 名前上限 | component 上限の式         | 例: project=nilay(5), region=apne1 |
-| ------------------------ | -------- | -------------------------- | ---------------------------------- |
-| ALB / ターゲットグループ | 32       | `32 - prefix_len - 1`      | 16 文字                            |
-| S3(account_id 含む)      | 63       | `63 - prefix_len - 1 - 13` | 34 文字                            |
-| RDS 識別子               | 63       | `63 - prefix_len - 1`      | 47 文字                            |
-| IAM ロール               | 64       | `64 - prefix_len - 1`      | 48 文字                            |
-| Lambda                   | 64       | `64 - prefix_len - 1`      | 48 文字                            |
-| CodePipeline             | 100      | `100 - prefix_len - 1`     | 84 文字                            |
+| Resource                  | Name limit | Component limit formula    | Example: project=nilay (5), region=apne1 |
+| ------------------------- | ---------- | -------------------------- | ---------------------------------------- |
+| ALB / target group        | 32         | `32 - prefix_len - 1`      | 16 characters                            |
+| S3 (including account_id) | 63         | `63 - prefix_len - 1 - 13` | 34 characters                            |
+| RDS identifier            | 63         | `63 - prefix_len - 1`      | 47 characters                            |
+| IAM role                  | 64         | `64 - prefix_len - 1`      | 48 characters                            |
+| Lambda                    | 64         | `64 - prefix_len - 1`      | 48 characters                            |
+| CodePipeline              | 100        | `100 - prefix_len - 1`     | 84 characters                            |
 
-- 安全側の概算では region に最長 5 文字を仮定してよいが、**CI 検証(§8)は実値で行う**
-- ALB/TG のみ、バジェット超過時は component の短縮を許可(例: `alb-app` → `alb`)。短縮の対応は Terraform の locals にコメントで記録する
+- Conservative estimates may assume the maximum region length of 5 characters, but **CI validation (§8) must use actual values**
+- For ALB/TG only, abbreviating component is allowed when the budget is exceeded (for example, `alb-app` → `alb`). Record the abbreviation mapping in a comment in Terraform locals
 
-## 5. サービス別規則
+## 5. Service-specific rules
 
-**デフォルト規則**: 下表にないサービスは `{prefix}-{component}`(name 属性が無いものは Name タグ)を適用する。新しいサービス種別を使う PR では、固有制約(文字数・文字種)を確認して本表に行を追加すること(§8 の names マップに追加すると CI で長さ検証される)。
+**Default rule**: For services not listed below, use `{prefix}-{component}` (in the Name tag if there is no name attribute). A PR introducing a new service type must check its specific length and character restrictions and add a row to this table. Adding it to the names map in §8 enables CI length validation.
 
-| サービス                                 | 規則                                                                                                                                                                 |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S3                                       | `{prefix}-{component}-{account_id}`。account_id 必須                                                                                                                 |
-| IAM ロール                               | `{prefix}-{principal}-{role}-role`(例: `-ec2-app-role`, `-codepipeline-role`)。新規は `-role` サフィックス必須(ロール/ポリシー/インスタンスプロファイルの識別のため) |
-| IAM ポリシー                             | `{prefix}-{対象}-policy`                                                                                                                                             |
-| IAM インスタンスプロファイル             | 対応するロール名から `-role` を `-profile` に置換                                                                                                                    |
-| IAM ユーザー                             | `{prefix}-{用途}-user`(機械ユーザーのみ。人間用は SSO/IdP 管轄で対象外)                                                                                              |
-| EC2                                      | Name タグ = `{prefix}-{component}`。CodeDeploy の `ec2_tag_filter` と完全一致させる                                                                                  |
-| VPC / Subnet / SG 等 name 属性の無いもの | Name タグに同一規則。Subnet は `-public-1a` 等の qualifier 必須                                                                                                      |
-| RDS                                      | 識別子 = `{prefix}-rds-{engine}`。DB 名・ユーザー名は命名規則の対象外(アプリ設定で管理)                                                                              |
-| DynamoDB                                 | `{prefix}-{component}`                                                                                                                                               |
-| Lambda                                   | `{prefix}-{function役割}`                                                                                                                                            |
-| ECR                                      | `{prefix}-{component}`(小文字必須なので追加変換不要)                                                                                                                 |
-| KMS エイリアス                           | `alias/{prefix}-{用途}`(§3.1 の例外)                                                                                                                                 |
-| CloudWatch Logs                          | §3.1 の例外規則に従う                                                                                                                                                |
-| CodeBuild / CodePipeline / CodeDeploy    | `{prefix}-build` / `{prefix}-pipeline` / `{prefix}-codedeploy`                                                                                                       |
-| SNS                                      | `{prefix}-{topic用途}`                                                                                                                                               |
-| CloudFront / ACM                         | name 属性なし。Name タグに `{prefix}-{component}`                                                                                                                    |
-| Route53                                  | §3.1 の例外。ゾーンコメントに project を記載                                                                                                                         |
+| Service                                               | Rule                                                                                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S3                                                    | `{prefix}-{component}-{account_id}`; account_id is required                                                                                                                         |
+| IAM role                                              | `{prefix}-{principal}-{role}-role` (for example, `-ec2-app-role`, `-codepipeline-role`). New roles require the `-role` suffix to distinguish roles, policies, and instance profiles |
+| IAM policy                                            | `{prefix}-{target}-policy`                                                                                                                                                          |
+| IAM instance profile                                  | Replace `-role` with `-profile` in the corresponding role name                                                                                                                      |
+| IAM user                                              | `{prefix}-{purpose}-user` (machine users only; human users are governed by SSO/IdP and are out of scope)                                                                            |
+| EC2                                                   | Name tag = `{prefix}-{component}`. Must exactly match CodeDeploy's `ec2_tag_filter`                                                                                                 |
+| VPC / Subnet / SG and others without a name attribute | Apply the same rule to the Name tag. Subnets require a qualifier, as in `-public-1a`                                                                                                |
+| RDS                                                   | Identifier = `{prefix}-rds-{engine}`. Database names and usernames are outside this naming convention and are managed in application configuration                                  |
+| DynamoDB                                              | `{prefix}-{component}`                                                                                                                                                              |
+| Lambda                                                | `{prefix}-{function-role}`                                                                                                                                                          |
+| ECR                                                   | `{prefix}-{component}` (lowercase is required, so no additional conversion is needed)                                                                                               |
+| KMS aliases                                           | `alias/{prefix}-{purpose}` (exception in §3.1)                                                                                                                                      |
+| CloudWatch Logs                                       | Follow the exception rules in §3.1                                                                                                                                                  |
+| CodeBuild / CodePipeline / CodeDeploy                 | `{prefix}-build` / `{prefix}-pipeline` / `{prefix}-codedeploy`                                                                                                                      |
+| SNS                                                   | `{prefix}-{topic-purpose}`                                                                                                                                                          |
+| CloudFront / ACM                                      | No name attribute. Use `{prefix}-{component}` in the Name tag                                                                                                                       |
+| Route53                                               | Exception in §3.1. Include project in the zone comment                                                                                                                              |
 
-## 6. タグ規則(名前の補完)
+## 6. Tagging rules (supplementing names)
 
-名前に載せない情報はタグで持つ。全リソース必須タグ:
+Store information not included in names as tags. Required tags for all resources:
 
-| タグ          | 値                     |
+| Tag           | Value                  |
 | ------------- | ---------------------- |
-| `Project`     | project 値             |
-| `Environment` | env 値                 |
+| `Project`     | project value          |
+| `Environment` | env value              |
 | `ManagedBy`   | `terraform` / `manual` |
-| `Repository`  | ソースリポジトリ名     |
+| `Repository`  | Source repository name |
 
-default_tags(AWS provider)で一括付与し、個別リソースでは Name タグのみ書く。
+Apply these centrally through the AWS provider's `default_tags`; specify only the Name tag on individual resources.
 
-## 7. 既存リソースの扱い(grandfathering)
+## 7. Existing resources (grandfathering)
 
-- **既存リソースのリネームは行わない**(S3・RDS 等は再作成となり破壊的なため)
-- 非準拠の既存リソース(`prod` 系、PascalCase 手動リソース、規則性のないレガシー命名)は「例外台帳」に列挙し、各リポジトリの terraform README に節を設ける
-- 例外リソースにも §6 のタグは付与し、タグレベルでは統一する
-- リプレイス・再作成の機会があれば新規則に移行する
+- **Do not rename existing resources**: services such as S3 and RDS require destructive recreation
+- List noncompliant existing resources (`prod` names, manually created PascalCase resources, and irregular legacy names) in an exception register in each repository's Terraform README
+- Apply the tags in §6 to exception resources as well, ensuring consistency at the tag level
+- Migrate to the new convention when replacing or recreating resources
 
-## 8. Terraform 実装規約
+## 8. Terraform implementation conventions
 
-- `name_prefix` の定義は**共有 module または各環境 1 箇所の locals に集約**し、環境間で重複コピーしない
-- region_code は allowlist マップで検証し、正規表現のみの検証はしない
+- Centralize the `name_prefix` definition in **a shared module or a single locals definition per environment**; do not duplicate copies across environments
+- Validate region_code against an allowlist map, not just a regular expression
 
 ```hcl
 locals {
-  # §2.3 の allowlist。新リージョンはここに追記する
+  # Allowlist from §2.3. Add new regions here.
   region_codes = {
     "ap-northeast-1" = "apne1"
     "ap-northeast-3" = "apne3"
     "us-east-1"      = "use1"
   }
-  region_code = local.region_codes[var.aws_region] # 未登録リージョンはここで fail
+  region_code = local.region_codes[var.aws_region] # Unlisted regions fail here.
 
   name_prefix = "${var.project}-${var.environment}-${local.region_code}"
 
-  # このスタックで命名するリソースの一覧。ここに追加すると下の check で長さ検証される
+  # Named resources in this stack. Additions are length-checked by the check below.
   names = {
     alb        = { value = "${local.name_prefix}-alb-app", limit = 32 }
     tg         = { value = "${local.name_prefix}-tg-app", limit = 32 }
@@ -210,7 +210,7 @@ variable "environment" {
   }
 }
 
-# 全命名リソースの長さを一括検証(個別ハードコードの check は書かない)
+# Validate all resource name lengths together; do not hardcode individual checks.
 check "name_lengths" {
   assert {
     condition = alltrue([
@@ -221,92 +221,92 @@ check "name_lengths" {
 }
 ```
 
-## 9. 検証方法
+## 9. Validation
 
-- 使用リソース種別は策定時点の全リポジトリ `*.tf` の `resource "aws_*"` 走査結果を §5 の表 + デフォルト規則でカバー。未列挙の新サービスは §5 のデフォルト規則 + 表追加プロセスで扱う
-- 長さ制約は §4 の式で機械検証可能。§8 の `local.names` + `check` ブロックで CI 強制(実値ベース、固定長仮定なし)
-- 既存プレフィックス互換: §1 は既存 Terraform 実装の `local.name_prefix` と同一形式
+- The service table and default rule in §5 cover the `resource "aws_*"` types found in repository `*.tf` files when this convention was established. Handle new, unlisted services through the default rule and table-update process in §5
+- Length limits can be checked mechanically using the formula in §4. Enforce them in CI through `local.names` and the `check` block in §8, using actual values without fixed-length assumptions
+- Existing prefix compatibility: §1 uses the same format as `local.name_prefix` in existing Terraform implementations
 
-## 付録 A: 形式文法(ABNF)
+## Appendix A: Formal grammar (ABNF)
 
-RFC 5234 の ABNF で通常リソース名を定義する。本文(§1〜§5)と齟齬がある場合は本付録を正とする。
+The following RFC 5234 ABNF defines standard resource names. This appendix is authoritative if it conflicts with the body (§1–§5).
 
 ```abnf
 resource-name = prefix "-" component [ "-" qualifier ] [ "-" account-id ]
 
 prefix        = project "-" env "-" region
 
-project       = LC-ALPHA *11LC-ALNUM   ; 1〜12 文字、先頭は英字 (§2.1)
+project       = LC-ALPHA *11LC-ALNUM   ; 1–12 characters, starts with a letter (§2.1)
 env           = "dev" / "stg" / "prd" / "sbx" / "shr"          ; §2.2
 region        = "apne1" / "apne3" / "apse1"                    ; §2.3 allowlist
-              / "use1" / "usw2" / "euw1" / "euc1"              ; (追記はここと §2.3 を同時に)
+              / "use1" / "usw2" / "euw1" / "euc1"              ; Update both here and §2.3.
 
-component     = token *( "-" token )   ; §2.4 の標準語彙に一致すること (側条件 S1)
-qualifier     = ordinal / az           ; §2.5 — 必ず数字始まり・1〜2 文字
-ordinal       = NZ-DIGIT [ DIGIT ]     ; "1"〜"9", "10"〜"99"
-az            = NZ-DIGIT LC-ALPHA      ; 例: "1a", "1c"
-account-id    = 12DIGIT                ; §2.6 (S3 のみ、側条件 S2)
+component     = token *( "-" token )   ; Must match the standard vocabulary in §2.4 (side condition S1).
+qualifier     = ordinal / az           ; §2.5: starts with a digit, 1–2 characters
+ordinal       = NZ-DIGIT [ DIGIT ]     ; "1"–"9", "10"–"99"
+az            = NZ-DIGIT LC-ALPHA      ; For example, "1a", "1c"
+account-id    = 12DIGIT                ; §2.6 (S3 only, side condition S2)
 
-token         = LC-ALPHA *LC-ALNUM     ; 先頭英字 (§2.4) — 一意解析の要
+token         = LC-ALPHA *LC-ALNUM     ; Leading letter (§2.4): key to unambiguous parsing
 LC-ALPHA      = %x61-7A                ; a-z
 NZ-DIGIT      = %x31-39                ; 1-9
 LC-ALNUM      = LC-ALPHA / DIGIT
 DIGIT         = %x30-39
 ```
 
-§3.1 の例外リソース:
+Exception resources from §3.1:
 
 ```abnf
 kms-alias     = "alias/" prefix "-" component
-log-group     = "/aws/" 1*( LC-ALNUM / "-" / "/" )             ; AWS 既定グループ
-              / "/" project "/" env "/" component              ; 独自グループ
+log-group     = "/aws/" 1*( LC-ALNUM / "-" / "/" )             ; AWS default groups
+              / "/" project "/" env "/" component              ; Custom groups
 ```
 
-### 側条件(文脈依存のため文法では表現しない)
+### Side conditions (context-dependent, so not expressed in the grammar)
 
-| #   | 条件                                                                           |
-| --- | ------------------------------------------------------------------------------ |
-| S1  | `component` は §2.4 の標準語彙(またはサービス別規則 §5 が定める形)に一致する   |
-| S2  | `account-id` は S3 バケットでは必須、S3 以外では禁止                           |
-| S3  | 名前全長はサービス別上限(§4)以内                                               |
-| S4  | IAM は §5 のサフィックス規則(`-role` / `-policy` / `-profile` / `-user`)に従う |
+| #   | Condition                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------ |
+| S1  | `component` must match the standard vocabulary in §2.4 or a form defined by the service-specific rules in §5 |
+| S2  | `account-id` is required for S3 buckets and prohibited for non-S3 resources                                  |
+| S3  | Total name length must stay within the service-specific limit (§4)                                           |
+| S4  | IAM must follow the suffix rules in §5 (`-role` / `-policy` / `-profile` / `-user`)                          |
 
-### 逆解析の一意性
+### Unambiguous parsing
 
-名前をハイフンで分割したとき、各要素の文字クラスは**互いに素**である:
+When a name is split on hyphens, the character patterns for each field are **mutually exclusive**:
 
-| 要素                                            | 文字クラス          |
-| ----------------------------------------------- | ------------------- |
-| project / env / region / component の各トークン | 先頭英字            |
-| qualifier                                       | 先頭数字、1〜2 文字 |
-| account-id                                      | 数字ちょうど 12 桁  |
+| Field                                            | Character pattern                   |
+| ------------------------------------------------ | ----------------------------------- |
+| Each token in project / env / region / component | Starts with a letter                |
+| qualifier                                        | Starts with a digit, 1–2 characters |
+| account-id                                       | Exactly 12 digits                   |
 
-したがって次のアルゴリズムで逆解析は**一意に定まる**:
+The following algorithm therefore produces **a unique parse**:
 
-1. `-` で分割する
-2. 先頭 3 トークンを `project` / `env` / `region` とする(env・region は閉集合との一致を検証)
-3. 末尾トークンが数字 12 桁なら `account_id` として取り除く
-4. 末尾トークンが数字始まり(1〜2 文字)なら `qualifier` として取り除く
-5. 残り全部が `component`(全トークン先頭英字であることを検証)
+1. Split on `-`.
+2. Take the first three tokens as `project` / `env` / `region`, validating env and region against their closed sets.
+3. If the final token is exactly 12 digits, remove it as `account_id`.
+4. If the final token starts with a digit and has 1–2 characters, remove it as `qualifier`.
+5. All remaining tokens form `component`; verify that each starts with a letter.
 
-数字始まりのトークンは qualifier / account-id にしか現れず、両者は長さ(≤2 と =12)で区別されるため、どの分割位置にも二通りの読みは存在しない。
+Only qualifier and account-id can contain tokens starting with digits, and their lengths (≤2 and exactly 12) distinguish them. No split position therefore admits two interpretations.
 
-### CI 用の等価正規表現
+### Equivalent regular expression for CI
 
-通常リソース名(qualifier・account_id 含む全体、側条件 S1/S2 は別途チェック)。名前付きグループ付きで、マッチすれば各要素がそのまま取れる:
+This expression covers complete standard resource names, including qualifier and account_id. Check side conditions S1/S2 separately. Named groups expose each field directly when a match succeeds:
 
 ```
 ^(?P<project>[a-z][a-z0-9]{0,11})-(?P<env>dev|stg|prd|sbx|shr)-(?P<region>apne1|apne3|apse1|use1|usw2|euw1|euc1)-(?P<component>[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*)(-(?P<qualifier>[1-9][0-9]|[1-9][a-z]|[1-9]))?(-(?P<account_id>[0-9]{12}))?$
 ```
 
-ハイフン連続・先頭末尾ハイフン(§3)は文法上発生しない(トークンは 1 文字以上で、ハイフンは区切りのみ)。文字クラスが互いに素なため、この正規表現のマッチも一意である。
+The grammar cannot produce consecutive, leading, or trailing hyphens (§3): tokens contain at least one character, and hyphens serve only as separators. The mutually exclusive character patterns also make the regular-expression match unambiguous.
 
-## 改訂履歴
+## Revision history
 
-| 版         | 日付       | 変更                                                                                                                                                                                                                     |
-| ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| v1.0 draft | 2026-08-16 | 初版。既存実装の標準化 + 揺れの裁定                                                                                                                                                                                      |
-| v1.0 rc1   | 2026-08-16 | 独立レビュー指摘反映: project 先頭英字必須、region allowlist 化と実値長計算、S3 バジェット式の明確化、§5 デフォルト規則追加、check ブロックの汎用化、§3.1 例外の明文化                                                   |
-| v1.0       | 2026-08-16 | 確定。具体プロジェクト名を除去し例を `nilay` に統一、§4 バジェット表の off-by-one を修正                                                                                                                                 |
-| v1.1       | 2026-08-16 | 付録 A(ABNF 形式文法・側条件・CI 用正規表現)を追加し、付録を正とする旨を §1 に明記                                                                                                                                       |
-| v1.2       | 2026-08-16 | 逆解析を一意化: component トークンは先頭英字必須、qualifier は先頭数字 1〜2 文字(連番を 99 まで拡張)、account_id は 12 桁固定。文字クラスの互いに素性による一意解析アルゴリズムと名前付きグループ正規表現を付録 A に追加 |
+| Version    | Date       | Changes                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0 draft | 2026-08-16 | Initial version. Standardized existing implementations and resolved inconsistencies                                                                                                                                                                                                                                           |
+| v1.0 rc1   | 2026-08-16 | Required a leading letter for project, added the region allowlist and actual-length calculations, clarified the S3 budget formula, the default rule in §5, the generalized check block, and explicit exceptions in §3.1                                                                                                       |
+| v1.0       | 2026-08-16 | Finalized. Removed specific project names and standardized examples on `nilay`; corrected off-by-one errors in the §4 budget table                                                                                                                                                                                            |
+| v1.1       | 2026-08-16 | Added Appendix A (ABNF grammar, side conditions, and CI regular expression) and stated its authority in §1                                                                                                                                                                                                                    |
+| v1.2       | 2026-08-16 | Made parsing unambiguous: component tokens must start with a letter; qualifier starts with a digit and has 1–2 characters, extending sequence numbers to 99; account_id is exactly 12 digits. Added the parsing algorithm based on mutually exclusive character patterns and the named-group regular expression to Appendix A |
