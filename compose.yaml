@@ -1,0 +1,56 @@
+name: saika-docs
+services:
+  docs:
+    build:
+      context: ${SAIKA_DOCKER_CONTEXT:-.}
+      dockerfile: docker/docs/Dockerfile
+      target: production
+      args:
+        API_BASE_URL: ${API_BASE_URL:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:5175}
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: ${NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE:-0}
+        NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE: ${NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE:-0}
+        NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE: ${NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE:-0}
+        SENTRY_ORG: ${SENTRY_ORG:-}
+        SENTRY_PROJECT: ${SENTRY_PROJECT:-}
+        NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+        NEXT_PUBLIC_RELEASE: ${NEXT_PUBLIC_RELEASE:-}
+        NEXT_PUBLIC_WEB_VITALS: ${NEXT_PUBLIC_WEB_VITALS:-0}
+        NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
+        NEXT_PUBLIC_CLARITY_ID: ${NEXT_PUBLIC_CLARITY_ID:-}
+        NEXT_PUBLIC_DEV_AXE: ${NEXT_PUBLIC_DEV_AXE:-0}
+        DOCS_IMAGE_HOSTS: ${DOCS_IMAGE_HOSTS:-}
+        DOCS_SOFT_BREAKS: ${DOCS_SOFT_BREAKS:-0}
+    ports: ["127.0.0.1:5175:5175"]
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-}
+    env_file:
+      - path: ./packages/saika-docs/.env.local
+        required: false
+    init: true
+    read_only: true
+    tmpfs: [/tmp, /app/packages/saika-docs/.next/cache]
+    security_opt: [no-new-privileges:true]
+  dev:
+    profiles: [dev]
+    build:
+      context: ${SAIKA_DOCKER_CONTEXT:-.}
+      dockerfile: docker/docs/Dockerfile
+      target: development
+    ports: ["127.0.0.1:5176:5175"]
+    env_file:
+      - path: ./packages/saika-docs/.env.local
+        required: false
+    init: true
+    volumes:
+      - ./packages/saika-docs/README.md:/app/packages/saika-docs/README.md:ro
+      - ./packages/saika-docs/scripts:/app/packages/saika-docs/scripts:ro
+      - ./packages/saika-docs/package.json:/app/packages/saika-docs/package.json:ro
+      - ./packages/saika-docs/next.config.ts:/app/packages/saika-docs/next.config.ts:ro
+      - ./packages/saika-docs/tsconfig.json:/app/packages/saika-docs/tsconfig.json:ro
+      - ./packages/saika-docs/src:/app/packages/saika-docs/src
+      - ./packages/saika-docs/common:/app/packages/saika-docs/common:ro
+      - ./packages/saika-docs/lane:/app/packages/saika-docs/lane:ro
+      - ./packages/saika-docs/director:/app/packages/saika-docs/director:ro

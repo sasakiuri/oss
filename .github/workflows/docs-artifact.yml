@@ -1,0 +1,48 @@
+name: Documentation distribution
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    uses: ./.github/workflows/docs.yml
+  book:
+    needs: quality
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_RELEASE: ${{ github.sha }}
+      NEXT_PUBLIC_APP_ENV: preview
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: ./.github/actions/setup-node
+      - run: npm exec --workspace=@sasakiuri/saika-docs -- playwright install --with-deps chromium
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: docs-quality-reports
+          path: packages/saika-docs
+      - run: npm run build --workspace=@sasakiuri/saika-docs
+      - run: npm run docs:pdf --workspace=@sasakiuri/saika-docs
+      - name: Generate and check all PDF engines
+        run: |
+          docker build -t saika-pdf -f docker/pdf/Dockerfile docker/pdf
+          npm run docs:pandoc --workspace=@sasakiuri/saika-docs
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/packages/saika-docs/dist/docs:/work" -w /work saika-pdf saika-manual.html saika-manual-weasyprint.pdf
+          docker run --rm --entrypoint pandoc --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/packages/saika-docs/dist/docs:/work" -w /work saika-pdf --pdf-engine=tectonic --defaults=pandoc.yaml saika-manual.md -o saika-manual-tectonic.pdf
+          sudo apt-get update && sudo apt-get install -y poppler-utils
+          npm run docs:verify --workspace=@sasakiuri/saika-docs -- dist/docs/saika-manual.pdf dist/docs/saika-manual-weasyprint.pdf dist/docs/saika-manual-tectonic.pdf
+      - run: npm run docs:package --workspace=@sasakiuri/saika-docs
+      - name: Attest the prepared documentation archive
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: packages/saika-docs/dist/saika-docs.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: saika-docs-${{ github.sha }}
+          path: packages/saika-docs/dist/
+          if-no-files-found: error
+          retention-days: 30

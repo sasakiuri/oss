@@ -1,129 +1,144 @@
+---
+description: 大会・参加者・射座割を登録し、Lane の競技参加から試射、本射、成績保存まで進める手順を説明します。
+---
+
 <!-- SPDX-License-Identifier: MIT -->
 
-# Saika Director
+# Director 操作ガイド
 
-Saika Director は、複数の Saika Lane を MQTT 経由で発見し、同じ競技へ参加させて進行を同期する
-Electron アプリケーションです。各 Lane が射撃、採点、セッション状態の権威を持ち、Director は競技全体の
-状態とコマンドを管理します。
+[マニュアルの入口](../README.md) / Director 操作ガイド
 
-## 現在の対応範囲
+Saika Director で、大会・選手・射座割を登録し、複数の Lane を進行します。
+接続がまだの場合は [導入と接続](../GETTING_STARTED.md) から始めてください。
 
-- 内蔵 MQTT ブローカー（既定: TCP 1883）または外部 `mqtt://` / `mqtts://` ブローカー
-- Lane の自動検出と接続状態表示
-- Rule Pack 由来の ISSF 2026 10m Individual／Mixed Team、50m Rifle Qualification／Elimination／Final、
-  25m Pistol Qualification と、local `BR60S`／`BP60` の作成
-- Director／Lane の Rule Pack ID・schema version・SHA-256 fingerprint の一致確認
-- Lane の競技参加、離脱、選手割当、セッションリセット
-- 大会管理で作成した射座割の射群単位での一括反映
-- 試射、本射、タイマー、シリーズ進行、競技終了の一括操作
-- Lane ごとの ACK、タイムアウト、状態、割当、スコア、直近着弾の表示
-- Retain メッセージによる Director / Lane 再接続時の状態復旧
-- 受信 shot の追記型監査 journal と、装置点・独立計算点・採用点の分離
-- Qualification 成績への減点、失格、remark、malfunction 等の追記型 decision
-- ISSF 6.15.1 に対応する competition type 別の同点順位処理
-- Rule Pack の残り時間ポリシーによる CRO 向け視覚告知リマインダー（設定で無効化可能）
-- Rule Pack に応じた SIGHTING 前の呼出・標的表示・setup 完了確認と MATCH 前の標的 reset 完了確認
-- Rule Pack に応じた START／STOP 外 shot の要確認検知、重複抑止、追記型時刻証跡
-- ISSF 6.10.5〜6.10.9 の EST target examination、調査物の追記型 custody 記録、CLEAR LOG 前の evidence hold
-- ISSF 6.10.9／6.11.3 の中断台帳、規則 recommendation と official grant の分離、Lane 個別 STOP／再開
-- ISSF 8.8.1 の25m Qualification stage 別中断 recommendation と、Rule Pack snapshot から独立した official recovery decision
-- Preliminary 掲示、10分の score protest、RTS 承認後の Official 公表を分離した追記型ワークフロー
-- seed付き射座・relay draw、ISSF constraint検査、Technical Delegate承認、明示適用
-- 3名 Team／Mixed Team予選集計と、Mixed Team Finalのチーム単位成績
-- current Official 個人成績と3名 Team構成を不変 revision にした Team record claim候補
-- Individual／Mixed Team Finalのcheckpoint順位台帳とLane別脱落ACK
-- 外部音響向けmusic／Final production台帳と、Mixed Teamの30秒Time out台帳
-- 25m の Lane 主体 absolute schedule、red／green 状態、EST after-time、対象 Lane 共通 LOAD command
-- Rule 8.8.1 の追加試射／series recovery を isolated firing、明示的 score adjudication、無射撃 retain-series settlement に分離した実行 workflow
-- Lane からの Range Officer request、relay athlete lifecycle、屋外 Elimination plan を独立 module として管理
+## 画面の使い分け
 
-## 基本操作
+| 画面                                          | 主な用途                                           |
+| --------------------------------------------- | -------------------------------------------------- |
+| Championships                                 | 大会、種目、参加者、射座割、保存した成績を管理する |
+| Competition Control（サイドバーでは Control） | Lane の選択・選手割当・試射と本射の進行を行う      |
+| Target Examinations（Examinations）           | 標的の調査と証拠資料を管理する                     |
+| Range Interruptions（Interruptions）          | 中断、許可された措置、復旧を記録する               |
+| Settings                                      | 通信、開始条件、バックアップなどを設定する         |
 
-1. Director の設定画面で MQTT ブローカーを選びます。通常は内蔵ブローカーを使用します。
-2. 各 Lane で同じブローカーへ接続します。Director の「進行管理」に Lane が表示されることを確認します。
-3. 対象 Lane と競技種別を選択し、競技を作成して参加させます。
-4. 「大会の射座割」で大会・種目・射群を選択し、「射座割を反映」を実行します。大会管理の射座番号と
-   進行管理に表示された射座番号が一致する Lane に選手が割り当てられます。
-   ISSF computer draw を使う場合は seed と range geometry を指定し、Technical Delegate 承認後に配置を適用します。
-5. 必要に応じて Lane ごとの選手割当を手動で補正します。
-6. 試射開始、試射終了、本射開始、シリーズ進行、競技終了を順に実行します。
-   Rule Pack に告知時点がある競技では、CRO が発声すべき時点を Director の通知で確認します。
-   事前確認が必要な競技では、所定時刻までの選手呼出と sighting target 表示、setup period、事前検査の完了を確認してから試射開始を承認します。
-   標的 reset 確認が必要な競技では、全標的の準備完了を確認してから本射開始を承認します。
-   START／STOP 外 shot の警告が出た場合は、時刻証跡を確認し、必要な処置を Jury decision として別途記録します。
-   EST complaint／failure がある場合は `Target Examination` を開き、調査物を保全してから判断を追記します。
-   選手に責任のない中断では `Range Interruptions` に開始時刻と残り時間を記録し、必要な Lane STOP、終了、official grant、再開を別々に実行します。
-   25m Qualification では Lane の stage／series／shot count snapshot を確認し、Rule 8.8.1 の recommendation を参考に official recovery decision を記録します。
-   追加試射または series recovery を決定した場合は、対象 Lane の isolated firing を実行し、series recovery の window 完了後に shot evidence を確認して
-   別操作で採点裁定します。完了済み series を維持する場合は、射撃や再採点を行わない retain-series settlement を適用します。
-7. 各操作後に全 Lane の ACK が `done` であることを確認します。`error` または `timeout` の Lane は、
-   状態とネットワークを確認してから再操作します。
+「Championship」は大会、「Event」は大会内の種目、「Relay」は射群です。
+「Competition」は Lane に送る進行操作の単位で、射座割の反映によって大会の射群と結び付きます。
 
-コマンド、Retain、再接続の詳細は [MQTT 制御・運用](./MQTT_CONTROL.md)、トピックとペイロードの
-完全な設計は [Lane MQTT 連携設計](../lane/MQTT_DESIGN.md) を参照してください。
+画面右上が「Operator: Signed out · changes restricted」の場合は、変更操作の前に [担当者としてサインイン](./OPERATIONS.md#担当者の登録とサインイン) してください。
 
-## 独立バックアップ資料の保存と印刷
+## 1. 大会と射座割を登録する
 
-EST backup verification のファイル取り込みは、原文、SHA-256、列の対応、読み取った全レコードを種目に関連付けて保存します。
-Retained source files から Print source を開くと、競技成績の確定や照合を待たずに取り込み資料を印刷できます。
-Include original source text で原文を追加でき、Use source records で保存済み資料を照合へ戻せます。
-読み出し時は原文と取り込みレコードの整合性を検査します。元ファイルを移動した後やアプリ再起動後も利用できます。
+1. 「Championships」→「New championship」で大会名・日付・会場を入力し、「Create」を押す。
+2. 作成した大会を開き、「Add event」で種目名と「Type」を選び、「Add」を押す。
+3. 種目の「Participants」で「Add athlete」から参加者を登録し、「Save」を押す。
+4. 「Firing-Point Assignment」で射群数・射座数を設定する。参加者を射座の枠へドラッグして配置し、「Save」を押す。
 
-資料の保管は成績照合・RTS承認と独立しています。数値を編集すると元資料への関連付けを解除し、手入力資料として扱います。
-機器や記憶媒体が主ESTコンピューターから独立していることは実構成で確認してください。
-保存資料は大会の evidence export とDBバックアップにも含まれます。
+参加者を削除して保存すると、その人の射座割と確定成績も削除されます。確認画面で対象を確認してください。
+成績を保存した種目は、競技種別を変更できません。
 
-照合では総得点・順位に加え、射順の `shotScores` とシリーズ順の `seriesScores` を比較できます。JSONでは数値配列、標準CSVでは同名列に引用符で囲んだJSON配列を指定します。任意列のCSV／TSVでは、射・シリーズそれぞれの列名を順番どおりに改行して入力します。各位置の値は原本と結び付けて保存され、資料の印刷にも含まれます。
+### 参加者の入力と貼り付け
 
-比較設定は「提供された明細を比較」「シリーズ必須」「射必須」「両方必須」から選べます。必須明細の欠落、射数の違い、同点でも順序が異なるデータは確認済みになりません。公式結果に明細がない場合も未確認として表示します。個人の予選・決勝は公式採点投影後の射・シリーズ、団体予選は提供可能なシリーズ合計を使います。団体の射を無理に一列へ連結することはありません。総得点やシリーズにだけ適用される減点などがあるため、単純な射の合計との一致は強制しません。
+「Participants」の「Entry list」で編集します。氏名が空欄の行は保存対象になりません。
 
-## 抗議・上訴様式への入力と転記
+| 項目                  | 入力する内容                                                             |
+| --------------------- | ------------------------------------------------------------------------ |
+| Athlete / Family name | 氏名と姓。姓が空欄の場合は氏名を使用する                                 |
+| Start # / ISSF ID     | 公式スタート番号と登録 ID。先頭の `0` を含む文字列で、それぞれ50文字まで |
+| NOC                   | 国コード。入力する場合は英字2〜3文字で、保存時に大文字へ揃える           |
+| Gender / Entry        | 性別と参加区分。通常の参加区分は `COMPETING`                             |
+| Team ID / Team name   | 団体の識別子と表示名。同じ団体の選手には同じ ID を入力する               |
+| Affiliation           | 所属。団体 ID とは別の項目                                               |
 
-抗議・上訴の印刷画面にある転記補助を開くと、記録済みの内容を項目ごとにコピーできます。日時の表示には指定した IANA タイムゾーンを使います（初期値 UTC）。受付日時には実際の受付時刻を使い、登録時刻からは補完しません。
+表計算ソフトから複数行を貼り付ける場合は、見出し行を除き、次の列順でコピーします。画面の列順とは異なります。
 
-種目名・Jury 名・国名・受付担当者名は転記時に補足できます。この入力は一時的なもので、抗議台帳や結果承認を変更しません。会議時刻、通知時刻、署名など記録から確定できない項目は手動で完成させます。一部認容の判断を二択へ変換したり、未記録の納付額を規定額で埋めたりすることはありません。
+```text
+Athlete → Affiliation → Family name → Start # → ISSF ID → NOC → Gender → Entry → Team ID → Team name
+```
 
-提出には [公式 Protest Form (P)](https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=29&iist=377&file=Protest-Form.pdf)・[公式 Appeal Form (AP)](https://backoffice.issf-sports.org/getfile.aspx?mod=docf&pane=1&inst=29&iist=377&file=Appeal-Form.pdf) の各欄を確認し、必要な署名を行ってください。上訴には元の公式抗議様式を添付します。Director の運用記録の印刷物は、この添付様式を代替しません。
+列はタブ、行は改行で区切ります。氏名と所属だけでも貼り付けられます。途中の任意列を省略するときは空のセルを残してください。
 
-## 運用上の注意
+「Entry list」の入力欄以外にフォーカスを移して貼り付けると、末尾に新しい参加者として追加されます。見出し行の自動除外や、既存参加者との統合は行いません。
 
-- Director と Lane の時計を同期してください。開始時刻は絶対時刻で配信されます。
-- MQTT のユーザー名・パスワードは環境変数で設定できる。内蔵 broker で認証と role/topic ACL を必須にする場合は
-  `SAIKA_MQTT_BROKER_AUTH_MODE=REQUIRED` とし、`SAIKA_MQTT_DIRECTOR_USERNAME/PASSWORD`、
-  `SAIKA_MQTT_LANE_USERNAME/PASSWORD` をすべて設定する。既定は旧運用との互換性のため `DISABLED`。
-- Director ごとに `SAIKA_MQTT_DIRECTOR_ID` を固定し、Lane 側で `SAIKA_COMMAND_AUTHORIZATION_MODE=REQUIRED` と
-  `SAIKA_TRUSTED_DIRECTOR_IDS=<同じID>` を設定すると、未登録 issuer の command を拒否する。issuer ID の検査は
-  broker 認証とは独立しており、電子署名ではない。
-- 内蔵 broker の Lane credential は role 共通で、topic 範囲は client ID から制限する。Lane ごとの認証主体が必要なら、
-  client ごとの account／ACL を設定した外部 broker を使用する。`mqtts://` は OS が信頼する server certificate を使用するが、
-  custom CA と TLS client certificate の選択は未対応。平文 MQTT は信頼できる隔離 network でのみ使用する。
-- Director は進行中タイマーの絶対開始時刻と時間を Retain 状態へ保存します。競技中の再起動や再接続後も
-  元の満了時刻を復元し、既に満了していれば接続済み Lane へ直ちに満了を通知します。
-- 大会管理で既存参加者を一覧から外して保存すると、その参加者の射座割と確定成績も削除されます。画面に表示される
-  削除確認で対象人数と影響を確認してから実行してください。
-- 成績を保存済みの種目は種別を変更できません。競技終了時も、進行中の競技と保存先の種別が一致しない場合は
-  Lane の終了処理を始めず、種別を修正して再実行できる状態を維持します。
-- 競技終了処理を再実行しても、Lane データと一致する確定済み成績は確定状態を維持します。確定後に異なるデータで
-  射群を置き換えたり、確定済み参加者を欠落させたりする再保存は拒否されます。
-- Target Examination の evidence hold 中は、対象 Lane の離脱・session reset と競技終了後の retained data 消去を拒否します。
-  RTS Jury の許可と保全完了を確認して hold を解除した後、同じ操作を再実行してください。
-- close／void されていない Range Interruption record も同じ data guard に加わります。recommendation は自動付与されないため、
-  Range Incident Report と権限者を確認してから official grant を記録してください。
-- 25m Qualification の recovery decision は recommendation と別の監査記録です。記録だけでは series の採点や Lane の schedule を変更しません。
-  追加試射、series recovery firing、score adjudication、`KEEP_RECORDED_SERIES` settlement は独立操作です。未発射の許可発数は adjudication 時に miss となるため、
-  Lane の completed state と shot evidence を確認してください。必要な adjudication または settlement が成功するまで interruption record は close できません。
-- 本ソフトウェアは非公式です。公式競技の唯一の採点・計時手段として使用しないでください。
+`Gender` は `M`、`F`、`X`、`UNSPECIFIED`、`Entry` は `COMPETING`、`RPO`、`MQS`、`OOC`、`DNS`、`DNF`、`DSQ`、`DQB` を受け付けます。貼り付け時の未指定・未知の値は、性別を未指定、参加区分を `COMPETING` として扱います。
 
-「Complete official PDF and check submission materials」では、各欄を補足・修正し、利用者が選択した公式PDFへ下書きを出力できます。対応原本は Edition 2025 (Second Print 07/2026) の P／AP です。原本の版と種別を照合してから記入し、元のファイルは変更しません。欄に収まらない文章は切り捨てずにエラーを表示するため、下書きを短くして添付資料を参照してください。日本語などを含む場合は、その文字を収録した TTF／OTF フォントを指定できます。
+追加した人数、列の対応、参加区分を確認し、「Save」で保存します。
 
-確認段階は提出・受領・裁定と通知から選択します。画面の署名・添付確認は、実際の提出書類を確認した担当者のチェックです。PDF内の署名欄は空欄のままで、添付ファイルは別途用意します。上訴では元の公式抗議様式も確認対象になります。入力を変更するとチェックは未確認になり、画面を再読込すると下書きの補足入力も消えます。未完了でも下書きを出力できますが、提出前に両ページの内容と署名を確認してください。
+団体で集計する場合は、団体 ID、国コード、性別、参加区分も確認します。必要な構成と集計画面は [団体成績の確認](./RESULTS.md#団体成績を確認する) を参照してください。
 
-## 大会開始前の設定を一括適用する
+### 射座割を保存する
 
-Operational profile で射群準備、射座検査、時計、バックアップ取得、操作権限などの設定変更を一覧で確認して適用します。項目ごとに必須・警告・無効を選べます（認証など二値の項目には警告モードはありません）。大会単位と Director 全体に適用される項目を確認してください。一部の適用に失敗した場合は結果を確認して再度適用できます。
+「Relays」で射群数、「Firing points」で射座数を設定します。人数が枠数を超える場合は射群を増やし、対象の参加者を配置してください。枠数を減らすと範囲外の割当が外れるため、保存前に残った配置を確認します。
 
-設定候補から、審判が標的装置を操作する運用、Lane が時間制限付き標的を制御する運用、結果公表前の確認、自動バックアップ取得の確認を個別に追加できます。候補を選ぶと該当項目だけが編集中の設定に反映され、適用前に項目ごとに調整できます。候補の選択や設定の保存は、機器の準備完了を意味しません。Director の確認条件を変更する機能なので、Lane 側の設定と外部機器は別途準備してください。独立記憶元の印刷物で確認する運用では、自動取得の必須化は不要です。大会を切り替えると編集中の変更は破棄されます。
+射座割の保存だけでは Lane の選手表示は変わりません。次節の「Apply assignments」で競技に反映します。配布用の一覧は [スタートリストの作成と配布](./OPERATIONS.md#スタートリストを作成して配布する) を参照してください。
 
-Saved templates では、選択した項目のモードに名前を付けて保存できます。同じ Director の別大会や再起動後も読み込めます。保存対象は選択したモードだけで、射群番号、機器設定、検査結果、認証情報は含まれません。読込みは編集中の設定へ追加する操作で、適用は別途必要です。更新と削除は読み込んだ版を確認し、他の画面で変更済みの場合は再読込みを求めます。テンプレートを削除しても、適用済みの大会設定は変わりません。
+射座を抽選で決める場合は、[コンピューター抽選の手順](./OPERATIONS.md#コンピューター抽選で射座を割り当てる) を使います。
 
-Lane の測定証拠チェックも独立して選択できます。Lane で現在の機器構成を記録し、測定サンプルと有効期限を持つタイミングプロファイルを適用してください。Director でこの項目を必須にすると、最新の Lane 報告、測定根拠、期限、機器構成、適用中の時間幅が一致するまで時刻付き開始操作を止めます。数値だけの手入力は証拠として扱いません。警告・無効を選んで手動運用することもできます。このチェックと時計同期、実機の標的信号のチェックは別々に設定します。
+## 2. Lane を競技に参加させる
+
+1. 「Competition Control」を開き、接続状態が `Connected` であることを確認する。
+2. 「Lanes」で使用する Lane にチェックを付け、「Competition type」で大会と同じ種別を選ぶ。
+3. 「Create competition」を押す。競技を作成し、選択した Lane に参加指示を送る。
+4. 「Run control」の「Selected competition」と各 Lane の応答を確認する。
+5. 「Championship assignment」で大会・種目・射群を選び、「Apply assignments」を押す。
+6. 各 Lane の射座番号と選手名が、保存した射座割と一致することを確認する。
+
+手動で補正する場合は「Manual athlete assignment」で対象 Lane・スタート番号・選手名を入力し、「Assign athlete」を押します。
+大会連携時の制御用番号は、保存した参加者一覧の1始まりの順番です。「Start #」に入力した公式スタート番号とは別です。番号と氏名を参加者一覧に合わせてください。通常の選手割当や Lane の追加・離脱は試射開始前に済ませます。
+
+**大会へ成績を残すには「Apply assignments」が必要です。** 手動割当だけの競技は、大会成績の保存先と結び付きません。
+
+## 3. 試射から本射へ進める
+
+以下は通常の試射・本射の流れです。開始前の確認項目や時間は、選んだ競技によって変わります。
+
+| 順序 | 「Run control」の操作         | 操作後に確認すること                                 |
+| ---- | ----------------------------- | ---------------------------------------------------- |
+| 1    | Start sighting                | 必要な事前確認を済ませ、対象 Lane が試射に入ったこと |
+| 2    | End sighting                  | 試射が終了したこと                                   |
+| 3    | Start match                   | 必要な標的準備を確認し、対象 Lane が本射に入ったこと |
+| 4    | Next series（必要な競技のみ） | 次のシリーズに進んだこと                             |
+| 5    | Finish competition            | 成績の保存先と終了結果を確認する。次節参照           |
+
+操作後は対象 Lane の応答（ACK）を確認します。
+
+- `done`：Lane で操作が完了した。画面の状態も確認する。
+- `error`：操作が拒否・失敗した。エラー内容を解消してから再操作する。
+- `timeout`：応答を確認できない。接続を復旧し、Lane の実際の状態を確認してから再操作する。
+
+参加が未確定の Lane は、対象を選んで「Join selected Lanes」を再実行します。
+試射の一部だけが未開始なら「Retry sighting for pending Lanes」を使います。
+
+開始ボタンが使えない場合は、参加確認、Lane の接続、現在のフェーズを確認します。「Pre-start checks」の未完了項目は [開始条件の確認](./OPERATIONS.md#開始条件の確認と再検査) に従って解消してください。
+
+「Range Officer requested」は Lane からの役員呼出です。射座、理由、時刻を確認して役員へ伝えます。対応後の通知解除は [Lane 側の連絡操作](../lane/README.md#役員へ連絡し対応後に通知を解除する) で行います。銃器故障・EST の申告は、それぞれ運用ガイドの [銃器故障](./OPERATIONS.md#予選の銃器故障を記録する)・[標的調査](./OPERATIONS.md#調査資料を残す) で案件を記録します。
+
+25m の標的制御と決勝の進行には専用パネルを使います。[25m の標的時間制御](./OPERATIONS.md#25m-の標的時間制御) と [決勝の進行](./OPERATIONS.md#決勝の進行) を参照してください。
+
+## 4. 終了して成績を確認する
+
+1. 終了前に、対象競技・射群・選手割当・得点を確認する。[銃器故障の案件](./OPERATIONS.md#予選の銃器故障を記録する) がある場合は、記録と必要な計算書の保存も確認する。
+2. 「Finish competition」を押し、確認画面で保存先を確認して実行する。
+3. Lane の終了・離脱と成績保存の結果を確認する。
+4. 「Championships」で該当する種目の「Results」を開き、保存された成績を確認する。
+
+本射開始前に終了した場合や、大会の射座割を反映していない場合は、大会へ成績を保存しません。
+正常終了後は Lane の割当と通信上の得点データが消去されるため、保存先がないという警告を見落とさないでください。
+
+終了処理が途中で止まった場合は、表示された原因を解消して「Retry cleanup」を使います。
+調査中の資料保全や未完了の中断記録がある場合は、[中断・復旧の手順](./OPERATIONS.md) を確認します。
+
+成績行の「Published」は大会に保存された状態を示します。確認・承認・公式公表は [結果の確認と公表](./RESULTS.md#結果を確認して公表する) へ進んでください。一覧を紙や PDF に残す場合は [成績一覧の印刷](./RESULTS.md#成績一覧を印刷する)、大会全体の保管には [成績冊子と証拠資料](./RESULTS.md#成績冊子と証拠資料を保存する) を参照してください。
+
+## 管理するデータと変更条件
+
+大会・種目・射群と競技の関係は [用語集](../common/GLOSSARY.md#大会と競技の構造) を参照してください。1つの Lane が同時に参加できるのは1競技です。別の競技へ移す前に、現在の参加先と進行状態を確認します。
+
+参加確認や成績保存が一部失敗しても、成功した処理が自動的に取り消されるわけではありません。対象ごとの結果を確認し、原因を解消してから表示された再試行操作を使います。
+
+## 再接続・再起動したとき
+
+同じブローカーへ接続し、「Refresh」で競技・Lane・割当・残り時間を確認します。
+タイマーは元の終了予定時刻から復元されるため、再起動しても持ち時間は最初からには戻りません。
+`timeout` は未実行を意味しないので、操作を連打せず Lane の状態と直前の ACK を確認してください。
+
+復旧の仕組みと外部ブローカーの保存条件は [Retain と復旧](./MQTT_CONTROL.md#retain-と復旧) を参照してください。

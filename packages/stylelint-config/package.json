@@ -13,7 +13,7 @@
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.19.0"
   },
   "main": "index.js",
   "repository": {
@@ -39,11 +39,11 @@
     "fix": "prettier --write ."
   },
   "dependencies": {
-    "stylelint-config-recess-order": "^7.7.0",
-    "stylelint-config-standard": "^39.0.1",
-    "stylelint-config-standard-scss": "^16.0.0"
+    "stylelint-config-recess-order": "^7.8.0",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-standard-scss": "^17.0.0"
   },
   "peerDependencies": {
-    "stylelint": "^16"
+    "stylelint": "^17"
   }
 }

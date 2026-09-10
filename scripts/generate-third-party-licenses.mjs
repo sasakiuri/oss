@@ -12,6 +12,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appDirectories = [
   join(repositoryRoot, "packages", "saika-lane"),
   join(repositoryRoot, "packages", "saika-director"),
+  join(repositoryRoot, "packages", "saika-docs"),
 ];
 const checkOnly = process.argv.includes("--check");
 const selectedWorkspace = process.argv
@@ -82,6 +83,7 @@ const loadProductionDependencyIds = async (appPackage) => {
   }
 
   const dependencyIds = new Set();
+  const dependencyPaths = new Map();
   const visit = (node, fallbackName) => {
     if (!node || node.extraneous === true) {
       return;
@@ -89,7 +91,13 @@ const loadProductionDependencyIds = async (appPackage) => {
 
     const name = node.name ?? fallbackName;
     if (name && node.version && name !== appPackage.name) {
-      dependencyIds.add(`${name}@${node.version}`);
+      const id = `${name}@${node.version}`;
+      dependencyIds.add(id);
+      if (node.path) {
+        const paths = dependencyPaths.get(id) ?? new Set();
+        paths.add(node.path);
+        dependencyPaths.set(id, paths);
+      }
     }
 
     for (const [dependencyName, dependency] of Object.entries(
@@ -107,10 +115,14 @@ const loadProductionDependencyIds = async (appPackage) => {
     );
   }
 
-  return dependencyIds;
+  return { dependencyIds, dependencyPaths };
 };
 
-const loadLicenseRecords = async (dependencyIds, appPackageJsonPath) => {
+const loadLicenseRecords = async (
+  dependencyIds,
+  dependencyPaths,
+  appPackageJsonPath,
+) => {
   const options = {
     replace: {
       doctrine: join(repositoryRoot, "node_modules", "doctrine", "LICENSE"),
@@ -157,6 +169,50 @@ const loadLicenseRecords = async (dependencyIds, appPackageJsonPath) => {
     }
   }
 
+  // npm's production closure can include build-tool peers marked dev by Arborist.
+  // Preserve their notices from the actual installed package when the scanner skips them.
+  const readFirst = async (directory, candidates) => {
+    for (const candidate of candidates) {
+      try {
+        return normalizeText(
+          await readFile(join(directory, candidate), "utf8"),
+        );
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+    return "";
+  };
+  for (const id of dependencyIds) {
+    if (records.has(id)) continue;
+    for (const directory of dependencyPaths.get(id) ?? []) {
+      const content = await readFirst(directory, [
+        "LICENSE",
+        "LICENSE.md",
+        "LICENSE.txt",
+        "LICENCE",
+        "LICENCE.md",
+        "COPYING",
+        "COPYING.md",
+        "COPYING.txt",
+        "license",
+        "license.md",
+        "license.txt",
+      ]);
+      if (!content) continue;
+      const notice = await readFirst(directory, [
+        "NOTICE",
+        "NOTICE.md",
+        "NOTICE.txt",
+        "notice",
+      ]);
+      const notices = notice ? [notice] : [];
+      const recordKey = JSON.stringify([content, notices]);
+      if (records.has(id) && records.get(id).recordKey !== recordKey)
+        throw new Error(`Conflicting license texts were found for ${id}.`);
+      records.set(id, { content, notices, recordKey });
+    }
+  }
   const missing = [...dependencyIds]
     .filter((dependencyId) => !records.has(dependencyId))
     .sort();
@@ -232,8 +288,13 @@ const generateForApplication = async (appDirectory) => {
   const appPackageJsonPath = join(appDirectory, "package.json");
   const reportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
   const appPackage = await readJson(appPackageJsonPath);
-  const dependencyIds = await loadProductionDependencyIds(appPackage);
-  const records = await loadLicenseRecords(dependencyIds, appPackageJsonPath);
+  const { dependencyIds, dependencyPaths } =
+    await loadProductionDependencyIds(appPackage);
+  const records = await loadLicenseRecords(
+    dependencyIds,
+    dependencyPaths,
+    appPackageJsonPath,
+  );
   const report = formatReport(records, appPackage.name);
 
   if (checkOnly) {

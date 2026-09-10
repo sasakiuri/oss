@@ -1,304 +1,304 @@
-# UIテキストレイアウト記法 仕様書 v1.2
+# UI text layout notation specification v1.2
 
-## 1. 目的
+## 1. Purpose
 
-本仕様は、UI 画面・部品・状態・資産をスクリーンショットなしでテキスト表現し、設計・レビュー・差分管理・実装対応を容易にするための統一記法を定義する。
-
----
-
-## 2. 設計方針
-
-- 等幅フォント前提
-- 画面構造、再利用部品、単純要素、資産、状態を区別する
-- 見た目ではなく意味で命名する
-- フレームワーク依存ではなく、MUI / Ant Design / Chakra UI / Bootstrap / Radix 系の主要概念を表現できることを目標とする
-- 生の SVG / JSX / HTML / CSS は本文に埋め込まない
+This specification defines a consistent notation for representing UI screens, components, states, and assets as text without screenshots, making design, review, change tracking, and implementation mapping easier.
 
 ---
 
-## 3. レイヤー
+## 2. Design principles
 
-| レイヤー  | 用途                | 記法例                            |
-| --------- | ------------------- | --------------------------------- |
-| Layout    | 画面構造            | `+---- HEADER ----+`              |
-| Component | 再利用部品          | `<Component: SearchBar>`          |
-| Element   | 単純 UI 要素        | `[保存]`, `<Input: 検索>`         |
-| Asset     | アイコン・画像・SVG | `:search:`, `<SVG: logo>`         |
-| State     | UI状態              | `<Loading...>`, `{success: 有効}` |
+- Assume a monospace font.
+- Distinguish screen structure, reusable components, simple elements, assets, and states.
+- Name things by meaning rather than appearance.
+- Aim to express the main concepts in MUI / Ant Design / Chakra UI / Bootstrap / Radix without depending on a framework.
+- Do not embed raw SVG / JSX / HTML / CSS in the document body.
 
 ---
 
-## 4. 命名規則
+## 3. Layers
 
-| 対象             | ルール     | 例                                  |
-| ---------------- | ---------- | ----------------------------------- |
-| アイコン         | kebab-case | `:chevron-down:`                    |
-| SVG/画像ID       | kebab-case | `<SVG: app-logo>`                   |
-| コンポーネント名 | PascalCase | `<Component: UserTable>`            |
-| インスタンスID   | kebab-case | `<Component#user-table: UserTable>` |
-| スロット名       | kebab-case | `<Slot: footer>`                    |
-
-禁止:
-
-- 絵文字でアイコンを代用しない
-- `Box1` `AreaA` のような意味の弱い名前を使わない
-- 同じ意味に複数記法を混在させない
+| Layer     | Purpose                | Example notation                    |
+| --------- | ---------------------- | ----------------------------------- |
+| Layout    | Screen structure       | `+---- HEADER ----+`                |
+| Component | Reusable components    | `<Component: SearchBar>`            |
+| Element   | Simple UI elements     | `[Save]`, `<Input: Search>`         |
+| Asset     | Icons, images, and SVG | `:search:`, `<SVG: logo>`           |
+| State     | UI states              | `<Loading...>`, `{success: Active}` |
 
 ---
 
-## 5. レイアウト記法
+## 4. Naming conventions
 
-### 5.1 画面
+| Target          | Rule       | Example                             |
+| --------------- | ---------- | ----------------------------------- |
+| Icons           | kebab-case | `:chevron-down:`                    |
+| SVG/image IDs   | kebab-case | `<SVG: app-logo>`                   |
+| Component names | PascalCase | `<Component: UserTable>`            |
+| Instance IDs    | kebab-case | `<Component#user-table: UserTable>` |
+| Slot names      | kebab-case | `<Slot: footer>`                    |
+
+Prohibited:
+
+- Do not substitute emoji for icons.
+- Do not use names with little meaning, such as `Box1` or `AreaA`.
+- Do not mix multiple notations for the same meaning.
+
+---
+
+## 5. Layout notation
+
+### 5.1 Screen
 
 ```text
-+---------------- SCREEN: ユーザー管理 ----------------+
++---- SCREEN: User management -------------------------+
 |                                                      |
 +------------------------------------------------------+
 ```
 
-### 5.2 標準領域
+### 5.2 Standard regions
 
 ```text
-+---------------- HEADER ------------------------------+
++---- HEADER ------------------------------------------+
 |                                                      |
-+---------------- BODY --------------------------------+
++---- BODY --------------------------------------------+
 |                                                      |
-+---------------- FOOTER ------------------------------+
++---- FOOTER ------------------------------------------+
 |                                                      |
 +------------------------------------------------------+
 ```
 
-### 5.3 分割
+### 5.3 Split layout
 
 ```text
-+---------------- BODY --------------------------------+
-| +---- SIDEBAR ----+ +----------- MAIN ------------+  |
-| |                 | |                             |  |
-| +-----------------+ +-----------------------------+  |
++---- BODY --------------------------------------------+
+| +---- SIDEBAR -----+ +---- MAIN -------------------+ |
+| |                  | |                             | |
+| +------------------+ +-----------------------------+ |
 +------------------------------------------------------+
 ```
 
-### 5.4 グループ
+### 5.4 Group
 
 ```text
-+---------------- FILTER ------------------------------+
-| <Input: キーワード> [検索]                           |
-| <Select: 状態>                                       |
++---- FILTER ------------------------------------------+
+| <Input: Keyword> [Search]                            |
+| <Select: Status>                                     |
 +------------------------------------------------------+
 ```
 
 ---
 
-## 6. 基本 UI 要素
+## 6. Basic UI elements
 
-### 6.1 テキスト
+### 6.1 Text
 
 ```text
-"ラベル"
+"Label"
 ```
 
-### 6.2 ボタン
+### 6.2 Button
 
 ```text
-[保存]
-[削除!]
+[Save]
+[Delete!]
 [Button disabled]
 ```
 
-### 6.3 アイコンボタン
+### 6.3 Icon button
 
 ```text
 [icon: :menu:]
 [icon!: :trash:]
 ```
 
-### 6.4 入力欄
+### 6.4 Input
 
 ```text
 <Input>
-<Input: ユーザー名>
+<Input: Username>
 <Input disabled>
 ```
 
-### 6.5 テキストエリア
+### 6.5 Text area
 
 ```text
-<Textarea: 備考>
+<Textarea: Notes>
 ```
 
-### 6.6 セレクト
+### 6.6 Select
 
 ```text
-<Select: 状態>
-<Select: 有効 | 無効>
+<Select: Status>
+<Select: Active | Inactive>
 ```
 
-### 6.7 オートコンプリート / コンボボックス
+### 6.7 Autocomplete / combobox
 
 ```text
-<Combobox: 担当者>
-<Autocomplete: 顧客検索>
+<Combobox: Assignee>
+<Autocomplete: Customer search>
 ```
 
-### 6.8 チェックボックス
+### 6.8 Checkbox
 
 ```text
-[ ] 利用規約に同意
-[x] メール通知を受け取る
-[-] 一部選択
+[ ] Agree to the terms of service
+[x] Receive email notifications
+[-] Partially selected
 ```
 
-### 6.9 ラジオボタン
+### 6.9 Radio button
 
 ```text
-(o) 有効
-( ) 無効
+(o) Active
+( ) Inactive
 ```
 
-### 6.10 スイッチ / トグル
+### 6.10 Switch / toggle
 
 ```text
 <Toggle: ON>
 <Toggle: OFF>
-通知設定 <Toggle: ON>
+Notifications <Toggle: ON>
 ```
 
-### 6.11 スライダー
+### 6.11 Slider
 
 ```text
 <Slider: 0..100 value=40>
 <RangeSlider: 10..80>
 ```
 
-### 6.12 レーティング
+### 6.12 Rating
 
 ```text
 <Rating: 4/5>
 ```
 
-### 6.13 タブ
+### 6.13 Tabs
 
 ```text
-[Tab active: 一覧] [Tab: 詳細] [Tab: 設定]
+[Tab active: List] [Tab: Details] [Tab: Settings]
 ```
 
-### 6.14 パンくず
+### 6.14 Breadcrumbs
 
 ```text
-<Breadcrumb> [ホーム] / [管理] / "ユーザー一覧" </Breadcrumb>
+<Breadcrumb> [Home] / [Administration] / "User list" </Breadcrumb>
 ```
 
-### 6.15 ページネーション
+### 6.15 Pagination
 
 ```text
 << < 1 2 3 4 > >>
 ```
 
-### 6.16 ステッパー
+### 6.16 Stepper
 
 ```text
-<Stepper: 1.基本情報 -> 2.確認 -> 3.完了>
+<Stepper: 1.Basic information -> 2.Review -> 3.Complete>
 ```
 
-### 6.17 バッジ / チップ / タグ
+### 6.17 Badge / chip / tag
 
 ```text
-{success: 有効}
-<Chip: 開発中>
+{success: Active}
+<Chip: In development>
 <Tag: Tokyo>
 ```
 
-### 6.18 アバター
+### 6.18 Avatar
 
 ```text
-<Avatar: 山田太郎>
+<Avatar: Taro Yamada>
 <Avatar img="user01.png">
 ```
 
-### 6.19 ツールチップ
+### 6.19 Tooltip
 
 ```text
-<Tooltip: 保存すると確定します>
+<Tooltip: Save to confirm>
 ```
 
 ---
 
-## 7. データ表示系
+## 7. Data display
 
-### 7.1 テーブル
+### 7.1 Table
 
 ```text
 |Table|
-| ID | 名前 | 状態 | 操作 |
-|----|------|------|------|
-| 1  | 山田 | 有効 | [編集] |
+| ID | Name   | Status | Actions |
+|----|--------|--------|---------|
+| 1  | Yamada | Active | [Edit]  |
 ```
 
-### 7.2 データグリッド
+### 7.2 Data grid
 
 ```text
 <DataGrid>
- columns: ID | 名前 | 状態 | 更新日
+ columns: ID | Name | Status | Updated
  features: sort, filter, paginate, resize, pin
 </DataGrid>
 ```
 
-### 7.3 リスト
+### 7.3 List
 
 ```text
 <List>
- - :user: 山田太郎
- - :user: 佐藤花子
+ - :user: Taro Yamada
+ - :user: Hanako Sato
 </List>
 ```
 
-### 7.4 説明リスト
+### 7.4 Description list
 
 ```text
 <DescriptionList>
- 名前: 山田太郎
- 状態: 有効
+ Name: Taro Yamada
+ Status: Active
 </DescriptionList>
 ```
 
-### 7.5 カード
+### 7.5 Card
 
 ```text
 <Card>
- タイトル
- 説明文
- [詳細]
+ Title
+ Description
+ [Details]
 </Card>
 ```
 
-### 7.6 アコーディオン
+### 7.6 Accordion
 
 ```text
 <Accordion>
- [Section: 詳細条件]
+ [Section: Advanced filters]
 </Accordion>
 ```
 
-### 7.7 ツリー
+### 7.7 Tree
 
 ```text
 <Tree>
- - 親
-   - 子A
-   - 子B
+ - Parent
+   - Child A
+   - Child B
 </Tree>
 ```
 
-### 7.8 タイムライン
+### 7.8 Timeline
 
 ```text
 <Timeline>
- - 2026-03-01 作成
- - 2026-03-05 承認
+ - 2026-03-01 Created
+ - 2026-03-05 Approved
 </Timeline>
 ```
 
-### 7.9 カルーセル
+### 7.9 Carousel
 
 ```text
 <Carousel>
@@ -306,7 +306,7 @@
 </Carousel>
 ```
 
-### 7.10 チャート
+### 7.10 Chart
 
 ```text
 <Chart: line>
@@ -316,82 +316,82 @@
 
 ---
 
-## 8. フィードバック / オーバーレイ
+## 8. Feedback / overlays
 
-### 8.1 アラート
-
-```text
-<Alert: success> 保存しました
-<Alert: warning> 未入力項目があります
-<Alert: error> エラーが発生しました
-<Alert: info> 参考情報です
-```
-
-### 8.2 トースト / スナックバー
+### 8.1 Alert
 
 ```text
-<Toast: success> 保存しました
-<Snackbar: error> 通信失敗
+<Alert: success> Saved
+<Alert: warning> Some fields are empty
+<Alert: error> An error occurred
+<Alert: info> Additional information
 ```
 
-### 8.3 ダイアログ / モーダル
+### 8.2 Toast / snackbar
 
 ```text
-*Modal: 削除確認*
--------------------------
-本当に削除しますか？
-[キャンセル] [削除!]
--------------------------
+<Toast: success> Saved
+<Snackbar: error> Connection failed
 ```
 
-### 8.4 ドロワー / シート
+### 8.3 Dialog / modal
+
+```text
+*Modal: Confirm deletion*
+--------------------------------
+Are you sure you want to delete?
+[Cancel] [Delete!]
+--------------------------------
+```
+
+### 8.4 Drawer / sheet
 
 ```text
 <Drawer: right>
-  [設定]
+  [Settings]
 </Drawer>
 
 <Sheet: bottom>
-  "モバイル操作"
+  "Mobile actions"
 </Sheet>
 ```
 
-### 8.5 ポップオーバー
+### 8.5 Popover
 
 ```text
 <Popover>
-  "補助操作"
+  "Additional actions"
 </Popover>
 ```
 
-### 8.6 メニュー
+### 8.6 Menu
 
 ```text
 <Menu>
- - 編集
- - 複製
- - 削除
+ - Edit
+ - Duplicate
+ - Delete
 </Menu>
 ```
 
-### 8.7 コンテキストメニュー
+### 8.7 Context menu
 
 ```text
 <ContextMenu>
- - 開く
- - 名前変更
- - 削除
+ - Open
+ - Rename
+ - Delete
 </ContextMenu>
 ```
 
 ---
 
-## 9. ナビゲーション
+## 9. Navigation
 
 ```text
-[Nav: :home: ダッシュボード]
-[Nav active: :users: ユーザー]
-[Nav: :settings: 設定]
+[Nav: :home: Dashboard]
+[Nav active: :users: Users]
+[Nav: :settings: Settings]
 ```
 
 ```text
@@ -404,19 +404,19 @@
 
 ---
 
-## 10. 日付・時刻・選択系
+## 10. Date, time, and selection controls
 
 ```text
-<DatePicker: 開始日>
-<TimePicker: 開始時刻>
-<DateTimePicker: 予約日時>
-<DateRangePicker: 期間>
+<DatePicker: Start date>
+<TimePicker: Start time>
+<DateTimePicker: Reservation date and time>
+<DateRangePicker: Date range>
 <Calendar>
 ```
 
 ```text
 <FileUpload>
-  [ファイルを選択]
+  [Choose file]
 </FileUpload>
 ```
 
@@ -430,9 +430,9 @@
 
 ---
 
-## 11. 資産記法
+## 11. Asset notation
 
-### 11.1 アイコン
+### 11.1 Icons
 
 ```text
 :search:
@@ -442,7 +442,7 @@
 :warning:
 ```
 
-### 11.2 SVG / 画像
+### 11.2 SVG / images
 
 ```text
 <SVG: logo>
@@ -450,7 +450,7 @@
 <Image: hero-banner 1280x320>
 ```
 
-状態付き:
+With states:
 
 ```text
 <SVG muted: logo>
@@ -458,7 +458,7 @@
 <SVG interactive: node-graph>
 ```
 
-禁止:
+Prohibited:
 
 ```text
 <svg> ... </svg>
@@ -466,48 +466,48 @@
 
 ---
 
-## 12. コンポーネント記法
+## 12. Component notation
 
-### 12.1 基本
+### 12.1 Basics
 
 ```text
 <Component: SearchBar>
 <Component: UserTable>
 ```
 
-### 12.2 props
+### 12.2 Props
 
 ```text
 <Component: Button variant=primary size=md>
 <Component: Badge status=success>
-<Component: Modal title="削除確認">
+<Component: Modal title="Confirm deletion">
 ```
 
-### 12.3 インスタンス
+### 12.3 Instances
 
 ```text
 <Component#user-search: SearchBar>
 <Component#main-table: DataTable>
 ```
 
-### 12.4 スロット
+### 12.4 Slots
 
 ```text
 <Component: Modal>
-  <Slot: header> "削除確認" </Slot>
-  <Slot: body> "本当に削除しますか？" </Slot>
-  <Slot: footer> [キャンセル] [削除!] </Slot>
+  <Slot: header> "Confirm deletion" </Slot>
+  <Slot: body> "Are you sure you want to delete?" </Slot>
+  <Slot: footer> [Cancel] [Delete!] </Slot>
 </Component>
 ```
 
 ---
 
-## 13. 状態記法
+## 13. State notation
 
 ```text
 <Loading...>
 <Skeleton>
-<Empty: データがありません>
+<Empty: No data available>
 <Disabled>
 <Readonly>
 <Selected>
@@ -520,7 +520,7 @@
 <Required>
 ```
 
-非同期状態:
+Asynchronous states:
 
 ```text
 <Idle>
@@ -531,7 +531,7 @@
 
 ---
 
-## 14. レスポンシブ記法
+## 14. Responsive notation
 
 ```text
 <Breakpoint: mobile>
@@ -539,7 +539,7 @@
 <Breakpoint: desktop>
 ```
 
-例:
+Example:
 
 ```text
 <Responsive>
@@ -550,71 +550,68 @@
 
 ---
 
-## 15. アクセシビリティ注記
+## 15. Accessibility annotations
 
 ```text
 <A11y>
- label: "ユーザー検索"
+ label: "Search users"
  role: searchbox
- describedby: "検索条件を入力"
+ describedby: "Enter search criteria"
  keyboard: tab/enter/esc
 </A11y>
 ```
 
-必要時のみ記述する。
+Include these only when needed.
 
 ---
 
-## 16. 実用サンプル
+## 16. Practical example
 
 ```text
-+---------------- SCREEN: ユーザー管理 ----------------+
++---- SCREEN: User management ------------------------------------------------------+
 
-+---------------- HEADER -----------------------------+
-| <SVG: app-logo 120x32>              [icon: :bell:] |
-| "ユーザー管理"                      [icon: :menu:] |
-+----------------------------------------------------+
++---- HEADER -----------------------------------------------------------------------+
+| <SVG: app-logo 120x32>                                             [icon: :bell:] |
+| "User management"                                                  [icon: :menu:] |
++-----------------------------------------------------------------------------------+
 
-+---------------- BODY -------------------------------+
-| +---- SIDEBAR ----+ +---------------- MAIN -------+ |
-| | [Nav: :home: ダッシュボード]                    | |
-| | [Nav active: :users: ユーザー]                  | |
-| | [Nav: :settings: 設定]                          | |
-| +-----------------+ +-----------------------------+ |
-|                     | <Component#user-search: SearchBar> |
-|                     |   <Input: キーワード>      | |
-|                     |   <Select: 状態>          | |
-|                     |   [icon: :search:]        | |
-|                     | </Component>              | |
-|                     |                           | |
-|                     | <DataGrid>                | |
-|                     |  columns: 名前 | 状態 | 操作 | |
-|                     |  features: sort, filter, paginate |
-|                     | </DataGrid>               | |
-|                     |                           | |
-|                     | <Toast: success> 保存しました | |
-+----------------------------------------------------+
++---- BODY -------------------------------------------------------------------------+
+| +---- SIDEBAR -----------------+ +---- MAIN ------------------------------------+ |
+| | [Nav: :home: Dashboard]      | | <Component#user-search: SearchBar>           | |
+| | [Nav active: :users: Users]  | |   <Input: Keyword>                           | |
+| | [Nav: :settings: Settings]   | |   <Select: Status>                           | |
+| |                              | |   [icon: :search:]                           | |
+| |                              | | </Component>                                 | |
+| |                              | |                                              | |
+| |                              | | <DataGrid>                                   | |
+| |                              | |  columns: Name | Status | Actions            | |
+| |                              | |  features: sort, filter, paginate            | |
+| |                              | | </DataGrid>                                  | |
+| |                              | |                                              | |
+| |                              | | <Toast: success> Saved                       | |
+| +------------------------------+ +----------------------------------------------+ |
++-----------------------------------------------------------------------------------+
 
-+---------------- FOOTER -----------------------------+
-| "© 2026 Company"                                   |
-+----------------------------------------------------+
++---- FOOTER -----------------------------------------------------------------------+
+| "© 2026 Company"                                                                  |
++-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 17. 運用ルール
+## 17. Usage rules
 
-- 仕様書、PR、レビューコメントで同一記法を使う
-- 見た目の完全再現ではなく、構造・役割・状態・操作を優先する
-- フレームワーク固有名は必要な場合のみ注記し、本文は中立記法を保つ
-- 複雑な画面は「全体レイアウト」→「主要コンポーネント詳細」→「状態差分」の順で記述する
-- デザインシステム導入時は、社内コンポーネント名との対応表を別紙で持つ
+- Use the same notation in specifications, PRs, and review comments.
+- Prioritize structure, roles, states, and actions over exact visual reproduction.
+- Annotate framework-specific names only when necessary, keeping the body notation neutral.
+- Describe complex screens in this order: overall layout, main component details, then state differences.
+- When adopting a design system, maintain a separate mapping to internal component names.
 
 ---
 
-## 18. 対応範囲メモ
+## 18. Coverage notes
 
-本仕様は、一般的な UI ライブラリに見られる以下の類型を表現対象とする。
+This specification covers the following categories commonly found in UI libraries:
 
 - layout
 - navigation
@@ -629,15 +626,15 @@
 
 ---
 
-## 19. 非対象
+## 19. Out of scope
 
-- ピクセル単位の精密再現
-- アニメーションの時系列詳細
-- 生SVGや生CSSの完全表現
-- 実装コードそのものの代替
+- Pixel-perfect reproduction
+- Detailed animation timelines
+- Complete representation of raw SVG or CSS
+- Replacing implementation code itself
 
 ---
 
-## 20. 版管理
+## 20. Version history
 
-- v1.2: MUI / Ant Design / Chakra UI / Bootstrap / Radix 系の主要パターンを踏まえ、データグリッド、ピッカー、トースト、ドロワー、ポップオーバー、レスポンシブ、アクセシビリティ記法を追加
+- v1.2: Added notation for data grids, pickers, toasts, drawers, popovers, responsiveness, and accessibility, based on the main patterns in MUI / Ant Design / Chakra UI / Bootstrap / Radix.

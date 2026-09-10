@@ -8,6 +8,7 @@ const config = {
       [
         "saika-lane",
         "saika-director",
+        "saika-docs",
         "eslint-config",
         "prettier-config",
         "stylelint-config",

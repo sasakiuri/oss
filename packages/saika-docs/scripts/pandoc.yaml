@@ -1,0 +1,16 @@
+from: markdown+tex_math_dollars
+standalone: true
+toc: true
+number-sections: true
+variables:
+  documentclass: bxjsarticle
+  classoption: pandoc
+  mainfont: Noto Sans CJK JP
+  monofont: Noto Sans Mono CJK JP
+  CJKmainfont: Noto Sans CJK JP
+  geometry: margin=20mm
+  fontsize: 10pt
+  colorlinks: true
+  header-includes:
+    - '\usepackage{fvextra}'
+    - '\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines,breakanywhere}'

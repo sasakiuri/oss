@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -17,6 +17,9 @@ describe('packaged license verifier', () => {
       const dependencyDirectory = join(sourceDirectory, 'node_modules', '@babel', 'runtime');
       const resourcesDirectory = join(temporaryRoot, 'resources');
       const archivePath = join(resourcesDirectory, 'app.asar');
+      const licenseReport = await readFile(join(applicationRoot, 'THIRD-PARTY-LICENSES.txt'), 'utf8');
+      const runtimeVersion = licenseReport.match(/ - @babel\/runtime@([^\s]+)/)?.[1];
+      expect(runtimeVersion).toBeDefined();
 
       await Promise.all([
         mkdir(dependencyDirectory, { recursive: true }),
@@ -24,7 +27,7 @@ describe('packaged license verifier', () => {
       ]);
       await writeFile(
         join(dependencyDirectory, 'package.json'),
-        JSON.stringify({ name: '@babel/runtime', version: '7.28.6' }),
+        JSON.stringify({ name: '@babel/runtime', version: runtimeVersion }),
       );
       await createPackage(sourceDirectory, archivePath);
       await Promise.all([

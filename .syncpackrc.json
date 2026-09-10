@@ -7,6 +7,24 @@
       "dependencies": ["@sasakiuri/**"],
       "dependencyTypes": ["dev", "prod"],
       "pinVersion": "*"
+    },
+    {
+      "label": "Next.js reference app maintains its web toolchain independently of Electron",
+      "packages": ["@sasakiuri/saika-docs"],
+      "dependencies": [
+        "@types/node",
+        "@vitejs/plugin-react",
+        "jsdom",
+        "tailwindcss",
+        "typescript",
+        "vite",
+        "vitest",
+        "prettier-plugin-tailwindcss",
+        "@playwright/test",
+        "@axe-core/playwright",
+        "lucide-react",
+        "stylelint"
+      ]
     }
   ],
   "semverGroups": [

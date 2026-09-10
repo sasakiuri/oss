@@ -1,0 +1,7 @@
+.generated/
+.next/
+out/
+storybook-static/
+.lighthouseci/
+.lighthouse.reports/
+reports/

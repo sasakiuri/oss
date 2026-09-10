@@ -1,0 +1,37 @@
+name: Publish requested docs report comment
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Existing PR to receive the report
+        required: true
+        type: number
+      run_id:
+        description: Successful Docs workflow run ID
+        required: true
+        type: number
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+jobs:
+  comment:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Link the verified report run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+          PR_NUMBER: ${{ inputs.pull_request }}
+        run: |
+          gh api "repos/$GH_REPO/actions/runs/$RUN_ID" > run.json
+          python3 - <<'PYCODE'
+          import json, os
+          run = json.load(open('run.json'))
+          if run['conclusion'] != 'success': raise SystemExit('The selected run did not pass')
+          if not any(pr['number'] == int(os.environ['PR_NUMBER']) for pr in run.get('pull_requests', [])): raise SystemExit('Run does not belong to the selected PR')
+          with open('body.md', 'w') as output:
+              output.write('Docs の検証が通過しました。カバレッジ・Lighthouse・ブラウザ検証の詳細は [検証結果と成果物](' + run['html_url'] + ') を参照してください。\n')
+          PYCODE
+          gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file body.md

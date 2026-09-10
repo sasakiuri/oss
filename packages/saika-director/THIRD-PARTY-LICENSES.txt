@@ -3,11 +3,11 @@ THIRD-PARTY SOFTWARE NOTICES
 This file is generated from the installed production dependency closure of
 @sasakiuri/saika-director. Do not edit it manually.
 
-Package/version entries: 76
+Package/version entries: 73
 
 The following npm package may be included in this product:
 
- - @babel/runtime@7.28.6
+ - @babel/runtime@7.29.7
 
 This package contains the following license:
 
@@ -139,9 +139,9 @@ SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - @types/node@24.13.3
- - @types/react@19.2.14
- - @types/readable-stream@4.0.23
+ - @types/node@24.13.4
+ - @types/react@19.3.0
+ - @types/readable-stream@4.0.24
  - @types/ws@8.18.1
 
 These packages each contain the following license:
@@ -202,10 +202,9 @@ SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - aedes-packet@3.0.0
  - aedes-packet@4.0.1
  - aedes-persistence@10.3.1
- - aedes@1.1.1
+ - aedes@1.1.2
 
 These packages each contain the following license:
 
@@ -294,12 +293,11 @@ SOFTWARE.
 
 -----------
 
-The following npm packages may be included in this product:
+The following npm package may be included in this product:
 
- - bl@4.1.0
  - bl@6.1.6
 
-These packages each contain the following license:
+This package contains the following license:
 
 The MIT License (MIT)
 =====================
@@ -319,12 +317,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 The following npm packages may be included in this product:
 
- - broker-factory@3.1.13
- - fast-unique-numbers@9.0.26
- - worker-factory@7.0.48
- - worker-timers-broker@8.0.15
- - worker-timers-worker@9.0.13
- - worker-timers@8.0.30
+ - broker-factory@3.1.15
+ - fast-unique-numbers@9.0.27
+ - worker-factory@7.0.50
+ - worker-timers-broker@8.0.18
+ - worker-timers-worker@9.0.15
+ - worker-timers@8.0.34
 
 These packages each contain the following license:
 
@@ -382,12 +380,11 @@ SOFTWARE.
 
 -----------
 
-The following npm packages may be included in this product:
+The following npm package may be included in this product:
 
- - buffer@5.7.1
  - buffer@6.0.3
 
-These packages each contain the following license:
+This package contains the following license:
 
 The MIT License (MIT)
 
@@ -662,7 +659,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 The following npm package may be included in this product:
 
- - ip-address@10.5.0
+ - ip-address@10.7.0
 
 This package contains the following license:
 
@@ -817,12 +814,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 -----------
 
-The following npm packages may be included in this product:
+The following npm package may be included in this product:
 
- - mqtt-packet@7.1.2
  - mqtt-packet@9.0.2
 
-These packages each contain the following license:
+This package contains the following license:
 
 The MIT License (MIT)
 =====================
@@ -1091,9 +1087,10 @@ THE SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - react-dom@19.2.4
- - react@19.2.4
- - scheduler@0.27.0
+ - react-dom@19.3.0
+ - react@19.3.0
+ - scheduler@0.28.0
+ - use-sync-external-store@1.7.0
 
 These packages each contain the following license:
 
@@ -1294,7 +1291,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The following npm package may be included in this product:
 
- - socks@2.8.7
+ - socks@2.8.10
 
 This package contains the following license:
 
@@ -1532,7 +1529,7 @@ THE SOFTWARE.
 
 The following npm package may be included in this product:
 
- - zod@4.4.3
+ - zod@4.6.1
 
 This package contains the following license:
 

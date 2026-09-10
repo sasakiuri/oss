@@ -63,7 +63,8 @@ npx turbo fix
 
 - [Saika Lane README](packages/saika-lane/) -- detailed setup, architecture, and usage
 - [Saika Director README](packages/saika-director/) -- Director setup and MQTT control workflow
-- [Saika Docs](packages/saika-docs/) -- specifications, MQTT design, scoring data, and migration notices
+- [Saika Docs](packages/saika-docs/) -- manuals and technical documentation; run
+  `npm run dev --workspace=@sasakiuri/saika-docs` and open `http://localhost:5175`
 - [Minimal appliance OS](docs/minimal-appliance-os.md) -- proposed Debian kiosk configuration with audio, printing, and MQTT
 - [Contributing Guide](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)

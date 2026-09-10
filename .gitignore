@@ -294,3 +294,9 @@ TODO.md
 # ============================================
 logs/
 logs/*.csv
+
+# Local development helpers and generated scratch files.
+!/.dockerignore
+.tools/
+.local/
+AGENTS.local.md
