@@ -47,3 +47,4 @@ Proposed --> Accepted --> Deprecated
 | [0013](0013-lane-settings-document-boundaries.md)           | Lane Settings Document Boundaries                    | Proposed |
 | [0014](0014-target-examination-workspace-boundaries.md)     | Target Examination Workspace Boundaries              | Proposed |
 | [0015](0015-nextjs-documentation-reference.md)              | Next.js Documentation Reference                      | Accepted |
+| [0016](0016-vista-display-architecture.md)                  | Independent Vista Spectator Application               | Accepted |

@@ -29,6 +29,10 @@ description: 操作ガイド、機器の受信互換仕様、競技・帳票の�
 | 競技と帳票         | [競技種別定義](./common/COMPETITION_TYPES.md)、[標的・採点データ](./common/TARGET_SPEC.md)、[帳票仕様](./common/PRINT_SPEC.md)                         |
 | 成績照合の入力     | [独立バックアップの取込形式](./director/EST_BACKUP.md)：JSON・CSV・TSV、照合キー、得点単位、エラー対応                                                 |
 
+## 計画中の製品
+
+- [Saika Vista 要件定義](./vista/REQUIREMENTS.md)：観客表示アプリの要件定義。確定条件・提案・未決事項を整理した設計用文書。
+
 ## 権利・出典
 
 - [第三者表示と免責](./NOTICE.md)
