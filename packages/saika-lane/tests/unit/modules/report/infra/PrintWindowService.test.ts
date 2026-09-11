@@ -34,6 +34,7 @@ describe('PrintWindowService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsDestroyed.mockReturnValue(false);
     delete process.env.VITE_DEV_SERVER_URL;
   });
 
@@ -81,7 +82,7 @@ describe('PrintWindowService', () => {
 
     await service.open('session with spaces');
 
-    expect(mockLoadURL).toHaveBeenCalledWith(expect.stringContaining('sessionId=session%20with%20spaces'));
+    expect(mockLoadURL).toHaveBeenCalledWith(expect.stringContaining('sessionId=session+with+spaces'));
   });
 
   it('should register a closed event handler', async () => {

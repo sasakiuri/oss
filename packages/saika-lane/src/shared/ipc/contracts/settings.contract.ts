@@ -71,10 +71,20 @@ const AppSettingsInputMqttSchema = z.object({
   laneId: z.string().uuid().optional(),
 });
 
+export const PrintSettingsSchema = z.object({
+  deviceName: z.string().default(''),
+  pageSize: z.enum(['A4', 'A5', 'Letter', 'Legal']).default('A4'),
+  landscape: z.boolean().default(false),
+  copies: z.number().int().min(1).max(99).default(1),
+  color: z.boolean().default(false),
+  duplexMode: z.enum(['simplex', 'shortEdge', 'longEdge']).default('simplex'),
+});
+
 export const AppSettingsInputSchema = z.object({
   connection: AppSettingsInputConnectionSchema,
   userPreferences: AppSettingsInputUserPreferencesSchema,
   mqtt: AppSettingsInputMqttSchema,
+  printing: PrintSettingsSchema.optional(),
 });
 
 const PersistedConnectionSettingsSchema = z.object({
@@ -108,6 +118,7 @@ const PersistedMqttSettingsDraftSchema = z.object({
 });
 
 export const AppSettingsDraftSchema = z.object({
+  printing: PrintSettingsSchema.default(() => PrintSettingsSchema.parse({})),
   connection: PersistedConnectionSettingsSchema.default(() => ({
     portName: '',
     manufacturer: 'KOHTO' as const,
@@ -131,6 +142,7 @@ export const AppSettingsDraftSchema = z.object({
 });
 
 export const AppSettingsSchema = z.object({
+  printing: PrintSettingsSchema.default(() => PrintSettingsSchema.parse({})),
   connection: PersistedConnectionSettingsSchema,
   userPreferences: PersistedUserPreferencesSchema,
   mqtt: PersistedMqttSettingsDraftSchema.extend({
@@ -163,6 +175,7 @@ const SaveAppSettingsInputSchema = z.object({
 // ============================================================
 
 export const settingsContract = defineContract('settings', {
+  savePrintSettings: command(z.object({ settings: PrintSettingsSchema }), CommandResponseSchema),
   saveConnectionSettings: command(SaveConnectionSettingsInputSchema, CommandResponseSchema, {
     channel: 'settings:save-connection-settings',
   }),
@@ -191,6 +204,7 @@ export const settingsContract = defineContract('settings', {
 // ============================================================
 
 export type ConnectionSettingsDto = z.infer<typeof ConnectionSettingsSchema>;
+export type PrintSettingsDto = z.infer<typeof PrintSettingsSchema>;
 export type UserPreferencesDto = z.infer<typeof UserPreferencesSchema>;
 export type AppSettingsInputDto = z.infer<typeof AppSettingsInputSchema>;
 export type AppSettingsDto = z.infer<typeof AppSettingsSchema>;

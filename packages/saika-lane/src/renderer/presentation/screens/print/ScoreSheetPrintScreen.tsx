@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { reportService } from '@/renderer/services/reportService';
-import type { ScoreSheetDto } from '@/shared/ipc/contracts';
+import { PrintSettingsSchema, type ScoreSheetDto } from '@/shared/ipc/contracts';
 
 import { ScoreSheet } from './components/ScoreSheet';
 
@@ -20,6 +20,25 @@ export function ScoreSheetPrintScreen() {
   // Retrieve sessionId from URL query parameters
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get('sessionId');
+  const autoPrint = params.get('autoPrint') === 'true';
+  const pageSizeResult = PrintSettingsSchema.shape.pageSize.safeParse(params.get('pageSize'));
+  const pageSize = pageSizeResult.success ? pageSizeResult.data : 'A4';
+  const orientation = params.get('landscape') === 'true' ? 'landscape' : 'portrait';
+
+  // Child canvases draw in layout effects. Wait for fonts before notifying the print owner.
+  useEffect(() => {
+    if (!autoPrint || loading) return;
+    let cancelled = false;
+    void (async () => {
+      await document.fonts.ready;
+      if (!cancelled) await reportService.printReady(error ? { error: error.slice(0, 2000) } : {});
+    })().catch((err: unknown) => {
+      if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to prepare printing');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [autoPrint, loading, error]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -74,6 +93,7 @@ export function ScoreSheetPrintScreen() {
 
   return (
     <div className="print-container">
+      <style>{`@page { size: ${pageSize} ${orientation}; }`}</style>
       <div className="print-preview-controls no-print">
         <button
           onClick={handlePrint}

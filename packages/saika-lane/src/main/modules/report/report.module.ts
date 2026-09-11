@@ -5,6 +5,8 @@
  * Registers command/query handlers and IPC handlers related to report printing.
  */
 
+import type { IpcMainInvokeEvent } from 'electron';
+
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { GetScoreSheetToken, OpenPrintWindowToken } from '@/main/composition/tokens';
 import { reportContract } from '@/shared/ipc/contracts';
@@ -41,6 +43,12 @@ export const reportModule: ModuleDefinition<ReportDeps> = {
     );
 
     const reportHandlers: InferHandlers<typeof reportContract> = {
+      listPrinters: async () => printWindowService.listPrinters(),
+      printReady: async (input, event) => {
+        const { sender, senderFrame } = event as IpcMainInvokeEvent;
+        if (senderFrame !== sender.mainFrame) return;
+        printWindowService.markReady(sender.id, input.error);
+      },
       getScoreSheet: async (input) => {
         return await queryBus.execute(GetScoreSheetToken, {
           sessionId: input.sessionId,

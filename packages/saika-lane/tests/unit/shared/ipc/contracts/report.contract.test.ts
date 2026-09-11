@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { reportContract } from '@/shared/ipc/contracts/report.contract';
 
 describe('reportContract', () => {
-  it('has 1 command and 1 query', () => {
+  it('has 2 commands and 2 queries', () => {
     const procs = reportContract.procedures;
     const commands = Object.values(procs).filter((p) => p.kind === 'command');
     const queries = Object.values(procs).filter((p) => p.kind === 'query');
 
-    expect(commands).toHaveLength(1);
-    expect(queries).toHaveLength(1);
+    expect(commands).toHaveLength(2);
+    expect(queries).toHaveLength(2);
   });
 
   it('has the expected channel names configured', () => {

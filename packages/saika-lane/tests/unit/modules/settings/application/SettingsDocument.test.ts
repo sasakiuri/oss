@@ -4,6 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { normalizeSettingsDraft, toLegacyUserPreferences } from '@/main/modules/settings/application/SettingsDocument';
 
 describe('settings document normalization', () => {
+  it('disables direct printing when persisted options are invalid', () => {
+    expect(normalizeSettingsDraft({ printing: { deviceName: 'queue-1', copies: 0 } }).printing.deviceName).toBe('');
+  });
+
   it('migrates device-dependent preferences once without changing the supplied document', () => {
     const input = Object.freeze({
       connection: Object.freeze({ portName: 'COM10', manufacturer: 'KOHTO', deviceId: 'BP216' }),

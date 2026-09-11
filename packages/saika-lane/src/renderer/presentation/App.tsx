@@ -30,7 +30,7 @@ import { useSavedSettingsRestore } from '@/renderer/presentation/hooks/useSavedS
 import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { MainScreen } from '@/renderer/presentation/screens/MainScreen';
 import { SplashScreen } from '@/renderer/presentation/screens/SplashScreen';
-import { reportService } from '@/renderer/services/reportService';
+import { usePrintStore } from '@/renderer/presentation/stores/printStore';
 import { windowService } from '@/renderer/services/windowService';
 import type { ElectronAPI } from '@/shared/types';
 
@@ -58,7 +58,7 @@ function App() {
 
   const handlePrint = useCallback(async () => {
     if (!currentSessionId) return;
-    await reportService.openPrintWindow({ sessionId: currentSessionId });
+    await usePrintStore.getState().print(currentSessionId);
   }, [currentSessionId]);
 
   const handleToggleFullscreen = useCallback(async () => {

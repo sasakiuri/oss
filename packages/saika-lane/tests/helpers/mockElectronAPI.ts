@@ -23,6 +23,7 @@ export interface MockedElectronAPI {
     getShotHistory: ReturnType<typeof vi.fn>;
   };
   settings: {
+    savePrintSettings: ReturnType<typeof vi.fn>;
     saveConnectionSettings: ReturnType<typeof vi.fn>;
     getConnectionSettings: ReturnType<typeof vi.fn>;
     saveUserPreferences: ReturnType<typeof vi.fn>;
@@ -42,6 +43,8 @@ export interface MockedElectronAPI {
     getCompetitionTypes: ReturnType<typeof vi.fn>;
   };
   report: {
+    listPrinters: ReturnType<typeof vi.fn>;
+    printReady: ReturnType<typeof vi.fn>;
     getScoreSheet: ReturnType<typeof vi.fn>;
     openPrintWindow: ReturnType<typeof vi.fn>;
   };
@@ -121,6 +124,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       getShotHistory: vi.fn(),
     },
     settings: {
+      savePrintSettings: vi.fn().mockResolvedValue({ success: true }),
       saveConnectionSettings: vi.fn().mockResolvedValue(undefined),
       getConnectionSettings: vi.fn().mockResolvedValue({ success: true, data: {} }),
       saveUserPreferences: vi.fn().mockResolvedValue(undefined),
@@ -153,6 +157,8 @@ export function createMockElectronAPI(): MockedElectronAPI {
       getCompetitionTypes: vi.fn(),
     },
     report: {
+      listPrinters: vi.fn().mockResolvedValue({ success: true, data: [] }),
+      printReady: vi.fn().mockResolvedValue({ success: true }),
       getScoreSheet: vi.fn(),
       openPrintWindow: vi.fn(),
     },

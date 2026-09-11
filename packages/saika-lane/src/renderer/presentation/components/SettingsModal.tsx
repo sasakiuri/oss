@@ -38,6 +38,7 @@ import { useSessionStore } from '../stores/sessionStore';
 
 import { MqttSettingsTab } from './settings/MqttSettingsTab';
 import { SettingsConnectionTab } from './settings/SettingsConnectionTab';
+import { SettingsPrintingTab } from './settings/SettingsPrintingTab';
 import { SettingsTargetTab } from './settings/SettingsTargetTab';
 import { ShotTimingSettingsPanel } from './settings/ShotTimingSettingsPanel';
 
@@ -50,7 +51,7 @@ export interface SettingsModalProps {
   /** Close callback */
   onClose: () => void;
   /** Initial tab to display */
-  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'json';
+  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'json';
   /** Optional CSS class name */
   className?: string;
 }
@@ -129,7 +130,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const updateState = useUpdateStore((state) => state);
   const [inputValue, setInputValue] = useState(laneNumber.toString());
   const [volumeValue, setVolumeValue] = useState(audioVolume);
-  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'json'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'json'>(
+    initialTab,
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [updateActionError, setUpdateActionError] = useState<string | null>(null);
   const [jsonDraft, setJsonDraft] = useState('');
@@ -321,15 +324,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 ${className}`.trim()}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 ${className}`.trim()}
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-title"
     >
-      <div className="w-[500px] overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
+      <div className="flex max-h-full w-[500px] max-w-full flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-700 bg-zinc-900 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-700 bg-zinc-900 px-4 py-3">
           <h2 id="settings-title" className="text-lg font-semibold text-zinc-100">
             Settings
           </h2>
@@ -339,7 +342,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-zinc-700">
+        <div className="flex shrink-0 overflow-x-auto border-b border-zinc-700">
           <button
             onClick={() => setActiveTab('general')}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
@@ -375,6 +378,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             MQTT
           </button>
           <button
+            onClick={() => setActiveTab('printing')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'printing'
+                ? 'border-b-2 border-blue-400 text-blue-400'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            Printing
+          </button>
+          <button
             onClick={() => setActiveTab('json')}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'json' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
@@ -385,239 +398,244 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        {activeTab === 'general' && (
-          <>
-            <div className="p-4">
-              <div className="flex flex-col gap-4">
-                <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-zinc-200">Application Update</p>
-                      <p className="mt-1 text-xs text-zinc-400">Current Version: {displayedVersion}</p>
-                    </div>
+        <div key={activeTab} className="min-h-0 overflow-y-auto overscroll-contain">
+          {activeTab === 'printing' && <SettingsPrintingTab />}
+          {activeTab === 'general' && (
+            <>
+              <div className="p-4">
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-200">Application Update</p>
+                        <p className="mt-1 text-xs text-zinc-400">Current Version: {displayedVersion}</p>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCheckForUpdates}
-                        disabled={!updateState.canCheckForUpdates}
-                        className="rounded bg-zinc-700 px-3 py-2 text-sm text-zinc-100 transition-colors enabled:hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Check for Updates
-                      </button>
-
-                      {updateState.canInstallUpdate && (
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={handleQuitAndInstall}
-                          className="rounded bg-emerald-600 px-3 py-2 text-sm text-white transition-colors hover:bg-emerald-500"
+                          onClick={handleCheckForUpdates}
+                          disabled={!updateState.canCheckForUpdates}
+                          className="rounded bg-zinc-700 px-3 py-2 text-sm text-zinc-100 transition-colors enabled:hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          Restart &amp; Install
+                          Check for Updates
                         </button>
-                      )}
-                    </div>
-                  </div>
 
-                  <p className="mt-3 text-sm text-zinc-300">
-                    {describeUpdateState(updateState, window.electronAPI.appVersion)}
-                  </p>
-
-                  {updateState.targetVersion && (
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Target Version: {updateState.targetVersion}
-                      {updateState.releaseName ? ` (${updateState.releaseName})` : ''}
-                    </p>
-                  )}
-
-                  {updateState.downloadPercent !== null && (
-                    <div className="mt-3">
-                      <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-                        <div
-                          className="h-full bg-blue-500 transition-[width]"
-                          style={{ width: `${Math.max(0, Math.min(100, updateState.downloadPercent))}%` }}
-                        />
+                        {updateState.canInstallUpdate && (
+                          <button
+                            type="button"
+                            onClick={handleQuitAndInstall}
+                            className="rounded bg-emerald-600 px-3 py-2 text-sm text-white transition-colors hover:bg-emerald-500"
+                          >
+                            Restart &amp; Install
+                          </button>
+                        )}
                       </div>
+                    </div>
+
+                    <p className="mt-3 text-sm text-zinc-300">
+                      {describeUpdateState(updateState, window.electronAPI.appVersion)}
+                    </p>
+
+                    {updateState.targetVersion && (
                       <p className="mt-2 text-xs text-zinc-400">
-                        {updateState.downloadPercent.toFixed(1)}%
-                        {formattedTransferred && formattedTotal ? ` (${formattedTransferred} / ${formattedTotal})` : ''}
+                        Target Version: {updateState.targetVersion}
+                        {updateState.releaseName ? ` (${updateState.releaseName})` : ''}
                       </p>
-                    </div>
-                  )}
+                    )}
 
-                  {formattedLastChecked && (
-                    <p className="mt-2 text-xs text-zinc-500">Last Checked: {formattedLastChecked}</p>
-                  )}
+                    {updateState.downloadPercent !== null && (
+                      <div className="mt-3">
+                        <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                          <div
+                            className="h-full bg-blue-500 transition-[width]"
+                            style={{ width: `${Math.max(0, Math.min(100, updateState.downloadPercent))}%` }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-zinc-400">
+                          {updateState.downloadPercent.toFixed(1)}%
+                          {formattedTransferred && formattedTotal
+                            ? ` (${formattedTransferred} / ${formattedTotal})`
+                            : ''}
+                        </p>
+                      </div>
+                    )}
 
-                  {updateState.releaseNotes && (
-                    <div className="mt-3 rounded border border-zinc-700 bg-zinc-950/70 p-3">
-                      <p className="text-xs uppercase tracking-wide text-zinc-500">Release Notes</p>
-                      <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-xs text-zinc-300">
-                        {updateState.releaseNotes}
-                      </pre>
-                    </div>
-                  )}
+                    {formattedLastChecked && (
+                      <p className="mt-2 text-xs text-zinc-500">Last Checked: {formattedLastChecked}</p>
+                    )}
 
-                  {visibleUpdateError && (
-                    <div
-                      className="mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300"
-                      role="alert"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      {visibleUpdateError}
-                    </div>
-                  )}
-                </div>
+                    {updateState.releaseNotes && (
+                      <div className="mt-3 rounded border border-zinc-700 bg-zinc-950/70 p-3">
+                        <p className="text-xs uppercase tracking-wide text-zinc-500">Release Notes</p>
+                        <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-xs text-zinc-300">
+                          {updateState.releaseNotes}
+                        </pre>
+                      </div>
+                    )}
 
-                {/* Lane Number Input */}
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="lane-number" className="text-sm font-medium text-zinc-300">
-                    Lane Number
-                  </label>
-                  <input
-                    id="lane-number"
-                    type="number"
-                    min="1"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-describedby="lane-number-help"
-                  />
-                  <span id="lane-number-help" className="text-xs text-zinc-400">
-                    Please enter an integer of 1 or greater
-                  </span>
-                </div>
-
-                {/* Audio Volume Slider */}
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="audio-volume" className="text-sm font-medium text-zinc-300">
-                    Shot Sound Volume
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      id="audio-volume"
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={volumeValue}
-                      onChange={(e) => setVolumeValue(parseInt(e.target.value, 10))}
-                      className="h-2 flex-1 accent-blue-500"
-                    />
-                    <span className="w-10 text-right text-sm text-zinc-300">{volumeValue}%</span>
-                    <button
-                      type="button"
-                      onClick={() => playTestSound(volumeValue)}
-                      className="rounded bg-zinc-700 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-600 hover:text-zinc-100"
-                      aria-label="Test sound"
-                      title="Test sound"
-                    >
-                      <Volume2 size={16} />
-                    </button>
+                    {visibleUpdateError && (
+                      <div
+                        className="mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300"
+                        role="alert"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {visibleUpdateError}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Lane Number Input */}
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="lane-number" className="text-sm font-medium text-zinc-300">
+                      Lane Number
+                    </label>
+                    <input
+                      id="lane-number"
+                      type="number"
+                      min="1"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      aria-describedby="lane-number-help"
+                    />
+                    <span id="lane-number-help" className="text-xs text-zinc-400">
+                      Please enter an integer of 1 or greater
+                    </span>
+                  </div>
+
+                  {/* Audio Volume Slider */}
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="audio-volume" className="text-sm font-medium text-zinc-300">
+                      Shot Sound Volume
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="audio-volume"
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={volumeValue}
+                        onChange={(e) => setVolumeValue(parseInt(e.target.value, 10))}
+                        className="h-2 flex-1 accent-blue-500"
+                      />
+                      <span className="w-10 text-right text-sm text-zinc-300">{volumeValue}%</span>
+                      <button
+                        type="button"
+                        onClick={() => playTestSound(volumeValue)}
+                        className="rounded bg-zinc-700 p-1.5 text-zinc-300 transition-colors hover:bg-zinc-600 hover:text-zinc-100"
+                        aria-label="Test sound"
+                        title="Test sound"
+                      >
+                        <Volume2 size={16} />
+                      </button>
+                    </div>
+                    <span className="text-xs text-zinc-400">
+                      MT-201 / BPT-216 / DISAG RedDot shot sound volume (0% = mute)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save error */}
+              {saveError && (
+                <div
+                  className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
+                  role="alert"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {saveError}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
+                <button
+                  onClick={onClose}
+                  className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
+                >
+                  Save
+                </button>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'target' && <SettingsTargetTab />}
+
+          {activeTab === 'connection' && (
+            <>
+              <SettingsConnectionTab />
+              <ShotTimingSettingsPanel />
+            </>
+          )}
+
+          {activeTab === 'mqtt' && <MqttSettingsTab />}
+
+          {activeTab === 'json' && (
+            <>
+              <div className="flex flex-col gap-3 p-4">
+                <div className="rounded border border-zinc-700 bg-zinc-900/60 p-3">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">settings.json</p>
+                  <p className="mt-1 break-all font-mono text-xs text-zinc-300">{settingsFilePath || 'Loading...'}</p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="settings-json" className="text-sm font-medium text-zinc-300">
+                    Settings Document
+                  </label>
+                  <textarea
+                    id="settings-json"
+                    value={jsonDraft}
+                    onChange={(e) => {
+                      jsonDraftDirtyRef.current = true;
+                      setJsonDraft(e.target.value);
+                    }}
+                    spellCheck={false}
+                    className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                   <span className="text-xs text-zinc-400">
-                    MT-201 / BPT-216 / DISAG RedDot shot sound volume (0% = mute)
+                    Updating the entire document applies the same validation as saving through the GUI. mqtt.laneId is
+                    managed automatically and retains its current value when saved.
                   </span>
                 </div>
               </div>
-            </div>
 
-            {/* Save error */}
-            {saveError && (
-              <div
-                className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-                role="alert"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {saveError}
+              {jsonError && (
+                <div
+                  className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
+                  role="alert"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {jsonError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
+                <button
+                  onClick={handleReloadJson}
+                  className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
+                >
+                  Reload
+                </button>
+                <button
+                  onClick={handleSaveJson}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
+                >
+                  Save JSON
+                </button>
               </div>
-            )}
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
-              <button
-                onClick={onClose}
-                className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
-              >
-                Save
-              </button>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'target' && <SettingsTargetTab />}
-
-        {activeTab === 'connection' && (
-          <>
-            <SettingsConnectionTab />
-            <ShotTimingSettingsPanel />
-          </>
-        )}
-
-        {activeTab === 'mqtt' && <MqttSettingsTab />}
-
-        {activeTab === 'json' && (
-          <>
-            <div className="flex flex-col gap-3 p-4">
-              <div className="rounded border border-zinc-700 bg-zinc-900/60 p-3">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">settings.json</p>
-                <p className="mt-1 break-all font-mono text-xs text-zinc-300">{settingsFilePath || 'Loading...'}</p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="settings-json" className="text-sm font-medium text-zinc-300">
-                  Settings Document
-                </label>
-                <textarea
-                  id="settings-json"
-                  value={jsonDraft}
-                  onChange={(e) => {
-                    jsonDraftDirtyRef.current = true;
-                    setJsonDraft(e.target.value);
-                  }}
-                  spellCheck={false}
-                  className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-xs text-zinc-400">
-                  Updating the entire document applies the same validation as saving through the GUI. mqtt.laneId is
-                  managed automatically and retains its current value when saved.
-                </span>
-              </div>
-            </div>
-
-            {jsonError && (
-              <div
-                className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-                role="alert"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {jsonError}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
-              <button
-                onClick={handleReloadJson}
-                className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
-              >
-                Reload
-              </button>
-              <button
-                onClick={handleSaveJson}
-                className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
-              >
-                Save JSON
-              </button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

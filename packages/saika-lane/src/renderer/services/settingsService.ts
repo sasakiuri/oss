@@ -5,11 +5,15 @@ import type {
   ConnectionSettingsDto,
   SettingsFileInfoDto,
   UserPreferencesDto,
+  PrintSettingsDto,
 } from '@/shared/ipc/contracts';
 
 import { createCommandMethod, createVoidServiceMethod } from './createServiceMethod';
 
 export const settingsService = {
+  savePrintSettings: createCommandMethod<PrintSettingsDto>((settings) =>
+    window.electronAPI.settings.savePrintSettings({ settings }),
+  ),
   saveConnectionSettings: createCommandMethod<ConnectionSettingsDto>((settings) =>
     window.electronAPI.settings.saveConnectionSettings(settings),
   ),

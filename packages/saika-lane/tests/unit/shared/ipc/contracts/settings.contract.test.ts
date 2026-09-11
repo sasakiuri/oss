@@ -4,12 +4,23 @@ import { describe, expect, it } from 'vitest';
 import { settingsContract } from '@/shared/ipc/contracts/settings.contract';
 
 describe('settingsContract', () => {
-  it('has 3 commands and 4 queries', () => {
+  it.each([
+    { copies: 0 },
+    { copies: 100 },
+    { copies: 1.5 },
+    { pageSize: 'invalid' },
+    { duplexMode: 'invalid' },
+    { color: 'true' },
+  ])('rejects invalid printing settings: %j', (printing) => {
+    expect(settingsContract.procedures.savePrintSettings.input.safeParse({ settings: printing }).success).toBe(false);
+  });
+
+  it('has 4 commands and 4 queries', () => {
     const procs = settingsContract.procedures;
     const commands = Object.values(procs).filter((p) => p.kind === 'command');
     const queries = Object.values(procs).filter((p) => p.kind === 'query');
 
-    expect(commands).toHaveLength(3);
+    expect(commands).toHaveLength(4);
     expect(queries).toHaveLength(4);
   });
 

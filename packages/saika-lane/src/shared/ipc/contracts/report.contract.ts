@@ -55,11 +55,18 @@ const ScoreSheetDtoSchema = z.object({
   discipline: DisciplineSchema,
 });
 
+const PrinterDtoSchema = z.object({
+  name: z.string(),
+  displayName: z.string(),
+});
+
 // ============================================================
 // Contract definition
 // ============================================================
 
 export const reportContract = defineContract('report', {
+  listPrinters: query(queryResponseSchema(z.array(PrinterDtoSchema))),
+  printReady: command(z.object({ error: z.string().max(2000).optional() }), CommandResponseSchema),
   getScoreSheet: query(GetScoreSheetInputSchema, queryResponseSchema(ScoreSheetDtoSchema), {
     channel: 'query:getScoreSheet',
   }),
@@ -76,3 +83,4 @@ export type OpenPrintWindowInput = z.infer<typeof OpenPrintWindowInputSchema>;
 export type GetScoreSheetInput = z.infer<typeof GetScoreSheetInputSchema>;
 export type ScoreSheetShotDto = z.infer<typeof ScoreSheetShotDtoSchema>;
 export type ScoreSheetDto = z.infer<typeof ScoreSheetDtoSchema>;
+export type PrinterDto = z.infer<typeof PrinterDtoSchema>;

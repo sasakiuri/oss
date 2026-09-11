@@ -7,7 +7,7 @@
  * - Numpad1 : Switch to Preparation mode (MainScreen only)
  * - Numpad2 : Switch to Match mode (MainScreen only)
  * - Numpad3 : Next Stage (MainScreen only)
- * - Numpad9 : Open print window (MainScreen only)
+ * - Numpad9 : Print score sheet (MainScreen only)
  * - F11 : Toggle fullscreen (all screens)
  *
  * Note: NumpadDecimal and ESC are handled within MainScreen (SettingsModal toggle)

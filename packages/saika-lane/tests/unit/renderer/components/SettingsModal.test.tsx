@@ -7,7 +7,7 @@ import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { settingsService } from '@/renderer/services/settingsService';
 import { updateService } from '@/renderer/services/updateService';
-import { settingsContract } from '@/shared/ipc/contracts';
+import { PrintSettingsSchema, settingsContract } from '@/shared/ipc/contracts';
 
 // Mock settingsService
 vi.mock('@/renderer/services/settingsService', () => ({
@@ -655,6 +655,7 @@ describe('SettingsModal', () => {
   describe('json editing', () => {
     it('saves the full settings document from the JSON tab', async () => {
       const updatedSettings = {
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: 'COM9',
           manufacturer: 'KOHTO' as const,
@@ -700,6 +701,7 @@ describe('SettingsModal', () => {
 
     it('reloads the JSON editor without applying settings to stores', async () => {
       const reloadedSettings = {
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: '',
           manufacturer: 'KOHTO' as const,
@@ -723,6 +725,7 @@ describe('SettingsModal', () => {
         },
       };
       mockGetAppSettings.mockResolvedValueOnce({
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: '',
           manufacturer: 'KOHTO',
@@ -764,6 +767,7 @@ describe('SettingsModal', () => {
 
     it('allows saving a JSON document without mqtt.laneId', async () => {
       const editableSettings = {
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: 'COM9',
           manufacturer: 'KOHTO' as const,
@@ -815,6 +819,7 @@ describe('SettingsModal', () => {
 
     it('treats an empty mqtt.laneId as auto-managed when saving JSON', async () => {
       const editableSettings = {
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: 'COM9',
           manufacturer: 'KOHTO' as const,
@@ -896,6 +901,7 @@ describe('SettingsModal', () => {
         target: {
           value: JSON.stringify(
             {
+              printing: PrintSettingsSchema.parse({}),
               connection: {
                 portName: '',
                 manufacturer: 'KOHTO',
@@ -975,6 +981,7 @@ describe('SettingsModal', () => {
 
       await act(async () => {
         resolveSettings?.({
+          printing: PrintSettingsSchema.parse({}),
           connection: {
             portName: '',
             manufacturer: 'KOHTO',
@@ -1005,6 +1012,7 @@ describe('SettingsModal', () => {
 
     it('still loads the JSON document when settings file metadata lookup fails', async () => {
       mockGetAppSettings.mockResolvedValueOnce({
+        printing: PrintSettingsSchema.parse({}),
         connection: {
           portName: 'COM9',
           manufacturer: 'KOHTO',

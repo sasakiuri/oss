@@ -8,10 +8,12 @@ import { ScoreSheetPrintScreen } from '@/renderer/presentation/screens/print/Sco
 // ---------- reportService mock ----------
 
 const mockGetScoreSheet = vi.fn();
+const mockPrintReady = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@/renderer/services/reportService', () => ({
   reportService: {
     getScoreSheet: (...args: unknown[]) => mockGetScoreSheet(...args),
+    printReady: (...args: unknown[]) => mockPrintReady(...args),
   },
 }));
 
@@ -46,6 +48,34 @@ describe('ScoreSheetPrintScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetScoreSheet.mockReset();
+  });
+
+  it('waits for data and fonts before reporting readiness for direct printing', async () => {
+    setSearchParams({ sessionId: 'session-001', autoPrint: 'true', pageSize: 'Letter', landscape: 'true' });
+    let loaded!: () => void;
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: {
+        ready: new Promise<void>((resolve) => {
+          loaded = resolve;
+        }),
+      },
+    });
+    mockGetScoreSheet.mockResolvedValue(validScoreSheet);
+    render(<ScoreSheetPrintScreen />);
+    await screen.findByText('10m Air Rifle');
+    expect(mockPrintReady).not.toHaveBeenCalled();
+    loaded();
+    await waitFor(() => expect(mockPrintReady).toHaveBeenCalledWith({}));
+    expect(document.querySelector('style')?.textContent).toContain('Letter landscape');
+  });
+
+  it('reports data retrieval errors to the direct print owner', async () => {
+    setSearchParams({ sessionId: 'session-001', autoPrint: 'true' });
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } });
+    mockGetScoreSheet.mockRejectedValue(new Error('Read failed'));
+    render(<ScoreSheetPrintScreen />);
+    await waitFor(() => expect(mockPrintReady).toHaveBeenCalledWith({ error: 'Read failed' }));
   });
 
   it('displays error message when sessionId is not specified', async () => {

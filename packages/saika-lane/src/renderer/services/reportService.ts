@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type { ScoreSheetDto } from '@/shared/ipc/contracts';
+import type { PrinterDto, ScoreSheetDto } from '@/shared/ipc/contracts';
 
-import { createCommandMethod, createServiceMethod } from './createServiceMethod';
+import { createCommandMethod, createServiceMethod, createVoidServiceMethod } from './createServiceMethod';
 
 export const reportService = {
+  listPrinters: createVoidServiceMethod<PrinterDto[]>(() => window.electronAPI.report.listPrinters()),
+  printReady: createCommandMethod<{ error?: string }>((input) => window.electronAPI.report.printReady(input)),
   getScoreSheet: createServiceMethod<{ sessionId: string }, ScoreSheetDto>((input) =>
     window.electronAPI.report.getScoreSheet(input),
   ),

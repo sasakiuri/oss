@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import { settingsModule } from '@/main/modules/settings/settings.module';
-import type { AppSettingsDto } from '@/shared/ipc/contracts';
+import { PrintSettingsSchema, type AppSettingsDto } from '@/shared/ipc/contracts';
 import { settingsContract } from '@/shared/ipc/contracts';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
 
@@ -19,6 +19,7 @@ type CapturedHandlers = InferHandlers<typeof settingsContract>;
 
 function createMockSettingsStore(): IAppSettingsStore {
   let settings: AppSettingsDto = {
+    printing: PrintSettingsSchema.parse({}),
     connection: {
       portName: '',
       manufacturer: 'KOHTO' as const,

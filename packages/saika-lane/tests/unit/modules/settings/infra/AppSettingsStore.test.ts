@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
+import { PrintSettingsSchema } from '@/shared/ipc/contracts';
 
 import { createMockStorage } from '../../../../helpers/mockDependencies';
 
@@ -22,6 +23,28 @@ describe('AppSettingsStore', () => {
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('adds preview defaults to older documents and retains printing through other saves and restart', () => {
+    writeFileSync(filePath, JSON.stringify({ userPreferences: { laneNumber: 9 } }));
+    const store = new AppSettingsStore({ filePath, storage });
+    const initial = store.getAll();
+    expect(initial.printing.deviceName).toBe('');
+    const printing = PrintSettingsSchema.parse({
+      deviceName: 'queue-1',
+      pageSize: 'Letter',
+      copies: 2,
+      landscape: true,
+      color: true,
+      duplexMode: 'longEdge',
+    });
+    store.replaceAll({ ...initial, printing });
+    store.saveUserPreferences({ audioVolume: 80 });
+    store.saveConnectionSettings({ portName: 'COM5', manufacturer: 'KOHTO' });
+    const restored = new AppSettingsStore({ filePath, storage }).getAll();
+    expect(restored.printing).toEqual(printing);
+    expect(restored.mqtt.laneId).toBe(initial.mqtt.laneId);
+    expect(restored.userPreferences).toMatchObject({ laneNumber: 9, audioVolume: 80 });
   });
 
   it('creates settings.json from legacy storage on first load', () => {
