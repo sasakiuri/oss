@@ -2,10 +2,11 @@
   "name": "@sasakiuri/oss",
   "version": "1.0.0",
   "private": true,
-  "description": "Monorepo for Saika Lane, Saika Director, Saika Docs, and shared configurations",
+  "description": "Monorepo for Saika Lane, Saika Director, Saika Vista, Saika Docs, and shared configurations",
   "keywords": [
     "saika-lane",
     "saika-director",
+    "saika-vista",
     "saika-docs",
     "electronic-target",
     "shooting",

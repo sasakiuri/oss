@@ -163,6 +163,9 @@ jobs:
       - name: Test Saika Director
         run: npm run test:coverage --workspace=@sasakiuri/saika-director
 
+      - name: Test Saika Vista
+        run: npm run test --workspace=@sasakiuri/saika-vista
+
       - name: Test Saika Lane
         run: cd packages/saika-lane && npx vitest run --coverage
 
@@ -185,6 +188,14 @@ jobs:
         if: runner.os != 'Linux'
         run: npm run test:e2e --workspace=@sasakiuri/saika-lane
 
+      - name: E2E test Saika Vista (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-vista
+
+      - name: E2E test Saika Vista (non-Linux)
+        if: runner.os != 'Linux'
+        run: npm run test:e2e --workspace=@sasakiuri/saika-vista
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -195,6 +206,8 @@ jobs:
             packages/saika-lane/test-results/
             packages/saika-director/playwright-report/
             packages/saika-director/test-results/
+            packages/saika-vista/playwright-report/
+            packages/saika-vista/test-results/
           retention-days: 7
 
       - name: Upload test results

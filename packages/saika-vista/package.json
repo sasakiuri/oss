@@ -1,0 +1,108 @@
+{
+  "name": "@sasakiuri/saika-vista",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Offline spectator displays for Saika Lane and Director",
+  "desktopName": "Saika Vista",
+  "license": "MIT",
+  "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
+  "homepage": "https://github.com/sasakiuri/oss/tree/1.x/packages/saika-vista",
+  "type": "module",
+  "main": "dist/main/main.js",
+  "files": [
+    "dist/**",
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "THIRD-PARTY-LICENSES.txt"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . && npm run lint:language",
+    "lint:language": "node ../../scripts/check-english-only.mjs .",
+    "fix": "eslint --fix . && prettier --write .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build:win": "npm run build && electron-builder --win --publish never",
+    "build:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never",
+    "build:linux": "npm run build && electron-builder --linux --publish never",
+    "pack:linux": "npm run build && electron-builder --linux --dir --publish never",
+    "license-report": "node ../../scripts/generate-third-party-licenses.mjs --workspace=@sasakiuri/saika-vista",
+    "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check --workspace=@sasakiuri/saika-vista",
+    "license-artifacts:check": "node ../../scripts/verify-packaged-licenses.mjs --workspace=@sasakiuri/saika-vista"
+  },
+  "dependencies": {
+    "@sasakiuri/saika-protocol": "*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@sasakiuri/eslint-config": "*",
+    "@sasakiuri/prettier-config": "*",
+    "@sasakiuri/typescript-config": "*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3",
+    "eslint": "^9",
+    "jsdom": "25.0.1",
+    "prettier": "^3.6.2",
+    "typescript": "5.7.3",
+    "vite": "6.4.3",
+    "vite-plugin-electron": "0.29.1",
+    "vitest": "3.2.7"
+  },
+  "prettier": "@sasakiuri/prettier-config",
+  "build": {
+    "appId": "io.github.sasakiuri.saika-vista",
+    "productName": "Saika Vista",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json",
+      "LICENSE",
+      "THIRD-PARTY-LICENSES.txt"
+    ],
+    "asar": true,
+    "extraResources": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "THIRD-PARTY-LICENSES.txt",
+        "to": "THIRD-PARTY-LICENSES.txt"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.sports"
+    },
+    "linux": {
+      "executableName": "saika-vista",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    }
+  }
+}

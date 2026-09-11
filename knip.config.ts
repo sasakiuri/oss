@@ -35,6 +35,15 @@ const config: KnipConfig = {
       ],
       project: ["src/**/*.{ts,tsx}"],
     },
+    "packages/saika-vista": {
+      entry: [
+        "src/main/main.ts",
+        "src/preload/preload.ts",
+        "src/renderer/main.tsx",
+        "e2e/**/*.spec.ts",
+      ],
+      project: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
+    },
     "packages/saika-director": {
       entry: [
         "src/main/main.ts",

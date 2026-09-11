@@ -12,6 +12,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appDirectories = [
   join(repositoryRoot, "packages", "saika-lane"),
   join(repositoryRoot, "packages", "saika-director"),
+  join(repositoryRoot, "packages", "saika-vista"),
   join(repositoryRoot, "packages", "saika-docs"),
 ];
 const checkOnly = process.argv.includes("--check");
