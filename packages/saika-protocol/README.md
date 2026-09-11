@@ -30,6 +30,16 @@ npm run lint --workspace=@sasakiuri/saika-protocol
 npm run depcruise --workspace=@sasakiuri/saika-protocol
 ```
 
-Dependency validation permits only local contract modules and Zod in `src`. Build tooling and tests can use
-development dependencies. See [ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the
+Portable schemas depend only on local contract modules and Zod. The explicit Node-only `vista-node` subpath
+provides encrypted spectator HTTP transport, per-listener replay fencing and local multicast discovery;
+renderers must not import it. `Vista` defines complete versioned display snapshots, source identities, exact
+target definitions, shooting histories and authoritative result publication. See
+[ADR-0016](../../docs/adr/0016-vista-display-architecture.md) for source and display authority boundaries.
+
+Vista transport accepts requests within a 30-second clock window to limit replay. Keep the clocks on both
+PCs synchronized within that window, including on an offline venue LAN. An authenticated expired request
+reports that it expired or the device clocks are out of sync; synchronize both PCs and retry. This transport
+requirement is separate from the display's countdown synchronization checks.
+
+Build tooling and tests can use development dependencies. See [ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the
 composition model, compatibility decisions and extension workflow.
