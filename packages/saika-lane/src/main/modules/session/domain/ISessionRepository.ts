@@ -17,6 +17,12 @@ export interface ISessionRepository {
    */
   save(session: Session): Promise<void>;
 
+  /** Saves an empty reset session and a new reset epoch in one durable transaction. */
+  saveReset(session: Session): Promise<void>;
+
+  /** Returns the last committed reset epoch, or null when this session has never been reset. */
+  readResetEpoch(sessionId: string): Promise<string | null>;
+
   /**
    * Incrementally saves session metadata and a single shot
    *

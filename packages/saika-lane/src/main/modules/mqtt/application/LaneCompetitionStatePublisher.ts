@@ -3,7 +3,7 @@
  * LaneCompetitionStatePublisher
  *
  * @description
- * Subscribes to the PhaseChanged / StageAdvanced / SeriesCompleted / CompetitionStarted / CompetitionFinished events from EventBus and
+ * Subscribes to persisted competition progress, phase and lifecycle events and
  * publishes LaneCompetitionStatePayload to `saika/competition/{competitionId}/lane/{laneId}/state`.
  * Converts internal Phase → MqttLanePhase using PhaseMapper.
  */
@@ -39,6 +39,7 @@ export class LaneCompetitionStatePublisher {
     eventBus.on('PhaseChanged', publishEventState);
     eventBus.on('StageAdvanced', publishEventState);
     eventBus.on('SeriesCompleted', publishEventState);
+    eventBus.on('CompetitionProgressChanged', publishEventState);
     eventBus.on('CompetitionStarted', publishEventState);
     eventBus.on('CompetitionFinished', publishEventState);
     eventBus.on('CompetitionInterruptionChanged', publishEventState);

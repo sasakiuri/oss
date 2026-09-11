@@ -7,6 +7,7 @@ import { sessionModule } from '@/main/modules/session/session.module';
 import { settingsModule } from '@/main/modules/settings/settings.module';
 import { targetModule } from '@/main/modules/target/target.module';
 import { timedTargetModule } from '@/main/modules/timed-target';
+import { vistaModule } from '@/main/modules/vista/vista.module';
 
 import type { ModuleDefinition } from './ModuleDefinition';
 
@@ -20,4 +21,5 @@ export const laneModules = [
   competitionModule,
   reportModule,
   mqttModule,
+  vistaModule,
 ] satisfies readonly ModuleDefinition[];

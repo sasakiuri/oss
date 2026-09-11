@@ -41,6 +41,7 @@ import { SettingsConnectionTab } from './settings/SettingsConnectionTab';
 import { SettingsPrintingTab } from './settings/SettingsPrintingTab';
 import { SettingsTargetTab } from './settings/SettingsTargetTab';
 import { ShotTimingSettingsPanel } from './settings/ShotTimingSettingsPanel';
+import { VistaSettingsPanel } from './settings/VistaSettingsPanel';
 
 /**
  * SettingsModal component props
@@ -51,7 +52,7 @@ export interface SettingsModalProps {
   /** Close callback */
   onClose: () => void;
   /** Initial tab to display */
-  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'json';
+  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json';
   /** Optional CSS class name */
   className?: string;
 }
@@ -130,7 +131,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const updateState = useUpdateStore((state) => state);
   const [inputValue, setInputValue] = useState(laneNumber.toString());
   const [volumeValue, setVolumeValue] = useState(audioVolume);
-  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'json'>(
+  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json'>(
     initialTab,
   );
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -388,6 +389,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             Printing
           </button>
           <button
+            onClick={() => setActiveTab('vista')}
+            className={`px-4 py-2 text-sm font-medium ${activeTab === 'vista' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400'}`}
+          >
+            Vista
+          </button>
+          <button
             onClick={() => setActiveTab('json')}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'json' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
@@ -578,6 +585,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {activeTab === 'mqtt' && <MqttSettingsTab />}
+          {activeTab === 'vista' && <VistaSettingsPanel />}
 
           {activeTab === 'json' && (
             <>

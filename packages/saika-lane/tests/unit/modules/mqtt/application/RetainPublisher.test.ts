@@ -121,6 +121,8 @@ describe('RetainPublisher', () => {
     sessionRepository = {
       save: vi.fn(),
       saveShot: vi.fn(),
+      saveReset: vi.fn(),
+      readResetEpoch: vi.fn().mockResolvedValue(null),
       findById: vi.fn().mockResolvedValue(null),
       findAll: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { randomUUID } from 'node:crypto';
+
 import Database from 'better-sqlite3';
 
 import { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -60,8 +62,15 @@ export class SqliteSessionRepository implements ISessionRepository {
   private readonly stmtDeleteSessionShots: Database.Statement;
   private readonly stmtDeleteSession: Database.Statement;
   private readonly stmtFindActiveSession: Database.Statement;
+  private readonly stmtUpsertResetEpoch: Database.Statement;
+  private readonly stmtReadResetEpoch: Database.Statement;
 
   constructor(private readonly db: Database.Database) {
+    this.stmtUpsertResetEpoch = db.prepare(`
+      INSERT INTO session_reset_epochs (session_id, epoch) VALUES (?, ?)
+      ON CONFLICT(session_id) DO UPDATE SET epoch = excluded.epoch
+    `);
+    this.stmtReadResetEpoch = db.prepare('SELECT epoch FROM session_reset_epochs WHERE session_id = ?');
     this.stmtUpsertSession = db.prepare(`
       INSERT INTO sessions (id, discipline, mode, startedAt, finishedAt, scoringMode)
       VALUES (@id, @discipline, @mode, @startedAt, @finishedAt, @scoringMode)
@@ -158,8 +167,29 @@ export class SqliteSessionRepository implements ISessionRepository {
    * @throws REPOSITORY_ERROR - If the save fails
    */
   async save(session: Session): Promise<void> {
+    return this.saveSession(session, false);
+  }
+
+  async saveReset(session: Session): Promise<void> {
+    return this.saveSession(session, true);
+  }
+
+  async readResetEpoch(sessionId: string): Promise<string | null> {
     return withRepositoryErrorHandling(
       async () => {
+        const row = this.stmtReadResetEpoch.get(sessionId) as { epoch: string } | undefined;
+        return row?.epoch ?? null;
+      },
+      'REPOSITORY_ERROR',
+      { sessionId, operation: 'readResetEpoch' },
+    );
+  }
+
+  private async saveSession(session: Session, reset: boolean): Promise<void> {
+    return withRepositoryErrorHandling(
+      async () => {
+        if (reset && (session.allShots.length !== 0 || session.finishedAt !== null))
+          throw new Error('A reset must contain an active session with no shots');
         const saveTransaction = this.db.transaction(() => {
           // UPSERT into the sessions table
           this.stmtUpsertSession.run({
@@ -196,12 +226,13 @@ export class SqliteSessionRepository implements ISessionRepository {
               scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
             });
           }
+          if (reset) this.stmtUpsertResetEpoch.run(session.id, randomUUID());
         });
 
         saveTransaction();
       },
       'REPOSITORY_ERROR',
-      { sessionId: session.id, operation: 'save' },
+      { sessionId: session.id, operation: reset ? 'saveReset' : 'save' },
     );
   }
 

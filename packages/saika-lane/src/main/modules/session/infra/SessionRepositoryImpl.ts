@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { randomUUID } from 'node:crypto';
+
 import { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Session } from '@/main/modules/session/domain/Session';
 import type { SessionStorageData } from '@/main/modules/session/domain/SessionFactory';
@@ -49,6 +51,35 @@ export class SessionRepositoryImpl implements ISessionRepository {
       },
       'REPOSITORY_ERROR',
       { sessionId: session.id, operation: 'save' },
+    );
+  }
+
+  async saveReset(session: Session): Promise<void> {
+    return withRepositoryErrorHandling(
+      async () => {
+        if (session.allShots.length !== 0 || session.finishedAt !== null)
+          throw new Error('A reset must contain an active session with no shots');
+        this.storage.setMany({
+          [this.getStorageKey(session.id)]: this.toStorageData(session),
+          [SessionRepositoryImpl.ACTIVE_SESSION_KEY]: session.id,
+          [`session-reset-epoch:${session.id}`]: randomUUID(),
+        });
+      },
+      'REPOSITORY_ERROR',
+      { sessionId: session.id, operation: 'saveReset' },
+    );
+  }
+
+  async readResetEpoch(sessionId: string): Promise<string | null> {
+    return withRepositoryErrorHandling(
+      async () => {
+        const epoch = this.storage.get<unknown>(`session-reset-epoch:${sessionId}`);
+        if (epoch === undefined) return null;
+        if (typeof epoch !== 'string' || !epoch || epoch.length > 256) throw new Error('Invalid session reset epoch');
+        return epoch;
+      },
+      'REPOSITORY_ERROR',
+      { sessionId, operation: 'readResetEpoch' },
     );
   }
 

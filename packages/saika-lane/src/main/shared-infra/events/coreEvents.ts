@@ -98,6 +98,14 @@ export interface SeriesCompletedEvent extends DomainEvent {
   readonly shotCount: number;
 }
 
+/** Persisted shot-count progress before a series reaches completion. */
+export interface CompetitionProgressChangedEvent extends DomainEvent {
+  readonly type: 'CompetitionProgressChanged';
+  readonly stageIndex: number;
+  readonly seriesIndex: number;
+  readonly shotCount: number;
+}
+
 export interface StageAdvancedEvent extends DomainEvent {
   readonly type: 'StageAdvanced';
   readonly previousStageIndex: number;
@@ -181,6 +189,7 @@ declare module './EventBus' {
     TimerTick: TimerTickEvent;
     TimerExpired: TimerExpiredEvent;
     SeriesCompleted: SeriesCompletedEvent;
+    CompetitionProgressChanged: CompetitionProgressChangedEvent;
     StageAdvanced: StageAdvancedEvent;
     CompetitionFinished: CompetitionFinishedEvent;
     CompetitionInterruptionChanged: CompetitionInterruptionChangedEvent;

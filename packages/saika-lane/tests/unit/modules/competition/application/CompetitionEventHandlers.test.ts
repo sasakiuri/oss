@@ -138,6 +138,7 @@ describe('createShotRecordedHandler', () => {
     await handler(event);
 
     expect(mockRepo.save).not.toHaveBeenCalled();
+    expect(mockEventBus.emit).not.toHaveBeenCalled();
   });
 
   it('does not count an isolated MATCH shot in the ordinary competition series', async () => {
@@ -162,14 +163,36 @@ describe('createShotRecordedHandler', () => {
     expect(mockEventBus.emit).not.toHaveBeenCalled();
   });
 
-  it('should not emit SeriesCompleted event when series is not yet complete', async () => {
+  it('announces persisted progress without completing an open series', async () => {
     const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
     await handler();
 
+    expect(mockEventBus.emit).toHaveBeenCalledExactlyOnceWith({
+      type: 'CompetitionProgressChanged',
+      timestamp: expect.any(Number),
+      aggregateId: 'comp-1',
+      stageIndex: 0,
+      seriesIndex: 0,
+      shotCount: 1,
+    });
+  });
+
+  it('does not announce progress if saving the counter fails', async () => {
+    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    vi.mocked(mockRepo.findActive).mockResolvedValue(state);
+    vi.mocked(mockRepo.save).mockRejectedValue(new Error('DB failure'));
+
+    await createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })();
+
     expect(mockEventBus.emit).not.toHaveBeenCalled();
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Failed to record shot in competition',
+      'domain',
+      expect.objectContaining({ error: expect.any(String) }),
+    );
   });
 
   it('should log error and not throw exception on repository error', async () => {

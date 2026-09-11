@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { Mode } from '@/main/modules/session/domain/Mode';
+import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
+import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 // ── mock logger ────────────────────────────────────────────────
@@ -294,4 +298,55 @@ describe('LaneCompetitionStatePublisher', () => {
 
     expect(mqttClient.publish).toHaveBeenCalledTimes(2);
   });
+
+  it.each(['sighting', 'match', 'last match shot'] as const)(
+    'publishes %s progress after the shot counter finishes saving',
+    async (mode) => {
+      let stored = CompetitionState.create('comp-uuid-456', 'session-uuid-789', BR60S.config).startStage();
+      if (mode !== 'sighting') stored = stored.expireTimer().advanceToNextStage().startNextSeries();
+      if (mode === 'last match shot') for (let index = 0; index < 9; index++) stored = stored.recordShotInSeries();
+      const previousCount = stored.seriesShotCount;
+      vi.mocked(competitionRepository.findActive).mockImplementation(async () => stored);
+      vi.mocked(competitionRepository.findById).mockImplementation(async () => stored);
+      let finishSave!: () => void;
+      vi.mocked(competitionRepository.save).mockImplementation(
+        (next) =>
+          new Promise<void>((resolve) => {
+            finishSave = () => {
+              stored = next;
+              resolve();
+            };
+          }),
+      );
+      const events = new TypedEventBus();
+      events.on('ShotRecorded', createShotRecordedHandler({ competitionRepository, eventBus: events }));
+      new LaneCompetitionStatePublisher(mqttClient, events, createMockStorage(), competitionRepository);
+
+      events.emit({
+        type: 'ShotRecorded',
+        timestamp: Date.now(),
+        aggregateId: stored.sessionId,
+        shot: { mode: mode === 'sighting' ? Mode.sighting() : Mode.match() },
+        scoringMode: 'DECIMAL',
+      } as ShotRecordedEvent);
+
+      // Event handlers and publication microtasks can run while persistence remains blocked.
+      await vi.waitFor(() => expect(competitionRepository.save).toHaveBeenCalledOnce());
+      expect(stored.seriesShotCount).toBe(previousCount);
+      expect(competitionRepository.findById).not.toHaveBeenCalled();
+      expect(mqttClient.publish).not.toHaveBeenCalled();
+
+      finishSave();
+      await vi.waitFor(() => expect(mqttClient.publish).toHaveBeenCalledOnce());
+      const [topic, message, options] = vi.mocked(mqttClient.publish).mock.calls[0]!;
+      expect(topic).toBe('saika/competition/comp-uuid-456/lane/lane-uuid-123/state');
+      expect(options).toEqual({ qos: 1, retain: true });
+      expect(JSON.parse(message as string)).toMatchObject({
+        sessionId: stored.sessionId,
+        phase: mode === 'sighting' ? 'SIGHTING' : mode === 'match' ? 'MATCH' : 'SERIES_COMPLETE',
+        currentStage: { index: mode === 'sighting' ? 0 : 1, scored: mode !== 'sighting' },
+        currentSeries: { index: 0, shotsRecorded: previousCount + 1 },
+      });
+    },
+  );
 });

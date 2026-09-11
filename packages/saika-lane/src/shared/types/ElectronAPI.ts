@@ -43,6 +43,7 @@ import type {
   updaterContract,
   UserPreferencesDto,
   windowContract,
+  vistaContract,
 } from '@/shared/ipc/contracts';
 import type { InferBridge, InferEventBridge, InferOutput } from '@/shared/ipc/defineContract';
 
@@ -132,6 +133,7 @@ export interface ElectronAPI {
 
   /** Independent ISSF 25m timed-target sequence state and local emergency cancellation. */
   readonly timedTarget: TimedTargetBridge;
+  readonly vista: InferBridge<typeof vistaContract>;
 
   /** Application update methods */
   readonly updates: {

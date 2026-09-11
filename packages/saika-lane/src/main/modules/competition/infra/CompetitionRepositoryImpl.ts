@@ -43,14 +43,30 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
       async () => {
         const key = this.getStorageKey(state.id);
         const data = this.toStorageData(state);
+        // Preserve the stage-session association before replacement so a read-only
+        // spectator can reconstruct sightings and match shots after a restart.
+        const historyKey = `vista-session-links:${state.id}`;
+        const previous = this.storage.get<CompetitionStorageData>(key);
+        const newRun =
+          previous && previous.sessionId !== state.sessionId && state.currentStageIndex <= previous.currentStageIndex;
+        // Seed an untracked run before a stage transition replaces its only
+        // persisted session reference. A new run must not inherit that history.
+        const links = newRun
+          ? []
+          : (this.storage.get<Array<{ sessionId: string; stage: number }>>(historyKey) ??
+            (previous ? [{ sessionId: previous.sessionId, stage: previous.currentStageIndex }] : []));
+        const nextLinks = links.some((link) => link.sessionId === state.sessionId)
+          ? links
+          : [...links, { sessionId: state.sessionId, stage: state.currentStageIndex }];
 
         if (state.phase !== 'FINISHED') {
           this.storage.setMany({
             [key]: data,
+            [historyKey]: nextLinks,
             [CompetitionRepositoryImpl.ACTIVE_KEY]: state.id,
           });
         } else {
-          this.storage.set(key, data);
+          this.storage.setMany({ [key]: data, [historyKey]: nextLinks });
           this.storage.delete(CompetitionRepositoryImpl.ACTIVE_KEY);
         }
       },

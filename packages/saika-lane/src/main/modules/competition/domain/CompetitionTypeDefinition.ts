@@ -23,7 +23,7 @@ export interface TimerDefinition {
  * SeriesDefinition — represents per-series timer settings as a discriminated union
  *
  * - timer: time limit for the entire series (conventional approach)
- * - shotTimer: timer reset per shot (for Final stage, future support)
+ * - shotTimer: time limit reset when each single-shot Final series starts
  * - neither specified: no timer (delegated to stage timer)
  */
 interface SeriesOperationalMetadata {

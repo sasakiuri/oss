@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// cspell:ignore aabbcc
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +15,8 @@ import {
 } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
+import { allMigrations } from '@/main/shared-infra/sqlite/migrations';
+import { MigrationRunner } from '@/main/shared-infra/sqlite/migrations/MigrationRunner';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 describe('SqliteShotObservationRepository', () => {
@@ -117,12 +120,9 @@ describe('SqliteShotObservationRepository', () => {
     const directory = mkdtempSync(join(tmpdir(), 'saika-time-source-'));
     const path = join(directory, 'lane.sqlite');
     try {
-      const initial = createSqliteDb(path);
-      initial.close();
       const legacy = new Database(path);
-      legacy.exec(`ALTER TABLE shot_observations DROP COLUMN timestamp_source;
-        PRAGMA user_version = 18;
-        INSERT INTO shot_observations (id, fired_at, received_at)
+      new MigrationRunner(legacy).run(allMigrations.filter((migration) => migration.version <= 18));
+      legacy.exec(`INSERT INTO shot_observations (id, fired_at, received_at)
         VALUES ('legacy-shot', '2026-08-28T00:00:00.000Z', '2026-08-28T00:00:00.020Z');`);
       legacy.close();
       const upgraded = createSqliteDb(path);

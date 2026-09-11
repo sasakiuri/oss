@@ -20,6 +20,13 @@ export class LaneTimerService {
   private remainingSeconds: number = 0;
   private totalSeconds: number = 0;
   private startGeneration: number = 0;
+  private stoppedSample: {
+    competitionId: string;
+    running: boolean;
+    remainingMs: number;
+    sampledAt: number;
+    generation: number;
+  } | null = null;
 
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
@@ -96,6 +103,7 @@ export class LaneTimerService {
 
         const expired = updated.expireTimer();
         await this.competitionRepository.save(expired);
+        this.sampleExpiry(competitionId, generation);
 
         this.eventBus.emit({
           type: 'TimerExpired',
@@ -142,10 +150,32 @@ export class LaneTimerService {
     }
   }
 
-  /**
-   * Stops the timer
-   */
+  /** Read-only sample of the actual in-memory clock; persisted timer values may be stale. */
+  sample(
+    competitionId: string,
+  ): { running: boolean; remainingMs: number; sampledAt: number; generation: number } | null {
+    if (this.competitionId !== competitionId || this.intervalId === null) {
+      return this.stoppedSample?.competitionId === competitionId ? this.stoppedSample : null;
+    }
+    // A stable sample until the next timer tick avoids new spectator revisions
+    // on each read while preserving the exact authoritative expiration anchor.
+    const remainingMs = this.remainingSeconds * 1000;
+    const sampledAt = this.expiresAtMs - remainingMs;
+    return { running: true, remainingMs, sampledAt, generation: this.startGeneration };
+  }
+
+  /** Stops the timer and retains its actual remaining time. */
   stop(): void {
+    if (this.competitionId !== null && this.intervalId !== null) {
+      const sampledAt = Date.now();
+      this.stoppedSample = {
+        competitionId: this.competitionId,
+        running: false,
+        remainingMs: Math.max(0, Math.min(this.remainingSeconds * 1000, this.expiresAtMs - sampledAt)),
+        sampledAt,
+        generation: this.startGeneration,
+      };
+    }
     this.startGeneration += 1;
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
@@ -204,6 +234,7 @@ export class LaneTimerService {
   /** Applies a Director timer-expired command immediately and idempotently. */
   async expire(competitionId: string): Promise<void> {
     this.stop();
+    const generation = this.startGeneration;
     this.assertRunPermitted();
     const state = await this.competitionRepository.findById(competitionId);
     this.assertRunPermitted();
@@ -214,6 +245,7 @@ export class LaneTimerService {
     this.assertRunPermitted();
     const expired = updated.expireTimer();
     await this.competitionRepository.save(expired);
+    this.sampleExpiry(competitionId, generation);
 
     this.eventBus.emit({
       type: 'TimerExpired',
@@ -222,6 +254,11 @@ export class LaneTimerService {
       stageIndex: expired.currentStageIndex,
     });
     emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
+  }
+
+  private sampleExpiry(competitionId: string, generation: number): void {
+    if (generation !== this.startGeneration) return;
+    this.stoppedSample = { competitionId, running: false, remainingMs: 0, sampledAt: Date.now(), generation };
   }
 
   /**
