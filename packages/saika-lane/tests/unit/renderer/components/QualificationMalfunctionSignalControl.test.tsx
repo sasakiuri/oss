@@ -71,8 +71,7 @@ describe('QualificationMalfunctionSignalControl', () => {
   });
 
   it('sends only an optional observation while the main process captures trusted context', async () => {
-    render(<QualificationMalfunctionSignalControl />);
-    fireEvent.click(screen.getByRole('button', { name: 'Declare a possible malfunction' }));
+    render(<QualificationMalfunctionSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
 
     expect(await screen.findByText(/Keep the firearm pointed safely downrange/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Observation (optional)'), {
@@ -87,8 +86,7 @@ describe('QualificationMalfunctionSignalControl', () => {
 
   it('shows the captured audit snapshot and clears only by signal identity', async () => {
     mocks.getSignal.mockResolvedValue(activeState);
-    render(<QualificationMalfunctionSignalControl />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Qualification malfunction declaration active' }));
+    render(<QualificationMalfunctionSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
 
     expect(await screen.findByText(/#12 Test Athlete/)).toBeInTheDocument();
     expect(screen.getByText('3 / 5')).toBeInTheDocument();

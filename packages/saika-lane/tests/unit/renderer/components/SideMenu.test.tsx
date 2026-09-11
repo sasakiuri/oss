@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SideMenu, type SideMenuProps } from '@/renderer/presentation/components/SideMenu';
 
+vi.mock('@/renderer/presentation/components/RangeOfficerMenu', () => ({
+  RangeOfficerMenu: () => <button aria-label="Range Officer" />,
+}));
+
 // ---------- competitionStore mock ----------
 
 let mockPhase = 'IDLE';
@@ -39,13 +43,14 @@ describe('SideMenu', () => {
   });
 
   describe('basic rendering', () => {
-    it('renders 6 buttons (Zoom, Preparation, Match, Next Stage, Print, Settings)', () => {
+    it('renders competition controls, official requests, printing and settings', () => {
       render(<SideMenu {...defaultProps()} />);
 
       expect(screen.getByRole('button', { name: 'Zoom' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Preparation' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Match' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Next Stage' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Range Officer' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
     });

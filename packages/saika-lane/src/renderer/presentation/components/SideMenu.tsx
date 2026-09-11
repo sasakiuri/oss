@@ -4,7 +4,7 @@
  *
  * @description
  * VSCode-style side menu component.
- * Vertically arranged icon buttons for zoom, preparation/match/next stage, print, and settings.
+ * Vertically arranged icon buttons for zoom, preparation/match/next stage, official requests, print, and settings.
  *
  * Layout:
  * ┌──────┐
@@ -13,6 +13,7 @@
  * │ L3 ●  │ ← Match (red)
  * │ L4 ☰  │ ← Next Stage (orange)
  * │      │
+ * │   RO │ ← Range Officer
  * │ L5 🖨 │ ← Print
  * │ L6 ⚙ │ ← Settings
  * └──────┘
@@ -23,6 +24,7 @@ import React from 'react';
 
 import { useCompetitionStore } from '../stores/competitionStore';
 
+import { RangeOfficerMenu } from './RangeOfficerMenu';
 import { SideMenuButton } from './SideMenuButton';
 
 /**
@@ -116,12 +118,12 @@ export const SideMenu: React.FC<SideMenuProps> = ({
 
   return (
     <aside
-      className={`flex w-20 flex-col border-r border-zinc-700 bg-zinc-800 ${className}`.trim()}
+      className={`flex w-20 shrink-0 flex-col border-r border-zinc-700 bg-zinc-800 ${className}`.trim()}
       role="navigation"
       aria-label="Side Menu"
     >
       {/* Top section - Main actions */}
-      <div className="flex flex-col">
+      <div className="flex min-h-0 flex-col">
         <SideMenuButton icon={<ZoomIn size={30} />} label="Zoom" onClick={onZoomClick} />
         <SideMenuButton
           icon={<Target size={30} />}
@@ -150,8 +152,9 @@ export const SideMenu: React.FC<SideMenuProps> = ({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom section - Settings */}
-      <div className="flex flex-col">
+      {/* Bottom section - Official requests, printing and settings */}
+      <div className="flex min-h-0 flex-col">
+        <RangeOfficerMenu />
         <SideMenuButton icon={<Printer size={30} />} label="Print" onClick={onPrintClick} disabled={!onPrintClick} />
         <SideMenuButton icon={<Settings size={30} />} label="Settings" onClick={onSettingsClick} />
       </div>

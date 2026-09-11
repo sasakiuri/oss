@@ -11,10 +11,7 @@ import React, { useCallback, useState } from 'react';
 
 import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
-import { EstComplaintSignalControl } from '@/renderer/presentation/components/EstComplaintSignalControl';
 import { FinalCommandCue } from '@/renderer/presentation/components/FinalCommandCue';
-import { QualificationMalfunctionSignalControl } from '@/renderer/presentation/components/QualificationMalfunctionSignalControl';
-import { RangeOfficerRequestControl } from '@/renderer/presentation/components/RangeOfficerRequestControl';
 import { SafetyStopOverlay } from '@/renderer/presentation/components/SafetyStopOverlay';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
@@ -152,9 +149,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
         <SidePanel />
 
         <main className="relative flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
-          <RangeOfficerRequestControl />
-          <QualificationMalfunctionSignalControl />
-          <EstComplaintSignalControl />
           {interruption && interruption.status !== 'RUNNING_MATCH' && (
             <div
               className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center ${

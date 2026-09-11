@@ -7,6 +7,7 @@ import type { RangeOfficerRequestDto, RequestRangeOfficerInput } from '@/shared/
 
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
+import type { IncidentReportDialogProps } from './IncidentReportDialogProps';
 
 const categories: Array<{ value: RequestRangeOfficerInput['category']; label: string }> = [
   { value: 'ASSISTANCE', label: 'General assistance' },
@@ -17,8 +18,7 @@ const categories: Array<{ value: RequestRangeOfficerInput['category']; label: st
   { value: 'OTHER', label: 'Other' },
 ];
 
-export function RangeOfficerRequestControl() {
-  const [isOpen, setIsOpen] = useState(false);
+export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: IncidentReportDialogProps) {
   const [state, setState] = useState<RangeOfficerRequestDto | null>(null);
   const [category, setCategory] = useState<RequestRangeOfficerInput['category']>('ASSISTANCE');
   const [message, setMessage] = useState('');
@@ -40,6 +40,10 @@ export function RangeOfficerRequestControl() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    if (isOpen) void refresh();
+  }, [isOpen]);
 
   const request = async () => {
     setBusy(true);
@@ -73,93 +77,79 @@ export function RangeOfficerRequestControl() {
 
   const active = state?.status === 'ACTIVE';
 
-  return (
-    <>
-      <button
-        type="button"
-        className={`absolute right-4 top-4 z-30 flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-black tracking-wide shadow-xl transition-colors ${
-          active
-            ? 'animate-pulse border-amber-200 bg-amber-500 text-black'
-            : 'border-amber-400 bg-zinc-950/90 text-amber-300 hover:bg-amber-950'
-        }`}
-        aria-label={active ? 'Range Officer request active' : 'Call Range Officer'}
-        onClick={() => {
-          setIsOpen(true);
-          void refresh();
-        }}
-      >
-        <BellRing size={20} /> {active ? 'RO REQUEST ACTIVE' : 'CALL RO'}
-      </button>
+  useEffect(() => {
+    onActiveChange(active);
+  }, [active, onActiveChange]);
 
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Range Officer request" className="max-w-lg">
-        {active ? (
-          <div className="space-y-4">
-            <div className="rounded border border-amber-500 bg-amber-950/40 p-4">
-              <p className="font-semibold text-amber-200">
-                {categories.find((item) => item.value === state.category)?.label ?? state.category}
-              </p>
-              {state.message && <p className="mt-2 text-sm text-zinc-100">{state.message}</p>}
-              {state.requestedAt && (
-                <p className="mt-2 text-xs text-zinc-400">Requested {new Date(state.requestedAt).toLocaleString()}</p>
-              )}
-            </div>
-            {!mqttConnected && (
-              <p className="text-sm text-amber-300">
-                Stored on this Lane. It will be published automatically after MQTT reconnects.
-              </p>
-            )}
-            <p className="text-sm text-zinc-300">
-              This assistance signal does not stop firing or change the competition timer.
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Range Officer request" className="max-w-lg">
+      {active ? (
+        <div className="space-y-4">
+          <div className="rounded border border-amber-500 bg-amber-950/40 p-4">
+            <p className="font-semibold text-amber-200">
+              {categories.find((item) => item.value === state.category)?.label ?? state.category}
             </p>
-            <div className="flex justify-end">
-              <Button variant="secondary" disabled={busy} onClick={() => void clear()}>
-                <CheckCircle2 className="mr-2 inline" size={18} /> {busy ? 'Clearing…' : 'Clear request'}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-zinc-200">
-              Reason
-              <select
-                className="mt-1 w-full rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white"
-                value={category}
-                onChange={(event) => setCategory(event.target.value as RequestRangeOfficerInput['category'])}
-              >
-                {categories.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm font-medium text-zinc-200">
-              Details (optional)
-              <textarea
-                className="mt-1 min-h-24 w-full rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white"
-                maxLength={500}
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-              />
-            </label>
-            {category === 'SAFETY' && (
-              <p className="rounded border border-red-500 bg-red-950/40 p-3 text-sm text-red-200">
-                This button calls an official but does not issue a STOP. Follow the range emergency procedure for an
-                immediate danger.
-              </p>
+            {state.message && <p className="mt-2 text-sm text-zinc-100">{state.message}</p>}
+            {state.requestedAt && (
+              <p className="mt-2 text-xs text-zinc-400">Requested {new Date(state.requestedAt).toLocaleString()}</p>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" disabled={busy} onClick={() => setIsOpen(false)}>
-                Cancel
-              </Button>
-              <Button disabled={busy} onClick={() => void request()}>
-                <BellRing className="mr-2 inline" size={18} /> {busy ? 'Requesting…' : 'Call Range Officer'}
-              </Button>
-            </div>
           </div>
-        )}
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
-      </Modal>
-    </>
+          {!mqttConnected && (
+            <p className="text-sm text-amber-300">
+              Stored on this Lane. It will be published automatically after MQTT reconnects.
+            </p>
+          )}
+          <p className="text-sm text-zinc-300">
+            This assistance signal does not stop firing or change the competition timer.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="secondary" disabled={busy} onClick={() => void clear()}>
+              <CheckCircle2 className="mr-2 inline" size={18} /> {busy ? 'Clearing…' : 'Clear request'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-zinc-200">
+            Reason
+            <select
+              className="mt-1 w-full rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as RequestRangeOfficerInput['category'])}
+            >
+              {categories.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-zinc-200">
+            Details (optional)
+            <textarea
+              className="mt-1 min-h-24 w-full rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white"
+              maxLength={500}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </label>
+          {category === 'SAFETY' && (
+            <p className="rounded border border-red-500 bg-red-950/40 p-3 text-sm text-red-200">
+              This button calls an official but does not issue a STOP. Follow the range emergency procedure for an
+              immediate danger.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={busy} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={() => void request()}>
+              <BellRing className="mr-2 inline" size={18} /> {busy ? 'Requesting…' : 'Call Range Officer'}
+            </Button>
+          </div>
+        </div>
+      )}
+      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+    </Modal>
   );
 }
