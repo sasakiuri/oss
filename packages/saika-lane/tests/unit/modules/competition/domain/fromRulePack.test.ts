@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-import { ISSF_2026_AR60_FINAL, ISSF_2026_P25_FINAL, ISSF_2026_R3P_FINAL } from '@sasakiuri/saika-rules';
+import {
+  identifyRulePack,
+  ISSF_2026_AR60_FINAL,
+  ISSF_2026_P25_FINAL,
+  ISSF_2026_R3P_FINAL,
+  JRSF_2026_RULE_PACKS,
+} from '@sasakiuri/saika-rules';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -7,6 +13,7 @@ import {
   AP60_FINAL,
   AR60,
   AR60_FINAL,
+  ALL_COMPETITION_TYPES,
   R3P60,
   R3P60_INDOOR,
   R3P_FINAL,
@@ -15,6 +22,26 @@ import {
 import { competitionTypeFromRulePack } from '@/main/modules/competition/domain/fromRulePack';
 
 describe('competitionTypeFromRulePack', () => {
+  it.each(JRSF_2026_RULE_PACKS)('advertises the exact shared $eventCode definition to Director', (pack) => {
+    const definition = ALL_COMPETITION_TYPES.find((candidate) => candidate.id === pack.eventCode)!;
+    expect(definition.rulePackIdentity).toEqual(identifyRulePack(pack));
+    expect(definition.config.rulePackIdentity).toEqual(identifyRulePack(pack));
+    expect(definition.discipline).toBe(pack.discipline);
+    expect(definition.config.targetProfileId).toBe(pack.capabilities.target.scoringProfileId);
+    expect(definition.config.scoringGaugeProfileId).toBe(pack.capabilities.target.scoringGaugeProfileId);
+    expect(definition.config.stages[1]?.seriesTransition).toBe('OFFICIAL_COMMAND');
+    expect(definition.config.stages[2]?.seriesTransition).toBe('OFFICIAL_COMMAND');
+    for (const step of pack.capabilities.commands!.finalScript!.main) {
+      if (step.effect.type !== 'OPEN_FIRING' || step.effect.purpose !== 'MATCH') continue;
+      const target = step.effect.target!;
+      const stage = definition.config.stages[target.stageIndex]!;
+      const series = stage.series[target.seriesIndex]!;
+      expect(stage.id).toBe(target.stageId);
+      expect(series.maxShots).toBe(step.effect.shotsPerParticipant);
+      expect(series.timer?.durationSeconds ?? series.shotTimer?.durationSeconds).toBe(step.effect.durationSeconds);
+    }
+  });
+
   it('keeps Lane qualification behavior tied to the shared Rule Pack version', () => {
     expect(AR60.rulePackId).toBe('ISSF:2026:AR60:QUALIFICATION');
     expect(AR60.discipline).toBe('AIR_RIFLE_10M');

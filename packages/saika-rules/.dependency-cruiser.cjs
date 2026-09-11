@@ -14,7 +14,7 @@ module.exports = {
       comment: 'Validation accepts definitions; it must not load a particular edition or the public catalog.',
       severity: 'error',
       from: { path: '^src/validation/' },
-      to: { path: '^src/(issf-[^/]+/|index\\.ts$|RulePackRegistry\\.ts$)' },
+      to: { path: '^src/((issf|jrsf)-[^/]+/|index\\.ts$|RulePackRegistry\\.ts$)' },
     },
     {
       name: 'no-validator-to-definition-factory',

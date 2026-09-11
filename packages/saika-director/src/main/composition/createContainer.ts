@@ -8,7 +8,7 @@
 
 import { dirname, join } from 'path';
 
-import { ISSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
+import { ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
 import { app } from 'electron';
 
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
@@ -152,7 +152,7 @@ export function createApp(preloadPath: string): AppServices {
 
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
-  const rulePackRegistry = new RulePackRegistry(ISSF_2026_RULE_PACKS);
+  const rulePackRegistry = new RulePackRegistry([...ISSF_2026_RULE_PACKS, ...JRSF_2026_RULE_PACKS]);
   const finalOperationService = new FinalOperationService(
     new SqliteFinalOperationRepository(database),
     competitionTypeRegistry,

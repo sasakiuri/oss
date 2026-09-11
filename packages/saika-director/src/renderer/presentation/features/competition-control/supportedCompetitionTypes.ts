@@ -1,3 +1,5 @@
+import { BR60S_FINAL } from '@/shared/competitionTypes/definitions/BR60S_FINAL';
+import { BP60_FINAL } from '@/shared/competitionTypes/definitions/BP60_FINAL';
 import {
   ISSF_2026_R300_3P60,
   ISSF_2026_R300_3P60_ELIMINATION,
@@ -41,6 +43,8 @@ import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRuleP
 export const LANE_COMPETITION_TYPES = [
   'BR60S',
   'BP60',
+  'BR60S_FINAL',
+  'BP60_FINAL',
   'AR60',
   'AP60',
   'AR60_FINAL',
@@ -84,6 +88,8 @@ const definitions: Readonly<Record<SupportedLaneCompetitionType, CompetitionType
   FP60_ELIMINATION: competitionTypeFromRulePack(ISSF_2026_FP60_ELIMINATION),
   BR60S,
   BP60,
+  BR60S_FINAL,
+  BP60_FINAL,
   AR60: competitionTypeFromRulePack(ISSF_2026_AR60),
   AP60: competitionTypeFromRulePack(ISSF_2026_AP60),
   AR60_FINAL: competitionTypeFromRulePack(ISSF_2026_AR60_FINAL),

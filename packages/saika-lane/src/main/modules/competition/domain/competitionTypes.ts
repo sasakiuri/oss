@@ -22,6 +22,8 @@ import {
   ISSF_2026_RFPM,
   ISSF_2026_RFPM_FINAL,
   ISSF_2026_STDP,
+  JRSF_2026_BR60S_FINAL,
+  JRSF_2026_BP60_FINAL,
 } from '@sasakiuri/saika-rules';
 
 import type { CompetitionTypeDefinition } from './CompetitionTypeDefinition';
@@ -146,6 +148,10 @@ export const BP60: CompetitionTypeDefinition = {
   },
 };
 
+/** JRSF Beam Finals retain the same exact rule identity in Lane and Director. */
+export const BR60S_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(JRSF_2026_BR60S_FINAL);
+export const BP60_FINAL: CompetitionTypeDefinition = competitionTypeFromRulePack(JRSF_2026_BP60_FINAL);
+
 /** All defined competition types */
 export const ALL_COMPETITION_TYPES: readonly CompetitionTypeDefinition[] = [
   AR60,
@@ -170,6 +176,8 @@ export const ALL_COMPETITION_TYPES: readonly CompetitionTypeDefinition[] = [
   P25_FINAL,
   BR60S,
   BP60,
+  BR60S_FINAL,
+  BP60_FINAL,
   ...ISSF_2026_300M_RIFLE_RULE_PACKS.map(competitionTypeFromRulePack),
   ...ISSF_2026_50M_PISTOL_RULE_PACKS.map(competitionTypeFromRulePack),
 ];

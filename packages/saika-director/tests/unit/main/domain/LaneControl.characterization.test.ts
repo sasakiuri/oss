@@ -157,14 +157,14 @@ describe('LaneControl characterization tests', () => {
   // ---------------------------------------------------------------------------
 
   describe('Final: normal flow', () => {
-    it('uses a Final config with Preparation, 1st Stage, and 2nd Stage', () => {
+    it('uses a Final config with Preparation and sighting, 1st Stage, and 2nd Stage', () => {
       const lane = createFinalLane();
       const config = lane.config;
       expect(config.roundType).toBe('Final');
       // stages: Preparation(0) + 1st Stage(1) + 2nd Stage(2) = 3
       expect(config.stages).toHaveLength(3);
       expect(config.stages[0]!.type).toBe('preparation');
-      expect(config.stages[0]!.name).toBe('Preparation');
+      expect(config.stages[0]!.name).toBe('Preparation and sighting');
       expect(config.stages[1]!.name).toBe('1st Stage');
       expect(config.stages[1]!.series).toHaveLength(2); // 2 series of 5 shots
       expect(config.stages[2]!.name).toBe('2nd Stage');
@@ -853,7 +853,7 @@ describe('LaneControl characterization tests', () => {
     it('currentStageName returns the stage name for the current phase', () => {
       let lane = createFinalLane();
       lane = lane.startPreparation();
-      expect(lane.currentStageName).toBe('Preparation');
+      expect(lane.currentStageName).toBe('Preparation and sighting');
 
       lane = lane.advanceToNextStage().startMatch();
       expect(lane.currentStageName).toBe('1st Stage');

@@ -95,6 +95,7 @@ export type {
 export type { RulePackIdentity } from './RulePackIdentity';
 export { RulePackRegistry } from './RulePackRegistry';
 export * from './issf-2026';
+export { JRSF_2026_BR60S_FINAL, JRSF_2026_BP60_FINAL, JRSF_2026_RULE_PACKS } from './jrsf-2026/beam10m';
 export { recommendQualificationTargetFailure } from './QualificationTargetFailure';
 
 export * from './RecoveryFiringPlan';
