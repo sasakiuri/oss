@@ -16,3 +16,6 @@ export type {
 } from './application/ResultPublicationPorts';
 
 export { OptionalResultPublicationBlocker } from './application/OptionalResultPublicationBlocker';
+
+export { ResultBoardSnapshotService } from './application/ResultBoardSnapshotService';
+export { ResultPublicationService } from './application/ResultPublicationService';

@@ -30,6 +30,7 @@ export interface ScoreCorrectionBasis {
 }
 export interface ScoreCorrectionProjection {
   readonly shots: readonly CorrectableShot[];
+  readonly shotOrigins: readonly { readonly sourceShotIndex: number | null; readonly corrected: boolean }[];
   readonly revision: string;
   readonly ids: readonly string[];
   readonly remarks: readonly string[];
@@ -40,7 +41,14 @@ export interface IResultScoreCorrectionSource {
   project(basis: ScoreCorrectionBasis): ScoreCorrectionProjection;
 }
 export const noResultScoreCorrections: IResultScoreCorrectionSource = {
-  project: (basis) => ({ shots: basis.shots, revision: '', ids: [], remarks: [], issues: [] }),
+  project: (basis) => ({
+    shots: basis.shots,
+    shotOrigins: basis.shots.map((_, sourceShotIndex) => ({ sourceShotIndex, corrected: false })),
+    revision: '',
+    ids: [],
+    remarks: [],
+    issues: [],
+  }),
 };
 export function scoreCorrectionDigest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');

@@ -695,8 +695,10 @@ export class DirectorMqttService {
       payload: command,
       expectedLaneIds: [laneId],
     });
+    const scopedResult: CommandExecutionResult = { ...result, competitionId };
+    this.setLastCommand(scopedResult);
     if (result.success) this.state.clearCompetitionShotHistory(competitionId, laneId);
-    return result;
+    return scopedResult;
   }
 
   async pauseLaneTimer(competitionId: string, laneId: string, interruptionId: string): Promise<CommandExecutionResult> {

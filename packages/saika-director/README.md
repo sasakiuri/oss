@@ -3,6 +3,35 @@
 Saika Director is the desktop control application for coordinating multiple
 [Saika Lane](../saika-lane/) instances over MQTT.
 
+## Saika Vista sharing
+
+Open **Settings → Saika Vista spectator displays**, enable sharing, and apply the
+settings. The default port is `45832`. On the Vista operator PC, discover this
+Director or enter one of the displayed endpoints, then enter its pairing secret.
+Sharing is disabled by default and starts automatically after enabling it.
+
+The dedicated encrypted endpoint exposes a competition catalog and complete
+snapshot reads. Competition commands and Director IPC are not network endpoints.
+Vista supports standard individual air rifle, air pistol, beam rifle and beam
+pistol qualification and finals. Custom and other event definitions are reported
+as unsupported. Beam finals follow JRSF 2026 domestic rules 6.17.5-2 and 6.17.5-3.
+
+Director retains a separate display projection when live Lanes move to another
+competition. Finished state and score must share the final snapshot boundary.
+Select **Current competition** for the selected relay's standings or **Event
+results · all relays** for the coherent event result. The selected scope stays
+fixed when the competition finishes. Event results remain unavailable until the
+event result rows have been acquired; relay standings are never substituted.
+Publication changes, corrections, and confirmed reserve transfers are reflected.
+Saved display projections are migrated without replacing event places with relay
+places; relay places that cannot be recovered remain unverified until refreshed.
+Missing upstream shot history remains visibly incomplete until the journal is
+recovered. Keep Director competition records and its data directory available to
+retrieve later corrections after a restart.
+Reset archives retain the operation history captured at their reset boundary.
+Older archives without that evidence report unavailable history; an already saved
+published result remains displayable as unverified.
+
 ## Features
 
 - Embedded MQTT broker or connection to an external broker

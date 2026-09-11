@@ -96,6 +96,8 @@ describe('AppConfigSchema', () => {
         'mqtt.broker.mode': 'external',
       });
       expect(result).toEqual({
+        'vista.enabled': false,
+        'vista.port': 45832,
         'mqtt.broker.port': 2883,
         'mqtt.broker.url': 'mqtt://custom:2883',
         'mqtt.broker.mode': 'external',
@@ -122,6 +124,8 @@ describe('AppConfigSchema', () => {
     it('should fill defaults for missing fields', () => {
       const result = AppConfigSchema.parse({});
       expect(result).toEqual({
+        'vista.enabled': false,
+        'vista.port': 45832,
         'mqtt.broker.port': 1883,
         'mqtt.broker.url': 'mqtt://localhost:1883',
         'mqtt.broker.mode': 'embedded',
@@ -162,6 +166,8 @@ describe('AppConfigSchema', () => {
 
     it('should infer correct types for AppConfig', () => {
       const config: AppConfig = {
+        'vista.enabled': false,
+        'vista.port': 45832,
         'mqtt.broker.port': 1883,
         'mqtt.broker.url': 'mqtt://localhost:1883',
         'mqtt.broker.mode': 'embedded',

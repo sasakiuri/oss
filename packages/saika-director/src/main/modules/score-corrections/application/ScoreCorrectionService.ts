@@ -4,6 +4,7 @@ import {
   scoreCorrectionDigest as digest,
   type IResultScoreCorrectionSource,
   type ScoreCorrectionBasis,
+  type ScoreCorrectionProjection,
 } from '@/main/modules/results';
 
 import type {
@@ -135,13 +136,14 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     });
   }
 
-  project(basis: ScoreCorrectionBasis) {
+  project(basis: ScoreCorrectionBasis): ScoreCorrectionProjection {
     const history = this.repository
       .list(basis)
       .map((application) => ({ application, withdrawal: this.repository.withdrawal(application.id) }));
     const active = history.filter((item) => !item.withdrawal).map((item) => item.application);
     const result = {
       shots: basis.shots,
+      shotOrigins: basis.shots.map((_, sourceShotIndex) => ({ sourceShotIndex, corrected: false })),
       revision: history.length ? digest(history) : '',
       ids: active.map((item) => item.id),
       remarks: active.map(() => 'Jury score correction applied'),
@@ -157,7 +159,16 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
       ) {
         throw new Error('Source result or Jury evidence changed; withdraw and review the correction');
       }
-      return { ...result, shots: correction.shots };
+      // Derive provenance from the persisted instructions without changing their saved format.
+      const shotOrigins: { sourceShotIndex: number | null; corrected: boolean }[] = [...result.shotOrigins];
+      for (const change of correction.request.changes) {
+        const origin = { sourceShotIndex: null, corrected: true };
+        if (change.operation === 'INSERT_MISSING') {
+          shotOrigins.splice(change.shotIndex, 0, origin);
+          shotOrigins.pop();
+        } else shotOrigins[change.shotIndex] = origin;
+      }
+      return { ...result, shots: correction.shots, shotOrigins };
     } catch (error) {
       return { ...result, issues: [error instanceof Error ? error.message : 'Correction evidence is unavailable'] };
     }

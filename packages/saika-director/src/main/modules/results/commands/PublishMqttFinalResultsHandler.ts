@@ -113,7 +113,7 @@ export class PublishMqttFinalResultsHandler {
 
     this.repository.executeInTransaction(() => {
       this.repository.deleteByEventId(command.eventId);
-      prepared.forEach((result) => this.repository.save(result));
+      prepared.forEach((result) => this.repository.save(result, command.competitionId));
     });
     return { savedCount: prepared.length, errors: [] };
   }

@@ -1,7 +1,9 @@
 // Domain entities (used by tests)
 export { Result } from './domain/Result';
+export { assembleRankingEvidence } from './domain/RankingEvidenceAssembler';
 export { qualificationScoreSourceDigest } from './application/QualificationScoreOverlaySource';
 export * from './application/ResultScoreCorrectionSource';
+export type { IResultDisplayReader, ResultDisplayProjection } from './application/ResultDisplayProjection';
 export type {
   IQualificationScoreOverlaySource,
   QualificationScoreOverlay,

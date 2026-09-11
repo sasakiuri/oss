@@ -1,3 +1,6 @@
+import { migration086VistaSources } from './086_vista_sources';
+import { migration087FinalResultSourceCompetition } from './087_final_result_source_competition';
+import { migration088VistaRankingScopes } from './088_vista_ranking_scopes';
 import { migration003CreateSchema } from './003_create_schema';
 import { migration004AddResultsStatus } from './004_add_results_status';
 import { migration005AddFinalResults } from './005_add_final_results';
@@ -167,4 +170,7 @@ export const allMigrations: Migration[] = [
   migration083EstBackupCapturePlans,
   migration084BackupCaptureReadiness,
   migration085OperationalSettingTemplates,
+  migration086VistaSources,
+  migration087FinalResultSourceCompetition,
+  migration088VistaRankingScopes,
 ];
