@@ -58,14 +58,23 @@ describe('CompetitionRepositoryImpl', () => {
       expect(entries).toHaveProperty('competition:active', 'comp-1');
     });
 
-    it('FINISHED state saves with set and deletes active key', async () => {
+    it('FINISHED state retains its session link and deletes the active key', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).finish();
       await repo.save(state);
 
-      // FINISHED → set(data) + delete(active key)
-      expect(storage.set).toHaveBeenCalledTimes(1);
+      expect(await repo.findById('comp-1')).toEqual(state);
+      expect(storage.get('vista-session-links:comp-1')).toEqual([{ sessionId: 'session-1', stage: 0 }]);
       expect(storage.delete).toHaveBeenCalledWith('competition:active');
-      expect(storage.setMany).not.toHaveBeenCalled();
+    });
+
+    it('does not migrate the preceding run when its first update starts a new session at the same stage', async () => {
+      const previous = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage().endStage();
+      await repo.save(previous);
+      storage.delete('vista-session-links:comp-1');
+
+      await repo.save(previous.withSessionId('session-2').rewindToStage(0));
+
+      expect(storage.get('vista-session-links:comp-1')).toEqual([{ sessionId: 'session-2', stage: 0 }]);
     });
   });
 

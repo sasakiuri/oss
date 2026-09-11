@@ -19,6 +19,8 @@ describe('createStartSessionHandler', () => {
     mockSessionRepository = {
       save: vi.fn(),
       saveShot: vi.fn(),
+      saveReset: vi.fn(),
+      readResetEpoch: vi.fn().mockResolvedValue(null),
       findById: vi.fn(),
       findAll: vi.fn(),
       delete: vi.fn(),

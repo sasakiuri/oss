@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
+import { allMigrations } from '@/main/shared-infra/sqlite/migrations';
+import { MigrationRunner } from '@/main/shared-infra/sqlite/migrations/MigrationRunner';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 describe('Lane SQLite initialization', () => {
@@ -31,7 +34,7 @@ describe('Lane SQLite initialization', () => {
 
   it('opens a fresh database with the existing schema and connection policies', () => {
     const db = track(createSqliteDb(file));
-    expect(db.pragma('user_version', { simple: true })).toBe(19);
+    expect(db.pragma('user_version', { simple: true })).toBe(20);
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal');
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
@@ -72,22 +75,47 @@ describe('Lane SQLite initialization', () => {
       id: 'observation',
       timestamp_source: 'UNKNOWN',
     });
-    expect(reopened.pragma('user_version', { simple: true })).toBe(19);
+    expect(reopened.pragma('user_version', { simple: true })).toBe(20);
   });
 
   it('closes a rejected connection and preserves a database created by a newer application', () => {
     const newer = track(new Database(file));
     newer.exec("CREATE TABLE future_evidence (value TEXT); INSERT INTO future_evidence VALUES ('preserved')");
-    newer.pragma('user_version = 20');
+    newer.pragma('user_version = 21');
     newer.close();
     const close = vi.spyOn(Database.prototype, 'close');
 
-    expect(() => createSqliteDb(file)).toThrow('newer than the latest supported version 19');
+    expect(() => createSqliteDb(file)).toThrow('newer than the latest supported version 20');
     expect(close).toHaveBeenCalledOnce();
     expect((close.mock.contexts[0] as Database.Database).open).toBe(false);
     const preserved = track(new Database(file));
     expect(preserved.prepare('SELECT * FROM future_evidence').all()).toEqual([{ value: 'preserved' }]);
-    expect(preserved.pragma('user_version', { simple: true })).toBe(20);
+    expect(preserved.pragma('user_version', { simple: true })).toBe(21);
     expect(preserved.prepare("SELECT name FROM sqlite_schema WHERE name = 'sessions'").get()).toBeUndefined();
+  });
+
+  it('upgrades schema 19 without changing session history and persists the first reset atomically', async () => {
+    const previous = track(new Database(file));
+    new MigrationRunner(previous).run(allMigrations.slice(0, 19));
+    previous.exec(`
+      INSERT INTO sessions (id, discipline, mode, startedAt, finishedAt, scoringMode)
+      VALUES ('existing', 'AIR_RIFLE_10M', 'MATCH', '2026-01-01T00:00:00Z', NULL, 'DECIMAL');
+      INSERT INTO shots (id, sessionId, shotNumber, seriesNumber, score, timestamp, mode)
+      VALUES ('old-shot', 'existing', 1, 1, 104, '2026-01-01T00:00:01Z', 'MATCH');
+    `);
+    previous.close();
+    const upgraded = track(createSqliteDb(file));
+    expect(upgraded.pragma('user_version', { simple: true })).toBe(20);
+    const sessions = new SqliteSessionRepository(upgraded);
+    const existing = (await sessions.findById('existing'))!;
+    expect(existing.allShots.map((shot) => shot.id)).toEqual(['old-shot']);
+    expect(await sessions.readResetEpoch('existing')).toBeNull();
+    await sessions.saveReset(existing.reset());
+    const epoch = await sessions.readResetEpoch('existing');
+    upgraded.close();
+    const restored = new SqliteSessionRepository(track(createSqliteDb(file)));
+    expect(await restored.readResetEpoch('existing')).toBe(epoch);
+    expect(epoch).toEqual(expect.any(String));
+    expect((await restored.findById('existing'))?.allShots).toEqual([]);
   });
 });

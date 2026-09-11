@@ -151,6 +151,7 @@ describe('LaneTimerService', () => {
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // started 120 seconds ago, total duration 60 seconds → already expired
+      timerService.start('comp-1', 600, 600);
       const twoMinutesAgo = new Date(Date.now() - 120_000).toISOString();
       await timerService.startAt('comp-1', twoMinutesAgo, 60);
 
@@ -167,6 +168,7 @@ describe('LaneTimerService', () => {
       );
       // timer is not started
       expect(vi.getTimerCount()).toBe(0);
+      expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs: 0 });
     });
 
     it('future time: timer waits until the absolute start time', async () => {
@@ -434,12 +436,14 @@ describe('LaneTimerService', () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
+      timerService.start('comp-1', 600, 600);
       await timerService.expire('comp-1');
 
       expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(2);
       expect(mockEventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'PhaseChanged', newPhase: 'SERIES_COMPLETE' }),
       );
+      expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs: 0 });
     });
 
     it('does not finalize expiry if the execution gate closes during persistence', async () => {
@@ -467,6 +471,25 @@ describe('LaneTimerService', () => {
   });
 
   describe('interruption controls', () => {
+    it.each([
+      { clockChangeMs: -60_000, remainingMs: 590_000 },
+      { clockChangeMs: 250, remainingMs: 589_750 },
+    ])('samples the stopped time after a $clockChangeMs ms clock change', async ({ clockChangeMs, remainingMs }) => {
+      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+      timerService.start('comp-1', 600, 600);
+      vi.setSystemTime(Date.now() + 10_000);
+      await timerService.processTick();
+      vi.setSystemTime(Date.now() + clockChangeMs);
+
+      await expect(timerService.pause('comp-1')).resolves.toEqual({ remainingSeconds: 590, totalSeconds: 600 });
+
+      expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs, sampledAt: Date.now() });
+      expect(mockCompetitionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ timer: expect.objectContaining({ remainingSeconds: 590 }) }),
+      );
+    });
+
     it('does not stop a replacement timer while loading the interrupted competition', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       let releaseRead!: (value: CompetitionState) => void;

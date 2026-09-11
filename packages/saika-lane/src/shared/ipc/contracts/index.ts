@@ -125,3 +125,5 @@ export type { TimedTargetStateDto } from './timedTarget.contract';
 
 export { AppUpdateStateSchema, AppUpdateStatusSchema, updaterContract } from './updater.contract';
 export type { AppUpdateStateDto, AppUpdateStatus } from './updater.contract';
+
+export { vistaContract } from './vista.contract';

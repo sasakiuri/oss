@@ -23,6 +23,8 @@ describe('createResetSessionHandler', () => {
     mockSessionRepository = {
       save: vi.fn(),
       saveShot: vi.fn(),
+      saveReset: vi.fn(),
+      readResetEpoch: vi.fn().mockResolvedValue(null),
       findById: vi.fn(),
       findAll: vi.fn(),
       delete: vi.fn(),
@@ -56,9 +58,9 @@ describe('createResetSessionHandler', () => {
 
       // Assert
       expect(mockSessionRepository.findById).toHaveBeenCalledWith(testSession.id);
-      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockSessionRepository.saveReset).toHaveBeenCalledTimes(1);
 
-      const savedSession = (mockSessionRepository.save as any).mock.calls[0][0];
+      const savedSession = (mockSessionRepository.saveReset as any).mock.calls[0][0];
       expect(savedSession).toBeInstanceOf(Session);
       expect(savedSession.id).toBe(testSession.id);
     });
@@ -88,7 +90,7 @@ describe('createResetSessionHandler', () => {
       await handler({ sessionId: testSession.id });
 
       // Assert
-      const savedSession = (mockSessionRepository.save as any).mock.calls[0][0];
+      const savedSession = (mockSessionRepository.saveReset as any).mock.calls[0][0];
       expect(savedSession.id).toBe(testSession.id);
       expect(savedSession.discipline).toBe(testSession.discipline);
       expect(savedSession.mode.value).toBe('MATCH');
@@ -111,10 +113,11 @@ describe('createResetSessionHandler', () => {
     it('should throw an error when repository save fails', async () => {
       // Arrange
       (mockSessionRepository.findById as any).mockResolvedValue(testSession);
-      (mockSessionRepository.save as any).mockRejectedValue(new Error('Repository save failed'));
+      (mockSessionRepository.saveReset as any).mockRejectedValue(new Error('Repository save failed'));
 
       // Act & Assert
       await expect(handler({ sessionId: testSession.id })).rejects.toThrow('Repository save failed');
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
     });
 
     it('should throw an error when event bus emit fails', async () => {

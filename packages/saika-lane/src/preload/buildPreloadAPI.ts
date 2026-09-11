@@ -10,6 +10,7 @@ import {
   timedTargetContract,
   updaterContract,
   windowContract,
+  vistaContract,
 } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
@@ -116,6 +117,7 @@ export function buildPreloadAPI(): ElectronAPI {
     },
 
     timedTarget,
+    vista: createBridgeNamespace(vistaContract),
 
     updates: {
       getUpdateState: updates.getUpdateState,

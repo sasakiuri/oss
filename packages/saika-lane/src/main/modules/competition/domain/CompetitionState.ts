@@ -205,6 +205,8 @@ export class CompetitionState {
       timer = Timer.create(seriesConfig.timer.durationSeconds);
     } else if (seriesConfig?.timedTargetProgramId) {
       timer = Timer.create(0);
+    } else if (seriesConfig?.shotTimer) {
+      timer = Timer.create(seriesConfig.shotTimer.durationSeconds);
     } else if (this.phase === 'STAGE_ENTERED' && stageConfig.timer) {
       timer = Timer.create(stageConfig.timer.durationSeconds);
     } else {

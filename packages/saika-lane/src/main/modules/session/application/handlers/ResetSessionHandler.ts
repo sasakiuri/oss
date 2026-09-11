@@ -36,8 +36,8 @@ export function createResetSessionHandler(
     // Clear all shooting data while keeping the session context active.
     const updatedSession = session.reset();
 
-    // Persist the session
-    await sessionRepository.save(updatedSession);
+    // The reset boundary and cleared history must survive or fail together.
+    await sessionRepository.saveReset(updatedSession);
 
     // Emit SessionReset event
     eventBus.emit({

@@ -13,7 +13,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
  * ShotRecorded event handler factory
  *
  * Calls CompetitionState.recordShotInSeries() when a shot is recorded,
- * and emits a SeriesCompleted event when the series is complete.
+ * then announces persisted progress or completion of the series.
  */
 export function createShotRecordedHandler(deps: {
   competitionRepository: ICompetitionRepository;
@@ -37,6 +37,17 @@ export function createShotRecordedHandler(deps: {
       if (newState.phase === 'SERIES_COMPLETE') {
         eventBus.emit({
           type: 'SeriesCompleted',
+          timestamp: Date.now(),
+          aggregateId: newState.id,
+          stageIndex: newState.currentStageIndex,
+          seriesIndex: newState.currentSeriesIndex,
+          shotCount: newState.seriesShotCount,
+        });
+      } else {
+        // ShotRecorded listeners run concurrently with this save. Publish progress
+        // only after it completes so readers cannot observe the previous counter.
+        eventBus.emit({
+          type: 'CompetitionProgressChanged',
           timestamp: Date.now(),
           aggregateId: newState.id,
           stageIndex: newState.currentStageIndex,
