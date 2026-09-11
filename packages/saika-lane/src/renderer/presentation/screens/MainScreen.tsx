@@ -31,9 +31,9 @@ import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useTitleBar } from '@/renderer/presentation/hooks/useTitleBar';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
+import { usePrintStore } from '@/renderer/presentation/stores/printStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
-import { reportService } from '@/renderer/services/reportService';
 
 /**
  * MainScreen component props
@@ -51,6 +51,7 @@ const CURSOR_IDLE_TIMEOUT_MS = 5000;
 export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
   const { currentSessionId } = useSession();
+  const { isPrinting, error: printError, dismissError } = usePrintStore();
   const { shots } = useShot();
   const { discipline } = useSessionStore();
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
@@ -61,7 +62,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
   const scoringGaugeProfileId = useCompetitionStore((state) => state.scoringGaugeProfileId);
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection'>('general');
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection' | 'printing'>(
+    'general',
+  );
   const [zoomMode, setZoomMode] = useState<ZoomMode>('AUTO');
 
   const handleZoomClick = useCallback(() => {
@@ -84,12 +87,37 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
   const handlePrintClick = useCallback(async () => {
     if (currentSessionId) {
-      await reportService.openPrintWindow({ sessionId: currentSessionId });
+      await usePrintStore.getState().print(currentSessionId);
     }
   }, [currentSessionId]);
 
   return (
     <div className={`flex h-screen flex-col overflow-hidden bg-zinc-900 ${className}`.trim()}>
+      {isPrinting && (
+        <div role="status" className="absolute bottom-4 left-24 z-40 rounded bg-zinc-800 p-3 text-zinc-100">
+          Preparing print job...
+        </div>
+      )}
+      {printError && (
+        <div
+          role="alert"
+          className="absolute bottom-4 left-24 z-40 max-w-lg rounded border border-red-500 bg-zinc-900 p-4 text-red-300"
+        >
+          <p>{printError}</p>
+          <button
+            onClick={() => {
+              setSettingsInitialTab('printing');
+              setIsSettingsModalOpen(true);
+            }}
+            className="mr-4 mt-3 text-zinc-100"
+          >
+            Printing Settings
+          </button>
+          <button onClick={dismissError} className="mt-3 text-zinc-100">
+            Dismiss
+          </button>
+        </div>
+      )}
       <SafetyStopOverlay />
       <FinalCommandCue />
       <TimedTargetOverlay />
@@ -118,7 +146,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
             setSettingsInitialTab('general');
             setIsSettingsModalOpen(true);
           }}
-          onPrintClick={currentSessionId ? handlePrintClick : undefined}
+          onPrintClick={currentSessionId && !isPrinting ? handlePrintClick : undefined}
         />
 
         <SidePanel />

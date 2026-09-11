@@ -19,6 +19,9 @@ export const settingsModule: ModuleDefinition<SettingsDeps> = {
   register({ ipcRouter, settingsStore }) {
     // Register IPC handlers via IpcRouter
     const settingsHandlers: InferHandlers<typeof settingsContract> = {
+      savePrintSettings: async (input) => {
+        settingsStore.replaceAll({ ...settingsStore.getAll(), printing: input.settings });
+      },
       saveConnectionSettings: async (input) => {
         settingsStore.saveConnectionSettings(input.settings);
       },

@@ -14,7 +14,7 @@ import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import type { AppSettingsDto } from '@/shared/ipc/contracts';
+import { PrintSettingsSchema, type AppSettingsDto } from '@/shared/ipc/contracts';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 export function createMockCommandBus(): CommandBus {
@@ -156,6 +156,7 @@ export function createMockStorage(): ILocalStorage {
 
 export function createMockSettingsStore(): IAppSettingsStore {
   let settings: AppSettingsDto = {
+    printing: PrintSettingsSchema.parse({}),
     connection: {
       portName: '',
       manufacturer: 'KOHTO' as const,
@@ -183,6 +184,7 @@ export function createMockSettingsStore(): IAppSettingsStore {
     getAll: vi.fn(() => settings),
     replaceAll: vi.fn((nextSettings) => {
       settings = {
+        printing: PrintSettingsSchema.parse(nextSettings.printing ?? {}),
         connection: {
           portName: nextSettings.connection.portName ?? '',
           manufacturer: nextSettings.connection.manufacturer ?? 'KOHTO',

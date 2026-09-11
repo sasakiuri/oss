@@ -104,6 +104,7 @@ export interface ElectronAPI {
    * raw settings/preferences into the contract input format.
    */
   readonly settings: {
+    savePrintSettings: SettingsBridge['savePrintSettings'];
     /** Save connection settings */
     saveConnectionSettings: (settings: ConnectionSettingsDto) => Promise<SaveConnectionSettingsOutput>;
     /** Get saved connection settings */

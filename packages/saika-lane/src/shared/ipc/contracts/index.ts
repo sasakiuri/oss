@@ -40,6 +40,7 @@ export {
   AppSettingsInputSchema,
   AppSettingsSchema,
   ConnectionSettingsSchema,
+  PrintSettingsSchema,
   settingsContract,
 } from './settings.contract';
 export type {
@@ -47,6 +48,7 @@ export type {
   AppSettingsInputDto,
   AppSettingsDto,
   ConnectionSettingsDto,
+  PrintSettingsDto,
   SaveAppSettingsInput,
   SaveConnectionSettingsInput,
   SaveUserPreferencesInput,
@@ -64,7 +66,13 @@ export type {
 } from './competition.contract';
 
 export { reportContract } from './report.contract';
-export type { GetScoreSheetInput, OpenPrintWindowInput, ScoreSheetDto, ScoreSheetShotDto } from './report.contract';
+export type {
+  GetScoreSheetInput,
+  OpenPrintWindowInput,
+  PrinterDto,
+  ScoreSheetDto,
+  ScoreSheetShotDto,
+} from './report.contract';
 
 export { eventsContract } from './events.contract';
 export type {

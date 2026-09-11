@@ -80,7 +80,11 @@ export function createLaneServices(
   const sessionRepository = new SqliteSessionRepository(db);
   const connectionRepository = new ConnectionRepositoryImpl(storage);
   const competitionRepository = new CompetitionRepositoryImpl(storage);
-  const printWindowService = new PrintWindowService(preloadPath, rendererDirectory);
+  const printWindowService = new PrintWindowService(
+    preloadPath,
+    rendererDirectory,
+    () => settingsStore.getAll().printing,
+  );
   const adapterRegistry = new AdapterRegistry();
   const usbConnectionManager = new USBConnectionManager(adapterRegistry);
 

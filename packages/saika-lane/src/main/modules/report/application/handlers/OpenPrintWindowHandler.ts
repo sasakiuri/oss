@@ -4,6 +4,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
+import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 /**
@@ -27,6 +28,7 @@ export function createOpenPrintWindowHandler(
 
       await printWindowService.open(sessionId);
     } catch (error) {
+      if (error instanceof DomainError) throw error;
       throw ErrorCatalog.createError(
         'PRINT_WINDOW_CREATION_FAILED',
         undefined,

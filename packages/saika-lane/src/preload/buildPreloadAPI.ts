@@ -78,11 +78,14 @@ export function buildPreloadAPI(): ElectronAPI {
       saveAppSettings: (settingsData) => settings.saveAppSettings({ settings: settingsData }),
       getAppSettings: settings.getAppSettings,
       getSettingsFileInfo: settings.getSettingsFileInfo,
+      savePrintSettings: settings.savePrintSettings,
     },
 
     report: {
       getScoreSheet: report.getScoreSheet,
       openPrintWindow: report.openPrintWindow,
+      listPrinters: report.listPrinters,
+      printReady: report.printReady,
     },
 
     window: {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   AppSettingsDraftSchema,
+  PrintSettingsSchema,
   type AppSettingsDraftDto,
   type AppSettingsDto,
   type ConnectionSettingsDto,
@@ -25,7 +26,14 @@ export function normalizeSettingsDraft(draft: unknown): AppSettingsDraftDto {
     connection: normalizeConnectionDraft(root.connection),
     userPreferences: isLegacyBpt216 ? migrateLegacyBpt216UserPreferences(userPreferences) : userPreferences,
     mqtt: normalizeMqttDraft(root.mqtt),
+    printing: normalizePrintingDraft(root.printing),
   };
+}
+
+function normalizePrintingDraft(input: unknown): AppSettingsDraftDto['printing'] {
+  const result = PrintSettingsSchema.safeParse(input ?? {});
+  // Invalid printing settings must not silently enable printing with different options.
+  return result.success ? result.data : PrintSettingsSchema.parse({});
 }
 
 export function normalizeConnectionDraft(input: unknown): AppSettingsDraftDto['connection'] {
