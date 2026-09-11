@@ -92,8 +92,7 @@ describe('EstComplaintSignalControl', () => {
         procedures: pack.capabilities.estComplaints!.procedures,
       },
     });
-    render(<EstComplaintSignalControl />);
-    fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+    render(<EstComplaintSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
     expect(await screen.findByText(/not permitted in Finals/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
     expect(await screen.findByText(/Final EST procedure/)).toBeInTheDocument();
@@ -102,8 +101,7 @@ describe('EstComplaintSignalControl', () => {
   });
 
   it('sends only the complaint issue and observation while main captures trusted context', async () => {
-    render(<EstComplaintSignalControl />);
-    fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+    render(<EstComplaintSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
 
     fireEvent.change(await screen.findByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
     fireEvent.change(screen.getByLabelText('Observation (optional)'), {
@@ -123,8 +121,7 @@ describe('EstComplaintSignalControl', () => {
 
   it('shows the captured latest shot and clears only by signal identity', async () => {
     mocks.getSignal.mockResolvedValue(activeState);
-    render(<EstComplaintSignalControl />);
-    fireEvent.click(await screen.findByRole('button', { name: 'EST complaint active' }));
+    render(<EstComplaintSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
 
     expect(await screen.findByText(/#12 Test Athlete/)).toBeInTheDocument();
     expect(screen.getByText('3 / 5')).toBeInTheDocument();
@@ -146,8 +143,7 @@ describe('EstComplaintSignalControl', () => {
       };
       mocks.getContext.mockResolvedValue(context);
       mocks.declare.mockResolvedValue({ ...activeState, issue: 'SHOT_NOT_REGISTERED', context });
-      render(<EstComplaintSignalControl />);
-      fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+      render(<EstComplaintSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
       fireEvent.change(await screen.findByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
 
       expect(await screen.findByText(guidance)).toBeInTheDocument();
@@ -174,8 +170,7 @@ describe('EstComplaintSignalControl', () => {
         },
       },
     });
-    render(<EstComplaintSignalControl />);
-    fireEvent.click(screen.getByRole('button', { name: 'Raise an EST complaint' }));
+    render(<EstComplaintSignalControl isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
     fireEvent.change(await screen.findByLabelText('Complaint'), { target: { value: 'SHOT_NOT_REGISTERED' } });
     expect(await screen.findByText(/Confirm the procedure with the Range Officer/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Raise EST complaint' }));

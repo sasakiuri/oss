@@ -21,6 +21,7 @@ export interface SideMenuButtonProps {
   active?: boolean;
   /** Color when active (hex value, e.g. '#029863'). When specified, acts as a mode button */
   activeColor?: string;
+  'aria-haspopup'?: 'dialog';
 }
 
 export const SideMenuButton: React.FC<SideMenuButtonProps> = ({
@@ -30,10 +31,12 @@ export const SideMenuButton: React.FC<SideMenuButtonProps> = ({
   disabled = false,
   active = false,
   activeColor,
+  'aria-haspopup': ariaHasPopup,
 }) => {
   const isToggle = activeColor !== undefined;
 
-  const baseClasses = 'flex items-center justify-center h-20 transition-colors';
+  const baseClasses =
+    'flex items-center justify-center h-20 min-h-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-vscode-primary';
 
   let className: string;
   let style: React.CSSProperties | undefined;
@@ -61,6 +64,7 @@ export const SideMenuButton: React.FC<SideMenuButtonProps> = ({
       className={className}
       style={style}
       aria-label={label}
+      aria-haspopup={ariaHasPopup}
       title={label}
       {...(isToggle ? { 'aria-pressed': active } : {})}
     >

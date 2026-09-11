@@ -104,19 +104,19 @@ description: Saika Lane の標的接続、試射・本射、表示、印刷、Di
 
 ### 役員へ連絡し、対応後に通知を解除する
 
-困ったときは画面右上から申告できます。開いた画面で、必要に応じて詳細や観察内容を入力します。
+困ったときは左側の操作メニューで、ベルの「Range Officer」を押します。申告の種類を選び、必要に応じて詳細や観察内容を入力します。
 
-- 「CALL RO」：理由を選び、「Call Range Officer」で射場役員を呼ぶ。
-- 「DECLARE MALFUNCTION」：Qualification（予選）の銃器故障の疑いを「Declare possible malfunction」で申告する。
-- 「EST COMPLAINT」：得点表示、未表示の着弾、標的装置などの問題の種類を選び、「Raise EST complaint」で申告する。
+- 「Call RO」：理由を選び、「Call Range Officer」で射場役員を呼ぶ。
+- 「Declare malfunction」：Qualification（予選）の銃器故障の疑いを「Declare possible malfunction」で申告する。
+- 「EST complaint」：得点表示、未表示の着弾、標的装置などの問題の種類を選び、「Raise EST complaint」で申告する。
 
-送信後はそれぞれ「RO REQUEST ACTIVE」、「MALFUNCTION ACTIVE」、「EST COMPLAINT ACTIVE」に変わります。銃器故障・EST の申告には、進行中の競技と選手割当が必要です。送信エラーが出た場合は表示内容を確認し、役員に直接伝えてください。
+申告中はベルに小さな琥珀色の印が付きます。「Range Officer」を開くと、該当する項目で「Active」を確認できます。標的上には申告ボタンを表示しません。銃器故障・EST の申告には、進行中の競技と選手割当が必要です。送信エラーが出た場合は表示内容を確認し、役員に直接伝えてください。
 
 これらの申告はタイマーを止めず、得点の修正や判定も行いません。MQTT 切断中は Lane に保存され、再接続後に送信されるため、急ぎの連絡は直接役員に伝えてください。
 
 Director 担当者は、銃器故障の申告を [予選の銃器故障の記録](../director/OPERATIONS.md#予選の銃器故障を記録する)、EST の申告を [標的調査の手順](../director/OPERATIONS.md#調査資料を残す) で扱います。
 
-役員が対応した後は、Lane の通知を開き直して解除します。役員呼出は「Clear request」、銃器故障・EST は「Clear after official acknowledgement」を押し、元の申告ボタンに戻ったことを確認します。Director の案件に必要な記録を残してから解除してください。通知の解除では、Director の案件を閉じたり資料保全を解除したりしません。
+役員が対応した後は、「Range Officer」から申告中の項目を開き直します。役員呼出は「Clear request」、銃器故障・EST は「Clear after official acknowledgement」を押して解除します。すべての申告を解除すると、ベルの印が消えます。Director の案件に必要な記録を残してから解除してください。通知の解除では、Director の案件を閉じたり資料保全を解除したりしません。
 
 ## 着弾時刻の判定を設定する
 
