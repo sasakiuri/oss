@@ -6,6 +6,7 @@
     [
       "@sasakiuri/saika-lane",
       "@sasakiuri/saika-director",
+      "@sasakiuri/saika-vista",
       "@sasakiuri/saika-docs"
     ]
   ],

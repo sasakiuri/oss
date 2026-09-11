@@ -1,0 +1,9 @@
+{
+  "extends": "@sasakiuri/typescript-config/vite.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx", "e2e/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

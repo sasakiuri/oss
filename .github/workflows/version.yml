@@ -46,8 +46,9 @@ jobs:
           lane_version=$(node -p "require('./packages/saika-lane/package.json').version")
           director_version=$(node -p "require('./packages/saika-director/package.json').version")
           docs_version=$(node -p "require('./packages/saika-docs/package.json').version")
-          if [ "$lane_version" != "$director_version" ] || [ "$lane_version" != "$docs_version" ]; then
-            echo "::error::Saika suite versions must match: Lane ($lane_version), Director ($director_version), Docs ($docs_version)"
+          vista_version=$(node -p "require('./packages/saika-vista/package.json').version")
+          if [ "$lane_version" != "$director_version" ] || [ "$lane_version" != "$docs_version" ] || [ "$lane_version" != "$vista_version" ]; then
+            echo "::error::Saika suite versions must match: Lane ($lane_version), Director ($director_version), Docs ($docs_version), Vista ($vista_version)"
             exit 1
           fi
           TAG="v${lane_version}"

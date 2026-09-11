@@ -17,6 +17,7 @@ const workspaceName =
 const packageDirectoryByWorkspace = new Map([
   ["@sasakiuri/saika-lane", "saika-lane"],
   ["@sasakiuri/saika-director", "saika-director"],
+  ["@sasakiuri/saika-vista", "saika-vista"],
 ]);
 const packageDirectory = packageDirectoryByWorkspace.get(workspaceName);
 const appDirectory = packageDirectory

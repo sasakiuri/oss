@@ -32,12 +32,17 @@ jobs:
           lane_version=$(node -p "require('./packages/saika-lane/package.json').version")
           director_version=$(node -p "require('./packages/saika-director/package.json').version")
           docs_version=$(node -p "require('./packages/saika-docs/package.json').version")
+          vista_version=$(node -p "require('./packages/saika-vista/package.json').version")
           if [ "$lane_version" != "$tag_version" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match Saika Lane version $lane_version"
             exit 1
           fi
           if [ "$director_version" != "$tag_version" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match Saika Director version $director_version"
+            exit 1
+          fi
+          if [ "$vista_version" != "$tag_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Saika Vista version $vista_version"
             exit 1
           fi
           if [ "$docs_version" != "$tag_version" ]; then
@@ -59,6 +64,7 @@ jobs:
         run: |
           npm run test:coverage --workspace=@sasakiuri/saika-lane
           npm run test:coverage --workspace=@sasakiuri/saika-director
+          npm run test --workspace=@sasakiuri/saika-vista
 
       - name: Architecture validation
         run: npx turbo depcruise
@@ -87,6 +93,7 @@ jobs:
         run: |
           xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-lane
           xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-director
+          xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-vista
 
       - name: Restore better-sqlite3 for Node.js
         if: always()
@@ -133,10 +140,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      - name: Build Saika Vista artifacts
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
       - name: Verify packaged legal notices
         run: |
           npm run license-artifacts:check --workspace=@sasakiuri/saika-lane
           npm run license-artifacts:check --workspace=@sasakiuri/saika-director
+          npm run license-artifacts:check --workspace=@sasakiuri/saika-vista
 
       - name: Validate artifact inventories
         run: |
@@ -164,6 +178,7 @@ jobs:
 
           validate_artifacts "Saika Lane" packages/saika-lane/release
           validate_artifacts "Saika Director" packages/saika-director/release
+          validate_artifacts "Saika Vista" packages/saika-vista/release
         shell: bash
 
       - name: Install AppImage runtime dependency
@@ -198,6 +213,7 @@ jobs:
 
           smoke_test_appimage "Saika Lane" packages/saika-lane/release
           smoke_test_appimage "Saika Director" packages/saika-director/release
+          smoke_test_appimage "Saika Vista" packages/saika-vista/release
         shell: bash
 
       - name: Attest build provenance
@@ -214,6 +230,11 @@ jobs:
             packages/saika-director/release/*.dmg
             packages/saika-director/release/*.AppImage
             packages/saika-director/release/*.deb
+            packages/saika-vista/release/*.exe
+            packages/saika-vista/release/*.zip
+            packages/saika-vista/release/*.dmg
+            packages/saika-vista/release/*.AppImage
+            packages/saika-vista/release/*.deb
 
       - name: Upload Saika Lane build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -243,6 +264,19 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload Saika Vista build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-vista-${{ matrix.os }}
+          path: |
+            packages/saika-vista/release/*.exe
+            packages/saika-vista/release/*.zip
+            packages/saika-vista/release/*.dmg
+            packages/saika-vista/release/*.AppImage
+            packages/saika-vista/release/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
   create-release:
     name: Publish GitHub Release
     needs: build
@@ -267,8 +301,15 @@ jobs:
           pattern: release-director-*
           merge-multiple: true
 
+      - name: Download Saika Vista artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts/vista
+          pattern: release-vista-*
+          merge-multiple: true
+
       - name: Restore execute permissions on AppImages
-        run: chmod +x artifacts/lane/*.AppImage artifacts/director/*.AppImage 2>/dev/null || true
+        run: chmod +x artifacts/lane/*.AppImage artifacts/director/*.AppImage artifacts/vista/*.AppImage 2>/dev/null || true
         shell: bash
 
       - name: Generate checksums
@@ -290,6 +331,16 @@ jobs:
               files=(*.exe *.zip *.dmg *.AppImage *.deb)
               if [ ${#files[@]} -eq 0 ]; then
                 echo "No Saika Director release artifacts found" >&2
+                exit 1
+              fi
+              sha256sum "${files[@]}"
+            )
+            (
+              cd artifacts/vista
+              shopt -s nullglob
+              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              if [ ${#files[@]} -eq 0 ]; then
+                echo "No Saika Vista release artifacts found" >&2
                 exit 1
               fi
               sha256sum "${files[@]}"
@@ -316,10 +367,15 @@ jobs:
             artifacts/lane/latest*.yml
             artifacts/lane/*.blockmap
             artifacts/director/*.exe
+            artifacts/vista/*.exe
             artifacts/director/*.zip
+            artifacts/vista/*.zip
             artifacts/director/*.dmg
+            artifacts/vista/*.dmg
             artifacts/director/*.AppImage
+            artifacts/vista/*.AppImage
             artifacts/director/*.deb
+            artifacts/vista/*.deb
             artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
