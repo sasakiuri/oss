@@ -43,7 +43,6 @@ export class Discipline {
     this.distance = distance;
     this.targetSize = targetSize;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

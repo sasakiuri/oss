@@ -2,7 +2,7 @@
   "name": "@sasakiuri/saika-docs",
   "version": "0.3.0",
   "private": true,
-  "description": "Next.js documentation site and frontend reference implementation for the Saika suite",
+  "description": "Japanese manuals and Next.js documentation site for the Saika suite",
   "license": "MIT",
   "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "type": "module",

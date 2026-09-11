@@ -114,7 +114,6 @@ export class Session {
     this.finishedAt = finishedAt;
     this.scoringMode = scoringMode;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

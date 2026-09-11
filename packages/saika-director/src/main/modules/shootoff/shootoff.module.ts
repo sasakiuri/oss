@@ -1,9 +1,3 @@
-/**
- * shootoff.module.ts
- *
- *
- */
-
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { shootoffContract } from '@/shared/ipc/contracts';
 

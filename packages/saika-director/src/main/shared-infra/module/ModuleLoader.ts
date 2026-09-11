@@ -1,9 +1,4 @@
-/**
- * ModuleLoader.ts
- *
- * Iterates a static list of ModuleDefinitions and calls register() on each,
- * creating a dependency-subset context per module and collecting ModuleOutput.
- */
+/** Registers the static module catalog and collects module outputs. */
 
 import type {
   ModuleDefinition,

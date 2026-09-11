@@ -1,11 +1,3 @@
-/**
- * createContainer.ts
- *
- * Application dependency factory.
- *
- * Centralizes all dependency construction in the composition root.
- */
-
 import { dirname, join } from 'path';
 
 import { ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';

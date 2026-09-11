@@ -122,7 +122,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
         <div className="target-placeholder"></div>
       </div>
 
-      <div className="series-sections-meyton">
+      <div className="score-sheet-series-list">
         {Array.from({ length: seriesCount }, (_, seriesIndex) => {
           const seriesNumber = seriesIndex + 1;
           const seriesShots = getSeriesShots(seriesNumber);

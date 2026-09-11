@@ -2,8 +2,7 @@
 
 # Saika Docs
 
-Saika Lane と Saika Director を使う人のための日本語マニュアルです。
-画面上のボタンや項目は、実際の英語表記を「 」で示します。
+Saika Lane と Saika Director の日本語マニュアルです。画面上のボタンや項目は、実際の英語表記をかぎ括弧で示します。
 
 Lane は射座の標的に接続し、着弾・得点を表示します。単独でも使用できます。
 Director は複数の Lane の進行と大会成績を管理します。
@@ -37,12 +36,10 @@ Saika は非公式ソフトウェアであり、公式競技の唯一の採点�
 
 ## バージョンとリリース
 
-Lane・Director・Docs は同じスイートバージョンを共有します。
-利用するアプリと同じ `v<version>` タグの文書を参照してください。文書は共有 GitHub Release のソースに含まれます。
-本書の操作は、同じ版の [Lane](../saika-lane/) と [Director](../saika-director/) の実装を基にしています。
+Lane・Director・Vista・Docs は同じスイートバージョンを共有します。利用するアプリと同じ `v<version>` タグの文書を参照してください。文書は共有 GitHub Release のソースに含まれます。本書の操作は、同じ版の [Lane](../saika-lane/) と [Director](../saika-director/) の実装を基にしています。
 
 ## 出典とライセンス
 
 本文は [MIT License](./LICENSE) です。第三者の規則本文・画像・帳票テンプレートは収録していません。
 機器の技術資料は Saika の対応範囲を説明するもので、メーカーの公式仕様ではありません。
-詳細は [第三者表示](./NOTICE.md)、[参照元](./SOURCES.md)、[公開方針](./CONTENT_POLICY.md) を参照してください。
+詳細は [第三者表示](./NOTICE.md)、[参照元](./SOURCES.md) を参照してください。

@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Core domain event definitions
- *
- * Defines all domain events for saika.lane as type-safe interfaces
- * and registers them in the EventRegistry.
- *
- * NOTE: Interface names have the `Event` suffix to avoid naming conflicts
- * with existing event classes (src/main/domain/events/).
- * Existing classes are scheduled for removal in Phase 7.
+ * Domain event interfaces registered in EventRegistry.
  */
 
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';

@@ -7,15 +7,7 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * createStartStageHandler
- *
- * Handler factory for the start stage command.
- *
- * - IDLE → normal start via startStage()
- * - ACTIVE (any) → session rotation → resetToIdle()
- * - SERIES_COMPLETE | SERIES_ENTERED | STAGE_ENTERED → session rotation → rewindToStage(0)
- */
+/** Starts from IDLE; an active or completed stage rotates the session before restarting. */
 export function createStartStageHandler(
   competitionRepository: ICompetitionRepository,
   sessionLifecycle: SessionLifecycleService,

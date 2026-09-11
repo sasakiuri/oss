@@ -1,9 +1,3 @@
-/**
- * Lane Control Module Registration
- *
- * Registers all lane-control-related command handlers, query handlers,
- * IPC handlers, and domain event listeners.
- */
 import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { EventTransformer } from '@/main/shared-infra/ipc/EventForwardingRule';

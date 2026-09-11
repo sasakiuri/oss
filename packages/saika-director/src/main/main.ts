@@ -1,6 +1,3 @@
-/**
- * Electron application entry point.
- */
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { app, BrowserWindow, dialog } from 'electron';

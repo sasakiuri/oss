@@ -2,30 +2,9 @@
 /**
  * Electron API type definitions
  *
- * @description
  * Defines the complete type-safe API exposed to the Renderer Process
  * via the preload script. Types are derived from IPC contracts using
  * InferBridge and InferEventBridge utility types.
- *
- * @example
- * ```typescript
- * // In Renderer Process
- * const result = await window.electronAPI.commands.startSession({
- *   discipline: 'AIR_RIFLE_10M'
- * });
- *
- * if (result.success) {
- *   console.log('Session started:', result.data.sessionId);
- * }
- *
- * // Subscribe to events
- * const unsubscribe = window.electronAPI.on.shotRecorded((event) => {
- *   console.log('Shot recorded:', event.shot);
- * });
- *
- * // Cleanup on unmount
- * unsubscribe();
- * ```
  */
 
 import type {

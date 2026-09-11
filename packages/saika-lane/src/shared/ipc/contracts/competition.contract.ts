@@ -2,7 +2,6 @@
 /**
  * Competition IPC Contract
  *
- * @description
  * Defines Zod-based contracts for competition-related IPC channels.
  * Covers competition lifecycle commands (start, stage, series, advance, finish)
  * and competition data queries (state, types).

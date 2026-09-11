@@ -28,7 +28,7 @@ export interface ScoringGaugeAuthority {
 /**
  * Geometry used by Lane's independent coordinate-to-score calculation.
  *
- * It is intentionally separate from a target face: the same 25m face is
+ * It is separate from a target face: the same 25m face is
  * scored with the 5.60 mm smallbore gauge or the 9.65 mm Centre Fire
  * measuring edge, depending on the event. An approved EST's reported score
  * remains authoritative; this profile only controls Lane's calculated

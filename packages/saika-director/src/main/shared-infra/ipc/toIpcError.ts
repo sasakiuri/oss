@@ -14,15 +14,7 @@ function isProduction(): boolean {
   }
 }
 
-/**
- * Converts a DomainError or general Error to an IpcError.
- *
- * Production responses omit stack traces and expose only a safe code and message.
- *
- * @param error Source error.
- * @param metadata Optional context.
- * @returns An IpcError object.
- */
+/** Converts errors for IPC. Production responses omit stack traces. */
 export function toIpcError(error: unknown, metadata?: Record<string, unknown>): IpcError {
   const err = error instanceof Error ? error : new Error(String(error));
   const isDomain = err instanceof DomainError;

@@ -1,23 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SideMenu component
- *
- * @description
- * VSCode-style side menu component.
- * Vertically arranged icon buttons for zoom, preparation/match/next stage, official requests, print, and settings.
- *
- * Layout:
- * ┌──────┐
- * │ L1 🔍 │ ← Zoom
- * │ L2 ●  │ ← Preparation (green)
- * │ L3 ●  │ ← Match (red)
- * │ L4 ☰  │ ← Next Stage (orange)
- * │      │
- * │   RO │ ← Range Officer
- * │ L5 🖨 │ ← Print
- * │ L6 ⚙ │ ← Settings
- * └──────┘
- */
+/** Controls zoom, competition progress, official requests, printing, and settings. */
 
 import { Printer, Settings, TableProperties, Target, ZoomIn } from 'lucide-react';
 import React from 'react';
@@ -27,9 +9,6 @@ import { useCompetitionStore } from '../stores/competitionStore';
 import { RangeOfficerMenu } from './RangeOfficerMenu';
 import { SideMenuButton } from './SideMenuButton';
 
-/**
- * SideMenu component props
- */
 export interface SideMenuProps {
   /** Zoom button click callback */
   onZoomClick: () => void;
@@ -41,7 +20,7 @@ export interface SideMenuProps {
   onNextStageClick: () => void;
   /** Settings button click callback */
   onSettingsClick: () => void;
-  /** Print button click callback (for future implementation) */
+  /** Print button click callback */
   onPrintClick?: () => void;
   /** Optional CSS class name */
   className?: string;
@@ -53,9 +32,6 @@ function getNextStageTooltip(phase: string, scored: boolean): string {
   return 'Next Stage';
 }
 
-/**
- * SideMenu component
- */
 export const SideMenu: React.FC<SideMenuProps> = ({
   onZoomClick,
   onPreparationClick,

@@ -33,12 +33,6 @@ body:
       required: true
 
   - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives Considered
-      description: What other approaches were considered and why were they not chosen?
-
-  - type: textarea
     id: impact
     attributes:
       label: Impact

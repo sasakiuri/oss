@@ -38,12 +38,10 @@ export class IpcRouter {
       const proc = contract.procedures[key]!;
       const handler = handlers[key as keyof typeof handlers] as (...args: unknown[]) => Promise<unknown>;
 
-      // Fail-fast: handler must exist for every procedure in the contract (Codex P2-4)
       if (!handler) {
         throw new Error(`IpcRouter: missing handler for procedure "${key}" in contract "${contract.namespace}"`);
       }
 
-      // Duplicate channel detection (Codex #8)
       if (this.registeredChannels.has(channel)) {
         logger.error(`Duplicate channel registration: "${channel}"`);
         throw new Error(`IpcRouter: duplicate channel registration: "${channel}"`);

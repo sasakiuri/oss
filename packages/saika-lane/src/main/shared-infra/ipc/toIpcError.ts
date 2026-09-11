@@ -19,17 +19,7 @@ function isProduction(): boolean {
   }
 }
 
-/**
- * Convert a DomainError or generic Error into an IpcErrorDto for IPC transport.
- *
- * Security considerations:
- * - Stack traces are excluded in production builds
- * - Only error code and safe message are returned
- *
- * @param error - The source error to convert
- * @param metadata - Additional context information (optional)
- * @returns IpcErrorDto formatted error object
- */
+/** Converts errors for IPC. Production responses omit stack traces. */
 export function toIpcError(error: unknown, metadata?: Record<string, unknown>): IpcErrorDto {
   const err = error instanceof Error ? error : new Error(String(error));
   const isDomain = err instanceof DomainError;

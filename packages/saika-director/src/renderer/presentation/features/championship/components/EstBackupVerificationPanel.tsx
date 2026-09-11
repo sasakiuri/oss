@@ -289,10 +289,10 @@ export function EstBackupVerificationPanel({
           </select>
         </Field>
         <p className="text-xs text-vscode-text-muted">
-          Optional shotScores and seriesScores are ordered numeric arrays, starting at 1. JSON accepts arrays; canonical
-          CSV accepts JSON arrays in quoted columns with those names. Values use the current official scoring
-          projection, including corrections; deductions may apply only to series or totals. Missing official detail
-          remains unavailable. Team aggregates support series where supplied by the result source.
+          Optional shotScores and seriesScores contain scores in shot or series order, starting at 1. Use JSON arrays;
+          in CSV, quote the arrays in columns with those names. Scores include recorded corrections; deductions may
+          apply only to series or totals. Missing official details cannot be compared. Team series can be compared when
+          the results include them.
         </p>
         <Field label='Backup records JSON: [{ "key", "rank" (optional), "totalScore" }]'>
           <textarea

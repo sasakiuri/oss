@@ -1,13 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * IPC Contract System
- *
- * Type-safe contract definitions for Electron IPC communication.
- * This file is shared between main / preload / renderer -- it MUST NOT
- * import anything from `src/main/` or Electron runtime modules.
- *
- * Only dependency: zod
- */
+/** IPC contracts shared by main, preload and renderer. Imports are limited to Zod and shared types. */
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -265,14 +257,8 @@ export type InferEventBridge<C extends EventContract<string, EventMap>> = {
 };
 
 /**
- * Generate the handler map type for the main-process IpcRouter.
- *
- * Handlers return raw domain values (not the wrapped IPC response).
- * The IpcRouter wraps results into CommandResponse / QueryResponse format
- * automatically via wrapCommand / wrapQuery.
- *
- * - Procedures with `z.void()` input produce `() => Promise<unknown>`
- * - Procedures with input produce `(input: Input) => Promise<unknown>`
+ * Handlers return domain values; IpcRouter wraps them in CommandResponse or QueryResponse.
+ * A z.void() input produces a handler with no arguments.
  */
 export type InferHandlers<C extends Contract<string, ProcedureMap>> = {
   [K in keyof C['procedures']]: C['procedures'][K]['input'] extends z.ZodVoid

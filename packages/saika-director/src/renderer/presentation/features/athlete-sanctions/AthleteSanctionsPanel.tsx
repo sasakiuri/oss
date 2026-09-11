@@ -74,8 +74,8 @@ export function AthleteSanctionsPanel({ championshipId }: { championshipId: stri
             <ShieldAlert size={16} aria-hidden="true" /> Championship athlete identity and sanctions
           </h2>
           <p className="mt-1 text-xs text-vscode-text-muted">
-            DSQ is projected across one event; DQB and AD-DSQ are projected across every linked event. Source scores
-            remain immutable.
+            DSQ applies to one event; DQB and AD-DSQ apply to every linked event. Original scores are kept in the
+            record.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -498,7 +498,7 @@ function SanctionForm({
       });
       if (!response.success) throw new Error(response.error.message);
       onWorkspace(response.data);
-      return `${code} recorded and result projections invalidated for fresh review.`;
+      return `${code} recorded. Review the affected results again.`;
     });
   };
 
@@ -506,8 +506,7 @@ function SanctionForm({
     <section className={`${sectionClass} border-vscode-warning`}>
       <h3 className="text-[13px] font-semibold text-vscode-text">Record sanction · {identity.displayName}</h3>
       <p className="mt-1 text-xs text-vscode-warning">
-        This is a manual authority attestation. The authenticated actor port can replace it without changing sanction
-        policy or result projection.
+        Enter the official's name and authority reference for this sanction. These details are recorded as entered.
       </p>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         <Field label="Classification">

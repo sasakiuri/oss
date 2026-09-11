@@ -51,9 +51,7 @@ const config: KnipConfig = {
         "src/renderer/board.tsx",
       ],
       project: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
-      // Preserve upstream compatibility barrels and dormant screens while
-      // Director is integrated incrementally. They are intentionally not app
-      // entry points yet, so only unused-file reporting is suppressed.
+      // Compatibility exports and screens outside the current entry points.
       ignoreFiles: [
         "src/**/index.ts",
         "src/main/modules/lane-control/domain/{CompetitionInfo,StageTransitions}.ts",
@@ -81,11 +79,8 @@ const config: KnipConfig = {
       project: ["**/*.json"],
     },
   },
-  // These Director exports are compatibility/test seams retained from the
-  // imported application even though the current runtime entry does not call
-  // them directly.
   ignoreIssues: {
-    // Knip 6 checks re-exported symbols that Knip 5 did not report. These are stable Electron module interfaces.
+    // Public module exports and test entry points.
     "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],
     "packages/saika-director/src/main/infrastructure/logging/Logger.ts": [
@@ -110,7 +105,6 @@ const config: KnipConfig = {
     "pdftotext",
   ],
   ignoreDependencies: [
-    // Workspace package used in root eslint.config.mjs (resolved via npm workspaces)
     // Native addon dynamically loaded by serialport at runtime
     "@serialport/bindings-cpp",
     // Stylelint shared configs loaded via "extends", not direct import

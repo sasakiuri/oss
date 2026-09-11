@@ -49,7 +49,6 @@ describe('MT201Adapter', () => {
       expect(shot.score.value).toBe(97);
       expect(shot.shotNumber).toBe(1);
       expect(shot.timestamp).toEqual(rawData.timestamp);
-      // P0-4: device mode priority - 'R' → MATCH
       expect(shot.mode.value).toBe('MATCH');
     });
 
@@ -470,7 +469,7 @@ describe('MT201Adapter', () => {
     });
   });
 
-  describe('Device mode priority (P0-4)', () => {
+  describe('Device mode priority', () => {
     it("data mode 'R' maps to MATCH (takes priority over context mode)", () => {
       const rawData: RawData = {
         raw: Buffer.from('R 9.5 0100 0100 70'),

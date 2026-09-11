@@ -62,7 +62,7 @@ export function RangeInterruptionsPanel({
             )}
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            ISSF 6.10.9 / 6.11.3 audit ledger. Recommendations are advisory; an official must record every grant.
+            Record interruptions under ISSF 6.10.9 / 6.11.3. An official must confirm and record each time grant.
           </p>
         </div>
         <div className="flex gap-2">

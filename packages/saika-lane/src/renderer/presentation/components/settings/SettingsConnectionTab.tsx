@@ -1,17 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SettingsConnectionTab component
- *
- * @description
- * Connection tab component of the settings modal.
- * Manages connection and disconnection to USB target devices.
- * - Port selection
- * - Manufacturer and device selection
- * - Connect/Disconnect buttons
- * - Error display
- *
- * Directly uses useConnection / usePortList / useDeviceList.
- */
+/** Selects the serial port and target profile and controls their connection. */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -35,9 +23,6 @@ const MANUFACTURER_OPTIONS: SelectOption[] = [
   { value: 'CUSTOM', label: 'Custom (CSV serial)' },
 ];
 
-/**
- * SettingsConnectionTab component
- */
 export const SettingsConnectionTab: React.FC = () => {
   const { status, connect, disconnect, isConnecting, isDisconnecting, error, clearError } = useConnection();
 

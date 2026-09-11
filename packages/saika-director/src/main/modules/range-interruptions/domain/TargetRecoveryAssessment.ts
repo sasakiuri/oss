@@ -12,7 +12,7 @@ export interface CreateTargetRecoveryAssessmentProps {
 /**
  * Append-only facts used to decide whether ISSF 6.10.9.2 applies.
  *
- * This is deliberately separate from the interruption entry stream: recording
+ * This is separate from the interruption entry stream: recording
  * equipment recovery never grants time and can be replaced by a later
  * assessment without rewriting earlier evidence.
  */

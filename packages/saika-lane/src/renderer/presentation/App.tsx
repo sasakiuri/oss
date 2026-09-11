@@ -1,23 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * App Component
- *
- * @description
- * Root application component with screen navigation and keyboard shortcuts.
- *
- * Screen Flow:
- * 1. SplashScreen (2 seconds)
- * 2. MainScreen (primary interface)
- *
- * Keyboard Shortcuts:
- * - Numpad1: Preparation mode switch (MainScreen only)
- * - Numpad2: Match mode switch (MainScreen only)
- * - Numpad3: Next Stage (MainScreen only)
- * - Numpad9: Print (MainScreen only)
- * - F11: Fullscreen toggle (all screens)
- *
- * Note: NumpadDecimal and ESC are handled inside MainScreen (SettingsModal toggle)
- */
+/** Displays the splash and main screens and registers application shortcuts. */
 
 import { useCallback } from 'react';
 
@@ -40,9 +22,6 @@ declare global {
   }
 }
 
-/**
- * App Component
- */
 function App() {
   const { currentSessionId } = useSession();
   const { startCompetition } = useCompetition();

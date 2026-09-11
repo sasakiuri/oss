@@ -1,26 +1,10 @@
 // SPDX-License-Identifier: MIT
-/**
- * ModeIndicator component
- *
- * @description
- * Badge-style indicator showing current session mode (SIGHTING/MATCH).
- * Uses color coding to distinguish between modes:
- * - SIGHTING: Yellow/Warning color
- * - MATCH: Red/Error color (indicates recorded shots)
- *
- * @example
- * ```tsx
- * <ModeIndicator mode="MATCH" />
- * ```
- */
+/** Displays the current sighting or match mode. */
 
 import React from 'react';
 
 import type { SessionMode } from '@/shared/ipc/contracts';
 
-/**
- * ModeIndicator component props
- */
 export interface ModeIndicatorProps {
   /** Current session mode */
   mode: SessionMode;
@@ -28,9 +12,6 @@ export interface ModeIndicatorProps {
   className?: string;
 }
 
-/**
- * ModeIndicator component
- */
 export const ModeIndicator: React.FC<ModeIndicatorProps> = ({ mode, className = '' }) => {
   const isSighting = mode === 'SIGHTING';
 

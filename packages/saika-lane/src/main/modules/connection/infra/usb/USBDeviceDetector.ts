@@ -7,59 +7,9 @@ import type { IpcLogger } from '@/main/shared-infra/logging/IpcLogger';
 
 import type { USBPortInfo } from './IUSBConnectionManager';
 
-/**
- * USBDeviceDetector class
- *
- * Provides detection and search functionality for USB-connected serial devices.
- *
- * Key features:
- * - Retrieve a list of available USB ports
- * - Search ports by VendorID/ProductID
- * - Search ports by serial number
- *
- * Design principles:
- * - Hides dependency on the serialport library
- * - Designed with testability in mind
- * - Ensures type safety
- *
- * @example
- * ```typescript
- * const detector = new USBDeviceDetector();
- *
- * // Get all ports
- * const ports = await detector.listPorts();
- *
- * // Search by VendorID/ProductID
- * const ftdiPorts = await detector.findByVendorProduct('0403', '6001');
- *
- * // Search by serial number
- * const port = await detector.findBySerialNumber('ABC123');
- * ```
- */
+/** Lists serial ports and finds devices by USB IDs or serial number. */
 export class USBDeviceDetector {
-  /**
-   * Get a list of available USB ports
-   *
-   * Scans and returns all serial ports recognized by the system.
-   * Each port includes path, manufacturer name, serial number, VendorID, and ProductID.
-   *
-   * @returns Array of available port information
-   * @throws Propagates errors thrown by the serialport library as-is
-   *
-   * @example
-   * ```typescript
-   * const detector = new USBDeviceDetector();
-   * const ports = await detector.listPorts();
-   *
-   * ports.forEach(port => {
-   *   console.log(`Port: ${port.path}`);
-   *   console.log(`Manufacturer: ${port.manufacturer}`);
-   *   console.log(`Serial number: ${port.serialNumber}`);
-   *   console.log(`VendorID: ${port.vendorId}`);
-   *   console.log(`ProductID: ${port.productId}`);
-   * });
-   * ```
-   */
+  /** Lists OS serial ports. Errors from serialport propagate to the caller. */
   async listPorts(): Promise<USBPortInfo[]> {
     const logger = getLogger();
 
@@ -134,35 +84,7 @@ export class USBDeviceDetector {
     }
   }
 
-  /**
-   * Search ports by VendorID and ProductID
-   *
-   * Returns all ports matching the specified VendorID and ProductID.
-   * The search is case-insensitive.
-   * Ports where VendorID or ProductID is undefined are excluded from the search.
-   *
-   * @param vendorId - Vendor ID (e.g. "0403" for FTDI)
-   * @param productId - Product ID (e.g. "6001")
-   * @returns Array of matching port information (empty array if no matches)
-   * @throws Propagates errors thrown by the serialport library as-is
-   *
-   * @example
-   * ```typescript
-   * const detector = new USBDeviceDetector();
-   *
-   * // Search for FTDI devices (VendorID: 0403, ProductID: 6001)
-   * const ftdiPorts = await detector.findByVendorProduct('0403', '6001');
-   *
-   * if (ftdiPorts.length > 0) {
-   *   console.log(`${ftdiPorts.length} FTDI device(s) found`);
-   *   ftdiPorts.forEach(port => {
-   *     console.log(`Port: ${port.path}`);
-   *   });
-   * } else {
-   *   console.log('No FTDI devices found');
-   * }
-   * ```
-   */
+  /** Matches both IDs case-insensitively, excluding ports with missing IDs. */
   async findByVendorProduct(vendorId: string, productId: string): Promise<USBPortInfo[]> {
     const ports = await this.listPorts();
 
@@ -181,32 +103,7 @@ export class USBDeviceDetector {
     });
   }
 
-  /**
-   * Search for a port by serial number
-   *
-   * Returns the port matching the specified serial number.
-   * The search is case-insensitive.
-   * Ports where the serial number is undefined are excluded from the search.
-   *
-   * @param serialNumber - Serial number
-   * @returns Matching port information (null if no match)
-   * @throws Propagates errors thrown by the serialport library as-is
-   *
-   * @example
-   * ```typescript
-   * const detector = new USBDeviceDetector();
-   *
-   * // Search for a device by serial number
-   * const port = await detector.findBySerialNumber('ABC12345');
-   *
-   * if (port) {
-   *   console.log(`Device found: ${port.path}`);
-   *   console.log(`Manufacturer: ${port.manufacturer}`);
-   * } else {
-   *   console.log('Device not found');
-   * }
-   * ```
-   */
+  /** Matches serial numbers case-insensitively. Returns null for empty input or no match. */
   async findBySerialNumber(serialNumber: string): Promise<USBPortInfo | null> {
     // Early return for empty string
     if (!serialNumber || serialNumber.length === 0) {

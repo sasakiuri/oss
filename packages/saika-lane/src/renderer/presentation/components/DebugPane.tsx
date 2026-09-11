@@ -1,27 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * DebugPane component
- *
- * @description
- * Debug log display pane component.
- * Displayed as a panel at the bottom of the screen, showing system-wide logs in real time.
- *
- * Features:
- * - List display of log entries (timestamp, level, source, message)
- * - Color coding by level (debug: muted, info: primary, warn: warning, error: error)
- * - Auto-scroll functionality
- * - Log clear functionality
- * - Entry count display
- * - Close button
- *
- * @example
- * ```tsx
- * <DebugPane
- *   onClose={() => setIsDebugPaneOpen(false)}
- *   className="h-64"
- * />
- * ```
- */
+/** Displays live logs with auto-scroll and clear controls. */
 
 import React, { useEffect, useRef } from 'react';
 
@@ -30,9 +8,6 @@ import { useLog } from '@/renderer/presentation/hooks/useLog';
 
 import { LogEntry } from './debug/LogEntry';
 
-/**
- * DebugPane component props
- */
 export interface DebugPaneProps {
   /**
    * Callback when the close button is clicked
@@ -42,9 +17,6 @@ export interface DebugPaneProps {
   className?: string;
 }
 
-/**
- * DebugPane component
- */
 export const DebugPane: React.FC<DebugPaneProps> = ({ onClose, className = '' }) => {
   const { entries, autoScroll, clearEntries, setAutoScroll } = useLog();
   const logEndRef = useRef<HTMLDivElement>(null);

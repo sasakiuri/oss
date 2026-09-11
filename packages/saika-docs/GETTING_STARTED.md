@@ -59,6 +59,8 @@ Lane 単独なら、そのまま同ガイドの試射・本射の手順へ進み
 例えば Director の IP アドレスが `192.168.10.10` なら、Lane には `mqtt://192.168.10.10:1883` を入力します。
 別の PC にある Lane で `localhost` を指定すると、その Lane 自身へ接続してしまいます。
 
+内蔵ブローカーを別 PC の Lane から使う場合は、Director 側のファイアウォールで Lane からの TCP `1883` への受信を許可します。ポートを変更している場合は、そのポートを指定します。[Windows での設定と接続確認](#director-側のファイアウォールを確認するwindows) を参照してください。
+
 既設のブローカーを使う場合は「External」を選び、「Broker URL」を入力して「Save and connect」を押します。
 すべての Lane にもそのブローカーの URL を設定します。
 
@@ -95,6 +97,30 @@ Director の射座割には「Lanes」一覧の射座番号を使います。実
 
 内蔵ブローカーの認証は既定で無効です。平文の `mqtt://` 接続は信頼できる隔離ネットワークで使用してください。
 認証や暗号化を必要とする構成は、管理担当者向けの [MQTT 接続構成](./director/MQTT_CONTROL.md#接続構成) を参照してください。
+
+### Director 側のファイアウォールを確認する（Windows）
+
+Director 自身が内蔵ブローカーに接続できても、ファイアウォールが別 PC の Lane からの接続を遮断している場合があります。
+
+内蔵ブローカーを使う場合は、Director を起動したまま、Lane 側の PowerShell で次を実行します。IP アドレスとポートは Director の「Lane connection URLs」に合わせて置き換えてください。
+
+```powershell
+Test-NetConnection -ComputerName 192.168.10.10 -Port 1883
+```
+
+- `TcpTestSucceeded: True`：TCP 接続は成功している。Lane の Broker URL、認証設定、MQTT のエラー表示を確認する。
+- `TcpTestSucceeded: False`：TCP 接続ができていない。Director のブローカーの稼働状態、ファイアウォール、PC 間のネットワーク接続を確認する。
+
+ファイアウォールで遮断されている場合は、管理者権限で Director 側の PC に受信規則を設定します。
+
+1. スタートメニューで `wf.msc` を検索して開く。
+2. 「受信の規則」→「新しい規則」で「ポート」を選ぶ。
+3. 「TCP」を選び、「特定のローカルポート」に `1883` を入力して「接続を許可する」を選ぶ。ポートを変更している場合は、その値を使う。
+4. Director が使用中のネットワークのプロファイルにチェックを入れ、`Saika Director MQTT` などの名前で保存する。例えば、接続先が「プライベート」なら規則も「プライベート」に適用する。
+5. 作成した規則の「プロパティ」→「スコープ」で、リモート IP アドレスを接続する各 Lane の IP アドレスに限定する。
+6. Lane 側で接続確認コマンドを再実行し、成功したら Lane の「Connect」で接続する。
+
+Windows の操作の詳細は [Microsoft のファイアウォール設定手順](https://learn.microsoft.com/ja-jp/windows/security/operating-system-security/network-security/windows-firewall/configure) と [Test-NetConnection の説明](https://learn.microsoft.com/en-us/powershell/module/nettcpip/test-netconnection) を参照してください。
 
 ## 更新するとき
 

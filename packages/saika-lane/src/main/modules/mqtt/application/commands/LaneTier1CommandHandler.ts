@@ -2,7 +2,6 @@
 /**
  * LaneTier1CommandHandler
  *
- * @description
  * Handler that processes lane Tier1 commands (competition join/leave).
  * Subscribes to `saika/lane/{laneId}/command/+` and
  * processes join-competition / leave-competition.

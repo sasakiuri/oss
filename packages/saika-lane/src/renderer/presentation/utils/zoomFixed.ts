@@ -18,7 +18,7 @@ import type { ZoomMode } from './zoomModes';
  * so this function does not perform the calculation (handled by the caller).
  *
  * @param mode - Zoom mode
- * @param discipline - Discipline identifier (unused but retained for future extension)
+ * @param discipline - Discipline identifier (unused)
  * @param targetRadii - Target ring radii data by score (in mm)
  * @param canvasRadius - Canvas radius (in pixels). Default is 400
  * @returns Fixed zoom level (clamped to 0.1-10.0). Returns 0 for AUTO mode
@@ -28,13 +28,6 @@ import type { ZoomMode } from './zoomModes';
  * - `zoom = canvasRadius / (target ring radius in mm * margin coefficient) / 5`
  * - A margin coefficient of 1.1 provides 10% padding
  * - RING_8: 8-ring, RING_6: 6-ring, RING_4: 4-ring, FULL: 1-ring (entire target)
- *
- * @example
- * ```typescript
- * const radii = { 1: 45.0, 4: 30.0, 6: 20.0, 8: 10.0, 10: 0.5 };
- * const zoom = calculateFixedZoom('RING_8', 'AIR_RIFLE_10M', radii, 400);
- * console.log(zoom); // e.g.: 7.27 (800 / (10.0 * 1.1) / 5)
- * ```
  */
 export function calculateFixedZoom(
   mode: ZoomMode,

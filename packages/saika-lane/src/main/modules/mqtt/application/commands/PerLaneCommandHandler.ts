@@ -2,7 +2,6 @@
 /**
  * PerLaneCommandHandler
  *
- * @description
  * Handler that processes lane-specific commands.
  * Subscribes to `saika/competition/{competitionId}/lane/{laneId}/command/+` and
  * executes assign-athlete / reset-session via CommandBus.

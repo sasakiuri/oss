@@ -20,7 +20,7 @@ export interface TargetExaminationWorkflowAssessment {
 }
 
 /**
- * A replaceable advisory policy. It deliberately never changes a score,
+ * A replaceable advisory policy. It never changes a score,
  * releases evidence, or substitutes for a Jury decision.
  */
 export interface ITargetExaminationWorkflowPolicy {

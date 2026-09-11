@@ -131,8 +131,8 @@ export function ComponentExamples() {
             trigger={<Button variant="outline">履歴を見る</Button>}
           >
             <ol className="list-inside list-decimal">
-              <li>共通部品を追加しました。</li>
-              <li>入力検証を追加しました。</li>
+              <li>文書検索にタグの絞り込みを追加</li>
+              <li>日付の入力エラーを修正</li>
             </ol>
           </Dialog>
           <Dialog

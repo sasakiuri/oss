@@ -135,7 +135,6 @@ export class TargetDesign {
     this.xRingRadius = xRingRadius;
     this.xRingRadiusSq = xRingRadius * xRingRadius;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

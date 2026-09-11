@@ -2,7 +2,6 @@
 /**
  * Session IPC Contract
  *
- * @description
  * Defines Zod-based contracts for session-related IPC channels.
  * Covers session lifecycle commands (start, record shot, switch mode, reset)
  * and session data queries (score, shot history).

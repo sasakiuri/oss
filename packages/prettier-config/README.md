@@ -26,7 +26,7 @@ Install the Tailwind plugin as an additional dependency:
 npm install -D prettier-plugin-tailwindcss
 ```
 
-Then import the Tailwind-enhanced config:
+Import the configuration with Tailwind class sorting:
 
 ```js
 // prettier.config.mjs

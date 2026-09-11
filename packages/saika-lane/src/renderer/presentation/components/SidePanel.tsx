@@ -1,23 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SidePanel component
- *
- * @description
- * VSCode-style side panel component.
- * Displays session info, shot history, and score information.
- *
- * Layout:
- * +------------+
- * | P1: Discipline |
- * +----+-------+
- * | P2 | P3    | <- Lane number | Mode
- * +----+-------+
- * | P4: Total  |
- * | P5: History| <- Last 10 shots
- * | P6: Series | <- 3 cols x 2 rows
- * | P7: Average|
- * +------------+
- */
+/** Displays the selected discipline, lane, session scores, and shot history. */
 
 import React, { useMemo } from 'react';
 
@@ -88,16 +70,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
       role="complementary"
       aria-label="Side Panel"
     >
-      {/* Top-aligned group: P1, P2, P3, P4 */}
+      {/* Session details */}
       <div className="flex-shrink-0">
-        {/* P1: Discipline name */}
+        {/* Discipline name */}
         <div className="flex h-14 items-center justify-center border-b border-zinc-500 px-2">
           <span className="truncate text-center text-4xl font-semibold">
             {discipline ? DISCIPLINE_LABELS[discipline] : 'No Discipline'}
           </span>
         </div>
 
-        {/* P2 + P3: Lane number | Mode */}
+        {/* Lane number | Mode */}
         <div className="flex h-12 border-b border-zinc-500">
           <div className="flex flex-1 items-center justify-center border-r border-zinc-500 px-2">
             <span className="text-4xl font-medium text-zinc-300">{laneNumber}</span>
@@ -111,7 +93,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
           </div>
         </div>
 
-        {/* P4: Total score */}
+        {/* Total score */}
         <div className="flex h-16 flex-col items-center justify-center border-b border-zinc-500 px-2">
           <span className="text-5xl font-bold text-zinc-300">
             {acc === 'RING' ? String(Math.floor(displayTotalScore / 10)) : (displayTotalScore / 10).toFixed(1)}
@@ -122,18 +104,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
         {phase !== 'IDLE' && <TimerDisplay />}
       </div>
 
-      {/* P5: Last 10 shots */}
+      {/* Last 10 shots */}
       <ShotHistory shots={recentShots} acc={acc} />
 
-      {/* Bottom-aligned group: P6, P7 */}
+      {/* Series totals */}
       <div className="flex-shrink-0">
         {/* Series progress (competition active only) */}
         {phase !== 'IDLE' && <SeriesProgress />}
 
-        {/* P6: Series scores */}
+        {/* Series scores */}
         <SeriesScoreGrid scores={displaySeriesScores} acc={acc} />
 
-        {/* P7: Average score */}
+        {/* Average score */}
         <div className="flex h-16 flex-col items-center justify-center px-2">
           <span className="text-4xl font-bold text-zinc-100">~ {(averageScore / 10).toFixed(2)}</span>
         </div>

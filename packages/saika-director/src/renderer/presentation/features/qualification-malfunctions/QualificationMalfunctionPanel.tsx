@@ -93,8 +93,8 @@ export function QualificationMalfunctionPanel({
             <h2 className="text-sm font-semibold text-vscode-text">Qualification malfunction cases</h2>
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            Record the claim, inspection, official determination, authorized remedy, execution evidence, and score
-            settlement independently. This record does not send a firing command to a Lane.
+            Record each step: claim, inspection, ruling, authorized remedy, recovery, and score settlement. Recording a
+            case does not send a firing command to a Lane.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={loading || saving} onClick={() => void load()}>
@@ -293,7 +293,7 @@ function CreateMalfunctionForm({
 
   return (
     <div className="rounded-[3px] border border-vscode-border p-3">
-      <p className="text-xs font-semibold text-vscode-text">Open an immutable malfunction record</p>
+      <p className="text-xs font-semibold text-vscode-text">Open a malfunction record</p>
       {declarations.length > 0 && (
         <div className="mt-2 rounded-[3px] border border-vscode-warning/60 bg-vscode-warning/10 p-2.5">
           <p className="text-xs font-semibold text-vscode-text">Lane declarations</p>
@@ -420,8 +420,8 @@ function CreateMalfunctionForm({
       </div>
       <p className="mt-2 text-[11px] leading-4 text-vscode-text-muted">
         {selectedDeclaration
-          ? 'Lane-declared context is immutable and is verified again in Director. Claim mode and every later official determination remain separate decisions.'
-          : 'Stage, series, and shot count are initialized from the selected Lane but remain editable for delayed official entry. Claim limits and the governing treatment are resolved again from the event Rule Pack in Director.'}
+          ? 'Details reported by Lane cannot be edited. Select the claim mode; record the official ruling after inspection.'
+          : 'Stage, series, and shot count come from the selected Lane. Correct them if you are recording an earlier incident. Director checks claim limits and remedies against the event rules.'}
       </p>
       {eligibleLanes.length === 0 && (
         <p className="mt-2 text-xs text-vscode-warning">
@@ -679,7 +679,7 @@ function AppendEntryForm({
         )}
         {(type === 'EXECUTION_RECORDED' || type === 'SCORE_SETTLED') && (
           <label className={`${labelClass} md:col-span-2`}>
-            Immutable artifact reference
+            Saved evidence reference
             <input value={artifactId} onChange={(event) => setArtifactId(event.target.value)} className={inputClass} />
           </label>
         )}

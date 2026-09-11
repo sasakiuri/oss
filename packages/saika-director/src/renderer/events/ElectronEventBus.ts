@@ -10,15 +10,7 @@ interface SubscriptionEntry {
   unsubscribe: () => void;
 }
 
-/**
- * Production EventBus implementation backed by `window.electronAPI.on.*`.
- *
- * Provides:
- * - Typed subscribe/unsubscribe API
- * - Active subscription tracking
- * - Bulk unsubscribe for cleanup
- * - Debug logging for subscription lifecycle
- */
+/** Tracks IPC subscriptions and releases them on unsubscribe or dispose. */
 export class ElectronEventBus implements EventBus {
   private subscriptions = new Map<string, Set<SubscriptionEntry>>();
   private nextId = 0;

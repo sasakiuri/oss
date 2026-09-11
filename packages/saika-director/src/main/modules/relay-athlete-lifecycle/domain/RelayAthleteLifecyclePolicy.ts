@@ -148,7 +148,7 @@ export class IssfRelayAthleteLifecyclePolicy implements IRelayAthleteLifecyclePo
   }
 }
 
-/** Prerequisites for recording ATHLETE_RELEASED; release itself is deliberately excluded. */
+/** Prerequisites for recording ATHLETE_RELEASED; release itself is excluded. */
 export function athleteMayBeReleased(
   items: readonly RelayAthleteLifecycleAssessmentItem[],
   athleteId: string,

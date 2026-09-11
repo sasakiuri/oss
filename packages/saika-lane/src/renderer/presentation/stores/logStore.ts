@@ -2,7 +2,6 @@
 /**
  * Log management store
  *
- * @description
  * Log entry state management using Zustand.
  * - Log entry array (max 1000 entries)
  * - Auto-scroll setting
@@ -59,26 +58,6 @@ const initialState: LogState = {
 
 /**
  * Log management store
- *
- * @example
- * ```typescript
- * const { entries, autoScroll, addEntry, clearEntries, setAutoScroll } = useLogStore();
- *
- * // Add a log entry
- * addEntry({
- *   id: 'log-123',
- *   timestamp: new Date().toISOString(),
- *   level: 'info',
- *   message: 'Connection established successfully',
- *   source: 'usb',
- * });
- *
- * // Clear logs
- * clearEntries();
- *
- * // Disable auto-scroll
- * setAutoScroll(false);
- * ```
  */
 export const useLogStore = create<LogState & LogActions>((set) => ({
   ...initialState,

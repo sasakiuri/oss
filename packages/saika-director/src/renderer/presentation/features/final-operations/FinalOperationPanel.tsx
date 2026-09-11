@@ -233,7 +233,7 @@ export function FinalOperationPanel({
     const confirmed = await useConfirmDialogStore
       .getState()
       .openConfirm(
-        'Abort this Final command run and clear its Lane cue? This does not issue STOP. Confirm the range is stopped or otherwise safe first; the audit log remains immutable.',
+        'Abort this Final command run and clear its Lane cue? This does not issue STOP. Confirm the range is stopped or otherwise safe first. The command history will be kept.',
       );
     if (!confirmed) return;
     setSaving(true);
@@ -373,7 +373,7 @@ export function FinalOperationPanel({
             <h2 className="text-sm font-semibold text-vscode-text">Final command runner</h2>
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            Versioned Rule Pack cues, confirmations, and Lane execution results are recorded separately.
+            Follow the competition commands and record each confirmation. Check the Lane responses before proceeding.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={loading || saving} onClick={() => void load()}>
@@ -407,7 +407,7 @@ export function FinalOperationPanel({
             disabled={disabled || saving || !scheduledStart || !officialName.trim()}
             onClick={() => void createRun()}
           >
-            Create immutable run
+            Create command run
           </Button>
         </div>
       )}
@@ -433,7 +433,7 @@ export function FinalOperationPanel({
             <div className="rounded-[3px] border border-vscode-warning p-3">
               <p className="text-xs leading-5 text-vscode-text-muted">
                 Abort is already recorded. Retrying this cleanup only removes the presentation cue retained for Lane; it
-                does not issue STOP or change the immutable run history.
+                does not issue STOP or change the command history.
               </p>
               <Button
                 className="mt-2"
@@ -614,9 +614,7 @@ export function FinalOperationPanel({
               )}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
-                  disabled={
-                    disabled || saving || !officialName.trim() || !declarationReady || !executionSelectionReady
-                  }
+                  disabled={disabled || saving || !officialName.trim() || !declarationReady || !executionSelectionReady}
                   onClick={() => void executeCurrentStep()}
                 >
                   {run.currentStep.status === 'AWAITING_EXECUTION' ? 'Retry execution' : 'Confirm and execute'}
@@ -650,7 +648,9 @@ export function FinalOperationPanel({
                     laneId,
                     shots: run.shootOff?.shots.filter((candidate) => candidate.laneId === laneId) ?? [],
                   }));
-                  const complete = shots.every(({ shots: laneShots }) => laneShots.length === run.shootOff!.shotsPerLane);
+                  const complete = shots.every(
+                    ({ shots: laneShots }) => laneShots.length === run.shootOff!.shotsPerLane,
+                  );
                   const totalX10 = shots.reduce(
                     (total, { shots: laneShots }) =>
                       total + laneShots.reduce((laneTotal, shot) => laneTotal + shot.scoreX10, 0),
@@ -702,8 +702,7 @@ export function FinalOperationPanel({
                   disabled={
                     disabled ||
                     saving ||
-                    run.shootOff.shots.length !==
-                      run.shootOff.eligibleLaneIds.length * run.shootOff.shotsPerLane ||
+                    run.shootOff.shots.length !== run.shootOff.eligibleLaneIds.length * run.shootOff.shotsPerLane ||
                     !statement.trim() ||
                     !officialName.trim()
                   }

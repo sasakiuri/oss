@@ -30,26 +30,6 @@ import { USBEventEmitter } from './USBEventEmitter';
  * A facade responsible for managing the lifecycle of USB connections.
  * Implements the IUSBConnectionManager interface,
  * combining USBEventEmitter, USBConnectionLifecycle, and USBDataPipeline.
- *
- * @example
- * ```typescript
- * const manager = new USBConnectionManager(adapterRegistry);
- *
- * // Connect
- * const connection = await manager.connect({
- *   portName: 'COM3',
- *   manufacturer: TargetManufacturer.custom(),
- *   baudRate: 9600,
- * });
- *
- * // Data reception listener
- * manager.on('data', (data) => {
- *   console.log(`Impact point: X=${data.x}, Y=${data.y}`);
- * });
- *
- * // Disconnect
- * await manager.disconnect();
- * ```
  */
 export class USBConnectionManager implements IUSBConnectionManager {
   private readonly emitter: USBEventEmitter;

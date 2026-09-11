@@ -44,14 +44,13 @@ Lane は「Settings」→「Printing」で、用紙（A4・A5・Letter・Legal�
 
 ### 目的とデータ選択
 
-射座ごとの得点、着弾、シリーズ内訳を印刷する。Saika Lane の現行実装は次の順で対象ショットを
-選択する。
+射座ごとの得点、着弾、シリーズ内訳を印刷します。印刷対象は次の順で選びます。
 
 1. 本射ショットが1発以上あれば、本射ショットだけを使う。
 2. 本射開始前など、本射ショットがなければセッション内の全ショットを使う。
 3. シリーズ番号の昇順にまとめ、各シリーズ内で1からショット番号を振り直す。
 
-このフォールバックは試射内容の確認用であり、試射を公式記録に含める規則を意味しない。
+本射前の印刷は試射内容の確認用です。試射を公式記録に含めるものではありません。
 
 ### 得点と明細のデータ
 
@@ -84,7 +83,7 @@ Lane は「Settings」→「Printing」で、用紙（A4・A5・Letter・Legal�
 
 ### レイアウト
 
-帳票は次の独立した機能ブロックで構成する。
+帳票は次の配置で表示します。
 
 ```text
 ┌──────────────────────────────────────────────────┐
@@ -162,4 +161,4 @@ Lane 単体では大会名、会場、選手名、所属、射群が入力デー
 - [Director の予選帳票](../../saika-director/src/renderer/presentation/features/print/components/ResultsListSheet.tsx) と [決勝帳票](../../saika-director/src/renderer/presentation/features/print/components/FinalResultSheet.tsx)
 - [Director の成績データ形式](../../saika-director/src/shared/ipc/contracts/results.contract.ts)
 
-出典は [参照元](../SOURCES.md)、第三者資料の扱いは [公開方針](../CONTENT_POLICY.md) を参照してください。
+出典は [参照元](../SOURCES.md)、ライセンスと商標については [第三者表示](../NOTICE.md) を参照してください。

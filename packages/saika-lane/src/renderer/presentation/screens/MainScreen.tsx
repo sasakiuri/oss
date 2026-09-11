@@ -2,7 +2,6 @@
 /**
  * MainScreen component
  *
- * @description
  * Main application screen with VSCode-like layout.
  * Integrates SideMenu, SidePanel, TargetDisplay, StatusBar, DebugPane, SettingsModal.
  */

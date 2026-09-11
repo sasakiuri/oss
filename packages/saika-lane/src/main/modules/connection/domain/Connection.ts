@@ -80,7 +80,6 @@ export class Connection {
     this.disconnectedAt = disconnectedAt;
     this.lastError = lastError;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

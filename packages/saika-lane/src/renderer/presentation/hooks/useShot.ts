@@ -1,49 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Shot history management custom hook
- *
- * @description
- * Custom hook providing shot history retrieval and score calculation.
- * - Retrieve shot history
- * - Get the latest shot
- * - Subscribe to shotRecorded events
- * - Automatic score calculation (totalScore, seriesScores)
- *
- * @example
- * ```tsx
- * function ShotHistory() {
- *   const {
- *     shots,
- *     latestShot,
- *     refreshShotHistory,
- *     isLoading
- *   } = useShot();
- *
- *   if (isLoading) {
- *     return <p>Loading...</p>;
- *   }
- *
- *   return (
- *     <div>
- *       <h2>Shot History</h2>
- *       <button onClick={refreshShotHistory}>Refresh</button>
- *       {latestShot && (
- *         <div>
- *           <p>Latest shot: {latestShot.score} pts</p>
- *         </div>
- *       )}
- *       <ul>
- *         {shots.map((shot) => (
- *           <li key={shot.id}>
- *             Shot #{shot.shotNumber}: {shot.score} pts
- *           </li>
- *         ))}
- *       </ul>
- *     </div>
- *   );
- * }
- * ```
- */
+/** Loads session shots and refreshes them when a shot is recorded. */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -66,11 +22,6 @@ export interface UseShotResult {
   isLoading: boolean;
 }
 
-/**
- * Shot history management custom hook
- *
- * @returns Shot history and related actions
- */
 export function useShot(): UseShotResult {
   // Retrieve state from the store
   const { currentSessionId, shots, setShots, updateScores } = useSessionStore();

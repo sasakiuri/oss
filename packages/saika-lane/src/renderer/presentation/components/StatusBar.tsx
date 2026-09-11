@@ -1,31 +1,9 @@
 // SPDX-License-Identifier: MIT
-/**
- * StatusBar component
- *
- * @description
- * VSCode-style status bar component.
- * Displays time, connection status, and debug button.
- *
- * Layout:
- * ┌────────────────────────────────────────────┐
- * │ S1: HH:MM:SS            S2: WiFi  S3: Bug  │
- * └────────────────────────────────────────────┘
- *
- * @example
- * ```tsx
- * <StatusBar
- *   isConnected={true}
- *   onDebugPanelToggle={() => {}}
- * />
- * ```
- */
+/** Displays the clock, connection status, and debug control. */
 
 import { Bug, Wifi, WifiOff } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
-/**
- * StatusBar component props
- */
 export interface StatusBarProps {
   /**
    * Connection status
@@ -39,9 +17,6 @@ export interface StatusBarProps {
   className?: string;
 }
 
-/**
- * StatusBar component
- */
 export const StatusBar: React.FC<StatusBarProps> = ({ isConnected, onDebugPanelToggle, className = '' }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -68,14 +43,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({ isConnected, onDebugPanelT
       role="contentinfo"
       aria-label="Status Bar"
     >
-      {/* Left section - S1: Time */}
+      {/* Left section - Time */}
       <div className="flex items-center gap-2">
         <span className="font-mono text-sm text-zinc-300">{timeString}</span>
       </div>
 
-      {/* Right section - S2: Connection Status, S3: Debug Button */}
+      {/* Right section - Connection Status, Debug Button */}
       <div className="flex items-center gap-3">
-        {/* S2: Connection Status */}
+        {/* Connection Status */}
         <div className="group relative flex items-center gap-1">
           {isConnected ? (
             <Wifi size={20} className="text-green-500" aria-label="Connected" />
@@ -89,7 +64,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ isConnected, onDebugPanelT
           </div>
         </div>
 
-        {/* S3: Debug Button */}
+        {/* Debug Button */}
         {onDebugPanelToggle && (
           <button
             onClick={onDebugPanelToggle}

@@ -2,7 +2,6 @@
 /**
  * Updater IPC Contract
  *
- * @description
  * Defines Zod-based contracts for application update checks and installation.
  */
 

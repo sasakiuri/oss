@@ -47,7 +47,6 @@ export class Target {
     this.design = design;
     this.laneNumber = laneNumber;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

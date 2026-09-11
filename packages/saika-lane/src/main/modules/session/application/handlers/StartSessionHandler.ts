@@ -8,15 +8,8 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 /**
  * createStartSessionHandler
  *
- * @description
  * Handler factory that processes the session start command.
  * Creates a new session entity, saves it to the repository, and emits a SessionStarted event.
- *
- * @example
- * ```typescript
- * const handler = createStartSessionHandler(sessionRepository, eventBus);
- * await handler({ discipline: Discipline.airRifle10m() });
- * ```
  *
  * @param sessionRepository - Session repository
  * @param eventBus - Event bus

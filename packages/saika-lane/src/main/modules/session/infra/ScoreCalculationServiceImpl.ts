@@ -44,15 +44,6 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
    * @param impactPoint - Impact point coordinates
    * @param discipline - Discipline
    * @returns Calculated score
-   *
-   * @example
-   * ```typescript
-   * const service = new ScoreCalculationServiceImpl();
-   * const impactPoint = new ImpactPoint(0, 0);
-   * const discipline = Discipline.airRifle10m();
-   * const score = service.calculateScore(impactPoint, discipline);
-   * console.log(score.value); // 109
-   * ```
    */
   calculateScore(
     impactPoint: ImpactPoint,
@@ -92,14 +83,6 @@ export class ScoreCalculationServiceImpl implements ScoreCalculationService {
    *
    * @param discipline - Discipline
    * @returns Target design corresponding to the discipline
-   *
-   * @example
-   * ```typescript
-   * const service = new ScoreCalculationServiceImpl();
-   * const discipline = Discipline.airRifle10m();
-   * const targetDesign = service.getTargetDesign(discipline);
-   * console.log(targetDesign.rings.length); // 97
-   * ```
    */
   getTargetDesign(
     discipline: Discipline,

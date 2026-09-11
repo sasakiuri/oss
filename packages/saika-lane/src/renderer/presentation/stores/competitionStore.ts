@@ -1,14 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Competition management store
- *
- * @description
- * Competition state management using Zustand.
- * - Competition phase (IDLE/ACTIVE/SERIES_COMPLETE/SERIES_ENTERED/STAGE_ENTERED/FINISHED)
- * - Stage/series progress
- * - Timer state
- * - shotsPerSeries (shots per competition type)
- */
 
 import { create } from 'zustand';
 

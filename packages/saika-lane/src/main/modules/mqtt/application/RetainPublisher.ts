@@ -2,7 +2,6 @@
 /**
  * RetainPublisher
  *
- * @description
  * Re-publishes all Retain topics on MQTT reconnect and
  * replays shots recorded during disconnection with isReplay=true.
  *

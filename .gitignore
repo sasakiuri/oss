@@ -277,7 +277,7 @@ release/
 temp_build/
 
 # ============================================
-# Coding AI Agent
+# Local development instructions
 # ============================================
 .agents/
 .claude/

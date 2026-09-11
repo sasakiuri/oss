@@ -2,7 +2,6 @@
 /**
  * Shortcut definitions
  *
- * @description
  * Shortcut key definitions based on event.code (independent of NumLock state)
  */
 export const SHORTCUTS = {

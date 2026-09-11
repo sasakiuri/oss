@@ -67,8 +67,8 @@ export function applyPendingDatabaseRestoreSync(
     try {
       rmSync(pendingPath, { force: true });
     } catch {
-      // The marker is the source of truth; leave an undeletable staged file for
-      // an operator to remove without misreporting a successful restore.
+      // The removed marker prevents replay. Failure to delete the staged file
+      // does not invalidate the completed restore.
     }
     return {
       applied: true,

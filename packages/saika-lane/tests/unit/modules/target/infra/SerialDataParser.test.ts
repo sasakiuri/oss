@@ -497,12 +497,8 @@ describe('SerialDataParser', () => {
 
   describe('Error cases', () => {
     it('should throw an error for an unsupported manufacturer', () => {
-      // Note: Currently TargetManufacturer only has 4 types,
-      // so this test is for future extensibility
-      // In the actual implementation, the default case in the switch statement throws an error
       const buffer = Buffer.from('test\n');
 
-      // Create a new manufacturer with mock (normally not possible, but for testing)
       const unknownManufacturer = {
         value: 'UNKNOWN',
         displayName: 'Unknown',

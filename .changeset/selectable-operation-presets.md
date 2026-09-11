@@ -3,4 +3,4 @@
 '@sasakiuri/saika-docs': patch
 ---
 
-Offer composable operational suggestions for officials-operated equipment, integrated Lane timing, result review and automatic backup capture. Suggestions only populate a reviewed draft, preserve unrelated settings and can be adjusted individually. Preset definitions remain separate from rule packs, setting storage and device capabilities.
+Add operational presets for official-operated equipment, Lane timing, result review and automatic backup capture. A preset fills selected settings in a draft; review and adjust them before applying.

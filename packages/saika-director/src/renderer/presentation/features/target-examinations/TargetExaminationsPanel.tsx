@@ -53,7 +53,8 @@ function TargetExaminationWorkspace({
             )}
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            ISSF 6.10.5–6.10.9 evidence ledger. Cases start with a data hold; decisions do not alter scores.
+            Record target examinations under ISSF 6.10.5–6.10.9. Opening a case protects its data from reset or
+            deletion; recording a decision does not change scores.
           </p>
         </div>
         <div className="flex gap-2">

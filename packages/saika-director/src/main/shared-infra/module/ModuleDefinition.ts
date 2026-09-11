@@ -1,12 +1,4 @@
-/**
- * ModuleDefinition.ts
- *
- * ServiceRegistry + Generic ModuleDefinition + ModuleOutput
- *
- * Each module declares its dependencies via a `deps` array (subset of
- * ServiceRegistry keys). The ModuleLoader injects only the declared
- * subset, enforcing the principle of least privilege at the type level.
- */
+/** Each module receives only the ServiceRegistry entries listed in its deps array. */
 
 import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';

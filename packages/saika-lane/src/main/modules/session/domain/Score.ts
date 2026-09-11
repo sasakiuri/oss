@@ -45,7 +45,6 @@ export class Score {
 
     this.value = value;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

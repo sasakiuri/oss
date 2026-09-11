@@ -6,25 +6,6 @@ import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
-/**
- * createConnectToTargetHandler
- *
- * @description
- * Handler factory that processes the target connection command.
- * Connects using the USB connection manager, creates a Connection entity,
- * saves it, and emits the ConnectionEstablished event.
- *
- * @example
- * ```typescript
- * const handler = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, getCurrentMode);
- * await handler({ portName: 'COM3', manufacturer: TargetManufacturer.sius(), baudRate: 9600 });
- * ```
- *
- * @param connectionRepository - Connection repository
- * @param usbManager - USB connection manager
- * @param eventBus - Event bus
- * @returns CommandHandler<ConnectToTargetInput> - Command handler function
- */
 export function createConnectToTargetHandler(
   connectionRepository: IConnectionRepository,
   usbManager: IUSBConnectionManager,
@@ -32,7 +13,6 @@ export function createConnectToTargetHandler(
   getCurrentMode: () => Mode,
 ): CommandHandler<ConnectToTargetInput> {
   return async (input) => {
-    // Connect using the USB connection manager
     const connection = await usbManager.connect({
       portName: input.portName,
       manufacturer: input.manufacturer,
@@ -44,10 +24,8 @@ export function createConnectToTargetHandler(
     // asynchronous port/protocol initialization completes.
     await usbManager.sendMode(getCurrentMode());
 
-    // Persist the connection
     await connectionRepository.save(connection);
 
-    // Emit the ConnectionEstablished event
     eventBus.emit({
       type: 'ConnectionEstablished',
       timestamp: Date.now(),

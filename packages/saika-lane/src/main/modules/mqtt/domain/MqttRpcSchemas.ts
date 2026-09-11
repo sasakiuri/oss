@@ -2,7 +2,6 @@
 /**
  * MQTT RPC Schemas
  *
- * @description
  * Zod-based schemas for MQTT RPC request/response payloads.
  * Covers shot list, score, and competition state queries.
  */

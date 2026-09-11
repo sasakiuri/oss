@@ -131,19 +131,9 @@ export function _resetAudioPlaybackForTest(): void {
 }
 
 /**
- * Web Audio API based shot impact sound playback hook.
- *
- * On first mount, fetches WAV, decodes via decodeAudioData, and caches as AudioBuffer
- * in a module-level singleton. Subsequent mounts reuse the same AudioContext and buffer.
- * On playback, uses BufferSource + GainNode for immediate sound output.
- * Only plays impact sound for devices with a supported shot-sound profile.
- *
- * - AudioContext is created once with `latencyHint: 'interactive'` and immediately resumed
- * - After WAV decode, plays a silent buffer once to pre-initialize the OS audio output stream
- *   (warm-up). This eliminates latency on the first shot sound
- * - Ensures AudioContext resume via user gesture (pointerdown / keydown)
- * - Executes re-warm-up on statechange / visibilitychange
- * - Monophonic: stops previous playback before playing a new sound (prevents overlap)
+ * Shares a cached AudioBuffer and AudioContext across hook instances.
+ * A silent buffer warms the output stream after loading or resuming audio.
+ * User gestures resume suspended audio; each shot stops the previous sound.
  */
 export function useAudioPlayback() {
   useEffect(() => {

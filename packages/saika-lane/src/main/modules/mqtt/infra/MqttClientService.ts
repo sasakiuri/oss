@@ -2,7 +2,6 @@
 /**
  * MqttClientService
  *
- * @description
  * mqtt.js wrapper. Implements IMqttClientService and
  * provides connection, Publish, and Subscribe with the MQTT broker.
  */
@@ -17,10 +16,6 @@ import type { IMqttClientService, MqttConnectOptions, MqttPublishOptions } from 
 /**
  * Masks the userinfo (username:password) portion of an MQTT broker URL.
  * Returns the URL with credentials replaced by `***`, or unchanged if no userinfo is present.
- *
- * @example
- * sanitizeBrokerUrl('mqtt://broker.example.com:1883')
- * // => 'mqtt://broker.example.com:1883'
  */
 export function sanitizeBrokerUrl(brokerUrl: string): string {
   // Use regex directly because 'mqtt'/'mqtts' are non-special URL schemes,

@@ -1,12 +1,4 @@
-/**
- * Lane Control IPC Contract ()
- *
- * Self-contained contract for unified lane control IPC procedures.
- * All Zod schemas are defined inline — no imports from ipcSchemas.ts.
- *
- * NOTE: Channel names use kebab-case (e.g. `unified-lane-control:get-all`),
- * so every procedure uses the `channel` override option.
- */
+/** Channel overrides preserve the kebab-case unified-lane-control channel names. */
 import { z } from 'zod';
 import { defineContract, command, query, CommandResponseSchema, queryResponseSchema } from '../defineContract';
 
@@ -175,7 +167,7 @@ const GetScoreSheetsResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Inferred types (replacing legacy IpcPayloads/IpcResponses interfaces)
+// Inferred types
 // ---------------------------------------------------------------------------
 
 // DTO types

@@ -169,7 +169,7 @@ export function QualificationRecoveryExecutionPanel({
       {interruption.qualificationRecoveryExecutions.length > 0 && (
         <details className="mt-3 border-t border-vscode-border pt-3 text-xs">
           <summary className="cursor-pointer font-medium text-vscode-text">
-            Immutable execution history ({interruption.qualificationRecoveryExecutions.length})
+            Recorded execution history ({interruption.qualificationRecoveryExecutions.length})
           </summary>
           <ol className="mt-2 space-y-2">
             {interruption.qualificationRecoveryExecutions.map((execution) => (
@@ -429,7 +429,7 @@ function AdjudicateRecoveryForm({
       }}
     >
       <h5 className="text-[13px] font-semibold text-vscode-text">
-        {priorRequest ? 'Retry immutable score application' : 'Review and apply recovery score'}
+        {priorRequest ? 'Retry score application' : 'Review and apply recovery score'}
       </h5>
       <p className="text-xs leading-5 text-vscode-warning">
         {treatment === 'ANNUL_AND_REPEAT'
@@ -471,7 +471,7 @@ function AdjudicateRecoveryForm({
           onChange={(event) => setConfirmed(event.target.checked)}
           className="mt-0.5"
         />
-        I confirm the completed Lane evidence and authorize this explicit MATCH score change.
+        I have checked the completed Lane evidence and authorize this MATCH score change.
       </label>
       <FormButtons
         saving={saving}

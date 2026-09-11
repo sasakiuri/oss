@@ -2,7 +2,6 @@
 /**
  * LaneCompetitionStatePublisher
  *
- * @description
  * Subscribes to persisted competition progress, phase and lifecycle events and
  * publishes LaneCompetitionStatePayload to `saika/competition/{competitionId}/lane/{laneId}/state`.
  * Converts internal Phase → MqttLanePhase using PhaseMapper.

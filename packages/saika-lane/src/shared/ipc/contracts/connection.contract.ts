@@ -2,7 +2,6 @@
 /**
  * Connection IPC Contract
  *
- * @description
  * Defines Zod-based contracts for USB connection-related IPC channels.
  * Covers device connection/disconnection commands and port/device listing queries.
  */

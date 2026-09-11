@@ -2,7 +2,6 @@
 /**
  * MQTT connection management store
  *
- * @description
  * MQTT connection state management using Zustand.
  * - Connection status (connected / connecting / disconnected)
  * - MQTT settings (brokerUrl, laneAlias, autoConnect, laneId)

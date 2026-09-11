@@ -1,43 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Log management custom hook
- *
- * @description
- * Custom hook providing access to the log store and log message event subscriptions.
- * - Retrieve log entries
- * - Get auto-scroll setting
- * - Clear log action
- * - Toggle auto-scroll action
- * - Automatic subscription to the logMessage event
- *
- * @example
- * ```tsx
- * function LogViewer() {
- *   const {
- *     entries,
- *     autoScroll,
- *     clearEntries,
- *     setAutoScroll
- *   } = useLog();
- *
- *   return (
- *     <div>
- *       <button onClick={clearEntries}>Clear</button>
- *       <input
- *         type="checkbox"
- *         checked={autoScroll}
- *         onChange={(e) => setAutoScroll(e.target.checked)}
- *       />
- *       <div>
- *         {entries.map((entry) => (
- *           <div key={entry.id}>{entry.message}</div>
- *         ))}
- *       </div>
- *     </div>
- *   );
- * }
- * ```
- */
+/** Subscribes to log messages and exposes the log store controls. */
 
 import { useLogStore } from '@/renderer/presentation/stores/logStore';
 import type { LogEntry } from '@/shared/types/log';
@@ -56,11 +18,6 @@ export interface UseLogResult {
   setAutoScroll: (autoScroll: boolean) => void;
 }
 
-/**
- * Log management custom hook
- *
- * @returns Log state and actions
- */
 export function useLog(): UseLogResult {
   const { entries, autoScroll, clearEntries, setAutoScroll } = useLogStore();
 

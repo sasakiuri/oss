@@ -335,7 +335,6 @@ describe('useShootoffStore', () => {
     });
 
     it('should do nothing when activeShootoff is null', () => {
-      // Ensure activeShootoff is null
       expect(useShootoffStore.getState().activeShootoff).toBeNull();
 
       const round = createRoundData({ roundNumber: 1 });
@@ -431,7 +430,6 @@ describe('useShootoffStore', () => {
     });
 
     it('should do nothing when activeShootoff is null', () => {
-      // Ensure activeShootoff is null
       expect(useShootoffStore.getState().activeShootoff).toBeNull();
 
       useShootoffStore.getState().resolveShootoff('lane-1');

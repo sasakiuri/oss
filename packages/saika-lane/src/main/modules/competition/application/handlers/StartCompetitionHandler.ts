@@ -10,15 +10,6 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * createStartCompetitionHandler
- *
- * Handler factory for the start competition command.
- * 1. Retrieve CompetitionTypeDefinition from the registry
- * 2. Create a new Session
- * 3. Create CompetitionState
- * 4. Persist and emit events
- */
 export function createStartCompetitionHandler(
   registry: CompetitionTypeRegistry,
   competitionRepository: ICompetitionRepository,

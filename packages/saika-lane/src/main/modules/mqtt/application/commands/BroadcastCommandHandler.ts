@@ -2,7 +2,6 @@
 /**
  * BroadcastCommandHandler
  *
- * @description
  * Handler that processes competition-wide broadcast commands.
  * Subscribes to `saika/competition/{competitionId}/command/+` and
  * calls CommandBus / LaneTimerService according to the action.
@@ -274,7 +273,7 @@ export class BroadcastCommandHandler {
         }
 
         // A retry must never invoke StartStage on an ACTIVE competition: that
-        // command intentionally rotates the session and resets the Lane to IDLE.
+        // command rotates the session and resets the Lane to IDLE.
         // Restart the shared sighting timer only while the Lane is still in the
         // sighting stage; later states mean this operation has been superseded.
         if (this.isSightingStage(state) && state.phase === 'ACTIVE') {

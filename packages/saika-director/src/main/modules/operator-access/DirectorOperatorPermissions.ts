@@ -50,7 +50,7 @@ for (const namespace of [
 for (const namespace of ['estChampionshipInspections', 'equipmentRegistry', 'postCompetitionEquipmentControl'])
   groups[namespace] = 'EQUIPMENT';
 
-/** Unclassified commands require administration until deliberately assigned a narrower permission. */
+/** Unclassified commands require administration until assigned a narrower permission. */
 export function directorOperatorPermission({ namespace, operation }: IpcInvocation): OperatorPermission {
   if (namespace === 'board' && ['openProtestPrint', 'openEstBackupSourcePrint'].includes(operation)) return 'OFFICIATE';
   if (namespace === 'resultsBooks' && ['appointOfficial', 'revokeOfficial'].includes(operation)) return 'ADMIN';

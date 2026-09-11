@@ -1,16 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Application screen navigation hook
- *
- * @description
- * Manages screen navigation logic at the App root level.
- * - SplashScreen timer (2 seconds)
- * - After the timer, auto-create session (IDLE state) + navigate to MainScreen
- *
- * Screen Flow:
- * 1. SplashScreen (2 seconds)
- * 2. MainScreen (primary interface, target displayed, competition in IDLE)
- */
+/** Shows the splash screen for two seconds, creates an idle session, then opens MainScreen. */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 

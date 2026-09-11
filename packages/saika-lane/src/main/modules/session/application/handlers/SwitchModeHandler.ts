@@ -8,15 +8,8 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 /**
  * createSwitchModeHandler
  *
- * @description
  * Handler factory that processes the mode switch command.
  * Retrieves the session, switches the mode, saves it, and emits a ModeSwitched event.
- *
- * @example
- * ```typescript
- * const handler = createSwitchModeHandler(sessionRepository, eventBus);
- * await handler({ sessionId, mode: Mode.match() });
- * ```
  *
  * @param sessionRepository - Session repository
  * @param eventBus - Event bus

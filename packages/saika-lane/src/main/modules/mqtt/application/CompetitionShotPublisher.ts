@@ -2,7 +2,6 @@
 /**
  * CompetitionShotPublisher
  *
- * @description
  * Subscribes to the ShotRecorded event from EventBus and
  * publishes CompetitionShotPayload to `saika/competition/{competitionId}/lane/{laneId}/shot`.
  * Shot data with competition context. QoS 1, Retain=OFF.

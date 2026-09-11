@@ -102,7 +102,7 @@ const GetFinalEventResultsResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Inferred types (replacing legacy IpcResponses interfaces)
+// Inferred types
 // ---------------------------------------------------------------------------
 
 export type RankedResultDto = z.infer<typeof RankedResultDtoSchema>;

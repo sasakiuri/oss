@@ -1,17 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * DomainError base class
- *
- * Base class for domain errors used throughout the application.
- * All domain-specific errors extend this class.
- *
- * Key features:
- * - Conforms to the standard error protocol via Error inheritance
- * - Manages error code, user message, and severity
- * - Supports metadata and cause error chaining
- * - Runtime immutability guaranteed via Object.freeze
- * - JSON conversion methods for logging, UI display, and debugging
- */
+/** Immutable error with a code, user message, severity, metadata, and optional cause. */
 export abstract class DomainError extends Error {
   /**
    * Error code (e.g. SESSION_NOT_FOUND, VALIDATION_ERROR)
@@ -85,7 +73,6 @@ export abstract class DomainError extends Error {
     this.cause = cause;
     this.timestamp = new Date();
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

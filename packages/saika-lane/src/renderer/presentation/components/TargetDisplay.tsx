@@ -2,19 +2,10 @@
 /**
  * TargetDisplay component
  *
- * @description
  * Canvas-based target visualization component that displays:
  * - Target rings (10.9 to 1.0 points)
  * - Shot impact points
  * - Zoom controls
- *
- * @example
- * ```tsx
- * <TargetDisplay
- *   shots={shots}
- *   discipline="AIR_RIFLE_10M"
- * />
- * ```
  */
 
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';

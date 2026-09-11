@@ -2,4 +2,4 @@
 "@sasakiuri/saika-director": minor
 ---
 
-Receive retained Lane qualification malfunction declarations as unclassified review information, verify their immutable context in the main process, and let an official explicitly link each declaration to at most one malfunction case without automating classification or claim decisions.
+Show Lane firearm malfunction reports in Director and check their competition context. Officials can link each report to one malfunction case, then inspect and classify it.

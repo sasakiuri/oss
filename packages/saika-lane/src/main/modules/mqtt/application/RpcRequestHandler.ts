@@ -2,7 +2,6 @@
 /**
  * RpcRequestHandler
  *
- * @description
  * Handler that processes MQTT RPC requests.
  * Subscribes to `saika/competition/{competitionId}/lane/{laneId}/query/+/request` and
  * retrieves data via QueryBus according to the method, then publishes to the response topic.

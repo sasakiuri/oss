@@ -247,10 +247,10 @@ describe('settings module handlers', () => {
   });
 
   // -----------------------------------------------------------------------
-  // UserPreferences edge cases (Codex review feedback)
+  // UserPreferences edge cases
   // -----------------------------------------------------------------------
 
-  describe('UserPreferences edge cases (Codex review feedback)', () => {
+  describe('UserPreferences edge cases', () => {
     it('should not erase existing values when preferences contain explicit undefined', async () => {
       // discipline already saved
       await handlers.saveUserPreferences({ preferences: { discipline: 'AIR_RIFLE_10M' } });

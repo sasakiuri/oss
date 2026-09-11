@@ -169,7 +169,7 @@ description: Director の担当者登録、射座の抽選、スタートリス�
 
 「Competition Control」でも同じ決勝種別で競技を作成し、「Apply assignments」で決勝用の種目・射群を反映します。予選の種目を選んだままでは種別不一致となり、反映できません。各 Lane の選手と射座を確認してから進めます。
 
-1. 「Final command runner」に公表済みの開始時刻と担当者を入力し、「Create immutable run」を押す。
+1. 「Final command runner」に公表済みの開始時刻と担当者を入力し、「Create command run」を押す。
 2. 現在の指示、対象 Lane、必要な確認を読み、「Confirm and execute」を押す。実行結果と Lane の状態を確認する。
 3. 順位判定の段階では「Final placement checkpoints」を確認する。混合団体は「Mixed Team Final checkpoints」を使う。
 4. 同点処理が必要なら対象を確認し、「Start shoot-off branch」で進める。結果を確認して順位判定へ戻る。

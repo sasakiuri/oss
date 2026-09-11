@@ -1,13 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * TypedEventBus - type-safe event bus
- *
- * Automatically derives event name → type mappings from EventRegistry via mapped types,
- * so payload types are inferred simply by specifying the event name in the on() method.
- *
- * emit() executes synchronously. Supports the pattern where IPC handlers subscribe
- * before command execution and receive callbacks immediately upon event emission.
- */
+/** Infers event payload types from EventRegistry. emit() invokes listeners synchronously. */
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 

@@ -1,16 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Session management store
- *
- * @description
- * Session state management using Zustand.
- * - Session ID
- * - Mode (sighting / match)
- * - Shooting discipline
- * - Shot history
- * - Scores (total and per series)
- * - Connected device information
- */
 
 import { create } from 'zustand';
 
@@ -139,20 +127,6 @@ const initialState: SessionState = {
 
 /**
  * Session management store
- *
- * @example
- * ```typescript
- * const { currentSessionId, setSessionId } = useSessionStore();
- *
- * // Start session
- * setSessionId('session-123');
- *
- * // Switch mode
- * setMode('MATCH');
- *
- * // Add shot
- * addShot(shotDto);
- * ```
  */
 export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   ...initialState,

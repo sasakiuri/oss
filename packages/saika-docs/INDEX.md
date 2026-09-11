@@ -29,18 +29,18 @@ description: 操作ガイド、機器の受信互換仕様、競技・帳票の�
 | 競技と帳票         | [競技種別定義](./common/COMPETITION_TYPES.md)、[標的・採点データ](./common/TARGET_SPEC.md)、[帳票仕様](./common/PRINT_SPEC.md)                         |
 | 成績照合の入力     | [独立バックアップの取込形式](./director/EST_BACKUP.md)：JSON・CSV・TSV、照合キー、得点単位、エラー対応                                                 |
 
-## 計画中の製品
+## 観客表示
 
-- [Saika Vista 要件定義](./vista/REQUIREMENTS.md)：観客表示アプリの要件定義。確定条件・提案・未決事項を整理した設計用文書。
+- [Vista 操作ガイド](../saika-vista/README.md)：接続、モニター設定、表示切替、保存と復元
+- [Saika Vista の表示仕様](./vista/REQUIREMENTS.md)：表示・保存・端末管理、会場での検証
 
 ## 権利・出典
 
 - [第三者表示と免責](./NOTICE.md)
 - [参照元](./SOURCES.md)
-- [公開コンテンツ方針](./CONTENT_POLICY.md)
 
 ## 開発・文書の保守
 
-文書の編集、サイトの起動・検証・配布は [サイト開発ガイド](../../docs/reference-nextjs.md) を参照してください。追加する内容と記述の原則は [公開コンテンツ方針](./CONTENT_POLICY.md#マニュアルと外部仕様の書き方) にまとめています。
+文書の編集、サイトの起動・検証・配布は [サイト開発ガイド](../../docs/reference-nextjs.md) を参照してください。
 
-開発時の内部構造は [アーキテクチャ](../../ARCHITECTURE.md)、過去の変更経緯は [Lane 実装変更履歴](./lane/HISTORY.md) を参照してください。
+アプリの構成、データの流れ、変更時の制約は [アーキテクチャ](../../ARCHITECTURE.md) を参照してください。

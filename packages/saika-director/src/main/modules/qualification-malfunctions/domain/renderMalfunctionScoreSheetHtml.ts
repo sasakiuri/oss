@@ -1,6 +1,6 @@
 import type { MalfunctionScoreSheet } from './MalfunctionScoreSheet';
 
-/** Original print layout; no official form artwork or scripts are embedded. */
+/** Prints the recorded calculation, shot evidence and official confirmation. */
 export function renderMalfunctionScoreSheetHtml(sheet: MalfunctionScoreSheet): string {
   const { input, context, calculation } = sheet;
   const selected = new Set(calculation.countedShots.flatMap((shot) => (shot.shotId ? [shot.shotId] : [])));

@@ -2,7 +2,6 @@
 /**
  * Window IPC Contract
  *
- * @description
  * Defines Zod-based contracts for window-related IPC channels.
  * Covers window operations such as fullscreen toggle, minimize, maximize, close.
  */

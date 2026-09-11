@@ -84,9 +84,7 @@ export function createConnectionIpcHandlers(deps: ConnectionIpcHandlersDeps): In
       } finally {
         // Reject the event promise to prevent it from pending indefinitely
         rejectEvent?.(new Error('cleanup'));
-        // Ensure event listener is always cleaned up
         unsubscribe?.();
-        // Ensure timeout is always cleared
         if (timeoutId) {
           clearTimeout(timeoutId);
         }

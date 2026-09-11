@@ -34,12 +34,12 @@ Portable schemas depend only on local contract modules and Zod. The explicit Nod
 provides encrypted spectator HTTP transport, per-listener replay fencing and local multicast discovery;
 renderers must not import it. `Vista` defines complete versioned display snapshots, source identities, exact
 target definitions, shooting histories and authoritative result publication. See
-[ADR-0016](../../docs/adr/0016-vista-display-architecture.md) for source and display authority boundaries.
+[Vista display data](../../ARCHITECTURE.md#vista-display-data) for acquisition, storage, and permissions.
 
 Vista transport accepts requests within a 30-second clock window to limit replay. Keep the clocks on both
 PCs synchronized within that window, including on an offline venue LAN. An authenticated expired request
 reports that it expired or the device clocks are out of sync; synchronize both PCs and retry. This transport
 requirement is separate from the display's countdown synchronization checks.
 
-Build tooling and tests can use development dependencies. See [ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the
-composition model, compatibility decisions and extension workflow.
+For message changes and compatibility checks, see the
+[contribution guide](../../CONTRIBUTING.md#changing-application-code).

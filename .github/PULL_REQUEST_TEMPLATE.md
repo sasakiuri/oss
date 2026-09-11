@@ -1,40 +1,14 @@
-## Description
+## Changes
 
-<!-- Describe your changes in detail. -->
+<!-- Explain the problem and resulting behavior. Link the related issue when applicable. -->
 
-## Related Issue
+## Validation
 
-<!-- Link to the related issue: Closes #XXX -->
+<!-- List checks run and any failures or checks still needed. -->
 
-## Type of Change
+## Compatibility
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Refactoring (no functional changes)
-- [ ] Documentation update
-- [ ] CI/CD changes
-- [ ] Dependency update
+<!-- Describe breaking changes or migration steps. Omit this section if none are needed. -->
 
-## Scope
-
-- [ ] saika-lane
-- [ ] saika-director
-- [ ] eslint-config
-- [ ] prettier-config
-- [ ] stylelint-config
-- [ ] typescript-config
-- [ ] Root / Monorepo
-
-## Breaking Changes
-
-<!-- If this PR introduces breaking changes, describe them here. Otherwise, delete this section. -->
-
-N/A
-
-## Checklist
-
-- [ ] My code follows the project's coding conventions
-- [ ] I have run `npx turbo lint` and `npx turbo build` locally
-- [ ] I have added/updated tests as needed
-- [ ] I have updated documentation as needed
-- [ ] I have added a changeset (`npx changeset`) if this change affects published packages
+- [ ] Documentation matches the change.
+- [ ] A changeset is included if package users are affected.

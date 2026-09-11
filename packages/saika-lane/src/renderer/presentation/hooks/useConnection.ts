@@ -1,42 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * USB connection management custom hook
- *
- * @description
- * Custom hook that manages connection and disconnection to USB target devices.
- * - Retrieve connection status
- * - Connection actions (connect / disconnect)
- * - Event subscription (connectionStatusChanged)
- * - Loading state management
- * - Error handling
- *
- * @example
- * ```tsx
- * function TargetControl() {
- *   const {
- *     status,
- *     connectionId,
- *     connect,
- *     disconnect,
- *     isConnecting,
- *     error
- *   } = useConnection();
- *
- *   if (status === 'disconnected') {
- *     return (
- *       <button
- *         onClick={() => connect('/dev/ttyUSB0', 'SIUS')}
- *         disabled={isConnecting}
- *       >
- *         Connect
- *       </button>
- *     );
- *   }
- *
- *   return <button onClick={disconnect}>Disconnect</button>;
- * }
- * ```
- */
+/** Manages target connection commands and subscribes to connection status changes. */
 
 import { useCallback } from 'react';
 
@@ -78,11 +41,6 @@ function toErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/**
- * USB connection management custom hook
- *
- * @returns Connection state and actions
- */
 export function useConnection(): UseConnectionResult {
   const {
     status,

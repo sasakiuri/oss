@@ -2,7 +2,6 @@
 /**
  * Shared type definitions barrel export
  *
- * @description
  * Central export point for all shared type definitions used across
  * Main Process, Renderer Process, and Preload scripts.
  */

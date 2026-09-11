@@ -18,7 +18,7 @@ export interface RangeClockProjection {
 
 /**
  * Projects the range display directly from Director's retained competition
- * timer. Lane-local countdowns are deliberately not accepted as a fallback.
+ * timer. Lane-local countdowns are not accepted as a fallback.
  */
 export function projectAuthoritativeRangeClock(
   snapshot: MqttControlSnapshotDto | null,

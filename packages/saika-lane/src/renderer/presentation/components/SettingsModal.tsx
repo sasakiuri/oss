@@ -2,20 +2,10 @@
 /**
  * SettingsModal component
  *
- * @description
  * Settings modal component.
  * General tab: Lane number settings
  * Target tab: Discipline selection
  * Connection tab: USB connection management
- *
- * @example
- * ```tsx
- * <SettingsModal
- *   isOpen={isOpen}
- *   onClose={() => setIsOpen(false)}
- *   initialTab="target"
- * />
- * ```
  */
 
 import { Volume2, X } from 'lucide-react';
@@ -131,9 +121,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const updateState = useUpdateStore((state) => state);
   const [inputValue, setInputValue] = useState(laneNumber.toString());
   const [volumeValue, setVolumeValue] = useState(audioVolume);
-  const [activeTab, setActiveTab] = useState<'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json'>(
-    initialTab,
-  );
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json'
+  >(initialTab);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [updateActionError, setUpdateActionError] = useState<string | null>(null);
   const [jsonDraft, setJsonDraft] = useState('');

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * TitleBar component
- *
- * @description
- * VSCode-style custom titlebar with menu bar and window controls.
- * Replaces native OS titlebar for consistent cross-platform appearance.
- */
+/** Application menu and window controls. */
 
 import { Copy, Minus, Square, Target, X } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';

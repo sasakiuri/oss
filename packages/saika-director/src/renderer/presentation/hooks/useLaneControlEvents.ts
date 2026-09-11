@@ -7,17 +7,7 @@ import { Logger } from '@/shared/utils/Logger';
 
 const logger = Logger.create('useLaneControlEvents');
 
-/**
- * Hook that subscribes to lane-control IPC events and updates the
- * unified lane control store.
- *
- * Extracted to centralise event handling.
- * Covers:
- *  - laneControlUpdated  -> store.updateLane
- *  - laneControlPatched  -> store.patchLane (with sequence tracking)
- *  - laneTimerTick       -> store.updateLaneTimer
- *  - laneTimerExpired    -> store.updateLaneTimer(0)
- */
+/** Updates Lane state and timers from IPC events, with sequence tracking for patches. */
 export function useLaneControlEvents(loadState: () => Promise<void>): void {
   const updateLane = useLaneControlStore((s) => s.updateLane);
   const updateLaneTimer = useLaneControlStore((s) => s.updateLaneTimer);

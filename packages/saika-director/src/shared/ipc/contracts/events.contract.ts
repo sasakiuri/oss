@@ -137,7 +137,7 @@ const laneControlPatchedSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Inferred types (replacing legacy IpcEvents interfaces)
+// Inferred types
 // ---------------------------------------------------------------------------
 
 export type ShotReceivedEvent = z.infer<typeof shotReceivedSchema>;
@@ -156,9 +156,6 @@ export type ShotObservationEvidenceObservedEvent = z.infer<typeof shotObservatio
 export type CompetitionAnnouncementDueEvent = z.infer<typeof competitionAnnouncementDueSchema>;
 export type LaneControlPatchedEvent = z.infer<typeof laneControlPatchedSchema>;
 
-/**
- * IpcEvents map (replacing legacy IpcEvents interface)
- */
 export interface IpcEvents {
   shotReceived: ShotReceivedEvent;
   phaseChanged: PhaseChangedEvent;

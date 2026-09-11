@@ -7,7 +7,7 @@ export interface FinalOperationShootOffUnit {
 /**
  * Creates an immutable scoring-unit snapshot for a shoot-off round.
  *
- * A unit is deliberately generic: it is one Lane for an individual Final and
+ * A unit is generic: it is one Lane for an individual Final and
  * two Lanes for an ISSF Mixed Team Final. This keeps the Final runner
  * independent from participant and team repositories.
  */

@@ -63,7 +63,7 @@
     },
     {
       "prefix": "@sentry/cli",
-      "reason": "Unmodified FSL-1.1-MIT source-map upload build tool requested for the Next.js reference; retain its license, do not relicense it as MIT."
+      "reason": "Unmodified FSL-1.1-MIT source-map upload build tool used by the Next.js reference; retain its license, do not relicense it as MIT."
     },
     {
       "prefix": "postcss-values-parser",

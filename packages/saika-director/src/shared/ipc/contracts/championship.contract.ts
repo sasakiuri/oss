@@ -1,9 +1,3 @@
-/**
- * Championship IPC Contract
- *
- * Self-contained contract for championship-related IPC procedures.
- * All Zod schemas are defined inline — no imports from ipcSchemas.ts.
- */
 import { z } from 'zod';
 import {
   defineContract,
@@ -196,7 +190,7 @@ const CompetitionTypeListResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Inferred types (replacing legacy IpcPayloads/IpcResponses interfaces)
+// Inferred types
 // ---------------------------------------------------------------------------
 
 // Response DTOs

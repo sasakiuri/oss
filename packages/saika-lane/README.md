@@ -4,17 +4,17 @@ Electronic target scoring display system for shooting ranges.
 
 ## Overview
 
-Saika Lane is a desktop application installed on a PC or laptop, designed for visualizing impact points from electronic targets in real time. It supports multiple target manufacturers, calculates scores automatically, and manages session records.
+Saika Lane connects a range PC to an electronic target, displays incoming shots, calculates scores, and saves session records.
 
-- Real-time impact point display
-- Multi-manufacturer target support
-- Score calculation and session recording
-- Director-authorized Lane-specific timer pause/resume with durable interruption recovery
-- Competition-independent durable safety STOP, timer gate, STOP / UNLOAD overlay, and quarantined-shot evidence
-- ISSF 2026 Individual and Mixed Team 10m plus 50m Rifle Qualification/Final course definitions
-- ISSF 2026 25m Pistol qualification schedules with persisted LOAD, ATTENTION, red/green, and EST after-time boundaries
-- Rule 8.8.1 recovery runs with isolated shot evidence, explicit score adjudication, and no-fire retain-series settlement
-- Synchronized series/single-shot timers and Director-authorized Final retirement snapshots
+- Display shot positions, scores, and session history.
+- Connect to supported targets through manufacturer-specific adapters.
+- Run ISSF 10m Individual and Mixed Team, 50m Rifle, and 25m Pistol courses with series and single-shot timers.
+- Pause and resume a Lane under Director control, preserving the timer across interruptions and restarts.
+- Display STOP / UNLOAD, block firing commands, and keep subsequent shots out of scoring during a safety stop.
+- Record timed-target and recovery firing separately from ordinary match shots; apply the authorized scoring decision.
+- Record Director-authorized Final retirement and preserve the results.
+
+Course details and operating limits are described in the [Lane specification](../saika-docs/lane/SPEC.md).
 
 ## Supported Devices
 
@@ -51,21 +51,10 @@ Saika Lane is a desktop application installed on a PC or laptop, designed for vi
 
 ## Architecture
 
-Saika Lane follows Clean Architecture combined with Domain-Driven Design (DDD), CQRS, and an event-driven approach:
-
-- **Feature modules** (`src/main/modules/`): each module encapsulates `domain/`, `application/`, and `infra/` layers
-- **IPC Contract layer** (`src/shared/ipc/`): Zod-based type-safe contracts auto-generate preload bridges
-- **CQRS Bus** (`src/main/shared-infra/cqrs/`): token-based CommandBus and QueryBus with middleware support
-- **TypedEventBus** (`src/main/shared-infra/events/`): mapped-type event bus for loose coupling between modules
-
-```
-Renderer (React + Zustand)
-  |-- IPC Contract Layer (shared/ipc/)
-  |-- Feature Modules (main/modules/)
-        session / connection / target / settings / competition
-  |-- Shared Infrastructure (main/shared-infra/)
-        CQRS Bus / TypedEventBus / IpcRouter / Logging
-```
+Feature modules under `src/main/modules/` separate domain rules, application
+operations and device/storage adapters. Shared IPC contracts connect them to the
+renderer. See the [architecture guide](../../ARCHITECTURE.md) for composition,
+serial data flow, message validation and persistence requirements.
 
 ## Data Storage
 
@@ -107,26 +96,21 @@ Remove the user data directory listed above to clear the database, settings, and
 
 ## Distribution
 
-Saika Lane, Saika Director, and Saika Docs share one suite version and one
-`v<version>` release tag. The release and canary workflows build both applications
-for every supported platform and publish their artifacts together in one GitHub
-Release; Saika Docs is included as versioned source at the same tag. Saika Lane's
-automatic-update metadata remains included alongside both sets of application
-packages.
-
-For a proposed minimal Debian kiosk setup with audio, printing, and MQTT, see the
-[minimal appliance OS design note](../../docs/minimal-appliance-os.md).
+Lane, Director, Vista, and Docs share one suite version and one `v<version>` release tag.
+The release and canary workflows build the three desktop applications for each supported
+platform. Their artifacts and Lane's automatic-update metadata are published together;
+Docs is included as versioned source at the same tag.
 
 ## Getting Started
 
 The Electron entry delegates service construction, feature registration, startup device connection and window
 controls to separate composition units. MQTT schemas are shared with Director through
 [`@sasakiuri/saika-protocol`](../saika-protocol/). See
-[ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the design and extension workflow.
+[application composition](../../ARCHITECTURE.md#application-composition) and the [contribution guide](../../CONTRIBUTING.md#changing-application-code).
 
 ```bash
 # Install dependencies
-npm install
+npm ci
 
 # Development
 npm run dev
@@ -186,7 +170,7 @@ See `scripts/build-win.ps1` for detailed options and step-by-step instructions.
 
 ## Documentation
 
-Detailed specifications, MQTT design, scoring data, and legal/provenance notices are maintained in
+Specifications, MQTT messages, scoring data, and license notices are maintained in
 [`@sasakiuri/saika-docs`](../saika-docs/).
 
 For synchronized multi-lane competitions, Saika Lane can be discovered and controlled over MQTT by
@@ -195,13 +179,11 @@ For synchronized multi-lane competitions, Saika Lane can be discovered and contr
 
 ## Disclaimer
 
-This is an **unofficial, independent** project. It is not affiliated with, endorsed by, or supported by any electronic target manufacturer.
+This is an unofficial project. It is not affiliated with, endorsed by, or supported by any electronic target manufacturer.
 
 **No Warranty**: This software is provided "as is" without warranty of any kind. The author shall not be liable for any damages arising from the use of this software.
 
 **Not for Official Use**: This software is not intended for use as an official scoring or timing system in sanctioned competitions.
-
-**No Affiliation with SIUS**: Saika Lane is not related to or affiliated with SIUS Lane or any SIUS AG product.
 
 **Trademarks**: Kohto Electronics (Koto Denshi), SIUS, Meyton, and DISAG are trademarks of their respective owners.
 
