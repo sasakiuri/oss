@@ -52,6 +52,7 @@ import type {
   IFinalResultsReader,
   IQualificationResultsReader,
   IResultRepository,
+  IResultDisplayReader,
 } from '@/main/modules/results';
 import type { ResultsBookService } from '@/main/modules/results-books';
 import type { ScoreCorrectionService } from '@/main/modules/score-corrections';
@@ -115,8 +116,8 @@ export interface ServiceRegistry {
   readonly competitionShotJournal: ICompetitionShotJournal;
   readonly firingWindowJournal: IFiringWindowJournal;
   readonly shotObservationEvidenceJournal: IShotObservationEvidenceJournal;
-  readonly qualificationResultsReader: IQualificationResultsReader;
-  readonly finalResultsReader: IFinalResultsReader;
+  readonly qualificationResultsReader: IQualificationResultsReader & IResultDisplayReader;
+  readonly finalResultsReader: IFinalResultsReader & IResultDisplayReader;
   readonly resultVerificationRepository: IResultVerificationRepository;
   readonly resultVerificationService: ResultVerificationService;
   readonly rangeIncidentReportRepository: IRangeIncidentReportRepository;

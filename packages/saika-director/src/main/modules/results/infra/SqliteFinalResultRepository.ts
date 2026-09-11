@@ -28,20 +28,20 @@ interface FinalResultRow {
 export class SqliteFinalResultRepository implements IFinalResultRepository {
   constructor(private readonly db: Database.Database) {}
 
-  save(result: FinalResult): void {
+  save(result: FinalResult, sourceCompetitionId?: string): void {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`
       INSERT INTO final_results (
         id, event_id, participant_id, player_name, affiliation,
         firing_point_number, stage1_shots, stage1_total, stage2_shots, stage2_total,
         total_score, final_rank, eliminated_at_shot, shootoff_id, remarks, status,
-        created_at, updated_at
+        created_at, updated_at, source_competition_id
       )
       VALUES (
         @id, @eventId, @participantId, @playerName, @affiliation,
         @firingPointNumber, @stage1Shots, @stage1Total, @stage2Shots, @stage2Total,
         @totalScore, @finalRank, @eliminatedAtShot, @shootoffId, @remarks, @status,
-        @createdAt, @updatedAt
+        @createdAt, @updatedAt, @sourceCompetitionId
       )
       ON CONFLICT(id) DO UPDATE SET
         event_id = excluded.event_id,
@@ -59,7 +59,8 @@ export class SqliteFinalResultRepository implements IFinalResultRepository {
         shootoff_id = excluded.shootoff_id,
         remarks = excluded.remarks,
         status = excluded.status,
-        updated_at = excluded.updated_at
+        updated_at = excluded.updated_at,
+        source_competition_id = COALESCE(excluded.source_competition_id, final_results.source_competition_id)
     `);
 
     const existing = this.findById(result.id.value);
@@ -84,6 +85,7 @@ export class SqliteFinalResultRepository implements IFinalResultRepository {
       status: result.status,
       createdAt,
       updatedAt: now,
+      sourceCompetitionId: sourceCompetitionId ?? null,
     });
   }
 

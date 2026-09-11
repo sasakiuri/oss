@@ -40,6 +40,9 @@ vi.mock('@/renderer/presentation/stores/ui/notifications.store', () => ({
 vi.mock('@/renderer/presentation/features/settings/ResultPublicationSettingsPanel', () => ({
   ResultPublicationSettingsPanel: () => null,
 }));
+vi.mock('@/renderer/presentation/features/settings/VistaSettingsPanel', () => ({
+  VistaSettingsPanel: () => null,
+}));
 vi.mock('@/renderer/presentation/features/settings/ClockQualitySettingsPanel', () => ({
   ClockQualitySettingsPanel: () => null,
 }));

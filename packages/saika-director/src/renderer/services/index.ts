@@ -58,3 +58,5 @@ export const operationalTemplatesService = createApiService('operationalTemplate
 export const equipmentRegistryService = createApiService('equipmentRegistry');
 
 export const operatorAccessService = createApiService('operatorAccess');
+
+export const vistaService = createApiService('vista');

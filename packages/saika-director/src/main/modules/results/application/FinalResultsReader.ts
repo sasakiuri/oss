@@ -24,6 +24,7 @@ import type { FinalRankedResultDto } from '@/shared/ipc/contracts';
 
 import type { FinalResult } from '../domain/FinalResult';
 import type { IFinalResultRepository } from '../domain/IFinalResultRepository';
+import { displayResultShots, type IResultDisplayReader, type ResultDisplayProjection } from './ResultDisplayProjection';
 
 import {
   applyResultClassificationOverlay,
@@ -53,7 +54,7 @@ const PLACEMENT_AFFECTING_DECISIONS = new Set(['DEDUCTION', 'ANNUL_SHOT', 'MARK_
 const PLACEMENT_REVIEW_ISSUE = 'Final placement must be reviewed after a score or classification intervention';
 
 /** Public Final read port. Source rank history stays immutable while decisions are projected for publication. */
-export class FinalResultsReader implements IFinalResultsReader {
+export class FinalResultsReader implements IFinalResultsReader, IResultDisplayReader {
   private readonly projector = new ScoringDecisionProjector();
 
   constructor(
@@ -71,6 +72,16 @@ export class FinalResultsReader implements IFinalResultsReader {
   }
 
   async getSnapshot(eventId: string): Promise<FinalResultsSnapshot> {
+    return (await this.projectSnapshot(eventId)).snapshot;
+  }
+
+  async getDisplayByEvent(eventId: string): Promise<ResultDisplayProjection[]> {
+    return (await this.projectSnapshot(eventId)).display;
+  }
+
+  private async projectSnapshot(
+    eventId: string,
+  ): Promise<{ snapshot: FinalResultsSnapshot; display: ResultDisplayProjection[] }> {
     const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
@@ -121,10 +132,13 @@ export class FinalResultsReader implements IFinalResultsReader {
       .sort(compareProjectedResults);
 
     return {
-      eventId,
-      scoringRevision,
-      currentPlacementReviewId: currentReview?.id ?? null,
-      results: Object.freeze(projectedResults),
+      snapshot: {
+        eventId,
+        scoringRevision,
+        currentPlacementReviewId: currentReview?.id ?? null,
+        results: Object.freeze(projectedResults),
+      },
+      display: candidates.map((candidate) => candidate.display),
     };
   }
 
@@ -179,6 +193,19 @@ export class FinalResultsReader implements IFinalResultsReader {
 
     return {
       placementIntervention,
+      display: {
+        resultId: result.id.value,
+        participantId: result.participantId.value,
+        familyName: null,
+        seriesScores: projection.seriesScoresX10.map((score) => score / 10),
+        status: result.status,
+        rankingShots: [], // Final places come from the declared operation and placement review.
+        shots: displayResultShots(
+          projectedShots,
+          correction.shots.map((shot) => shot.ranking),
+          correction.shotOrigins,
+        ),
+      },
       dto: {
         id: result.id.value,
         participantId: result.participantId.value,
@@ -214,6 +241,7 @@ export class FinalResultsReader implements IFinalResultsReader {
 
 interface FinalProjectionCandidate {
   readonly dto: FinalRankedResultDto;
+  readonly display: ResultDisplayProjection;
   readonly placementIntervention: boolean;
 }
 

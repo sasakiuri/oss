@@ -80,6 +80,7 @@ describe('FinalResultsReader', () => {
     const overlays: ResultClassificationOverlay[] = [];
     let correction: IResultScoreCorrectionSource['project'] = (basis) => ({
       shots: basis.shots,
+      shotOrigins: basis.shots.map((_, sourceShotIndex) => ({ sourceShotIndex, corrected: false })),
       revision: '',
       ids: [],
       remarks: [],
@@ -181,6 +182,7 @@ describe('FinalResultsReader', () => {
     history.splice(1); // Keep the independent one-point scoring decision.
     const issues: string[] = [];
     correction = (basis) => ({
+      shotOrigins: basis.shots.map((_, sourceShotIndex) => ({ sourceShotIndex, corrected: sourceShotIndex === 0 })),
       shots: basis.shots.map((shot, index) => (index === 0 ? { ...shot, scoreX10: 109 } : shot)),
       revision: 'correction-v1',
       ids: ['restoration'],

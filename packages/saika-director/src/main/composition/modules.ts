@@ -1,3 +1,4 @@
+import { vistaModule } from '@/main/modules/vista';
 // SPDX-License-Identifier: MIT
 import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
 import { athleteSanctionsModule } from '@/main/modules/athlete-sanctions';
@@ -93,4 +94,5 @@ export const directorModules = [
   resultPublicationModule,
   incidentReportsModule,
   finalPlacementReviewModule,
+  vistaModule,
 ] satisfies readonly ModuleDefinition[];

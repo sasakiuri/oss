@@ -1,3 +1,4 @@
+import { VistaSettingsPanel } from './VistaSettingsPanel';
 import { BellRing, Copy, RefreshCw, Settings2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -431,6 +432,7 @@ export function SettingsScreen() {
           </div>
         </section>
         <ClockQualitySettingsPanel />
+        <VistaSettingsPanel />
         <ResultPublicationSettingsPanel />
         <OperationalArchivesPanel />
       </div>

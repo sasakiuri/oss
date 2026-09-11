@@ -1,7 +1,7 @@
 import type { FinalResult, FinalResultStatus } from './FinalResult';
 
 export interface IFinalResultRepository {
-  save(result: FinalResult): void;
+  save(result: FinalResult, sourceCompetitionId?: string): void;
   findById(id: string): FinalResult | undefined;
   findByEventId(eventId: string): FinalResult[];
   findByParticipantId(participantId: string): FinalResult | undefined;

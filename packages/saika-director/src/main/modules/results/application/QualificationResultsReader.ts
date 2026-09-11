@@ -15,6 +15,7 @@ import type { IResultRepository } from '../domain/IResultRepository';
 import { ProjectedQualificationResult } from '../domain/ProjectedQualificationResult';
 import { QualificationRankingService } from '../domain/QualificationRankingService';
 import type { Result } from '../domain/Result';
+import { displayResultShots, type IResultDisplayReader, type ResultDisplayProjection } from './ResultDisplayProjection';
 
 import {
   applyQualificationScoreOverlays,
@@ -31,6 +32,7 @@ import {
   qualificationCorrectionBasis,
   noResultScoreCorrections,
   type IResultScoreCorrectionSource,
+  type ScoreCorrectionProjection,
 } from './ResultScoreCorrectionSource';
 
 export interface IQualificationResultsReader {
@@ -39,7 +41,7 @@ export interface IQualificationResultsReader {
 }
 
 /** Public read port for consumers that need the official qualification projection. */
-export class QualificationResultsReader implements IQualificationResultsReader {
+export class QualificationResultsReader implements IQualificationResultsReader, IResultDisplayReader {
   private readonly rankingService = new QualificationRankingService();
   private readonly decisionProjector = new ScoringDecisionProjector();
 
@@ -54,14 +56,23 @@ export class QualificationResultsReader implements IQualificationResultsReader {
   ) {}
 
   async getByEvent(eventId: string): Promise<RankedResultDto[]> {
-    return this.projectAndRank(this.results.findByEventId(eventId), eventId);
+    return (await this.projectAndRank(this.results.findByEventId(eventId), eventId)).map((value) => value.result);
   }
 
   async getByRelay(eventId: string, relayNumber: number): Promise<RankedResultDto[]> {
-    return this.projectAndRank(this.results.findByEventIdAndRelay(eventId, relayNumber), eventId);
+    return (await this.projectAndRank(this.results.findByEventIdAndRelay(eventId, relayNumber), eventId)).map(
+      (value) => value.result,
+    );
   }
 
-  private async projectAndRank(sourceResults: Result[], eventId: string): Promise<RankedResultDto[]> {
+  async getDisplayByEvent(eventId: string): Promise<ResultDisplayProjection[]> {
+    return (await this.projectAndRank(this.results.findByEventId(eventId), eventId)).map((value) => value.display);
+  }
+
+  private async projectAndRank(
+    sourceResults: Result[],
+    eventId: string,
+  ): Promise<{ result: RankedResultDto; display: ResultDisplayProjection }[]> {
     const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
@@ -80,6 +91,7 @@ export class QualificationResultsReader implements IQualificationResultsReader {
     const histories = new Map<Result, readonly ScoringDecision[]>();
     const appliedOverlays = new Map<Result, ResultClassificationOverlay | undefined>();
     const scoreOverlayRevisions = new Map<Result, string>();
+    const shotOrigins = new Map<Result, ScoreCorrectionProjection['shotOrigins']>();
     const projectedResults = sourceResults.map((result) => {
       const history = decisionsByTarget.get(targetKey(result.participantId.value, result.relayNumber)) ?? [];
       const overlay = overlaysByParticipant.get(result.participantId.value);
@@ -90,6 +102,15 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       const base = applyQualificationScoreOverlays(result, scoreHistory);
       const basis = qualificationCorrectionBasis(result, scoreHistory);
       const correction = this.corrections.project(basis);
+      // A replacement series can have different source shots even before a Jury correction.
+      // Its explicit shot IDs remain usable; its old result positions cannot establish identity.
+      shotOrigins.set(
+        result,
+        correction.shotOrigins.map((origin) => ({
+          ...origin,
+          sourceShotIndex: base.ids.length ? null : origin.sourceShotIndex,
+        })),
+      );
       if (correction.revision) scoreOverlayRevisions.set(result, `${scoreHistory.revision}:${correction.revision}`);
       if (correction.ids.length && !correction.issues.length) {
         const correctedScores = correction.shots.map((shot) => shot.scoreX10);
@@ -184,14 +205,25 @@ export class QualificationResultsReader implements IQualificationResultsReader {
       } satisfies Omit<RankedResultDto, 'revision'>;
 
       return {
-        ...dtoWithoutRevision,
-        revision: calculateResultRevision(
-          source,
-          history,
-          overlay,
-          dtoWithoutRevision,
-          scoreOverlayRevisions.get(source),
-        ),
+        result: {
+          ...dtoWithoutRevision,
+          revision: calculateResultRevision(
+            source,
+            history,
+            overlay,
+            dtoWithoutRevision,
+            scoreOverlayRevisions.get(source),
+          ),
+        },
+        display: {
+          resultId: source.id.value,
+          participantId: source.participantId.value,
+          familyName: source.familyName,
+          seriesScores: ranked.result.seriesScores,
+          status: source.status,
+          rankingShots: ranked.result.rankingShots,
+          shots: displayResultShots(ranked.result.shots, ranked.result.rankingShots, shotOrigins.get(source)!),
+        },
       };
     });
   }

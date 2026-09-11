@@ -93,6 +93,8 @@ export interface LaneCommandResult {
 }
 
 export interface CommandExecutionResult {
+  /** Source scope for observers of competition-specific command outcomes. */
+  competitionId?: string;
   commandId: string;
   action: DirectorCommandAction;
   success: boolean;

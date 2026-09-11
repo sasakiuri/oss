@@ -44,6 +44,7 @@ import {
   boardContract,
   shootoffContract,
   mqttContract,
+  vistaContract,
   debugContract,
   eventsContract,
   athleteSanctionsContract,
@@ -65,6 +66,7 @@ const electronAPI: ElectronAPI = {
   appVersion: __APP_VERSION__,
   queries: buildProcedureBridge(debugContract),
   mqtt: buildProcedureBridge(mqttContract),
+  vista: buildProcedureBridge(vistaContract),
 
   // Championship uses aliased method names for 5 CRUD operations
   championship: buildAliasedBridge(championshipContract, {

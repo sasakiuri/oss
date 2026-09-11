@@ -43,6 +43,8 @@ const PersistedBooleanSchema = z.preprocess((value) => {
  * Each field converts the persisted string (or undefined) and supplies a default when unset.
  */
 export const AppConfigSchema = z.object({
+  'vista.enabled': PersistedBooleanSchema.default(false),
+  'vista.port': z.coerce.number().int().min(1).max(65535).default(45832),
   'mqtt.broker.port': z.coerce.number().int().min(1).max(65535).default(1883),
   'mqtt.broker.url': MqttBrokerUrlSchema.default('mqtt://localhost:1883'),
   'mqtt.broker.mode': z.enum(['embedded', 'external']).default('embedded'),

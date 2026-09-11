@@ -70,6 +70,7 @@ const LaneCommandResultSchema = z.object({
 });
 
 const CommandExecutionResultSchema = z.object({
+  competitionId: z.string().uuid().optional(),
   commandId: z.string().uuid(),
   action: z.enum([
     'join-competition',
