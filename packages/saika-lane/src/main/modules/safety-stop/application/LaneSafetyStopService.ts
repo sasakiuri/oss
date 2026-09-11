@@ -102,7 +102,7 @@ export class LaneSafetyStopService implements ILaneSafetyStopControl {
     this.repository.appendCleared(cleared);
     this.state = cleared;
     this.emit(cleared);
-    // Clearing the safety latch intentionally does not restart a competition
+    // Clearing the safety latch does not restart a competition
     // timer. Any restart remains an independent Director operation.
     return cleared;
   }

@@ -54,19 +54,6 @@ export interface SelectProps {
  *
  * Provides a styled select dropdown with optional label and full keyboard accessibility.
  *
- * @example
- * ```tsx
- * <Select
- *   label="Target Type"
- *   value={selectedValue}
- *   onChange={handleChange}
- *   options={[
- *     { label: 'SIUS', value: 'sius' },
- *     { label: 'Meyton', value: 'meyton' }
- *   ]}
- * />
- * ```
- *
  * @param props - Select component props
  * @returns Select component
  */

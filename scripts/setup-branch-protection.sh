@@ -118,33 +118,8 @@ upsert_ruleset() {
   fi
 }
 
-# ===========================================================================
-# 1. 1.x  (default / release branch)
-# ---------------------------------------------------------------------------
-# Ruleset name matches the existing deployed ruleset so `upsert_ruleset` finds
-# and updates it in place.
-#
-# require_code_owner_review is intentionally false here. Rationale:
-#
-# 1. The Dependabot auto-merge workflow approves via secrets.GITHUB_TOKEN
-#    (actor: github-actions[bot]), which satisfies
-#    required_approving_review_count but cannot act as a CODEOWNERS
-#    reviewer. Enforcing code-owner review would permanently block
-#    auto-merge for the safe dependency groups that are supposed to be
-#    hands-off.
-# 2. This repository currently has a single write-access user (@sasakiuri)
-#    who is also the sole code owner (see .github/CODEOWNERS). With only
-#    one eligible code owner, the practical difference between "any
-#    approving review" and "code-owner approving review" is zero for
-#    human PRs.
-#
-# If a second maintainer is ever granted write access, re-enable this and
-# solve Dependabot approval via a GitHub App that is listed in CODEOWNERS.
-#
-# No bypass_actors: break-glass should be an explicit, auditable action taken
-# via the GitHub UI rather than a permanent role-based bypass.
-# ===========================================================================
-
+# Default branch: one approval, required CI checks, and squash merges.
+# Dependabot approvals use github-actions[bot], which is not a code owner.
 upsert_ruleset "1.x" '{
   "name": "1.x",
   "target": "branch",
@@ -192,16 +167,8 @@ upsert_ruleset "1.x" '{
     }
   ]
 }'
-# NOTE: actor_id 5 is the built-in Admin repository role. Granting it
-# "always" bypass preserves break-glass merges for the sole maintainer
-# (see require_code_owner_review rationale above). Remove this block the
-# moment a second maintainer joins and a dedicated GitHub App handles bot
-# approvals.
-
-# Clean up the legacy ruleset name from an earlier revision of this script.
-# Runs AFTER the replacement above is confirmed so the default branch is
-# never left unprotected mid-run. Safe no-op when the legacy ruleset does
-# not exist.
+# actor_id 5 grants the Admin role a bypass for recovery.
+# Remove the old ruleset only after its replacement has been applied.
 delete_ruleset_if_exists "protect-1.x"
 
 # ===========================================================================

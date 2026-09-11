@@ -88,7 +88,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
             <ShieldAlert size={16} aria-hidden="true" /> Outdoor Elimination plan
           </h2>
           <p className="mt-1 text-xs text-vscode-text-muted">
-            ISSF 6.6.6.1 · capacity decision, random-relay source, proportional quotas and Technical Delegate ledger
+            Record range capacity, relay allocation, quotas, and Technical Delegate approval under ISSF 6.6.6.1.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={busy} onClick={() => void load()}>
@@ -117,11 +117,11 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
           TD schedule-limit waiver
         </label>
         <p className="md:col-span-3 text-xs text-vscode-text-muted">
-          Entry count and relay sizes are read from current starting entries and firing-point assignments. Incomplete
-          assignments create a blocked assessment; the Squadding workflow remains the independent draw mechanism.
+          Entry count and relay sizes use the current starting entries and firing-point assignments. Complete the
+          assignments before assessing the plan. Use Squadding to draw firing points.
         </p>
         <Button disabled={busy || !capacity || !createdBy.trim()} onClick={() => void create()}>
-          Create immutable assessment
+          Create assessment
         </Button>
       </div>
 

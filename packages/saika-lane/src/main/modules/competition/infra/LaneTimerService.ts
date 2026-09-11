@@ -4,15 +4,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
-/**
- * LaneTimerService
- *
- * 1-second interval countdown timer with real-time drift correction.
- * Manages remaining timer time in memory, persisting only on expiry.
- * - start(): Start timer with specified competitionId + timer info
- * - stop(): Stop timer
- * - processTick(): Process 1 tick (in-memory update + event emit, persist only on expiry)
- */
+/** Ticks once per second with drift correction. Remaining time is kept in memory and persisted on expiry. */
 export class LaneTimerService {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private expiresAtMs: number = 0;

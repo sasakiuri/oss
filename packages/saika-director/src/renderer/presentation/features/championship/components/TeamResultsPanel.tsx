@@ -32,7 +32,7 @@ export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClos
     <section className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold text-vscode-text">Official team projection</h3>
+          <h3 className="text-[13px] font-semibold text-vscode-text">Official team results</h3>
           <p className="mt-0.5 text-xs text-vscode-text-muted">ISSF 3.3.2.3, 6.15.5 and 6.18 composition checks.</p>
         </div>
         <div className="flex items-center gap-2">

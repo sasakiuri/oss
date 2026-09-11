@@ -2,25 +2,7 @@
 import type { ITargetAdapter } from '@/main/modules/target/adapters/ITargetAdapter';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * AdapterRegistry
- *
- * Registry managing ITargetAdapter instances per manufacturer.
- * Holds two mappings: manufacturer ID → adapter, and device ID → adapter.
- *
- * Responsibilities:
- * - Registering, removing, and looking up adapters
- * - Associating device IDs with adapters
- *
- * Adapter registration is performed in target.module.ts.
- *
- * @example
- * ```typescript
- * const registry = new AdapterRegistry();
- * registry.registerAdapter('CUSTOM', new CustomAdapter());
- * registry.registerAdapter('KOHTO', new MT201Adapter());
- * ```
- */
+/** Maps manufacturer and device IDs to adapters registered in target.module.ts. */
 export class AdapterRegistry {
   /**
    * Adapter map keyed by manufacturer ID.

@@ -9,7 +9,7 @@
       "pinVersion": "*"
     },
     {
-      "label": "Next.js reference app maintains its web toolchain independently of Electron",
+      "label": "Saika Docs uses a separate web toolchain from the Electron apps",
       "packages": ["@sasakiuri/saika-docs"],
       "dependencies": [
         "@types/node",

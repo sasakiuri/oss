@@ -3,11 +3,6 @@ import eslintConfig from '@sasakiuri/eslint-config';
 export default [
   ...eslintConfig,
 
-  // === TypeScript file support ===
-  // Keep the imported code focused on boundary violations while its existing
-  // import ordering is normalized incrementally.
-  // The imported package keeps its existing grouping for now; this applies to
-  // tests and build configuration as well as application source.
   {
     files: ['**/*.{js,mjs,ts,tsx}'],
     rules: {
@@ -17,11 +12,7 @@ export default [
     },
   },
 
-  // === Module Boundary Rules ===
-
-  // 1. Renderer → Main process boundary
-  //    Renderer must NOT import from main process.
-  //    Communication goes through IPC contracts in @/shared/ipc/.
+  // Renderer access to main-process services goes through IPC.
   {
     files: ['src/renderer/**/*.{ts,tsx}'],
     rules: {
@@ -39,13 +30,7 @@ export default [
     },
   },
 
-  // 2. Main process → Renderer boundary + Module internal imports
-  //    Main must NOT import from renderer.
-  //    Cross-module imports must go through barrel exports (e.g., @/main/modules/championship).
-  //
-  //    Circular dependency resolved in Phase 8-A:
-  //    - RankingService moved to results module with IRankable interface
-  //    - results imports IUnifiedLaneControlRepository type from lane-control (DI only, no runtime circular)
+  // Main-process modules use public module exports and cannot import renderer code.
   {
     files: ['src/main/**/*.{ts,tsx}'],
     rules: {
@@ -68,7 +53,7 @@ export default [
     },
   },
 
-  // 3. Shared/Preload must NOT import internal module files
+  // Shared code and preload use public module exports.
   {
     files: ['src/shared/**/*.ts', 'src/preload/**/*.ts'],
     rules: {

@@ -109,7 +109,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
       </div>
 
       {/* Series details */}
-      <div className="series-sections-meyton">
+      <div className="score-sheet-series-list">
         {Array.from({ length: displaySeriesCount }, (_, seriesIndex) => {
           const seriesNumber = seriesNumbers[seriesIndex];
           const seriesShots = seriesNumber !== undefined ? getSeriesShots(data.allShots, seriesNumber) : [];

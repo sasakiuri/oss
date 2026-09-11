@@ -46,7 +46,6 @@ export class ImpactPoint {
     this.x = x;
     this.y = y;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

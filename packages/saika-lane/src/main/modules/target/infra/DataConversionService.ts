@@ -6,31 +6,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import { AdapterRegistry } from './AdapterRegistry';
 
-/**
- * DataConversionService
- *
- * A service that converts manufacturer-specific format RawData to a common Shot object.
- * Retrieves the appropriate adapter from AdapterRegistry and dispatches the conversion.
- *
- * Responsibilities:
- * - Selecting the appropriate adapter based on the manufacturer
- * - Dispatching RawData-to-Shot conversion
- * - Unified error handling
- *
- * @example
- * ```typescript
- * const registry = new AdapterRegistry();
- * const service = new DataConversionService(registry);
- *
- * const rawData: RawData = {
- *   raw: Buffer.from('12.5,-8.3,ABC\n'),
- *   timestamp: new Date(),
- *   manufacturer: TargetManufacturer.custom()
- * };
- *
- * const shot = service.convert(rawData, context);
- * ```
- */
+/** Selects a device or manufacturer adapter and converts a received record to a shot. */
 export class DataConversionService {
   private readonly registry: AdapterRegistry;
 

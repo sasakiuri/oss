@@ -28,7 +28,6 @@ export class Mode {
     this.value = value;
     this.displayName = displayName;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

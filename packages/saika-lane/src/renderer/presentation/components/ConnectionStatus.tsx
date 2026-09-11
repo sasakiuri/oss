@@ -1,31 +1,10 @@
 // SPDX-License-Identifier: MIT
-/**
- * ConnectionStatus component
- *
- * @description
- * Displays current USB connection status with visual indicator.
- * Shows manufacturer name when connected.
- *
- * Color scheme:
- * - Connected: Green (#4EC9B0)
- * - Disconnected: Red (#F48771)
- *
- * @example
- * ```tsx
- * <ConnectionStatus
- *   status="connected"
- *   manufacturer="SIUS"
- * />
- * ```
- */
+/** Shows the connection status and connected manufacturer. */
 
 import React from 'react';
 
 import type { ConnectionStatus as ConnectionStatusType } from '@/shared/ipc/contracts';
 
-/**
- * ConnectionStatus component props
- */
 export interface ConnectionStatusProps {
   /** Current connection status */
   status: ConnectionStatusType;
@@ -35,9 +14,6 @@ export interface ConnectionStatusProps {
   className?: string;
 }
 
-/**
- * ConnectionStatus component
- */
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status, manufacturer, className = '' }) => {
   const isConnected = status === 'connected';
 

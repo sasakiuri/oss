@@ -157,7 +157,7 @@ Saika は次の構成条件を検査します。
 大会の種目で「Incidents」→「Range Incident Reports」を開きます。中断・故障・裁定の根拠を記録する台帳です。
 
 1. 「New incident report」を押す。「IR serial number」に種目内で重複しない報告番号を入力する。
-2. 発生日時、射群・射座、対象選手、事実、規則の参照、作成担当者と役割を入力し、「Create immutable report」で保存する。
+2. 発生日時、射群・射座、対象選手、事実、規則の参照、作成担当者と役割を入力し、「Create report」で保存する。
 3. 対象報告の「Append audit entry」で「Add official sign-off」を選び、役割と担当者を入力して「Append entry」で確認を記録する。「Sign-off coverage」で記録済みの役割を確認する。
 4. 「Print operational copy」で報告を開き、内容を確認して出力する。実際に写しを届けた後、「Record copy forwarding」で宛先と担当者を入力して「Append entry」を押す。「Forwarded」を確認する。
 
@@ -237,7 +237,7 @@ Saika は次の構成条件を検査します。
 
 登録後は次の順で作成します。
 
-1. 「Generate, certify and export Results Book」で作成者を入力し、「Generate immutable version」を押す。
+1. 「Generate, certify and export Results Book」で作成者を入力し、「Generate book version」を押す。
 2. 表示された未完了項目を確認する。元の成績や登録情報を修正した場合は、新しい版を作成する。
 3. 「Signer statement」を入力し、必要な署名を「Sign」または「Record signature」で記録する。「Personal signature」は関連付けた本人がサインインして実行する。外部で取得した署名を記録する場合は「Record an external signature」を選び、記録者と署名済み資料の参照を入力する。
 4. 確認者と確認文を入力して「Certify」を押し、`CERTIFIED` を確認する。

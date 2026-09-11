@@ -1,126 +1,30 @@
-# Pre-Release Manual Checklist
+# Release Checks
 
-> Copy this checklist into the release PR description and check off each item.
+Run `bash scripts/pre-release-check.sh` and review its output alongside CI.
+Record the tested version, environment, and unresolved failures before release.
 
-> Items marked with (auto) are also checked by `scripts/pre-release-check.sh`. Review the automated results before manually verifying.
+## Version and documentation
 
-## Community & Governance
+- [ ] Lane, Director, Vista, and Docs use the release version; changesets cover package changes.
+- [ ] Installation, update, backup, and recovery instructions match the packaged applications.
+- [ ] Release notes identify supported platforms, known limitations, and unverified hardware.
 
-- [ ] CODE_OF_CONDUCT.md reporting channel is appropriate for public use
-- [ ] CONTRIBUTING.md branch strategy matches actual practice
-- [ ] CONTRIBUTING.md development setup instructions are accurate and tested
-- [ ] CODEOWNERS file is accurate
-- [ ] (auto) CODE_OF_CONDUCT.md reporting email is a real contact address (not noreply)
+## Packaged applications
 
-## Documentation Accuracy
+- [ ] Installers launch on each supported OS without native-module errors.
+- [ ] Lane connects to the target hardware and records, displays, and prints shots.
+- [ ] Director connects through both embedded and external MQTT brokers and recovers from connection failure.
+- [ ] Competition workflows run from joining through finishing; timing and scores are checked against independent records.
+- [ ] Vista pairs with sources and display PCs, applies screen settings, and restores displays after restart.
+- [ ] Signing and notarization status is documented for each platform.
 
-- [ ] (auto) README.md exists at monorepo root
-- [ ] README.md installation/usage instructions are accurate
-- [ ] README.md badges and links point to correct URLs
-- [ ] (auto) CHANGELOG.md is up-to-date with all changes since last release
-- [ ] (auto) SECURITY.md supported versions table matches actual released versions
-- [ ] (auto) Package-level READMEs exist and are accurate
-- [ ] saika-lane README.md has no remaining Japanese text in English sections
-- [ ] Windows build instructions in saika-lane README match actual script parameters
+## Distribution
 
-## Distribution & Publishing
+- [ ] CI, dependency, secret, and license checks pass; packaged files contain the required notices.
+- [ ] Artifacts exclude local files, credentials, test data, and debug output.
+- [ ] The release includes installers, checksums, update metadata, and documentation for the same version.
+- [ ] Publication credentials and repository access are configured for the intended packages and workflows.
+- [ ] Contributions and bundled assets have the required distribution rights.
 
-- [ ] Publishing strategy decided and documented (npm for shared configs; one versioned GitHub Release containing Saika Lane, Saika Director, and Saika Docs)
-- [ ] npm access tokens configured (if publishing shared configs)
-- [ ] npm Trusted Publishers (OIDC) configured — eliminates long-lived npm tokens ([npm docs](https://docs.npmjs.com/generating-provenance-statements#publishing-packages-with-provenance-via-github-actions))
-- [ ] (auto) Changeset access field matches publishing intent (`public` vs `restricted`)
-- [ ] Changeset files present for all unreleased changes
-- [ ] Version bump strategy confirmed (major/minor/patch)
-- [ ] (auto) publish.yml workflow trigger matches documented activation status
-- [ ] (auto) Non-published packages have `private: true`; shared config packages have `publishConfig.access: public`
-- [ ] (auto) .npmrc has no private registry URLs
-- [ ] (auto) License field consistent across all packages
-- [ ] (auto) LICENSE file exists in each package
-
-## GitHub Repository Settings
-
-- [ ] Branch protection rules configured on default branch (`1.x`) — run `scripts/setup-branch-protection.sh`
-- [ ] Required status checks enabled: `CI Required`, `validate`, `dependency-review`, `Analyze (javascript-typescript)`, `gitleaks`
-- [ ] Merge strategy configured (squash-merge only recommended)
-- [ ] Auto-delete head branches enabled
-- [ ] Dependabot alerts and security updates enabled
-- [ ] Secret scanning and push protection enabled
-- [ ] Repository description, homepage URL, and topics set
-- [ ] Social preview image set
-- [ ] GitHub Discussions enabled (optional)
-- [ ] (auto) GitHub Actions pinned to full commit SHAs
-
-## Electron App (saika-lane)
-
-- [ ] Saika Lane, Saika Director, and Saika Docs package versions match the approved `v<version>` tag
-- [ ] Windows build tested and verified (`scripts/build-win.ps1`)
-- [ ] Application launches and basic functionality works
-- [ ] Serial port connection works with target hardware (if available)
-- [ ] (auto) All UI translations are complete (no Japanese text in `packages/saika-lane/src/`)
-- [ ] Test data and debug artifacts removed from production build
-- [ ] `jp.nilay.saika.lane` app ID reviewed for organizational information disclosure
-
-## Electron App (saika-director)
-
-- [ ] Windows x64, macOS x64/arm64, and Linux x64 artifacts built by the combined `release.yml`
-- [ ] Packaged application launches without a native-module ABI error
-- [ ] Embedded broker tested with one or more physical Saika Lane devices
-- [ ] External MQTT broker transition and rollback tested on the venue network
-- [ ] BR60S and BP60 qualification workflows exercised from join through finish
-- [ ] Timing, acknowledgement, and score results compared with an independent authority
-- [ ] Unsigned-build warnings are acceptable, or Windows/macOS signing and notarization are configured
-- [ ] `jp.nilay.saika.director` app ID reviewed for organizational information disclosure
-
-## Internationalization
-
-- [ ] (auto) `packages/saika-lane/src/` — no Japanese text in .ts/.tsx/.css files (tests excluded)
-- [ ] `tests/` — all test files translated
-- [ ] `packages/saika-lane/README.md` — no remaining Japanese text in English sections
-
-## Security Final Review
-
-- [ ] (auto) No hardcoded secrets in source files
-- [ ] (auto) No internal URLs or private paths in source files
-- [ ] (auto) No personal email addresses leaked in source files
-- [ ] (auto) npm audit shows no high/critical vulnerabilities
-- [ ] (auto) Electron security settings (nodeIntegration: false, contextIsolation: true, sandbox: true)
-- [ ] (auto) MQTT broker URL does not accept credentials in userinfo (mqtt://user:pass@host format)
-- [ ] (auto) Gitleaks reports no secrets in git history
-- [ ] (auto) OSV Scanner reports no known vulnerabilities
-- [ ] (auto) THIRD-PARTY-LICENSES.txt is up-to-date (`npm run license-report:check`)
-- [ ] (release CI) Packaged app contains the project LICENSE and a license entry for every bundled npm dependency
-- [ ] (auto) Git history author emails use GitHub noreply addresses
-- [ ] (auto) No files tracked that should be gitignored (CLAUDE.md, .claude/, .env, etc.)
-- [ ] Electron Content Security Policy is appropriately restrictive
-
-## Legal Review
-
-- [ ] Serial protocol implementations (Kohto/SIUS/Meyton/DISAG) do not violate NDAs or proprietary agreements
-- [ ] `jp.nilay.saika.lane` app ID does not disclose private organizational affiliation
-
-## CI Quality Gates (auto)
-
-- [ ] (auto) TypeScript compiles without errors
-- [ ] (auto) ESLint passes
-- [ ] (auto) Build succeeds
-- [ ] (auto) Unit tests pass
-- [ ] (auto) Architecture constraints pass (dependency-cruiser)
-- [ ] (auto) License compatibility check passes
-- [ ] (auto) Spell check passes
-- [ ] (auto) No unused exports (knip)
-- [ ] (auto) Bundle size within limits
-- [ ] (auto) Dependency versions synced (syncpack)
-- [ ] (auto) Dependency license compatibility verified (not just repo license recognition)
-
-## Metadata Consistency (auto)
-
-- [ ] (auto) Shared config package versions are consistent
-- [ ] (auto) Author field is consistent across packages
-
-## Post-Publication
-
-- [ ] SUPPORT.md created
-- [ ] GOVERNANCE.md or MAINTAINERS.md created
-- [ ] First-time external contributor PR approval required
-- [ ] GitHub Releases page has proper release notes
-- [ ] Shared GitHub Release contains Saika Lane and Saika Director artifacts for every supported platform, with Saika Docs available from the tagged source
+After publication, verify installer downloads and update metadata against the
+published checksums. Confirm that documentation links resolve to the released version.

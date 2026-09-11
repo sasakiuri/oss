@@ -1,16 +1,9 @@
-/**
- * Domain Events barrel export
- *
- * Re-exports domain events through each module's public API.
- */
-
 // Side-effect import to ensure core module augmentations are included
 import '@/main/shared-infra/events/coreEvents';
 
 // Re-export base types from EventBus (EventRegistry, EventName, EventMap remain here)
 export type { EventName, EventMap, EventRegistry } from '@/main/shared-infra/events/EventBus';
 
-// Re-export base types from new locations
 export type { DomainEvent } from '@/main/shared-infra/events/EventBus';
 export type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 

@@ -12,7 +12,6 @@ import { DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE, getTargetScoringProfile }
 /**
  * createRecordShotHandler
  *
- * @description
  * Handler factory that processes the shot recording command.
  * Retrieves the session, calculates the score, creates a Shot entity and adds it to the session,
  * then saves it and emits a ShotRecorded event.

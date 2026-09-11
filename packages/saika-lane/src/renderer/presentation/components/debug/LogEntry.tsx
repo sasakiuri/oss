@@ -2,7 +2,6 @@
 /**
  * LogEntry component
  *
- * @description
  * Display component for individual log entries.
  * Displays timestamp, log level, source, message, and metadata.
  */

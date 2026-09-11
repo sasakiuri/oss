@@ -2,7 +2,6 @@
 /**
  * Application keyboard shortcuts hook
  *
- * @description
  * Manages keyboard shortcuts at the App root level.
  * - Numpad1 : Switch to Preparation mode (MainScreen only)
  * - Numpad2 : Switch to Match mode (MainScreen only)

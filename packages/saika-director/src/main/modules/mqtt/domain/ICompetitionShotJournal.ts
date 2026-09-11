@@ -30,7 +30,7 @@ export interface CompetitionShotObservation {
   payloadJson: string;
 }
 
-/** Append-only evidence port; it is intentionally independent from result calculation. */
+/** Append-only evidence port; it is independent from result calculation. */
 export interface ICompetitionShotJournal {
   append(observation: CompetitionShotObservation): void;
   findByCompetition(competitionId: string): CompetitionShotObservation[];

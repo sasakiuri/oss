@@ -295,8 +295,8 @@ function CheckCard({
             <TriangleAlert size={14} aria-hidden="true" /> Separate disqualification action required
           </p>
           <p className="mt-1 text-vscode-text-muted">
-            This confirmed equipment-control result does not change the athlete result. Use the authority reference in
-            the independent sanctions workflow.
+            Confirming this equipment check does not change the athlete's result. Record the disqualification in
+            Sanctions using the authority reference below.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="select-all rounded-sm bg-vscode-input px-2 py-1">{check.sanctionAuthorityReference}</code>

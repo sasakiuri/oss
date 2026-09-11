@@ -3,4 +3,4 @@
 "@sasakiuri/saika-lane": minor
 ---
 
-Allow timed-target schedules to carry an opaque isolated-acquisition owner tag. Tagged MATCH shots are retained as evidence without advancing or completing the ordinary competition series, so independent recovery workflows can reuse the timing engine without coupling their rules to it.
+Allow timed-target schedules to carry an opaque isolated-acquisition owner tag. Retain tagged MATCH shots for recovery review without advancing or completing the ordinary competition series.

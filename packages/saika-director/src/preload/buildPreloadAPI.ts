@@ -1,9 +1,4 @@
-/**
- * Auto-generation utilities for IPC preload bridges.
- *
- * Replaces hand-written `ipcRenderer.invoke()` wrappers by deriving
- * procedure & event bridges directly from IPC contract definitions.
- */
+/** Builds preload methods and event subscriptions from IPC contracts. */
 import { ipcRenderer } from 'electron';
 import { z } from 'zod';
 import type {

@@ -9,21 +9,7 @@ import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import { formatCompetitionAnnouncementReminder } from '@/renderer/presentation/formatters/competitionAnnouncement';
 import { formatFiringWindowViolationReminder } from '@/renderer/presentation/formatters/firingWindowViolation';
 
-/**
- * Hook that subscribes to system-level IPC events and updates the
- * corresponding Zustand stores.
- *
- * Replaces the former `useIpcEvents` hook from presentation/hooks.
- * Covers:
- *  - laneConnected           -> connectionStore.addChannel
- *  - mqttControlStateChanged -> connectionStore.setConnected / setDisconnected
- *  - competitionAnnouncementDue -> notifications.warning
- *  - firingWindowViolationDetected -> notifications.warning
- *  - timerTick               -> timerStore.setTimer
- *  - timerExpired            -> timerStore.setExpired
- *  - debugLog                -> debugStore.addEntry
- *  - mqttConnectionError     -> notifications.error + connectionStore.setDisconnected
- */
+/** Updates connection, timer and debug stores and displays system notifications from IPC events. */
 export function useSystemEvents(): void {
   const setTimer = useTimerStore((s) => s.setTimer);
   const setExpired = useTimerStore((s) => s.setExpired);

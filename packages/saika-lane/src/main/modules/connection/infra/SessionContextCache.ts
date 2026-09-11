@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
- * SessionContextCache
- *
- * Manages the cache of session context (discipline/mode).
- * Used by USBDataPipeline to synchronously access session information.
- *
- * Automatically updates the cache via event subscriptions,
- * and bootstraps from the persisted active session on app restart.
+ * Caches the active discipline and mode for synchronous access by USBDataPipeline.
+ * Restores the saved session at startup and updates from session events.
  */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';

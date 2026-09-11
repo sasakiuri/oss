@@ -7,7 +7,7 @@ const kindLabels: Record<ProtestCaseDto['kind'], string> = {
   APPEAL: 'Appeal',
 };
 
-/** An operational copy of the ledger, with an original layout independent of official forms. */
+/** Prints a protest or appeal record and its handling history. */
 export function ProtestSheet({
   protest,
   loadedAt,

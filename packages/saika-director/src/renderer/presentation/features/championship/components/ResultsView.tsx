@@ -609,7 +609,7 @@ function MixedTeamFinalResultsTable({ results }: { results: MixedTeamFinalResult
       <div>
         <h3 className="text-[13px] font-semibold text-vscode-text">Mixed Team Final results</h3>
         <p className="mt-0.5 text-xs text-vscode-text-muted">
-          Team totals combine both Lane score snapshots; ranks come from the completed Final checkpoint ledger.
+          Team totals combine the two athletes’ recorded Lane scores. Places follow the recorded Final decisions.
         </p>
       </div>
       <div className="overflow-auto rounded border border-vscode-border">

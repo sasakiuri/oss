@@ -10,86 +10,61 @@ settings. The default port is `45832`. On the Vista operator PC, discover this
 Director or enter one of the displayed endpoints, then enter its pairing secret.
 Sharing is disabled by default and starts automatically after enabling it.
 
-The dedicated encrypted endpoint exposes a competition catalog and complete
-snapshot reads. Competition commands and Director IPC are not network endpoints.
-Vista supports standard individual air rifle, air pistol, beam rifle and beam
-pistol qualification and finals. Custom and other event definitions are reported
-as unsupported. Beam finals follow JRSF 2026 domestic rules 6.17.5-2 and 6.17.5-3.
+The encrypted endpoint lets Vista read competitions and results. Vista supports
+standard individual air rifle, air pistol, beam rifle and beam pistol qualification
+and finals. Custom and other event definitions are reported as unsupported. Beam
+finals follow JRSF 2026 domestic rules 6.17.5-2 and 6.17.5-3.
 
-Director retains a separate display projection when live Lanes move to another
-competition. Finished state and score must share the final snapshot boundary.
 Select **Current competition** for the selected relay's standings or **Event
-results · all relays** for the coherent event result. The selected scope stays
-fixed when the competition finishes. Event results remain unavailable until the
-event result rows have been acquired; relay standings are never substituted.
-Publication changes, corrections, and confirmed reserve transfers are reflected.
-Saved display projections are migrated without replacing event places with relay
-places; relay places that cannot be recovered remain unverified until refreshed.
-Missing upstream shot history remains visibly incomplete until the journal is
-recovered. Keep Director competition records and its data directory available to
-retrieve later corrections after a restart.
-Reset archives retain the operation history captured at their reset boundary.
-Older archives without that evidence report unavailable history; an already saved
-published result remains displayable as unverified.
+results · all relays** for the whole event. Event results are unavailable until
+their rows have been received. The selected competition stays on screen after it
+finishes or Lanes move elsewhere. Final state and scores are taken from the same
+completed session; later corrections, publication changes and confirmed reserve
+transfers are reflected.
+
+Keep Director competition records and its data directory to retrieve corrections
+after a restart. Missing shot history and unrecoverable relay places are marked
+unverified until refreshed. Reset archives preserve the history available at reset;
+older archives may lack it, while saved published results remain viewable as
+unverified. See the [Vista guide](../saika-vista/README.md) for display recovery.
 
 ## Features
 
-- Embedded MQTT broker or connection to an external broker
-- Automatic discovery and online-state monitoring of Saika Lane instances
-- Exact Rule Pack fingerprint negotiation before a required Lane joins a competition
-- Competition creation and lane join/leave control
-- Bulk athlete assignment from tournament firing-point plans
-- Athlete assignment and per-lane session reset
-- Synchronized sighting, match, timer, series, and finish commands
-- Per-lane acknowledgement, timeout, score, assignment, and state monitoring
-- Competition-independent range safety STOP with retained Lane latches, explicit clearance, and append-only ACK audit
-- Recovery of retained competition and lane state after reconnecting
-- Optional CRO visual reminders at Rule Pack-defined announcement points
-- Rule Pack-derived call-to-line, target-visibility, setup, and target-reset confirmations before phase starts
-- Review-only detection and append-only evidence for shots outside Rule Pack-defined START/STOP windows
-- Append-only ISSF target-examination custody records and evidence holds that guard Lane reset and retained-data cleanup
-- Append-only ISSF interruption records with separate recommendations, official grants, and Lane-specific timer control
-- Rule 8.8.1 Qualification recovery with isolated firing, explicit score adjudication, and no-fire retain-series settlement
-- Versioned RFPM/STDP/IR malfunction calculation sheets with explicit evidence, target mapping, printable HTML and evidence-bundle inclusion; calculation confirmation is separate from firing and score application
-- Append-only preliminary, score-protest, RTS-approval, and official-publication workflow
-- Certified Results Book export as standalone HTML, A4 PDF or JSON through independent document adapters
-- Scope-separated Qualification/Final RTS verification and append-only RESULTS ARE FINAL declarations
-- ISSF 2026 Individual and Mixed Team 10m Qualification/Final Rule Packs and synchronized Final series control
-- Independent Individual/Mixed Team Final checkpoint ledgers with per-Lane retirement acknowledgements
-- Official three-member and Mixed Team aggregation, including Mixed Team Final result persistence
-- Three-member Qualification Team record candidates derived from current Official member results through a replaceable source port
-- Reproducible seeded firing-point draws with ISSF constraints, Technical Delegate approval, and explicit application
-- Immutable Start List versions with content/paperless approvals, source-staleness checks, deadline status, CSV export, and distribution audit
-- Versioned Final command scripts with persistent official confirmations, Lane cues, execution retries, and branch-aware shoot-off shots
-- Separate Final malfunction, EST-failure, and incorrect-command recovery cases with ISSF guidance
-- Optional adjudication case files that link decisions, incident reports, protests, and recovery records without merging their ledgers
-- Advisory external music/Final-production operations and a separate one-use 30-second Mixed Team timeout ledger
-- ISSF 25m device-neutral timed-target schedules with Lane-owned persistence, red/green projection, and configurable shot-window enforcement
-- Lane range-officer requests, relay athlete lifecycle tracking, and outdoor Elimination planning as independent operational modules
+- Connect to Lanes through the embedded MQTT broker or an external broker; discover Lanes and monitor their connection state.
+- Create competitions, check Rule Pack compatibility, assign athletes, and control Lane participation and session resets.
+- Send synchronized commands for sighting, match, timers, series, and finish; check each Lane's response and retry failures.
+- Issue a range-wide safety STOP, record each Lane's response, and clear the stop after a safety check.
+- Guide phase starts with call-to-line reminders, target-visibility checks, setup time, and reset confirmations.
+- Record interruptions, malfunction claims, target examinations, recovery firing, and scoring decisions while preserving their evidence.
+- Run Individual and Mixed Team Finals with recorded official confirmations, retirement decisions, shoot-offs, recovery, and timeout records.
+- Control 25m timed-target schedules and review shots outside the firing window. Original observations remain available for review.
+- Draw firing points, plan outdoor Elimination relays, approve Start Lists, and export assignments.
+- Verify individual and team results, process score protests and official publication, and record Final result declarations.
+- Produce Results Books in HTML, A4 PDF, or JSON; retain official appointments, record claims, certifications, and supporting evidence.
+- Restore retained competition and Lane state after reconnecting; receive range-officer requests and track athlete status.
+
+See the [operating guide](../saika-docs/director/OPERATIONS.md) for start checks, Finals, malfunctions, and interruptions.
+The [results guide](../saika-docs/director/RESULTS.md) covers verification, publication, printing, and evidence storage.
 
 The progress-management workflow uses MQTT and supports Rule Pack-backed ISSF 2026 10m Individual/Mixed Team,
 50m Rifle Qualification/Elimination/Final, and 25m Pistol Qualification definitions, plus the local `BR60S` and `BP60` definitions.
 Sighting and match command durations are read from the selected competition definition,
-including the ISSF 15-minute and 75-minute timings. It is an independent, unofficial application and
+including the ISSF 15-minute and 75-minute timings. It is an unofficial application and
 must not be used as the sole timing or scoring authority for sanctioned
 competitions.
 
 ## Development
 
-Application construction is divided into explicit factories under `src/main/composition/`, with a static feature
-catalog and dependency validation before registration. MQTT schemas are shared with Lane through
-[`@sasakiuri/saika-protocol`](../saika-protocol/). See
-[ADR-0005](../../docs/adr/0005-application-composition-and-wire-contracts.md) for the design and extension workflow.
-
-Inside the MQTT feature, application components separately own competition workflows, incoming message validation,
-Lane state projections and command acknowledgements. IPC handler factories group competition, Final and safety
-operations; the module supplies their dependencies and the concrete transport. See
-[ADR-0006](../../docs/adr/0006-director-mqtt-application-boundaries.md) for the responsibility map and concurrency rules.
+Services are constructed under `src/main/composition/`. Lane and Director share
+MQTT schemas through [`@sasakiuri/saika-protocol`](../saika-protocol/). The
+[architecture guide](../../ARCHITECTURE.md) describes composition and command
+ordering; the [contribution guide](../../CONTRIBUTING.md#changing-application-code)
+covers changes and checks.
 
 From the repository root:
 
 ```bash
-npm install
+npm ci
 npm --workspace @sasakiuri/saika-director run dev
 ```
 
@@ -149,13 +124,8 @@ Platform packages can be produced locally with `build:win`, `build:mac`, or
 build. The packaging commands rebuild `better-sqlite3` for the target Electron
 ABI and restore the local Node.js ABI afterwards.
 
-Saika Director, Saika Lane, and Saika Docs share one suite version and one release
-tag in the form `v<version>`. After release approval, pushing that tag runs the
-combined release workflow, verifies all three package versions, builds every
-supported application platform, checks legal notices, smoke-tests both Linux
-applications, attests the artifacts, and publishes both applications in one
-GitHub Release with SHA-256 checksums. Saika Docs is included as versioned source
-at the same tag. Canary releases likewise contain artifacts for both applications.
+Director is distributed in the [shared Saika release](../../README.md#packages).
+Installers, checksums and versioned documentation use the same suite version.
 
 Saika Director does not currently implement automatic updates. Download its new
 version from the shared GitHub Release; Saika Lane continues to use its update

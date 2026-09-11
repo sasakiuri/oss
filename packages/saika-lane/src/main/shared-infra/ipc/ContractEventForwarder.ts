@@ -1,13 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * ContractEventForwarder
- *
- * Subscribes to domain events from the EventBus and forwards them
- * to the Renderer Process via IPC using contract-based channels.
- *
- * Replaces the legacy DomainEventForwarder by using eventsContract
- * channel definitions instead of hard-coded EVENT_CHANNELS constants.
- */
+/** Forwards domain events to the renderer using the channels in eventsContract. */
 
 import type { BrowserWindow } from 'electron';
 

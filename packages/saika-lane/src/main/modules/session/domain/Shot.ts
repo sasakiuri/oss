@@ -118,7 +118,6 @@ export class Shot {
     this.targetProfileId = targetProfileId;
     this.scoringGaugeProfileId = scoringGaugeProfileId;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

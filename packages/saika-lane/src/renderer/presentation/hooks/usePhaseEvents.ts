@@ -6,17 +6,8 @@ import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/targ
 import { useCompetitionStore } from '../stores/competitionStore';
 
 /**
- * Subscription to competition phase-related IPC events
- *
- * - phaseChanged: Phase/stage/series update (includes stage advancement)
- * - seriesCompleted: Advance to next series
- * - competitionStarted: Initialize competition state
- * - competitionFinished: End competition
- *
- * NOTE: The stageAdvanced event is not subscribed to. When a stage advances,
- * phaseChanged is always emitted, and applyPhaseChange updates
- * stageIndex/seriesIndex/stageName/scored/timer all in a single set() call,
- * avoiding duplicate advanceStage calls (double rendering).
+ * Applies stage, series and timer updates together from phaseChanged.
+ * stageAdvanced is omitted because it would apply the same transition twice.
  */
 export function usePhaseEvents(): void {
   const applyPhaseChange = useCompetitionStore((s) => s.applyPhaseChange);

@@ -8,15 +8,8 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 /**
  * createResetSessionHandler
  *
- * @description
  * Handler factory that processes the session reset command.
  * Retrieves the session, resets it, saves it, and emits a SessionReset event.
- *
- * @example
- * ```typescript
- * const handler = createResetSessionHandler(sessionRepository, eventBus);
- * await handler({ sessionId });
- * ```
  *
  * @param sessionRepository - Session repository
  * @param eventBus - Event bus

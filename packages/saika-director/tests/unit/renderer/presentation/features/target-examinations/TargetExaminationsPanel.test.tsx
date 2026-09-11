@@ -43,7 +43,7 @@ describe('TargetExaminationsPanel', () => {
 
     expect((await screen.findAllByText('Expected shot was not shown')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Hold active').length).toBeGreaterThan(0);
-    expect(screen.getByText(/decisions do not alter scores/i)).toBeInTheDocument();
+    expect(screen.getByText(/recording a decision does not change scores/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
     fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'HOLD_RELEASED' } });

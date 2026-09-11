@@ -575,7 +575,7 @@ describe('RangeInterruptionsPanel', () => {
       target: { value: 'The completed Lane evidence was checked and may be scored.' },
     });
     expect(adjudicateQualificationRecoveryExecution).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByLabelText(/authorize this explicit MATCH score change/i));
+    fireEvent.click(screen.getByLabelText(/authorize this MATCH score change/i));
     fireEvent.click(screen.getByRole('button', { name: 'Apply recovery score' }));
 
     await waitFor(() =>
@@ -612,7 +612,7 @@ describe('RangeInterruptionsPanel', () => {
       />,
     );
 
-    expect(await screen.findByText(/No recovery shots are fired and no score rows are changed/i)).toBeInTheDocument();
+    expect(await screen.findByText(/It does not fire recovery shots or change scores/i)).toBeInTheDocument();
     expect(screen.queryByText('No action required')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Review and retain recorded series' }));
     fireEvent.change(screen.getByLabelText('Applying official'), { target: { value: 'Jury Member B' } });

@@ -1,9 +1,3 @@
-/**
- * board.module.ts
- *
- *
- */
-
 import type { IpcMainInvokeEvent } from 'electron';
 
 import { type LaneControl, GetAllLanesToken } from '@/main/modules/lane-control';

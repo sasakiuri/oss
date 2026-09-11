@@ -2,7 +2,6 @@
 /**
  * MQTT IPC Contract
  *
- * @description
  * Defines Zod-based contracts for MQTT-related IPC channels.
  * Covers MQTT connection commands and status/settings queries.
  */

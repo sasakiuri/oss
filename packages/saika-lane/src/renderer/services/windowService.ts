@@ -2,7 +2,6 @@
 /**
  * Window Service
  *
- * @description
  * Provides window operation methods (fullscreen toggle, minimize, maximize, close, etc.).
  * All methods use createServiceMethod factories for unified error handling.
  */

@@ -271,7 +271,8 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
             <BookOpen size={16} aria-hidden="true" /> Official Results Book and records
           </h2>
           <p className="mt-1 text-xs text-vscode-text-muted">
-            ISSF 6.14.4–6.14.5, 6.14.9 and Annex R · append-only appointments, claims and certifications
+            Save official appointments, record claims, and certifications under ISSF 6.14.4–6.14.5, 6.14.9 and Annex R.
+            Entries cannot be overwritten.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={busy} onClick={() => void load()}>
@@ -284,7 +285,7 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
       <details className={sectionClass} open={(workspace?.officials.length ?? 0) === 0}>
         <summary className={summaryClass}>1. Championship official appointments</summary>
         <p className={helpClass}>
-          Appointments authorize this workflow procedurally; they do not authenticate a person’s identity.
+          Register each official's role here. Link an operator account to record signed-in confirmations.
         </p>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
           <label className={labelClass}>
@@ -378,7 +379,7 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
             </select>
           </label>
           <label className={`${labelClass} xl:col-span-2`}>
-            ISSF record result basis (explicit confirmation)
+            ISSF record result basis
             <select
               className={inputClass}
               value={recordResultBasis}
@@ -437,7 +438,7 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
           Confirm this competition is the Olympic Games (required for OR codes)
         </label>
         <Button className="mt-3" size="sm" disabled={!canCreateClaim} onClick={() => void createClaim()}>
-          Create immutable claim
+          Create record claim
         </Button>
 
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
@@ -541,7 +542,7 @@ export function ResultsBookPanel({ championshipId }: { championshipId: string })
           official.
         </p>
         <Button className="mt-3" size="sm" disabled={!bookCreatedBy.trim() || busy} onClick={() => void generateBook()}>
-          Generate immutable version
+          Generate book version
         </Button>
         <ul className="mt-3 space-y-3">
           {[...(workspace?.books ?? [])].reverse().map((book) => {

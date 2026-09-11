@@ -2,7 +2,6 @@
 /**
  * Common IPC Schemas
  *
- * @description
  * Shared Zod schemas used across multiple IPC contracts.
  */
 

@@ -27,7 +27,7 @@ export function CompetitionEvidencePanel({
             Unscored target observations ({unscoredObservations.length})
           </summary>
           <p className="mt-2 text-xs leading-5 text-vscode-text-muted">
-            These observations are immutable evidence and are not included in Lane or result totals.
+            These observations cannot be edited and are not included in Lane or result totals.
           </p>
           <ul className="mt-2 grid max-h-64 gap-2 overflow-auto">
             {unscoredObservations.map((evidence) => {

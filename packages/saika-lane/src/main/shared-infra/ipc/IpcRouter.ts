@@ -29,15 +29,7 @@ function typedKeys<T extends object>(obj: T): (keyof T & string)[] {
   return Object.keys(obj) as (keyof T & string)[];
 }
 
-/**
- * Auto-registers `ipcMain.handle` calls from a Contract + handler mapping.
- *
- * Responsibilities:
- * - Zod input validation
- * - Error wrapping (CommandResponse / QueryResponse format)
- * - Duplicate channel detection
- * - Logging via getLogger() singleton
- */
+/** Registers IPC handlers with Zod validation, response wrapping, and duplicate-channel checks. */
 export class IpcRouter {
   private registeredChannels = new Set<string>();
 

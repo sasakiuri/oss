@@ -4,11 +4,10 @@
 
 Open-source monorepo for **Saika Lane**, **Saika Director**, **Saika Vista**, **Saika Docs**, and shared configuration packages.
 
-**Saika Vista** adds an independent spectator application with centrally managed venue displays. See its [setup and operating guide](packages/saika-vista/README.md).
-
-Saika Lane is an Electron-based electronic target display system for shooting ranges. It connects to electronic targets from multiple manufacturers via USB/serial, providing real-time shot visualization, scoring, and record management.
-
-Saika Director coordinates Lane instances over MQTT, including competition membership, athlete assignment, match progression, timers, and live score collection.
+Saika Lane connects to electronic targets over USB/serial to display shots, calculate
+scores and save session records. Saika Director manages competitions, assigns athletes
+and controls Lane timing over MQTT. Saika Vista displays targets, scores and standings
+on venue monitors, with local and remote screens managed from one operator PC.
 
 ## Packages
 
@@ -17,7 +16,7 @@ Saika Director coordinates Lane instances over MQTT, including competition membe
 | [`@sasakiuri/saika-lane`](packages/saika-lane/)         | Electronic target display system (Electron + React + TypeScript) |
 | [`@sasakiuri/saika-director`](packages/saika-director/) | MQTT competition controller (Electron + React + TypeScript)      |
 | [`@sasakiuri/saika-vista`](packages/saika-vista/)       | Offline spectator screens and multi-PC display management        |
-| [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Specifications, design notes, and test scenarios for Saika apps  |
+| [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Japanese manuals and documentation site                          |
 | [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders           |
 | [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation            |
 | `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                      |
@@ -25,18 +24,16 @@ Saika Director coordinates Lane instances over MQTT, including competition membe
 | `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                   |
 | `@sasakiuri/typescript-config`                          | Shared TypeScript configuration                                  |
 
-Saika Lane, Saika Director, Saika Vista, and Saika Docs form one suite release train: their
-versions stay equal, a single `v<version>` tag builds the three desktop applications, and one
-GitHub Release contains their installers plus the versioned documentation
-source. Shared configuration packages keep independent versions because they
-have a separate publishing lifecycle.
+Lane, Director, Vista, and Docs share a version. A single `v<version>` tag builds the
+three desktop applications, and one GitHub Release contains their installers and
+versioned documentation source. Shared configuration packages are versioned separately.
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Node.js** 22.22.0+ ([Volta](https://volta.sh/) recommended)
-- **npm** 10.x+
+- **Node.js** 22.22.2 ([Volta](https://volta.sh/) recommended)
+- **npm** 10.9.4
 
 ### Setup
 
@@ -46,7 +43,7 @@ git clone https://github.com/sasakiuri/oss.git
 cd oss
 
 # Install dependencies
-npm install
+npm ci
 
 # Start development
 npx turbo dev
@@ -66,9 +63,9 @@ npx turbo fix
 
 - [Saika Lane README](packages/saika-lane/) -- detailed setup, architecture, and usage
 - [Saika Director README](packages/saika-director/) -- Director setup and MQTT control workflow
+- [Saika Vista README](packages/saika-vista/) -- spectator screen setup and operation
 - [Saika Docs](packages/saika-docs/) -- manuals and technical documentation; run
   `npm run dev --workspace=@sasakiuri/saika-docs` and open `http://localhost:5175`
-- [Minimal appliance OS](docs/minimal-appliance-os.md) -- proposed Debian kiosk configuration with audio, printing, and MQTT
 - [Contributing Guide](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)

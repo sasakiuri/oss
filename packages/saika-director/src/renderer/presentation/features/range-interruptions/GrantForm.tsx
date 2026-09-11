@@ -44,8 +44,7 @@ export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProp
     >
       <h4 className="text-[13px] font-semibold text-vscode-text">Record official time grant</h4>
       <p className="text-xs leading-5 text-vscode-warning">
-        Values are prefilled from the recommendation, but this submit records an independent Jury / Range Officer
-        decision.
+        Check the suggested values against the Jury / Range Officer decision before saving the time grant.
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Addition beyond preserved timer (seconds)">

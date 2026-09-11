@@ -2,7 +2,6 @@
 /**
  * Custom hook for TitleBar window controls
  *
- * @description
  * Manages window state (maximized) and provides handlers for
  * minimize, maximize/restore, and close operations.
  */

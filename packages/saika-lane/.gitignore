@@ -28,7 +28,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# AI assistant context
+# Local development files
 .claude/
 
 # Bundle analysis

@@ -24,13 +24,6 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 /**
  * Button component with support for multiple variants
  *
- * @example
- * ```tsx
- * <Button variant="primary" onClick={handleClick}>
- *   Submit
- * </Button>
- * ```
- *
  * @param props - Button component props
  * @returns Button component
  */

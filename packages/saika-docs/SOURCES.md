@@ -4,10 +4,7 @@
 
 ## 一次情報
 
-外部資料は複製せず、参照先のみを示します。規則や製品情報は更新されるため、利用時に最新版を
-確認してください。
-
-外部一次情報の確認日: 2026-08-22。RedDot の PC 直結配線と OpticScore 接続の区別は、下記の取扱説明書・旧版の技術説明書で 2026-09-10 に再確認しました。
+規則や製品情報は更新されるため、利用時に最新版を確認してください。
 
 - [公益社団法人日本ライフル射撃協会 — 競技規則](https://www.riflesports.jp/support/rule/)
 - [公益社団法人日本ライフル射撃協会 — 協会規程](https://www.riflesports.jp/knowledge/regulations/)
@@ -25,7 +22,7 @@
 - [`@sasakiuri/saika-lane` の実装とテスト](../saika-lane/)
 - [`@sasakiuri/saika-director` の実装とテスト](../saika-director/)
 
-## リポジトリ内の実装根拠
+## 実装の参照先
 
 - [Director MQTT 制御サービス](../saika-director/src/main/modules/mqtt/application/DirectorMqttService.ts)
 - [Director MQTT IPC モジュール](../saika-director/src/main/modules/mqtt/mqtt.module.ts)
@@ -41,17 +38,10 @@
 - [BPT-216レコードパーサー](../saika-lane/src/main/modules/target/adapters/bpt216/BPT216DataParser.ts)
 - [BPT-216受信セッション](../saika-lane/src/main/modules/connection/infra/usb/bpt216/BPT216ProtocolSession.ts)
 
-## データの扱い
+## 関連仕様
 
-`common/TARGET_SPEC.md` にある数値は、Saika Lane が採点・描画に使用する実装データの説明です。
-規則本文や図版の転載ではありません。公式性や現行規則との一致を保証しないため、競技で使用する
-場合は上記一次情報と照合してください。
+- [標的・採点データ](./common/TARGET_SPEC.md): Saika の採点・描画に使う数値。
+- [帳票](./common/PRINT_SPEC.md): Lane・Director の出力内容と制約。
+- [MT201](./lane/devices/kohto/mt201/README.md)、[BPT-216](./lane/devices/kohto/bpt216/README.md)、[RedDot](./lane/devices/disag/reddot/README.md): Saika の受信形式、変換処理、検証状態。
 
-`lane/devices/kohto/mt201/README.md` はメーカーの公式通信仕様ではなく、公開 Saika 実装の入力契約を
-独自に説明したものです。`common/PRINT_SPEC.md` は両アプリの出力内容と制約を説明します。Director の決勝帳票には固定の発数列があり、すべての決勝種別に共通する様式ではありません。
-
-`lane/devices/kohto/bpt216/README.md` は、Saika の実装・テストにおける `BP-217 I/F` 形式と
-RS-232C 形式の受理条件を説明したものです。掲載する入力例には合成データを使用しています。
-
-`lane/devices/disag/reddot/README.md` はメーカーの公式通信仕様ではありません。
-Saika が実装する受理形式、初期化・復旧、座標変換、検証状態を説明したものです。実射パケットや機器固有情報は収録せず、掲載フレームは文書用の合成 fixture です。
+機器資料は Saika の実装仕様です。メーカーの公式通信仕様や動作保証については、各メーカーへ確認してください。

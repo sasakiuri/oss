@@ -106,7 +106,7 @@ export function RelayAthleteLifecyclePanel({
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck size={17} aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-vscode-text">Athlete relay lifecycle</h2>
+            <h2 className="text-sm font-semibold text-vscode-text">Athlete relay status</h2>
           </div>
           <p className="mt-1 text-xs text-vscode-text-muted">
             Relay {relayNumber} · policy {assessment?.mode ?? '…'} ·{' '}
@@ -118,7 +118,7 @@ export function RelayAthleteLifecyclePanel({
         </Button>
       </header>
 
-      <div className="flex gap-1" role="tablist" aria-label="Athlete lifecycle phase">
+      <div className="flex gap-1" role="tablist" aria-label="Relay phase">
         {(['PRE_RELAY', 'POST_RELAY'] as const).map((candidate) => (
           <Button
             key={candidate}
@@ -148,7 +148,7 @@ export function RelayAthleteLifecyclePanel({
       </div>
 
       {athletes.length === 0 ? (
-        <p className="text-xs text-vscode-text-muted">Assign athletes to firing points to create lifecycle evidence.</p>
+        <p className="text-xs text-vscode-text-muted">Assign athletes to firing points to record their relay status.</p>
       ) : (
         <ul className="divide-y divide-vscode-border border-y border-vscode-border">
           {assessment?.items.map((item) => {

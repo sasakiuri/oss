@@ -17,37 +17,13 @@ export interface MT201ParsedData {
  * Parses raw data strings from MT201 device.
  */
 export class MT201DataParser {
-  /**
-   * Parses MT201 data.
-   *
-   * Format: "R 9.7 0250 FF5F 70" or "R10.9 0250 FF5F 70"
-   * - Mode: R/S (1 character)
-   * - Score: numeric value (integer part + decimal point + fractional part, flexible whitespace handling)
-   * - X coordinate: HEX 4 digits (case-insensitive)
-   * - Y coordinate: HEX 4 digits (case-insensitive)
-   * - Checksum: HEX 2 digits (case-insensitive)
-   *
-   * Uses a regular expression to parse the whole string, so it is tolerant of whitespace variation
-   * and also handles space-less formats like "R10.9".
-   *
-   * @param buffer - Buffer containing MT201 data
-   * @returns Parse result (mode, score, X/Y coordinate HEX, checksum)
-   * @throws DATA_CONVERSION_ERROR - If the data format is invalid
-   */
+  /** Parses mode, score, hexadecimal coordinates, and the checksum field. */
   parse(buffer: Buffer): MT201ParsedData {
     try {
       // Convert Buffer to string (ASCII/UTF-8)
       const dataString = buffer.toString('utf-8').trim();
 
-      // Parse MT201 data using a regular expression
-      // Format: "R 9.7 0250 FF5F 70" or "R10.9 0250 FF5F 70"
-      // - Mode: R/S (1 character)
-      // - Score: numeric value (integer part + decimal point + fractional part, flexible whitespace handling)
-      // - X coordinate: HEX 4 digits (case-insensitive)
-      // - Y coordinate: HEX 4 digits (case-insensitive)
-      // - Checksum: HEX 2 digits (case-insensitive)
-      //
-      // Match with a more permissive pattern; detailed errors are returned in subsequent validation
+      // Accept candidate fields here; report field-specific errors below.
       const pattern = /^([A-Z])\s*([\d.\-a-z]+)\s+([0-9A-Za-z\s]{3,4})\s+([0-9A-Za-z]{4})\s+([0-9A-Za-z]{2})\s*$/i;
       const match = dataString.match(pattern);
 

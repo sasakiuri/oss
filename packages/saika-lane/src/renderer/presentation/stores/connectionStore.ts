@@ -1,15 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Connection management store
- *
- * @description
- * Target connection state management using Zustand.
- * - Connection status (connected / disconnected)
- * - Connection ID
- * - Serial port name
- * - Target manufacturer
- * - Selected device ID
- */
 
 import { create } from 'zustand';
 
@@ -80,23 +69,6 @@ const initialState: ConnectionState = {
 
 /**
  * Connection management store
- *
- * @example
- * ```typescript
- * const { status, setConnection, setSelectedDeviceId, disconnect } = useConnectionStore();
- *
- * // Set device ID
- * setSelectedDeviceId('device-123');
- *
- * // Connect (including device ID)
- * setConnection('conn-123', '/dev/ttyUSB0', 'SIUS', 'device-123');
- *
- * // Disconnect (selectedDeviceId is also cleared)
- * disconnect();
- *
- * // Change status only
- * setStatus('disconnected');
- * ```
  */
 export const useConnectionStore = create<ConnectionState & ConnectionActions>((set) => ({
   ...initialState,

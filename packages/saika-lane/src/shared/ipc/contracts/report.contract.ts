@@ -2,7 +2,6 @@
 /**
  * Report IPC Contract
  *
- * @description
  * Defines Zod-based contracts for report/print-related IPC channels.
  * Covers score sheet queries and print window commands.
  */

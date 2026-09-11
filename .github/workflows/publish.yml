@@ -1,13 +1,6 @@
 name: Publish Packages
 
-# NOTE: This workflow publishes shared config packages to npm.
-# All shared packages have "private": false and .changeset/config.json has
-# "access": "public".
-#
-# Authentication: Currently uses NPM_TOKEN (automation token) with OIDC
-# provenance via id-token:write + --provenance. Once npm Trusted Publishers
-# is fully supported for GitHub Actions OIDC, remove NPM_TOKEN and rely
-# solely on id-token:write for authentication.
+# Publishes shared config packages using NPM_TOKEN, with OIDC build attestations.
 
 on:
   workflow_dispatch:

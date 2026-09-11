@@ -86,9 +86,8 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
       await shotObservationRepository.append(observation);
       observationAppended = true;
 
-      // In competition mode, the competition state is the source of truth for
-      // the current session. Falling back to findActive() can select an older
-      // unfinished session if stale rows exist in the local DB.
+      // Use the competition's session; findActive() can select an older
+      // unfinished session left in the local DB.
       const activeCompetition = await competitionRepository.findActive();
       competitionContext = activeCompetition
         ? {

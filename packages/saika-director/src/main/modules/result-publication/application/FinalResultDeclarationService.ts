@@ -8,7 +8,7 @@ import type { IResultPublicationReadiness, ResultPublicationReadiness } from './
 import { FinalResultDeclaration } from '../domain/FinalResultDeclaration';
 import type { IFinalResultDeclarationRepository } from '../domain/IFinalResultDeclarationRepository';
 
-/** Final-only declaration workflow; it intentionally has no preliminary score-protest window. */
+/** Final-only declaration workflow; it has no preliminary score-protest window. */
 export class FinalResultDeclarationService {
   constructor(
     private readonly repository: IFinalResultDeclarationRepository,

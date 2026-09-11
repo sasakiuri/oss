@@ -1,7 +1,5 @@
 # Support
 
-Thank you for using this project. Here is how to get help.
-
 ## Bug Reports
 
 Please open an issue using the appropriate [issue template](https://github.com/sasakiuri/oss/issues/new/choose).
@@ -20,4 +18,4 @@ For questions, ideas, or general discussion, please use [GitHub Discussions](htt
 
 ---
 
-This is a small open-source project maintained in spare time. Response times may vary. Your patience is appreciated.
+The project is maintained in spare time, so response times vary.

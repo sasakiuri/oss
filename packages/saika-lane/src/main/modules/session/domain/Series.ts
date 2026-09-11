@@ -52,7 +52,6 @@ export class Series {
     this.scores = Object.freeze([...scores]); // Defensive copy + freeze
     this.maxShots = maxShots;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

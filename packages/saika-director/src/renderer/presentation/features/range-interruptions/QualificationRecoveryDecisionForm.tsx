@@ -137,8 +137,8 @@ export function QualificationRecoveryDecisionForm({ interruption, saving, onCanc
         {latest ? 'Supersede official 25m recovery decision' : 'Record official 25m recovery decision'}
       </h4>
       <p className="text-xs leading-5 text-vscode-warning">
-        Suggested values are prefilled. Editing them records an explicit official variance; it still does not operate a
-        Lane or change a score.
+        Check the suggested values before saving. Changes are recorded as an official deviation. Saving does not operate
+        a Lane or change a score.
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Extra sighting series shots">

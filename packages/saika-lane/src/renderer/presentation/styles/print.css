@@ -149,8 +149,8 @@
   border-top: 1px solid #ccc;
 }
 
-/* ===== Meyton-style series section ===== */
-.series-sections-meyton {
+/* Series scores and shot details */
+.score-sheet-series-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -285,7 +285,7 @@
     font-size: 0.85em;
   }
 
-  .series-sections-meyton {
+  .score-sheet-series-list {
     gap: 3px;
   }
 

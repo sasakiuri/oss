@@ -69,9 +69,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('audio-buffer-size', '128');
 
 // Quit on all platforms when all windows are closed.
-// macOS dock reactivation (the `activate` event) requires proper window lifecycle
-// management — rebinding IPC handlers, event forwarding, and window controls to the
-// new window — which will be implemented in a future version.
+// Reopening a window requires rebinding IPC handlers, event forwarding and window controls.
 app.whenReady().then(() => {
   const window = createWindow();
   createLaneApp(window, {

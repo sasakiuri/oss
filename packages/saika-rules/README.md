@@ -1,29 +1,25 @@
 # @sasakiuri/saika-rules
 
-Application-neutral, versioned competition rule packs used by Saika Lane and Saika Director.
+Versioned competition definitions shared by Saika Lane and Saika Director. Each
+Rule Pack identifies its authority, edition, effective dates and rule references.
 
-Public type contracts live in `src/RulePack.ts`. `defineRulePack` delegates to focused validators under
-`src/validation/` before freezing the definition; existing imports remain supported. Cross-capability checks use
-the supplied pack without loading an edition catalog. Run `npm run test` for rule and compatibility tests and
-`npm run depcruise` for dependency boundaries. See
-[ADR-0011](../../docs/adr/0011-rule-pack-validation-boundaries.md) for extension guidance and fingerprint compatibility.
+Core capabilities define targets, scoring, courses of fire and ranking. Optional
+capabilities cover verification, publication, command sequences, recovery and
+malfunction procedures. They describe rule requirements; the applications choose
+which capabilities to support and implement the controls, clocks, storage and UI.
+Officials remain responsible for classifying incidents and authorizing firing and
+score changes.
 
-Core capabilities define the target, scoring, course of fire and ranking. Optional capabilities add verification,
-publication, commands, recovery and other event-specific policies. Consumers adapt the capabilities they support,
-so these responsibilities can evolve independently.
+Public types are in `src/RulePack.ts`. `defineRulePack` validates a supplied pack
+and its capability references before freezing it. The package has no application
+or transport dependencies. Lane and Director use their own
+`competitionTypeFromRulePack` adapters. See
+[shared competition rules](../../ARCHITECTURE.md#shared-competition-rules) for
+validation and fingerprint compatibility.
 
-The package contains no Electron, renderer, persistence, MQTT, or application-domain imports. A Rule Pack identifies
-its authority, edition, effective range, and rule references. Saika Lane and Saika Director convert it through their
-own `competitionTypeFromRulePack` adapters and keep unsupported capabilities outside their local state machines.
-Command-sequence capabilities express call-to-line and target-visibility lead times, setup allowances, reminder points,
-and reset pauses without prescribing a UI, clock, acknowledgement workflow, or transport message.
-Firing-window review capabilities identify rule-defined intervals and Jury guidance without prescribing timestamp
-selection, clock tolerance, persistence, notifications, or an automatic scoring decision.
-Qualification-malfunction capabilities separately describe human classification choices, claim limits, repair and
-sighting rules, stage-specific repeat or completion treatments, scoring-form policy, and required records. They do not
-classify an incident, authorize a Lane, or modify a score, so applications can compose them with different case,
-transport, and publication workflows.
+The ISSF 10m Air Rifle and Air Pistol Qualification and Final definitions use
+Edition 2025, Second Print 07/2026, effective 1 July 2026. Qualification includes
+the ten-minute score-protest window; Final uses its own score-protest rules.
 
-The initial packs cover ISSF 10m Air Rifle and Air Pistol Qualification and Final under Edition 2025,
-Second Print 07/2026, effective 1 July 2026. Qualification publication includes the ten-minute score-protest window;
-Final deliberately does not reuse it because Finals score protests follow different rules.
+From this package, run `npm test` for rule and compatibility tests and
+`npm run depcruise` for dependency checks.

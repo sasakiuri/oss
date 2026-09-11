@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================================
-# pre-release-check.sh — Comprehensive pre-release verification for OSS monorepo
+# pre-release-check.sh — Pre-release checks for the OSS monorepo
 #
 # Usage:
 #   scripts/pre-release-check.sh [OPTIONS]

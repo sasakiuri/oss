@@ -1,10 +1,3 @@
-/**
- * Championship Module Registration
- *
- * Registers all championship-related IPC handlers with inline logic.
- * Repositories are created internally. Command/query handlers are inlined
- * directly into IPC handler callbacks.
- */
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
 import type Database from 'better-sqlite3';

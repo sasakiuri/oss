@@ -2,7 +2,6 @@
 /**
  * LogLevelIndicator component
  *
- * @description
  * Indicator display component for log levels.
  * Responsible for rendering coloring and badges according to log level.
  */

@@ -2,7 +2,6 @@
 /**
  * MQTT Client Service Interface
  *
- * @description
  * Interface that abstracts communication with the MQTT broker.
  * Hides the details of the mqtt.js library and provides testability.
  */

@@ -7,15 +7,7 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * createAdvanceStageHandler
- *
- * Handler factory for the advance stage command.
- * Transitions from SERIES_COMPLETE → SERIES_ENTERED / STAGE_ENTERED / FINISHED.
- *
- * On preparation → match stage transition:
- *   Rotates the session via SessionLifecycleService and resets shot data.
- */
+/** Advances from SERIES_COMPLETE. Entering the match stage rotates the session and clears shot data. */
 export function createAdvanceStageHandler(
   competitionRepository: ICompetitionRepository,
   sessionLifecycle: SessionLifecycleService,

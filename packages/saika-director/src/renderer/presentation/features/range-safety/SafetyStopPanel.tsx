@@ -191,9 +191,9 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
             Range safety STOP
           </h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-vscode-text-muted">
-            Independent of interruption cases and competition phase. It freezes each Lane timer, blocks firing commands,
-            quarantines subsequent shots, and shows a full-screen STOP / UNLOAD indication. The emergency action targets
-            all discovered Lanes; the command API also accepts an explicit Lane subset for other operating surfaces.
+            Stop all discovered Lanes, regardless of competition phase or interruption records. This pauses their
+            timers, blocks firing commands, keeps subsequent shots out of scoring, and displays STOP / UNLOAD in full
+            screen.
           </p>
         </div>
         <Button

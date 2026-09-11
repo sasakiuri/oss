@@ -2,7 +2,6 @@
 /**
  * Settings IPC Contract
  *
- * @description
  * Defines Zod-based contracts for settings-related IPC channels.
  * Covers connection settings and user preferences CRUD operations.
  */

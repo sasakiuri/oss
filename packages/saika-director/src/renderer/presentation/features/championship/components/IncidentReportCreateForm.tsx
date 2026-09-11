@@ -74,7 +74,7 @@ export function IncidentReportCreateForm({
       <div>
         <h3 className="text-sm font-semibold text-vscode-text">Initiate Range Incident Report</h3>
         <p className="mt-1 text-xs text-vscode-text-muted">
-          The original facts are immutable after creation. Void and recreate a report if its source facts are wrong.
+          Saved facts cannot be edited. If they are wrong, void the report and create a new one.
         </p>
       </div>
 
@@ -228,7 +228,7 @@ export function IncidentReportCreateForm({
           Cancel
         </Button>
         <Button type="submit" size="sm" disabled={saving}>
-          {saving ? 'Saving…' : 'Create immutable report'}
+          {saving ? 'Saving…' : 'Create report'}
         </Button>
       </div>
     </form>

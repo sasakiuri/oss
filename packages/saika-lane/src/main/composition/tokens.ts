@@ -43,7 +43,7 @@ export interface RecordShotInput {
   targetProfileId?: TargetScoringProfileId;
   /** Event-selected scoring geometry; omitted to use the target face's practice default. */
   scoringGaugeProfileId?: ScoringGaugeProfileId;
-  /** Opaque owner for an acquisition intentionally isolated from the normal series. */
+  /** Opaque owner for an acquisition isolated from the normal series. */
   acquisitionContext?: ShotAcquisitionContext;
 }
 

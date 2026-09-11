@@ -2,7 +2,6 @@
 /**
  * RawShotPublisher
  *
- * @description
  * Subscribes to the ShotRecorded event from EventBus and
  * publishes RawShotPayload to `saika/lane/{laneId}/hardware/shot`.
  * QoS 1, Retain OFF (shots are events, not the latest state).

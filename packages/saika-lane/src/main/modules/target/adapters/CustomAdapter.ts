@@ -10,41 +10,8 @@ import type { AdapterContext } from './AdapterContext';
 import { ITargetAdapter } from './ITargetAdapter';
 
 /**
- * CustomAdapter (Custom target adapter)
- *
- * Adapter that converts CSV-format data sent from custom targets to Shot objects.
- * Stateless design: session state (shot number, discipline, mode) is injected via AdapterContext.
- *
- * CSV format: "X coordinate,Y coordinate,metadata\n" (e.g. "12.5,-8.3,ABC\n")
- *
- * Conversion flow:
- * 1. Parse CSV data (extract X, Y coordinates)
- * 2. Create ImpactPoint
- * 3. Calculate score using TargetDesign
- * 4. Create Shot entity
- *
- * Error handling:
- * - Invalid CSV format → DATA_CONVERSION_ERROR
- * - Invalid coordinate values → VALIDATION_ERROR
- * - Other errors → DATA_CONVERSION_ERROR
- *
- * @example
- * ```typescript
- * const adapter = new CustomAdapter();
- * const rawData: RawData = {
- *   raw: Buffer.from('12.5,-8.3,ABC\n'),
- *   timestamp: new Date(),
- *   manufacturer: TargetManufacturer.custom()
- * };
- * const context: AdapterContext = {
- *   shotNumber: 1,
- *   discipline: Discipline.airRifle10m(),
- *   mode: Mode.sighting(),
- * };
- *
- * const shot = adapter.convert(rawData, context);
- * console.log(`Shot #${shot.shotNumber}: ${shot.score.value} points`);
- * ```
+ * Converts CSV coordinates in millimetres to a shot, using the supplied session context.
+ * Format: "x,y,metadata\n", for example "12.5,-8.3,ABC\n".
  */
 export class CustomAdapter implements ITargetAdapter {
   /**
@@ -58,20 +25,15 @@ export class CustomAdapter implements ITargetAdapter {
    */
   convert(rawData: RawData, context: AdapterContext): Shot {
     try {
-      // 1. Parse CSV data
       const csvData = this.parseCSV(rawData.raw);
 
-      // 2. Create ImpactPoint
       const impactPoint = this.createImpactPoint(csvData.x, csvData.y);
 
-      // 3. Calculate score using TargetDesign
       const targetDesign = TargetDesign.forDiscipline(context.discipline);
       const score = targetDesign.calculateScore(impactPoint);
 
-      // 4. Determine X ring (physical geometry)
       const innerTen = targetDesign.isInnerTen(impactPoint);
 
-      // 5. Create Shot entity
       const shot = Shot.create({
         impactPoint,
         score,

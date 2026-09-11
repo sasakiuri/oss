@@ -83,8 +83,8 @@ export function FinalRecoveryPanel({
             <h2 className="text-sm font-semibold text-vscode-text">Final recovery cases</h2>
           </div>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            Record Jury rulings and resumption conditions here. Stop commands, target examinations, scoring decisions,
-            and incident reports remain independent operations.
+            Record Jury rulings and resumption conditions here. Use the separate controls for STOP, target examinations,
+            scoring decisions, and incident reports.
           </p>
         </div>
         <Button size="sm" variant="secondary" disabled={loading || saving} onClick={() => void load()}>
@@ -238,7 +238,7 @@ function CreateRecoveryForm({
 
   return (
     <div className="rounded-[3px] border border-vscode-border p-3">
-      <p className="text-xs font-semibold text-vscode-text">Open an immutable recovery record</p>
+      <p className="text-xs font-semibold text-vscode-text">Open a recovery record</p>
       <div className="mt-2 grid gap-2 md:grid-cols-3">
         <label className={labelClass}>
           Procedure profile

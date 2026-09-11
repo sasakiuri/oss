@@ -298,7 +298,7 @@ export function InterruptionDetail({
       {action === 'pause' && competitionId && interruption.laneId && (
         <LaneOperationForm
           title="Apply Lane STOP"
-          description="The Lane freezes and persists its exact timer. Its acknowledgement is then appended to this ledger."
+          description="The Lane pauses and saves its remaining time. Its response is recorded here."
           submitLabel="Send STOP"
           defaultOfficial={interruption.openedBy}
           saving={saving}

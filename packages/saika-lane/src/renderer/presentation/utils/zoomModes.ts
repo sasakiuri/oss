@@ -42,13 +42,6 @@ export const ZOOM_MODE_LABELS: Record<ZoomMode, string> = {
  *
  * @param current - Current zoom mode
  * @returns Next zoom mode
- *
- * @example
- * ```typescript
- * getNextZoomMode('AUTO'); // => 'RING_8'
- * getNextZoomMode('FULL'); // => 'AUTO' (wraps to first)
- * getNextZoomMode('INVALID' as ZoomMode); // => throws Error
- * ```
  */
 export function getNextZoomMode(current: ZoomMode): ZoomMode {
   const currentIndex = ZOOM_MODE_SEQUENCE.indexOf(current);
@@ -70,13 +63,6 @@ export function getNextZoomMode(current: ZoomMode): ZoomMode {
  *
  * @param current - Current zoom mode
  * @returns Previous zoom mode
- *
- * @example
- * ```typescript
- * getPrevZoomMode('RING_8'); // => 'AUTO'
- * getPrevZoomMode('AUTO'); // => 'FULL' (wraps to last)
- * getPrevZoomMode('INVALID' as ZoomMode); // => throws Error
- * ```
  */
 export function getPrevZoomMode(current: ZoomMode): ZoomMode {
   const currentIndex = ZOOM_MODE_SEQUENCE.indexOf(current);

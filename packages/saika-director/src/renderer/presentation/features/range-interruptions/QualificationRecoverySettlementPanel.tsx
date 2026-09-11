@@ -39,8 +39,8 @@ export function QualificationRecoverySettlementPanel({
         <div>
           <h4 className="text-[13px] font-semibold text-vscode-text">Retain recorded Qualification series</h4>
           <p className="mt-1 text-xs leading-5 text-vscode-text-muted">
-            No recovery shots are fired and no score rows are changed. Explicit application closes the paused Lane
-            interruption and records immutable evidence for the full series.
+            Applying this decision closes the paused Lane interruption and saves the full series record. It does not
+            fire recovery shots or change scores.
           </p>
         </div>
         <span className={settlementStatusClass(settlement?.status)}>
@@ -122,7 +122,7 @@ function SettlementForm({
       }}
     >
       <h5 className="text-[13px] font-semibold text-vscode-text">
-        {prior ? 'Retry immutable retain-series application' : 'Apply retain-series decision'}
+        {prior ? 'Retry retain-series application' : 'Apply retain-series decision'}
       </h5>
       <p className="text-xs leading-5 text-vscode-warning">
         This operation does not rescore the series. It verifies and snapshots the full recorded series, marks its timed
@@ -177,7 +177,7 @@ function latestError(settlement: QualificationRecoverySettlementDto | null): str
   if (settlement?.status !== 'COMMAND_FAILED') return null;
   const event = settlement.events.at(-1);
   if (typeof event?.payload.error === 'string') return event.payload.error;
-  return 'The Lane did not accept the retain-series application. Review its state and retry the immutable request.';
+  return 'The Lane did not accept the retain-series application. Review its state and retry the same request.';
 }
 
 function settlementStatusClass(status: QualificationRecoverySettlementDto['status'] | undefined): string {

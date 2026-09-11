@@ -2,7 +2,6 @@
 /**
  * LaneScorePublisher
  *
- * @description
  * Subscribes to ShotRecorded (match shots only) and SessionReset from EventBus and
  * publishes LaneScorePayload to `saika/competition/{competitionId}/lane/{laneId}/score`.
  * Retrieves the latest score via QueryBus and publishes it. Retain=ON, QoS 1.

@@ -53,7 +53,7 @@ export type TargetInnerTenRule =
  *
  * A profile describes a target face, not the scoring gauge selected by an
  * event. Competition rules such as gauge selection, time limits and shot
- * counts deliberately live elsewhere, so target faces can be reused without
+ * counts live elsewhere, so target faces can be reused without
  * coupling them to a competition aggregate.
  */
 export interface TargetScoringProfile {

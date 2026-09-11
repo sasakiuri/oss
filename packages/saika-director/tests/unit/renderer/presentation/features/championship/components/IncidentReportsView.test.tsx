@@ -148,7 +148,7 @@ describe('IncidentReportsView', () => {
     fireEvent.change(screen.getByLabelText('Initiating official printed name'), {
       target: { value: 'Range Officer B' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Create immutable report' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create report' }));
 
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith(

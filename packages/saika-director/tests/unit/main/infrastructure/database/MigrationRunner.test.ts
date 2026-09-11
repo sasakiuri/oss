@@ -1,13 +1,3 @@
-/**
- * MigrationRunner unit tests
- *
- * Note: These tests use better-sqlite3 directly but the native module is compiled
- * for Electron (via electron-rebuild), not Node.js. Therefore these tests are
- * integration tests that can only run in the Electron environment.
- *
- * The MigrationRunner logic is implicitly tested by any test that uses DatabaseManager
- * or by running the app itself.
- */
 import type Database from 'better-sqlite3';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -57,9 +47,7 @@ describe('MigrationRunner', () => {
   });
 
   describe('MigrationRunner class', () => {
-    it('should be constructable', () => {
-      // We can't actually instantiate with a real DB in jsdom environment
-      // but we can verify the class exists and is exported
+    it('exports MigrationRunner', () => {
       expect(MigrationRunner).toBeDefined();
     });
 

@@ -35,7 +35,6 @@ export class ConnectionStatus {
     this.displayName = displayName;
     this.isConnected = isConnected;
 
-    // Guarantee immutability: freeze the object
     Object.freeze(this);
   }
 

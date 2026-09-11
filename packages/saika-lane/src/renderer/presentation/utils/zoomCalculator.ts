@@ -1,14 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Zoom calculation utilities
- *
- * Automatically calculates the optimal zoom level from shot group distribution,
- * and determines the final zoom level by combining it with a manual offset.
- *
- * Sub-modules:
- * - zoomModes.ts: Zoom mode type definitions, constants, and mode switching functions
- * - zoomFixed.ts: Fixed zoom calculation functions
- */
 
 import type { Discipline } from '@/shared/ipc/contracts';
 

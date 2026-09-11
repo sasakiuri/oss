@@ -1,13 +1,3 @@
-/**
- * Results Module Registration
- *
- * Registers all results-related command handlers, query handlers,
- * and IPC handlers. Repositories and projection readers are injected as ports.
- *
- * Commands (PublishResults, PublishFinalResults, ConfirmResults) are kept
- * as separate handler classes because they orchestrate cross-module logic.
- * Queries are inlined directly into IPC handler callbacks.
- */
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 
 // Command handlers (kept as classes — cross-module orchestration)

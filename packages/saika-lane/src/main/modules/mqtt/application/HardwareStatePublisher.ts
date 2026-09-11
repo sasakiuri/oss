@@ -2,7 +2,6 @@
 /**
  * HardwareStatePublisher
  *
- * @description
  * Subscribes to the ConnectionEstablished / ConnectionLost events from EventBus and
  * publishes HardwareStatePayload to `saika/lane/{laneId}/hardware/state`.
  * Also implements a heartbeat at 60-second intervals.

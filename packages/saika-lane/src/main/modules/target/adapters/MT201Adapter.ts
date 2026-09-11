@@ -14,16 +14,7 @@ import { MT201CoordinateConverter } from './mt201/MT201CoordinateConverter';
 import { MT201DataParser } from './mt201/MT201DataParser';
 import { MT201ShotFactory } from './mt201/MT201ShotFactory';
 
-/**
- * MT201Adapter (Kohto Electronics MT201 target adapter)
- *
- * Acts as a facade, delegating the responsibilities of parsing, coordinate conversion,
- * and Shot creation to specialized classes.
- *
- * @see MT201DataParser - Parsing MT201 binary data
- * @see MT201CoordinateConverter - Converting HEX coordinates to mm-unit ImpactPoint
- * @see MT201ShotFactory - Creating Shot/miss shot
- */
+/** Converts MT201 text records to shots using the parser, coordinate converter and shot factory. */
 export class MT201Adapter implements ITargetAdapter {
   private readonly dataParser = new MT201DataParser();
   private readonly coordinateConverter = new MT201CoordinateConverter();
@@ -58,7 +49,7 @@ export class MT201Adapter implements ITargetAdapter {
         checksum: parsedData.checksum,
       });
 
-      // P0-4: Device mode takes priority (use parsedData.mode: "R"→MATCH, "S"→SIGHTING)
+      // The device's R/S mode overrides the mode selected in the application.
       const deviceMode: Mode = parsedData.mode === 'R' ? Mode.match() : Mode.sighting();
       const effectiveContext: AdapterContext = { ...context, mode: deviceMode };
 

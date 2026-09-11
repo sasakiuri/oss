@@ -1,52 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Session management custom hook
- *
- * @description
- * Custom hook providing state management and action execution for shooting sessions.
- * - Start session
- * - Switch mode (sighting/match)
- * - Reset session
- * - Retrieve score information
- * - Event subscriptions (sessionStarted, modeSwitched, sessionReset)
- *
- * @example
- * ```tsx
- * function SessionControl() {
- *   const {
- *     currentSessionId,
- *     mode,
- *     totalScore,
- *     seriesScores,
- *     startSession,
- *     switchMode,
- *     resetSession,
- *     isStarting,
- *     error
- *   } = useSession();
- *
- *   if (!currentSessionId) {
- *     return (
- *       <button
- *         onClick={() => startSession('AIR_RIFLE_10M')}
- *         disabled={isStarting}
- *       >
- *         Start Session
- *       </button>
- *     );
- *   }
- *
- *   return (
- *     <div>
- *       <p>Mode: {mode}</p>
- *       <p>Total Score: {totalScore}</p>
- *       <button onClick={() => switchMode('MATCH')}>Switch to Match</button>
- *       <button onClick={resetSession}>Reset</button>
- *     </div>
- *   );
- * }
- * ```
- */
+/** Exposes session commands, scores, and session event subscriptions. */
 
 import { useCallback } from 'react';
 
@@ -83,11 +36,6 @@ export interface UseSessionResult {
   error: Error | null;
 }
 
-/**
- * Session management custom hook
- *
- * @returns Session state and actions
- */
 export function useSession(): UseSessionResult {
   const { currentSessionId, mode, totalScore, seriesScores, setSessionId, setMode, setDiscipline, clearSessionData } =
     useSessionStore();

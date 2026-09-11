@@ -2,7 +2,6 @@
 /**
  * IPC Contract barrel exports
  *
- * @description
  * Re-exports all IPC contract definitions and their inferred types.
  */
 

@@ -133,17 +133,7 @@ export interface ShotData {
   raw?: Buffer;
 }
 
-/**
- * IUSBConnectionManager interface
- *
- * Interface responsible for managing the lifecycle of USB connections.
- * Abstracts communication with electronic targets, providing connect, disconnect, reconnect, and data reception.
- *
- * Design principles:
- * - Acts as a port in hexagonal architecture
- * - Hides the details of concrete communication implementations (serialport, etc.)
- * - Data reception via event-driven approach
- */
+/** Opens and closes target connections and delivers received data through events. */
 export interface IUSBConnectionManager {
   /**
    * Connect to the target
@@ -156,15 +146,6 @@ export interface IUSBConnectionManager {
    * @throws USB_PORT_NOT_FOUND - If the port is not found
    * @throws USB_OPEN_FAILED - If opening the port fails
    * @throws USB_DEVICE_BUSY - If the device is in use
-   *
-   * @example
-   * ```typescript
-   * const connection = await usbManager.connect({
-   *   portName: 'COM3',
-   *   manufacturer: TargetManufacturer.sius(),
-   *   baudRate: 9600,
-   * });
-   * ```
    */
   connect(config: USBConnectionConfig): Promise<Connection>;
 
@@ -176,11 +157,6 @@ export interface IUSBConnectionManager {
    *
    * @returns Promise (waits for disconnection to complete)
    * @throws USB_WRITE_FAILED - If sending the disconnect command fails
-   *
-   * @example
-   * ```typescript
-   * await usbManager.disconnect();
-   * ```
    */
   disconnect(): Promise<void>;
 
@@ -193,11 +169,6 @@ export interface IUSBConnectionManager {
    * @returns Promise (waits for reconnection to complete)
    * @throws USB_PORT_NOT_FOUND - If the port is not found
    * @throws USB_OPEN_FAILED - If opening the port fails
-   *
-   * @example
-   * ```typescript
-   * await usbManager.reconnect();
-   * ```
    */
   reconnect(): Promise<void>;
 
@@ -205,14 +176,6 @@ export interface IUSBConnectionManager {
    * Get the current connection state
    *
    * @returns Current connection state
-   *
-   * @example
-   * ```typescript
-   * const status = usbManager.getStatus();
-   * if (status.isConnected) {
-   *   console.log('Connected');
-   * }
-   * ```
    */
   getStatus(): ConnectionStatus;
 
@@ -222,14 +185,6 @@ export interface IUSBConnectionManager {
    * Scans and returns the serial ports available on the system.
    *
    * @returns Array of available port information
-   *
-   * @example
-   * ```typescript
-   * const ports = await usbManager.listPorts();
-   * ports.forEach(port => {
-   *   console.log(`${port.path} - ${port.manufacturer}`);
-   * });
-   * ```
    */
   listPorts(): Promise<USBPortInfo[]>;
 

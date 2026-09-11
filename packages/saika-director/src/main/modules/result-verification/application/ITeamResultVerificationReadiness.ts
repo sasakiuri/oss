@@ -17,12 +17,12 @@ export interface TeamResultVerificationReadiness {
   issues: string[];
 }
 
-/** Consumer-owned port for an independently implemented team-result comparison workflow. */
+/** Reports team comparison coverage and outstanding verification issues. */
 export interface ITeamResultVerificationReadiness {
   assess(request: TeamResultVerificationReadinessRequest): Promise<TeamResultVerificationReadiness>;
 }
 
-/** Safe fallback for local deployments that do not install a team verification adapter. */
+/** Allows unchecked teams only when no team verification checks are configured. */
 export class UnsupportedTeamResultVerificationReadiness implements ITeamResultVerificationReadiness {
   async assess(request: TeamResultVerificationReadinessRequest): Promise<TeamResultVerificationReadiness> {
     const supported = request.configuredChecks === 0;

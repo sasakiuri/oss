@@ -1,27 +1,11 @@
 // SPDX-License-Identifier: MIT
-/**
- * MqttSettingsTab component
- *
- * @description
- * MQTT tab component of the settings modal.
- * Manages connection settings to the MQTT broker.
- * - enabled: Enable/disable MQTT functionality
- * - brokerUrl: Broker URL
- * - laneAlias: Lane alias
- * - autoConnect: Auto connect
- * - laneId: Lane ID (read-only)
- * - Connect/Disconnect buttons
- * - Status display
- */
+/** Edits broker settings and controls the MQTT connection. */
 
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { mqttService } from '@/renderer/services/mqttService';
 
-/**
- * MqttSettingsTab component
- */
 export const MqttSettingsTab: React.FC = () => {
   const { status, error, isLoading, setStatus, setSettings, setError, setLoading } = useMqttStore();
 

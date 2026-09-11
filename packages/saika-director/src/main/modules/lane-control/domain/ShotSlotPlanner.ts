@@ -1,10 +1,4 @@
-/**
- * A one-based address for a scoring slot.
- *
- * This planner deliberately knows nothing about LaneControl, timers, scores, or
- * persistence. Callers can therefore use the same slot plan for a displayed
- * miss, an incident review, or a future target-evidence reconciliation flow.
- */
+/** One-based position of a shot within a scored stage and series. */
 export interface ShotSlotAddress {
   readonly shotNumber: number;
   readonly seriesNumber: number;

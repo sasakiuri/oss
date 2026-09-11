@@ -2,4 +2,4 @@
 "@sasakiuri/saika-director": minor
 ---
 
-Add a Rule-Pack-bound Qualification malfunction case ledger with independent policy and subject resolvers, athlete/stage claim-limit enforcement, human classification and remedy gates, append-only SQLite audit history, IPC access, and operational archive coverage.
+Record Qualification malfunction claims against the selected Rule Pack, athlete and stage. Enforce claim limits, require officials to classify incidents and select remedies, and retain the handling history in the database and exported archives.

@@ -1,19 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * SplashScreen component
- *
- * @description
- * Application splash screen displayed during initial loading.
- * Shows:
- * - Application logo/name
- * - Version information
- * - Loading indicator
- *
- * @example
- * ```tsx
- * <SplashScreen />
- * ```
- */
 
 import React from 'react';
 

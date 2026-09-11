@@ -1,9 +1,4 @@
-/**
- * Board Window Configuration Types
- *
- * Shared between main process (WindowManager) and renderer (board screens).
- * Extracted from IpcPayloads.ts for standalone use.
- */
+/** Board window configuration shared by the main process and renderer. */
 
 /**
  * Board window type.

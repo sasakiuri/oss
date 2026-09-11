@@ -1,28 +1,32 @@
 # Next.js documentation site
 
-Browse the Markdown files in `packages/saika-docs` in a web browser. The same package provides shared implementations for UI, data fetching, and validation for future Next.js development.
+Saika Docs serves the Markdown manuals in `packages/saika-docs` through Next.js. The `/reference/` pages demonstrate the site’s UI components, data fetching, and validation.
 
 Use Node 22.22.2 and npm 10.9.4.
 
-| Purpose                                                              | Command                                                                          |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Initial setup                                                        | `make setup`                                                                     |
-| Development                                                          | `make dev`                                                                       |
-| Types, contracts, linting, prose, dependency direction, and coverage | `npm run check -w @sasakiuri/saika-docs`                                         |
-| Install browsers                                                     | `npm run test:install -w @sasakiuri/saika-docs`                                  |
-| Browser, accessibility, and visual regression tests                  | `make e2e`                                                                       |
-| UI component tests                                                   | `npm run test:storybook -w @sasakiuri/saika-docs`                                |
-| Performance measurement                                              | `npm run lhci -w @sasakiuri/saika-docs`                                          |
-| Static site build                                                    | `npm run build:static -w @sasakiuri/saika-docs`                                  |
-| Static site link checks                                              | `npm run test:static -w @sasakiuri/saika-docs`                                   |
-| Offline browsing checks                                              | `npm run test:offline -w @sasakiuri/saika-docs -- --output=test-results/offline` |
-| Distribution integrity                                               | `npm run artifact:verify -w @sasakiuri/saika-docs`                               |
-| Reproducibility checks                                               | `npm run test:reproducible -w @sasakiuri/saika-docs`                             |
-| Mutation testing                                                     | `npm run test:mutation -w @sasakiuri/saika-docs`                                 |
-| Add a document                                                       | `npm run content:new -w @sasakiuri/saika-docs -- common/slug "Document title"`   |
-| Printable HTML and PDF                                               | After building, run `npm run docs:pdf -w @sasakiuri/saika-docs`                  |
-| PDF content checks                                                   | `npm run docs:verify -w @sasakiuri/saika-docs`                                   |
-| Distribution archive                                                 | `npm run docs:package -w @sasakiuri/saika-docs`                                  |
+| Purpose                                                              | Command                                                                                 |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Initial setup                                                        | `make setup`                                                                            |
+| Development                                                          | `make dev`                                                                              |
+| Server build and start                                               | `npm run build -w @sasakiuri/saika-docs`, then `npm run start -w @sasakiuri/saika-docs` |
+| Types, contracts, linting, prose, dependency direction, and coverage | `npm run check -w @sasakiuri/saika-docs`                                                |
+| Install browsers                                                     | `npm run test:install -w @sasakiuri/saika-docs`                                         |
+| Browser, accessibility, and visual regression tests                  | `make e2e`                                                                              |
+| UI component tests                                                   | `npm run test:storybook -w @sasakiuri/saika-docs`                                       |
+| Performance measurement                                              | `npm run lhci -w @sasakiuri/saika-docs`                                                 |
+| Static site build                                                    | `npm run build:static -w @sasakiuri/saika-docs`                                         |
+| Preview the static site                                              | `npm run preview -w @sasakiuri/saika-docs`                                              |
+| Static site link checks                                              | `npm run test:static -w @sasakiuri/saika-docs`                                          |
+| Offline browsing checks                                              | `npm run test:offline -w @sasakiuri/saika-docs -- --output=test-results/offline`        |
+| Distribution integrity                                               | `npm run artifact:verify -w @sasakiuri/saika-docs`                                      |
+| Reproducibility checks                                               | `npm run test:reproducible -w @sasakiuri/saika-docs`                                    |
+| Mutation testing                                                     | `npm run test:mutation -w @sasakiuri/saika-docs`                                        |
+| Add a document                                                       | `npm run content:new -w @sasakiuri/saika-docs -- common/slug "Document title"`          |
+| Printable HTML and PDF                                               | After building, run `npm run docs:pdf -w @sasakiuri/saika-docs`                         |
+| PDF content checks                                                   | `npm run docs:verify -w @sasakiuri/saika-docs`                                          |
+| Distribution archive                                                 | `npm run docs:package -w @sasakiuri/saika-docs`                                         |
+
+Development and server output use port 5175. Static output is written to `packages/saika-docs/out/` and previewed over HTTP on port 4175. Storybook uses port 6006, and browser tests start a production server on port 5178.
 
 Visit `/reference/` for forms, lists, dialogs, tabs, QR codes, and DOT diagrams. `/reference/material/` contains Material UI and Emotion examples. The input examples run in the browser.
 
@@ -30,7 +34,11 @@ Documents work without front matter. Optional `title`, `description`, `published
 
 ## Editing documentation
 
-Start with the [document index](../packages/saika-docs/INDEX.md) and [writing policy](../packages/saika-docs/CONTENT_POLICY.md#マニュアルと外部仕様の書き方). Keep routine steps in the operation guides and detailed values or formats in the linked references. Check screen labels and behaviour against the application source for the same version.
+Start with the [document index](../packages/saika-docs/INDEX.md). Write steps in the order users perform them, using the application's screen and button labels. Keep detailed settings and data formats in the linked specifications. State hardware verification limits alongside the relevant feature.
+
+Contributions must be available under the MIT License. Retain source links and required copyright and license notices for third-party material; see [Notices](../packages/saika-docs/NOTICE.md). Use sample data without personal information, credentials, or device identifiers.
+
+`README.md` becomes a directory index, `INDEX.md` becomes `/documents/`, and other filenames become lowercase with underscores replaced by hyphens. Source and license links point to GitHub at `DOCS_SOURCE_REF`, which defaults to `1.x` and can select a branch, tag, or commit.
 
 After editing, run `npm run content:generate -w @sasakiuri/saika-docs` to validate metadata, document links, and heading anchors. Run `npm run lint:text` and `npm run lint -w @sasakiuri/saika-docs` to check spacing, prose, and formatting. For a new guide, update the index, relevant entry links, and `src/entities/document/navigation.ts`. When moving a section, update incoming links and preserve its existing heading as a short pointer for saved URLs.
 
