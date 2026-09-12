@@ -1,13 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * SettingsModal component
- *
- * Settings modal component.
- * General tab: Lane number settings
- * Target tab: Discipline selection
- * Connection tab: USB connection management
- */
-
 import { Volume2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 

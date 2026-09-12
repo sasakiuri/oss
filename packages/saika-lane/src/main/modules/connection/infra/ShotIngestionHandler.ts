@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * ShotIngestionHandler
- *
- * Handler factory for USB data reception → RecordShot command dispatch.
- * Verifies that an active session exists and guards shot acceptance in competition mode.
- */
+/** Dispatches received shots to the active session after checking competition state. */
 
 import { RecordShotToken } from '@/main/composition/tokens';
 import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';

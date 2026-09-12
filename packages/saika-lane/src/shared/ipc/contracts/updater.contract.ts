@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Updater IPC Contract
- *
- * Defines Zod-based contracts for application update checks and installation.
- */
-
 import { AppUpdateStateSchema } from '@sasakiuri/saika-updater';
 
 import {

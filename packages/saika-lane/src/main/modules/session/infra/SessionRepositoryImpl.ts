@@ -11,32 +11,15 @@ import { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { parseSessionStorageData } from './SessionStorageSchema';
 
-/**
- * SessionRepositoryImpl
- *
- * Implementation class for the session repository.
- * Persists session data using LocalStorageAdapter.
- */
+/** Stores each session as one value through LocalStorageAdapter. */
 export class SessionRepositoryImpl implements ISessionRepository {
   private static readonly STORAGE_PREFIX = 'session:';
   private static readonly ACTIVE_SESSION_KEY = 'session:active';
 
-  /**
-   * Constructor
-   *
-   * @param storage - Local storage instance
-   */
   constructor(private readonly storage: ILocalStorage) {
     Object.freeze(this);
   }
 
-  /**
-   * Saves a session
-   *
-   * @param session - Session to save
-   * @returns Promise (resolves on completion)
-   * @throws REPOSITORY_ERROR - If the save fails
-   */
   async save(session: Session): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -83,28 +66,11 @@ export class SessionRepositoryImpl implements ISessionRepository {
     );
   }
 
-  /**
-   * Incrementally saves session metadata and a single shot
-   *
-   * Since the LocalStorage implementation stores the entire session as a single value,
-   * this delegates to save().
-   *
-   * @param session - Session to save
-   * @param _shot - Newly added shot (unused in the LocalStorage implementation)
-   * @returns Promise (resolves on completion)
-   * @throws REPOSITORY_ERROR - If the save fails
-   */
+  /** Delegates to save(): LocalStorageAdapter stores the whole session as one value. */
   async saveShot(session: Session, _shot: Shot): Promise<void> {
     return this.save(session);
   }
 
-  /**
-   * Retrieves a session by ID
-   *
-   * @param id - Session ID (UUID)
-   * @returns Promise (Session if found, null if not found)
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findById(id: string): Promise<Session | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -123,12 +89,6 @@ export class SessionRepositoryImpl implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves all sessions
-   *
-   * @returns Promise (array of sessions)
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findAll(): Promise<Session[]> {
     return withRepositoryErrorHandling(
       async () => {
@@ -152,13 +112,6 @@ export class SessionRepositoryImpl implements ISessionRepository {
     );
   }
 
-  /**
-   * Deletes a session
-   *
-   * @param id - ID of the session to delete (UUID)
-   * @returns Promise (resolves on completion)
-   * @throws REPOSITORY_ERROR - If the deletion fails
-   */
   async delete(id: string): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -176,12 +129,6 @@ export class SessionRepositoryImpl implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves the currently active session
-   *
-   * @returns Promise (Session if an active session exists, null otherwise)
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findActive(): Promise<Session | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -198,22 +145,10 @@ export class SessionRepositoryImpl implements ISessionRepository {
     );
   }
 
-  /**
-   * Generates a storage key
-   *
-   * @param id - Session ID
-   * @returns Storage key
-   */
   private getStorageKey(id: string): string {
     return `${SessionRepositoryImpl.STORAGE_PREFIX}${id}`;
   }
 
-  /**
-   * Converts a Session entity to storage data format
-   *
-   * @param session - Session entity
-   * @returns Storage data
-   */
   private toStorageData(session: Session): SessionStorageData {
     return {
       id: session.id,
@@ -251,12 +186,6 @@ export class SessionRepositoryImpl implements ISessionRepository {
     };
   }
 
-  /**
-   * Converts storage data to a Session entity
-   *
-   * @param data - Data retrieved from storage
-   * @returns Session entity
-   */
   private toDomainEntity(data: SessionStorageData): Session {
     return SessionFactory.fromStorageData(data);
   }

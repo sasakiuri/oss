@@ -5,12 +5,7 @@ import type { SelectOption } from '@/renderer/presentation/components/common/Sel
 import { connectionService } from '@/renderer/services/connectionService';
 import type { PortInfo } from '@/shared/ipc/contracts';
 
-/**
- * usePortList
- *
- * Sub-hook responsible for fetching and managing the USB port list.
- * Uses AbortController + signal.aborted guard pattern to prevent state updates after unmount.
- */
+/** Lists USB ports. Cancels updates from the initial request on unmount. */
 export function usePortList() {
   const [ports, setPorts] = useState<PortInfo[]>([]);
   const [portOptions, setPortOptions] = useState<SelectOption[]>([]);
@@ -43,14 +38,12 @@ export function usePortList() {
     }
   }, []);
 
-  // Auto-fetch on mount
   useEffect(() => {
     const controller = new AbortController();
     fetchPorts(controller.signal);
     return () => controller.abort();
   }, [fetchPorts]);
 
-  // Externally callable refresh function (without signal)
   const refreshPorts = useCallback(() => {
     fetchPorts();
   }, [fetchPorts]);

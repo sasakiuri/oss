@@ -12,16 +12,6 @@ import type { AdapterContext } from '../AdapterContext';
  * Provides creation of normal shots and miss shots.
  */
 export class MT201ShotFactory {
-  /**
-   * Creates a normal Shot.
-   *
-   * @param impactPoint - Impact point
-   * @param score - Score
-   * @param timestamp - Shot timestamp
-   * @param context - Adapter context
-   * @param innerTen - Whether the shot is in the X ring (inner ten)
-   * @returns Shot entity
-   */
   createShot(
     impactPoint: ImpactPoint,
     score: Score,
@@ -40,15 +30,7 @@ export class MT201ShotFactory {
     });
   }
 
-  /**
-   * Creates a miss shot Shot object.
-   *
-   * impactPoint is null (to identify as a miss shot).
-   *
-   * @param timestamp - Shot timestamp
-   * @param context - Adapter context
-   * @returns Miss shot Shot entity
-   */
+  /** Creates a zero-score shot without coordinates. */
   createMissShot(timestamp: Date, context: AdapterContext): Shot {
     // Score of 0 points
     const missScore = Score.miss();

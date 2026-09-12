@@ -3,9 +3,6 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { buildFinalConfig } from '../../../helpers/testConfigs';
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 function createFinalLane(participants = 8): LaneControl {
   return LaneControl.create('lane-1', Channel.create(1), buildFinalConfig(participants));
 }

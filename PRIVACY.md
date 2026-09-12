@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-08
 
-Saika Lane is a local-first desktop application. It does not intentionally implement analytics, advertising, user tracking, or crash-reporting services. Application data is not encrypted at rest.
+Saika Lane stores application data on the user's PC. It has no analytics, advertising, user tracking, or crash-reporting services. Stored data is not encrypted.
 
 ## Automatic Update Checks
 
@@ -21,7 +21,7 @@ MQTT broker credentials are not accepted as part of the broker URL. Saika Lane d
 Saika Lane can store the following data below the operating system's application-data directory:
 
 - `saika-lane.db`: session and shot records.
-- `settings.json`: canonical application, device, and MQTT settings.
+- `settings.json`: application, device, and MQTT settings.
 - `saika-lane.json`: an electron-store compatibility mirror plus connection history and competition state.
 - `logs/combined.log` and `logs/error.log`: rotating diagnostic logs.
 - `logs/score-discrepancy.csv`: score-calculation discrepancy records.

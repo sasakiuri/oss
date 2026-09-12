@@ -2,9 +2,6 @@
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
-/**
- * Interface for MT201 parse results
- */
 export interface MT201ParsedData {
   mode: string;
   score: number;
@@ -13,14 +10,9 @@ export interface MT201ParsedData {
   checksum: string;
 }
 
-/**
- * Parses raw data strings from MT201 device.
- */
 export class MT201DataParser {
-  /** Parses mode, score, hexadecimal coordinates, and the checksum field. */
   parse(buffer: Buffer): MT201ParsedData {
     try {
-      // Convert Buffer to string (ASCII/UTF-8)
       const dataString = buffer.toString('utf-8').trim();
 
       // Accept candidate fields here; report field-specific errors below.
@@ -34,14 +26,12 @@ export class MT201DataParser {
         });
       }
 
-      // Extract each matched group
       const mode = match[1]!;
       const scoreStr = match[2]!;
       const xHex = match[3]!;
       const yHex = match[4]!;
       const checksum = match[5]!;
 
-      // Mode validation (R/S) - stricter validation
       if (mode !== 'R' && mode !== 'S') {
         throw ErrorCatalog.createError('VALIDATION_ERROR', {
           field: 'mode',
@@ -50,7 +40,7 @@ export class MT201DataParser {
         });
       }
 
-      // Parse score - validate numeric format (negative numbers are also allowed; validated later by Score constructor)
+      // The Score constructor checks the numeric range after parsing.
       if (!/^-?[\d.]+$/.test(scoreStr)) {
         throw ErrorCatalog.createError('VALIDATION_ERROR', {
           field: 'score',
@@ -66,7 +56,6 @@ export class MT201DataParser {
         });
       }
 
-      // Validate HEX format of X coordinate
       const xHexTrimmed = xHex.trim().toUpperCase();
       if (!/^[0-9A-F]{4}$/.test(xHexTrimmed)) {
         throw ErrorCatalog.createError('VALIDATION_ERROR', {
@@ -76,7 +65,6 @@ export class MT201DataParser {
         });
       }
 
-      // Validate HEX format of Y coordinate
       const yHexTrimmed = yHex.toUpperCase();
       if (!/^[0-9A-F]{4}$/.test(yHexTrimmed)) {
         throw ErrorCatalog.createError('VALIDATION_ERROR', {
@@ -86,7 +74,7 @@ export class MT201DataParser {
         });
       }
 
-      // Validate HEX format of checksum
+      // Only the checksum's format is checked; its value is not verified.
       const checksumTrimmed = checksum.toUpperCase();
       if (!/^[0-9A-F]{2}$/.test(checksumTrimmed)) {
         throw ErrorCatalog.createError('VALIDATION_ERROR', {
@@ -104,12 +92,10 @@ export class MT201DataParser {
         checksum: checksumTrimmed,
       };
     } catch (error) {
-      // Re-throw DomainError as-is
       if (isDomainError(error)) {
         throw error;
       }
 
-      // Wrap other errors in DATA_CONVERSION_ERROR
       throw ErrorCatalog.createError(
         'DATA_CONVERSION_ERROR',
         {

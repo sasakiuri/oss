@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * CQRS infrastructure barrel exports
- */
-
 export { CommandBus } from './CommandBus';
 export type { CommandHandler, CommandMiddleware, CommandToken } from './CommandBus';
 

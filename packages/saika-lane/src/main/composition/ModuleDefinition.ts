@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Module definition — Principle of Least Privilege
- *
- * Each module declares only the dependencies it needs and receives only those dependencies.
- */
+/** Each module receives only the services declared in its deps array. */
 
 import type Database from 'better-sqlite3';
 import type { BrowserWindow } from 'electron';

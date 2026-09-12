@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * RetainPublisher
- *
- * Re-publishes all Retain topics on MQTT reconnect and
- * replays shots recorded during disconnection with isReplay=true.
- *
- * Conforms to MQTT_DESIGN.md Section 7.2, 7.4, 7.5.
- */
+/** Republishes retained state after reconnecting and marks replayed shots with isReplay=true. */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';

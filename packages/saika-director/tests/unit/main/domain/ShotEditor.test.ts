@@ -3,9 +3,6 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { QUALIFICATION_CONFIG, buildFinalConfig, buildMultiShotSeriesFinalConfig } from '../../../helpers/testConfigs';
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 function createActiveLane(): LaneControl {
   let lane = LaneControl.create('lane-1', Channel.create(1), QUALIFICATION_CONFIG);
   lane = lane.startPreparation();

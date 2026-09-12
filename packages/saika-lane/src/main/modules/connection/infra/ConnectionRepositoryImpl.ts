@@ -4,9 +4,6 @@ import { IConnectionRepository } from '@/main/modules/connection/domain/IConnect
 import { withRepositoryErrorHandling } from '@/shared/errors/withRepositoryErrorHandling';
 import { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-/**
- * Type definition for connection data persisted in storage
- */
 interface ConnectionStorageData {
   id: string;
   manufacturer: string;
@@ -18,32 +15,15 @@ interface ConnectionStorageData {
   lastError: string | null;
 }
 
-/**
- * ConnectionRepositoryImpl
- *
- * Implementation class for the connection repository.
- * Persists connection data using LocalStorageAdapter.
- */
+/** Stores connection settings and history through LocalStorageAdapter. */
 export class ConnectionRepositoryImpl implements IConnectionRepository {
   private static readonly STORAGE_PREFIX = 'connection:';
   private static readonly ACTIVE_CONNECTION_KEY = 'connection:active';
 
-  /**
-   * Constructor
-   *
-   * @param storage - Local storage instance
-   */
   constructor(private readonly storage: ILocalStorage) {
     Object.freeze(this);
   }
 
-  /**
-   * Save a connection
-   *
-   * @param connection - The connection to save
-   * @returns Promise (resolves on completion)
-   * @throws REPOSITORY_ERROR - If saving fails
-   */
   async save(connection: Connection): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -61,13 +41,6 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Find a connection by ID
-   *
-   * @param id - Connection ID (UUID)
-   * @returns Promise (Connection if found, null if not found)
-   * @throws REPOSITORY_ERROR - If retrieval fails
-   */
   async findById(id: string): Promise<Connection | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -85,12 +58,6 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Find all connections
-   *
-   * @returns Promise (array of connections)
-   * @throws REPOSITORY_ERROR - If retrieval fails
-   */
   async findAll(): Promise<Connection[]> {
     return withRepositoryErrorHandling(
       async () => {
@@ -113,13 +80,6 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Delete a connection
-   *
-   * @param id - ID of the connection to delete (UUID)
-   * @returns Promise (resolves on completion)
-   * @throws REPOSITORY_ERROR - If deletion fails
-   */
   async delete(id: string): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -137,12 +97,6 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Find the currently active connection
-   *
-   * @returns Promise (Connection if an active connection exists, null otherwise)
-   * @throws REPOSITORY_ERROR - If retrieval fails
-   */
   async findActive(): Promise<Connection | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -159,13 +113,7 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Find connection history (latest N entries)
-   *
-   * @param limit - Number of entries to retrieve
-   * @returns Promise (array of connections, sorted in descending order)
-   * @throws REPOSITORY_ERROR - If retrieval fails
-   */
+  /** Returns the latest connections first, up to limit entries. */
   async findHistory(limit: number): Promise<Connection[]> {
     return withRepositoryErrorHandling(
       async () => {
@@ -186,22 +134,10 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     );
   }
 
-  /**
-   * Generate a storage key
-   *
-   * @param id - Connection ID
-   * @returns Storage key
-   */
   private getStorageKey(id: string): string {
     return `${ConnectionRepositoryImpl.STORAGE_PREFIX}${id}`;
   }
 
-  /**
-   * Convert a Connection entity to storage data format
-   *
-   * @param connection - Connection entity
-   * @returns Storage data
-   */
   private toStorageData(connection: Connection): ConnectionStorageData {
     return {
       id: connection.id,
@@ -215,12 +151,6 @@ export class ConnectionRepositoryImpl implements IConnectionRepository {
     };
   }
 
-  /**
-   * Convert storage data to a Connection entity
-   *
-   * @param data - Data retrieved from storage
-   * @returns Connection entity
-   */
   private toDomainEntity(data: ConnectionStorageData): Connection {
     return Connection.reconstruct(data);
   }

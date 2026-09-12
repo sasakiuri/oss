@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Window Service
- *
- * Provides window operation methods (fullscreen toggle, minimize, maximize, close, etc.).
- * All methods use createServiceMethod factories for unified error handling.
- */
+/** Wraps window IPC calls with createServiceMethod error handling. */
 
 import { createVoidCommandMethod, createVoidServiceMethod } from './createServiceMethod';
 

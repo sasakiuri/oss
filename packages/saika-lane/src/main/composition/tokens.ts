@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * CQRS token definitions
- *
- * Defines all command/query tokens and their input types.
- * Tokens use phantom types to guarantee type-safe dispatch.
- */
+/** Command and query tokens carry their input and output types for dispatch. */
 
 import type { CompetitionStateDto, CompetitionTypeDto } from '@/main/modules/competition/application/dto';
 import type { ScoreSheetDto } from '@/main/modules/report/application/dto';

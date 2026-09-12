@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT RPC Schemas
- *
- * Zod-based schemas for MQTT RPC request/response payloads.
- * Covers shot list, score, and competition state queries.
- */
-
 import { z } from 'zod';
 
 // ============================================================

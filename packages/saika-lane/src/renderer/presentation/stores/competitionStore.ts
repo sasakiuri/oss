@@ -8,31 +8,19 @@ import type { Phase } from '@/shared/types/Phase';
 export type { Phase } from '@/shared/types/Phase';
 
 interface CompetitionState {
-  /** Current phase */
   phase: Phase;
-  /** Current stage index */
   stageIndex: number;
-  /** Current series index */
   seriesIndex: number;
-  /** Current stage name */
   currentStageName: string;
-  /** Whether it is a scoring stage */
   scored: boolean;
-  /** Timer remaining seconds */
   remainingSeconds: number;
-  /** Timer total seconds */
   totalSeconds: number;
-  /** Timer running flag */
   isTimerRunning: boolean;
-  /** Timer expired flag */
   isTimerExpired: boolean;
-  /** Shots per series */
   shotsPerSeries: number;
   /** Scoring method (RING=integer score, DECIMAL=decimal score) */
   acc: 'RING' | 'DECIMAL';
-  /** Competition ID */
   competitionId: string | null;
-  /** Saved competition type ID */
   savedCompetitionTypeId: string | null;
   interruption: {
     interruptionId: string;
@@ -45,32 +33,21 @@ interface CompetitionState {
 }
 
 interface CompetitionActions {
-  /** Set phase */
   setPhase: (phase: Phase, stageIndex: number, seriesIndex: number, stageName: string, scored: boolean) => void;
-  /** Update timer */
   updateTimer: (remaining: number, total: number) => void;
-  /** Set timer running state */
   setTimerRunning: (running: boolean) => void;
-  /** Set timer expired state */
   setTimerExpired: (expired: boolean) => void;
-  /** Advance stage */
   advanceStage: (stageIndex: number, stageName: string, scored: boolean) => void;
-  /** Advance series */
   advanceSeries: (seriesIndex: number) => void;
-  /** Set shots per series */
   setShotsPerSeries: (shots: number) => void;
-  /** Set scoring method */
   setAcc: (acc: 'RING' | 'DECIMAL') => void;
-  /** Set competition ID */
   setCompetitionId: (id: string | null) => void;
-  /** Set saved competition type ID */
   setSavedCompetitionTypeId: (id: string | null) => void;
   /** Set the stage-authoritative target scoring profile. */
   setTargetProfileId: (id?: TargetScoringProfileId) => void;
   /** Set the event-authoritative scoring gauge independently from the face. */
   setScoringGaugeProfileId: (id?: ScoringGaugeProfileId) => void;
   setInterruption: (interruption: CompetitionState['interruption']) => void;
-  /** Apply phase change all at once */
   applyPhaseChange: (
     phase: Phase,
     stageIndex: number,
@@ -80,7 +57,6 @@ interface CompetitionActions {
     targetProfileId?: TargetScoringProfileId,
     scoringGaugeProfileId?: ScoringGaugeProfileId,
   ) => void;
-  /** Reset competition state */
   resetCompetition: () => void;
 }
 

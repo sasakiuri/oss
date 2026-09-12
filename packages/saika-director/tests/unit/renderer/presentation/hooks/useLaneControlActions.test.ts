@@ -358,10 +358,10 @@ describe('useLaneControlActions', () => {
     it('returns setLanes, updateLane, clearLanesStore, and reset', () => {
       const { result } = renderHook(() => useLaneControlActions());
 
-      // setLanes and updateLane are still direct references
+      // setLanes and updateLane expose the store actions directly.
       expect(result.current.setLanes).toBe(mockSetLanes);
       expect(result.current.updateLane).toBe(mockUpdateLane);
-      // clearLanesStore and reset are now wrapped callbacks
+      // clearLanesStore and reset also clear selection.
       expect(typeof result.current.clearLanesStore).toBe('function');
       expect(typeof result.current.reset).toBe('function');
 

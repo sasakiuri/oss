@@ -17,13 +17,8 @@ interface QueryErrorResponse {
 }
 
 /**
- * Auto-registers `ipcMain.handle` calls from a Contract + handler mapping.
- *
- * Responsibilities:
- * - Zod input validation
- * - Error wrapping (CommandResponse / QueryResponse format)
- * - Duplicate channel detection
- * - Logging
+ * Registers contract handlers with input/output validation and error responses.
+ * Duplicate channels are rejected.
  */
 export class IpcRouter {
   private registeredChannels = new Set<string>();
@@ -59,7 +54,6 @@ export class IpcRouter {
                 next,
               )
             : next();
-        // 1. Validate input (skip for z.void())
         if (!isVoidInput) {
           const parseResult = proc.input.safeParse(payload);
           if (!parseResult.success) {
@@ -101,7 +95,6 @@ export class IpcRouter {
             );
           }
 
-          // 2. Call handler with validated data, wrap result/error
           if (isQuery) {
             return this.wrapQuery(() => invoke(() => handler(parseResult.data, event)), key, proc.output);
           }

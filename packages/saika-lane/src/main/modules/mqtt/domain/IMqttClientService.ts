@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT Client Service Interface
- *
- * Interface that abstracts communication with the MQTT broker.
- * Hides the details of the mqtt.js library and provides testability.
- */
-
 export interface MqttConnectOptions {
   brokerUrl: string;
   clientId: string;

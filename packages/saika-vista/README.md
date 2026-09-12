@@ -53,7 +53,11 @@ When saved login startup is enabled, each launch registers the current applicati
 
 When the primary monitor restores an audience screen, Vista keeps the operator window closed so it cannot cover that display. A managed display PC keeps accepting its controller's connections even when all windows are closed, so screens can be added again remotely. Launch Vista again to open the operator window when settings need attention; use the application menu's Quit action to stop Vista on that PC.
 
-Vista saves settings, pairing and selected display data in `vista.json` in the application's data directory. Back up this directory with Vista stopped; it contains pairing secrets and athlete data. A failure before file replacement keeps the preceding file and restores a changed login startup setting. If restoration also fails, Vista asks you to check the operating system setting. If storage confirmation fails after replacement, the new settings remain in use and Vista reports that durable storage was not confirmed. Resolve the storage problem and save again before restarting. An unsupported file version, invalid settings or unreadable JSON prevents startup and leaves the file intact.
+Vista saves settings, pairing and selected display data in `vista.json` in the application's data directory. Back up this directory with Vista stopped; it contains pairing secrets and athlete data.
+
+If the file cannot be replaced, Vista keeps the previous data and restores any changed login startup setting. If that restoration fails, check the operating system setting as directed by the error message. If Vista reports **Storage unconfirmed** after replacing the file, the new settings remain in use. Resolve the storage problem and save again before restarting.
+
+An unsupported file version, invalid settings or unreadable JSON prevents startup and leaves the file intact.
 
 If a saved competition or session is invalid, Vista identifies it in the operator view while other displays remain usable. New valid data can restore that display, including after an unsupported snapshot version; the invalid original stays in the file. Unidentifiable entries continue to show an error by entry number. Invalid network updates are rejected without saving them, and the preceding valid data stays on screen.
 
@@ -71,6 +75,6 @@ Save edits and stop audience operations before installing. Restarting closes thi
 
 ## Validation scope
 
-Automated coverage includes encrypted source/peer exchange, isolation of operator IPC from audience windows, snapshot correction and ordering, durable restoration, ownership and replay rejection, configuration application, target rendering, paging and publication labels. Electron end-to-end tests exercise a real source connection, actual audience window, rendering acknowledgement, standby, shutdown during window loading and offline restart.
+Automated tests cover source and display PC communication, access control, data updates and recovery, screen settings, target rendering, paging and publication labels. Electron end-to-end tests check source connections, audience windows and display confirmation, standby, shutdown during window loading and offline restart.
 
 The [100-lane, 12-hour venue test](../saika-docs/vista/REQUIREMENTS.md) remains pending and requires representative PCs, network links, and monitors. See [Vista display data](../../ARCHITECTURE.md#vista-display-data) for acquisition and storage.

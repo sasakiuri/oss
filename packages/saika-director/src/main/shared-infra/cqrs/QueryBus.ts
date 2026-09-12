@@ -1,8 +1,4 @@
-/**
- * Type-safe QueryBus.
- *
- * Token-based dispatch preserves type safety. Create tokens with defineQuery() and pass them to register/execute.
- */
+/** Query tokens associate handler input and output types at compile time. */
 
 import { Logger } from '@/shared/utils/Logger';
 

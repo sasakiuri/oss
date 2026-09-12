@@ -5,16 +5,6 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * createResetSessionHandler
- *
- * Handler factory that processes the session reset command.
- * Retrieves the session, resets it, saves it, and emits a SessionReset event.
- *
- * @param sessionRepository - Session repository
- * @param eventBus - Event bus
- * @returns CommandHandler<ResetSessionInput> - Command handler function
- */
 export function createResetSessionHandler(
   sessionRepository: ISessionRepository,
   eventBus: IEventBus,

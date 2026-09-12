@@ -1,12 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Session IPC Contract
- *
- * Defines Zod-based contracts for session-related IPC channels.
- * Covers session lifecycle commands (start, record shot, switch mode, reset)
- * and session data queries (score, shot history).
- */
-
 import { z } from 'zod';
 
 import {

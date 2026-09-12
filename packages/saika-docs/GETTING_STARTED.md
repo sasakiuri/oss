@@ -40,7 +40,7 @@ flowchart TB
 | macOS       | DMG または ZIP。Intel は `x64`、Apple Silicon は `arm64` |
 | Linux x64   | AppImage または Debian パッケージ（`.deb`）              |
 
-Windows 10 / 11の x64を主な動作対象とし、macOS・Linux は実験対象です。[対応機器と検証状態](./lane/SPEC.md#動作環境と対応機器) を確認してください。受信処理の実装と、使用する機器・OS での実機検証は別です。
+主な動作対象は Windows 10 / 11 の x64 です。macOS・Linux は実験対象で、受信処理が実装されていても実機検証を終えていない機種があります。[対応機器と検証状態](./lane/SPEC.md#動作環境と対応機器) を確認してください。
 
 macOS 版は署名用の証明書なしでも配布します。使用するリリースの署名状態を確認してください。署名のない版は DMG または ZIP から手動で更新します。
 

@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Settings IPC Contract
- *
- * Defines Zod-based contracts for settings-related IPC channels.
- * Covers connection settings and user preferences CRUD operations.
- */
-
 import { z } from 'zod';
 
 import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';

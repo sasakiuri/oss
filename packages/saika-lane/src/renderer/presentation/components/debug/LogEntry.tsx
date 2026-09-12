@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * LogEntry component
- *
- * Display component for individual log entries.
- * Displays timestamp, log level, source, message, and metadata.
- */
-
 import React from 'react';
 
 import type { LogEntry as LogEntryType } from '@/shared/types/log';

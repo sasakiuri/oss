@@ -1,13 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * TargetDisplay component
- *
- * Canvas-based target visualization component that displays:
- * - Target rings (10.9 to 1.0 points)
- * - Shot impact points
- * - Zoom controls
- */
-
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Discipline, ShotDto } from '@/shared/ipc/contracts';

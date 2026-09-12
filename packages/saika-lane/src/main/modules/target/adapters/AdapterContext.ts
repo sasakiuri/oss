@@ -13,6 +13,5 @@ export interface AdapterContext {
   shotNumber: number;
   /** Current discipline */
   discipline: Discipline;
-  /** Current mode (sighting/match) */
   mode: Mode;
 }

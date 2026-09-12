@@ -14,7 +14,6 @@ import type { Discipline, SessionMode } from '@/shared/ipc/contracts';
 export interface UseSessionResult {
   /** Current session ID (null when no session is active) */
   currentSessionId: string | null;
-  /** Current mode (sighting/match) */
   mode: SessionMode;
   /** Total score */
   totalScore: number;

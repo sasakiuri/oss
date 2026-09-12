@@ -57,10 +57,8 @@ export class USBConnectionLifecycle {
   }
 
   /**
-   * Connect to the target
-   *
-   * @param config - USB connection settings
-   * @returns Connection entity on successful connection
+   * Opens the configured target port.
+   * @throws USB_PORT_NOT_FOUND, USB_OPEN_FAILED, or USB_DEVICE_BUSY.
    */
   async connect(config: USBConnectionConfig): Promise<Connection> {
     const operationGeneration = ++this.connectionOperationGeneration;
@@ -180,7 +178,8 @@ export class USBConnectionLifecycle {
   }
 
   /**
-   * Disconnect from the target
+   * Closes the current connection; does nothing when disconnected.
+   * @throws USB_WRITE_FAILED if the disconnect command fails.
    */
   async disconnect(): Promise<void> {
     this.connectionOperationGeneration += 1;
@@ -216,7 +215,8 @@ export class USBConnectionLifecycle {
   }
 
   /**
-   * Reconnect to the target
+   * Reconnects using the saved configuration; rejects missing settings.
+   * @throws USB_PORT_NOT_FOUND or USB_OPEN_FAILED.
    */
   async reconnect(): Promise<void> {
     const operationGeneration = ++this.connectionOperationGeneration;
@@ -246,9 +246,6 @@ export class USBConnectionLifecycle {
     await this.connectForOperation(config, operationGeneration);
   }
 
-  /**
-   * Get the current connection state
-   */
   getStatus(): ConnectionStatus {
     if (!this.port) {
       return ConnectionStatus.disconnected();
@@ -261,9 +258,6 @@ export class USBConnectionLifecycle {
     return this.port.isOpen ? ConnectionStatus.connected() : ConnectionStatus.disconnected();
   }
 
-  /**
-   * Get a list of available USB ports
-   */
   async listPorts(): Promise<USBPortInfo[]> {
     return await this.deviceDetector.listPorts();
   }

@@ -9,19 +9,6 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE, getTargetScoringProfile } from '@/shared/target';
 
-/**
- * createRecordShotHandler
- *
- * Handler factory that processes the shot recording command.
- * Retrieves the session, calculates the score, creates a Shot entity and adds it to the session,
- * then saves it and emits a ShotRecorded event.
- *
- * @param sessionRepository - Session repository
- * @param scoreService - Score calculation service
- * @param eventBus - Event bus
- * @param discrepancyDetector - Score discrepancy detection service
- * @returns CommandHandler<RecordShotInput> - Command handler function
- */
 export function createRecordShotHandler(
   sessionRepository: ISessionRepository,
   scoreService: ScoreCalculationService,

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
 /**
- * Storage Layer type definitions
- *
- * Provides type safety while maintaining compatibility with electron-store.
- */
-
-/**
  * Storage key (string)
  */
 export type StorageKey = string;

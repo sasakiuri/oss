@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SessionStorageSchema — runtime validation of storage data
- *
- * Validates the structure of data loaded from electron-store using Zod,
- * and provides clear error messages for corrupted data.
- */
+/** Validates session data loaded from electron-store. */
 
 import { z } from 'zod';
 

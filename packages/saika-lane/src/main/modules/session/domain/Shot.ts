@@ -8,16 +8,9 @@ import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/tar
 
 import { parseShotCompetitionContext, type ShotCompetitionContext } from './ShotCompetitionContext';
 
-/**
- * Shot entity
- *
- * An entity representing a single shot. Has an impact point, score, mode, timestamp,
- * and shot number. Entity identity is determined by ID.
- */
+/** Immutable shot, identified by ID. */
 export class Shot {
-  /**
-   * Unique identifier (UUID)
-   */
+  /** UUID. */
   readonly id: string;
 
   /**
@@ -25,14 +18,8 @@ export class Shot {
    */
   readonly impactPoint: ImpactPoint | null;
 
-  /**
-   * Score
-   */
   readonly score: Score;
 
-  /**
-   * Mode (sighting/match)
-   */
   readonly mode: Mode;
 
   /**
@@ -77,20 +64,6 @@ export class Shot {
   /** Rule-selected scoring gauge used for Lane's independent coordinate score. */
   readonly scoringGaugeProfileId?: ScoringGaugeProfileId;
 
-  /**
-   * Private constructor
-   * Prevents direct instantiation from outside; forces creation via static factory methods
-   *
-   * @param id - Unique identifier
-   * @param impactPoint - Impact point (null for a miss shot)
-   * @param score - Score
-   * @param mode - Mode
-   * @param timestamp - Firing time
-   * @param shotNumber - Shot number
-   * @param seriesNumber - Series number
-   * @param innerTen - Whether it is in the X ring (inner ten)
-   * @param deviceScore - Score calculated by the target device (optional)
-   */
   private constructor(
     id: string,
     impactPoint: ImpactPoint | null,
@@ -128,13 +101,6 @@ export class Shot {
     Object.freeze(this);
   }
 
-  /**
-   * Creates a new Shot (static factory method)
-   *
-   * @param props - Shot properties
-   * @returns New Shot instance
-   * @throws {Error} If an invariant is violated
-   */
   static create(props: {
     impactPoint: ImpactPoint | null;
     score: Score;
@@ -197,13 +163,7 @@ export class Shot {
     );
   }
 
-  /**
-   * Reconstructs a Shot from storage data (static factory method)
-   *
-   * @param data - Serialized data retrieved from storage
-   * @returns Reconstructed Shot instance
-   * @throws {Error} If the data is invalid
-   */
+  /** Restores a shot with its existing ID. */
   static reconstruct(data: {
     id: string;
     impactPoint: ImpactPoint | null;
@@ -265,21 +225,13 @@ export class Shot {
     );
   }
 
-  /**
-   * Checks equality with another Shot (determined by ID)
-   *
-   * @param other - The Shot to compare against
-   * @returns true if IDs are equal, false otherwise
-   */
+  /** Compares shot IDs. */
   equals(other: Shot): boolean {
     return this.id === other.id;
   }
 
   /**
-   * Determines whether this is an inner ten
-   *
    * @deprecated Use the innerTen property directly
-   * @returns true if in the X ring (inner ten), false otherwise
    */
   isInner(): boolean {
     return this.innerTen;

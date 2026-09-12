@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Events IPC Contract
- *
- * Defines Zod-based event contracts for Main-to-Renderer push notifications.
- * Covers shot recording, connection status, session lifecycle, errors, and log messages.
- */
-
 import { z } from 'zod';
 
 import { CompetitionCuePayloadSchema } from '@/shared/mqtt/CompetitionCue';

@@ -171,8 +171,7 @@ describe('Logger', () => {
   });
 
   describe('production environment behavior', () => {
-    // Note: Testing production environment behavior requires mocking process.env
-    // which is complex in Vitest. These tests verify the configured behavior instead.
+    // Checks configured levels; NODE_ENV defaults are not exercised here.
 
     it('should suppress DEBUG logs when configured as INFO (production-like)', () => {
       // Simulate production configuration

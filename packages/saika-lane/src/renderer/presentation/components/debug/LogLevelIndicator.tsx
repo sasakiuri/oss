@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * LogLevelIndicator component
- *
- * Indicator display component for log levels.
- * Responsible for rendering coloring and badges according to log level.
- */
-
 import React from 'react';
 
 import type { LogLevel } from '@/shared/types/log';

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * CompetitionShotPublisher
- *
- * Subscribes to the ShotRecorded event from EventBus and
- * publishes CompetitionShotPayload to `saika/competition/{competitionId}/lane/{laneId}/shot`.
- * Shot data with competition context. QoS 1, Retain=OFF.
- */
+/** Publishes recorded shots with competition context at QoS 1 without retention. */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';

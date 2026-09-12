@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * SideMenuButton component
- *
- * Individual button component within SideMenu.
- * Supports both regular buttons and mode-switch buttons (with active color).
- */
-
 import React from 'react';
 
 export interface SideMenuButtonProps {

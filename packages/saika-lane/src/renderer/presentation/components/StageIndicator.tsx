@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * StageIndicator — Stage display badge
- *
- * Displays a label based on the current phase and stage type.
- * Hidden when in IDLE phase.
- */
+/** Shows the current phase and stage; hidden during IDLE. */
 
 import React from 'react';
 

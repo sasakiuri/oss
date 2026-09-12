@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Common IPC Schemas
- *
- * Shared Zod schemas used across multiple IPC contracts.
- */
-
 import { z } from 'zod';
 
 export const TargetManufacturerSchema = z.union([

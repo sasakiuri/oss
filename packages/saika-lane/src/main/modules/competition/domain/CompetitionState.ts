@@ -6,9 +6,6 @@ import type { RoundConfig, SeriesDefinition, StageDefinition } from './Competiti
 import type { Phase } from './Phase';
 import { Timer } from './Timer';
 
-/**
- * Properties for reconstructing CompetitionState
- */
 interface CompetitionStateProps {
   readonly id: string;
   readonly sessionId: string;
@@ -22,28 +19,7 @@ interface CompetitionStateProps {
   readonly finishedAt: number | null;
 }
 
-/**
- * CompetitionState — competition state aggregate root
- *
- * Immutable aggregate root managing the competition state machine.
- * All methods return a new instance.
- *
- * State transitions:
- *   IDLE → startStage() → ACTIVE
- *   ACTIVE → recordShotInSeries() → ACTIVE | SERIES_COMPLETE
- *   ACTIVE → expireTimer() → SERIES_COMPLETE
- *   ACTIVE[unscored] → endStage() → SERIES_COMPLETE
- *   SERIES_COMPLETE → startNextSeries() → ACTIVE
- *   SERIES_COMPLETE → advanceToNextStage() → SERIES_ENTERED | STAGE_ENTERED | FINISHED
- *   SERIES_COMPLETE → rewindToStage(index) → ACTIVE
- *   SERIES_ENTERED → startNextSeries() → ACTIVE
- *   SERIES_ENTERED → rewindToStage(index) → ACTIVE
- *   STAGE_ENTERED → startNextSeries() → ACTIVE
- *   STAGE_ENTERED → rewindToStage(index) → ACTIVE
- *   ACTIVE[scored] → rewindToStage(index) → ACTIVE
- *   ACTIVE → resetToIdle() → IDLE
- *   any → finish() → FINISHED
- */
+/** Immutable competition state. Transitions return a new instance. */
 export class CompetitionState {
   readonly id: string;
   readonly sessionId: string;
@@ -71,9 +47,6 @@ export class CompetitionState {
     Object.freeze(this);
   }
 
-  /**
-   * Internal: creates a new instance with partial property overrides
-   */
   private with(overrides: Partial<CompetitionStateProps>): CompetitionState {
     return new CompetitionState({
       id: this.id,
@@ -92,16 +65,10 @@ export class CompetitionState {
 
   // ── Computed getters ──
 
-  /**
-   * Returns the current stage configuration
-   */
   get currentStageConfig(): StageDefinition {
     return this.config.stages[this.currentStageIndex]!;
   }
 
-  /**
-   * Returns the current series configuration
-   */
   get currentSeriesConfig(): SeriesDefinition {
     return this.currentStageConfig.series[this.currentSeriesIndex]!;
   }
@@ -554,13 +521,7 @@ export class CompetitionState {
 
   // ── Factory methods ──
 
-  /**
-   * Creates a new CompetitionState in the IDLE phase
-   *
-   * @param id - Unique identifier
-   * @param sessionId - The associated session ID
-   * @param config - Round configuration
-   */
+  /** Creates an IDLE competition. */
   static create(id: string, sessionId: string, config: RoundConfig): CompetitionState {
     return new CompetitionState({
       id,
@@ -576,9 +537,6 @@ export class CompetitionState {
     });
   }
 
-  /**
-   * Factory method for reconstruction from the repository
-   */
   static reconstruct(props: CompetitionStateProps): CompetitionState {
     return new CompetitionState(props);
   }

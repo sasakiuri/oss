@@ -96,4 +96,4 @@ Lane と Director で使用する競技種別の一覧と、進行・採点の�
 | ISSF 種別の版・射数・時間・裁定機能 | [共通 Rule Pack](../../saika-rules/src/issf-2026/)                                                                        |
 | Rule Pack から Lane への変換        | [fromRulePack.ts](../../saika-lane/src/main/modules/competition/domain/fromRulePack.ts)                                   |
 
-ISSF 種別は共通の Rule Pack を各アプリ用の定義へ変換します。`BR60S` と `BP60` はローカル定義です。連携時は両アプリを同じ版に揃え、参加時の互換性確認を通してください。本書は Saika の定義を説明する資料です。公式規則の確認先は [参照元](../SOURCES.md) にまとめています。
+ISSF 種別は共通の Rule Pack を各アプリ用の定義へ変換します。`BR60S` と `BP60` はローカル定義です。連携時は両アプリを同じ版に揃え、Lane の参加時に互換性エラーが出ないことを確認してください。公式規則の確認先は [参照元](../SOURCES.md) にまとめています。

@@ -15,11 +15,6 @@ import {
   type TargetScoringProfileId,
 } from '@/shared/target';
 
-/**
- * RingDefinition type
- *
- * Type defining a target ring (score band).
- */
 export interface RingDefinition {
   /**
    * Score (×10 integer: 109, 108, ... 10, 0)
@@ -38,17 +33,9 @@ export interface RingDefinition {
 }
 
 /**
- * TargetDesign value object
- *
- * An immutable value object representing the target design for each shooting discipline.
- * Holds ring definitions for calculating scores from impact points.
- *
- * Algorithmically generates ring definitions based on the formula in TARGET_SPEC.md:
- *   band width = (N-1)-point ring radius - N-point ring radius
- *   step = band width / 10
- *   radius of N.k = N-point ring radius + (9 - k) * step
- *
- * Score is represented as a ×10 integer; distance comparison is done using distance².
+ * Immutable scoring bands for a target face and scoring gauge.
+ * Scores use tenths of a point; distance comparisons use squared millimetres.
+ * See generateDecimalRings() for band construction.
  */
 export class TargetDesign {
   /** Default scoring-gauge radius lookup, derived from each target face's fallback gauge. */
@@ -64,9 +51,6 @@ export class TargetDesign {
   /** @deprecated Use SCORING_GAUGE_RADIUS or a design's scoringGaugeRadiusMm. */
   static readonly SHOT_RADIUS = TargetDesign.SCORING_GAUGE_RADIUS;
 
-  /**
-   * Discipline (read-only)
-   */
   readonly discipline: Discipline;
 
   /** Target-face profile used to build this design. */
@@ -78,10 +62,7 @@ export class TargetDesign {
   /** Radius of the selected scoring gauge, in millimetres. */
   readonly scoringGaugeRadiusMm: number;
 
-  /**
-   * Array of ring definitions (read-only)
-   * Sorted in ascending order of radius
-   */
+  /** Scoring bands in ascending radius order. */
   readonly rings: readonly RingDefinition[];
 
   /**
@@ -94,15 +75,6 @@ export class TargetDesign {
    */
   readonly xRingRadiusSq: number;
 
-  /**
-   * Private constructor.
-   * Prevents direct instantiation from outside and enforces creation via static factory methods.
-   *
-   * @param discipline - Discipline
-   * @param rings - Array of ring definitions
-   * @param xRingRadius - X ring radius (mm)
-   * @throws {Error} If an invariant is violated
-   */
   private constructor(
     discipline: Discipline,
     profileId: TargetScoringProfileId,
@@ -172,12 +144,6 @@ export class TargetDesign {
     return impactPoint.distanceSquared() <= this.xRingRadiusSq;
   }
 
-  /**
-   * Checks equality with another TargetDesign.
-   *
-   * @param other - TargetDesign to compare against
-   * @returns true if equal, false otherwise
-   */
   equals(other: TargetDesign): boolean {
     if (
       !this.discipline.equals(other.discipline) ||
@@ -196,12 +162,6 @@ export class TargetDesign {
     });
   }
 
-  /**
-   * Creates a target design based on the discipline (static factory method).
-   *
-   * @param discipline - Discipline
-   * @returns TargetDesign instance for the given discipline
-   */
   static forDiscipline(
     discipline: Discipline,
     profileId?: TargetScoringProfileId,

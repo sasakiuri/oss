@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * ModuleLoader — Dependency injection engine
- *
- * Injects only the declared dependencies of each module and calls register().
- */
+/** Registers modules with the dependencies declared in their definitions. */
 
 import type { ModuleDefinition, ServiceRegistry } from '@/main/composition/ModuleDefinition';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

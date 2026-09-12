@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * SeriesScoreGrid — Series score display (P6 section, 3 columns x N rows)
- */
-
 import React, { memo, useEffect, useRef } from 'react';
 
 const SCROLL_THRESHOLD_PX = 50;

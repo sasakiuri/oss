@@ -33,26 +33,15 @@ export class USBDataPipeline {
     this.dataConversionService = dataConversionService;
   }
 
-  /**
-   * Set the session context provider
-   *
-   * @param provider - Callback that returns discipline/mode
-   */
   setSessionContextProvider(provider: SessionContextProvider): void {
     this.sessionContextProvider = provider;
   }
 
-  /**
-   * Set the callback invoked when a shot is detected.
-   * Called once per successfully converted shot, before persistence.
-   */
+  /** Runs once per converted shot before persistence, for immediate sound feedback. */
   setOnShotDetected(callback: () => void): void {
     this.onShotDetected = callback;
   }
 
-  /**
-   * Reset the shot number counter
-   */
   resetCounter(): void {
     this.shotNumberCounter = 0;
   }

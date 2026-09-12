@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * LaneTier1CommandHandler
- *
- * Handler that processes lane Tier1 commands (competition join/leave).
- * Subscribes to `saika/lane/{laneId}/command/+` and
- * processes join-competition / leave-competition.
- * On join, starts subscriptions for BroadcastCommandHandler / PerLaneCommandHandler.
- */
+/** Handles competition membership and starts competition subscriptions after joining. */
 
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';

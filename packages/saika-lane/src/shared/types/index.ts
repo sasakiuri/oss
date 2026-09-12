@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Shared type definitions barrel export
- *
- * Central export point for all shared type definitions used across
- * Main Process, Renderer Process, and Preload scripts.
- */
-
 // Electron API type definitions
 export type { ElectronAPI } from './ElectronAPI';
 

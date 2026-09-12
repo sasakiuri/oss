@@ -42,7 +42,6 @@ vi.mock('@/renderer/services/competitionService', () => ({
   },
 }));
 
-// useConnection was removed from App but may be used indirectly via useEventSubscriptions, so keep the mock
 vi.mock('@/renderer/presentation/hooks/useConnection', () => ({
   useConnection: vi.fn().mockReturnValue({
     status: 'disconnected',

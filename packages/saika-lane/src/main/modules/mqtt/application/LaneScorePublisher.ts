@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * LaneScorePublisher
- *
- * Subscribes to ShotRecorded (match shots only) and SessionReset from EventBus and
- * publishes LaneScorePayload to `saika/competition/{competitionId}/lane/{laneId}/score`.
- * Builds the score from one persisted session snapshot. Retain=ON, QoS 1.
- */
+/** Publishes a retained score from one persisted session snapshot at QoS 1. */
 
 import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
 

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * LaneCompetitionStatePublisher
- *
- * Subscribes to persisted competition progress, phase and lifecycle events and
- * publishes LaneCompetitionStatePayload to `saika/competition/{competitionId}/lane/{laneId}/state`.
- * Converts internal Phase → MqttLanePhase using PhaseMapper.
- */
+/** Publishes persisted competition progress, converting internal phases through PhaseMapper. */
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption';

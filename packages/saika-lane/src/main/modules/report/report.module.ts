@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Report module definition
- *
- * Registers command/query handlers and IPC handlers related to report printing.
- */
-
 import type { IpcMainInvokeEvent } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';

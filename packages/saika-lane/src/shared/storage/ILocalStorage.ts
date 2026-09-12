@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { StorageData, StorageKey, StorageValue } from './types';
 
-/**
- * ILocalStorage interface
- *
- * Abstraction interface for local storage (electron-store).
- * Defined as an interface for testability and dependency injection.
- */
+/** Local key-value storage. */
 export interface ILocalStorage {
   /**
    * Get a value
@@ -27,22 +22,11 @@ export interface ILocalStorage {
   set(key: StorageKey, value: StorageValue): void;
 
   /**
-   * Set multiple values at once
-   *
-   * In electron-store this is written in a single fs.writeFileSync call,
-   * making it more efficient than calling set() multiple times when updating multiple keys simultaneously.
-   *
-   * @param entries - Key-value pairs
+   * Writes multiple keys in one storage operation.
    * @throws STORAGE_WRITE_ERROR - If writing fails
    */
   setMany(entries: Record<StorageKey, StorageValue>): void;
 
-  /**
-   * Check whether a value exists
-   *
-   * @param key - Storage key
-   * @returns true if the value exists
-   */
   has(key: StorageKey): boolean;
 
   /**

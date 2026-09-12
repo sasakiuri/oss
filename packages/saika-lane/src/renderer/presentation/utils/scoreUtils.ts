@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Score utility functions (pure functions)
- */
-
 import type { Discipline } from '@/shared/ipc/contracts';
 
 const CLOCK_HOUR_DEGREES = 30;

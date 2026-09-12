@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * ConnectionIpcHandlers
- *
- * IPC handler factory for the Connection contract.
- * Creates handlers for connect, disconnect, list ports, and list devices.
- */
-
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { ITargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';

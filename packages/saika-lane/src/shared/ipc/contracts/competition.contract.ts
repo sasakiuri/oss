@@ -1,12 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Competition IPC Contract
- *
- * Defines Zod-based contracts for competition-related IPC channels.
- * Covers competition lifecycle commands (start, stage, series, advance, finish)
- * and competition data queries (state, types).
- */
-
 import { z } from 'zod';
 
 import { PHASE_VALUES } from '@/shared/types/Phase';

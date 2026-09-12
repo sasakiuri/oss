@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * EventBus Registry
- *
- * Each module extends EventRegistry via declare module,
- * enabling type-safe event emission and subscription.
- */
+/** Modules extend EventRegistry through declaration merging to type their events. */
 
 /** Event registry - extended via declare module */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

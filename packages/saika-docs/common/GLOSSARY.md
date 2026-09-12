@@ -4,7 +4,7 @@ description: Lane と Director の画面に出てくる大会、進行、採点�
 
 <!-- SPDX-License-Identifier: MIT -->
 
-# 射撃ドメイン共通用語集
+# 用語集
 
 [文書一覧](../INDEX.md)
 
