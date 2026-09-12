@@ -24,6 +24,69 @@ function createDeferred() {
 }
 
 describe('championship editor save state', () => {
+  it.each(['Firing points', 'Relays'])('preserves all assignments while typing a larger %s count', async (label) => {
+    const participants = Array.from({ length: 10 }, (_, index) => ({
+      ...participant,
+      id: crypto.randomUUID(),
+      playerName: `Athlete ${index + 1}`,
+      sortOrder: index,
+    }));
+    const assignments = participants.map((athlete, index) => ({
+      id: crypto.randomUUID(),
+      relayNumber: label === 'Relays' ? index + 1 : 1,
+      firingPointNumber: label === 'Firing points' ? index + 1 : 1,
+      participantId: athlete.id,
+    }));
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(<FiringPointAssignmentEditor assignments={assignments} participants={participants} onSave={onSave} />);
+
+    const input = screen.getByRole('textbox', { name: label });
+    fireEvent.change(input, { target: { value: '2' } });
+    fireEvent.change(input, { target: { value: '20' } });
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave).toHaveBeenCalledWith(
+      assignments.map(({ relayNumber, firingPointNumber, participantId }) => ({
+        relayNumber,
+        firingPointNumber,
+        participantId,
+      })),
+    );
+    expect(input).toHaveValue('20');
+  });
+
+  it('cancels incomplete counts and applies a deliberate reduction on Enter', async () => {
+    const assignments = [1, 2, 3].map((firingPointNumber) => ({
+      id: crypto.randomUUID(),
+      relayNumber: 1,
+      firingPointNumber,
+      participantId: participant.id,
+    }));
+    const onSave = vi.fn().mockResolvedValue(true);
+    render(<FiringPointAssignmentEditor assignments={assignments} participants={[participant]} onSave={onSave} />);
+    const input = screen.getByRole('textbox', { name: 'Firing points' });
+    for (const value of ['', '0', '2.5', '2abc']) {
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+      expect(input).toHaveValue('3');
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    }
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    fireEvent.blur(input);
+    expect(input).toHaveValue('3');
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: '2' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0]![0]).toHaveLength(2);
+  });
+
   it('keeps participant edits dirty after a failed save', async () => {
     const onSave = vi.fn().mockResolvedValue(null);
     render(<ParticipantEditor participants={[participant]} onSave={onSave} />);

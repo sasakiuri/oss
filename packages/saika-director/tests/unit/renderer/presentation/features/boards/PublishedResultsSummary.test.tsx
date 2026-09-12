@@ -25,6 +25,7 @@ function response(patch: Partial<ResultBoardSnapshotDto> = {}) {
           playerName: 'Athlete',
           affiliation: 'Team',
           totalScore: 625.4,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
       ],
@@ -46,6 +47,33 @@ afterEach(() => {
 });
 
 describe('PublishedResultsSummary', () => {
+  it.each(['DNS', 'DSQ', 'DQB'] as const)(
+    'withholds the public score for an entry classified %s',
+    async (entryStatus) => {
+      getBoardSnapshot.mockResolvedValue(
+        response({ results: [{ ...response().data.results[0]!, rank: 0, entryStatus }] }),
+      );
+      render(<PublishedResultsSummary eventId="event" resultScope="QUALIFICATION" />);
+      await flush();
+      expect(screen.getByText(entryStatus)).toBeInTheDocument();
+      expect(screen.queryByText('625.4')).not.toBeInTheDocument();
+      expect(screen.getByText('—')).toBeInTheDocument();
+    },
+  );
+
+  it.each(['RPO', 'MQS', 'OOC'] as const)(
+    'displays %s instead of a rank and retains its recorded score',
+    async (entryStatus) => {
+      getBoardSnapshot.mockResolvedValue(
+        response({ results: [{ ...response().data.results[0]!, rank: 0, entryStatus }] }),
+      );
+      render(<PublishedResultsSummary eventId="event" resultScope="QUALIFICATION" />);
+      await flush();
+      expect(screen.getByText(entryStatus)).toBeInTheDocument();
+      expect(screen.getByText('625.4')).toBeInTheDocument();
+    },
+  );
+
   it('updates publication state together with scores and removes obsolete deadlines', async () => {
     render(<PublishedResultsSummary eventId="event" resultScope="QUALIFICATION" />);
     await flush();

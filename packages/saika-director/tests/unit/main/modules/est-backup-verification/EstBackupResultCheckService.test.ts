@@ -1,9 +1,11 @@
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { migration013ResultVerification } from '@/main/infrastructure/database/migrations/013_result_verification';
 import { migration027EstBackupVerification } from '@/main/infrastructure/database/migrations/027_est_backup_verification';
 import { migration080EstBackupResultScope } from '@/main/infrastructure/database/migrations/080_est_backup_result_scope';
 import { migration082EstBackupSources } from '@/main/infrastructure/database/migrations/082_est_backup_sources';
+import { Participant, ParticipantId, EventId } from '@/main/modules/championship';
 import {
   EstBackupVerificationService,
   EstBackupResultCheckService,
@@ -16,9 +18,7 @@ import {
   SqliteResultVerificationRepository,
   type VerifiableResult,
 } from '@/main/modules/result-verification';
-import { Participant, ParticipantId, EventId } from '@/main/modules/championship';
-import type { RankedResultDto } from '@/shared/ipc/contracts';
-import type { ApplyEstBackupChecksPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
+import type { RankedResultDto, ApplyEstBackupChecksPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
 
 const eventId = '11111111-1111-4111-8111-111111111111';
 const runId = '22222222-2222-4222-8222-222222222222';
@@ -47,6 +47,7 @@ function setup(
     revision: String(i).repeat(64),
     decisionCount: i,
     status: 'confirmed',
+    entryStatus: 'COMPETING' as const,
     classificationCode: null,
     projectionIssues: [],
     evidenceSummary: {
@@ -181,6 +182,7 @@ describe('EST backup to individual result checks', () => {
     );
     const result: RankedResultDto = {
       ...f.results[0]!,
+      entryStatus: 'COMPETING',
       id: ids[0]!,
       participantId: ids[0]!,
       familyName: 'Athlete',

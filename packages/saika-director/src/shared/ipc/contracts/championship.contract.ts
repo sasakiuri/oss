@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import {
   defineContract,
   command,
@@ -17,7 +18,7 @@ const uuidSchema = z.string().uuid();
 const eventTypeSchema = z.string();
 const roundSchema = z.enum(['Elimination', 'Qualification', 'Final', 'Individual']);
 const participantGenderSchema = z.enum(['M', 'F', 'X', 'UNSPECIFIED']);
-const participantEntryStatusSchema = z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB']);
+export const participantEntryStatusSchema = z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB']);
 const rulePackIdentitySchema = z.object({
   id: z.string().min(1),
   schemaVersion: z.literal(1),

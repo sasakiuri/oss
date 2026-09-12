@@ -1,5 +1,5 @@
 import { VistaSettingsPanel } from './VistaSettingsPanel';
-import { BellRing, Copy, RefreshCw, Settings2 } from 'lucide-react';
+import { BellRing, Copy, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
@@ -174,8 +174,7 @@ export function SettingsScreen() {
     <div className="min-h-full">
       <PageHeader
         title="Settings"
-        description="Director and Lane network connection."
-        icon={<Settings2 size={23} aria-hidden="true" />}
+
         actions={
           <span
             role="status"

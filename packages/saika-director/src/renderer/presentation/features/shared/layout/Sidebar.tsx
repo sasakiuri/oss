@@ -57,7 +57,7 @@ export function Sidebar() {
       title={item.label}
       aria-label={item.label}
       aria-current={activeScreen === item.id ? 'page' : undefined}
-      className={`relative flex h-12 w-full flex-col items-center justify-center gap-1 border-l-2 px-1 transition-colors sm:h-[60px] ${
+      className={`relative flex h-12 w-full flex-col items-center justify-center gap-1 border-l-2 px-1 transition-colors sm:h-[60px] lg:h-11 lg:flex-row lg:justify-start lg:gap-2.5 lg:px-3 ${
         activeScreen === item.id
           ? 'border-l-vscode-primary bg-vscode-highlight text-vscode-text'
           : 'border-l-transparent text-vscode-text-muted hover:bg-vscode-hover hover:text-vscode-text'
@@ -70,18 +70,20 @@ export function Sidebar() {
       >
         {item.icon}
       </span>
-      <span className="hidden whitespace-nowrap text-[10px] font-medium leading-none sm:block">{item.shortLabel}</span>
+      <span className="hidden whitespace-nowrap text-[11px] font-medium leading-none sm:block lg:text-[13px]">
+        {item.shortLabel}
+      </span>
     </button>
   );
 
   return (
     <aside
       aria-label="Application navigation"
-      className="flex w-14 shrink-0 flex-col border-r border-vscode-border bg-vscode-sidebar sm:w-[88px]"
+      className="flex w-14 shrink-0 flex-col border-r border-vscode-border/70 bg-vscode-sidebar sm:w-[88px] lg:w-44"
     >
-      <div className="flex h-[68px] items-center justify-center border-b border-vscode-border">
-        <img src={appIcon} alt="Saika Director" title="Saika Director" className="h-8 w-8 sm:h-9 sm:w-9" />
-        <h1 className="sr-only">Saika Director</h1>
+      <div className="flex h-16 items-center justify-center gap-2.5 lg:justify-start lg:px-4">
+        <img src={appIcon} alt="Saika Director" title="Saika Director" className="h-8 w-8" />
+        <h1 className="hidden text-sm font-semibold text-vscode-text lg:block">Director</h1>
       </div>
       <nav aria-label="Main navigation" className="flex min-h-0 flex-1 flex-col py-1">
         <div>{primaryItems.map(renderItem)}</div>

@@ -105,14 +105,17 @@ export class ResultBoardSnapshotService {
         state,
         postedAt,
         protestEndsAt,
-        results: after.results.map(({ resultId, rank, playerName, affiliation, totalScore, classificationCode }) => ({
-          resultId,
-          rank,
-          playerName,
-          affiliation,
-          totalScore,
-          classificationCode,
-        })),
+        results: after.results.map(
+          ({ resultId, rank, entryStatus, playerName, affiliation, totalScore, classificationCode }) => ({
+            resultId,
+            rank,
+            entryStatus,
+            playerName,
+            affiliation,
+            totalScore,
+            classificationCode,
+          }),
+        ),
       };
     }
     throw new Error('The results are changing; waiting for a consistent board snapshot');

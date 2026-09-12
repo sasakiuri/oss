@@ -177,6 +177,7 @@ describe('Event publication review policies', () => {
             affiliation: 'Team',
             relayNumber: 1,
             totalScore: 100,
+            entryStatus: null,
             classificationCode: null,
             decisionCount: 0,
             projectionIssues: [],

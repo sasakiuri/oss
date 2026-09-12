@@ -30,6 +30,7 @@ import {
 } from '@/main/modules/score-corrections';
 import { CompetitionTypeTeamTieBreakPolicyResolver, TeamResultsService } from '@/main/modules/team-results';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
+
 import type { CompetitionServices } from './createCompetitionServices';
 
 type ScoringServicesDependencies = Pick<
@@ -112,6 +113,7 @@ export function createScoringServices({
     resultRepository,
     scoringDecisionRepository,
     competitionTypeRegistry,
+    participantRepository,
     sanctionResultClassificationSource,
     qualificationOverlays,
     scoreCorrectionService,

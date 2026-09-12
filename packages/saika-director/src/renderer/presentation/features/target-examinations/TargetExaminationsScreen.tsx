@@ -1,5 +1,3 @@
-import { FileSearch } from 'lucide-react';
-
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
 import { TargetExaminationsPanel } from './TargetExaminationsPanel';
@@ -8,11 +6,7 @@ import { TargetExaminationsPanel } from './TargetExaminationsPanel';
 export function TargetExaminationsScreen() {
   return (
     <div className="min-h-full">
-      <PageHeader
-        title="Target Examinations"
-        description="EST complaint, examination-item custody, decisions, and evidence holds."
-        icon={<FileSearch size={23} aria-hidden="true" />}
-      />
+      <PageHeader title="Target Examinations" />
       <div className="p-5">
         <Card>
           <TargetExaminationsPanel />

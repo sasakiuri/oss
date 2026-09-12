@@ -97,6 +97,7 @@ function createResult(id: string, relayNumber: number, playerName: string): Rank
     scoreAdjustment: 0,
     deductionTotal: 0,
     remarks: [],
+    entryStatus: 'COMPETING',
     classificationCode: null,
     decisionCount: 0,
     projectionIssues: [],
@@ -280,6 +281,19 @@ describe('ResultsView', () => {
     await act(async () => rerender(<ResultsView eventId="event-2" readOnly />));
     expect(screen.queryByRole('button', { name: 'EST backup verification' })).not.toBeInTheDocument();
   });
+
+  it.each(['RPO', 'MQS', 'OOC'] as const)(
+    'shows %s and its score in the saved qualification result table',
+    async (entryStatus) => {
+      getByEvent.mockResolvedValue({
+        success: true,
+        data: { eventId: 'event-1', results: [{ ...eventOneResults[0]!, rank: 0, entryStatus }] },
+      });
+      render(<ResultsView eventId="event-1" />);
+      expect(await screen.findByText(entryStatus)).toBeInTheDocument();
+      expect(screen.getAllByText('100.0').length).toBeGreaterThan(0);
+    },
+  );
 
   it('opens the independent RTS result-verification workflow', async () => {
     render(<ResultsView eventId="event-1" eventName="Qualification" />);

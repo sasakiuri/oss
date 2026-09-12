@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
+import { participantEntryStatusSchema } from './championship.contract';
+
 const uuidSchema = z.string().uuid();
 const revisionSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const resultScopeSchema = z.enum(['QUALIFICATION', 'FINAL']);
@@ -104,6 +106,7 @@ const ResultBoardSnapshotDtoSchema = z.object({
     z.object({
       resultId: uuidSchema,
       rank: z.number().int().nonnegative(),
+      entryStatus: participantEntryStatusSchema.nullable(),
       playerName: z.string(),
       affiliation: z.string(),
       totalScore: z.number().nonnegative(),

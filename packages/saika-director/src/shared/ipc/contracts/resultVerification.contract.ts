@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+
+import { participantEntryStatusSchema } from './championship.contract';
 import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';
 
 const uuidSchema = z.string().uuid();
@@ -49,6 +51,7 @@ const ResultListApprovalDtoSchema = z.object({
 });
 
 const VerificationResultItemDtoSchema = z.object({
+  entryStatus: participantEntryStatusSchema.nullable(),
   resultId: uuidSchema,
   participantId: z.string().min(1),
   revision: revisionSchema,

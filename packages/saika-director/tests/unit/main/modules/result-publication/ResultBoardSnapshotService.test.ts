@@ -23,6 +23,7 @@ function setup(scope: 'QUALIFICATION' | 'FINAL' = 'QUALIFICATION') {
         playerName: 'Athlete',
         affiliation: 'Team',
         totalScore: 625.4,
+        entryStatus: 'COMPETING',
         classificationCode: null,
       },
     ],

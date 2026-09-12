@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 import type {
   FiringWindowViolationDto,
@@ -124,128 +124,124 @@ export function CompetitionRunPanel({
         </select>
       </label>
 
-      <ol
-        aria-label="Competition phases"
-        className="mt-4 grid grid-cols-4 divide-x divide-vscode-border border-y border-vscode-border"
-      >
-        {COMPETITION_PHASE_STEPS.map((step, index) => {
-          const completed = currentPhaseIndex > index;
-          const current = currentPhaseIndex === index;
-          return (
-            <li
-              key={step.label}
-              aria-current={current ? 'step' : undefined}
-              className={`flex min-w-0 flex-col gap-0.5 border-t-2 px-2 py-2 ${
-                current
-                  ? 'border-t-vscode-primary bg-vscode-primary/[0.07] text-vscode-text'
-                  : completed
-                    ? 'border-t-vscode-success text-vscode-text-muted'
-                    : 'border-t-transparent text-vscode-dimmed'
-              }`}
-            >
-              <span
-                className={`h-4 font-mono text-[10px] ${
-                  current ? 'text-vscode-accent' : completed ? 'text-vscode-success' : 'text-vscode-dimmed'
-                }`}
-              >
-                {completed ? <Check size={12} aria-hidden="true" /> : `0${index + 1}`}
-              </span>
-              <span className="truncate text-[11px] font-semibold">{step.label}</span>
-            </li>
-          );
-        })}
-      </ol>
-
       {!activeCompetition && (
         <p className="mt-3 border-l-2 border-vscode-border pl-3 text-xs leading-5 text-vscode-text-muted">
           Select Lanes and create a competition to enable run controls.
         </p>
       )}
 
-      <div className="mt-4 border-t border-vscode-border pt-3">
-        <p className="mb-2 text-[11px] font-semibold text-vscode-text-muted">Lane membership</p>
-        <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={
-              controlsDisabled || activeCompetition?.phase !== 'NOT_STARTED' || selectedJoinLaneIds.length === 0
-            }
-            onClick={() => void changeMembership('join', selectedJoinLaneIds)}
-          >
-            Join selected Lanes
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={
-              controlsDisabled ||
-              selectedJoinedLaneIds.length === 0 ||
-              selectedLeaveLaneIds.length !== selectedJoinedLaneIds.length
-            }
-            onClick={() => void changeMembership('leave', selectedLeaveLaneIds)}
-          >
-            Remove selected Lanes
-          </Button>
-        </div>
+      {activeCompetition && (
+        <>
+          <ol aria-label="Competition phases" className="mt-4 grid grid-cols-4 border-b border-vscode-border">
+            {COMPETITION_PHASE_STEPS.map((step, index) => {
+              const completed = currentPhaseIndex > index;
+              const current = currentPhaseIndex === index;
+              return (
+                <li
+                  key={step.label}
+                  aria-current={current ? 'step' : undefined}
+                  className={`flex min-w-0 flex-col gap-0.5 border-t-2 px-2 py-2 ${
+                    current
+                      ? 'border-t-vscode-primary bg-vscode-primary/[0.07] text-vscode-text'
+                      : completed
+                        ? 'border-t-vscode-success text-vscode-text-muted'
+                        : 'border-t-transparent text-vscode-dimmed'
+                  }`}
+                >
+                  <span className="truncate text-xs font-medium">{step.label}</span>
+                </li>
+              );
+            })}
+          </ol>
 
-        {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
-          <CompetitionStartReadinessPanel
-            key={`${activeCompetition.competitionId}:${activeCompetition.phase}`}
-            competitionId={activeCompetition.competitionId}
-            phase={['NOT_STARTED', 'SIGHTING'].includes(activeCompetition.phase) ? 'SIGHTING' : 'MATCH'}
-          />
-        )}
-        <p className="mb-2 mt-4 text-[11px] font-semibold text-vscode-text-muted">Course of fire</p>
-        <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
-          <Button
-            size="sm"
-            disabled={controlsDisabled || !canStartOrRetrySighting}
-            onClick={() => void startSighting()}
-          >
-            {activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0
-              ? `Retry sighting for pending Lanes (${pendingSightingLaneIds.length})`
-              : `Start sighting (${formatTimerDuration(displayedCompetitionTiming.preparationAndSightingSeconds)})`}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={controlsDisabled || activeCompetition?.phase !== 'SIGHTING' || pendingSightingLaneIds.length > 0}
-            onClick={() => void endSighting()}
-          >
-            End sighting
-          </Button>
-          <Button
-            size="sm"
-            disabled={controlsDisabled || activeCompetition?.phase !== 'SIGHTING_COMPLETE'}
-            onClick={() => void startMatch()}
-          >
-            {displayedCompetitionTiming.matchSeconds === null
-              ? 'Enter timed-target match'
-              : `Start match (${formatTimerDuration(displayedCompetitionTiming.matchSeconds)})`}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={controlsDisabled || activeCompetition?.phase !== 'MATCH' || advanceSeriesSource === null}
-            onClick={() => void advanceSeries()}
-          >
-            Next series
-          </Button>
-        </div>
-      </div>
+          <div className="mt-4 border-t border-vscode-border pt-3">
+            <p className="mb-2 text-[11px] font-semibold text-vscode-text-muted">Lane membership</p>
+            <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={
+                  controlsDisabled || activeCompetition?.phase !== 'NOT_STARTED' || selectedJoinLaneIds.length === 0
+                }
+                onClick={() => void changeMembership('join', selectedJoinLaneIds)}
+              >
+                Join selected Lanes
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={
+                  controlsDisabled ||
+                  selectedJoinedLaneIds.length === 0 ||
+                  selectedLeaveLaneIds.length !== selectedJoinedLaneIds.length
+                }
+                onClick={() => void changeMembership('leave', selectedLeaveLaneIds)}
+              >
+                Remove selected Lanes
+              </Button>
+            </div>
 
-      <div className="mt-4 border-t border-vscode-border pt-3">
-        <Button
-          variant="danger"
-          size="sm"
-          className="w-full"
-          disabled={finishDisabled}
-          onClick={() => void finishCompetition()}
-        >
-          {activeCompetition?.phase === 'MATCH_COMPLETE' ? 'Retry cleanup' : 'Finish competition'}
-        </Button>
-      </div>
+            {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+              <CompetitionStartReadinessPanel
+                key={`${activeCompetition.competitionId}:${activeCompetition.phase}`}
+                competitionId={activeCompetition.competitionId}
+                phase={['NOT_STARTED', 'SIGHTING'].includes(activeCompetition.phase) ? 'SIGHTING' : 'MATCH'}
+              />
+            )}
+            <p className="mb-2 mt-4 text-[11px] font-semibold text-vscode-text-muted">Course of fire</p>
+            <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
+              <Button
+                size="sm"
+                disabled={controlsDisabled || !canStartOrRetrySighting}
+                onClick={() => void startSighting()}
+              >
+                {activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0
+                  ? `Retry sighting for pending Lanes (${pendingSightingLaneIds.length})`
+                  : `Start sighting (${formatTimerDuration(displayedCompetitionTiming.preparationAndSightingSeconds)})`}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={
+                  controlsDisabled || activeCompetition?.phase !== 'SIGHTING' || pendingSightingLaneIds.length > 0
+                }
+                onClick={() => void endSighting()}
+              >
+                End sighting
+              </Button>
+              <Button
+                size="sm"
+                disabled={controlsDisabled || activeCompetition?.phase !== 'SIGHTING_COMPLETE'}
+                onClick={() => void startMatch()}
+              >
+                {displayedCompetitionTiming.matchSeconds === null
+                  ? 'Enter timed-target match'
+                  : `Start match (${formatTimerDuration(displayedCompetitionTiming.matchSeconds)})`}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={controlsDisabled || activeCompetition?.phase !== 'MATCH' || advanceSeriesSource === null}
+                onClick={() => void advanceSeries()}
+              >
+                Next series
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-vscode-border pt-3">
+            <Button
+              variant="danger"
+              size="sm"
+              className="w-full"
+              disabled={finishDisabled}
+              onClick={() => void finishCompetition()}
+            >
+              {activeCompetition?.phase === 'MATCH_COMPLETE' ? 'Retry cleanup' : 'Finish competition'}
+            </Button>
+          </div>
+        </>
+      )}
 
       {pendingJoinLaneIds.length > 0 && (
         <div

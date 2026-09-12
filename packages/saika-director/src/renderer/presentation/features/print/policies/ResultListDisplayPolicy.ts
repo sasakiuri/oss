@@ -1,4 +1,7 @@
-export type ResultListClassificationCode = 'RPO' | 'MQS' | 'OOC' | 'DNS' | 'DNF' | 'DSQ' | 'DQB' | 'AD_DSQ';
+import type { ResultListClassificationCode } from '@/shared/utils/resultClassification';
+
+export { classificationSuppressesScore } from '@/shared/utils/resultClassification';
+export type { ResultListClassificationCode } from '@/shared/utils/resultClassification';
 
 export interface ResultListDisplayPolicy {
   readonly scoringPrecision: 0 | 1;
@@ -25,8 +28,4 @@ export function formatResultScore(value: number, policy: ResultListDisplayPolicy
 
 export function formatClassificationCode(code: ResultListClassificationCode): string {
   return code === 'AD_DSQ' ? 'AD-DSQ' : code;
-}
-
-export function classificationSuppressesScore(code: ResultListClassificationCode | null): boolean {
-  return code === 'DNS' || code === 'DSQ' || code === 'DQB' || code === 'AD_DSQ';
 }

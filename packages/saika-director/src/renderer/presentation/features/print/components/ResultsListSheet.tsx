@@ -1,4 +1,5 @@
 import type { ParticipantDto, RankedResultDto } from '@/shared/ipc/contracts';
+
 import {
   classificationSuppressesScore,
   formatClassificationCode,
@@ -158,7 +159,7 @@ function resolveClassification(
   participant: ParticipantDto | null,
 ): ResultListClassificationCode | null {
   if (result?.classificationCode) return result.classificationCode;
-  const status = participant?.entryStatus;
+  const status = result ? result.entryStatus : participant?.entryStatus;
   return status && status !== 'COMPETING' ? status : null;
 }
 
