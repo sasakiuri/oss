@@ -5,11 +5,12 @@ This file is generated from the installed production dependency closure of
 
 Package/version entries: 22
 
-The following npm package may be included in this product:
+The following npm packages may be included in this product:
 
- - @sasakiuri/saika-protocol@0.1.0
+ - @sasakiuri/saika-protocol@0.2.0
+ - @sasakiuri/saika-updater@0.2.0
 
-This package contains the following license:
+These packages each contain the following license:
 
 MIT License
 
@@ -32,17 +33,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
------------
-
-The following npm packages may be included in this product:
-
- - @sasakiuri/saika-updater@0.1.0
- - lazy-val@1.0.5
-
-These packages each contain the following license:
-
-MIT
 
 -----------
 
@@ -467,6 +457,16 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
 OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-----------
+
+The following npm package may be included in this product:
+
+ - lazy-val@1.0.5
+
+This package contains the following license:
+
+MIT
 
 -----------
 

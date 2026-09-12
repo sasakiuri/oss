@@ -39,8 +39,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 The following npm packages may be included in this product:
 
  - @pdf-lib/fontkit@1.1.1
- - @sasakiuri/saika-rules@0.1.0
- - @sasakiuri/saika-updater@0.1.0
  - lazy-val@1.0.5
 
 These packages each contain the following license:
@@ -109,11 +107,13 @@ SOFTWARE.
 
 -----------
 
-The following npm package may be included in this product:
+The following npm packages may be included in this product:
 
- - @sasakiuri/saika-protocol@0.1.0
+ - @sasakiuri/saika-protocol@0.2.0
+ - @sasakiuri/saika-rules@0.2.0
+ - @sasakiuri/saika-updater@0.2.0
 
-This package contains the following license:
+These packages each contain the following license:
 
 MIT License
 

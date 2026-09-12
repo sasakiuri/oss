@@ -1,6 +1,43 @@
 # Changelog
 
-All notable changes to Saika Director are documented in this file.
+## 0.4.0
+
+### Added
+
+- Coordinate Lane participation, athlete assignments, timers, and command retries, with competition recovery after reconnecting or restarting.
+- Share targets, standings, and publication status with Saika Vista over an encrypted local connection.
+- Issue a range-wide STOP / UNLOAD and record Lane responses. Clearing the stop requires a safety check.
+- Configure start checks for relay readiness, EST inspections, clocks, Lane timing, and backup availability. Save reusable operating presets and templates.
+- Record firearm malfunctions, interruptions, target examinations, and authorized Qualification or 25m Final recovery firing. Officials confirm scoring separately.
+- Transfer a paused continuous Qualification session to a reserve Lane already joined to the competition; resuming requires a separate Jury authorization.
+- Prepare malfunction calculation sheets, preview score corrections from Jury evidence, and retain the original scores and correction history.
+- Import and monitor independent EST backups in JSON, CSV, or TSV. Compare totals, ordered shots, and series for Qualification and Final results, retaining the original files.
+- Manage protest and appeal records, print their history, and prepare drafts on locally selected official PDF forms.
+- Configure result-publication checks by event and round. Record actual posting times, official approvals, and Final declarations; unresolved cases can block publication.
+- Register athletes across a championship, record DSQ, DQB, and AD-DSQ decisions, and apply their classifications to entries and results.
+- Register equipment and inspections, and review post-competition checks before publication.
+- Add optional operator sign-in, operation permissions, and signing roles for result approvals and Results Books.
+- Export certified Results Books as HTML, A4 PDF, or JSON, including individual and team records and official confirmations.
+- Add 300m Rifle and 50m Pistol event definitions and event-specific scoring gauges.
+- Check for application updates, download releases, and install after a confirmed restart.
+
+### Fixed
+
+- Preserve all Qualification series and shot counts, including 12-series events, in storage, live boards, and printed results.
+- Use ten-shot countback blocks for ISSF 25m Qualification ties and require review when missing evidence prevents a reliable ranking.
+- Recheck start conditions immediately before LOAD and use the correct 25m Final readiness periods and replacement-shot limits.
+- Keep form drafts, pending queries, and errors with the selected competition or case when navigating between screens.
+- Retain original evidence files in database backups and verify their size and SHA-256 before restoring.
+- Prevent delayed commands and timers from affecting a replacement MQTT connection. Restore backup monitoring without delaying startup or other sources.
+- Preserve firing-point assignments when editing entry counts and apply entry classifications consistently.
+
+### Distribution
+
+- Lane, Director, Vista, and Docs use the same suite version and release. Director has its own automatic-update metadata.
+- macOS packages can be built unsigned; unsigned installations require manual updates.
+- Update shared rules, protocol, and updater packages to 0.2.0 and update test dependencies.
+
+See the [operation](../saika-docs/director/OPERATIONS.md) and [results](../saika-docs/director/RESULTS.md) guides for procedures and limits.
 
 ## 0.1.0 - 2026-08-25
 
@@ -22,41 +59,17 @@ All notable changes to Saika Director are documented in this file.
 
 ### Fixed
 
-- Native `better-sqlite3` binaries are rebuilt for each Electron target and restored for local Node.js development.
-- MQTT configuration is saved only after a successful runtime transition and rolls back on failure.
-- Graceful shutdown flushes lane state before closing SQLite, closes remaining board windows on application exit, and keeps macOS services alive while all windows are closed.
-- Failed MQTT client and embedded broker startup attempts now clean up their sockets and resources.
-- Invalid persisted settings are replaced with safe defaults so legacy configuration cannot prevent recovery.
-- Tournament participants cannot be assigned to multiple relays or overwrite an existing result from another relay.
-- Command acknowledgements are accepted only on the exact expected MQTT topic, and terminal acknowledgements cannot regress to `executing`.
-- Result publication waits for fresh final Lane state and score snapshots instead of trusting a finish acknowledgement that may overtake broker delivery.
-- The embedded broker persists retained MQTT messages in SQLite and restores them before accepting clients after a restart.
-- Athlete assignments are locked during active competition and after result publication, while remaining editable for recoverable result-save failures.
-- A deleted result event no longer traps its linked competition before the recoverable result-repair phase.
-- Gracefully disconnected and offline Lanes no longer remain eligible for Director firing-point assignments or reserve a replacement Lane's number.
-- MQTT result publication rejects Lane athletes who are not assigned to the selected championship relay.
-- Lane aliases supplied for the current MQTT connection are reflected immediately in Director discovery and firing-point resolution.
-- Failed Lane MQTT initialization closes its reconnecting client and publishes an offline rollback instead of leaving Director with a ghost connection.
-- Final shoot-offs are indexed by event, validate every target before changing Lane state, reject duplicate or incomplete rankings, and return all target Lanes from `SHOOTOFF` after resolution.
-- Lane assignment and final-result publication reject duplicate channels, Lanes, and athletes before changing state; final-result storage now enforces one row per event athlete.
-- Partial MQTT result publication replaces only results from the same Director competition, preserving other simultaneous competitions in the relay.
-- Finishing a linked competition before its match starts is treated as an explicit abandonment and cannot publish a zero-score championship result.
-- Active competition timer deadlines are retained and restored after Director reconnects or restarts.
-- Final Lane state and score snapshots are correlated to the finish command so delayed pre-finish scores cannot be saved.
-- Concurrent commands for one MQTT competition are serialized, and membership changes across competitions cannot reserve the same Lane concurrently.
-- Broker configuration, connection, and lifecycle transitions are serialized so overlapping changes cannot leave the runtime connected to a different broker than the saved configuration.
-- Timer-bearing MQTT commands retain their intended deadline before broadcast, so retries cannot extend a timer when the post-ACK competition-state update fails.
-- Retained Lane heartbeats expire after 150 seconds, so broker recovery cannot leave absent Lanes online or reserving firing-point numbers.
-- MQTT result publication treats the retained final score as the authoritative shot detail, so pre-reset shot events cannot reappear when a reset acknowledgement is lost.
-- A pending sighting deadline is discarded after every possibly affected Lane leaves, so replacement Lanes start with a fresh timer instead of an expired retry deadline.
-- Expired competition timers are retried after acknowledgement or retained-state failures until their original deadline is durably cleared.
-- Packaged applications ignore `VITE_DEV_SERVER_URL`, preventing environment configuration from replacing trusted renderer files with remote content that can access preload APIs.
-- An old timer expiry is not broadcast while a replacement timer remains partly applied, preventing an extension or restart from ending successful Lanes at the superseded deadline.
-- Broker transitions wait for in-flight competition operations, so completion and result-cleanup state cannot cross into a newly selected broker.
-- Structurally inconsistent Lane score payloads are rejected before they can produce contradictory totals and tie-break details in tournament results.
-- Published results take athlete names and affiliations from the tournament database instead of trusting echoed MQTT assignment text.
-- Final scores must use the competition's configured scoring mode, and BP60 qualification metadata now correctly declares integer ring scoring.
-- Manual timer restarts are rejected before a competition starts and after it completes, preventing retained timer state that no Lane can apply.
-- Lane, live-ranking, and shoot-off IPC responses are structurally validated before reaching renderer code.
-- Legacy result publication cannot replace confirmed results or results owned by an MQTT competition.
-- Shoot-off creation returns its structured identifier through the validated IPC contract.
+- Build native SQLite modules for each Electron target and restore the Node.js development binaries afterward.
+- Save MQTT settings only after a successful connection change. Failed client or broker startup closes sockets and reconnect attempts; invalid saved settings fall back to defaults.
+- Flush Lane state before closing SQLite, close board windows on exit, and keep macOS services running when all windows are closed.
+- Preserve retained broker messages, competition deadlines, and recovery state across restarts. Offline Lanes and expired heartbeats no longer reserve firing points.
+- Serialize competition commands, Lane membership changes, and broker transitions. Acknowledgements must match the command topic and cannot regress from a terminal state.
+- Keep original timer deadlines through retries and partial failures. Discard obsolete deadlines after Lane replacement, and reject timer restarts outside an active competition.
+- Wait for final Lane state and score snapshots tied to the finish command before saving results. Use the retained score history so earlier shot events cannot restore reset scores.
+- Validate score totals, scoring modes, and tie-break details before publication. BP60 Qualification uses integer ring scoring.
+- Prevent duplicate Lane and athlete assignments. Lock assignments during competition and after publication, while allowing repairs after failed result saves.
+- Publish results only for athletes assigned to the selected relay, using names and affiliations from the tournament database. Preserve confirmed results and results owned by other competitions.
+- Allow cleanup when a linked event has been deleted. Abandoning a competition before Match starts does not publish zero-score results.
+- Validate all shoot-off targets and rankings before changing Lane state; return every target Lane from SHOOTOFF after resolution.
+- Validate Lane, live-ranking, and shoot-off IPC responses, including the identifier returned when a shoot-off is created.
+- Ignore VITE_DEV_SERVER_URL in packaged applications so renderer content is loaded from the installed files.

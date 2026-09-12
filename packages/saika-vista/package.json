@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-vista",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Offline spectator displays for Saika Lane and Director",
   "desktopName": "Saika Vista",
