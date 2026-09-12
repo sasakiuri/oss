@@ -1,3 +1,5 @@
+import type { RankedResultDto } from '@/shared/ipc/contracts';
+
 import type { ResultApprovalScope } from '../domain/ResultListApprovalEntry';
 
 export interface VerificationEvidenceSummary {
@@ -16,6 +18,8 @@ export interface VerifiableResult {
   readonly participantId: string;
   readonly revision: string;
   readonly rank: number;
+  /** Qualification entry classification; null for Final and team result sources. */
+  readonly entryStatus: RankedResultDto['entryStatus'] | null;
   readonly playerName: string;
   readonly affiliation: string;
   readonly relayNumber: number;

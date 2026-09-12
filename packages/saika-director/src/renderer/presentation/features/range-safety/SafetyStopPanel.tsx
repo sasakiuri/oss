@@ -184,31 +184,33 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
 
   return (
     <Card className={stoppedGroups.length > 0 ? 'border-red-500 bg-red-950/20' : ''}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold text-vscode-text">
             <AlertOctagon size={18} className="text-red-400" aria-hidden="true" />
             Range safety STOP
           </h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-vscode-text-muted">
-            Stop all discovered Lanes, regardless of competition phase or interruption records. This pauses their
-            timers, blocks firing commands, keeps subsequent shots out of scoring, and displays STOP / UNLOAD in full
-            screen.
+            Stops all discovered Lanes. Timers pause and further shots are excluded until safety clearance.
           </p>
         </div>
         <Button
           variant="danger"
           size="lg"
-          className="min-w-72 border-2 border-red-400 bg-red-700 font-black tracking-wide text-white hover:bg-red-600"
+          className="border-red-400 bg-red-700 font-semibold text-white hover:bg-red-600"
           disabled={!connected || busy !== null || pendingStopCount === 0 || targetLanes.length === 0}
           onClick={() => void activate()}
         >
           {busy === 'stop' ? <LoaderCircle size={18} className="animate-spin" /> : <AlertOctagon size={18} />}
-          {pendingStopCount === 0 ? 'SAFETY STOP ACTIVE' : `EMERGENCY STOP · ${pendingStopCount} LANE(S)`}
+          {targetLanes.length === 0
+            ? 'EMERGENCY STOP'
+            : pendingStopCount === 0
+              ? 'SAFETY STOP ACTIVE'
+              : `EMERGENCY STOP · ${pendingStopCount} LANE(S)`}
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      <div className="mt-3 grid max-w-3xl gap-3 sm:grid-cols-[minmax(10rem,1fr)_2fr]">
         <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
           Responsible official
           <input
@@ -227,17 +229,15 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
         </label>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
         {targetLanes.length === 0 ? (
           <span className="text-vscode-text-muted">No target Lanes are available.</span>
         ) : (
           targetLanes.map((lane) => (
             <span
               key={lane.laneId}
-              className={`rounded border px-2 py-1 ${
-                lane.safetyState?.status === 'STOPPED'
-                  ? 'border-red-500 bg-red-950/40 text-red-200'
-                  : 'border-vscode-border text-vscode-text-muted'
+              className={`py-1 ${
+                lane.safetyState?.status === 'STOPPED' ? 'font-semibold text-red-200' : 'text-vscode-text-muted'
               }`}
             >
               {lane.firingPointNumber ?? (lane.laneAlias || lane.laneId.slice(0, 8))} ·{' '}

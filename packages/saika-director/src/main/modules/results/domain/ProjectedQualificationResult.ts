@@ -1,12 +1,14 @@
+import type { ParticipantEntryStatus } from '@/main/modules/championship';
 import type { ScoreDecisionProjection } from '@/main/modules/scoring-decisions';
-import type { IRankable } from './IRankable';
-import type { Result } from './Result';
 import type {
   CompetitionTypeStrategy,
   QualificationRankingInput,
   RankingShotEvidence,
   ResultFormat,
 } from '@/shared/competitionTypes';
+
+import type { IRankable } from './IRankable';
+import type { Result } from './Result';
 
 /** Read model that composes immutable source results with immutable official decisions. */
 export class ProjectedQualificationResult implements IRankable<ProjectedQualificationResult> {
@@ -15,9 +17,14 @@ export class ProjectedQualificationResult implements IRankable<ProjectedQualific
     readonly projection: ScoreDecisionProjection,
     private readonly strategy: CompetitionTypeStrategy,
     private readonly format: ResultFormat,
+    readonly entryStatus: ParticipantEntryStatus,
     private readonly sourceRankingShots: readonly RankingShotEvidence[] = source.rankingShots,
     private readonly sourceShots: readonly number[] = source.shots,
   ) {}
+
+  get isRanked(): boolean {
+    return this.entryStatus === 'COMPETING' && this.projection.classificationCode === null;
+  }
 
   get totalScore(): number {
     return this.projection.totalScoreX10 / 10;
@@ -46,8 +53,8 @@ export class ProjectedQualificationResult implements IRankable<ProjectedQualific
   }
 
   compareTo(other: ProjectedQualificationResult): number {
-    const thisRanked = this.projection.classificationCode === null;
-    const otherRanked = other.projection.classificationCode === null;
+    const thisRanked = this.isRanked;
+    const otherRanked = other.isRanked;
     if (thisRanked !== otherRanked) return thisRanked ? -1 : 1;
     if (!thisRanked && !otherRanked) return 0;
 

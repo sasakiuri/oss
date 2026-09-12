@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { EventId, ParticipantId } from '@/main/modules/championship';
-import { Result } from '@/main/modules/results/domain/Result';
-import { ResultId } from '@/main/modules/results/domain/ResultId';
 import { ProjectedQualificationResult } from '@/main/modules/results/domain/ProjectedQualificationResult';
 import { RankingService } from '@/main/modules/results/domain/RankingService';
+import { Result } from '@/main/modules/results/domain/Result';
+import { ResultId } from '@/main/modules/results/domain/ResultId';
 import { ScoringDecisionProjector } from '@/main/modules/scoring-decisions';
 import { IssfStandardStrategy } from '@/shared/competitionTypes';
 import type { RankingShotEvidence, ResultFormat } from '@/shared/competitionTypes';
@@ -44,7 +44,7 @@ function projected(familyName: string, innerTens: [boolean, boolean]): Projected
     { totalScoreX10: 200, seriesScoresX10: [200], shotsX10: [100, 100], shotsPerSeries: 2 },
     [],
   );
-  return new ProjectedQualificationResult(source, projection, new IssfStandardStrategy(), format);
+  return new ProjectedQualificationResult(source, projection, new IssfStandardStrategy(), format, 'COMPETING');
 }
 
 describe('ProjectedQualificationResult ranking', () => {

@@ -31,8 +31,7 @@ export function ChampionshipList({ onSelect, onCreate }: ChampionshipListProps) 
     <div className="min-h-full">
       <PageHeader
         title="Championships"
-        description="Events, entries, firing points and results."
-        icon={<Trophy size={23} aria-hidden="true" />}
+
         actions={
           <Button onClick={onCreate}>
             <Plus size={17} aria-hidden="true" />

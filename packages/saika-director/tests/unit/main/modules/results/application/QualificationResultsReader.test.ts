@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { EventId, ParticipantId } from '@/main/modules/championship';
+import { EventId, Participant, ParticipantId } from '@/main/modules/championship';
 import type { IResultScoreCorrectionSource, ResultClassificationOverlay } from '@/main/modules/results';
 import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
 import type { IResultRepository } from '@/main/modules/results/domain/IResultRepository';
@@ -77,6 +77,11 @@ describe('QualificationResultsReader', () => {
       resultRepository,
       decisionRepository,
       registry,
+      {
+        findByEventId: () => [
+          Participant.create(result.participantId, result.eventId, result.playerName, result.affiliation),
+        ],
+      },
       {
         findByEventId: () => [...overlays],
       },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EventId, ParticipantId } from '@/main/modules/championship';
+import { EventId, ParticipantId, type ParticipantEntryStatus } from '@/main/modules/championship';
 import { ProjectedQualificationResult } from '@/main/modules/results/domain/ProjectedQualificationResult';
 import { QualificationRankingService } from '@/main/modules/results/domain/QualificationRankingService';
 import { Result } from '@/main/modules/results/domain/Result';
@@ -9,7 +9,12 @@ import { ScoringDecisionProjector } from '@/main/modules/scoring-decisions';
 import { IssfStandardStrategy } from '@/shared/competitionTypes';
 
 const format = { totalShots: 60, totalSeries: 6, tieBreakPolicy: 'ISSF_FULL_RING' as const };
-function projected(name: string, lastSeries: number, innerTenCount: number | null) {
+function projected(
+  name: string,
+  lastSeries: number,
+  innerTenCount: number | null,
+  entryStatus: ParticipantEntryStatus = 'COMPETING',
+) {
   const series = [190 - lastSeries, 100, 100, 100, 100, lastSeries];
   const shots = series.flatMap((score) => Array.from({ length: 10 }, (_, index) => (index < score - 90 ? 10 : 9)));
   let remaining = innerTenCount ?? 0;
@@ -50,10 +55,25 @@ function projected(name: string, lastSeries: number, innerTenCount: number | nul
     ),
     new IssfStandardStrategy(),
     format,
+    entryStatus,
   );
 }
 
 describe('QualificationRankingService', () => {
+  it('does not let an unranked entry change tie evidence or rank offsets for competing athletes', () => {
+    const ranked = new QualificationRankingService().calculateRankings([
+      projected('Adams', 90, 20),
+      projected('Clark', 95, null, 'RPO'),
+      projected('Baker', 100, 10),
+    ]);
+    expect(ranked.map((item) => [item.result.source.playerName, item.rank])).toEqual([
+      ['Adams', 1],
+      ['Baker', 2],
+      ['Clark', 0],
+    ]);
+    expect(ranked.every((item) => item.issues.length === 0)).toBe(true);
+  });
+
   it('keeps the entire uncertain group provisional in every arrival order', () => {
     const a = projected('Adams', 90, 20);
     const b = projected('Baker', 100, 10);

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { defineContract, command, query, queryResponseSchema, commandDataResponseSchema } from '../defineContract';
 
+import { participantEntryStatusSchema } from './championship.contract';
+
 // ---------------------------------------------------------------------------
 // Shared sub-schemas
 // ---------------------------------------------------------------------------
@@ -26,6 +28,7 @@ const ConfirmResultsResponseSchema = z.object({
 });
 
 const RankedResultDtoSchema = z.object({
+  entryStatus: participantEntryStatusSchema,
   shotScores: z.array(z.number()).optional(),
   id: z.string(),
   participantId: z.string(),

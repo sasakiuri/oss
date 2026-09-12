@@ -5,7 +5,7 @@ import { RankingService } from './RankingService';
 export class QualificationRankingService {
   calculateRankings(results: readonly ProjectedQualificationResult[]) {
     const groups = new Map<number, ProjectedQualificationResult[]>();
-    for (const result of results.filter((item) => item.projection.classificationCode === null)) {
+    for (const result of results.filter((item) => item.isRanked)) {
       const group = groups.get(result.totalScore) ?? [];
       group.push(result);
       groups.set(result.totalScore, group);
@@ -29,9 +29,7 @@ export class QualificationRankingService {
       });
     return [
       ...ranked,
-      ...results
-        .filter((item) => item.projection.classificationCode !== null)
-        .map((result) => ({ result, rank: 0, issues: [] as string[] })),
+      ...results.filter((item) => !item.isRanked).map((result) => ({ result, rank: 0, issues: [] as string[] })),
     ];
   }
 }

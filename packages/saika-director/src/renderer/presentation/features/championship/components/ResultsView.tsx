@@ -1,20 +1,23 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useResults } from '../../../hooks/useResults';
 import { CheckCircle, ClipboardCheck, FileClock, Printer, Scale } from 'lucide-react';
-import { Logger } from '@/shared/utils/Logger';
-import type { FinalRankedResultDto } from '@/shared/ipc/contracts/results.contract';
-import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+
 import { resultsService, boardService, teamResultsService } from '@/renderer/services';
+import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
+import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import { Logger } from '@/shared/utils/Logger';
+import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
+
+import { useResults } from '../../../hooks/useResults';
 import { useNotificationStore } from '../../../stores/ui/notifications.store';
 import { Button } from '../../shared/common/Button';
-import { ScoringDecisionPanel } from './ScoringDecisionPanel';
-import type { RankedResultDto } from '@/shared/ipc/contracts/results.contract';
-import { ResultVerificationPanel } from './ResultVerificationPanel';
-import { FinalPlacementReviewPanel } from './FinalPlacementReviewPanel';
-import { ResultPublicationPanel } from './ResultPublicationPanel';
-import { FinalResultDeclarationPanel } from './FinalResultDeclarationPanel';
-import { TeamResultsPanel } from './TeamResultsPanel';
+
 import { EstBackupVerificationPanel } from './EstBackupVerificationPanel';
+import { FinalPlacementReviewPanel } from './FinalPlacementReviewPanel';
+import { FinalResultDeclarationPanel } from './FinalResultDeclarationPanel';
+import { ResultPublicationPanel } from './ResultPublicationPanel';
+import { ResultVerificationPanel } from './ResultVerificationPanel';
+import { ScoringDecisionPanel } from './ScoringDecisionPanel';
+import { TeamResultsPanel } from './TeamResultsPanel';
 
 const logger = Logger.create('ResultsView');
 
@@ -519,7 +522,8 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                             : ''
                     }
                   >
-                    {result.classificationCode ?? result.rank}
+                    {result.classificationCode ??
+                      (result.entryStatus === 'COMPETING' ? result.rank : result.entryStatus)}
                   </span>
                 </td>
                 <td className="px-2 py-1.5 text-base">{result.playerName}</td>
@@ -528,12 +532,18 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                   const score = result.seriesScores[idx];
                   return (
                     <td key={idx} className="px-2 py-1.5 text-right text-base tabular-nums">
-                      {score !== undefined && score > 0 ? score : '-'}
+                      {classificationSuppressesScore(result.classificationCode ?? result.entryStatus)
+                        ? '—'
+                        : score !== undefined && score > 0
+                          ? score
+                          : '-'}
                     </td>
                   );
                 })}
                 <td className="px-2 py-1.5 text-right text-base font-bold tabular-nums">
-                  {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
+                  {classificationSuppressesScore(result.classificationCode ?? result.entryStatus)
+                    ? '—'
+                    : result.totalScore.toFixed(1)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
                   {result.scoreAdjustment === 0

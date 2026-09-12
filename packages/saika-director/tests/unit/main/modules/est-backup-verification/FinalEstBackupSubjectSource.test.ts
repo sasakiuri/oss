@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { FinalEstBackupSubjectSource } from '@/main/modules/est-backup-verification';
 import type { ResultVerificationSourceSnapshot, VerifiableResult } from '@/main/modules/result-verification';
 
@@ -12,6 +13,7 @@ function harness(mixed = false) {
     affiliation: 'Club',
     relayNumber: 1,
     totalScore: 250.1,
+    entryStatus: null,
     classificationCode: null,
     decisionCount: 1,
     projectionIssues: [],

@@ -1,15 +1,15 @@
+import { ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
 import Database from 'better-sqlite3';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
 
-import { EventId, ParticipantId } from '@/main/modules/championship';
+import { migration067QualificationResultSeries } from '@/main/infrastructure/database/migrations/067_qualification_result_series';
+import { EventId, Participant, ParticipantId } from '@/main/modules/championship';
+import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
 import { Result } from '@/main/modules/results/domain/Result';
 import { ResultId } from '@/main/modules/results/domain/ResultId';
-import { migration067QualificationResultSeries } from '@/main/infrastructure/database/migrations/067_qualification_result_series';
 import { SqliteResultRepository } from '@/main/modules/results/infra/SqliteResultRepository';
-import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
-import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import type { IScoringDecisionRepository } from '@/main/modules/scoring-decisions';
+import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack, IssfStandardStrategy } from '@/shared/competitionTypes';
 
@@ -230,6 +230,11 @@ describe('SqliteResultRepository', () => {
       new SqliteResultRepository(database!),
       { findByEventId: () => [decision] } as unknown as IScoringDecisionRepository,
       registry,
+      {
+        findByEventId: () => [
+          Participant.create(original.participantId, original.eventId, original.playerName, original.affiliation),
+        ],
+      },
     );
     const projected = (await reader.getByEvent(EVENT_ID))[0]!;
     expect(projected.totalScore).toBe(598);

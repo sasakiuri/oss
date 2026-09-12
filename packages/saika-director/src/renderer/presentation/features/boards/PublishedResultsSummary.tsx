@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { resultPublicationService } from '@/renderer/services';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 
 const labels: Record<ResultBoardSnapshotDto['state'], string> = {
   DRAFT: 'Draft',
@@ -103,10 +104,15 @@ export function PublishedResultsSummary({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.resultId} className="border-b border-vscode-border">
-                    <td className="p-2">{row.classificationCode ?? (row.rank || '—')}</td>
+                    <td className="p-2">
+                      {row.classificationCode ??
+                        (row.entryStatus && row.entryStatus !== 'COMPETING' ? row.entryStatus : row.rank || '—')}
+                    </td>
                     <td className="p-2">{row.playerName}</td>
                     <td className="p-2">{row.affiliation}</td>
-                    <td className="p-2 text-right">{row.classificationCode ? '—' : row.totalScore}</td>
+                    <td className="p-2 text-right">
+                      {classificationSuppressesScore(row.classificationCode ?? row.entryStatus) ? '—' : row.totalScore}
+                    </td>
                   </tr>
                 ))}
               </tbody>

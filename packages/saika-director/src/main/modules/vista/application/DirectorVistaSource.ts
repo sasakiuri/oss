@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type Database from 'better-sqlite3';
-import { z } from 'zod';
+import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 import {
   VistaSnapshotSchema,
   type VistaCatalog,
@@ -9,15 +8,19 @@ import {
   type VistaParticipant,
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
+import type Database from 'better-sqlite3';
+import { z } from 'zod';
+
+import { SqliteFinalControlRepository } from '@/main/modules/final-control';
+import { SqliteFinalOperationRepository, projectFinalOperation } from '@/main/modules/final-operations';
+import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
+import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
+import { assembleRankingEvidence, type ResultDisplayProjection } from '@/main/modules/results';
 import type { CompetitionTypeRegistry, QualificationRankingInput } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import { ReserveLaneTransferBundleSchema } from '@/shared/mqtt/ReserveLaneTransfer';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
-import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
-import { SqliteFinalControlRepository } from '@/main/modules/final-control';
-import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
-import { SqliteFinalOperationRepository, projectFinalOperation } from '@/main/modules/final-operations';
-import { assembleRankingEvidence, type ResultDisplayProjection } from '@/main/modules/results';
+import { ReserveLaneTransferBundleSchema } from '@/shared/mqtt/ReserveLaneTransfer';
+
 import { directorVistaDefinition, vistaDigest } from './directorVistaDefinition';
 
 type Competition = MqttControlSnapshotDto['competitions'][number];
@@ -411,6 +414,28 @@ export class DirectorVistaSource {
     });
   }
 
+  private publicScores(snapshot: CanonicalSnapshot): CanonicalSnapshot {
+    const publicRanking = (ranking: VistaSnapshot['ranking']) => {
+      if (!ranking) return null;
+      const rows = ranking.rows.map((row) =>
+        classificationSuppressesScore(row.classification) ? { ...row, total: null } : row,
+      );
+      if (rows.every((row, index) => row.total === ranking.rows[index]!.total)) return ranking;
+      const next = { ...ranking, rows, revision: '' };
+      return { ...next, revision: vistaDigest(next) };
+    };
+    return {
+      ...snapshot,
+      participants: snapshot.participants.map((participant) =>
+        classificationSuppressesScore(participant.status)
+          ? { ...participant, total: null, series: participant.series.map((series) => ({ ...series, total: null })) }
+          : participant,
+      ),
+      ranking: publicRanking(snapshot.ranking),
+      eventRanking: publicRanking(snapshot.eventRanking),
+    };
+  }
+
   /** Retries if any local result, evidence, assignment or publication changed across an async board read. */
   private async canonicalSnapshot(subjectId: string): Promise<CanonicalSnapshot> {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -490,6 +515,7 @@ export class DirectorVistaSource {
           if (row) {
             participant.total = row.totalScore;
             if (row.classificationCode) participant.status = row.classificationCode;
+            else if (row.entryStatus && row.entryStatus !== 'COMPETING') participant.status = row.entryStatus;
             const projection = resultProjections.find(
               (result) => result.resultId === row.resultId && result.participantId === participant.id,
             );
@@ -528,25 +554,27 @@ export class DirectorVistaSource {
         ranking.rows.sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER));
         ranking.revision = vistaDigest({ ...ranking, revision: '' });
       }
-      const next = CanonicalSnapshotSchema.parse({
-        protocolVersion: 1,
-        sourceId: this.identity.sourceId,
-        subjectId,
-        generation: vistaDigest({
-          competition: subjectId,
-          definition: source.definition.fingerprint,
+      const next = this.publicScores(
+        CanonicalSnapshotSchema.parse({
+          protocolVersion: 1,
+          sourceId: this.identity.sourceId,
+          subjectId,
+          generation: vistaDigest({
+            competition: subjectId,
+            definition: source.definition.fingerprint,
+          }),
+          revision: row.revision + 1,
+          capturedAt,
+          label: this.label(source),
+          phase: competition.phase,
+          finished: competition.phase === 'MATCH_COMPLETE' && competition.finishedAt !== null,
+          definition: source.definition,
+          participants,
+          clock: shootOffActive ? null : this.rangeClock(source, capturedAt),
+          ranking,
+          eventRanking: board && board.results.length ? this.ranking(board, source) : null,
         }),
-        revision: row.revision + 1,
-        capturedAt,
-        label: this.label(source),
-        phase: competition.phase,
-        finished: competition.phase === 'MATCH_COMPLETE' && competition.finishedAt !== null,
-        definition: source.definition,
-        participants,
-        clock: shootOffActive ? null : this.rangeClock(source, capturedAt),
-        ranking,
-        eventRanking: board && board.results.length ? this.ranking(board, source) : null,
-      });
+      );
       if (previous) {
         const semantic = (value: CanonicalSnapshot) => ({ ...value, capturedAt: 0, revision: 0 });
         if (vistaDigest(semantic(previous)) === vistaDigest(semantic(next))) return { ...previous, capturedAt };
@@ -571,14 +599,14 @@ export class DirectorVistaSource {
     if (!row.snapshot_json) return null;
     const previous = CanonicalSnapshotSchema.parse(JSON.parse(row.snapshot_json));
     if (!previous.finished || previous.eventRanking?.kind !== 'competition') return null;
-    const archived: CanonicalSnapshot = {
+    const archived = this.publicScores({
       ...previous,
       capturedAt: this.now(),
       participants: previous.participants.map((participant) => ({ ...participant, dataState: 'stale', clock: null })),
       clock: null,
       ranking: previous.ranking ? { ...previous.ranking, state: 'UNVERIFIED' } : null,
       eventRanking: { ...previous.eventRanking, state: 'UNVERIFIED' },
-    };
+    });
     if (vistaDigest({ ...archived, capturedAt: 0 }) !== vistaDigest({ ...previous, capturedAt: 0 })) {
       archived.revision = row.revision + 1;
       this.db
@@ -909,8 +937,8 @@ export class DirectorVistaSource {
         rank: row.rank > 0 ? row.rank : null,
         name: row.playerName,
         affiliation: row.affiliation,
-        total: row.totalScore,
-        classification: row.classificationCode,
+        total: classificationSuppressesScore(row.classificationCode ?? row.entryStatus) ? null : row.totalScore,
+        classification: row.classificationCode ?? (row.entryStatus === 'COMPETING' ? null : row.entryStatus),
       })),
     };
   }
@@ -1015,7 +1043,7 @@ export class DirectorVistaSource {
               : (ranks.get(participant.id) ?? null),
           name: participant.name ?? participant.laneName,
           affiliation: participant.affiliation,
-          total: participant.total,
+          total: classificationSuppressesScore(participant.status) ? null : participant.total,
           classification: classified(participant) ? participant.status : null,
         };
       }),

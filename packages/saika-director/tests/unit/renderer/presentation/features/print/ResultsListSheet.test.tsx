@@ -20,6 +20,7 @@ function result(overrides: Partial<RankedResultDto> = {}): RankedResultDto {
     scoreAdjustment: 0,
     deductionTotal: 0,
     remarks: [],
+    entryStatus: 'COMPETING',
     classificationCode: null,
     decisionCount: 0,
     projectionIssues: [],
@@ -57,6 +58,31 @@ function participant(overrides: Partial<ParticipantDto> = {}): ParticipantDto {
 }
 
 describe('ResultsListSheet', () => {
+  it.each(['RPO', 'MQS', 'OOC'] as const)(
+    'prints the projected %s entry classification together with its score',
+    (entryStatus) => {
+      render(
+        <ResultsListSheet
+          eventName="Qualification"
+          results={[result({ rank: 0, entryStatus })]}
+          participants={[]}
+          policy={createResultListDisplayPolicy({ scoringPrecision: 0, totalSeries: 3 })}
+          certification={{
+            status: 'DRAFT',
+            postedAt: null,
+            protestEndsAt: null,
+            approvalOfficialName: null,
+            publicationCurrent: false,
+          }}
+        />,
+      );
+      const row = screen.getByText('Athlete One').closest('tr')!;
+      expect(within(row).getByText(entryStatus)).toBeInTheDocument();
+      expect(within(row).getByText('300')).toBeInTheDocument();
+      expect(within(row).queryByText('0')).not.toBeInTheDocument();
+    },
+  );
+
   it('uses event precision, dynamic series columns and official metadata', () => {
     render(
       <ResultsListSheet

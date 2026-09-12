@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Gauge, LoaderCircle, RefreshCw } from 'lucide-react';
+import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNavigationStore } from '@/renderer/presentation/stores/ui/navigation.store';
@@ -84,8 +84,6 @@ export function CompetitionControlScreen() {
     <div className="min-h-full">
       <PageHeader
         title="Competition Control"
-        description="Lane membership, athlete assignment and course-of-fire control."
-        icon={<Gauge size={24} aria-hidden="true" />}
         actions={
           <>
             <span
@@ -115,14 +113,14 @@ export function CompetitionControlScreen() {
       />
 
       <div className="p-5">
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <LaneAttentionSignals lanes={snapshot.lanes} />
+        <SafetyStopPanel
+          connected={snapshot.connected}
+          lanes={snapshot.lanes}
+          targetLaneIds={snapshot.lanes.map((lane) => lane.laneId)}
+        />
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0 space-y-4">
-            <LaneAttentionSignals lanes={snapshot.lanes} />
-            <SafetyStopPanel
-              connected={snapshot.connected}
-              lanes={snapshot.lanes}
-              targetLaneIds={snapshot.lanes.map((lane) => lane.laneId)}
-            />
             <LaneManagementPanel
               selection={selection}
               commands={commands}

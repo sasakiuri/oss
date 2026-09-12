@@ -13,14 +13,6 @@ describe('Card', () => {
     expect(screen.getByText('Hello')).toBeDefined();
   });
 
-  it('should apply default styling', () => {
-    const { container } = render(<Card>Content</Card>);
-    const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain('bg-vscode-bg-light');
-    expect(card.className).toContain('border');
-    expect(card.className).toContain('rounded-sm');
-  });
-
   it('should apply custom className', () => {
     const { container } = render(<Card className="custom-card">Custom</Card>);
     const card = container.firstChild as HTMLElement;

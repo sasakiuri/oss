@@ -3,15 +3,15 @@ import type { IQualificationResultsReader } from '@/main/modules/results';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 
-import type {
-  IResultVerificationSource,
-  ResultVerificationSourceSnapshot,
-} from '../application/ResultVerificationSource';
 import {
   UnsupportedTeamResultVerificationReadiness,
   type ITeamResultVerificationReadiness,
   type TeamResultVerificationKind,
 } from '../application/ITeamResultVerificationReadiness';
+import type {
+  IResultVerificationSource,
+  ResultVerificationSourceSnapshot,
+} from '../application/ResultVerificationSource';
 
 /** Qualification projection, team-memory checks and event policy adapter. */
 export class QualificationResultVerificationSource implements IResultVerificationSource {
@@ -54,6 +54,7 @@ export class QualificationResultVerificationSource implements IResultVerificatio
         participantId: result.participantId,
         revision: result.revision,
         rank: result.rank,
+        entryStatus: result.entryStatus,
         playerName: result.playerName,
         affiliation: result.affiliation,
         relayNumber: result.relayNumber,

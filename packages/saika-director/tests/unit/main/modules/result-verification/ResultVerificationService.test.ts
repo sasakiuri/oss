@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OfficialSigningPolicy, type IOfficialSigningPolicy, type SigningActor } from '@/main/modules/official-signing';
 
-import type { IQualificationResultsReader } from '@/main/modules/results';
+import { OfficialSigningPolicy, type IOfficialSigningPolicy, type SigningActor } from '@/main/modules/official-signing';
+import { VerifiedResultPublicationReadiness } from '@/main/modules/result-publication/infra/VerifiedResultPublicationReadiness';
 import {
   QualificationResultVerificationSource,
   ResultVerificationService,
@@ -11,10 +11,10 @@ import {
 import type { IResultVerificationRepository } from '@/main/modules/result-verification/domain/IResultVerificationRepository';
 import type { ResultListApprovalEntry } from '@/main/modules/result-verification/domain/ResultListApprovalEntry';
 import type { ResultVerificationCheck } from '@/main/modules/result-verification/domain/ResultVerificationCheck';
+import type { IQualificationResultsReader } from '@/main/modules/results';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { RankedResultDto } from '@/shared/ipc/contracts';
-import { VerifiedResultPublicationReadiness } from '@/main/modules/result-publication/infra/VerifiedResultPublicationReadiness';
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const RESULT_ONE_ID = '22222222-2222-4222-8222-222222222222';
@@ -42,6 +42,7 @@ function rankedResult(props: {
     scoreAdjustment: 0,
     deductionTotal: 0,
     remarks: [],
+    entryStatus: 'COMPETING',
     classificationCode: null,
     decisionCount: props.decisionCount ?? 0,
     projectionIssues: [],

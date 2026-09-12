@@ -1,6 +1,4 @@
 // @vitest-environment node
-import Database from 'better-sqlite3';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ISSF_2026_RFPM,
   ISSF_2026_STDP,
@@ -9,9 +7,25 @@ import {
   assessQualificationMalfunctionClaim,
   type RulePack,
 } from '@sasakiuri/saika-rules';
+import Database from 'better-sqlite3';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
-import { EventId, ParticipantId, SqliteEventRepository } from '@/main/modules/championship';
+import {
+  EventId,
+  ParticipantId,
+  SqliteEventRepository,
+  SqliteParticipantRepository,
+} from '@/main/modules/championship';
+import {
+  MalfunctionScoreApplicationService,
+  SqliteMalfunctionScoreApplicationRepository,
+  ResultMalfunctionScoreTargetSource,
+  MalfunctionQualificationScoreOverlaySource,
+} from '@/main/modules/malfunction-score-applications';
+import type { MalfunctionScoreApplicationRequest } from '@/main/modules/malfunction-score-applications/domain/MalfunctionScoreApplication';
+import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives';
 import {
   QualificationMalfunctionCase,
   QualificationMalfunctionEntry,
@@ -21,19 +35,11 @@ import {
   type MalfunctionScoreSheetInput,
 } from '@/main/modules/qualification-malfunctions';
 import { MalfunctionScoreSheetService } from '@/main/modules/qualification-malfunctions/application/MalfunctionScoreSheetService';
-import {
-  MalfunctionScoreApplicationService,
-  SqliteMalfunctionScoreApplicationRepository,
-  ResultMalfunctionScoreTargetSource,
-  MalfunctionQualificationScoreOverlaySource,
-} from '@/main/modules/malfunction-score-applications';
-import type { MalfunctionScoreApplicationRequest } from '@/main/modules/malfunction-score-applications/domain/MalfunctionScoreApplication';
 import { Result, ResultId, SqliteResultRepository, QualificationResultsReader } from '@/main/modules/results';
-import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
-import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives';
-import { CompetitionTypeRegistry, competitionTypeFromRulePack, IssfStandardStrategy } from '@/shared/competitionTypes';
+import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import { CompetitionTypeRegistry, competitionTypeFromRulePack, IssfStandardStrategy } from '@/shared/competitionTypes';
 
 let db: Database.Database;
 afterEach(() => db?.close());
@@ -191,6 +197,7 @@ function setup(pack: RulePack = ISSF_2026_RFPM, nonAllowable = false) {
     results,
     decisions,
     registry,
+    new SqliteParticipantRepository(db),
     undefined,
     new MalfunctionQualificationScoreOverlaySource(applications, cases),
   );

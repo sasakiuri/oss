@@ -310,8 +310,7 @@ export function ChampionshipScreen() {
         <div className="min-h-full">
           <PageHeader
             title="New championship"
-            description="Name, date and venue."
-            icon={<Trophy size={23} aria-hidden="true" />}
+
             actions={
               <Button variant="secondary" size="sm" onClick={() => setView('list')}>
                 <ArrowLeft size={16} aria-hidden="true" />
@@ -329,11 +328,7 @@ export function ChampionshipScreen() {
 
       {view === 'edit' && editTarget && (
         <div className="min-h-full">
-          <PageHeader
-            title="Edit championship"
-            description={editTarget.name}
-            icon={<Pencil size={22} aria-hidden="true" />}
-          />
+          <PageHeader title="Edit championship" description={editTarget.name} />
           <div className="p-5">
             <Card className="max-w-xl">
               <ChampionshipForm
@@ -365,7 +360,7 @@ export function ChampionshipScreen() {
                 </span>
               </span>
             }
-            icon={<Trophy size={23} aria-hidden="true" />}
+
             actions={
               <>
                 <Button variant="secondary" size="sm" onClick={handleBack}>

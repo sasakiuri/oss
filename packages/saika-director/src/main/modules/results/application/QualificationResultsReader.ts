@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken, type GetEventByIdResponse, type IParticipantRepository } from '@/main/modules/championship';
 import {
   ScoringDecisionProjector,
   type IScoringDecisionRepository,
@@ -15,7 +15,6 @@ import type { IResultRepository } from '../domain/IResultRepository';
 import { ProjectedQualificationResult } from '../domain/ProjectedQualificationResult';
 import { QualificationRankingService } from '../domain/QualificationRankingService';
 import type { Result } from '../domain/Result';
-import { displayResultShots, type IResultDisplayReader, type ResultDisplayProjection } from './ResultDisplayProjection';
 
 import {
   applyQualificationScoreOverlays,
@@ -28,6 +27,7 @@ import {
   type IResultClassificationOverlaySource,
   type ResultClassificationOverlay,
 } from './ResultClassificationOverlaySource';
+import { displayResultShots, type IResultDisplayReader, type ResultDisplayProjection } from './ResultDisplayProjection';
 import {
   qualificationCorrectionBasis,
   noResultScoreCorrections,
@@ -50,6 +50,7 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
     private readonly results: IResultRepository,
     private readonly decisions: IScoringDecisionRepository,
     private readonly competitionTypes: CompetitionTypeRegistry,
+    private readonly participants: Pick<IParticipantRepository, 'findByEventId'>,
     private readonly classificationOverlays: IResultClassificationOverlaySource = noResultClassificationOverlays,
     private readonly scoreOverlays: IQualificationScoreOverlaySource = noQualificationScoreOverlays,
     private readonly corrections: IResultScoreCorrectionSource = noResultScoreCorrections,
@@ -77,6 +78,9 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     const strategy = this.competitionTypes.getStrategyFor(definition);
+    const participantsById = new Map(
+      this.participants.findByEventId(eventId).map((participant) => [participant.id.value, participant]),
+    );
     const decisionsByTarget = new Map<string, ScoringDecision[]>();
     for (const decision of this.decisions.findByEventId(eventId, 'QUALIFICATION')) {
       const key = targetKey(decision.participantId, decision.relayNumber);
@@ -93,6 +97,8 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
     const scoreOverlayRevisions = new Map<Result, string>();
     const shotOrigins = new Map<Result, ScoreCorrectionProjection['shotOrigins']>();
     const projectedResults = sourceResults.map((result) => {
+      const participant = participantsById.get(result.participantId.value);
+      if (!participant) throw new Error(`Participant ${result.participantId.value} not found in event ${eventId}`);
       const history = decisionsByTarget.get(targetKey(result.participantId.value, result.relayNumber)) ?? [];
       const overlay = overlaysByParticipant.get(result.participantId.value);
       histories.set(result, history);
@@ -153,6 +159,7 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
         },
         strategy,
         definition.resultFormat,
+        participant.officialEntry.entryStatus,
         base.rankingShots,
         base.shotsX10.map((score) => score / 10),
       );
@@ -178,7 +185,8 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
       const dtoWithoutRevision = {
         id: source.id.value,
         participantId: source.participantId.value,
-        rank: projection.classificationCode === null ? ranked.rank : 0,
+        rank: ranked.rank,
+        entryStatus: ranked.result.entryStatus,
         playerName: source.playerName,
         familyName: source.familyName,
         affiliation: source.affiliation,

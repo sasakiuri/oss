@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type FocusEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 interface ConfigBarProps {
@@ -30,21 +30,14 @@ function NumberStepper({ label, value, min = 1, onChange }: NumberStepperProps) 
     onChange(value + 1);
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const text = e.target.value;
-    setRawValue(text);
-    const parsed = parseInt(text, 10);
-    if (!isNaN(parsed) && parsed >= min) {
-      onChange(parsed);
+  const commitInput = () => {
+    const parsed = /^\d+$/.test(rawValue.trim()) ? Number(rawValue) : NaN;
+    if (!Number.isSafeInteger(parsed) || parsed < min) {
+      setRawValue(String(value));
+      return;
     }
-  };
-
-  const handleBlur = (e: FocusEvent<HTMLInputElement>) => {
-    const parsed = parseInt(e.target.value, 10);
-    if (isNaN(parsed) || parsed < min) {
-      onChange(min);
-    }
-    setRawValue(String(value));
+    setRawValue(String(parsed));
+    if (parsed !== value) onChange(parsed);
   };
 
   return (
@@ -63,9 +56,19 @@ function NumberStepper({ label, value, min = 1, onChange }: NumberStepperProps) 
         <input
           type="text"
           inputMode="numeric"
+          aria-label={label.replace(/:$/, '')}
           value={rawValue}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
+          onChange={(event) => setRawValue(event.target.value)}
+          onBlur={commitInput}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitInput();
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              setRawValue(String(value));
+            }
+          }}
           className="h-8 w-10 border-y border-vscode-border bg-vscode-input px-1 text-center text-[13px] text-vscode-text"
         />
         <button

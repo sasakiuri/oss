@@ -1,5 +1,3 @@
-import { ClockAlert } from 'lucide-react';
-
 import { Card } from '../shared/common/Card';
 import { PageHeader } from '../shared/layout/PageHeader';
 
@@ -9,11 +7,7 @@ import { RangeInterruptionsPanel } from './RangeInterruptionsPanel';
 export function RangeInterruptionsScreen() {
   return (
     <div className="min-h-full">
-      <PageHeader
-        title="Range Interruptions"
-        description="Interruption facts, ISSF recommendations, official time grants, and Lane command audit."
-        icon={<ClockAlert size={23} aria-hidden="true" />}
-      />
+      <PageHeader title="Range Interruptions" />
       <div className="p-5">
         <Card>
           <RangeInterruptionsPanel />

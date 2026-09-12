@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
+
+import { ISSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ISSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
+
 import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { migration088VistaRankingScopes } from '@/main/infrastructure/database/migrations/088_vista_ranking_scopes';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
+import { EventId, ParticipantId, SqliteParticipantRepository, GetEventByIdToken } from '@/main/modules/championship';
+import { SqliteFinalControlRepository, type IFinalControlRepository } from '@/main/modules/final-control';
+import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
+import { SqliteFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
 import { SqliteCompetitionShotJournal, type CompetitionShotObservation } from '@/main/modules/mqtt';
 import { ReserveLaneTransferService, SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
-import { type ReserveLaneTransferBundle } from '@/shared/mqtt/ReserveLaneTransfer';
-import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
-import { SqliteFinalResultRepository } from '@/main/modules/results';
+import { ResultBoardSnapshotService } from '@/main/modules/result-publication';
 import {
+  SqliteFinalResultRepository,
   Result,
   ResultId,
   SqliteResultRepository,
@@ -21,31 +26,26 @@ import {
   qualificationCorrectionBasis,
   finalCorrectionBasis,
 } from '@/main/modules/results';
+import { PublishMqttFinalResultsHandler } from '@/main/modules/results/commands/PublishMqttFinalResultsHandler';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import { FinalResultId } from '@/main/modules/results/domain/FinalResultId';
-import { EventId, ParticipantId } from '@/main/modules/championship';
-import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
-import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
-import { SqliteFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
-import { ResultBoardSnapshotService } from '@/main/modules/result-publication';
 import { ScoreCorrectionService, SqliteScoreCorrectionRepository } from '@/main/modules/score-corrections';
 import type { ScoreCorrectionChange } from '@/main/modules/score-corrections/domain/ScoreCorrection';
-import { getMatchSeriesShotCounts } from '@/shared/competitionTypes';
-import { PublishMqttFinalResultsHandler } from '@/main/modules/results/commands/PublishMqttFinalResultsHandler';
-import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
-import { SqliteFinalControlRepository, type IFinalControlRepository } from '@/main/modules/final-control';
-import { GetEventByIdToken } from '@/main/modules/championship';
-import { DirectorVistaSource } from '@/main/modules/vista/application/DirectorVistaSource';
+import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions';
+import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import { directorVistaDefinition, vistaDigest } from '@/main/modules/vista/application/directorVistaDefinition';
-import { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
-import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
-import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
-import { BR60S_FINAL } from '@/shared/competitionTypes/definitions/BR60S_FINAL';
+import { DirectorVistaSource } from '@/main/modules/vista/application/DirectorVistaSource';
+import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import { CompetitionTypeRegistry, getMatchSeriesShotCounts } from '@/shared/competitionTypes';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
 import { BP60_FINAL } from '@/shared/competitionTypes/definitions/BP60_FINAL';
+import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+import { BR60S_FINAL } from '@/shared/competitionTypes/definitions/BR60S_FINAL';
+import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
+import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import { type ReserveLaneTransferBundle } from '@/shared/mqtt/ReserveLaneTransfer';
 
 const competitionId = randomUUID();
 const laneId = randomUUID();
@@ -448,6 +448,7 @@ describe('Director Vista source', () => {
           resultRepository,
           decisions,
           registry,
+          new SqliteParticipantRepository(db),
           undefined,
           undefined,
           corrections,
@@ -465,6 +466,7 @@ describe('Director Vista source', () => {
             results: results.map((result) => ({
               resultId: result.id,
               rank: result.rank,
+              entryStatus: 'entryStatus' in result ? result.entryStatus : null,
               playerName: result.playerName,
               affiliation: result.affiliation,
               totalScore: result.totalScore,
@@ -520,6 +522,93 @@ describe('Director Vista source', () => {
     return { ids, observations, reader, corrections, apply, withdraw, readProjection };
   }
 
+  it.each(['RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB'] as const)(
+    'applies the %s public score and rank policy in both saved event and relay views',
+    async (entryStatus) => {
+      officialSource('BP60', 2);
+      const before = await source.snapshot(`${competitionId}:event`);
+      db.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run(entryStatus, participantId);
+      for (const scope of ['event', 'relay']) {
+        const result = await source.snapshot(`${competitionId}:${scope}`);
+        expect(result.ranking!.rows.find((row) => row.id === participantId)).toMatchObject({
+          rank: null,
+          classification: entryStatus,
+          total: ['DNS', 'DSQ', 'DQB'].includes(entryStatus) ? null : 600,
+        });
+        expect(result.ranking!.rows.filter((row) => row.rank !== null).map((row) => row.rank)).toEqual([1]);
+        const participant = result.participants.find((row) => row.id === participantId)!;
+        expect(participant.total).toBe(['DNS', 'DSQ', 'DQB'].includes(entryStatus) ? null : 600);
+        if (['DNS', 'DSQ', 'DQB'].includes(entryStatus)) {
+          expect(participant.series.every((series) => series.total === null)).toBe(true);
+          expect(participant.shots.length).toBeGreaterThan(0);
+        }
+      }
+      expect((await source.snapshot(`${competitionId}:event`)).revision).not.toBe(before.revision);
+      if (['DNS', 'DSQ', 'DQB'].includes(entryStatus)) {
+        const stored = db
+          .prepare('SELECT source_json, snapshot_json FROM vista_competition_sources WHERE id = ?')
+          .get(competitionId) as { source_json: string; snapshot_json: string };
+        expect(db.prepare('SELECT total_score FROM results WHERE participant_id = ?').get(participantId)).toEqual({
+          total_score: 600,
+        });
+        const archivedSource = { ...JSON.parse(stored.source_json), frozenShotIds: [] };
+        db.prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?').run(
+          JSON.stringify(archivedSource),
+          competitionId,
+        );
+        const archived = await source.snapshot(`${competitionId}:relay`);
+        const participant = archived.participants.find((row) => row.id === participantId)!;
+        expect(participant.total).toBeNull();
+        expect(participant.series.every((series) => series.total === null)).toBe(true);
+        expect(participant.shots.length).toBeGreaterThan(0);
+        expect(archived.ranking!.rows.find((row) => row.id === participantId)!.total).toBeNull();
+      }
+    },
+  );
+
+  it.each(['live', 'archive'] as const)(
+    'revises legacy %s public scores without changing the selected generation',
+    async (kind) => {
+      officialSource('BP60', 2);
+      db.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run('DSQ', participantId);
+      const before = await source.snapshot(`${competitionId}:relay`);
+      const stored = db
+        .prepare('SELECT source_json, snapshot_json FROM vista_competition_sources WHERE id = ?')
+        .get(competitionId) as { source_json: string; snapshot_json: string };
+      const legacy = JSON.parse(stored.snapshot_json);
+      const participant = legacy.participants.find((row: { id: string }) => row.id === participantId);
+      participant.total = 600;
+      participant.series.forEach((series: { total: number }) => {
+        series.total = 100;
+      });
+      for (const ranking of [legacy.ranking, legacy.eventRanking])
+        ranking.rows.find((row: { id: string }) => row.id === participantId).total = 600;
+      const savedSource = JSON.parse(stored.source_json);
+      if (kind === 'archive') savedSource.frozenShotIds = [];
+      db.prepare('UPDATE vista_competition_sources SET source_json = ?, snapshot_json = ? WHERE id = ?').run(
+        JSON.stringify(savedSource),
+        JSON.stringify(legacy),
+        competitionId,
+      );
+      const corrected = await source.snapshot(`${competitionId}:relay`);
+      expect(corrected.generation).toBe(before.generation);
+      expect(corrected.revision).toBeGreaterThan(before.revision);
+      expect(corrected.participants.find((row) => row.id === participantId)!.total).toBeNull();
+      expect(corrected.ranking!.rows.find((row) => row.id === participantId)!.total).toBeNull();
+      expect((await source.snapshot(`${competitionId}:relay`)).revision).toBe(corrected.revision);
+      expect(db.prepare('SELECT total_score FROM results WHERE participant_id = ?').get(participantId)).toEqual({
+        total_score: 600,
+      });
+      if (kind === 'live') {
+        db.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run('COMPETING', participantId);
+        const restored = await source.snapshot(`${competitionId}:relay`);
+        expect(restored.participants.find((row) => row.id === participantId)!.total).toBe(600);
+        expect(restored.generation).toBe(before.generation);
+        expect(restored.revision).toBeGreaterThan(corrected.revision);
+      }
+    },
+  );
+
   it.each(
     (['BP60', 'BR60S_FINAL'] as const).flatMap((eventCode) =>
       (['DSQ', 'DQB', 'AD_DSQ'] as const).map((classificationCode) => ({ eventCode, classificationCode })),
@@ -558,7 +647,7 @@ describe('Director Vista source', () => {
         expect(snapshot.ranking!.rows.find((row) => row.id === participantId)).toMatchObject({
           rank: null,
           classification: classificationCode,
-          total: 0,
+          total: null,
         });
         expect(snapshot.participants.find((participant) => participant.id === participantId)!.status).toBe(
           classificationCode,
@@ -856,6 +945,7 @@ describe('Director Vista source', () => {
           playerName: 'Earlier relay',
           affiliation: '',
           totalScore: 600,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
         {
@@ -864,6 +954,7 @@ describe('Director Vista source', () => {
           playerName: 'Athlete',
           affiliation: '',
           totalScore: 590,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
       ],
@@ -962,6 +1053,7 @@ describe('Director Vista source', () => {
             playerName: 'Athlete',
             affiliation: '',
             totalScore: 8.4,
+            entryStatus: 'COMPETING' as const,
             classificationCode: null,
           },
         ],
@@ -1190,6 +1282,7 @@ describe('Director Vista source', () => {
           playerName: 'Athlete',
           affiliation: '',
           totalScore: 17,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
       ],
@@ -1256,6 +1349,7 @@ describe('Director Vista source', () => {
           playerName: 'Athlete',
           affiliation: '',
           totalScore: 600,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
       ],
@@ -1328,6 +1422,7 @@ describe('Director Vista source', () => {
             playerName: 'Athlete',
             affiliation: '',
             totalScore: 8.4,
+            entryStatus: 'COMPETING' as const,
             classificationCode: null,
           },
         ],
@@ -1340,6 +1435,7 @@ describe('Director Vista source', () => {
           playerName: 'Other',
           affiliation: '',
           totalScore: 7,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         });
         board.mockResolvedValue(firstBoard);
@@ -1480,6 +1576,7 @@ describe('Director Vista source', () => {
           playerName: 'Athlete',
           affiliation: '',
           totalScore: 239,
+          entryStatus: 'COMPETING' as const,
           classificationCode: null,
         },
       ],
@@ -2781,6 +2878,7 @@ describe('Director Vista source', () => {
             playerName: 'Athlete',
             affiliation: 'New club',
             totalScore: 8.4,
+            entryStatus: 'COMPETING' as const,
             classificationCode: null,
           },
         ],
