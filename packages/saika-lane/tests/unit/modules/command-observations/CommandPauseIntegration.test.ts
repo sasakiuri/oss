@@ -11,6 +11,8 @@ import { TimedTargetCommandPause } from '@/main/modules/command-observations/app
 import { SqliteCommandObservationRepository } from '@/main/modules/command-observations/infra/SqliteCommandObservationRepository';
 import { TimedTargetSequenceService } from '@/main/modules/timed-target/application/TimedTargetSequenceService';
 import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target/infra/SqliteTimedTargetSequenceRepository';
+import { allMigrations } from '@/main/shared-infra/sqlite/migrations';
+import { MigrationRunner } from '@/main/shared-infra/sqlite/migrations/MigrationRunner';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 const program = ISSF_2026_P25.capabilities.timedTarget!.programs[0]!;
@@ -127,22 +129,23 @@ describe('UNLOAD command pause integration', () => {
     const file = join(directory, 'lane.db');
     try {
       const previous = new Database(file);
+      new MigrationRunner(previous).run(allMigrations.slice(0, 15));
+      expect(previous.pragma('user_version', { simple: true })).toBe(15);
       previous.exec(
         "CREATE TABLE retained_v15_evidence (id TEXT PRIMARY KEY, evidence TEXT NOT NULL); INSERT INTO retained_v15_evidence VALUES ('original', 'unchanged')",
       );
-      // Present since schema version 2; later migrations may extend this evidence table.
-      previous.exec(`CREATE TABLE shot_observations (
-        id TEXT PRIMARY KEY, x REAL, y REAL, device_score_x10 REAL,
-        fired_at TEXT NOT NULL, received_at TEXT NOT NULL,
-        reported_mode TEXT CHECK(reported_mode IN ('SIGHTING', 'MATCH') OR reported_mode IS NULL),
-        raw_frame_hex TEXT
-      );`);
-      previous.pragma('user_version = 15');
+      previous.exec(`INSERT INTO shot_observations (id, x, y, device_score_x10, fired_at, received_at, reported_mode)
+        VALUES ('observation', 1.25, -2.5, 100, '2026-09-07T12:00:00Z', '2026-09-07T12:00:01Z', 'MATCH')`);
+      const existingObservation = previous.prepare('SELECT * FROM shot_observations').get();
       previous.close();
       const upgraded = createSqliteDb(file);
       try {
         expect(upgraded.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(16);
         expect(new SqliteCommandObservationRepository(upgraded).findBySequence('new')).toEqual([]);
+        expect(upgraded.prepare('SELECT * FROM shot_observations').get()).toEqual({
+          ...(existingObservation as Record<string, unknown>),
+          timestamp_source: 'UNKNOWN',
+        });
         expect(upgraded.prepare('SELECT * FROM retained_v15_evidence').all()).toEqual([
           { id: 'original', evidence: 'unchanged' },
         ]);

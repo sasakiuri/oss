@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Series } from '@/main/modules/session/domain/Series';
+import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
@@ -196,6 +198,7 @@ export class Session {
       sourceObservationId?: string;
       targetProfileId?: TargetScoringProfileId;
       scoringGaugeProfileId?: ScoringGaugeProfileId;
+      competitionContext?: ShotCompetitionContext;
     },
   ): Session {
     // Business rule: cannot add new shots to a finished session
@@ -243,6 +246,7 @@ export class Session {
       sourceObservationId: evidence?.sourceObservationId,
       targetProfileId: evidence?.targetProfileId,
       scoringGaugeProfileId: evidence?.scoringGaugeProfileId,
+      competitionContext: evidence?.competitionContext,
     });
 
     // Add to all shots history

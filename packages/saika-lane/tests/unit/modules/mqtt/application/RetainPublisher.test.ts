@@ -82,6 +82,7 @@ function createTestShot(timestamp: Date, shotNumber: number): Shot {
     timestamp,
     shotNumber,
     seriesNumber: 1,
+    competitionContext: { competitionId: 'comp-uuid', stageIndex: 1, seriesIndex: 0 },
     innerTen: false,
   });
 }
@@ -153,6 +154,16 @@ describe('RetainPublisher', () => {
       assignmentPublisher,
     );
     retainPublisher.registerCallbacks();
+  });
+
+  it('preserves missing impact coordinates when replaying a transferred session', async () => {
+    const original = createTestShot(new Date(), 1);
+    const shot = Shot.reconstruct({ ...original, impactPoint: null, score: Score.miss() });
+    vi.mocked(sessionRepository.findById).mockResolvedValue(createMockSession([shot]) as never);
+    vi.mocked(competitionRepository.findById).mockResolvedValue(mockCompetition);
+    await retainPublisher.replayTransferredSession(mockCompetition.id);
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.lastCall![1] as string);
+    expect(payload).toMatchObject({ x: null, y: null, isReplay: true, stageIndex: 1, seriesIndex: 0 });
   });
 
   it('should register onConnect and onDisconnect callbacks', () => {

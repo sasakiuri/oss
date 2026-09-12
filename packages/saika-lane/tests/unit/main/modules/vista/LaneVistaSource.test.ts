@@ -115,6 +115,86 @@ const shot = (session: Session) =>
   session.recordShot(new ImpactPoint(2, -3), new Score(104), new Date(), undefined, false, Mode.match());
 
 describe('Lane spectator source', () => {
+  it('refreshes only the changed competition and retains unrelated catalog errors', async () => {
+    const { source, options, competitions, sessions } = fixture();
+    for (const id of ['live', 'history', 'invalid']) {
+      const session = Session.create(Discipline.beamRifle10m());
+      sessions.set(session.id, session);
+      await competitions.save(CompetitionState.create(id, session.id, BR60S.config));
+    }
+    options.storage.set('competition:invalid', { currentStageIndex: 99 });
+    await source.refresh();
+    const invalid = source.catalog().subjects.find((subject) => subject.id === 'invalid');
+    expect(invalid?.availability).toBe('unsupported');
+    vi.mocked(options.sessions.findById).mockClear();
+    const all = vi.spyOn(options.storage, 'getAll');
+    const active = (await competitions.findById('live'))!;
+    sessions.set(active.sessionId, shot(sessions.get(active.sessionId)!));
+
+    await source.refresh('live');
+
+    expect(all).not.toHaveBeenCalled();
+    expect(options.sessions.findById).toHaveBeenCalledTimes(1);
+    expect(options.sessions.findById).toHaveBeenCalledWith(active.sessionId);
+    expect(source.catalog().subjects.find((subject) => subject.id === 'invalid')).toEqual(invalid);
+    const restored = new LaneVistaSource(options);
+    expect(restored.catalog().subjects.find((subject) => subject.id === 'live')?.availability).toBe('available');
+    const snapshot = JSON.parse(
+      readFileSync(join(options.directory, `${Buffer.from('live').toString('hex')}.json`), 'utf8'),
+    );
+    expect(snapshot.snapshot.participants[0].shots).toHaveLength(1);
+  });
+
+  it('coalesces pending refreshes and yields before reading competition history', async () => {
+    const { source, options, competitions, sessions } = fixture();
+    for (const id of ['first', 'second']) {
+      const session = Session.create(Discipline.beamRifle10m());
+      sessions.set(session.id, session);
+      await competitions.save(CompetitionState.create(id, session.id, BR60S.config));
+    }
+    const pending = [source.refresh('first'), source.refresh('first'), source.refresh('second')];
+    await Promise.resolve();
+    expect(options.sessions.findById).not.toHaveBeenCalled();
+
+    await Promise.all(pending);
+
+    expect(options.sessions.findById).toHaveBeenCalledTimes(2);
+    expect(source.catalog().subjects).toHaveLength(2);
+  });
+
+  it('captures a later shot when another refresh arrives during a capture', async () => {
+    const { source, options, competitions, sessions } = fixture();
+    const session = Session.create(Discipline.beamRifle10m());
+    sessions.set(session.id, session);
+    await competitions.save(CompetitionState.create('ongoing', session.id, BR60S.config));
+    let beginRead!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      beginRead = resolve;
+    });
+    let finishRead!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      finishRead = resolve;
+    });
+    vi.mocked(options.sessions.findById).mockImplementationOnce(async () => {
+      beginRead();
+      await blocked;
+      return session;
+    });
+    const first = source.refresh('ongoing');
+    await reading;
+    sessions.set(session.id, shot(session));
+    const second = source.refresh('ongoing');
+    finishRead();
+    await Promise.all([first, second]);
+
+    expect(options.sessions.findById).toHaveBeenCalledTimes(2);
+    const saved = JSON.parse(
+      readFileSync(join(options.directory, `${Buffer.from('ongoing').toString('hex')}.json`), 'utf8'),
+    );
+    expect(saved.snapshot.participants[0].shots).toHaveLength(1);
+    expect(saved.snapshot.revision).toBe(1);
+  });
+
   it.each(['competition', 'repository', 'evidence', 'stage-position', 'series-position'])(
     'isolates invalid %s data, preserves the affected archive, and recovers after repair',
     async (invalid) => {
@@ -595,7 +675,11 @@ describe('Lane spectator source', () => {
     'keeps a competition and its sighting history through the first stage transition after upgrade, captured=%s',
     async (captured) => {
       const { source, competitions, sessions, options, shotContexts } = fixture();
-      const sighting = Session.create(Discipline.fromValue(BR60S.discipline)).recordShot(null, new Score(0), new Date());
+      const sighting = Session.create(Discipline.fromValue(BR60S.discipline)).recordShot(
+        null,
+        new Score(0),
+        new Date(),
+      );
       sessions.set(sighting.id, sighting);
       shotContexts.set(sighting.allShots[0]!.id, { stage: 0, series: 0 });
       const competition = CompetitionState.create('upgraded', sighting.id, BR60S.config).startStage().endStage();
@@ -907,10 +991,7 @@ describe('Lane spectator source', () => {
     vi.mocked(options.sessions.findActive).mockResolvedValue(session);
     const events = new TypedEventBus();
     const timer = new LaneTimerService(competitions, events);
-    events.on(
-      'PhaseChanged',
-      createPhaseChangedHandler({ competitionRepository: competitions, timerService: timer }),
-    );
+    events.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository: competitions, timerService: timer }));
     const source = new LaneVistaSource({ ...options, timer });
     try {
       await competitions.save(CompetitionState.create('previous', session.id, BR60S.config).startStage());
@@ -921,7 +1002,12 @@ describe('Lane spectator source', () => {
       // handler while leaving the next competition idle until its start command.
       const registry = new CompetitionTypeRegistry();
       registry.register(AP60);
-      await createStartCompetitionHandler(registry, competitions, options.sessions, events)({
+      await createStartCompetitionHandler(
+        registry,
+        competitions,
+        options.sessions,
+        events,
+      )({
         competitionTypeId: AP60.id,
         competitionId: 'next',
       });

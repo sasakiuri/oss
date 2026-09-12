@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
+
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
+
+import { parseShotCompetitionContext, type ShotCompetitionContext } from './ShotCompetitionContext';
 
 /**
  * Shot entity
@@ -66,6 +69,7 @@ export class Shot {
 
   /** Link to the immutable pre-rule observation journal, when available. */
   readonly sourceObservationId?: string;
+  readonly competitionContext?: ShotCompetitionContext;
 
   /** Target face used for Lane's independent coordinate score. */
   readonly targetProfileId?: TargetScoringProfileId;
@@ -102,6 +106,7 @@ export class Shot {
     sourceObservationId?: string,
     targetProfileId?: TargetScoringProfileId,
     scoringGaugeProfileId?: ScoringGaugeProfileId,
+    competitionContext?: ShotCompetitionContext,
   ) {
     this.id = id;
     this.impactPoint = impactPoint;
@@ -117,6 +122,8 @@ export class Shot {
     this.sourceObservationId = sourceObservationId;
     this.targetProfileId = targetProfileId;
     this.scoringGaugeProfileId = scoringGaugeProfileId;
+    this.competitionContext =
+      competitionContext === undefined ? undefined : parseShotCompetitionContext(competitionContext);
 
     Object.freeze(this);
   }
@@ -142,6 +149,7 @@ export class Shot {
     sourceObservationId?: string;
     targetProfileId?: TargetScoringProfileId;
     scoringGaugeProfileId?: ScoringGaugeProfileId;
+    competitionContext?: ShotCompetitionContext;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (props.shotNumber < 1) {
@@ -185,6 +193,7 @@ export class Shot {
       props.sourceObservationId,
       props.targetProfileId,
       props.scoringGaugeProfileId,
+      props.competitionContext,
     );
   }
 
@@ -210,6 +219,7 @@ export class Shot {
     sourceObservationId?: string;
     targetProfileId?: TargetScoringProfileId;
     scoringGaugeProfileId?: ScoringGaugeProfileId;
+    competitionContext?: ShotCompetitionContext;
   }): Shot {
     // Invariant: shotNumber must be an integer >= 1
     if (data.shotNumber < 1) {
@@ -251,6 +261,7 @@ export class Shot {
       data.sourceObservationId,
       data.targetProfileId,
       data.scoringGaugeProfileId,
+      data.competitionContext,
     );
   }
 

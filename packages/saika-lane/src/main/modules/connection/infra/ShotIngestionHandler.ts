@@ -9,6 +9,7 @@
 import { RecordShotToken } from '@/main/composition/tokens';
 import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ShotData } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
@@ -37,6 +38,7 @@ export interface ShotIngestionDeps {
   sessionRepository: ISessionRepository;
   competitionRepository: ICompetitionRepository;
   shotObservationRepository: IShotObservationRepository;
+  interruptionReader?: Pick<ICompetitionInterruptionControl, 'get'>;
   safetyStopReader?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
   shootOffReader?: Pick<ICompetitionShootOffControl, 'canAcceptShot' | 'getState'>;
   timedTargetReader?: Pick<ITimedTargetControl, 'tryAcceptShot'>;
@@ -50,6 +52,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
     competitionRepository,
     shotObservationRepository,
     safetyStopReader,
+    interruptionReader,
     shootOffReader,
     timedTargetReader,
     onObservationFinalized,
@@ -174,24 +177,27 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         return;
       }
 
-      const effectiveMode = acceptedByShootOff
-        ? Mode.sighting()
-        : timedTargetDecision
-          ? timedTargetDecision.executionContext?.shotDisposition === 'ISOLATED' ||
-            timedTargetDecision.purpose === 'SIGHTING'
-            ? Mode.sighting()
-            : Mode.match()
-          : activeCompetition
-            ? Mode.fromValue(
-                resolveCompetitionShotMode(
-                  activeCompetition.currentStageConfig,
-                  activeCompetition.currentSeriesConfig,
-                  shotData.mode,
-                ),
-              )
-            : shotData.mode !== undefined
-              ? Mode.fromValue(shotData.mode)
-              : undefined;
+      const authorizedSighting =
+        activeCompetition !== null && interruptionReader?.get(activeCompetition.id)?.status === 'SIGHTING';
+      const effectiveMode =
+        acceptedByShootOff || authorizedSighting
+          ? Mode.sighting()
+          : timedTargetDecision
+            ? timedTargetDecision.executionContext?.shotDisposition === 'ISOLATED' ||
+              timedTargetDecision.purpose === 'SIGHTING'
+              ? Mode.sighting()
+              : Mode.match()
+            : activeCompetition
+              ? Mode.fromValue(
+                  resolveCompetitionShotMode(
+                    activeCompetition.currentStageConfig,
+                    activeCompetition.currentSeriesConfig,
+                    shotData.mode,
+                  ),
+                )
+              : shotData.mode !== undefined
+                ? Mode.fromValue(shotData.mode)
+                : undefined;
 
       const targetProfileId = resolveTargetProfileId(activeCompetition, timedTargetDecision);
       const scoringGaugeProfileId = resolveScoringGaugeProfileId(activeCompetition);
@@ -203,6 +209,15 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         receivedAt: observation.receivedAt,
         deviceScore: shotData.score,
         sourceObservationId: observation.id,
+        ...(activeCompetition
+          ? {
+              competitionContext: {
+                competitionId: activeCompetition.id,
+                stageIndex: activeCompetition.currentStageIndex,
+                seriesIndex: activeCompetition.currentSeriesIndex,
+              },
+            }
+          : {}),
         // A persisted competition stage is authoritative. Adapter context can
         // be stale immediately after restarting the app during MATCH.
         mode: effectiveMode,

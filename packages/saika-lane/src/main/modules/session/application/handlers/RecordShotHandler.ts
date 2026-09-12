@@ -87,6 +87,7 @@ export function createRecordShotHandler(
         calculatedScore,
         receivedAt: input.receivedAt ?? new Date(),
         sourceObservationId: input.sourceObservationId,
+        competitionContext: input.competitionContext,
         targetProfileId,
         scoringGaugeProfileId,
       },

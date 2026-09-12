@@ -36,13 +36,7 @@ export class LaneEstComplaintContextSource implements IEstComplaintSignalContext
     const shotsInCurrentSeries = session.allShots
       .map((shot) => ({
         shot,
-        placement: resolveCompetitionShotPlacement(
-          shot,
-          session.allShots,
-          competition.config,
-          competition.currentStageIndex,
-          competition.currentSeriesIndex,
-        ),
+        placement: resolveCompetitionShotPlacement(shot, session.allShots, competition),
       }))
       .filter(
         ({ shot, placement }) =>

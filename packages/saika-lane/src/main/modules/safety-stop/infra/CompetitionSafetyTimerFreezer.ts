@@ -17,7 +17,7 @@ export class CompetitionSafetyTimerFreezer implements ISafetyTimerFreezer {
     frozenAt: Date;
   } | null> {
     const competition = await this.competitionRepository.findActive();
-    if (!competition || competition.phase !== 'ACTIVE') {
+    if (!competition || !competition.canUpdateTimer()) {
       this.timerService.stop();
       return null;
     }

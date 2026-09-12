@@ -28,6 +28,7 @@ type ConnectionDeps =
   | 'connectionRepository'
   | 'sessionRepository'
   | 'competitionRepository'
+  | 'competitionInterruptionControl'
   | 'competitionShootOffControl'
   | 'timedTargetControl'
   | 'safetyStopControl'
@@ -45,6 +46,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     'connectionRepository',
     'sessionRepository',
     'competitionRepository',
+    'competitionInterruptionControl',
     'competitionShootOffControl',
     'timedTargetControl',
     'safetyStopControl',
@@ -60,6 +62,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     connectionRepository,
     sessionRepository,
     competitionRepository,
+    competitionInterruptionControl,
     competitionShootOffControl,
     timedTargetControl,
     safetyStopControl,
@@ -72,7 +75,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     const sessionContextCache = new SessionContextCache(eventBus);
     usbManager.setSessionContextProvider(() => sessionContextCache.getContext());
 
-    // Register raw data callback for immediate sound notification (before parsing)
+    // Notify once a complete shot has been converted, before ingestion and persistence.
     usbManager.setOnShotDetected(() => {
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send(eventsContract.channels.shotReceived, {});
@@ -172,6 +175,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       shotObservationRepository,
       safetyStopReader: safetyStopControl,
       shootOffReader: competitionShootOffControl,
+      interruptionReader: competitionInterruptionControl,
       timedTargetReader: timedTargetControl,
       onObservationFinalized: (evidenceId) => {
         eventBus.emit({

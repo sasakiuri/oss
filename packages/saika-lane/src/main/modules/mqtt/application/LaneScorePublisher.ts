@@ -4,25 +4,28 @@
  *
  * Subscribes to ShotRecorded (match shots only) and SessionReset from EventBus and
  * publishes LaneScorePayload to `saika/competition/{competitionId}/lane/{laneId}/score`.
- * Retrieves the latest score via QueryBus and publishes it. Retain=ON, QoS 1.
+ * Builds the score from one persisted session snapshot. Retain=ON, QoS 1.
  */
 
 import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
 
-import { GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
+import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import type { Shot } from '@/main/modules/session/domain/Shot';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
+
 export class LaneScorePublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly competitionRepository: ICompetitionRepository;
-  private readonly queryBus: QueryBus;
+  private readonly sessionRepository: ISessionRepository;
   private publicationQueue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -30,12 +33,12 @@ export class LaneScorePublisher {
     eventBus: IEventBus,
     storage: ILocalStorage,
     competitionRepository: ICompetitionRepository,
-    queryBus: QueryBus,
+    sessionRepository: ISessionRepository,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
     this.competitionRepository = competitionRepository;
-    this.queryBus = queryBus;
+    this.sessionRepository = sessionRepository;
 
     eventBus.on('ShotRecorded', (event: ShotRecordedEvent) => {
       if (event.acquisitionContext?.shotDisposition === 'ISOLATED') return;
@@ -71,24 +74,16 @@ export class LaneScorePublisher {
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
 
-    // Get current score via QueryBus
-    const [scoreDto, shotHistory] = await Promise.all([
-      this.queryBus.execute(GetSessionScoreToken, {
-        sessionId: competition.sessionId,
-      }),
-      this.queryBus.execute(GetShotHistoryToken, {
-        sessionId: competition.sessionId,
-      }),
-    ]);
-
+    const session = await this.sessionRepository.findById(competition.sessionId);
+    if (!session) throw new Error(`Session ${competition.sessionId} is unavailable for score publication`);
     const projection = competition.config.resultProjection;
-    const builtScore = this.buildStages(scoreDto.seriesScores, shotHistory.shots, competition, projection);
+    const builtScore = this.buildStages(session.allShots, competition, projection);
     const payload = JSON.stringify({
       competitionId: competition.id,
       laneId,
       sessionId: competition.sessionId,
-      totalScoreX10: projection ? builtScore.totalScoreX10 : scoreDto.totalScore,
-      totalShotCount: scoreDto.shotCount,
+      totalScoreX10: builtScore.totalScoreX10,
+      totalShotCount: builtScore.totalShotCount,
       acc: competition.config.acc,
       stages: builtScore.stages,
       ...(projection
@@ -114,78 +109,49 @@ export class LaneScorePublisher {
   }
 
   private buildStages(
-    seriesScores: number[],
-    shots: readonly {
-      shotNumber: number;
-      seriesNumber?: number;
-      score: number;
-      mode: string;
-      isRecorded: boolean;
-    }[],
-    competition: {
-      config: {
-        stages: readonly {
-          name: string;
-          scored: boolean;
-          series: readonly { maxShots: number; purpose?: string }[];
-        }[];
-      };
-    },
+    shots: readonly Shot[],
+    competition: CompetitionState,
     projection: ShotResultProjectionCapability | undefined,
-  ): { stages: unknown[]; totalScoreX10: number; sourceTotalScoreX10?: number } {
+  ): { stages: unknown[]; totalScoreX10: number; totalShotCount: number; sourceTotalScoreX10?: number } {
+    const matchShots = shots.filter((shot) => shot.mode.isMatch());
+    const placements = matchShots.map((shot) => ({
+      shot,
+      placement: resolveCompetitionShotPlacement(shot, shots, competition),
+    }));
     const stages: unknown[] = [];
-    let seriesOffset = 0;
     let totalScoreX10 = 0;
+    let totalShotCount = 0;
     let sourceTotalScoreX10 = 0;
 
-    for (let stageIdx = 0; stageIdx < competition.config.stages.length; stageIdx++) {
-      const stage = competition.config.stages[stageIdx]!;
-      // Only include match stages in score
+    for (const [stageIndex, stage] of competition.config.stages.entries()) {
       if (!stage.scored) continue;
-
       const seriesData: unknown[] = [];
       let stageTotalX10 = 0;
       let sourceStageTotalX10 = 0;
-
-      for (let serIdx = 0; serIdx < stage.series.length; serIdx++) {
-        const seriesConfig = stage.series[serIdx]!;
-        if (seriesConfig.maxShots === 0 || seriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
-        const scoredSeriesBefore = stage.series
-          .slice(0, serIdx)
-          .filter((series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING').length;
-        const sourceSeriesIndex = seriesOffset + scoredSeriesBefore;
-        const sourceSeriesScoreX10 = seriesScores[sourceSeriesIndex] ?? 0;
-        const seriesNumber = sourceSeriesIndex + 1;
-        const seriesShots = shots
-          .filter((shot) => shot.mode === 'MATCH' && shot.isRecorded && shot.seriesNumber === seriesNumber)
-          .sort((a, b) => a.shotNumber - b.shotNumber);
-        const maxShots = seriesConfig.maxShots;
-        const sourceShotsX10 = seriesShots.map((shot) => shot.score);
+      for (const [seriesIndex, series] of stage.series.entries()) {
+        if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
+        const seriesShots = placements
+          .filter(({ placement }) => placement.stageIndex === stageIndex && placement.seriesIndex === seriesIndex)
+          .sort((left, right) => left.shot.shotNumber - right.shot.shotNumber);
+        const sourceShotsX10 = seriesShots.map(({ shot }) => shot.score.value);
         const resultShotsX10 = projection
           ? sourceShotsX10.map((score) => projectShotResult(projection, score).resultScoreX10)
           : sourceShotsX10;
-        const seriesScoreX10 = projection
-          ? resultShotsX10.reduce((sum, score) => sum + score, 0)
-          : sourceSeriesScoreX10;
-        stageTotalX10 += seriesScoreX10;
-        sourceStageTotalX10 += sourceShotsX10.reduce((sum, score) => sum + score, 0);
-
+        const seriesTotalX10 = resultShotsX10.reduce((sum, score) => sum + score, 0);
+        const sourceSeriesTotalX10 = sourceShotsX10.reduce((sum, score) => sum + score, 0);
+        stageTotalX10 += seriesTotalX10;
+        sourceStageTotalX10 += sourceSeriesTotalX10;
+        totalShotCount += seriesShots.length;
         seriesData.push({
-          seriesIndex: serIdx,
+          seriesIndex,
           shots: resultShotsX10,
-          seriesTotalX10: seriesScoreX10,
-          isComplete: maxShots > 0 && seriesShots.length >= maxShots,
-          ...(projection
-            ? {
-                sourceShotsX10,
-                sourceSeriesTotalX10: sourceShotsX10.reduce((sum, score) => sum + score, 0),
-              }
-            : {}),
+          seriesTotalX10,
+          isComplete: seriesShots.length >= series.maxShots,
+          ...(projection ? { sourceShotsX10, sourceSeriesTotalX10 } : {}),
         });
       }
-
       stages.push({
-        stageIndex: stageIdx,
+        stageIndex,
         stageName: stage.name,
         stageTotalX10,
         series: seriesData,
@@ -193,16 +159,8 @@ export class LaneScorePublisher {
       });
       totalScoreX10 += stageTotalX10;
       sourceTotalScoreX10 += sourceStageTotalX10;
-
-      seriesOffset += stage.series.filter(
-        (series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING',
-      ).length;
     }
-
-    return {
-      stages,
-      totalScoreX10,
-      ...(projection ? { sourceTotalScoreX10 } : {}),
-    };
+    if (totalShotCount !== matchShots.length) throw new Error('MATCH history contains shots outside scored series');
+    return { stages, totalScoreX10, totalShotCount, ...(projection ? { sourceTotalScoreX10 } : {}) };
   }
 }

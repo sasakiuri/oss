@@ -203,7 +203,13 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionRepository,
       (competitionId) => competitionInterruptionControl.get(competitionId),
     );
-    const scorePublisher = new LaneScorePublisher(mqttClient, eventBus, storage, competitionRepository, queryBus);
+    const scorePublisher = new LaneScorePublisher(
+      mqttClient,
+      eventBus,
+      storage,
+      competitionRepository,
+      sessionRepository,
+    );
     new CompetitionShotPublisher(
       mqttClient,
       eventBus,

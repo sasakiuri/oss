@@ -30,6 +30,13 @@ const ShotStorageSchema = z.object({
   calculatedScore: z.number().optional(),
   receivedAt: z.string().optional(),
   sourceObservationId: z.string().optional(),
+  competitionContext: z
+    .object({
+      competitionId: z.string().min(1),
+      stageIndex: z.number().int().nonnegative(),
+      seriesIndex: z.number().int().nonnegative(),
+    })
+    .optional(),
   targetProfileId: z.enum(TARGET_SCORING_PROFILE_IDS).optional(),
   scoringGaugeProfileId: z.enum(SCORING_GAUGE_PROFILE_IDS).optional(),
 });

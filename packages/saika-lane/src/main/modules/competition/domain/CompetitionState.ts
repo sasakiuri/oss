@@ -106,6 +106,22 @@ export class CompetitionState {
     return this.currentStageConfig.series[this.currentSeriesIndex]!;
   }
 
+  /** A stage clock spans the series whose own timers do not override it. */
+  get usesStageTimer(): boolean {
+    const series = this.currentSeriesConfig;
+    return Boolean(this.currentStageConfig.timer && !series.timer && !series.shotTimer && !series.timedTargetProgramId);
+  }
+
+  /** Timer controls also apply while a shared stage clock runs between series. */
+  canUpdateTimer(): boolean {
+    return (
+      this.phase === 'ACTIVE' ||
+      (this.currentStageConfig.scored &&
+        this.usesStageTimer &&
+        (this.phase === 'SERIES_COMPLETE' || this.phase === 'SERIES_ENTERED'))
+    );
+  }
+
   // ── State transitions ──
 
   /**
@@ -196,6 +212,14 @@ export class CompetitionState {
 
     const stageConfig = this.currentStageConfig;
     const seriesConfig = stageConfig.series[this.currentSeriesIndex];
+    if (
+      this.phase !== 'STAGE_ENTERED' &&
+      this.currentStageConfig.scored &&
+      this.usesStageTimer &&
+      this.timer.isExpired
+    ) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', { detail: 'The stage time has expired' });
+    }
 
     // Use series/stage timer when configured. A timed-target series is driven
     // by its independent absolute schedule and must not inherit an expired
@@ -357,7 +381,7 @@ export class CompetitionState {
    */
   expireTimer(): CompetitionState {
     this.assertNotFinished();
-    if (this.phase !== 'ACTIVE') {
+    if (!this.canUpdateTimer()) {
       throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
         detail: `Cannot expire timer in phase: ${this.phase}`,
       });
@@ -390,7 +414,7 @@ export class CompetitionState {
     const nextSeriesIndex = this.currentSeriesIndex + 1;
 
     // If there is a next series within the current stage (advancing series within the same stage)
-    if (nextSeriesIndex < stageConfig.series.length) {
+    if (nextSeriesIndex < stageConfig.series.length && !(this.usesStageTimer && this.timer.isExpired)) {
       return this.with({
         phase: 'SERIES_ENTERED',
         currentSeriesIndex: nextSeriesIndex,
@@ -503,7 +527,7 @@ export class CompetitionState {
   /** Replaces the active timer with an explicitly authorized value. */
   replaceTimer(remainingSeconds: number, totalSeconds: number): CompetitionState {
     this.assertNotFinished();
-    if (this.phase !== 'ACTIVE') {
+    if (!this.canUpdateTimer()) {
       throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
         detail: `Cannot replace timer from phase: ${this.phase}`,
       });

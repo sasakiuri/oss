@@ -1,80 +1,68 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
+import { AR60_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { resolveCompetitionShotPlacement } from '@/main/modules/mqtt/application/ShotCompetitionPlacement';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 
-function shot(shotNumber: number, seriesNumber: number): Shot {
+const competition = { id: 'competition', config: AR60_FINAL.config };
+function shot(shotNumber: number, context?: ShotCompetitionContext, mode = Mode.match()): Shot {
   return Shot.create({
     impactPoint: null,
     score: new Score(100),
-    mode: Mode.match(),
-    timestamp: new Date(`2026-08-28T00:00:${String(shotNumber).padStart(2, '0')}.000Z`),
+    mode,
+    timestamp: new Date(),
     shotNumber,
-    seriesNumber,
+    seriesNumber: mode.isMatch() ? 1 : 0,
     innerTen: false,
+    competitionContext: context,
   });
 }
 
-const config = {
-  name: 'Qualification',
-  shotsPerSeries: 10,
-  acc: 'DECIMAL',
-  stages: [
-    { name: 'Preparation', scored: false, requiresNewSession: false, series: [{ maxShots: 0 }] },
-    {
-      name: 'Match A',
-      scored: true,
-      requiresNewSession: false,
-      series: [{ maxShots: 10 }, { maxShots: 10 }],
-    },
-    { name: 'Break', scored: false, requiresNewSession: false, series: [{ maxShots: 0 }] },
-    { name: 'Match B', scored: true, requiresNewSession: false, series: [{ maxShots: 10 }] },
-  ],
-} as RoundConfig;
-
 describe('resolveCompetitionShotPlacement', () => {
-  it('uses the position within a series instead of the session-global shot number', () => {
-    const first = shot(21, 3);
-    const second = shot(22, 3);
-
-    expect(resolveCompetitionShotPlacement(second, [first, second], config, 3, 0)).toEqual({
-      stageIndex: 3,
-      seriesIndex: 0,
+  it('retains an incomplete series boundary and uses its own shot ordinal', () => {
+    const first = shot(1, { competitionId: competition.id, stageIndex: 1, seriesIndex: 0 });
+    const second = shot(2, { competitionId: competition.id, stageIndex: 1, seriesIndex: 1 });
+    const sighting = shot(3, second.competitionContext, Mode.sighting());
+    const third = shot(4, second.competitionContext);
+    expect(resolveCompetitionShotPlacement(third, [first, second, sighting, third], competition)).toEqual({
+      stageIndex: 1,
+      seriesIndex: 1,
       shotNumberInSeries: 2,
+    });
+    expect(resolveCompetitionShotPlacement(sighting, [first, second, sighting, third], competition)).toEqual({
+      stageIndex: 1,
+      seriesIndex: 1,
+      shotNumberInSeries: 1,
     });
   });
 
-  it('maps a flattened session series across independently configured scored stages', () => {
-    const result = resolveCompetitionShotPlacement(shot(11, 2), [shot(11, 2)], config, 1, 0);
-
-    expect(result).toEqual({ stageIndex: 1, seriesIndex: 1, shotNumberInSeries: 1 });
-  });
-
-  it('skips a zero-shot position-change interval when mapping session series', () => {
-    const positionConfig = {
-      ...config,
-      stages: [
-        config.stages[0]!,
-        {
-          ...config.stages[1]!,
-          series: [
-            { maxShots: 10 },
-            { maxShots: 10 },
-            { maxShots: 0, purpose: 'POSITION_CHANGE_AND_SIGHTING' as const },
-          ],
-        },
-        { name: 'Standing', scored: true, requiresNewSession: false, series: [{ maxShots: 5 }] },
-      ],
-    } as RoundConfig;
-
-    expect(resolveCompetitionShotPlacement(shot(21, 3), [shot(21, 3)], positionConfig, 2, 0)).toEqual({
+  it('preserves a captured single-shot stage even when the competition has subsequently advanced', () => {
+    const recorded = shot(11, { competitionId: competition.id, stageIndex: 2, seriesIndex: 0 });
+    expect(resolveCompetitionShotPlacement(recorded, [recorded], competition)).toEqual({
       stageIndex: 2,
       seriesIndex: 0,
       shotNumberInSeries: 1,
     });
+  });
+
+  it.each([undefined, { competitionId: 'different-competition', stageIndex: 1, seriesIndex: 0 }])(
+    'refuses missing or unrelated competition context: %j',
+    (context) => {
+      const recorded = shot(1, context);
+      expect(() => resolveCompetitionShotPlacement(recorded, [recorded], competition)).toThrow('no verified placement');
+    },
+  );
+
+  it('rejects coordinates outside the configured course and shots absent from history', () => {
+    const invalid = shot(1, { competitionId: competition.id, stageIndex: 99, seriesIndex: 0 });
+    expect(() => resolveCompetitionShotPlacement(invalid, [invalid], competition)).toThrow(
+      'invalid competition coordinates',
+    );
+    const valid = shot(1, { competitionId: competition.id, stageIndex: 1, seriesIndex: 0 });
+    expect(() => resolveCompetitionShotPlacement(valid, [], competition)).toThrow('absent from its session history');
   });
 });

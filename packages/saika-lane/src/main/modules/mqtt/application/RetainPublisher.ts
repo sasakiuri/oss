@@ -180,29 +180,15 @@ export class RetainPublisher {
     const topic = `saika/competition/${competitionId}/lane/${laneId}/shot`;
 
     for (const shot of backlogShots) {
-      const currentStage = competition.config.stages[competition.currentStageIndex];
-      const resolvedPlacement = resolveCompetitionShotPlacement(
-        shot,
-        session.allShots,
-        competition.config,
-        competition.currentStageIndex,
-        competition.currentSeriesIndex,
-      );
-      const placement = currentStage?.scored
-        ? resolvedPlacement
-        : {
-            ...resolvedPlacement,
-            stageIndex: competition.currentStageIndex,
-            seriesIndex: competition.currentSeriesIndex,
-          };
+      const placement = resolveCompetitionShotPlacement(shot, session.allShots, competition);
       const stage = competition.config.stages[placement.stageIndex];
       const scored = stage?.scored ?? true;
 
       const payload = JSON.stringify({
         laneId,
         shotId: shot.id,
-        x: shot.impactPoint?.x ?? 0,
-        y: shot.impactPoint?.y ?? 0,
+        x: shot.impactPoint?.x ?? null,
+        y: shot.impactPoint?.y ?? null,
         ...toShotMqttEvidencePayload(shot),
         innerTen: shot.innerTen,
         mode: shot.mode.value,

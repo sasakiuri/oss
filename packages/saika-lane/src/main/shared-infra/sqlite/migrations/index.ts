@@ -19,6 +19,7 @@ import { migration017 } from './017_malfunction_firing';
 import { migration018 } from './018_reserve_lane_transfers';
 import { migration019 } from './019_observation_timestamp_source';
 import { migration020 } from './020_session_reset_epochs';
+import { migration021 } from './021_shot_competition_context';
 import type { Migration } from './Migration';
 
 /** Append migrations here; published versions and their order are permanent. */
@@ -43,4 +44,5 @@ export const allMigrations: readonly Migration[] = [
   migration018,
   migration019,
   migration020,
+  migration021,
 ];
