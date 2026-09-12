@@ -25,7 +25,8 @@ describe('MigrationRunner', () => {
 
     it('registers reusable operation templates after the competition start policies', () => {
       const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(88);
+      expect(maxVersion).toBe(89);
+      expect(allMigrations.find((migration) => migration.version === 89)?.name).toBe('evidence_file_contents');
       expect(allMigrations.find((migration) => migration.version === 88)?.name).toBe('vista_ranking_scopes');
       expect(allMigrations.find((migration) => migration.version === 87)?.name).toBe('final_result_source_competition');
       expect(allMigrations.find((migration) => migration.version === 86)?.name).toBe('vista_sources');

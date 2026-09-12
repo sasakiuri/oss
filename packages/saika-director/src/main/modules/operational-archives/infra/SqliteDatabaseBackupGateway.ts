@@ -6,6 +6,8 @@ import { basename, join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 
+import { assertEvidenceFileContents } from '@/main/infrastructure/database/EvidenceFileContents';
+
 import type {
   DatabaseBackupGateway,
   DatabaseBackupInspection,
@@ -63,6 +65,7 @@ export class SqliteDatabaseBackupGateway implements DatabaseBackupGateway {
       schemaVersion = Number(schemaRow.value);
       const countRow = candidate.prepare('SELECT COUNT(*) AS count FROM championships').get() as { count: number };
       championshipCount = countRow.count;
+      assertEvidenceFileContents(candidate);
     } finally {
       candidate.close();
     }

@@ -171,6 +171,14 @@ Migrations have consecutive versions and do not manage transactions themselves.
 Published SQL stays unchanged and independent of current feature code; repairs
 use a new migration. Director has its own `schema_meta` migration runner.
 
+Director stores evidence originals as content-addressed SQLite BLOBs alongside
+their custody records. Database backups and recovery copies therefore retain
+both. Backup inspection and restore application verify each referenced original's
+size and SHA-256. Existing external originals are imported in the schema migration
+transaction; missing or corrupt originals abort the migration without deleting
+source files. Old backups containing custody records without originals are
+rejected before replacing the current database.
+
 `AppSettingsStore` owns file writes, recovery, and Lane identity allocation.
 `SettingsDocument` normalizes fields and creates DTOs; `LegacySettingsBridge`
 reads and synchronizes electron-store values. Device migrations inspect raw IDs

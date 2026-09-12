@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, openSync, readFileSync, readSync, renameSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 import Database from 'better-sqlite3';
+
+import { assertEvidenceFileContents } from '@/main/infrastructure/database/EvidenceFileContents';
 
 import { parseRestoreMarker, PENDING_RESTORE_DATABASE, PENDING_RESTORE_MARKER } from './SqliteDatabaseBackupGateway';
 
@@ -102,6 +104,7 @@ function assertRestorableDatabase(path: string, expectedSchemaVersion: number): 
     if (!row || Number(row.value) !== expectedSchemaVersion) {
       throw new Error('The staged database schema changed after it was selected');
     }
+    assertEvidenceFileContents(database);
   } finally {
     database.close();
   }
@@ -144,5 +147,16 @@ function removeDatabaseFiles(databasePath: string): void {
 }
 
 function sha256FileSync(path: string): string {
-  return createHash('sha256').update(readFileSync(path)).digest('hex');
+  const hash = createHash('sha256');
+  const descriptor = openSync(path, 'r');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytesRead: number;
+    while ((bytesRead = readSync(descriptor, buffer, 0, buffer.length, null)) > 0) {
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+    return hash.digest('hex');
+  } finally {
+    closeSync(descriptor);
+  }
 }

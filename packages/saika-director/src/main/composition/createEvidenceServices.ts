@@ -4,7 +4,7 @@ import {
   ElectronEvidenceFileTransfer,
   EvidenceFileArchiveSource,
   EvidenceFileService,
-  NodeEvidenceFileStore,
+  SqliteEvidenceFileStore,
   SqliteEvidenceFileRepository,
   TargetEvidenceFileSubjectSource,
 } from '@/main/modules/evidence-files';
@@ -16,7 +16,6 @@ import {
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
-import { join } from 'path';
 
 type EvidenceServicesDependencies = { userDataPath: string; appVersion: string; dbPath: string } & Pick<
   ServiceRegistry,
@@ -31,7 +30,7 @@ export function createEvidenceServices({
   appVersion,
   dbPath,
 }: EvidenceServicesDependencies) {
-  const evidenceFileStore = new NodeEvidenceFileStore(join(userDataPath, 'evidence-files'));
+  const evidenceFileStore = new SqliteEvidenceFileStore(database);
   const evidenceFileRepository = new SqliteEvidenceFileRepository(database);
   const evidenceFileService = new EvidenceFileService(
     evidenceFileRepository,
