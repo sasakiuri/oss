@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * RawShotPublisher
- *
- * Subscribes to the ShotRecorded event from EventBus and
- * publishes RawShotPayload to `saika/lane/{laneId}/hardware/shot`.
- * QoS 1, Retain OFF (shots are events, not the latest state).
- */
+/** Publishes raw shot events at QoS 1 without retention. */
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';

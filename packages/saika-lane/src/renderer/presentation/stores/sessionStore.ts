@@ -4,25 +4,17 @@ import { create } from 'zustand';
 
 import type { Discipline, SessionMode, ShotDto } from '@/shared/ipc/contracts';
 
-/**
- * Session store state
- */
 interface SessionState {
   /** Current session ID (null when no session is active) */
   currentSessionId: string | null;
-  /** Current mode (sighting / match) */
   mode: SessionMode;
   /** Shooting discipline (null when not selected) */
   discipline: Discipline | null;
-  /** Lane number */
   laneNumber: number;
-  /** Shot history */
   shots: ShotDto[];
   /** Shot indices where Preparation display shot numbers are initialized */
   preparationShotNumberResetIndices: number[];
-  /** Score array per series */
   seriesScores: number[];
-  /** Total score */
   totalScore: number;
   /** Connected target manufacturer (null when disconnected) */
   manufacturer: string | null;
@@ -32,44 +24,17 @@ interface SessionState {
   audioVolume: number;
 }
 
-/**
- * Session store actions
- */
 interface SessionActions {
-  /**
-   * Set session ID
-   * @param sessionId - Session ID (null to clear)
-   */
   setSessionId: (sessionId: string | null) => void;
 
-  /**
-   * Set mode
-   * @param mode - Session mode (SIGHTING | MATCH)
-   */
   setMode: (mode: SessionMode) => void;
 
-  /**
-   * Set discipline
-   * @param discipline - Shooting discipline
-   */
   setDiscipline: (discipline: Discipline | null) => void;
 
-  /**
-   * Set lane number
-   * @param laneNumber - Lane number
-   */
   setLaneNumber: (laneNumber: number) => void;
 
-  /**
-   * Add a shot
-   * @param shot - Shot DTO to add
-   */
   addShot: (shot: ShotDto) => void;
 
-  /**
-   * Set the entire shot array
-   * @param shots - Array of shot DTOs
-   */
   setShots: (shots: ShotDto[]) => void;
 
   /**
@@ -77,24 +42,10 @@ interface SessionActions {
    */
   markPreparationShotNumberReset: () => void;
 
-  /**
-   * Update scores
-   * @param totalScore - Total score
-   * @param seriesScores - Score array per series
-   */
   updateScores: (totalScore: number, seriesScores: number[]) => void;
 
-  /**
-   * Set device information
-   * @param manufacturer - Target manufacturer
-   * @param deviceId - Device ID
-   */
   setDeviceInfo: (manufacturer: string | null, deviceId: string | null) => void;
 
-  /**
-   * Set volume (0-100)
-   * @param volume - Volume level
-   */
   setAudioVolume: (volume: number) => void;
 
   /**
@@ -108,9 +59,6 @@ interface SessionActions {
   resetSession: () => void;
 }
 
-/**
- * Initial state of the session store
- */
 const initialState: SessionState = {
   currentSessionId: null,
   mode: 'SIGHTING',
@@ -125,9 +73,6 @@ const initialState: SessionState = {
   audioVolume: 50,
 };
 
-/**
- * Session management store
- */
 export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   ...initialState,
 

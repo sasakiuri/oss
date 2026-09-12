@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SeriesProgress — Series progress display
- *
- * Displays the current series number when the competition phase is not IDLE.
- */
+/** Shows the current series outside the IDLE phase. */
 
 import React from 'react';
 

@@ -7,9 +7,6 @@ import { ISSF_2026_R3P_FINAL } from '@sasakiuri/saika-rules';
 import { competitionTypeFromRulePack } from '@/shared/competitionTypes';
 import { buildRoundConfig } from '@/shared/constants/roundConfig';
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 function createQualificationLane(channel = 1): LaneControl {
   return LaneControl.create(`lane-${channel}`, Channel.create(channel), QUALIFICATION_CONFIG);
 }
@@ -67,9 +64,6 @@ function exhaustTimer(lane: LaneControl): LaneControl {
   }
   return current.tickTimer();
 }
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 describe('LaneControl characterization tests', () => {
   describe('Qualification: normal flow', () => {

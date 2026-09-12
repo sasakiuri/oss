@@ -1,8 +1,4 @@
-/**
- * EventBus Registry
- *
- * Modules extend EventRegistry through declaration merging to provide type-safe event publishing and subscription.
- */
+/** Modules extend EventRegistry through declaration merging to type their events. */
 
 /** Event registry - extended by each module via declare module */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

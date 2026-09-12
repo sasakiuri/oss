@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
 /**
- * Zoom mode definitions
- *
- * Provides zoom mode type definitions, cyclic order, display labels, and mode switching functions.
- */
-
-/**
  * Zoom mode type
  *
  * The types of zoom modes selectable by the user.

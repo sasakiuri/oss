@@ -10,11 +10,6 @@ import { AdapterRegistry } from './AdapterRegistry';
 export class DataConversionService {
   private readonly registry: AdapterRegistry;
 
-  /**
-   * Creates a DataConversionService.
-   *
-   * @param registry - Adapter registry
-   */
   constructor(registry: AdapterRegistry) {
     this.registry = registry;
   }

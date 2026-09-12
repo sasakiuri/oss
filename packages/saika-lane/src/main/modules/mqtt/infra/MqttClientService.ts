@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MqttClientService
- *
- * mqtt.js wrapper. Implements IMqttClientService and
- * provides connection, Publish, and Subscribe with the MQTT broker.
- */
-
 import mqtt from 'mqtt';
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

@@ -41,7 +41,7 @@ Saika Lane stores its application data locally on the user's machine. **Data is 
 | File                                     | Format | Description                                                   |
 | ---------------------------------------- | ------ | ------------------------------------------------------------- |
 | `saika-lane.db`                          | SQLite | Session and shot records                                      |
-| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings              |
+| `settings.json`                          | JSON   | Application, device, and MQTT settings                        |
 | `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition state |
 | `logs/combined.log`                      | Text   | Application log (rotated, max 5 MB × 5)                       |
 | `logs/error.log`                         | Text   | Error log (rotated, max 5 MB × 5)                             |

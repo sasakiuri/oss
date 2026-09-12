@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * DTO definitions for the Report Application layer
- */
-
 import type { Discipline } from '@/shared/ipc/contracts';
 
 /**

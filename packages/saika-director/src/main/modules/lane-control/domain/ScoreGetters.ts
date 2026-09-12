@@ -68,9 +68,6 @@ export function remainingTime(state: LaneControlState): number {
   return state.timer?.remainingSeconds ?? 0;
 }
 
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-
 export function seriesScores(state: LaneControlState): number[] {
   // Build series scores from the stage/series structure
   const scores: number[] = [];
@@ -166,9 +163,6 @@ export function displaySeriesScores(state: LaneControlState): number[] {
   }
   return scores;
 }
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 
 export function stage1Total(state: LaneControlState): number {
   // Find the first match stage (stageIndex 1 typically)

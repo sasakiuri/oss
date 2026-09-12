@@ -1,12 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Log management store
- *
- * Log entry state management using Zustand.
- * - Log entry array (max 1000 entries)
- * - Auto-scroll setting
- */
-
 import { create } from 'zustand';
 
 import type { LogEntry } from '@/shared/types/log';
@@ -16,49 +8,24 @@ import type { LogEntry } from '@/shared/types/log';
  */
 const MAX_LOG_ENTRIES = 1000;
 
-/**
- * Log store state
- */
 interface LogState {
-  /** Log entry array */
   entries: LogEntry[];
-  /** Auto-scroll enabled flag */
   autoScroll: boolean;
 }
 
-/**
- * Log store actions
- */
 interface LogActions {
-  /**
-   * Add a log entry
-   * @param entry - Log entry to add
-   */
   addEntry: (entry: LogEntry) => void;
 
-  /**
-   * Clear log entries
-   */
   clearEntries: () => void;
 
-  /**
-   * Change auto-scroll setting
-   * @param autoScroll - Enable/disable auto-scroll
-   */
   setAutoScroll: (autoScroll: boolean) => void;
 }
 
-/**
- * Initial state of the log store
- */
 const initialState: LogState = {
   entries: [],
   autoScroll: true,
 };
 
-/**
- * Log management store
- */
 export const useLogStore = create<LogState & LogActions>((set) => ({
   ...initialState,
 

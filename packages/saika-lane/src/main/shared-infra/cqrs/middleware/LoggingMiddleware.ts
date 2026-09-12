@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * CQRS logging middleware
- *
- * Logs the start, completion, and failure of command/query execution.
- */
+/** Logs command and query start, completion, and failure. */
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 

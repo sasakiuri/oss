@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Competition Application layer DTO (Data Transfer Object) definitions
- *
- * Converts domain models to primitive types and returns them to the Renderer layer.
- */
+/** Competition DTOs use primitive values for transport to the renderer. */
 
 export interface TimerDto {
   remainingSeconds: number;

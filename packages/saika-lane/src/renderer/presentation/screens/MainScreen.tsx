@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MainScreen component
- *
- * Main application screen with VSCode-like layout.
- * Integrates SideMenu, SidePanel, TargetDisplay, StatusBar, DebugPane, SettingsModal.
- */
-
 import React, { useCallback, useState } from 'react';
 
 import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';

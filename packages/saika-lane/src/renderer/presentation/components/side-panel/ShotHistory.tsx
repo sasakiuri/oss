@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * ShotHistory — Latest shot list (P5 section)
- */
-
 import React, { memo, useEffect, useRef } from 'react';
 
 import { toArrowDirection } from '../../utils/scoreUtils';

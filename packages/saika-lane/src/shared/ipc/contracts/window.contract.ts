@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Window IPC Contract
- *
- * Defines Zod-based contracts for window-related IPC channels.
- * Covers window operations such as fullscreen toggle, minimize, maximize, close.
- */
-
 import { z } from 'zod';
 
 import {

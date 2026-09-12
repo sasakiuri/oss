@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * BroadcastCommandHandler
- *
- * Handler that processes competition-wide broadcast commands.
- * Subscribes to `saika/competition/{competitionId}/command/+` and
- * calls CommandBus / LaneTimerService according to the action.
- * Implements the 2-phase ACK (executing → done/error) pattern.
- */
+/** Handles competition-wide commands and acknowledges executing, done, or error states. */
 
 import {
   AdvanceStageToken,

@@ -1,8 +1,4 @@
-/**
- * Type-safe CommandBus.
- *
- * Token-based dispatch preserves type safety. Create tokens with defineCommand() and pass them to register/execute.
- */
+/** Command tokens associate handler input and output types at compile time. */
 
 import { Logger } from '@/shared/utils/Logger';
 

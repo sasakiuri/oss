@@ -14,12 +14,7 @@ export interface DiscrepancyContext {
   mode: string;
 }
 
-/**
- * ScoreDiscrepancyDetector
- *
- * A domain service that detects discrepancies between device scores and
- * app-calculated scores, and records them in warning logs and a CSV file.
- */
+/** Logs differences between device and coordinate scores to warnings and CSV. */
 export class ScoreDiscrepancyDetector {
   constructor(private readonly csvLogger: IScoreDiscrepancyLogger) {}
 

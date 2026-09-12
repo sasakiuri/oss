@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Target module definition
- *
- * Initializes the adapter registry and registers target adapters.
- */
-
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 
 import { BPT216Adapter } from './adapters/BPT216Adapter';

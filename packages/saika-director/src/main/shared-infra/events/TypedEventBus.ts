@@ -1,8 +1,4 @@
-/**
- * Type-safe event bus.
- *
- * Derives event-to-payload mappings from EventRegistry so on() infers payload types from event names.
- */
+/** Infers event payload types from EventRegistry. */
 
 import type { AnyDomainEvent, EventMap, EventName } from '@/main/domain/events';
 import { Logger } from '@/shared/utils/Logger';
@@ -35,7 +31,7 @@ export class TypedEventBus implements IEventBus {
    */
   on<N extends EventName>(eventType: N, handler: (event: EventMap[N]) => void): () => void;
   /**
-   * Legacy string-based IEventBus-compatible signature used during migration.
+   * String-based subscription for IEventBus callers.
    */
   on(eventType: string, handler: (event: AnyDomainEvent) => void): () => void;
   on(eventType: string, handler: (event: AnyDomainEvent) => void): () => void {

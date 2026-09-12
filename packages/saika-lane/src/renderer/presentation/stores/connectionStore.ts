@@ -4,11 +4,7 @@ import { create } from 'zustand';
 
 import type { ConnectionStatus, TargetManufacturer } from '@/shared/ipc/contracts';
 
-/**
- * Connection store state
- */
 interface ConnectionState {
-  /** Connection status */
   status: ConnectionStatus;
   /** Connection ID (null when disconnected) */
   connectionId: string | null;
@@ -20,14 +16,7 @@ interface ConnectionState {
   selectedDeviceId: string | null;
 }
 
-/**
- * Connection store actions
- */
 interface ConnectionActions {
-  /**
-   * Set connection status
-   * @param status - Connection status (connected | disconnected)
-   */
   setStatus: (status: ConnectionStatus) => void;
 
   /**
@@ -44,10 +33,6 @@ interface ConnectionActions {
     deviceId?: string,
   ) => void;
 
-  /**
-   * Set selected device ID
-   * @param deviceId - Device ID (null when not selected)
-   */
   setSelectedDeviceId: (deviceId: string | null) => void;
 
   /**
@@ -56,9 +41,6 @@ interface ConnectionActions {
   disconnect: () => void;
 }
 
-/**
- * Initial state of the connection store
- */
 const initialState: ConnectionState = {
   status: 'disconnected',
   connectionId: null,
@@ -67,9 +49,6 @@ const initialState: ConnectionState = {
   selectedDeviceId: null,
 };
 
-/**
- * Connection management store
- */
 export const useConnectionStore = create<ConnectionState & ConnectionActions>((set) => ({
   ...initialState,
 

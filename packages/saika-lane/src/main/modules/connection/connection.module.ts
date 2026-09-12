@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Connection module definition
- *
- * Registers command handlers and IPC handlers for target connection management.
- */
-
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import type { Connection } from '@/main/modules/connection/domain/Connection';

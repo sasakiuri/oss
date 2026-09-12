@@ -80,7 +80,7 @@ describe('useLaneControlStore', () => {
       // Set lanes with only lane-1
       useLaneControlStore.getState().setLanes([createLaneDto({ id: 'lane-1' })]);
 
-      // Selection should remain untouched — pruning is now handled by useLaneControlActions
+      // useLaneControlActions prunes selection; the store leaves it unchanged.
       const selection = useSelectionStore.getState().selectedIds;
       expect(selection.size).toBe(2);
     });
@@ -209,7 +209,7 @@ describe('useLaneControlStore', () => {
 
       useLaneControlStore.getState().clearLanes();
 
-      // Selection should remain untouched — deselection is now handled by useLaneControlActions
+      // useLaneControlActions clears selection; the store leaves it unchanged.
       expect(useSelectionStore.getState().selectedIds.size).toBe(1);
     });
   });
@@ -228,7 +228,7 @@ describe('useLaneControlStore', () => {
 
       useLaneControlStore.getState().reset();
 
-      // Selection should remain untouched — deselection is now handled by useLaneControlActions
+      // useLaneControlActions clears selection; the store leaves it unchanged.
       expect(useSelectionStore.getState().selectedIds.size).toBe(1);
     });
   });

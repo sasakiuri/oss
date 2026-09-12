@@ -71,7 +71,7 @@ By default, Saika Lane stores persistent data under the OS-specific user data di
 | File / Directory                         | Format | Description                                                                    |
 | ---------------------------------------- | ------ | ------------------------------------------------------------------------------ |
 | `saika-lane.db`                          | SQLite | Session history, shots, and scores                                             |
-| `settings.json`                          | JSON   | Canonical application, device, and MQTT settings                               |
+| `settings.json`                          | JSON   | Application, device, and MQTT settings                                         |
 | `saika-lane.json`                        | JSON   | Compatibility settings, connection history, competition and interruption state |
 | `logs/combined.log`                      | Log    | Application log (rotated, 5 MB x 5 files)                                      |
 | `logs/error.log`                         | Log    | Error-only log (rotated, 5 MB x 5 files)                                       |
@@ -104,26 +104,24 @@ for optional macOS signing and update requirements.
 
 ## Getting Started
 
-The Electron entry delegates service construction, feature registration, startup device connection and window
-controls to separate composition units. MQTT schemas are shared with Director through
-[`@sasakiuri/saika-protocol`](../saika-protocol/). See
-[application composition](../../ARCHITECTURE.md#application-composition) and the [contribution guide](../../CONTRIBUTING.md#changing-application-code).
+Run these commands from the repository root. See the
+[contribution guide](../../CONTRIBUTING.md) for prerequisites and checks.
 
 ```bash
 # Install dependencies
 npm ci
 
 # Development
-npm run dev
+npm run dev -w @sasakiuri/saika-lane
 
 # Build
-npm run build
+npm run build -w @sasakiuri/saika-lane
 
 # Run tests
-npm run test
+npm test -w @sasakiuri/saika-lane
 
 # Lint
-npm run lint
+npm run lint -w @sasakiuri/saika-lane
 ```
 
 ## Runtime Policy Configuration
@@ -180,17 +178,14 @@ For synchronized multi-lane competitions, Saika Lane can be discovered and contr
 
 ## Disclaimer
 
-This is an unofficial project. It is not affiliated with, endorsed by, or supported by any electronic target manufacturer.
+Saika is an unofficial project, unaffiliated with electronic target manufacturers.
+It is not intended as an official scoring or timing system in sanctioned
+competitions. Score accuracy depends on hardware calibration and environmental
+conditions. Follow applicable firearms safety procedures and range rules.
 
-**No Warranty**: This software is provided "as is" without warranty of any kind. The author shall not be liable for any damages arising from the use of this software.
-
-**Not for Official Use**: This software is not intended for use as an official scoring or timing system in sanctioned competitions.
-
-**Trademarks**: Kohto Electronics (Koto Denshi), SIUS, Meyton, and DISAG are trademarks of their respective owners.
-
-**Safety**: This software is a scoring display tool only. Always follow proper firearms safety procedures and applicable range rules.
-
-**Accuracy**: Score accuracy depends on hardware calibration and environmental conditions. Do not rely solely on this software for official competition results.
+Kohto Electronics (Koto Denshi), SIUS, Meyton, and DISAG are trademarks of their
+respective owners. The software is provided without warranty under the
+[MIT License](./LICENSE).
 
 ## Known Limitations
 

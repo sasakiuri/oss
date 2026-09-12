@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * HardwareStatePublisher
- *
- * Subscribes to the ConnectionEstablished / ConnectionLost events from EventBus and
- * publishes HardwareStatePayload to `saika/lane/{laneId}/hardware/state`.
- * Also implements a heartbeat at 60-second intervals.
- */
+/** Publishes connection changes and a hardware heartbeat every 60 seconds. */
 
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 

@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT module definition
- *
- * Handles initialization of MqttClientService, starting publishers, and registering command handlers and IPC handlers.
- */
-
 import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';

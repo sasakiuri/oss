@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * RpcRequestHandler
- *
- * Handler that processes MQTT RPC requests.
- * Subscribes to `saika/competition/{competitionId}/lane/{laneId}/query/+/request` and
- * retrieves data via QueryBus according to the method, then publishes to the response topic.
- */
+/** Answers competition query requests through QueryBus and the MQTT response topic. */
 
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';

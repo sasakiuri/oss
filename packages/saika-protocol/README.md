@@ -1,8 +1,8 @@
 # Saika Protocol
 
-Application-neutral MQTT contracts shared by Saika Lane and Saika Director. Schemas, inferred payload types,
-command validation and topic builders live here; application policies and competition rules belong to their
-own modules or `@sasakiuri/saika-rules`.
+MQTT contracts shared by Saika Lane and Saika Director: schemas, payload types,
+command validation and topic builders. Application policies and competition rules
+belong to the applications or `@sasakiuri/saika-rules`.
 
 Use a message-family subpath for a focused dependency:
 
@@ -31,9 +31,9 @@ npm run depcruise --workspace=@sasakiuri/saika-protocol
 ```
 
 Portable schemas depend only on local contract modules and Zod. The explicit Node-only `vista-node` subpath
-provides encrypted spectator HTTP transport, per-listener replay fencing and local multicast discovery;
+provides encrypted spectator HTTP transport, replay protection for each listener and local multicast discovery;
 renderers must not import it. `Vista` defines complete versioned display snapshots, source identities, exact
-target definitions, shooting histories and authoritative result publication. See
+target definitions, shooting histories and result publication state. See
 [Vista display data](../../ARCHITECTURE.md#vista-display-data) for acquisition, storage, and permissions.
 
 Vista transport accepts requests within a 30-second clock window to limit replay. Keep the clocks on both

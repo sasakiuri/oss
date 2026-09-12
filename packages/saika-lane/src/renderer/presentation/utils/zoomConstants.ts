@@ -1,22 +1,12 @@
 // SPDX-License-Identifier: MIT
-/**
- * Zoom-related constants
- *
- * Shared by zoomCalculator.ts and zoomFixed.ts to avoid circular dependencies.
- */
+/** Shared by zoomCalculator.ts and zoomFixed.ts to avoid circular imports. */
 
 import type { Discipline } from '@/shared/ipc/contracts';
 
-/**
- * Zoom level limits
- */
 export const ZOOM_LIMITS = { MIN: 0.1, MAX: 10.0 } as const;
 
 /**
- * Initial zoom level per discipline
- *
- * Default values based on the target size and typical shot group distribution
- * for each discipline. Used when shot data is insufficient or cannot be computed.
+ * Fallback zoom when there is too little shot data to calculate a level.
  */
 export const INITIAL_ZOOM: Record<Discipline, number> = {
   AIR_RIFLE_10M: 3.0,

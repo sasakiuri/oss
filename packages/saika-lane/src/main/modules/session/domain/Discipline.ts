@@ -2,41 +2,18 @@
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { Discipline as DisciplineCode } from '@/shared/ipc/schemas/common';
 
-/**
- * Discipline value object
- *
- * An immutable object representing a shooting discipline.
- * Each discipline has characteristics such as shooting distance and target size.
- */
+/** Immutable shooting discipline with distance and target dimensions. */
 export class Discipline {
-  /**
-   * Discipline value (AIR_RIFLE_10M | AIR_PISTOL_10M | RIFLE_50M | PISTOL_25M | BEAM_RIFLE_10M | BEAM_PISTOL_10M)
-   */
   readonly value: DisciplineCode;
 
-  /**
-   * Display name
-   */
   readonly displayName: string;
 
-  /**
-   * Shooting distance (in meters)
-   */
+  /** Shooting distance in meters. */
   readonly distance: number;
 
-  /**
-   * Target size (in mm)
-   */
+  /** Target size in millimeters. */
   readonly targetSize: number;
 
-  /**
-   * Creates a Discipline (private constructor pattern)
-   *
-   * @param value - Discipline value
-   * @param displayName - Display name
-   * @param distance - Shooting distance (in meters)
-   * @param targetSize - Target size (in mm)
-   */
   private constructor(value: DisciplineCode, displayName: string, distance: number, targetSize: number) {
     this.value = value;
     this.displayName = displayName;
@@ -46,29 +23,14 @@ export class Discipline {
     Object.freeze(this);
   }
 
-  /**
-   * Creates a 10m Air Rifle instance
-   *
-   * @returns 10m Air Rifle instance
-   */
   static airRifle10m(): Discipline {
     return new Discipline('AIR_RIFLE_10M', '10m Air Rifle', 10, 170.0);
   }
 
-  /**
-   * Creates a 10m Air Pistol instance
-   *
-   * @returns 10m Air Pistol instance
-   */
   static airPistol10m(): Discipline {
     return new Discipline('AIR_PISTOL_10M', '10m Air Pistol', 10, 170.0);
   }
 
-  /**
-   * Creates a 50m Rifle instance
-   *
-   * @returns 50m Rifle instance
-   */
   static rifle50m(): Discipline {
     return new Discipline('RIFLE_50M', '50m Rifle', 50, 250.0);
   }
@@ -81,49 +43,25 @@ export class Discipline {
     return new Discipline('PISTOL_50M', '50m Pistol', 50, 550);
   }
 
-  /**
-   * Creates a 25m Pistol instance
-   *
-   * @returns 25m Pistol instance
-   */
   static pistol25m(): Discipline {
     return new Discipline('PISTOL_25M', '25m Pistol', 25, 500);
   }
 
-  /**
-   * Creates a 10m Beam Rifle instance
-   *
-   * @returns 10m Beam Rifle instance
-   */
   static beamRifle10m(): Discipline {
     return new Discipline('BEAM_RIFLE_10M', '10m Beam Rifle', 10, 170.0);
   }
 
-  /**
-   * Creates a 10m Beam Pistol instance
-   *
-   * @returns 10m Beam Pistol instance
-   */
   static beamPistol10m(): Discipline {
     return new Discipline('BEAM_PISTOL_10M', '10m Beam Pistol', 10, 170.0);
   }
 
-  /**
-   * Checks equality with another Discipline
-   *
-   * @param other - The Discipline to compare against
-   * @returns true if equal, false otherwise
-   */
   equals(other: Discipline): boolean {
     return this.value === other.value;
   }
 
   /**
-   * Reconstructs a Discipline from a string value
-   *
-   * @param value - Discipline value (AR60, AP60, R50M, P25M, BR60S, BP60, AIR_RIFLE_10M, AIR_PISTOL_10M, RIFLE_50M, PISTOL_25M, BEAM_RIFLE_10M, BEAM_PISTOL_10M)
-   * @returns Discipline instance
-   * @throws {Error} If the value is invalid
+   * Accepts discipline codes and their short forms (for example, AIR_RIFLE_10M and AR60).
+   * @throws If the discipline is unknown.
    */
   static fromValue(value: string): Discipline {
     // Mapping from short form to standard form

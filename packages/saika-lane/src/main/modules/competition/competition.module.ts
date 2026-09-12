@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Competition module definition
- *
- * Registers command/query handlers, event listeners, and IPC handlers for competition management.
- */
-
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import {
   AdvanceStageToken,

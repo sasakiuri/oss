@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Settings module definition
- *
- * Registers IPC handlers related to settings management.
- * AppSettingsStore is provided externally via the ServiceRegistry.
- */
+/** Registers settings handlers using the AppSettingsStore supplied by ServiceRegistry. */
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

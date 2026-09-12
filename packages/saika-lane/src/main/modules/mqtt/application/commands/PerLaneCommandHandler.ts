@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * PerLaneCommandHandler
- *
- * Handler that processes lane-specific commands.
- * Subscribes to `saika/competition/{competitionId}/lane/{laneId}/command/+` and
- * executes assign-athlete / reset-session via CommandBus.
- */
+/** Handles commands addressed to one Lane within a competition. */
 
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';

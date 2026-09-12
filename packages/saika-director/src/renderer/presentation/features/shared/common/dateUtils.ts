@@ -1,9 +1,4 @@
 /**
- * Date utility functions for converting and validating date formats.
- * No external dependencies.
- */
-
-/**
  * Returns the number of days in the given month (1-indexed).
  * Handles leap years: divisible by 4, but not 100, unless also 400.
  */

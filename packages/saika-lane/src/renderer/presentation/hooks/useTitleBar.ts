@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Custom hook for TitleBar window controls
- *
- * Manages window state (maximized) and provides handlers for
- * minimize, maximize/restore, and close operations.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { windowService } from '@/renderer/services/windowService';

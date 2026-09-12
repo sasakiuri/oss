@@ -1,14 +1,29 @@
-# Architecture decisions
+<!-- SPDX-License-Identifier: MIT -->
 
-These notes explain a few lasting design choices. The
-[architecture guide](../../ARCHITECTURE.md) describes the current implementation,
-data flow and maintenance requirements.
+# Design rationale
 
-- [Shared IPC contracts](0003-ipc-contract-system.md)
-- [Versioned competition rules](0004-versioned-rule-packs.md)
-- [MQTT command ordering](0006-director-mqtt-application-boundaries.md)
-- [Persistent spectator displays](0016-vista-display-architecture.md)
+See the [architecture guide](../../ARCHITECTURE.md) for the current design.
 
-Add a record only when a significant choice or tradeoff needs an explanation for
-future maintenance. Keep current specifications in the guides; routine fixes and
-implementation changes belong in commits and pull requests.
+## Shared IPC contracts
+
+IPC messages need runtime validation because TypeScript types are erased.
+Shared Zod contracts keep that validation consistent with preload types and channel names.
+
+## Versioned competition rules
+
+Lane and Director share scoring and course-of-fire rules while keeping their own
+session and result models. Rule Packs avoid coupling those models. Content
+fingerprints identify the rules used by saved records across application updates.
+
+## MQTT command ordering
+
+Competition, recovery and interruption commands modify the same Lane state and
+must run in order. Safety STOP needs a separate queue to remain available while
+another command waits for acknowledgement. Broker changes also wait for pending
+controls, so a slow Lane can delay switching brokers.
+
+## Persistent spectator displays
+
+Complete snapshots allow offline display and recovery from missed updates, with
+network and storage costs that grow with shot history. Rendering needs its own
+acknowledgement: saving a setting cannot confirm that it appeared on a monitor.

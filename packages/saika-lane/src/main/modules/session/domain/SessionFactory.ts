@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * SessionFactory — factory for reconstructing a Session from storage data
- *
- * Session.create() is responsible for creating new sessions,
- * while SessionFactory.fromStorageData() is responsible for restoring from persisted data.
- */
+/** Restores persisted sessions; Session.create() creates new sessions. */
 
 import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
@@ -18,9 +13,6 @@ import { Series } from './Series';
 import { Session } from './Session';
 import { Shot } from './Shot';
 
-/**
- * Type definition for session data persisted to storage
- */
 export interface SessionStorageData {
   id: string;
   discipline: string;
@@ -57,21 +49,12 @@ export interface SessionStorageData {
 }
 
 export class SessionFactory {
-  /**
-   * Reconstructs a Session from storage data
-   *
-   * @param data - Serialized data retrieved from storage
-   * @returns Reconstructed Session instance
-   * @throws {Error} If the data is invalid
-   */
   static fromStorageData(data: SessionStorageData): Session {
-    // Reconstruct Discipline
     const discipline = Discipline.fromValue(data.discipline);
 
-    // Reconstruct Mode
     const mode = Mode.fromValue(data.mode);
 
-    // Reconstruct Series (recalculated from Shots)
+    // Recalculate series totals from match shots rather than stored totals.
     const reconstructedSeries: Series[] = [];
     for (const seriesData of data.series) {
       const seriesShots = data.allShots
@@ -85,20 +68,17 @@ export class SessionFactory {
       reconstructedSeries.push(series);
     }
 
-    // Invariant guarantee: if series is empty
     if (reconstructedSeries.length === 0) {
-      // Match shots exist but series is empty → data corruption
       const hasMatchShots = data.allShots.some((shot) => shot.mode === 'MATCH');
       if (hasMatchShots) {
         throw ErrorCatalog.createError('INVALID_SESSION_STATE', {
           detail: 'Series is empty but match shots exist. Data may be corrupted.',
         });
       }
-      // Sighting only or no shots → supplement with initial series
+      // A session with no match shots still needs an initial series.
       reconstructedSeries.push(Series.create(1));
     }
 
-    // Reconstruct Shots
     const allShots = data.allShots.map((shotData) => {
       const impactPoint =
         shotData.impactPoint !== null ? new ImpactPoint(shotData.impactPoint.x, shotData.impactPoint.y) : null;
@@ -128,7 +108,6 @@ export class SessionFactory {
       });
     });
 
-    // Reconstruct dates
     const startedAt = new Date(data.startedAt);
     const finishedAt = data.finishedAt ? new Date(data.finishedAt) : null;
 

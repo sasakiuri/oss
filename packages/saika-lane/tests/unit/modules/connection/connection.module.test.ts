@@ -378,7 +378,7 @@ describe('connection.module', () => {
 
         expect(dataHandler).toBeDefined();
 
-        // Trigger USB data — should NOT cause IPC send (that's now in onShotDetected)
+        // Shot detection sends the IPC notification before data ingestion.
         dataHandler({ x: 0, y: 0, score: 10 });
 
         expect(mockWebContentsSend).not.toHaveBeenCalled();

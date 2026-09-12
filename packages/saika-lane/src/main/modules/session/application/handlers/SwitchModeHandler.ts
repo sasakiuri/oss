@@ -5,16 +5,6 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-/**
- * createSwitchModeHandler
- *
- * Handler factory that processes the mode switch command.
- * Retrieves the session, switches the mode, saves it, and emits a ModeSwitched event.
- *
- * @param sessionRepository - Session repository
- * @param eventBus - Event bus
- * @returns CommandHandler<SwitchModeInput> - Command handler function
- */
 export function createSwitchModeHandler(
   sessionRepository: ISessionRepository,
   eventBus: IEventBus,

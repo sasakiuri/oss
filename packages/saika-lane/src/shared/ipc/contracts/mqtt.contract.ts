@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT IPC Contract
- *
- * Defines Zod-based contracts for MQTT-related IPC channels.
- * Covers MQTT connection commands and status/settings queries.
- */
-
 import { z } from 'zod';
 
 import {

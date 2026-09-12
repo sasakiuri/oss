@@ -13,13 +13,7 @@ const SHOT_SOUND_DEVICE_IDS = new Set([
   'DISAG_KT_RDT_ZIE_1_PISTOL',
 ]);
 
-// ---------------------------------------------------------------------------
-// Module-level singleton state
-// ---------------------------------------------------------------------------
-// AudioContext and AudioBuffer are shared across all hook instances so that
-// multiple call-sites (e.g. useShotEvents + SettingsModal) reuse a single
-// context instead of creating duplicates.
-// ---------------------------------------------------------------------------
+// Share one audio context and decoded buffer across hook instances.
 
 let sharedCtx: AudioContext | null = null;
 let sharedBuffer: AudioBuffer | null = null;
@@ -53,18 +47,15 @@ function ensureInitialized(): void {
       if (sharedCtx !== ctx) return;
       sharedBuffer = decoded;
 
-      // Warm-up: play silent buffer to pre-initialize the OS audio output stream.
-      // Wrapped in try-catch so a warmup failure does not propagate to the
-      // .catch() handler (which handles fetch/decode failures only).
+      // Keep the decoded buffer usable if the output stream cannot be warmed up.
       try {
         warmup();
       } catch {
-        /* non-critical: warmup failure after successful decode is not fatal */
+        /* Playback can still use the decoded buffer. */
       }
     })
     .catch(() => {
-      // Teardown the failed instance and allow retry on next ensureInitialized().
-      // Only reached when fetch/arrayBuffer/decodeAudioData itself fails.
+      // Retry fetching or decoding when a hook next initializes audio.
       if (sharedCtx === ctx) {
         cleanupFn?.();
         cleanupFn = null;
@@ -73,7 +64,7 @@ function ensureInitialized(): void {
       }
     });
 
-  // --- Ensure AudioContext resume via user gesture ---
+  // Retry resume on user input if the browser blocks automatic playback.
   let gestureResolved = false;
   const onGesture = async () => {
     if (gestureResolved) return;
@@ -90,7 +81,7 @@ function ensureInitialized(): void {
   window.addEventListener('pointerdown', onGesture);
   window.addEventListener('keydown', onGesture);
 
-  // --- On statechange: recover from suspended to running + re-warm-up ---
+  // Reopen the audio output stream after suspension.
   ctx.onstatechange = () => {
     if (ctx.state === 'suspended') {
       void ctx.resume().catch(() => {});
@@ -100,7 +91,6 @@ function ensureInitialized(): void {
     }
   };
 
-  // --- Re-warm-up on visibilitychange ---
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible' && ctx.state === 'running') {
       warmup();
@@ -118,9 +108,7 @@ function ensureInitialized(): void {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Exported for testing — allows tests to reset singleton state between runs
-// ---------------------------------------------------------------------------
+// Tests reset the shared audio state between runs.
 export function _resetAudioPlaybackForTest(): void {
   cleanupFn?.();
   cleanupFn = null;

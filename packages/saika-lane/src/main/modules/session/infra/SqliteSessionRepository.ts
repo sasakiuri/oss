@@ -17,9 +17,6 @@ import {
   type TargetScoringProfileId,
 } from '@/shared/target';
 
-/**
- * Type definitions for DB rows
- */
 interface SessionRow {
   id: string;
   discipline: string;
@@ -49,12 +46,7 @@ interface ShotRow {
   competitionContext: string | null;
 }
 
-/**
- * SqliteSessionRepository
- *
- * Repository implementation that persists session data to SQLite using better-sqlite3.
- * better-sqlite3 has a synchronous API, making it well-suited for use in the Electron Main process.
- */
+/** Stores sessions and shots in SQLite. */
 export class SqliteSessionRepository implements ISessionRepository {
   private readonly stmtUpsertSession: Database.Statement;
   private readonly stmtUpsertShot: Database.Statement;
@@ -163,12 +155,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     `);
   }
 
-  /**
-   * Saves a session (UPSERT)
-   *
-   * @param session - Session to save
-   * @throws REPOSITORY_ERROR - If the save fails
-   */
   async save(session: Session): Promise<void> {
     return this.saveSession(session, false);
   }
@@ -240,16 +226,7 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Incrementally saves session metadata and a single shot (O(1) operation)
-   *
-   * Used in the hot path for shot recording. UPSERTs the sessions row
-   * and UPSERTs only the specified single shot.
-   *
-   * @param session - Session to save (used for metadata updates)
-   * @param shot - Newly added shot
-   * @throws REPOSITORY_ERROR - If the save fails
-   */
+  /** Saves session metadata and this shot without rewriting the shot history. */
   async saveShot(session: Session, shot: Shot): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -293,13 +270,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves a session by ID
-   *
-   * @param id - Session ID (UUID)
-   * @returns Session if found, null if not found
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findById(id: string): Promise<Session | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -316,12 +286,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves all sessions
-   *
-   * @returns Array of sessions
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findAll(): Promise<Session[]> {
     return withRepositoryErrorHandling(
       async () => {
@@ -333,12 +297,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Deletes a session
-   *
-   * @param id - ID of the session to delete (UUID)
-   * @throws REPOSITORY_ERROR - If the deletion fails
-   */
   async delete(id: string): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {
@@ -350,12 +308,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves the currently active session (finishedAt IS NULL)
-   *
-   * @returns Session if an active session exists, null otherwise
-   * @throws REPOSITORY_ERROR - If the retrieval fails
-   */
   async findActive(): Promise<Session | null> {
     return withRepositoryErrorHandling(
       async () => {
@@ -372,12 +324,6 @@ export class SqliteSessionRepository implements ISessionRepository {
     );
   }
 
-  /**
-   * Retrieves shot data from DB rows, converts to SessionStorageData format, and reconstructs a Session
-   *
-   * @param sessionRow - Row from the sessions table
-   * @returns Reconstructed Session instance
-   */
   private reconstructSession(sessionRow: SessionRow): Session {
     const shotRows = this.stmtSelectShots.all(sessionRow.id) as ShotRow[];
 

@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
-/**
- * MQTT external lane competition phase
- *
- * Phase definition for the MQTT API, independent of the internal Phase type in saika.lane.
- * Prevents internal implementation changes from affecting the external API.
- */
+/** Public MQTT phases are independent of the internal competition Phase type. */
+
 export const MqttLanePhase = {
   OFFLINE: 'OFFLINE',
   READY: 'READY',

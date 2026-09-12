@@ -18,26 +18,15 @@ export interface USBConnectionEvents {
   reconnectFailed: { attempts: number; lastError: Error };
 }
 
-/**
- * Type definition for USB connection settings
- *
- * Defines the configuration information required for a serial port connection.
- */
 export interface USBConnectionConfig {
   /**
    * Port name (e.g. "COM3", "/dev/ttyUSB0")
    */
   portName: string;
 
-  /**
-   * Target manufacturer
-   */
   manufacturer: TargetManufacturer;
 
-  /**
-   * Device ID (optional, e.g. MT201, BPT216, HS10)
-   * When specified, the adapter corresponding to this ID is used during data conversion
-   */
+  /** Selects the device-specific adapter when provided. */
   deviceId?: string;
 
   /**
@@ -61,43 +50,22 @@ export interface USBConnectionConfig {
   parity?: 'none' | 'even' | 'odd' | 'mark' | 'space';
 }
 
-/**
- * Type definition for USB port information
- *
- * Defines the information for available serial ports.
- */
 export interface USBPortInfo {
   /**
    * Port path (e.g. "COM3", "/dev/ttyUSB0")
    */
   path: string;
 
-  /**
-   * Manufacturer name (optional)
-   */
   manufacturer?: string;
 
-  /**
-   * Serial number (optional)
-   */
   serialNumber?: string;
 
-  /**
-   * Vendor ID (optional)
-   */
   vendorId?: string;
 
-  /**
-   * Product ID (optional)
-   */
   productId?: string;
 }
 
-/**
- * Type definition for impact point data
- *
- * Defines the raw impact point data received from an electronic target.
- */
+/** Decoded target coordinates and reception metadata. */
 export interface ShotData {
   /**
    * X coordinate (in mm). null for miss shots.
@@ -136,88 +104,39 @@ export interface ShotData {
 /** Opens and closes target connections and delivers received data through events. */
 export interface IUSBConnectionManager {
   /**
-   * Connect to the target
-   *
-   * Establishes a connection with the electronic target using the specified settings.
-   * Returns a Connection entity on successful connection.
-   *
-   * @param config - USB connection settings
-   * @returns Connection entity on successful connection
-   * @throws USB_PORT_NOT_FOUND - If the port is not found
-   * @throws USB_OPEN_FAILED - If opening the port fails
-   * @throws USB_DEVICE_BUSY - If the device is in use
+   * Opens the configured target port.
+   * @throws USB_PORT_NOT_FOUND, USB_OPEN_FAILED, or USB_DEVICE_BUSY.
    */
   connect(config: USBConnectionConfig): Promise<Connection>;
 
   /**
-   * Disconnect from the target
-   *
-   * Gracefully disconnects the current connection.
-   * Does nothing if not connected.
-   *
-   * @returns Promise (waits for disconnection to complete)
-   * @throws USB_WRITE_FAILED - If sending the disconnect command fails
+   * Closes the current connection; does nothing when disconnected.
+   * @throws USB_WRITE_FAILED if the disconnect command fails.
    */
   disconnect(): Promise<void>;
 
   /**
-   * Reconnect to the target
-   *
-   * Attempts to reconnect using the existing settings.
-   * Throws an error if no connection settings are available.
-   *
-   * @returns Promise (waits for reconnection to complete)
-   * @throws USB_PORT_NOT_FOUND - If the port is not found
-   * @throws USB_OPEN_FAILED - If opening the port fails
+   * Reconnects using the saved configuration; rejects missing settings.
+   * @throws USB_PORT_NOT_FOUND or USB_OPEN_FAILED.
    */
   reconnect(): Promise<void>;
 
-  /**
-   * Get the current connection state
-   *
-   * @returns Current connection state
-   */
   getStatus(): ConnectionStatus;
 
-  /**
-   * Get a list of available USB ports
-   *
-   * Scans and returns the serial ports available on the system.
-   *
-   * @returns Array of available port information
-   */
   listPorts(): Promise<USBPortInfo[]>;
 
   on<E extends keyof USBConnectionEvents>(event: E, listener: (data: USBConnectionEvents[E]) => void): () => void;
 
-  /**
-   * Set the session context provider
-   *
-   * @param provider - Synchronous callback that returns discipline/mode
-   */
   setSessionContextProvider(provider: SessionContextProvider): void;
 
-  /**
-   * Set the callback invoked when a shot is detected.
-   * Framed protocols invoke it only after a valid shot has been accepted.
-   *
-   * @param callback - Callback used for low-latency shot feedback
-   */
+  /** Runs once per converted shot before persistence, for immediate sound feedback. */
   setOnShotDetected(callback: () => void): void;
 
-  /**
-   * Reset the shot number counter
-   */
   resetShotCounter(): void;
 
   /**
-   * Send a mode byte to the device
-   *
-   * Sends the 'S' byte for sighting mode (SIGHTING) or the 'R' byte for match mode (MATCH).
-   * Devices without wire-level mode commands, such as RedDot, treat this as a no-op.
-   * Fails silently on send failure (does not propagate error to the caller).
-   *
-   * @param mode - The mode to send
+   * Sends ASCII S for sighting or R for match. Devices without mode commands
+   * ignore this call. Send failures are not propagated to the caller.
    */
   sendMode(mode: Mode): Promise<void>;
 }

@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Electron API type definitions
- *
- * Defines the complete type-safe API exposed to the Renderer Process
- * via the preload script. Types are derived from IPC contracts using
- * InferBridge and InferEventBridge utility types.
- */
+/** Renderer bridge types inferred from the shared IPC contracts. */
 
 import type {
   competitionContract,

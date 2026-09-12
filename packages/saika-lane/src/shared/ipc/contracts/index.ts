@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * IPC Contract barrel exports
- *
- * Re-exports all IPC contract definitions and their inferred types.
- */
-
 export { sessionContract } from './session.contract';
 export type {
   Discipline,

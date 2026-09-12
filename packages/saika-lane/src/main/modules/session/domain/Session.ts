@@ -11,47 +11,21 @@ import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/tar
 
 import { Shot } from './Shot';
 
-/**
- * Session aggregate root
- *
- * The aggregate root that manages the entire shooting session. The most important entity.
- * Manages discipline, mode, series, and all shots, and handles score calculation and
- * automatic series switching.
- */
+/** Immutable session state with shot history, scores, and series progression. */
 export class Session {
-  /**
-   * Unique identifier (UUID)
-   */
+  /** UUID. */
   readonly id: string;
 
-  /**
-   * Discipline
-   */
   readonly discipline: Discipline;
 
-  /**
-   * Current mode (sighting/match)
-   */
   readonly mode: Mode;
 
-  /**
-   * Array of series
-   */
   readonly series: readonly Series[];
 
-  /**
-   * History of all shots
-   */
   readonly allShots: readonly Shot[];
 
-  /**
-   * Start time
-   */
   readonly startedAt: Date;
 
-  /**
-   * End time (null if not finished)
-   */
   readonly finishedAt: Date | null;
 
   /**
@@ -59,19 +33,6 @@ export class Session {
    */
   readonly scoringMode: 'RING' | 'DECIMAL';
 
-  /**
-   * Private constructor
-   * Prevents direct instantiation from outside; forces creation via static factory methods
-   *
-   * @param id - Unique identifier
-   * @param discipline - Discipline
-   * @param mode - Current mode
-   * @param series - Array of series
-   * @param allShots - History of all shots
-   * @param startedAt - Start time
-   * @param finishedAt - End time
-   * @param scoringMode - Scoring mode (RING=integer points, DECIMAL=decimal points)
-   */
   private constructor(
     id: string,
     discipline: Discipline,
@@ -119,71 +80,34 @@ export class Session {
     Object.freeze(this);
   }
 
-  /**
-   * Gets the current series (computed property)
-   *
-   * @returns Current series, or undefined if not found
-   */
   get currentSeries(): Series | undefined {
     return this.series[this.series.length - 1];
   }
 
-  /**
-   * Gets the total score (match shots only, ×10 integer) (computed property)
-   *
-   * @returns Total score of match shots (×10 integer; no precision issues since it uses integer addition)
-   */
+  /** Match total in tenths of a point. Sighting shots are excluded. */
   get totalScore(): number {
     return this.matchShots.reduce((sum, shot) => sum + shot.score.value, 0);
   }
 
-  /**
-   * Gets the shot count (computed property)
-   *
-   * @returns Total number of shots
-   */
   get shotCount(): number {
     return this.allShots.length;
   }
 
-  /**
-   * Determines whether the session is finished (computed property)
-   *
-   * @returns true if finished, false otherwise
-   */
   get isFinished(): boolean {
     return this.finishedAt !== null;
   }
 
-  /**
-   * Gets the match shots (computed property)
-   *
-   * @returns Array of match shots
-   */
   get matchShots(): readonly Shot[] {
     return this.allShots.filter((shot) => shot.mode.isMatch());
   }
 
-  /**
-   * Gets the sighting shots (computed property)
-   *
-   * @returns Array of sighting shots
-   */
   get sightingShots(): readonly Shot[] {
     return this.allShots.filter((shot) => shot.mode.isSighting());
   }
 
   /**
-   * Records a shot and returns a new Session instance
-   *
-   * @param impactPoint - Impact point (null for a miss shot)
-   * @param score - Score
-   * @param timestamp - Impact timestamp
-   * @param deviceScore - Score calculated by the target device (optional)
-   * @param innerTen - Whether it is an inner ten (default false)
-   * @param shotMode - Mode for this shot (uses Session's current mode if omitted)
-   * @returns New Session instance
-   * @throws {Error} If the session is already finished
+   * Records a shot; rejects a finished session.
+   * shotMode defaults to the session mode, and innerTen defaults to false.
    */
   recordShot(
     impactPoint: ImpactPoint | null,
@@ -283,14 +207,7 @@ export class Session {
     );
   }
 
-  /**
-   * Switches the mode and returns a new Session instance
-   *
-   * @param newMode - New mode
-   * @param maxShots - Maximum shot count for the new series (default 10 if omitted)
-   * @returns New Session instance
-   * @throws {Error} If the session is already finished
-   */
+  /** Resumes the given mode without starting a new series; rejects a finished session. */
   resumeMode(newMode: Mode): Session {
     if (this.isFinished)
       throw ErrorCatalog.createError('SESSION_ALREADY_FINISHED', { detail: 'Cannot resume a finished session' });
@@ -306,6 +223,7 @@ export class Session {
     );
   }
 
+  /** Switches mode and starts a new series, even when the mode is unchanged. */
   switchMode(newMode: Mode, maxShots?: number): Session {
     // Business rule: cannot switch mode on a finished session
     if (this.isFinished) {
@@ -331,13 +249,7 @@ export class Session {
     );
   }
 
-  /**
-   * Resets the current series and returns a new Session instance
-   *
-   * @param maxShots - Maximum shot count for the new series (default 10 if omitted)
-   * @returns New Session instance
-   * @throws {Error} If the session is already finished
-   */
+  /** Starts an empty series; rejects a finished session. Defaults to ten shots. */
   resetSeries(maxShots?: number): Session {
     // Business rule: cannot reset a finished session
     if (this.isFinished) {
@@ -389,11 +301,6 @@ export class Session {
     );
   }
 
-  /**
-   * Finishes the session and returns a new Session instance
-   *
-   * @returns New Session instance
-   */
   finish(): Session {
     return new Session(
       this.id,
@@ -407,23 +314,11 @@ export class Session {
     );
   }
 
-  /**
-   * Checks equality with another Session (determined by ID)
-   *
-   * @param other - The Session to compare against
-   * @returns true if IDs are equal, false otherwise
-   */
+  /** Compares session IDs. */
   equals(other: Session): boolean {
     return this.id === other.id;
   }
 
-  /**
-   * Starts a new session (static factory method)
-   *
-   * @param discipline - Discipline
-   * @param scoringMode - Scoring mode (DECIMAL if omitted)
-   * @returns New Session instance
-   */
   static create(discipline: Discipline, scoringMode: 'RING' | 'DECIMAL' = 'DECIMAL'): Session {
     const id = crypto.randomUUID();
     const mode = Mode.sighting(); // Default is sighting mode
@@ -435,14 +330,7 @@ export class Session {
     return new Session(id, discipline, mode, [initialSeries], allShots, startedAt, finishedAt, scoringMode);
   }
 
-  /**
-   * Reconstructs a Session from domain objects (static factory method)
-   *
-   * Use SessionFactory.fromStorageData() for restoring from storage data.
-   *
-   * @param params - Domain objects required for reconstruction
-   * @returns Reconstructed Session instance
-   */
+  /** Restores domain objects. Use SessionFactory.fromStorageData() for serialized data. */
   static reconstruct(params: {
     id: string;
     discipline: Discipline;

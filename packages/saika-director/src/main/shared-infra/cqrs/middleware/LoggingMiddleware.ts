@@ -1,8 +1,4 @@
-/**
- * CQRS logging middleware.
- *
- * Logs command/query start, completion, and failure.
- */
+/** Logs command and query start, completion, and failure. */
 
 import type { CommandMiddleware } from '../CommandBus';
 import type { QueryMiddleware } from '../QueryBus';

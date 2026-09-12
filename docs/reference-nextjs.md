@@ -36,6 +36,8 @@ Documents work without front matter. Optional `title`, `description`, `published
 
 Start with the [document index](../packages/saika-docs/INDEX.md). Write steps in the order users perform them, using the application's screen and button labels. Keep detailed settings and data formats in the linked specifications. State hardware verification limits alongside the relevant feature.
 
+Describe current behavior in the guides and user-visible changes in release notes. Keep implementation details in code and tests. Add to the [design notes](./adr/README.md) only when a tradeoff will matter to future maintenance.
+
 Contributions must be available under the MIT License. Retain source links and required copyright and license notices for third-party material; see [Notices](../packages/saika-docs/NOTICE.md). Use sample data without personal information, credentials, or device identifiers.
 
 `README.md` becomes a directory index, `INDEX.md` becomes `/documents/`, and other filenames become lowercase with underscores replaced by hyphens. Source and license links point to GitHub at `DOCS_SOURCE_REF`, which defaults to `1.x` and can select a branch, tag, or commit.

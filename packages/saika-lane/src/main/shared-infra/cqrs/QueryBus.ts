@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Type-safe QueryBus
- *
- * Guarantees type safety via token-based dispatch.
- */
+/** Query tokens associate handler input and output types at compile time. */
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

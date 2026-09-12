@@ -14,6 +14,7 @@ and coordinates Lane instances. Vista displays their data on audience monitors.
 | `saika-docs`     | Japanese manuals and the Next.js documentation site          |
 | `saika-protocol` | Shared message schemas and Vista transport                   |
 | `saika-rules`    | Versioned competition definitions and validation             |
+| `saika-updater`  | Update downloads, installation, and restart coordination     |
 | `*-config`       | Shared lint, formatting, TypeScript, and Lighthouse settings |
 
 npm workspaces links packages locally. Turborepo runs builds and checks according
@@ -53,9 +54,8 @@ Director adapt supported capabilities into their own competition models;
 local definitions can supply fallback policies.
 
 `defineRulePack` validates references between capabilities before freezing a
-definition. Validation reads the supplied pack without loading an edition catalog
-or changing the input. Rejected inputs remain unchanged and unfrozen. Stored and
-exchanged fingerprints identify rule content, so refactoring must preserve them.
+definition. Rejected inputs remain unchanged. Stored and exchanged fingerprints
+identify rule content and must remain stable across refactoring.
 
 ## IPC and Renderer State
 
@@ -74,12 +74,9 @@ Contracts can be imported by all three processes without loading Electron servic
 or main-process code. The main process checks authorization separately from schema
 validation.
 
-Director state hooks discard query responses superseded by live events, newer
-queries or a workspace change. Each visit has its own lifetime: returning to the
-same selected ID must not revive a request from an earlier visit. Forms keep drafts
-with their case and receive command callbacks from the owning hook. Leaving a screen
-does not cancel a dispatched command; reopening it reads persisted state. A failed
-refresh must not turn a successful command into a reported command failure.
+Director state hooks discard stale query responses. Forms keep drafts with their
+case; dispatched commands continue after leaving a screen. Reopening reads
+persisted state. Command results and refresh errors are reported separately.
 
 ## MQTT Control
 
@@ -106,23 +103,20 @@ and clearance use a separate safety queue, allowing STOP while a competition
 command awaits acknowledgement. Queued operations read state when execution
 begins, and batch commands retain individual Lane failures.
 
-`DirectorMqttService` acquires queue keys before calling workflows; helpers must
-not reacquire the same queue. A broker transition waits for previously submitted
-controls, and later controls wait for that transition. Replacement invalidates
-pending commands, clock assessments and expiry callbacks. Queue ordering does not
-cancel work or retract a network write that has already started.
+`DirectorMqttService` owns queue acquisition; workflows must not reacquire the same
+queue. Broker changes wait for earlier controls and invalidate pending commands,
+clock assessments and expiry callbacks. They cannot retract a network write that
+has already started.
 
 Lane's `LaneCommandProcessor` validates payloads and issuer authorization,
 deduplicates commands, and sends acknowledgements. Tier1, broadcast, and per-Lane
 handlers supply their schemas and competition operations. Transport listeners,
 timers, and pending work belong to the active connection or competition lifetime.
 
-Director requires non-empty outgoing issuer labels. Lane accepts legacy empty
-labels through the command schema factory; sender authorization is a separate
-check. Add message fields in the shared schema and test both endpoints. Optional
-fields can preserve compatibility; incompatible messages need a protocol version
-change. See the [MQTT specification](packages/saika-docs/lane/MQTT_DESIGN.md)
-for topics, payloads, timing, and reconnect behavior.
+Add message fields in the shared schema and test both endpoints. Incompatible
+messages need a protocol version change. See the
+[MQTT specification](packages/saika-docs/lane/MQTT_DESIGN.md) for topics, payloads,
+issuer validation, timing, and reconnect behavior.
 
 ## Target Data and Serial Timing
 
@@ -141,12 +135,11 @@ adapter for coordinate and score conversion. `ShotIngestionHandler` serializes
 recording; domain events then notify consumers. The immediate shot sound uses a
 separate IPC notification.
 
-`SerializedProtocolTimer` runs deadlines on the session's queue. It checks a
-cancellation revision both when the timeout fires and when queued work starts,
-then checks the session's current state. Clearing the native timeout alone cannot
-cancel work already queued behind a serial write. Sessions own poll and response
-timers, cancel them on shutdown or replacement, and check connection generation in
-write callbacks because cancellation cannot retract an active write.
+`SerializedProtocolTimer` runs deadlines on the session's queue and checks
+cancellation both when a timeout fires and when queued work starts. Clearing a
+native timeout cannot cancel work already queued behind a serial write. Sessions
+cancel their timers on shutdown or replacement; write callbacks also check the
+connection generation.
 
 Device formats and verification limits are documented under
 [Lane specifications](packages/saika-docs/lane/SPEC.md#動作環境と対応機器).
@@ -162,33 +155,27 @@ Lane stores data in Electron's `userData` directory:
 | `saika-lane.json` | electron-store compatibility settings and connection/competition state |
 
 `SqliteDb` opens the connection and passes a migration catalog to `MigrationRunner`.
-Schema creation, pending migrations and `user_version` updates commit in one
-immediate transaction. A failure rolls back the whole upgrade and closes the
-connection; newer unsupported versions are rejected. The write lock lasts for the
-whole upgrade, so large conversions can delay startup.
+Schema creation, pending migrations and `user_version` updates share one immediate
+transaction. A failure rolls back the upgrade; newer unsupported versions are
+rejected. The write lock lasts for the whole upgrade.
 
 Migrations have consecutive versions and do not manage transactions themselves.
 Published SQL stays unchanged and independent of current feature code; repairs
 use a new migration. Director has its own `schema_meta` migration runner.
 
 Director stores evidence originals as content-addressed SQLite BLOBs alongside
-their custody records. Database backups and recovery copies therefore retain
-both. Backup inspection and restore application verify each referenced original's
-size and SHA-256. Existing external originals are imported in the schema migration
-transaction; missing or corrupt originals abort the migration without deleting
-source files. Old backups containing custody records without originals are
-rejected before replacing the current database.
+their custody records. Backup restoration verifies each original's size and
+SHA-256 and rejects missing or corrupt originals before replacing the database.
+The migration from external files uses the same checks and retains source files.
 
 `AppSettingsStore` owns file writes, recovery, and Lane identity allocation.
 `SettingsDocument` normalizes fields and creates DTOs; `LegacySettingsBridge`
-reads and synchronizes electron-store values. Device migrations inspect raw IDs
-before normalization. Lane identity comes from the persisted JSON, then a valid
-compatibility value, before the incoming document. Omitted preferences remain
-distinct from saved defaults.
+synchronizes electron-store values. Device migrations run before normalization.
+Saved Lane identity takes precedence over incoming settings, and omitted
+preferences remain distinct from saved defaults.
 
-JSON writes finish before compatibility values are updated. These writes are not
-one transaction; storage errors and recovery stay in the store, while document
-transformations perform no I/O or identity allocation.
+JSON writes finish before compatibility values are updated; the two stores do not
+share a transaction. `SettingsDocument` performs no I/O or identity allocation.
 
 ## Vista Display Data
 
@@ -240,5 +227,4 @@ configuration, generated content, and deployment checks.
 
 ## Design Rationale
 
-[Selected architecture decisions](docs/adr/README.md) explain the tradeoffs behind
-shared IPC contracts, versioned rules, MQTT command ordering and spectator data.
+[Design notes](docs/adr/README.md) retain the reasons for selected design choices.

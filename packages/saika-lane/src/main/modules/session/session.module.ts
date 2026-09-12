@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Session module definition
- *
- * Registers command/query handlers and IPC handlers for session management.
- */
-
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import {
   GetSessionScoreToken,

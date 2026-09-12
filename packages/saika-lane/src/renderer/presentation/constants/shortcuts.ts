@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
-/**
- * Shortcut definitions
- *
- * Shortcut key definitions based on event.code (independent of NumLock state)
- */
+/** Uses event.code so shortcuts work regardless of NumLock state. */
+
 export const SHORTCUTS = {
   /** Switch to Preparation mode */
   PREPARATION: 'Numpad1',

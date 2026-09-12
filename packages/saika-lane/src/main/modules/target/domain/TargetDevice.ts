@@ -6,9 +6,6 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { DeviceDefinition } from './targetDeviceDefinitions';
 import { DEVICE_DEFINITIONS } from './targetDeviceDefinitions';
 
-/**
- * Serial port configuration type
- */
 export interface SerialConfig {
   baudRate: number;
   dataBits: 5 | 6 | 7 | 8;
@@ -25,13 +22,7 @@ for (const def of DEVICE_DEFINITIONS) {
   }
 }
 
-/**
- * TargetDevice value object
- *
- * An immutable object representing an electronic target device.
- * Each device has a manufacturer, model name, communication settings, and supported disciplines.
- * Device definitions are managed in a data-driven manner in targetDeviceDefinitions.ts.
- */
+/** Immutable device definition from targetDeviceDefinitions.ts. */
 export class TargetDevice {
   readonly id: string;
   readonly manufacturer: TargetManufacturer;
@@ -76,13 +67,7 @@ export class TargetDevice {
     );
   }
 
-  /**
-   * Retrieves a device by ID.
-   *
-   * @param id - Device ID
-   * @returns TargetDevice instance
-   * @throws {DomainError} If the ID is invalid
-   */
+  /** Looks up a registered device; rejects unknown IDs. */
   static fromId(id: string): TargetDevice {
     const def = deviceMap.get(id);
     if (!def) {
@@ -91,30 +76,16 @@ export class TargetDevice {
     return TargetDevice.fromDefinition(def);
   }
 
-  /**
-   * Retrieves a list of devices by manufacturer.
-   *
-   * @param manufacturer - Manufacturer
-   * @returns Array of TargetDevice instances
-   */
   static getByManufacturer(manufacturer: TargetManufacturer): TargetDevice[] {
     return DEVICE_DEFINITIONS.filter((def) => def.manufacturer === manufacturer.value).map((def) =>
       TargetDevice.fromDefinition(def),
     );
   }
 
-  /**
-   * Retrieves all devices.
-   *
-   * @returns Array of TargetDevice instances
-   */
   static getAll(): TargetDevice[] {
     return DEVICE_DEFINITIONS.map((def) => TargetDevice.fromDefinition(def));
   }
 
-  /**
-   * Returns the serial port configuration.
-   */
   getSerialConfig(): SerialConfig {
     return {
       baudRate: this.baudRate,
@@ -124,16 +95,10 @@ export class TargetDevice {
     };
   }
 
-  /**
-   * Checks whether the given discipline is supported.
-   */
   supportsDiscipline(discipline: Discipline): boolean {
     return this.supportedDisciplines.some((d) => d.equals(discipline));
   }
 
-  /**
-   * Checks equality with another TargetDevice.
-   */
   equals(other: TargetDevice): boolean {
     return this.id === other.id;
   }

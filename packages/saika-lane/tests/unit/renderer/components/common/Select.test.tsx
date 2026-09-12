@@ -209,8 +209,7 @@ describe('Select', () => {
       const select = screen.getByRole('combobox');
       select.focus();
 
-      // Select elements don't directly change selection with ArrowDown and Enter,
-      // so here we just verify that keyboard focus works
+      // This assertion covers focus only; native keyboard selection is not exercised.
       expect(select).toHaveFocus();
     });
   });
@@ -247,14 +246,11 @@ describe('Select', () => {
     });
 
     it('does not error when value does not exist in options', () => {
-      // When an HTMLSelectElement is given a value that doesn't exist, it selects the first option.
-      // Here we verify it renders without error
+      // An unknown value falls back to the first native option.
       render(<Select value="invalid-value" onChange={vi.fn()} options={mockOptions} />);
 
       const select = screen.getByRole('combobox') as HTMLSelectElement;
-      // select is rendered
       expect(select).toBeInTheDocument();
-      // value is set to the first option (HTML standard behavior)
       expect(select.value).toBe('option1');
     });
 

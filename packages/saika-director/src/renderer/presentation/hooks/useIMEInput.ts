@@ -9,26 +9,7 @@ interface UseIMEInputReturn<T extends InputElement> {
   onCompositionEnd: (e: CompositionEvent<T>) => void;
 }
 
-/**
- *
- *
- *
- * @example
- * ```tsx
- * function MyInput({ value, onChange }: Props) {
- *   const ime = useIMEInput(value, onChange);
- *   return (
- *     <input
- *       type="text"
- *       value={ime.value}
- *       onChange={ime.onChange}
- *       onCompositionStart={ime.onCompositionStart}
- *       onCompositionEnd={ime.onCompositionEnd}
- *     />
- *   );
- * }
- * ```
- */
+/** Keeps IME composition local and calls onChange when composition ends. */
 export function useIMEInput<T extends InputElement = HTMLInputElement>(
   value: string,
   onChange: (value: string) => void,

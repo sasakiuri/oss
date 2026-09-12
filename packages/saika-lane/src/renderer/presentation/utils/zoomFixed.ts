@@ -1,9 +1,5 @@
 // SPDX-License-Identifier: MIT
-/**
- * Fixed zoom calculation
- *
- * Calculates the zoom level so that the specified scoring ring fits exactly on screen.
- */
+/** Fits the selected scoring ring to the screen. */
 
 import type { Discipline } from '@/shared/ipc/contracts';
 

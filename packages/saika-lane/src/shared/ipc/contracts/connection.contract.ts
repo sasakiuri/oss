@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- * Connection IPC Contract
- *
- * Defines Zod-based contracts for USB connection-related IPC channels.
- * Covers device connection/disconnection commands and port/device listing queries.
- */
-
 import { z } from 'zod';
 
 import {

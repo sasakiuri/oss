@@ -11,14 +11,8 @@ export abstract class DomainError extends Error {
    */
   readonly userMessage: string;
 
-  /**
-   * Error severity
-   */
   readonly severity: 'error' | 'warning' | 'info';
 
-  /**
-   * Additional metadata associated with the error
-   */
   readonly metadata?: Record<string, unknown>;
 
   /**
@@ -26,21 +20,9 @@ export abstract class DomainError extends Error {
    */
   readonly cause?: Error;
 
-  /**
-   * Timestamp when the error occurred
-   */
   readonly timestamp: Date;
 
-  /**
-   * Create a DomainError
-   *
-   * @param code - Error code
-   * @param message - Developer-facing error message (English recommended)
-   * @param userMessage - User-facing error message
-   * @param severity - Error severity (default: 'error')
-   * @param metadata - Additional metadata associated with the error
-   * @param cause - The originating error
-   */
+  /** message is for logs; userMessage is for display. */
   constructor(
     code: string,
     message: string,
@@ -76,13 +58,6 @@ export abstract class DomainError extends Error {
     Object.freeze(this);
   }
 
-  /**
-   * Return error information in JSON format
-   *
-   * Used for logging and debugging.
-   *
-   * @returns JSON representation of the error information
-   */
   toJSON(): Record<string, unknown> {
     return {
       name: this.name,
@@ -102,27 +77,11 @@ export abstract class DomainError extends Error {
     };
   }
 
-  /**
-   * Return a string for user-facing display
-   *
-   * Used when showing error messages in the UI.
-   *
-   * @returns User-facing error message
-   */
   toUserDisplay(): string {
     return this.userMessage;
   }
 
-  /**
-   * Wrap a standard Error in a DomainError
-   *
-   * Used to convert errors from external libraries or the system into domain errors.
-   *
-   * @param error - The error to wrap
-   * @param code - Error code
-   * @param userMessage - User-facing error message
-   * @returns DomainError instance
-   */
+  /** Preserves an existing DomainError; otherwise wraps the error as its cause. */
   static wrap(error: Error, code: string, userMessage: string): DomainError {
     // If already a DomainError, return as-is
     if (error instanceof DomainError) {
@@ -133,14 +92,6 @@ export abstract class DomainError extends Error {
     return new WrappedDomainError(code, error.message, userMessage, 'error', undefined, error);
   }
 
-  /**
-   * Deep-freeze an object
-   *
-   * Freezes nested objects and arrays as well to guarantee metadata immutability.
-   *
-   * @param obj - The object to freeze
-   * @returns The frozen object
-   */
   private deepFreeze<T>(obj: T): T {
     // Return primitive types as-is
     if (obj === null || typeof obj !== 'object') {
@@ -165,9 +116,6 @@ export abstract class DomainError extends Error {
   }
 }
 
-/**
- * Internal DomainError implementation for the wrap() method
- */
 class WrappedDomainError extends DomainError {
   constructor(
     code: string,

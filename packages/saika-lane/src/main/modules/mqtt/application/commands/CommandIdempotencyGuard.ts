@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
-/**
- * Command Idempotency Guard
- *
- * Prevents duplicate execution by commandId. Automatically expires after TTL (5 minutes).
- */
+/** Deduplicates commands by commandId for five minutes. */
+
 export class CommandIdempotencyGuard {
   private readonly processed: Map<string, Date> = new Map();
   private readonly ttlMs: number;
