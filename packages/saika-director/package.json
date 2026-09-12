@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-director",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Multi-lane shooting competition director for Saika Lane",
   "desktopName": "Saika Director",

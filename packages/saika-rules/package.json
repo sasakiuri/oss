@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-rules",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Versioned, application-neutral competition rule packs for Saika",
   "license": "MIT",

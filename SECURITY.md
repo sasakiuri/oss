@@ -2,12 +2,12 @@
 
 ## Supported Versions
 
-| Package        | Version | Supported |
-| -------------- | ------- | --------- |
-| saika-lane     | 0.3.x   | Yes       |
-| saika-lane     | < 0.3   | No        |
-| saika-director | 0.1.x   | Yes       |
-| shared configs | 1.0.x   | Yes       |
+| Package                     | Version               | Supported                    |
+| --------------------------- | --------------------- | ---------------------------- |
+| Lane, Director, Vista, Docs | 0.4.x                 | Upcoming release             |
+| Lane, Director, Vista, Docs | 0.3.x                 | Yes, until 0.4.0 is released |
+| Lane, Director, Vista, Docs | < 0.3                 | No                           |
+| Shared packages and configs | Latest stable version | Yes                          |
 
 ## Reporting a Vulnerability
 
@@ -60,5 +60,7 @@ To remove all stored data, delete the directory above.
 
 Saika Director stores its competition-control state locally in `saika.db` and
 application logs in the OS-specific `Saika Director` user-data directory. This
-data is also not encrypted at rest. Director communicates only with the MQTT
-broker selected by the user and does not include an automatic updater.
+data is also not encrypted at rest. Director communicates with the configured
+MQTT broker, which can run inside Director, and contacts GitHub for application
+updates. Downloaded updates are installed after the user requests a restart and
+the application confirms it can stop safely.

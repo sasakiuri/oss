@@ -1,10 +1,42 @@
 # @sasakiuri/saika-lane
 
+## 0.4.0
+
+### Added
+
+- Connect to Director for synchronized competition commands, athlete assignments, clock checks, and recovery after reconnecting or restarting.
+- Share targets and scores with Saika Vista over an encrypted local connection.
+- Report firearm malfunctions and missing shots with instructions for the current competition stage.
+- Run authorized Qualification and 25m Final recovery firing. Keep recovery shots separate until officials confirm their scores.
+- Transfer a paused continuous Qualification session to a reserve Lane already joined to the competition. Resuming requires a separate Jury authorization.
+- Display range-wide STOP / UNLOAD, block firing commands, and retain subsequent shots outside normal scoring until the stop is cleared.
+- Import timing measurements, save named profiles, and report their settings to Director. Shots with uncertain timing remain unscored for Jury review.
+- Record UNLOAD commands and support optional checks for the required pause before the next command.
+- Add 300m Rifle and 50m Pistol definitions and event-specific scoring gauges. Physical target support depends on the device adapter.
+
+### Fixed
+
+- Preserve recorded coordinates during replay, exclude sighting shots from match totals, and continue stage timers between series.
+- Keep countdown deadlines and interrupted series correct through delayed commands, failed saves, and reconnects.
+- Apply database upgrades in one transaction; failed upgrades roll back, and unsupported newer databases are rejected.
+- Preserve the selected discipline when choosing a compatible target and expose Custom CSV serial input in connection settings.
+- Use the correct readiness periods and replacement-shot limits for 25m Final recovery, including a missing shot already recorded as zero.
+- Retain the current services when an update restart is cancelled and report installation failures.
+- Load the bundled screen in packaged applications even when a development server URL is configured.
+
+### Distribution
+
+- Lane, Director, Vista, and Docs use the same suite version and release.
+- macOS packages can be built unsigned; unsigned installations require manual updates.
+- Update shared rules, protocol, and updater packages to 0.2.0 and update test dependencies.
+
+See the [Lane specification](../saika-docs/lane/SPEC.md) for operating limits and hardware verification status.
+
 ## 0.3.0
 
 ### Minor Changes
 
-- [#73](https://github.com/sasakiuri/oss/pull/73) [`11b27fb`](https://github.com/sasakiuri/oss/commit/11b27fbad06af83327ae9dd63cc0747b9430707f) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Add DISAG RedDot rifle and pistol support, 10m Air Rifle and Air Pistol competitions, the 10m Beam Pistol discipline, and Kohto BPT-216 BP-217 I/F and RS-232C protocol support. This also includes device-ID migration, protocol lifecycle hardening, target rendering, shot sounds, automatic baud-rate restoration, tests, and interoperability documentation.
+- [#73](https://github.com/sasakiuri/oss/pull/73) [`11b27fb`](https://github.com/sasakiuri/oss/commit/11b27fbad06af83327ae9dd63cc0747b9430707f) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Add DISAG RedDot Rifle/Pistol and Kohto BPT-216 connections, plus 10m Air Rifle, Air Pistol, and Beam Pistol competitions. Restore device settings and baud rates, migrate older device IDs, and update target display and shot sounds.
 
 ### Patch Changes
 

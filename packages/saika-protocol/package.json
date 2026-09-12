@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/saika-protocol",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Application-neutral MQTT contracts for Saika Lane and Director",
   "license": "MIT",

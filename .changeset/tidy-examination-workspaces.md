@@ -1,5 +1,0 @@
----
-"@sasakiuri/saika-director": patch
----
-
-Keep target-examination form drafts with their selected case and prevent older queries or completed commands from overwriting the current workspace selection.
