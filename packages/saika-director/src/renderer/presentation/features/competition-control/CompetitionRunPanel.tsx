@@ -97,7 +97,7 @@ export function CompetitionRunPanel({
       (activeCompetition?.phase === 'SIGHTING' && pendingSightingLaneIds.length > 0));
   const currentPhaseIndex = phaseStepIndex(activeCompetition?.phase);
   return (
-    <Card className="self-start xl:sticky xl:top-4">
+    <Card className="self-start lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1">
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-vscode-text">Run control</h3>
         <p className="mt-0.5 text-xs text-vscode-text-muted">
@@ -156,7 +156,7 @@ export function CompetitionRunPanel({
 
           <div className="mt-4 border-t border-vscode-border pt-3">
             <p className="mb-2 text-[11px] font-semibold text-vscode-text-muted">Lane membership</p>
-            <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 [&>button]:w-full">
               <Button
                 variant="secondary"
                 size="sm"
@@ -189,7 +189,7 @@ export function CompetitionRunPanel({
               />
             )}
             <p className="mb-2 mt-4 text-[11px] font-semibold text-vscode-text-muted">Course of fire</p>
-            <div className="grid grid-cols-2 gap-2 [&>button]:w-full">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 [&>button]:w-full">
               <Button
                 size="sm"
                 disabled={controlsDisabled || !canStartOrRetrySighting}

@@ -109,6 +109,26 @@ select {
   background: #14191d;
 }
 
+.operation-section {
+  border-top: 1px solid #34434b;
+}
+
+.operation-section > summary {
+  padding: 14px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e3e7ea;
+}
+
+.operation-section > summary:hover {
+  color: #7cc1e7;
+}
+
+.operation-section > summary:focus-visible {
+  outline-offset: -2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -2,6 +2,9 @@ import { dirname, join } from 'path';
 
 import { ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
 import { app } from 'electron';
+import { UpdaterService } from '@sasakiuri/saika-updater/main';
+import { registerUpdater } from '@/main/infrastructure/updater/registerUpdater';
+import { eventsContract } from '@/shared/ipc/contracts';
 
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
@@ -46,6 +49,7 @@ const logger = Logger.create('createApp');
  * Services exposed to main.ts.
  */
 export interface AppServices {
+  readonly updater: UpdaterService;
   readonly windowManager: WindowManager;
   readonly domainEventForwarder: DomainEventForwarder;
   readonly lifecycle: AppLifecycle;
@@ -66,7 +70,10 @@ let initialized = false;
  * @returns AppServices instance.
  * @throws When called more than once.
  */
-export function createApp(preloadPath: string): AppServices {
+export function createApp(
+  preloadPath: string,
+  updateLifecycle: { beforeInstall: () => Promise<void>; onInstallError: (message: string) => void },
+): AppServices {
   if (initialized) {
     const msg =
       'createApp() has already been called. Double initialization is not allowed because it causes duplicate side effects (console hooks, IPC handlers, event listeners).';
@@ -242,6 +249,19 @@ export function createApp(preloadPath: string): AppServices {
 
   // IPC Router
   const ipcRouter = new IpcRouter(operatorAccessService);
+  const updater = new UpdaterService({
+    isPackaged: app.isPackaged,
+    currentVersion: appVersion,
+    metadataNamespace: 'director',
+    autoInstallOnAppQuit: false,
+    beforeInstall: updateLifecycle.beforeInstall,
+    onStateChange: (state) => {
+      windowManager.broadcast(eventsContract.channels.appUpdateStateChanged, state);
+      if (state.status === 'error') updateLifecycle.onInstallError(state.errorMessage ?? 'Unknown update error');
+    },
+    log: (level, message, details) => logger[level](message, details),
+  });
+  registerUpdater(ipcRouter, updater, windowManager);
   registerOperatorAccess(ipcRouter, operatorAccessService);
   registerPublicationReviewPolicies(ipcRouter, publicationReviewPolicies);
   ipcRouter.register(backupCaptureReadinessContract, {
@@ -337,6 +357,7 @@ export function createApp(preloadPath: string): AppServices {
   });
 
   return {
+    updater,
     windowManager,
     domainEventForwarder,
     lifecycle,

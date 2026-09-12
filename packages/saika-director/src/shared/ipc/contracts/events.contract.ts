@@ -1,3 +1,4 @@
+import { AppUpdateStateSchema, type AppUpdateStateDto } from '@sasakiuri/saika-updater';
 import { z } from 'zod';
 import {
   FiringWindowViolationDtoSchema,
@@ -157,6 +158,7 @@ export type CompetitionAnnouncementDueEvent = z.infer<typeof competitionAnnounce
 export type LaneControlPatchedEvent = z.infer<typeof laneControlPatchedSchema>;
 
 export interface IpcEvents {
+  appUpdateStateChanged: AppUpdateStateDto;
   shotReceived: ShotReceivedEvent;
   phaseChanged: PhaseChangedEvent;
   laneConnected: LaneConnectedEvent;
@@ -179,6 +181,7 @@ export interface IpcEvents {
 // ---------------------------------------------------------------------------
 
 export const eventsContract = defineEventContract('event', {
+  appUpdateStateChanged: defineEvent(AppUpdateStateSchema),
   shotReceived: defineEvent(shotReceivedSchema),
   phaseChanged: defineEvent(phaseChangedSchema),
   laneConnected: defineEvent(laneConnectedSchema),

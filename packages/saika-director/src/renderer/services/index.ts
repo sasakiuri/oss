@@ -60,3 +60,5 @@ export const equipmentRegistryService = createApiService('equipmentRegistry');
 export const operatorAccessService = createApiService('operatorAccess');
 
 export const vistaService = createApiService('vista');
+
+export const updaterService = createApiService('updater');

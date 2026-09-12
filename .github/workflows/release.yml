@@ -62,6 +62,8 @@ jobs:
 
       - name: Unit tests and coverage thresholds
         run: |
+          npm run test --workspace=@sasakiuri/saika-updater
+          npm run test:release-metadata
           npm run test:coverage --workspace=@sasakiuri/saika-lane
           npm run test:coverage --workspace=@sasakiuri/saika-director
           npm run test --workspace=@sasakiuri/saika-vista
@@ -129,22 +131,37 @@ jobs:
           enable-electron-cache: "true"
 
       - name: Build Saika Lane artifacts
-        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
+        run: |
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
+          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Build Saika Director artifacts
-        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
+        run: |
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
+          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Build Saika Vista artifacts
-        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
+        run: |
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
+          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Verify packaged legal notices
         run: |
@@ -247,6 +264,9 @@ jobs:
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
             packages/saika-lane/release/latest*.yml
+            packages/saika-lane/release/alpha*.yml
+            packages/saika-lane/release/beta*.yml
+            packages/saika-lane/release/rc*.yml
             packages/saika-lane/release/*.blockmap
           if-no-files-found: error
           retention-days: 1
@@ -261,6 +281,8 @@ jobs:
             packages/saika-director/release/*.dmg
             packages/saika-director/release/*.AppImage
             packages/saika-director/release/*.deb
+            packages/saika-director/release/director-*.yml
+            packages/saika-director/release/*.blockmap
           if-no-files-found: error
           retention-days: 1
 
@@ -274,6 +296,8 @@ jobs:
             packages/saika-vista/release/*.dmg
             packages/saika-vista/release/*.AppImage
             packages/saika-vista/release/*.deb
+            packages/saika-vista/release/vista-*.yml
+            packages/saika-vista/release/*.blockmap
           if-no-files-found: error
           retention-days: 1
 
@@ -365,6 +389,9 @@ jobs:
             artifacts/lane/*.AppImage
             artifacts/lane/*.deb
             artifacts/lane/latest*.yml
+            artifacts/lane/alpha*.yml
+            artifacts/lane/beta*.yml
+            artifacts/lane/rc*.yml
             artifacts/lane/*.blockmap
             artifacts/director/*.exe
             artifacts/vista/*.exe
@@ -376,6 +403,10 @@ jobs:
             artifacts/vista/*.AppImage
             artifacts/director/*.deb
             artifacts/vista/*.deb
+            artifacts/director/director-*.yml
+            artifacts/director/*.blockmap
+            artifacts/vista/vista-*.yml
+            artifacts/vista/*.blockmap
             artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

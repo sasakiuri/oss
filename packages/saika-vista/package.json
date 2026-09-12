@@ -11,6 +11,7 @@
   "main": "dist/main/main.js",
   "files": [
     "dist/**",
+    "resources/appIcon.png",
     "package.json",
     "README.md",
     "LICENSE",
@@ -25,9 +26,9 @@
     "fix": "eslint --fix . && prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "build:win": "npm run build && electron-builder --win --publish never",
-    "build:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never",
-    "build:linux": "npm run build && electron-builder --linux --publish never",
+    "build:win": "npm run build && electron-builder --win --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
+    "build:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
+    "build:linux": "npm run build && electron-builder --linux --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
     "pack:linux": "npm run build && electron-builder --linux --dir --publish never",
     "license-report": "node ../../scripts/generate-third-party-licenses.mjs --workspace=@sasakiuri/saika-vista",
     "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check --workspace=@sasakiuri/saika-vista",
@@ -35,6 +36,7 @@
   },
   "dependencies": {
     "@sasakiuri/saika-protocol": "*",
+    "@sasakiuri/saika-updater": "*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.3.6"
@@ -64,15 +66,20 @@
   "build": {
     "appId": "io.github.sasakiuri.saika-vista",
     "productName": "Saika Vista",
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "icon": "resources/appIcon.png",
+    "artifactName": "Saika-Vista-${version}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**",
+      "resources/appIcon.png",
       "package.json",
       "LICENSE",
-      "THIRD-PARTY-LICENSES.txt"
+      "THIRD-PARTY-LICENSES.txt",
+      "!node_modules/**/test",
+      "!node_modules/**/tests",
+      "!node_modules/**/*.test.*"
     ],
     "asar": true,
     "extraResources": [
@@ -92,7 +99,8 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "category": "public.app-category.sports"
     },
@@ -103,6 +111,14 @@
         "deb"
       ],
       "category": "Utility"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sasakiuri",
+        "repo": "oss",
+        "releaseType": "release"
+      }
+    ]
   }
 }

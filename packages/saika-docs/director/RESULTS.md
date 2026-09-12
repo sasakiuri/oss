@@ -183,7 +183,7 @@ Saika は次の構成条件を検査します。
 
 ## 失格判定と撤回を記録する
 
-権限者の判断に基づく失格は、大会詳細の「Championship athlete identity and sanctions」で記録します。先に参加者を登録し、対象者と影響する種目を確認してください。
+権限者の判断に基づく失格は、大会詳細の「Championship records」→「Athlete sanctions」で記録します。先に参加者を登録し、対象者と影響する種目を確認してください。
 
 1. 「Recording official」と「Identity-link statement」に担当者と本人確認の根拠を入力する。「Reconcile ISSF IDs」で登録 ID を照合する。ID のない選手は「Manual identity」で氏名と該当する種目の登録を選び、「Create identity」で保存する。
 2. 対象者に関連付いた種目・参加者を確認し、「Record sanction」を開く。
@@ -231,11 +231,11 @@ Saika は次の構成条件を検査します。
 
 保存する目的に応じて出力を選びます。
 
-| 目的                                                | 開く場所                                    |
-| --------------------------------------------------- | ------------------------------------------- |
-| 確認・認証した成績冊子を配布する                    | 大会の「Official Results Book and records」 |
-| 大会の成績、裁定、調査資料などを保存する            | 大会詳細の「Export evidence」               |
-| Director のデータベース全体を復元できる形で保存する | 「Settings」→「Operational archives」       |
+| 目的                                                | 開く場所                                          |
+| --------------------------------------------------- | ------------------------------------------------- |
+| 確認・認証した成績冊子を配布する                    | 大会の「Championship records」→「Results Book」   |
+| 大会の成績、裁定、調査資料などを保存する            | 大会詳細の「Export evidence」                     |
+| Director のデータベース全体を復元できる形で保存する | 「Settings」→「Backups」→「Operational archives」 |
 
 成績冊子を作る前に、必要な結果公表と役員の登録を済ませます。「Championship official appointments」で「Role」、氏名、記録者、任命の根拠を入力し、「Record appointment」で登録します。本人がサインインして署名する場合は「Signing account (optional)」でその人のアカウントを関連付けてください。認証が必須の運用では、役員登録に管理者権限が必要です。
 
@@ -253,7 +253,7 @@ Saika は次の構成条件を検査します。
 
 ## Director のバックアップと復元
 
-「Settings」→「Operational archives」を開きます。更新前や大会の登録・結果確認後など、残したい状態でバックアップを作成してください。
+「Settings」→「Backups」→「Operational archives」を開きます。更新前や大会の登録・結果確認後など、残したい状態でバックアップを作成してください。
 
 ### バックアップを作る
 

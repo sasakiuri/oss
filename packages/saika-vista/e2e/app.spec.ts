@@ -71,19 +71,79 @@ test('pairs a source, applies a monitor, renders live targets and restores stand
     }, screenConfig());
     await expect.poll(() => application!.windows().length).toBe(2);
     const audience = application.windows().find((window) => window !== operator)!;
+    expect(
+      await audience.evaluate(async () => {
+        try {
+          await window.vistaUpdates.check();
+          return 'allowed';
+        } catch (error) {
+          return String(error);
+        }
+      }),
+    ).toContain('requires the local operator window');
     await expect(audience.getByText('\u5c04\u6483 \u592a\u90ce', { exact: true })).toBeVisible();
     await expect
       .poll(() => operator.evaluate(async () => (await window.vista.getState()).local.screens[0]?.renderAlive))
       .toBe(true);
     await expect(audience.locator('svg')).toHaveCount(1);
     await audience.screenshot({ path: join('test-results', 'vista-audience-live.png'), fullPage: true });
+    await operator.getByRole('button', { name: /Screens/ }).click();
+    await operator.getByRole('button', { name: /North stand/ }).click();
+    await operator.getByLabel('Screen name').fill('East stand');
+    operator.once('dialog', (dialog) => void dialog.dismiss());
+    await operator.getByRole('button', { name: /Data sources/ }).click();
+    await expect(operator.getByLabel('Screen name')).toHaveValue('East stand');
+    expect(await operator.evaluate(async () => (await window.vista.getState()).local.screens[0]!.config.name)).toBe(
+      'North stand',
+    );
+    const apply = operator.getByRole('button', { name: 'Apply to screen' });
+    await expect(apply).toBeInViewport();
+    await apply.click();
+    await expect(operator.getByText('No changes', { exact: true })).toBeVisible();
+    await expect(operator.getByRole('status', { name: 'Display status' })).toContainText('Displaying');
+    await operator.getByText('Settings and display confirmation', { exact: true }).click();
+    await expect(operator.getByText('Confirmed v2', { exact: true })).toBeVisible();
+    await operator.getByText('Settings and display confirmation', { exact: true }).click();
+    expect(await operator.evaluate(async () => (await window.vista.getState()).local.screens[0]!.config.name)).toBe(
+      'East stand',
+    );
+    await operator.screenshot({ path: join('test-results', 'vista-operator-editor.png'), fullPage: true });
+    await expect(operator.getByLabel('Shot display')).toBeHidden();
+    await operator.getByText('Target appearance', { exact: true }).focus();
+    await operator.keyboard.press('Enter');
+    await expect(operator.getByLabel('Shot display')).toBeVisible();
+    await operator.getByLabel('Shot display').selectOption('recent');
+    await operator.getByLabel('Recent shot count').fill('6');
+    await expect(apply).toBeInViewport();
+    await apply.click();
+    await operator.getByText('Settings and display confirmation', { exact: true }).click();
+    await expect(operator.getByText('Confirmed v3', { exact: true })).toBeVisible();
+    await operator.getByText('Settings and display confirmation', { exact: true }).click();
+    expect(
+      await operator.evaluate(async () => (await window.vista.getState()).local.screens[0]!.config.recentShots),
+    ).toBe(6);
+    await application.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()
+        .find((window) => !new URL(window.webContents.getURL()).searchParams.has('screen'))!
+        .setSize(780, 700),
+    );
+    await operator.getByLabel('Recent shot count').fill('7');
+    await expect(apply).toBeInViewport();
+    expect(await operator.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await operator.screenshot({ path: join('test-results', 'vista-editor-minimum-scrolled.png') });
+    await apply.click();
+    await operator.getByText('Settings and display confirmation', { exact: true }).click();
+    await expect(operator.getByText('Confirmed v4', { exact: true })).toBeVisible();
+    expect(
+      await operator.evaluate(async () => (await window.vista.getState()).local.screens[0]!.config.recentShots),
+    ).toBe(7);
     await expect(audience.evaluate(() => window.vista.getState())).rejects.toThrow('local operator');
     await operator.evaluate(async () => {
       const state = await window.vista.getState();
       await window.vista.command({
         type: 'apply',
         nodeId: state.local.identity.sourceId,
-        config: { ...state.local.screens[0]!.config, revision: 2, standby: true },
+        config: { ...state.local.screens[0]!.config, revision: 5, standby: true },
       });
     });
     await expect(audience.getByText('Standby', { exact: true }).first()).toBeVisible();
@@ -117,7 +177,7 @@ test('pairs a source, applies a monitor, renders live targets and restores stand
       await window.vista.command({
         type: 'apply',
         nodeId: state.local.identity.sourceId,
-        config: { ...state.local.screens[0]!.config, revision: 3, standby: false },
+        config: { ...state.local.screens[0]!.config, revision: 6, standby: false },
       });
     });
     await expect(restored.getByText('\u5c04\u6483 \u592a\u90ce', { exact: true })).toBeVisible();

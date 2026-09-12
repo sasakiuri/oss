@@ -5,7 +5,7 @@ Saika Director is the desktop control application for coordinating multiple
 
 ## Saika Vista sharing
 
-Open **Settings → Saika Vista spectator displays**, enable sharing, and apply the
+Open **Settings → Vista → Saika Vista spectator displays**, enable sharing, and apply the
 settings. The default port is `45832`. On the Vista operator PC, discover this
 Director or enter one of the displayed endpoints, then enter its pairing secret.
 Sharing is disabled by default and starts automatically after enabling it.
@@ -85,7 +85,7 @@ npm rebuild better-sqlite3
 ```
 
 The default configuration starts an embedded MQTT broker on TCP port `1883`.
-Use the Settings screen to switch to an external `mqtt://` or `mqtts://` broker.
+Use Settings → Network to switch to an external `mqtt://` or `mqtts://` broker.
 
 ## MQTT Security Configuration
 
@@ -115,21 +115,30 @@ Release artifacts are prepared for:
 - macOS x64 and arm64: DMG and ZIP
 - Linux x64: AppImage and Debian package
 
-The current builds are unsigned. Windows SmartScreen and macOS Gatekeeper may
-therefore require users to explicitly allow the first launch. Code signing and
-macOS notarization should be configured before distributing to a broad audience.
+macOS releases can be built without a signing certificate and require manual
+updates in that case. Developer ID Application signing is optional; notarization
+is not configured in the release workflow. See the [release checks](../../.github/PRE_RELEASE_CHECKLIST.md#update-distribution)
+for signing configuration. Verify signing and first-launch behavior on each target
+OS before distribution.
 
 Platform packages can be produced locally with `build:win`, `build:mac`, or
 `build:linux`; use the corresponding `pack:*` command for an unpacked smoke-test
-build. The packaging commands rebuild `better-sqlite3` for the target Electron
-ABI and restore the local Node.js ABI afterwards.
+build. Electron Builder rebuilds `better-sqlite3` for the target Electron ABI.
+Before running Node.js-based tests after packaging, run `npm rebuild better-sqlite3`
+from the repository root to restore the local Node.js ABI.
 
 Director is distributed in the [shared Saika release](../../README.md#packages).
 Installers, checksums and versioned documentation use the same suite version.
 
-Saika Director does not currently implement automatic updates. Download its new
-version from the shared GitHub Release; Saika Lane continues to use its update
-metadata from that release.
+Installed releases check for application updates at startup. Use **Settings →
+Updates → Application updates** to check again, download an available release,
+and choose **Restart and install**. Save edits and finish range operations before
+confirming the restart. Updates require administrator operator access when
+operator sign-in is enabled; development builds do not support updates. Normal
+shutdown does not install a pending update.
+
+On macOS, automatic updates require signed applications with a consistent signing
+identity. Replace an unsigned installation manually using the release DMG or ZIP.
 
 ## Documentation
 

@@ -50,6 +50,7 @@ export type NodeState = {
   monitors: Monitor[];
   screens: ScreenStatus[];
   controllerId: string | null;
+  persistenceError: string | null;
   resumableSubjects: Array<Pick<Selection, 'sourceId' | 'subjectId'>>;
 };
 export type SourceView = {

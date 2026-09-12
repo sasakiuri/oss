@@ -265,7 +265,7 @@ describe('AppUpdater', () => {
     });
 
     await updater.checkForUpdates();
-    await updater.quitAndInstall();
+    await expect(updater.quitAndInstall()).rejects.toThrow('install failed');
 
     expect(updater.getState().status).toBe('error');
     expect(updater.getState().errorMessage).toBe('install failed');

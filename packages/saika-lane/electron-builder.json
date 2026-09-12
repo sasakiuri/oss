@@ -52,7 +52,7 @@
         "arch": ["x64"]
       }
     ],
-    "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    "artifactName": "Saika-Lane-${version}-win-${arch}.${ext}"
   },
   "nsis": {
     "oneClick": false,
@@ -67,7 +67,7 @@
       { "target": "dmg", "arch": ["x64", "arm64"] },
       { "target": "zip", "arch": ["x64", "arm64"] }
     ],
-    "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+    "artifactName": "Saika-Lane-${version}-mac-${arch}.${ext}",
     "category": "public.app-category.utilities"
   },
   "dmg": {
@@ -80,7 +80,7 @@
       { "target": "AppImage", "arch": ["x64"] },
       { "target": "deb", "arch": ["x64"] }
     ],
-    "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
+    "artifactName": "Saika-Lane-${version}-linux-${arch}.${ext}",
     "category": "Utility"
   }
 }

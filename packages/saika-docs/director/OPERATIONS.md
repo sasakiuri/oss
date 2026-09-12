@@ -118,7 +118,7 @@ description: Director の担当者登録、射座の抽選、スタートリス�
 
 ### 射群の準備確認を記録する
 
-「Competition Control」で競技を選び、「Relay readiness」を開きます。大会連携時は先に「Apply assignments」を済ませ、表示された射群番号と Lane を確認します。
+「Competition Control」で競技を選び、「Start checks & attendance」内の「Relay readiness」を開きます。大会連携時は先に「Apply assignments」を済ませ、表示された射群番号と Lane を確認します。
 
 1. 「Check target mode」で、これから始める「Sighting」または「Match」を選ぶ。
 2. 「Relay start checks」のモードを選び、「Apply start checks to relay …」を押す。「START uses relay …」の射群とモードが意図した設定か確認する。初期値は射群1・「Advisory」である。
@@ -131,7 +131,7 @@ description: Director の担当者登録、射座の抽選、スタートリス�
 
 ### 独立バックアップの自動取得を開始条件にする
 
-先に大会の種目で [原資料の自動取得](./RESULTS.md#更新される原資料を自動取得する) を開始し、保存を確認します。「Competition Control」で競技を選び、「Backup capture start checks」を開きます。
+先に大会の種目で [原資料の自動取得](./RESULTS.md#更新される原資料を自動取得する) を開始し、保存を確認します。「Competition Control」で競技を選び、「Start checks & attendance」内の「Backup capture start checks」を開きます。
 
 1. 「Backup check mode」で「Required」または「Advisory」を選ぶ。初期状態は「Disabled」である。
 2. 「Independent backup source」で自動取得を設定した種目を選ぶ。確認済み資料の読取時刻からの許容秒数を1〜3600秒で入力する。既定は15秒で、取得の確認間隔も考慮する。
@@ -143,7 +143,7 @@ description: Director の担当者登録、射座の抽選、スタートリス�
 
 開始条件に EST の検査を使う場合は、大会側に検査記録を保存し、競技側で Lane と標的を対応付けます。
 
-1. 大会の「Championship EST inspection」で標的の識別名を改行またはカンマ区切りで入力する。作成者と検査方法を入力し、「Create plan」を押す。
+1. 大会の「Championship records」→「Target inspections」を開く。標的の識別名を改行またはカンマ区切りで入力する。作成者と検査方法を入力し、「Create plan」を押す。
 2. 実機を検査し、検査担当者、監督する Technical Delegate、確認内容を入力する。標的ごとに「Pass」または「Fail」で結果を記録する。
 3. 「Competition Control」で対象競技を選び、「EST inspection start checks」の「Inspection championship」で大会を選ぶ。各 Lane の「Targets」に使用する標的を指定し、「Save inspection start policy」で保存する。
 4. 検査計画と対応付けを確認し、「Pre-start checks」の「Refresh checks」で開始条件を再検査する。

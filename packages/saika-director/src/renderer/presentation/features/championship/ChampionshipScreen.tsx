@@ -1,23 +1,8 @@
 import { useState, useCallback } from 'react';
-import {
-  ArrowLeft,
-  CalendarDays,
-  ClockAlert,
-  FileSearch,
-  FileWarning,
-  Gavel,
-  MapPin,
-  PackageOpen,
-  ListChecks,
-  Pencil,
-  Scale,
-  ShieldCheck,
-  Target,
-  Trophy,
-  Users,
-} from 'lucide-react';
+import { ArrowLeft, CalendarDays, MapPin, PackageOpen, Pencil, Target } from 'lucide-react';
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
+import { SectionTabs } from '../shared/common/SectionTabs';
 import { PageHeader } from '../shared/layout/PageHeader';
 import { ChampionshipList } from './components/ChampionshipList';
 import { ChampionshipForm } from './components/ChampionshipForm';
@@ -310,7 +295,6 @@ export function ChampionshipScreen() {
         <div className="min-h-full">
           <PageHeader
             title="New championship"
-
             actions={
               <Button variant="secondary" size="sm" onClick={() => setView('list')}>
                 <ArrowLeft size={16} aria-hidden="true" />
@@ -360,7 +344,6 @@ export function ChampionshipScreen() {
                 </span>
               </span>
             }
-
             actions={
               <>
                 <Button variant="secondary" size="sm" onClick={handleBack}>
@@ -391,40 +374,7 @@ export function ChampionshipScreen() {
             }
           />
 
-          <div className="px-5 pt-5">
-            <Card>
-              <EstChampionshipInspectionPanel
-                key={`est-inspection:${selectedChampionship.id}`}
-                championshipId={selectedChampionship.id}
-              />
-            </Card>
-          </div>
-
-          <div className="px-5 pt-4">
-            <Card>
-              <AthleteSanctionsPanel
-                key={`athlete-sanctions:${selectedChampionship.id}`}
-                championshipId={selectedChampionship.id}
-              />
-            </Card>
-          </div>
-
-          <div className="px-5 pt-4">
-            <Card>
-              <ResultsBookPanel
-                key={`results-book:${selectedChampionship.id}`}
-                championshipId={selectedChampionship.id}
-              />
-            </Card>
-          </div>
-
-          <div className="px-5 pt-4">
-            <Card>
-              <EquipmentRegistryPanel key={selectedChampionship.id} championshipId={selectedChampionship.id} />
-            </Card>
-          </div>
-
-          <div className="grid items-start gap-4 p-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <div className="grid items-start gap-4 p-5 lg:grid-cols-[14rem_minmax(0,1fr)]">
             <aside className="overflow-hidden rounded-sm border border-vscode-border bg-vscode-bg-light">
               <EventList
                 events={selectedChampionship.events}
@@ -452,168 +402,35 @@ export function ChampionshipScreen() {
               </section>
             ) : selectedEventId ? (
               <section className="min-w-0 overflow-hidden rounded-sm border border-vscode-border bg-vscode-bg-light">
-                <div
-                  role="tablist"
-                  aria-label="Event workspace"
-                  className="flex overflow-x-auto border-b border-vscode-border px-2"
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'cases'}
-                    aria-controls="cases-panel"
-                    onClick={() => setEventTab('cases')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'cases'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <Scale size={15} aria-hidden="true" />
-                    Cases
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'protests'}
-                    aria-controls="protests-panel"
-                    onClick={() => setEventTab('protests')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'protests'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <Gavel size={15} aria-hidden="true" />
-                    Protests
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'participants'}
-                    aria-controls="participants-panel"
-                    onClick={() => setEventTab('participants')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'participants'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <Users size={15} aria-hidden="true" />
-                    Participants
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'assignments'}
-                    aria-controls="assignments-panel"
-                    onClick={() => setEventTab('assignments')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'assignments'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <Target size={15} aria-hidden="true" />
-                    Firing-Point Assignment
-                  </button>
-                  {selectedChampionship.events.find((event) => event.id === selectedEventId)?.round ===
-                    'Elimination' && (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={eventTab === 'elimination'}
-                      aria-controls="elimination-panel"
-                      onClick={() => setEventTab('elimination')}
-                      className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                        eventTab === 'elimination'
-                          ? 'border-vscode-primary text-vscode-text'
-                          : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                      }`}
-                    >
-                      <ListChecks size={15} aria-hidden="true" />
-                      Elimination Plan
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'examinations'}
-                    aria-controls="examinations-panel"
-                    onClick={() => setEventTab('examinations')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'examinations'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <FileSearch size={15} aria-hidden="true" />
-                    Target Examination
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'incidents'}
-                    aria-controls="incidents-panel"
-                    onClick={() => setEventTab('incidents')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'incidents'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <FileWarning size={15} aria-hidden="true" />
-                    Incidents
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'interruptions'}
-                    aria-controls="interruptions-panel"
-                    onClick={() => setEventTab('interruptions')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'interruptions'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <ClockAlert size={15} aria-hidden="true" />
-                    Interruptions
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'equipment-control'}
-                    aria-controls="equipment-control-panel"
-                    onClick={() => setEventTab('equipment-control')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'equipment-control'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <ShieldCheck size={15} aria-hidden="true" />
-                    Equipment Control
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={eventTab === 'results'}
-                    aria-controls="results-panel"
-                    onClick={() => setEventTab('results')}
-                    className={`-mb-px flex min-h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[13px] font-medium transition-colors ${
-                      eventTab === 'results'
-                        ? 'border-vscode-primary text-vscode-text'
-                        : 'border-transparent text-vscode-text-muted hover:text-vscode-text'
-                    }`}
-                  >
-                    <Trophy size={15} aria-hidden="true" />
-                    Results
-                  </button>
-                </div>
-
+                <SectionTabs<EventTab>
+                  label="Event workspace"
+                  prefix="event"
+                  value={eventTab}
+                  onChange={setEventTab}
+                  tabs={[
+                    { id: 'participants', label: 'Participants' },
+                    { id: 'assignments', label: 'Firing-Point Assignment' },
+                    ...(selectedChampionship.events.find((event) => event.id === selectedEventId)?.round ===
+                    'Elimination'
+                      ? [{ id: 'elimination' as const, label: 'Elimination Plan' }]
+                      : []),
+                    { id: 'results', label: 'Results' },
+                    { id: 'examinations', label: 'Target Examination' },
+                    { id: 'interruptions', label: 'Interruptions' },
+                    { id: 'incidents', label: 'Incidents' },
+                    { id: 'protests', label: 'Protests' },
+                    { id: 'cases', label: 'Cases' },
+                    { id: 'equipment-control', label: 'Equipment Control' },
+                  ]}
+                />
                 {eventTab === 'participants' && (
-                  <div id="participants-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-participants-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-participants-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <ParticipantEditor
                       key={selectedEventId}
                       participants={participants}
@@ -622,7 +439,13 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'assignments' && (
-                  <div id="assignments-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-assignments-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-assignments-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <FiringPointAssignmentEditor
                       key={selectedEventId}
                       assignments={firingPointAssignments}
@@ -640,7 +463,13 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'results' && (
-                  <div id="results-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-results-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-results-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <ResultsView
                       eventId={selectedEventId}
                       eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
@@ -649,12 +478,24 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'elimination' && (
-                  <div id="elimination-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-elimination-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-elimination-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <OutdoorEliminationPlanningPanel key={selectedEventId} eventId={selectedEventId} />
                   </div>
                 )}
                 {eventTab === 'incidents' && (
-                  <div id="incidents-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-incidents-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-incidents-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <IncidentReportsView
                       key={selectedEventId}
                       eventId={selectedEventId}
@@ -664,7 +505,13 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'examinations' && (
-                  <div id="examinations-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-examinations-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-examinations-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <TargetExaminationsPanel
                       key={selectedEventId}
                       primaryScope={{ scopeType: 'EVENT', scopeId: selectedEventId }}
@@ -672,7 +519,13 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'interruptions' && (
-                  <div id="interruptions-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-interruptions-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-interruptions-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <RangeInterruptionsPanel
                       key={selectedEventId}
                       primaryScope={{ scopeType: 'EVENT', scopeId: selectedEventId }}
@@ -680,17 +533,35 @@ export function ChampionshipScreen() {
                   </div>
                 )}
                 {eventTab === 'protests' && (
-                  <div id="protests-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-protests-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-protests-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <ProtestsPanel key={selectedEventId} scopeId={selectedEventId} />
                   </div>
                 )}
                 {eventTab === 'cases' && (
-                  <div id="cases-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-cases-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-cases-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <AdjudicationCasesPanel key={selectedEventId} eventId={selectedEventId} />
                   </div>
                 )}
                 {eventTab === 'equipment-control' && (
-                  <div id="equipment-control-panel" role="tabpanel" className="p-4">
+                  <div
+                    id="event-equipment-control-panel"
+                    role="tabpanel"
+                    aria-labelledby="event-equipment-control-tab"
+                    tabIndex={0}
+                    className="p-4"
+                  >
                     <PostCompetitionEquipmentControlPanel
                       key={selectedEventId}
                       championshipId={selectedChampionship.id}
@@ -716,6 +587,34 @@ export function ChampionshipScreen() {
               </section>
             )}
           </div>
+          <section aria-label="Championship records" className="px-5 pb-5">
+            <h3 className="mb-3 text-sm font-semibold text-vscode-text">Championship records</h3>
+            <details className="operation-section">
+              <summary>Target inspections</summary>
+              <EstChampionshipInspectionPanel
+                key={`est-inspection:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </details>
+            <details className="operation-section">
+              <summary>Athlete sanctions</summary>
+              <AthleteSanctionsPanel
+                key={`athlete-sanctions:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </details>
+            <details className="operation-section">
+              <summary>Results Book</summary>
+              <ResultsBookPanel
+                key={`results-book:${selectedChampionship.id}`}
+                championshipId={selectedChampionship.id}
+              />
+            </details>
+            <details className="operation-section">
+              <summary>Equipment register</summary>
+              <EquipmentRegistryPanel key={selectedChampionship.id} championshipId={selectedChampionship.id} />
+            </details>
+          </section>
         </div>
       )}
     </div>

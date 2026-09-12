@@ -9,15 +9,20 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 import { AtomicStore } from '../src/main/AtomicStore';
 import { DocumentSchema, newDocument } from '../src/main/document';
+import { linuxAutostartEntry } from '../src/main/linuxAutostart';
+import { setLoginStart } from '../src/main/loginStart';
 import { VistaApplication, type DesktopPort } from '../src/main/VistaApplication';
 import { publicationLabel } from '../src/renderer/viewModel';
 
 import { screenConfig, snapshot } from './fixtures';
 
+vi.mock('electron', () => ({ app: { isPackaged: true, getPath: () => '/opt/saika-vista' } }));
+
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
   for (const clean of cleanup.reverse()) await clean();
   cleanup.length = 0;
 });
@@ -85,6 +90,157 @@ async function source(
   cleanup.push(() => server.close());
   return server;
 }
+
+it.skipIf(process.platform !== 'linux')(
+  'refreshes saved login startup to the updated AppImage on restart',
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'vista-login-update-'));
+    cleanup.push(() => rm(directory, { recursive: true, force: true }));
+    vi.stubEnv('XDG_CONFIG_HOME', join(directory, 'config'));
+    const launcher = join(directory, 'config', 'autostart', 'saika-vista.desktop');
+    const previousExecutable = join(directory, 'Saika-Vista-0.2.0.AppImage');
+    const updatedExecutable = join(directory, 'Saika-Vista-0.3.0.AppImage');
+    await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({
+      ...newDocument(),
+      loginStart: true,
+      screens: [screenConfig()],
+    });
+    const port = desktop();
+    port.loginStart = setLoginStart;
+    let app: VistaApplication | null = null;
+    cleanup.push(async () => app?.stop());
+
+    vi.stubEnv('APPIMAGE', previousExecutable);
+    app = await VistaApplication.start(directory, port);
+    expect(await readFile(launcher, 'utf8')).toBe(linuxAutostartEntry(previousExecutable));
+    await app.stop();
+    app = null;
+
+    vi.stubEnv('APPIMAGE', updatedExecutable);
+    app = await VistaApplication.start(directory, port);
+    expect(await readFile(launcher, 'utf8')).toBe(linuxAutostartEntry(updatedExecutable));
+    expect(port.open).toHaveBeenCalledTimes(2);
+    expect(app.view().loginStart).toBe(true);
+    expect(app.view().error).toBeNull();
+  },
+);
+
+it('restores displays and source reception while reporting a failed login startup registration until retry', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'vista-login-restore-'));
+  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({
+    ...newDocument(),
+    loginStart: true,
+    screens: [screenConfig()],
+    snapshots: [{ snapshot: snapshot(), state: 'live', receivedAt: Date.now(), error: null }],
+  });
+  const server = await source();
+  const port = desktop();
+  port.loginStart = vi.fn().mockRejectedValueOnce(new Error('Access denied')).mockResolvedValue(undefined);
+  const app = await VistaApplication.start(directory, port);
+  cleanup.push(() => app.stop());
+  expect(port.open).toHaveBeenCalledWith(screenConfig());
+  expect(port.loginStart).toHaveBeenCalledWith(true);
+  expect(app.state.audience('screen-one').entries[0]?.state).toBe('saved');
+  expect(app.view().error).toContain('Could not restore login startup: Access denied');
+  expect(app.view().loginStart).toBe(true);
+  expect(app.state.persistenceError).toBeNull();
+
+  await app.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
+  await vi.waitFor(() => expect(app.view().snapshots[0]?.state).toBe('live'));
+  expect(app.view().error).toContain('Could not restore login startup: Access denied');
+  await app.command({ type: 'setLoginStart', enabled: true });
+  expect(app.view().error).toBeNull();
+  expect(app.view().loginStart).toBe(true);
+});
+
+it('leaves OS login startup alone when the saved setting is disabled', async () => {
+  const port = desktop();
+  port.loginStart = vi.fn();
+  const app = await start(port);
+  expect(app.view().loginStart).toBe(false);
+  expect(port.loginStart).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'stops after a rejected setting and preserves an actual write failure (storageFailure=%s)',
+  async (storageFailure) => {
+    const directory = await mkdtemp(join(tmpdir(), 'vista-stop-validation-'));
+    cleanup.push(() => rm(directory, { recursive: true, force: true }));
+    const app = await VistaApplication.start(directory, desktop());
+    await pausePolling(app);
+    const config = { ...screenConfig(), selections: [] };
+    if (storageFailure) {
+      vi.spyOn(AtomicStore.prototype, 'write').mockRejectedValueOnce(new Error('Disk full'));
+      await expect(app.command({ type: 'apply', nodeId: app.identity.sourceId, config })).rejects.toThrow('Disk full');
+    }
+    await expect(
+      app.command({ type: 'apply', nodeId: app.identity.sourceId, config: { ...config, monitorId: 'disconnected' } }),
+    ).rejects.toThrow('The selected monitor is not connected');
+    expect(app.state.document.screens).toEqual([]);
+    if (storageFailure) await expect(app.stop()).rejects.toThrow('Disk full');
+    else await expect(app.stop()).resolves.toBeUndefined();
+  },
+);
+
+it.each([false, true])('restores OS login startup after a save failure (previous=%s)', async (previous) => {
+  const directory = await mkdtemp(join(tmpdir(), 'vista-login-'));
+  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  let osEnabled = false;
+  const port = desktop();
+  port.loginStart = vi.fn(async (enabled) => {
+    osEnabled = enabled;
+  });
+  const app = await VistaApplication.start(directory, port);
+  cleanup.push(() => app.stop());
+  await pausePolling(app);
+  await app.command({ type: 'setLoginStart', enabled: previous });
+  vi.mocked(port.loginStart).mockClear();
+  const write = vi.spyOn(AtomicStore.prototype, 'write').mockRejectedValueOnce(new Error('Disk full'));
+
+  await expect(app.command({ type: 'setLoginStart', enabled: !previous })).rejects.toThrow(
+    'Could not save login startup: Disk full. The previous setting was restored.',
+  );
+  expect(port.loginStart).toHaveBeenNthCalledWith(1, !previous);
+  expect(port.loginStart).toHaveBeenNthCalledWith(2, previous);
+  expect(osEnabled).toBe(previous);
+  expect(app.view().loginStart).toBe(previous);
+  expect(JSON.parse(await readFile(join(directory, 'vista.json'), 'utf8')).loginStart).toBe(previous);
+
+  write.mockRestore();
+  await app.command({ type: 'setLoginStart', enabled: !previous });
+  expect(osEnabled).toBe(!previous);
+  expect(app.view().loginStart).toBe(!previous);
+  expect(JSON.parse(await readFile(join(directory, 'vista.json'), 'utf8')).loginStart).toBe(!previous);
+});
+
+it('reports both the save failure and an OS login startup restoration failure', async () => {
+  const port = desktop();
+  port.loginStart = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Access denied'));
+  const app = await start(port);
+  await pausePolling(app);
+  vi.spyOn(AtomicStore.prototype, 'write').mockRejectedValueOnce(new Error('Disk full'));
+
+  await expect(app.command({ type: 'setLoginStart', enabled: true })).rejects.toThrow(
+    'Could not save login startup: Disk full. Could not restore the previous operating system setting: Access denied. Check login startup in your system settings.',
+  );
+  expect(app.view().loginStart).toBe(false);
+  expect(port.loginStart).toHaveBeenNthCalledWith(2, false);
+  await app.command({ type: 'setLoginStart', enabled: false });
+});
+
+it('keeps saved login startup unchanged when the OS rejects the change', async () => {
+  const port = desktop();
+  port.loginStart = vi.fn().mockRejectedValue(new Error('OS setting rejected'));
+  const app = await start(port);
+  await pausePolling(app);
+  const write = vi.spyOn(AtomicStore.prototype, 'write');
+
+  await expect(app.command({ type: 'setLoginStart', enabled: true })).rejects.toThrow('OS setting rejected');
+  expect(write).not.toHaveBeenCalled();
+  expect(app.view().loginStart).toBe(false);
+  expect(port.loginStart).toHaveBeenCalledTimes(1);
+});
 
 it('connects without a broker, restores complete history and separates persisted settings from rendering', async () => {
   const server = await source();
@@ -405,8 +561,9 @@ it('rechecks controller ownership before persisting an in-flight peer registrati
   const owner = { controllerId: 'new-controller', controllerGeneration: 1 };
   const register = display.state.register.bind(display.state);
   vi.spyOn(display.state, 'register').mockImplementation(async (input, secret) => {
-    await register(input, secret);
+    const result = await register(input, secret);
     await controller.state.register(owner);
+    return result;
   });
   await expect(
     controller.command({

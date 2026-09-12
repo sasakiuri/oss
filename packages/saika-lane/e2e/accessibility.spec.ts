@@ -12,7 +12,7 @@ test.describe('Accessibility', () => {
   test('should have no WCAG 2.1 AA violations', async () => {
     running = await launchLane();
     const window = await running.app.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    await expect(window.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
 
     const results = await new AxeBuilder({ page: window })
       .setLegacyMode()

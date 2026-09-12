@@ -101,7 +101,7 @@ export function LaneManagementPanel({
         <div>
           <h3 className="text-sm font-semibold text-vscode-text">Lanes</h3>
           <p className="mt-0.5 text-xs text-vscode-text-muted" aria-live="polite">
-            {lanes.length} discovered · {selectedLaneIds.size} selected
+            {lanes.length} discovered
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -168,9 +168,6 @@ export function LaneManagementPanel({
                 Lane name
               </th>
               <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
-                Lane ID
-              </th>
-              <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
                 Hardware
               </th>
               <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-vscode-text-muted">
@@ -196,7 +193,7 @@ export function LaneManagementPanel({
           <tbody>
             {lanes.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-5 text-left">
+                <td colSpan={10} className="px-4 py-5 text-left">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="text-[13px] font-medium text-vscode-text">No Lanes discovered</p>
@@ -237,12 +234,14 @@ export function LaneManagementPanel({
                     <td className="px-3 py-2.5 text-right font-mono font-semibold text-vscode-text">
                       {lane.firingPointNumber ?? '--'}
                     </td>
-                    <td className="px-3 py-2.5 font-medium text-vscode-text">{lane.laneAlias || 'Unnamed'}</td>
-                    <td
-                      className="max-w-36 truncate px-3 py-2.5 font-mono text-xs text-vscode-dimmed"
-                      title={lane.laneId}
-                    >
-                      {lane.laneId}
+                    <td className="px-3 py-2.5 text-vscode-text">
+                      <span className="block font-medium">{lane.laneAlias || 'Unnamed'}</span>
+                      <span
+                        className="block max-w-36 truncate font-mono text-xs text-vscode-text-muted"
+                        title={lane.laneId}
+                      >
+                        {lane.laneId}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="inline-flex items-center gap-1.5 text-xs text-vscode-text-muted">
@@ -260,7 +259,11 @@ export function LaneManagementPanel({
                     <td className="px-3 py-2.5">
                       <span
                         className={`whitespace-nowrap text-xs font-bold ${
-                          lane.safetyState?.status === 'STOPPED' ? 'text-red-400' : 'text-vscode-success'
+                          lane.safetyState?.status === 'STOPPED'
+                            ? 'text-vscode-error'
+                            : lane.safetyState?.status === 'CLEAR'
+                              ? 'text-vscode-success'
+                              : 'text-vscode-text-muted'
                         }`}
                       >
                         {lane.safetyState?.status ?? 'UNKNOWN'}

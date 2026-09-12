@@ -22,6 +22,46 @@ test.describe('Saika Director', () => {
     await expect(window.getByRole('button', { name: 'MQTT Control' })).toHaveCount(0);
   });
 
+  test('opens event entries before championship records and keeps event navigation visible', async () => {
+    running = await launchDirector();
+    const page = await running.app.firstWindow();
+    await expect(page.getByRole('heading', { name: 'Competition Control' })).toBeVisible();
+    await page.evaluate(async () => {
+      const api = window.electronAPI.championship;
+      const championship = await api.createChampionship({
+        name: 'Venue test',
+        date: '2026-09-12',
+        venue: 'Main range',
+      });
+      if (!championship.success || !championship.data) throw new Error('Championship creation failed');
+      const event = await api.createEvent({
+        championshipId: championship.data,
+        name: '10m Air Rifle',
+        eventType: 'AR60',
+      });
+      if (!event.success) throw new Error('Event creation failed');
+    });
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.getByRole('button', { name: 'Championships', exact: true }).click();
+    await page.getByRole('button', { name: /^Venue test/ }).click();
+    await page
+      .getByRole('button', { name: /^10m Air Rifle/ })
+      .first()
+      .click();
+    const tabs = page.getByRole('tablist', { name: 'Event workspace' });
+    await expect(tabs).toBeInViewport();
+    for (const tab of await tabs.getByRole('tab').all()) await expect(tab).toBeInViewport();
+    await expect(page.getByRole('heading', { name: 'Entry list' })).toBeInViewport();
+    const participants = tabs.getByRole('tab', { name: 'Participants', exact: true });
+    await participants.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.getByRole('tab', { name: 'Firing-Point Assignment' })).toBeFocused();
+    await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'event-assignments-tab');
+    await page.keyboard.press('Home');
+    await expect(participants).toBeFocused();
+    await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'event-participants-tab');
+  });
+
   test('lets users enter an external broker URL before applying the mode', async () => {
     running = await launchDirector();
     const window = await running.app.firstWindow();
@@ -65,6 +105,20 @@ test.describe('Saika Director', () => {
     });
     expect(outcome.removed.success).toBe(true);
     expect(outcome.after).toEqual({ success: true, data: [] });
+  });
+
+  test('shows application update availability in a development build', async () => {
+    running = await launchDirector();
+    const page = await running.app.firstWindow();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'Updates', exact: true }).click();
+    const updates = page.getByRole('region', { name: 'Application updates' });
+    await expect(updates.getByText('Auto-update is available only in packaged releases.')).toBeVisible();
+    await expect(updates.getByText(/Current version:/)).toBeVisible();
+    await expect(updates.getByRole('button', { name: 'Check for updates' })).toBeDisabled();
+    await expect(updates.getByRole('button', { name: 'Restart and install' })).toHaveCount(0);
+    const state = await page.evaluate(() => window.electronAPI.updater.getUpdateState());
+    expect(state).toMatchObject({ success: true, data: { status: 'unsupported', canInstallUpdate: false } });
   });
 
   test('quits the whole application when the main window closes with a board still open', async () => {

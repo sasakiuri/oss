@@ -2,11 +2,13 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { UpdaterService } from '@sasakiuri/saika-updater/main';
 import {
   app,
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeTheme,
   powerMonitor,
   powerSaveBlocker,
   screen,
@@ -20,6 +22,8 @@ import { setLoginStart } from './loginStart';
 import { VistaApplication } from './VistaApplication';
 
 const directory = dirname(fileURLToPath(import.meta.url));
+const appIcon = join(directory, '../../resources/appIcon.png');
+nativeTheme.themeSource = 'dark';
 // Test harnesses isolate userData through an explicit command-line switch.
 const dataDirectory = app.commandLine.getSwitchValue('vista-data-dir');
 if (dataDirectory) app.setPath('userData', dataDirectory);
@@ -28,6 +32,54 @@ let operator: BrowserWindow | null = null;
 const outputs = new Map<string, { window: BrowserWindow; revision: number | null; renderedAt: number }>();
 let powerBlock: number | null = null;
 let quitting = false;
+let preparingUpdate = false;
+let recoveringUpdate = false;
+let updateShutdown: Promise<void> | null = null;
+const updater = new UpdaterService({
+  isPackaged: app.isPackaged,
+  currentVersion: app.getVersion(),
+  metadataNamespace: 'vista',
+  autoInstallOnAppQuit: false,
+  onStateChange: (state) => {
+    if (operator && !operator.isDestroyed()) operator.webContents.send('vista:updates-changed', state);
+    if (state.status === 'error' && preparingUpdate && !recoveringUpdate) {
+      recoveringUpdate = true;
+      setImmediate(() => {
+        void (updateShutdown ?? Promise.resolve())
+          .catch(() => undefined)
+          .then(() => {
+            dialog.showErrorBox(
+              'Vista update could not be installed',
+              `${state.errorMessage ?? 'Installation failed.'}\nVista will restart with the current version.`,
+            );
+            quitting = true;
+            app.relaunch();
+            app.quit();
+          });
+      });
+    }
+  },
+  beforeInstall: async () => {
+    if (!operator || operator.isDestroyed()) throw new Error('Open the operator window to install the update.');
+    const confirmation = await dialog.showMessageBox(operator, {
+      type: 'question',
+      title: 'Install Vista update',
+      message: 'Restart Vista and install the downloaded update?',
+      detail:
+        'Audience windows on this PC will close. Connected display PCs will briefly lose their controller connection.',
+      buttons: ['Restart and install', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (confirmation.response !== 0) throw new Error('Update installation was cancelled.');
+    if (quitting) throw new Error('Vista is already shutting down.');
+    preparingUpdate = true;
+    updateShutdown = requireApplication().stop();
+    await updateShutdown;
+    app.releaseSingleInstanceLock();
+    quitting = true;
+  },
+});
 
 function protect(window: BrowserWindow): void {
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -38,15 +90,20 @@ function protect(window: BrowserWindow): void {
 }
 
 async function load(window: BrowserWindow, screenId?: string): Promise<void> {
-  const dev = process.env.VITE_DEV_SERVER_URL;
-  if (!app.isPackaged && dev) {
-    const url = new URL(dev);
-    if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1')
-      throw new Error('The development renderer must be local');
-    if (screenId) url.searchParams.set('screen', screenId);
-    await window.loadURL(url.href);
-  } else
-    await window.loadFile(join(directory, '../renderer/index.html'), { query: screenId ? { screen: screenId } : {} });
+  try {
+    const dev = process.env.VITE_DEV_SERVER_URL;
+    if (!app.isPackaged && dev) {
+      const url = new URL(dev);
+      if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1')
+        throw new Error('The development renderer must be local');
+      if (screenId) url.searchParams.set('screen', screenId);
+      await window.loadURL(url.href);
+    } else
+      await window.loadFile(join(directory, '../renderer/index.html'), { query: screenId ? { screen: screenId } : {} });
+  } catch (error) {
+    // Closing a loading window rejects its load promise. Shutdown must not open a blocking error dialog.
+    if (!quitting && !window.isDestroyed()) throw error;
+  }
 }
 
 function createOperator(): void {
@@ -61,7 +118,8 @@ function createOperator(): void {
     minWidth: 780,
     minHeight: 600,
     title: 'Saika Vista',
-    backgroundColor: '#f4f6f8',
+    icon: appIcon,
+    backgroundColor: '#14191d',
     webPreferences: {
       preload: join(directory, '../preload/preload.mjs'),
       contextIsolation: true,
@@ -100,7 +158,8 @@ function openOutput(config: ScreenConfig): void {
   const window = new BrowserWindow({
     ...display.bounds,
     title: config.name,
-    backgroundColor: '#101b29',
+    icon: appIcon,
+    backgroundColor: '#10191d',
     frame: false,
     fullscreen: true,
     autoHideMenuBar: true,
@@ -146,6 +205,7 @@ function isMainFrame(event: IpcMainInvokeEvent): boolean {
 function requireOperator(event: IpcMainInvokeEvent): VistaApplication {
   if (!isMainFrame(event) || event.sender !== operator?.webContents)
     throw new Error('This operation requires the local operator window');
+  if (preparingUpdate) throw new Error('Vista is restarting to install an update.');
   return requireApplication();
 }
 function outputFor(event: IpcMainInvokeEvent) {
@@ -164,6 +224,7 @@ else {
   app.on('before-quit', (event) => {
     if (quitting || !application) return;
     event.preventDefault();
+    if (preparingUpdate) return;
     quitting = true;
     void application.stop().finally(() => app.quit());
   });
@@ -173,6 +234,18 @@ else {
       ipcMain.handle('vista:state', (event) => requireOperator(event).view());
       ipcMain.handle('vista:command', (event, input: unknown) => requireOperator(event).command(input));
       ipcMain.handle('vista:discover', (event) => requireOperator(event).discover());
+      ipcMain.handle('vista:updates-state', (event) => {
+        requireOperator(event);
+        return updater.getState();
+      });
+      ipcMain.handle('vista:updates-check', (event) => {
+        requireOperator(event);
+        return updater.checkForUpdates();
+      });
+      ipcMain.handle('vista:updates-install', (event) => {
+        requireOperator(event);
+        return updater.quitAndInstall();
+      });
       ipcMain.handle('vista:audience', (event) => requireApplication().state.audience(outputFor(event)[0]));
       ipcMain.handle('vista:rendered', (event, input: unknown) => {
         const [id, output] = outputFor(event);
@@ -204,6 +277,7 @@ else {
             if (!output.window.isDestroyed()) output.window.webContents.send('vista:changed');
         },
       });
+      void updater.checkForUpdates();
       screen.on('display-removed', (_event, removed) => {
         for (const config of requireApplication().state.document.screens)
           if (config.monitorId === String(removed.id)) outputs.get(config.id)?.window.close();

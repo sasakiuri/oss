@@ -64,6 +64,7 @@
   "dependencies": {
     "@sasakiuri/saika-protocol": "*",
     "@sasakiuri/saika-rules": "*",
+    "@sasakiuri/saika-updater": "*",
     "better-sqlite3": "^13.0.3",
     "electron-store": "10.0.0",
     "electron-updater": "^6.8.9",
