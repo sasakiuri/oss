@@ -2,9 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { migration089EvidenceFileContents } from '@/main/infrastructure/database/migrations/089_evidence_file_contents';
 import { EvidenceFileService } from '@/main/modules/evidence-files/application/EvidenceFileService';
-import { NodeEvidenceFileStore } from '@/main/modules/evidence-files/infra/NodeEvidenceFileStore';
+import { SqliteEvidenceFileStore } from '@/main/modules/evidence-files/infra/SqliteEvidenceFileStore';
 import { EvidenceFileArchiveSource } from '@/main/modules/evidence-files/infra/EvidenceFileArchiveSource';
 import type {
   EvidenceFile,
@@ -32,16 +34,21 @@ class MemoryRepository implements IEvidenceFileRepository {
 
 describe('Evidence file custody and portable archive', () => {
   let directory: string;
+  const databases: Database.Database[] = [];
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'saika-evidence-'));
   });
   afterEach(async () => {
+    for (const database of databases.splice(0)) database.close();
     await rm(directory, { recursive: true, force: true });
   });
 
   function fixture() {
     const repository = new MemoryRepository();
-    const store = new NodeEvidenceFileStore(join(directory, 'store'), 1024);
+    const database = new Database(':memory:');
+    databases.push(database);
+    migration089EvidenceFileContents.up(database);
+    const store = new SqliteEvidenceFileStore(database, 1024);
     const transfer = {
       chooseSource: vi.fn(async () => ({ fileName: 'log.bin', bytes: new Uint8Array([0, 255, 13, 10, 128]) })),
       saveCopy: vi.fn(async () => true),
@@ -55,7 +62,7 @@ describe('Evidence file custody and portable archive', () => {
       importedBy: 'Jury',
       statement: 'Adjacent Lane 3, series 2, top marked',
     };
-    return { repository, store, transfer, subjects, service, input };
+    return { repository, database, store, transfer, subjects, service, input };
   }
 
   it('retains exact original bytes after the source is removed and exports them in a scoped bundle', async () => {
@@ -113,8 +120,11 @@ describe('Evidence file custody and portable archive', () => {
   it('detects corruption and missing files before saving or publishing an archive', async () => {
     const f = fixture();
     const file = (await f.service.importFile(f.input))!;
-    const path = join(directory, 'store', `${file.sha256}.bin`);
-    await writeFile(path, new Uint8Array([1, 1, 1, 1, 1]));
+    f.database.exec('DROP TRIGGER evidence_file_contents_no_update; DROP TRIGGER evidence_file_contents_no_delete');
+    f.database
+      .prepare('UPDATE evidence_file_contents SET content = ? WHERE sha256 = ?')
+      .run(Buffer.from([1, 1, 1, 1, 1]), file.sha256);
+    await expect(f.store.put(new Uint8Array([0, 255, 13, 10, 128]))).rejects.toThrow('SHA-256 mismatch');
     await expect(f.service.exportFile(file.id)).rejects.toThrow('SHA-256 mismatch');
     expect(f.transfer.saveCopy).not.toHaveBeenCalled();
     await expect(
@@ -122,7 +132,7 @@ describe('Evidence file custody and portable archive', () => {
         { id: 'target-examination-evidence', records: [{ id: 'evidence' }] },
       ]),
     ).rejects.toThrow('SHA-256');
-    await rm(path);
+    f.database.prepare('DELETE FROM evidence_file_contents WHERE sha256 = ?').run(file.sha256);
     await expect(f.service.exportFile(file.id)).rejects.toThrow();
   });
 
@@ -131,6 +141,11 @@ describe('Evidence file custody and portable archive', () => {
     const bytes = new Uint8Array([1, 2, 3]);
     const [first, second] = await Promise.all([f.store.put(bytes), f.store.put(bytes)]);
     expect(first).toEqual(second);
+    expect(f.database.prepare('SELECT COUNT(*) FROM evidence_file_contents').pluck().get()).toBe(1);
+    expect(() => f.database.prepare('DELETE FROM evidence_file_contents').run()).toThrow('append-only');
+    expect(() => f.database.prepare('UPDATE evidence_file_contents SET content = ?').run(Buffer.from([0]))).toThrow(
+      'append-only',
+    );
     expect(Buffer.from(await f.store.readVerified(first.sha256, 3))).toEqual(Buffer.from(bytes));
     await expect(f.store.put(new Uint8Array(1025))).rejects.toThrow('exceeds');
     await expect(f.store.readVerified('../external.log', 1)).rejects.toThrow('content key');

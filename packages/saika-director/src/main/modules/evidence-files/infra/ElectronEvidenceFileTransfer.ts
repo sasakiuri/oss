@@ -2,7 +2,7 @@ import { dialog } from 'electron';
 import { open, rename, unlink, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import type { IEvidenceFileTransfer } from '../domain/EvidenceFile';
-import { DEFAULT_EVIDENCE_FILE_LIMIT } from './NodeEvidenceFileStore';
+import { DEFAULT_EVIDENCE_FILE_LIMIT } from '@/main/infrastructure/database/EvidenceFileContents';
 
 export class ElectronEvidenceFileTransfer implements IEvidenceFileTransfer {
   constructor(private readonly maximumBytes = DEFAULT_EVIDENCE_FILE_LIMIT) {}

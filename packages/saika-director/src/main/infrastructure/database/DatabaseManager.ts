@@ -9,7 +9,12 @@ export class DatabaseManager {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
-    new MigrationRunner(this.db).run(allMigrations);
+    try {
+      new MigrationRunner(this.db).run(allMigrations);
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   getDatabase(): Database.Database {

@@ -1,6 +1,6 @@
 export { evidenceFilesModule } from './evidenceFiles.module';
 export { EvidenceFileService } from './application/EvidenceFileService';
-export { NodeEvidenceFileStore } from './infra/NodeEvidenceFileStore';
+export { SqliteEvidenceFileStore } from './infra/SqliteEvidenceFileStore';
 export { SqliteEvidenceFileRepository } from './infra/SqliteEvidenceFileRepository';
 export { ElectronEvidenceFileTransfer } from './infra/ElectronEvidenceFileTransfer';
 export { TargetEvidenceFileSubjectSource } from './infra/TargetEvidenceFileSubjectSource';

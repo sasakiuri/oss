@@ -1,6 +1,7 @@
 import { migration086VistaSources } from './086_vista_sources';
 import { migration087FinalResultSourceCompetition } from './087_final_result_source_competition';
 import { migration088VistaRankingScopes } from './088_vista_ranking_scopes';
+import { migration089EvidenceFileContents } from './089_evidence_file_contents';
 import { migration003CreateSchema } from './003_create_schema';
 import { migration004AddResultsStatus } from './004_add_results_status';
 import { migration005AddFinalResults } from './005_add_final_results';
@@ -173,4 +174,5 @@ export const allMigrations: Migration[] = [
   migration086VistaSources,
   migration087FinalResultSourceCompetition,
   migration088VistaRankingScopes,
+  migration089EvidenceFileContents,
 ];
