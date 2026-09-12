@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -43,10 +43,10 @@ describe('connection.module', () => {
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
   let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
   let usbManager: ReturnType<typeof createMockUSBManager>;
-  let getInterruption: ReturnType<typeof vi.fn>;
-  let mockWebContentsSend: ReturnType<typeof vi.fn>;
-  let mockIsDestroyed: ReturnType<typeof vi.fn>;
-  let mainWindow: { isDestroyed: ReturnType<typeof vi.fn>; webContents: { send: ReturnType<typeof vi.fn> } };
+  let getInterruption: Mock;
+  let mockWebContentsSend: Mock;
+  let mockIsDestroyed: Mock;
+  let mainWindow: { isDestroyed: Mock; webContents: { send: Mock } };
 
   beforeEach(() => {
     commandBus = createMockCommandBus();
@@ -128,13 +128,13 @@ describe('connection.module', () => {
     it('should use the cached competition mode for an initial connection', async () => {
       registerModule();
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: { value: 'BEAM_PISTOL_10M' },
         timestamp: Date.now(),
       });
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'PhaseChanged',
         aggregateId: 'competition-1',
         previousPhase: 'SERIES_ENTERED',
@@ -302,7 +302,7 @@ describe('connection.module', () => {
 
       // Trigger SessionStarted event
       const discipline = { value: 'AIR_RIFLE_10M' };
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline,
@@ -315,7 +315,7 @@ describe('connection.module', () => {
     it('should reset shot counter on SessionReset event', () => {
       registerModule();
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionReset',
         aggregateId: 'session-1',
         timestamp: Date.now(),
@@ -555,13 +555,13 @@ describe('connection.module', () => {
       it('restores the current session mode after automatic reconnect', async () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'SessionStarted',
           aggregateId: 'session-1',
           discipline: { value: 'AIR_RIFLE_10M' },
           timestamp: Date.now(),
         });
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'ModeSwitched',
           aggregateId: 'session-1',
           previousMode: Mode.sighting(),
@@ -719,7 +719,7 @@ describe('connection.module', () => {
       it('should send Mode.match() when scored=true', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'StageAdvanced',
           aggregateId: 'comp-1',
           previousStageIndex: 0,
@@ -735,7 +735,7 @@ describe('connection.module', () => {
       it('should send Mode.sighting() when scored=false', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'StageAdvanced',
           aggregateId: 'comp-1',
           previousStageIndex: 0,
@@ -752,7 +752,7 @@ describe('connection.module', () => {
         vi.mocked(usbManager.sendMode).mockRejectedValue(new Error('USB write failed'));
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'StageAdvanced',
           aggregateId: 'comp-1',
           previousStageIndex: 0,
@@ -772,7 +772,7 @@ describe('connection.module', () => {
       it('should send Mode.match() when IDLE→ACTIVE with scored=true', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'PhaseChanged',
           aggregateId: 'comp-1',
           previousPhase: 'IDLE',
@@ -790,7 +790,7 @@ describe('connection.module', () => {
       it('should send Mode.sighting() when IDLE→ACTIVE with scored=false', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'PhaseChanged',
           aggregateId: 'comp-1',
           previousPhase: 'IDLE',
@@ -808,7 +808,7 @@ describe('connection.module', () => {
       it('should not send mode when previousPhase is not IDLE', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'PhaseChanged',
           aggregateId: 'comp-1',
           previousPhase: 'SERIES_COMPLETE',
@@ -826,7 +826,7 @@ describe('connection.module', () => {
       it('should not send mode when newPhase is not ACTIVE', () => {
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'PhaseChanged',
           aggregateId: 'comp-1',
           previousPhase: 'IDLE',
@@ -845,7 +845,7 @@ describe('connection.module', () => {
         vi.mocked(usbManager.sendMode).mockRejectedValue(new Error('USB write failed'));
         registerModule();
 
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'PhaseChanged',
           aggregateId: 'comp-1',
           previousPhase: 'IDLE',

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
@@ -11,7 +11,7 @@ let mockPortInstance: any;
 const mockPortInstances: any[] = [];
 
 vi.mock('serialport', () => {
-  const mockSerialPort = vi.fn().mockImplementation((options: any) => {
+  const mockSerialPort = vi.fn().mockImplementation(function (options: any) {
     mockPortInstance = {
       _events: {} as Record<string, Function>,
       _isOpen: false,
@@ -77,13 +77,15 @@ vi.mock('serialport', () => {
 });
 
 vi.mock('@/main/modules/connection/infra/usb/USBDeviceDetector', () => ({
-  USBDeviceDetector: vi.fn().mockImplementation(() => ({
-    listPorts: vi
-      .fn()
-      .mockResolvedValue([
-        { path: 'COM3', manufacturer: 'FTDI', serialNumber: 'ABC', vendorId: '0403', productId: '6001' },
-      ]),
-  })),
+  USBDeviceDetector: vi.fn().mockImplementation(function () {
+    return {
+      listPorts: vi
+        .fn()
+        .mockResolvedValue([
+          { path: 'COM3', manufacturer: 'FTDI', serialNumber: 'ABC', vendorId: '0403', productId: '6001' },
+        ]),
+    };
+  }),
 }));
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -108,7 +110,7 @@ const createConfig = (overrides?: Partial<USBConnectionConfig>): USBConnectionCo
 
 describe('USBConnectionLifecycle', () => {
   let emitter: USBEventEmitter;
-  let onPortReady: ReturnType<typeof vi.fn>;
+  let onPortReady: Mock;
   let lifecycle: USBConnectionLifecycle;
 
   beforeEach(() => {
@@ -154,7 +156,7 @@ describe('USBConnectionLifecycle', () => {
       const MockedSerialPort = vi.mocked(SerialPort);
 
       // Override open to simulate error
-      MockedSerialPort.mockImplementationOnce((options) => {
+      MockedSerialPort.mockImplementationOnce(function (options) {
         mockPortInstance = {
           _events: {} as Record<string, Function>,
           _isOpen: false,
@@ -185,7 +187,7 @@ describe('USBConnectionLifecycle', () => {
       const { SerialPort } = await import('serialport');
       const MockedSerialPort = vi.mocked(SerialPort);
 
-      MockedSerialPort.mockImplementationOnce((options) => {
+      MockedSerialPort.mockImplementationOnce(function (options) {
         mockPortInstance = {
           _events: {} as Record<string, Function>,
           _isOpen: false,

@@ -39,6 +39,7 @@
     "fix:text": "node scripts/lint-text.mjs --fix",
     "test:text": "node --test scripts/lint-text.test.mjs",
     "test:release-metadata": "node --test scripts/namespace-update-metadata.test.mjs",
+    "test:pre-release": "node --test scripts/pre-release-check.test.mjs",
     "test": "turbo test",
     "changeset": "changeset",
     "version-packages": "changeset version",

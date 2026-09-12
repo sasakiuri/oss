@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { type Mock, describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import { useLaneControlEvents } from '@/renderer/presentation/hooks/useLaneControlEvents';
 import { useLaneControlStore } from '@/renderer/presentation/stores/domain/laneControl.store';
 
@@ -42,7 +43,7 @@ vi.mock('@/renderer/presentation/stores/ui/selection.store', () => ({
 }));
 
 describe('useLaneControlEvents', () => {
-  let loadState: ReturnType<typeof vi.fn>;
+  let loadState: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();

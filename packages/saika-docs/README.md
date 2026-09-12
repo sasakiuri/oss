@@ -2,10 +2,11 @@
 
 # Saika Docs
 
-Saika Lane と Saika Director の日本語マニュアルです。画面上のボタンや項目は、実際の英語表記をかぎ括弧で示します。
+Saika Lane・Director・Vista の日本語マニュアルです。画面上のボタンや項目は、実際の英語表記をかぎ括弧で示します。
 
 Lane は射座の標的に接続し、着弾・得点を表示します。単独でも使用できます。
 Director は複数の Lane の進行と大会成績を管理します。
+Vista は Lane・Director の情報を観客向けの画面に表示します。
 
 ## 目的から読む
 
@@ -14,6 +15,7 @@ Director は複数の Lane の進行と大会成績を管理します。
 | 初めて使う・Director と Lane を接続する                | [導入と接続](./GETTING_STARTED.md)                       |
 | 射座で試射・本射・表示・印刷を操作する                 | [Lane 操作ガイド](./lane/README.md)                      |
 | 大会と選手を登録し、複数の Lane を進行する             | [Director 操作ガイド](./director/README.md)              |
+| 観客向けの画面を設定し、着弾や順位を表示する           | [Vista の設定と表示](./vista/REQUIREMENTS.md)            |
 | 開始条件を確認する・25m や決勝を進める・中断に対応する | [Director 運用ガイド](./director/OPERATIONS.md)          |
 | 成績を確認・修正・公表する・資料を残す                 | [Director 成績・データ保管ガイド](./director/RESULTS.md) |
 | 競技種別の射数・時間・採点方式を確認する               | [競技種別定義](./common/COMPETITION_TYPES.md)            |
@@ -36,7 +38,7 @@ Saika は非公式ソフトウェアであり、公式競技の唯一の採点�
 
 ## バージョンとリリース
 
-Lane・Director・Vista・Docs は同じスイートバージョンを共有します。利用するアプリと同じ `v<version>` タグの文書を参照してください。文書は共有 GitHub Release のソースに含まれます。本書の操作は、同じ版の [Lane](../saika-lane/) と [Director](../saika-director/) の実装を基にしています。
+Lane・Director・Vista・Docs は同じスイートバージョンを共有します。利用するアプリと同じ `v<version>` タグの文書を参照してください。文書は共有 GitHub Release のソースに含まれます。本書の操作は、同じ版の [Lane](../saika-lane/)・[Director](../saika-director/)・[Vista](../saika-vista/) の実装を基にしています。
 
 ## 出典とライセンス
 

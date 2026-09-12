@@ -85,7 +85,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "4.3.4",
-    "@vitest/coverage-istanbul": "3.2.7",
+    "@vitest/coverage-istanbul": "4.1.11",
     "autoprefixer": "10.4.27",
     "dependency-cruiser": "17.4.3",
     "electron": "43.4.1",
@@ -98,7 +98,7 @@
     "vite": "6.4.3",
     "vite-plugin-electron": "0.29.1",
     "vite-plugin-electron-renderer": "0.14.6",
-    "vitest": "3.2.7"
+    "vitest": "4.1.11"
   },
   "prettier": "@sasakiuri/prettier-config"
 }

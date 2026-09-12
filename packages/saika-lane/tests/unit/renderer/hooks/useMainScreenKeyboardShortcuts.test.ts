@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
@@ -14,10 +14,10 @@ function fireKeyFrom(target: HTMLElement, code: string, key?: string) {
 }
 
 describe('useMainScreenKeyboardShortcuts', () => {
-  let onZoomClick: ReturnType<typeof vi.fn>;
-  let setZoomMode: ReturnType<typeof vi.fn>;
-  let setSettingsInitialTab: ReturnType<typeof vi.fn>;
-  let setIsSettingsModalOpen: ReturnType<typeof vi.fn>;
+  let onZoomClick: Mock;
+  let setZoomMode: Mock;
+  let setSettingsInitialTab: Mock;
+  let setIsSettingsModalOpen: Mock;
 
   beforeEach(() => {
     onZoomClick = vi.fn();

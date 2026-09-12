@@ -15,17 +15,19 @@ const mockSetWindowOpenHandler = vi.fn();
 
 vi.mock('electron', () => ({
   app: { isPackaged: false },
-  BrowserWindow: vi.fn().mockImplementation(() => ({
-    loadURL: mockLoadURL,
-    loadFile: mockLoadFile,
-    close: mockClose,
-    isDestroyed: mockIsDestroyed,
-    on: mockOn,
-    webContents: {
-      on: mockWebContentsOn,
-      setWindowOpenHandler: mockSetWindowOpenHandler,
-    },
-  })),
+  BrowserWindow: vi.fn().mockImplementation(function () {
+    return {
+      loadURL: mockLoadURL,
+      loadFile: mockLoadFile,
+      close: mockClose,
+      isDestroyed: mockIsDestroyed,
+      on: mockOn,
+      webContents: {
+        on: mockWebContentsOn,
+        setWindowOpenHandler: mockSetWindowOpenHandler,
+      },
+    };
+  }),
 }));
 
 describe('PrintWindowService', () => {

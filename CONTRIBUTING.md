@@ -44,8 +44,12 @@ npx turbo test
 On machines with limited resources, bound workspace and test-worker parallelism:
 
 ```bash
-npx turbo test --concurrency=1 -- --maxWorkers=2 --minWorkers=1
+npx turbo test --concurrency=1 -- --maxWorkers=2
 ```
+
+Lane and Director coverage includes all source files, including files not reached
+by tests. Keep that scope and the existing thresholds when updating test tooling.
+Vista runs main-process tests in Node.js and renderer tests in jsdom.
 
 ### Changing Application Code
 

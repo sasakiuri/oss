@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { type Mock, describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { useIMEInput } from '@/renderer/presentation/hooks/useIMEInput';
 
 describe('useIMEInput', () => {
-  let mockOnChange: ReturnType<typeof vi.fn>;
+  let mockOnChange: Mock;
 
   beforeEach(() => {
     mockOnChange = vi.fn();

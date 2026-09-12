@@ -68,7 +68,7 @@ function createMockAudioContext() {
 
 let mockCtxInstance: ReturnType<typeof createMockAudioContext>;
 
-const MockAudioContext = vi.fn().mockImplementation(() => {
+const MockAudioContext = vi.fn().mockImplementation(function () {
   mockCtxInstance = createMockAudioContext();
   return mockCtxInstance;
 });

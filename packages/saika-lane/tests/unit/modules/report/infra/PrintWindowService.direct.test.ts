@@ -10,7 +10,9 @@ const mock = vi.hoisted(() => ({ windows: [] as unknown[], create: vi.fn() }));
 vi.mock('electron', () => ({
   app: { isPackaged: true },
   BrowserWindow: Object.assign(
-    vi.fn((options) => mock.create(options)),
+    vi.fn(function (options) {
+      return mock.create(options);
+    }),
     { getAllWindows: () => mock.windows },
   ),
 }));

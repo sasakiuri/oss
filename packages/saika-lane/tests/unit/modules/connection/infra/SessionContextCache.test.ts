@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -55,7 +55,7 @@ describe('SessionContextCache', () => {
     it('should return cached context after SessionStarted event', () => {
       cache.subscribeEvents(vi.fn());
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airPistol10m(),
@@ -140,7 +140,7 @@ describe('SessionContextCache', () => {
     it('should update discipline and set mode to sighting on SessionStarted', () => {
       cache.subscribeEvents(vi.fn());
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
@@ -156,7 +156,7 @@ describe('SessionContextCache', () => {
       const onReset = vi.fn();
       cache.subscribeEvents(onReset);
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
@@ -170,7 +170,7 @@ describe('SessionContextCache', () => {
       cache.subscribeEvents(vi.fn());
 
       // First, start a session to set up context
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
@@ -178,7 +178,7 @@ describe('SessionContextCache', () => {
       });
 
       // Then switch mode
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'ModeSwitched',
         aggregateId: 'session-1',
         previousMode: Mode.sighting(),
@@ -192,14 +192,14 @@ describe('SessionContextCache', () => {
 
     it('should update mode when the competition advances to a scored stage', () => {
       cache.subscribeEvents(vi.fn());
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.beamPistol10m(),
         timestamp: Date.now(),
       });
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'StageAdvanced',
         aggregateId: 'competition-1',
         previousStageIndex: 0,
@@ -214,14 +214,14 @@ describe('SessionContextCache', () => {
 
     it('should derive mode from the active competition phase', () => {
       cache.subscribeEvents(vi.fn());
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
         timestamp: Date.now(),
       });
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'PhaseChanged',
         aggregateId: 'competition-1',
         previousPhase: 'STAGE_ENTERED',
@@ -234,7 +234,7 @@ describe('SessionContextCache', () => {
       });
       expect(cache.getContext().mode.value).toBe('MATCH');
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'PhaseChanged',
         aggregateId: 'competition-1',
         previousPhase: 'ACTIVE',
@@ -252,7 +252,7 @@ describe('SessionContextCache', () => {
       cache.subscribeEvents(vi.fn());
 
       // First, start a session
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
@@ -260,7 +260,7 @@ describe('SessionContextCache', () => {
       });
 
       // Then reset
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionReset',
         aggregateId: 'session-1',
         timestamp: Date.now(),
@@ -274,7 +274,7 @@ describe('SessionContextCache', () => {
       const onReset = vi.fn();
       cache.subscribeEvents(onReset);
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionReset',
         aggregateId: 'session-1',
         timestamp: Date.now(),
@@ -288,7 +288,7 @@ describe('SessionContextCache', () => {
       cache.subscribeEvents(onReset);
 
       // Start session first
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'SessionStarted',
         aggregateId: 'session-1',
         discipline: Discipline.airRifle10m(),
@@ -297,7 +297,7 @@ describe('SessionContextCache', () => {
 
       onReset.mockClear();
 
-      (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (eventBus.emit as Mock)({
         type: 'ModeSwitched',
         aggregateId: 'session-1',
         previousMode: Mode.sighting(),
