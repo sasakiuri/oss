@@ -301,22 +301,8 @@ check_personal_info() {
 }
 
 check_japanese_text() {
-  # Scans all of packages/saika-lane/src/ (main, renderer, preload, shared)
-  # Excludes tests/ — test file i18n is a separate checklist item
-  local hits
-  hits=$(grep -rPn '[\p{Hiragana}\p{Katakana}\p{Han}]' \
-    --include='*.ts' --include='*.tsx' --include='*.css' \
-    packages/saika-lane/src/ \
-    --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=tests 2>/dev/null || true)
-
-  if [[ -n "$hits" ]]; then
-    local count
-    count=$(echo "$hits" | wc -l)
-    echo "Japanese text found in $count locations (i18n incomplete):"
-    echo "$hits" | head -20
-    if [[ "$count" -gt 20 ]]; then
-      echo "  ... and $((count - 20)) more"
-    fi
+  if ! node scripts/check-english-only.mjs \
+    packages/saika-lane packages/saika-director packages/saika-vista; then
     CHECK_STATUS="FAIL"
   fi
 }
@@ -517,7 +503,7 @@ check_publish_config() {
     local result
     result=$(node -e "
       const pkg = require('./' + process.argv[1]);
-      if (pkg.private !== true && pkg.publishConfig?.access === 'public') {
+      if (pkg.private === true || pkg.publishConfig?.access === 'public') {
         process.stdout.write('OK');
       } else {
         process.stdout.write('INVALID');
@@ -525,7 +511,7 @@ check_publish_config() {
     " "$pkg_json" 2>/dev/null || echo "ERROR")
 
     if [[ "$result" == "INVALID" ]]; then
-      failures+=("$pkg_json: public config packages require private != true and publishConfig.access = public")
+      failures+=("$pkg_json: non-private config packages require publishConfig.access = public")
     elif [[ "$result" == "ERROR" ]]; then
       failures+=("$pkg_json: failed to parse")
     fi
@@ -654,6 +640,7 @@ check_package_licenses() {
   local missing=()
 
   for pkg_dir in packages/*/; do
+    [[ -f "${pkg_dir}package.json" ]] || continue
     if [[ ! -f "${pkg_dir}LICENSE" ]]; then
       missing+=("$(basename "$pkg_dir")")
     fi
@@ -695,6 +682,7 @@ check_package_readmes() {
   local missing=()
 
   for pkg_dir in packages/*/; do
+    [[ -f "${pkg_dir}package.json" ]] || continue
     local pkg_name
     pkg_name=$(basename "$pkg_dir")
     if [[ ! -f "${pkg_dir}README.md" ]]; then
@@ -733,12 +721,12 @@ check_coc_contact() {
 # Category 6: Version / Metadata
 # ---------------------------------------------------------------------------
 
-check_shared_config_versions() {
+check_suite_versions() {
   local result
   result=$(node -e "
     const fs = require('fs');
     const path = require('path');
-    const configs = ['eslint-config', 'prettier-config', 'stylelint-config', 'typescript-config'];
+    const configs = ['saika-lane', 'saika-director', 'saika-vista', 'saika-docs'];
     const versions = {};
     for (const c of configs) {
       const pkgPath = path.join('packages', c, 'package.json');
@@ -751,7 +739,7 @@ check_shared_config_versions() {
     }
     const vals = Object.values(versions);
     const unique = [...new Set(vals)];
-    if (unique.length > 1) {
+    if (unique.length > 1 || vals.some(v => v.startsWith('('))) {
       console.log('FAIL');
       for (const [k, v] of Object.entries(versions)) {
         console.log(k + ': ' + v);
@@ -759,10 +747,14 @@ check_shared_config_versions() {
     } else {
       console.log('OK');
     }
-  " 2>/dev/null)
+  " 2>/dev/null) || {
+    echo "Failed to read suite package versions"
+    CHECK_STATUS="FAIL"
+    return
+  }
 
   if [[ "$(echo "$result" | head -1)" == "FAIL" ]]; then
-    echo "Shared config versions are inconsistent:"
+    echo "Suite versions are missing or inconsistent:"
     echo "$result" | tail -n +2 | sed 's/^/  /'
     CHECK_STATUS="FAIL"
   fi
@@ -925,7 +917,7 @@ fi
 # --- Category 6: Version / Metadata ---
 if [[ "$SKIP_VERSIONS" == false ]]; then
   echo "${C_BOLD}[Versions]${C_RESET}"
-  run_check "Versions" "Shared config versions"   check_shared_config_versions
+  run_check "Versions" "Suite versions"           check_suite_versions
   run_check "Versions" "SECURITY.md versions"      check_security_md_versions
   run_check "Versions" "Author consistency"        check_author_consistency
   echo ""

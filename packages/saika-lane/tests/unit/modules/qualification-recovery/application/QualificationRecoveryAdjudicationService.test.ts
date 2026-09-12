@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { P25, STDP } from '@/main/modules/competition/domain/competitionTypes';
@@ -38,7 +38,7 @@ describe('QualificationRecoveryAdjudicationService', () => {
   let competition: CompetitionState;
   let competitionRepository: ICompetitionRepository;
   let interruption: LaneInterruptionRecord | null;
-  let clearInterruption: ReturnType<typeof vi.fn>;
+  let clearInterruption: Mock;
 
   beforeEach(async () => {
     db = createSqliteDb(':memory:');

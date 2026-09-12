@@ -67,7 +67,7 @@ for (const file of files) {
 
 if (violations.length > 0) {
   console.error(
-    "Japanese or CJK text is not allowed in the checked Lane and Director files:",
+    "Japanese or CJK text is not allowed in the checked application files:",
   );
   for (const violation of violations) console.error(`  ${violation}`);
   process.exit(1);

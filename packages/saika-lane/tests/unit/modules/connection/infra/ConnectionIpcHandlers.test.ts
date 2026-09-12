@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -55,9 +55,9 @@ describe('ConnectionIpcHandlers', () => {
 
   describe('connect handler', () => {
     it('should execute ConnectToTarget command', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      (commandBus.execute as Mock).mockImplementation(async () => {
         // Simulate ConnectionEstablished event
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'ConnectionEstablished',
           aggregateId: 'conn-123',
           manufacturer: { value: 'KOHTO' },
@@ -77,8 +77,8 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should pass baudRate and deviceId to command', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (commandBus.execute as Mock).mockImplementation(async () => {
+        (eventBus.emit as Mock)({
           type: 'ConnectionEstablished',
           aggregateId: 'conn-456',
           manufacturer: { value: 'KOHTO' },
@@ -107,7 +107,7 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should timeout after 10 seconds', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (commandBus.execute as Mock).mockResolvedValue(undefined);
 
       const handlers = createConnectionIpcHandlers(deps);
       const promise = handlers.connect({
@@ -122,7 +122,7 @@ describe('ConnectionIpcHandlers', () => {
 
     it('should clean up event listener on success', async () => {
       const unsubscribe = vi.fn();
-      const originalOn = eventBus.on as ReturnType<typeof vi.fn>;
+      const originalOn = eventBus.on as Mock;
       const originalImpl = originalOn.getMockImplementation();
       originalOn.mockImplementation((eventType: string, handler: Function) => {
         const unsub = originalImpl?.(eventType, handler) ?? vi.fn();
@@ -135,8 +135,8 @@ describe('ConnectionIpcHandlers', () => {
         return unsub;
       });
 
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (commandBus.execute as Mock).mockImplementation(async () => {
+        (eventBus.emit as Mock)({
           type: 'ConnectionEstablished',
           aggregateId: 'conn-789',
           manufacturer: { value: 'KOHTO' },
@@ -155,15 +155,15 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should ignore unrelated ConnectionEstablished events while waiting for the requested connection', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+      (commandBus.execute as Mock).mockImplementation(async () => {
+        (eventBus.emit as Mock)({
           type: 'ConnectionEstablished',
           aggregateId: 'auto-reconnect-conn',
           manufacturer: { value: 'KOHTO' },
           portPath: '/dev/ttyUSB9',
           timestamp: Date.now(),
         });
-        (eventBus.emit as ReturnType<typeof vi.fn>)({
+        (eventBus.emit as Mock)({
           type: 'ConnectionEstablished',
           aggregateId: 'manual-connect-conn',
           manufacturer: { value: 'KOHTO' },
@@ -184,7 +184,7 @@ describe('ConnectionIpcHandlers', () => {
 
   describe('disconnect handler', () => {
     it('should execute DisconnectFromTarget command', async () => {
-      (commandBus.execute as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (commandBus.execute as Mock).mockResolvedValue(undefined);
 
       const handlers = createConnectionIpcHandlers(deps);
       await handlers.disconnect({ connectionId: 'conn-123' });
@@ -197,7 +197,7 @@ describe('ConnectionIpcHandlers', () => {
 
   describe('listPorts handler', () => {
     it('should return port list from usbManager', async () => {
-      (usbManager.listPorts as ReturnType<typeof vi.fn>).mockResolvedValue([
+      (usbManager.listPorts as Mock).mockResolvedValue([
         {
           path: '/dev/ttyUSB0',
           manufacturer: 'FTDI',
@@ -224,7 +224,7 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should return empty array when no ports available', async () => {
-      (usbManager.listPorts as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      (usbManager.listPorts as Mock).mockResolvedValue([]);
 
       const handlers = createConnectionIpcHandlers(deps);
       const result = await handlers.listPorts();
@@ -233,7 +233,7 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should map only relevant port fields', async () => {
-      (usbManager.listPorts as ReturnType<typeof vi.fn>).mockResolvedValue([
+      (usbManager.listPorts as Mock).mockResolvedValue([
         {
           path: 'COM3',
           manufacturer: undefined,

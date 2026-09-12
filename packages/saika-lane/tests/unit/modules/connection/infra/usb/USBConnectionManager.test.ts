@@ -35,7 +35,7 @@ let mockDataParserInstance: any;
 
 // Mock serialport
 vi.mock('serialport', () => {
-  const mockSerialPort = vi.fn().mockImplementation((options: any) => {
+  const mockSerialPort = vi.fn().mockImplementation(function (options: any) {
     mockPortInstance = {
       _events: {},
       _isOpen: false,
@@ -115,30 +115,32 @@ vi.mock('serialport', () => {
 
 // Mock USBDeviceDetector
 vi.mock('@/main/modules/connection/infra/usb/USBDeviceDetector', () => ({
-  USBDeviceDetector: vi.fn().mockImplementation(() => ({
-    listPorts: vi.fn().mockResolvedValue([
-      {
-        path: 'COM3',
-        manufacturer: 'FTDI',
-        serialNumber: 'ABC123',
-        vendorId: '0403',
-        productId: '6001',
-      },
-      {
-        path: 'COM4',
-        manufacturer: 'Prolific',
-        serialNumber: 'DEF456',
-        vendorId: '067b',
-        productId: '2303',
-      },
-    ]),
-  })),
+  USBDeviceDetector: vi.fn().mockImplementation(function () {
+    return {
+      listPorts: vi.fn().mockResolvedValue([
+        {
+          path: 'COM3',
+          manufacturer: 'FTDI',
+          serialNumber: 'ABC123',
+          vendorId: '0403',
+          productId: '6001',
+        },
+        {
+          path: 'COM4',
+          manufacturer: 'Prolific',
+          serialNumber: 'DEF456',
+          vendorId: '067b',
+          productId: '2303',
+        },
+      ]),
+    };
+  }),
 }));
 
 // Mock SerialDataParser
 vi.mock('@/main/modules/target/infra/SerialDataParser', () => {
   const MockSerialDataParser = Object.assign(
-    vi.fn().mockImplementation(() => {
+    vi.fn().mockImplementation(function () {
       mockDataParserInstance = {
         parse: vi.fn().mockReturnValue([]),
         clearBuffer: vi.fn(),

@@ -81,6 +81,8 @@ jobs:
         uses: ./.github/actions/setup-node
       - name: Verify text spacing rules
         run: npm run test:text
+      - name: Verify release checks
+        run: npm run test:pre-release
       - name: Lint documentation
         run: npm run lint:text
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
@@ -37,7 +37,7 @@ describe('CompetitionCueSubscriber', () => {
   let mqttClient: IMqttClientService;
   let messageHandler: (topic: string, payload: Buffer) => void;
   let eventBus: TypedEventBus;
-  let changed: ReturnType<typeof vi.fn>;
+  let changed: Mock;
 
   beforeEach(() => {
     mqttClient = {

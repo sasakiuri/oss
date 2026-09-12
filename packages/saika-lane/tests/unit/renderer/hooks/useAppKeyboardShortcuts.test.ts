@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
 import { useAppKeyboardShortcuts } from '@/renderer/presentation/hooks/useAppKeyboardShortcuts';
@@ -14,11 +14,11 @@ function fireKeyFrom(target: HTMLElement, code: string, key?: string) {
 }
 
 describe('useAppKeyboardShortcuts', () => {
-  let onPreparationClick: ReturnType<typeof vi.fn>;
-  let onMatchClick: ReturnType<typeof vi.fn>;
-  let onNextStageClick: ReturnType<typeof vi.fn>;
-  let onPrint: ReturnType<typeof vi.fn>;
-  let onToggleFullscreen: ReturnType<typeof vi.fn>;
+  let onPreparationClick: Mock;
+  let onMatchClick: Mock;
+  let onNextStageClick: Mock;
+  let onPrint: Mock;
+  let onToggleFullscreen: Mock;
 
   beforeEach(() => {
     onPreparationClick = vi.fn().mockResolvedValue(undefined);

@@ -38,7 +38,9 @@ describe('LocalStorageAdapter', () => {
 
     // electron-store constructor mock
     const Store = (await import('electron-store')).default;
-    vi.mocked(Store).mockImplementation(() => mockStore);
+    vi.mocked(Store).mockImplementation(function () {
+      return mockStore;
+    });
 
     adapter = new LocalStorageAdapter({ name: 'test-store' });
     vi.clearAllMocks();

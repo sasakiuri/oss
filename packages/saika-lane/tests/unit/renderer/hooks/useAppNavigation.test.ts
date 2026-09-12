@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation';
 
@@ -17,7 +17,7 @@ vi.mock('@/renderer/presentation/stores/competitionStore', () => ({
 }));
 
 describe('useAppNavigation', () => {
-  let mockStartCompetition: ReturnType<typeof vi.fn>;
+  let mockStartCompetition: Mock;
 
   beforeEach(() => {
     mockStartCompetition = vi.fn().mockResolvedValue({ competitionId: 'comp-1', sessionId: 'sess-1' });

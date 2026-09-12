@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -93,7 +93,7 @@ describe('PerLaneCommandHandler', () => {
   let qualificationRecoveryControl: IQualificationRecoveryControl;
   let qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
   let qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
-  let qualificationRecoveryStatePublisher: { publishCurrentState: ReturnType<typeof vi.fn> };
+  let qualificationRecoveryStatePublisher: { publishCurrentState: Mock };
   let malfunctionFiringControl: IMalfunctionFiringControl;
   let safetyStopped: boolean;
   let handler: PerLaneCommandHandler;
@@ -202,16 +202,14 @@ describe('PerLaneCommandHandler', () => {
       malfunctionFiringControl,
     );
 
-    (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
-      (h: (topic: string, payload: Buffer) => void) => {
-        messageHandler = h;
-        return () => {
-          /* unsubscribe */
-        };
-      },
-    );
+    (mqttClient.onMessage as Mock).mockImplementation((h: (topic: string, payload: Buffer) => void) => {
+      messageHandler = h;
+      return () => {
+        /* unsubscribe */
+      };
+    });
 
-    (commandBus.execute as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (commandBus.execute as Mock).mockResolvedValue(undefined);
   });
 
   async function sendMessage(action: string, payload: Record<string, unknown>): Promise<void> {
@@ -298,7 +296,7 @@ describe('PerLaneCommandHandler', () => {
 
       await sendMessage('reset-session', cmd);
 
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       const ackCalls = publishCalls.filter((call: unknown[]) => (call[0] as string).includes('/acknowledgement'));
 
       // executing ACK + error ACK
@@ -317,7 +315,7 @@ describe('PerLaneCommandHandler', () => {
       await sendMessage('reset-session', buildCommand({ reason: 'Device malfunction' }));
 
       expect(commandBus.execute).not.toHaveBeenCalled();
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       const errorAck = JSON.parse(publishCalls.at(-1)![1] as string);
       expect(errorAck.status).toBe('error');
       expect(errorAck.error.code).toBe('INVALID_PHASE_TRANSITION');
@@ -603,7 +601,7 @@ describe('PerLaneCommandHandler', () => {
 
       await sendMessage('assign-athlete', cmd);
 
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       const ackCalls = publishCalls.filter((call: unknown[]) => (call[0] as string).includes('/acknowledgement'));
 
       expect(ackCalls.length).toBe(2);
@@ -621,7 +619,7 @@ describe('PerLaneCommandHandler', () => {
 
       await sendMessage('assign-athlete', cmd);
 
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       const ackCalls = publishCalls.filter((call: unknown[]) => (call[0] as string).includes('/acknowledgement'));
 
       expect(ackCalls.length).toBe(2);
@@ -637,7 +635,7 @@ describe('PerLaneCommandHandler', () => {
       await sendMessage('assign-athlete', cmd);
 
       const expectedAckTopic = `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/assign-athlete/acknowledgement`;
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       expect(publishCalls[0]![0]).toBe(expectedAckTopic);
     });
   });
@@ -646,7 +644,7 @@ describe('PerLaneCommandHandler', () => {
     it('sends error ACK for unknown action', async () => {
       await sendMessage('unknown', buildCommand());
 
-      const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
+      const publishCalls = (mqttClient.publish as Mock).mock.calls;
       const ackPayload = JSON.parse(publishCalls[0]![1] as string);
       expect(ackPayload.status).toBe('error');
       expect(ackPayload.error.code).toBe('MQTT_UNKNOWN_COMMAND_ACTION');

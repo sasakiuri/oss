@@ -36,7 +36,9 @@ function createMockAudioContext() {
   };
 }
 
-const MockAudioContext = vi.fn().mockImplementation(() => createMockAudioContext());
+const MockAudioContext = vi.fn().mockImplementation(function () {
+  return createMockAudioContext();
+});
 
 const mockFetch = vi.fn().mockResolvedValue({
   arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),

@@ -2,6 +2,11 @@
 
 Run `bash scripts/pre-release-check.sh` and review its output alongside CI.
 Record the tested version, environment, and unresolved failures before release.
+The checker requires README and LICENSE files for directories with a package
+manifest. Private configuration packages are allowed; public configuration
+packages must declare public access. Suite versions must match, while shared
+packages are versioned independently. Run `npm run test:pre-release` when changing
+these checks.
 
 ## Version and documentation
 

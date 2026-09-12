@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { SerialPort } from 'serialport';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import { DirectSerialTargetProtocolSession } from '@/main/modules/connection/infra/usb/protocol/DirectSerialTargetProtocol';
@@ -81,7 +81,7 @@ describe('DirectSerialTargetProtocolSession', () => {
   });
 });
 
-function createSession(port: ReturnType<typeof createPort>, onStreamData: ReturnType<typeof vi.fn>) {
+function createSession(port: ReturnType<typeof createPort>, onStreamData: Mock) {
   return new DirectSerialTargetProtocolSession('MT201', port as unknown as SerialPort, config, {
     onStreamData,
     onShotFrame: vi.fn(),
