@@ -47,6 +47,7 @@ export interface DesktopPort {
 const NodeStateSchema = z.object({
   identity: VistaIdentitySchema,
   controllerId: z.string().nullable(),
+  persistenceError: z.string().nullable(),
   resumableSubjects: z.array(z.object({ sourceId: z.string().min(1), subjectId: z.string().min(1) })),
   monitors: z.array(
     z.object({
@@ -84,6 +85,7 @@ export class VistaApplication {
   private peerScreenErrors = new Map<string, Map<string, string>>();
   private error: string | null = null;
   private listenerError: string | null = null;
+  private loginStartError: string | null = null;
   private peerSignatures = new Map<string, string>();
   private commandQueue: Promise<unknown> = Promise.resolve();
   private activePolls = new Set<string>();
@@ -126,6 +128,13 @@ export class VistaApplication {
           application.error = messageOf(error);
         }
       }
+    if (state.document.loginStart) {
+      try {
+        await desktop.loginStart(true);
+      } catch (error) {
+        application.loginStartError = `Could not restore login startup: ${messageOf(error)}. Retry the setting in Display PCs on this PC.`;
+      }
+    }
     application.timer = setTimeout(() => void application.tick(), 0);
     return application;
   }
@@ -188,13 +197,14 @@ export class VistaApplication {
       identity: this.identity,
       monitors,
       controllerId: this.state.document.controller?.id ?? null,
+      persistenceError: this.state.persistenceError,
       resumableSubjects: this.resumableSubjects(),
       screens: this.state.document.screens.map((config) => {
         const renderer = this.desktop.status(config.id);
         const available = monitors.some((monitor) => monitor.id === config.monitorId);
         return {
           config,
-          appliedRevision: config.revision,
+          appliedRevision: this.state.persistenceError ? null : config.revision,
           renderedRevision: renderer.revision,
           renderAlive: renderer.alive,
           monitorAvailable: available,
@@ -207,7 +217,9 @@ export class VistaApplication {
                       selection.sourceId === entry.snapshot.sourceId &&
                       selection.subjectId === entry.snapshot.subjectId,
                   ),
-              )?.error ?? this.state.snapshotErrors(config.selections))
+              )?.error ??
+              this.state.persistenceError ??
+              this.state.snapshotErrors(config.selections))
             : 'The saved monitor is disconnected',
         };
       }),
@@ -245,6 +257,7 @@ export class VistaApplication {
                   name: peer.endpoint,
                 },
                 controllerId: null,
+                persistenceError: null,
                 resumableSubjects: [],
                 monitors: [],
                 screens: peer.desired.map((config) => ({
@@ -278,7 +291,10 @@ export class VistaApplication {
         };
       }),
       snapshots: this.state.getEntries(),
-      error: [this.listenerError, this.error, this.state.snapshotErrors()].filter(Boolean).join(' ') || null,
+      error:
+        [this.listenerError, this.loginStartError, this.error, this.state.persistenceError, this.state.snapshotErrors()]
+          .filter(Boolean)
+          .join(' ') || null,
       loginStart: this.state.document.loginStart,
     };
   }
@@ -289,12 +305,24 @@ export class VistaApplication {
 
   command(input: unknown): Promise<void> {
     const command = CommandSchema.parse(input);
-    const operation = this.commandQueue.catch(() => undefined).then(() => this.execute(command));
+    const operation = this.commandQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const remoteWarning = await this.execute(command);
+        const warning = [this.state.persistenceError, remoteWarning].filter(Boolean).join(' ');
+        if (warning)
+          throw new Error(
+            command.type === 'setLoginStart'
+              ? `Login startup is now ${command.enabled ? 'enabled' : 'disabled'}. ${warning}. Retry saving this setting.`
+              : `The change took effect, but durable storage was not confirmed. ${warning}`,
+          );
+      });
     this.commandQueue = operation;
     return operation;
   }
 
-  private async execute(command: Command): Promise<void> {
+  private async execute(command: Command): Promise<string | null> {
+    let remoteWarning: string | null = null;
     switch (command.type) {
       case 'inspectSubject': {
         const source = this.state.document.sources.find((candidate) => candidate.id === command.sourceId);
@@ -354,14 +382,17 @@ export class VistaApplication {
         if (node.identity.kind !== 'display' || node.identity.sourceId === this.identity.sourceId)
           throw new Error('Choose another Vista display PC');
         this.assertControllerRole();
-        await requestVista(
-          endpoint,
-          command.secret,
-          'POST',
-          '/vista/v1/display/register',
-          this.owner(),
-          node.identity.sourceId,
+        const registered = NodeStateSchema.parse(
+          await requestVista(
+            endpoint,
+            command.secret,
+            'POST',
+            '/vista/v1/display/register',
+            this.owner(),
+            node.identity.sourceId,
+          ),
         );
+        remoteWarning = registered.persistenceError;
         try {
           await this.state.transact((document) => {
             this.assertControllerRole(document);
@@ -388,13 +419,21 @@ export class VistaApplication {
             );
           throw error;
         }
-        this.peerViews.set(node.identity.sourceId, { id: node.identity.sourceId, endpoint, node, error: null });
+        this.peerViews.set(node.identity.sourceId, {
+          id: node.identity.sourceId,
+          endpoint,
+          node: registered,
+          error: null,
+        });
         break;
       }
       case 'removePeer': {
         const peer = this.peer(command.id);
         // A disconnected peer remains listed until revocation reaches the actual device.
-        await requestVista(peer.endpoint, peer.secret, 'POST', '/vista/v1/display/release', this.owner(), peer.id);
+        const released = NodeStateSchema.parse(
+          await requestVista(peer.endpoint, peer.secret, 'POST', '/vista/v1/display/release', this.owner(), peer.id),
+        );
+        remoteWarning = released.persistenceError;
         await this.state.transact((document) => ({
           ...document,
           peers: document.peers.filter((saved) => saved.id !== peer.id),
@@ -429,6 +468,7 @@ export class VistaApplication {
           const error =
             this.peerViews.get(peer.id)?.error ?? this.peerScreenErrors.get(peer.id)?.get(command.config.id);
           if (error) throw new Error(error);
+          remoteWarning = this.peerViews.get(peer.id)?.node?.persistenceError ?? null;
         }
         break;
       }
@@ -440,14 +480,17 @@ export class VistaApplication {
         } else {
           this.assertControllerRole();
           const peer = this.peer(command.nodeId);
-          await requestVista(
-            peer.endpoint,
-            peer.secret,
-            'POST',
-            '/vista/v1/display/identify',
-            { ...this.owner(), screenId: command.screenId },
-            peer.id,
+          const identified = NodeStateSchema.parse(
+            await requestVista(
+              peer.endpoint,
+              peer.secret,
+              'POST',
+              '/vista/v1/display/identify',
+              { ...this.owner(), screenId: command.screenId },
+              peer.id,
+            ),
           );
+          remoteWarning = identified.persistenceError;
         }
         break;
       }
@@ -468,14 +511,17 @@ export class VistaApplication {
           this.assertControllerRole();
           await this.enqueuePeer(command.nodeId, async () => {
             const peer = this.peer(command.nodeId);
-            await requestVista(
-              peer.endpoint,
-              peer.secret,
-              'POST',
-              '/vista/v1/display/remove',
-              { ...this.owner(), screenId: command.screenId },
-              peer.id,
+            const removed = NodeStateSchema.parse(
+              await requestVista(
+                peer.endpoint,
+                peer.secret,
+                'POST',
+                '/vista/v1/display/remove',
+                { ...this.owner(), screenId: command.screenId },
+                peer.id,
+              ),
             );
+            remoteWarning = removed.persistenceError;
             await this.state.transact((document) => ({
               ...document,
               peers: document.peers.map((saved) =>
@@ -502,12 +548,29 @@ export class VistaApplication {
         break;
       }
       case 'setLoginStart': {
+        const previous = this.state.document.loginStart;
         await this.desktop.loginStart(command.enabled);
-        await this.state.transact((document) => ({ ...document, loginStart: command.enabled }));
+        this.loginStartError = null;
+        try {
+          await this.state.transact((document) => ({ ...document, loginStart: command.enabled }));
+        } catch (error) {
+          try {
+            await this.desktop.loginStart(previous);
+          } catch (restoreError) {
+            throw new Error(
+              `Could not save login startup: ${messageOf(error)}. Could not restore the previous operating system setting: ${messageOf(restoreError)}. Check login startup in your system settings.`,
+              { cause: error },
+            );
+          }
+          throw new Error(`Could not save login startup: ${messageOf(error)}. The previous setting was restored.`, {
+            cause: error,
+          });
+        }
         break;
       }
     }
     this.desktop.changed();
+    return remoteWarning;
   }
 
   private async validateSelection(config: ScreenConfig, nodeId: string): Promise<void> {
@@ -808,7 +871,9 @@ export class VistaApplication {
       let node = NodeStateSchema.parse(
         await requestVista(peer.endpoint, peer.secret, 'GET', '/vista/v1/display/state', undefined, peer.id),
       );
-      await requestVista(peer.endpoint, peer.secret, 'POST', '/vista/v1/display/register', this.owner(), peer.id);
+      node = NodeStateSchema.parse(
+        await requestVista(peer.endpoint, peer.secret, 'POST', '/vista/v1/display/register', this.owner(), peer.id),
+      );
       const screenErrors = new Map<string, string>();
       for (const config of peer.desired) {
         if (node.screens.find((screen) => screen.config.id === config.id)?.appliedRevision !== config.revision) {

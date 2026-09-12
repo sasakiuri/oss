@@ -187,16 +187,16 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
     const update = application.state.updateEntry.bind(application.state);
     const observer = vi.spyOn(application.state, 'updateEntry').mockImplementation(async (entry: SnapshotEntry) => {
       const entered = performance.now();
-      await update(entry);
+      const result = await update(entry);
       // Mock call histories would otherwise retain every complete polled snapshot
       // and distort the process memory observation. No assertion uses spy calls.
       observer.mockClear();
-      if (entry.state !== 'live') return;
+      if (entry.state !== 'live') return result;
       const sourceId = entry.snapshot.sourceId;
       const current = application.state.getEntries().find((candidate) => candidate.snapshot.sourceId === sourceId);
       if (!current) {
         violations.push(`Accepted source missing: ${sourceId}`);
-        return;
+        return result;
       }
       if (current.snapshot.revision < (lastRevision.get(sourceId) ?? 0))
         violations.push(`Revision regressed: ${sourceId}`);
@@ -217,13 +217,14 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
       if (!audience || audience.snapshot.revision !== entry.snapshot.revision)
         violations.push(`Audience did not publish durable revision: ${sourceId}`);
       const sampleKey = `${sourceId}:${entry.snapshot.revision}`;
-      if (!measuring || entry.snapshot.revision <= 1 || measured.has(sampleKey)) return;
+      if (!measuring || entry.snapshot.revision <= 1 || measured.has(sampleKey)) return result;
       measured.add(sampleKey);
       // receivedAt is stamped after authenticated transport and schema validation.
       receiveToDurable.push(Math.max(Date.now() - entry.receivedAt, performance.now() - entered));
       const lane = lanes.find((candidate) => candidate.identity.sourceId === sourceId)!;
       publishToReceive.push(entry.receivedAt - lane.published.get(entry.snapshot.revision)!);
       peakRss = Math.max(peakRss, process.memoryUsage().rss);
+      return result;
     });
     restoreObserver = () => observer.mockRestore();
     for (const lane of lanes)

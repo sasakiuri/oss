@@ -1,3 +1,4 @@
+export { updaterContract } from './updater.contract';
 export { vistaContract } from './vista.contract';
 export { evidenceFilesContract, type EvidenceFileDto } from './evidenceFiles.contract';
 export * from './observationReviews.contract';

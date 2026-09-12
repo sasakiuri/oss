@@ -92,14 +92,15 @@ Remove the user data directory listed above to clear the database, settings, and
 
 > **Note:** Native modules (`serialport`, `better-sqlite3`) require C++ build tools. On Windows, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload.
 >
-> macOS builds are unsigned and not notarized. You may need to allow the app in System Preferences > Security & Privacy.
+> macOS releases can be built without a signing certificate and require manual updates in that case. Signing is optional; notarization is not configured in the release workflow. Verify the release's signing status and first launch on your Mac.
 
 ## Distribution
 
 Lane, Director, Vista, and Docs share one suite version and one `v<version>` release tag.
 The release and canary workflows build the three desktop applications for each supported
-platform. Their artifacts and Lane's automatic-update metadata are published together;
-Docs is included as versioned source at the same tag.
+platform. Tagged releases include automatic-update metadata for each application; Docs is
+included as versioned source at the same tag. See the [release checks](../../.github/PRE_RELEASE_CHECKLIST.md#update-distribution)
+for optional macOS signing and update requirements.
 
 ## Getting Started
 

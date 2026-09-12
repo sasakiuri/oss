@@ -61,12 +61,17 @@ if (!hasSingleInstanceLock) {
       recoveryPath: restoreResult.recoveryPath,
     });
   }
-  const services = createApp(preloadPath);
+  const services = createApp(preloadPath, {
+    beforeInstall: prepareUpdateInstall,
+    onInstallError: recoverUpdateInstall,
+  });
   let mainWindow: BrowserWindow | null = null;
   let lifecycleStarted = false;
   let isQuitting = false;
   let shutdownComplete = false;
   let shutdownPromise: Promise<void> | null = null;
+  let preparingUpdate = false;
+  let updateRecoveryStarted = false;
 
   function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -131,16 +136,42 @@ if (!hasSingleInstanceLock) {
       }
       Logger.flush();
       shutdownComplete = true;
-      app.quit();
     })();
     return shutdownPromise;
+  }
+
+  async function prepareUpdateInstall(): Promise<void> {
+    preparingUpdate = true;
+    await shutdown();
+    app.releaseSingleInstanceLock();
+  }
+
+  function recoverUpdateInstall(message: string): void {
+    if (!preparingUpdate || updateRecoveryStarted) return;
+    updateRecoveryStarted = true;
+    void shutdown()
+      .catch((error) => {
+        crashLogger.logError('Update shutdown failed', error);
+      })
+      .then(() => {
+        shutdownComplete = true;
+        dialog.showErrorBox(
+          'Update installation failed',
+          `The update could not be installed. Saika Director will restart the current version to restore competition services.\n\n${message}`,
+        );
+        app.relaunch();
+        app.quit();
+      });
   }
 
   app.on('before-quit', (event) => {
     isQuitting = true;
     if (shutdownComplete) return;
     event.preventDefault();
-    void shutdown();
+    void shutdown().then(() => {
+      // The installer owns quitting after its requested cleanup has finished.
+      if (!preparingUpdate) app.quit();
+    });
   });
 
   app.on('second-instance', () => {
@@ -163,6 +194,9 @@ if (!hasSingleInstanceLock) {
       return;
     }
     createWindow();
+    void services.updater.checkForUpdates().catch((error: unknown) => {
+      crashLogger.logError('Failed to check for application updates', error);
+    });
   });
 
   app.on('window-all-closed', () => {

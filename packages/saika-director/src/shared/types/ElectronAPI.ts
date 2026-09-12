@@ -33,6 +33,7 @@ import type {
   mixedTeamTimeoutsContract,
   mqttContract,
   vistaContract,
+  updaterContract,
   operationalArchivesContract,
   ParticipantListResponse,
   postCompetitionEquipmentControlContract,
@@ -176,6 +177,7 @@ export interface ElectronAPI {
   shootoff: InferBridge<typeof shootoffContract>;
   mqtt: InferBridge<typeof mqttContract>;
   vista: InferBridge<typeof vistaContract>;
+  updater: InferBridge<typeof updaterContract>;
   on: InferEventBridge<typeof eventsContract>;
 }
 

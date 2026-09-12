@@ -455,7 +455,7 @@ describe('CompetitionControlScreen', () => {
 
     await screen.findByText(/MATCH/);
     expect(screen.queryByText(/No championship assignment is linked/)).not.toBeInTheDocument();
-    const finishButton = screen.getByRole('button', { name: 'Finish competition' });
+    const finishButton = await screen.findByRole('button', { name: 'Finish competition' });
     await waitFor(() => expect(finishButton).toBeEnabled());
     fireEvent.click(finishButton);
 

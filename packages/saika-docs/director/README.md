@@ -24,6 +24,10 @@ Saika Director で、大会・選手・射座割を登録し、複数の Lane �
 「Championship」は大会、「Event」は大会内の種目、「Relay」は射群です。
 「Competition」は Lane に送る進行操作の単位で、射座割の反映によって大会の射群と結び付きます。
 
+大会を開くと、種目と参加者の編集欄が先に表示されます。大会共通の検査・制裁・成績冊子・機器登録は、下部の「Championship records」で必要な項目を開きます。
+
+「Settings」は「Network」「Competition」「Vista」「Backups」「Updates」に分かれています。設定内の切り替えでは入力途中の値を保持します。種目と設定のタブは左右矢印キー、Home、End でも移動できます。
+
 画面右上が「Operator: Signed out · changes restricted」の場合は、変更操作の前に [担当者としてサインイン](./OPERATIONS.md#担当者の登録とサインイン) してください。
 
 ## 1. 大会と射座割を登録する
@@ -110,6 +114,8 @@ Athlete → Affiliation → Family name → Start # → ISSF ID → NOC → Gend
 参加が未確定の Lane は、対象を選んで「Join selected Lanes」を再実行します。
 試射の一部だけが未開始なら「Retry sighting for pending Lanes」を使います。
 
+準備確認と出欠記録は「Start checks & attendance」を開きます。着弾の裁定と故障申告は「Shot incidents & malfunctions」、中断と射座移動は「Interruptions & lane transfers」にあります。標的調査は「Target examinations」を開きます。項目を閉じても入力中の内容は保持します。「Run control」と射場の安全 STOP は折りたたみの外に表示されます。
+
 開始ボタンが使えない場合は、参加確認、Lane の接続、現在のフェーズを確認します。「Pre-start checks」の未完了項目は [開始条件の確認](./OPERATIONS.md#開始条件の確認と再検査) に従って解消してください。
 
 「Range Officer requested」は Lane からの役員呼出です。射座、理由、時刻を確認して役員へ伝えます。対応後の通知解除は [Lane 側の連絡操作](../lane/README.md#役員へ連絡し対応後に通知を解除する) で行います。銃器故障・EST の申告は、それぞれ運用ガイドの [銃器故障](./OPERATIONS.md#予選の銃器故障を記録する)・[標的調査](./OPERATIONS.md#調査資料を残す) で案件を記録します。
@@ -144,3 +150,11 @@ Athlete → Affiliation → Family name → Start # → ISSF ID → NOC → Gend
 `timeout` は未実行を意味しないので、操作を連打せず Lane の状態と直前の ACK を確認してください。
 
 復旧の仕組みと外部ブローカーの保存条件は [Retain と復旧](./MQTT_CONTROL.md#retain-と復旧) を参照してください。
+
+## アプリを更新する
+
+インターネットへ接続すると起動時に更新を確認し、新しい版をダウンロードします。「Settings」→「Updates」の「Application updates」から「Check for updates」で再確認できます。準備できた版は「Restart and install」で適用します。管理者の担当者権限が必要です。
+
+再起動すると Lane との接続、競技制御、結果ボード、Vista への共有が停止します。競技運用を安全に止め、編集内容を保存してから確認画面で実行してください。通常の終了時には自動適用しません。通信エラーは接続を復旧して再確認します。終了処理後にインストールが失敗した場合は、エラーを通知してアプリを再起動します。
+
+各 PC のアプリは個別に更新します。Vista の表示用 PC も同じリリースへ更新してください。開発用起動では更新機能を利用できません。

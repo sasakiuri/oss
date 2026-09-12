@@ -160,6 +160,11 @@ jobs:
       - name: Test shared MQTT contracts
         run: npm run test --workspace=@sasakiuri/saika-protocol
 
+      - name: Test application updates and release metadata
+        run: |
+          npm run test --workspace=@sasakiuri/saika-updater
+          npm run test:release-metadata
+
       - name: Test Saika Director
         run: npm run test:coverage --workspace=@sasakiuri/saika-director
 

@@ -2,6 +2,7 @@
 import type { VistaParticipant } from '@sasakiuri/saika-protocol/Vista';
 import { useEffect, useState } from 'react';
 
+import appIcon from '../../resources/appIcon.png';
 import type { AudienceState, ScreenConfig, SnapshotEntry } from '../shared/model';
 
 import { Target } from './Target';
@@ -84,14 +85,14 @@ function TargetCard({
         <div className="athlete-total">
           <strong>{scoreText(p.total, definition)}</strong>
           <span>
-            {p.total === null ? 'Total' : 'Match total'} · {p.shotCount ?? '—'} shots
+            {p.total === null ? 'Total' : 'Match total'} · {p.shotCount ?? '—'} {p.shotCount === 1 ? 'shot' : 'shots'}
           </span>
         </div>
       </div>
       <div className="athlete-target">
         <Target definition={definition} shots={shots} zoom={config.zoom} />
         <div className="shot-summary">
-          <span className="eyebrow">Last shown</span>
+          <span className="eyebrow">Latest shot</span>
           <strong>{scoreText(latest?.score, definition)}</strong>
           <span>{latest ? `Shot ${latest.sequence}` : 'No shots'}</span>
           {latest?.corrected && <span className="correction">Corrected</span>}
@@ -241,35 +242,28 @@ export function AudienceView({
   const competitionResults = resultRows && selectedEntry?.snapshot.ranking?.kind === 'competition';
   return (
     <main className={`audience view-${config.view}`}>
-      <header className="audience-header">
-        <div className="audience-brand">
-          <span className="brand-symbol" aria-hidden="true">
-            ◎
-          </span>{' '}
-          SAIKA <span>VISTA</span>
-        </div>
-        <div className="audience-event">
-          <strong>{config.standby ? config.name : selectedEntry?.snapshot.label || config.name}</strong>
-          <span>
-            {config.standby
-              ? 'Standby'
-              : competitionResults
+      {!config.standby && (
+        <header className="audience-header">
+          <div className="audience-brand">
+            <img className="brand-symbol" src={appIcon} alt="" /> Saika <span>Vista</span>
+          </div>
+          <div className="audience-event">
+            <strong>{selectedEntry?.snapshot.label || config.name}</strong>
+            <span>
+              {competitionResults
                 ? selectedEntry.snapshot.ranking!.scope
                 : selectedEntry?.snapshot.phase || 'Waiting for competition'}
-          </span>
-        </div>
-        {!config.standby && selectedEntry && !competitionResults && (
-          <Clock clock={selectedEntry.snapshot.clock} entry={selectedEntry} now={now} />
-        )}
-      </header>
+            </span>
+          </div>
+          {selectedEntry && !competitionResults && (
+            <Clock clock={selectedEntry.snapshot.clock} entry={selectedEntry} now={now} />
+          )}
+        </header>
+      )}
       {config.standby ? (
         <section className="standby">
-          <div className="standby-mark" aria-hidden="true">
-            ◎
-          </div>
-          <p className="eyebrow">SAIKA VISTA</p>
-          <h1>Ready for the next shot.</h1>
-          <p>Competition display will resume shortly.</p>
+          <h1>Standby</h1>
+          <p>{config.name}</p>
         </section>
       ) : resultRows ? (
         <Ranking entries={entries} config={config} elapsed={elapsed} now={now} />
@@ -292,26 +286,25 @@ export function AudienceView({
           ) : (
             <section className="audience-empty">
               <h2>Waiting for competition</h2>
-              <p>The display is ready.</p>
             </section>
           )}
         </>
       )}
-      <footer className="audience-footer">
-        <span>{config.name}</span>
-        <span>
-          {config.standby
-            ? 'STANDBY'
-            : resultRows
-              ? 'Complete result scope · Scores and places provided by Director'
-              : `${config.shotFilter === 'all' ? 'All shots in current mode' : config.shotFilter === 'series' ? 'Current series' : `Recent ${config.recentShots} shots in current mode`} · ${config.zoom === 1 ? 'Full target' : `${config.zoom}× zoom`} · Dashed ring: latest shot locator`}
-        </span>
-        {!config.standby && !resultRows && (
-          <span>
-            Page {page.page + 1} / {page.pages}
-          </span>
-        )}
-      </footer>
+      {!config.standby && (
+        <footer className="audience-footer">
+          <span>{config.name}</span>
+          {!resultRows && (
+            <span>
+              {`${config.shotFilter === 'all' ? 'All shots' : config.shotFilter === 'series' ? 'Current series' : `Recent ${config.recentShots} shots`} · ${config.zoom === 1 ? 'Full target' : `${config.zoom}× zoom`}`}
+            </span>
+          )}
+          {!resultRows && (
+            <span>
+              Page {page.page + 1} / {page.pages}
+            </span>
+          )}
+        </footer>
+      )}
       {state.identifyUntil > now && (
         <div className="identify-overlay">
           <span className="eyebrow">DISPLAY IDENTIFICATION</span>

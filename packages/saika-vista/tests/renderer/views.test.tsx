@@ -209,7 +209,7 @@ describe('audience presentation integrity', () => {
       expect(within(currentSeries).queryByText('52.1')).not.toBeInTheDocument();
       const matchStage = screen.getByText('Match · Match sum').parentElement!;
       expect(within(matchStage).getByText('52.1')).toBeInTheDocument();
-      expect(screen.getByText('Match total · 1 shots')).toBeInTheDocument();
+      expect(screen.getByText('Match total · 1 shot')).toBeInTheDocument();
       expect(screen.getByText('10.9', { selector: '.shot-summary > strong' })).toBeInTheDocument();
     },
   );
@@ -367,7 +367,7 @@ describe('audience presentation integrity', () => {
       <AudienceView state={{ ...value, config: { ...value.config, standby: true, revision: 2 } }} now={16000} />,
     );
     expect(container.querySelector('.identify-overlay')).toBeNull();
-    expect(screen.getByText('Ready for the next shot.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Standby' })).toBeInTheDocument();
     expect(screen.queryByText('10.2')).not.toBeInTheDocument();
   });
 });

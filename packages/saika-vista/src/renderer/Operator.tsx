@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useRef, useState } from 'react';
 
+import appIcon from '../../resources/appIcon.png';
 import type {
   AppState,
   Command,
@@ -12,6 +13,7 @@ import type {
   SourceView,
 } from '../shared/model';
 
+import { UpdateControls } from './UpdateControls';
 import { defaultConfig, selectedSlots, stateLabel, usesRankingRows } from './viewModel';
 
 type Run = (command: Command) => Promise<boolean>;
@@ -30,6 +32,7 @@ function NumberField({
   max,
   step = 1,
   integerOnly = false,
+  disabled = false,
   onChange,
 }: {
   label: string;
@@ -38,6 +41,7 @@ function NumberField({
   max?: number;
   step?: number | 'any';
   integerOnly?: boolean;
+  disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
@@ -45,6 +49,7 @@ function NumberField({
       {label}
       <input
         type="number"
+        disabled={disabled}
         value={value}
         min={min}
         max={max}
@@ -61,12 +66,9 @@ function NumberField({
 function SourceDataStatus({ config, state }: { config: ScreenConfig; state: AppState }) {
   return (
     <section className="source-data-status" aria-label="Source data for requested settings">
-      <h3>Source data for requested settings v{config.revision}</h3>
-      <p className="field-help">
-        Data received on this PC. Audience rendering is confirmed separately above. Apply drafts to update these
-        subjects.
-      </p>
-      {!config.selections.length && <p className="muted">No subjects requested.</p>}
+      <h3>Data reception</h3>
+      <p className="field-help">Last data received by this operator PC.</p>
+      {!config.selections.length && <p className="muted">No content selected.</p>}
       {config.selections.map((selection, index) => {
         const source = state.sources.find((candidate) => candidate.id === selection.sourceId);
         const entry = state.snapshots.find(
@@ -205,7 +207,7 @@ function SelectionEditor({
             value={selection.subjectId}
             onChange={(event) => changeSubject(selection.sourceId, event.target.value)}
           >
-            <option value="">Choose a subject</option>
+            <option value="">Choose a competition</option>
             {source?.catalog?.subjects.map((s) => (
               <option key={s.id} value={s.id} disabled={s.availability !== 'available'}>
                 {s.label} · {s.eventCode}
@@ -242,11 +244,11 @@ function SelectionEditor({
           </select>
         </label>
         <label className="field">
-          Display label (this subject only)
+          Display label
           <input
             value={selection.label}
             maxLength={200}
-            placeholder="Use the source's name"
+            placeholder="Use the competition name"
             onChange={(event) => onChange({ ...selection, label: event.target.value })}
           />
         </label>
@@ -264,42 +266,44 @@ function SelectionEditor({
           </button>
         </div>
         {!participants.length && (
-          <p className="muted">{entry ? stateLabel[entry.state] : 'Waiting for this subject’s participant list.'}</p>
+          <p className="muted">{entry ? stateLabel[entry.state] : 'Waiting for the participant list.'}</p>
         )}
-        {participants.map((p) => {
-          const id = selection.follow === 'lane' ? p.laneId : p.id;
-          return (
-            <label key={id} className="check-field">
-              <input
-                type="checkbox"
-                checked={chosen.includes(id)}
-                disabled={resultRows}
-                onChange={(event) =>
-                  onChange({
-                    ...selection,
-                    participantIds: event.target.checked ? [...chosen, id] : chosen.filter((key) => key !== id),
-                  })
-                }
-              />
-              <span>
-                {p.laneName} · {p.name || 'Unnamed athlete'}
-              </span>
-            </label>
-          );
-        })}
-        {chosen
-          .filter((id) => !availableIds.includes(id))
-          .map((id) => (
-            <label key={id} className="check-field">
-              <input
-                type="checkbox"
-                checked
-                disabled={resultRows}
-                onChange={() => onChange({ ...selection, participantIds: chosen.filter((key) => key !== id) })}
-              />
-              <span>Unavailable selection · {id}</span>
-            </label>
-          ))}
+        <div className="participant-options">
+          {participants.map((p) => {
+            const id = selection.follow === 'lane' ? p.laneId : p.id;
+            return (
+              <label key={id} className="check-field">
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(id)}
+                  disabled={resultRows}
+                  onChange={(event) =>
+                    onChange({
+                      ...selection,
+                      participantIds: event.target.checked ? [...chosen, id] : chosen.filter((key) => key !== id),
+                    })
+                  }
+                />
+                <span>
+                  {p.laneName} · {p.name || 'Unnamed athlete'}
+                </span>
+              </label>
+            );
+          })}
+          {chosen
+            .filter((id) => !availableIds.includes(id))
+            .map((id) => (
+              <label key={id} className="check-field">
+                <input
+                  type="checkbox"
+                  checked
+                  disabled={resultRows}
+                  onChange={() => onChange({ ...selection, participantIds: chosen.filter((key) => key !== id) })}
+                />
+                <span>Unavailable selection · {id}</span>
+              </label>
+            ))}
+        </div>
       </div>
       {!chosen.length && !resultRows && (
         <p className="field-help">
@@ -320,7 +324,10 @@ function ScreenEditor({
   state,
   run,
   busy,
+  dirty,
   onDeleted,
+  onClose,
+  onDirtyChange,
 }: {
   initial: ScreenConfig;
   status?: ScreenStatus;
@@ -328,13 +335,18 @@ function ScreenEditor({
   state: AppState;
   run: Run;
   busy: boolean;
+  dirty: boolean;
   onDeleted: () => void;
+  onClose: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [draft, setDraft] = useState(initial);
-  const [dirty, setDirty] = useState(!status);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => titleRef.current?.focus(), []);
   const editedFields = useRef(new Set<keyof ScreenConfig>());
   const persistedStandby = useRef(status?.config.standby);
   const [requested, setRequested] = useState<number | null>(null);
+  const [applying, setApplying] = useState(false);
   const [message, setMessage] = useState('');
   useEffect(() => {
     if (!status) return;
@@ -349,7 +361,7 @@ function ScreenEditor({
   const change = (changes: Partial<ScreenConfig>) => {
     for (const key of Object.keys(changes) as Array<keyof ScreenConfig>) editedFields.current.add(key);
     setDraft((current) => ({ ...current, ...changes }));
-    setDirty(true);
+    onDirtyChange(true);
     setMessage('');
   };
   const rankView = draft.view === 'ranking' || draft.view === 'final';
@@ -397,42 +409,69 @@ function ScreenEditor({
     if (!valid) return;
     const config = { ...draft, name: draft.name.trim(), revision: (status?.config.revision ?? 0) + 1 };
     setRequested(config.revision);
+    setApplying(true);
     if (await run({ type: 'apply', nodeId: node.identity.sourceId, config })) {
       editedFields.current.clear();
       setDraft(config);
-      setDirty(false);
-      setMessage('Configuration saved. Renderer confirmation is shown above.');
-    } else setMessage('Apply failed. Your draft is retained.');
+      onDirtyChange(false);
+      setMessage('Settings sent.');
+    } else setMessage('Your draft is retained. Check the error before applying again.');
+    setApplying(false);
   };
   return (
     <section className="screen-editor" aria-label="Screen editor">
-      <div className="editor-title">
-        <div>
-          <p className="eyebrow">SCREEN CONFIGURATION</p>
-          <h2>{status ? initial.name : 'New audience screen'}</h2>
-          <p>{node.identity.name}</p>
+      <div className="editor-header">
+        <div className="editor-title">
+          <div>
+            <h2 ref={titleRef} tabIndex={-1}>
+              {status ? initial.name : 'New audience screen'}
+            </h2>
+            <p>{node.identity.name}</p>
+          </div>
+          <div className="editor-apply">
+            <span className="draft-state">
+              {dirty ? 'Unapplied changes' : node.persistenceError ? 'Storage unconfirmed' : 'No changes'}
+            </span>
+            <button type="button" className="secondary" disabled={busy} onClick={onClose}>
+              Close editor
+            </button>
+            <button
+              className="primary"
+              type="submit"
+              form={`screen-settings-${draft.id}`}
+              disabled={busy || !valid || (!dirty && !!status && !node.persistenceError)}
+            >
+              {applying ? 'Applying…' : 'Apply to screen'}
+            </button>
+          </div>
         </div>
-        <StatusPill good={!dirty}>{dirty ? 'Unapplied draft' : 'Saved configuration'}</StatusPill>
+        {message && (
+          <p className="apply-message" role="status">
+            {message}
+          </p>
+        )}
       </div>
-      <div className="revision-strip">
-        <div>
-          <span>Requested</span>
-          <strong>{requested === null ? '—' : `v${requested}`}</strong>
-        </div>
-        <div>
-          <span>Persisted on display PC</span>
-          <strong>{status?.appliedRevision ? `v${status.appliedRevision}` : 'Not yet'}</strong>
-        </div>
-        <div>
-          <span>Audience renderer</span>
-          <strong>
-            {status?.renderAlive && status.renderedRevision === status.config.revision && status.monitorAvailable
-              ? `Confirmed v${status.renderedRevision}`
-              : status?.renderedRevision
-                ? `Last v${status.renderedRevision} · unconfirmed`
-                : 'Not confirmed'}
-          </strong>
-        </div>
+      <div className="display-status" aria-label="Display status" role="status">
+        <StatusPill
+          good={!!status?.renderAlive && status.monitorAvailable && status.renderedRevision === status.config.revision}
+        >
+          {!status
+            ? 'Screen not created'
+            : !status.monitorAvailable
+              ? 'Monitor disconnected'
+              : status.renderAlive && status.renderedRevision === status.config.revision
+                ? status.config.standby
+                  ? 'On standby'
+                  : 'Displaying'
+                : 'Display unconfirmed'}
+        </StatusPill>
+        <span>
+          {node.persistenceError
+            ? 'Save not confirmed'
+            : status?.appliedRevision === status?.config.revision && status
+              ? 'Settings saved on display PC'
+              : 'Settings not yet saved on display PC'}
+        </span>
       </div>
       {status?.error && (
         <p role="alert" className="inline-error">
@@ -442,8 +481,8 @@ function ScreenEditor({
       {status && !status.monitorAvailable && (
         <p className="inline-error">The assigned monitor is disconnected. Choose an available monitor and apply.</p>
       )}
-      {status && <SourceDataStatus config={status.config} state={state} />}
       <form
+        id={`screen-settings-${draft.id}`}
         onSubmit={(event) => {
           event.preventDefault();
           void apply();
@@ -484,9 +523,6 @@ function ScreenEditor({
                 aria-pressed={draft.view === view}
                 onClick={() => change({ view, page: 0 })}
               >
-                <span aria-hidden="true">
-                  {view === 'targets' ? '▦' : view === 'focus' ? '◎' : view === 'ranking' ? '≡' : '◈'}
-                </span>
                 {view === 'targets'
                   ? 'Target grid'
                   : view === 'focus'
@@ -516,7 +552,7 @@ function ScreenEditor({
             </p>
           )}
           <div className="section-heading">
-            <h3>Display subjects</h3>
+            <h3>Content</h3>
             <button
               className="secondary"
               type="button"
@@ -553,11 +589,14 @@ function ScreenEditor({
             <NumberField
               label={resultRows ? 'Rows per page' : 'Targets per page'}
               value={draft.slots}
+              integerOnly
+              disabled={draft.view === 'focus'}
               max={100}
               onChange={(slots) => change({ slots, page: 0 })}
             />
             <NumberField
               label="Seconds per page"
+              disabled={!draft.autoRotate}
               value={draft.pageSeconds}
               max={3600}
               step="any"
@@ -582,77 +621,103 @@ function ScreenEditor({
           <p className="field-help">
             {count === null
               ? 'Position and page counts are unavailable on this PC. Set a starting page and confirm it on the audience screen.'
-              : `${count} selected positions · ${pages} pages.`}{' '}
-            Page density is limited to 100; there is no total lane or monitor limit.
+              : `${count} selected ${count === 1 ? 'position' : 'positions'} · ${pages} ${pages === 1 ? 'page' : 'pages'}.`}{' '}
             {resultRows && ' Rows scale to fit the screen; fewer rows give larger text.'}
           </p>
-          <h3>Target appearance</h3>
-          <div className="form-row three">
-            <label className="field">
-              Target zoom
-              <select value={draft.zoom} onChange={(event) => change({ zoom: Number(event.target.value) })}>
-                {[1, 2, 3, 4, 6, 8, 12, 16].map((zoom) => (
-                  <option value={zoom} key={zoom}>
-                    {zoom === 1 ? 'Full target' : `${zoom}× · center fixed`}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              Shot display
-              <select
-                value={draft.shotFilter}
-                onChange={(event) => change({ shotFilter: event.target.value as ScreenConfig['shotFilter'] })}
-              >
-                <option value="all">All shots</option>
-                <option value="series">Current series</option>
-                <option value="recent">Recent shots</option>
-              </select>
-            </label>
-            <NumberField
-              label="Recent shot count"
-              value={draft.recentShots}
-              max={1000}
-              onChange={(recentShots) => change({ recentShots })}
-            />
-          </div>
-          <h3>Display behavior</h3>
-          <label className="check-field">
-            <input
-              type="checkbox"
-              checked={draft.standby}
-              onChange={(event) => change({ standby: event.target.checked })}
-            />
-            Show standby screen
-          </label>
-          <label className="check-field">
-            <input
-              type="checkbox"
-              checked={draft.autoStart}
-              onChange={(event) => change({ autoStart: event.target.checked })}
-            />
-            Open this audience screen automatically when Vista starts
-          </label>
-          <p className="field-help">
-            Standby keeps receiving competition updates and is restored after restart. Enable “Start Vista at login” on
-            the display PC for unattended startup.
-          </p>
-          <div className="apply-bar">
-            <div>
-              <strong>{dirty ? 'Changes are ready to apply' : 'Configuration is up to date'}</strong>
-              <p>Each screen changes only after Apply.</p>
+          <details className="editor-options">
+            <summary>Target appearance</summary>
+            <div className="form-row three">
+              <label className="field">
+                Target zoom
+                <select
+                  disabled={resultRows}
+                  value={draft.zoom}
+                  onChange={(event) => change({ zoom: Number(event.target.value) })}
+                >
+                  {[1, 2, 3, 4, 6, 8, 12, 16].map((zoom) => (
+                    <option value={zoom} key={zoom}>
+                      {zoom === 1 ? 'Full target' : `${zoom}× · center fixed`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Shot display
+                <select
+                  disabled={resultRows}
+                  value={draft.shotFilter}
+                  onChange={(event) => change({ shotFilter: event.target.value as ScreenConfig['shotFilter'] })}
+                >
+                  <option value="all">All shots</option>
+                  <option value="series">Current series</option>
+                  <option value="recent">Recent shots</option>
+                </select>
+              </label>
+              <NumberField
+                label="Recent shot count"
+                integerOnly
+                disabled={resultRows || draft.shotFilter !== 'recent'}
+                value={draft.recentShots}
+                max={1000}
+                onChange={(recentShots) => change({ recentShots })}
+              />
             </div>
-            <button className="primary" type="submit" disabled={!valid || (!dirty && !!status)}>
-              {busy ? 'Applying…' : 'Apply to screen'}
-            </button>
-          </div>
-          {message && (
-            <p className="field-help" role="status">
-              {message}
+          </details>
+          <details className="editor-options">
+            <summary>Startup and standby</summary>
+            <label className="check-field">
+              <input
+                type="checkbox"
+                checked={draft.standby}
+                onChange={(event) => change({ standby: event.target.checked })}
+              />
+              Show standby screen
+            </label>
+            <label className="check-field">
+              <input
+                type="checkbox"
+                checked={draft.autoStart}
+                onChange={(event) => change({ autoStart: event.target.checked })}
+              />
+              Open this audience screen automatically when Vista starts
+            </label>
+            <p className="field-help">
+              Standby keeps receiving updates. For unattended startup, also enable “Start Vista at login” on the display
+              PC.
             </p>
-          )}
+          </details>
         </fieldset>
       </form>
+      {status && <SourceDataStatus config={status.config} state={state} />}
+      <details className="connection-details">
+        <summary>Settings and display confirmation</summary>
+        <div className="revision-strip">
+          <div>
+            <span>Requested</span>
+            <strong>{(requested ?? status?.config.revision) ? `v${requested ?? status?.config.revision}` : '—'}</strong>
+          </div>
+          <div>
+            <span>Saved on display PC</span>
+            <strong>
+              {node.persistenceError
+                ? 'Unconfirmed'
+                : status?.appliedRevision
+                  ? `v${status.appliedRevision}`
+                  : 'Not yet'}
+            </strong>
+          </div>
+          <div>
+            <span>Audience display</span>
+            <strong>
+              {status?.renderAlive && status.renderedRevision === status.config.revision && status.monitorAvailable
+                ? `Confirmed v${status.renderedRevision}`
+                : status?.renderedRevision
+                  ? `Last v${status.renderedRevision} · unconfirmed`
+                  : 'Not confirmed'}
+            </strong>
+          </div>
+        </div>
+      </details>
       {status && (
         <div className="screen-actions">
           <button
@@ -694,11 +759,17 @@ function PairingForm({
   run,
   busy,
   discovered,
+  discover,
+  discovering,
+  discoveryComplete,
 }: {
   kind: 'source' | 'peer';
   run: Run;
   busy: boolean;
   discovered: Discovery[];
+  discover: () => Promise<void>;
+  discovering: boolean;
+  discoveryComplete: boolean;
 }) {
   const [endpoint, setEndpoint] = useState('');
   const [secret, setSecret] = useState('');
@@ -716,12 +787,22 @@ function PairingForm({
         }
       }}
     >
-      <h3>{kind === 'source' ? 'Pair a data source' : 'Pair a display PC'}</h3>
+      <h2>{kind === 'source' ? 'Connect a data source' : 'Connect another display PC'}</h2>
       <p className="muted">
         {kind === 'source'
           ? 'Enable Vista sharing in Lane or Director, then enter its endpoint and pairing secret.'
           : 'Enter the endpoint and pairing secret shown in Vista on the display PC.'}
       </p>
+      <button type="button" className="secondary" disabled={discovering || busy} onClick={() => void discover()}>
+        {discovering ? 'Discovering…' : 'Discover devices'}
+      </button>
+      {discoveryComplete && (
+        <p role="status" className="field-help">
+          {candidates.length
+            ? `${candidates.length} ${candidates.length === 1 ? 'device found' : 'devices found'}. Choose a device below.`
+            : 'No devices found. Enter an endpoint to connect manually.'}
+        </p>
+      )}
       {candidates.length > 0 && (
         <label className="field">
           Discovered on this network
@@ -743,7 +824,7 @@ function PairingForm({
         <input
           type="url"
           required
-          placeholder="http://192.168.1.20:4180"
+          placeholder={kind === 'source' ? 'http://192.168.1.20:45831' : 'http://192.168.1.20:4180'}
           value={endpoint}
           onChange={(event) => setEndpoint(event.target.value)}
         />
@@ -771,12 +852,25 @@ function PairingForm({
 export function Operator() {
   const [state, setState] = useState<AppState | null>(null);
   const [tab, setTab] = useState<'screens' | 'sources' | 'devices'>('screens');
+  const [editorDirty, setEditorDirty] = useState(false);
+  const navigate = (action: () => void) => {
+    if (busy || (editorDirty && !window.confirm('Discard unapplied screen changes?'))) return;
+    setEditorDirty(false);
+    action();
+  };
+  const changeTab = (next: typeof tab) => {
+    if (next !== tab)
+      navigate(() => {
+        setTab(next);
+        if (next === 'screens' && selection?.initial && !selectedScreen) setEditorDirty(true);
+      });
+  };
   const [selection, setSelection] = useState<{ nodeId: string; id: string; initial?: ScreenConfig } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [discovered, setDiscovered] = useState<Discovery[]>([]);
   const [discovering, setDiscovering] = useState(false);
-  const [discoveryMessage, setDiscoveryMessage] = useState('');
+  const [discoveryComplete, setDiscoveryComplete] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [filter, setFilter] = useState('');
   useEffect(() => {
@@ -821,9 +915,9 @@ export function Operator() {
   if (!state)
     return (
       <main className="operator loading">
-        <div className="brand-symbol">◎</div>
+        <img className="brand-symbol" src={appIcon} alt="" />
         <h1>Saika Vista</h1>
-        <p>{error || 'Connecting to your display workspace…'}</p>
+        <p>{error || 'Loading display settings…'}</p>
       </main>
     );
   const nodes = [
@@ -846,15 +940,10 @@ export function Operator() {
   const localControlled = Boolean(state.local.controllerId);
   const discover = async () => {
     setDiscovering(true);
-    setDiscoveryMessage('');
+    setDiscoveryComplete(false);
     try {
-      const candidates = await window.vista.discover();
-      setDiscovered(candidates);
-      setDiscoveryMessage(
-        candidates.length
-          ? `${candidates.length} devices discovered. Select a candidate below to pair.`
-          : 'No devices found. You can still enter an endpoint manually.',
-      );
+      setDiscovered(await window.vista.discover());
+      setDiscoveryComplete(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Discovery failed. Enter the endpoint manually.');
     } finally {
@@ -869,101 +958,123 @@ export function Operator() {
           href="#"
           onClick={(event) => {
             event.preventDefault();
-            setTab('screens');
+            changeTab('screens');
           }}
         >
-          <span className="brand-symbol" aria-hidden="true">
-            ◎
-          </span>
+          <img className="brand-symbol" src={appIcon} alt="" />
           <div>
-            saika <strong>vista</strong>
-            <small>VENUE DISPLAY CONTROL</small>
+            Saika <strong>Vista</strong>
           </div>
         </a>
         <nav aria-label="Main navigation">
-          <button className={tab === 'screens' ? 'active' : ''} onClick={() => setTab('screens')}>
-            <span aria-hidden="true">▦</span>Screens<span className="nav-count">{screens.length}</span>
+          <button
+            aria-current={tab === 'screens' ? 'page' : undefined}
+            disabled={busy}
+            className={tab === 'screens' ? 'active' : ''}
+            onClick={() => changeTab('screens')}
+          >
+            Screens<span className="nav-count">{screens.length}</span>
           </button>
-          <button className={tab === 'sources' ? 'active' : ''} onClick={() => setTab('sources')}>
-            <span aria-hidden="true">◉</span>Data sources<span className="nav-count">{state.sources.length}</span>
+          <button
+            aria-current={tab === 'sources' ? 'page' : undefined}
+            disabled={busy}
+            className={tab === 'sources' ? 'active' : ''}
+            onClick={() => changeTab('sources')}
+          >
+            Data sources<span className="nav-count">{state.sources.length}</span>
           </button>
-          <button className={tab === 'devices' ? 'active' : ''} onClick={() => setTab('devices')}>
-            <span aria-hidden="true">▣</span>Display PCs<span className="nav-count">{nodes.length}</span>
+          <button
+            aria-current={tab === 'devices' ? 'page' : undefined}
+            disabled={busy}
+            className={tab === 'devices' ? 'active' : ''}
+            onClick={() => changeTab('devices')}
+          >
+            Display PCs<span className="nav-count">{nodes.length}</span>
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <span className="eyebrow">THIS PC</span>
+          <span className="muted">This PC</span>
           <strong>{state.local.identity.name}</strong>
-          <span className="muted">Local network · Offline ready</span>
         </div>
       </aside>
       <main className="operator-main">
         <header className="operator-header">
-          <div>
-            <p className="eyebrow">VENUE WORKSPACE</p>
-            <h1>{tab === 'screens' ? 'Audience screens' : tab === 'sources' ? 'Data sources' : 'Display PCs'}</h1>
-            <p>
-              {tab === 'screens'
-                ? 'Set the view. Give every seat a clear picture.'
-                : tab === 'sources'
-                  ? 'Connect the competition to your audience.'
-                  : 'Manage monitors across the venue.'}
-            </p>
-          </div>
-          <StatusPill good={state.sources.some((s) => s.state === 'connected')}>
-            {state.sources.filter((s) => s.state === 'connected').length} sources connected
-          </StatusPill>
+          <h1>{tab === 'screens' ? 'Audience screens' : tab === 'sources' ? 'Data sources' : 'Display PCs'}</h1>
         </header>
         {(error || state.error) && (
           <div className="error-banner" role="alert">
             {error || state.error}
-            <button className="text-button" onClick={() => setError('')}>
-              Dismiss
-            </button>
+            {error && (
+              <button className="text-button" onClick={() => setError('')}>
+                Dismiss
+              </button>
+            )}
           </div>
         )}
         {tab === 'screens' && (
           <>
-            <div className="overview">
-              <div>
-                <span>Audience screens</span>
-                <strong>{screens.length}</strong>
+            {!!screens.length && (
+              <div className="screen-summary" aria-label="Screen status">
+                <span>
+                  Display confirmed{' '}
+                  <strong>
+                    {
+                      screens.filter(
+                        ({ screen: s }) =>
+                          s.renderAlive && s.monitorAvailable && s.renderedRevision === s.config.revision,
+                      ).length
+                    }{' '}
+                    / {screens.length}
+                  </strong>
+                </span>
+                <span>
+                  On standby <strong>{screens.filter(({ screen }) => screen.config.standby).length}</strong>
+                </span>
+                <span>
+                  Sources connected{' '}
+                  <strong>
+                    {state.sources.filter((source) => source.state === 'connected').length} / {state.sources.length}
+                  </strong>
+                </span>
               </div>
-              <div>
-                <span>Rendering confirmed</span>
-                <strong>
-                  {
-                    screens.filter(
-                      ({ screen: s }) =>
-                        s.renderAlive && s.monitorAvailable && s.renderedRevision === s.config.revision,
-                    ).length
-                  }
-                  <small> / {screens.length}</small>
-                </strong>
-              </div>
-              <div>
-                <span>Available monitors</span>
-                <strong>{nodes.reduce((n, node) => n + node.monitors.length, 0)}</strong>
-              </div>
-              <div>
-                <span>On standby</span>
-                <strong>{screens.filter(({ screen }) => screen.config.standby).length}</strong>
-              </div>
-            </div>
+            )}
             <div className={`screens-workspace ${selection && initial ? 'editing' : ''}`}>
               <section className="screens-panel">
-                <div className="section-heading">
-                  <h2>Your screens</h2>
-                </div>
-                <label className="search-field">
-                  <span className="sr-only">Find a screen</span>
-                  <input
-                    type="search"
-                    placeholder="Find a screen or PC…"
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
-                  />
-                </label>
+                {!!screens.length && (
+                  <label className="search-field">
+                    <span className="sr-only">Find a screen</span>
+                    <input
+                      type="search"
+                      placeholder="Find a screen or PC…"
+                      value={filter}
+                      onChange={(event) => setFilter(event.target.value)}
+                    />
+                  </label>
+                )}
+                {!!screens.length &&
+                  filter &&
+                  !screens.some(({ node, screen }) =>
+                    `${screen.config.name} ${node.identity.name}`.toLowerCase().includes(filter.toLowerCase()),
+                  ) && (
+                    <p className="empty-note" role="status">
+                      No screens match “{filter}”.
+                    </p>
+                  )}
+                {!screens.length && !selection && (
+                  <div className="setup-note">
+                    <h2>No screens configured</h2>
+                    <p>
+                      {state.sources.length
+                        ? 'Add a screen on an available monitor, then choose its source and view.'
+                        : 'Connect a Lane or Director data source, then add a screen on an available monitor.'}
+                    </p>
+                    {!state.sources.length && (
+                      <button className="primary" onClick={() => changeTab('sources')}>
+                        Connect a data source
+                      </button>
+                    )}
+                  </div>
+                )}
                 {nodes.map((node) => (
                   <div className="node-group" key={node.identity.sourceId}>
                     <div className="node-title">
@@ -981,16 +1092,31 @@ export function Operator() {
                         >
                           <button
                             className="screen-select"
-                            onClick={() => setSelection({ nodeId: node.identity.sourceId, id: screen.config.id })}
+                            aria-pressed={
+                              selection?.id === screen.config.id && selection.nodeId === node.identity.sourceId
+                            }
+                            onClick={() => {
+                              if (selection?.id !== screen.config.id || selection.nodeId !== node.identity.sourceId)
+                                navigate(() => setSelection({ nodeId: node.identity.sourceId, id: screen.config.id }));
+                            }}
                           >
-                            <div className="monitor-icon" aria-hidden="true">
-                              {screen.config.standby ? '◎' : screen.config.view === 'ranking' ? '≡' : '▦'}
-                            </div>
                             <div>
                               <h3>{screen.config.name}</h3>
                               <p>
-                                {screen.config.standby ? 'Standby' : screen.config.view} ·{' '}
-                                {screen.config.selections.length} sources
+                                {node.monitors.find((monitor) => monitor.id === screen.config.monitorId)?.name ||
+                                  'Disconnected monitor'}
+                                {' · '}
+                                {screen.config.standby
+                                  ? 'Standby'
+                                  : screen.config.view === 'targets'
+                                    ? 'Target grid'
+                                    : screen.config.view === 'focus'
+                                      ? 'Athlete focus'
+                                      : screen.config.view === 'ranking'
+                                        ? 'Ranking'
+                                        : 'Final'}{' '}
+                                · {screen.config.selections.length}{' '}
+                                {screen.config.selections.length === 1 ? 'source' : 'sources'}
                               </p>
                               <StatusPill
                                 good={
@@ -1002,8 +1128,10 @@ export function Operator() {
                                 {!screen.monitorAvailable
                                   ? 'Monitor missing'
                                   : screen.renderAlive && screen.renderedRevision === screen.config.revision
-                                    ? `Rendering v${screen.config.revision}`
-                                    : `Awaiting rendering v${screen.config.revision}`}
+                                    ? screen.config.standby
+                                      ? 'On standby'
+                                      : 'Displaying'
+                                    : 'Display unconfirmed'}
                               </StatusPill>
                             </div>
                           </button>
@@ -1052,31 +1180,19 @@ export function Operator() {
                           }
                           onClick={() => {
                             const config = defaultConfig(monitor.id, monitor.name);
-                            setSelection({ nodeId: node.identity.sourceId, id: config.id, initial: config });
+                            navigate(() => {
+                              setSelection({ nodeId: node.identity.sourceId, id: config.id, initial: config });
+                              setEditorDirty(true);
+                            });
                           }}
                         >
-                          + Screen on {monitor.name}
+                          Add screen · {monitor.name}
                         </button>
                       ))}
                     </div>
                     {!node.monitors.length && <p className="empty-note">No monitors available on this PC.</p>}
                   </div>
                 ))}
-                {!screens.length && (
-                  <div className="setup-note">
-                    <div className="setup-icon" aria-hidden="true">
-                      ▦
-                    </div>
-                    <h2>Your audience starts here</h2>
-                    <p>
-                      Connect a data source, then add a screen on a monitor above. Choose its subjects and apply when
-                      ready.
-                    </p>
-                    <button className="secondary" onClick={() => setTab('sources')}>
-                      Connect a data source
-                    </button>
-                  </div>
-                )}
               </section>
               {selectedNode && initial && (
                 <ScreenEditor
@@ -1087,40 +1203,44 @@ export function Operator() {
                   state={state}
                   run={run}
                   busy={busy || (selectedNode === state.local && localControlled)}
-                  onDeleted={() => setSelection(null)}
+                  dirty={editorDirty}
+                  onDirtyChange={setEditorDirty}
+                  onClose={() => navigate(() => setSelection(null))}
+                  onDeleted={() => {
+                    setEditorDirty(false);
+                    setSelection(null);
+                  }}
                 />
               )}
             </div>
           </>
         )}
         {tab === 'sources' && (
-          <div className="connections-layout">
+          <div className={`connections-layout ${state.sources.length ? '' : 'no-connections'}`}>
             <section>
               <div className="section-heading">
-                <h2>Connected sources</h2>
-                <button
-                  className="secondary"
-                  disabled={discovering}
-                  onClick={() => {
-                    void discover();
-                  }}
-                >
-                  {discovering ? 'Discovering…' : 'Discover devices'}
-                </button>
+                <h2>Registered sources</h2>
               </div>
-              {discoveryMessage && (
-                <p role="status" className="field-help">
-                  {discoveryMessage}
-                </p>
-              )}
               {state.sources.map((source) => (
                 <article className="connection-card" key={source.id}>
                   <div className="section-heading">
                     <h3>{source.catalog?.identity.name || 'Data source'}</h3>
-                    <StatusPill good={source.state === 'connected'}>{source.state}</StatusPill>
+                    <StatusPill good={source.state === 'connected'}>
+                      {source.state === 'connected'
+                        ? 'Connected'
+                        : source.state === 'connecting'
+                          ? 'Connecting'
+                          : 'Offline'}
+                    </StatusPill>
                   </div>
-                  <p className="endpoint">{source.endpoint}</p>
-                  <span className="eyebrow">{source.catalog?.identity.kind || 'CONNECTING'}</span>
+                  <p className="endpoint">
+                    {source.catalog?.identity.kind === 'lane'
+                      ? 'Lane'
+                      : source.catalog?.identity.kind === 'director'
+                        ? 'Director'
+                        : 'Connecting'}{' '}
+                    · {source.endpoint}
+                  </p>
                   {source.error && <p className="inline-error">{source.error}</p>}
                   <ul className="subject-list">
                     {source.catalog?.subjects.map((s) => (
@@ -1144,44 +1264,32 @@ export function Operator() {
                   </button>
                 </article>
               ))}
-              {!state.sources.length && (
-                <p className="empty-note">
-                  No sources paired yet. Lane provides targets and scores; Director also provides competition standings.
-                </p>
-              )}
+              {!state.sources.length && <p className="empty-note">No data sources connected.</p>}
             </section>
-            <PairingForm kind="source" run={run} busy={busy} discovered={discovered} />
+            <PairingForm
+              kind="source"
+              run={run}
+              busy={busy}
+              discovered={discovered}
+              discover={discover}
+              discovering={discovering}
+              discoveryComplete={discoveryComplete}
+            />
           </div>
         )}
         {tab === 'devices' && (
           <div className="connections-layout">
             <section>
               <div className="section-heading">
-                <h2>Display computers</h2>
-                <button
-                  className="secondary"
-                  disabled={discovering}
-                  onClick={() => {
-                    void discover();
-                  }}
-                >
-                  {discovering ? 'Discovering…' : 'Discover devices'}
-                </button>
+                <h2>This PC</h2>
               </div>
-              {discoveryMessage && (
-                <p role="status" className="field-help">
-                  {discoveryMessage}
-                </p>
-              )}
               <article className="connection-card">
                 <div className="section-heading">
                   <h3>{state.local.identity.name}</h3>
-                  <StatusPill good>This PC</StatusPill>
                 </div>
                 <div className="monitor-list">
                   {state.local.monitors.map((m) => (
                     <div key={m.id}>
-                      <span aria-hidden="true">▣</span>
                       <strong>{m.name}</strong>
                       <span>
                         {m.width} × {m.height}
@@ -1190,27 +1298,29 @@ export function Operator() {
                     </div>
                   ))}
                 </div>
-                <h3>Pair this PC from another Vista</h3>
-                <p className="field-help">Use one of these endpoints and the pairing secret on your operator PC.</p>
-                {state.endpoints.map((endpoint) => (
-                  <p className="endpoint" key={endpoint}>
-                    {endpoint}
-                  </p>
-                ))}
-                <label className="field">
-                  This PC’s pairing secret
-                  <div className="secret-field">
-                    <input
-                      type={showSecret ? 'text' : 'password'}
-                      readOnly
-                      value={state.pairingSecret}
-                      aria-label="This PC’s pairing secret"
-                    />
-                    <button type="button" className="secondary" onClick={() => setShowSecret(!showSecret)}>
-                      {showSecret ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </label>
+                <details className="remote-access">
+                  <summary>Control this PC from another Vista</summary>
+                  <p className="field-help">Use one of these endpoints and the pairing secret on your operator PC.</p>
+                  {state.endpoints.map((endpoint) => (
+                    <p className="endpoint" key={endpoint}>
+                      {endpoint}
+                    </p>
+                  ))}
+                  <label className="field">
+                    This PC’s pairing secret
+                    <div className="secret-field">
+                      <input
+                        type={showSecret ? 'text' : 'password'}
+                        readOnly
+                        value={state.pairingSecret}
+                        aria-label="This PC’s pairing secret"
+                      />
+                      <button type="button" className="secondary" onClick={() => setShowSecret(!showSecret)}>
+                        {showSecret ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </label>
+                </details>
                 <label className="check-field">
                   <input
                     type="checkbox"
@@ -1222,6 +1332,7 @@ export function Operator() {
                   />
                   Start Vista at login on this PC
                 </label>
+                <UpdateControls />
                 {state.local.controllerId && (
                   <div className="controller-note">
                     <p>This PC is managed by another operator.</p>
@@ -1237,6 +1348,11 @@ export function Operator() {
                   </div>
                 )}
               </article>
+              {!!state.peers.length && (
+                <div className="section-heading">
+                  <h2>Remote PCs</h2>
+                </div>
+              )}
               {state.peers.map((peer) => (
                 <article className="connection-card" key={peer.id}>
                   <div className="section-heading">
@@ -1247,6 +1363,7 @@ export function Operator() {
                   </div>
                   <p className="endpoint">{peer.endpoint}</p>
                   {peer.error && <p className="inline-error">{peer.error}</p>}
+                  {peer.node?.persistenceError && <p className="inline-error">{peer.node.persistenceError}</p>}
                   <p>
                     {peer.node?.monitors.length ?? 0} monitors · {peer.node?.screens.length ?? 0} screens
                   </p>
@@ -1262,13 +1379,17 @@ export function Operator() {
                 </article>
               ))}
             </section>
-            <PairingForm kind="peer" run={run} busy={busy} discovered={discovered} />
+            <PairingForm
+              kind="peer"
+              run={run}
+              busy={busy}
+              discovered={discovered}
+              discover={discover}
+              discovering={discovering}
+              discoveryComplete={discoveryComplete}
+            />
           </div>
         )}
-        <footer className="operator-footer">
-          <span>Saika Vista</span>
-          <span>Audience display · Competition control stays with Lane and Director</span>
-        </footer>
       </main>
     </div>
   );

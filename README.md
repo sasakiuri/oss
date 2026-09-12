@@ -19,6 +19,7 @@ on venue monitors, with local and remote screens managed from one operator PC.
 | [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Japanese manuals and documentation site                          |
 | [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders           |
 | [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation            |
+| [`@sasakiuri/saika-updater`](packages/saika-updater/)   | Shared application update state and installer coordination       |
 | `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                      |
 | `@sasakiuri/prettier-config`                            | Shared Prettier configuration                                    |
 | `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                   |

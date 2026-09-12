@@ -11,9 +11,10 @@ test.describe('Saika Lane App', () => {
   test('should launch the app and display the main window', async () => {
     running = await launchLane();
     const window = await running.app.firstWindow();
-    const title = await window.title();
-
-    expect(title).toBeDefined();
+    await expect(window).toHaveTitle('Saika Lane');
+    await expect(window.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(window.getByRole('main')).toBeVisible();
+    await expect(window.getByText('No session started', { exact: true })).toHaveCount(0);
   });
 
   test('persists settings through the bridge without replacing its Lane identity', async () => {

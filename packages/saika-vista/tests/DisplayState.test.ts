@@ -64,6 +64,24 @@ describe('durable display state', () => {
     expect(state.audience('screen-one').config.standby).toBe(true);
   });
 
+  it('retains a failed write through validation and no-op transactions until a successful save', async () => {
+    const { state, store } = await create();
+    await state.apply(screenConfig(), monitors);
+    const write = vi.spyOn(store, 'write').mockRejectedValueOnce(new Error('Disk full'));
+    await expect(state.apply(screenConfig(2), monitors)).rejects.toThrow('Disk full');
+    await expect(state.apply({ ...screenConfig(3), monitorId: 'disconnected' }, monitors)).rejects.toThrow(
+      'not connected',
+    );
+    await state.apply(screenConfig(), monitors);
+    await expect(state.flush()).rejects.toThrow('Disk full');
+    expect(state.document.screens[0]?.revision).toBe(1);
+    expect(write).toHaveBeenCalledOnce();
+
+    await state.apply(screenConfig(2), monitors);
+    await expect(state.flush()).resolves.toBeUndefined();
+    expect((await store.read(newDocument)).screens[0]?.revision).toBe(2);
+  });
+
   it('never combines a new generation, conflicting revision, or new definition with pinned data', async () => {
     const { state } = await create();
     const entry = { snapshot: snapshot(3), state: 'live' as const, receivedAt: Date.now(), error: null };

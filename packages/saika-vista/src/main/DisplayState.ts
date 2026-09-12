@@ -10,7 +10,7 @@ import {
   type SnapshotEntry,
 } from '../shared/model';
 
-import { AtomicStore } from './AtomicStore';
+import { AtomicStore, type StoreWriteResult } from './AtomicStore';
 import { type Document, messageOf, snapshotKey } from './document';
 
 export const OwnerSchema = z.object({
@@ -36,9 +36,11 @@ function invalidSnapshot(raw: unknown, index: number, error: z.ZodError): Invali
   };
 }
 
-/** Durable state is the authority for applied settings. Rendering has a separate acknowledgement. */
+/** Memory follows the current file. Storage confirmation and audience rendering remain separate. */
 export class DisplayState {
   private pending: Promise<unknown> = Promise.resolve();
+  private writeFailure: Error | null = null;
+  private storageError: string | null = null;
   private frameSequence = -1;
   private identify = new Map<string, number>();
   private entries = new Map<string, SnapshotEntry>();
@@ -47,7 +49,7 @@ export class DisplayState {
   private updates: Array<{
     entry: SnapshotEntry;
     isCurrent: () => boolean;
-    resolve: () => void;
+    resolve: (result: StoreWriteResult) => void;
     reject: (error: unknown) => void;
   }> = [];
   private updateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -69,23 +71,43 @@ export class DisplayState {
     }
   }
 
-  transact(update: (current: Document) => Document, afterPersist?: () => void): Promise<void> {
+  get persistenceError(): string | null {
+    return this.storageError;
+  }
+
+  /** A resolved result means the file is current; callers must complete its effects even when sync is unconfirmed. */
+  transact(update: (current: Document) => Document, afterReplace?: () => void): Promise<StoreWriteResult> {
     const operation = this.pending
       .catch(() => undefined)
-      .then(async () => {
+      .then(async (): Promise<StoreWriteResult> => {
         const next = update(this.document);
-        if (next === this.document && !afterPersist) return;
-        if (next !== this.document) await this.store.write(next);
+        if (next === this.document && !afterReplace && !this.storageError) return { durable: true };
+        let result: StoreWriteResult = { durable: true };
+        if (next !== this.document || this.storageError) {
+          try {
+            result = await this.store.write(next);
+          } catch (error) {
+            this.writeFailure = error instanceof Error ? error : new Error(messageOf(error));
+            throw error;
+          }
+          this.writeFailure = null;
+          this.storageError = result.durable ? null : result.error.message;
+        }
         if (
           next.controller?.id !== this.document.controller?.id ||
           next.controller?.generation !== this.document.controller?.generation
         )
           this.frameErrors = [];
         this.document = next;
-        afterPersist?.();
+        afterReplace?.();
         this.changed();
+        return result;
       });
-    this.pending = operation;
+    // The queue tracks completion; only actual failed writes prevent a successful flush.
+    this.pending = operation.then(
+      () => undefined,
+      () => undefined,
+    );
     return operation;
   }
 
@@ -96,6 +118,7 @@ export class DisplayState {
       await this.flushEntries();
     }
     await this.pending;
+    if (this.writeFailure) throw this.writeFailure;
   }
 
   assertOwner(owner: z.infer<typeof OwnerSchema>): void {
@@ -110,10 +133,10 @@ export class DisplayState {
       throw new Error('The display pairing authority was revoked');
   }
 
-  async register(input: unknown, secret?: string): Promise<void> {
+  async register(input: unknown, secret?: string): Promise<StoreWriteResult> {
     const owner = OwnerSchema.parse(input);
     let reset = false;
-    await this.transact(
+    return this.transact(
       (document) => {
         if (document.releasing) throw new Error('Display control is being released');
         this.assertSecret(secret);
@@ -139,9 +162,9 @@ export class DisplayState {
     monitors: Monitor[],
     owner?: z.infer<typeof OwnerSchema>,
     secret?: string,
-  ): Promise<void> {
+  ): Promise<StoreWriteResult> {
     const config = ScreenConfigSchema.parse(configInput);
-    await this.transact((document) => {
+    return this.transact((document) => {
       if (document.releasing) throw new Error('Display control is being released');
       this.assertSecret(secret);
       if (owner) this.assertOwner(owner);
@@ -161,8 +184,8 @@ export class DisplayState {
     });
   }
 
-  async remove(screenId: string, owner?: z.infer<typeof OwnerSchema>, secret?: string): Promise<void> {
-    await this.transact((document) => {
+  async remove(screenId: string, owner?: z.infer<typeof OwnerSchema>, secret?: string): Promise<StoreWriteResult> {
+    return this.transact((document) => {
       this.assertSecret(secret);
       if (owner) this.assertOwner(owner);
       else if (document.controller) throw new Error('Revoke remote control before editing locally');
@@ -170,14 +193,14 @@ export class DisplayState {
     });
   }
 
-  async receiveFrame(input: unknown, secret?: string): Promise<void> {
+  async receiveFrame(input: unknown, secret?: string): Promise<StoreWriteResult> {
     const frame = FrameSchema.parse(input);
     // Peer wall clocks need not agree. Preserve source timestamps for clock
     // synchronization checks, but measure delivery freshness on this PC.
     const receivedAt = Date.now();
     let next: Map<string, SnapshotEntry>;
     const errors: InvalidSnapshot[] = [];
-    await this.transact(
+    return this.transact(
       (document) => {
         this.assertSecret(secret);
         this.assertOwner(frame);
@@ -224,7 +247,7 @@ export class DisplayState {
         return { ...document, snapshots: [...next.values(), ...this.invalidSnapshots.map((failure) => failure.raw)] };
       },
       () => {
-        // Publish inside the serialization queue only after persistence succeeded.
+        // Keep the cache and frame sequence consistent with the replaced file, even if its sync failed.
         this.frameSequence = frame.sequence;
         this.entries = next;
         this.frameErrors = errors;
@@ -249,7 +272,7 @@ export class DisplayState {
     }
   }
 
-  updateEntry(entry: SnapshotEntry, isCurrent: () => boolean = () => true): Promise<void> {
+  updateEntry(entry: SnapshotEntry, isCurrent: () => boolean = () => true): Promise<StoreWriteResult> {
     return new Promise((resolve, reject) => {
       this.updates.push({ entry, isCurrent, resolve, reject });
       if (!this.updateTimer)
@@ -267,13 +290,13 @@ export class DisplayState {
     const acceptedKeys = new Set<string>();
     let next: Map<string, SnapshotEntry>;
     try {
-      await this.transact(
+      const result = await this.transact(
         (document) => {
           next = new Map(this.entries);
           let dirty = false;
           for (const update of batch) {
             if (!update.isCurrent()) {
-              update.resolve();
+              update.resolve({ durable: true });
               continue;
             }
             const parsed = SnapshotEntrySchema.safeParse(update.entry);
@@ -307,7 +330,7 @@ export class DisplayState {
           );
         },
       );
-      for (const update of accepted) update.resolve();
+      for (const update of accepted) update.resolve(result);
     } catch (error) {
       for (const update of batch) update.reject(error);
     }

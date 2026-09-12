@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Operator } from '../../src/renderer/Operator';
 import type { AppState, Command, VistaBridge } from '../../src/shared/model';
 import { publishedSnapshot, screenConfig, snapshot } from '../fixtures';
+import { updateBridge } from '../updateFixtures';
 
 let state: AppState;
 let bridge: VistaBridge;
 beforeEach(() => {
+  window.vistaUpdates = updateBridge();
   const data = snapshot();
   state = {
     local: {
@@ -25,6 +27,7 @@ beforeEach(() => {
         },
       ],
       controllerId: null,
+      persistenceError: null,
       resumableSubjects: [],
     },
     endpoints: ['http://127.0.0.1:4180'],
@@ -89,6 +92,28 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('operator workflows', () => {
+  it('keeps rendering distinct from unconfirmed storage and allows saving the current settings again', async () => {
+    state.local.persistenceError = 'Vista data was replaced, but durable storage was not confirmed';
+    state.local.screens[0]!.appliedRevision = null;
+    state.error = state.local.persistenceError;
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+    expect(screen.getByText('Confirmed v1')).toBeInTheDocument();
+    expect(screen.getByText('Unconfirmed', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Storage unconfirmed')).toBeInTheDocument();
+    expect(screen.queryByText('No changes')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('durable storage was not confirmed');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to screen' }));
+    await waitFor(() =>
+      expect(bridge.command).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'apply',
+          config: expect.objectContaining({ revision: 2 }),
+        }),
+      ),
+    );
+  });
+
   it('counts published Final result rows and keeps target selections separate from that result scope', async () => {
     state.sources[0]!.catalog!.identity.kind = 'director';
     state.local.screens[0]!.config = { ...screenConfig(), view: 'final', slots: 1 };
@@ -107,7 +132,7 @@ describe('operator workflows', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Target grid' }));
     expect(screen.getByLabelText(/Lane 1 · Current run athlete/)).toBeEnabled();
     expect(screen.getByLabelText(/Lane 1 · Current run athlete/)).toBeChecked();
-    expect(screen.getByText(/1 selected positions · 1 pages/)).toBeInTheDocument();
+    expect(screen.getByText(/1 selected position · 1 page/)).toBeInTheDocument();
   });
 
   it('keeps inherited Final page counts unknown without its result snapshot even with fixed target selections', async () => {
@@ -127,7 +152,7 @@ describe('operator workflows', () => {
     fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
     fireEvent.change(screen.getByLabelText('Screen name'), { target: { value: 'East stand' } });
     expect(bridge.command).not.toHaveBeenCalled();
-    expect(screen.getByText('Unapplied draft')).toBeInTheDocument();
+    expect(screen.getByText('Unapplied changes')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply to screen' }));
     await waitFor(() =>
       expect(bridge.command).toHaveBeenCalledWith(
@@ -141,6 +166,95 @@ describe('operator workflows', () => {
     expect(await screen.findByText('Last v1 · unconfirmed')).toBeInTheDocument();
     expect(screen.getAllByText('v2').length).toBeGreaterThan(0);
   });
+  it('retains unapplied edits when navigation is cancelled and discards them only on confirmation', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+    fireEvent.change(screen.getByLabelText('Screen name'), { target: { value: 'Unapplied name' } });
+    fireEvent.click(screen.getByRole('button', { name: /Data sources/ }));
+    expect(confirm).toHaveBeenCalledWith('Discard unapplied screen changes?');
+    expect(screen.getByLabelText('Screen name')).toHaveValue('Unapplied name');
+    expect(bridge.command).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: /Data sources/ }));
+    expect(screen.getByRole('heading', { name: 'Data sources' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Screens/ }));
+    expect(screen.getByLabelText('Screen name')).toHaveValue('North stand');
+    expect(state.local.screens[0]!.config.name).toBe('North stand');
+  });
+
+  it('does not discard a draft when selecting its current screen and clears the guard after applying', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+    fireEvent.change(screen.getByLabelText('Screen name'), { target: { value: 'East stand' } });
+    fireEvent.click(screen.getByRole('button', { name: /North stand/ }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Screen name')).toHaveValue('East stand');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to screen' }));
+    await screen.findByText('No changes');
+    fireEvent.click(screen.getByRole('button', { name: /Data sources/ }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(state.local.screens[0]!.config.name).toBe('East stand');
+  });
+
+  it('protects a draft when selecting another screen or closing the editor', async () => {
+    state.local.screens.push({
+      ...state.local.screens[0]!,
+      config: { ...screenConfig(), id: 'second-screen', name: 'South stand' },
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+    fireEvent.change(screen.getByLabelText('Screen name'), { target: { value: 'Unapplied name' } });
+    fireEvent.click(screen.getByRole('button', { name: /South stand/ }));
+    expect(screen.getByLabelText('Screen name')).toHaveValue('Unapplied name');
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+    expect(screen.getByLabelText('Screen name')).toHaveValue('Unapplied name');
+    expect(confirm).toHaveBeenCalledTimes(2);
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: /South stand/ }));
+    expect(screen.getByLabelText('Screen name')).toHaveValue('South stand');
+    expect(bridge.command).not.toHaveBeenCalled();
+  });
+
+  it('keeps a new unsaved screen guarded when it is opened again after discarding edits', async () => {
+    state.local.screens = [];
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add screen · HDMI 1' }));
+    expect(screen.getByText('Unapplied changes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Data sources/ }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(screen.getByRole('region', { name: 'Screen editor' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Screen name'), { target: { value: 'Unsaved screen' } });
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: /Data sources/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Screens/ }));
+    expect(screen.getByLabelText('Screen name')).toHaveValue('HDMI 1');
+    expect(screen.getByText('Unapplied changes')).toBeInTheDocument();
+    confirm.mockClear().mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(state.local.screens).toEqual([]);
+    expect(bridge.command).not.toHaveBeenCalled();
+  });
+
+  it('keeps irrelevant appearance controls inactive for result rows', async () => {
+    state.sources[0]!.catalog!.identity.kind = 'director';
+    state.local.screens[0]!.config = { ...screenConfig(), view: 'ranking', autoRotate: false };
+    state.snapshots[0]!.snapshot = publishedSnapshot();
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+    for (const label of ['Target zoom', 'Shot display', 'Recent shot count', 'Seconds per page'])
+      expect(screen.getByLabelText(label)).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Target grid' }));
+    expect(screen.getByLabelText('Target zoom')).toBeEnabled();
+    fireEvent.change(screen.getByLabelText('Shot display'), { target: { value: 'recent' } });
+    expect(screen.getByLabelText('Recent shot count')).toBeEnabled();
+  });
+
   it('persists standby without replacing the configured subjects or unsaved editor content', async () => {
     render(<Operator />);
     fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
@@ -182,7 +296,7 @@ describe('operator workflows', () => {
       state.local.screens[0]!.config = { ...screenConfig(), view, standby: true };
       render(<Operator />);
       fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
-      fireEvent.change(screen.getByLabelText('Display label (this subject only)'), {
+      fireEvent.change(screen.getByLabelText('Display label'), {
         target: { value: 'Retained final result' },
       });
       expect(screen.getByRole('button', { name: 'Apply to screen' })).toBeEnabled();
@@ -252,6 +366,30 @@ describe('operator workflows', () => {
     );
     await waitFor(() => expect(screen.getByLabelText('Pairing secret')).toHaveValue(''));
   });
+  it('reports discovery results for the device type being paired, including after changing tabs', async () => {
+    const devices = await bridge.discover();
+    vi.mocked(bridge.discover).mockResolvedValue([
+      ...devices,
+      {
+        ...devices[0]!,
+        identity: { ...devices[0]!.identity, kind: 'display', sourceId: 'display-two', name: 'Hall PC' },
+      },
+      {
+        ...devices[0]!,
+        identity: { ...devices[0]!.identity, kind: 'display', sourceId: 'display-three', name: 'Lobby PC' },
+      },
+    ]);
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /Data sources/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discover devices' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('1 device found.');
+    expect(screen.queryByRole('option', { name: /Hall PC/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Display PCs/ }));
+    expect(screen.getByText('2 devices found. Choose a device below.')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('option', { name: /Hall PC/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Lane two/ })).not.toBeInTheDocument();
+    expect(bridge.command).not.toHaveBeenCalled();
+  });
   it('inspects newly selected subjects before Apply so the operator can select participants', async () => {
     render(<Operator />);
     fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
@@ -288,7 +426,7 @@ describe('operator workflows', () => {
     fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
     const status = screen.getByRole('region', { name: 'Source data for requested settings' });
     expect(screen.getByText('Confirmed v1')).toBeInTheDocument();
-    expect(screen.getByText('1 sources connected')).toBeInTheDocument();
+    expect(screen.getByText('Sources connected')).toHaveTextContent('1 / 1');
     expect(within(status).getByText('Updates paused')).toBeInTheDocument();
     expect(within(status).getByText(/Partial history/)).toBeInTheDocument();
     expect(within(status).getByText(entry.error)).toBeInTheDocument();
@@ -335,9 +473,9 @@ describe('operator workflows', () => {
     const status = screen.getByRole('region', { name: 'Source data for requested settings' });
     expect(within(status).getByText('Updates paused')).toBeInTheDocument();
     expect(within(status).queryByText(/Next relay/)).not.toBeInTheDocument();
-    expect(screen.getByText('Unapplied draft')).toBeInTheDocument();
+    expect(screen.getByText('Unapplied changes')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Apply to screen' }));
-    await within(status).findByText('Source data for requested settings v2');
+    await within(status).findByText(/Next relay/);
     expect(within(status).getByText(/Next relay/)).toBeInTheDocument();
     expect(within(status).getByText('Live')).toBeInTheDocument();
     expect(within(status).queryByText('Updates paused')).not.toBeInTheDocument();
@@ -357,7 +495,7 @@ describe('operator workflows', () => {
     render(<Operator />);
     fireEvent.click(await screen.findByRole('button', { name: /Remote stand/ }));
     const status = screen.getByRole('region', { name: 'Source data for requested settings' });
-    expect(within(status).getByText('Source data for requested settings v2')).toBeInTheDocument();
+    expect(screen.getByText('v2')).toBeInTheDocument();
     expect(within(status).getByText('Waiting for data')).toBeInTheDocument();
     expect(within(status).getByText('Last received on this PC: Never')).toBeInTheDocument();
     expect(screen.getByText('Last v1 · unconfirmed')).toBeInTheDocument();
@@ -462,7 +600,7 @@ describe('operator workflows', () => {
       render(<Operator />);
       fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
       if (available) {
-        expect(screen.getByText(/0 selected positions · 1 pages/)).toBeInTheDocument();
+        expect(screen.getByText(/0 selected positions · 1 page/)).toBeInTheDocument();
         expect(screen.getByLabelText('Starting page')).toHaveAttribute('max', '1');
       } else {
         expect(screen.getByText(/Position and page counts are unavailable on this PC/)).toBeInTheDocument();

@@ -40,6 +40,9 @@ vi.mock('@/renderer/presentation/stores/ui/notifications.store', () => ({
 vi.mock('@/renderer/presentation/features/settings/ResultPublicationSettingsPanel', () => ({
   ResultPublicationSettingsPanel: () => null,
 }));
+vi.mock('@/renderer/presentation/features/settings/AppUpdateSettingsPanel', () => ({
+  AppUpdateSettingsPanel: () => null,
+}));
 vi.mock('@/renderer/presentation/features/settings/VistaSettingsPanel', () => ({
   VistaSettingsPanel: () => null,
 }));
@@ -108,9 +111,29 @@ describe('SettingsScreen', () => {
     expect(addNotification).toHaveBeenCalledWith('success', 'Connection URL copied');
   });
 
+  it('supports keyboard navigation and retains an unapplied broker URL across settings sections', async () => {
+    render(<SettingsScreen />);
+    const external = await screen.findByRole('button', { name: 'External' });
+    await waitFor(() => expect(external).toBeEnabled());
+    fireEvent.click(external);
+    fireEvent.change(screen.getByLabelText('Broker URL'), { target: { value: 'mqtt://edited.example:1883' } });
+    const network = screen.getByRole('tab', { name: 'Network' });
+    network.focus();
+    fireEvent.keyDown(network, { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'Competition' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Competition' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(document.activeElement!, { key: 'End' });
+    expect(screen.getByRole('tab', { name: 'Updates' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Home' });
+    expect(network).toHaveFocus();
+    expect(screen.getByLabelText('Broker URL')).toHaveValue('mqtt://edited.example:1883');
+    expect(setBrokerConfig).not.toHaveBeenCalled();
+  });
+
   it('persists the CRO rule reminder preference independently', async () => {
     render(<SettingsScreen />);
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Competition' }));
     const reminderSwitch = await screen.findByRole('switch', { name: 'CRO announcement prompts' });
     await waitFor(() => expect(reminderSwitch).toBeEnabled());
     expect(reminderSwitch).toHaveAttribute('aria-checked', 'true');

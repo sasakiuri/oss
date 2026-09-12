@@ -32,16 +32,17 @@ flowchart TB
 
 ## アプリを用意する
 
-[GitHub Releases](https://github.com/sasakiuri/oss/releases) から、使用する版・アプリ・OS に合うファイルを選びます。
-連携する Director と Lane は同じ版を使用してください。
+[GitHub Releases](https://github.com/sasakiuri/oss/releases) から、使用する版・アプリ・OS に合うファイルを選びます。ファイル名の先頭は `Saika-Lane-`、`Saika-Director-`、`Saika-Vista-` です。連携する Director と Lane は同じ版を使用してください。
 
 | OS          | 配布形式                                                 |
 | ----------- | -------------------------------------------------------- |
-| Windows x64 | インストーラー（`.exe`）または ZIP                       |
+| Windows x64 | インストーラー（`.exe`）。Lane・Director は ZIP も配布   |
 | macOS       | DMG または ZIP。Intel は `x64`、Apple Silicon は `arm64` |
 | Linux x64   | AppImage または Debian パッケージ（`.deb`）              |
 
 Windows 10 / 11の x64を主な動作対象とし、macOS・Linux は実験対象です。[対応機器と検証状態](./lane/SPEC.md#動作環境と対応機器) を確認してください。受信処理の実装と、使用する機器・OS での実機検証は別です。
+
+macOS 版は署名用の証明書なしでも配布します。使用するリリースの署名状態を確認してください。署名のない版は DMG または ZIP から手動で更新します。
 
 インストール後、[Lane 操作ガイド](./lane/README.md#起動と準備) に従って競技種別を選び、標的装置に接続します。練習用の記録で、着弾位置・射数・得点が表示され、印刷画面でも記録を確認できることを確かめてください。
 
@@ -128,10 +129,14 @@ Windows の操作の詳細は [Microsoft のファイアウォール設定手順
 
 1. [Lane のデータ保存](./lane/README.md#設定と記録を保存する) と [Director のバックアップ](./director/RESULTS.md#director-のバックアップと復元) を行う。
 2. 使用する版の変更内容を確認し、Director と各 Lane の更新版を用意する。
-3. アプリを更新する。Director は配布ファイルから手動で更新する。
+3. アプリの更新画面、または配布ファイルから更新する。
 4. 両アプリの版、射座番号、競技種別、標的装置、MQTT 接続を確認する。
 
-Lane は「Settings」→「General」の「Application Update」から更新を確認できます。対応する配布形式では「Check for Updates」で確認後にダウンロードし、「Restart & Install」で適用します。自動更新を利用できない場合は、同じ版の配布ファイルを使います。
+Lane は「Settings」→「General」の「Application Update」を開きます。「Check for Updates」を押し、ダウンロード後に「Restart & Install」で適用します。
+
+Director は「Settings」→「Updates」の「Application updates」を開きます。「Check for updates」を押し、ダウンロード後に「Restart and install」で適用します。操作権限を有効にしている場合は管理者としてサインインしてください。Director は通常の終了時には更新を適用しません。
+
+macOS の自動更新には、更新前後のアプリが同じ署名者によって署名されている必要があります。署名のない版や自動更新を利用できない配布形式では、同じ版の配布ファイルを使って手動で更新します。詳しくは [Electron の macOS 更新要件](https://www.electronjs.org/docs/latest/api/auto-updater#macos) を参照してください。
 
 ## 問い合わせに必要な情報
 
