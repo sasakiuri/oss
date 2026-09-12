@@ -23,7 +23,8 @@ export function createAdvanceStageHandler(
 
     // Rotation check only when crossing stage boundaries
     const nextSeriesIndex = state.currentSeriesIndex + 1;
-    const isStageTransition = nextSeriesIndex >= state.currentStageConfig.series.length;
+    const isStageTransition =
+      nextSeriesIndex >= state.currentStageConfig.series.length || (state.usesStageTimer && state.timer.isExpired);
 
     if (isStageTransition) {
       const nextStageIndex = state.currentStageIndex + 1;

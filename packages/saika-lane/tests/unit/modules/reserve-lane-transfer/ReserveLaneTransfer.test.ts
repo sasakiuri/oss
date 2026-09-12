@@ -44,6 +44,7 @@ async function lane(id: string, withShots: boolean) {
   if (withShots)
     session = session.recordShot(null, new Score(100), new Date(), new Score(100), false, undefined, {
       sourceObservationId: crypto.randomUUID(),
+      competitionContext: { competitionId, stageIndex: 1, seriesIndex: 0 },
       calculatedScore: new Score(100),
     });
   await sessions.save(session);

@@ -9,6 +9,7 @@ export class LaneTimerService {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private expiresAtMs: number = 0;
   private competitionId: string | null = null;
+  private stageTimerIndex: number | null = null;
   private remainingSeconds: number = 0;
   private totalSeconds: number = 0;
   private startGeneration: number = 0;
@@ -33,14 +34,30 @@ export class LaneTimerService {
    * @param remainingSeconds - Remaining seconds
    * @param totalSeconds - Total duration of the timer in seconds
    */
-  start(competitionId: string, remainingSeconds: number, totalSeconds: number): void {
-    this.startUntil(competitionId, Date.now() + remainingSeconds * 1000, totalSeconds);
+  start(
+    competitionId: string,
+    remainingSeconds: number,
+    totalSeconds: number,
+    stageTimerIndex: number | null = null,
+  ): void {
+    this.startUntil(competitionId, Date.now() + remainingSeconds * 1000, totalSeconds, stageTimerIndex);
   }
 
-  private startUntil(competitionId: string, expiresAtMs: number, totalSeconds: number): void {
+  /** Ownership comes from the actual clock start, including absolute resume commands. */
+  isStageTimerRunning(competitionId: string, stageIndex: number): boolean {
+    return this.competitionId === competitionId && this.stageTimerIndex === stageIndex && this.intervalId !== null;
+  }
+
+  private startUntil(
+    competitionId: string,
+    expiresAtMs: number,
+    totalSeconds: number,
+    stageTimerIndex: number | null,
+  ): void {
     this.stop();
     this.assertRunPermitted();
     this.competitionId = competitionId;
+    this.stageTimerIndex = stageTimerIndex;
     this.expiresAtMs = expiresAtMs;
     this.remainingSeconds = this.remainingAt(Date.now());
     this.totalSeconds = totalSeconds;
@@ -86,7 +103,7 @@ export class LaneTimerService {
         const state = await this.competitionRepository.findById(competitionId);
         if (generation !== this.startGeneration) return;
         this.assertRunPermitted();
-        if (!state || state.phase !== 'ACTIVE') return;
+        if (!state || !state.canUpdateTimer()) return;
 
         const updated = state.tickTimerBy(durationSeconds);
         await this.competitionRepository.save(updated);
@@ -104,7 +121,7 @@ export class LaneTimerService {
           stageIndex: expired.currentStageIndex,
         });
 
-        emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
+        emitPhaseChanged(this.eventBus, expired, state.phase);
       } catch (error) {
         if (isTimerRunBlockedError(error)) throw error;
         getLogger().error(
@@ -121,7 +138,7 @@ export class LaneTimerService {
       const state = await this.competitionRepository.findById(competitionId);
       if (generation !== this.startGeneration) return;
       this.assertRunPermitted();
-      if (!state || state.phase !== 'ACTIVE') return;
+      if (!state || !state.canUpdateTimer()) return;
 
       if (elapsedSeconds > 0) {
         const updated = state.tickTimerBy(elapsedSeconds);
@@ -130,7 +147,12 @@ export class LaneTimerService {
         this.assertRunPermitted();
       }
 
-      this.startUntil(competitionId, startMs + durationSeconds * 1000, durationSeconds);
+      this.startUntil(
+        competitionId,
+        startMs + durationSeconds * 1000,
+        durationSeconds,
+        state.currentStageConfig.scored && state.usesStageTimer ? state.currentStageIndex : null,
+      );
       if (this.remainingSeconds === 0) await this.processTick();
     } catch (error) {
       if (isTimerRunBlockedError(error)) throw error;
@@ -174,6 +196,7 @@ export class LaneTimerService {
       this.intervalId = null;
     }
     this.competitionId = null;
+    this.stageTimerIndex = null;
     this.expiresAtMs = 0;
     this.remainingSeconds = 0;
     this.totalSeconds = 0;
@@ -186,7 +209,7 @@ export class LaneTimerService {
     const readGeneration = this.startGeneration;
     const state = await this.competitionRepository.findById(competitionId);
     if (readGeneration !== this.startGeneration) throw new Error('Competition timer changed while pausing');
-    if (!state || state.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
+    if (!state || !state.canUpdateTimer()) throw new Error(`Competition ${competitionId} is not active`);
 
     let remainingSeconds = state.timer.remainingSeconds;
     let totalSeconds = state.timer.totalSeconds;
@@ -230,7 +253,7 @@ export class LaneTimerService {
     this.assertRunPermitted();
     const state = await this.competitionRepository.findById(competitionId);
     this.assertRunPermitted();
-    if (!state || state.phase !== 'ACTIVE') return;
+    if (!state || !state.canUpdateTimer()) return;
 
     const updated = state.tickTimerBy(state.timer.remainingSeconds);
     await this.competitionRepository.save(updated);
@@ -245,7 +268,7 @@ export class LaneTimerService {
       aggregateId: expired.id,
       stageIndex: expired.currentStageIndex,
     });
-    emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
+    emitPhaseChanged(this.eventBus, expired, state.phase);
   }
 
   private sampleExpiry(competitionId: string, generation: number): void {
@@ -313,7 +336,7 @@ export class LaneTimerService {
           this.stop();
           return;
         }
-        if (!state || state.phase !== 'ACTIVE') {
+        if (!state || !state.canUpdateTimer()) {
           this.stop();
           return;
         }
@@ -336,7 +359,7 @@ export class LaneTimerService {
           stageIndex: expired.currentStageIndex,
         });
 
-        emitPhaseChanged(this.eventBus, expired, 'ACTIVE');
+        emitPhaseChanged(this.eventBus, expired, state.phase);
         this.stop();
       } catch (error) {
         getLogger().error(

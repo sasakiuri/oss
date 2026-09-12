@@ -60,26 +60,31 @@ describe('USBDataPipeline', () => {
   });
 
   describe('onShotDetected callback', () => {
-    it('should invoke callback on USB data reception', () => {
+    it('should not notify when a chunk contains no complete shot', () => {
       const callback = vi.fn();
       pipeline.setOnShotDetected(callback);
 
       pipeline.processReceivedData(Buffer.from('test'), config);
 
-      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).not.toHaveBeenCalled();
     });
 
-    it('should invoke callback before parsing', () => {
+    it('should notify after conversion and before emitting shot data', () => {
       const callOrder: string[] = [];
       pipeline.setOnShotDetected(() => callOrder.push('callback'));
       mockDataParser.parse.mockImplementation(() => {
         callOrder.push('parse');
-        return [];
+        return [{ raw: Buffer.from('test'), timestamp: new Date(), manufacturer: config.manufacturer }];
       });
+      mockConversionService.convert.mockImplementation(() => {
+        callOrder.push('convert');
+        return { impactPoint: null, score: Score.miss(), timestamp: new Date(), mode: Mode.sighting() };
+      });
+      emitter.on('data', () => callOrder.push('data'));
 
       pipeline.processReceivedData(Buffer.from('test'), config);
 
-      expect(callOrder).toEqual(['callback', 'parse']);
+      expect(callOrder).toEqual(['parse', 'convert', 'callback', 'data']);
     });
 
     it('should not throw an error when no callback is set', () => {

@@ -9,39 +9,28 @@ export interface CompetitionShotPlacement {
   readonly shotNumberInSeries: number;
 }
 
-/**
- * Resolves MQTT competition coordinates from immutable session history.
- * Shot.shotNumber is session-global, so it must never be exposed as a
- * shotNumberInSeries value.
- */
+/** Uses captured competition coordinates, independently of Session score groups. */
 export function resolveCompetitionShotPlacement(
   shot: Shot,
   allShots: readonly Shot[],
-  config: RoundConfig,
-  fallbackStageIndex: number,
-  fallbackSeriesIndex: number,
+  competition: { id: string; config: RoundConfig },
 ): CompetitionShotPlacement {
+  const context = shot.competitionContext;
+  if (!context || context.competitionId !== competition.id) {
+    throw new Error(`Shot ${shot.id} has no verified placement in competition ${competition.id}`);
+  }
+  const stage = competition.config.stages[context.stageIndex];
+  if (!stage?.series[context.seriesIndex]) throw new Error(`Shot ${shot.id} has invalid competition coordinates`);
   const shotsInSeries = allShots
-    .filter((candidate) => candidate.mode.value === shot.mode.value && candidate.seriesNumber === shot.seriesNumber)
+    .filter(
+      (candidate) =>
+        candidate.mode.value === shot.mode.value &&
+        candidate.competitionContext?.competitionId === context.competitionId &&
+        candidate.competitionContext.stageIndex === context.stageIndex &&
+        candidate.competitionContext.seriesIndex === context.seriesIndex,
+    )
     .sort((left, right) => left.shotNumber - right.shotNumber);
-  const historyIndex = shotsInSeries.findIndex((candidate) => candidate.id === shot.id);
-  const shotNumberInSeries = historyIndex >= 0 ? historyIndex + 1 : Math.max(1, shotsInSeries.length);
-
-  if (!shot.mode.isMatch() || shot.seriesNumber < 1) {
-    return { stageIndex: fallbackStageIndex, seriesIndex: fallbackSeriesIndex, shotNumberInSeries };
-  }
-
-  let remainingSeriesIndex = shot.seriesNumber - 1;
-  for (let stageIndex = 0; stageIndex < config.stages.length; stageIndex += 1) {
-    const stage = config.stages[stageIndex]!;
-    if (!stage.scored) continue;
-    for (let seriesIndex = 0; seriesIndex < stage.series.length; seriesIndex += 1) {
-      const series = stage.series[seriesIndex]!;
-      if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
-      if (remainingSeriesIndex === 0) return { stageIndex, seriesIndex, shotNumberInSeries };
-      remainingSeriesIndex -= 1;
-    }
-  }
-
-  return { stageIndex: fallbackStageIndex, seriesIndex: fallbackSeriesIndex, shotNumberInSeries };
+  const index = shotsInSeries.findIndex((candidate) => candidate.id === shot.id);
+  if (index < 0) throw new Error(`Shot ${shot.id} is absent from its session history`);
+  return { stageIndex: context.stageIndex, seriesIndex: context.seriesIndex, shotNumberInSeries: index + 1 };
 }

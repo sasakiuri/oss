@@ -44,8 +44,7 @@ export class USBDataPipeline {
 
   /**
    * Set the callback invoked when a shot is detected.
-   * Direct-stream devices call it on reception; framed protocols call it only
-   * after successful validation and conversion.
+   * Called once per successfully converted shot, before persistence.
    */
   setOnShotDetected(callback: () => void): void {
     this.onShotDetected = callback;
@@ -75,13 +74,6 @@ export class USBDataPipeline {
    * @param config - USB connection settings
    */
   processReceivedData(chunk: Buffer, config: USBConnectionConfig): void {
-    // Notify immediately after USB reception (for fastest impact sound playback) — fired before logging or parsing
-    try {
-      this.onShotDetected?.();
-    } catch {
-      /* non-critical: sound notification failure must not block data processing */
-    }
-
     try {
       // Log chunk reception
       const logger = getLogger();
@@ -98,7 +90,7 @@ export class USBDataPipeline {
 
       // Convert parse results to ShotData and emit
       rawDataList.forEach((rawData) => {
-        this.convertAndEmit(rawData, config, false);
+        this.convertAndEmit(rawData, config);
       });
     } catch (error) {
       const logger = getLogger();
@@ -123,7 +115,7 @@ export class USBDataPipeline {
         timestamp: new Date(receivedAt.getTime()),
         manufacturer: config.manufacturer,
       });
-      this.convertAndEmit(rawData, config, true);
+      this.convertAndEmit(rawData, config);
     } catch (error) {
       getLogger().error(
         'Protocol shot frame processing error',
@@ -134,7 +126,7 @@ export class USBDataPipeline {
     }
   }
 
-  private convertAndEmit(rawData: RawData, config: USBConnectionConfig, notifyBeforeEmit: boolean): void {
+  private convertAndEmit(rawData: RawData, config: USBConnectionConfig): void {
     const logger = getLogger();
 
     try {
@@ -165,23 +157,9 @@ export class USBDataPipeline {
         raw: rawData.raw,
       };
 
-      logger.debug(
-        '[USB] ShotData created',
-        'usb',
-        notifyBeforeEmit
-          ? { rawLength: shotData.raw?.length ?? 0 }
-          : {
-              x: shotData.x,
-              y: shotData.y,
-              score: shotData.score,
-              timestamp: shotData.timestamp.toISOString(),
-              rawLength: shotData.raw?.length ?? 0,
-            },
-      );
+      logger.debug('[USB] ShotData created', 'usb', { rawLength: shotData.raw?.length ?? 0 });
 
-      if (notifyBeforeEmit) {
-        this.notifyShotDetected();
-      }
+      this.notifyShotDetected();
       this.emitter.emit('data', shotData);
     } catch (conversionError) {
       logger.error(

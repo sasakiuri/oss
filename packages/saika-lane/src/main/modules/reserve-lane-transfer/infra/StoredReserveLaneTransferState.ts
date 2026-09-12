@@ -228,6 +228,7 @@ function serializeSession(value: Session): string {
       ...(shot.deviceScore ? { deviceScore: shot.deviceScore.value } : {}),
       calculatedScore: shot.calculatedScore.value,
       receivedAt: shot.receivedAt.toISOString(),
+      ...(shot.competitionContext ? { competitionContext: shot.competitionContext } : {}),
       ...(shot.sourceObservationId ? { sourceObservationId: shot.sourceObservationId } : {}),
       ...(shot.targetProfileId ? { targetProfileId: shot.targetProfileId } : {}),
       ...(shot.scoringGaugeProfileId ? { scoringGaugeProfileId: shot.scoringGaugeProfileId } : {}),

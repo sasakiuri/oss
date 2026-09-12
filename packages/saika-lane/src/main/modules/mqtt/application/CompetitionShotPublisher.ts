@@ -39,7 +39,11 @@ export class CompetitionShotPublisher {
     this.sessionRepository = sessionRepository;
 
     eventBus.on('ShotRecorded', (event: ShotRecordedEvent) => {
-      this.publishShot(event);
+      void this.publishShot(event).catch((error: unknown) => {
+        getLogger().error('[CompetitionShotPublisher] Failed to publish shot', 'mqtt', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     });
   }
 
@@ -67,25 +71,10 @@ export class CompetitionShotPublisher {
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
     const shot = event.shot;
-    const currentStage = competition.config.stages[competition.currentStageIndex];
-    if (!currentStage) return;
-
     const session = await this.sessionRepository.findById(event.aggregateId);
-    const resolvedPlacement = resolveCompetitionShotPlacement(
-      shot,
-      session?.allShots ?? [shot],
-      competition.config,
-      competition.currentStageIndex,
-      competition.currentSeriesIndex,
-    );
-    const placement = currentStage.scored
-      ? resolvedPlacement
-      : {
-          ...resolvedPlacement,
-          stageIndex: competition.currentStageIndex,
-          seriesIndex: competition.currentSeriesIndex,
-        };
-    const shotStage = competition.config.stages[placement.stageIndex] ?? currentStage;
+    if (!session) throw new Error(`Session ${event.aggregateId} is unavailable for shot publication`);
+    const placement = resolveCompetitionShotPlacement(shot, session.allShots, competition);
+    const shotStage = competition.config.stages[placement.stageIndex]!;
 
     const isRecorded = shot.mode.value === 'MATCH' && shotStage.scored;
 
@@ -101,7 +90,7 @@ export class CompetitionShotPublisher {
 
       // Competition context
       competitionId: competition.id,
-      sessionId: competition.sessionId,
+      sessionId: event.aggregateId,
       stageIndex: placement.stageIndex,
       scored: shotStage.scored,
       seriesIndex: placement.seriesIndex,
@@ -113,11 +102,6 @@ export class CompetitionShotPublisher {
 
     const topic = `saika/competition/${competition.id}/lane/${laneId}/shot`;
 
-    this.mqttClient.publish(topic, payload, { qos: 1, retain: false }).catch((err: unknown) => {
-      const logger = getLogger();
-      logger.error('[CompetitionShotPublisher] Failed to publish shot', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    await this.mqttClient.publish(topic, payload, { qos: 1, retain: false });
   }
 }

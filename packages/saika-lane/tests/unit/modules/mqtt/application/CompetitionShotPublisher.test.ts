@@ -87,6 +87,7 @@ function createMatchShot(): Shot {
     timestamp: new Date('2026-02-24T12:00:00Z'),
     shotNumber: 5,
     seriesNumber: 3,
+    competitionContext: { competitionId: 'comp-uuid', stageIndex: 1, seriesIndex: 2 },
     innerTen: false,
     deviceScore: new Score(100),
     calculatedScore: new Score(103),
@@ -105,6 +106,7 @@ function createSightingShot(): Shot {
     timestamp: new Date('2026-02-24T12:00:00Z'),
     shotNumber: 1,
     seriesNumber: 0,
+    competitionContext: { competitionId: 'comp-uuid', stageIndex: 0, seriesIndex: 0 },
     innerTen: false,
   });
 }
@@ -134,7 +136,9 @@ describe('CompetitionShotPublisher', () => {
       saveShot: vi.fn(),
       saveReset: vi.fn(),
       readResetEpoch: vi.fn().mockResolvedValue(null),
-      findById: vi.fn().mockResolvedValue(null),
+      findById: vi.fn(
+        async () => ({ allShots: [(vi.mocked(eventBus.emit).mock.lastCall![0] as ShotRecordedEvent).shot] }) as never,
+      ),
       findAll: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),
       findActive: vi.fn().mockResolvedValue(null),
@@ -252,6 +256,7 @@ describe('CompetitionShotPublisher', () => {
       timestamp: new Date('2026-02-24T11:59:59Z'),
       shotNumber: 4,
       seriesNumber: 3,
+      competitionContext: { competitionId: 'comp-uuid', stageIndex: 1, seriesIndex: 2 },
       innerTen: false,
     });
     const shot = createMatchShot();
@@ -324,7 +329,10 @@ describe('CompetitionShotPublisher', () => {
     };
     (competitionRepository.findActive as ReturnType<typeof vi.fn>).mockResolvedValue(prepCompetition);
 
-    const shot = createMatchShot();
+    const shot = Shot.reconstruct({
+      ...createMatchShot(),
+      competitionContext: { competitionId: 'comp-uuid', stageIndex: 0, seriesIndex: 0 },
+    });
     const event: ShotRecordedEvent = {
       type: 'ShotRecorded',
       timestamp: Date.now(),

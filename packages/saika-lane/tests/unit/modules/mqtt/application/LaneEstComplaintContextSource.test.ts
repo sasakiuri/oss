@@ -48,6 +48,7 @@ function contextSource(options: { assigned?: boolean; withShot?: boolean; precis
     id: shotId,
     mode: { value: 'MATCH', isMatch: () => true },
     seriesNumber: 1,
+    competitionContext: { competitionId, stageIndex: 0, seriesIndex: 0 },
     shotNumber: 1,
     timestamp: new Date('2026-09-04T00:00:00.000Z'),
     receivedAt: new Date('2026-09-04T00:00:00.100Z'),

@@ -32,12 +32,21 @@ import { CsvScoreDiscrepancyLogger } from './infra/CsvScoreDiscrepancyLogger';
 import { ScoreCalculationServiceImpl } from './infra/ScoreCalculationServiceImpl';
 import { ShotLogService } from './infra/ShotLogService';
 
-type SessionDeps = 'commandBus' | 'queryBus' | 'eventBus' | 'sessionRepository' | 'ipcRouter' | 'userDataPath';
+type SessionDeps =
+  'commandBus' | 'queryBus' | 'eventBus' | 'sessionRepository' | 'competitionRepository' | 'ipcRouter' | 'userDataPath';
 
 export const sessionModule: ModuleDefinition<SessionDeps> = {
   name: 'session',
-  deps: ['commandBus', 'queryBus', 'eventBus', 'sessionRepository', 'ipcRouter', 'userDataPath'] as const,
-  register({ commandBus, queryBus, eventBus, sessionRepository, ipcRouter, userDataPath }) {
+  deps: [
+    'commandBus',
+    'queryBus',
+    'eventBus',
+    'sessionRepository',
+    'competitionRepository',
+    'ipcRouter',
+    'userDataPath',
+  ] as const,
+  register({ commandBus, queryBus, eventBus, sessionRepository, competitionRepository, ipcRouter, userDataPath }) {
     const scoreService = new ScoreCalculationServiceImpl();
     const discrepancyLogger = new CsvScoreDiscrepancyLogger();
     const discrepancyDetector = new ScoreDiscrepancyDetector(discrepancyLogger);
@@ -91,11 +100,21 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
         const impactPoint =
           input.impactPoint !== null ? new ImpactPoint(input.impactPoint.x, input.impactPoint.y) : null;
         const timestamp = new Date(input.timestamp);
+        const competition = await competitionRepository.findBySessionId(input.sessionId);
 
         await commandBus.execute(RecordShotToken, {
           sessionId: input.sessionId,
           impactPoint,
           timestamp,
+          ...(competition
+            ? {
+                competitionContext: {
+                  competitionId: competition.id,
+                  stageIndex: competition.currentStageIndex,
+                  seriesIndex: competition.currentSeriesIndex,
+                },
+              }
+            : {}),
         });
       },
 

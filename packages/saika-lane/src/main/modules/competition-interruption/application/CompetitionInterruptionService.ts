@@ -40,6 +40,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       throw new Error(`Lane is already handling interruption ${existing.interruptionId}`);
     }
 
+    await this.requireActiveCompetition(input.competitionId);
     const captured = await this.timerService.pause(input.competitionId);
     const record = LaneInterruptionRecord.create({
       competitionId: input.competitionId,

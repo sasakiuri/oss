@@ -221,13 +221,18 @@ describe('createShotRecordedHandler', () => {
 });
 
 describe('createPhaseChangedHandler', () => {
-  let mockTimerService: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> };
+  let mockTimerService: {
+    start: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+    isStageTimerRunning: ReturnType<typeof vi.fn>;
+  };
   let mockRepo: ICompetitionRepository;
 
   beforeEach(() => {
     mockTimerService = {
       start: vi.fn(),
       stop: vi.fn(),
+      isStageTimerRunning: vi.fn(() => false),
     };
     mockRepo = {
       save: vi.fn(),
@@ -268,6 +273,7 @@ describe('createPhaseChangedHandler', () => {
         'comp-42',
         state.timer.remainingSeconds,
         state.timer.totalSeconds,
+        null,
       );
     });
     expect(mockTimerService.stop).not.toHaveBeenCalled();

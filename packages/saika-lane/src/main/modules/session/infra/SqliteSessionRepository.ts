@@ -8,6 +8,7 @@ import { Session } from '@/main/modules/session/domain/Session';
 import type { SessionStorageData } from '@/main/modules/session/domain/SessionFactory';
 import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import { parseShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import { withRepositoryErrorHandling } from '@/shared/errors/withRepositoryErrorHandling';
 import {
   isScoringGaugeProfileId,
@@ -45,6 +46,7 @@ interface ShotRow {
   observationId: string | null;
   targetProfileId: string | null;
   scoringGaugeProfileId: string | null;
+  competitionContext: string | null;
 }
 
 /**
@@ -86,12 +88,12 @@ export class SqliteSessionRepository implements ISessionRepository {
       INSERT INTO shots (
         id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen,
         timestamp, mode, deviceScore, calculatedScore, receivedAt, observationId, targetProfileId,
-        scoringGaugeProfileId
+        scoringGaugeProfileId, competitionContext
       )
       VALUES (
         @id, @sessionId, @shotNumber, @seriesNumber, @impactPointX, @impactPointY, @score, @innerTen,
         @timestamp, @mode, @deviceScore, @calculatedScore, @receivedAt, @observationId, @targetProfileId,
-        @scoringGaugeProfileId
+        @scoringGaugeProfileId, @competitionContext
       )
       ON CONFLICT(id) DO UPDATE SET
         sessionId = excluded.sessionId,
@@ -108,7 +110,8 @@ export class SqliteSessionRepository implements ISessionRepository {
         receivedAt = excluded.receivedAt,
         observationId = excluded.observationId,
         targetProfileId = excluded.targetProfileId,
-        scoringGaugeProfileId = excluded.scoringGaugeProfileId
+        scoringGaugeProfileId = excluded.scoringGaugeProfileId,
+        competitionContext = excluded.competitionContext
     `);
 
     this.stmtSelectSession = db.prepare(`
@@ -125,7 +128,7 @@ export class SqliteSessionRepository implements ISessionRepository {
 
     this.stmtSelectShots = db.prepare(`
       SELECT id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen, timestamp, mode,
-             deviceScore, calculatedScore, receivedAt, observationId, targetProfileId, scoringGaugeProfileId
+             deviceScore, calculatedScore, receivedAt, observationId, targetProfileId, scoringGaugeProfileId, competitionContext
       FROM shots
       WHERE sessionId = ?
         AND NOT EXISTS (
@@ -224,6 +227,7 @@ export class SqliteSessionRepository implements ISessionRepository {
               observationId: shot.sourceObservationId ?? null,
               targetProfileId: shot.targetProfileId ?? null,
               scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
+              competitionContext: shot.competitionContext ? JSON.stringify(shot.competitionContext) : null,
             });
           }
           if (reset) this.stmtUpsertResetEpoch.run(session.id, randomUUID());
@@ -278,6 +282,7 @@ export class SqliteSessionRepository implements ISessionRepository {
             observationId: shot.sourceObservationId ?? null,
             targetProfileId: shot.targetProfileId ?? null,
             scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
+            competitionContext: shot.competitionContext ? JSON.stringify(shot.competitionContext) : null,
           });
         });
 
@@ -394,6 +399,8 @@ export class SqliteSessionRepository implements ISessionRepository {
       sourceObservationId: shot.observationId ?? undefined,
       targetProfileId: parseTargetProfileId(shot.targetProfileId),
       scoringGaugeProfileId: parseScoringGaugeProfileId(shot.scoringGaugeProfileId),
+      competitionContext:
+        shot.competitionContext === null ? undefined : parseShotCompetitionContext(JSON.parse(shot.competitionContext)),
     }));
 
     // Reconstruct series from shots where seriesNumber > 0 (Session invariant: sequential from 1)

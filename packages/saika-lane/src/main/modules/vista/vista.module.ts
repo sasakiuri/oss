@@ -156,22 +156,29 @@ export const vistaModule: ModuleDefinition<Deps> = {
         return status();
       },
     });
-    const refresh = () => {
-      void source.refresh().catch(() => {
+    const refresh = (competitionId?: string) => {
+      void source.refresh(competitionId).catch(() => {
         /* Persistence failure is shown by getStatus. */
       });
     };
+    const refreshCompetition = (event: { aggregateId: string }) => refresh(event.aggregateId);
+    const refreshSession = (event: { aggregateId: string }) => {
+      void competitionRepository.findBySessionId(event.aggregateId).then(
+        (competition) => refresh(competition?.id),
+        () => refresh(),
+      );
+    };
     const unsubscribe = [
-      'ShotRecorded',
-      'SessionReset',
-      'CompetitionStarted',
-      'CompetitionFinished',
-      'PhaseChanged',
-      'StageAdvanced',
-      'TimerTick',
-      'ModeSwitched',
-      'CompetitionInterruptionChanged',
-    ].map((name) => eventBus.on(name, refresh));
+      eventBus.on('ShotRecorded', refreshSession),
+      eventBus.on('SessionReset', refreshSession),
+      eventBus.on('ModeSwitched', refreshSession),
+      eventBus.on('CompetitionStarted', refreshCompetition),
+      eventBus.on('CompetitionFinished', refreshCompetition),
+      eventBus.on('PhaseChanged', refreshCompetition),
+      eventBus.on('StageAdvanced', refreshCompetition),
+      eventBus.on('TimerTick', refreshCompetition),
+      eventBus.on('CompetitionInterruptionChanged', refreshCompetition),
+    ];
     refresh();
     if (storage.get<boolean>('vista.enabled') === true)
       void configure(true).catch(() => {

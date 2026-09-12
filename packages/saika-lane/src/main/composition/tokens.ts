@@ -13,6 +13,7 @@ import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { ShotAcquisitionContext } from '@/main/modules/session/domain/ShotAcquisitionContext';
+import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
@@ -45,6 +46,7 @@ export interface RecordShotInput {
   scoringGaugeProfileId?: ScoringGaugeProfileId;
   /** Opaque owner for an acquisition isolated from the normal series. */
   acquisitionContext?: ShotAcquisitionContext;
+  competitionContext?: ShotCompetitionContext;
 }
 
 /** Input for the mode switch command */

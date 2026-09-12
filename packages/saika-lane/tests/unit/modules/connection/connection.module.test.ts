@@ -13,7 +13,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   resetLogger: vi.fn(),
 }));
 
-import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
+import { ConnectToTargetToken, DisconnectFromTargetToken, RecordShotToken } from '@/main/composition/tokens';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { connectionModule } from '@/main/modules/connection/connection.module';
@@ -43,6 +43,7 @@ describe('connection.module', () => {
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
   let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
   let usbManager: ReturnType<typeof createMockUSBManager>;
+  let getInterruption: ReturnType<typeof vi.fn>;
   let mockWebContentsSend: ReturnType<typeof vi.fn>;
   let mockIsDestroyed: ReturnType<typeof vi.fn>;
   let mainWindow: { isDestroyed: ReturnType<typeof vi.fn>; webContents: { send: ReturnType<typeof vi.fn> } };
@@ -56,6 +57,7 @@ describe('connection.module', () => {
     sessionRepository = createMockSessionRepository();
     competitionRepository = createMockCompetitionRepository();
     usbManager = createMockUSBManager();
+    getInterruption = vi.fn(() => null);
     mockWebContentsSend = vi.fn();
     mockIsDestroyed = vi.fn().mockReturnValue(false);
     mainWindow = {
@@ -84,6 +86,7 @@ describe('connection.module', () => {
         'connectionRepository',
         'sessionRepository',
         'competitionRepository',
+        'competitionInterruptionControl',
         'competitionShootOffControl',
         'timedTargetControl',
         'safetyStopControl',
@@ -103,6 +106,7 @@ describe('connection.module', () => {
         connectionRepository,
         sessionRepository,
         competitionRepository,
+        competitionInterruptionControl: { get: getInterruption },
         usbManager,
         ipcRouter,
         mainWindow,
@@ -235,6 +239,31 @@ describe('connection.module', () => {
       registerModule();
 
       expect(usbManager.on).toHaveBeenCalledWith('data', expect.any(Function));
+    });
+
+    it('routes authorized recovery sighting through the registered USB callback', async () => {
+      const session = buildSession();
+      const competition = CompetitionState.create('competition-1', session.id, BR60S.config)
+        .startStage()
+        .endStage()
+        .advanceToNextStage()
+        .startNextSeries();
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(competition);
+      vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+      getInterruption.mockReturnValue({ status: 'SIGHTING' });
+      registerModule();
+      const dataHandler = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'data')?.[1] as (
+        data: unknown,
+      ) => Promise<void>;
+      await dataHandler({ x: 0, y: 0, score: 100, mode: 'MATCH', timestamp: new Date() });
+      expect(getInterruption).toHaveBeenCalledWith(competition.id);
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        RecordShotToken,
+        expect.objectContaining({
+          sessionId: session.id,
+          mode: Mode.sighting(),
+        }),
+      );
     });
 
     it('should register unexpected disconnect handler on usbManager', () => {

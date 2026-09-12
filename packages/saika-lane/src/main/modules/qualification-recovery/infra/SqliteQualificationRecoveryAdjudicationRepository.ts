@@ -5,6 +5,7 @@ import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import {
   isScoringGaugeProfileId,
   isTargetScoringProfileId,
@@ -61,6 +62,7 @@ interface ShotSnapshot {
   sourceObservationId: string | null;
   targetProfileId: string | null;
   scoringGaugeProfileId: string | null;
+  competitionContext?: ShotCompetitionContext;
 }
 
 export class SqliteQualificationRecoveryAdjudicationRepository implements IQualificationRecoveryAdjudicationRepository {
@@ -104,11 +106,11 @@ export class SqliteQualificationRecoveryAdjudicationRepository implements IQuali
         `INSERT INTO shots (
            id, sessionId, shotNumber, seriesNumber, impactPointX, impactPointY, score, innerTen,
            timestamp, mode, deviceScore, calculatedScore, receivedAt, observationId, targetProfileId,
-           scoringGaugeProfileId
+           scoringGaugeProfileId, competitionContext
          ) VALUES (
            @id, @sessionId, @shotNumber, @seriesNumber, @impactPointX, @impactPointY, @score, @innerTen,
            @timestamp, @mode, @deviceScore, @calculatedScore, @receivedAt, @observationId, @targetProfileId,
-           @scoringGaugeProfileId
+           @scoringGaugeProfileId, @competitionContext
          )`,
       );
       const alignPreservedOriginal = this.db.prepare(
@@ -205,6 +207,7 @@ function serializeShot(shot: Shot): ShotSnapshot {
     sourceObservationId: shot.sourceObservationId ?? null,
     targetProfileId: shot.targetProfileId ?? null,
     scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
+    ...(shot.competitionContext ? { competitionContext: shot.competitionContext } : {}),
   };
 }
 
@@ -218,6 +221,7 @@ function deserializeShot(snapshot: ShotSnapshot): Shot {
     shotNumber: snapshot.shotNumber,
     seriesNumber: snapshot.seriesNumber,
     innerTen: snapshot.innerTen,
+    competitionContext: snapshot.competitionContext,
     ...(snapshot.deviceScore !== null ? { deviceScore: new Score(snapshot.deviceScore) } : {}),
     calculatedScore: new Score(snapshot.calculatedScore),
     receivedAt: new Date(snapshot.receivedAt),
@@ -249,6 +253,7 @@ function toShotRow(sessionId: string, shot: Shot) {
     observationId: shot.sourceObservationId ?? null,
     targetProfileId: shot.targetProfileId ?? null,
     scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
+    competitionContext: shot.competitionContext ? JSON.stringify(shot.competitionContext) : null,
   };
 }
 

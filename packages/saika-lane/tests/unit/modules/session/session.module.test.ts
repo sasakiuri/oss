@@ -22,6 +22,7 @@ import {
   createMockIpcRouter,
   createMockQueryBus,
   createMockSessionRepository,
+  createMockCompetitionRepository,
 } from '../../../helpers/mockDependencies';
 
 describe('session.module', () => {
@@ -50,6 +51,7 @@ describe('session.module', () => {
         'queryBus',
         'eventBus',
         'sessionRepository',
+        'competitionRepository',
         'ipcRouter',
         'userDataPath',
       ]);
@@ -63,6 +65,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -76,6 +79,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -89,6 +93,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -102,6 +107,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -115,6 +121,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -128,6 +135,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -141,6 +149,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -154,6 +163,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -167,6 +177,7 @@ describe('session.module', () => {
         queryBus,
         eventBus,
         sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
         ipcRouter,
         userDataPath: '/tmp/test',
       });

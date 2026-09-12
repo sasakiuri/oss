@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setImmediate } from 'node:timers/promises';
 
 import {
   VISTA_CATALOG_PATH,
@@ -42,6 +44,7 @@ export class LaneVistaSource {
   private readonly blockedFiles = new Set<string>();
   private readonly blockedCompetitions = new Set<string>();
   private queue: Promise<void> = Promise.resolve();
+  private pendingRefresh: { ids: Set<string> | null; promise: Promise<void> } | null = null;
   private archiveError: string | null = null;
   private refreshError: string | null = null;
 
@@ -124,11 +127,23 @@ export class LaneVistaSource {
     return this.refreshError ?? this.archiveError ?? this.captureErrors.values().next().value?.reason ?? null;
   }
 
-  refresh(): Promise<void> {
+  refresh(competitionId?: string): Promise<void> {
+    if (this.pendingRefresh) {
+      if (competitionId === undefined) this.pendingRefresh.ids = null;
+      else this.pendingRefresh.ids?.add(competitionId);
+      return this.pendingRefresh.promise;
+    }
+    const request = { ids: competitionId === undefined ? null : new Set([competitionId]), promise: this.queue };
     const next = this.queue.then(async () => {
-      await this.capture();
+      // Let serial data and IPC run before projection work. Events arriving
+      // during a capture schedule a subsequent pass; pending events share one.
+      await setImmediate();
+      this.pendingRefresh = null;
+      await this.capture(request.ids);
       this.refreshError = null;
     });
+    request.promise = next;
+    this.pendingRefresh = request;
     this.queue = next.catch((error: unknown) => {
       this.refreshError = error instanceof Error ? error.message : 'Vista snapshot persistence failed';
     });
@@ -168,25 +183,30 @@ export class LaneVistaSource {
     };
   }
 
-  private async capture(): Promise<void> {
+  private async capture(requestedIds: Set<string> | null): Promise<void> {
     const { sessions, storage } = this.options;
-    this.unsupported.clear();
-    for (const [id, subject] of this.rejectedArchives) this.unsupported.set(id, subject);
-    for (const subject of this.captureErrors.values()) this.unsupported.set(subject.id, subject);
-    const ids = Object.keys(storage.getAll())
-      .filter((key) => key.startsWith('competition:') && key !== 'competition:active')
-      .map((key) => key.slice('competition:'.length));
-    const competitionIds = new Set(ids);
-    for (const id of this.captureErrors.keys()) {
-      if (!competitionIds.has(id)) this.clearCaptureError(id);
-    }
-    for (const id of this.current.keys()) {
-      if (!competitionIds.has(id) && !this.blockedCompetitions.has(id))
-        for (const archive of this.unconfirmedArchives(id)) this.persist(archive);
+    const ids = requestedIds
+      ? [...requestedIds]
+      : Object.keys(storage.getAll())
+          .filter((key) => key.startsWith('competition:') && key !== 'competition:active')
+          .map((key) => key.slice('competition:'.length));
+    if (requestedIds === null) {
+      this.unsupported.clear();
+      for (const [id, subject] of this.rejectedArchives) this.unsupported.set(id, subject);
+      for (const subject of this.captureErrors.values()) this.unsupported.set(subject.id, subject);
+      const competitionIds = new Set(ids);
+      for (const id of this.captureErrors.keys()) {
+        if (!competitionIds.has(id)) this.clearCaptureError(id);
+      }
+      for (const id of this.current.keys()) {
+        if (!competitionIds.has(id) && !this.blockedCompetitions.has(id))
+          for (const archive of this.unconfirmedArchives(id)) await this.persist(archive);
+      }
     }
     const preferences = storage.get<{ laneNumber?: number }>('userPreferences');
     const laneName = storage.get<string>('mqtt.laneAlias') || `Lane ${preferences?.laneNumber ?? 1}`;
     for (const id of ids) {
+      await setImmediate();
       if (this.blockedCompetitions.has(id)) continue;
       let archives: LaneVistaArchive[] | null;
       try {
@@ -198,11 +218,12 @@ export class LaneVistaSource {
       if (archives === null) continue;
       // Validation failures belong to one subject. Archive writes remain outside
       // that boundary so a failed durable replacement still rejects the refresh.
-      for (const archive of archives) this.persist(archive);
+      for (const archive of archives) await this.persist(archive);
       this.clearCaptureError(id);
     }
     // Checking presence avoids reconstructing a failed competition again after
     // its error has already been isolated above.
+    if (requestedIds !== null) return;
     const activeId = storage.get<string>('competition:active');
     if (!activeId || !storage.get(`competition:${activeId}`)) {
       try {
@@ -304,6 +325,7 @@ export class LaneVistaSource {
       currentEpochs.some((epoch, index) => epoch !== sessionEpochs[index])
     )
       return null;
+    this.unsupported.delete(previous?.subjectId ?? id);
     const shotIds = new Set(history.flatMap((entry) => entry.session.allShots.map((shot) => shot.id)));
     const reset =
       (previous?.participants.some((participant) => participant.shots.some((shot) => !shotIds.has(shot.id))) ??
@@ -486,14 +508,14 @@ export class LaneVistaSource {
     ];
   }
 
-  private persist(archive: LaneVistaArchive): void {
+  private async persist(archive: LaneVistaArchive): Promise<void> {
     // A complete archive and its incarnation marker are one durable replacement.
     const name = `${Buffer.from(archive.snapshot.subjectId).toString('hex')}.json`;
     if (this.blockedFiles.has(name)) throw new Error('The saved Vista archive is protected for recovery');
     const file = join(this.options.directory, name);
     const temporary = `${file}.tmp`;
-    writeFileSync(temporary, JSON.stringify(archive), { mode: 0o600, flush: true });
-    renameSync(temporary, file);
+    await writeFile(temporary, JSON.stringify(archive), { mode: 0o600, flush: true });
+    await rename(temporary, file);
     this.snapshots.set(archive.snapshot.subjectId, archive.snapshot);
     this.current.set(archive.competitionId, archive);
   }

@@ -6,6 +6,7 @@
  * while SessionFactory.fromStorageData() is responsible for restoring from persisted data.
  */
 
+import type { ShotCompetitionContext } from '@/main/modules/session/domain/ShotCompetitionContext';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 
@@ -47,6 +48,7 @@ export interface SessionStorageData {
     sourceObservationId?: string;
     targetProfileId?: TargetScoringProfileId;
     scoringGaugeProfileId?: ScoringGaugeProfileId;
+    competitionContext?: ShotCompetitionContext;
   }>;
   startedAt: string;
   finishedAt: string | null;
@@ -122,6 +124,7 @@ export class SessionFactory {
         sourceObservationId: shotData.sourceObservationId,
         targetProfileId: shotData.targetProfileId,
         scoringGaugeProfileId: shotData.scoringGaugeProfileId,
+        competitionContext: shotData.competitionContext,
       });
     });
 

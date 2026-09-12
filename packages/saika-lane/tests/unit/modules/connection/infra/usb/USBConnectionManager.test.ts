@@ -278,11 +278,21 @@ describe('USBConnectionManager', () => {
         deviceId: 'MT201',
       });
 
+      mockDataParserInstance.parse.mockReturnValueOnce([
+        {
+          raw: Buffer.from('R 9.7 0250 FF5F 70'),
+          timestamp: new Date(),
+          manufacturer: TargetManufacturer.kohto(),
+        },
+      ]);
+      const shots = vi.fn();
+      manager.on('data', shots);
       mockPortInstance._events.data(Buffer.from('R 9.7 0250 FF5F 70\n'));
       await manager.sendMode(Mode.sighting());
       await manager.sendMode(Mode.match());
 
       expect(sound).toHaveBeenCalledTimes(1);
+      expect(shots).toHaveBeenCalledWith(expect.objectContaining({ score: 97, mode: 'MATCH' }));
       expect(mockPortInstance.set).not.toHaveBeenCalled();
       expect(mockPortInstance.write.mock.calls.map((call: unknown[]) => call[0])).toEqual([
         Buffer.from('S'),

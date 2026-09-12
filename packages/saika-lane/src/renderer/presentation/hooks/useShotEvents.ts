@@ -8,8 +8,7 @@ import { useAudioPlayback } from './useAudioPlayback';
 /**
  * Subscription to shot IPC events
  *
- * - shotReceived: Low-latency device signal. Framed protocols validate first;
- *   direct streams notify on chunk receipt.
+ * - shotReceived: One notification per converted shot, before persistence.
  * - shotRecorded: After CQRS processing completion -> add shot data to the store
  */
 export function useShotEvents(): void {
@@ -17,7 +16,7 @@ export function useShotEvents(): void {
   const { playShotSound } = useAudioPlayback();
 
   useEffect(() => {
-    // Early sound playback on USB data receipt (before CQRS processing)
+    // Play after conversion and before CQRS persistence completes.
     const unsubSound = window.electronAPI.on.shotReceived(() => {
       playShotSound();
     });

@@ -34,7 +34,7 @@ describe('Lane SQLite initialization', () => {
 
   it('opens a fresh database with the existing schema and connection policies', () => {
     const db = track(createSqliteDb(file));
-    expect(db.pragma('user_version', { simple: true })).toBe(20);
+    expect(db.pragma('user_version', { simple: true })).toBe(21);
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal');
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
@@ -75,22 +75,22 @@ describe('Lane SQLite initialization', () => {
       id: 'observation',
       timestamp_source: 'UNKNOWN',
     });
-    expect(reopened.pragma('user_version', { simple: true })).toBe(20);
+    expect(reopened.pragma('user_version', { simple: true })).toBe(21);
   });
 
   it('closes a rejected connection and preserves a database created by a newer application', () => {
     const newer = track(new Database(file));
     newer.exec("CREATE TABLE future_evidence (value TEXT); INSERT INTO future_evidence VALUES ('preserved')");
-    newer.pragma('user_version = 21');
+    newer.pragma('user_version = 22');
     newer.close();
     const close = vi.spyOn(Database.prototype, 'close');
 
-    expect(() => createSqliteDb(file)).toThrow('newer than the latest supported version 20');
+    expect(() => createSqliteDb(file)).toThrow('newer than the latest supported version 21');
     expect(close).toHaveBeenCalledOnce();
     expect((close.mock.contexts[0] as Database.Database).open).toBe(false);
     const preserved = track(new Database(file));
     expect(preserved.prepare('SELECT * FROM future_evidence').all()).toEqual([{ value: 'preserved' }]);
-    expect(preserved.pragma('user_version', { simple: true })).toBe(21);
+    expect(preserved.pragma('user_version', { simple: true })).toBe(22);
     expect(preserved.prepare("SELECT name FROM sqlite_schema WHERE name = 'sessions'").get()).toBeUndefined();
   });
 
@@ -105,7 +105,7 @@ describe('Lane SQLite initialization', () => {
     `);
     previous.close();
     const upgraded = track(createSqliteDb(file));
-    expect(upgraded.pragma('user_version', { simple: true })).toBe(20);
+    expect(upgraded.pragma('user_version', { simple: true })).toBe(21);
     const sessions = new SqliteSessionRepository(upgraded);
     const existing = (await sessions.findById('existing'))!;
     expect(existing.allShots.map((shot) => shot.id)).toEqual(['old-shot']);

@@ -69,13 +69,16 @@ export function createShotRecordedHandler(deps: {
  * PhaseChanged event handler factory
  *
  * Controls the timer on phase change.
- * ACTIVE → fetch timer info from repository and start; otherwise → stop.
+ * Starts the configured timer, retaining a stage deadline between its series.
  */
 export function createPhaseChangedHandler(deps: {
   competitionRepository: ICompetitionRepository;
   timerService: LaneTimerService;
 }): (event: PhaseChangedEvent) => void {
   const { competitionRepository, timerService } = deps;
+
+  const continuesStageClock = (event: PhaseChangedEvent): boolean =>
+    timerService.isStageTimerRunning(event.aggregateId, event.stageIndex);
 
   return (event) => {
     if (event.newPhase === 'ACTIVE') {
@@ -84,8 +87,19 @@ export function createPhaseChangedHandler(deps: {
           const state = await competitionRepository.findById(event.aggregateId);
           if (!state || state.phase !== 'ACTIVE') return;
 
+          if (
+            state.usesStageTimer &&
+            continuesStageClock(event) &&
+            (event.previousPhase === 'SERIES_COMPLETE' || event.previousPhase === 'SERIES_ENTERED')
+          )
+            return;
           if (state.timer.totalSeconds > 0) {
-            timerService.start(event.aggregateId, state.timer.remainingSeconds, state.timer.totalSeconds);
+            timerService.start(
+              event.aggregateId,
+              state.timer.remainingSeconds,
+              state.timer.totalSeconds,
+              state.currentStageConfig.scored && state.usesStageTimer ? state.currentStageIndex : null,
+            );
           } else {
             timerService.stop();
           }
@@ -98,6 +112,8 @@ export function createPhaseChangedHandler(deps: {
         }
       })();
     } else {
+      if ((event.newPhase === 'SERIES_COMPLETE' || event.newPhase === 'SERIES_ENTERED') && continuesStageClock(event))
+        return;
       timerService.stop();
     }
   };
