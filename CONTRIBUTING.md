@@ -20,6 +20,9 @@ npm ci
 npx turbo dev
 ```
 
+The root install hook rebuilds the shared Electron native modules once, after
+workspace installation. Run dependency installation from the repository root.
+
 ## Development Workflow
 
 ### Documentation Site
@@ -38,8 +41,12 @@ PDF output, hosting, and optional telemetry.
 ### Running Tests
 
 ```bash
+npm rebuild better-sqlite3
 npx turbo test
 ```
+
+Before returning to Electron development or E2E tests, run `npm run postinstall`
+from the root to rebuild the native modules for Electron.
 
 On machines with limited resources, bound workspace and test-worker parallelism:
 

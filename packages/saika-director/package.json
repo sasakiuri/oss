@@ -47,7 +47,6 @@
     "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check --workspace=@sasakiuri/saika-director",
     "license-artifacts:check": "node ../../scripts/verify-packaged-licenses.mjs --workspace=@sasakiuri/saika-director",
     "size-limit": "size-limit",
-    "postinstall": "electron-rebuild -f -w better-sqlite3 --module-dir=../..",
     "build:win": "npm run build && electron-builder --win --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
     "build:mac": "npm run build && electron-builder --mac --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
     "build:linux": "npm run build && electron-builder --linux --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
@@ -72,7 +71,6 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
-    "@electron/rebuild": "^4.0.3",
     "@playwright/test": "^1.58.2",
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/prettier-config": "*",

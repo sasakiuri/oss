@@ -4,6 +4,10 @@ Saika Docs serves the Markdown manuals in `packages/saika-docs` through Next.js.
 
 Use Node 22.22.2 and npm 10.9.4.
 
+Docs-only setup uses `make setup` without running application install hooks. For
+desktop development as well, run `npm ci` from the repository root; its install
+hook rebuilds the shared Electron native modules once.
+
 | Purpose                                                              | Command                                                                                 |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Initial setup                                                        | `make setup`                                                                            |
