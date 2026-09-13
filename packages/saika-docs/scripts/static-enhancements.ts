@@ -14,7 +14,7 @@ const base = publicEnv.NEXT_PUBLIC_BASE_PATH;
 const root = 'out';
 await writeFile(
   `${root}/sw-register.js`,
-  `if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register(${JSON.stringify(`${base}/sw.js`)},{scope:${JSON.stringify(`${base}/`)}}));\n`,
+  `if('serviceWorker' in navigator){const worker=new URL('sw.js',document.currentScript.src);window.addEventListener('load',()=>navigator.serviceWorker.register(worker.href,{scope:new URL('./',worker).pathname}));}\n`,
 );
 const headers = securityHeaders(publicEnv, readServerEnv());
 const policy = headers.find(({ key }) => key.toLowerCase() === 'content-security-policy')!.value;

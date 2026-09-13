@@ -8,12 +8,7 @@ export async function startServer(port, kind = 'next', directory = 'out') {
   const command =
     kind === 'next'
       ? [require.resolve('next/dist/bin/next'), 'start', '--hostname', '127.0.0.1', '--port', String(port)]
-      : [
-          require.resolve('serve').replace(/build\/main\.js$/, 'build/main.js'),
-          directory,
-          '--listen',
-          `tcp://127.0.0.1:${port}`,
-        ];
+      : [require.resolve('serve/build/main.js'), directory, '--listen', `tcp://127.0.0.1:${port}`];
   const child = spawn(process.execPath, command, { stdio: 'inherit' });
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   const url = `http://127.0.0.1:${port}${basePath}`;
