@@ -151,6 +151,78 @@ describe('durable display state', () => {
     expect(state.document.controller).toBeNull();
   });
 
+  it.each([false, true])('drains arrivals together after a blocked write, failed=%s', async (failed) => {
+    const { state, store } = await create();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const writes = vi.spyOn(store, 'write').mockResolvedValue({ durable: true });
+    writes.mockImplementationOnce(async () => {
+      await blocked;
+      if (failed) throw new Error('Disk full');
+      return { durable: true };
+    });
+    const arrival = (index: number) =>
+      state.updateEntry({
+        snapshot: { ...snapshot(), sourceId: `blocked-lane-${index}` },
+        state: 'live',
+        receivedAt: Date.now(),
+        error: null,
+      });
+    const first = Promise.allSettled([arrival(0)]);
+    await vi.advanceTimersByTimeAsync(20);
+    const waiting = [];
+    for (let index = 1; index <= 3; index += 1) {
+      waiting.push(arrival(index));
+      await vi.advanceTimersByTimeAsync(30);
+    }
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(state.getEntries()).toEqual([]);
+    let flushed = false;
+    const drained = state.flush().then(() => {
+      flushed = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(flushed).toBe(false);
+    release();
+    await drained;
+    expect((await first)[0]?.status).toBe(failed ? 'rejected' : 'fulfilled');
+    await expect(Promise.all(waiting)).resolves.toEqual(Array.from({ length: 3 }, () => ({ durable: true })));
+    expect(writes).toHaveBeenCalledTimes(2);
+    expect(writes.mock.calls.map(([document]) => document.snapshots.length)).toEqual([1, failed ? 3 : 4]);
+    expect(state.getEntries()).toHaveLength(failed ? 3 : 4);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('checks authority again after a blocked batch yields to a queued registration', async () => {
+    const { state, store } = await create();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const writes = vi.spyOn(store, 'write').mockResolvedValue({ durable: true });
+    writes.mockImplementationOnce(async () => {
+      await blocked;
+      return { durable: true };
+    });
+    const entry = { snapshot: snapshot(), state: 'live' as const, receivedAt: Date.now(), error: null };
+    const first = state.updateEntry(entry);
+    await vi.advanceTimersByTimeAsync(20);
+    const registration = state.register({ controllerId: 'new-owner', controllerGeneration: 1 });
+    const stale = state.updateEntry({ ...entry, snapshot: snapshot(2) }, () => state.document.controller === null);
+    await vi.advanceTimersByTimeAsync(30);
+    const drained = state.flush();
+    release();
+    await Promise.all([first, registration, stale, drained]);
+    expect(writes).toHaveBeenCalledTimes(2);
+    expect(state.document.controller?.id).toBe('new-owner');
+    expect(state.getEntries()[0]?.snapshot.revision).toBe(entry.snapshot.revision);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('rechecks source authority when a batched update reaches the persistence queue', async () => {
     const { state } = await create();
     const pending = state.updateEntry(

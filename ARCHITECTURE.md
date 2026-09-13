@@ -197,7 +197,9 @@ Pairing identifies sources and display PCs using secrets shown on each device.
 Transport uses AES-256-GCM with identity and replay checks. Audience IPC is limited
 to the selected display and rendering acknowledgement.
 
-State changes are serialized and published after persistence. Unsupported document
+State changes are serialized and published after persistence. Source updates arriving
+during a save are collected into the next write, with validation and authority checks
+performed when that write reaches the transaction queue. Unsupported document
 versions or invalid settings prevent startup and leave the file intact. Saved
 snapshots are validated individually so valid subjects remain usable; invalid
 originals are retained. Restored results stay unconfirmed until the source responds.

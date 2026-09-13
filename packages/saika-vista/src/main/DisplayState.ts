@@ -53,6 +53,7 @@ export class DisplayState {
     reject: (error: unknown) => void;
   }> = [];
   private updateTimer: ReturnType<typeof setTimeout> | null = null;
+  private updateFlush: Promise<void> | null = null;
 
   constructor(
     public document: Document,
@@ -112,11 +113,13 @@ export class DisplayState {
   }
 
   async flush(): Promise<void> {
-    if (this.updateTimer) {
-      clearTimeout(this.updateTimer);
-      this.updateTimer = null;
+    do {
+      if (this.updateTimer) {
+        clearTimeout(this.updateTimer);
+        this.updateTimer = null;
+      }
       await this.flushEntries();
-    }
+    } while (this.updates.length);
     await this.pending;
     if (this.writeFailure) throw this.writeFailure;
   }
@@ -275,16 +278,31 @@ export class DisplayState {
   updateEntry(entry: SnapshotEntry, isCurrent: () => boolean = () => true): Promise<StoreWriteResult> {
     return new Promise((resolve, reject) => {
       this.updates.push({ entry, isCurrent, resolve, reject });
-      if (!this.updateTimer)
-        this.updateTimer = setTimeout(() => {
-          this.updateTimer = null;
-          void this.flushEntries();
-        }, 20);
+      this.scheduleEntryFlush();
     });
   }
 
+  private scheduleEntryFlush(): void {
+    if (this.updateTimer || this.updateFlush || !this.updates.length) return;
+    this.updateTimer = setTimeout(() => {
+      this.updateTimer = null;
+      void this.flushEntries();
+    }, 20);
+  }
+
+  private flushEntries(): Promise<void> {
+    if (this.updateFlush) return this.updateFlush;
+    this.updateFlush = (async () => {
+      while (this.updates.length) await this.persistEntries();
+    })().finally(() => {
+      this.updateFlush = null;
+      this.scheduleEntryFlush();
+    });
+    return this.updateFlush;
+  }
+
   /** Coalesce simultaneous lane arrivals into one durable write without coupling validation failures. */
-  private async flushEntries(): Promise<void> {
+  private async persistEntries(): Promise<void> {
     const batch = this.updates.splice(0);
     const accepted: typeof batch = [];
     const acceptedKeys = new Set<string>();
