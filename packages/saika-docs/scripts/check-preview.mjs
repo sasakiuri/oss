@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { startServer } from './server.mjs';
 
 process.env.DOCS_PREVIEW_AUTH = '1';
 process.env.PREVIEW_AUTH_USER = 'preview-test';
-process.env.PREVIEW_AUTH_PASSWORD = 'local-check-only';
+process.env.PREVIEW_AUTH_PASSWORD = randomUUID();
 const server = await startServer(5186);
 try {
   for (const [method, pathname] of [
