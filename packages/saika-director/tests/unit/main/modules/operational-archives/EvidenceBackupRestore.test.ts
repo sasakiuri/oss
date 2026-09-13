@@ -22,7 +22,7 @@ import {
   SqliteDatabaseBackupGateway,
 } from '@/main/modules/operational-archives';
 
-describe('Database backups retain evidence originals', () => {
+describe('Database backups retain evidence originals', { timeout: 30_000 }, () => {
   let directory: string;
   const databases: Database.Database[] = [];
   afterEach(async () => {

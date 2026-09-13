@@ -163,6 +163,7 @@ jobs:
         run: npm run test --workspace=@sasakiuri/saika-protocol
 
       - name: Test application updates and release metadata
+        shell: bash
         run: |
           npm run test --workspace=@sasakiuri/saika-updater
           npm run test:release-metadata

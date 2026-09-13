@@ -164,6 +164,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Verify packaged legal notices
+        shell: bash
         run: |
           npm run license-artifacts:check --workspace=@sasakiuri/saika-lane
           npm run license-artifacts:check --workspace=@sasakiuri/saika-director

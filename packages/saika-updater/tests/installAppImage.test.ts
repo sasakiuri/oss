@@ -32,11 +32,10 @@ afterEach(async () => {
 });
 
 describe('AppImage installation', () => {
-  it('preserves a custom filename and executable permissions', async () => {
+  it('preserves a custom filename and installs the verified contents', async () => {
     const { directory, current, downloaded } = await files();
     const launch = vi.fn(async (destination: string) => {
       expect(await readFile(destination, 'utf8')).toBe('updated executable');
-      expect((await stat(destination)).mode & 0o111).toBe(0o111);
     });
 
     expect(await installAppImage(current, downloaded, launch)).toBe(current);
@@ -46,6 +45,18 @@ describe('AppImage installation', () => {
     expect(await readFile(downloaded, 'utf8')).toBe('updated executable');
     expect(await readdir(directory)).toEqual(expect.arrayContaining(['cache', basename(current)]));
     expect((await readdir(directory)).filter((entry) => entry.startsWith('.saika-update-'))).toHaveLength(0);
+  });
+
+  it.skipIf(process.platform === 'win32')('sets executable permissions before launching', async () => {
+    const { current, downloaded } = await files();
+    await chmod(downloaded, 0o644);
+    const launch = vi.fn(async (destination: string) => {
+      expect((await stat(destination)).mode & 0o111).toBe(0o111);
+    });
+
+    await installAppImage(current, downloaded, launch);
+
+    expect(launch).toHaveBeenCalledOnce();
   });
 
   it('retains a versioned original until the new process has spawned', async () => {
@@ -111,16 +122,19 @@ describe('AppImage installation', () => {
     expect(launch).not.toHaveBeenCalled();
   });
 
-  it('detects a real asynchronous spawn error and restores the original executable', async () => {
-    const { current, downloaded } = await files();
-    await writeFile(downloaded, '#!/nonexistent-saika-interpreter\n');
+  it.skipIf(process.platform === 'win32')(
+    'detects a real asynchronous spawn error and restores the original executable',
+    async () => {
+      const { current, downloaded } = await files();
+      await writeFile(downloaded, '#!/nonexistent-saika-interpreter\n');
 
-    await expect(installAppImage(current, downloaded)).rejects.toMatchObject({ code: 'ENOENT' });
+      await expect(installAppImage(current, downloaded)).rejects.toMatchObject({ code: 'ENOENT' });
 
-    expect(await readFile(current, 'utf8')).toBe('previous executable');
-  });
+      expect(await readFile(current, 'utf8')).toBe('previous executable');
+    },
+  );
 
-  it('observes successful process creation', async () => {
+  it.skipIf(process.platform === 'win32')('observes successful process creation', async () => {
     const { downloaded } = await files();
     await writeFile(downloaded, '#!/bin/sh\nexit 0\n');
     await chmod(downloaded, 0o755);

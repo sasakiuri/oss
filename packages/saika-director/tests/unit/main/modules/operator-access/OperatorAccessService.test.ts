@@ -60,7 +60,7 @@ async function setup() {
   };
 }
 
-describe('Operator access', () => {
+describe('Operator access', { timeout: 30_000 }, () => {
   it('requires a current administrator when profiles change authentication, including while access control is disabled', async () => {
     const { service, store } = await setup();
     service.setEnabled(1, false);

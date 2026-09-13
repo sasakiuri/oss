@@ -718,16 +718,17 @@ describe('USBConnectionManager', () => {
       discipline = Discipline.beamRifle10m();
 
       firstPort._events.data(validRedDotFrame());
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      await vi.waitFor(() =>
+        expect(reconnectFailed).toHaveBeenCalledWith(
+          expect.objectContaining({
+            lastError: expect.objectContaining({ code: 'INCOMPATIBLE_TARGET_DISCIPLINE' }),
+          }),
+        ),
+      );
 
       expect(data).not.toHaveBeenCalled();
       expect(disconnected).toHaveBeenCalledTimes(1);
       expect(firstPort.close).toHaveBeenCalledTimes(1);
-      expect(reconnectFailed).toHaveBeenCalledWith(
-        expect.objectContaining({
-          lastError: expect.objectContaining({ code: 'INCOMPATIBLE_TARGET_DISCIPLINE' }),
-        }),
-      );
     });
   });
 
