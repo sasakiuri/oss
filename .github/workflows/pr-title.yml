@@ -29,6 +29,10 @@ jobs:
           scopes: |
             saika-lane
             saika-director
+            saika-vista
+            saika-protocol
+            saika-rules
+            saika-docs
             eslint-config
             prettier-config
             stylelint-config
