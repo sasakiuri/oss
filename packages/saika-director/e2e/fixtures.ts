@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -11,6 +12,7 @@ const directory = path.dirname(fileURLToPath(import.meta.url));
 
 export interface RunningDirector {
   app: ElectronApplication;
+  childProcess: ChildProcess;
   userDataDirectory: string;
 }
 
@@ -21,13 +23,12 @@ export async function launchDirector(): Promise<RunningDirector> {
     executablePath: electronPath as unknown as string,
     args: [appPath, `--user-data-dir=${userDataDirectory}`],
   });
-  return { app, userDataDirectory };
+  return { app, childProcess: app.process(), userDataDirectory };
 }
 
 export async function closeDirector(running: RunningDirector | undefined): Promise<void> {
   if (!running) return;
-  const process = running.app.process();
-  if (process.exitCode === null && process.signalCode === null) {
+  if (running.childProcess.exitCode === null && running.childProcess.signalCode === null) {
     await running.app.close();
   }
   await rm(running.userDataDirectory, { recursive: true, force: true });

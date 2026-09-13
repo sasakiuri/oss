@@ -132,7 +132,7 @@ test.describe('Saika Director', () => {
 
     const applicationExited = new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Saika Director did not exit')), 10_000);
-      running?.app.process().once('exit', () => {
+      running?.childProcess.once('exit', () => {
         clearTimeout(timeout);
         resolve();
       });
