@@ -4,9 +4,24 @@ coverage:
       default:
         target: auto
         threshold: 2%
+        flags:
+          - saika-lane
+      saika-director:
+        target: auto
+        threshold: 2%
+        flags:
+          - saika-director
     patch:
       default:
         target: 80%
+
+flags:
+  saika-lane:
+    paths:
+      - packages/saika-lane/
+  saika-director:
+    paths:
+      - packages/saika-director/
 
 comment:
   layout: "reach,diff,flags,components"
