@@ -235,69 +235,129 @@ check_gitleaks() {
 # Category 2: Security
 # ---------------------------------------------------------------------------
 
+# These source heuristics complement Gitleaks. Test/example matches remain visible
+# for review; generated and local files are governed by Git's publication scope.
+check_source_security() {
+  local scan_rc=0
+  node --input-type=module - "$1" <<'NODE' || scan_rc=$?
+import { execFileSync } from 'node:child_process';
+import { lstatSync, readFileSync } from 'node:fs';
+
+const mode = process.argv[2];
+let files;
+try {
+  files = [...new Set(execFileSync('git', [
+    'ls-files', '--cached', '--others', '--exclude-standard', '-z',
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 }).split('\0').filter(Boolean))];
+} catch {
+  console.error('Unable to enumerate source files with Git');
+  process.exit(1);
+}
+const sourceExtension = /\.(?:[cm]?[jt]sx?|json)$/;
+const textExtension = /\.(?:[cm]?[jt]sx?|json|md|ps1|sh|ya?ml)$/;
+const testFile = /(?:^|\/)(?:tests?|__tests__|fixtures|__fixtures__)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
+const credentialName = /(?:password|passwd|secret|token|api_key|apikey|api\.key|auth_token|access_key|private_key)$/i;
+let failed = false;
+let warned = false;
+const reported = new Set();
+function report(file, line, category, warning = false) {
+  const diagnostic = `${warning ? 'WARN' : 'FAIL'} ${category}: ${file}:${line}`;
+  if (!reported.has(diagnostic)) console.log(diagnostic);
+  reported.add(diagnostic);
+  if (warning) warned = true;
+  else failed = true;
+}
+
+for (const file of files) {
+  // The checker contains the internal-path patterns themselves.
+  if (mode === 'internal' && file === 'scripts/pre-release-check.sh') continue;
+  if (file.endsWith('package-lock.json') || !(mode === 'internal' ? textExtension : /\.(?:[cm]?[jt]sx?|json|md)$/).test(file)) continue;
+  if ((mode === 'secrets' || mode === 'mqtt') && !sourceExtension.test(file)) continue;
+  let source;
+  try {
+    // Do not follow tracked symlinks into files outside the source tree.
+    if (!lstatSync(file).isFile()) continue;
+    source = readFileSync(file, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') continue; // A tracked deletion has no working-tree contents.
+    report(file, 1, 'Unable to read source');
+    continue;
+  }
+  const fixture = testFile.test(file);
+  if (mode === 'secrets') {
+    // Tokenize strings/comments first so quoted JSON keys are checked while
+    // comments, runtime expressions and equality operators are not assignments.
+    const tokens = [];
+    const tokenPattern = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`|[\w$]+|===|!==|==|!=|=>|[^\s]/g;
+    for (const match of source.matchAll(tokenPattern)) {
+      if (!match[0].startsWith('//') && !match[0].startsWith('/*')) tokens.push(match);
+    }
+    for (let i = 0; i + 2 < tokens.length; i++) {
+      if (/^['"]/.test(tokens[i][0]) && !['{', ','].includes(tokens[i - 1]?.[0])) continue;
+      const key = tokens[i - 2]?.[0] === 'api' && tokens[i - 1]?.[0] === '.'
+        ? `api.${tokens[i][0]}`
+        : tokens[i][0].replace(/^['"]|['"]$/g, '');
+      if (!credentialName.test(key) || !['=', ':'].includes(tokens[i + 1][0])) continue;
+      let valueIndex = i + 2;
+      if (tokens[i + 1][0] === ':' && /^[\w$]+$/.test(tokens[valueIndex][0])) {
+        // A typed variable/property can still have a hardcoded initializer.
+        while (valueIndex < tokens.length && /^[\w$.[\]|?]+$/.test(tokens[valueIndex][0])) valueIndex++;
+        if (tokens[valueIndex]?.[0] !== '=') continue;
+        valueIndex++;
+      }
+      const literal = tokens[valueIndex]?.[0] ?? '';
+      if (!/^(['"`])[\s\S]*\1$/.test(literal) || literal.length <= 2) continue;
+      if (literal.startsWith('`') && literal.includes('${')) continue;
+      report(file, source.slice(0, tokens[i].index).split('\n').length, 'Static credential value', fixture);
+    }
+    continue;
+  }
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (mode === 'internal') {
+      const localPath = /\/mnt\/|\/home\/[a-z]|\\\\wsl/i.test(line);
+      const privateAddress = /\b(?:192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/.test(line);
+      if (!localPath && !privateAddress) continue;
+      const placeholder = /<(?:Distro|path[^>]*|your[^>]*|user[^>]*)>/.test(line);
+      const lanExample = !localPath && privateAddress && (
+        /\bplaceholder\s*=/.test(line) ||
+        (file.endsWith('.md') && /example|e\.g\.|例えば|置き換え|例[:：]/i.test(lines.slice(Math.max(0, i - 12), i + 1).join('\n')))
+      );
+      report(file, i + 1, 'Internal URL/path', fixture || placeholder || lanExample);
+    } else if (mode === 'personal') {
+      if (file.includes('THIRD-PARTY-LICENSES')) continue;
+      for (const match of line.matchAll(/[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g)) {
+        if (/^(?:users\.noreply\.github\.com|example\.com|test\.com|t\.com)$|\.service$/i.test(match[1])) continue;
+        report(file, i + 1, 'Email address', fixture);
+      }
+    } else if (mode === 'mqtt') {
+      for (const match of line.matchAll(/mqtts?:\/\/([^@/\s'"`]+)@/g)) {
+        if (/^\*+$/.test(match[1])) continue;
+        report(file, i + 1, 'MQTT URL userinfo', fixture);
+      }
+    }
+  }
+}
+process.exit(failed ? 1 : warned ? 2 : 0);
+NODE
+  case "$scan_rc" in
+    0) ;;
+    2) [[ "$CHECK_STATUS" == "FAIL" ]] || CHECK_STATUS="WARN" ;;
+    *) CHECK_STATUS="FAIL" ;;
+  esac
+}
+
 check_hardcoded_secrets() {
-  local pattern='(password|passwd|secret|token|api_key|apikey|api\.key|auth_token|access_key|private_key)\s*[:=]'
-  local exclude_pattern='(\.d\.ts:|interface |type |z\.(string|object|enum)|schema|// |/\*|package-lock\.json|\.test\.|\.spec\.|Token<|token:|token,)'
-
-  local hits
-  hits=$(grep -rEn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' \
-    "$pattern" . \
-    --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.turbo --exclude-dir=coverage \
-    --exclude-dir=.git --exclude-dir=release --exclude='package-lock.json' 2>/dev/null || true)
-
-  if [[ -n "$hits" ]]; then
-    hits=$(echo "$hits" | grep -Ev "$exclude_pattern" || true)
-  fi
-
-  if [[ -n "$hits" ]]; then
-    echo "Potential hardcoded secrets found:"
-    echo "$hits"
-    CHECK_STATUS="FAIL"
-  fi
+  check_source_security secrets
 }
 
 check_internal_urls() {
-  local pattern='(/mnt/|/home/[a-z]|\\\\wsl|192\.168\.|10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.)'
-
-  local hits
-  hits=$(grep -rEn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' \
-    --include='*.md' --include='*.ps1' --include='*.sh' --include='*.yml' --include='*.yaml' \
-    "$pattern" . \
-    --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=coverage --exclude-dir=.turbo \
-    --exclude-dir=.git --exclude-dir=release --exclude='package-lock.json' \
-    --exclude='pre-release-check.sh' 2>/dev/null || true)
-
-  # Exclude documentation placeholders (e.g., <Distro>, <path-to-oss>)
-  if [[ -n "$hits" ]]; then
-    hits=$(echo "$hits" | grep -Ev '(<Distro>|<path|<your|<user|CLAUDE\.md)' || true)
-  fi
-
-  if [[ -n "$hits" ]]; then
-    echo "Internal URLs/paths found:"
-    echo "$hits"
-    CHECK_STATUS="FAIL"
-  fi
+  check_source_security internal
 }
 
 check_personal_info() {
-  local email_pattern='[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-  local exclude_pattern='(@users\.noreply\.github\.com|@example\.com|@test\.com|@t\.com|@[a-zA-Z0-9_.-]+\.service|THIRD-PARTY-LICENSES|\.test\.ts:|\.spec\.ts:|tests/|pre-release-check\.sh)'
-
-  local hits
-  hits=$(grep -rEn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' --include='*.md' \
-    "$email_pattern" . \
-    --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=coverage --exclude-dir=.turbo \
-    --exclude-dir=.git --exclude-dir=release --exclude='package-lock.json' 2>/dev/null || true)
-
-  if [[ -n "$hits" ]]; then
-    hits=$(echo "$hits" | grep -Ev "$exclude_pattern" || true)
-  fi
-
-  if [[ -n "$hits" ]]; then
-    echo "Potential personal information (email addresses) found:"
-    echo "$hits"
-    CHECK_STATUS="FAIL"
-  fi
+  check_source_security personal
 }
 
 check_japanese_text() {
@@ -405,18 +465,8 @@ check_publish_workflow() {
 }
 
 check_mqtt_credential_leak() {
-  local hits
-  hits=$(grep -rEn 'mqtts?://[^@/]+@' \
-    --include='*.ts' --include='*.tsx' --include='*.js' \
-    packages/ \
-    --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null || true)
-
-  if [[ -n "$hits" ]]; then
-    echo "MQTT URLs with embedded credentials found:"
-    echo "$hits"
-    CHECK_STATUS="FAIL"
-    return
-  fi
+  check_source_security mqtt
+  [[ "$CHECK_STATUS" != "FAIL" ]] || return 0
 
   # Check if MQTT connection code strips/validates userinfo from URLs
   local mqtt_service="packages/saika-lane/src/main/modules/mqtt/infra/MqttClientService.ts"
