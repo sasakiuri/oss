@@ -13,7 +13,7 @@ export default defineConfig({
           name: 'main',
           environment: 'node',
           include: ['tests/**/*.test.{ts,tsx}'],
-          exclude: ['tests/renderer/**'],
+          exclude: ['tests/renderer/**', 'tests/load.test.ts'],
         },
       },
       {
@@ -22,6 +22,16 @@ export default defineConfig({
           name: 'renderer',
           environment: 'jsdom',
           include: ['tests/renderer/**/*.test.{ts,tsx}'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'load',
+          environment: 'node',
+          include: ['tests/load.test.ts'],
+          sequence: { groupOrder: 1 },
+          maxWorkers: 1,
         },
       },
     ],
