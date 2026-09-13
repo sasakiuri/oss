@@ -121,7 +121,7 @@
     "chrome-launcher": "^1.2.1",
     "cross-env": "^7.0.3",
     "dependency-cruiser": "17.4.3",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.3.4",
     "eslint-plugin-storybook": "10.6.0",
     "fast-check": "4.9.0",
