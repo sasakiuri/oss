@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "zod": "^4.3.6"
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@sasakiuri/eslint-config": "*",
