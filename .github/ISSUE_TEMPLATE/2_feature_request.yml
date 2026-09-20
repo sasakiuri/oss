@@ -1,8 +1,33 @@
-name: "\U0001F680 Feature Request"
+name: 🚀 Feature Request
 description: Suggest a new feature or improvement.
-labels: ["Cat: Feature \U0001F680", "Status: Needs Triage \U0001F4A1"]
-
+labels:
+  - "Cat: Feature 🚀"
+  - "Status: Needs Triage 💡"
 body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      description: Choose the affected package or repository tooling.
+      options:
+        - eslint-config
+        - lighthouse-config
+        - nilay-about
+        - nilay-knowledge
+        - prettier-config
+        - saika-director
+        - saika-docs
+        - saika-lane
+        - saika-protocol
+        - saika-rules
+        - saika-updater
+        - saika-vista
+        - stylelint-config
+        - typescript-config
+        - Repository / CI / development environment
+        - Multiple packages / unsure
+    validations:
+      required: true
   - type: textarea
     attributes:
       label: Description
@@ -17,3 +42,13 @@ body:
     attributes:
       label: Examples
       description: Provide examples such as before/after comparisons to illustrate the feature or improvement.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Expected outcome
+      description: Describe observable behavior or acceptance criteria that would solve the problem.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include existing workarounds or other approaches you considered.
