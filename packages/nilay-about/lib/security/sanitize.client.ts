@@ -9,6 +9,8 @@
 
 import DOMPurify from 'isomorphic-dompurify';
 
+import { stripHtmlTags } from '@/lib/utils/html';
+
 /**
  * Allowlist of safe HTML tags for content display
  * These tags are commonly used in news/blog content and are generally safe
@@ -106,10 +108,11 @@ export function escapeHtml(str: string): string {
 }
 
 /**
- * Strip HTML tags from string
+ * Strip tags for text display; this does not sanitize HTML.
+ * Escape the result before inserting it into HTML (see sanitizeForDisplay).
  */
 export function stripHtml(str: string): string {
-  return str.replace(/<[^>]*>/g, '');
+  return stripHtmlTags(str);
 }
 
 /**

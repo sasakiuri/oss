@@ -98,7 +98,7 @@ test.describe('Contact Page Accessibility', () => {
   test('should expose a keyboard-focusable skip link', async ({ page }) => {
     await page.goto('/contact');
 
-    // Check skip link exists and is focusable
+    // The skip link stays in tab order even when the browser skips other links.
     await page.keyboard.press('Tab');
     const skipLink = page.getByText('メインコンテンツへスキップ');
     await expect(skipLink).toBeFocused();
