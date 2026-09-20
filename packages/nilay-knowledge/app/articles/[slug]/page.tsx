@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { ArticleNavigation } from '@/components/article-navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ImageZoom } from '@/components/image-zoom';
+import { MarkdownContent } from '@/components/markdown-content';
+import { PrintContent } from '@/components/print-content';
 import { SnsShare } from '@/components/sns-share';
 import { TableOfContents } from '@/components/table-of-contents';
 import { contentImageUrl, createContentMetadata } from '@/lib/content/metadata';
@@ -87,6 +90,7 @@ export default async function ArticlePage({ params }: Props) {
         image={image}
       />
       <Breadcrumb
+        className="max-w-5xl"
         items={[
           { name: 'トップ', slug: '' },
           { name: '記事一覧', slug: 'articles' },
@@ -95,31 +99,34 @@ export default async function ArticlePage({ params }: Props) {
       />
       <SnsShare title={frontmatter.title} slug={`articles/${slug}`} />
 
-      <div className="mx-auto flex max-w-5xl gap-8 px-4 py-8">
-        <article className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-8">
+      <div
+        className={`reading-layout mx-auto grid max-w-5xl gap-4 px-4 py-8 ${tableOfContents.length > 0 ? 'lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-8' : ''}`}
+      >
+        <TableOfContents key={slug} items={tableOfContents} />
+        <article className="reading-article min-w-0 overflow-hidden rounded-lg border border-line bg-surface p-5 sm:p-8 lg:col-start-1 lg:row-start-1">
           <header className="mb-10">
-            <time dateTime={displayDate} className="text-sm text-slate-500">
+            <time dateTime={displayDate} className="text-sm text-subtle">
               {formatDate(displayDate)} 更新
             </time>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-slate-800 [font-feature-settings:palt]">
+            <h1 className="mt-2 text-3xl font-bold leading-tight text-ink [font-feature-settings:palt]">
               {frontmatter.title}
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
               {frontmatter.tags.map((tag) => (
-                <span key={tag} className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-600">
+                <span key={tag} className="rounded bg-muted-strong px-2 py-1 text-sm text-subtle">
                   #{tag}
                 </span>
               ))}
             </div>
           </header>
 
-          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
+          <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
+          <ArticleNavigation slug={slug} />
         </article>
-
-        <TableOfContents items={tableOfContents} />
       </div>
 
-      <ImageZoom />
+      <ImageZoom key={slug} />
+      <PrintContent />
     </>
   );
 }

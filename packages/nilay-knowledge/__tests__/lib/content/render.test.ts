@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderContent } from '@/lib/content/render';
+import { renderContent, renderSearchDocuments } from '@/lib/content/render';
 import type { ContentSource } from '@/lib/content/types';
 
 function source(content: string): ContentSource {
@@ -10,6 +10,11 @@ function source(content: string): ContentSource {
     frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
     content,
   };
+}
+
+function renderDocument(html: string): Document {
+  document.body.innerHTML = html;
+  return document;
 }
 
 describe('Markdown rendering', () => {
@@ -35,7 +40,7 @@ describe('Markdown rendering', () => {
 \`\`\`
 `),
     );
-    const document = new DOMParser().parseFromString(html, 'text/html');
+    const document = renderDocument(html);
     const images = [...document.querySelectorAll('img')].map((image) => image.getAttribute('src'));
     expect(images).toEqual([
       '/content/articles/example/image.png',
@@ -77,7 +82,7 @@ Text[^note]
 [^note]: Note text
 `),
     );
-    const document = new DOMParser().parseFromString(html, 'text/html');
+    const document = renderDocument(html);
     expect(tableOfContents.map((item) => item.title)).toEqual([
       'Title and link',
       'Title and link',
@@ -89,10 +94,63 @@ Text[^note]
     for (const item of tableOfContents) {
       const heading = document.getElementById(item.id);
       expect(heading?.tagName).toBe(`H${item.level}`);
-      expect(heading?.querySelector('.heading-anchor')?.getAttribute('href')).toBe(`#${item.id}`);
+      expect(heading).toHaveAccessibleName(item.title);
+      expect(heading?.querySelector('.heading-anchor')?.getAttribute('href')).toBe(`#${encodeURIComponent(item.id)}`);
+      expect(heading?.querySelector('.heading-anchor')).toHaveAccessibleName(`「${item.title}」へのリンク`);
+      expect(heading?.lastElementChild?.className).toBe('heading-anchor');
+      expect(heading?.getAttribute('tabindex')).toBe('-1');
+      expect(heading?.querySelector('.heading-anchor svg')?.getAttribute('aria-hidden')).toBe('true');
+      expect(heading?.querySelector('.heading-anchor svg')?.getAttribute('focusable')).toBe('false');
     }
     expect(document.getElementById('custom')?.className).toBe('existing heading-with-anchor');
     expect(document.getElementById('footnote-label')?.textContent).toBe('脚注');
+  });
+
+  it('places legacy top-level headings below the page title and preserves search destinations', async () => {
+    const content = source(`
+# Chapter
+## Section
+### Detail
+<h1 id="custom" aria-label="Authored heading label">HTML chapter</h1>
+
+###### Deep detail
+Text[^note]
+
+[^note]: Note text
+`);
+    const { html, tableOfContents } = await renderContent(content);
+    const document = renderDocument(html);
+    expect(document.querySelector('h1')).toBeNull();
+    expect(tableOfContents).toEqual([
+      { id: 'chapter', level: 2, title: 'Chapter' },
+      { id: 'section', level: 3, title: 'Section' },
+      { id: 'custom', level: 2, title: 'HTML chapter' },
+    ]);
+    expect(document.getElementById('detail')?.tagName).toBe('H4');
+    expect(document.getElementById('custom')).toHaveAccessibleName('Authored heading label');
+    expect(document.getElementById('deep-detail')?.tagName).toBe('H6');
+    expect(document.getElementById('footnote-label')?.tagName).toBe('H2');
+    const searchDocuments = await renderSearchDocuments(content);
+    for (const searchDocument of searchDocuments.slice(1)) {
+      const fragment = new URL(searchDocument.id, 'https://example.com').hash.slice(1);
+      expect(document.getElementById(decodeURIComponent(fragment))).not.toBeNull();
+    }
+  });
+
+  it('identifies each footnote return link in Japanese, including repeated references', async () => {
+    const { html } = await renderContent(source('First[^one] again[^one] second[^two].\n\n[^one]: One\n[^two]: Two'));
+    const document = renderDocument(html);
+    const backReferences = [...document.querySelectorAll('[data-footnote-backref]')];
+    expect(backReferences.map((link) => link.getAttribute('aria-label'))).toEqual([
+      '脚注 1 の参照元に戻る',
+      '脚注 1 の参照元（2 か所目）に戻る',
+      '脚注 2 の参照元に戻る',
+    ]);
+    for (const link of backReferences) {
+      const reference = document.getElementById(link.getAttribute('href')!.slice(1));
+      expect(reference?.getAttribute('aria-describedby')).toBe('footnote-label');
+      expect(document.getElementById(reference!.getAttribute('href')!.slice(1))).not.toBeNull();
+    }
   });
 
   it('retains tables, alerts, math, highlighting and trusted HTML', async () => {
@@ -114,12 +172,63 @@ const example = 1;
 <details><summary>More</summary>Details</details>
 `),
     );
-    const document = new DOMParser().parseFromString(html, 'text/html');
+    const document = renderDocument(html);
     expect(document.querySelector('table')).not.toBeNull();
+    const tableRegion = document.querySelector('table')?.parentElement;
+    expect(tableRegion?.getAttribute('role')).toBe('region');
+    expect(tableRegion?.getAttribute('tabindex')).toBe('0');
+    expect(tableRegion?.getAttribute('aria-label')).toContain('横にスクロール');
+    expect(document.querySelector('pre')?.getAttribute('tabindex')).toBe('0');
+    expect(document.querySelector('pre')?.getAttribute('role')).toBe('region');
+    expect(document.querySelector('pre')).toHaveAccessibleName('コードブロック 1（横にスクロールできます）');
+    expect([...document.querySelectorAll('th')].map((header) => header.getAttribute('scope'))).toEqual(['col', 'col']);
     expect(document.querySelector('.markdown-alert')).not.toBeNull();
+    expect(document.querySelector('.markdown-alert-title')?.textContent).toBe('補足');
+    expect(document.querySelector('.markdown-alert svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
     expect(document.querySelector('.katex')).not.toBeNull();
     expect(document.querySelector('.hljs')).not.toBeNull();
     expect(document.querySelector('details summary')?.textContent).toBe('More');
+  });
+
+  it('distinguishes scroll regions and preserves author-provided descriptions and table headers', async () => {
+    const { html } = await renderContent(
+      source(`
+| Column |
+| --- |
+| Value |
+
+<table><caption>年間の件数</caption><thead><tr><th scope="row">種類</th><th>件数</th></tr></thead><tbody><tr><th scope="row">申請</th><td>10</td></tr></tbody></table>
+
+<table aria-label="月別の件数"><tr><td>1</td></tr></table>
+
+\`\`\`text
+First block
+\`\`\`
+
+\`\`\`text
+Second block
+\`\`\`
+
+<pre aria-label="操作例">Custom block</pre>
+<p id="example-label">入力例</p>
+<pre aria-labelledby="example-label">Labelled block</pre>
+`),
+    );
+    const document = renderDocument(html);
+    expect([...document.querySelectorAll('.table-scroll')].map((region) => region.getAttribute('aria-label'))).toEqual([
+      '表 1（横にスクロールできます）',
+      '表 2：年間の件数（横にスクロールできます）',
+      '表 3：月別の件数（横にスクロールできます）',
+    ]);
+    expect(document.querySelector('caption')?.textContent).toBe('年間の件数');
+    expect(document.querySelectorAll('th[scope="row"]')).toHaveLength(2);
+    const blocks = [...document.querySelectorAll('pre')];
+    expect(blocks[0]).toHaveAccessibleName('コードブロック 1（横にスクロールできます）');
+    expect(blocks[1]).toHaveAccessibleName('コードブロック 2（横にスクロールできます）');
+    expect(blocks[2]).toHaveAccessibleName('操作例');
+    expect(blocks[3]).toHaveAccessibleName('入力例');
+    expect(blocks.every((block) => block.tabIndex === 0)).toBe(true);
   });
 
   it('does not share heading state between renders', async () => {

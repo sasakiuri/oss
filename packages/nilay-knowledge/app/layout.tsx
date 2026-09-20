@@ -4,7 +4,9 @@ import { Noto_Sans_JP } from 'next/font/google';
 import { Footer } from '@/components/footer';
 import { GoogleAnalytics } from '@/components/google-analytics';
 import { Header } from '@/components/header';
+import { NavigationFocus } from '@/components/navigation-focus';
 import { SkipLink } from '@/components/skip-link';
+import { ThemeProvider } from '@/components/theme-provider';
 import { siteConfig } from '@/lib/config';
 import './globals.css';
 
@@ -58,15 +60,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <body className={`${notoSansJP.variable} font-sans antialiased`}>
-        <SkipLink />
-        <GoogleAnalytics />
-        <Header />
-        <main id="main-content" className="min-h-screen">
-          {children}
-        </main>
-        <Footer />
+        <ThemeProvider>
+          <SkipLink />
+          <GoogleAnalytics />
+          <Header />
+          <NavigationFocus />
+          <main id="main-content" tabIndex={-1} className="min-h-screen">
+            {children}
+          </main>
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   );

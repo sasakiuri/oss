@@ -1,90 +1,92 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function ImageZoom() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState('');
-  const [imageAlt, setImageAlt] = useState('');
-
-  const openModal = useCallback((src: string, alt: string) => {
-    setImageSrc(src);
-    setImageAlt(alt);
-    setIsOpen(true);
-    document.body.style.overflow = 'hidden';
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setIsOpen(false);
-    document.body.style.overflow = '';
-  }, []);
+  const [image, setImage] = useState<{ src: string; alt: string; description: string; illustration: boolean } | null>(
+    null,
+  );
+  const openerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-
-      // Check if clicked element is an image inside .prose
-      if (target.tagName === 'IMG' && target.closest('.prose')) {
-        const img = target as HTMLImageElement;
-        openModal(img.src, img.alt);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        closeModal();
-      }
-    };
-
-    document.addEventListener('click', handleClick);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen, openModal, closeModal]);
-
-  if (!isOpen) return null;
+    // Enhance only standalone, informative images. Linked images retain their navigation.
+    const cleanups = Array.from(document.querySelectorAll<HTMLImageElement>('.prose img')).flatMap((img) => {
+      if (!img.alt.trim() || img.closest('a, button, [role="button"]')) return [];
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'image-zoom-trigger';
+      button.setAttribute('aria-label', `${img.alt}を拡大`);
+      button.setAttribute('aria-haspopup', 'dialog');
+      const open = () => {
+        openerRef.current = button;
+        const description = (img.getAttribute('aria-details') ?? img.getAttribute('aria-describedby') ?? '')
+          .split(/\s+/)
+          .flatMap((id) => document.getElementById(id)?.textContent?.trim() || [])
+          .join(' ');
+        setImage({
+          src: img.currentSrc || img.src,
+          alt: img.alt,
+          description: description || img.alt,
+          illustration: img.classList.contains('content-illustration'),
+        });
+      };
+      button.addEventListener('click', open);
+      img.replaceWith(button);
+      button.append(img);
+      return [
+        () => {
+          button.removeEventListener('click', open);
+          button.replaceWith(img);
+        },
+      ];
+    });
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-      onClick={closeModal}
-      role="dialog"
-      aria-modal="true"
-      aria-label={imageAlt || '拡大画像'}
+    <Dialog.Root
+      open={image !== null}
+      onOpenChange={(open) => {
+        if (!open) setImage(null);
+      }}
     >
-      {/* Close button */}
-      <button
-        onClick={closeModal}
-        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
-        aria-label="閉じる"
-      >
-        <X className="h-6 w-6" />
-      </button>
-
-      {/* Image */}
-      {/* The zoom dialog displays the original image at its natural dimensions. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageSrc}
-        alt={imageAlt}
-        className="max-h-[90vh] max-w-[90vw] cursor-zoom-out rounded-lg object-contain"
-        onClick={(e) => {
-          e.stopPropagation();
-          closeModal();
-        }}
-      />
-
-      {/* Alt text caption */}
-      {imageAlt && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-4 py-2 text-sm text-white">
-          {imageAlt}
-        </div>
-      )}
-    </div>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/90 print:hidden" />
+        <Dialog.Content
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (openerRef.current?.isConnected) openerRef.current.focus({ preventScroll: true });
+          }}
+          className="fixed left-1/2 top-1/2 z-[70] max-h-[95dvh] w-[calc(100%-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-slate-900 p-4 text-white print:hidden"
+        >
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <Dialog.Title className="text-lg font-bold">画像を拡大</Dialog.Title>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full hover:bg-slate-700"
+                aria-label="拡大画像を閉じる"
+              >
+                <X className="h-6 w-6" aria-hidden="true" />
+              </button>
+            </Dialog.Close>
+          </div>
+          {image && (
+            // Original content images need their natural dimensions in the viewer.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={image.src}
+              alt={image.alt}
+              className={`mx-auto max-h-[65dvh] max-w-full object-contain${image.illustration ? ' content-illustration' : ''}`}
+            />
+          )}
+          <Dialog.Description className="mt-4 text-center text-sm [overflow-wrap:anywhere]">
+            {image?.description}
+          </Dialog.Description>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

@@ -98,13 +98,5 @@ export function createWebSiteSchema(): WebSiteSchema {
     name: siteConfig.title,
     url: siteConfig.siteUrl,
     description: siteConfig.description,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `https://www.google.com/search?q=site:knowledge.nilay.jp+{search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   };
 }

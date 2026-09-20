@@ -32,3 +32,12 @@ export interface RenderedContent {
 }
 
 export interface ContentDocument extends ContentSource, RenderedContent {}
+
+export interface SearchDocument {
+  id: string;
+  type: ContentType;
+  title: string;
+  section: string;
+  tags: string[];
+  text: string;
+}

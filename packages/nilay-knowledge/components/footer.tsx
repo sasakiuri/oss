@@ -67,25 +67,24 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
   const currentYear = publishYear || new Date().getFullYear();
 
   const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('site-header')?.focus({ preventScroll: true });
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    });
   };
 
   return (
-    <footer className="mt-16 bg-slate-600 text-white">
-      <div className="mx-auto max-w-3xl px-4 py-8">
+    <footer className="mt-16 bg-slate-600 text-white print:mt-8 print:bg-white print:text-black">
+      <div className="mx-auto max-w-3xl px-4 py-8 print:hidden">
         <div className="grid gap-8 md:grid-cols-2">
           {/* Services */}
           <div>
-            <h3 className="mb-4 text-base font-bold">Services</h3>
+            <h2 className="mb-4 text-base font-bold">Services</h2>
             <ul className="space-y-4">
               {services.map((service) => (
                 <li key={service.href}>
-                  <a
-                    href={service.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-white hover:underline"
-                  >
+                  <a href={service.href} className="flex min-h-11 items-center text-white hover:underline">
                     {service.title}
                   </a>
                   <p className="mt-1 text-xs text-slate-300">{service.description}</p>
@@ -95,63 +94,55 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
           </div>
 
           {/* Contents */}
-          <div>
-            <h3 className="mb-4 text-base font-bold">Contents</h3>
-            <ul className="space-y-3">
+          <nav aria-label="フッターナビゲーション">
+            <h2 className="mb-4 text-base font-bold">Contents</h2>
+            <ul className="space-y-1">
               {contents.map((content) => (
                 <li key={content.href}>
-                  <Link href={content.href} className="text-white hover:underline">
+                  <Link href={content.href} className="inline-flex min-h-11 items-center text-white hover:underline">
                     {content.title}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
         </div>
 
         {/* Social links */}
-        <div className="mt-8 flex flex-wrap gap-2">
+        <nav aria-label="ソーシャルメディア" className="mt-8 flex flex-wrap gap-2">
           {socialLinks.map((social) => (
             <a
               key={social.href}
               href={social.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full p-2 hover:bg-slate-500"
+              className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-500"
               aria-label={social.label}
             >
-              <social.icon className="h-5 w-5" />
+              <social.icon className="h-5 w-5" aria-hidden="true" />
             </a>
           ))}
-          <Link href="/feed.xml" className="rounded-full p-2 hover:bg-slate-500" aria-label="RSS Feed">
-            <Rss className="h-5 w-5" />
+          <Link
+            href="/feed.xml"
+            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-slate-500"
+            aria-label="RSS Feed"
+          >
+            <Rss className="h-5 w-5" aria-hidden="true" />
           </Link>
-        </div>
+        </nav>
       </div>
 
       {/* License */}
-      <div className="bg-slate-700 px-4 py-4">
-        <div className="mx-auto max-w-3xl text-xs text-slate-300">
+      <div className="bg-slate-700 px-4 py-4 print:border-t print:bg-white print:px-0">
+        <div className="mx-auto max-w-3xl text-xs text-slate-300 print:max-w-none print:text-black">
           <p>
             特に表示のない限り、このウェブサイトの文章を「
-            <a
-              href="https://creativecommons.org/licenses/by-sa/4.0/deed.ja"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-white"
-            >
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ja" className="underline hover:text-white">
               クリエイティブ・コモンズ 表示-継承 4.0 国際 ライセンス
             </a>
             」の下で公開しています。
           </p>
           <p className="mt-2" suppressHydrationWarning>
             &copy; {currentYear}{' '}
-            <a
-              href={`${siteConfig.siteUrl}/${slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-white"
-            >
+            <a href={`${siteConfig.siteUrl}/${slug}`} className="underline hover:text-white">
               {siteConfig.title}
             </a>
           </p>
@@ -160,11 +151,11 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
 
       {/* Scroll to top */}
       <button
+        type="button"
         onClick={handleScrollToTop}
-        className="flex w-full items-center justify-center gap-2 bg-slate-800 py-3 text-sm text-white hover:bg-slate-700"
-        aria-label="ページの先頭へスクロール"
+        className="flex min-h-11 w-full items-center justify-center gap-2 bg-slate-800 py-3 text-sm text-white hover:bg-slate-700 print:hidden"
       >
-        <ChevronUp className="h-5 w-5" />
+        <ChevronUp className="h-5 w-5" aria-hidden="true" />
         <span>トップへ戻る</span>
       </button>
     </footer>

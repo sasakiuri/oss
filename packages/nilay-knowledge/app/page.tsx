@@ -1,8 +1,9 @@
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 import { Breadcrumb } from '@/components/breadcrumb';
+import { HomeSearchButton } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
 import { createWebSiteSchema } from '@/lib/schema';
 
@@ -19,25 +20,25 @@ function MainCard({ title, description, image, slug, priority = false }: MainCar
   return (
     <Link
       href={`/${slug}`}
-      className="group block h-full overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-md"
+      className="group block h-full overflow-hidden rounded-lg bg-surface shadow transition-shadow hover:shadow-md"
     >
-      <div className="relative">
+      <div className="grid">
         <Image
           src={image}
-          alt={`${title}の画像`}
+          alt=""
           width={370}
           height={247}
-          className="aspect-[3/2] w-full object-cover"
+          className="col-start-1 row-start-1 aspect-[3/2] h-full w-full object-cover"
           priority={priority}
         />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-8">
-          <h3 className="text-lg font-bold text-white drop-shadow-md">{title}</h3>
+        <div className="relative col-start-1 row-start-1 self-end bg-slate-900/90 p-4">
+          <h2 className="text-lg font-bold text-white">{title}</h2>
         </div>
       </div>
-      <p className="p-4 leading-relaxed text-slate-700">{description}</p>
-      <div className="flex items-center justify-between border-t border-slate-200 p-4 text-slate-600">
+      <p className="p-4 leading-relaxed text-body">{description}</p>
+      <div className="flex items-center justify-between border-t border-line p-4 text-subtle">
         <span>記事を見る</span>
-        <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+        <ArrowRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
       </div>
     </Link>
   );
@@ -53,17 +54,17 @@ function SubCard({ title, image, slug }: SubCardProps) {
   return (
     <Link
       href={`/${slug}`}
-      className="group block overflow-hidden rounded-lg bg-white shadow transition-shadow hover:shadow-md"
+      className="group block overflow-hidden rounded-lg bg-surface shadow transition-shadow hover:shadow-md"
     >
-      <div className="relative">
+      <div className="grid">
         <Image
           src={image}
-          alt={`${title}の画像`}
+          alt=""
           width={370}
           height={247}
-          className="aspect-[3/2] w-full object-cover"
+          className="col-start-1 row-start-1 aspect-[3/2] h-full w-full object-cover"
         />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+        <div className="relative col-start-1 row-start-1 flex items-center justify-center bg-slate-900/80 px-3 py-4">
           <span className="text-lg font-bold text-white">{title}</span>
         </div>
       </div>
@@ -74,38 +75,18 @@ function SubCard({ title, image, slug }: SubCardProps) {
 function SearchBanner() {
   return (
     <div
-      className="relative flex min-h-[300px] flex-col items-center justify-center bg-cover bg-center"
+      className="relative flex min-h-[300px] flex-col items-center justify-center bg-cover bg-center text-slate-900"
       style={{
         backgroundImage: 'url(/content/assets/63141dde-f6ee-490c-b283-69b468b80813.jpg)',
       }}
     >
-      <p className="text-sm [text-shadow:1px_1px_0_#fff,-1px_1px_0_#fff]">銃砲・射撃・狩猟の情報サイト</p>
-      <h1 className="mt-2 text-3xl font-bold [font-variant:small-caps] [text-shadow:1px_1px_0_#fff,-1px_1px_0_#fff]">
+      <p className="rounded bg-surface/95 px-3 py-1 text-sm text-ink">銃砲・射撃・狩猟の情報サイト</p>
+      <h1 className="mt-2 rounded bg-surface/95 px-3 py-2 text-3xl font-bold text-ink [font-variant:small-caps]">
         Nilay/Knowledge
       </h1>
-      <form action="https://www.google.com/search" className="mt-4 w-full max-w-md px-4">
-        <input type="hidden" name="hl" value="ja" />
-        <input type="hidden" name="ie" value="utf-8" />
-        <input type="hidden" name="oe" value="utf-8" />
-        <input type="hidden" name="as_sitesearch" value="knowledge.nilay.jp" />
-        <div className="relative">
-          <input
-            type="text"
-            name="q"
-            placeholder="サイト内検索"
-            aria-label="サイト内検索"
-            className="w-full rounded-full bg-white/60 py-2 pl-4 pr-10 text-center text-slate-800 placeholder:text-slate-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
-          />
-          <button
-            type="submit"
-            name="btnG"
-            aria-label="検索する"
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-2 hover:bg-black/10"
-          >
-            <Search className="h-5 w-5 text-slate-700" />
-          </button>
-        </div>
-      </form>
+      <div className="w-full max-w-md px-4">
+        <HomeSearchButton />
+      </div>
     </div>
   );
 }
