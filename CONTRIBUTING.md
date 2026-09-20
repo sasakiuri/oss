@@ -67,8 +67,8 @@ Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequis
 
 Electron application changes run on Linux, Windows, and macOS. When no Electron
 package is affected, build jobs run only on Linux. Saika Docs keeps its dedicated
-quality workflow. Root lockfiles, shared
-configuration, and CI scripts select all workspaces. Repository documentation and
+quality workflow. Root dependency lock files, shared configuration, and CI scripts
+select all workspaces. Repository documentation and
 unrelated workflow settings skip package jobs. Shared repository consistency and
 security checks remain enabled, and `CI Required` rejects failed detection or
 unexpectedly skipped checks. The Changes job summary lists the selected packages.
