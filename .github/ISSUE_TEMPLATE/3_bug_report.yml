@@ -1,12 +1,31 @@
-name: "\U0001F41B Bug Report"
+name: 🐛 Bug Report
 description: Report a bug.
-labels: ["Cat: Bug \U0001F41B", "Status: Needs Triage \U0001F4A1"]
-
+labels:
+  - "Cat: Bug 🐛"
+  - "Status: Needs Triage 💡"
 body:
-  - type: input
+  - type: dropdown
+    id: package
     attributes:
       label: Package
-      placeholder: "Package: xxx"
+      description: Choose the affected package or repository tooling.
+      options:
+        - eslint-config
+        - lighthouse-config
+        - nilay-about
+        - nilay-knowledge
+        - prettier-config
+        - saika-director
+        - saika-docs
+        - saika-lane
+        - saika-protocol
+        - saika-rules
+        - saika-updater
+        - saika-vista
+        - stylelint-config
+        - typescript-config
+        - Repository / CI / development environment
+        - Multiple packages / unsure
     validations:
       required: true
   - type: dropdown
@@ -17,8 +36,26 @@ body:
         - Windows
         - macOS
         - Linux
+        - Android
+        - iOS / iPadOS
+        - Other / not platform-specific
     validations:
       required: true
+    id: environment
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Include the affected release, package version, or commit SHA.
+    validations:
+      required: true
+  - type: textarea
+    id: runtime
+    attributes:
+      label: Runtime and device details
+      description: >-
+        For websites, include browser and version. For desktop apps, include OS version and relevant
+        target/device model. For tooling, include Node.js and npm versions.
   - type: textarea
     attributes:
       label: Description
@@ -39,4 +76,6 @@ body:
     id: additional-context
     attributes:
       label: Additional Context
-      description: "Optional: Attach any relevant logs, screenshots, or other resources."
+      description: >-
+        Optional: Attach relevant logs or screenshots after removing passwords, tokens, and personal
+        information.
