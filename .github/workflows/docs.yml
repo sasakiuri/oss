@@ -22,6 +22,8 @@ jobs:
       NEXT_PUBLIC_APP_ENV: preview
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.22.2"
@@ -36,6 +38,11 @@ jobs:
           npm run test:artifacts --workspace=@sasakiuri/saika-docs
       - name: Validate architecture, contracts, types, lint, and coverage
         run: npm run check --workspace=@sasakiuri/saika-docs
+      - name: Require coverage of changed Docs code
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run coverage:diff -- --base "$BASE_SHA" --packages '["@sasakiuri/saika-docs"]'
       - name: Check unused Docs exports and dependencies
         run: npm run knip -- --workspace packages/saika-docs
       - name: Spell check Docs

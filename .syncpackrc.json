@@ -42,7 +42,8 @@
         "@playwright/test",
         "@axe-core/playwright",
         "lucide-react",
-        "stylelint"
+        "stylelint",
+        "@vitest/coverage-v8"
       ]
     }
   ],
