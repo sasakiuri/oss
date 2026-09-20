@@ -199,7 +199,17 @@
         </p>
         <p><b>第二十條</b>　保護鳥獸ヲ販賣シタルトキハ其買受人ノ住所氏名年月日及鳥獸ノ名稱員數ヲ三十日以内ニ所轄警察官署ニ届出ツヘシ
         </p>
+        <script src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML" async></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/lightbox2/2.9.0/js/lightbox.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+        <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'],['\\(','\\)'] ], processEscapes:true }, CommonHTML: { matchFontHeight:false } });
+        </script>
         <script>
+            $(function() {
+                $("table").wrap("<div class=\"scroll\"></div>");
+            });
+
             window.addEventListener("load", function() {
                 // title タグ設定
                 const siteName = "Nilay/Knowledge";
