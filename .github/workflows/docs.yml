@@ -23,12 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22.22.2"
           cache: npm
-      - run: npm install --global npm@10.9.4
+      # Bootstrap the exact package manager before installing the lockfile.
+      - run: npm install --global npm@10.9.4 # zizmor: ignore[adhoc-packages]
       - run: npm ci --ignore-scripts
       - name: Audit dependencies
         run: npm audit --audit-level=high

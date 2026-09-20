@@ -16,12 +16,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
 
+      # setup-node v4 only caches when cache is set; release generation uses no cache.
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # zizmor: ignore[cache-poisoning]
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -37,6 +39,7 @@ jobs:
           retention-days: 30
 
       - name: Attach SBOM to release
-        run: gh release upload "${{ github.event.release.tag_name }}" bom.json --clobber
+        run: gh release upload "$RELEASE_TAG" bom.json --clobber
         env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

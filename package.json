@@ -55,6 +55,7 @@
     "knip": "knip",
     "prepare": "node .husky/install.mjs",
     "postinstall": "electron-rebuild -f -w @serialport/bindings-cpp,better-sqlite3 --module-dir=.",
+    "lint:infra": "node scripts/lint-infra.mjs",
     "coverage:diff": "node scripts/coverage-diff-check.mjs"
   },
   "devDependencies": {

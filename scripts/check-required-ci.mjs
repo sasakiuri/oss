@@ -5,6 +5,7 @@ export function requiredChecksPass(needs) {
   if (!needs || typeof needs !== "object") return false;
   if (needs.changes?.result !== "success") return false;
   if (needs.text?.result !== "success") return false;
+  if (needs.infrastructure?.result !== "success") return false;
   const outputs = needs.changes.outputs;
   if (
     !["ci", "build", "docs", "electron"].every((key) =>

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Check functions are dispatched by name through run_check.
+# shellcheck disable=SC2329
 set -euo pipefail
 
 # ============================================================================
@@ -74,9 +76,9 @@ else
   C_RESET=$'\033[0m'
 fi
 
-TURBO_COLOR_FLAG=""
+TURBO_COLOR_ARGS=()
 if [[ "$CI_MODE" == true ]]; then
-  TURBO_COLOR_FLAG="--no-color"
+  TURBO_COLOR_ARGS=(--no-color)
 fi
 
 # ---------------------------------------------------------------------------
@@ -138,37 +140,37 @@ run_check() {
 # ---------------------------------------------------------------------------
 
 check_typescript() {
-  if ! npx turbo typecheck $TURBO_COLOR_FLAG 2>&1; then
+  if ! npx turbo typecheck "${TURBO_COLOR_ARGS[@]}" 2>&1; then
     CHECK_STATUS="FAIL"
   fi
 }
 
 check_eslint() {
   if [[ "$FIX_MODE" == true ]]; then
-    if ! npx turbo fix $TURBO_COLOR_FLAG 2>&1; then
+    if ! npx turbo fix "${TURBO_COLOR_ARGS[@]}" 2>&1; then
       CHECK_STATUS="FAIL"
     fi
   else
-    if ! npx turbo lint $TURBO_COLOR_FLAG 2>&1; then
+    if ! npx turbo lint "${TURBO_COLOR_ARGS[@]}" 2>&1; then
       CHECK_STATUS="FAIL"
     fi
   fi
 }
 
 check_build() {
-  if ! npx turbo build $TURBO_COLOR_FLAG 2>&1; then
+  if ! npx turbo build "${TURBO_COLOR_ARGS[@]}" 2>&1; then
     CHECK_STATUS="FAIL"
   fi
 }
 
 check_unit_tests() {
-  if ! npx turbo test $TURBO_COLOR_FLAG 2>&1; then
+  if ! npx turbo test "${TURBO_COLOR_ARGS[@]}" 2>&1; then
     CHECK_STATUS="FAIL"
   fi
 }
 
 check_depcruise() {
-  if ! npx turbo depcruise $TURBO_COLOR_FLAG 2>&1; then
+  if ! npx turbo depcruise "${TURBO_COLOR_ARGS[@]}" 2>&1; then
     CHECK_STATUS="FAIL"
   fi
 }
@@ -198,7 +200,7 @@ check_knip() {
 }
 
 check_bundle_size() {
-  if ! npx turbo size-limit $TURBO_COLOR_FLAG 2>&1; then
+  if ! npx turbo size-limit "${TURBO_COLOR_ARGS[@]}" 2>&1; then
     CHECK_STATUS="FAIL"
   fi
 }
@@ -1020,7 +1022,7 @@ print_single_line() {
 
 echo ""
 print_double_line
-printf "  ${C_BOLD}PRE-RELEASE CHECK SUMMARY${C_RESET}\n"
+printf "  %sPRE-RELEASE CHECK SUMMARY%s\n" "$C_BOLD" "$C_RESET"
 print_double_line
 printf "  %-${max_cat}s  %-${max_name}s  %s\n" "Category" "Check" "Status"
 print_single_line

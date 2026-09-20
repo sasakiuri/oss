@@ -1,6 +1,10 @@
 FROM python:3.13-slim
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG PANDOC_VERSION=3.1.11.1
 ARG PANDOC_SHA256=ab0ac0aa1c3f9b23243d14e43023e06cbce51a52420aba17d27bd0d9c28f73ac
+# Debian repositories replace package revisions; refresh the index in this layer
+# instead of pinning revisions that may disappear. Downloads below are checksummed.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates graphviz fonts-noto-cjk poppler-utils poppler-data libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libfontconfig1 libssl3 \
     && curl -fL --retry 3 "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-amd64.deb" -o /tmp/pandoc.deb \
     && echo "${PANDOC_SHA256}  /tmp/pandoc.deb" | sha256sum -c - \

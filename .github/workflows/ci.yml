@@ -28,6 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Verify CI selection and gate behavior
         run: node --test scripts/select-ci-packages.test.mjs scripts/run-package-ci.test.mjs scripts/check-required-ci.test.mjs
@@ -43,14 +44,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - name: Setup environment
         uses: ./.github/actions/setup-node
       - name: Verify text spacing rules
         run: npm run test:text
       - name: Verify release checks
         run: npm run test:pre-release
+      - name: Verify dependency update policy
+        run: node --test scripts/dependabot-policy.test.mjs
       - name: Lint documentation
         run: npm run lint:text
+
+  infrastructure:
+    name: Infrastructure checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Lint workflows, shell scripts, Dockerfiles, and Actions security
+        run: node scripts/lint-infra.mjs
 
   lint:
     env:
@@ -65,6 +83,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup environment
         uses: ./.github/actions/setup-node
@@ -121,6 +141,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Setup environment
@@ -221,19 +242,22 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/docs.yml
-    secrets: inherit
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     permissions:
       contents: read
 
   ci-required:
     name: CI Required
     runs-on: ubuntu-latest
-    needs: [changes, text, lint, build-and-test, docs]
+    needs: [changes, text, infrastructure, lint, build-and-test, docs]
     if: ${{ always() }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - name: Verify gate behavior
         run: node --test scripts/check-required-ci.test.mjs
       - name: Require successful applicable checks
