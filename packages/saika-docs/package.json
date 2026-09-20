@@ -52,7 +52,8 @@
     "test:install": "playwright install --with-deps chromium webkit firefox",
     "assets:generate": "tsx scripts/assets.ts",
     "api:generate": "openapi-typescript contracts/openapi.json --empty-objects-unknown --output src/shared/api/generated.ts",
-    "api:check": "openapi-typescript contracts/openapi.json --empty-objects-unknown --check --output src/shared/api/generated.ts && node scripts/next-route-contract.mjs",
+    "api:check": "npm run api:lint && openapi-typescript contracts/openapi.json --empty-objects-unknown --check --output src/shared/api/generated.ts && node scripts/next-route-contract.mjs",
+    "api:lint": "redocly lint --config redocly.lint.yaml contracts/openapi.json contracts/next-routes.openapi.json",
     "test:e2e:run": "node scripts/quality-run.mjs playwright npm run test:e2e:run:raw",
     "test:storybook": "node scripts/quality-run.mjs storybook npm run test:storybook:raw",
     "lhci:run": "node scripts/quality-run.mjs lighthouse npm run lhci:run:raw",
@@ -79,13 +80,17 @@
     "docs:verify": "node scripts/verify-pdf.mjs",
     "test:offline": "playwright test -c playwright.offline.config.ts",
     "api:routes:generate": "node scripts/next-route-contract.mjs --write",
-    "test:preview": "node scripts/check-preview.mjs"
+    "test:preview": "node scripts/check-preview.mjs",
+    "test:load:smoke": "npm run build && npm run test:load:smoke:run",
+    "test:load:smoke:run": "node scripts/k6.mjs smoke",
+    "test:load": "node scripts/k6.mjs load"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@axe-core/react": "4.13.0",
     "@next/bundle-analyzer": "16.3.4",
     "@playwright/test": "1.63.0",
+    "@redocly/cli": "2.46.2",
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/lighthouse-config": "*",
     "@sasakiuri/prettier-config": "*",

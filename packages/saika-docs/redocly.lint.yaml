@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Explicitly selected by api:lint so type generation retains its own configuration.
+# Apply structural and client-generation checks to the API and route inventory.
+rules:
+  struct: error
+  no-unresolved-refs: error
+  spec-strict-refs: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  no-ambiguous-paths: error
+  no-identical-paths: error
+  path-parameters-defined: error
+  no-invalid-media-type-examples: error
+  no-invalid-schema-examples: error
