@@ -160,7 +160,8 @@
     "xoff",
     "zaehler",
     "zenkaku",
-    "zustand"
+    "zustand",
+    "redocly"
   ],
   "ignorePaths": [
     "node_modules",
