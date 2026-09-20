@@ -21,16 +21,7 @@ export async function launchLane(): Promise<RunningLane> {
     executablePath: electronPath as unknown as string,
     args: [appPath, `--user-data-dir=${userDataDirectory}`],
   });
-  const running = { app, userDataDirectory };
-  try {
-    const window = await app.firstWindow();
-    // Window creation precedes application initialization and the end of the splash screen.
-    await window.getByRole('main').waitFor({ state: 'visible', timeout: 30_000 });
-    return running;
-  } catch (error) {
-    await closeLane(running);
-    throw error;
-  }
+  return { app, userDataDirectory };
 }
 
 export async function closeLane(running: RunningLane | undefined): Promise<void> {

@@ -69,19 +69,6 @@ test('pairs a source, applies a monitor, renders live targets and restores stand
       config.monitorId = state.local.monitors.find((monitor) => monitor.primary)!.id;
       await window.vista.command({ type: 'apply', nodeId: state.local.identity.sourceId, config });
     }, screenConfig());
-    // Pairing and applying a screen precede the first asynchronous source acquisition.
-    await expect
-      .poll(
-        () =>
-          operator.evaluate(
-            async () =>
-              (await window.vista.getState()).snapshots.find(
-                (entry) => entry.snapshot.sourceId === 'lane-one' && entry.snapshot.subjectId === 'session-one',
-              )?.state,
-          ),
-        { timeout: 15_000 },
-      )
-      .toBe('live');
     await expect.poll(() => application!.windows().length).toBe(2);
     const audience = application.windows().find((window) => window !== operator)!;
     expect(

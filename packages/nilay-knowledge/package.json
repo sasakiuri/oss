@@ -65,7 +65,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/rss": "^0.0.32",
     "@vitejs/plugin-react": "4.3.4",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "jsdom": "25.0.1",
@@ -74,8 +74,7 @@
     "tailwindcss": "^4.3.0",
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.11",
-    "vite": "6.4.3"
+    "vitest": "^2.1.9"
   },
   "description": "Nilay Knowledge website for shooting and hunting information",
   "repository": {

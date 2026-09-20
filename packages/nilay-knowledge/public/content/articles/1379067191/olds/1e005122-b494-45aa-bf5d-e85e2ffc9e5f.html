@@ -168,7 +168,17 @@
 
         <p><b>第十九條</b>　明治五年第二十八號布告銃砲取締規則及明治十七年第三十一號布告火藥類取締規則ハ本法施行ノ日ヨリ廢止ス<br> 　明治十七年第三十ニ號布告爆發物取締罰則ハ本法ノ爲其ノ効力ヲ妨ケラルルコトナシ
         </p>
+        <script src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML" async></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/lightbox2/2.9.0/js/lightbox.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+        <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({ tex2jax: { inlineMath: [ ['$','$'],['\\(','\\)'] ], processEscapes:true }, CommonHTML: { matchFontHeight:false } });
+        </script>
         <script>
+            $(function() {
+                $("table").wrap("<div class=\"scroll\"></div>");
+            });
+
             window.addEventListener("load", function() {
                 // title タグ設定
                 const siteName = "Nilay/Knowledge";
