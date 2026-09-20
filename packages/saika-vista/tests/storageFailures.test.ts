@@ -69,57 +69,57 @@ async function directory() {
 }
 
 const failureCases = ['file-sync', 'file-close', 'rename', 'directory-open', 'directory-sync', 'directory-close'];
-it
-  .skipIf(process.platform === 'win32')
-  .each(failureCases.flatMap((phase) => [false, true].map((previous) => ({ phase, previous }))))(
-  'keeps OS, memory and JSON consistent after $phase (previous=$previous)',
-  async ({ phase, previous }) => {
-    const path = await directory();
-    let osEnabled = false;
-    const desktop: DesktopPort = {
-      monitors: () => [],
-      open: vi.fn(),
-      close: vi.fn(),
-      status: () => ({ revision: null, alive: false }),
-      changed: vi.fn(),
-      loginStart: vi.fn(async (enabled) => {
-        osEnabled = enabled;
-      }),
-    };
-    const app = await VistaApplication.start(path, desktop);
-    cleanup.push(async () => {
+for (const phase of failureCases) {
+  it.skipIf(process.platform === 'win32' && phase.startsWith('directory')).each([false, true])(
+    `keeps OS, memory and JSON consistent after ${phase} (previous=%s)`,
+    async (previous) => {
+      const path = await directory();
+      let osEnabled = false;
+      const desktop: DesktopPort = {
+        monitors: () => [],
+        open: vi.fn(),
+        close: vi.fn(),
+        status: () => ({ revision: null, alive: false }),
+        changed: vi.fn(),
+        loginStart: vi.fn(async (enabled) => {
+          osEnabled = enabled;
+        }),
+      };
+      const app = await VistaApplication.start(path, desktop);
+      cleanup.push(async () => {
+        await app.command({ type: 'setLoginStart', enabled: previous });
+        await app.stop();
+      });
+      const internals = app as unknown as {
+        timer: ReturnType<typeof setTimeout> | null;
+        activeTasks: Set<Promise<void>>;
+      };
+      if (internals.timer) clearTimeout(internals.timer);
+      await Promise.allSettled([...internals.activeTasks]);
       await app.command({ type: 'setLoginStart', enabled: previous });
-      await app.stop();
-    });
-    const internals = app as unknown as {
-      timer: ReturnType<typeof setTimeout> | null;
-      activeTasks: Set<Promise<void>>;
-    };
-    if (internals.timer) clearTimeout(internals.timer);
-    await Promise.allSettled([...internals.activeTasks]);
-    await app.command({ type: 'setLoginStart', enabled: previous });
-    vi.mocked(desktop.loginStart).mockClear();
-    fault.phase = phase;
+      vi.mocked(desktop.loginStart).mockClear();
+      fault.phase = phase;
 
-    const replaced = phase.startsWith('directory');
-    const expected = replaced ? !previous : previous;
-    await expect(app.command({ type: 'setLoginStart', enabled: !previous })).rejects.toThrow(
-      replaced ? 'durable storage was not confirmed' : 'The previous setting was restored.',
-    );
-    expect(osEnabled).toBe(expected);
-    expect(app.view().loginStart).toBe(expected);
-    expect(JSON.parse(await readFile(join(path, 'vista.json'), 'utf8')).loginStart).toBe(expected);
-    expect(desktop.loginStart).toHaveBeenCalledTimes(replaced ? 1 : 2);
-    const injectedError = expect.stringContaining(`Injected ${phase} failure`);
-    expect(app.view().error).toEqual(replaced ? injectedError : null);
+      const replaced = phase.startsWith('directory');
+      const expected = replaced ? !previous : previous;
+      await expect(app.command({ type: 'setLoginStart', enabled: !previous })).rejects.toThrow(
+        replaced ? 'durable storage was not confirmed' : 'The previous setting was restored.',
+      );
+      expect(osEnabled).toBe(expected);
+      expect(app.view().loginStart).toBe(expected);
+      expect(JSON.parse(await readFile(join(path, 'vista.json'), 'utf8')).loginStart).toBe(expected);
+      expect(desktop.loginStart).toHaveBeenCalledTimes(replaced ? 1 : 2);
+      const injectedError = expect.stringContaining(`Injected ${phase} failure`);
+      expect(app.view().error).toEqual(replaced ? injectedError : null);
 
-    await app.command({ type: 'setLoginStart', enabled: !previous });
-    expect(osEnabled).toBe(!previous);
-    expect(app.view().loginStart).toBe(!previous);
-    expect(app.view().error).toBeNull();
-    expect(JSON.parse(await readFile(join(path, 'vista.json'), 'utf8')).loginStart).toBe(!previous);
-  },
-);
+      await app.command({ type: 'setLoginStart', enabled: !previous });
+      expect(osEnabled).toBe(!previous);
+      expect(app.view().loginStart).toBe(!previous);
+      expect(app.view().error).toBeNull();
+      expect(JSON.parse(await readFile(join(path, 'vista.json'), 'utf8')).loginStart).toBe(!previous);
+    },
+  );
+}
 
 it.skipIf(process.platform === 'win32')(
   'retains a replaced frame and its ordering while reporting unconfirmed storage until a successful write',
