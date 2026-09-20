@@ -332,6 +332,7 @@ describe('TargetDevice value object', () => {
 
     describe('Error cases', () => {
       it('should throw an error for a non-existent ID', () => {
+        expect.assertions(2);
         try {
           TargetDevice.fromId('UNKNOWN');
           expect.fail('Should have thrown an error');
@@ -342,6 +343,7 @@ describe('TargetDevice value object', () => {
       });
 
       it('should throw an error for a lowercase ID', () => {
+        expect.assertions(2);
         try {
           TargetDevice.fromId('mt201');
           expect.fail('Should have thrown an error');
@@ -352,6 +354,7 @@ describe('TargetDevice value object', () => {
       });
 
       it('should throw an error for an empty string', () => {
+        expect.assertions(2);
         try {
           TargetDevice.fromId('');
           expect.fail('Should have thrown an error');

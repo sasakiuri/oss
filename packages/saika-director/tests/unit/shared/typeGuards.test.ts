@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { describe, it, expect } from 'vitest';
 import { isDomainError, isErrorWithCode } from '@/shared/utils/typeGuards';
 import { DomainError } from '@/shared/errors/DomainError';
@@ -40,18 +41,18 @@ describe('typeGuards', () => {
     it('should return true for DomainError (has code property)', () => {
       const error = new DomainError({ code: 'TEST_001', message: 'Test error message' });
       expect(isErrorWithCode(error)).toBe(true);
-      if (isErrorWithCode(error)) {
-        expect(error.code).toBe('TEST_001');
-      }
+      assert.ok(isErrorWithCode(error));
+
+      expect(error.code).toBe('TEST_001');
     });
 
     it('should return true for Error with code property added', () => {
       const error = new Error('Error with code');
       (error as Error & { code: string }).code = 'CUSTOM_001';
       expect(isErrorWithCode(error)).toBe(true);
-      if (isErrorWithCode(error)) {
-        expect(error.code).toBe('CUSTOM_001');
-      }
+      assert.ok(isErrorWithCode(error));
+
+      expect(error.code).toBe('CUSTOM_001');
     });
 
     it('should return false for standard Error without code property', () => {
@@ -91,11 +92,11 @@ describe('typeGuards', () => {
 
     it('should allow type narrowing in conditional', () => {
       const error: unknown = new DomainError({ code: 'TEST_001', message: 'Test message' });
-      if (isErrorWithCode(error)) {
-        // TypeScript should allow accessing code property after type guard
-        const code: string = error.code;
-        expect(code).toBe('TEST_001');
-      }
+      assert.ok(isErrorWithCode(error));
+
+      // TypeScript should allow accessing code property after type guard
+      const code: string = error.code;
+      expect(code).toBe('TEST_001');
     });
   });
 });

@@ -68,6 +68,7 @@ describe('connectionService', () => {
     });
 
     it('throws ServiceError on failure', async () => {
+      expect.assertions(3);
       mockConnect.mockResolvedValue({
         success: false,
         error: { code: 'USB_ERROR', message: 'Port not found' },
@@ -86,6 +87,7 @@ describe('connectionService', () => {
     });
 
     it('wraps IPC errors with IPC_ERROR', async () => {
+      expect.assertions(1);
       mockConnect.mockRejectedValue(new Error('IPC timeout'));
 
       try {
@@ -162,6 +164,7 @@ describe('connectionService', () => {
     });
 
     it('wraps IPC errors with IPC_ERROR', async () => {
+      expect.assertions(1);
       mockListPorts.mockRejectedValue(new Error('Bridge error'));
 
       try {

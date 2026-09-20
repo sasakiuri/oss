@@ -323,6 +323,7 @@ describe('Session', () => {
     });
 
     it('cannot add new shots to a finished session', () => {
+      expect.assertions(2);
       let session = Session.create(discipline);
       session = session.finish();
 
@@ -336,6 +337,7 @@ describe('Session', () => {
     });
 
     it('cannot switch mode on a finished session', () => {
+      expect.assertions(2);
       let session = Session.create(discipline);
       session = session.finish();
 
@@ -349,6 +351,7 @@ describe('Session', () => {
     });
 
     it('cannot reset a finished session', () => {
+      expect.assertions(2);
       let session = Session.create(discipline);
       session = session.finish();
 

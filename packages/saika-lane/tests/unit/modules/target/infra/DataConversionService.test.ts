@@ -135,6 +135,7 @@ describe('DataConversionService', () => {
 
   describe('convert() - error cases', () => {
     it('should throw DATA_CONVERSION_ERROR for an unsupported manufacturer', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('dummy'),
         timestamp: new Date(),
@@ -155,6 +156,7 @@ describe('DataConversionService', () => {
     });
 
     it('should re-throw the error when adapter conversion fails', () => {
+      expect.assertions(2);
       const rawData: RawData = {
         raw: Buffer.from('invalid,data\n'),
         timestamp: new Date(),
@@ -188,6 +190,7 @@ describe('DataConversionService', () => {
     });
 
     it('should throw DATA_CONVERSION_ERROR for an unknown deviceId', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('1.1,2.2,TEST\n'),
         timestamp: new Date(),
@@ -253,6 +256,7 @@ describe('DataConversionService', () => {
 
   describe('Integration tests', () => {
     it('should handle the registry operation -> conversion -> removal workflow', () => {
+      expect.assertions(6);
       // 1. Convert CUSTOM format data
       const customData: RawData = {
         raw: Buffer.from('5.5,3.2,TEST\n'),

@@ -109,6 +109,7 @@ describe('Shot entity', () => {
 
   describe('invariant validation', () => {
     it('throws an error when shotNumber is 0 or less', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();
@@ -124,6 +125,7 @@ describe('Shot entity', () => {
     });
 
     it('throws an error when shotNumber is negative', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();
@@ -139,6 +141,7 @@ describe('Shot entity', () => {
     });
 
     it('throws an error when shotNumber is a decimal', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();
@@ -154,6 +157,7 @@ describe('Shot entity', () => {
     });
 
     it('throws an error when seriesNumber is negative', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();
@@ -169,6 +173,7 @@ describe('Shot entity', () => {
     });
 
     it('throws an error when seriesNumber is a decimal', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();
@@ -203,6 +208,7 @@ describe('Shot entity', () => {
     });
 
     it('throws an error when timestamp is an invalid date', () => {
+      expect.assertions(2);
       const impactPoint = new ImpactPoint(0.0, 0.0);
       const score = new Score(100);
       const mode = Mode.match();

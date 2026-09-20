@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { describe, it, expect } from 'vitest';
 import { Result as ResultEntity } from '@/main/modules/results';
 import { ResultId } from '@/main/modules/results';
@@ -49,10 +50,10 @@ describe('Result Entity', () => {
 
       const parseResult = result.tryParseShots();
       expect(parseResult.success).toBe(true);
-      if (parseResult.success) {
-        expect(parseResult.data.length).toBe(60);
-        expect(parseResult.data[0]).toBe(10.5);
-      }
+      assert.ok(parseResult.success);
+
+      expect(parseResult.data.length).toBe(60);
+      expect(parseResult.data[0]).toBe(10.5);
     });
 
     it('should return ok with empty array when no shotsJson', () => {
@@ -91,10 +92,10 @@ describe('Result Entity', () => {
 
       const parseResult = result.tryParseShots();
       expect(parseResult.success).toBe(true);
-      if (parseResult.success) {
-        expect(parseResult.data.length).toBe(60);
-        expect(parseResult.data[0]).toBe(10.5);
-      }
+      assert.ok(parseResult.success);
+
+      expect(parseResult.data.length).toBe(60);
+      expect(parseResult.data[0]).toBe(10.5);
     });
 
     it('should return err for invalid JSON syntax', () => {
@@ -114,9 +115,9 @@ describe('Result Entity', () => {
 
       const parseResult = result.tryParseShots();
       expect(parseResult.success).toBe(false);
-      if (!parseResult.success) {
-        expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.JSON_SYNTAX_ERROR.code);
-      }
+      assert.ok(!parseResult.success);
+
+      expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.JSON_SYNTAX_ERROR.code);
     });
 
     it('should return err when JSON is not an array', () => {
@@ -136,9 +137,9 @@ describe('Result Entity', () => {
 
       const parseResult = result.tryParseShots();
       expect(parseResult.success).toBe(false);
-      if (!parseResult.success) {
-        expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.SHOTS_ARRAY_EXPECTED.code);
-      }
+      assert.ok(!parseResult.success);
+
+      expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.SHOTS_ARRAY_EXPECTED.code);
     });
 
     it('should return err when array contains non-numbers', () => {
@@ -158,10 +159,10 @@ describe('Result Entity', () => {
 
       const parseResult = result.tryParseShots();
       expect(parseResult.success).toBe(false);
-      if (!parseResult.success) {
-        expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.INVALID_NUMBER.code);
-        expect(parseResult.error.context?.totalInvalid).toBe(1);
-      }
+      assert.ok(!parseResult.success);
+
+      expect(parseResult.error.code).toBe(ErrorCatalog.PARSE.INVALID_NUMBER.code);
+      expect(parseResult.error.context?.totalInvalid).toBe(1);
     });
   });
 

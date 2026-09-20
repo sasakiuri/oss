@@ -110,8 +110,8 @@ it
     expect(app.view().loginStart).toBe(expected);
     expect(JSON.parse(await readFile(join(path, 'vista.json'), 'utf8')).loginStart).toBe(expected);
     expect(desktop.loginStart).toHaveBeenCalledTimes(replaced ? 1 : 2);
-    if (replaced) expect(app.view().error).toContain(`Injected ${phase} failure`);
-    else expect(app.view().error).toBeNull();
+    const injectedError = expect.stringContaining(`Injected ${phase} failure`);
+    expect(app.view().error).toEqual(replaced ? injectedError : null);
 
     await app.command({ type: 'setLoginStart', enabled: !previous });
     expect(osEnabled).toBe(!previous);
@@ -198,10 +198,9 @@ it.skipIf(process.platform === 'win32').each(['apply', 'remove'] as const)(
     expect(outputs.has('screen-one')).toBe(operation === 'apply');
     expect((await disk()).screens).toEqual(app.state.document.screens);
     expect(app.node().persistenceError).toContain('durable storage was not confirmed');
-    if (operation === 'apply') {
-      expect(app.node().screens[0]!.appliedRevision).toBeNull();
-      expect(app.node().screens[0]!.renderAlive).toBe(true);
-    } else expect(app.node().screens).toEqual([]);
+    expect(app.node().screens).toMatchObject(
+      operation === 'apply' ? [{ appliedRevision: null, renderAlive: true }] : [],
+    );
     await app.command(command);
     expect(app.node().persistenceError).toBeNull();
   },
@@ -220,11 +219,10 @@ it.skipIf(process.platform === 'win32').each(['apply', 'remove'] as const)(
     expect(changed.persistenceError).toContain('durable storage was not confirmed');
     expect(outputs.has('screen-one')).toBe(operation === 'apply');
     expect((await disk()).screens).toEqual(app.state.document.screens);
-    if (operation === 'apply') expect(changed.screens[0]!.appliedRevision).toBeNull();
-    else expect(changed.screens).toEqual([]);
+    expect(changed.screens).toMatchObject(operation === 'apply' ? [{ appliedRevision: null }] : []);
     const retried = await request('POST', operation, body);
     expect(retried.persistenceError).toBeNull();
-    if (operation === 'apply') expect(retried.screens[0]!.appliedRevision).toBe(1);
+    expect(retried.screens).toMatchObject(operation === 'apply' ? [{ appliedRevision: 1 }] : []);
   },
 );
 
@@ -253,7 +251,6 @@ it.skipIf(process.platform === 'win32').each([0, 1])(
     fault.phase = 'directory-sync';
     fault.skip = skip;
     const released = await request('POST', 'release', owner);
-    if (skip === 0) expect(released.persistenceError).toContain('durable storage was not confirmed');
     await vi.waitFor(() => {
       expect(app.state.document.releasing).toBe(false);
       expect(app.view().pairingSecret).not.toBe(oldSecret);
@@ -261,7 +258,7 @@ it.skipIf(process.platform === 'win32').each([0, 1])(
     });
     const restored = await request('GET', 'state');
     expect(restored.controllerId).toBeNull();
-    if (skip === 1) expect(restored.persistenceError).toContain('durable storage was not confirmed');
+    expect((skip === 0 ? released : restored).persistenceError).toContain('durable storage was not confirmed');
     await expect(request('GET', 'state', undefined, oldSecret)).rejects.toThrow();
   },
 );

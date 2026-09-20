@@ -9,26 +9,20 @@ describe('EstComplaintTimingPolicy', () => {
   it.each(['SHOT_VALUE', 'SHOT_NOT_REGISTERED', 'TARGET_FAILURE', 'TARGET_MEDIA_ADVANCE'] as const)(
     'keeps Final %s observations out of the Qualification protest procedure',
     (issue) => {
-      const value = snapshot({ issue });
-      const pack = ISSF_2026_AR60_FINAL;
-      const context = EstComplaintSignalContextSchema.parse({
-        ...value.context,
-        rules: {
-          round: pack.round,
-          identity: identifyRulePack(pack),
-          procedures: pack.capabilities.estComplaints!.procedures,
-        },
-      });
-      const captured = { ...value, context };
+      const captured = finalSnapshot(issue);
       const timing = new EstComplaintTimingPolicy().assess(captured);
       const plan = new EstComplaintCasePolicy().plan(captured);
       expect(timing.ruleReference).toContain('6.17.1.');
       expect(timing.status).not.toBe('CAPTURED_BEFORE_NEXT_RECORDED_SHOT');
       expect(plan.issueKind).not.toBe('SCORE_VALUE_PROTEST');
       expect(plan.ruleReferences).not.toContain('6.16.5.2');
-      if (issue === 'SHOT_NOT_REGISTERED') expect(plan.details).toContain('Final Recovery');
     },
   );
+
+  it('directs an unregistered Final shot to Final Recovery', () => {
+    const plan = new EstComplaintCasePolicy().plan(finalSnapshot('SHOT_NOT_REGISTERED'));
+    expect(plan.details).toContain('Final Recovery');
+  });
 
   it('preserves legacy observations for review without assuming their round', () => {
     const value = snapshot();
@@ -80,6 +74,20 @@ describe('EstComplaintTimingPolicy', () => {
     expect(result).toMatchObject({ advisoryOnly: true, status: 'TARGET_FAILURE_EXCEPTION' });
   });
 });
+
+function finalSnapshot(issue: EstComplaintSignalSnapshot['issue']): EstComplaintSignalSnapshot {
+  const value = snapshot({ issue });
+  const pack = ISSF_2026_AR60_FINAL;
+  const context = EstComplaintSignalContextSchema.parse({
+    ...value.context,
+    rules: {
+      round: pack.round,
+      identity: identifyRulePack(pack),
+      procedures: pack.capabilities.estComplaints!.procedures,
+    },
+  });
+  return { ...value, context };
+}
 
 function snapshot(overrides: Partial<EstComplaintSignalSnapshot> = {}): EstComplaintSignalSnapshot {
   return {

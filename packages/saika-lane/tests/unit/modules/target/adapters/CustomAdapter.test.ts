@@ -205,6 +205,7 @@ describe('CustomAdapter', () => {
 
   describe('convert() - CSV format errors', () => {
     it('should throw an error when there is only one field', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('12.5\n'),
         timestamp: new Date(),
@@ -243,6 +244,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when X coordinate is not a number', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('abc,10,DATA\n'),
         timestamp: new Date(),
@@ -261,6 +263,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when Y coordinate is not a number', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('10,xyz,DATA\n'),
         timestamp: new Date(),
@@ -279,6 +282,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when X coordinate is Infinity', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('Infinity,10,DATA\n'),
         timestamp: new Date(),
@@ -297,6 +301,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when Y coordinate is NaN', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('10,NaN,DATA\n'),
         timestamp: new Date(),
@@ -317,6 +322,7 @@ describe('CustomAdapter', () => {
 
   describe('convert() - coordinate value range errors', () => {
     it('should throw VALIDATION_ERROR when X coordinate exceeds 1000mm', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('1000.1,0,OUT\n'),
         timestamp: new Date(),
@@ -335,6 +341,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when X coordinate is below -1000mm', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('-1000.1,0,OUT\n'),
         timestamp: new Date(),
@@ -353,6 +360,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when Y coordinate exceeds 1000mm', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('0,1000.1,OUT\n'),
         timestamp: new Date(),
@@ -371,6 +379,7 @@ describe('CustomAdapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when Y coordinate is below -1000mm', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('0,-1000.1,OUT\n'),
         timestamp: new Date(),

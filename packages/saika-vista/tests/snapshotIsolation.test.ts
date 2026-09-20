@@ -104,8 +104,8 @@ it.each(faults)(
     expect(recovered.getEntries().find((value) => value.snapshot.subjectId === 'session-one')?.snapshot.revision).toBe(
       3,
     );
-    if (fault === 'identity') expect(recovered.snapshotErrors()).toContain('identity unavailable');
-    else expect(recovered.snapshotErrors()).toBeNull();
+    const identityError = expect.stringContaining('identity unavailable');
+    expect(recovered.snapshotErrors()).toEqual(fault === 'identity' ? identityError : null);
   },
 );
 
@@ -137,7 +137,8 @@ it.each(receivedFaults)(
     expect(retained.snapshot).toEqual(old.snapshot);
     const identified = fault !== 'identity' && fault !== 'null';
     expect(state.snapshotErrors()).toContain(identified ? 'lane-one / session-one' : 'identity unavailable');
-    if (identified) expect(retained).toMatchObject({ state: 'stale', error: expect.stringContaining('is invalid') });
+    const invalid = { state: 'stale', error: expect.stringContaining('is invalid') };
+    expect(retained).toMatchObject(identified ? invalid : old);
     expect(
       (await restore()).state.getEntries().find((value) => value.snapshot.subjectId === 'session-one')?.snapshot,
     ).toEqual(old.snapshot);

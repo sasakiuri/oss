@@ -34,7 +34,8 @@ export default [
 ];
 ```
 
-The Vitest preset rejects focused or disabled tests, invalid assertions and
+The Vitest preset rejects focused or disabled tests, conditional assertions without
+an explicit nonzero `expect.assertions(n)` count, invalid assertions and
 describe callbacks, and duplicate test titles. The React
 Testing Library preset checks asynchronous queries, events, and utilities, and
 rejects side effects inside retrying `waitFor` callbacks.

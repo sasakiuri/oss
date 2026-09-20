@@ -259,17 +259,15 @@ describe('main.ts auto-connect with missing legacy manufacturer', () => {
   });
 
   it('does not attempt auto-connect when the saved legacy manufacturer is missing', async () => {
-    if (hasAppSettingsStore) {
-      const { AppSettingsStore } = await import('@/main/modules/settings/infra/AppSettingsStore');
-      const { LocalStorageAdapter } = await import('@/main/modules/settings/infra/LocalStorageAdapter');
-      const storage = new LocalStorageAdapter({ name: 'saika-lane' });
-      const settingsStore = new AppSettingsStore({
-        filePath: join(userDataPath, 'settings.json'),
-        storage,
-      });
+    const { AppSettingsStore } = await import('@/main/modules/settings/infra/AppSettingsStore');
+    const { LocalStorageAdapter } = await import('@/main/modules/settings/infra/LocalStorageAdapter');
+    const storage = new LocalStorageAdapter({ name: 'saika-lane' });
+    const settingsStore = new AppSettingsStore({
+      filePath: join(userDataPath, 'settings.json'),
+      storage,
+    });
 
-      expect(settingsStore.getConnectionSettings()).toBeNull();
-    }
+    expect(settingsStore.getConnectionSettings()).toBeNull();
 
     await import('@/main/main');
     await Promise.resolve();

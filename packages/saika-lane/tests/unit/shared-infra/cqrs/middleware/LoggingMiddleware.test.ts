@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -105,12 +107,10 @@ describe('LoggingMiddleware', () => {
 
       // Verify that the time in the completion log is non-negative
       const doneCallArgs = mockDebug.mock.calls.find((call) => typeof call[0] === 'string' && call[0].includes('done'));
-      if (doneCallArgs) {
-        const match = (doneCallArgs[0] as string).match(/([\d.]+)ms/);
-        if (match) {
-          expect(Number(match[1])).toBeGreaterThanOrEqual(0);
-        }
-      }
+      assert.ok(doneCallArgs);
+      const match = (doneCallArgs[0] as string).match(/([\d.]+)ms/);
+      assert.ok(match);
+      expect(Number(match[1])).toBeGreaterThanOrEqual(0);
 
       // Re-mock performance.now for subsequent tests
       vi.spyOn(performance, 'now');
@@ -191,12 +191,10 @@ describe('LoggingMiddleware', () => {
       await expect(middleware.execute('TimingTest', {}, next)).resolves.not.toThrow();
 
       const doneCallArgs = mockDebug.mock.calls.find((call) => typeof call[0] === 'string' && call[0].includes('done'));
-      if (doneCallArgs) {
-        const match = (doneCallArgs[0] as string).match(/([\d.]+)ms/);
-        if (match) {
-          expect(Number(match[1])).toBeGreaterThanOrEqual(0);
-        }
-      }
+      assert.ok(doneCallArgs);
+      const match = (doneCallArgs[0] as string).match(/([\d.]+)ms/);
+      assert.ok(match);
+      expect(Number(match[1])).toBeGreaterThanOrEqual(0);
 
       vi.spyOn(performance, 'now');
     });

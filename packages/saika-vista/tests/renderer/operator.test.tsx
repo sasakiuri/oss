@@ -330,8 +330,8 @@ describe('operator workflows', () => {
     if (editStandby) {
       fireEvent.click(screen.getByLabelText('Show standby screen'));
       fireEvent.click(screen.getByLabelText('Show standby screen'));
-      expect(screen.getByLabelText('Show standby screen')).not.toBeChecked();
     }
+    expect(screen.getByLabelText('Show standby screen')).not.toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Standby' }));
     await waitFor(() => expect(screen.getByLabelText('Show standby screen')).toBeChecked());
     expect(screen.getByLabelText('Screen name')).toHaveValue('Renamed stand');
@@ -599,13 +599,12 @@ describe('operator workflows', () => {
         : null;
       render(<Operator />);
       fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
-      if (available) {
-        expect(screen.getByText(/0 selected positions · 1 page/)).toBeInTheDocument();
-        expect(screen.getByLabelText('Starting page')).toHaveAttribute('max', '1');
-      } else {
-        expect(screen.getByText(/Position and page counts are unavailable on this PC/)).toBeInTheDocument();
-        expect(screen.getByLabelText('Starting page')).not.toHaveAttribute('max');
-      }
+      expect(
+        screen.getByText(
+          available ? /0 selected positions · 1 page/ : /Position and page counts are unavailable on this PC/,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText('Starting page').getAttribute('max')).toBe(available ? '1' : null);
     },
   );
 });

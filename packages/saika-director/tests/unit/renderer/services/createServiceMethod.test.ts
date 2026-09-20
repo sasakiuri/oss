@@ -107,6 +107,7 @@ describe('createServiceMethod', () => {
     });
 
     it('rethrows the original error object', async () => {
+      expect.assertions(1);
       const error = new Error('identity check');
       const fn = vi.fn().mockRejectedValue(error);
       const wrapped = createServiceMethod(mockLogger, 'failingAction', fn);

@@ -84,6 +84,7 @@ describe('DisagAdapter', () => {
   });
 
   it('rejects an invalid frame through DATA_CONVERSION_ERROR', () => {
+    expect.assertions(3);
     const frame = validRedDotFrame();
     frame[57] = frame[57]! ^ 0x01;
 

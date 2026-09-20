@@ -65,6 +65,7 @@ describe('createOpenPrintWindowHandler', () => {
   });
 
   it('should throw PRINT_WINDOW_CREATION_FAILED error on open() failure', async () => {
+    expect.assertions(3);
     const service = createMockPrintWindowService();
     const originalError = new Error('BrowserWindow creation failed');
     vi.mocked(service.open).mockRejectedValue(originalError);
@@ -81,6 +82,7 @@ describe('createOpenPrintWindowHandler', () => {
   });
 
   it('should throw PRINT_WINDOW_CREATION_FAILED even for non-Error exceptions', async () => {
+    expect.assertions(3);
     const service = createMockPrintWindowService();
     vi.mocked(service.open).mockRejectedValue('unknown');
     const handler = createHandler(service);
