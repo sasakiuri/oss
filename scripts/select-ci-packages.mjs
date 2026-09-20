@@ -10,11 +10,40 @@ const dependencyFields = [
   "peerDependencies",
   "optionalDependencies",
 ];
+// These tools are verified in the text job and do not affect package builds.
+const textToolingInputs = new Set([
+  "scripts/lint-text.mjs",
+  "scripts/lint-text.test.mjs",
+  "scripts/pre-release-check.sh",
+  "scripts/pre-release-check.test.mjs",
+  "scripts/dependabot-policy.test.mjs",
+  ".github/dependabot.yml",
+  ".github/workflows/dependabot-auto-merge.yml",
+  ".textlintignore",
+]);
 
 export function selectCiPackages(files, current, previous = current) {
   const graph = [...previous, ...current];
   const selected = new Set();
   let all = false;
+  const text = files.some(
+    (file) =>
+      /\.(md|txt)$/.test(file) ||
+      /(^|\/)package(?:-lock)?\.json$/.test(file) ||
+      /(^|\/)\.textlintrc(?:\.[^/]+)?$/.test(file) ||
+      file === "scripts/check-english-only.mjs" ||
+      textToolingInputs.has(file),
+  );
+  const infrastructure = files.some(
+    (file) =>
+      file.startsWith(".github/") ||
+      file.startsWith(".husky/") ||
+      file.endsWith(".sh") ||
+      /(^|\/)(Dockerfile(?:\.[^/]+)?|\.shellcheckrc|\.?hadolint\.ya?ml|\.?zizmor\.ya?ml)$/.test(
+        file,
+      ) ||
+      ["scripts/lint-infra.mjs", ".gitignore", ".gitattributes"].includes(file),
+  );
   for (const file of files) {
     // Package Markdown and assets are build inputs, including website content.
     const owners = graph.filter((pkg) => file.startsWith(`${pkg.directory}/`));
@@ -28,8 +57,11 @@ export function selectCiPackages(files, current, previous = current) {
       ["Makefile", ".dockerignore"].includes(file)
     ) {
       selected.add(docsName);
-    } else if (file === ".github/workflows/size-limit.yml") {
-      selected.add("@sasakiuri/saika-lane");
+    } else if (
+      textToolingInputs.has(file) ||
+      file === "scripts/lint-infra.mjs"
+    ) {
+      // Their dedicated checks cover these repository tools.
     } else if (
       file === ".github/workflows/ci.yml" ||
       file.startsWith(".github/actions/") ||
@@ -82,6 +114,8 @@ export function selectCiPackages(files, current, previous = current) {
     dependencyFields.some((field) => pkg[field]?.electron),
   );
   return {
+    text: all || text,
+    infrastructure,
     ci: packages.length > 0,
     build,
     docs: current.some(
@@ -147,7 +181,10 @@ export function planForRevision(base, head, cwd = process.cwd()) {
   }
   const current = readGitWorkspaces(head, cwd);
   if (/^0+$/.test(base)) {
-    return selectCiPackages(["package.json"], current, []);
+    return {
+      ...selectCiPackages(["package.json"], current, []),
+      infrastructure: true,
+    };
   }
   const previous = readGitWorkspaces(base, cwd);
   const files = execFileSync(
@@ -175,7 +212,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `## CI scope\n\nPackages: ${plan.packages.join(", ") || "none"}\n\nDocs: ${plan.docs}\n\nBuild runners: ${plan.build ? plan.os.join(", ") : "none"}\n`,
+      `## CI scope\n\nPackages: ${plan.packages.join(", ") || "none"}\n\nText and tooling: ${plan.text}\n\nInfrastructure: ${plan.infrastructure}\n\nDocs: ${plan.docs}\n\nBuild runners: ${plan.build ? plan.os.join(", ") : "none"}\n`,
     );
   }
 }
