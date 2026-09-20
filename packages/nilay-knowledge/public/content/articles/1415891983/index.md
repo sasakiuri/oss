@@ -86,7 +86,7 @@ tags: ["狩猟免許"]
 
 最後に鳥獣16種（そのうち9種以上が狩猟鳥獣）の判別を行います。わなの場合は獣類の判別のみです。鳥獣の図画等を見て判別し、狩猟鳥獣の場合はその種名を答えます。
 
-##　第一種銃猟免許
+## 第一種銃猟免許
 
 第一種銃猟免許の試験ではまず模造散弾銃（水平二連、上下二連の場合が多い）の点検、分解と結合を行います。技能試験の間を通じて模造銃を扱う際に次のことに注意する必要があります。
 
@@ -251,550 +251,560 @@ tags: ["狩猟免許"]
         - （ⅳ）人獣共通感染症の予防
         - （ⅴ）外来生物対策
 
-<span>別表第1　技能試験要領</span>
-
 <table>
+    <caption>別表第1　技能試験要領</caption>
     <thead>
        <tr>
-          <th>区分</th>
-          <th>課題</th>
-          <th>減点事項</th>
-          <th>減点数</th>
+          <th id="skills-license" scope="col">区分</th>
+          <th id="skills-task" scope="col">課題</th>
+          <th id="skills-deduction" scope="col">減点事項</th>
+          <th id="skills-points" scope="col">減点数</th>
        </tr>
     </thead>
     <tbody>
        <tr>
-          <th rowspan="5">網猟免許</th>
-          <td>
+          <th rowspan="5" id="skills-net" scope="rowgroup" headers="skills-license">網猟免許</th>
+          <th id="skills-net-task-1" scope="row" headers="skills-task skills-net">
              <p>1　猟具の判別<br>　法定猟具3種類、禁止猟具3種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-net skills-net-task-1">
              <p>○判別を誤った場合（1種類につき）</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-net skills-net-task-1">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-net-task-2" headers="skills-task skills-net">
              <p>2　猟具の架設<br>使用しようとする猟具1種類につき架設を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-net skills-net-task-2">
              <p>○架設ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-net skills-net-task-2">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-net skills-net-task-2">
              <p>○架設が不完全な場合</p>
           </td>
-          <td>20</td>
+          <td headers="skills-points skills-net skills-net-task-2">20</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-net skills-net-task-2">
              <p>○架設が円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-net skills-net-task-2">10</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-net-task-3" scope="row" headers="skills-task skills-net">
              <p>3　鳥獣の判別<br>狩猟鳥獣、非狩猟鳥獣16種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-net skills-net-task-3">
              <p>○判断を誤った場合（1種類につき）</p>
           </td>
-          <td>2</td>
+          <td headers="skills-points skills-net skills-net-task-3">2</td>
        </tr>
+    </tbody>
+    <tbody>
        <tr>
-          <th rowspan="5">わな猟免許</th>
-          <td>
+          <th rowspan="5" id="skills-trap" scope="rowgroup" headers="skills-license">わな猟免許</th>
+          <th id="skills-trap-task-1" scope="row" headers="skills-task skills-trap">
              <p>1　猟具の判別<br>　法定猟具3種類、禁止猟具3種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-trap skills-trap-task-1">
              <p>○判別を誤った場合（1種類につき）</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-trap skills-trap-task-1">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-trap-task-2" headers="skills-task skills-trap">
              <p>2　猟具の架設<br>使用しようとする猟具1種類につき架設を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-trap skills-trap-task-2">
              <p>○架設ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-trap skills-trap-task-2">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-trap skills-trap-task-2">
              <p>○架設が不完全な場合</p>
           </td>
-          <td>20</td>
+          <td headers="skills-points skills-trap skills-trap-task-2">20</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-trap skills-trap-task-2">
              <p>○架設が円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-trap skills-trap-task-2">10</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-trap-task-3" scope="row" headers="skills-task skills-trap">
              <p>3　鳥獣の判別<br>狩猟鳥獣、非狩猟鳥獣16種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-trap skills-trap-task-3">
              <p>○判断を誤った場合（1種類につき）</p>
           </td>
-          <td>2</td>
+          <td headers="skills-points skills-trap skills-trap-task-3">2</td>
        </tr>
+    </tbody>
+    <tbody>
        <tr>
-          <th rowspan="44">第1種銃猟免許</th>
-          <td rowspan="4">
+          <th rowspan="44" id="skills-firearm1" scope="rowgroup" headers="skills-license">第1種銃猟免許</th>
+          <th rowspan="4" id="skills-firearm1-task-1" headers="skills-task skills-firearm1">
              <p>1　銃器の点検、分解及び結合</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-1">
              <p>○点検、分解及び結合ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-1">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-1">
              <p>○点検、分解及び結合が円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-1">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-1">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-1">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-1">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-1">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-2" scope="row" headers="skills-task skills-firearm1">
              <p>（1）　銃器の点検操作<br>銃器の安全点検をさせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-2">
              <p>○銃身、作動部（二連銃の場合は、先台、開閉レバー、安全子、半自動銃の場合は、先台、遊底、安全子）、銃床、銃器各部の接合情況の異常の有無を認識しない場合。</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-2">5</td>
        </tr>
        <tr>
-          <td rowspan="2">
+          <th rowspan="2" id="skills-firearm1-task-3" headers="skills-task skills-firearm1">
              <p>（2）　銃器の分解及び結合操作<br>銃器を分解した後結合させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-3">
              <p>○操作が不確実な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-3">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-3">
              <p>○操作が粗暴な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-3">5</td>
        </tr>
        <tr>
-          <td rowspan="4">
+          <th rowspan="4" id="skills-firearm1-task-4" headers="skills-task skills-firearm1">
              <p>2　装填、射撃姿勢、脱包</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-4">
              <p>○装填、射撃姿勢、脱包ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-4">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-4">
              <p>○装填、射撃姿勢、脱包が1円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-4">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-4">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-4">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-4">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-4">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-firearm1-task-5" headers="skills-task skills-firearm1">
              <p>（1）　模造弾の装填操作<br>模造弾を装填させる</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-5">
              <p>○用心鉄の中に指を入れた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-5">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-5">
              <p>○用意された模造弾をすべて装填しなかった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-5">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-5">
              <p>○二連銃を粗暴に閉鎖した場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-5">5</td>
        </tr>
        <tr>
-          <td rowspan="2">
+          <th rowspan="2" id="skills-firearm1-task-6" headers="skills-task skills-firearm1">
              <p>（2）　射撃姿勢操作<br>射撃姿勢をとらせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-6">
              <p>○水平射撃の姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-6">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-6">
              <p>○不安定な射撃姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-6">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-7" scope="row" headers="skills-task skills-firearm1">
              <p>（3）　模造弾の脱包操作<br>模造弾を脱包させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-7">
              <p>○装填された模造弾をすべて脱包しなかった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-7">5</td>
        </tr>
        <tr>
-          <td rowspan="5">
+          <th rowspan="5" id="skills-firearm1-task-8" headers="skills-task skills-firearm1">
              <p>3　団体行動の場合の銃器の保持、銃器の受渡し</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-8">
              <p>○銃器の保持、銃器の受渡しができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-8">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-8">
              <p>○銃器の保持、銃器の受渡しが円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-8">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-8">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-8">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-8">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-8">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-8">
              <p>○用心鉄の中に指を入れた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-8">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-9" scope="row" headers="skills-task skills-firearm1">
              <p>（1）　銃器の保持操作<br>3～5人が縦隊及び横隊で行動する場合の銃器の保持を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-9">
              <p>○保持の方法が不適切な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-9">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-10" scope="row" headers="skills-task skills-firearm1">
              <p>（2）　銃器の受渡し操作<br>高所にいる人又は接近できない人との間で銃器の授受を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-10">
              <p>○銃器の授受の方法が不適切な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-10">5</td>
        </tr>
        <tr>
-          <td rowspan="5">
+          <th rowspan="5" id="skills-firearm1-task-11" headers="skills-task skills-firearm1">
              <p>4　休憩時の銃器の取扱い</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-11">
              <p>○休憩時の銃器の取扱いができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-11">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-11">
              <p>○休憩時の銃器の取り扱いが円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-11">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-11">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-11">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-11">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-11">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-11">
              <p>○用心鉄の中に指を入れた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-11">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-firearm1-task-12" headers="skills-task skills-firearm1">
              <p>（1）　銃器の安置操作<br>休憩の際に銃器を置くことを行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-12">
              <p>○銃器を置く動作が粗暴な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-12">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-12">
              <p>○銃器を不安定な場所に立てかけた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-12">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-12">
              <p>○薬室の開放あるいは弾倉の取り外しをしなかった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-12">5</td>
        </tr>
        <tr>
-          <td rowspan="4">
+          <th rowspan="4" id="skills-firearm1-task-13" headers="skills-task skills-firearm1">
              <p>5　圧縮等、装填、射撃姿勢</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-13">
              <p>○圧縮操作等、装填、射撃姿勢ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-13">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-13">
              <p>○圧縮操作等、装填、射撃姿勢が円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-13">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-13">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-13">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-13">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-13">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-firearm1-task-14" headers="skills-task skills-firearm1">
              <p>（1）　圧縮操作<br>ポンプ式若しくはスプリング式模造空気銃を用いた圧縮操作又は模造圧縮ガス銃を用いたボンベの取り付け動作を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-14">
              <p>○用心金の中に指を入れた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-14">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-14">
              <p>○圧縮等操作等が不確実な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-14">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-14">
              <p>○圧縮等操作等が粗暴な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-14">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-15" scope="row" headers="skills-task skills-firearm1">
              <p>（2）　装填操作<br>弾丸を装填する動作をさせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-15">
              <p>○装填する動作が不確実な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-15">5</td>
        </tr>
        <tr>
-          <td rowspan="2">
+          <th rowspan="2" id="skills-firearm1-task-16" headers="skills-task skills-firearm1">
              <p>（3）　射撃姿勢操作<br>射撃姿勢をとらせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-16">
              <p>○水平射撃の姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-16">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-16">
              <p>○不安定な射撃姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-16">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-17" scope="row" headers="skills-task skills-firearm1">
              <p>6　距離の目測<br>300m、50m、30m及び10mの距離の目測を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-17">
              <p>目測ができなかった場合（1種類につき）</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-17">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm1-task-18" scope="row" headers="skills-task skills-firearm1">
              <p>7　鳥獣の判別<br>狩猟鳥獣、非狩猟鳥獣16種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm1 skills-firearm1-task-18">
              <p>○判別ができなかった場合（1種類につき）</p>
           </td>
-          <td>2</td>
+          <td headers="skills-points skills-firearm1 skills-firearm1-task-18">2</td>
        </tr>
+    </tbody>
+    <tbody>
        <tr>
-          <th rowspan="12">第2種銃猟免許</th>
-          <td rowspan="4">
+          <th rowspan="12" id="skills-firearm2" scope="rowgroup" headers="skills-license">第2種銃猟免許</th>
+          <th rowspan="4" id="skills-firearm2-task-1" headers="skills-task skills-firearm2">
              <p>1　圧縮等、装填、射撃姿勢</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-1">
              <p>○圧縮操作等、装填、射撃姿勢ができない場合</p>
           </td>
-          <td>31</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-1">31</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-1">
              <p>○圧縮操作等、装填、射撃姿勢が円滑でない場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-1">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-1">
              <p>○銃口を人に向けた場合</p>
           </td>
-          <td>10</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-1">10</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-1">
              <p>○各操作を行う際に、実包の有無、銃腔内の異物の有無を認識しない場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-1">5</td>
        </tr>
        <tr>
-          <td rowspan="3">
+          <th rowspan="3" id="skills-firearm2-task-2" headers="skills-task skills-firearm2">
              <p>（1）　圧縮操作<br>ポンプ式若しくはスプリング式模造空気銃を用いた圧縮操作又は模造圧縮ガス銃を用いたボンベの取り付け動作を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-2">
              <p>○用心金の中に指を入れた場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-2">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-2">
              <p>○圧縮等操作等が不確実な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-2">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-2">
              <p>○圧縮等操作等が粗暴な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-2">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm2-task-3" scope="row" headers="skills-task skills-firearm2">
              <p>（2）　装填操作<br>弾丸を装填する動作をさせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-3">
              <p>○装填する動作が不確実な場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-3">5</td>
        </tr>
        <tr>
-          <td rowspan="2">
+          <th rowspan="2" id="skills-firearm2-task-4" headers="skills-task skills-firearm2">
              <p>（3）　射撃姿勢操作<br>射撃姿勢をとらせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-4">
              <p>○水平射撃の姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-4">5</td>
        </tr>
        <tr>
-          <td>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-4">
              <p>○不安定な射撃姿勢をとった場合</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-4">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm2-task-5" scope="row" headers="skills-task skills-firearm2">
              <p>2　距離の目測<br>300m、30m及び10mの距離の目測を行わせる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-5">
              <p>目測ができなかった場合（1種類につき）</p>
           </td>
-          <td>5</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-5">5</td>
        </tr>
        <tr>
-          <td>
+          <th id="skills-firearm2-task-6" scope="row" headers="skills-task skills-firearm2">
              <p>3　鳥獣の判別<br>狩猟鳥獣、非狩猟鳥獣16種類について判別させる。</p>
-          </td>
-          <td>
+          </th>
+          <td headers="skills-deduction skills-firearm2 skills-firearm2-task-6">
              <p>○判別ができなかった場合（1種類につき）</p>
           </td>
-          <td>2</td>
+          <td headers="skills-points skills-firearm2 skills-firearm2-task-6">2</td>
        </tr>
     </tbody>
  </table>
 
-<span>表第2　鳥獣の判別に用いる鳥獣の種類</span>
-
 <table>
+    <caption>表第2　鳥獣の判別に用いる鳥獣の種類</caption>
     <tbody>
        <tr>
-          <th rowspan="2">網猟免許</th>
-          <td>狩猟鳥獣</td>
-          <td>マガモ（オス）、コガモ（オス）、ヒドリガモ（オス）、ヒヨドリ、ムクドリ、ニュウナイスズメ、スズメ、カルガモ、コジュケイ、オナガガモ</td>
+          <th rowspan="2" id="species-net" scope="rowgroup">網猟免許</th>
+          <th id="species-net-huntable" scope="row" headers="species-net">狩猟鳥獣</th>
+          <td headers="species-net species-net-huntable">マガモ（オス）、コガモ（オス）、ヒドリガモ（オス）、ヒヨドリ、ムクドリ、ニュウナイスズメ、スズメ、カルガモ、コジュケイ、オナガガモ</td>
        </tr>
        <tr>
-          <td>狩猟鳥獣と誤認されやすい鳥獣</td>
-          <td>オシドリ（オス）、ツグミ、カワラヒワ、カシラダカ、カケス、マガン、オシドリ、ドバト</td>
+          <th id="species-net-similar" scope="row" headers="species-net">狩猟鳥獣と誤認されやすい鳥獣</th>
+          <td headers="species-net species-net-similar">オシドリ（オス）、ツグミ、カワラヒワ、カシラダカ、カケス、マガン、オシドリ、ドバト</td>
+       </tr>
+    </tbody>
+    <tbody>
+       <tr>
+          <th rowspan="2" id="species-trap" scope="rowgroup">わな免許</th>
+          <th id="species-trap-huntable" scope="row" headers="species-trap">狩猟鳥獣</th>
+          <td headers="species-trap species-trap-huntable">タヌキ、キツネ、テン、イタチ（オス）ニホンジカ、ミンク、アライグマ、ハクビシン、アナグマ</td>
        </tr>
        <tr>
-          <th rowspan="2">わな免許</th>
-          <td>狩猟鳥獣</td>
-          <td>タヌキ、キツネ、テン、イタチ（オス）ニホンジカ、ミンク、アライグマ、ハクビシン、アナグマ</td>
+          <th id="species-trap-similar" scope="row" headers="species-trap">狩猟鳥獣と誤認されやすい鳥獣</th>
+          <td headers="species-trap species-trap-similar">モモンガ、オコジョ、カモシカ、イタチ（メス）、ニホンリス、ムササビ、ニホンザル</td>
+       </tr>
+    </tbody>
+    <tbody>
+       <tr>
+          <th rowspan="2" id="species-firearm1" scope="rowgroup">第1種銃猟免許</th>
+          <th id="species-firearm1-huntable" scope="row" headers="species-firearm1">狩猟鳥獣</th>
+          <td headers="species-firearm1 species-firearm1-huntable">ゴイサギ、マガモ（オス）、カルガモ、コガモ（オス）、ヨシガモ（オス）、オナガガモ（オス）、ハシビロガモ（オス）、ホシハジロ（オス）、キンクロハジロ（オス）、スズガモ（オス）、クロガモ（オス）、コジュケイ、ヤマドリ、キジ、バン、ヤマシギ、タシギ、ヒヨドリ、キジバト、ニュウナイスズメ、スズメ、ムクドリ、タイワンリス、シマリス、アライグマ、タヌキ、キツネ、ミンク、ハクビシン、アナグマ</td>
        </tr>
        <tr>
-          <td>狩猟鳥獣と誤認されやすい鳥獣</td>
-          <td>モモンガ、オコジョ、カモシカ、イタチ（メス）、ニホンリス、ムササビ、ニホンザル</td>
+          <th id="species-firearm1-similar" scope="row" headers="species-firearm1">狩猟鳥獣と誤認されやすい鳥獣</th>
+          <td headers="species-firearm1 species-firearm1-similar">ヨシゴイ、ササゴイ、マガン、オシドリ（オス）、トモエガモ（オス）、ホオジロガモ（オス）、ビロウドキンクロ（オス）、コオリガモ（オス）、ウミアイサ（オス）、ヒクイナ、オオバン、アオバト、ドバト、モズ、ホオジロ、カシラダカ、カワラヒワ、カケス、オナガ、ツグミ、リス、カモシカ、イタチ（メス）、ムササビ</td>
+       </tr>
+    </tbody>
+    <tbody>
+       <tr>
+          <th rowspan="2" id="species-firearm2" scope="rowgroup">第2種銃猟免許</th>
+          <th id="species-firearm2-huntable" scope="row" headers="species-firearm2">狩猟鳥獣</th>
+          <td headers="species-firearm2 species-firearm2-huntable">コジュケイ、ヤマシギ、キジバト、ニュウナイスズメ、スズメ、ヒヨドリ、ムクドリ、バン、タイワンリス、シマリス</td>
        </tr>
        <tr>
-          <th rowspan="2">第1種銃猟免許</th>
-          <td>狩猟鳥獣</td>
-          <td>ゴイサギ、マガモ（オス）、カルガモ、コガモ（オス）、ヨシガモ（オス）、オナガガモ（オス）、ハシビロガモ（オス）、ホシハジロ（オス）、キンクロハジロ（オス）、スズガモ（オス）、クロガモ（オス）、コジュケイ、ヤマドリ、キジ、バン、ヤマシギ、タシギ、ヒヨドリ、キジバト、ニュウナイスズメ、スズメ、ムクドリ、タイワンリス、シマリス、アライグマ、タヌキ、キツネ、ミンク、ハクビシン、アナグマ</td>
-       </tr>
-       <tr>
-          <td>狩猟鳥獣と誤認されやすい鳥獣</td>
-          <td>ヨシゴイ、ササゴイ、マガン、オシドリ（オス）、トモエガモ（オス）、ホオジロガモ（オス）、ビロウドキンクロ（オス）、コオリガモ（オス）、ウミアイサ（オス）、ヒクイナ、オオバン、アオバト、ドバト、モズ、ホオジロ、カシラダカ、カワラヒワ、カケス、オナガ、ツグミ、リス、カモシカ、イタチ（メス）、ムササビ</td>
-       </tr>
-       <tr>
-          <th rowspan="2">第2種銃猟免許</th>
-          <td>狩猟鳥獣</td>
-          <td>コジュケイ、ヤマシギ、キジバト、ニュウナイスズメ、スズメ、ヒヨドリ、ムクドリ、バン、タイワンリス、シマリス</td>
-       </tr>
-       <tr>
-          <td>狩猟鳥獣と誤認されやすい鳥獣</td>
-          <td>アオバト、ドバト、モズ、ホオジロ、カシラダカ、カワラヒワ、カケス、オナガ、ツグミ、リス、イタチ（メス）</td>
+          <th id="species-firearm2-similar" scope="row" headers="species-firearm2">狩猟鳥獣と誤認されやすい鳥獣</th>
+          <td headers="species-firearm2 species-firearm2-similar">アオバト、ドバト、モズ、ホオジロ、カシラダカ、カワラヒワ、カケス、オナガ、ツグミ、リス、イタチ（メス）</td>
        </tr>
     </tbody>
  </table>

@@ -23,16 +23,19 @@ interface NewsListProps {
 
 function NewsList({ title, newsList }: NewsListProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">{title}</h2>
-      <ul className="divide-y divide-slate-200">
+    <div className="overflow-hidden rounded-lg border border-line bg-surface">
+      <h2 className="border-b border-line bg-muted px-4 py-3 text-lg font-bold text-ink">{title}</h2>
+      <ul className="divide-y divide-line">
         {newsList.map((news) => (
           <li key={news.slug}>
-            <Link href={`/news/${news.slug}`} className="flex items-start gap-4 px-4 py-3 hover:bg-slate-50">
-              <time dateTime={news.frontmatter.published} className="shrink-0 text-sm text-slate-500">
+            <Link
+              href={`/news/${news.slug}`}
+              className="flex flex-col items-start gap-1 sm:flex-row sm:gap-4 px-4 py-3 hover:bg-muted"
+            >
+              <time dateTime={news.frontmatter.published} className="shrink-0 text-sm text-subtle">
                 {formatDate(news.frontmatter.published)}
               </time>
-              <span className="text-[rgb(3,125,186)]">{news.frontmatter.title}</span>
+              <span className="text-brand">{news.frontmatter.title}</span>
             </Link>
           </li>
         ))}
@@ -57,7 +60,7 @@ export default async function NewsPage() {
       <SnsShare title={title} slug={slug} />
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+        <h1 className="text-2xl font-bold text-ink">{title}</h1>
         <NewsList title="事件・事故" newsList={incidentNews} />
         <NewsList title="法令・制度" newsList={lawNews} />
       </div>

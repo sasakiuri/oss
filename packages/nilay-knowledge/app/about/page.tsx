@@ -21,8 +21,8 @@ interface CardProps {
 
 function Card({ title, children }: CardProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">{title}</h2>
+    <div className="overflow-hidden rounded-lg border border-line bg-surface">
+      <h2 className="border-b border-line bg-muted px-4 py-3 text-lg font-bold text-ink">{title}</h2>
       {children}
     </div>
   );
@@ -42,7 +42,7 @@ export default function AboutPage() {
       <SnsShare title={title} slug={slug} />
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+        <h1 className="text-2xl font-bold text-ink">{title}</h1>
         <Card title="概要">
           <div className="p-4">
             <p className="leading-relaxed">
@@ -52,17 +52,17 @@ export default function AboutPage() {
         </Card>
 
         <Card title="コンテンツ">
-          <ul className="divide-y divide-slate-200">
+          <ul className="divide-y divide-line">
             <li>
-              <Link href="/articles" className="block px-4 py-3 hover:bg-slate-50">
-                <span className="font-medium text-slate-800">Articles</span>
-                <p className="mt-1 text-sm text-slate-600">銃・射撃・狩猟に関する情報をまとめています。</p>
+              <Link href="/articles" className="block px-4 py-3 hover:bg-muted">
+                <span className="font-medium text-ink">Articles</span>
+                <p className="mt-1 text-sm text-subtle">銃・射撃・狩猟に関する情報をまとめています。</p>
               </Link>
             </li>
             <li>
-              <Link href="/news" className="block px-4 py-3 hover:bg-slate-50">
-                <span className="font-medium text-slate-800">News</span>
-                <p className="mt-1 text-sm text-slate-600">
+              <Link href="/news" className="block px-4 py-3 hover:bg-muted">
+                <span className="font-medium text-ink">News</span>
+                <p className="mt-1 text-sm text-subtle">
                   銃・射撃・狩猟の事故・事件、法令に関するニュースをまとめています。
                 </p>
               </Link>
@@ -71,16 +71,16 @@ export default function AboutPage() {
         </Card>
 
         <Card title="その他サービス">
-          <ul className="divide-y divide-slate-200">
+          <ul className="divide-y divide-line">
             <li>
               <a
                 href={service.ecommerce}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block px-4 py-3 hover:bg-slate-50"
+                className="block px-4 py-3 hover:bg-muted"
               >
-                <span className="font-medium text-slate-800">通信販売</span>
-                <p className="mt-1 text-sm text-slate-600">
+                <span className="font-medium text-ink">通信販売</span>
+                <p className="mt-1 text-sm text-subtle">
                   射撃・狩猟・有害鳥獣駆除に関する商品を取り扱っています。購入にあたり許可が必要な商品の取り扱いはしておりません。
                 </p>
               </a>
@@ -90,12 +90,10 @@ export default function AboutPage() {
                 href={service.gunman}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block px-4 py-3 hover:bg-slate-50"
+                className="block px-4 py-3 hover:bg-muted"
               >
-                <span className="font-medium text-slate-800">Nilay/Gunman</span>
-                <p className="mt-1 text-sm text-slate-600">
-                  申請・申込書類の作成や使用実績の管理を行うためのアプリです。
-                </p>
+                <span className="font-medium text-ink">Nilay/Gunman</span>
+                <p className="mt-1 text-sm text-subtle">申請・申込書類の作成や使用実績の管理を行うためのアプリです。</p>
               </a>
             </li>
           </ul>
@@ -127,7 +125,7 @@ export default function AboutPage() {
                 href={`${service.about}/contact`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-brand underline underline-offset-4"
               >
                 Nilay/About
               </a>{' '}

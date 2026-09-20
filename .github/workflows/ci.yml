@@ -188,6 +188,10 @@ jobs:
         if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-about')
         run: npm run test:install --workspace=@sasakiuri/nilay-about
 
+      - name: Install Nilay Knowledge test browsers
+        if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
+        run: npm run test:install --workspace=@sasakiuri/nilay-knowledge
+
       - name: E2E tests (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run ci:packages -- test:e2e
@@ -210,6 +214,8 @@ jobs:
             packages/saika-vista/test-results/
             packages/nilay-about/playwright-report/
             packages/nilay-about/test-results/
+            packages/nilay-knowledge/playwright-report/
+            packages/nilay-knowledge/test-results/
           retention-days: 7
 
       - name: Upload test results

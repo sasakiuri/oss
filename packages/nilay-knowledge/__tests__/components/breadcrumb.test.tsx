@@ -28,19 +28,25 @@ describe('Breadcrumb', () => {
     expect(articlesLink).toHaveAttribute('href', '/articles');
   });
 
-  it('does not render link for final item', () => {
+  it('identifies the current page without making it a link', () => {
     render(<Breadcrumb items={mockItems} />);
 
-    // Final item should be a span, not a link
     const finalItem = screen.getByText('テスト記事');
-    expect(finalItem.tagName).toBe('SPAN');
+    expect(finalItem).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: 'テスト記事' })).not.toBeInTheDocument();
   });
 
   it('hides navigation when showNav is false', () => {
-    render(<Breadcrumb items={mockItems} showNav={false} />);
+    const { container } = render(<Breadcrumb items={mockItems} showNav={false} />);
 
     // Should not find the nav element
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(container.querySelector('script[type="application/ld+json"]')).toBeInTheDocument();
+  });
+
+  it('omits navigation and structured data when there are no items', () => {
+    const { container } = render(<Breadcrumb items={[]} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('includes JSON-LD structured data', () => {

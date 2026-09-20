@@ -12,6 +12,7 @@ afterEach(() => {
 
 // Browser mocks are unnecessary for repository and CLI tests in the Node environment.
 if (typeof window !== 'undefined') {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
   // Mock window.matchMedia
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

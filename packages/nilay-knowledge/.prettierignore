@@ -5,3 +5,5 @@ coverage/
 next-env.d.ts
 /content/
 /public/
+playwright-report/
+test-results/

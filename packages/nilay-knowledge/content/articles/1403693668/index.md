@@ -20,162 +20,162 @@ tags: ["狩猟"]
 ## 狩猟鳥（28種）
 
 <div class="flex flex-wrap -px-2 my-4">
-  <div class="w-full bg-gray-400 px-2">カモ目</div>
+  <div class="w-full bg-muted-strong px-2">カモ目</div>
 
   <div class="w-1/4 px-2">
 
-[![マガモ](264be10c28dd3870f7356e995c451f1cea8afae6.jpg)  マガモ](#マガモ)
+[![](264be10c28dd3870f7356e995c451f1cea8afae6.jpg)  マガモ](#マガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![カルガモ](9d0a14c022359a611fdaa216d27fc8d4275b982a.jpg)  カルガモ](#カルガモ)
+[![](9d0a14c022359a611fdaa216d27fc8d4275b982a.jpg)  カルガモ](#カルガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![コガモ](b6cc9049b2fa51056c6e933418f5db3fe2e06b80.jpg)  コガモ](#コガモ)
+[![](b6cc9049b2fa51056c6e933418f5db3fe2e06b80.jpg)  コガモ](#コガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![オナガガモ](90076b4597a3adb03f768d271db45a673059538e.jpg)  オナガガモ](#オナガガモ)
+[![](90076b4597a3adb03f768d271db45a673059538e.jpg)  オナガガモ](#オナガガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヨシガモ](d59285a1ab603ff1b7dfcc488611defad3ffab72.jpg)  ヨシガモ](#ヨシガモ)
+[![](d59285a1ab603ff1b7dfcc488611defad3ffab72.jpg)  ヨシガモ](#ヨシガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ハシビロガモ](1da9df8ee4faf39db6fea5c66874889233b93460.jpg)  ハシビロガモ](#ハシビロガモ)
+[![](1da9df8ee4faf39db6fea5c66874889233b93460.jpg)  ハシビロガモ](#ハシビロガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヒドリガモ](c94aace209b66f865828662dffb00d20bd9431e7.jpg)  ヒドリガモ](#ヒドリガモ)
+[![](c94aace209b66f865828662dffb00d20bd9431e7.jpg)  ヒドリガモ](#ヒドリガモ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ホシハジロ](5679fdd2365500645c7324435b09793bc5ae64ed.jpg)  ホシハジロ](#hoshihajiro)
+[![](5679fdd2365500645c7324435b09793bc5ae64ed.jpg)  ホシハジロ](#hoshihajiro)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![キンクロハジロ](f51593fd40b822d7cab0f4abc12a7abdfdc82f8e.jpg)  キンクロハジロ](#kinkurohajiro)
+[![](f51593fd40b822d7cab0f4abc12a7abdfdc82f8e.jpg)  キンクロハジロ](#kinkurohajiro)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![スズガモ](09b24a3b301c5f69fc7a8d80333c468b772379eb.jpg)  スズガモ](#suzugamo)
+[![](09b24a3b301c5f69fc7a8d80333c468b772379eb.jpg)  スズガモ](#suzugamo)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![クロガモ](aba84447d8afbae1e61c2731feb2f61c518d321d.jpg)  クロガモ](#kurogamo)
+[![](aba84447d8afbae1e61c2731feb2f61c518d321d.jpg)  クロガモ](#kurogamo)
 
   </div>
 
-  <div class="w-full bg-gray-400 px-2">キジ目</div>
+  <div class="w-full bg-muted-strong px-2">キジ目</div>
   <div class="w-1/4 px-2">
 
-[![エゾライチョウ](e512685ce49b81912409e4ca9dff2d36e5cd5d1f.jpg)  エゾライチョウ](#ezoraicho)
-
-  </div>
-  <div class="w-1/4 px-2">
-
-[![ヤマドリ](6dba7fad392fc7e99728f843ac47802c6c4d5a0c.jpg)  ヤマドリ](#yamadori)
+[![](e512685ce49b81912409e4ca9dff2d36e5cd5d1f.jpg)  エゾライチョウ](#ezoraicho)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![キジ](46d42826a3d0a8a4ee8fe9ea3059eb3fcb27765f.jpg)  キジ](#kiji)
+[![](6dba7fad392fc7e99728f843ac47802c6c4d5a0c.jpg)  ヤマドリ](#yamadori)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![コジュケイ](b1e94a44d5226990bd591de7848fd75d4ecf8915.jpg)  コジュケイ](#kojukei)
-
-  </div>
-
-  <div class="w-full bg-gray-400 px-2">スズメ目</div>
-
-  <div class="w-1/4 px-2">
-
-[![ニュウナイスズメ](0350164aa0c643ed98c5899a30b56e660eaa25fb.jpg)  ニュウナイスズメ](#nyunaisuzume)
+[![](46d42826a3d0a8a4ee8fe9ea3059eb3fcb27765f.jpg)  キジ](#kiji)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![スズメ](17303774702223e98e66013e55b2fa981924aeb0.jpg)  スズメ](#suzume)
+[![](b1e94a44d5226990bd591de7848fd75d4ecf8915.jpg)  コジュケイ](#kojukei)
+
+  </div>
+
+  <div class="w-full bg-muted-strong px-2">スズメ目</div>
+
+  <div class="w-1/4 px-2">
+
+[![](0350164aa0c643ed98c5899a30b56e660eaa25fb.jpg)  ニュウナイスズメ](#nyunaisuzume)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヒヨドリ](6d545898cdd8d02e19155096a2e7afc2785b2e33.jpg)  ヒヨドリ](#hiyodori)
+[![](17303774702223e98e66013e55b2fa981924aeb0.jpg)  スズメ](#suzume)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ムクドリ](83c2d47a0af1ed0184be1163211821e5c74a84c1.jpg)  ムクドリ](#mukudori)
+[![](6d545898cdd8d02e19155096a2e7afc2785b2e33.jpg)  ヒヨドリ](#hiyodori)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ハシボソガラス](eb1b7becbcc9ca949c09bb8f9e2d7c301c221caf.jpg)  ハシボソガラス](#hashibosogarasu)
+[![](83c2d47a0af1ed0184be1163211821e5c74a84c1.jpg)  ムクドリ](#mukudori)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ハシブトガラス](2f51a8202721bbed04ce66f59c81a5028e013a7e.jpg)  ハシブトガラス](#hashibutogarasu)
+[![](eb1b7becbcc9ca949c09bb8f9e2d7c301c221caf.jpg)  ハシボソガラス](#hashibosogarasu)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ミヤマガラス](1ccd8a424d00ce636cae1a6f057e46ff4517f37f.jpg)  ミヤマガラス](#miyamagarasu)
-
-  </div>
-
-  <div class="w-1/2 bg-gray-400 px-2">チドリ目</div>
-  <div class="w-1/4 bg-gray-400 px-2">ハト目</div>
-  <div class="w-1/4 bg-gray-400 px-2">ペリカン目</div>
-
-  <div class="w-1/4 px-2">
-
-[![タシギ](b93d84a2843269c9aebd4a3555b7f5c9128f51c7.jpg)  タシギ](#tashigi)
+[![](2f51a8202721bbed04ce66f59c81a5028e013a7e.jpg)  ハシブトガラス](#hashibutogarasu)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヤマシギ](aa6148ed75b71c114995b237cf18d1a5899f7768.jpg)  ヤマシギ](#yamashigi)
+[![](1ccd8a424d00ce636cae1a6f057e46ff4517f37f.jpg)  ミヤマガラス](#miyamagarasu)
+
+  </div>
+
+  <div class="w-1/2 bg-muted-strong px-2">チドリ目</div>
+  <div class="w-1/4 bg-muted-strong px-2">ハト目</div>
+  <div class="w-1/4 bg-muted-strong px-2">ペリカン目</div>
+
+  <div class="w-1/4 px-2">
+
+[![](b93d84a2843269c9aebd4a3555b7f5c9128f51c7.jpg)  タシギ](#tashigi)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![キジバト](e4c12a57478953d85d9bce13499aad1b1cbc2d79.jpg)  キジバト](#kijibato)
+[![](aa6148ed75b71c114995b237cf18d1a5899f7768.jpg)  ヤマシギ](#yamashigi)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ゴイサギ](2c0dab16244f3a3601a28d8e87ed9f50ff6a90f5.jpg)  ゴイサギ](#goisagi)
+[![](e4c12a57478953d85d9bce13499aad1b1cbc2d79.jpg)  キジバト](#kijibato)
+
+  </div>
+  <div class="w-1/4 px-2">
+
+[![](2c0dab16244f3a3601a28d8e87ed9f50ff6a90f5.jpg)  ゴイサギ](#goisagi)
 
   </div>
 
-  <div class="w-1/4 bg-gray-400 px-2">ツル目</div>
-  <div class="w-1/4 bg-gray-400 px-2">カツオドリ目</div>
+  <div class="w-1/4 bg-muted-strong px-2">ツル目</div>
+  <div class="w-1/4 bg-muted-strong px-2">カツオドリ目</div>
   <div class="w-1/2 px-2"></div>
         
 
   <div class="w-1/4 px-2">
 
-[![バン](afb1e30ecc9e17332423413ee0905cd93597fa58.jpg)  バン](#ban)
+[![](afb1e30ecc9e17332423413ee0905cd93597fa58.jpg)  バン](#ban)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![カワウ](ec3a219267a04e2aa6fec179b0c57a2dc341bdc7.jpg)  カワウ](#kawau)
+[![](ec3a219267a04e2aa6fec179b0c57a2dc341bdc7.jpg)  カワウ](#kawau)
 
   </div>
 
@@ -184,16 +184,16 @@ tags: ["狩猟"]
 ## 狩猟獣（20種）
 
 <div class="flex flex-wrap -px-2 my-4">
-  <div class="w-full bg-gray-400 px-2">ネコ目</div>
+  <div class="w-full bg-muted-strong px-2">ネコ目</div>
   
   <div class="w-1/4 px-2">
 
-[![タヌキ](eb787f0c2b2926038e742a10f5dc68935139ab8c.jpg)  タヌキ](#タヌキ)
+[![](eb787f0c2b2926038e742a10f5dc68935139ab8c.jpg)  タヌキ](#タヌキ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![キツネ](ca11dec088435fa9a1b87088e0781e7eb55b838d.jpg)  キツネ](#キツネ)
+[![](ca11dec088435fa9a1b87088e0781e7eb55b838d.jpg)  キツネ](#キツネ)
 
   </div>
 
@@ -210,80 +210,80 @@ tags: ["狩猟"]
 
   <div class="w-1/4 px-2">
 
-[![テン](a69cf35f6bfa87a612a5ccb035ad7b1d4ec459ab.jpg)  テン](#テン)
+[![](a69cf35f6bfa87a612a5ccb035ad7b1d4ec459ab.jpg)  テン](#テン)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![イタチ（オス）](0fdb656a7f0f104777788d611a38ec2b31fcc28a.jpg)  イタチ（オス）](#イタチ（オス）)
+[![](0fdb656a7f0f104777788d611a38ec2b31fcc28a.jpg)  イタチ（オス）](#イタチ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ミンク](12d5437767630d66d038fa7b522d28e1426e6c40.jpg)  ミンク](#ミンク)
+[![](12d5437767630d66d038fa7b522d28e1426e6c40.jpg)  ミンク](#ミンク)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![アナグマ](89719a9aea8da39b7fcfb540a82e09378e49208b.jpg)  アナグマ](#アナグマ)
+[![](89719a9aea8da39b7fcfb540a82e09378e49208b.jpg)  アナグマ](#アナグマ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![アライグマ](3c633aae40a69934f7e584376c8fbbf317098a82.jpg)  アライグマ](#アライグマ)
+[![](3c633aae40a69934f7e584376c8fbbf317098a82.jpg)  アライグマ](#アライグマ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヒグマ](90d09f09c4313395b14c767a1048027bf18ca8f2.jpg)  ヒグマ](#ヒグマ)
+[![](90d09f09c4313395b14c767a1048027bf18ca8f2.jpg)  ヒグマ](#ヒグマ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ツキノワグマ](ad184404326253a912ba2cebee0eac4052845f44.jpg)  ツキノワグマ](#ツキノワグマ)
+[![](ad184404326253a912ba2cebee0eac4052845f44.jpg)  ツキノワグマ](#ツキノワグマ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ハクビシン](ec14ffd3b2782a5002541fee02e58d3d67d0167c.jpg)  ハクビシン](#ハクビシン)
+[![](ec14ffd3b2782a5002541fee02e58d3d67d0167c.jpg)  ハクビシン](#ハクビシン)
 
   </div>
 
-  <div class="w-3/4 bg-gray-400 px-2">ネズミ目</div>
-  <div class="w-1/4 bg-gray-400 px-2">ウサギ目</div>
+  <div class="w-3/4 bg-muted-strong px-2">ネズミ目</div>
+  <div class="w-1/4 bg-muted-strong px-2">ウサギ目</div>
 
   <div class="w-1/4 px-2">
 
-[![タイワンリス](ec7349a51faf85ebcbfacb75f522c61fad4c7144.jpg)  タイワンリス](#タイワンリス)
-
-  </div>
-  <div class="w-1/4 px-2">
-
-[![シマリス](b41d2ad9d410ab406e422909fbd359fb663182d3.jpg)  シマリス](#シマリス)
+[![](ec7349a51faf85ebcbfacb75f522c61fad4c7144.jpg)  タイワンリス](#タイワンリス)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ヌートリア](b922ebdf03662c67492023d8e593e7bde2f4ae5c.jpg)  ヌートリア](#ヌートリア)
+[![](b41d2ad9d410ab406e422909fbd359fb663182d3.jpg)  シマリス](#シマリス)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![ノウサギ・ユキウサギ](512921b0837461cf4f68b7925e42987d726e63b4.jpg)  ノウサギ・ユキウサギ](#ノウサギ・ユキウサギ)
+[![](b922ebdf03662c67492023d8e593e7bde2f4ae5c.jpg)  ヌートリア](#ヌートリア)
+
+  </div>
+  <div class="w-1/4 px-2">
+
+[![](512921b0837461cf4f68b7925e42987d726e63b4.jpg)  ノウサギ・ユキウサギ](#ノウサギ)
 
   </div>
 
-<div class="w-1/2 bg-gray-400 px-2">ウシ目</div>
+<div class="w-1/2 bg-muted-strong px-2">ウシ目</div>
 <div class="w-1/2 px-2"></div>
 
   <div class="w-1/4 px-2">
 
-[![ニホンジカ](d5a982b07dad4e780a10fff4b124ccb655f383b8.jpg)  ニホンジカ](#ニホンジカ)
+[![](d5a982b07dad4e780a10fff4b124ccb655f383b8.jpg)  ニホンジカ](#ニホンジカ)
 
   </div>
   <div class="w-1/4 px-2">
 
-[![イノシシ](cb9fb10b727ef8647b3d8b49f2f85d0bc92f9f86.jpg)  イノシシ](#イノシシ)
+[![](cb9fb10b727ef8647b3d8b49f2f85d0bc92f9f86.jpg)  イノシシ](#イノシシ)
 
   </div>
 </div>
@@ -298,15 +298,23 @@ tags: ["狩猟"]
 
 **陸ガモと海ガモ**　カモの仲間は、大まかに陸ガモ（淡水ガモ類）と海ガモ（潜水ガモ類）に分類することができます。 「陸」や「海」とついていますが、陸ガモは陸に、海ガモは海にいるわけではなく、どちらも湖沼・池・川・海岸・内湾等に生息しています。 これらの判別方法として、陸ガモと海ガモは図1のように尾がどの程度水面に近いかで大体見分けることができます。
 
-![陸ガモと海ガモの尾](1fb0ee8ea458e0dbef9177e2f51c33256d7bf465.png)
-図1　陸ガモと海ガモの尾の比較
+<figure>
+  <img src="1fb0ee8ea458e0dbef9177e2f51c33256d7bf465.png" alt="陸ガモは尾が水面より上に持ち上がり、海ガモは尾が水面近くにある比較図。" class="content-illustration">
+  <figcaption>図1　陸ガモと海ガモの尾の比較</figcaption>
+</figure>
+
+図1では、陸ガモの尾は水面より上に持ち上がり、海ガモの尾は水面近くに描かれています。
 
 また、陸ガモと海ガモでは水面からの飛び立ち方が異なります。 陸ガモはほぼ垂直に急な角度で一気に飛び立ちますが、海ガモは助走をつけて水面を滑走するようにして飛び立ちます。
 
 **模様や色による判別**　狩猟期間になるとカルガモを除くカモのオスは、鮮やかな色とそれぞれ独特の模様になります。 メスの判別は難しいですが、オスと一緒にいることが多いので、オスの判別を参考にメスを判別することができます。 また、ハシビロガモの嘴、オナガガモの尾、ヨシガモの冠羽といったような特徴を覚えていれば容易に見分けられます。
 
-![陸ガモ類の頭部](a05497435c5b8c7824f3146dbe6ba61c866bda4b.png)
-図2　陸ガモたちの頭部の比較
+<figure>
+  <img src="a05497435c5b8c7824f3146dbe6ba61c866bda4b.png" alt="陸ガモ7種の頭部。頭や額、首の模様、嘴の色と形を並べて比較した図。" class="content-illustration" aria-details="duck-head-comparison">
+  <figcaption>図2　陸ガモたちの頭部の比較</figcaption>
+</figure>
+
+<p id="duck-head-comparison">図2では、マガモは緑色の頭と黄色い嘴、カルガモは褐色の頭と先端が黄色い黒い嘴、コガモは茶色の頭と目の周りから後頭部へ伸びる緑色の模様、オナガガモはこげ茶色の頭と首の横の白い線、ヒドリガモは茶色の頭と黄色い額、ヨシガモは緑色の後頭部と白い喉、ハシビロガモは緑色の頭と幅広い黒い嘴が描かれています。</p>
 
 # 形態と生態
 
@@ -318,10 +326,12 @@ tags: ["狩猟"]
 **スズメ目**　[ニュウナイスズメ](#nyunaisuzume) | [スズメ](#suzume) | [ヒヨドリ](#hiyodori) | [ムクドリ](#mukudori) | [ハシボソガラス](#hashibosogarasu) | [ハシブトガラス](#hashibutogarasu) | [ミヤマガラス](#miyamagarasu)  
 **その他鳥類**　[タシギ](#tashigi) | [ヤマシギ](#yamashigi) | [キジバト](#kijibato) | [バン](#ban) | [カワウ](#kawau)
 
-<div id="マガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**マガモ**　カモ目カモ科マガモ属 （→ [ウィキペディア：マガモ](http://ja.wikipedia.org/wiki/%E3%83%9E%E3%82%AC%E3%83%A2)）  
+<h3 id="マガモ">マガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキペディア：マガモ](http://ja.wikipedia.org/wiki/%E3%83%9E%E3%82%AC%E3%83%A2)）  
 （漢字：真鴨、英名：mallard、学名：*Anas platyrhynchos*）  
 【大きさ】全長は約60cm。  
 【分布】主に冬鳥であるが、一部少数は本州中部以北の湖沼で繁殖。主に湖沼・河川・内湾に生 息し、 周辺の草地で繁殖・営巣をする。  
@@ -340,10 +350,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="カルガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**カルガモ**　カモ目カモ科マガモ属 （→ [ウィキディア：カルガモ](http://ja.wikipedia.org/wiki/%E3%82%AB%E3%83%AB%E3%82%AC%E3%83%A2)）  
+<h3 id="カルガモ">カルガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキディア：カルガモ](http://ja.wikipedia.org/wiki/%E3%82%AB%E3%83%AB%E3%82%AC%E3%83%A2)）  
 （漢字：軽鴨、英名：spotbill、学名：*Anas poecilorhyncha*）  
 【大きさ】全長は約60cm。  
 【分布】全国的に分布する留鳥または漂鳥。主に湖沼・河川・内湾に生息し、水辺近くの草むらで営巣する。  
@@ -362,10 +374,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="コガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**コガモ**　カモ目カモ科マガモ属 （→ [ウィキペディア：コガモ](http://ja.wikipedia.org/wiki/%E3%82%B3%E3%82%AC%E3%83%A2)）  
+<h3 id="コガモ">コガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキペディア：コガモ](http://ja.wikipedia.org/wiki/%E3%82%B3%E3%82%AC%E3%83%A2)）  
 （漢字：小鴨、英名：common teal、学名：*Anas crecca*）  
 【大きさ】全長は約40cm。  
 【分布】主に冬鳥で、一部は本州中部以北で繁殖。主に湖や河川等の淡水に生息し、水辺近くの草む らで営巣する。  
@@ -384,10 +398,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="オナガガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**オナガガモ**　種類属 （→ [ウィキペディア：オナガガモ](http://ja.wikipedia.org/wiki/%E3%82%AA%E3%83%8A%E3%82%AC%E3%82%AC%E3%83%A2)）  
+<h3 id="オナガガモ">オナガガモ</h3>
+
+種類属 （→ [ウィキペディア：オナガガモ](http://ja.wikipedia.org/wiki/%E3%82%AA%E3%83%8A%E3%82%AC%E3%82%AC%E3%83%A2)）  
 （漢字：尾長鴨、英名：pintail、学名：
 *Anas acuta*）  
 【大きさ】全長はオスが約75cm、メスが約50cm。  
@@ -407,10 +423,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ヨシガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヨシガモ**　カモ目カモ科マガモ属 （→ [ウィキペディア：ヨシガモ](http://ja.wikipedia.org/wiki/%E3%83%A8%E3%82%B7%E3%82%AC%E3%83%A2)）  
+<h3 id="ヨシガモ">ヨシガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキペディア：ヨシガモ](http://ja.wikipedia.org/wiki/%E3%83%A8%E3%82%B7%E3%82%AC%E3%83%A2)）  
 （漢字：葦鴨、英名：falcated duck、学名：*Anas falcata*）  
 【大きさ】全長は約50cm。  
 【分布】大部分が冬鳥であるが生息数は少ない。一部は北海道で繁殖。湖沼・河川・内湾などに生息 する。  
@@ -429,10 +447,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ハシビロガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ハシビロガモ**　カモ目カモ科マガモ属 （→ [ウィキペディア：ハシビロガモ](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%93%E3%83%AD%E3%82%AC%E3%83%A2)）  
+<h3 id="ハシビロガモ">ハシビロガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキペディア：ハシビロガモ](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%93%E3%83%AD%E3%82%AC%E3%83%A2)）  
 （漢字：、英名：northern shoveler、学名：*Anas clypeata*）  
 【大きさ】全長は約50cm。  
 【分布】冬鳥として本州以南に飛来。主に湖沼・河口付近・内湾に生息している。  
@@ -451,10 +471,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ヒドリガモ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヒドリガモ**　カモ目カモ科マガモ属 （→ [ウィキペディア：ヒドリガモ](http://ja.wikipedia.org/wiki/%E3%83%92%E3%83%89%E3%83%AA%E3%82%AC%E3%83%A2)）  
+<h3 id="ヒドリガモ">ヒドリガモ</h3>
+
+カモ目カモ科マガモ属 （→ [ウィキペディア：ヒドリガモ](http://ja.wikipedia.org/wiki/%E3%83%92%E3%83%89%E3%83%AA%E3%82%AC%E3%83%A2)）  
 （漢字：、英名：Eurasian wigeon、学名：*Anas penelope*）  
 【大きさ】全長は約48.5cm。  
 【分布】冬鳥として飛来。  
@@ -473,10 +495,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="hoshihajiro" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ホシハジロ**　カモ目カモ科ハジロ属 （→ [ウィキペディア：ホシハジロ](http://ja.wikipedia.org/wiki/%E3%83%9B%E3%82%B7%E3%83%8F%E3%82%B8%E3%83%AD)）  
+<h3 id="hoshihajiro">ホシハジロ</h3>
+
+カモ目カモ科ハジロ属 （→ [ウィキペディア：ホシハジロ](http://ja.wikipedia.org/wiki/%E3%83%9B%E3%82%B7%E3%83%8F%E3%82%B8%E3%83%AD)）  
 （漢字：星羽白、英名：common pochard、学名：*Aythya ferina*）  
 【大きさ】全長は約45cm。  
 【分布】冬鳥として全国に飛来。北海道では一部繁殖する。主に湖沼・河川・内湾に生息している。  
@@ -495,10 +519,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kinkurohajiro" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**キンクロハジロ**　カモ目カモ科ハジロ属 （→ [ウィキペディア：キンクロハジロ](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%83%B3%E3%82%AF%E3%83%AD%E3%83%8F%E3%82%B8%E3%83%AD)）  
+<h3 id="kinkurohajiro">キンクロハジロ</h3>
+
+カモ目カモ科ハジロ属 （→ [ウィキペディア：キンクロハジロ](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%83%B3%E3%82%AF%E3%83%AD%E3%83%8F%E3%82%B8%E3%83%AD)）  
 （漢字：金黒羽白、英名：tufted duck、学名：*Aythya fuligula*）  
 【大きさ】全長は約40cm。  
 【分布】冬鳥として飛来。北海道では一部繁殖する。主に湖沼や河川に生息している。  
@@ -517,10 +543,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="suzugamo" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**スズガモ**　カモ目カモ科ハジロ属 （→ [ウィキペディア：スズガモ](http://ja.wikipedia.org/wiki/%E3%82%B9%E3%82%BA%E3%82%AC%E3%83%A2)）  
+<h3 id="suzugamo">スズガモ</h3>
+
+カモ目カモ科ハジロ属 （→ [ウィキペディア：スズガモ](http://ja.wikipedia.org/wiki/%E3%82%B9%E3%82%BA%E3%82%AC%E3%83%A2)）  
 （漢字：鈴鴨、英名：greater scaup、学名：*Aythya marila*）  
 【大きさ】全長は約45cm。  
 【分布】冬鳥として多数飛来。主に内湾・河口付近に生息する。  
@@ -539,10 +567,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kurogamo" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**クロガモ**　カモ目カモ科クロガモ属 （→ [ウィキペディア：クロガモ](http://ja.wikipedia.org/wiki/%E3%82%AF%E3%83%AD%E3%82%AC%E3%83%A2)）  
+<h3 id="kurogamo">クロガモ</h3>
+
+カモ目カモ科クロガモ属 （→ [ウィキペディア：クロガモ](http://ja.wikipedia.org/wiki/%E3%82%AF%E3%83%AD%E3%82%AC%E3%83%A2)）  
 （漢字：黒鴨、英名：common scoter、学名：*Melanitta nigra*）  
 【大きさ】全長は約48cm。  
 【分布】冬鳥として九州以北に飛来。主に海上に生息している。  
@@ -561,10 +591,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ezoraicho" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**エゾライチョウ**　キジ目ライチョウ科エゾライチョウ属 （→ [ウィキペディア：エゾライチョウ](http://ja.wikipedia.org/wiki/%E3%82%A8%E3%82%BE%E3%83%A9%E3%82%A4%E3%83%81%E3%83%A7%E3%82%A6)）  
+<h3 id="ezoraicho">エゾライチョウ</h3>
+
+キジ目ライチョウ科エゾライチョウ属 （→ [ウィキペディア：エゾライチョウ](http://ja.wikipedia.org/wiki/%E3%82%A8%E3%82%BE%E3%83%A9%E3%82%A4%E3%83%81%E3%83%A7%E3%82%A6)）  
 （漢字：蝦夷雷鳥、英名：hazel grouse、学名：*Tetrastes bonasia*）  
 【大きさ】全長は約36cm。  
 【分布】北海道において留鳥。低地から山地の森林に生息している。  
@@ -582,10 +614,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="yamadori" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヤマドリ**　キジ目キジ科ヤマドリ属 （→ [ウィキペディア：ヤマドリ](http://ja.wikipedia.org/wiki/%E3%83%A4%E3%83%9E%E3%83%89%E3%83%AA)）  
+<h3 id="yamadori">ヤマドリ</h3>
+
+キジ目キジ科ヤマドリ属 （→ [ウィキペディア：ヤマドリ](http://ja.wikipedia.org/wiki/%E3%83%A4%E3%83%9E%E3%83%89%E3%83%AA)）  
 （漢字：山鳥、英名：copper pheasant、学名：*Syrmaticus soemmerringii*）  
 【大きさ】全長はオスが約125cm、メスが約55cm。  
 【分布】本州から九州において留鳥として分布。低地から山地の林に生息している。  
@@ -603,10 +637,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kiji" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**キジ**　キジ目キジ科キジ属 （→ [ウィキペディア：キジ](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%82%B8)）  
+<h3 id="kiji">キジ</h3>
+
+キジ目キジ科キジ属 （→ [ウィキペディア：キジ](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%82%B8)）  
 （漢字：雉子、英名：green pheasant、学名：*Phasianus versicolor*）  
 【大きさ】全長はオスが約80cm、メスが約60cm。  
 【分布】北海道と対馬を除く本州から九州に留鳥として分布する。低地から山地の草原・農耕地・川 原・林などに明るい場所に生息している。  
@@ -624,10 +660,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kojukei" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**コジュケイ**　キジ目キジ科コジュケイ属 （→ [ウィキペディア：コジュケイ](http://ja.wikipedia.org/wiki/%E3%82%B3%E3%82%B8%E3%83%A5%E3%82%B1%E3%82%A4)）  
+<h3 id="kojukei">コジュケイ</h3>
+
+キジ目キジ科コジュケイ属 （→ [ウィキペディア：コジュケイ](http://ja.wikipedia.org/wiki/%E3%82%B3%E3%82%B8%E3%83%A5%E3%82%B1%E3%82%A4)）  
 （漢字：小綬鶏、英名：Chinese bamboo partridge、学名：*Bambusicola thoracicus*）  
 【大きさ】全長は約27cm。  
 【分布】本州に留鳥として分布。低地や低山の林・藪などに生息している。  
@@ -645,10 +683,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="nyunaisuzume" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ニュウナイスズメ**　スズメ目スズメ科スズメ属 （→ [ウィキペディア：ニュウナイスズメ](http://ja.wikipedia.org/wiki/%E3%83%8B%E3%83%A5%E3%82%A6%E3%83%8A%E3%82%A4%E3%82%B9%E3%82%BA%E3%83%A1)）  
+<h3 id="nyunaisuzume">ニュウナイスズメ</h3>
+
+スズメ目スズメ科スズメ属 （→ [ウィキペディア：ニュウナイスズメ](http://ja.wikipedia.org/wiki/%E3%83%8B%E3%83%A5%E3%82%A6%E3%83%8A%E3%82%A4%E3%82%B9%E3%82%BA%E3%83%A1)）  
 （漢字：入内雀、英名：russet sparrow、学名：*Passer rutilans*）  
 【大きさ】全長は約14cm。  
 【分布】本州中部以北で繁殖し、冬は暖地で越冬する。  
@@ -666,10 +706,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="suzume" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**スズメ**　スズメ目スズメ科スズメ属 （→ [ウィキペディア：スズメ](http://ja.wikipedia.org/wiki/%E3%82%B9%E3%82%BA%E3%83%A1)）  
+<h3 id="suzume">スズメ</h3>
+
+スズメ目スズメ科スズメ属 （→ [ウィキペディア：スズメ](http://ja.wikipedia.org/wiki/%E3%82%B9%E3%82%BA%E3%83%A1)）  
 【大きさ】全長は約14.5cm。  
 【分布】小笠原諸島を除く全国で留鳥または漂鳥として分布。人家付近・田畑・草原などに 生息している。  
 【形や色】頭部は赤褐色で、頬は白く、喉の部分・耳羽・目の先が黒い。背は褐色で、黒色 の縦斑がある。腹は白色。翼には細い白色の線がある。
@@ -686,10 +728,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="hiyodori" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヒヨドリ**　スズメ目ヒヨドリ科ヒヨドリ属 （→ [ウィキペディア：ヒヨドリ](http://ja.wikipedia.org/wiki/%E3%83%92%E3%83%A8%E3%83%89%E3%83%AA)）  
+<h3 id="hiyodori">ヒヨドリ</h3>
+
+スズメ目ヒヨドリ科ヒヨドリ属 （→ [ウィキペディア：ヒヨドリ](http://ja.wikipedia.org/wiki/%E3%83%92%E3%83%A8%E3%83%89%E3%83%AA)）  
 （漢字：鵯、英名：brown-eared bulbul、学名：*Hypsipetes amaurotis*）  
 【大きさ】全長は約27.5cm。  
 【分布】全国に留鳥として分布。低地から山地の林・農耕地などに生息している。また都市 部の公園などでも見られる。  
@@ -708,10 +752,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="mukudori" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ムクドリ**　スズメ目ムクドリ科ムクドリ属 （→ [ウィキペディア：ムクドリ](http://ja.wikipedia.org/wiki/%E3%83%A0%E3%82%AF%E3%83%89%E3%83%AA)）  
+<h3 id="mukudori">ムクドリ</h3>
+
+スズメ目ムクドリ科ムクドリ属 （→ [ウィキペディア：ムクドリ](http://ja.wikipedia.org/wiki/%E3%83%A0%E3%82%AF%E3%83%89%E3%83%AA)）  
 （漢字：椋鳥、英名：white-cheeked starling、学名：*Sturnus cineraceus*）  
 【大きさ】全長は約24cm。 【分布】九州以北において留鳥または漂鳥。街中の公園や農耕地などで見られ、集落周辺の
 林などで繁殖する。 【形や色】体は濃い灰色で、頭部・背・尾の部分は黒みがかっている。目の周りや頬には白 色の羽毛がある。尾羽の先端は白色。嘴と足は橙色をしている。
@@ -728,10 +774,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="hashibosogarasu" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ハシボソガラス**　スズメ目カラス科カラス属 （→ [ウィキペディア：ハシボソガラス](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%9C%E3%82%BD%E3%82%AC%E3%83%A9%E3%82%B9)）  
+<h3 id="hashibosogarasu">ハシボソガラス</h3>
+
+スズメ目カラス科カラス属 （→ [ウィキペディア：ハシボソガラス](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%9C%E3%82%BD%E3%82%AC%E3%83%A9%E3%82%B9)）  
 （漢字：嘴細烏、英名：carrion crow、学名：*Corvus corone*）  
 【大きさ】全長は約50cm。  
 【分布】九州以北で繁殖する留鳥。低地や低山に生息している。  
@@ -749,10 +797,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="hashibutogarasu" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ハシブトガラス**　スズメ目カラス科カラス属 （→ [ウィキペディア：ハシブトガラス](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%96%E3%83%88%E3%82%AC%E3%83%A9%E3%82%B9)）  
+<h3 id="hashibutogarasu">ハシブトガラス</h3>
+
+スズメ目カラス科カラス属 （→ [ウィキペディア：ハシブトガラス](http://ja.wikipedia.org/wiki/%E3%83%8F%E3%82%B7%E3%83%96%E3%83%88%E3%82%AC%E3%83%A9%E3%82%B9)）  
 （漢字：嘴太烏、英名：jungle crow、学名：*Corvus macrorhynchos*）  
 【大きさ】全長は約58cm。  
 【分布】小笠原諸島を除く全国で繁殖する留鳥。街中から山中まで広く分布している。  
@@ -770,10 +820,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="miyamagarasu" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ミヤマガラス**　スズメ目カラス科カラス属 （→ [ウィキペディア：ミヤマガラス](http://ja.wikipedia.org/wiki/%E3%83%9F%E3%83%A4%E3%83%9E%E3%82%AC%E3%83%A9%E3%82%B9)）  
+<h3 id="miyamagarasu">ミヤマガラス</h3>
+
+スズメ目カラス科カラス属 （→ [ウィキペディア：ミヤマガラス](http://ja.wikipedia.org/wiki/%E3%83%9F%E3%83%A4%E3%83%9E%E3%82%AC%E3%83%A9%E3%82%B9)）  
 （漢字：深山烏、英名：rook、学名：
 *Corvus frugilegus*）  
 【大きさ】全長は約47cm。  
@@ -792,10 +844,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="tashigi" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**タシギ**　チドリ目シギ科タシギ属 （→ [ウィキペディア：タシギ](http://ja.wikipedia.org/wiki/%E3%82%BF%E3%82%B7%E3%82%AE)）  
+<h3 id="tashigi">タシギ</h3>
+
+チドリ目シギ科タシギ属 （→ [ウィキペディア：タシギ](http://ja.wikipedia.org/wiki/%E3%82%BF%E3%82%B7%E3%82%AE)）  
 （漢字：田鴫、英名：common snipe、学名：*Gallinago gallinago*）  
 【大きさ】全長約26cm。  
 【分布】冬鳥または旅鳥として飛来。主に水田・湿地・川岸などに生息している。  
@@ -814,10 +868,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="yamashigi" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヤマシギ**　チドリ目シギ科ヤマシギ属 （→ [ウィキペディア：ヤマシギ](http://ja.wikipedia.org/wiki/%E3%83%A4%E3%83%9E%E3%82%B7%E3%82%AE)）  
+<h3 id="yamashigi">ヤマシギ</h3>
+
+チドリ目シギ科ヤマシギ属 （→ [ウィキペディア：ヤマシギ](http://ja.wikipedia.org/wiki/%E3%83%A4%E3%83%9E%E3%82%B7%E3%82%AE)）  
 （漢字：山鷸、英名：Eurasian woodcock、学名：*Scolopax rusticola*）  
 【大きさ】全長約34cm。  
 【分布】本州中部以北・伊豆諸島の林で繁殖する留鳥。北海道で夏鳥、西日本では冬鳥。  
@@ -835,10 +891,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kijibato" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**キジバト**　ハト目ハト科キジバト属 （→ [ウィキペディア：キジバト](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%82%B8%E3%83%90%E3%83%88)）  
+<h3 id="kijibato">キジバト</h3>
+
+ハト目ハト科キジバト属 （→ [ウィキペディア：キジバト](http://ja.wikipedia.org/wiki/%E3%82%AD%E3%82%B8%E3%83%90%E3%83%88)）  
 （漢字：雉鳩、英名：Oriental turtle dove、学名：*Streptopelia orientalis*）  
 【大きさ】全長は約33cm。  
 【分布】低地や山地では留鳥、北海道や本州北部では夏鳥。平地や明るい森林に生息するが、都市部 の公園や庭でもみられる。  
@@ -857,10 +915,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="goisagi" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ゴイサギ**　コウノトリ目サギ科ゴイサギ属 （→ [ウィキペディア：ゴイサギ](http://ja.wikipedia.org/wiki/%E3%82%B4%E3%82%A4%E3%82%B5%E3%82%AE)）  
+<h3 id="goisagi">ゴイサギ</h3>
+
+コウノトリ目サギ科ゴイサギ属 （→ [ウィキペディア：ゴイサギ](http://ja.wikipedia.org/wiki/%E3%82%B4%E3%82%A4%E3%82%B5%E3%82%AE)）  
 （漢字：五位鷺、英名：night heron、学名：*Nycticorax nycticorax*）  
 【大きさ】全長は約57.5cm。  
 【分布】九州から本州で繁殖し、留鳥または漂鳥。北海道でも少数が夏鳥として飛来する。河川・池 沼・湿原などに生息し、日中は林で休んでいることが多い。  
@@ -878,10 +938,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ban" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**バン**　ツル目クイナ科バン属 （→ [ウィキペディア：バン](http://ja.wikipedia.org/wiki/%E3%83%90%E3%83%B3_%28%E9%B3%A5%E9%A1%9E%29)）  
+<h3 id="ban">バン</h3>
+
+ツル目クイナ科バン属 （→ [ウィキペディア：バン](http://ja.wikipedia.org/wiki/%E3%83%90%E3%83%B3_%28%E9%B3%A5%E9%A1%9E%29)）  
 （漢字：鷭、英名：common moorhen、学名：*Gallinula chloropus*）  
 【大きさ】全長は約32.5cm。  
 【分布】全国的に繁殖するが、冬期は関東以南に多い。湖沼・河川・水田な・湿地などに生息する。  
@@ -902,10 +964,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="kawau" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**カワウ**　カツオドリ目ウ科ウ属 （→ [ウィキペディア：カワウ](http://ja.wikipedia.org/wiki/%E3%82%AB%E3%83%AF%E3%82%A6)）  
+<h3 id="kawau">カワウ</h3>
+
+カツオドリ目ウ科ウ属 （→ [ウィキペディア：カワウ](http://ja.wikipedia.org/wiki/%E3%82%AB%E3%83%AF%E3%82%A6)）  
 （漢字：河鵜、英名：great cormorant、学名：*Phalacrocorax carbo*）  
 【大きさ】全長は約82cm。  
 【分布】九州以北で繁殖する留鳥または漂鳥。また本州北部では夏鳥、九州以南では冬鳥として飛 来する。主に河川部・湖沼・内湾に生息する。  
@@ -931,10 +995,12 @@ tags: ["狩猟"]
 **ネズミ目**　[タイワンリス](#タイワンリス) | [シマリス](#シマリス) | [ヌートリア](#ヌートリア)  
 **ウサギ目**　[ユキウサギ](#ユキウサギ) | [ノウサギ](#ノウサギ)
 
-<div id="タヌキ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**タヌキ**　ネコ目イヌ科タヌキ属 （→ [ウィキペディア：タヌキ](http://ja.wikipedia.org/wiki/タヌキ)）  
+<h3 id="タヌキ">タヌキ</h3>
+
+ネコ目イヌ科タヌキ属 （→ [ウィキペディア：タヌキ](http://ja.wikipedia.org/wiki/タヌキ)）  
 （漢字：狸、英名：raccoon dog、学名：*Nyctereutes procyonoides*）  
 【大きさ】頭胴長 50〜60 cm、尾長 15 cm、体重 3〜5 kg。  
 【分布】沖縄を除く全国の住宅地や雑木林、低い山地などに生息する。  
@@ -952,10 +1018,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="キツネ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**キツネ**　ネコ目イヌ科キツネ属 （→ [ウィキペディア：アカギツネ](http://ja.wikipedia.org/wiki/アカギツネ)）  
+<h3 id="キツネ">キツネ</h3>
+
+ネコ目イヌ科キツネ属 （→ [ウィキペディア：アカギツネ](http://ja.wikipedia.org/wiki/アカギツネ)）  
 （漢字：狐、英名：red fox、学名：*Vulpes vulpes*）  
 【大きさ】頭胴長 60〜75 cm、尾長 40 cm、体重 4〜7 kg。  
 【分布】沖縄を除く全国の郊外から山岳地、農地などに生息する。四国では少ない。  
@@ -973,10 +1041,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ノイヌ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ノイヌ**　ネコ目イヌ科イヌ属 （→ [ウィキペディア：イヌ](http://ja.wikipedia.org/wiki/イヌ)）  
+<h3 id="ノイヌ">ノイヌ</h3>
+
+ネコ目イヌ科イヌ属 （→ [ウィキペディア：イヌ](http://ja.wikipedia.org/wiki/イヌ)）  
 （漢字：野犬、英名：dog、学名：*Canis familiaris*）  
 【大きさ】中型犬以上の大きさの個体が多く、小型犬類程度の大きさの個体は少ない。  
 【分布】全国に広く生息する。林道沿いや集落の近くに生息することが多い。  
@@ -993,10 +1063,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ノネコ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ノネコ**　ネコ目ネコ科ネコ属 （→ [ウィキペディア：ネコ](http://ja.wikipedia.org/wiki/ネコ)）  
+<h3 id="ノネコ">ノネコ</h3>
+
+ネコ目ネコ科ネコ属 （→ [ウィキペディア：ネコ](http://ja.wikipedia.org/wiki/ネコ)）  
 （漢字：野猫、英名：cat、学名：*Felis catus*）  
 【大きさ】ペットのネコと同じ大きさ。  
 【分布】全国の平地から山地、集落の近くに生息する。温暖な地域に多く寒冷地では少ない。  
@@ -1013,10 +1085,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="テン" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-<p  id="テン">**テン**　ネコ目イタチ科テン属 （→ [ウィキペディア：テン](http://ja.wikipedia.org/wiki/テン)）  
+<h3 id="テン">テン</h3>
+
+ネコ目イタチ科テン属 （→ [ウィキペディア：テン](http://ja.wikipedia.org/wiki/テン)）  
 （漢字：貂、英名：Japanese marten、学名：*Martes melampus*）  
 【大きさ】頭胴長 45 cm、尾長 19 cm、体重 1.1〜1.5 kg。  
 【分布】本州、四国、九州に分布し、北海道南部と佐渡には移入したものが確認されている。主に森林に生息する。  
@@ -1033,10 +1107,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="イタチ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**イタチ**　ネコ目イタチ科イタチ属 （→ [ウィキペディア：ニホンイタチ](http://ja.wikipedia.org/wiki/ニホンイタチ)）  
+<h3 id="イタチ">イタチ</h3>
+
+ネコ目イタチ科イタチ属 （→ [ウィキペディア：ニホンイタチ](http://ja.wikipedia.org/wiki/ニホンイタチ)）  
 （漢字：鼬、英名：Japanese weasel、学名：*Mustela itatsi*）  
 【大きさ】オスは頭胴長 27〜37 cm、尾長 12〜16 cm。メスは頭胴長 16〜25 cm、尾長 7〜9 cm。  
 【分布】本州、四国、九州の平野部から山間部、人家の近くなどに生息。北海道にも移入している。  
@@ -1053,10 +1129,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="チョウセンイタチ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**チョウセンイタチ**　ネコ目イタチ科イタチ属 （→ [ウィキペディア：チョウセンイタチ](http://ja.wikipedia.org/wiki/チョウセンイタチ)）  
+<h3 id="チョウセンイタチ">チョウセンイタチ</h3>
+
+ネコ目イタチ科イタチ属 （→ [ウィキペディア：チョウセンイタチ](http://ja.wikipedia.org/wiki/チョウセンイタチ)）  
 （漢字：朝鮮鼬、英名：Siberian weasel、学名：*Mustela sibirica*）  
 【大きさ】オスは頭胴長 28〜39 cm、尾長 16〜21 cm、体重 650〜820 g。メスは頭胴長 25〜31 cm、尾長 13〜16 cm、体重 360〜430g。  
 【分布】自然分布域は対馬。九州、四国、本州の中部地方以南に移入している。農耕地や住宅周辺の林、農山村周辺、山麗部に生息。  
@@ -1073,10 +1151,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ミンク" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ミンク**　ネコ目イタチ科イタチ属 （→ [ウィキペディア：ミンク](http://ja.wikipedia.org/wiki/ミンク)）  
+<h3 id="ミンク">ミンク</h3>
+
+ネコ目イタチ科イタチ属 （→ [ウィキペディア：ミンク](http://ja.wikipedia.org/wiki/ミンク)）  
 （英名：American mink、学名：*Mustela vison*）  
 【大きさ】頭胴長 36〜45 cm、尾長 30〜36 cm、体重 0.7〜1 kg。  
 【分布】北海道の海岸部に生息。河川沿いや湖沼周辺にもみられる。  
@@ -1093,10 +1173,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="アナグマ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**アナグマ**　ネコ目イタチ科アナグマ属 （→ [ウィキペディア：ニホンアナグマ](http://ja.wikipedia.org/wiki/ニホンアナグマ)）  
+<h3 id="アナグマ">アナグマ</h3>
+
+ネコ目イタチ科アナグマ属 （→ [ウィキペディア：ニホンアナグマ](http://ja.wikipedia.org/wiki/ニホンアナグマ)）  
 （漢字：穴熊、英名：Japanese badger、学名：*Meles meles*）  
 【大きさ】頭胴長 52 cm、尾長 14 cm、体重 12kg。  
 【分布】本州、四国、九州、小豆島の山地から丘陵地の森林や潅木林などに生息。  
@@ -1113,10 +1195,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="アライグマ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**アライグマ**　ネコ目アライグマ科アライグマ属 （→ [ウィキペディア：アライグマ](http://ja.wikipedia.org/wiki/アライグマ)）  
+<h3 id="アライグマ">アライグマ</h3>
+
+ネコ目アライグマ科アライグマ属 （→ [ウィキペディア：アライグマ](http://ja.wikipedia.org/wiki/アライグマ)）  
 （漢字：洗熊、英名：raccoon、学名：*Procyon lotor*）  
 【大きさ】頭胴長 42〜60 cm、尾長 20〜41 cm、体重 4〜10 kg。  
 【分布】国内各地に捕獲記録がある。  
@@ -1133,10 +1217,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ヒグマ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヒグマ**　ネコ目クマ科クマ属 （→ [ウィキペディア：ヒグマ](http://ja.wikipedia.org/wiki/ヒグマ)）  
+<h3 id="ヒグマ">ヒグマ</h3>
+
+ネコ目クマ科クマ属 （→ [ウィキペディア：ヒグマ](http://ja.wikipedia.org/wiki/ヒグマ)）  
 （漢字：羆、英名：brown bear、学名：*Ursus arctos*）  
 【大きさ】頭胴長 200〜230 cm、体重 150〜250 kg。まれに 300 kg 以上の個体も存在する。  
 【分布】北海道の森林原野に生息。  
@@ -1153,10 +1239,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ツキノワグマ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ツキノワグマ**　ネコ目クマ科クマ属 （→ [ウィキペディア：ツキノワグマ](http://ja.wikipedia.org/wiki/ツキノワグマ)）  
+<h3 id="ツキノワグマ">ツキノワグマ</h3>
+
+ネコ目クマ科クマ属 （→ [ウィキペディア：ツキノワグマ](http://ja.wikipedia.org/wiki/ツキノワグマ)）  
 （漢字：月輪熊、英名：Asian black bear、学名：*Ursus thibetanus*）  
 【大きさ】頭胴長 120〜145 cm、体重 70〜120 kg。  
 【分布】本州、四国のブナ林を中心に生息。九州では絶滅した可能性が高い。  
@@ -1173,10 +1261,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ハクビシン" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ハクビシン**　ネコ目ジャコウネコ科ハクビシン属 （→ [ウィキペディア：ハクビシン](http://ja.wikipedia.org/wiki/ハクビシン)）  
+<h3 id="ハクビシン">ハクビシン</h3>
+
+ネコ目ジャコウネコ科ハクビシン属 （→ [ウィキペディア：ハクビシン](http://ja.wikipedia.org/wiki/ハクビシン)）  
 （漢字：白鼻心、英名：masked palm civet、学名：*Paguma larvata*）  
 【大きさ】頭胴長 61〜66 cm、尾長 40 cm、体重約 3 kg。  
 【分布】本州から九州までの各地で生息が確認されている。山地や集落の周辺に生息。  
@@ -1193,10 +1283,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="イノシシ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**イノシシ**　鯨偶蹄目イノシシ科イノシシ属 （→ [ウィキペディア：イノシシ](http://ja.wikipedia.org/wiki/イノシシ)）  
+<h3 id="イノシシ">イノシシ</h3>
+
+鯨偶蹄目イノシシ科イノシシ属 （→ [ウィキペディア：イノシシ](http://ja.wikipedia.org/wiki/イノシシ)）  
 （漢字：猪、英名：wild boar、学名：*Sus scrofa*）  
 【大きさ】頭胴長 110〜160 cm、肩高 60〜80 cm、体重 50〜150 kg。  
 【分布】ニホンイノシシは北海道を除く全国の森林や農耕地、平野部に広く生息。沖縄にはリュウキュウイノシシ生息。  
@@ -1213,10 +1305,12 @@ tags: ["狩猟"]
   </div>
 </div>
 
-<div id="ニホンジカ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ニホンジカ**　鯨偶蹄目シカ科シカ属 （→ [ウィキペディア：ニホンジカ](http://ja.wikipedia.org/wiki/ニホンジカ)）  
+<h3 id="ニホンジカ">ニホンジカ</h3>
+
+鯨偶蹄目シカ科シカ属 （→ [ウィキペディア：ニホンジカ](http://ja.wikipedia.org/wiki/ニホンジカ)）  
 （漢字：日本鹿、英名：Sika deer、学名：*Cervus nippon*）  
 【大きさ】亜種によって違いがあるがオスは頭胴長 90〜190 cm、肩高 70〜130 cm、体重 50〜130 kg。 メスは頭胴長 90〜150 cm、肩高 60〜110 cm、体重 25〜80
 kg。  
@@ -1234,10 +1328,12 @@ kg。
   </div>
 </div>
 
-<div id="タイワンリス" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**タイワンリス**　ネズミ目リス科ハイガシラリス属 （→ [ウィキペディア：タイワンリス](http://ja.wikipedia.org/wiki/タイワンリス)）  
+<h3 id="タイワンリス">タイワンリス</h3>
+
+ネズミ目リス科ハイガシラリス属 （→ [ウィキペディア：タイワンリス](http://ja.wikipedia.org/wiki/タイワンリス)）  
 （漢字：台湾栗鼠、英名：Taiwan squirrels、学名：*Callosciurus erythraeus*）  
 【大きさ】頭胴長 20〜22 cm、尾長 17〜20 cm、体重約360 g。  
 【分布】伊豆大島、神奈川県、静岡県、岐阜県、和歌山県、大阪府などに分布。低山の森林などに生息。  
@@ -1254,10 +1350,12 @@ kg。
   </div>
 </div>
 
-<div id="シマリス" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**シマリス**　ネズミ目リス科シマリス属 （→ [ウィキペディア：エゾシマリス](http://ja.wikipedia.org/wiki/エゾシマリス)）  
+<h3 id="シマリス">シマリス</h3>
+
+ネズミ目リス科シマリス属 （→ [ウィキペディア：エゾシマリス](http://ja.wikipedia.org/wiki/エゾシマリス)）  
 （漢字：縞栗鼠、英名：Siberian chipmunk、学名：*Tamias sibiricus*）  
 【大きさ】頭胴長 12〜15 cm、尾長 14〜18 cm、体重 71〜116 g。  
 【分布】北海道の海岸から森林まで広い環境に生息する。移入したチョウセンシマリスも一部の地域に生息。  
@@ -1274,10 +1372,12 @@ kg。
   </div>
 </div>
 
-<div id="ヌートリア" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ヌートリア**　ネズミ目ヌートリア科ヌートリア属 （→ [ウィキペディア：ヌートリア](http://ja.wikipedia.org/wiki/ヌートリア)）  
+<h3 id="ヌートリア">ヌートリア</h3>
+
+ネズミ目ヌートリア科ヌートリア属 （→ [ウィキペディア：ヌートリア](http://ja.wikipedia.org/wiki/ヌートリア)）  
 （英名：nutria、学名：*Myocastor coypus*）  
 【大きさ】頭胴長 56〜63 cm、尾長 30〜43 cm、体重 6〜9 kg。  
 【分布】岡山などの中国地方、香川、京都、大阪、兵庫、福井、岐阜、愛知、三重などの河川や湖沼の水辺に生息。  
@@ -1294,10 +1394,12 @@ kg。
   </div>
 </div>
 
-<div id="ユキウサギ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ユキウサギ**　ウサギ目ウサギ科ノウサギ属 （→ [ウィキペディア：ユキウサギ](http://ja.wikipedia.org/wiki/ユキウサギ)）  
+<h3 id="ユキウサギ">ユキウサギ</h3>
+
+ウサギ目ウサギ科ノウサギ属 （→ [ウィキペディア：ユキウサギ](http://ja.wikipedia.org/wiki/ユキウサギ)）  
 （漢字：雪兎、英名：mountain hare、学名：*Lepus timidus*）  
 【大きさ】頭胴長 49〜58 cm、尾長 5〜8 cm、耳長 7〜8cm、体重 1.6〜2.9 kg。  
 【分布】北海道の低山から山地帯に生息。  
@@ -1314,10 +1416,12 @@ kg。
   </div>
 </div>
 
-<div id="ノウサギ" class="flex flex-wrap my-4 py-4 border-t border-gray-400">
+<div class="flex flex-wrap my-4 py-4 border-t border-gray-400">
   <div class="w-2/3 pr-4">
 
-**ノウサギ**　ウサギ目ウサギ科ノウサギ属 （→ [ウィキペディア：ニホンノウサギ](http://ja.wikipedia.org/wiki/ニホンノウサギ)）  
+<h3 id="ノウサギ">ノウサギ</h3>
+
+ウサギ目ウサギ科ノウサギ属 （→ [ウィキペディア：ニホンノウサギ](http://ja.wikipedia.org/wiki/ニホンノウサギ)）  
 （漢字：野兎、英名：Japanese hare、学名：*Lepus brachyurus*）  
 【大きさ】頭胴長 43〜54 cm、尾長 2〜5 cm、耳長 6〜8 cm、体重 1.3〜2.5 kg。  
 【分布】北海道を除く全国の低山から山地帯に生息。  
