@@ -236,14 +236,13 @@ describe('USBConnectionLifecycle', () => {
       await lifecycle.connect(createConfig({ portName: 'COM1' }));
 
       const olderReplacement = lifecycle.connect(createConfig({ portName: 'COM2' }));
-      const olderRejection = expect(olderReplacement).rejects.toMatchObject({
-        code: 'CONNECTION_FAILED',
-        metadata: { reason: 'Connection attempt was cancelled' },
-      });
-      const latestReplacement = lifecycle.connect(createConfig({ portName: 'COM3' }));
-
-      const latestConnection = await latestReplacement;
-      await olderRejection;
+      const [, latestConnection] = await Promise.all([
+        expect(olderReplacement).rejects.toMatchObject({
+          code: 'CONNECTION_FAILED',
+          metadata: { reason: 'Connection attempt was cancelled' },
+        }),
+        lifecycle.connect(createConfig({ portName: 'COM3' })),
+      ]);
 
       expect(latestConnection.portPath).toBe('COM3');
       expect(lifecycle.port?.path).toBe('COM3');
@@ -268,14 +267,13 @@ describe('USBConnectionLifecycle', () => {
       });
 
       const olderReplacement = lifecycle.connect(createConfig({ portName: 'COM2' }));
-      const olderRejection = expect(olderReplacement).rejects.toMatchObject({
-        code: 'CONNECTION_FAILED',
-        metadata: { reason: 'Connection attempt was cancelled' },
-      });
-      const latestReplacement = lifecycle.connect(createConfig({ portName: 'COM3' }));
-
-      await expect(latestReplacement).resolves.toMatchObject({ portPath: 'COM3' });
-      await olderRejection;
+      await Promise.all([
+        expect(olderReplacement).rejects.toMatchObject({
+          code: 'CONNECTION_FAILED',
+          metadata: { reason: 'Connection attempt was cancelled' },
+        }),
+        expect(lifecycle.connect(createConfig({ portName: 'COM3' }))).resolves.toMatchObject({ portPath: 'COM3' }),
+      ]);
     });
 
     it('should close an open port before rejecting post-open initialization failure', async () => {
@@ -299,15 +297,14 @@ describe('USBConnectionLifecycle', () => {
       emitter.on('connected', connected);
 
       const connectPromise = lifecycle.connect(createConfig());
-      const rejected = expect(connectPromise).rejects.toMatchObject({
-        code: 'CONNECTION_FAILED',
-        metadata: { reason: 'Port closed during initialization' },
-      });
       await vi.waitFor(() => expect(onPortReady).toHaveBeenCalledTimes(1));
 
       mockPortInstance._isOpen = false;
       mockPortInstance._events.close();
-      await rejected;
+      await expect(connectPromise).rejects.toMatchObject({
+        code: 'CONNECTION_FAILED',
+        metadata: { reason: 'Port closed during initialization' },
+      });
       releaseReady();
       await Promise.resolve();
 
@@ -353,12 +350,13 @@ describe('USBConnectionLifecycle', () => {
       emitter.on('connected', connected);
 
       const connectPromise = lifecycle.connect(createConfig());
-      const rejected = expect(connectPromise).rejects.toMatchObject({
-        code: 'CONNECTION_FAILED',
-        metadata: { reason: 'Connection attempt was cancelled' },
-      });
-      await lifecycle.disconnect();
-      await rejected;
+      await Promise.all([
+        expect(connectPromise).rejects.toMatchObject({
+          code: 'CONNECTION_FAILED',
+          metadata: { reason: 'Connection attempt was cancelled' },
+        }),
+        lifecycle.disconnect(),
+      ]);
 
       expect(mockPortInstance.close).toHaveBeenCalledTimes(1);
       expect(connected).not.toHaveBeenCalled();

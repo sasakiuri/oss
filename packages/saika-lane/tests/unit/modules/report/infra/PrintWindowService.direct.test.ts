@@ -116,9 +116,10 @@ describe('direct score sheet printing', () => {
 
   it('times out if rendering never completes and permits the next request', async () => {
     vi.useFakeTimers();
-    const result = expect(service.open('session-1')).rejects.toMatchObject({ code: 'PRINT_FAILED' });
-    await vi.advanceTimersByTimeAsync(60_000);
-    await result;
+    await Promise.all([
+      expect(service.open('session-1')).rejects.toMatchObject({ code: 'PRINT_FAILED' }),
+      vi.advanceTimersByTimeAsync(60_000),
+    ]);
     service.markReady(42);
     expect(window.webContents.print).not.toHaveBeenCalled();
     expect(window.destroy).toHaveBeenCalled();
@@ -133,10 +134,12 @@ describe('direct score sheet printing', () => {
   it('times out a stalled driver callback', async () => {
     vi.useFakeTimers();
     window.webContents.print.mockImplementation(() => {});
-    const result = expect(service.open('session-1')).rejects.toMatchObject({ code: 'PRINT_FAILED' });
+    const result = service.open('session-1');
     service.markReady(42);
-    await vi.advanceTimersByTimeAsync(60_000);
-    await result;
+    await Promise.all([
+      expect(result).rejects.toMatchObject({ code: 'PRINT_FAILED' }),
+      vi.advanceTimersByTimeAsync(60_000),
+    ]);
     expect(window.webContents.print).toHaveBeenCalledTimes(1);
     expect(window.destroy).toHaveBeenCalled();
   });

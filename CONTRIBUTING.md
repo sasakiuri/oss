@@ -58,6 +58,11 @@ Lane and Director coverage includes all source files, including files not reache
 by tests. Keep that scope and the existing thresholds when updating test tooling.
 Vista runs main-process tests in Node.js and renderer tests in jsdom.
 
+Vitest and React Testing Library checks use the optional presets from
+`@sasakiuri/eslint-config`. CI rejects focused tests and Playwright tests that
+pass only after a retry. Fix asynchronous assertions and flaky behavior before
+merging; a successful retry is useful diagnostic evidence.
+
 ### CI Scope
 
 CI selects changed workspaces and their transitive dependents from the workspace

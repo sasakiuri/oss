@@ -2,6 +2,8 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
+  failOnFlakyTests: Boolean(process.env.CI),
+  forbidOnly: Boolean(process.env.CI),
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
   timeout: 60_000,

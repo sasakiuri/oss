@@ -124,11 +124,7 @@ describe('MqttTransport', () => {
     vi.useFakeTimers();
     const transport = new MqttTransport(50);
     const connecting = transport.connect('mqtt://silent:1883', 'director-test');
-    const assertion = expect(connecting).rejects.toThrow('timed out after 50ms');
-
-    await vi.advanceTimersByTimeAsync(51);
-
-    await assertion;
+    await Promise.all([expect(connecting).rejects.toThrow('timed out after 50ms'), vi.advanceTimersByTimeAsync(51)]);
     expect(client.end).toHaveBeenCalledWith(true, {}, expect.any(Function));
     expect(transport.isConnected()).toBe(false);
   });
@@ -143,10 +139,10 @@ describe('MqttTransport', () => {
     client.publishAsync.mockImplementation(() => new Promise(() => {}));
 
     const publishing = transport.publish('saika/test', '{}', { qos: 1, retain: false });
-    const assertion = expect(publishing).rejects.toThrow('MQTT publish timed out after 50ms');
-    await vi.advanceTimersByTimeAsync(51);
-
-    await assertion;
+    await Promise.all([
+      expect(publishing).rejects.toThrow('MQTT publish timed out after 50ms'),
+      vi.advanceTimersByTimeAsync(51),
+    ]);
   });
 
   it('times out a subscription when the broker never acknowledges it', async () => {
@@ -159,10 +155,10 @@ describe('MqttTransport', () => {
     client.subscribeAsync.mockImplementation(() => new Promise(() => {}));
 
     const subscribing = transport.subscribe('saika/test', 1);
-    const assertion = expect(subscribing).rejects.toThrow('MQTT subscription timed out after 50ms');
-    await vi.advanceTimersByTimeAsync(51);
-
-    await assertion;
+    await Promise.all([
+      expect(subscribing).rejects.toThrow('MQTT subscription timed out after 50ms'),
+      vi.advanceTimersByTimeAsync(51),
+    ]);
   });
 
   it('disconnects an established client without forcing the socket', async () => {
