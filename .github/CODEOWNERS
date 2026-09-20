@@ -8,6 +8,8 @@
 packages/saika-lane/ @sasakiuri
 packages/saika-director/ @sasakiuri
 
+packages/nilay-knowledge/ @sasakiuri
+
 # Shared configuration packages
 packages/eslint-config/ @sasakiuri
 packages/prettier-config/ @sasakiuri

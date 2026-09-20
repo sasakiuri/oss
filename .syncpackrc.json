@@ -9,6 +9,20 @@
       "pinVersion": "*"
     },
     {
+      "label": "Nilay Knowledge retains its imported Vitest 2 and Tailwind 4 toolchain",
+      "packages": ["@sasakiuri/nilay-knowledge"],
+      "dependencies": [
+        "@types/node",
+        "@vitest/coverage-v8",
+        "vitest",
+        "tailwindcss",
+        "typescript",
+        "tailwind-merge",
+        "lucide-react",
+        "prettier-plugin-tailwindcss"
+      ]
+    },
+    {
       "label": "Saika Docs uses a separate web toolchain from the Electron apps",
       "packages": ["@sasakiuri/saika-docs"],
       "dependencies": [

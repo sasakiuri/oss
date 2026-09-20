@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 
@@ -30,8 +31,7 @@ const categoryList: Category[] = [
       {
         title: '銃・射撃・狩猟ニュース',
         slug: 'news',
-        description:
-          '射撃や狩猟中の事故・事件、法令改正に関するニュースなどを紹介しています。',
+        description: '射撃や狩猟中の事故・事件、法令改正に関するニュースなどを紹介しています。',
       },
     ],
   },
@@ -41,14 +41,12 @@ const categoryList: Category[] = [
       {
         title: '猟銃・空気銃所持許可の新規取得手順',
         slug: `${dir}/1378038316`,
-        description:
-          '銃の所持方法。銃の免許である所持許可を取得する方法を紹介しています。',
+        description: '銃の所持方法。銃の免許である所持許可を取得する方法を紹介しています。',
       },
       {
         title: '狩猟免許の取得手順',
         slug: `${dir}/1403944258`,
-        description:
-          '狩猟の始め方。狩猟を始めるために必要な免許の取得手順を紹介しています。',
+        description: '狩猟の始め方。狩猟を始めるために必要な免許の取得手順を紹介しています。',
       },
     ],
   },
@@ -116,8 +114,7 @@ const categoryList: Category[] = [
       {
         title: '狩猟鳥獣図鑑',
         slug: `${dir}/1403693668`,
-        description:
-          '狩猟鳥獣の一覧・詳細とそれらの判別方法について紹介しています。',
+        description: '狩猟鳥獣の一覧・詳細とそれらの判別方法について紹介しています。',
       },
     ],
   },
@@ -163,26 +160,16 @@ export default function ArticlesPage() {
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
         {categoryList.map((category) => (
-          <div
-            key={category.title}
-            className="overflow-hidden rounded-lg border border-slate-200 bg-white"
-          >
+          <div key={category.title} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">
               {category.title}
             </h2>
             <ul className="divide-y divide-slate-200">
               {category.articleList.map((article) => (
                 <li key={article.slug}>
-                  <Link
-                    href={`/${article.slug}`}
-                    className="block px-4 py-3 text-[rgb(3,125,186)] hover:bg-slate-50"
-                  >
+                  <Link href={`/${article.slug}`} className="block px-4 py-3 text-[rgb(3,125,186)] hover:bg-slate-50">
                     <span className="font-medium">{article.title}</span>
-                    {article.description && (
-                      <p className="mt-1 text-sm text-slate-600">
-                        {article.description}
-                      </p>
-                    )}
+                    {article.description && <p className="mt-1 text-sm text-slate-600">{article.description}</p>}
                   </Link>
                 </li>
               ))}

@@ -12,10 +12,7 @@ function getDirectorySlugs(type: 'articles' | 'news'): string[] {
 
   return directories.filter((slug) => {
     const fullPath = path.join(dir, slug);
-    return (
-      fs.statSync(fullPath).isDirectory() &&
-      fs.existsSync(path.join(fullPath, 'index.md'))
-    );
+    return fs.statSync(fullPath).isDirectory() && fs.existsSync(path.join(fullPath, 'index.md'));
   });
 }
 
@@ -51,7 +48,7 @@ ${allPages
     <loc>${page.url}</loc>
     <lastmod>${today}</lastmod>
     <priority>${page.priority}</priority>
-  </url>`
+  </url>`,
   )
   .join('\n')}
 </urlset>`;

@@ -3,6 +3,8 @@ import path from "node:path";
 
 const config = {
   "*.{md,txt}": () => "npm run lint:text",
+  "packages/nilay-knowledge/**/*.{ts,tsx,mjs,json,md}": () =>
+    "npm run lint --workspace=@sasakiuri/nilay-knowledge",
   "packages/saika-docs/**/*.{ts,tsx,mjs,cjs,json,md,css,scss,yml,yaml}": () =>
     "npm run lint:prettier --workspace=@sasakiuri/saika-docs",
   "packages/saika-docs/**/*.{ts,tsx,mjs,cjs}": () => [
@@ -52,7 +54,7 @@ const config = {
           .relative(process.cwd(), filename)
           .split(path.sep)
           .join("/")
-          .startsWith("packages/saika-docs/"),
+          .match(/^packages\/(saika-docs|nilay-knowledge)\//),
     );
     return files.length ? [`prettier --write ${files.join(" ")}`] : [];
   },

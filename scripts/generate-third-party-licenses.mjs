@@ -14,6 +14,7 @@ const appDirectories = [
   join(repositoryRoot, "packages", "saika-director"),
   join(repositoryRoot, "packages", "saika-vista"),
   join(repositoryRoot, "packages", "saika-docs"),
+  join(repositoryRoot, "packages", "nilay-knowledge"),
 ];
 const checkOnly = process.argv.includes("--check");
 const selectedWorkspace = process.argv

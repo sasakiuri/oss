@@ -75,3 +75,8 @@ npx turbo fix
 ## License
 
 [MIT](LICENSE) -- Copyright (c) 2026 sasakiuri
+
+## Nilay Knowledge
+
+[Nilay Knowledge](packages/nilay-knowledge/README.md) is the website at
+<https://knowledge.nilay.jp>, maintained as `@sasakiuri/nilay-knowledge`.

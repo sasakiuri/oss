@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ImageZoom } from '@/components/image-zoom';
 import { SnsShare } from '@/components/sns-share';
-import { getArticleBySlug, getArticleSlugs, type TocItem } from '@/lib/markdown';
-import { formatDate } from '@/lib/utils';
 import { siteConfig } from '@/lib/config';
+import { getArticleBySlug, getArticleSlugs, type TocItem } from '@/lib/markdown';
 import { createArticleSchema } from '@/lib/schema';
+import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
 
@@ -54,21 +55,12 @@ function TableOfContents({ items }: { items: TocItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <nav
-      aria-label="目次"
-      className="sticky top-20 hidden w-64 shrink-0 self-start md:block"
-    >
+    <nav aria-label="目次" className="sticky top-20 hidden w-64 shrink-0 self-start md:block">
       <h2 className="mb-3 text-sm font-bold text-slate-700">目次</h2>
       <ul className="space-y-1 text-sm">
         {items.map((item) => (
-          <li
-            key={item.id}
-            style={{ paddingLeft: `${(item.level - 2) * 1}rem` }}
-          >
-            <a
-              href={`#${item.id}`}
-              className="block px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-            >
+          <li key={item.id} style={{ paddingLeft: `${(item.level - 2) * 1}rem` }}>
+            <a href={`#${item.id}`} className="block px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
               {item.title}
             </a>
           </li>
@@ -102,12 +94,7 @@ function ArticleSchemaScript({
     image,
   });
 
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
-  );
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
 }
 
 export default async function ArticlePage({ params }: Props) {
@@ -120,9 +107,7 @@ export default async function ArticlePage({ params }: Props) {
 
   const { frontmatter, html, tableOfContents } = article;
   const displayDate = frontmatter.updated || frontmatter.published;
-  const image = frontmatter.image
-    ? `/content/articles/${slug}/${frontmatter.image}`
-    : undefined;
+  const image = frontmatter.image ? `/content/articles/${slug}/${frontmatter.image}` : undefined;
 
   return (
     <>
@@ -146,28 +131,20 @@ export default async function ArticlePage({ params }: Props) {
       <div className="mx-auto flex max-w-5xl gap-8 px-4 py-8">
         <article className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-8">
           <header className="mb-10">
-            <time className="text-sm text-slate-500">
-              {formatDate(displayDate)} 更新
-            </time>
+            <time className="text-sm text-slate-500">{formatDate(displayDate)} 更新</time>
             <h1 className="mt-2 text-3xl font-bold leading-tight text-slate-800 [font-feature-settings:palt]">
               {frontmatter.title}
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
               {frontmatter.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-600"
-                >
+                <span key={tag} className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-600">
                   #{tag}
                 </span>
               ))}
             </div>
           </header>
 
-          <div
-            className="prose max-w-none"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
         </article>
 
         <TableOfContents items={tableOfContents} />

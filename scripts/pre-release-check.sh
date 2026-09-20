@@ -667,8 +667,12 @@ check_license_consistency() {
       if (!fs.existsSync(pkgPath)) continue;
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
       const license = pkg.license || '(not set)';
-      if (license !== rootLicense) {
-        mismatches.push(dir + ': ' + license + ' (root: ' + rootLicense + ')');
+      // Preserve Nilay software and site-text licenses instead of relicensing the import.
+      const expectedLicense = dir === 'nilay-knowledge'
+        ? '(MIT AND CC-BY-SA-4.0)'
+        : rootLicense;
+      if (license !== expectedLicense) {
+        mismatches.push(dir + ': ' + license + ' (expected: ' + expectedLicense + ')');
       }
     }
     if (mismatches.length > 0) {

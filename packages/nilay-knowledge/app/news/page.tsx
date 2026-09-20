@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { getNewsByTag, type NewsItem } from '@/lib/markdown';
@@ -22,19 +23,12 @@ interface NewsListProps {
 function NewsList({ title, newsList }: NewsListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">
-        {title}
-      </h2>
+      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">{title}</h2>
       <ul className="divide-y divide-slate-200">
         {newsList.map((news) => (
           <li key={news.slug}>
-            <Link
-              href={`/news/${news.slug}`}
-              className="flex items-start gap-4 px-4 py-3 hover:bg-slate-50"
-            >
-              <time className="shrink-0 text-sm text-slate-500">
-                {formatDate(news.frontmatter.published)}
-              </time>
+            <Link href={`/news/${news.slug}`} className="flex items-start gap-4 px-4 py-3 hover:bg-slate-50">
+              <time className="shrink-0 text-sm text-slate-500">{formatDate(news.frontmatter.published)}</time>
               <span className="text-[rgb(3,125,186)]">{news.frontmatter.title}</span>
             </Link>
           </li>

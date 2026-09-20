@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { createOgImage } from '@/lib/og-image';
+
 import { siteConfig } from '@/lib/config';
+import { createOgImage } from '@/lib/og-image';
 
 export const runtime = 'edge';
 
@@ -12,10 +13,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const response = createOgImage({ title });
 
     // Set cache headers
-    response.headers.set(
-      'Cache-Control',
-      'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800'
-    );
+    response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
 
     return response;
   } catch (error) {
@@ -23,10 +21,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     // Return fallback image
     const fallbackResponse = createOgImage({ title: siteConfig.title });
-    fallbackResponse.headers.set(
-      'Cache-Control',
-      'public, max-age=3600, s-maxage=86400'
-    );
+    fallbackResponse.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
 
     return fallbackResponse;
   }

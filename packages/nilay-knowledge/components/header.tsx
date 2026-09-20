@@ -1,18 +1,11 @@
 'use client';
 
-import * as React from 'react';
-import Link from 'next/link';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
-import {
-  Home,
-  Menu,
-  X,
-  ShoppingCart,
-  FileText,
-  Info,
-  BookOpen,
-} from 'lucide-react';
+import { Home, Menu, X, ShoppingCart, FileText, Info, BookOpen } from 'lucide-react';
+import Link from 'next/link';
+import * as React from 'react';
+
 import { siteConfig } from '@/lib/config';
 
 const navItems = [
@@ -31,10 +24,7 @@ export function Header() {
           {/* Mobile menu button */}
           <Dialog.Root open={open} onOpenChange={setOpen}>
             <Dialog.Trigger asChild>
-              <button
-                className="rounded-md p-2 text-white hover:bg-slate-600 md:hidden"
-                aria-label="メニューを開く"
-              >
+              <button className="rounded-md p-2 text-white hover:bg-slate-600 md:hidden" aria-label="メニューを開く">
                 <Menu className="h-6 w-6" />
               </button>
             </Dialog.Trigger>
@@ -44,16 +34,11 @@ export function Header() {
               <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg data-[state=open]:animate-slide-in-from-left data-[state=closed]:animate-slide-out-to-left">
                 <VisuallyHidden.Root>
                   <Dialog.Title>ナビゲーションメニュー</Dialog.Title>
-                  <Dialog.Description>
-                    サイト内のページへのリンク
-                  </Dialog.Description>
+                  <Dialog.Description>サイト内のページへのリンク</Dialog.Description>
                 </VisuallyHidden.Root>
                 <div className="flex h-14 items-center bg-slate-700 px-4">
                   <Dialog.Close asChild>
-                    <button
-                      className="rounded-md p-2 text-white hover:bg-slate-600"
-                      aria-label="メニューを閉じる"
-                    >
+                    <button className="rounded-md p-2 text-white hover:bg-slate-600" aria-label="メニューを閉じる">
                       <X className="h-6 w-6" />
                     </button>
                   </Dialog.Close>
@@ -78,11 +63,7 @@ export function Header() {
 
           {/* Desktop nav */}
           <div className="hidden items-center gap-1 md:flex">
-            <Link
-              href="/"
-              className="rounded-md p-2 text-white hover:bg-slate-600"
-              aria-label="トップページ"
-            >
+            <Link href="/" className="rounded-md p-2 text-white hover:bg-slate-600" aria-label="トップページ">
               <Home className="h-5 w-5" />
             </Link>
             {navItems.map((item) => (
@@ -97,11 +78,7 @@ export function Header() {
           </div>
 
           {/* Mobile home link */}
-          <Link
-            href="/"
-            className="rounded-md p-2 text-white hover:bg-slate-600 md:hidden"
-            aria-label="トップページ"
-          >
+          <Link href="/" className="rounded-md p-2 text-white hover:bg-slate-600 md:hidden" aria-label="トップページ">
             <Home className="h-5 w-5" />
           </Link>
 
