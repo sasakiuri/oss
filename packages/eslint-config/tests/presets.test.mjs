@@ -51,6 +51,47 @@ test("valid asynchronous assertions and parameterized tests pass", () => {
   );
 });
 
+test("conditional and catch-only assertions cannot silently pass", () => {
+  const messages = lint(`
+    import { it, expect } from 'vitest';
+    it('conditional assertion', () => {
+      if (Math.random() > 0.5) expect(true).toBe(true);
+    });
+    it('missing rejection', async () => {
+      try { await Promise.resolve(); }
+      catch (error) { expect(error).toBeInstanceOf(Error); }
+    });
+  `);
+  assert.deepEqual(
+    messages.map(({ ruleId }) => ruleId),
+    ["vitest/no-conditional-expect", "vitest/no-conditional-expect"],
+  );
+});
+
+test("conditional assertions require an explicit nonzero assertion count", () => {
+  assert.deepEqual(
+    lint(`
+    import { it, expect } from 'vitest';
+    it('checks the thrown error', () => {
+      expect.assertions(1);
+      try { throw new Error('failure'); }
+      catch (error) { expect(error).toBeInstanceOf(Error); }
+    });
+  `),
+    [],
+  );
+  assert.equal(
+    lint(`
+    import { it, expect } from 'vitest';
+    it('cannot opt out', () => {
+      expect.assertions(0);
+      if (Math.random() > 0.5) expect(true).toBe(true);
+    });
+  `)[0].ruleId,
+    "vitest/no-conditional-expect",
+  );
+});
+
 test("React Testing Library catches unawaited asynchronous work", () => {
   const messages = lint(
     `

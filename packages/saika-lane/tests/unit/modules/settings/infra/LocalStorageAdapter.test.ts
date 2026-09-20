@@ -65,6 +65,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_READ_ERROR when a read error occurs', () => {
+      expect.assertions(3);
       mockStore.get.mockImplementation(() => {
         throw new Error('Read failed');
       });
@@ -93,6 +94,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_WRITE_ERROR when a write error occurs', () => {
+      expect.assertions(3);
       mockStore.set.mockImplementation(() => {
         throw new Error('Write failed');
       });
@@ -120,6 +122,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_WRITE_ERROR when a write error occurs', () => {
+      expect.assertions(3);
       mockStore.set.mockImplementation(() => {
         throw new Error('Batch write failed');
       });
@@ -154,6 +157,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_DELETE_ERROR when a delete error occurs', () => {
+      expect.assertions(3);
       mockStore.delete.mockImplementation(() => {
         throw new Error('Delete failed');
       });
@@ -177,6 +181,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_READ_ERROR when a read error occurs', () => {
+      expect.assertions(2);
       Object.defineProperty(mockStore, 'store', {
         get: () => {
           throw new Error('Read all failed');
@@ -200,6 +205,7 @@ describe('LocalStorageAdapter', () => {
     });
 
     it('should throw STORAGE_DELETE_ERROR when a clear error occurs', () => {
+      expect.assertions(3);
       mockStore.clear.mockImplementation(() => {
         throw new Error('Clear failed');
       });

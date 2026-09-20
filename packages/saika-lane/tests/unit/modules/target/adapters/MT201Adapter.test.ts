@@ -254,6 +254,7 @@ describe('MT201Adapter', () => {
 
   describe('convert() - data format errors', () => {
     it('should throw DATA_CONVERSION_ERROR when data length is less than 18 characters', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R 9.7 0250'),
         timestamp: new Date(),
@@ -272,6 +273,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw DATA_CONVERSION_ERROR for empty data', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from(''),
         timestamp: new Date(),
@@ -290,6 +292,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when mode is invalid (not R/S)', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('X 9.7 0250 FF5F 70'),
         timestamp: new Date(),
@@ -308,6 +311,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when score is not a number', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R abc 0250 FF5F 70'),
         timestamp: new Date(),
@@ -326,6 +330,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when X coordinate HEX format is invalid', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R 9.7 GHIJ FF5F 70'),
         timestamp: new Date(),
@@ -344,6 +349,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when Y coordinate HEX format is invalid', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R 9.7 0250 WXYZ 70'),
         timestamp: new Date(),
@@ -362,6 +368,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when checksum HEX format is invalid', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R 9.7 0250 FF5F ZZ'),
         timestamp: new Date(),
@@ -380,6 +387,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw VALIDATION_ERROR when X coordinate HEX has insufficient digits', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R 9.7 025  FF5F 70'),
         timestamp: new Date(),
@@ -400,6 +408,7 @@ describe('MT201Adapter', () => {
 
   describe('convert() - score range errors', () => {
     it('should throw an error when score exceeds 11.0', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R11.0 0000 0000 70'),
         timestamp: new Date(),
@@ -418,6 +427,7 @@ describe('MT201Adapter', () => {
     });
 
     it('should throw an error when score is negative', () => {
+      expect.assertions(3);
       const rawData: RawData = {
         raw: Buffer.from('R-1.0 0000 0000 70'),
         timestamp: new Date(),

@@ -45,6 +45,7 @@ describe('sessionService', () => {
     });
 
     it('throws ServiceError on failure', async () => {
+      expect.assertions(4);
       mockStartSession.mockResolvedValue({
         success: false,
         error: { code: 'SESSION_ERROR', message: 'Failed to start' },
@@ -62,6 +63,7 @@ describe('sessionService', () => {
     });
 
     it('failure without error object results in UNKNOWN code', async () => {
+      expect.assertions(1);
       mockStartSession.mockResolvedValue({ success: false });
 
       try {
@@ -72,6 +74,7 @@ describe('sessionService', () => {
     });
 
     it('IPC communication error is wrapped with IPC_ERROR code', async () => {
+      expect.assertions(3);
       mockStartSession.mockRejectedValue(new Error('IPC channel closed'));
 
       try {
@@ -84,6 +87,7 @@ describe('sessionService', () => {
     });
 
     it('non-Error reject is also wrapped with IPC_ERROR', async () => {
+      expect.assertions(3);
       mockStartSession.mockRejectedValue('string error');
 
       try {
@@ -134,6 +138,7 @@ describe('sessionService', () => {
     });
 
     it('IPC error is wrapped with IPC_ERROR', async () => {
+      expect.assertions(1);
       mockSwitchMode.mockRejectedValue(new Error('Connection lost'));
 
       try {
@@ -234,6 +239,7 @@ describe('sessionService', () => {
     });
 
     it('error with metadata is preserved', async () => {
+      expect.assertions(1);
       mockGetShotHistory.mockResolvedValue({
         success: false,
         error: {

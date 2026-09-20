@@ -525,6 +525,7 @@ describe('Director Vista source', () => {
   it.each(['RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB'] as const)(
     'applies the %s public score and rank policy in both saved event and relay views',
     async (entryStatus) => {
+      const hidesScore = ['DNS', 'DSQ', 'DQB'].includes(entryStatus);
       officialSource('BP60', 2);
       const before = await source.snapshot(`${competitionId}:event`);
       db.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run(entryStatus, participantId);
@@ -538,31 +539,27 @@ describe('Director Vista source', () => {
         expect(result.ranking!.rows.filter((row) => row.rank !== null).map((row) => row.rank)).toEqual([1]);
         const participant = result.participants.find((row) => row.id === participantId)!;
         expect(participant.total).toBe(['DNS', 'DSQ', 'DQB'].includes(entryStatus) ? null : 600);
-        if (['DNS', 'DSQ', 'DQB'].includes(entryStatus)) {
-          expect(participant.series.every((series) => series.total === null)).toBe(true);
-          expect(participant.shots.length).toBeGreaterThan(0);
-        }
+        expect(participant.series.every((series) => series.total === null)).toBe(hidesScore);
+        expect(participant.shots.length).toBeGreaterThan(0);
       }
       expect((await source.snapshot(`${competitionId}:event`)).revision).not.toBe(before.revision);
-      if (['DNS', 'DSQ', 'DQB'].includes(entryStatus)) {
-        const stored = db
-          .prepare('SELECT source_json, snapshot_json FROM vista_competition_sources WHERE id = ?')
-          .get(competitionId) as { source_json: string; snapshot_json: string };
-        expect(db.prepare('SELECT total_score FROM results WHERE participant_id = ?').get(participantId)).toEqual({
-          total_score: 600,
-        });
-        const archivedSource = { ...JSON.parse(stored.source_json), frozenShotIds: [] };
-        db.prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?').run(
-          JSON.stringify(archivedSource),
-          competitionId,
-        );
-        const archived = await source.snapshot(`${competitionId}:relay`);
-        const participant = archived.participants.find((row) => row.id === participantId)!;
-        expect(participant.total).toBeNull();
-        expect(participant.series.every((series) => series.total === null)).toBe(true);
-        expect(participant.shots.length).toBeGreaterThan(0);
-        expect(archived.ranking!.rows.find((row) => row.id === participantId)!.total).toBeNull();
-      }
+      const stored = db
+        .prepare('SELECT source_json, snapshot_json FROM vista_competition_sources WHERE id = ?')
+        .get(competitionId) as { source_json: string; snapshot_json: string };
+      expect(db.prepare('SELECT total_score FROM results WHERE participant_id = ?').get(participantId)).toEqual({
+        total_score: 600,
+      });
+      const archivedSource = { ...JSON.parse(stored.source_json), frozenShotIds: [] };
+      db.prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?').run(
+        JSON.stringify(archivedSource),
+        competitionId,
+      );
+      const archived = await source.snapshot(`${competitionId}:relay`);
+      const participant = archived.participants.find((row) => row.id === participantId)!;
+      expect(participant.total).toBe(hidesScore ? null : 600);
+      expect(participant.series.every((series) => series.total === null)).toBe(hidesScore);
+      expect(participant.shots.length).toBeGreaterThan(0);
+      expect(archived.ranking!.rows.find((row) => row.id === participantId)!.total).toBe(hidesScore ? null : 600);
     },
   );
 
@@ -601,11 +598,12 @@ describe('Director Vista source', () => {
       });
       if (kind === 'live') {
         db.prepare('UPDATE participants SET entry_status = ? WHERE id = ?').run('COMPETING', participantId);
-        const restored = await source.snapshot(`${competitionId}:relay`);
-        expect(restored.participants.find((row) => row.id === participantId)!.total).toBe(600);
-        expect(restored.generation).toBe(before.generation);
-        expect(restored.revision).toBeGreaterThan(corrected.revision);
       }
+      const restored = await source.snapshot(`${competitionId}:relay`);
+      expect(restored.participants.find((row) => row.id === participantId)!.total).toBe(kind === 'live' ? 600 : null);
+      expect(restored.generation).toBe(before.generation);
+      expect(restored.revision).toBeGreaterThanOrEqual(corrected.revision);
+      expect(restored.revision > corrected.revision).toBe(kind === 'live');
     },
   );
 
@@ -1442,6 +1440,7 @@ describe('Director Vista source', () => {
       }
       source.observe(snapshot);
       const published = await source.snapshot(`${competitionId}:relay`);
+      let nextRun: Awaited<ReturnType<typeof source.snapshot>> | undefined;
       if (change === 'reset') {
         const reset = control(registry);
         reset.competitions[0]!.publishedAt = '2026-09-11T00:00:02.000Z';
@@ -1465,15 +1464,15 @@ describe('Director Vista source', () => {
         reset.lanes[0]!.competitionState!.publishedAt = reset.competitions[0]!.publishedAt;
         reset.lanes[0]!.score!.publishedAt = reset.competitions[0]!.publishedAt;
         source.observe(reset);
-        const nextRun = await source.snapshot(nextSubject.id);
-        expect(nextRun.ranking!.kind).toBe('live');
-        expect(nextRun.participants[0]!.total).toBe(10.4);
+        nextRun = await source.snapshot(nextSubject.id);
       } else {
         db.prepare('UPDATE results SET source_competition_id = ? WHERE participant_id = ?').run(
           randomUUID(),
           participantId,
         );
       }
+      expect(nextRun?.ranking?.kind).toBe(change === 'reset' ? 'live' : undefined);
+      expect(nextRun?.participants[0]?.total).toBe(change === 'reset' ? 10.4 : undefined);
       const laterBoard = await board(eventId, 'QUALIFICATION');
       board.mockResolvedValue({
         ...laterBoard,
@@ -2477,8 +2476,8 @@ describe('Director Vista source', () => {
       const projected = await source.snapshot(`${competitionId}:relay`);
       expect(projected.clock).toBeNull();
       const pausedClock = projected.participants.find((participant) => participant.laneId === paused.laneId)!.clock;
-      if (pauseKind === 'safety-stop-without-clock') expect(pausedClock).toBeNull();
-      else expect(pausedClock).toMatchObject({ state: 'stopped', remainingMs: 2_600_000 });
+      const stoppedClock = expect.objectContaining({ state: 'stopped', remainingMs: 2_600_000 });
+      expect(pausedClock).toEqual(pauseKind === 'safety-stop-without-clock' ? null : stoppedClock);
       expect(projected.participants.find((participant) => participant.laneId === laneId)!.clock).toMatchObject({
         state: 'running',
         remainingMs: 2_700_000,
@@ -2597,9 +2596,9 @@ describe('Director Vista source', () => {
       source.observe(snapshot);
       const finished = await source.snapshot(`${competitionId}:relay`);
       expect(finished.participants[0]!.dataState).toBe('saved');
+      const stoppedClock = expect.objectContaining({ state: 'stopped', remainingMs: 2_600_000 });
       for (const projected of [beforeRangeFinish, finished]) {
-        if (status !== 'PAUSED') expect(projected.participants[0]!.clock).toBeNull();
-        else expect(projected.participants[0]!.clock).toMatchObject({ state: 'stopped', remainingMs: 2_600_000 });
+        expect(projected.participants[0]!.clock).toEqual(status !== 'PAUSED' ? null : stoppedClock);
       }
     },
   );
@@ -2716,6 +2715,7 @@ describe('Director Vista source', () => {
       const bundle = transferBundle(snapshot, destination);
       const transfers = new SqliteReserveTransferRepository(db);
       const moved = movedLane(snapshot, destination);
+      const activationObservations: Array<{ availability: string; targetActive: boolean }> = [];
       const service = new ReserveLaneTransferService(transfers, {
         transfer: async ({ transfer }) => {
           // Lane clears the source assignment while retiring it, before target activation.
@@ -2732,10 +2732,10 @@ describe('Director Vista source', () => {
             snapshot.competitions[0]!.transferredSourceLaneIds = [laneId];
             source.observe(snapshot);
             // The target publishes state before Director persists the successful command.
-            expect(source.catalog().subjects[0]!.availability).toBe('unsupported');
-            expect(transfers.entries(bundle.request.id).some((entry) => entry.operation === 'TARGET_ACTIVE')).toBe(
-              false,
-            );
+            activationObservations.push({
+              availability: source.catalog().subjects[0]!.availability,
+              targetActive: transfers.entries(bundle.request.id).some((entry) => entry.operation === 'TARGET_ACTIVE'),
+            });
           }
           return bundle;
         },
@@ -2744,13 +2744,15 @@ describe('Director Vista source', () => {
       });
       await service.prepare(bundle.request);
       await service.complete({ id: bundle.request.id, expectedDigest: bundle.digest, confirmed: true });
+      expect(activationObservations).toEqual([{ availability: 'unsupported', targetActive: false }]);
       expect(transfers.entries(bundle.request.id).find((entry) => entry.operation === 'TARGET_ACTIVE')!.detail).toEqual(
         bundle,
       );
       // These changes were never observed and must not enter the replayed projection.
       moved.assignment!.athlete!.name = 'Unobserved athlete name';
       moved.score!.totalScoreX10 = 999;
-      if (read === 'catalog') expect(source.catalog().subjects[0]!.availability).toBe('available');
+      const availability = read === 'catalog' ? source.catalog().subjects[0]!.availability : null;
+      expect(availability).toBe(read === 'catalog' ? 'available' : null);
       const result = await source.snapshot(`${competitionId}:relay`);
       expect(result.generation).toBe(first.generation);
       expect(result.participants).toHaveLength(1);

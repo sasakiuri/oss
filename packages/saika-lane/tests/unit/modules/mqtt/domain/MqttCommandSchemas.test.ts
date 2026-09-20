@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -301,7 +303,8 @@ describe('MqttCommandSchemas', () => {
         timerStartAt: new Date().toISOString(),
       });
       expect(result.success).toBe(true);
-      if (result.success) expect(result.data.resumeOnly).toBe(true);
+      assert.ok(result.success);
+      expect(result.data.resumeOnly).toBe(true);
     });
 
     it('rejects negative fromSeriesIndex', () => {

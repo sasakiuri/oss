@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ISSF_2026_25M_PISTOL_QUALIFICATION_RULE_PACKS,
+  ISSF_2026_CFP,
+  ISSF_2026_P25,
   recommendQualificationTargetFailure,
   recommendQualificationTimedTargetInterruption,
 } from '../src';
@@ -28,8 +30,6 @@ describe('Qualification target-system failure', () => {
         expect(result.ruleReferences).toContain('8.10.1(c)');
         expect(recommendQualificationTimedTargetInterruption(recovery, facts).extraSighting.required).toBe(false);
         expect(result.seriesRecovery.shotsToFire).toBe(stage.seriesRecovery.treatment === 'ANNUL_AND_REPEAT' ? 5 : 3);
-        if (result.seriesRecovery.execution?.mode === 'SECONDS_PER_SHOT')
-          expect(result.seriesRecovery.execution.totalSeconds).toBe(144);
       });
       it(`${pack.id} ${stage.stageId}: a fully recorded series never permits repetition`, () => {
         const result = recommendQualificationTargetFailure(recovery.targetFailure!, {
@@ -44,4 +44,21 @@ describe('Qualification target-system failure', () => {
       });
     }
   }
+
+  it.each([ISSF_2026_P25, ISSF_2026_CFP])('$id allows 48 seconds per remaining Precision shot', (pack) => {
+    const recovery = pack.capabilities.timedTarget!.recovery;
+    if (recovery.procedure !== 'QUALIFICATION') throw new Error('Expected Qualification');
+    const result = recommendQualificationTargetFailure(recovery.targetFailure!, {
+      stageId: 'PRECISION_STAGE',
+      interruptionSeconds: 120,
+      seriesShotLimit: 5,
+      recordedShots: 2,
+      seriesComplete: false,
+    });
+    expect(result.seriesRecovery.execution).toEqual({
+      mode: 'SECONDS_PER_SHOT',
+      secondsPerShot: 48,
+      totalSeconds: 144,
+    });
+  });
 });

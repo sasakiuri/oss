@@ -18,6 +18,7 @@ describe('SiusAdapter', () => {
   });
 
   it('should throw DATA_CONVERSION_ERROR from convert() (unimplemented stub)', () => {
+    expect.assertions(3);
     const adapter = new SiusAdapter();
     const rawData: RawData = {
       raw: Buffer.from([0x10, 0x00, 0x20, 0x00]),

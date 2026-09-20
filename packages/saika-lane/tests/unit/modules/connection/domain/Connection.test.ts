@@ -388,6 +388,7 @@ describe('Connection', () => {
     });
 
     it('should not allow a negative baud rate', () => {
+      expect.assertions(2);
       try {
         Connection.create({
           manufacturer: TargetManufacturer.sius(),
@@ -402,6 +403,7 @@ describe('Connection', () => {
     });
 
     it('should not allow a baud rate of 0', () => {
+      expect.assertions(2);
       try {
         Connection.create({
           manufacturer: TargetManufacturer.sius(),
@@ -438,6 +440,7 @@ describe('Connection', () => {
     });
 
     it('should not allow an empty string port path', () => {
+      expect.assertions(2);
       try {
         Connection.create({
           manufacturer: TargetManufacturer.sius(),
@@ -452,6 +455,7 @@ describe('Connection', () => {
     });
 
     it('should not allow a whitespace-only port path', () => {
+      expect.assertions(2);
       try {
         Connection.create({
           manufacturer: TargetManufacturer.sius(),

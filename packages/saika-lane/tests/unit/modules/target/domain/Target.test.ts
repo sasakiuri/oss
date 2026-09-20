@@ -94,6 +94,7 @@ describe('Target entity', () => {
 
   describe('Invariant validation', () => {
     it('should throw an error when laneNumber is 0 or less', () => {
+      expect.assertions(2);
       const discipline = Discipline.airRifle10m();
 
       try {
@@ -106,6 +107,7 @@ describe('Target entity', () => {
     });
 
     it('should throw an error when laneNumber is negative', () => {
+      expect.assertions(2);
       const discipline = Discipline.airRifle10m();
 
       try {
@@ -118,6 +120,7 @@ describe('Target entity', () => {
     });
 
     it('should throw an error when laneNumber is a decimal', () => {
+      expect.assertions(2);
       const discipline = Discipline.airRifle10m();
 
       try {

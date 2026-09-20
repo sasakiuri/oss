@@ -661,10 +661,11 @@ describe('Lane spectator source', () => {
       expect(next.participants[0]?.laneName).toBe('New lane');
       if (change === 'new-competition') {
         options.storage.set('mqtt.laneAlias', 'Renamed active lane');
-        const renamed = await read(source, nextId);
-        expect(renamed.label).toContain('Renamed active lane');
-        expect(renamed.participants[0]?.laneName).toBe('Renamed active lane');
       }
+      const renamed = await read(source, nextId);
+      const expectedName = change === 'new-competition' ? 'Renamed active lane' : 'New lane';
+      expect(renamed.label).toContain(expectedName);
+      expect(renamed.participants[0]?.laneName).toBe(expectedName);
       const retained = await read(new LaneVistaSource(options), original.subjectId);
       expect(retained.label).toBe(original.label);
       expect(retained.participants[0]?.laneName).toBe('Lane 1');
@@ -701,7 +702,8 @@ describe('Lane spectator source', () => {
       expect(source.catalog().subjects.map((subject) => subject.id)).toEqual([competition.id]);
       expect(snapshot.participants[0]).toMatchObject({ currentStage: 1, historyComplete: true });
       expect(snapshot.participants[0]?.shots.map((entry) => entry.id)).toEqual([sighting.allShots[0]!.id]);
-      if (previous) expect(snapshot.generation).toBe(previous.generation);
+      const expectedGeneration = expect.any(String);
+      expect(snapshot.generation).toEqual(previous?.generation ?? expectedGeneration);
       expect(options.storage.get('vista-session-links:upgraded')).toEqual([
         { sessionId: sighting.id, stage: 0 },
         { sessionId: match.sessionId, stage: 1 },

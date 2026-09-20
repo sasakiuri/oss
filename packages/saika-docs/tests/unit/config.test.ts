@@ -12,6 +12,7 @@ import { redact } from '@/shared/telemetry/redact';
 
 describe('configuration and shared policies', () => {
   it('rejects invalid or inconsistent settings without exposing secret values', () => {
+    expect.assertions(8);
     expect(() =>
       parseEnvironment(publicEnvSchema, { NEXT_PUBLIC_SITE_URL: 'https://name:secret@example.test' }),
     ).toThrow(/SITE_URL/);
