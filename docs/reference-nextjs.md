@@ -63,3 +63,21 @@ After publishing the static site, set the repository variable `DOCS_MONITOR_URL`
 PDF generation recreates the output directory. Distribution archives require coverage, browser, Storybook, and Lighthouse reports generated from the same source. Stale or missing results cannot be reused. The manual distribution workflow in CI can generate these in sequence. The PDF container includes WeasyPrint, Pandoc, Tectonic, and Graphviz.
 
 Prose checks cover Markdown and text files, with an explicit baseline for findings in existing documents. New findings fail the check. CI does not update the baseline. The repository-wide Japanese/English spacing rule runs separately without baseline exceptions; see [Code Style](../CONTRIBUTING.md#code-style). Mobile Lighthouse performance is reported as an improvement target and displayed separately from the other quality criteria.
+
+## API and HTTP load checks
+
+`npm run api:check -w @sasakiuri/saika-docs` lints both OpenAPI files with Redocly, checks generated client types against `contracts/openapi.json`, and checks the generated Next.js route inventory against the route handlers. The lint configuration validates structure, references, operation IDs, paths, parameters, and examples without an ignore baseline. Use `api:lint` to run only definition linting.
+
+`npm run test:load:smoke -w @sasakiuri/saika-docs` builds the production server, starts it on `127.0.0.1:5188`, and runs a pinned k6 Docker image. Docker host networking is required (Linux, or enabled in Docker Desktop); alternatively, set `K6_BINARY` to a locally installed k6 executable. Use `test:load:smoke:run` after an existing server build, including in CI. The smoke test performs five iterations with one virtual user and a one-second pause: ten GET requests across `/api/health/` and `/api/catalog/`. Every response must succeed and contain the expected data. Timing is reported without a machine-dependent smoke latency gate.
+
+The catalog uses the generated manuals from the build. Both endpoints are static reads; the test does not call the telemetry write endpoint or the Upstash-backed rate limiter. Preview authentication uses the existing `DOCS_PREVIEW_AUTH=1`, `PREVIEW_AUTH_USER`, and `PREVIEW_AUTH_PASSWORD` variables. Local smoke respects the build's `NEXT_PUBLIC_BASE_PATH`; external targets must include their base path in `DOCS_LOAD_BASE_URL`. TLS verification stays enabled and redirects fail the response checks.
+
+For a manually selected staging target, supply the workload and latency budget explicitly:
+
+```bash
+DOCS_LOAD_BASE_URL=https://your-staging-host.example/manuals \
+DOCS_LOAD_RATE=5 DOCS_LOAD_DURATION=1m DOCS_LOAD_VUS=10 DOCS_LOAD_P95_MS=500 \
+  npm run test:load -w @sasakiuri/saika-docs
+```
+
+These example values are not a service objective. Choose them for the target's capacity and agreed response-time budget. `DOCS_LOAD_RATE` is iterations per second, with two requests per iteration; `DOCS_LOAD_VUS` bounds the available concurrency. Load checks require zero failed requests, valid response data, no dropped iterations, and each endpoint's p95 below `DOCS_LOAD_P95_MS`. External load never runs automatically in CI. The CLI prints k6 metrics and exits unsuccessfully when a threshold fails.

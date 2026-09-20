@@ -56,6 +56,7 @@ const config: KnipConfig = {
         "src/app/**/{page,route}.server.{ts,tsx}",
         "src/proxy.server.ts",
         "tests/{e2e,offline}/**/*.spec.ts",
+        "tests/load/docs.js", // Executed by the k6 runtime.
         "playwright.*.config.ts",
         "vitest.mutation.config.ts",
         "playwright.config.ts",
@@ -65,7 +66,11 @@ const config: KnipConfig = {
       // Independent Playwright installations can conflict when evaluated in Knip's process.
       playwright: false,
       // Textlint loads these rule and dictionary modules by configuration, not static imports.
-      ignoreDependencies: ["textlint-rule-*", "sudachi-synonyms-dictionary"],
+      ignoreDependencies: [
+        "textlint-rule-*",
+        "sudachi-synonyms-dictionary",
+        "k6",
+      ],
     },
     "packages/saika-lane": {
       entry: [

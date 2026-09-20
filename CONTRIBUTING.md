@@ -78,6 +78,9 @@ npm run test:mutation -w @sasakiuri/saika-rules
 npm run test:mutation -w @sasakiuri/saika-protocol
 ```
 
+For API contract checks and local k6 smoke or explicitly configured load tests,
+see [the site development guide](docs/reference-nextjs.md#api-and-http-load-checks).
+
 ### CI Scope
 
 CI selects changed workspaces and their transitive dependents from the workspace
@@ -94,7 +97,8 @@ security checks remain enabled, and `CI Required` rejects failed detection or
 unexpectedly skipped checks. The Changes job summary lists the selected packages.
 
 Changed-code coverage and core mutation
-checks run inside the applicable build jobs.
+checks run inside the applicable build jobs. Docs runs API lint and a local
+production-server k6 smoke test in its dedicated workflow.
 
 ### Changing Application Code
 

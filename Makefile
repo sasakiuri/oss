@@ -1,5 +1,5 @@
 DOCS := --workspace=@sasakiuri/saika-docs
-.PHONY: setup env deps dev up down doctor qa e2e pdf
+.PHONY: setup env deps dev up down doctor qa e2e pdf load-test load-test-smoke
 setup: env deps doctor
 
 env:
@@ -21,6 +21,12 @@ down:
 
 doctor:
 	node scripts/doctor.mjs
+
+load-test-smoke:
+	npm run test:load:smoke $(DOCS)
+
+load-test:
+	npm run test:load $(DOCS)
 
 qa:
 	npm run check $(DOCS)
