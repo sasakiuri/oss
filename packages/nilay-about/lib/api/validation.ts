@@ -1,5 +1,6 @@
-import { z } from "zod";
-import { ValidationError } from "@/lib/errors";
+import { z } from 'zod';
+
+import { ValidationError } from '@/lib/errors';
 
 /**
  * Runtime validation for API responses
@@ -11,23 +12,19 @@ import { ValidationError } from "@/lib/errors";
  * Validate data against a Zod schema
  * @throws ValidationError if validation fails
  */
-export function validateResponse<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown,
-  context: string
-): T {
+export function validateResponse<T>(schema: z.ZodSchema<T>, data: unknown, context: string): T {
   const result = schema.safeParse(data);
 
   if (!result.success) {
     const issues = result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
+      path: issue.path.join('.'),
       message: issue.message,
     }));
 
     throw new ValidationError(
       `Invalid response from ${context}`,
       undefined,
-      Object.fromEntries(issues.map((i) => [i.path || "root", i.message]))
+      Object.fromEntries(issues.map((i) => [i.path || 'root', i.message])),
     );
   }
 
@@ -39,10 +36,8 @@ export function validateResponse<T>(
  */
 export function safeValidate<T>(
   schema: z.ZodSchema<T>,
-  data: unknown
-):
-  | { success: true; data: T }
-  | { success: false; error: z.ZodError<T> } {
+  data: unknown,
+): { success: true; data: T } | { success: false; error: z.ZodError<T> } {
   const result = schema.safeParse(data);
 
   if (result.success) {
@@ -59,7 +54,7 @@ export function safeValidate<T>(
 export function validatePartial<T extends z.ZodObject<z.ZodRawShape>>(
   schema: T,
   data: unknown,
-  context: string
+  context: string,
 ): Partial<z.infer<T>> {
   const partialSchema = schema.partial();
   return validateResponse(partialSchema, data, context);

@@ -13,6 +13,7 @@ const config = {
         "saika-rules",
         "saika-docs",
         "nilay-knowledge",
+        "nilay-about",
         "eslint-config",
         "prettier-config",
         "stylelint-config",

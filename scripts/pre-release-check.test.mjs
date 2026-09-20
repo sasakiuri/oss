@@ -57,6 +57,7 @@ function fixture(t) {
   write("SECURITY.md", "Supported: 0.4.x\n");
   write(".gitignore", ".local/\n");
   for (const name of suite) pkg(name);
+  pkg("nilay-about", { version: "0.1.0" });
   pkg("lighthouse-config", { version: "0.1.0" });
   pkg("eslint-config", {
     version: "1.0.0",
@@ -96,7 +97,7 @@ function fixture(t) {
   return { root, write, pkg, run };
 }
 
-test("accepts private configs, independent config versions, reserved directories and middle dots", (t) => {
+test("accepts private websites and configs, independent versions, reserved directories and middle dots", (t) => {
   const f = fixture(t);
   f.write(
     "packages/saika-lane/src/label.ts",
@@ -126,6 +127,30 @@ test("preserves Nilay software and content licenses without relaxing other packa
   const unrelated = f.run();
   assert.notEqual(unrelated.status, 0, unrelated.output);
   assert.match(unrelated.output, /saika-lane: \(MIT AND CC-BY-SA-4\.0\)/);
+});
+
+test("rejects publishing the private Nilay About website", (t) => {
+  const f = fixture(t);
+  f.pkg("nilay-about", { version: "0.1.0", private: false });
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /FAIL +Publishing \/ Private package config/);
+  assert.match(
+    result.output,
+    /nilay-about\/package\.json: private is not true/,
+  );
+});
+
+test("requires Nilay About to retain its MIT license", (t) => {
+  const f = fixture(t);
+  f.pkg("nilay-about", { license: "(MIT AND CC-BY-SA-4.0)" });
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /FAIL +Publishing \/ License consistency/);
+  assert.match(
+    result.output,
+    /nilay-about: \(MIT AND CC-BY-SA-4\.0\) \(expected: MIT\)/,
+  );
 });
 
 function securityFixture(t) {

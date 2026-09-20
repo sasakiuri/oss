@@ -1,1 +1,1 @@
-export * from "./async-boundary";
+export * from './async-boundary';

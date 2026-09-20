@@ -9,7 +9,7 @@
  */
 export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
-  ms: number
+  ms: number,
 ): (...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -24,7 +24,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
  */
 export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
-  ms: number
+  ms: number,
 ): (...args: Parameters<T>) => void {
   let lastTime = 0;
 
@@ -42,7 +42,7 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
  */
 export function memoize<T extends (...args: unknown[]) => unknown>(
   fn: T,
-  getKey?: (...args: Parameters<T>) => string
+  getKey?: (...args: Parameters<T>) => string,
 ): T {
   const cache = new Map<string, ReturnType<T>>();
 
@@ -62,9 +62,7 @@ export function memoize<T extends (...args: unknown[]) => unknown>(
 /**
  * Lazy load a module
  */
-export function lazyLoad<T>(
-  factory: () => Promise<T>
-): () => Promise<T> {
+export function lazyLoad<T>(factory: () => Promise<T>): () => Promise<T> {
   let cached: T | undefined;
   let loading: Promise<T> | undefined;
 
@@ -90,15 +88,12 @@ export function lazyLoad<T>(
 /**
  * Measure execution time
  */
-export async function measureTime<T>(
-  fn: () => Promise<T>,
-  label?: string
-): Promise<{ result: T; duration: number }> {
+export async function measureTime<T>(fn: () => Promise<T>, label?: string): Promise<{ result: T; duration: number }> {
   const start = performance.now();
   const result = await fn();
   const duration = performance.now() - start;
 
-  if (label && process.env.NODE_ENV === "development") {
+  if (label && process.env.NODE_ENV === 'development') {
     console.log(`[Performance] ${label}: ${duration.toFixed(2)}ms`);
   }
 
@@ -110,7 +105,7 @@ export async function measureTime<T>(
  */
 export function createBatcher<TInput, TOutput>(
   batchFn: (inputs: TInput[]) => Promise<TOutput[]>,
-  options: { maxBatchSize?: number; maxWaitMs?: number } = {}
+  options: { maxBatchSize?: number; maxWaitMs?: number } = {},
 ) {
   const { maxBatchSize = 10, maxWaitMs = 10 } = options;
 
@@ -133,7 +128,7 @@ export function createBatcher<TInput, TOutput>(
         if (output !== undefined) {
           item.resolve(output);
         } else {
-          item.reject(new Error("Batch function returned fewer outputs than inputs"));
+          item.reject(new Error('Batch function returned fewer outputs than inputs'));
         }
       });
     } catch (error) {

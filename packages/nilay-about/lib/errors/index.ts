@@ -1,21 +1,16 @@
 // Re-export all error types
-export * from "./base";
-export * from "./domain-errors";
-export * from "./infrastructure-errors";
+export * from './base';
+export * from './domain-errors';
+export * from './infrastructure-errors';
 
 // Legacy compatibility exports
-import { BaseError, isBaseError, getUserFriendlyMessage } from "./base";
-import { NotFoundError, ValidationError } from "./domain-errors";
-import { NetworkError } from "./infrastructure-errors";
+import { BaseError, isBaseError, getUserFriendlyMessage } from './base';
+import { NotFoundError, ValidationError } from './domain-errors';
+import { NetworkError } from './infrastructure-errors';
 
 /** @deprecated Use BaseError instead */
 export class AppError extends BaseError {
-  constructor(
-    message: string,
-    code: string,
-    statusCode: number = 500,
-    cause?: unknown
-  ) {
+  constructor(message: string, code: string, statusCode: number = 500, cause?: unknown) {
     super(message, code, statusCode, cause);
   }
 

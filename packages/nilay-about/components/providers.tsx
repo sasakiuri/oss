@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { queryConfig } from "@/lib/api/query-config";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
+
+import { queryConfig } from '@/lib/api/query-config';
 
 // NOTE: lib/env.ts は server-only のため、クライアント側では直接 process.env を参照
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === 'production';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -34,7 +35,5 @@ function createQueryClient() {
 export function Providers({ children }: ProvidersProps) {
   const [queryClient] = useState(createQueryClient);
 
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

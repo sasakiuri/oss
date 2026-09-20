@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import { Button, Card, CardContent, Input, Label } from "@/components/ui";
-import { LuDownload, LuPencil, LuLoader } from "react-icons/lu";
-import * as Dialog from "@radix-ui/react-dialog";
-import {
-  AppHeader,
-  AppLayout,
-  LanguageMenu,
-} from "@/app/(standalone)/_components";
-import {
-  useHomeTargetStore,
-  calculateHeightOfTarget,
-  calculateBlackAreaSize,
-} from "./_store";
+import * as Dialog from '@radix-ui/react-dialog';
+import { LuDownload, LuPencil, LuLoader } from 'react-icons/lu';
+
+import { AppHeader, AppLayout, LanguageMenu } from '@/app/(standalone)/_components';
+import { Button, Card, CardContent, Input, Label } from '@/components/ui';
+
+import { useHomeTargetStore, calculateHeightOfTarget, calculateBlackAreaSize } from './_store';
 
 type Text = {
   title: string;
@@ -30,105 +24,104 @@ type Text = {
 };
 
 const enText: Text = {
-  title: "Target Calculator",
-  heightOfTargetCenter: "Height of Target Center",
-  blackAreaSize: "Black Area Size",
-  eyeHeight: "Eye Height",
-  eyeHeightDesc: "Please enter the height from the floor to your eye.",
-  desiredDistance: "Desired Distance to Target",
-  desiredDistanceDesc:
-    "Please enter the distance to the position where you want to place the target.",
-  distance: "Distance",
-  discipline: "Discipline",
-  disciplineDesc: "Please select the discipline ( or create custom discipline).",
-  shootingDistance: "Shooting Distance",
-  blackAimingAreaSize: "Black Aiming Area Size",
+  title: 'Target Calculator',
+  heightOfTargetCenter: 'Height of Target Center',
+  blackAreaSize: 'Black Area Size',
+  eyeHeight: 'Eye Height',
+  eyeHeightDesc: 'Please enter the height from the floor to your eye.',
+  desiredDistance: 'Desired Distance to Target',
+  desiredDistanceDesc: 'Please enter the distance to the position where you want to place the target.',
+  distance: 'Distance',
+  discipline: 'Discipline',
+  disciplineDesc: 'Please select the discipline ( or create custom discipline).',
+  shootingDistance: 'Shooting Distance',
+  blackAimingAreaSize: 'Black Aiming Area Size',
 };
 
 const jaText: Text = {
-  title: "標的を計算",
-  heightOfTargetCenter: "標的の中心の高さ",
-  blackAreaSize: "黒い領域の大きさ",
-  eyeHeight: "目の高さ",
-  eyeHeightDesc: "床から目までの高さを入力してください",
-  desiredDistance: "標的を設置したい距離",
-  desiredDistanceDesc: "標的を設置したい位置までの距離を入力してください。",
-  distance: "距離",
-  discipline: "種目",
-  disciplineDesc: "種目を選択 (あるいはカスタム種目を作成) してください。",
-  shootingDistance: "射撃距離",
-  blackAimingAreaSize: "黒い領域のサイズ",
+  title: '標的を計算',
+  heightOfTargetCenter: '標的の中心の高さ',
+  blackAreaSize: '黒い領域の大きさ',
+  eyeHeight: '目の高さ',
+  eyeHeightDesc: '床から目までの高さを入力してください',
+  desiredDistance: '標的を設置したい距離',
+  desiredDistanceDesc: '標的を設置したい位置までの距離を入力してください。',
+  distance: '距離',
+  discipline: '種目',
+  disciplineDesc: '種目を選択 (あるいはカスタム種目を作成) してください。',
+  shootingDistance: '射撃距離',
+  blackAimingAreaSize: '黒い領域のサイズ',
 };
 
 const disciplineMap = new Map([
   [
-    "AR10",
+    'AR10',
     {
-      name: "10m Air Rifle",
-      key: "AR10",
-      distance: { number: 10, unit: "m" as const },
-      heightOfTarget: { number: 140, unit: "cm" as const },
-      blackAreaSize: { number: 3.05, unit: "cm" as const },
+      name: '10m Air Rifle',
+      key: 'AR10',
+      distance: { number: 10, unit: 'm' as const },
+      heightOfTarget: { number: 140, unit: 'cm' as const },
+      blackAreaSize: { number: 3.05, unit: 'cm' as const },
     },
   ],
   [
-    "FR50",
+    'FR50',
     {
-      name: "50m Rifle",
-      key: "FR50",
-      distance: { number: 50, unit: "m" as const },
-      heightOfTarget: { number: 75, unit: "cm" as const },
-      blackAreaSize: { number: 11.24, unit: "cm" as const },
+      name: '50m Rifle',
+      key: 'FR50',
+      distance: { number: 50, unit: 'm' as const },
+      heightOfTarget: { number: 75, unit: 'cm' as const },
+      blackAreaSize: { number: 11.24, unit: 'cm' as const },
     },
   ],
   [
-    "FR300",
+    'FR300',
     {
-      name: "300m Rifle",
-      key: "FR300",
-      distance: { number: 300, unit: "m" as const },
-      heightOfTarget: { number: 300, unit: "cm" as const },
-      blackAreaSize: { number: 60, unit: "cm" as const },
+      name: '300m Rifle',
+      key: 'FR300',
+      distance: { number: 300, unit: 'm' as const },
+      heightOfTarget: { number: 300, unit: 'cm' as const },
+      blackAreaSize: { number: 60, unit: 'cm' as const },
     },
   ],
   [
-    "AP10",
+    'AP10',
     {
-      name: "10m Air Pistol",
-      key: "AP10",
-      distance: { number: 10, unit: "m" as const },
-      heightOfTarget: { number: 140, unit: "cm" as const },
-      blackAreaSize: { number: 5.95, unit: "cm" as const },
+      name: '10m Air Pistol',
+      key: 'AP10',
+      distance: { number: 10, unit: 'm' as const },
+      heightOfTarget: { number: 140, unit: 'cm' as const },
+      blackAreaSize: { number: 5.95, unit: 'cm' as const },
     },
   ],
   [
-    "RFP",
+    'RFP',
     {
-      name: "25m Rapid Fire Pistol",
-      key: "RFP",
-      distance: { number: 25, unit: "m" as const },
-      heightOfTarget: { number: 140, unit: "cm" as const },
-      blackAreaSize: { number: 50, unit: "cm" as const },
+      name: '25m Rapid Fire Pistol',
+      key: 'RFP',
+      distance: { number: 25, unit: 'm' as const },
+      heightOfTarget: { number: 140, unit: 'cm' as const },
+      blackAreaSize: { number: 50, unit: 'cm' as const },
     },
   ],
   [
-    "STP",
+    'STP',
     {
-      name: "25m Precision Pistol",
-      key: "STP",
-      distance: { number: 25, unit: "m" as const },
-      heightOfTarget: { number: 140, unit: "cm" as const },
-      blackAreaSize: { number: 20, unit: "cm" as const },
+      name: '25m Precision Pistol',
+      key: 'STP',
+      distance: { number: 25, unit: 'm' as const },
+      heightOfTarget: { number: 140, unit: 'cm' as const },
+      blackAreaSize: { number: 20, unit: 'cm' as const },
     },
   ],
   [
-    "FP",
+    'FP',
     {
-      name: "50m Pistol",
-      key: "FP",
-      distance: { number: 50, unit: "m" as const },
-      heightOfTarget: { number: 75, unit: "cm" as const },
-      blackAreaSize: { number: 20, unit: "cm" as const },
+      name: '50m Pistol',
+      key: 'FP',
+      distance: { number: 50, unit: 'm' as const },
+      heightOfTarget: { number: 75, unit: 'cm' as const },
+      blackAreaSize: { number: 20, unit: 'cm' as const },
     },
   ],
 ]);
@@ -154,19 +147,19 @@ export function HomeTargetClient() {
   const heightOfTarget = calculateHeightOfTarget(heightOfEye, distanceToTarget, discipline);
   const blackAreaSize = calculateBlackAreaSize(distanceToTarget, discipline);
 
-  const text = language === "ja" ? jaText : enText;
+  const text = language === 'ja' ? jaText : enText;
 
   const handleDisciplineChange = (key: string) => {
-    if (key === "CUSTOM") {
+    if (key === 'CUSTOM') {
       setIsReadonly(false);
-      setDiscipline({ ...discipline, name: "Custom", key: "CUSTOM" });
+      setDiscipline({ ...discipline, name: 'Custom', key: 'CUSTOM' });
       return;
     }
 
     const newDiscipline = disciplineMap.get(key);
     if (!newDiscipline) {
       setIsReadonly(false);
-      setDiscipline({ ...discipline, name: "Custom", key: "CUSTOM" });
+      setDiscipline({ ...discipline, name: 'Custom', key: 'CUSTOM' });
       return;
     }
 
@@ -177,13 +170,13 @@ export function HomeTargetClient() {
   const handleSaveClick = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch("/api/home-targets", {
-        method: "POST",
+      const response = await fetch('/api/home-targets', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          blackAreaSize: { number: blackAreaSize, unit: "cm" },
+          blackAreaSize: { number: blackAreaSize, unit: 'cm' },
         }),
       });
 
@@ -192,20 +185,20 @@ export function HomeTargetClient() {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
           errorData.error ||
-          (language === "ja"
-            ? "PDF の生成に失敗しました。しばらく時間をおいてから再度お試しください。"
-            : "Failed to generate PDF. Please try again later.");
+          (language === 'ja'
+            ? 'PDF の生成に失敗しました。しばらく時間をおいてから再度お試しください。'
+            : 'Failed to generate PDF. Please try again later.');
         throw new Error(errorMessage);
       }
 
       // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get("content-disposition");
+      const contentDisposition = response.headers.get('content-disposition');
       const filenameMatch = contentDisposition?.match(/filename="?([^";\n]+)"?/);
-      const filename = filenameMatch?.[1] || "Home_Target.pdf";
+      const filename = filenameMatch?.[1] || 'Home_Target.pdf';
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -215,11 +208,7 @@ export function HomeTargetClient() {
     } catch (error) {
       // Show user-friendly error message
       const message =
-        error instanceof Error
-          ? error.message
-          : language === "ja"
-            ? "エラーが発生しました。"
-            : "An error occurred.";
+        error instanceof Error ? error.message : language === 'ja' ? 'エラーが発生しました。' : 'An error occurred.';
       window.alert(message);
     } finally {
       setIsDownloading(false);
@@ -229,12 +218,7 @@ export function HomeTargetClient() {
   const headerActions = (
     <>
       <LanguageMenu language={language} onLanguageChange={setLanguage} />
-      <Button
-        variant="ghost"
-        onClick={handleSaveClick}
-        disabled={isDownloading}
-        className="text-on-surface"
-      >
+      <Button variant="ghost" onClick={handleSaveClick} disabled={isDownloading} className="text-on-surface">
         {isDownloading ? (
           <LuLoader className="h-[18px] w-[18px] animate-spin" />
         ) : (
@@ -252,20 +236,12 @@ export function HomeTargetClient() {
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">
-                  {text.heightOfTargetCenter}
-                </p>
-                <p className="text-2xl font-medium">
-                  {Math.round(heightOfTarget * 100) / 100}&nbsp;cm
-                </p>
+                <p className="text-sm text-muted-foreground">{text.heightOfTargetCenter}</p>
+                <p className="text-2xl font-medium">{Math.round(heightOfTarget * 100) / 100}&nbsp;cm</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">
-                  {text.blackAreaSize}
-                </p>
-                <p className="text-2xl font-medium">
-                  {Math.round(blackAreaSize * 100) / 100}&nbsp;cm
-                </p>
+                <p className="text-sm text-muted-foreground">{text.blackAreaSize}</p>
+                <p className="text-2xl font-medium">{Math.round(blackAreaSize * 100) / 100}&nbsp;cm</p>
               </div>
             </div>
           </CardContent>
@@ -285,9 +261,7 @@ export function HomeTargetClient() {
                 })
               }
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-              {heightOfEye.unit}
-            </span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">{heightOfEye.unit}</span>
           </div>
           <p className="text-sm text-muted-foreground">{text.eyeHeightDesc}</p>
         </div>
@@ -310,9 +284,7 @@ export function HomeTargetClient() {
               {distanceToTarget.unit}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {text.desiredDistanceDesc}
-          </p>
+          <p className="text-sm text-muted-foreground">{text.desiredDistanceDesc}</p>
         </div>
 
         <div className="flex items-center justify-between rounded-md border p-4">
@@ -331,6 +303,7 @@ export function HomeTargetClient() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label={language === 'ja' ? '競技種目を編集' : 'Edit discipline'}
             onClick={() => setIsDisciplineDialogOpen(true)}
           >
             <LuPencil className="h-4 w-4" />
@@ -339,49 +312,42 @@ export function HomeTargetClient() {
       </div>
 
       {/* M3 Dialog: 28dp corner radius, elevation 3, scrim overlay */}
-      <Dialog.Root
-        open={isDisciplineDialogOpen}
-        onOpenChange={setIsDisciplineDialogOpen}
-      >
+      <Dialog.Root open={isDisciplineDialogOpen} onOpenChange={setIsDisciplineDialogOpen}>
         <Dialog.Portal>
           {/* M3 Scrim: 32% black overlay */}
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/[0.32] animate-in fade-in duration-200" />
           {/* M3 Dialog container: 28dp corner radius, elevation 3 */}
           <Dialog.Content
             className={[
-              "fixed left-1/2 top-1/2 z-[101]",
-              "-translate-x-1/2 -translate-y-1/2",
-              "max-h-[90vh] w-[90vw] max-w-md",
-              "overflow-auto",
-              "rounded-[28px]",
-              "bg-[#ebedeb]", // surface-container-high
-              "p-6",
-              "shadow-[0_4px_8px_3px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.3)]",
-              "animate-in fade-in zoom-in-95 duration-200",
+              'fixed left-1/2 top-1/2 z-[101]',
+              '-translate-x-1/2 -translate-y-1/2',
+              'max-h-[90vh] w-[90vw] max-w-md',
+              'overflow-auto',
+              'rounded-[28px]',
+              'bg-[#ebedeb]', // surface-container-high
+              'p-6',
+              'shadow-[0_4px_8px_3px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.3)]',
+              'animate-in fade-in zoom-in-95 duration-200',
               "font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]",
-              "text-[#1f1f1f]", // on-surface
-            ].join(" ")}
+              'text-[#1f1f1f]', // on-surface
+            ].join(' ')}
           >
             {/* M3 Dialog headline: Headline Small (24sp) */}
-            <Dialog.Title className="text-2xl leading-8 font-normal">
-              {text.discipline}
-            </Dialog.Title>
+            <Dialog.Title className="text-2xl leading-8 font-normal">{text.discipline}</Dialog.Title>
 
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#444746]">
-                  {text.discipline}
-                </Label>
+                <Label className="text-sm font-medium text-[#444746]">{text.discipline}</Label>
                 <select
                   className={[
-                    "w-full h-14 px-4",
-                    "rounded",
-                    "border border-[#747775] bg-white",
-                    "text-base text-[#1f1f1f]",
+                    'w-full h-14 px-4',
+                    'rounded',
+                    'border border-[#747775] bg-white',
+                    'text-base text-[#1f1f1f]',
                     "font-[Roboto,-apple-system,BlinkMacSystemFont,'Noto_Sans_JP','Segoe_UI',sans-serif]",
-                    "focus:outline-none focus:border-[#1a73e8] focus:border-2",
-                    "transition-colors duration-200",
-                  ].join(" ")}
+                    'focus:outline-none focus:border-[#1a73e8] focus:border-2',
+                    'transition-colors duration-200',
+                  ].join(' ')}
                   value={discipline.key}
                   onChange={(e) => handleDisciplineChange(e.target.value)}
                 >
@@ -392,15 +358,11 @@ export function HomeTargetClient() {
                   ))}
                   <option value="CUSTOM">Custom</option>
                 </select>
-                <p className="text-sm text-[#444746]">
-                  {text.disciplineDesc}
-                </p>
+                <p className="text-sm text-[#444746]">{text.disciplineDesc}</p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#444746]">
-                  {text.shootingDistance}
-                </Label>
+                <Label className="text-sm font-medium text-[#444746]">{text.shootingDistance}</Label>
                 <div className="relative">
                   <Input
                     type="number"
@@ -424,9 +386,7 @@ export function HomeTargetClient() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#444746]">
-                  {text.heightOfTargetCenter}
-                </Label>
+                <Label className="text-sm font-medium text-[#444746]">{text.heightOfTargetCenter}</Label>
                 <div className="relative">
                   <Input
                     type="number"
@@ -450,9 +410,7 @@ export function HomeTargetClient() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-[#444746]">
-                  {text.blackAimingAreaSize}
-                </Label>
+                <Label className="text-sm font-medium text-[#444746]">{text.blackAimingAreaSize}</Label>
                 <div className="relative">
                   <Input
                     type="number"

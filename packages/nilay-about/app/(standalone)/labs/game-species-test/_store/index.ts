@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import { useShallow } from "zustand/react/shallow";
+import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 
 // Types
 export interface Quiz {
@@ -58,20 +58,15 @@ export const useGameSpeciesStore = create<GameSpeciesStore>((set, get) => ({
 
 // Selectors (for performance optimization)
 export const useCurrentQuiz = () =>
-  useGameSpeciesStore((state) =>
-    state.quizList.length > 0 ? state.quizList[state.currentIndex] : null
-  );
+  useGameSpeciesStore((state) => (state.quizList.length > 0 ? state.quizList[state.currentIndex] : null));
 
 export const useQuizProgress = () =>
   useGameSpeciesStore(
     useShallow((state) => ({
       current: state.currentIndex + 1,
       total: state.quizList.length,
-      percentage:
-        state.quizList.length > 0
-          ? (state.currentIndex / state.quizList.length) * 100
-          : 0,
-    }))
+      percentage: state.quizList.length > 0 ? (state.currentIndex / state.quizList.length) * 100 : 0,
+    })),
   );
 
 export const useGameSpeciesActions = () =>
@@ -81,5 +76,5 @@ export const useGameSpeciesActions = () =>
       setAutoPlay: state.setAutoPlay,
       nextQuiz: state.nextQuiz,
       reset: state.reset,
-    }))
+    })),
   );

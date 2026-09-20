@@ -22,18 +22,18 @@ export const MAX_SUMMARY_DISPLAY_LENGTH = 140;
 
 // Routes
 export const ROUTES = {
-  HOME: "/",
-  NEWS: "/news",
+  HOME: '/',
+  NEWS: '/news',
   NEWS_DETAIL: (id: string) => `/news/${id}`,
-  CONTACT: "/contact",
-  LABS: "/labs",
-  LABS_GAME_SPECIES: "/labs/game-species-test",
-  LABS_HOME_TARGET: "/labs/home-target",
+  CONTACT: '/contact',
+  LABS: '/labs',
+  LABS_GAME_SPECIES: '/labs/game-species-test',
+  LABS_HOME_TARGET: '/labs/home-target',
 } as const;
 
 // External links
 export const EXTERNAL_LINKS = {
-  KNOWLEDGE: "https://knowledge.nilay.jp/",
-  ECOMMERCE: "https://www.nilay.jp/",
-  GUNMAN: "https://gunman.nilay.jp/",
+  KNOWLEDGE: 'https://knowledge.nilay.jp/',
+  ECOMMERCE: 'https://www.nilay.jp/',
+  GUNMAN: 'https://gunman.nilay.jp/',
 } as const;

@@ -5,6 +5,8 @@ const config = {
   "*.{md,txt}": () => "npm run lint:text",
   "packages/nilay-knowledge/**/*.{ts,tsx,mjs,json,md}": () =>
     "npm run lint --workspace=@sasakiuri/nilay-knowledge",
+  "packages/nilay-about/**/*.{ts,tsx,mjs,json,md,css}": () =>
+    "npm run lint --workspace=@sasakiuri/nilay-about",
   "packages/saika-docs/**/*.{ts,tsx,mjs,cjs,json,md,css,scss,yml,yaml}": () =>
     "npm run lint:prettier --workspace=@sasakiuri/saika-docs",
   "packages/saika-docs/**/*.{ts,tsx,mjs,cjs}": () => [
@@ -47,14 +49,14 @@ const config = {
 
   // Root config files
   "*.{js,mjs,cjs,ts,json,md,yml,yaml}": (filenames) => {
-    // The documentation workspace checks formatting with its own ignore file.
+    // Website workspaces check formatting with their own ignore files.
     const files = filenames.filter(
       (filename) =>
         !path
           .relative(process.cwd(), filename)
           .split(path.sep)
           .join("/")
-          .match(/^packages\/(saika-docs|nilay-knowledge)\//),
+          .match(/^packages\/(saika-docs|nilay-knowledge|nilay-about)\//),
     );
     return files.length ? [`prettier --write ${files.join(" ")}`] : [];
   },

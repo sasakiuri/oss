@@ -1,14 +1,15 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ROUTES } from "@/lib/constants";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+import { ROUTES } from '@/lib/constants';
 
 const navItems = [
-  { href: ROUTES.HOME, label: "Home" },
-  { href: ROUTES.NEWS, label: "News" },
-  { href: ROUTES.CONTACT, label: "Contact" },
-  { href: ROUTES.LABS, label: "Labs" },
+  { href: ROUTES.HOME, label: 'Home' },
+  { href: ROUTES.NEWS, label: 'News' },
+  { href: ROUTES.CONTACT, label: 'Contact' },
+  { href: ROUTES.LABS, label: 'Labs' },
 ] as const;
 
 function SkipLink() {
@@ -45,14 +46,13 @@ export function RetroHeader() {
             <ul className="list-none flex flex-wrap gap-x-4 gap-y-1 m-0 p-0">
               {navItems.map((item) => {
                 const isActive =
-                  pathname === item.href ||
-                  (item.href !== ROUTES.HOME && pathname.startsWith(item.href));
+                  pathname === item.href || (item.href !== ROUTES.HOME && pathname.startsWith(item.href));
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      className={isActive ? "font-bold" : ""}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={isActive ? 'font-bold' : ''}
                     >
                       [{item.label}]
                     </Link>

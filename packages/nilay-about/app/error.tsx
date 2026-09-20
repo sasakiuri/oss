@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import Link from 'next/link';
+import { useEffect } from 'react';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -11,7 +12,7 @@ interface ErrorProps {
  * Check if running in development mode
  * Note: This check happens at build time for static optimization
  */
-const isDevelopment = process.env.NODE_ENV === "development";
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
  * Global Error Boundary for the application
@@ -29,14 +30,14 @@ export default function Error({ error, reset }: ErrorProps) {
     // Log error to monitoring service in production
     // TODO: Integrate with Sentry, LogRocket, or similar
     if (isDevelopment) {
-      console.error("[App Error]", {
+      console.error('[App Error]', {
         message: error.message,
         digest: error.digest,
         stack: error.stack,
       });
     } else {
       // In production, log only the digest for correlation
-      console.error("[App Error]", {
+      console.error('[App Error]', {
         digest: error.digest,
       });
     }
@@ -46,9 +47,7 @@ export default function Error({ error, reset }: ErrorProps) {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1>エラーが発生しました</h1>
 
-      <p className="mt-4">
-        申し訳ございません。予期しないエラーが発生しました。
-      </p>
+      <p className="mt-4">申し訳ございません。予期しないエラーが発生しました。</p>
 
       {error.digest && (
         <p className="mt-2 text-sm">
@@ -57,16 +56,12 @@ export default function Error({ error, reset }: ErrorProps) {
       )}
 
       <div className="mt-6 space-x-4">
-        <button
-          type="button"
-          onClick={reset}
-          className="underline"
-        >
+        <button type="button" onClick={reset} className="underline">
           再試行
         </button>
-        <a href="/" className="underline">
+        <Link href="/" className="underline">
           ホームに戻る
-        </a>
+        </Link>
       </div>
 
       {/* 開発環境でのみ技術的な詳細を表示 */}

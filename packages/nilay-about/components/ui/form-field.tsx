@@ -1,11 +1,13 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { createContext, useContext, useId, useMemo } from "react";
-import { Label } from "./label";
-import { Input } from "./input";
-import { Textarea } from "./textarea";
-import { cn } from "@/lib/utils";
+import * as React from 'react';
+import { createContext, useContext, useId, useMemo } from 'react';
+
+import { cn } from '@/lib/utils';
+
+import { Input } from './input';
+import { Label } from './label';
+import { Textarea } from './textarea';
 
 // Form Field Context for automatic aria attributes
 interface FormFieldContextValue {
@@ -21,7 +23,7 @@ const FormFieldContext = createContext<FormFieldContextValue | null>(null);
 function useFormFieldContext() {
   const context = useContext(FormFieldContext);
   if (!context) {
-    throw new Error("useFormFieldContext must be used within FormField");
+    throw new Error('useFormFieldContext must be used within FormField');
   }
   return context;
 }
@@ -30,7 +32,7 @@ function useFormFieldContext() {
 export function useFieldAriaDescribedBy(): string | undefined {
   const { errorId, descriptionId, hasError, hasDescription } = useFormFieldContext();
   const parts = [hasError && errorId, hasDescription && descriptionId].filter(Boolean);
-  return parts.length > 0 ? parts.join(" ") : undefined;
+  return parts.length > 0 ? parts.join(' ') : undefined;
 }
 
 interface FormFieldProps {
@@ -65,12 +67,12 @@ export function FormField({
       hasError: !!error,
       hasDescription: !!description,
     }),
-    [id, errorId, descriptionId, error, description]
+    [id, errorId, descriptionId, error, description],
   );
 
   return (
     <FormFieldContext.Provider value={contextValue}>
-      <div className={cn("space-y-2", className)} role="group" aria-labelledby={`${id}-label`}>
+      <div className={cn('space-y-2', className)} role="group" aria-labelledby={`${id}-label`}>
         <Label htmlFor={id} id={`${id}-label`}>
           {label}
           {required && (
@@ -87,12 +89,7 @@ export function FormField({
         )}
         {children}
         {error && (
-          <p
-            id={errorId}
-            role="alert"
-            aria-live="polite"
-            className="text-sm text-destructive"
-          >
+          <p id={errorId} role="alert" aria-live="polite" className="text-sm text-destructive">
             {error}
           </p>
         )}
@@ -101,86 +98,50 @@ export function FormField({
   );
 }
 
-interface FormInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "id"> {
+interface FormInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'id'> {
   id: string;
   label: string;
   error?: string;
   description?: string;
 }
 
-export function FormInput({
-  id,
-  label,
-  error,
-  required,
-  description,
-  className,
-  ...props
-}: FormInputProps) {
+export function FormInput({ id, label, error, required, description, className, ...props }: FormInputProps) {
   const errorId = `${id}-error`;
   const descriptionId = description ? `${id}-description` : undefined;
 
   return (
-    <FormField
-      id={id}
-      label={label}
-      error={error}
-      required={required}
-      description={description}
-    >
+    <FormField id={id} label={label} error={error} required={required} description={description}>
       <Input
         id={id}
         required={required}
         aria-invalid={!!error}
-        aria-describedby={
-          [error && errorId, descriptionId].filter(Boolean).join(" ") ||
-          undefined
-        }
-        className={cn(error && "border-destructive", className)}
+        aria-describedby={[error && errorId, descriptionId].filter(Boolean).join(' ') || undefined}
+        className={cn(error && 'border-destructive', className)}
         {...props}
       />
     </FormField>
   );
 }
 
-interface FormTextareaProps
-  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "id"> {
+interface FormTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'id'> {
   id: string;
   label: string;
   error?: string;
   description?: string;
 }
 
-export function FormTextarea({
-  id,
-  label,
-  error,
-  required,
-  description,
-  className,
-  ...props
-}: FormTextareaProps) {
+export function FormTextarea({ id, label, error, required, description, className, ...props }: FormTextareaProps) {
   const errorId = `${id}-error`;
   const descriptionId = description ? `${id}-description` : undefined;
 
   return (
-    <FormField
-      id={id}
-      label={label}
-      error={error}
-      required={required}
-      description={description}
-    >
+    <FormField id={id} label={label} error={error} required={required} description={description}>
       <Textarea
         id={id}
         required={required}
         aria-invalid={!!error}
-        aria-describedby={
-          [error && errorId, descriptionId].filter(Boolean).join(" ") ||
-          undefined
-        }
-        className={cn(error && "border-destructive", className)}
+        aria-describedby={[error && errorId, descriptionId].filter(Boolean).join(' ') || undefined}
+        className={cn(error && 'border-destructive', className)}
         {...props}
       />
     </FormField>

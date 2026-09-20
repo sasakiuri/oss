@@ -1,7 +1,7 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
 // Types
-export type LengthUnit = "mm" | "cm" | "m";
+export type LengthUnit = 'mm' | 'cm' | 'm';
 
 export interface Length {
   number: number;
@@ -16,7 +16,7 @@ export interface Discipline {
   blackAreaSize: Length;
 }
 
-export type Language = "ja" | "en";
+export type Language = 'ja' | 'en';
 
 // State interface
 interface HomeTargetState {
@@ -46,15 +46,15 @@ type HomeTargetStore = HomeTargetState & HomeTargetActions;
 
 // Initial state
 const initialState: HomeTargetState = {
-  language: "ja",
-  heightOfEye: { number: 170, unit: "cm" },
-  distanceToTarget: { number: 5, unit: "m" },
+  language: 'ja',
+  heightOfEye: { number: 170, unit: 'cm' },
+  distanceToTarget: { number: 5, unit: 'm' },
   discipline: {
-    name: "Custom",
-    key: "CUSTOM",
-    distance: { number: 50, unit: "m" },
-    heightOfTarget: { number: 75, unit: "cm" },
-    blackAreaSize: { number: 11.24, unit: "cm" },
+    name: 'Custom',
+    key: 'CUSTOM',
+    distance: { number: 50, unit: 'm' },
+    heightOfTarget: { number: 75, unit: 'cm' },
+    blackAreaSize: { number: 11.24, unit: 'cm' },
   },
   isReadonly: false,
   isDownloading: false,
@@ -71,17 +71,12 @@ export const useHomeTargetStore = create<HomeTargetStore>((set) => ({
   setDiscipline: (discipline) => set({ discipline }),
   setIsReadonly: (isReadonly) => set({ isReadonly }),
   setIsDownloading: (isDownloading) => set({ isDownloading }),
-  setIsDisciplineDialogOpen: (isDisciplineDialogOpen) =>
-    set({ isDisciplineDialogOpen }),
+  setIsDisciplineDialogOpen: (isDisciplineDialogOpen) => set({ isDisciplineDialogOpen }),
   reset: () => set(initialState),
 }));
 
 // Computed values as pure functions (testable, memoizable)
-export function calculateHeightOfTarget(
-  heightOfEye: Length,
-  distanceToTarget: Length,
-  discipline: Discipline
-): number {
+export function calculateHeightOfTarget(heightOfEye: Length, distanceToTarget: Length, discipline: Discipline): number {
   return (
     discipline.heightOfTarget.number *
     (1 -
@@ -90,12 +85,6 @@ export function calculateHeightOfTarget(
   );
 }
 
-export function calculateBlackAreaSize(
-  distanceToTarget: Length,
-  discipline: Discipline
-): number {
-  return (
-    (discipline.blackAreaSize.number * distanceToTarget.number) /
-    discipline.distance.number
-  );
+export function calculateBlackAreaSize(distanceToTarget: Length, discipline: Discipline): number {
+  return (discipline.blackAreaSize.number * distanceToTarget.number) / discipline.distance.number;
 }

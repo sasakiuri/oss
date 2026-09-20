@@ -667,7 +667,7 @@ check_license_consistency() {
       if (!fs.existsSync(pkgPath)) continue;
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
       const license = pkg.license || '(not set)';
-      // Preserve Nilay software and site-text licenses instead of relicensing the import.
+      // Preserve Nilay Knowledge's software and site-text licenses.
       const expectedLicense = dir === 'nilay-knowledge'
         ? '(MIT AND CC-BY-SA-4.0)'
         : rootLicense;

@@ -23,8 +23,8 @@
  * ```
  */
 
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 
 export interface RateLimitConfig {
   /** Maximum number of requests allowed in the window */
@@ -45,8 +45,7 @@ export interface RateLimitResult {
 }
 
 // Upstash Redis 設定チェック
-const hasUpstashConfig =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
+const hasUpstashConfig = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
 
 // Redis クライアント（本番環境用）
 let redis: Redis | null = null;
@@ -76,8 +75,8 @@ function getUpstashRatelimiter(config: RateLimitConfig): Ratelimit {
         redis: redis!,
         limiter: Ratelimit.slidingWindow(config.maxRequests, `${windowSec} s`),
         analytics: true,
-        prefix: "ratelimit:about",
-      })
+        prefix: 'ratelimit:about',
+      }),
     );
   }
 
@@ -118,10 +117,7 @@ function cleanup() {
  * キーには identifier と config の両方を含めることで、
  * 異なるプリセット（contact, apiRead 等）が独立して動作するようにする。
  */
-function checkRateLimitInMemory(
-  identifier: string,
-  config: RateLimitConfig
-): RateLimitResult {
+function checkRateLimitInMemory(identifier: string, config: RateLimitConfig): RateLimitResult {
   cleanup();
 
   // 設定値をキーに含めることで、異なるプリセットが独立したカウンタを持つ
@@ -183,18 +179,15 @@ function checkRateLimitInMemory(
  * }
  * ```
  */
-export async function checkRateLimit(
-  identifier: string,
-  config: RateLimitConfig
-): Promise<RateLimitResult> {
+export async function checkRateLimit(identifier: string, config: RateLimitConfig): Promise<RateLimitResult> {
   // Upstash が設定されていない場合
   if (!hasUpstashConfig || !redis) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === 'production') {
       // 本番環境では警告のみ出力し、レートリミットをスキップ（パフォーマンス優先）
       console.warn(
-        "[rate-limit] WARNING: Upstash is not configured. " +
-          "Rate limiting is disabled. " +
-          "For distributed rate limiting, set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN."
+        '[rate-limit] WARNING: Upstash is not configured. ' +
+          'Rate limiting is disabled. ' +
+          'For distributed rate limiting, set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.',
       );
       return {
         allowed: true,
@@ -216,9 +209,9 @@ export async function checkRateLimit(
       resetIn: Math.max(0, reset - Date.now()),
     };
   } catch (error) {
-    console.error("[rate-limit] Upstash error:", error);
+    console.error('[rate-limit] Upstash error:', error);
 
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === 'production') {
       // 本番環境ではサービス継続性を優先してスキップ
       return {
         allowed: true,
@@ -249,35 +242,35 @@ export function getClientIp(request: Request): string {
   const headers = request.headers;
 
   // Vercel-specific header (trusted, set by Vercel)
-  const vercelForwardedFor = headers.get("x-vercel-forwarded-for");
+  const vercelForwardedFor = headers.get('x-vercel-forwarded-for');
   if (vercelForwardedFor) {
-    const firstIp = vercelForwardedFor.split(",")[0];
+    const firstIp = vercelForwardedFor.split(',')[0];
     if (firstIp) return firstIp.trim();
   }
 
   // Cloudflare-specific header (trusted, set by Cloudflare)
-  const cfConnectingIp = headers.get("cf-connecting-ip");
+  const cfConnectingIp = headers.get('cf-connecting-ip');
   if (cfConnectingIp) {
     return cfConnectingIp;
   }
 
   // x-real-ip (set by nginx/proxy, trust depends on config)
-  const realIp = headers.get("x-real-ip");
+  const realIp = headers.get('x-real-ip');
   if (realIp) {
     return realIp;
   }
 
   // x-forwarded-for (standard but can be spoofed)
   // NOTE: Only trust this when behind a trusted proxy
-  const forwardedFor = headers.get("x-forwarded-for");
+  const forwardedFor = headers.get('x-forwarded-for');
   if (forwardedFor) {
     // Take the first IP in the list (original client)
-    const firstIp = forwardedFor.split(",")[0];
+    const firstIp = forwardedFor.split(',')[0];
     if (firstIp) return firstIp.trim();
   }
 
   // Fallback for development
-  return "127.0.0.1";
+  return '127.0.0.1';
 }
 
 /**

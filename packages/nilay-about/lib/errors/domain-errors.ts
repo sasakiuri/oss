@@ -1,4 +1,4 @@
-import { BaseError } from "./base";
+import { BaseError } from './base';
 
 /**
  * Resource not found error
@@ -7,12 +7,10 @@ export class NotFoundError extends BaseError {
   constructor(
     public readonly resource: string,
     public readonly resourceId?: string,
-    cause?: unknown
+    cause?: unknown,
   ) {
-    const message = resourceId
-      ? `${resource} with id "${resourceId}" not found`
-      : `${resource} not found`;
-    super(message, "NOT_FOUND", 404, cause, { resource, resourceId });
+    const message = resourceId ? `${resource} with id "${resourceId}" not found` : `${resource} not found`;
+    super(message, 'NOT_FOUND', 404, cause, { resource, resourceId });
   }
 
   getUserMessage(): string {
@@ -28,9 +26,9 @@ export class ValidationError extends BaseError {
     message: string,
     public readonly field?: string,
     public readonly constraints?: Record<string, string>,
-    cause?: unknown
+    cause?: unknown,
   ) {
-    super(message, "VALIDATION_ERROR", 400, cause, { field, constraints });
+    super(message, 'VALIDATION_ERROR', 400, cause, { field, constraints });
   }
 
   getUserMessage(): string {
@@ -42,12 +40,12 @@ export class ValidationError extends BaseError {
  * Authentication error
  */
 export class AuthenticationError extends BaseError {
-  constructor(message: string = "認証が必要です", cause?: unknown) {
-    super(message, "AUTHENTICATION_ERROR", 401, cause);
+  constructor(message: string = '認証が必要です', cause?: unknown) {
+    super(message, 'AUTHENTICATION_ERROR', 401, cause);
   }
 
   getUserMessage(): string {
-    return "ログインが必要です。";
+    return 'ログインが必要です。';
   }
 }
 
@@ -55,11 +53,11 @@ export class AuthenticationError extends BaseError {
  * Authorization error
  */
 export class AuthorizationError extends BaseError {
-  constructor(message: string = "アクセス権限がありません", cause?: unknown) {
-    super(message, "AUTHORIZATION_ERROR", 403, cause);
+  constructor(message: string = 'アクセス権限がありません', cause?: unknown) {
+    super(message, 'AUTHORIZATION_ERROR', 403, cause);
   }
 
   getUserMessage(): string {
-    return "この操作を行う権限がありません。";
+    return 'この操作を行う権限がありません。';
   }
 }
