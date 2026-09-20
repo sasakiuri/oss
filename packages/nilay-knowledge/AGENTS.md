@@ -1,4 +1,4 @@
-# knowledge.website
+# nilay-knowledge
 
 Nilay Knowledge Website - 実銃・射撃・狩猟の情報を紹介するナレッジサイト
 
@@ -6,15 +6,15 @@ Nilay Knowledge Website - 実銃・射撃・狩猟の情報を紹介するナレ
 
 ## 技術スタック
 
-| カテゴリ | 技術 |
-|---------|------|
-| フレームワーク | Next.js 16 (App Router, Turbopack) |
-| 言語 | TypeScript 5, React 19 |
-| スタイリング | Tailwind CSS 4, @tailwindcss/typography |
-| UIコンポーネント | Radix UI, lucide-react |
-| Markdown処理 | unified, remark-gfm, rehype |
-| 出力 | SSG (Static Site Generation) |
-| テスト | Vitest, Testing Library |
+| カテゴリ          | 技術                                    |
+| ----------------- | --------------------------------------- |
+| フレームワーク    | Next.js 16 (App Router, Turbopack)      |
+| 言語              | TypeScript 5, React 19                  |
+| スタイリング      | Tailwind CSS 4, @tailwindcss/typography |
+| UI コンポーネント | Radix UI, lucide-react                  |
+| Markdown 処理     | unified, remark-gfm, rehype             |
+| 出力              | SSG (Static Site Generation)            |
+| テスト            | Vitest, Testing Library                 |
 
 ## 構造
 
@@ -53,36 +53,36 @@ scripts/
 ## 開発
 
 ```bash
-# Docker（推奨）
-cd docker && docker compose up node-knowledge
-# http://127.100.0.12:80
+# リポジトリルートから起動
+npm run dev --workspace=@sasakiuri/nilay-knowledge
+# http://localhost:3000
 
 # 新規コンテンツ作成
-npm run new:article           # 新規記事作成
-npm run new:article "タイトル" # タイトル指定
-npm run new:news              # 新規ニュース作成
-npm run new:news "タイトル"   # タイトル指定
+npm run new:article --workspace=@sasakiuri/nilay-knowledge # 新規記事作成
+npm run new:article --workspace=@sasakiuri/nilay-knowledge -- "タイトル" # タイトル指定
+npm run new:news --workspace=@sasakiuri/nilay-knowledge # 新規ニュース作成
+npm run new:news --workspace=@sasakiuri/nilay-knowledge -- "タイトル" # タイトル指定
 
 # ビルド（SSG）
-npm run build  # prebuildでfeed.xml, sitemap.xml生成
+npm run build --workspace=@sasakiuri/nilay-knowledge # prebuildでfeed.xml, sitemap.xml生成
 
 # テスト
-npm run test                  # Vitest
-npm run test:run              # Vitest (CI向け)
+npm run test --workspace=@sasakiuri/nilay-knowledge # Vitest
+npm run test:run --workspace=@sasakiuri/nilay-knowledge # Vitest (CI向け)
 ```
 
 ## 特徴
 
-- **SSG (Static Site Generation):** `output: 'export'` で完全静的サイト生成
-- **Markdown処理:** gray-matter + unified + remark-gfm + rehype
+- **SSG (Static Site Generation):** Next.js の `.next/` を `next start` で配信。静的 export は未設定
+- **Markdown 処理:** gray-matter + unified + remark-gfm + rehype
   - remark-breaks (改行処理)
   - remark-math + rehype-katex (数式)
-  - remark-github-alerts (GitHubスタイルのアラート)
+  - remark-github-alerts (GitHub スタイルのアラート)
   - rehype-highlight (シンタックスハイライト)
   - rehype-slug (見出しアンカー)
-- **相対パス変換:** Markdown内の相対パスを自動で絶対パスに変換
-- **SEO:** JSON-LD構造化データ、Open Graph、Twitter Cards
-- **RSSフィード:** ビルド時に自動生成
+- **相対パス変換:** Markdown 内の相対パスを自動で絶対パスに変換
+- **SEO:** JSON-LD 構造化データ、Open Graph、Twitter Cards
+- **RSS フィード:** ビルド時に自動生成
 
 ## 環境変数
 

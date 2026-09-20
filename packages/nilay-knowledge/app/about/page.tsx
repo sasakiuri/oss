@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { siteConfig } from '@/lib/config';
@@ -21,9 +22,7 @@ interface CardProps {
 function Card({ title, children }: CardProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">
-        {title}
-      </h2>
+      <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold text-slate-800">{title}</h2>
       {children}
     </div>
   );
@@ -47,8 +46,7 @@ export default function AboutPage() {
         <Card title="概要">
           <div className="p-4">
             <p className="leading-relaxed">
-              Nilay/Knowledge
-              は銃・射撃・狩猟に関する情報を蓄積し体系的にまとめることを目的としています。
+              Nilay/Knowledge は銃・射撃・狩猟に関する情報を蓄積し体系的にまとめることを目的としています。
             </p>
           </div>
         </Card>
@@ -56,14 +54,9 @@ export default function AboutPage() {
         <Card title="コンテンツ">
           <ul className="divide-y divide-slate-200">
             <li>
-              <Link
-                href="/articles"
-                className="block px-4 py-3 hover:bg-slate-50"
-              >
+              <Link href="/articles" className="block px-4 py-3 hover:bg-slate-50">
                 <span className="font-medium text-slate-800">Articles</span>
-                <p className="mt-1 text-sm text-slate-600">
-                  銃・射撃・狩猟に関する情報をまとめています。
-                </p>
+                <p className="mt-1 text-sm text-slate-600">銃・射撃・狩猟に関する情報をまとめています。</p>
               </Link>
             </li>
             <li>
@@ -115,16 +108,10 @@ export default function AboutPage() {
               で銃・射撃・狩猟に関するニュースを配信しています。配信するニュースの基準は、ニュースやプレスリリースの場合有料会員登録せずに読める文章が十分にあり、以下のいずれかを満たすニュースです。
             </p>
             <ul className="list-disc space-y-1 pl-6">
-              <li>
-                銃・射撃・狩猟・有害鳥獣駆除に関連したパブリックコメント情報、官公庁の発表、通達
-              </li>
-              <li>
-                射撃スポーツやその普及に関するニュースおよびプレスリリース
-              </li>
+              <li>銃・射撃・狩猟・有害鳥獣駆除に関連したパブリックコメント情報、官公庁の発表、通達</li>
+              <li>射撃スポーツやその普及に関するニュースおよびプレスリリース</li>
               <li>狩猟や有害鳥獣駆除に関するニュースおよびプレスリリース</li>
-              <li>
-                狩猟鳥獣による鳥獣被害とその対策に関するニュースおよびプレスリリース
-              </li>
+              <li>狩猟鳥獣による鳥獣被害とその対策に関するニュースおよびプレスリリース</li>
               <li>ジビエに関するニュースおよびプレスリリース</li>
             </ul>
             <p>

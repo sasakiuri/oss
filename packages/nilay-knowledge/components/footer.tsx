@@ -1,15 +1,8 @@
 'use client';
 
+import { ChevronUp, Facebook, Github, Instagram, Rss, Twitter, Youtube } from 'lucide-react';
 import Link from 'next/link';
-import {
-  ChevronUp,
-  Facebook,
-  Github,
-  Instagram,
-  Rss,
-  Twitter,
-  Youtube,
-} from 'lucide-react';
+
 import { siteConfig } from '@/lib/config';
 
 const socialLinks = [
@@ -95,9 +88,7 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
                   >
                     {service.title}
                   </a>
-                  <p className="mt-1 text-xs text-slate-300">
-                    {service.description}
-                  </p>
+                  <p className="mt-1 text-xs text-slate-300">{service.description}</p>
                 </li>
               ))}
             </ul>
@@ -109,10 +100,7 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
             <ul className="space-y-3">
               {contents.map((content) => (
                 <li key={content.href}>
-                  <Link
-                    href={content.href}
-                    className="text-white hover:underline"
-                  >
+                  <Link href={content.href} className="text-white hover:underline">
                     {content.title}
                   </Link>
                 </li>
@@ -135,11 +123,7 @@ export function Footer({ slug = '', publishYear }: FooterProps) {
               <social.icon className="h-5 w-5" />
             </a>
           ))}
-          <Link
-            href="/feed.xml"
-            className="rounded-full p-2 hover:bg-slate-500"
-            aria-label="RSS Feed"
-          >
+          <Link href="/feed.xml" className="rounded-full p-2 hover:bg-slate-500" aria-label="RSS Feed">
             <Rss className="h-5 w-5" />
           </Link>
         </div>

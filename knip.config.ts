@@ -3,6 +3,15 @@ import type { KnipConfig } from "knip";
 
 const config: KnipConfig = {
   workspaces: {
+    "packages/nilay-knowledge": {
+      // Preserve the imported site's reusable UI primitives and dependency baseline.
+      entry: ["components/ui/**/*.{ts,tsx}"],
+      ignoreDependencies: [
+        "@radix-ui/react-accordion",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-navigation-menu",
+      ],
+    },
     ".": {
       entry: ["*.config.{js,mjs,cjs,ts}"],
       ignoreDependencies: [
@@ -80,6 +89,8 @@ const config: KnipConfig = {
     },
   },
   ignoreIssues: {
+    // Retain the content helper API from the imported package.
+    "packages/nilay-knowledge/lib/markdown.ts": ["exports"],
     // Public module exports and test entry points.
     "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],

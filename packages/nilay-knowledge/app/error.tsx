@@ -1,16 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
-import Link from 'next/link';
 import { AlertTriangle, Home, RotateCcw } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect } from 'react';
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // Log to error reporting service
     console.error('Application Error:', error);
@@ -19,12 +13,8 @@ export default function Error({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <AlertTriangle className="h-16 w-16 text-amber-500" />
-      <h1 className="mt-4 text-xl font-semibold text-slate-800">
-        エラーが発生しました
-      </h1>
-      <p className="mt-2 text-slate-600">
-        申し訳ありません。ページの読み込み中にエラーが発生しました。
-      </p>
+      <h1 className="mt-4 text-xl font-semibold text-slate-800">エラーが発生しました</h1>
+      <p className="mt-2 text-slate-600">申し訳ありません。ページの読み込み中にエラーが発生しました。</p>
       <div className="mt-6 flex gap-4">
         <button
           onClick={reset}

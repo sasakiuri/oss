@@ -1,10 +1,11 @@
 'use client';
 
-import * as React from 'react';
 import { Facebook, Share2, Twitter, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { siteConfig } from '@/lib/config';
+import * as React from 'react';
+
 import { HatenaIcon, LineIcon } from '@/components/icons';
+import { siteConfig } from '@/lib/config';
+import { cn } from '@/lib/utils';
 
 interface ShareAction {
   name: string;
@@ -25,8 +26,7 @@ const shareActions: ShareAction[] = [
     name: 'Facebook',
     icon: Facebook,
     color: 'bg-[#3b5998] hover:bg-[#344e86]',
-    getUrl: (_, url) =>
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    getUrl: (_, url) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
   },
   {
     name: 'はてなブックマーク',
@@ -39,8 +39,7 @@ const shareActions: ShareAction[] = [
     name: 'LINE',
     icon: LineIcon,
     color: 'bg-[#00B900] hover:bg-[#00a600]',
-    getUrl: (_, url) =>
-      `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`,
+    getUrl: (_, url) => `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`,
   },
 ];
 
@@ -52,16 +51,11 @@ interface SnsShareProps {
 export function SnsShare({ title, slug }: SnsShareProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const fullTitle = title
-    ? `${title} : ${siteConfig.title}`
-    : siteConfig.title;
+  const fullTitle = title ? `${title} : ${siteConfig.title}` : siteConfig.title;
   const url = slug ? `${siteConfig.siteUrl}/${slug}` : siteConfig.siteUrl;
 
   const handleShare = (action: ShareAction) => {
-    window.open(
-      action.getUrl(fullTitle, url, siteConfig.social.twitter),
-      '_blank'
-    );
+    window.open(action.getUrl(fullTitle, url, siteConfig.social.twitter), '_blank');
   };
 
   return (
@@ -70,9 +64,7 @@ export function SnsShare({ title, slug }: SnsShareProps) {
       <div
         className={cn(
           'flex items-center gap-2 transition-all duration-300',
-          isOpen
-            ? 'translate-x-0 opacity-100'
-            : 'pointer-events-none translate-x-4 opacity-0'
+          isOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-4 opacity-0',
         )}
       >
         {shareActions.map((action) => (
@@ -81,7 +73,7 @@ export function SnsShare({ title, slug }: SnsShareProps) {
             onClick={() => handleShare(action)}
             className={cn(
               'flex h-10 w-10 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-110',
-              action.color
+              action.color,
             )}
             aria-label={action.name}
             title={action.name}
@@ -97,11 +89,7 @@ export function SnsShare({ title, slug }: SnsShareProps) {
         className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg transition-transform hover:scale-105 hover:bg-amber-600"
         aria-label={isOpen ? '閉じる' : 'SNSで共有'}
       >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <Share2 className="h-6 w-6" />
-        )}
+        {isOpen ? <X className="h-6 w-6" /> : <Share2 className="h-6 w-6" />}
       </button>
     </div>
   );

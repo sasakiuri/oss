@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function ImageZoom() {
   const [isOpen, setIsOpen] = useState(false);
@@ -67,6 +67,8 @@ export function ImageZoom() {
       </button>
 
       {/* Image */}
+      {/* The zoom dialog displays the original image at its natural dimensions. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageSrc}
         alt={imageAlt}

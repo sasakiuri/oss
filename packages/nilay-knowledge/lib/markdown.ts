@@ -1,18 +1,19 @@
 import fs from 'fs';
 import path from 'path';
+
 import matter from 'gray-matter';
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import remarkMath from 'remark-math';
-import remarkGithubAlerts from 'remark-github-alerts';
-import remarkRehype from 'remark-rehype';
-import rehypeSlug from 'rehype-slug';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
+import remarkBreaks from 'remark-breaks';
+import remarkGfm from 'remark-gfm';
+import remarkGithubAlerts from 'remark-github-alerts';
+import remarkMath from 'remark-math';
+import remarkParse from 'remark-parse';
+import remarkRehype from 'remark-rehype';
+import { unified } from 'unified';
 
 const contentDirectory = path.join(process.cwd(), 'content');
 
@@ -39,13 +40,10 @@ const processor = unified()
 
 function addHeadingAnchors(html: string): string {
   // Add anchor links to h1-h6 headings
-  return html.replace(
-    /<h([1-6])\s+id="([^"]+)"([^>]*)>([^<]*)<\/h\1>/g,
-    (_, level, id, attrs, text) => {
-      const anchor = `<a href="#${id}" class="heading-anchor" aria-label="この見出しへのリンク">${linkIconSvg}</a>`;
-      return `<h${level} id="${id}"${attrs} class="heading-with-anchor">${anchor}${text}</h${level}>`;
-    }
-  );
+  return html.replace(/<h([1-6])\s+id="([^"]+)"([^>]*)>([^<]*)<\/h\1>/g, (_, level, id, attrs, text) => {
+    const anchor = `<a href="#${id}" class="heading-anchor" aria-label="この見出しへのリンク">${linkIconSvg}</a>`;
+    return `<h${level} id="${id}"${attrs} class="heading-with-anchor">${anchor}${text}</h${level}>`;
+  });
 }
 
 async function processMarkdown(content: string): Promise<string> {
@@ -88,33 +86,21 @@ export interface TocItem {
   level: number;
 }
 
-function rewriteRelativePaths(
-  markdown: string,
-  type: 'articles' | 'news',
-  slug: string
-): string {
+function rewriteRelativePaths(markdown: string, type: 'articles' | 'news', slug: string): string {
   // Rewrite relative image paths: ![alt](filename.png) -> ![alt](/content/articles/slug/filename.png)
   // Also handle PDF and other file links: [text](filename.pdf) -> [text](/content/articles/slug/filename.pdf)
   const basePath = `/content/${type}/${slug}`;
 
   // Match markdown images and links with relative paths (not starting with http, https, /, or #)
-  return markdown.replace(
-    /(!?\[([^\]]*)\])\(([^)]+)\)/g,
-    (match, bracketPart, _altText, url) => {
-      // Skip absolute URLs, root-relative paths, and anchor links
-      if (
-        url.startsWith('http://') ||
-        url.startsWith('https://') ||
-        url.startsWith('/') ||
-        url.startsWith('#')
-      ) {
-        return match;
-      }
-      // Normalize path: remove leading ./ and handle ../ etc.
-      const normalizedUrl = url.replace(/^\.\//, '');
-      return `${bracketPart}(${basePath}/${normalizedUrl})`;
+  return markdown.replace(/(!?\[([^\]]*)\])\(([^)]+)\)/g, (match, bracketPart, _altText, url) => {
+    // Skip absolute URLs, root-relative paths, and anchor links
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/') || url.startsWith('#')) {
+      return match;
     }
-  );
+    // Normalize path: remove leading ./ and handle ../ etc.
+    const normalizedUrl = url.replace(/^\.\//, '');
+    return `${bracketPart}(${basePath}/${normalizedUrl})`;
+  });
 }
 
 function extractTableOfContents(markdown: string): TocItem[] {
@@ -145,10 +131,7 @@ export function getArticleSlugs(): string[] {
 
   return directories.filter((dir) => {
     const fullPath = path.join(articlesDir, dir);
-    return (
-      fs.statSync(fullPath).isDirectory() &&
-      fs.existsSync(path.join(fullPath, 'index.md'))
-    );
+    return fs.statSync(fullPath).isDirectory() && fs.existsSync(path.join(fullPath, 'index.md'));
   });
 }
 
@@ -158,10 +141,7 @@ export function getNewsSlugs(): string[] {
 
   return directories.filter((dir) => {
     const fullPath = path.join(newsDir, dir);
-    return (
-      fs.statSync(fullPath).isDirectory() &&
-      fs.existsSync(path.join(fullPath, 'index.md'))
-    );
+    return fs.statSync(fullPath).isDirectory() && fs.existsSync(path.join(fullPath, 'index.md'));
   });
 }
 
@@ -215,9 +195,7 @@ export async function getAllArticles(): Promise<Article[]> {
   const validArticles = articles.filter((article): article is Article => article !== null);
 
   return validArticles.sort(
-    (a, b) =>
-      new Date(b.frontmatter.published).getTime() -
-      new Date(a.frontmatter.published).getTime()
+    (a, b) => new Date(b.frontmatter.published).getTime() - new Date(a.frontmatter.published).getTime(),
   );
 }
 
@@ -227,9 +205,7 @@ export async function getAllNews(): Promise<NewsItem[]> {
   const validNewsItems = newsItems.filter((news): news is NewsItem => news !== null);
 
   return validNewsItems.sort(
-    (a, b) =>
-      new Date(b.frontmatter.published).getTime() -
-      new Date(a.frontmatter.published).getTime()
+    (a, b) => new Date(b.frontmatter.published).getTime() - new Date(a.frontmatter.published).getTime(),
   );
 }
 
@@ -238,11 +214,7 @@ export async function getNewsByTag(tag: string): Promise<NewsItem[]> {
   return allNews.filter((news) => news.frontmatter.tags.includes(tag));
 }
 
-export function getAssetPath(
-  type: 'articles' | 'news' | 'assets',
-  slug?: string,
-  filename?: string
-): string {
+export function getAssetPath(type: 'articles' | 'news' | 'assets', slug?: string, filename?: string): string {
   if (type === 'assets') {
     return `/content/assets/${filename}`;
   }

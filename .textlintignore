@@ -2,3 +2,6 @@
 **/CHANGELOG.md
 **/THIRD-PARTY-LICENSES.txt
 packages/saika-docs/assets/fonts/**
+# Imported editorial content and its published copies retain their original text.
+packages/nilay-knowledge/content/**
+packages/nilay-knowledge/public/content/**

@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import RSS from 'rss';
+
 import matter from 'gray-matter';
+import RSS from 'rss';
+
 import { siteConfig } from '../lib/config';
 
 const contentDirectory = path.join(process.cwd(), 'content');
@@ -26,10 +28,7 @@ function getContentItems(type: 'articles' | 'news'): ContentItem[] {
   return directories
     .filter((slug) => {
       const fullPath = path.join(dir, slug);
-      return (
-        fs.statSync(fullPath).isDirectory() &&
-        fs.existsSync(path.join(fullPath, 'index.md'))
-      );
+      return fs.statSync(fullPath).isDirectory() && fs.existsSync(path.join(fullPath, 'index.md'));
     })
     .map((slug) => {
       const filePath = path.join(dir, slug, 'index.md');
@@ -42,11 +41,7 @@ function getContentItems(type: 'articles' | 'news'): ContentItem[] {
         type,
       };
     })
-    .sort(
-      (a, b) =>
-        new Date(b.frontmatter.published).getTime() -
-        new Date(a.frontmatter.published).getTime()
-    );
+    .sort((a, b) => new Date(b.frontmatter.published).getTime() - new Date(a.frontmatter.published).getTime());
 }
 
 function generateFeed() {
@@ -65,9 +60,7 @@ function generateFeed() {
 
   // Combine and sort all items
   const allItems = [...articles, ...news].sort(
-    (a, b) =>
-      new Date(b.frontmatter.published).getTime() -
-      new Date(a.frontmatter.published).getTime()
+    (a, b) => new Date(b.frontmatter.published).getTime() - new Date(a.frontmatter.published).getTime(),
   );
 
   // Add items to feed

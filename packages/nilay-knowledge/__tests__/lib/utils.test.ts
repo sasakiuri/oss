@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { cn, formatDate, formatDateShort } from '@/lib/utils';
 
 describe('cn (className merge utility)', () => {

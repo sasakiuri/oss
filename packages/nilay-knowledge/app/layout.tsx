@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
-import { Header } from '@/components/header';
+
 import { Footer } from '@/components/footer';
-import { SkipLink } from '@/components/skip-link';
 import { GoogleAnalytics } from '@/components/google-analytics';
+import { Header } from '@/components/header';
+import { SkipLink } from '@/components/skip-link';
 import { siteConfig } from '@/lib/config';
 import './globals.css';
 

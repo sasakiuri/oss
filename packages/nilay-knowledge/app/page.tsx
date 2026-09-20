@@ -1,6 +1,7 @@
+import { ArrowRight, Search } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Search } from 'lucide-react';
+
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { createWebSiteSchema } from '@/lib/schema';
@@ -14,13 +15,7 @@ interface MainCardProps {
   slug: string;
 }
 
-function MainCard({
-  title,
-  description,
-  image,
-  slug,
-  priority = false,
-}: MainCardProps & { priority?: boolean }) {
+function MainCard({ title, description, image, slug, priority = false }: MainCardProps & { priority?: boolean }) {
   return (
     <Link
       href={`/${slug}`}
@@ -36,9 +31,7 @@ function MainCard({
           priority={priority}
         />
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-8">
-          <h3 className="text-lg font-bold text-white drop-shadow-md">
-            {title}
-          </h3>
+          <h3 className="text-lg font-bold text-white drop-shadow-md">{title}</h3>
         </div>
       </div>
       <p className="p-4 leading-relaxed text-slate-700">{description}</p>
@@ -83,20 +76,14 @@ function SearchBanner() {
     <div
       className="relative flex min-h-[300px] flex-col items-center justify-center bg-cover bg-center"
       style={{
-        backgroundImage:
-          'url(/content/assets/63141dde-f6ee-490c-b283-69b468b80813.jpg)',
+        backgroundImage: 'url(/content/assets/63141dde-f6ee-490c-b283-69b468b80813.jpg)',
       }}
     >
-      <p className="text-sm [text-shadow:1px_1px_0_#fff,-1px_1px_0_#fff]">
-        銃砲・射撃・狩猟の情報サイト
-      </p>
+      <p className="text-sm [text-shadow:1px_1px_0_#fff,-1px_1px_0_#fff]">銃砲・射撃・狩猟の情報サイト</p>
       <h1 className="mt-2 text-3xl font-bold [font-variant:small-caps] [text-shadow:1px_1px_0_#fff,-1px_1px_0_#fff]">
         Nilay/Knowledge
       </h1>
-      <form
-        action="https://www.google.com/search"
-        className="mt-4 w-full max-w-md px-4"
-      >
+      <form action="https://www.google.com/search" className="mt-4 w-full max-w-md px-4">
         <input type="hidden" name="hl" value="ja" />
         <input type="hidden" name="ie" value="utf-8" />
         <input type="hidden" name="oe" value="utf-8" />
@@ -126,27 +113,20 @@ function SearchBanner() {
 function WebSiteSchemaScript() {
   const jsonLd = createWebSiteSchema();
 
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
-  );
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
 }
 
 export default function HomePage() {
   const mainCards: MainCardProps[] = [
     {
       title: '銃を手に入れる',
-      description:
-        '国内で所持許可（免許）を取得し、銃を入手する方法を紹介します。',
+      description: '国内で所持許可（免許）を取得し、銃を入手する方法を紹介します。',
       image: '/content/assets/87c2ff6b-8370-4d37-a1c6-422f2fac3ed0.jpg',
       slug: 'articles/1378038316',
     },
     {
       title: '狩猟を始める',
-      description:
-        '銃・わな・網の狩猟免許の取得方法や免許の種類について紹介します。',
+      description: '銃・わな・網の狩猟免許の取得方法や免許の種類について紹介します。',
       image: '/content/assets/574b2804-3546-4dca-bd9c-a1f48406fd87.jpg',
       slug: 'articles/1403944258',
     },

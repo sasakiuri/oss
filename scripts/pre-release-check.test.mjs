@@ -107,6 +107,27 @@ test("accepts private configs, independent config versions, reserved directories
   assert.equal(result.status, 0, result.output);
 });
 
+test("preserves Nilay software and content licenses without relaxing other packages", (t) => {
+  const f = fixture(t);
+  f.pkg("nilay-knowledge", {
+    version: "0.1.0",
+    license: "(MIT AND CC-BY-SA-4.0)",
+  });
+  const accepted = f.run();
+  assert.equal(accepted.status, 0, accepted.output);
+
+  f.pkg("nilay-knowledge", { license: "MIT" });
+  const relicensed = f.run();
+  assert.notEqual(relicensed.status, 0, relicensed.output);
+  assert.match(relicensed.output, /nilay-knowledge: MIT/);
+
+  f.pkg("nilay-knowledge", { license: "(MIT AND CC-BY-SA-4.0)" });
+  f.pkg("saika-lane", { license: "(MIT AND CC-BY-SA-4.0)" });
+  const unrelated = f.run();
+  assert.notEqual(unrelated.status, 0, unrelated.output);
+  assert.match(unrelated.output, /saika-lane: \(MIT AND CC-BY-SA-4\.0\)/);
+});
+
 function securityFixture(t) {
   const f = fixture(t);
   f.write(".gitignore", ".local/\n.next/\nout/\n");

@@ -50,9 +50,7 @@ export interface WebSiteSchema {
 }
 
 // Factory functions
-export function createBreadcrumbSchema(
-  items: { name: string; slug: string }[]
-): BreadcrumbListSchema {
+export function createBreadcrumbSchema(items: { name: string; slug: string }[]): BreadcrumbListSchema {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',

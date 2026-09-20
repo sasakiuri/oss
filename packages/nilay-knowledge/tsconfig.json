@@ -1,17 +1,10 @@
 {
-  "extends": "@acme/typescript-config/nextjs.json",
+  "extends": "@sasakiuri/typescript-config/nextjs.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./*"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
   "exclude": ["node_modules", "__tests__", "vitest.config.ts", "vitest.setup.ts", "playwright.config.ts"]
 }

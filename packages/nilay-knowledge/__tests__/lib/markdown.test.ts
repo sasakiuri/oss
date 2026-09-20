@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+
 import { getAssetPath } from '@/lib/markdown';
 
 // Mock fs module
@@ -13,21 +14,15 @@ vi.mock('fs', () => ({
 
 describe('getAssetPath', () => {
   it('returns correct path for assets', () => {
-    expect(getAssetPath('assets', undefined, 'image.png')).toBe(
-      '/content/assets/image.png'
-    );
+    expect(getAssetPath('assets', undefined, 'image.png')).toBe('/content/assets/image.png');
   });
 
   it('returns correct path for articles', () => {
-    expect(getAssetPath('articles', '1378038316', 'image.png')).toBe(
-      '/content/articles/1378038316/image.png'
-    );
+    expect(getAssetPath('articles', '1378038316', 'image.png')).toBe('/content/articles/1378038316/image.png');
   });
 
   it('returns correct path for news', () => {
-    expect(getAssetPath('news', '20240101', 'document.pdf')).toBe(
-      '/content/news/20240101/document.pdf'
-    );
+    expect(getAssetPath('news', '20240101', 'document.pdf')).toBe('/content/news/20240101/document.pdf');
   });
 });
 
@@ -62,10 +57,7 @@ describe('rewriteRelativePaths (integration via getArticleBySlug)', () => {
     absoluteUrls.forEach((url) => {
       // These should remain unchanged
       const shouldSkip =
-        url.startsWith('http://') ||
-        url.startsWith('https://') ||
-        url.startsWith('/') ||
-        url.startsWith('#');
+        url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/') || url.startsWith('#');
       expect(shouldSkip).toBe(true);
     });
   });
