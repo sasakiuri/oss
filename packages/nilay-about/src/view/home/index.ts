@@ -1,5 +1,0 @@
-export * from "./card-icon"
-export * from "./card-link"
-export * from "./card-text"
-export * from "./card-title"
-export * from "./home-image"
