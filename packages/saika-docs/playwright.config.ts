@@ -8,6 +8,7 @@ const chromiumLaunch = {
 const external = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === 'true';
 
 export default defineConfig({
+  failOnFlakyTests: Boolean(process.env.CI),
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

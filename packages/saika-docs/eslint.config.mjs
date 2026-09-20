@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import shared from '@sasakiuri/eslint-config';
+import testingLibrary from '@sasakiuri/eslint-config/testing-library';
+import vitest from '@sasakiuri/eslint-config/vitest';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import storybook from 'eslint-plugin-storybook';
 
@@ -21,6 +23,8 @@ const config = [
     ],
   },
   ...shared,
+  vitest,
+  { ...testingLibrary, files: ['tests/unit/**/*.test.{ts,tsx}'] },
   // The shared configuration owns the TypeScript plugin; Next.js can resolve another copy.
   ...nextVitals.map((config) => {
     if (!config.plugins?.['@typescript-eslint']) return config;
