@@ -49,8 +49,9 @@ runs:
         key: electron-${{ runner.os }}-${{ hashFiles('packages/saika-lane/package.json', 'packages/saika-director/package.json') }}
         restore-keys: electron-${{ runner.os }}-
 
+    # Bootstrap the exact package manager before installing the lockfile.
     - name: Pin npm
-      run: npm install --global npm@10.9.4
+      run: npm install --global npm@10.9.4 # zizmor: ignore[adhoc-packages]
       shell: bash
 
     - name: Install dependencies

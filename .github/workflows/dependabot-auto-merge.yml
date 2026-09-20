@@ -31,21 +31,21 @@ jobs:
       - name: Decide auto-merge policy
         id: policy
         shell: bash
+        env:
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
         run: |
           AUTO_MERGE=false
-          GROUP="${{ steps.metadata.outputs.dependency-group }}"
-
-          # Phased rollout. Initially only the safest groups are auto-merged.
-          # Expand the allowlist once the pipeline has proven stable (e.g. 10
-          # consecutive successful merges with zero regressions).
-          case "$GROUP" in
-            minor-and-patch|security-dev-safe)
+          # Production dependencies and all major updates require review.
+          if [[ "$UPDATE_TYPE" == 'version-update:semver-minor' || "$UPDATE_TYPE" == 'version-update:semver-patch' ]]; then
+            if [[ "$ECOSYSTEM" == 'npm_and_yarn' && ( "$GROUP" == 'npm-development' || "$GROUP" == 'security-dev-safe' ) ]]; then
               AUTO_MERGE=true
-              ;;
-          esac
-
+            elif [[ "$ECOSYSTEM" == 'github_actions' && "$GROUP" == 'actions-compatible' ]]; then
+              AUTO_MERGE=true
+            fi
+          fi
           echo "auto-merge=$AUTO_MERGE" >> "$GITHUB_OUTPUT"
-          echo "Resolved policy auto-merge=$AUTO_MERGE for group=$GROUP"
 
       - name: Approve PR
         if: steps.policy.outputs.auto-merge == 'true'

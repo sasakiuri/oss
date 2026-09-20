@@ -78,6 +78,10 @@ npm run test:mutation -w @sasakiuri/saika-rules
 npm run test:mutation -w @sasakiuri/saika-protocol
 ```
 
+Run `make lint-infra` (or `npm run lint:infra`) with Docker to check Shell,
+Actions, Dockerfiles, and Actions security using the same pinned tool images as
+CI. ShellCheck reports correctness diagnostics; zizmor fails on low or higher
+severity findings. Narrow exceptions are documented at the affected operation.
 For API contract checks and local k6 smoke or explicitly configured load tests,
 see [the site development guide](docs/reference-nextjs.md#api-and-http-load-checks).
 
@@ -96,9 +100,16 @@ unrelated workflow settings skip package jobs. Shared repository consistency and
 security checks remain enabled, and `CI Required` rejects failed detection or
 unexpectedly skipped checks. The Changes job summary lists the selected packages.
 
-Changed-code coverage and core mutation
+Infrastructure checks run on every PR, including documentation-only changes,
+and are required by `CI Required`. Changed-code coverage and core mutation
 checks run inside the applicable build jobs. Docs runs API lint and a local
 production-server k6 smoke test in its dedicated workflow.
+
+Dependabot updates the npm workspaces through the shared root lockfile. Normal
+updates run weekly with a seven-day cooldown; security updates bypass cooldown.
+Production dependencies and major updates require review. Only minor and patch
+updates in the development-dependency and Actions groups are eligible for
+automatic rebase merging after required checks pass.
 
 ### Changing Application Code
 

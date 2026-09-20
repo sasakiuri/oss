@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - run: npm run test:mutation --workspace=@sasakiuri/saika-docs
       - run: npm run test:reproducible --workspace=@sasakiuri/saika-docs

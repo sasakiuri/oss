@@ -1,11 +1,12 @@
+# npm workspaces share the root lockfile; update their manifests together.
+# Version updates wait seven days; security updates bypass cooldown.
 version: 2
-
 updates:
-  # ── Root npm dependencies ──────────────────────────────────────────
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: monday
       time: "02:00"
       timezone: Asia/Tokyo
     open-pull-requests-limit: 10
@@ -14,8 +15,15 @@ updates:
     commit-message:
       prefix: "chore(root):"
     groups:
-      minor-and-patch:
+      npm-development:
         applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      npm-production:
+        applies-to: version-updates
+        dependency-type: production
         update-types:
           - minor
           - patch
@@ -45,242 +53,13 @@ updates:
         dependency-type: development
         update-types:
           - major
-
-  # ── saika-lane ─────────────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: /packages/saika-lane
-    schedule:
-      interval: daily
-      time: "02:00"
-      timezone: Asia/Tokyo
-    open-pull-requests-limit: 10
-    labels:
-      - "Cat: Dependencies 🤖"
-      - "Package: saika-lane 📦"
-    commit-message:
-      prefix: "chore(saika-lane):"
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-      major-updates:
-        applies-to: version-updates
-        update-types:
-          - major
-      security-prod-safe:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - patch
-          - minor
-      security-dev-safe:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - patch
-          - minor
-      security-prod-major:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - major
-      security-dev-major:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - major
-
-  # ── eslint-config ──────────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: /packages/eslint-config
-    schedule:
-      interval: daily
-      time: "02:00"
-      timezone: Asia/Tokyo
-    open-pull-requests-limit: 5
-    labels:
-      - "Cat: Dependencies 🤖"
-      - "Package: shared-config 📦"
-    commit-message:
-      prefix: "chore(eslint-config):"
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-      major-updates:
-        applies-to: version-updates
-        update-types:
-          - major
-      security-prod-safe:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - patch
-          - minor
-      security-dev-safe:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - patch
-          - minor
-      security-prod-major:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - major
-      security-dev-major:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - major
-
-  # ── prettier-config ────────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: /packages/prettier-config
-    schedule:
-      interval: daily
-      time: "02:00"
-      timezone: Asia/Tokyo
-    open-pull-requests-limit: 5
-    labels:
-      - "Cat: Dependencies 🤖"
-      - "Package: shared-config 📦"
-    commit-message:
-      prefix: "chore(prettier-config):"
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-      major-updates:
-        applies-to: version-updates
-        update-types:
-          - major
-      security-prod-safe:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - patch
-          - minor
-      security-dev-safe:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - patch
-          - minor
-      security-prod-major:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - major
-      security-dev-major:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - major
-
-  # ── stylelint-config ───────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: /packages/stylelint-config
-    schedule:
-      interval: daily
-      time: "02:00"
-      timezone: Asia/Tokyo
-    open-pull-requests-limit: 5
-    labels:
-      - "Cat: Dependencies 🤖"
-      - "Package: shared-config 📦"
-    commit-message:
-      prefix: "chore(stylelint-config):"
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-      major-updates:
-        applies-to: version-updates
-        update-types:
-          - major
-      security-prod-safe:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - patch
-          - minor
-      security-dev-safe:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - patch
-          - minor
-      security-prod-major:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - major
-      security-dev-major:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - major
-
-  # ── typescript-config ──────────────────────────────────────────────
-  - package-ecosystem: npm
-    directory: /packages/typescript-config
-    schedule:
-      interval: daily
-      time: "02:00"
-      timezone: Asia/Tokyo
-    open-pull-requests-limit: 5
-    labels:
-      - "Cat: Dependencies 🤖"
-      - "Package: shared-config 📦"
-    commit-message:
-      prefix: "chore(typescript-config):"
-    groups:
-      minor-and-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-      major-updates:
-        applies-to: version-updates
-        update-types:
-          - major
-      security-prod-safe:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - patch
-          - minor
-      security-dev-safe:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - patch
-          - minor
-      security-prod-major:
-        applies-to: security-updates
-        dependency-type: production
-        update-types:
-          - major
-      security-dev-major:
-        applies-to: security-updates
-        dependency-type: development
-        update-types:
-          - major
-
-  # ── GitHub Actions ─────────────────────────────────────────────────
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: monday
       time: "02:00"
       timezone: Asia/Tokyo
     open-pull-requests-limit: 10
@@ -289,41 +68,32 @@ updates:
     commit-message:
       prefix: "chore(root):"
     groups:
-      minor-and-patch:
-        applies-to: version-updates
+      actions-compatible:
         update-types:
           - minor
           - patch
       major-updates:
-        applies-to: version-updates
         update-types:
           - major
-
-  - package-ecosystem: npm
-    directory: /packages/saika-docs
-    schedule: { interval: weekly }
-    groups:
-      docs-compatible:
-        update-types: [minor, patch]
+    cooldown:
+      default-days: 7
   - package-ecosystem: docker-compose
     directory: /
-    schedule: { interval: weekly }
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
   - package-ecosystem: docker
-    directories: [/docker/docs, /docker/pdf]
-    schedule: { interval: weekly }
-  - package-ecosystem: npm
-    directory: /packages/nilay-knowledge
-    schedule: { interval: weekly }
-    commit-message:
-      prefix: "chore(nilay-knowledge):"
-    groups:
-      knowledge-compatible:
-        update-types: [minor, patch]
-  - package-ecosystem: npm
-    directory: /packages/nilay-about
-    schedule: { interval: weekly }
-    commit-message:
-      prefix: "chore(nilay-about):"
-    groups:
-      about-compatible:
-        update-types: [minor, patch]
+    directories:
+      - /docker/docs
+      - /docker/pdf
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
