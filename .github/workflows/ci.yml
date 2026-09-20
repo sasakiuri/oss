@@ -74,6 +74,9 @@ jobs:
       - name: Type check
         run: npm run ci:packages -- typecheck
 
+      - name: Test changed-code coverage gate
+        run: node --test scripts/coverage-diff-check.test.mjs
+
       - name: Lint
         run: npm run ci:packages -- lint
 
@@ -104,6 +107,7 @@ jobs:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: changes
+    timeout-minutes: 60
     if: needs.changes.outputs.build == 'true'
     permissions:
       contents: read
@@ -116,6 +120,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
 
       - name: Setup environment
         uses: ./.github/actions/setup-node
@@ -132,6 +138,16 @@ jobs:
 
       - name: Test affected packages
         run: npm run ci:packages -- test
+
+      - name: Require coverage of changed code
+        if: runner.os == 'Linux' && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run coverage:diff -- --base "$BASE_SHA" --packages "$CI_PACKAGES_JSON"
+
+      - name: Mutation test affected core libraries
+        if: runner.os == 'Linux'
+        run: npm run ci:packages -- test:mutation
 
       - name: Test release metadata
         if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-updater')

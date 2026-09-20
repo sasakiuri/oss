@@ -63,6 +63,21 @@ Vitest and React Testing Library checks use the optional presets from
 pass only after a retry. Fix asynchronous assertions and flaky behavior before
 merging; a successful retry is useful diagnostic evidence.
 
+PRs require at least 80% coverage of changed executable lines within each
+workspace's configured Vitest coverage scope. Generate `test:coverage` reports
+at the checked-out revision, then run `npm run coverage:diff -- --base origin/1.x`.
+The comparison uses committed changes from the merge base; uncommitted edits
+are not included. Missing measurements for changed runtime files fail the check.
+Workspaces without a `test:coverage` script are reported as outside its scope.
+
+Rules and Protocol also mutation-test their selected scoring, rule selection,
+and recovery logic on Linux CI, requiring a mutation score of at least 95%:
+
+```bash
+npm run test:mutation -w @sasakiuri/saika-rules
+npm run test:mutation -w @sasakiuri/saika-protocol
+```
+
 ### CI Scope
 
 CI selects changed workspaces and their transitive dependents from the workspace
@@ -77,6 +92,9 @@ select all workspaces. Repository documentation and
 unrelated workflow settings skip package jobs. Shared repository consistency and
 security checks remain enabled, and `CI Required` rejects failed detection or
 unexpectedly skipped checks. The Changes job summary lists the selected packages.
+
+Changed-code coverage and core mutation
+checks run inside the applicable build jobs.
 
 ### Changing Application Code
 

@@ -17,7 +17,7 @@ const packages = [
   {
     name: "library",
     directory: "packages/library",
-    scripts: { build: "build", test: "test" },
+    scripts: { build: "build", test: "test", "test:mutation": "mutation" },
   },
   { name: "config", directory: "packages/config", scripts: { lint: "lint" } },
 ];
@@ -42,6 +42,10 @@ test("tests prefer coverage and include libraries without coverage scripts", () 
   assert.deepEqual(packageCommands("test:e2e", ["app", "library"], packages), [
     ["run", "test:e2e", "--workspace=app"],
   ]);
+  assert.deepEqual(
+    packageCommands("test:mutation", ["app", "library", "config"], packages),
+    [["run", "test:mutation", "--workspace=library"]],
+  );
 });
 
 test("invalid and dedicated Docs selections fail closed", () => {

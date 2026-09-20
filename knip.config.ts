@@ -47,6 +47,7 @@ const config: KnipConfig = {
       ignoreDependencies: [
         "stylelint", // Pins the shared config peer; Docs executes the CLI.
         "textlint-rule-*", // Textlint loads rules from configuration.
+        "vitest", // Coverage checks resolve each workspace's own Vitest version.
       ],
       project: ["*.{js,mjs,cjs,ts}"],
     },
@@ -101,6 +102,12 @@ const config: KnipConfig = {
         "src/renderer/presentation/features/shared/layout/{Header,ScoreboardGrid}.tsx",
         "src/renderer/presentation/hooks/useLaneControl.ts",
       ],
+    },
+    "packages/saika-rules": {
+      entry: ["vitest.mutation.config.ts"],
+    },
+    "packages/saika-protocol": {
+      entry: ["vitest.mutation.config.ts"],
     },
     "packages/eslint-config": {
       project: ["**/*.js"],
