@@ -25,6 +25,30 @@ workspace installation. Run dependency installation from the repository root.
 
 ## Development Workflow
 
+### Repository Checks
+
+Run these commands from the root with the pinned Node.js and npm versions:
+
+```bash
+npm run check # Types, lint, architecture, contracts, dependencies, and licenses
+npm run qa    # Also builds, runs coverage and tooling tests, checks sizes, and audits dependencies
+```
+
+`make check` and `make qa` invoke the same commands. `make qa-docs` retains the
+Docs-only checks. The other Make setup and development targets serve Saika Docs.
+
+`qa` rebuilds `better-sqlite3` for Node.js before testing. Run `npm run postinstall`
+afterwards, even if a check failed, before returning to Electron development or
+E2E tests. To run only coverage, use `npm rebuild better-sqlite3` followed by
+`npm run test:coverage`. This uses the same package test selection as CI, includes
+Docs, reads current workspace manifests, and runs ordinary tests for packages
+without coverage scripts. `npm run test:tooling` checks repository and Docs tools.
+Local coverage uses two Vitest workers by default. Set `VITEST_MAX_WORKERS` to
+override this limit.
+
+Browser tests, mutation tests, and Docker-based infrastructure checks retain
+their dedicated commands and CI jobs; `qa` does not run those suites.
+
 ### Documentation Site
 
 Saika Docs renders the Japanese Markdown manuals with Next.js App Router.

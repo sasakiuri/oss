@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: MIT
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { readGitWorkspaces } from "./select-ci-packages.mjs";
 
-export function packageCommands(task, names, workspaces) {
+export function packageCommands(
+  task,
+  names,
+  workspaces,
+  { includeDocs = false } = {},
+) {
   if (!Array.isArray(names) || new Set(names).size !== names.length) {
     throw new Error("Expected a unique package selection.");
   }
   const packages = names.map((name) => {
     const pkg = workspaces.find((item) => item.name === name);
-    if (!pkg || name === "@sasakiuri/saika-docs") {
+    if (!pkg || (!includeDocs && name === "@sasakiuri/saika-docs")) {
       throw new Error(`Unexpected package in CI selection: ${name}`);
     }
     return pkg;
@@ -48,6 +56,24 @@ export function packageCommands(task, names, workspaces) {
   throw new Error(`Unsupported CI task: ${task}`);
 }
 
+// Local checks must include manifest edits that have not been committed yet.
+export function readWorkingWorkspaces(root = process.cwd()) {
+  const read = (file) => JSON.parse(readFileSync(resolve(root, file), "utf8"));
+  if (
+    JSON.stringify(read("package.json").workspaces) !==
+    JSON.stringify(["packages/*"])
+  ) {
+    throw new Error(
+      "Package checks must be updated for these workspace patterns.",
+    );
+  }
+  return readdirSync(resolve(root, "packages"))
+    .sort()
+    .map((name) => `packages/${name}`)
+    .filter((directory) => existsSync(resolve(root, directory, "package.json")))
+    .map((directory) => ({ ...read(`${directory}/package.json`), directory }));
+}
+
 export function runCommands(commands, npmCli, execute = spawnSync) {
   if (!npmCli) throw new Error("Run package CI through npm run ci:packages.");
   for (const args of commands) {
@@ -61,12 +87,24 @@ export function runCommands(commands, npmCli, execute = spawnSync) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const packages = JSON.parse(process.env.CI_PACKAGES_JSON);
-  const commands = packageCommands(
-    process.argv[2],
-    packages,
-    readGitWorkspaces("HEAD"),
-  );
+  const { values, positionals } = parseArgs({
+    options: { all: { type: "boolean", default: false } },
+    allowPositionals: true,
+  });
+  if (positionals.length !== 1) throw new Error("Expected one package task.");
+  const workspaces = values.all
+    ? readWorkingWorkspaces()
+    : readGitWorkspaces("HEAD");
+  const packages = values.all
+    ? workspaces.map((pkg) => pkg.name)
+    : JSON.parse(process.env.CI_PACKAGES_JSON);
+  const commands = packageCommands(positionals[0], packages, workspaces, {
+    includeDocs: values.all,
+  });
+  if (values.all && positionals[0] === "test") {
+    // Bound local coverage workers so startup imports do not contend across every CPU.
+    process.env.VITEST_MAX_WORKERS ??= "2";
+  }
   console.log(`Selected package commands: ${JSON.stringify(commands)}`);
   process.exitCode = runCommands(commands, process.env.npm_execpath);
 }

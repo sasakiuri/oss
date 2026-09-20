@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: MIT
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { packageCommands, runCommands } from "./run-package-ci.mjs";
+import {
+  packageCommands,
+  readWorkingWorkspaces,
+  runCommands,
+} from "./run-package-ci.mjs";
 
 const packages = [
   {
@@ -57,6 +64,62 @@ test("invalid and dedicated Docs selections fail closed", () => {
   ])
     assert.throws(() => packageCommands("test", selected, packages));
   assert.throws(() => packageCommands("unsupported", ["app"], packages));
+});
+
+test("local all-workspace checks use edited manifests and include Docs and non-coverage tests", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "oss-package-checks-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({ workspaces: ["packages/*"] }),
+  );
+  const local = [
+    ...packages,
+    {
+      name: "@sasakiuri/saika-docs",
+      directory: "packages/saika-docs",
+      scripts: { "test:coverage": "coverage" },
+    },
+  ];
+  for (const pkg of local) {
+    mkdirSync(join(root, pkg.directory), { recursive: true });
+    writeFileSync(
+      join(root, pkg.directory, "package.json"),
+      JSON.stringify(pkg),
+    );
+  }
+  mkdirSync(join(root, "packages/not-a-workspace"));
+  const readCommands = () => {
+    const workspaces = readWorkingWorkspaces(root);
+    return packageCommands(
+      "test",
+      workspaces.map((pkg) => pkg.name),
+      workspaces,
+      { includeDocs: true },
+    );
+  };
+  assert.deepEqual(readCommands(), [
+    ["run", "test:coverage", "--workspace=app"],
+    ["run", "test", "--workspace=library"],
+    ["run", "test:coverage", "--workspace=@sasakiuri/saika-docs"],
+  ]);
+  writeFileSync(
+    join(root, "packages/library/package.json"),
+    JSON.stringify({
+      name: "library",
+      scripts: { test: "test", "test:coverage": "coverage" },
+    }),
+  );
+  assert.deepEqual(readCommands()[1], [
+    "run",
+    "test:coverage",
+    "--workspace=library",
+  ]);
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({ workspaces: ["apps/*"] }),
+  );
+  assert.throws(() => readWorkingWorkspaces(root), /workspace patterns/);
 });
 
 test("npm runs through Node with separate arguments on every operating system", () => {
