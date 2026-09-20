@@ -18,56 +18,22 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      ci: ${{ steps.filter.outputs.ci }}
-      docs: ${{ steps.docs-filter.outputs.docs }}
+      ci: ${{ steps.plan.outputs.ci }}
+      build: ${{ steps.plan.outputs.build }}
+      docs: ${{ steps.plan.outputs.docs }}
+      electron: ${{ steps.plan.outputs.electron }}
+      packages: ${{ steps.plan.outputs.packages }}
+      os: ${{ steps.plan.outputs.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          # paths-filter needs full history for push-event diff computation
-          # (shallow clones miss the base commit when several commits are
-          # pushed together). PR events use base.sha so depth is irrelevant.
           fetch-depth: 0
-      - name: Filter changed paths
-        id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        with:
-          predicate-quantifier: "every"
-          filters: |
-            ci:
-              - '**'
-              - '!**.md'
-              - '!docs/**'
-              - '!.github/ISSUE_TEMPLATE/**'
-              - '!.github/DISCUSSION_TEMPLATE/**'
-              - '!.github/PULL_REQUEST_TEMPLATE.md'
-              - '!.github/SUPPORT.md'
-              - '!.github/FUNDING.yml'
-              - '!.github/labels.yml'
-              - '!LICENSE'
-              - '!.editorconfig'
-      - name: Filter documentation and shared configuration
-        id: docs-filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        with:
-          filters: |
-            docs:
-              - 'packages/saika-docs/**'
-              - 'packages/*-config/**'
-              - '*.json'
-              - '.npmrc'
-              - '.editorconfig'
-              - '.github/actions/setup-node/**'
-              - '*config*'
-              - '.syncpackrc.json'
-              - '.licensee.json'
-              - '.github/workflows/{ci,docs*}.yml'
-              - 'scripts/**'
-              - 'docker/**'
-              - '.dockerignore'
-              - '.devcontainer/**'
-              - 'compose*.yaml'
-              - 'Makefile'
+      - name: Verify CI selection and gate behavior
+        run: node --test scripts/select-ci-packages.test.mjs scripts/run-package-ci.test.mjs scripts/check-required-ci.test.mjs
+      - name: Select affected packages and runners
+        id: plan
+        run: node scripts/select-ci-packages.mjs
 
   text:
     name: Text lint
@@ -87,6 +53,8 @@ jobs:
         run: npm run lint:text
 
   lint:
+    env:
+      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
     name: Lint & Checks
     runs-on: ubuntu-latest
     needs: changes
@@ -104,13 +72,13 @@ jobs:
           enable-turbo-cache: "true"
 
       - name: Type check
-        run: npx turbo typecheck --filter=!@sasakiuri/saika-docs
+        run: npm run ci:packages -- typecheck
 
       - name: Lint
-        run: npx turbo lint --filter=!@sasakiuri/saika-docs
+        run: npm run ci:packages -- lint
 
       - name: Architecture validation
-        run: npx turbo depcruise --filter=!@sasakiuri/saika-docs
+        run: npm run ci:packages -- depcruise
 
       # Validates dependency license compatibility against allowed SPDX list
       # in .licensee.json. Does not perform deep transitive-dependency analysis
@@ -125,23 +93,25 @@ jobs:
         run: npm run cspell
 
       - name: Unused exports check
-        run: npm run knip
+        run: npm run ci:packages -- knip
 
       - name: Dependency version check
         run: npm run syncpack
 
   build-and-test:
+    env:
+      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: changes
-    if: needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.build == 'true'
     permissions:
       contents: read
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.changes.outputs.os) }}
 
     steps:
       - name: Checkout code
@@ -154,55 +124,30 @@ jobs:
           enable-electron-cache: "true"
 
       - name: Build
-        run: npx turbo build --filter=!@sasakiuri/saika-docs
+        run: npm run ci:packages -- build
 
       - name: Rebuild better-sqlite3 for Node.js tests
+        if: needs.changes.outputs.electron == 'true'
         run: npm rebuild better-sqlite3
 
-      - name: Test shared MQTT contracts
-        run: npm run test --workspace=@sasakiuri/saika-protocol
+      - name: Test affected packages
+        run: npm run ci:packages -- test
 
-      - name: Test application updates and release metadata
-        shell: bash
-        run: |
-          npm run test --workspace=@sasakiuri/saika-updater
-          npm run test:release-metadata
-
-      - name: Test Saika Director
-        run: npm run test:coverage --workspace=@sasakiuri/saika-director
-
-      - name: Test Saika Vista
-        run: npm run test --workspace=@sasakiuri/saika-vista
-
-      - name: Test Saika Lane
-        run: cd packages/saika-lane && npx vitest run --coverage
+      - name: Test release metadata
+        if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-updater')
+        run: npm run test:release-metadata
 
       - name: Rebuild native modules for Electron (E2E)
+        if: needs.changes.outputs.electron == 'true'
         run: npx electron-rebuild -f -w better-sqlite3 --module-dir=.
 
-      - name: E2E test Saika Director (Linux)
+      - name: E2E tests (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-director
+        run: xvfb-run -a npm run ci:packages -- test:e2e
 
-      - name: E2E test Saika Director (non-Linux)
+      - name: E2E tests (non-Linux)
         if: runner.os != 'Linux'
-        run: npm run test:e2e --workspace=@sasakiuri/saika-director
-
-      - name: E2E test Saika Lane (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-lane
-
-      - name: E2E test Saika Lane (non-Linux)
-        if: runner.os != 'Linux'
-        run: npm run test:e2e --workspace=@sasakiuri/saika-lane
-
-      - name: E2E test Saika Vista (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:e2e --workspace=@sasakiuri/saika-vista
-
-      - name: E2E test Saika Vista (non-Linux)
-        if: runner.os != 'Linux'
-        run: npm run test:e2e --workspace=@sasakiuri/saika-vista
+        run: npm run ci:packages -- test:e2e
 
       - name: Upload Playwright report
         if: failure()
@@ -232,10 +177,10 @@ jobs:
           retention-days: 1
 
       - name: Bundle size check
-        run: npx turbo size-limit
+        run: npm run ci:packages -- size-limit
 
       - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-lane')
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           directory: packages/saika-lane/coverage
@@ -243,7 +188,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload Saika Director coverage
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-director')
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           directory: packages/saika-director/coverage

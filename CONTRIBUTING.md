@@ -58,6 +58,21 @@ Lane and Director coverage includes all source files, including files not reache
 by tests. Keep that scope and the existing thresholds when updating test tooling.
 Vista runs main-process tests in Node.js and renderer tests in jsdom.
 
+### CI Scope
+
+CI selects changed workspaces and their transitive dependents from the workspace
+manifests, including development, peer, and optional dependencies. Package content
+and assets also count as changes. For example, a Lane change tests Lane, while a
+Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequisites.
+
+Electron application changes run on Linux, Windows, and macOS. When no Electron
+package is affected, build jobs run only on Linux. Saika Docs keeps its dedicated
+quality workflow. Root lockfiles, shared
+configuration, and CI scripts select all workspaces. Repository documentation and
+unrelated workflow settings skip package jobs. Shared repository consistency and
+security checks remain enabled, and `CI Required` rejects failed detection or
+unexpectedly skipped checks. The Changes job summary lists the selected packages.
+
 ### Changing Application Code
 
 Read the relevant section of the [architecture guide](ARCHITECTURE.md) for component
