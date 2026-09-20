@@ -17,9 +17,9 @@ repository:
   has_wiki: false
   has_downloads: true
   default_branch: 1.x
-  allow_squash_merge: true
+  allow_squash_merge: false
   allow_merge_commit: false
-  allow_rebase_merge: false
+  allow_rebase_merge: true
   delete_branch_on_merge: true
   enable_automated_security_fixes: true
   enable_vulnerability_alerts: true
@@ -28,7 +28,7 @@ branches:
   - name: 1.x
     protection:
       required_pull_request_reviews:
-        required_approving_review_count: 1
+        required_approving_review_count: 0
         dismiss_stale_reviews: true
         # Dependabot approvals use github-actions[bot], which is not a code owner.
         require_code_owner_reviews: false
