@@ -170,7 +170,18 @@ describe('Vista LAN authorization', () => {
       expect(rotated.sourceId).toBe(original.sourceId);
       expect(rotated.secret).not.toBe(original.secret);
       expect(loadVistaCredentials(file)).toEqual(rotated);
-      if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  it.skipIf(process.platform === 'win32')('restricts persisted credentials to the owner', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vista-credentials-mode-'));
+    try {
+      const file = join(directory, 'pairing.json');
+      loadVistaCredentials(file);
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      rotateVistaCredentials(file);
+      expect(statSync(file).mode & 0o777).toBe(0o600);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

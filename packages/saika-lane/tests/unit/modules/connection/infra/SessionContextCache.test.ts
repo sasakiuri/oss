@@ -44,6 +44,7 @@ describe('SessionContextCache', () => {
     });
 
     it('should throw SESSION_NOT_FOUND with correct error code', () => {
+      expect.assertions(1);
       try {
         cache.getContext();
         expect.fail('Expected an error to be thrown');

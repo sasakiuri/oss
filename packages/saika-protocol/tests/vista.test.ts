@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+
 import { describe, expect, it } from 'vitest';
 
 import { VistaShotSchema, VistaSnapshotSchema, type VistaParticipant, type VistaSnapshot } from '../src/Vista';
@@ -137,10 +139,10 @@ describe.each(['RING', 'DECIMAL'] as const)('Vista %s shot scores', (scoring) =>
       value.participants[0]!.shots[0]!.score = score;
       const result = VistaSnapshotSchema.safeParse(value);
       expect(result.success).toBe(false);
-      if (!result.success)
-        expect(result.error.issues).toContainEqual(
-          expect.objectContaining({ path: ['participants', 0, 'shots', 0, 'score'] }),
-        );
+      assert.ok(!result.success);
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({ path: ['participants', 0, 'shots', 0, 'score'] }),
+      );
       expect(value.participants[0]!.shots[0]!.score).toBe(score);
     },
   );
@@ -197,8 +199,8 @@ describe('Vista positions within the selected definition', () => {
     mutate(value.participants[0]!);
     const result = VistaSnapshotSchema.safeParse(value);
     expect(result.success).toBe(false);
-    if (!result.success)
-      expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['participants', 0, ...path] }));
+    assert.ok(!result.success);
+    expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['participants', 0, ...path] }));
   });
 
   it('preserves unknown positions and accepts the last ordinary series', () => {

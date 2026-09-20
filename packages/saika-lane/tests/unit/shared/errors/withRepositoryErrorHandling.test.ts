@@ -11,6 +11,7 @@ describe('withRepositoryErrorHandling', () => {
   });
 
   it('wraps with DomainError when fn throws an Error', async () => {
+    expect.assertions(3);
     const original = new Error('disk failure');
 
     try {
@@ -27,6 +28,7 @@ describe('withRepositoryErrorHandling', () => {
   });
 
   it('converts and wraps via toError when fn throws a string', async () => {
+    expect.assertions(4);
     try {
       await withRepositoryErrorHandling(async () => {
         throw 'string error';
@@ -42,6 +44,7 @@ describe('withRepositoryErrorHandling', () => {
   });
 
   it('forwards metadata to createError when provided', async () => {
+    expect.assertions(2);
     try {
       await withRepositoryErrorHandling(
         async () => {

@@ -63,6 +63,7 @@ describe('settingsService', () => {
     });
 
     it('throws ServiceError on failure', async () => {
+      expect.assertions(2);
       mockSaveConnectionSettings.mockResolvedValue({
         success: false,
         error: { code: 'SAVE_ERROR', message: 'Disk full' },
@@ -78,6 +79,7 @@ describe('settingsService', () => {
     });
 
     it('IPC error is wrapped with IPC_ERROR', async () => {
+      expect.assertions(1);
       mockSaveConnectionSettings.mockRejectedValue(new Error('IPC broken'));
 
       try {
@@ -121,6 +123,7 @@ describe('settingsService', () => {
     });
 
     it('failure without error results in UNKNOWN code', async () => {
+      expect.assertions(2);
       mockGetConnectionSettings.mockResolvedValue({ success: false });
 
       try {
@@ -190,6 +193,7 @@ describe('settingsService', () => {
     });
 
     it('IPC error is wrapped with IPC_ERROR', async () => {
+      expect.assertions(3);
       mockGetUserPreferences.mockRejectedValue(new Error('Channel closed'));
 
       try {

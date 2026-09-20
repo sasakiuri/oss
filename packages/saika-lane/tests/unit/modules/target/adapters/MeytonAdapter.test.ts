@@ -18,6 +18,7 @@ describe('MeytonAdapter', () => {
   });
 
   it('should throw DATA_CONVERSION_ERROR from convert() (unimplemented stub)', () => {
+    expect.assertions(3);
     const adapter = new MeytonAdapter();
     const rawData: RawData = {
       raw: Buffer.from('{"x":12.5,"y":-8.3}'),

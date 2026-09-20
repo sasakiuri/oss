@@ -29,6 +29,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when x coordinate is NaN', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(NaN, 10);
         expect.fail('Should have thrown an error');
@@ -39,6 +40,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when y coordinate is NaN', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(10, NaN);
         expect.fail('Should have thrown an error');
@@ -49,6 +51,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when x coordinate is Infinity', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(Infinity, 10);
         expect.fail('Should have thrown an error');
@@ -59,6 +62,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when y coordinate is Infinity', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(10, Infinity);
         expect.fail('Should have thrown an error');
@@ -69,6 +73,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when x coordinate is -Infinity', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(-Infinity, 10);
         expect.fail('Should have thrown an error');
@@ -79,6 +84,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when y coordinate is -Infinity', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(10, -Infinity);
         expect.fail('Should have thrown an error');
@@ -89,6 +95,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when x coordinate exceeds 1000mm', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(1000.1, 0);
         expect.fail('Should have thrown an error');
@@ -99,6 +106,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when x coordinate is below -1000mm', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(-1000.1, 0);
         expect.fail('Should have thrown an error');
@@ -109,6 +117,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when y coordinate exceeds 1000mm', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(0, 1000.1);
         expect.fail('Should have thrown an error');
@@ -119,6 +128,7 @@ describe('ImpactPoint', () => {
     });
 
     it('throws an error when y coordinate is below -1000mm', () => {
+      expect.assertions(2);
       try {
         new ImpactPoint(0, -1000.1);
         expect.fail('Should have thrown an error');

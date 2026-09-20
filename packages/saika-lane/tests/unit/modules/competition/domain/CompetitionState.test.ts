@@ -195,6 +195,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('does not let an unrelated timed program close the current 25m series', () => {
+      expect.assertions(2);
       const state = createIdleState(P25.config).startStage().expireTimer().advanceToNextStage().startNextSeries();
 
       try {
@@ -468,6 +469,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from ACTIVE (scored)', () => {
+      expect.assertions(4);
       let state = createIdleState().startStage();
       state = state.expireTimer().advanceToNextStage().startNextSeries();
       expect(state.phase).toBe('ACTIVE');
@@ -483,6 +485,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from IDLE', () => {
+      expect.assertions(2);
       const state = createIdleState();
       try {
         state.restartStage();
@@ -494,6 +497,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from FINISHED', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.restartStage();
@@ -598,6 +602,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from IDLE', () => {
+      expect.assertions(2);
       const state = createIdleState();
       try {
         state.resetToIdle();
@@ -609,6 +614,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from SERIES_COMPLETE', () => {
+      expect.assertions(3);
       const state = createIdleState().startStage().expireTimer();
       expect(state.phase).toBe('SERIES_COMPLETE');
       try {
@@ -621,6 +627,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from FINISHED', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.resetToIdle();
@@ -657,6 +664,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from ACTIVE (scored)', () => {
+      expect.assertions(4);
       let state = createIdleState().startStage();
       state = state.expireTimer().advanceToNextStage().startNextSeries();
       expect(state.phase).toBe('ACTIVE');
@@ -672,6 +680,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from IDLE', () => {
+      expect.assertions(2);
       const state = createIdleState();
       try {
         state.endStage();
@@ -683,6 +692,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from SERIES_COMPLETE', () => {
+      expect.assertions(3);
       const state = createIdleState().startStage().expireTimer();
       expect(state.phase).toBe('SERIES_COMPLETE');
       try {
@@ -695,6 +705,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from FINISHED', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.endStage();
@@ -746,6 +757,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from IDLE', () => {
+      expect.assertions(2);
       const state = createIdleState();
       try {
         state.rewindToStage();
@@ -782,6 +794,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('throws error from FINISHED', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.rewindToStage();
@@ -856,6 +869,7 @@ describe('CompetitionState aggregate root', () => {
   // ============================
   describe('invalid state transition error cases', () => {
     it('startStage() from SERIES_COMPLETE is an error', () => {
+      expect.assertions(3);
       const state = createIdleState().startStage().expireTimer();
       expect(state.phase).toBe('SERIES_COMPLETE');
       try {
@@ -868,6 +882,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('startStage() from STAGE_ENTERED is an error', () => {
+      expect.assertions(3);
       let state = createIdleState().startStage();
       state = state.expireTimer();
       state = state.advanceToNextStage();
@@ -882,6 +897,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('recordShotInSeries() from SERIES_COMPLETE is an error', () => {
+      expect.assertions(3);
       const state = createIdleState().startStage().expireTimer();
       expect(state.phase).toBe('SERIES_COMPLETE');
       try {
@@ -894,6 +910,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('recordShotInSeries() from FINISHED is an error', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.recordShotInSeries();
@@ -905,6 +922,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('expireTimer() from SERIES_COMPLETE is an error', () => {
+      expect.assertions(3);
       const state = createIdleState().startStage().expireTimer();
       expect(state.phase).toBe('SERIES_COMPLETE');
       try {
@@ -917,6 +935,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('expireTimer() from FINISHED is an error', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.expireTimer();
@@ -928,6 +947,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('advanceToNextStage() from IDLE is an error', () => {
+      expect.assertions(2);
       const state = createIdleState();
       try {
         state.advanceToNextStage();
@@ -939,6 +959,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('advanceToNextStage() from FINISHED is an error', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.advanceToNextStage();
@@ -950,6 +971,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('startNextSeries() from FINISHED is an error', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.startNextSeries();
@@ -961,6 +983,7 @@ describe('CompetitionState aggregate root', () => {
     });
 
     it('startStage() from FINISHED is an error', () => {
+      expect.assertions(2);
       const state = createIdleState().finish();
       try {
         state.startStage();

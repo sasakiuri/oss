@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { GetShotHistoryInput } from '@/main/composition/tokens';
@@ -191,27 +193,27 @@ describe('createGetShotHistoryHandler', () => {
       expect(result.shots).toHaveLength(1);
 
       const shotDto = result.shots[0];
-      if (shotDto) {
-        expect(typeof shotDto.id).toBe('string');
-        expect(typeof shotDto.shotNumber).toBe('number');
-        expect(typeof shotDto.x).toBe('number');
-        expect(typeof shotDto.y).toBe('number');
-        expect(typeof shotDto.score).toBe('number');
-        expect(typeof shotDto.timestamp).toBe('string');
-        expect(typeof shotDto.mode).toBe('string');
-        expect(typeof shotDto.isRecorded).toBe('boolean');
+      assert.ok(shotDto);
 
-        // Verify values
-        expect(shotDto.shotNumber).toBe(1);
-        expect(shotDto.x).toBe(1.5);
-        expect(shotDto.y).toBe(2.5);
-        expect(shotDto.score).toBe(103);
-        expect(shotDto.mode).toBe('MATCH');
-        expect(shotDto.isRecorded).toBe(true);
+      expect(typeof shotDto.id).toBe('string');
+      expect(typeof shotDto.shotNumber).toBe('number');
+      expect(typeof shotDto.x).toBe('number');
+      expect(typeof shotDto.y).toBe('number');
+      expect(typeof shotDto.score).toBe('number');
+      expect(typeof shotDto.timestamp).toBe('string');
+      expect(typeof shotDto.mode).toBe('string');
+      expect(typeof shotDto.isRecorded).toBe('boolean');
 
-        // Timestamp should be an ISO format string
-        expect(() => new Date(shotDto.timestamp)).not.toThrow();
-      }
+      // Verify values
+      expect(shotDto.shotNumber).toBe(1);
+      expect(shotDto.x).toBe(1.5);
+      expect(shotDto.y).toBe(2.5);
+      expect(shotDto.score).toBe(103);
+      expect(shotDto.mode).toBe('MATCH');
+      expect(shotDto.isRecorded).toBe(true);
+
+      // Timestamp should be an ISO format string
+      expect(() => new Date(shotDto.timestamp)).not.toThrow();
     });
 
     it('should convert timestamp to ISO format string', async () => {
@@ -230,13 +232,13 @@ describe('createGetShotHistoryHandler', () => {
 
       // Assert: ISO format string
       const shot = result.shots[0];
-      if (shot) {
-        expect(shot.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      assert.ok(shot);
 
-        // Should be convertible from ISO format to Date
-        const date = new Date(shot.timestamp);
-        expect(date.toString()).not.toBe('Invalid Date');
-      }
+      expect(shot.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+
+      // Should be convertible from ISO format to Date
+      const date = new Date(shot.timestamp);
+      expect(date.toString()).not.toBe('Invalid Date');
     });
   });
 });

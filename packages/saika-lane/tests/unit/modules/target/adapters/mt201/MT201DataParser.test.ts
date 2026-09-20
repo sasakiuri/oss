@@ -82,6 +82,7 @@ describe('MT201DataParser', () => {
 
   describe('parse() - error cases', () => {
     it('should throw DATA_CONVERSION_ERROR for format mismatch', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('INVALID_DATA');
 
       try {
@@ -94,6 +95,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw DATA_CONVERSION_ERROR for empty data', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('');
 
       try {
@@ -106,6 +108,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw DATA_CONVERSION_ERROR for data that is too short', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R 9.7 0250');
 
       try {
@@ -118,6 +121,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for invalid mode (not R/S)', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('X 9.7 0250 FF5F 70');
 
       try {
@@ -130,6 +134,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for invalid score (non-numeric)', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R abc 0250 FF5F 70');
 
       try {
@@ -142,6 +147,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for invalid X coordinate HEX', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R 9.7 GHIJ FF5F 70');
 
       try {
@@ -154,6 +160,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for invalid Y coordinate HEX', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R 9.7 0250 WXYZ 70');
 
       try {
@@ -166,6 +173,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for invalid checksum HEX', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R 9.7 0250 FF5F ZZ');
 
       try {
@@ -178,6 +186,7 @@ describe('MT201DataParser', () => {
     });
 
     it('should throw VALIDATION_ERROR for insufficient X coordinate HEX digits', () => {
+      expect.assertions(2);
       const buffer = Buffer.from('R 9.7 025  FF5F 70');
 
       try {

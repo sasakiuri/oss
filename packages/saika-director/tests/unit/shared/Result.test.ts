@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { describe, it, expect } from 'vitest';
 import { Result, createParseError } from '@/shared/types/Result';
 
@@ -9,9 +10,9 @@ describe('Result', () => {
     it('should create success result', () => {
       const result = ResultUtil.ok(42);
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(42);
-      }
+      assert.ok(result.success);
+
+      expect(result.data).toBe(42);
     });
   });
 
@@ -20,9 +21,9 @@ describe('Result', () => {
       const error = new Error('test error');
       const result = ResultUtil.err(error);
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe(error);
-      }
+      assert.ok(!result.success);
+
+      expect(result.error).toBe(error);
     });
   });
 
@@ -55,9 +56,9 @@ describe('Result', () => {
       const result = ResultUtil.ok(21);
       const mapped = ResultUtil.map(result, (x) => x * 2);
       expect(mapped.success).toBe(true);
-      if (mapped.success) {
-        expect(mapped.data).toBe(42);
-      }
+      assert.ok(mapped.success);
+
+      expect(mapped.data).toBe(42);
     });
 
     it('should pass through err value', () => {
@@ -65,9 +66,9 @@ describe('Result', () => {
       const result: Result<number, Error> = ResultUtil.err(error);
       const mapped = ResultUtil.map(result, (x: number) => x * 2);
       expect(mapped.success).toBe(false);
-      if (!mapped.success) {
-        expect(mapped.error).toBe(error);
-      }
+      assert.ok(!mapped.success);
+
+      expect(mapped.error).toBe(error);
     });
   });
 
@@ -76,18 +77,18 @@ describe('Result', () => {
       const result: Result<number, string> = ResultUtil.err('original');
       const mapped = ResultUtil.mapErr(result, (e) => `modified: ${e}`);
       expect(mapped.success).toBe(false);
-      if (!mapped.success) {
-        expect(mapped.error).toBe('modified: original');
-      }
+      assert.ok(!mapped.success);
+
+      expect(mapped.error).toBe('modified: original');
     });
 
     it('should pass through ok value', () => {
       const result: Result<number, string> = ResultUtil.ok(42);
       const mapped = ResultUtil.mapErr(result, (e) => `modified: ${e}`);
       expect(mapped.success).toBe(true);
-      if (mapped.success) {
-        expect(mapped.data).toBe(42);
-      }
+      assert.ok(mapped.success);
+
+      expect(mapped.data).toBe(42);
     });
   });
 
@@ -96,9 +97,9 @@ describe('Result', () => {
       const result = ResultUtil.ok(21);
       const chained = ResultUtil.flatMap(result, (x) => ResultUtil.ok(x * 2));
       expect(chained.success).toBe(true);
-      if (chained.success) {
-        expect(chained.data).toBe(42);
-      }
+      assert.ok(chained.success);
+
+      expect(chained.data).toBe(42);
     });
 
     it('should short-circuit on err', () => {
@@ -106,9 +107,9 @@ describe('Result', () => {
       const result: Result<number, Error> = ResultUtil.err(error);
       const chained = ResultUtil.flatMap(result, (x: number) => ResultUtil.ok(x * 2));
       expect(chained.success).toBe(false);
-      if (!chained.success) {
-        expect(chained.error).toBe(error);
-      }
+      assert.ok(!chained.success);
+
+      expect(chained.error).toBe(error);
     });
 
     it('should propagate inner err', () => {
@@ -116,9 +117,9 @@ describe('Result', () => {
       const innerError = new Error('inner');
       const chained = ResultUtil.flatMap(result, () => ResultUtil.err(innerError));
       expect(chained.success).toBe(false);
-      if (!chained.success) {
-        expect(chained.error).toBe(innerError);
-      }
+      assert.ok(!chained.success);
+
+      expect(chained.error).toBe(innerError);
     });
   });
 
@@ -163,9 +164,9 @@ describe('Result', () => {
     it('should return ok for successful function', () => {
       const result = ResultUtil.tryCatch(() => 42);
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(42);
-      }
+      assert.ok(result.success);
+
+      expect(result.data).toBe(42);
     });
 
     it('should return err for throwing function', () => {
@@ -173,9 +174,9 @@ describe('Result', () => {
         throw new Error('test error');
       });
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toBe('test error');
-      }
+      assert.ok(!result.success);
+
+      expect(result.error.message).toBe('test error');
     });
 
     it('should use error mapper when provided', () => {
@@ -186,9 +187,9 @@ describe('Result', () => {
         (e) => `mapped: ${(e as Error).message}`,
       );
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('mapped: original');
-      }
+      assert.ok(!result.success);
+
+      expect(result.error).toBe('mapped: original');
     });
   });
 
@@ -196,18 +197,18 @@ describe('Result', () => {
     it('should return ok for resolved promise', async () => {
       const result = await ResultUtil.fromPromise(Promise.resolve(42));
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBe(42);
-      }
+      assert.ok(result.success);
+
+      expect(result.data).toBe(42);
     });
 
     it('should return err for rejected promise', async () => {
       const error = new Error('test error');
       const result = await ResultUtil.fromPromise<number, Error>(Promise.reject(error));
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe(error);
-      }
+      assert.ok(!result.success);
+
+      expect(result.error).toBe(error);
     });
 
     it('should use error mapper when provided', async () => {
@@ -216,9 +217,9 @@ describe('Result', () => {
         (e) => `mapped: ${(e as Error).message}`,
       );
       expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('mapped: original');
-      }
+      assert.ok(!result.success);
+
+      expect(result.error).toBe('mapped: original');
     });
   });
 });

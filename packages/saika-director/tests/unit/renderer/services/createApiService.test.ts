@@ -178,11 +178,8 @@ describe('createApiService', () => {
       const result = args ? await fn(...args) : await fn();
 
       expect(result).toBe(expected);
-      if (args) {
-        expect(mockNs[method]).toHaveBeenCalledWith(...args);
-      } else {
-        expect(mockNs[method]).toHaveBeenCalledTimes(1);
-      }
+      expect(mockNs[method]).toHaveBeenCalledWith(...(args ?? []));
+      expect(mockNs[method]).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -172,14 +172,19 @@ it.each([false, true])(
     const config = { ...screenConfig(), selections: [] };
     if (storageFailure) {
       vi.spyOn(AtomicStore.prototype, 'write').mockRejectedValueOnce(new Error('Disk full'));
-      await expect(app.command({ type: 'apply', nodeId: app.identity.sourceId, config })).rejects.toThrow('Disk full');
     }
+    const preparation = storageFailure
+      ? await Promise.allSettled([app.command({ type: 'apply', nodeId: app.identity.sourceId, config })])
+      : [];
+    const diskFailure = { status: 'rejected', reason: expect.objectContaining({ message: 'Disk full' }) };
+    expect(preparation).toMatchObject(storageFailure ? [diskFailure] : []);
     await expect(
       app.command({ type: 'apply', nodeId: app.identity.sourceId, config: { ...config, monitorId: 'disconnected' } }),
     ).rejects.toThrow('The selected monitor is not connected');
     expect(app.state.document.screens).toEqual([]);
-    if (storageFailure) await expect(app.stop()).rejects.toThrow('Disk full');
-    else await expect(app.stop()).resolves.toBeUndefined();
+    expect(await Promise.allSettled([app.stop()])).toMatchObject([
+      storageFailure ? diskFailure : { status: 'fulfilled', value: undefined },
+    ]);
   },
 );
 
@@ -1062,21 +1067,22 @@ it.each(['missing', 'unfinished', 'finished'] as const)('checks inherited %s dat
     }),
   ).rejects.toThrow('Director');
   vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 10_000);
-  if (hasSavedData) expect(display.state.audience(config.id).entries[0]?.state).toBe('stale');
+  expect(display.state.audience(config.id).entries[0]?.state).toBe(hasSavedData ? 'stale' : undefined);
   const resume = replacement.command({
     type: 'apply',
     nodeId: display.identity.sourceId,
     config: { ...config, revision: 3 },
   });
-  if (canResume) {
-    await resume;
-    expect(display.state.audience(config.id).entries[0]?.snapshot).toMatchObject({
-      subjectId: 'session-one',
-      finished: true,
-    });
-  } else {
-    await expect(resume).rejects.toThrow('Standby was retained');
-  }
+  const rejectedResume = {
+    status: 'rejected',
+    reason: expect.objectContaining({ message: expect.stringContaining('Standby was retained') }),
+  };
+  expect(await Promise.allSettled([resume])).toMatchObject([canResume ? { status: 'fulfilled' } : rejectedResume]);
+  expect(
+    display.state
+      .audience(config.id)
+      .entries.map((entry) => ({ subjectId: entry.snapshot.subjectId, finished: entry.snapshot.finished })),
+  ).toEqual(hasSavedData ? [{ subjectId: 'session-one', finished: canResume }] : []);
   expect(display.state.audience(config.id).config.standby).toBe(!canResume);
 });
 
@@ -1094,7 +1100,10 @@ it.each([false, true])('requires a finished snapshot to resume stale local data 
     config: { ...screenConfig(), standby: true },
   });
   const resume = app.command({ type: 'apply', nodeId: app.identity.sourceId, config: screenConfig(2) });
-  if (finished) await resume;
-  else await expect(resume).rejects.toThrow('Standby was retained');
+  const rejectedResume = {
+    status: 'rejected',
+    reason: expect.objectContaining({ message: expect.stringContaining('Standby was retained') }),
+  };
+  expect(await Promise.allSettled([resume])).toMatchObject([finished ? { status: 'fulfilled' } : rejectedResume]);
   expect(app.state.audience('screen-one').config.standby).toBe(!finished);
 });

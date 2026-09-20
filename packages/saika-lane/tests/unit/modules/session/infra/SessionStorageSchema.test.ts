@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import assert from 'node:assert/strict';
+
 import { describe, expect, it } from 'vitest';
 
 import { SessionStorageSchema, parseSessionStorageData } from '@/main/modules/session/infra/SessionStorageSchema';
@@ -80,9 +82,9 @@ describe('SessionStorageSchema', () => {
     };
     const result = SessionStorageSchema.safeParse(data);
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.series[0]!.maxShots).toBe(10);
-    }
+    assert.ok(result.success);
+
+    expect(result.data.series[0]!.maxShots).toBe(10);
   });
 
   it('should allow explicit specification of series maxShots', () => {
@@ -92,18 +94,18 @@ describe('SessionStorageSchema', () => {
     };
     const result = SessionStorageSchema.safeParse(data);
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.series[0]!.maxShots).toBe(0);
-    }
+    assert.ok(result.success);
+
+    expect(result.data.series[0]!.maxShots).toBe(0);
   });
 
   it('should accept null for finishedAt', () => {
     const data = { ...validSessionData, finishedAt: null };
     const result = SessionStorageSchema.safeParse(data);
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.finishedAt).toBeNull();
-    }
+    assert.ok(result.success);
+
+    expect(result.data.finishedAt).toBeNull();
   });
 
   it('should accept a string for finishedAt', () => {
@@ -150,6 +152,7 @@ describe('parseSessionStorageData', () => {
   });
 
   it('should throw STORAGE_DATA_CORRUPTED error for invalid data', () => {
+    expect.assertions(2);
     try {
       parseSessionStorageData({ invalid: true });
       expect.fail('Should have thrown');
@@ -160,6 +163,7 @@ describe('parseSessionStorageData', () => {
   });
 
   it('should include the problematic path in the error message', () => {
+    expect.assertions(2);
     try {
       parseSessionStorageData({ id: 123, discipline: 'BAD' });
       expect.fail('Should have thrown');

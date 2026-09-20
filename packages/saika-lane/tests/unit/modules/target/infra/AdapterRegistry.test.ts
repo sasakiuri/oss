@@ -146,6 +146,7 @@ describe('AdapterRegistry', () => {
     });
 
     it('should throw DATA_CONVERSION_ERROR when assigning with an unregistered manufacturer ID', () => {
+      expect.assertions(3);
       try {
         registry.assignDeviceAdapter('TEST_DEVICE', 'NONEXISTENT');
         expect.fail('Should have thrown an error');

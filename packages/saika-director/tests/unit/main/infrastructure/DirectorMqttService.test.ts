@@ -813,7 +813,7 @@ describe('DirectorMqttService', () => {
         { interval: 1 },
       );
       const command = JSON.parse(transport.publications.find((entry) => entry.topic.endsWith('/' + action))!.payload);
-      if (operation === 'CANCEL') expect(command.request).toEqual(request);
+      expect(command.request).toEqual(operation === 'CANCEL' ? request : undefined);
       transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/${action}/acknowledgement`, {
         commandId: command.commandId,
         laneId: LANE_ID,
