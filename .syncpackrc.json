@@ -9,7 +9,7 @@
       "pinVersion": "*"
     },
     {
-      "label": "Nilay Knowledge retains its imported Vitest 2 and Tailwind 4 toolchain",
+      "label": "Nilay Knowledge uses Vitest 4 and Tailwind 4",
       "packages": ["@sasakiuri/nilay-knowledge"],
       "dependencies": [
         "@types/node",
