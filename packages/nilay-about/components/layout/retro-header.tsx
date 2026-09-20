@@ -16,6 +16,7 @@ function SkipLink() {
   return (
     <a
       href="#main-content"
+      tabIndex={0}
       className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-[#000080] focus:text-white focus:px-2 focus:py-1"
     >
       メインコンテンツへスキップ

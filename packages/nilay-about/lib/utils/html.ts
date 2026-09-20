@@ -1,13 +1,28 @@
 /**
- * HTML文字列からタグを除去してプレーンテキストを取得
+ * HTML文字列からタグを除去してプレーンテキストを取得。HTMLとしては挿入しない。
  */
 export function stripHtml(html: string): string {
   if (typeof window !== 'undefined') {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return doc.body.textContent || '';
   }
-  // SSR環境では正規表現でフォールバック
-  return html.replace(/<[^>]*>/g, '');
+  return stripHtmlTags(html);
+}
+
+/** Remove angle-bracket tags for text display, without regex backtracking. */
+export function stripHtmlTags(html: string): string {
+  const parts: string[] = [];
+  let position = 0;
+  while (position < html.length) {
+    const start = html.indexOf('<', position);
+    if (start === -1) break;
+    const end = html.indexOf('>', start + 1);
+    if (end === -1) break;
+    parts.push(html.slice(position, start));
+    position = end + 1;
+  }
+  parts.push(html.slice(position));
+  return parts.join('');
 }
 
 /**

@@ -9,7 +9,11 @@ import {
   sanitizeHtml,
 } from '@/lib/security/sanitize';
 import { sanitizeForLogging, sanitizeForSlack } from '@/lib/security/sanitize-logging';
-import { sanitizeHtml as sanitizeClientHtml } from '@/lib/security/sanitize.client';
+import {
+  sanitizeHtml as sanitizeClientHtml,
+  sanitizeForDisplay as sanitizeClientForDisplay,
+  stripHtml as stripClientHtml,
+} from '@/lib/security/sanitize.client';
 
 describe('Security Sanitization', () => {
   describe.each([
@@ -181,7 +185,10 @@ describe('Security Sanitization', () => {
     });
   });
 
-  describe('stripHtml', () => {
+  describe.each([
+    ['server', stripHtml],
+    ['client', stripClientHtml],
+  ] as const)('stripHtml (%s)', (_name, stripHtml) => {
     it('should remove HTML tags', () => {
       expect(stripHtml('<p>Hello <strong>World</strong></p>')).toBe('Hello World');
     });
@@ -194,18 +201,34 @@ describe('Security Sanitization', () => {
       expect(stripHtml('Hello<br/>World')).toBe('HelloWorld');
     });
 
+    it('should remove tags with opening brackets in quoted attributes', () => {
+      expect(stripHtml('<p title="1<2">Hello</p>')).toBe('Hello');
+    });
+
     it('should handle empty string', () => {
       expect(stripHtml('')).toBe('');
     });
+
+    it('should preserve long runs of unmatched opening brackets as text', () => {
+      const input = '<'.repeat(100_000);
+      expect(stripHtml(input)).toBe(input);
+    });
   });
 
-  describe('sanitizeForDisplay', () => {
+  describe.each([
+    ['server', sanitizeForDisplay],
+    ['client', sanitizeClientForDisplay],
+  ] as const)('sanitizeForDisplay (%s)', (_name, sanitizeForDisplay) => {
     it('should strip and escape HTML', () => {
       expect(sanitizeForDisplay('<p>Hello & <script>evil</script></p>')).toBe('Hello &amp; evil');
     });
 
     it('should handle complex nested HTML with special chars', () => {
       expect(sanitizeForDisplay('<div onclick="alert()">Test & <b>bold</b></div>')).toBe('Test &amp; bold');
+    });
+
+    it('should escape an unfinished tag left after text extraction', () => {
+      expect(sanitizeForDisplay('<p>Text</p><script')).toBe('Text&lt;script');
     });
   });
 

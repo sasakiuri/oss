@@ -102,13 +102,14 @@ test.describe('Home Target Calculator Accessibility', () => {
     await expect(distanceInput).toBeVisible();
   });
 
-  test('should be keyboard navigable', async ({ page }) => {
+  test('should be keyboard navigable', async ({ page, browserName }) => {
     await page.goto('/labs/home-target');
 
-    // Tab through focusable elements
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
+    // macOS WebKit uses Option-Tab to include all clickable controls.
+    const tabKey = browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab';
+    await page.keyboard.press(tabKey);
+    await page.keyboard.press(tabKey);
+    await page.keyboard.press(tabKey);
 
     // Should be able to reach input fields
     const focusedElement = await page.evaluate(() => document.activeElement?.tagName.toLowerCase());
