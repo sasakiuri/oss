@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
-import { LuCheck } from "react-icons/lu";
+import * as React from 'react';
+import { LuCheck } from 'react-icons/lu';
 
-export interface CheckboxProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> {
+import { cn } from '@/lib/utils';
+
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   /** Callback when checked state changes (Radix-compatible API) */
   onCheckedChange?: (checked: boolean) => void;
   /** Standard onChange handler */
@@ -43,19 +43,19 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         <input
           type="checkbox"
           className={cn(
-            "peer",
-            "h-[18px] w-[18px] shrink-0", // M3: 18dp size
-            "rounded-sm", // M3: 2dp corner radius
-            "border-2 border-outline", // M3: outline border
-            "appearance-none bg-transparent",
-            "transition-colors duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
+            'peer',
+            'h-[18px] w-[18px] shrink-0', // M3: 18dp size
+            'rounded-sm', // M3: 2dp corner radius
+            'border-2 border-outline', // M3: outline border
+            'appearance-none bg-transparent',
+            'transition-colors duration-200 ease-[cubic-bezier(0.2,0,0,1)]',
             // Checked state
-            "checked:bg-primary checked:border-primary",
+            'checked:bg-primary checked:border-primary',
             // Focus state
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
             // Disabled state
-            "disabled:cursor-not-allowed disabled:opacity-[0.38]",
-            className
+            'disabled:cursor-not-allowed disabled:opacity-[0.38]',
+            className,
           )}
           ref={ref}
           onChange={handleChange}
@@ -65,18 +65,18 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         {/* Checkmark icon */}
         <LuCheck
           className={cn(
-            "absolute h-3.5 w-3.5 pointer-events-none",
-            "text-on-primary",
-            "opacity-0 scale-50",
-            "peer-checked:opacity-100 peer-checked:scale-100",
-            "transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]"
+            'absolute h-3.5 w-3.5 pointer-events-none',
+            'text-on-primary',
+            'opacity-0 scale-50',
+            'peer-checked:opacity-100 peer-checked:scale-100',
+            'transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]',
           )}
           strokeWidth={3}
         />
       </div>
     );
-  }
+  },
 );
-Checkbox.displayName = "Checkbox";
+Checkbox.displayName = 'Checkbox';
 
 export { Checkbox };

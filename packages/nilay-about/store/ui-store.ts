@@ -1,8 +1,8 @@
-import { create } from "zustand";
-import { useShallow } from "zustand/react/shallow";
+import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 
 // Types
-export type AlertType = "success" | "error" | "info" | "warning";
+export type AlertType = 'success' | 'error' | 'info' | 'warning';
 
 export interface AlertState {
   type: AlertType;
@@ -36,11 +36,7 @@ export const initialUIState: UIState = {
 };
 
 // Helper to create alert
-const createAlert = (
-  type: AlertType,
-  title: string,
-  message: string
-): AlertState => ({
+const createAlert = (type: AlertType, title: string, message: string): AlertState => ({
   type,
   title,
   message,
@@ -53,17 +49,13 @@ export const useUIStore = create<UIStore>((set) => ({
 
   setAlert: (alert) => set({ alert }),
 
-  showSuccess: (title, message) =>
-    set({ alert: createAlert("success", title, message) }),
+  showSuccess: (title, message) => set({ alert: createAlert('success', title, message) }),
 
-  showError: (title, message) =>
-    set({ alert: createAlert("error", title, message) }),
+  showError: (title, message) => set({ alert: createAlert('error', title, message) }),
 
-  showInfo: (title, message) =>
-    set({ alert: createAlert("info", title, message) }),
+  showInfo: (title, message) => set({ alert: createAlert('info', title, message) }),
 
-  showWarning: (title, message) =>
-    set({ alert: createAlert("warning", title, message) }),
+  showWarning: (title, message) => set({ alert: createAlert('warning', title, message) }),
 
   clearAlert: () => set({ alert: null }),
 
@@ -84,5 +76,5 @@ export const useUIActions = () =>
       showWarning: state.showWarning,
       clearAlert: state.clearAlert,
       setLoading: state.setLoading,
-    }))
+    })),
   );

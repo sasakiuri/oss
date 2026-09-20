@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useNewsList } from "@/hooks";
-import { formatDate, stripHtml, truncate } from "@/lib/utils";
-import type { News } from "@/lib/schemas";
+import Link from 'next/link';
+
+import { useNewsList } from '@/hooks';
+import type { News } from '@/lib/schemas';
+import { formatDate, stripHtml, truncate } from '@/lib/utils';
 
 const SUMMARY_MAX_LENGTH = 140;
 
@@ -26,7 +27,7 @@ function NewsListItem({ news }: NewsListItemProps) {
   return (
     <li>
       <time dateTime={news.date.toISOString()}>{dateStr}</time>
-      {" - "}
+      {' - '}
       <Link href={`/news/${news.id}`}>{news.title}</Link>
       <br />
       <span className="ml-8 text-sm">{summary}</span>
@@ -46,11 +47,7 @@ export function NewsListClient() {
       <div className="mt-4">
         <p className="text-destructive">ニュースの取得に失敗しました。</p>
         <p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="underline"
-          >
+          <button type="button" onClick={() => refetch()} className="underline">
             再試行
           </button>
         </p>

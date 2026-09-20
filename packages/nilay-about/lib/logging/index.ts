@@ -5,10 +5,10 @@
  */
 
 // Import directly to avoid loading DOMPurify in serverless environment
-import { sanitizeForLogging } from "@/lib/security/sanitize-logging";
-import { isDevelopment, isProduction } from "@/lib/env";
+import { isDevelopment } from '@/lib/env';
+import { sanitizeForLogging } from '@/lib/security/sanitize-logging';
 
-type LogLevel = "debug" | "info" | "warn" | "error";
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogContext {
   [key: string]: unknown;
@@ -32,11 +32,7 @@ interface LogEntry {
 function formatLogEntry(entry: LogEntry): string {
   if (isDevelopment) {
     // Pretty format for development
-    const parts = [
-      `[${entry.timestamp}]`,
-      `[${entry.level.toUpperCase()}]`,
-      entry.message,
-    ];
+    const parts = [`[${entry.timestamp}]`, `[${entry.level.toUpperCase()}]`, entry.message];
 
     if (entry.context) {
       parts.push(JSON.stringify(sanitizeForLogging(entry.context), null, 2));
@@ -49,7 +45,7 @@ function formatLogEntry(entry: LogEntry): string {
       }
     }
 
-    return parts.join(" ");
+    return parts.join(' ');
   }
 
   // JSON format for production (for log aggregation)
@@ -59,12 +55,7 @@ function formatLogEntry(entry: LogEntry): string {
 /**
  * Create a log entry
  */
-function createLogEntry(
-  level: LogLevel,
-  message: string,
-  context?: LogContext,
-  error?: Error
-): LogEntry {
+function createLogEntry(level: LogLevel, message: string, context?: LogContext, error?: Error): LogEntry {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
@@ -92,22 +83,22 @@ function createLogEntry(
 export const logger = {
   debug(message: string, context?: LogContext): void {
     if (!isDevelopment) return;
-    const entry = createLogEntry("debug", message, context);
+    const entry = createLogEntry('debug', message, context);
     console.debug(formatLogEntry(entry));
   },
 
   info(message: string, context?: LogContext): void {
-    const entry = createLogEntry("info", message, context);
+    const entry = createLogEntry('info', message, context);
     console.info(formatLogEntry(entry));
   },
 
   warn(message: string, context?: LogContext): void {
-    const entry = createLogEntry("warn", message, context);
+    const entry = createLogEntry('warn', message, context);
     console.warn(formatLogEntry(entry));
   },
 
   error(message: string, error?: Error, context?: LogContext): void {
-    const entry = createLogEntry("error", message, context, error);
+    const entry = createLogEntry('error', message, context, error);
     console.error(formatLogEntry(entry));
   },
 };
@@ -138,11 +129,7 @@ export function createLogger(baseContext: LogContext) {
 /**
  * Log and rethrow an error (useful in catch blocks)
  */
-export function logAndRethrow(
-  message: string,
-  error: unknown,
-  context?: LogContext
-): never {
+export function logAndRethrow(message: string, error: unknown, context?: LogContext): never {
   const err = error instanceof Error ? error : new Error(String(error));
   logger.error(message, err, context);
   throw err;
@@ -156,18 +143,18 @@ export function getRequestContext(request: Request): LogContext {
   const url = new URL(request.url);
 
   return {
-    requestId: headers.get("x-request-id") ?? headers.get("x-vercel-id") ?? crypto.randomUUID(),
+    requestId: headers.get('x-request-id') ?? headers.get('x-vercel-id') ?? crypto.randomUUID(),
     method: request.method,
     path: url.pathname,
     query: Object.fromEntries(url.searchParams.entries()),
-    userAgent: headers.get("user-agent") ?? undefined,
+    userAgent: headers.get('user-agent') ?? undefined,
     // 信頼できるヘッダを優先（rate-limit.ts の getClientIp と同じ順序）
     ip:
-      headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ??
-      headers.get("cf-connecting-ip") ??
-      headers.get("x-real-ip") ??
-      headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "unknown",
+      headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ??
+      headers.get('cf-connecting-ip') ??
+      headers.get('x-real-ip') ??
+      headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      'unknown',
   };
 }
 

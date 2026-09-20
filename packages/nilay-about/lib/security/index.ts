@@ -8,4 +8,4 @@
  */
 
 // Server-safe exports (no DOMPurify/jsdom dependency)
-export { sanitizeForLogging, sanitizeForSlack } from "./sanitize-logging";
+export { sanitizeForLogging, sanitizeForSlack } from './sanitize-logging';

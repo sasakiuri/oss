@@ -1,20 +1,17 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { createRequestLogger } from "@/lib/logging";
-import {
-  checkRateLimit,
-  getClientIp,
-  rateLimitPresets,
-} from "@/lib/api/rate-limit";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-const DOCUMENT_TITLE = "Home Target";
-const DOCUMENT_AUTHOR = "Nilay Sport";
+import { checkRateLimit, getClientIp, rateLimitPresets } from '@/lib/api/rate-limit';
+import { createRequestLogger } from '@/lib/logging';
+
+const DOCUMENT_TITLE = 'Home Target';
+const DOCUMENT_AUTHOR = 'Nilay Sport';
 
 // Request validation schema
 const requestSchema = z.object({
   blackAreaSize: z.object({
     number: z.number().positive().max(100), // max 100cm = 1000mm
-    unit: z.literal("cm"),
+    unit: z.literal('cm'),
   }),
 });
 
@@ -64,7 +61,7 @@ function generateTargetPdf(blackAreaSizeMm: number): Uint8Array {
   });
 
   // Build PDF
-  let pdf = "%PDF-1.7\n%\xFF\xFF\xFF\xFF\n";
+  let pdf = '%PDF-1.7\n%\xFF\xFF\xFF\xFF\n';
   const xrefOffsets: number[] = [];
 
   for (const obj of pdfObjects) {
@@ -74,19 +71,19 @@ function generateTargetPdf(blackAreaSizeMm: number): Uint8Array {
 
   // Cross-reference table
   const xrefStart = pdf.length;
-  pdf += "xref\n";
+  pdf += 'xref\n';
   pdf += `0 ${pdfObjects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
+  pdf += '0000000000 65535 f \n';
   for (const offset of xrefOffsets) {
-    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
+    pdf += `${offset.toString().padStart(10, '0')} 00000 n \n`;
   }
 
   // Trailer
-  pdf += "trailer\n";
+  pdf += 'trailer\n';
   pdf += `<< /Size ${pdfObjects.length + 1} /Root 1 0 R /Info << /Title (${DOCUMENT_TITLE}) /Author (${DOCUMENT_AUTHOR}) >> >>\n`;
-  pdf += "startxref\n";
+  pdf += 'startxref\n';
   pdf += `${xrefStart}\n`;
-  pdf += "%%EOF\n";
+  pdf += '%%EOF\n';
 
   return new TextEncoder().encode(pdf);
 }
@@ -103,7 +100,7 @@ function generateCircleContent(cx: number, cy: number, r: number): string {
   const lines: string[] = [];
 
   // Set fill color to black
-  lines.push("0 0 0 rg");
+  lines.push('0 0 0 rg');
 
   // Move to starting point (right side of circle)
   lines.push(`${(cx + r).toFixed(4)} ${cy.toFixed(4)} m`);
@@ -111,25 +108,25 @@ function generateCircleContent(cx: number, cy: number, r: number): string {
   // Draw 4 Bezier curves to form a circle
   // Top-right quadrant
   lines.push(
-    `${(cx + r).toFixed(4)} ${(cy + r * k).toFixed(4)} ${(cx + r * k).toFixed(4)} ${(cy + r).toFixed(4)} ${cx.toFixed(4)} ${(cy + r).toFixed(4)} c`
+    `${(cx + r).toFixed(4)} ${(cy + r * k).toFixed(4)} ${(cx + r * k).toFixed(4)} ${(cy + r).toFixed(4)} ${cx.toFixed(4)} ${(cy + r).toFixed(4)} c`,
   );
   // Top-left quadrant
   lines.push(
-    `${(cx - r * k).toFixed(4)} ${(cy + r).toFixed(4)} ${(cx - r).toFixed(4)} ${(cy + r * k).toFixed(4)} ${(cx - r).toFixed(4)} ${cy.toFixed(4)} c`
+    `${(cx - r * k).toFixed(4)} ${(cy + r).toFixed(4)} ${(cx - r).toFixed(4)} ${(cy + r * k).toFixed(4)} ${(cx - r).toFixed(4)} ${cy.toFixed(4)} c`,
   );
   // Bottom-left quadrant
   lines.push(
-    `${(cx - r).toFixed(4)} ${(cy - r * k).toFixed(4)} ${(cx - r * k).toFixed(4)} ${(cy - r).toFixed(4)} ${cx.toFixed(4)} ${(cy - r).toFixed(4)} c`
+    `${(cx - r).toFixed(4)} ${(cy - r * k).toFixed(4)} ${(cx - r * k).toFixed(4)} ${(cy - r).toFixed(4)} ${cx.toFixed(4)} ${(cy - r).toFixed(4)} c`,
   );
   // Bottom-right quadrant
   lines.push(
-    `${(cx + r * k).toFixed(4)} ${(cy - r).toFixed(4)} ${(cx + r).toFixed(4)} ${(cy - r * k).toFixed(4)} ${(cx + r).toFixed(4)} ${cy.toFixed(4)} c`
+    `${(cx + r * k).toFixed(4)} ${(cy - r).toFixed(4)} ${(cx + r).toFixed(4)} ${(cy - r * k).toFixed(4)} ${(cx + r).toFixed(4)} ${cy.toFixed(4)} c`,
   );
 
   // Fill the path
-  lines.push("f");
+  lines.push('f');
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export async function POST(request: Request) {
@@ -141,16 +138,16 @@ export async function POST(request: Request) {
     const rateLimit = await checkRateLimit(clientIp, rateLimitPresets.apiWrite);
 
     if (!rateLimit.allowed) {
-      log.warn("Rate limit exceeded", { clientIp, resetIn: rateLimit.resetIn });
+      log.warn('Rate limit exceeded', { clientIp, resetIn: rateLimit.resetIn });
       return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
+        { error: 'Too many requests. Please try again later.' },
         {
           status: 429,
           headers: {
-            "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)),
-            "X-RateLimit-Remaining": String(rateLimit.remaining),
+            'Retry-After': String(Math.ceil(rateLimit.resetIn / 1000)),
+            'X-RateLimit-Remaining': String(rateLimit.remaining),
           },
-        }
+        },
       );
     }
 
@@ -159,22 +156,16 @@ export async function POST(request: Request) {
     try {
       body = await request.json();
     } catch {
-      log.warn("Invalid JSON in request body");
-      return NextResponse.json(
-        { error: "Invalid JSON in request body" },
-        { status: 400 }
-      );
+      log.warn('Invalid JSON in request body');
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
     const result = requestSchema.safeParse(body);
 
     if (!result.success) {
-      log.warn("Invalid request body", {
+      log.warn('Invalid request body', {
         errors: result.error.flatten(),
       });
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
     const { blackAreaSize } = result.data;
@@ -183,24 +174,18 @@ export async function POST(request: Request) {
     const blackAreaSizeMm = blackAreaSize.number * 10;
 
     if (blackAreaSizeMm > 1000) {
-      log.warn("Target size too large", { sizeMm: blackAreaSizeMm });
-      return NextResponse.json(
-        { error: "Target size too large (max 100cm)" },
-        { status: 400 }
-      );
+      log.warn('Target size too large', { sizeMm: blackAreaSizeMm });
+      return NextResponse.json({ error: 'Target size too large (max 100cm)' }, { status: 400 });
     }
 
     // Generate PDF
     const pdfData = generateTargetPdf(blackAreaSizeMm);
 
     // Generate filename with timestamp
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:T]/g, "_")
-      .slice(0, 19);
+    const timestamp = new Date().toISOString().replace(/[-:T]/g, '_').slice(0, 19);
     const filename = `Home_Target_${timestamp}.pdf`;
 
-    log.info("PDF generated successfully", {
+    log.info('PDF generated successfully', {
       sizeMm: blackAreaSizeMm,
       filename,
     });
@@ -208,19 +193,13 @@ export async function POST(request: Request) {
     return new Response(Buffer.from(pdfData), {
       status: 200,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Content-Length": String(pdfData.length),
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': String(pdfData.length),
       },
     });
   } catch (error) {
-    log.error(
-      "Failed to generate PDF",
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+    log.error('Failed to generate PDF', error instanceof Error ? error : new Error(String(error)));
+    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 });
   }
 }

@@ -1,43 +1,37 @@
-"use client";
+'use client';
 
-import {
-  LuTwitter,
-  LuFacebook,
-  LuYoutube,
-  LuInstagram,
-  LuGithub,
-} from "react-icons/lu";
+import { LuTwitter, LuFacebook, LuYoutube, LuInstagram, LuGithub } from 'react-icons/lu';
 
 const services = [
-  { href: "https://knowledge.nilay.jp/", label: "Knowledge" },
-  { href: "https://www.nilay.jp/", label: "E-commerce" },
-  { href: "https://gunman.nilay.jp/", label: "Gunman" },
+  { href: 'https://knowledge.nilay.jp/', label: 'Knowledge' },
+  { href: 'https://www.nilay.jp/', label: 'E-commerce' },
+  { href: 'https://gunman.nilay.jp/', label: 'Gunman' },
 ];
 
 const socialLinks = [
   {
-    href: "https://twitter.com/NilayJP",
-    label: "Twitter",
+    href: 'https://twitter.com/NilayJP',
+    label: 'Twitter',
     icon: LuTwitter,
   },
   {
-    href: "https://www.facebook.com/NilaySport/",
-    label: "Facebook",
+    href: 'https://www.facebook.com/NilaySport/',
+    label: 'Facebook',
     icon: LuFacebook,
   },
   {
-    href: "https://www.youtube.com/channel/UC03yJGn_rZV2MTpr-ZrMZrA",
-    label: "YouTube",
+    href: 'https://www.youtube.com/channel/UC03yJGn_rZV2MTpr-ZrMZrA',
+    label: 'YouTube',
     icon: LuYoutube,
   },
   {
-    href: "https://www.instagram.com/NilayJP/",
-    label: "Instagram",
+    href: 'https://www.instagram.com/NilayJP/',
+    label: 'Instagram',
     icon: LuInstagram,
   },
   {
-    href: "https://github.com/nilay-jp",
-    label: "GitHub",
+    href: 'https://github.com/nilay-jp',
+    label: 'GitHub',
     icon: LuGithub,
   },
 ];
@@ -48,9 +42,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="space-y-6">
           <div>
-            <h3 className="mb-4 text-base font-bold text-foreground">
-              Services
-            </h3>
+            <h3 className="mb-4 text-base font-bold text-foreground">Services</h3>
             <ul className="space-y-2">
               {services.map((service) => (
                 <li key={service.href}>

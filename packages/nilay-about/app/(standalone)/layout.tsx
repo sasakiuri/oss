@@ -1,4 +1,4 @@
-import "./standalone.css";
+import './standalone.css';
 
 /**
  * Standalone layout for independent apps (home-target, game-species-test)
@@ -14,9 +14,5 @@ export default function StandaloneLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <div className="standalone-app min-h-screen bg-background antialiased">
-      {children}
-    </div>
-  );
+  return <div className="standalone-app min-h-screen bg-background antialiased">{children}</div>;
 }

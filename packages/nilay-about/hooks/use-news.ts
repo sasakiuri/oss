@@ -1,25 +1,22 @@
-"use client";
+'use client';
 
-import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { fetchNewsList, fetchNewsById } from "@/lib/api/news";
-import { defaultQueryOptions } from "@/lib/api/query-config";
-import type { NewsListResponse, NewsGetResponse, News } from "@/lib/schemas";
-import { useCallback } from "react";
+import { useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { useCallback } from 'react';
+
+import { fetchNewsList, fetchNewsById } from '@/lib/api/news';
+import { defaultQueryOptions } from '@/lib/api/query-config';
+import type { NewsListResponse, NewsGetResponse } from '@/lib/schemas';
 
 // Query keys as constants for consistency and type safety
 export const newsKeys = {
-  all: ["news"] as const,
-  lists: () => [...newsKeys.all, "list"] as const,
-  list: (filters?: Record<string, unknown>) =>
-    [...newsKeys.lists(), filters] as const,
-  details: () => [...newsKeys.all, "detail"] as const,
+  all: ['news'] as const,
+  lists: () => [...newsKeys.all, 'list'] as const,
+  list: (filters?: Record<string, unknown>) => [...newsKeys.lists(), filters] as const,
+  details: () => [...newsKeys.all, 'detail'] as const,
   detail: (id: string) => [...newsKeys.details(), id] as const,
 };
 
-type NewsListOptions = Omit<
-  UseQueryOptions<NewsListResponse, Error>,
-  "queryKey" | "queryFn"
->;
+type NewsListOptions = Omit<UseQueryOptions<NewsListResponse, Error>, 'queryKey' | 'queryFn'>;
 
 /**
  * Hook for fetching news list
@@ -45,10 +42,7 @@ export function useNewsList(options?: NewsListOptions) {
   });
 }
 
-type NewsDetailOptions = Omit<
-  UseQueryOptions<NewsGetResponse, Error>,
-  "queryKey" | "queryFn"
->;
+type NewsDetailOptions = Omit<UseQueryOptions<NewsGetResponse, Error>, 'queryKey' | 'queryFn'>;
 
 /**
  * Hook for fetching single news item
@@ -87,7 +81,7 @@ export function usePrefetchNews() {
         ...defaultQueryOptions.news,
       });
     },
-    [queryClient]
+    [queryClient],
   );
 
   const prefetchNewsList = useCallback(async () => {
@@ -119,7 +113,7 @@ export function useInvalidateNews() {
     async (id: string) => {
       await queryClient.invalidateQueries({ queryKey: newsKeys.detail(id) });
     },
-    [queryClient]
+    [queryClient],
   );
 
   return { invalidateAll, invalidateList, invalidateDetail };

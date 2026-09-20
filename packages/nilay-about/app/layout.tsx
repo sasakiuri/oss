@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
-import { RetroHeader, RetroFooter } from "@/components/layout";
-import { Providers } from "@/components/providers";
-import { siteConfig } from "@/lib/config";
-import "./globals.css";
+import type { Metadata } from 'next';
+
+import { RetroHeader, RetroFooter } from '@/components/layout';
+import { Providers } from '@/components/providers';
+import { siteConfig } from '@/lib/config';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: {
@@ -23,21 +24,19 @@ export const metadata: Metadata = {
         height: 630,
       },
     ],
-    locale: "ja_JP",
-    type: "website",
+    locale: 'ja_JP',
+    type: 'website',
   },
   twitter: {
-    card: "summary",
+    card: 'summary',
     title: siteConfig.title,
     description: siteConfig.description,
     site: `@${siteConfig.social.twitter}`,
     creator: `@${siteConfig.social.twitter}`,
-    images: [
-      "https://cdn.nilay.jp/ecommerce/res/40f542fd0fd0bf4b5b60be43e49007bfabc0b9e7.png",
-    ],
+    images: ['https://cdn.nilay.jp/ecommerce/res/40f542fd0fd0bf4b5b60be43e49007bfabc0b9e7.png'],
   },
   other: {
-    "fb:app_id": siteConfig.social.facebookAppId,
+    'fb:app_id': siteConfig.social.facebookAppId,
   },
 };
 
@@ -51,12 +50,7 @@ export default function RootLayout({
       <body className="min-h-screen">
         <Providers>
           <RetroHeader />
-          <main
-            id="main-content"
-            role="main"
-            tabIndex={-1}
-            aria-label="メインコンテンツ"
-          >
+          <main id="main-content" role="main" tabIndex={-1} aria-label="メインコンテンツ">
             {children}
           </main>
           <RetroFooter />

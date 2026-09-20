@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /*
  * Material Design 3 Theme for Standalone Apps
@@ -226,8 +226,10 @@
   --color-muted-foreground: var(--md-sys-color-on-surface-variant);
 
   /* Sans-serif font stack (M3 recommends Roboto for Android, system fonts for cross-platform) */
-  --font-sans: "Roboto", -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
-  --font-mono: "Roboto Mono", "JetBrains Mono", "Menlo", "Monaco", monospace;
+  --font-sans:
+    'Roboto', -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP',
+    'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
+  --font-mono: 'Roboto Mono', 'JetBrains Mono', 'Menlo', 'Monaco', monospace;
 
   /* M3 Shape tokens */
   --radius-xs: var(--md-sys-shape-corner-extra-small);
@@ -258,7 +260,20 @@
   /* M3 Base styles */
   background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
-  font-family: "Roboto", -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
+  font-family:
+    'Roboto',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Noto Sans JP',
+    'Segoe UI',
+    'Hiragino Sans',
+    'Noto Sans CJK JP',
+    'Yu Gothic',
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    'Noto Sans Emoji';
   font-size: var(--md-sys-typescale-body-large-size);
   line-height: var(--md-sys-typescale-body-large-line-height);
   font-weight: var(--md-sys-typescale-body-large-weight);
@@ -411,9 +426,9 @@ body:has(.standalone-app) #main-content {
  * Material Design 3 Outlined Text Field (scoped)
  * M3 spec: 4dp corner radius, 1px border (2px on focus)
  */
-.standalone-app input[type="text"],
-.standalone-app input[type="email"],
-.standalone-app input[type="number"],
+.standalone-app input[type='text'],
+.standalone-app input[type='email'],
+.standalone-app input[type='number'],
 .standalone-app textarea,
 .standalone-app select {
   font-family: inherit;
@@ -425,28 +440,29 @@ body:has(.standalone-app) #main-content {
   border-radius: var(--md-sys-shape-corner-extra-small);
   padding: 16px;
   min-height: 56px;
-  transition: border-color 200ms cubic-bezier(0.2, 0, 0, 1),
-              border-width 200ms cubic-bezier(0.2, 0, 0, 1);
+  transition:
+    border-color 200ms cubic-bezier(0.2, 0, 0, 1),
+    border-width 200ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.standalone-app input[type="text"]::placeholder,
-.standalone-app input[type="email"]::placeholder,
-.standalone-app input[type="number"]::placeholder,
+.standalone-app input[type='text']::placeholder,
+.standalone-app input[type='email']::placeholder,
+.standalone-app input[type='number']::placeholder,
 .standalone-app textarea::placeholder {
   color: var(--md-sys-color-on-surface-variant);
 }
 
-.standalone-app input[type="text"]:hover,
-.standalone-app input[type="email"]:hover,
-.standalone-app input[type="number"]:hover,
+.standalone-app input[type='text']:hover,
+.standalone-app input[type='email']:hover,
+.standalone-app input[type='number']:hover,
 .standalone-app textarea:hover,
 .standalone-app select:hover {
   border-color: var(--md-sys-color-on-surface);
 }
 
-.standalone-app input[type="text"]:focus,
-.standalone-app input[type="email"]:focus,
-.standalone-app input[type="number"]:focus,
+.standalone-app input[type='text']:focus,
+.standalone-app input[type='email']:focus,
+.standalone-app input[type='number']:focus,
 .standalone-app textarea:focus,
 .standalone-app select:focus {
   outline: none;
@@ -455,9 +471,9 @@ body:has(.standalone-app) #main-content {
   padding: 15px; /* Compensate for thicker border */
 }
 
-.standalone-app input[type="text"]:disabled,
-.standalone-app input[type="email"]:disabled,
-.standalone-app input[type="number"]:disabled,
+.standalone-app input[type='text']:disabled,
+.standalone-app input[type='email']:disabled,
+.standalone-app input[type='number']:disabled,
 .standalone-app textarea:disabled,
 .standalone-app select:disabled {
   background: var(--md-sys-color-surface-variant);
@@ -471,8 +487,8 @@ body:has(.standalone-app) #main-content {
  * M3 spec: 40dp height, 20dp corner radius (full), label-large typography
  */
 .standalone-app button,
-.standalone-app input[type="submit"],
-.standalone-app input[type="button"] {
+.standalone-app input[type='submit'],
+.standalone-app input[type='button'] {
   /* Reset all button styles completely */
   all: unset;
   box-sizing: border-box;
@@ -491,21 +507,22 @@ body:has(.standalone-app) #main-content {
   border-radius: var(--md-sys-shape-corner-full);
   min-height: 40px;
   padding: 0 24px;
-  transition: background-color 200ms cubic-bezier(0.2, 0, 0, 1),
-              box-shadow 200ms cubic-bezier(0.2, 0, 0, 1);
+  transition:
+    background-color 200ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 200ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .standalone-app button:disabled,
-.standalone-app input[type="submit"]:disabled,
-.standalone-app input[type="button"]:disabled {
+.standalone-app input[type='submit']:disabled,
+.standalone-app input[type='button']:disabled {
   cursor: not-allowed;
   opacity: 0.38;
 }
 
 /* M3 Focus indicator - 3dp offset focus ring */
 .standalone-app button:focus-visible,
-.standalone-app input[type="submit"]:focus-visible,
-.standalone-app input[type="button"]:focus-visible {
+.standalone-app input[type='submit']:focus-visible,
+.standalone-app input[type='button']:focus-visible {
   outline: 2px solid var(--md-sys-color-primary);
   outline-offset: 3px;
 }
@@ -533,18 +550,40 @@ body:has(.standalone-app) #main-content {
 /*
  * Material Design 3 Elevation Utility Classes (scoped)
  */
-.standalone-app .md-elevation-0 { box-shadow: var(--md-sys-elevation-level0); }
-.standalone-app .md-elevation-1 { box-shadow: var(--md-sys-elevation-level1); }
-.standalone-app .md-elevation-2 { box-shadow: var(--md-sys-elevation-level2); }
-.standalone-app .md-elevation-3 { box-shadow: var(--md-sys-elevation-level3); }
-.standalone-app .md-elevation-4 { box-shadow: var(--md-sys-elevation-level4); }
-.standalone-app .md-elevation-5 { box-shadow: var(--md-sys-elevation-level5); }
+.standalone-app .md-elevation-0 {
+  box-shadow: var(--md-sys-elevation-level0);
+}
+.standalone-app .md-elevation-1 {
+  box-shadow: var(--md-sys-elevation-level1);
+}
+.standalone-app .md-elevation-2 {
+  box-shadow: var(--md-sys-elevation-level2);
+}
+.standalone-app .md-elevation-3 {
+  box-shadow: var(--md-sys-elevation-level3);
+}
+.standalone-app .md-elevation-4 {
+  box-shadow: var(--md-sys-elevation-level4);
+}
+.standalone-app .md-elevation-5 {
+  box-shadow: var(--md-sys-elevation-level5);
+}
 
 /*
  * Material Design 3 Surface Tint (for elevated surfaces) (scoped)
  */
-.standalone-app .md-surface-tint-1 { background: color-mix(in srgb, var(--md-sys-color-primary) 5%, var(--md-sys-color-surface)); }
-.standalone-app .md-surface-tint-2 { background: color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface)); }
-.standalone-app .md-surface-tint-3 { background: color-mix(in srgb, var(--md-sys-color-primary) 11%, var(--md-sys-color-surface)); }
-.standalone-app .md-surface-tint-4 { background: color-mix(in srgb, var(--md-sys-color-primary) 12%, var(--md-sys-color-surface)); }
-.standalone-app .md-surface-tint-5 { background: color-mix(in srgb, var(--md-sys-color-primary) 14%, var(--md-sys-color-surface)); }
+.standalone-app .md-surface-tint-1 {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 5%, var(--md-sys-color-surface));
+}
+.standalone-app .md-surface-tint-2 {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface));
+}
+.standalone-app .md-surface-tint-3 {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 11%, var(--md-sys-color-surface));
+}
+.standalone-app .md-surface-tint-4 {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, var(--md-sys-color-surface));
+}
+.standalone-app .md-surface-tint-5 {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 14%, var(--md-sys-color-surface));
+}

@@ -1,14 +1,15 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+import { ROUTES } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: ROUTES.HOME, label: "Nilay/About" },
-  { href: ROUTES.NEWS, label: "ニュース" },
-  { href: ROUTES.CONTACT, label: "お問い合わせ" },
+  { href: ROUTES.HOME, label: 'Nilay/About' },
+  { href: ROUTES.NEWS, label: 'ニュース' },
+  { href: ROUTES.CONTACT, label: 'お問い合わせ' },
 ] as const;
 
 function SkipLink() {
@@ -48,17 +49,14 @@ export function Header() {
                     <Link
                       href={item.href}
                       className={cn(
-                        "relative inline-flex h-14 items-center px-4 text-sm font-medium transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
-                        isActive ? "text-foreground" : "text-muted-foreground"
+                        'relative inline-flex h-14 items-center px-4 text-sm font-medium transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
+                        isActive ? 'text-foreground' : 'text-muted-foreground',
                       )}
-                      aria-current={isActive ? "page" : undefined}
+                      aria-current={isActive ? 'page' : undefined}
                     >
                       {item.label}
                       {isActive && (
-                        <span
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                          aria-hidden="true"
-                        />
+                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" aria-hidden="true" />
                       )}
                     </Link>
                   </li>

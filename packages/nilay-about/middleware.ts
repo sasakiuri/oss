@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { sanitizeForLogging } from "@/lib/security/sanitize.edge";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+import { sanitizeForLogging } from '@/lib/security/sanitize.edge';
 
 /**
  * Next.js Middleware
@@ -14,7 +15,7 @@ import { sanitizeForLogging } from "@/lib/security/sanitize.edge";
  * For now, we prepare the infrastructure.
  */
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === 'production';
 
 /**
  * Generate a random nonce for CSP
@@ -36,7 +37,7 @@ function generateNonce(): string {
  * Nonce-based CSP requires dynamic rendering for all pages, which is not
  * practical for this application. See: https://nextjs.org/docs/app/guides/content-security-policy
  */
-function buildCSPHeader(_nonce: string): string {
+function buildCSPHeader(_nonce: string, request: NextRequest): string {
   const directives = [
     "default-src 'self'",
     // 'unsafe-inline' is required for Next.js hydration scripts
@@ -49,8 +50,23 @@ function buildCSPHeader(_nonce: string): string {
     "form-action 'self'",
     "frame-ancestors 'none'",
     "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://gunman.nilay.jp wss://*.firebaseio.com",
-    "upgrade-insecure-requests",
   ];
+
+  // WebKit upgrades loopback assets too, which breaks the local HTTP server.
+  // A proxy may give Next.js an internal loopback URL for a public request.
+  const loopbackAuthority = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isLocalHttp =
+    request.nextUrl.protocol === 'http:' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(request.nextUrl.hostname) &&
+    loopbackAuthority.test(request.headers.get('host') ?? '') &&
+    !request.headers.has('forwarded') &&
+    (forwardedHost === null || forwardedHost.split(',').every((host) => loopbackAuthority.test(host.trim()))) &&
+    (forwardedProto === null || forwardedProto.split(',').every((proto) => proto.trim() === 'http'));
+  if (!isLocalHttp) {
+    directives.push('upgrade-insecure-requests');
+  }
 
   // 本番環境では report-uri を追加（違反レポートの収集用）
   // TODO: Sentry CSP レポート URL などを設定する
@@ -58,7 +74,7 @@ function buildCSPHeader(_nonce: string): string {
   //   directives.push(`report-uri ${process.env.CSP_REPORT_URI}`);
   // }
 
-  return directives.join("; ");
+  return directives.join('; ');
 }
 
 /**
@@ -73,7 +89,7 @@ function logRequest(request: NextRequest): void {
   // 構造化ログ形式で出力（マスキング適用）
   const logEntry = sanitizeForLogging({
     timestamp: new Date().toISOString(),
-    level: "info",
+    level: 'info',
     method: request.method,
     path: pathname,
     query: Object.keys(searchParams).length > 0 ? searchParams : undefined,
@@ -91,17 +107,17 @@ export function middleware(request: NextRequest) {
   // Build and set CSP header
   // Note: Currently using 'unsafe-inline' for styles due to Tailwind CSS.
   // For production, consider using hash-based or nonce-based approach.
-  const cspHeader = buildCSPHeader(nonce);
+  const cspHeader = buildCSPHeader(nonce, request);
 
   // 本番環境では CSP を強制、それ以外は Report-Only モード
   if (isProduction) {
-    response.headers.set("Content-Security-Policy", cspHeader);
+    response.headers.set('Content-Security-Policy', cspHeader);
   } else {
-    response.headers.set("Content-Security-Policy-Report-Only", cspHeader);
+    response.headers.set('Content-Security-Policy-Report-Only', cspHeader);
   }
 
   // Store nonce for potential use in Server Components
-  response.headers.set("x-nonce", nonce);
+  response.headers.set('x-nonce', nonce);
 
   // Log requests in development (構造化ログ、PIIマスキング済み)
   if (!isProduction) {
@@ -125,6 +141,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder assets
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|images/).*)",
+    '/((?!api|_next/static|_next/image|favicon.ico|images/).*)',
   ],
 };

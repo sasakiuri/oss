@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import { useNews } from "@/hooks";
-import { ShareButtons } from "@/components/share-buttons";
-import { siteConfig } from "@/lib/config";
-import { sanitizeHtml } from "@/lib/security/sanitize.client";
-import { format } from "date-fns";
+import { format } from 'date-fns';
+
+import { ShareButtons } from '@/components/share-buttons';
+import { useNews } from '@/hooks';
+import { siteConfig } from '@/lib/config';
+import { sanitizeHtml } from '@/lib/security/sanitize.client';
 
 function NewsDetailSkeleton() {
   return (
@@ -35,14 +35,11 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
   }
 
   const { news } = data;
-  const dateStr = format(news.date, "yyyy年M月d日");
+  const dateStr = format(news.date, 'yyyy年M月d日');
   const url = `${siteConfig.siteUrl}/news/${id}`;
 
   // Sanitize HTML content to prevent XSS attacks
-  const sanitizedContent = useMemo(
-    () => sanitizeHtml(news.summary),
-    [news.summary]
-  );
+  const sanitizedContent = sanitizeHtml(news.summary);
 
   return (
     <article className="mt-4">
@@ -52,12 +49,7 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
         <time dateTime={news.date.toISOString()}>{dateStr}</time>
       </p>
 
-      <ShareButtons
-        title={`${news.title}：お知らせ`}
-        url={url}
-        twitter={siteConfig.social.twitter}
-        className="my-4"
-      />
+      <ShareButtons title={`${news.title}：お知らせ`} url={url} twitter={siteConfig.social.twitter} className="my-4" />
 
       <hr />
 

@@ -10,12 +10,12 @@
 /**
  * Default sensitive field patterns for redaction
  */
-const DEFAULT_SENSITIVE_FIELDS = ["password", "token", "apiKey", "secret", "credential"];
+const DEFAULT_SENSITIVE_FIELDS = ['password', 'token', 'apiKey', 'secret', 'credential'];
 
 /**
  * Fields containing PII that should be hashed or truncated
  */
-const PII_FIELDS = ["ip", "userAgent", "email", "phone"];
+const PII_FIELDS = ['ip', 'userAgent', 'email', 'phone'];
 
 /**
  * Get the secret key for HMAC hashing
@@ -32,16 +32,16 @@ function getLogMaskingSecret(): string {
   }
 
   // 本番環境では必須
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === 'production') {
     throw new Error(
-      "LOG_MASKING_SECRET is required in production. " +
-      "Please set this environment variable (16+ characters recommended) " +
-      "to ensure secure PII hashing in logs."
+      'LOG_MASKING_SECRET is required in production. ' +
+        'Please set this environment variable (16+ characters recommended) ' +
+        'to ensure secure PII hashing in logs.',
     );
   }
 
   // 開発/テスト環境のみフォールバック
-  return "dev-only-fallback-key-not-for-production";
+  return 'dev-only-fallback-key-not-for-production';
 }
 
 /**
@@ -50,8 +50,8 @@ function getLogMaskingSecret(): string {
 function arrayBufferToHex(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /**
@@ -77,7 +77,7 @@ function hashForLoggingSync(value: string): string {
   }
 
   // Convert to positive hex string
-  const positiveHash = (hash >>> 0).toString(16).padStart(8, "0");
+  const positiveHash = (hash >>> 0).toString(16).padStart(8, '0');
   return `[HASH:${positiveHash}]`;
 }
 
@@ -93,20 +93,12 @@ export async function hashForLoggingAsync(value: string): Promise<string> {
   const encoder = new TextEncoder();
 
   // Import the secret key
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+  ]);
 
   // Sign the value
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(value)
-  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
 
   // Use first 12 hex characters (48 bits) - enough for correlation, not reversible
   const hash = arrayBufferToHex(signature).slice(0, 12);
@@ -120,34 +112,34 @@ function truncateUserAgent(ua: string): string {
   // Extract only the browser and OS information
   const match = ua.match(/^([^(]+\([^)]+\)[^\s]*)/u);
   const captured = match?.[1];
-  return captured ? `${captured.slice(0, 50)}...` : "[TRUNCATED]";
+  return captured ? `${captured.slice(0, 50)}...` : '[TRUNCATED]';
 }
 
 /**
  * Sanitize a PII field value (synchronous version for Edge Runtime)
  */
 function sanitizePiiValue(key: string, value: unknown): unknown {
-  if (typeof value !== "string") return value;
+  if (typeof value !== 'string') return value;
 
   const lowerKey = key.toLowerCase();
 
-  if (lowerKey === "ip" || lowerKey.includes("ip")) {
+  if (lowerKey === 'ip' || lowerKey.includes('ip')) {
     return hashForLoggingSync(value);
   }
 
-  if (lowerKey === "useragent" || lowerKey.includes("agent")) {
+  if (lowerKey === 'useragent' || lowerKey.includes('agent')) {
     return truncateUserAgent(value);
   }
 
-  if (lowerKey === "email" || lowerKey.includes("email")) {
+  if (lowerKey === 'email' || lowerKey.includes('email')) {
     // Mask email: show first 2 chars and domain
-    const atIndex = value.indexOf("@");
+    const atIndex = value.indexOf('@');
     if (atIndex > 0) {
       const local = value.slice(0, atIndex);
       const domain = value.slice(atIndex + 1);
       return `${local.slice(0, 2)}***@${domain}`;
     }
-    return "[REDACTED]";
+    return '[REDACTED]';
   }
 
   return hashForLoggingSync(value);
@@ -165,7 +157,7 @@ function sanitizePiiValue(key: string, value: unknown): unknown {
 export function sanitizeForLogging<T extends Record<string, unknown>>(
   obj: T,
   sensitiveFields: string[] = DEFAULT_SENSITIVE_FIELDS,
-  maskPii: boolean = true
+  maskPii: boolean = true,
 ): T {
   const result = { ...obj };
 
@@ -174,18 +166,18 @@ export function sanitizeForLogging<T extends Record<string, unknown>>(
 
     // Completely redact sensitive fields
     if (sensitiveFields.some((field) => lowerKey.includes(field.toLowerCase()))) {
-      (result as Record<string, unknown>)[key] = "[REDACTED]";
+      (result as Record<string, unknown>)[key] = '[REDACTED]';
     }
     // Mask PII fields
     else if (maskPii && PII_FIELDS.some((field) => lowerKey.includes(field.toLowerCase()))) {
       (result as Record<string, unknown>)[key] = sanitizePiiValue(key, result[key]);
     }
     // Recurse into nested objects
-    else if (typeof result[key] === "object" && result[key] !== null) {
+    else if (typeof result[key] === 'object' && result[key] !== null) {
       (result as Record<string, unknown>)[key] = sanitizeForLogging(
         result[key] as Record<string, unknown>,
         sensitiveFields,
-        maskPii
+        maskPii,
       );
     }
   }
