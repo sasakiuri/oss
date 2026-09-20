@@ -32,6 +32,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gray-matter": "^4.0.3",
+    "js-yaml": "^4.3.2",
     "lucide-react": "^0.562.0",
     "next": "16.3.4",
     "react": "^19.0.0",
@@ -48,6 +49,7 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.1",
     "rss": "^1.2.2",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.6.0",
     "unified": "^11.0.5"
   },
@@ -60,6 +62,8 @@
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/hast": "^3.0.5",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -74,8 +78,8 @@
     "tailwindcss": "^4.3.0",
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.11",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "4.1.11"
   },
   "description": "Nilay Knowledge website for shooting and hunting information",
   "repository": {

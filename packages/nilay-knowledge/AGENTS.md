@@ -34,6 +34,7 @@ components/
 ├── breadcrumb.tsx        # パンくずリスト
 ├── sns-share.tsx         # SNSシェアボタン
 ├── icons.tsx             # カスタムアイコン（Hatena, Line）
+├── table-of-contents.tsx # 本文の見出しIDに対応する目次
 └── google-analytics.tsx  # GA4
 content/
 ├── articles/             # 記事Markdownコンテンツ
@@ -41,9 +42,10 @@ content/
 └── assets/               # 共有アセット
 lib/
 ├── config.ts             # サイト設定
-├── markdown.ts           # Markdown処理（gray-matter + remark/rehype）
+├── content/              # repository・render・server・metadata・publication
 └── utils.ts              # ユーティリティ
 scripts/
+├── create-content.ts     # 記事・ニュース作成の共通処理
 ├── generate-feed.ts      # RSSフィード生成
 ├── generate-sitemap.ts   # サイトマップ生成
 ├── new-article.ts        # 新規記事作成
@@ -83,6 +85,8 @@ npm run test:run --workspace=@sasakiuri/nilay-knowledge # Vitest (CI向け)
 - **相対パス変換:** Markdown 内の相対パスを自動で絶対パスに変換
 - **SEO:** JSON-LD 構造化データ、Open Graph、Twitter Cards
 - **RSS フィード:** ビルド時に自動生成
+
+コンテンツ処理の境界・メタデータ契約・検証方法は [README.md](README.md#content-architecture) を参照。
 
 ## 環境変数
 

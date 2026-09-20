@@ -3,7 +3,8 @@ import Link from 'next/link';
 
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
-import { getNewsByTag, type NewsItem } from '@/lib/markdown';
+import { listContent } from '@/lib/content/server';
+import type { ContentSummary } from '@/lib/content/types';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 
 interface NewsListProps {
   title: string;
-  newsList: NewsItem[];
+  newsList: ContentSummary[];
 }
 
 function NewsList({ title, newsList }: NewsListProps) {
@@ -28,7 +29,9 @@ function NewsList({ title, newsList }: NewsListProps) {
         {newsList.map((news) => (
           <li key={news.slug}>
             <Link href={`/news/${news.slug}`} className="flex items-start gap-4 px-4 py-3 hover:bg-slate-50">
-              <time className="shrink-0 text-sm text-slate-500">{formatDate(news.frontmatter.published)}</time>
+              <time dateTime={news.frontmatter.published} className="shrink-0 text-sm text-slate-500">
+                {formatDate(news.frontmatter.published)}
+              </time>
               <span className="text-[rgb(3,125,186)]">{news.frontmatter.title}</span>
             </Link>
           </li>
@@ -39,8 +42,9 @@ function NewsList({ title, newsList }: NewsListProps) {
 }
 
 export default async function NewsPage() {
-  const incidentNews = await getNewsByTag('事件・事故');
-  const lawNews = await getNewsByTag('法令・制度');
+  const news = await listContent('news');
+  const incidentNews = news.filter((item) => item.frontmatter.tags.includes('事件・事故'));
+  const lawNews = news.filter((item) => item.frontmatter.tags.includes('法令・制度'));
 
   return (
     <>

@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ImageZoom } from '@/components/image-zoom';
 import { SnsShare } from '@/components/sns-share';
-import { siteConfig } from '@/lib/config';
-import { getNewsBySlug, getNewsSlugs } from '@/lib/markdown';
+import { createContentMetadata } from '@/lib/content/metadata';
+import { getContentDocument, getContentSource, listContentSlugs } from '@/lib/content/server';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
@@ -15,40 +15,24 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  const slugs = getNewsSlugs();
+  const slugs = await listContentSlugs('news');
   return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const news = await getNewsBySlug(slug);
+  const news = await getContentSource('news', slug);
 
   if (!news) {
     return { title: 'ニュースが見つかりません' };
   }
 
-  const ogImageUrl = `${siteConfig.siteUrl}/api/og/?title=${encodeURIComponent(news.frontmatter.title)}`;
-
-  return {
-    title: news.frontmatter.title,
-    openGraph: {
-      title: news.frontmatter.title,
-      type: 'article',
-      url: `${siteConfig.siteUrl}/news/${slug}/`,
-      images: [{ url: ogImageUrl, width: 1200, height: 630 }],
-      publishedTime: news.frontmatter.published,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: news.frontmatter.title,
-      images: [ogImageUrl],
-    },
-  };
+  return createContentMetadata(news);
 }
 
 export default async function NewsDetailPage({ params }: Props) {
   const { slug } = await params;
-  const news = await getNewsBySlug(slug);
+  const news = await getContentDocument('news', slug);
 
   if (!news) {
     notFound();
@@ -70,7 +54,9 @@ export default async function NewsDetailPage({ params }: Props) {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <article className="overflow-hidden rounded-lg border border-slate-200 bg-white p-8">
           <header className="mb-8">
-            <time className="text-sm text-slate-500">{formatDate(frontmatter.published)}</time>
+            <time dateTime={frontmatter.published} className="text-sm text-slate-500">
+              {formatDate(frontmatter.published)}
+            </time>
             <h1 className="mt-2 text-2xl font-bold leading-tight text-slate-800 [font-feature-settings:palt]">
               {frontmatter.title}
             </h1>

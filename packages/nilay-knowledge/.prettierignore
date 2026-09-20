@@ -3,5 +3,5 @@ node_modules/
 out/
 coverage/
 next-env.d.ts
-content/
-public/
+/content/
+/public/

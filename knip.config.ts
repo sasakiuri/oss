@@ -131,8 +131,6 @@ const config: KnipConfig = {
     },
   },
   ignoreIssues: {
-    // Retain the content helper API from the imported package.
-    "packages/nilay-knowledge/lib/markdown.ts": ["exports"],
     // Public module exports and test entry points.
     "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],

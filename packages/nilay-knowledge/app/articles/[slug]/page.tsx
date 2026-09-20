@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ImageZoom } from '@/components/image-zoom';
 import { SnsShare } from '@/components/sns-share';
-import { siteConfig } from '@/lib/config';
-import { getArticleBySlug, getArticleSlugs, type TocItem } from '@/lib/markdown';
+import { TableOfContents } from '@/components/table-of-contents';
+import { contentImageUrl, createContentMetadata } from '@/lib/content/metadata';
+import { getContentDocument, getContentSource, listContentSlugs } from '@/lib/content/server';
 import { createArticleSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
@@ -16,58 +17,19 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  const slugs = getArticleSlugs();
+  const slugs = await listContentSlugs('articles');
   return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const article = await getContentSource('articles', slug);
 
   if (!article) {
     return { title: '記事が見つかりません' };
   }
 
-  // Use custom image if provided, otherwise generate dynamic OGP
-  const ogImageUrl = article.frontmatter.image
-    ? `${siteConfig.siteUrl}/content/articles/${slug}/${article.frontmatter.image}`
-    : `${siteConfig.siteUrl}/api/og/?title=${encodeURIComponent(article.frontmatter.title)}`;
-
-  return {
-    title: article.frontmatter.title,
-    openGraph: {
-      title: article.frontmatter.title,
-      type: 'article',
-      url: `${siteConfig.siteUrl}/articles/${slug}/`,
-      images: [{ url: ogImageUrl, width: 1200, height: 630 }],
-      publishedTime: article.frontmatter.published,
-      modifiedTime: article.frontmatter.updated,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: article.frontmatter.title,
-      images: [ogImageUrl],
-    },
-  };
-}
-
-function TableOfContents({ items }: { items: TocItem[] }) {
-  if (items.length === 0) return null;
-
-  return (
-    <nav aria-label="目次" className="sticky top-20 hidden w-64 shrink-0 self-start md:block">
-      <h2 className="mb-3 text-sm font-bold text-slate-700">目次</h2>
-      <ul className="space-y-1 text-sm">
-        {items.map((item) => (
-          <li key={item.id} style={{ paddingLeft: `${(item.level - 2) * 1}rem` }}>
-            <a href={`#${item.id}`} className="block px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
-              {item.title}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
+  return createContentMetadata(article);
 }
 
 function ArticleSchemaScript({
@@ -94,12 +56,17 @@ function ArticleSchemaScript({
     image,
   });
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+    />
+  );
 }
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const article = await getContentDocument('articles', slug);
 
   if (!article) {
     notFound();
@@ -107,7 +74,7 @@ export default async function ArticlePage({ params }: Props) {
 
   const { frontmatter, html, tableOfContents } = article;
   const displayDate = frontmatter.updated || frontmatter.published;
-  const image = frontmatter.image ? `/content/articles/${slug}/${frontmatter.image}` : undefined;
+  const image = contentImageUrl(article);
 
   return (
     <>
@@ -131,7 +98,9 @@ export default async function ArticlePage({ params }: Props) {
       <div className="mx-auto flex max-w-5xl gap-8 px-4 py-8">
         <article className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-200 bg-white p-8">
           <header className="mb-10">
-            <time className="text-sm text-slate-500">{formatDate(displayDate)} 更新</time>
+            <time dateTime={displayDate} className="text-sm text-slate-500">
+              {formatDate(displayDate)} 更新
+            </time>
             <h1 className="mt-2 text-3xl font-bold leading-tight text-slate-800 [font-feature-settings:palt]">
               {frontmatter.title}
             </h1>
