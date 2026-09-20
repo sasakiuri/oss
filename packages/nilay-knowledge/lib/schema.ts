@@ -79,7 +79,7 @@ export function createArticleSchema(params: {
     datePublished: params.published,
     dateModified: params.updated || params.published,
     url: `${siteConfig.siteUrl}/articles/${params.slug}/`,
-    image: params.image ? `${siteConfig.siteUrl}${params.image}` : undefined,
+    image: params.image ? new URL(params.image, siteConfig.siteUrl).href : undefined,
     author: {
       '@type': 'Organization',
       name: siteConfig.author.name,
