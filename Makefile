@@ -1,5 +1,5 @@
 DOCS := --workspace=@sasakiuri/saika-docs
-.PHONY: setup env deps dev up down doctor qa e2e pdf lint-infra load-test load-test-smoke
+.PHONY: setup env deps dev up down doctor check qa qa-docs e2e pdf lint-infra load-test load-test-smoke
 setup: env deps doctor
 
 env:
@@ -31,7 +31,13 @@ load-test-smoke:
 load-test:
 	npm run test:load $(DOCS)
 
+check:
+	npm run check
+
 qa:
+	npm run qa
+
+qa-docs:
 	npm run check $(DOCS)
 	npm audit --audit-level=high
 	npm run license-check

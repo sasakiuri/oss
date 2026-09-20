@@ -55,6 +55,10 @@ npx turbo build
 # Run tests
 npx turbo test
 
+# Run repository checks or the full local quality suite
+npm run check
+npm run qa
+
 # Lint and fix
 npx turbo lint
 npx turbo fix
