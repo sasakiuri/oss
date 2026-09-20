@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
+  failOnFlakyTests: Boolean(process.env.CI),
   testDir: './__tests__/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

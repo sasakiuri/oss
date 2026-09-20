@@ -3,6 +3,8 @@ import { defineConfig } from '@playwright/test';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 export default defineConfig({
+  failOnFlakyTests: Boolean(process.env.CI),
+  forbidOnly: Boolean(process.env.CI),
   testDir: './tests/offline',
   workers: 1,
   use: {

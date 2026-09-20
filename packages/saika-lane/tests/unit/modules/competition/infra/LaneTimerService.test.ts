@@ -209,12 +209,11 @@ describe('LaneTimerService', () => {
       timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
       const fiveSecondsLater = new Date(Date.now() + 5_000).toISOString();
       const startPromise = timerService.startAt('comp-1', fiveSecondsLater, 60);
-      const rejection = expect(startPromise).rejects.toMatchObject({ code: 'LANE_TIMER_RUN_BLOCKED' });
-
       permitted = false;
-      await vi.advanceTimersByTimeAsync(5_000);
-
-      await rejection;
+      await Promise.all([
+        expect(startPromise).rejects.toMatchObject({ code: 'LANE_TIMER_RUN_BLOCKED' }),
+        vi.advanceTimersByTimeAsync(5_000),
+      ]);
       expect(mockCompetitionRepo.findById).not.toHaveBeenCalled();
       expect(vi.getTimerCount()).toBe(0);
     });

@@ -1121,18 +1121,23 @@ describe('DirectorMqttService', () => {
       decisionRuleReference: 'ISSF 8.8.1.4(a)',
       decidedAt: '2026-09-02T23:59:00.000Z',
     });
-    const rejected = expect(recovery).rejects.toThrow('does not match Lane 3');
-    await Promise.resolve();
-    expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
-    transport.emitMessage(laneTopic, pausedQualificationLaneState(3));
-    transport.emitMessage(`${pause.topic}/acknowledgement`, {
-      commandId: pauseCommand.commandId,
-      laneId: LANE_ID,
-      status: 'done',
-      acknowledgedAt: new Date().toISOString(),
-    });
-    await expect(pausing).resolves.toMatchObject({ success: true });
-    await rejected;
+    await Promise.all([
+      expect(recovery).rejects.toThrow('does not match Lane 3'),
+      (async () => {
+        await Promise.resolve();
+        expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(
+          false,
+        );
+        transport.emitMessage(laneTopic, pausedQualificationLaneState(3));
+        transport.emitMessage(`${pause.topic}/acknowledgement`, {
+          commandId: pauseCommand.commandId,
+          laneId: LANE_ID,
+          status: 'done',
+          acknowledgedAt: new Date().toISOString(),
+        });
+        await expect(pausing).resolves.toMatchObject({ success: true });
+      })(),
+    ]);
     expect(transport.publications.some((entry) => entry.topic.endsWith('/start-qualification-recovery'))).toBe(false);
 
     // A failed recovery releases the same queue for subsequent controls.
