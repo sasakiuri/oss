@@ -6,6 +6,13 @@ export default defineConfig({
   plugins: [react()],
   test: {
     setupFiles: ['./tests/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      thresholds: { lines: 85, statements: 80, branches: 75, functions: 75 },
+    },
     projects: [
       {
         extends: true,
