@@ -2,363 +2,100 @@
 
 ## 環境構築
 
-### 前提条件
-
-- Node.js 22+
-- npm 10+
-- Docker (オプション)
-
-### ローカル開発
+Node.js 22.22.2 以上、npm 10.9.4 以上を使用します。
+以下のコマンドはすべて OSS リポジトリのルートで実行します。
 
 ```bash
-# リポジトリのルートから
-cd packages/about.website
-
-# 依存関係インストール
-npm install
-
-# 開発サーバー起動（Turbopack使用）
-npm run dev
-
-# http://localhost:3000 でアクセス
+npm ci
+cp packages/nilay-about/.env.example packages/nilay-about/.env.local
+npm run dev --workspace=@sasakiuri/nilay-about
 ```
 
-### Docker 開発環境
+開発サーバーは `http://localhost:3001` です。
+依存関係とロックファイルはルートで管理します。
+
+## 環境変数
+
+ローカル設定は Git 管理対象外の `packages/nilay-about/.env.local` に保存します。
+[.env.example](.env.example) の任意サービスは、利用するときにコメントを外して設定します。
+
+| 変数                       | 用途と条件                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`     | サイトの絶対 URL。ローカルは `http://localhost:3001`、本番は公開 URL をビルド前と実行時に設定します。 |
+| `LOG_MASKING_SECRET`       | ログの個人情報マスキング用。本番実行では 16 文字以上が必須です。                                      |
+| `DATABASE_URL`             | ニュース API が接続する PostgreSQL の接続文字列です。                                                 |
+| `SLACK_WEBHOOK_URL`        | お問い合わせを送信する Slack Incoming Webhook の URL です。                                           |
+| `UPSTASH_REDIS_REST_URL`   | 分散レート制限用の Upstash Redis REST URL です。                                                      |
+| `UPSTASH_REDIS_REST_TOKEN` | 上記 URL と組み合わせて設定するトークンです。                                                         |
+
+`LOG_MASKING_SECRET` は `openssl rand -hex 32` で生成した値を設定します。
+サンプルやテスト用の値を本番で使わず、生成した強い秘密鍵を安全に保管して各サーバーに設定してください。
+開発・テスト・ビルドでは省略できますが、設定する場合は 16 文字以上が必要です。
+`NEXT_PUBLIC_` で始まる変数は公開情報として扱い、秘密情報を入れないでください。
+
+`DATABASE_URL` と `SLACK_WEBHOOK_URL` は、それぞれの API を使うときに必要です。
+未設定でもビルドできますが、ニュース取得やお問い合わせ送信は失敗します。
+Prisma クライアントの生成は DB 接続やスキーマ変更を行いません。
+DB クライアントの初期化はニュース API のリクエスト時まで遅延します。
+
+Upstash の 2 変数を設定すると、分散レート制限を使います。
+現在の実装では、本番で Upstash が未設定の場合は警告を出して制限を省略し、
+Upstash への接続エラーでもリクエストを許可します。
+開発・テストでは、未設定時や接続エラー時にプロセス内のメモリで制限します。
+
+## コマンド
+
+| コマンド                                                   | 内容                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------ |
+| `npm run dev --workspace=@sasakiuri/nilay-about`           | Turbopack の開発サーバーを起動します。                 |
+| `npm run build --workspace=@sasakiuri/nilay-about`         | Prisma クライアントを生成し、Next.js をビルドします。  |
+| `npm run start --workspace=@sasakiuri/nilay-about`         | ビルド済みの本番サーバーをポート 3001 で起動します。   |
+| `npm run typecheck --workspace=@sasakiuri/nilay-about`     | Prisma クライアントを生成し、TypeScript を検査します。 |
+| `npm run lint --workspace=@sasakiuri/nilay-about`          | ESLint と Prettier を検査します。                      |
+| `npm run fix --workspace=@sasakiuri/nilay-about`           | ESLint と Prettier の自動修正を実行します。            |
+| `npm run test --workspace=@sasakiuri/nilay-about`          | Vitest を 1 回実行します。                             |
+| `npm run test:watch --workspace=@sasakiuri/nilay-about`    | Vitest を監視モードで実行します。                      |
+| `npm run test:coverage --workspace=@sasakiuri/nilay-about` | 単体テストとカバレッジ計測を実行します。               |
+| `npm run analyze --workspace=@sasakiuri/nilay-about`       | バンドル分析を有効にしてビルドします。                 |
+
+本番起動の前にビルドを実行し、環境変数を設定してください。
+`.next/` と `lib/generated/prisma/` は生成物のためコミットしません。
+
+## E2E テスト
 
 ```bash
-# docker ディレクトリに移動
-cd docker
-
-# コンテナ起動
-docker compose up node-about
-
-# アクセス URL
-# http://127.100.0.11:80
-# または hosts に追加して http://about.nilay.test
+npm run build --workspace=@sasakiuri/nilay-about
+npm run test:install --workspace=@sasakiuri/nilay-about
+npm run test:e2e --workspace=@sasakiuri/nilay-about
 ```
 
-## コマンド一覧
+`test:install` は Chromium・Firefox・WebKit と必要なシステム依存関係を導入します。
+Playwright はビルド済みの本番サーバーを `http://127.0.0.1:3001` で起動します。
+`reuseExistingServer: false` のため、先に開発サーバーなどを停止してポートを空けてください。
 
-| コマンド | 説明 |
-|----------|------|
-| `npm run dev` | 開発サーバー起動（Turbopack） |
-| `npm run build` | 本番ビルド |
-| `npm run start` | 本番サーバー起動 |
-| `npm run lint` | ESLint 実行 |
-| `npm run format` | Prettier でフォーマット |
+`playwright.config.ts` はサイト URL、マスキング用の秘密鍵、DB、Slack、Upstash の
+設定をテスト専用の値で上書きします。
+外部サービスの接続先には接続不能なループバックアドレスを使い、実サービスの認証情報は使いません。
+対話形式で確認する場合は、同じ準備の後に
+`npm run test:e2e:ui --workspace=@sasakiuri/nilay-about` を実行します。
 
 ## アーキテクチャ
 
-### ディレクトリ構成
+| 場所                                    | 役割                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------ |
+| `app/`                                  | App Router のページとレイアウト。メインサイトのスタイルは `globals.css` です。       |
+| `app/(standalone)/labs/`                | 射撃標的計算と狩猟鳥獣スライドショー。専用レイアウトと `standalone.css` を使います。 |
+| `app/api/news/`                         | Prisma 経由でニュースを取得する API です。                                           |
+| `app/api/contact/`                      | 入力を検証し、Slack にお問い合わせを送信する API です。                              |
+| `components/`                           | 共通の UI、レイアウト、プロバイダーです。                                            |
+| `hooks/`・`lib/api/`                    | TanStack Query のフック、HTTP クライアント、レスポンス検証です。                     |
+| `store/`・各機能の `_store/`            | 共通 UI と Labs の機能別 Zustand ストアです。                                        |
+| `lib/schemas/`                          | Zod の入力・レスポンススキーマです。                                                 |
+| `lib/prisma.ts`・`prisma/schema.prisma` | DB クライアントの遅延生成と PostgreSQL のモデル定義です。                            |
+| `lib/security/`・`lib/logging/`         | 入力のサニタイズ、ログ、個人情報マスキングです。                                     |
+| `__tests__/unit/`・`__tests__/e2e/`     | Vitest の単体テストと Playwright の画面テストです。                                  |
 
-```
-about.website/
-├── app/
-│   ├── (standalone)/             # 独立したLabsアプリ (Route Group)
-│   │   ├── layout.tsx           # Standalone専用レイアウト
-│   │   ├── standalone.css       # モダンマテリアルデザインCSS
-│   │   └── labs/
-│   │       ├── game-species-test/
-│   │       │   ├── _store/      # 機能専用Zustandストア
-│   │       │   ├── quiz-data.ts
-│   │       │   ├── game-species-test-client.tsx
-│   │       │   └── page.tsx
-│   │       └── home-target/
-│   │           ├── _store/      # 機能専用Zustandストア
-│   │           ├── home-target-client.tsx
-│   │           └── page.tsx
-│   ├── layout.tsx                # メインレイアウト (Header/Footer)
-│   ├── globals.css               # グローバルスタイルCSS
-│   ├── page.tsx                  # ホームページ
-│   ├── contact/                  # お問い合わせ
-│   ├── news/                     # ニュース
-│   │   ├── page.tsx             # 一覧
-│   │   └── [id]/                # 詳細
-│   └── labs/                     # Labs インデックス
-├── components/
-│   ├── layout/
-│   │   ├── header.tsx           # ヘッダー
-│   │   ├── footer.tsx           # フッター
-│   │   ├── container.tsx
-│   │   └── page-title.tsx
-│   ├── ui/                       # UIプリミティブ
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── input.tsx
-│   │   └── ...
-│   ├── providers.tsx             # TanStack Query Provider
-│   └── share-buttons.tsx
-├── hooks/
-│   ├── use-news.ts               # ニュース取得フック
-│   └── use-contact.ts            # お問い合わせ送信フック
-├── store/
-│   ├── index.ts                  # エクスポート
-│   └── ui-store.ts               # グローバルUI状態
-├── lib/
-│   ├── api/                      # API クライアント
-│   │   ├── news.ts
-│   │   └── contact.ts
-│   ├── firebase/
-│   │   └── config.ts
-│   ├── schemas/                  # Zod スキーマ
-│   │   ├── news.ts
-│   │   └── contact.ts
-│   ├── utils/
-│   │   └── array.ts             # 配列ユーティリティ (shuffle等)
-│   ├── config.ts                 # サイト設定
-│   └── utils.ts                  # cn関数など
-└── public/
-    └── images/
-        ├── home-tanuki.png
-        └── game-species/         # 狩猟鳥獣画像
-```
-
-### Route Groups による UI 分離
-
-Next.js の Route Groups を使用して、異なるレイアウトを分離しています。
-
-```
-app/
-├── (standalone)/        # 独立したLabsアプリ - standalone.css
-│   └── labs/           # home-target, game-species-test
-├── layout.tsx          # メインサイト - globals.css
-└── [その他ページ]/      # メインサイトを継承
-```
-
-#### メインサイト
-
-`globals.css` で定義されたスタイル:
-
-```css
-:root {
-  --background: #ffffff;
-  --foreground: #2c3e50;
-  --primary: #e27600;
-}
-```
-
-#### Standalone（独立したLabsアプリ）
-
-`standalone.css` で定義されたモダンマテリアルデザイン:
-
-```css
-:root {
-  --background: #ffffff;
-  --primary: #3b82f6;
-}
-body {
-  font-family: "Inter", sans-serif;
-}
-```
-
-### コンポーネント設計
-
-#### Server Components (デフォルト)
-
-- メタデータ設定
-- 静的コンテンツ
-- レイアウト
-
-```tsx
-// app/news/page.tsx
-export const metadata: Metadata = {
-  title: "お知らせ",
-};
-
-export default function NewsPage() {
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1>お知らせ (News)</h1>
-      <NewsListClient />
-    </div>
-  );
-}
-```
-
-#### Client Components
-
-- インタラクティブな UI
-- データフェッチング（TanStack Query）
-- フォーム
-
-```tsx
-// app/news/news-list-client.tsx
-"use client";
-
-export function NewsListClient() {
-  const { data, isLoading } = useNewsList();
-  // ...
-}
-```
-
-### 状態管理
-
-#### グローバルストア (store/)
-
-アプリ全体で共有する状態:
-
-```ts
-// store/ui-store.ts
-export const useUIStore = create<UIState>((set) => ({
-  alert: null,
-  showSuccess: (title, message) =>
-    set({ alert: { type: "success", title, message } }),
-  showError: (title, message) =>
-    set({ alert: { type: "error", title, message } }),
-  clearAlert: () => set({ alert: null }),
-}));
-```
-
-#### 機能別ストア (_store/)
-
-Labs アプリは機能ごとにストアを持つ:
-
-```ts
-// app/(standalone)/labs/home-target/_store/index.ts
-export const useHomeTargetStore = create<HomeTargetStore>((set) => ({
-  language: "ja",
-  setLanguage: (language) => set({ language }),
-  // ...
-}));
-
-// 計算関数は純粋関数として分離
-export function calculateHeightOfTarget(...) { ... }
-```
-
-### データフェッチング
-
-#### API 関数 (lib/api/)
-
-```ts
-// lib/api/news.ts
-export async function fetchNewsList(): Promise<NewsListResponse> {
-  const db = getFirestoreDb();
-  const newsCollection = collection(db, "news");
-  // ...
-}
-```
-
-#### TanStack Query フック (hooks/)
-
-```ts
-// hooks/use-news.ts
-export function useNewsList() {
-  return useQuery({
-    queryKey: ["news", "list"],
-    queryFn: fetchNewsList,
-  });
-}
-```
-
-### フォームバリデーション
-
-#### Zod スキーマ
-
-```ts
-// lib/schemas/contact.ts
-export const contactFormSchema = z.object({
-  requiresReply: z.boolean(),
-  email: z.string().email().optional(),
-  title: z.string().min(1),
-  message: z.string().min(1),
-});
-```
-
-#### React Hook Form
-
-```tsx
-const { register, handleSubmit, formState: { errors } } = useForm({
-  resolver: zodResolver(contactFormSchema),
-});
-```
-
-## スタイリング
-
-### メインサイト
-
-```tsx
-// UIコンポーネントとレイアウトコンポーネント使用
-import { Container, PageTitle } from "@/components/layout";
-import { Card, CardContent, Button } from "@/components/ui";
-
-<Container>
-  <PageTitle title="お知らせ" subtitle="News" />
-  <Card>
-    <CardContent className="pt-6">
-      <Button>詳細を見る</Button>
-    </CardContent>
-  </Card>
-</Container>
-```
-
-### Standalone
-
-```tsx
-// UIコンポーネント使用（独自レイアウト）
-import { Button, Card, CardContent } from "@/components/ui";
-
-<div className="fixed inset-0 flex flex-col bg-background">
-  <header className="bg-primary text-primary-foreground">
-    <h1>アプリタイトル</h1>
-  </header>
-  <main>
-    <Card>
-      <CardContent className="pt-6">
-        <Button variant="default">送信</Button>
-      </CardContent>
-    </Card>
-  </main>
-</div>
-```
-
-## Firebase 連携
-
-### 設定
-
-```ts
-// lib/firebase/config.ts
-const firebaseConfig = {
-  projectId: "nilay-about",
-  // ...
-};
-```
-
-### Firestore
-
-- コレクション: `news`
-- ドキュメント構造:
-  - `title`: string
-  - `date`: Timestamp
-  - `message`: string (HTML)
-
-### Cloud Functions
-
-- `sendContactMessage`: お問い合わせ送信
-
-## トラブルシューティング
-
-### ビルドエラー
-
-```bash
-# キャッシュクリア
-rm -rf .next
-npm run build
-```
-
-### 型エラー
-
-```bash
-# 型チェック
-npx tsc --noEmit
-```
-
-### スタイルが反映されない
-
-- Route Group のレイアウトが正しいCSSをインポートしているか確認
-- `(standalone)` は `standalone.css`
-- その他は `globals.css`
-
-### Firestore 接続エラー
-
-- Firebase Console で API キーとプロジェクト設定を確認
-- ブラウザのコンソールでエラーメッセージを確認
+ページのメタデータや静的レイアウトは Server Components を使い、
+操作を伴う UI とフックを使うコンポーネントには `"use client"` を指定します。
+フォームは React Hook Form と Zod、API からのデータ取得は TanStack Query のフックを使います。
+Labs の状態と計算は機能ごとの `_store/` にまとめています。

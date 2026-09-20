@@ -1,5 +1,4 @@
-import type { News, NewsListResponse, NewsGetResponse } from "@/lib/schemas";
-import type { ContactFormData, ContactResponse } from "@/lib/schemas";
+import type { NewsListResponse, NewsGetResponse, ContactFormData, ContactResponse } from '@/lib/schemas';
 
 /**
  * News Repository Interface
@@ -21,9 +20,7 @@ export interface ContactService {
 /**
  * Result type for operations that can fail
  */
-export type Result<T, E = Error> =
-  | { success: true; data: T }
-  | { success: false; error: E };
+export type Result<T, E = Error> = { success: true; data: T } | { success: false; error: E };
 
 /**
  * Helper to create success result

@@ -1,32 +1,32 @@
-import Image from "next/image";
-import Link from "next/link";
+import Image from 'next/image';
+import Link from 'next/link';
 
 const services = [
   {
-    title: "Knowledge",
-    href: "https://knowledge.nilay.jp/",
+    title: 'Knowledge',
+    href: 'https://knowledge.nilay.jp/',
     description:
-      "銃・射撃・狩猟に関する知識を収集・調査し紹介しています。申請や申込の方法についても記載しておりますので必要なときにご覧ください。",
+      '銃・射撃・狩猟に関する知識を収集・調査し紹介しています。申請や申込の方法についても記載しておりますので必要なときにご覧ください。',
     external: true,
   },
   {
-    title: "E-commerce",
-    href: "https://www.nilay.jp/",
+    title: 'E-commerce',
+    href: 'https://www.nilay.jp/',
     description:
-      "射撃用品・狩猟用品・鳥獣被害対策用品を販売しています。幅広い種類の商品を取り揃えるようにしておりますのでぜひご利用ください。",
+      '射撃用品・狩猟用品・鳥獣被害対策用品を販売しています。幅広い種類の商品を取り揃えるようにしておりますのでぜひご利用ください。',
     external: true,
   },
   {
-    title: "Gunman",
-    href: "https://gunman.nilay.jp/",
+    title: 'Gunman',
+    href: 'https://gunman.nilay.jp/',
     description:
-      "申請書・申込書・各種添付書類を作成することができます。この他に火薬類、銃、各種証明書の管理機能も現在試験的に運用中です。",
+      '申請書・申込書・各種添付書類を作成することができます。この他に火薬類、銃、各種証明書の管理機能も現在試験的に運用中です。',
     external: true,
   },
   {
-    title: "Labs",
-    href: "/labs",
-    description: "試験的に作成したツールなどを公開しています。",
+    title: 'Labs',
+    href: '/labs',
+    description: '試験的に作成したツールなどを公開しています。',
     external: false,
   },
 ];
@@ -42,18 +42,8 @@ export default function HomePage() {
       </p>
 
       <div className="my-8">
-        <a
-          href="https://www.irasutoya.com/2015/03/blog-post_346.html"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            src="/images/home-tanuki.png"
-            alt="たぬき"
-            width={200}
-            height={200}
-            priority
-          />
+        <a href="https://www.irasutoya.com/2015/03/blog-post_346.html" target="_blank" rel="noopener noreferrer">
+          <Image src="/images/home-tanuki.png" alt="たぬき" width={200} height={200} priority />
         </a>
         <p className="text-sm">(イラスト: いらすとや)</p>
       </div>
@@ -66,10 +56,8 @@ export default function HomePage() {
 
       <dl>
         {services.map((service) => {
-          const LinkComponent = service.external ? "a" : Link;
-          const linkProps = service.external
-            ? { target: "_blank", rel: "noopener noreferrer" }
-            : {};
+          const LinkComponent = service.external ? 'a' : Link;
+          const linkProps = service.external ? { target: '_blank', rel: 'noopener noreferrer' } : {};
 
           return (
             <div key={service.title} className="mb-4">

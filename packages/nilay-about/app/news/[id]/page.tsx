@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { NewsDetailClient } from "./news-detail-client";
+import type { Metadata } from 'next';
+import Link from 'next/link';
+
+import { NewsDetailClient } from './news-detail-client';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -9,9 +10,8 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   return {
-    title: "お知らせ",
-    description:
-      "Nilay からのお知らせです。商品の入荷情報やアップデート情報をお届けします。",
+    title: 'お知らせ',
+    description: 'Nilay からのお知らせです。商品の入荷情報やアップデート情報をお届けします。',
     alternates: {
       canonical: `/news/${id}`,
     },

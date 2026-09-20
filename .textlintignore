@@ -5,3 +5,5 @@ packages/saika-docs/assets/fonts/**
 # Imported editorial content and its published copies retain their original text.
 packages/nilay-knowledge/content/**
 packages/nilay-knowledge/public/content/**
+# Historical import report retains its original text.
+packages/nilay-about/IMPROVEMENT_REPORT.md

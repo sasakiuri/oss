@@ -18,7 +18,7 @@ export abstract class BaseError extends Error {
     code: string,
     statusCode: number = 500,
     cause?: unknown,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -74,7 +74,7 @@ export function getUserFriendlyMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "予期しないエラーが発生しました";
+  return '予期しないエラーが発生しました';
 }
 
 /**
@@ -84,5 +84,5 @@ export function getErrorCode(error: unknown): string {
   if (isBaseError(error)) {
     return error.context.code;
   }
-  return "UNKNOWN_ERROR";
+  return 'UNKNOWN_ERROR';
 }

@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui";
-import { LuLanguages, LuCheck } from "react-icons/lu";
+import { useState, useRef, useEffect } from 'react';
+import { LuLanguages, LuCheck } from 'react-icons/lu';
 
-type Language = "ja" | "en";
+import { Button } from '@/components/ui';
+
+type Language = 'ja' | 'en';
 
 interface LanguageMenuProps {
   language: Language;
@@ -33,8 +34,8 @@ export function LanguageMenu({ language, onLanguageChange }: LanguageMenuProps) 
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelect = (lang: Language) => {
@@ -62,49 +63,49 @@ export function LanguageMenu({ language, onLanguageChange }: LanguageMenuProps) 
         <div
           role="menu"
           className={[
-            "absolute right-0 top-full z-50 mt-2",
-            "min-w-[112px]",
-            "rounded", // M3: 4dp corner radius
-            "bg-surface-container",
-            "py-2", // M3: 8dp vertical padding
-            "shadow-[0_1px_2px_rgba(0,0,0,0.3),0_2px_6px_2px_rgba(0,0,0,0.15)]", // elevation 2
-            "animate-in fade-in slide-in-from-top-2 duration-200",
-          ].join(" ")}
+            'absolute right-0 top-full z-50 mt-2',
+            'min-w-[112px]',
+            'rounded', // M3: 4dp corner radius
+            'bg-surface-container',
+            'py-2', // M3: 8dp vertical padding
+            'shadow-[0_1px_2px_rgba(0,0,0,0.3),0_2px_6px_2px_rgba(0,0,0,0.15)]', // elevation 2
+            'animate-in fade-in slide-in-from-top-2 duration-200',
+          ].join(' ')}
         >
           {/* M3 Menu Item */}
           <button
             role="menuitem"
             className={[
-              "flex w-full items-center gap-3",
-              "h-12 px-3", // M3: 48dp height, 12dp padding
-              "text-sm font-medium", // Label Large
-              "text-on-surface",
-              "transition-colors duration-200",
-              "hover:bg-on-surface/8",
-              "focus-visible:outline-none focus-visible:bg-on-surface/12",
-              language === "en" ? "bg-secondary-container" : "",
-            ].join(" ")}
-            onClick={() => handleSelect("en")}
+              'flex w-full items-center gap-3',
+              'h-12 px-3', // M3: 48dp height, 12dp padding
+              'text-sm font-medium', // Label Large
+              'text-on-surface',
+              'transition-colors duration-200',
+              'hover:bg-on-surface/8',
+              'focus-visible:outline-none focus-visible:bg-on-surface/12',
+              language === 'en' ? 'bg-secondary-container' : '',
+            ].join(' ')}
+            onClick={() => handleSelect('en')}
           >
-            {language === "en" && <LuCheck className="h-5 w-5 text-primary" />}
-            <span className={language === "en" ? "" : "ml-8"}>English</span>
+            {language === 'en' && <LuCheck className="h-5 w-5 text-primary" />}
+            <span className={language === 'en' ? '' : 'ml-8'}>English</span>
           </button>
           <button
             role="menuitem"
             className={[
-              "flex w-full items-center gap-3",
-              "h-12 px-3",
-              "text-sm font-medium",
-              "text-on-surface",
-              "transition-colors duration-200",
-              "hover:bg-on-surface/8",
-              "focus-visible:outline-none focus-visible:bg-on-surface/12",
-              language === "ja" ? "bg-secondary-container" : "",
-            ].join(" ")}
-            onClick={() => handleSelect("ja")}
+              'flex w-full items-center gap-3',
+              'h-12 px-3',
+              'text-sm font-medium',
+              'text-on-surface',
+              'transition-colors duration-200',
+              'hover:bg-on-surface/8',
+              'focus-visible:outline-none focus-visible:bg-on-surface/12',
+              language === 'ja' ? 'bg-secondary-container' : '',
+            ].join(' ')}
+            onClick={() => handleSelect('ja')}
           >
-            {language === "ja" && <LuCheck className="h-5 w-5 text-primary" />}
-            <span className={language === "ja" ? "" : "ml-8"}>日本語</span>
+            {language === 'ja' && <LuCheck className="h-5 w-5 text-primary" />}
+            <span className={language === 'ja' ? '' : 'ml-8'}>日本語</span>
           </button>
         </div>
       )}

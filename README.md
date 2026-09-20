@@ -80,3 +80,10 @@ npx turbo fix
 
 [Nilay Knowledge](packages/nilay-knowledge/README.md) is the website at
 <https://knowledge.nilay.jp>, maintained as `@sasakiuri/nilay-knowledge`.
+
+## Nilay About
+
+[Nilay About](packages/nilay-about/README.md) introduces Nilay's services and is
+maintained as `@sasakiuri/nilay-about`. Run
+`npm run dev --workspace=@sasakiuri/nilay-about` to start the development server at
+`http://localhost:3001`.

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { siteConfig } from "@/lib/config";
+import { siteConfig } from '@/lib/config';
 
 const services = [
-  { href: "https://knowledge.nilay.jp/", label: "Knowledge" },
-  { href: "https://www.nilay.jp/", label: "E-commerce" },
-  { href: "https://gunman.nilay.jp/", label: "Gunman" },
+  { href: 'https://knowledge.nilay.jp/', label: 'Knowledge' },
+  { href: 'https://www.nilay.jp/', label: 'E-commerce' },
+  { href: 'https://gunman.nilay.jp/', label: 'Gunman' },
 ];
 
 /**
@@ -42,10 +42,7 @@ export function RetroFooter() {
           {siteConfig.location.city}
           {siteConfig.location.street}
           <br />
-          Email:{" "}
-          <a href={`mailto:${siteConfig.contact.email}`}>
-            {siteConfig.contact.email}
-          </a>
+          Email: <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
         </address>
 
         <p className="mt-4" suppressHydrationWarning>
@@ -53,23 +50,15 @@ export function RetroFooter() {
         </p>
 
         <p className="mt-2 text-sm">
-          Follow us:{" "}
-          <a
-            href={`https://twitter.com/${siteConfig.social.twitter}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          Follow us:{' '}
+          <a href={`https://twitter.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
             Twitter
           </a>
-          {" | "}
-          <a
-            href={`https://www.facebook.com/${siteConfig.social.facebook}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          {' | '}
+          <a href={`https://www.facebook.com/${siteConfig.social.facebook}`} target="_blank" rel="noopener noreferrer">
             Facebook
           </a>
-          {" | "}
+          {' | '}
           <a
             href={`https://www.instagram.com/${siteConfig.social.instagram}`}
             target="_blank"
@@ -77,12 +66,8 @@ export function RetroFooter() {
           >
             Instagram
           </a>
-          {" | "}
-          <a
-            href={`https://github.com/${siteConfig.social.github}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          {' | '}
+          <a href={`https://github.com/${siteConfig.social.github}`} target="_blank" rel="noopener noreferrer">
             GitHub
           </a>
         </p>

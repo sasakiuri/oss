@@ -3,6 +3,36 @@ import type { KnipConfig } from "knip";
 
 const config: KnipConfig = {
   workspaces: {
+    "packages/nilay-about": {
+      // Keep the imported reusable components, helpers, and store APIs available.
+      entry: [
+        "components/**/*.{ts,tsx}",
+        "hooks/**/*.ts",
+        "lib/**/*.ts",
+        "!lib/generated/**",
+        "store/**/*.ts",
+        "types/**/*.ts",
+        "app/**/_store/index.ts",
+        "__tests__/e2e/**/*.spec.ts",
+        "playwright.config.ts",
+      ],
+      playwright: false,
+      ignoreDependencies: [
+        // Generated Prisma code and the PostgreSQL adapter use these dependencies.
+        "@prisma/client",
+        "pg",
+        "@types/pg",
+        // Preserve the imported UI and form dependency baseline.
+        "@hookform/resolvers",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-navigation-menu",
+        "@radix-ui/react-separator",
+        "@radix-ui/react-tabs",
+        "@radix-ui/react-toast",
+        "@radix-ui/react-tooltip",
+        "next-seo",
+      ],
+    },
     "packages/nilay-knowledge": {
       // Preserve the imported site's reusable UI primitives and dependency baseline.
       entry: ["components/ui/**/*.{ts,tsx}"],

@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { ReactNode } from "react";
-import { ErrorMessage, EmptyState, LoadingSpinner } from "@/components/ui";
-import type { IconType } from "react-icons";
+import { ReactNode } from 'react';
+import type { IconType } from 'react-icons';
+
+import { ErrorMessage, EmptyState, LoadingSpinner } from '@/components/ui';
 
 interface AsyncBoundaryProps<T> {
   // Data states
@@ -43,13 +44,13 @@ export function AsyncBoundary<T>({
   error,
   children,
   loadingComponent,
-  loadingLabel = "読み込み中",
+  loadingLabel = '読み込み中',
   onRetry,
-  errorTitle = "エラーが発生しました",
-  errorMessage = "データの取得に失敗しました。",
+  errorTitle = 'エラーが発生しました',
+  errorMessage = 'データの取得に失敗しました。',
   isEmpty,
   emptyIcon,
-  emptyTitle = "データがありません",
+  emptyTitle = 'データがありません',
   emptyDescription,
   emptyAction,
   className,
@@ -67,11 +68,7 @@ export function AsyncBoundary<T>({
   if (error) {
     return (
       <div className={className}>
-        <ErrorMessage
-          title={errorTitle}
-          message={errorMessage}
-          onRetry={onRetry}
-        />
+        <ErrorMessage title={errorTitle} message={errorMessage} onRetry={onRetry} />
       </div>
     );
   }
@@ -79,12 +76,7 @@ export function AsyncBoundary<T>({
   if (!data || (isEmpty && isEmpty(data))) {
     return (
       <div className={className}>
-        <EmptyState
-          icon={emptyIcon}
-          title={emptyTitle}
-          description={emptyDescription}
-          action={emptyAction}
-        />
+        <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} action={emptyAction} />
       </div>
     );
   }
@@ -113,9 +105,9 @@ export function SimpleAsyncBoundary({
   isEmpty,
   children,
   loadingComponent,
-  errorMessage = "データの取得に失敗しました。",
+  errorMessage = 'データの取得に失敗しました。',
   onRetry,
-  emptyMessage = "データがありません",
+  emptyMessage = 'データがありません',
   className,
 }: SimpleAsyncBoundaryProps) {
   if (isLoading) {
@@ -123,9 +115,7 @@ export function SimpleAsyncBoundary({
   }
 
   if (error) {
-    return (
-      <ErrorMessage message={errorMessage} onRetry={onRetry} className={className} />
-    );
+    return <ErrorMessage message={errorMessage} onRetry={onRetry} className={className} />;
   }
 
   if (isEmpty) {

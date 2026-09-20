@@ -1,16 +1,14 @@
-"use client";
+'use client';
 
-import { useMutation, type UseMutationOptions } from "@tanstack/react-query";
-import { sendContactMessage } from "@/lib/api/contact";
-import { mutationConfig } from "@/lib/api/query-config";
-import { useUIStore } from "@/store/ui-store";
-import type { ContactFormData, ContactResponse } from "@/lib/schemas";
-import { useCallback } from "react";
+import { useMutation, type UseMutationOptions } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
-type ContactMutationOptions = Omit<
-  UseMutationOptions<ContactResponse, Error, ContactFormData>,
-  "mutationFn"
->;
+import { sendContactMessage } from '@/lib/api/contact';
+import { mutationConfig } from '@/lib/api/query-config';
+import type { ContactFormData, ContactResponse } from '@/lib/schemas';
+import { useUIStore } from '@/store/ui-store';
+
+type ContactMutationOptions = Omit<UseMutationOptions<ContactResponse, Error, ContactFormData>, 'mutationFn'>;
 
 /**
  * Basic hook for contact form mutation
@@ -59,31 +57,22 @@ export function useContactFormWithUI(options?: UseContactFormWithUIOptions) {
   const handleSuccess = useCallback(
     (data: ContactResponse) => {
       if (data.hasError) {
-        showError(
-          "送信エラー",
-          data.errorMessage || options?.errorMessage || "送信に失敗しました"
-        );
+        showError('送信エラー', data.errorMessage || options?.errorMessage || '送信に失敗しました');
         return;
       }
 
-      showSuccess(
-        "送信完了",
-        options?.successMessage || "お問い合わせを送信しました。"
-      );
+      showSuccess('送信完了', options?.successMessage || 'お問い合わせを送信しました。');
       options?.onSuccess?.(data);
     },
-    [showError, showSuccess, options]
+    [showError, showSuccess, options],
   );
 
   const handleError = useCallback(
     (error: Error) => {
-      showError(
-        "送信エラー",
-        options?.errorMessage || error.message || "送信に失敗しました"
-      );
+      showError('送信エラー', options?.errorMessage || error.message || '送信に失敗しました');
       options?.onError?.(error);
     },
-    [showError, options]
+    [showError, options],
   );
 
   return useMutation({

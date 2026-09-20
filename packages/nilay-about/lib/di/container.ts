@@ -18,11 +18,7 @@ class DIContainer {
   /**
    * Register a service factory
    */
-  register<T>(
-    key: string,
-    factory: Factory<T>,
-    options: { singleton?: boolean } = {}
-  ): void {
+  register<T>(key: string, factory: Factory<T>, options: { singleton?: boolean } = {}): void {
     this.services.set(key, {
       factory,
       singleton: options.singleton ?? true,
@@ -32,11 +28,7 @@ class DIContainer {
   /**
    * Register an async service factory
    */
-  registerAsync<T>(
-    key: string,
-    factory: AsyncFactory<T>,
-    options: { singleton?: boolean } = {}
-  ): void {
+  registerAsync<T>(key: string, factory: AsyncFactory<T>, options: { singleton?: boolean } = {}): void {
     this.services.set(key, {
       factory,
       singleton: options.singleton ?? true,
@@ -135,9 +127,9 @@ export const container = new DIContainer();
 
 // Service keys
 export const ServiceKeys = {
-  PRISMA: "prisma",
-  NEWS_REPOSITORY: "newsRepository",
-  CONTACT_SERVICE: "contactService",
+  PRISMA: 'prisma',
+  NEWS_REPOSITORY: 'newsRepository',
+  CONTACT_SERVICE: 'contactService',
 } as const;
 
 export type ServiceKey = (typeof ServiceKeys)[keyof typeof ServiceKeys];

@@ -284,6 +284,7 @@ temp_build/
 claude/
 CLAUDE.md
 AGENTS.md
+AGENTS.override.md
 TODO.md
 
 # Windows download metadata

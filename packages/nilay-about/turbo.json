@@ -1,0 +1,24 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**", "lib/generated/prisma/**"],
+      "env": ["NEXT_PUBLIC_SITE_URL", "ANALYZE"]
+    },
+    "typecheck": {
+      "outputs": ["lib/generated/prisma/**"]
+    },
+    "dev": {
+      "env": [
+        "NEXT_PUBLIC_SITE_URL",
+        "DATABASE_URL",
+        "SLACK_WEBHOOK_URL",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "LOG_MASKING_SECRET",
+        "VERCEL_ENV",
+        "VERCEL_URL"
+      ]
+    }
+  }
+}

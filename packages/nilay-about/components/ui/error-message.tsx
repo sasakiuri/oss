@@ -1,6 +1,8 @@
-import { LuTriangleAlert, LuRefreshCw } from "react-icons/lu";
-import { Button } from "./button";
-import { cn } from "@/lib/utils";
+import { LuTriangleAlert, LuRefreshCw } from 'react-icons/lu';
+
+import { cn } from '@/lib/utils';
+
+import { Button } from './button';
 
 interface ErrorMessageProps {
   title?: string;
@@ -9,24 +11,10 @@ interface ErrorMessageProps {
   className?: string;
 }
 
-export function ErrorMessage({
-  title = "エラーが発生しました",
-  message,
-  onRetry,
-  className,
-}: ErrorMessageProps) {
+export function ErrorMessage({ title = 'エラーが発生しました', message, onRetry, className }: ErrorMessageProps) {
   return (
-    <div
-      role="alert"
-      className={cn(
-        "flex flex-col items-center justify-center py-8 text-center",
-        className
-      )}
-    >
-      <LuTriangleAlert
-        className="h-10 w-10 text-destructive mb-4"
-        aria-hidden="true"
-      />
+    <div role="alert" className={cn('flex flex-col items-center justify-center py-8 text-center', className)}>
+      <LuTriangleAlert className="h-10 w-10 text-destructive mb-4" aria-hidden="true" />
       <h3 className="text-lg font-medium text-foreground">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground max-w-sm">{message}</p>
       {onRetry && (

@@ -319,3 +319,11 @@ updates:
     groups:
       knowledge-compatible:
         update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /packages/nilay-about
+    schedule: { interval: weekly }
+    commit-message:
+      prefix: "chore(nilay-about):"
+    groups:
+      about-compatible:
+        update-types: [minor, patch]

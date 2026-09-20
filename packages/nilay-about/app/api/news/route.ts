@@ -1,13 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { newsListResponseSchema } from "@/lib/schemas";
-import { createRequestLogger } from "@/lib/logging";
-import {
-  checkRateLimit,
-  getClientIp,
-  rateLimitPresets,
-} from "@/lib/api/rate-limit";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+
+import { checkRateLimit, getClientIp, rateLimitPresets } from '@/lib/api/rate-limit';
+import { createRequestLogger } from '@/lib/logging';
+import { getPrisma } from '@/lib/prisma';
+import { newsListResponseSchema } from '@/lib/schemas';
 
 /** ページネーションのデフォルト値 */
 const DEFAULT_LIMIT = 20;
@@ -28,57 +25,54 @@ export async function GET(request: NextRequest) {
     const rateLimit = await checkRateLimit(clientIp, rateLimitPresets.apiRead);
 
     if (!rateLimit.allowed) {
-      log.warn("Rate limit exceeded", { clientIp, resetIn: rateLimit.resetIn });
+      log.warn('Rate limit exceeded', { clientIp, resetIn: rateLimit.resetIn });
       return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
+        { error: 'Too many requests. Please try again later.' },
         {
           status: 429,
           headers: {
-            "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000)),
-            "X-RateLimit-Remaining": String(rateLimit.remaining),
+            'Retry-After': String(Math.ceil(rateLimit.resetIn / 1000)),
+            'X-RateLimit-Remaining': String(rateLimit.remaining),
           },
-        }
+        },
       );
     }
 
     // クエリパラメータのバリデーション
     // null を除外して、未指定時はスキーマのデフォルト値を使用
     const searchParams = request.nextUrl.searchParams;
-    const limitParam = searchParams.get("limit");
-    const offsetParam = searchParams.get("offset");
+    const limitParam = searchParams.get('limit');
+    const offsetParam = searchParams.get('offset');
     const queryResult = querySchema.safeParse({
       ...(limitParam !== null && { limit: limitParam }),
       ...(offsetParam !== null && { offset: offsetParam }),
     });
 
     if (!queryResult.success) {
-      log.warn("Invalid query parameters", {
+      log.warn('Invalid query parameters', {
         errors: queryResult.error.flatten(),
       });
-      return NextResponse.json(
-        { error: "Invalid query parameters" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
     }
 
     const { limit, offset } = queryResult.data;
 
     // 必要なカラムのみ取得してパフォーマンスを最適化
-    const newsList = await prisma.news.findMany({
+    const newsList = await getPrisma().news.findMany({
       select: {
         id: true,
         title: true,
         date: true,
         summary: true,
       },
-      orderBy: { date: "desc" },
+      orderBy: { date: 'desc' },
       take: limit,
       skip: offset,
     });
 
     const response = newsListResponseSchema.parse({ newsList });
 
-    log.info("News list fetched successfully", {
+    log.info('News list fetched successfully', {
       count: newsList.length,
       limit,
       offset,
@@ -86,13 +80,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    log.error(
-      "Failed to fetch news list",
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json(
-      { error: "Failed to fetch news" },
-      { status: 500 }
-    );
+    log.error('Failed to fetch news list', error instanceof Error ? error : new Error(String(error)));
+    return NextResponse.json({ error: 'Failed to fetch news' }, { status: 500 });
   }
 }

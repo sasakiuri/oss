@@ -2,12 +2,12 @@
 
 ## プロジェクト概要
 
-| 項目 | 内容 |
-|------|------|
-| プロジェクト名 | @acme/about.website |
+| 項目               | 内容                |
+| ------------------ | ------------------- |
+| プロジェクト名     | @acme/about.website |
 | Next.js バージョン | 16.0.7 (App Router) |
-| React バージョン | 19.2.0 |
-| 想定デプロイ先 | Vercel |
+| React バージョン   | 19.2.0              |
+| 想定デプロイ先     | Vercel              |
 
 ---
 
@@ -96,6 +96,7 @@
 ### サイクル3: テスト基盤追加
 
 **新規ファイル**:
+
 - `vitest.config.ts` - Vitest 設定
 - `playwright.config.ts` - Playwright 設定
 - `__tests__/setup.ts` - テストセットアップ
@@ -110,16 +111,16 @@
 
 ### 環境変数
 
-| 変数名 | 用途 | 必須 |
-|--------|------|------|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase API キー | Yes |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth ドメイン | Yes |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase プロジェクト ID | Yes |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase Storage バケット | Yes |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase Messaging ID | Yes |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase アプリ ID | Yes |
-| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Firebase Analytics ID | No |
-| `NEXT_PUBLIC_SITE_URL` | サイト URL | No (default: https://about.nilay.jp) |
+| 変数名                                     | 用途                      | 必須                                 |
+| ------------------------------------------ | ------------------------- | ------------------------------------ |
+| `NEXT_PUBLIC_FIREBASE_API_KEY`             | Firebase API キー         | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`         | Firebase Auth ドメイン    | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID`          | Firebase プロジェクト ID  | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`      | Firebase Storage バケット | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase Messaging ID     | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_APP_ID`              | Firebase アプリ ID        | Yes                                  |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`      | Firebase Analytics ID     | No                                   |
+| `NEXT_PUBLIC_SITE_URL`                     | サイト URL                | No (default: https://about.nilay.jp) |
 
 ### Vercel Secrets
 
@@ -133,6 +134,7 @@ vercel env add NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ### CSP 設定
 
 現在 Report-Only モードで運用。本番適用前に以下を確認：
+
 1. ブラウザコンソールで CSP 違反レポートを確認
 2. 問題がなければ `Content-Security-Policy-Report-Only` → `Content-Security-Policy` に変更
 
@@ -155,17 +157,17 @@ npx tsc --noEmit
 
 ### ユニットテスト
 
-| テストファイル | テスト数 | カバー対象 |
-|----------------|----------|------------|
-| `sanitize.test.ts` | 15 | セキュリティユーティリティ |
-| `home-target-store.test.ts` | 15 | Zustand ストア、計算ロジック |
+| テストファイル              | テスト数 | カバー対象                   |
+| --------------------------- | -------- | ---------------------------- |
+| `sanitize.test.ts`          | 15       | セキュリティユーティリティ   |
+| `home-target-store.test.ts` | 15       | Zustand ストア、計算ロジック |
 
 ### E2E テスト
 
-| テストファイル | シナリオ数 | カバー対象 |
-|----------------|------------|------------|
-| `contact.spec.ts` | 9 | お問い合わせフォーム、バリデーション、a11y |
-| `home-target.spec.ts` | 13 | 計算機能、言語切替、ダイアログ、a11y |
+| テストファイル        | シナリオ数 | カバー対象                                 |
+| --------------------- | ---------- | ------------------------------------------ |
+| `contact.spec.ts`     | 9          | お問い合わせフォーム、バリデーション、a11y |
+| `home-target.spec.ts` | 13         | 計算機能、言語切替、ダイアログ、a11y       |
 
 ### テスト実行コマンド
 
@@ -190,13 +192,13 @@ npm run test:e2e:ui
 
 ## 残タスク
 
-| タスク | 優先度 | 詳細 |
-|--------|--------|------|
-| Firebase API キーのハードコード削除 | **High** | `lib/env.ts` の devDefaults を環境変数のみに変更 |
-| CSP 本番適用 | **Medium** | Report-Only → 強制モードへ移行 |
-| 統合テスト追加 | **Medium** | API モック（MSW）を使った TanStack Query フックのテスト |
-| Bundle Analyzer 導入 | **Low** | `@next/bundle-analyzer` でバンドルサイズ監視 |
-| Lighthouse CI 導入 | **Low** | パフォーマンス・a11y の継続的監視 |
+| タスク                              | 優先度     | 詳細                                                    |
+| ----------------------------------- | ---------- | ------------------------------------------------------- |
+| Firebase API キーのハードコード削除 | **High**   | `lib/env.ts` の devDefaults を環境変数のみに変更        |
+| CSP 本番適用                        | **Medium** | Report-Only → 強制モードへ移行                          |
+| 統合テスト追加                      | **Medium** | API モック（MSW）を使った TanStack Query フックのテスト |
+| Bundle Analyzer 導入                | **Low**    | `@next/bundle-analyzer` でバンドルサイズ監視            |
+| Lighthouse CI 導入                  | **Low**    | パフォーマンス・a11y の継続的監視                       |
 
 ---
 
@@ -249,4 +251,4 @@ npm run test:e2e:ui
 
 ---
 
-*Generated: 2025-12-06*
+_Generated: 2025-12-06_

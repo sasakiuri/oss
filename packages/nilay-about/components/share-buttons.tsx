@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { LuTwitter, LuFacebook } from "react-icons/lu";
+import { LuTwitter, LuFacebook } from 'react-icons/lu';
 
 interface ShareButtonsProps {
   title: string;
@@ -9,16 +9,11 @@ interface ShareButtonsProps {
   className?: string;
 }
 
-export function ShareButtons({
-  title,
-  url,
-  twitter,
-  className,
-}: ShareButtonsProps) {
+export function ShareButtons({ title, url, twitter, className }: ShareButtonsProps) {
   const encodedTitle = encodeURIComponent(title);
   const encodedUrl = encodeURIComponent(url);
 
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}${twitter ? `&via=${twitter}` : ""}`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}${twitter ? `&via=${twitter}` : ''}`;
   const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
 
   return (

@@ -7,37 +7,60 @@
  * These utilities help prevent XSS and injection attacks
  */
 
-import "server-only";
-import DOMPurify from "isomorphic-dompurify";
+import 'server-only';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Allowlist of safe HTML tags for content display
  * These tags are commonly used in news/blog content and are generally safe
  */
 const ALLOWED_TAGS = [
-  "p", "br", "strong", "em", "b", "i", "u",
-  "h1", "h2", "h3", "h4", "h5", "h6",
-  "ul", "ol", "li",
-  "a", "blockquote", "code", "pre",
-  "span", "div",
+  'p',
+  'br',
+  'strong',
+  'em',
+  'b',
+  'i',
+  'u',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'a',
+  'blockquote',
+  'code',
+  'pre',
+  'span',
+  'div',
 ];
 
 /**
  * Safe attributes per tag
  */
 const ALLOWED_ATTR = [
-  "href", "title", "target", "rel",  // for <a>
-  "src", "alt", "width", "height",  // for <img> if needed
-  "class",  // for styling
+  'href',
+  'title',
+  'target',
+  'rel', // for <a>
+  'src',
+  'alt',
+  'width',
+  'height', // for <img> if needed
+  'class', // for styling
 ];
 
 // DOMPurifyフックを設定して target="_blank" に rel="noopener noreferrer" を強制
-DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
+DOMPurify.addHook('afterSanitizeAttributes', (node: Element) => {
   // a タグで target 属性がある場合、rel を強制付与
-  if (node.tagName === "A" && node.hasAttribute("target")) {
-    const target = node.getAttribute("target");
-    if (target === "_blank") {
-      node.setAttribute("rel", "noopener noreferrer");
+  if (node.tagName === 'A' && node.hasAttribute('target')) {
+    const target = node.getAttribute('target');
+    if (target === '_blank') {
+      node.setAttribute('rel', 'noopener noreferrer');
     }
   }
 });
@@ -56,7 +79,7 @@ DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
  * @returns Sanitized HTML safe for dangerouslySetInnerHTML
  */
 export function sanitizeHtml(html: string): string {
-  if (!html) return "";
+  if (!html) return '';
 
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
@@ -64,9 +87,7 @@ export function sanitizeHtml(html: string): string {
     // Prevent protocol attacks
     ALLOW_UNKNOWN_PROTOCOLS: false,
     // Forbid dangerous URI schemes
-    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
-    // Use secure defaults
-    USE_PROFILES: { html: true },
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
   });
 }
 
@@ -75,11 +96,11 @@ export function sanitizeHtml(html: string): string {
  */
 export function escapeHtml(str: string): string {
   const htmlEscapes: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
   };
 
   return str.replace(/[&<>"']/g, (char) => htmlEscapes[char] ?? char);
@@ -89,7 +110,7 @@ export function escapeHtml(str: string): string {
  * Strip HTML tags from string
  */
 export function stripHtml(str: string): string {
-  return str.replace(/<[^>]*>/g, "");
+  return str.replace(/<[^>]*>/g, '');
 }
 
 /**
@@ -107,7 +128,7 @@ export function sanitizeForDisplay(str: string): string {
 export function sanitizeUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
       return parsed.toString();
     }
     return null;
