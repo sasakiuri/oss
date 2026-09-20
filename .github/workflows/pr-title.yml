@@ -1,7 +1,8 @@
 name: PR Title
 
 on:
-  pull_request_target:
+  # Metadata-only validation: no checkout or execution of pull request code.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, edited, synchronize]
 
 permissions:

@@ -27,6 +27,7 @@ function needsFor({
       },
     },
     text: { result: "success" },
+    infrastructure: { result: "success" },
     lint: { result: ci ? "success" : "skipped" },
     "build-and-test": { result: build ? "success" : "skipped" },
     docs: { result: docs ? "success" : "skipped" },
@@ -44,7 +45,14 @@ test("all applicable checks must succeed for every supported plan", () => {
   ]) {
     const needs = needsFor(plan);
     assert.equal(requiredChecksPass(needs), true);
-    for (const name of ["changes", "text", "lint", "build-and-test", "docs"]) {
+    for (const name of [
+      "changes",
+      "text",
+      "infrastructure",
+      "lint",
+      "build-and-test",
+      "docs",
+    ]) {
       for (const result of ["failure", "cancelled", undefined])
         assert.equal(
           requiredChecksPass({ ...needs, [name]: { ...needs[name], result } }),
