@@ -2,9 +2,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+
 import { requiredChecksPass } from "./check-required-ci.mjs";
 
 function needsFor({
+  text = false,
+  infrastructure = false,
   ci = false,
   build = false,
   docs = false,
@@ -14,6 +17,8 @@ function needsFor({
     changes: {
       result: "success",
       outputs: {
+        text: String(text),
+        infrastructure: String(infrastructure),
         ci: String(ci),
         build: String(build),
         docs: String(docs),
@@ -26,8 +31,8 @@ function needsFor({
         ),
       },
     },
-    text: { result: "success" },
-    infrastructure: { result: "success" },
+    text: { result: text ? "success" : "skipped" },
+    infrastructure: { result: infrastructure ? "success" : "skipped" },
     lint: { result: ci ? "success" : "skipped" },
     "build-and-test": { result: build ? "success" : "skipped" },
     docs: { result: docs ? "success" : "skipped" },
@@ -35,14 +40,24 @@ function needsFor({
 }
 
 test("all applicable checks must succeed for every supported plan", () => {
-  for (const plan of [
+  const packagePlans = [
     {},
     { docs: true },
     { ci: true },
     { ci: true, build: true },
     { ci: true, build: true, electron: true },
     { ci: true, build: true, docs: true, electron: true },
-  ]) {
+  ];
+  const plans = packagePlans.flatMap((plan) =>
+    [false, true].flatMap((text) =>
+      [false, true].map((infrastructure) => ({
+        ...plan,
+        text,
+        infrastructure,
+      })),
+    ),
+  );
+  for (const plan of plans) {
     const needs = needsFor(plan);
     assert.equal(requiredChecksPass(needs), true);
     for (const name of [
@@ -71,7 +86,14 @@ test("all applicable checks must succeed for every supported plan", () => {
 });
 
 test("missing and malformed decisions cannot silently skip checks", () => {
-  for (const key of ["ci", "build", "docs", "electron"]) {
+  for (const key of [
+    "text",
+    "infrastructure",
+    "ci",
+    "build",
+    "docs",
+    "electron",
+  ]) {
     for (const value of [undefined, "", "True", true, false, null]) {
       const needs = needsFor();
       needs.changes.outputs[key] = value;

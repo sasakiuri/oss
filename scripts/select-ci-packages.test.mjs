@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+
 import {
   planForRevision,
   readGitWorkspaces,
@@ -24,6 +25,8 @@ test("an application change selects only that application", () => {
   assert.equal(plan.docs, false);
   assert.equal(plan.build, true);
   assert.equal(plan.electron, true);
+  assert.equal(plan.text, false);
+  assert.equal(plan.infrastructure, false);
   assert.deepEqual(plan.os, [
     "ubuntu-latest",
     "windows-latest",
@@ -154,6 +157,84 @@ test("repository documentation and unrelated workflows skip package jobs", () =>
   assert.equal(plan.ci, false);
   assert.equal(plan.build, false);
   assert.equal(plan.docs, false);
+  assert.equal(plan.text, true);
+  assert.equal(plan.infrastructure, true);
+});
+
+test("text and policy tooling changes do not rebuild applications", () => {
+  for (const file of [
+    "README.md",
+    "scripts/lint-text.mjs",
+    "scripts/lint-text.test.mjs",
+    "scripts/pre-release-check.sh",
+    "scripts/pre-release-check.test.mjs",
+    "scripts/dependabot-policy.test.mjs",
+    ".github/dependabot.yml",
+    ".github/workflows/dependabot-auto-merge.yml",
+    ".textlintignore",
+  ]) {
+    const plan = select([file]);
+    assert.equal(plan.text, true, file);
+    assert.equal(plan.ci, false, file);
+    assert.equal(plan.build, false, file);
+    assert.equal(plan.docs, false, file);
+  }
+  assert.equal(select(["README.md"]).infrastructure, false);
+  assert.equal(select(["scripts/lint-text.test.mjs"]).infrastructure, false);
+  assert.equal(select(["scripts/pre-release-check.sh"]).infrastructure, true);
+});
+
+test("infrastructure checks follow workflows, tools, shell and Docker inputs", () => {
+  for (const file of [
+    ".github/workflows/codeql.yml",
+    ".github/actions/setup-node/action.yml",
+    ".github/actionlint.yaml",
+    ".husky/pre-commit",
+    "scripts/pre-release-check.sh",
+    "scripts/lint-infra.mjs",
+    "docker/pdf/Dockerfile",
+    "Dockerfile.test",
+    ".shellcheckrc",
+    ".hadolint.yaml",
+    "zizmor.yml",
+    ".gitignore",
+    ".gitattributes",
+  ])
+    assert.equal(select([file]).infrastructure, true, file);
+  const plan = select(["scripts/lint-infra.mjs"]);
+  assert.equal(plan.text, false);
+  assert.equal(plan.ci, false);
+  assert.equal(plan.docs, false);
+  assert.equal(select([".github/workflows/codeql.yml"]).text, false);
+});
+
+test("text checks include configuration and dependency changes", () => {
+  for (const file of [
+    ".textlintrc.json",
+    "packages/saika-docs/.textlintrc.cjs",
+    "package.json",
+    "package-lock.json",
+    "packages/saika-docs/package.json",
+    "scripts/check-english-only.mjs",
+    ".github/workflows/ci.yml",
+    ".github/actions/setup-node/action.yml",
+  ])
+    assert.equal(select([file]).text, true, file);
+  assert.equal(select([".textlintrc.json"]).docs, true);
+});
+
+test("narrow tooling changes preserve application and unknown-input coverage", () => {
+  const plan = select([
+    "scripts/lint-text.test.mjs",
+    "packages/saika-lane/src/main.ts",
+  ]);
+  assert.deepEqual(names(plan), ["saika-lane"]);
+  assert.equal(plan.text, true);
+  assert.equal(plan.build, true);
+  assert.equal(plan.electron, true);
+  const unknown = select(["scripts/new-shared-tool.mjs"]);
+  assert.deepEqual(unknown.packages, select(["package.json"]).packages);
+  assert.equal(unknown.docs, true);
 });
 
 test("deleted and renamed packages retain consumers from the previous graph", () => {
@@ -240,6 +321,11 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
     "three",
     "two",
   ]);
+  assert.equal(planForRevision("0".repeat(40), renamed, cwd).text, true);
+  assert.equal(
+    planForRevision("0".repeat(40), renamed, cwd).infrastructure,
+    true,
+  );
   assert.throws(
     () => planForRevision(undefined, renamed, cwd),
     /explicit base/,

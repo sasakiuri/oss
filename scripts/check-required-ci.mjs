@@ -4,12 +4,10 @@ import { fileURLToPath } from "node:url";
 export function requiredChecksPass(needs) {
   if (!needs || typeof needs !== "object") return false;
   if (needs.changes?.result !== "success") return false;
-  if (needs.text?.result !== "success") return false;
-  if (needs.infrastructure?.result !== "success") return false;
   const outputs = needs.changes.outputs;
   if (
-    !["ci", "build", "docs", "electron"].every((key) =>
-      ["true", "false"].includes(outputs?.[key]),
+    !["text", "infrastructure", "ci", "build", "docs", "electron"].every(
+      (key) => ["true", "false"].includes(outputs?.[key]),
     )
   )
     return false;
@@ -36,6 +34,9 @@ export function requiredChecksPass(needs) {
     return false;
   }
   return (
+    needs.text?.result === (outputs.text === "true" ? "success" : "skipped") &&
+    needs.infrastructure?.result ===
+      (outputs.infrastructure === "true" ? "success" : "skipped") &&
     needs.lint?.result === (ci ? "success" : "skipped") &&
     needs["build-and-test"]?.result === (build ? "success" : "skipped") &&
     needs.docs?.result === (docs ? "success" : "skipped")

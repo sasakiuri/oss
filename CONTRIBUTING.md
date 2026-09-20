@@ -120,15 +120,23 @@ Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequis
 Electron application changes run on Linux, Windows, and macOS. When no Electron
 package is affected, build jobs run only on Linux. Saika Docs keeps its dedicated
 quality workflow. Root dependency lock files, shared configuration, and CI scripts
-select all workspaces. Repository documentation and
-unrelated workflow settings skip package jobs. Shared repository consistency and
-security checks remain enabled, and `CI Required` rejects failed detection or
-unexpectedly skipped checks. The Changes job summary lists the selected packages.
+select all workspaces. Repository documentation, text and release-check tooling,
+dependency update policy, and infrastructure lint tooling skip package jobs.
+Unknown shared scripts still select all workspaces.
 
-Infrastructure checks run on every PR, including documentation-only changes,
-and are required by `CI Required`. Changed-code coverage and core mutation
-checks run inside the applicable build jobs. Docs runs API lint and a local
-production-server k6 smoke test in its dedicated workflow.
+Text and tooling checks run when documents, their configuration, dependencies,
+or the checked tools change. Infrastructure checks run when workflows, Actions,
+shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
+tool change. Security checks remain enabled. `CI Required` rejects failed
+detection, failed applicable checks, and unexpected skips. The Changes job
+summary lists the selected packages and shared checks.
+
+Changed-code coverage, core mutation checks, and bundle size limits run inside
+the applicable build jobs. Bundle size results are available in the CI logs;
+there is no separate rebuild for a size comparison comment. Test reports process
+only existing CI artifacts in one job while keeping OS-specific report names.
+Docs runs API lint and a local production-server k6 smoke test in its dedicated
+workflow.
 
 Dependabot updates the npm workspaces through the shared root lockfile. Normal
 updates run weekly with a seven-day cooldown; security updates bypass cooldown.
