@@ -22,7 +22,7 @@ export function packageCommands(task, names, workspaces) {
       ["exec", "--", "turbo", task, ...names.map((name) => `--filter=${name}`)],
     ];
   }
-  if (["test", "test:e2e"].includes(task)) {
+  if (["test", "test:e2e", "test:mutation"].includes(task)) {
     return packages.flatMap((pkg) => {
       const script =
         task === "test" && pkg.scripts?.["test:coverage"]

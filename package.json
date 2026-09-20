@@ -54,7 +54,8 @@
     "typecheck": "turbo typecheck",
     "knip": "knip",
     "prepare": "node .husky/install.mjs",
-    "postinstall": "electron-rebuild -f -w @serialport/bindings-cpp,better-sqlite3 --module-dir=."
+    "postinstall": "electron-rebuild -f -w @serialport/bindings-cpp,better-sqlite3 --module-dir=.",
+    "coverage:diff": "node scripts/coverage-diff-check.mjs"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
@@ -76,7 +77,9 @@
     "syncpack": "^14.2.1",
     "textlint": "^15.8.0",
     "textlint-rule-ja-space-between-half-and-full-width": "^2.4.2",
-    "turbo": "^2.10.11"
+    "turbo": "^2.10.11",
+    "istanbul-lib-coverage": "3.2.2",
+    "picomatch": "4.0.7"
   },
   "volta": {
     "node": "22.22.2",
