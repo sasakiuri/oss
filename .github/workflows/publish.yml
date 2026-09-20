@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Setup environment
         uses: ./.github/actions/setup-node
@@ -32,7 +32,7 @@ jobs:
 
       - name: Create Release Pull Request or Publish
         id: changesets
-        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v1
         with:
           publish: npx changeset publish --provenance
           version: npx changeset version
