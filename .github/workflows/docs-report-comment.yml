@@ -32,6 +32,6 @@ jobs:
           if run['conclusion'] != 'success': raise SystemExit('The selected run did not pass')
           if not any(pr['number'] == int(os.environ['PR_NUMBER']) for pr in run.get('pull_requests', [])): raise SystemExit('Run does not belong to the selected PR')
           with open('body.md', 'w') as output:
-              output.write('Docs の検証が通過しました。カバレッジ・Lighthouse・ブラウザ検証の詳細は [検証結果と成果物](' + run['html_url'] + ') を参照してください。\n')
+              output.write('Docs validation passed. See [validation results and artifacts](' + run['html_url'] + ') for coverage, Lighthouse, and browser test details.\n')
           PYCODE
           gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file body.md
