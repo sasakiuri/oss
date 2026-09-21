@@ -1,14 +1,17 @@
 import { expose } from 'comlink';
 
 import { createSearchIndex, parseSearchDocuments, searchExcerpt } from './search';
-import type { SearchWorkerApi } from './search-protocol';
+import type { SearchScope, SearchWorkerApi } from './search-protocol';
 
 let index: Promise<ReturnType<typeof createSearchIndex>> | undefined;
+let pdfIndex: Promise<ReturnType<typeof createSearchIndex>> | undefined;
 
-async function loadIndex() {
-  const response = await fetch('/search-index.json');
+async function loadIndex(pdf = false) {
+  const response = await fetch(pdf ? '/pdf-search-index.json' : '/search-index.json');
   if (!response.ok) throw new Error('Search index unavailable');
-  return createSearchIndex(parseSearchDocuments(await response.json()));
+  const documents = parseSearchDocuments(await response.json());
+  if (documents.some((document) => (document.type === 'pdf') !== pdf)) throw new Error('Unexpected index type');
+  return createSearchIndex(documents);
 }
 
 async function getIndex() {
@@ -21,13 +24,26 @@ async function getIndex() {
   }
 }
 
+async function getPdfIndex() {
+  try {
+    pdfIndex ??= loadIndex(true);
+    return await pdfIndex;
+  } catch {
+    pdfIndex = undefined;
+    throw new Error('PDF search unavailable');
+  }
+}
+
 expose({
   async load() {
     await getIndex();
   },
-  async search(query: string) {
-    const loaded = await getIndex();
-    const results = loaded.search(query.trim());
+  async search(query: string, scope: SearchScope = 'all') {
+    if (!query.trim()) return { total: 0, hits: [] };
+    const loaded = await (scope === 'pdf' ? getPdfIndex() : getIndex());
+    const results = loaded.search(query.trim(), {
+      filter: (result) => scope === 'all' || result.type === scope,
+    });
     return {
       total: results.length,
       hits: results.slice(0, 20).map((result) => ({

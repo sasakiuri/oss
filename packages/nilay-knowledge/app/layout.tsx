@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 import { Footer } from '@/components/footer';
 import { GoogleAnalytics } from '@/components/google-analytics';
@@ -55,16 +56,18 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <ThemeProvider>
-          <SkipLink />
-          <GoogleAnalytics />
-          <Header />
-          <NavigationFocus />
-          <main id="main-content" tabIndex={-1} className="min-h-screen">
-            {children}
-          </main>
-          <Footer />
-        </ThemeProvider>
+        <NuqsAdapter>
+          <ThemeProvider>
+            <SkipLink />
+            <GoogleAnalytics />
+            <Header />
+            <NavigationFocus />
+            <main id="main-content" tabIndex={-1} className="min-h-screen">
+              {children}
+            </main>
+            <Footer />
+          </ThemeProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );

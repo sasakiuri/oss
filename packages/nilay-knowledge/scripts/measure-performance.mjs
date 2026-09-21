@@ -42,8 +42,8 @@ try {
         .getByRole('navigation', { name: 'メインナビゲーション' })
         .getByRole('button', { name: '記事・ニュースを検索' })
         .click();
-      await page.getByRole('searchbox').fill('申請');
-      await page.getByRole('dialog').getByRole('link').first().waitFor();
+      await page.getByRole('combobox', { name: '検索キーワード' }).fill('申請');
+      await page.getByRole('dialog').getByRole('listbox').getByRole('option').first().waitFor();
       const search = await page.evaluate(() => ({ ...window.knowledgePerformance, end: performance.now() }));
       const sum = (resources) => resources.reduce((total, resource) => total + resource.bytes, 0);
       const images = initial.resources.filter((resource) => /\.(png|jpg|webp)$|\/_next\/image/.test(resource.path));

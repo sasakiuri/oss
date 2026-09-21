@@ -35,16 +35,41 @@ export const frontmatterSchema = z.object(
   { error: 'a mapping' },
 );
 
+function isSearchDestination(document: { id: string; type: string }): boolean {
+  if (document.type !== 'pdf') {
+    return new RegExp(`^/${document.type}/[a-zA-Z0-9][a-zA-Z0-9_-]*/(?:#[^\\s#]+)?$`).test(document.id);
+  }
+  try {
+    const url = new URL(document.id, 'https://content.invalid');
+    return (
+      url.origin === 'https://content.invalid' &&
+      !url.search &&
+      url.pathname + url.hash === document.id &&
+      /^\/content\/(?:(?:articles|news)\/[a-zA-Z0-9][a-zA-Z0-9_-]*\/|assets\/).+\.pdf$/i.test(url.pathname) &&
+      /^#page=[1-9]\d*$/.test(url.hash) &&
+      url.pathname
+        .split('/')
+        .slice(1)
+        .every((part) => {
+          const decoded = decodeURIComponent(part);
+          return decoded !== '.' && decoded !== '..' && !/[\\/\u0000-\u001f\u007f]/.test(decoded);
+        })
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const searchDocumentSchema = z
   .object({
     id: z.string(),
-    type: z.enum(contentTypes),
+    type: z.enum([...contentTypes, 'pdf']),
     title: z.string(),
     section: z.string(),
     tags: z.array(z.string()),
     text: z.string(),
   })
-  .refine((document) => new RegExp(`^/${document.type}/[a-zA-Z0-9][a-zA-Z0-9_-]*/(?:#[^\\s#]+)?$`).test(document.id), {
+  .refine(isSearchDestination, {
     path: ['id'],
     error: 'Invalid search destination',
   });

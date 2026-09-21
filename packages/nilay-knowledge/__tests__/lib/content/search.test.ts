@@ -145,4 +145,17 @@ describe('search content', () => {
     expect(excerpt.endsWith('…')).toBe(true);
     expect(excerpt.length).toBeLessThanOrEqual(162);
   });
+  it.each([
+    'https://evil.example/file.pdf#page=1',
+    '/content/articles/a/../../secret.pdf#page=1',
+    '/content/articles/a/%2e%2e/secret.pdf#page=1',
+    '/content/articles/a/%2fsecret.pdf#page=1',
+    '/content/articles/a/secret.pdf?download=1#page=1',
+    '/content/articles/a/secret.pdf#page=0',
+    '/content/articles/a/secret.html#page=1',
+  ])('rejects unsafe PDF search destination %s', (id) => {
+    expect(() =>
+      parseSearchDocuments([{ id, type: 'pdf', title: 'PDF', section: '1ページ', tags: [], text: '本文' }]),
+    ).toThrow();
+  });
 });

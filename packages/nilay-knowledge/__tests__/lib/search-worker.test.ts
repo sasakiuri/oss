@@ -88,4 +88,32 @@ describe('search worker API', () => {
       expect(fetchIndex).toHaveBeenCalledTimes(2);
     },
   );
+  it('loads PDF data separately, filters before limiting, and reuses the PDF index', async () => {
+    const pdf = { ...documents[0]!, type: 'pdf', id: '/content/articles/example/file.pdf#page=2' };
+    const news = { ...documents[0]!, type: 'news', id: '/news/20260921/' };
+    fetchIndex.mockImplementation(async (url) => ({
+      ok: true,
+      json: async () => (url === '/pdf-search-index.json' ? [pdf] : [...documents, news]),
+    }));
+    await api.load();
+    expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json');
+    expect(await api.search('印刷', 'news')).toMatchObject({ total: 1, hits: [{ type: 'news' }] });
+    expect(await api.search('印刷', 'articles')).toMatchObject({ total: 25 });
+    expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1, hits: [{ id: pdf.id, type: 'pdf' }] });
+    await api.search('申請', 'pdf');
+    expect(fetchIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not download PDF data for an empty query and retries failures without losing article data', async () => {
+    await api.load();
+    await api.search('', 'pdf');
+    expect(fetchIndex).toHaveBeenCalledTimes(1);
+    fetchIndex.mockResolvedValueOnce({ ok: false });
+    await expect(api.search('印刷', 'pdf')).rejects.toThrow('PDF search unavailable');
+    expect(await api.search('印刷')).toMatchObject({ total: 25 });
+    const pdf = { ...documents[0]!, type: 'pdf', id: '/content/articles/example/file.pdf#page=2' };
+    fetchIndex.mockResolvedValueOnce({ ok: true, json: async () => [pdf] });
+    expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
+    expect(fetchIndex).toHaveBeenCalledTimes(3);
+  });
 });

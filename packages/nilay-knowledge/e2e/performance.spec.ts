@@ -11,13 +11,13 @@ test('search creates its worker only on demand and reuses it across dialog openi
   expect(page.workers()).toHaveLength(0);
   expect(indexes).toHaveLength(0);
   await page.getByRole('main').getByRole('button', { name: '記事・ニュースを検索' }).click();
-  await page.getByRole('searchbox').fill('申請');
-  await expect(page.getByRole('dialog').getByRole('link').first()).toBeVisible();
+  await page.getByRole('combobox', { name: '検索キーワード' }).fill('申請');
+  await expect(page.getByRole('dialog').getByRole('listbox').getByRole('option').first()).toBeVisible();
   expect(page.workers()).toHaveLength(1);
   const worker = page.workers()[0];
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
-  await expect(page.getByRole('dialog').getByRole('link').first()).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('listbox').getByRole('option').first()).toBeVisible();
   expect(page.workers()).toEqual([worker]);
   expect(indexes).toHaveLength(1);
 });

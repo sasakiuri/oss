@@ -33,6 +33,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   agentRules: false,
+  serverExternalPackages: ['pdfjs-dist'],
   images: {
     localPatterns: [{ pathname: '/content/**' }],
     qualities: [65, 75],
