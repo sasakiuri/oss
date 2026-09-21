@@ -256,7 +256,9 @@ Use `updated` when the article actually changes; merely recording a check does n
 automatically change RSS, sitemap or Article modification dates. The external-link
 check includes the recorded sources.
 
-The fees article has a scoped Tokyo review. Other articles retain an unrecorded
+The fees article checks 21 fee amounts and categories against the national Cabinet
+Order on standard local-government fees, citing each corresponding table item.
+Actual charges are set by local ordinances. Other articles retain an unrecorded
 check date until their contents have been checked against the relevant sources.
 
 ## Editorial checks
