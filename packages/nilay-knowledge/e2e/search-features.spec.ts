@@ -116,6 +116,9 @@ test('native search scope keys do not select or open a result', async ({ page })
   await scope.press('Enter');
   await expect(dialog).toBeVisible();
   await expect(scope).toBeFocused();
+  expect(new URL(page.url()).pathname).toBe('/');
+  // Native popup navigation differs by OS; verify filtering with an explicit selection.
+  await scope.selectOption('articles');
   await expect(scope).toHaveValue('articles');
   await expect(results.first()).toBeVisible();
   expect(

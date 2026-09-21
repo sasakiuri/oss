@@ -72,11 +72,29 @@ describe('SnsShare accessibility', () => {
     screen.getByRole('link', { name: /^Twitter/ }).focus();
     screen.getByRole('link', { name: /^LINE/ }).focus();
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.blur(screen.getByRole('link', { name: /^LINE/ }), { relatedTarget: null });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    act(() => trigger.focus());
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    screen.getByRole('link', { name: /^LINE/ }).focus();
 
     const next = screen.getByRole('button', { name: '次の操作' });
     act(() => next.focus());
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(next).toHaveFocus();
+  });
+
+  it('closes when the trigger is clicked after focusing a share link', async () => {
+    render(<SnsShare />);
+    const trigger = screen.getByRole('button', { name: 'SNSで共有' });
+    await act(async () => fireEvent.click(trigger));
+    screen.getByRole('link', { name: /^LINE/ }).focus();
+    fireEvent.pointerDown(trigger);
+    act(() => trigger.focus());
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('dismisses on an outside pointer press without leaving focus inside the hidden panel', async () => {
