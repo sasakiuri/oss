@@ -61,6 +61,35 @@ Upstash への接続エラーでもリクエストを許可します。
 本番起動の前にビルドを実行し、環境変数を設定してください。
 `.next/` と `lib/generated/prisma/` は生成物のためコミットしません。
 
+## Vercel へのデプロイ
+
+既存の Vercel プロジェクトを使い、次のように設定します。
+
+| 設定                                            | 値                     |
+| ----------------------------------------------- | ---------------------- |
+| Git リポジトリ                                  | `sasakiuri/oss`        |
+| Production Branch                               | `1.x`                  |
+| Root Directory                                  | `packages/nilay-about` |
+| Include source files outside the Root Directory | 有効                   |
+| Node.js                                         | `24.x`                 |
+
+[`vercel.json`](vercel.json) で Next.js、インストール・ビルドコマンド、出力先 `.next/` を指定しています。
+インストールはルートで `npm ci --ignore-scripts` を実行し、Electron 用の再ビルドを省略します。
+ビルドはこのパッケージで `npm run build` を実行し、Prisma クライアントも生成します。
+
+既存プロジェクトの Git 設定で `sasakiuri/oss` を接続し、上記のビルド設定と本番ブランチを更新します。
+ドメインと環境変数は既存プロジェクトの設定を引き継ぎます。
+別のパッケージパスを参照する Ignored Build Step があれば解除してください。
+本番環境には、上記「環境変数」の `NEXT_PUBLIC_SITE_URL`、`LOG_MASKING_SECRET` と、
+利用するサービスの接続情報を設定します。公開 URL はビルド時にも必要です。
+
+この設定を含む `1.x` のコミットから新しいデプロイを作成します。
+過去のデプロイを再実行すると、その時点のソースが使われます。
+Preview の確認後に本番へ反映し、トップページ、Labs、ニュース API の応答を確認してください。
+
+詳細は Vercel の [Git 設定](https://vercel.com/docs/project-configuration/git-settings)と
+[モノレポ設定](https://vercel.com/docs/monorepos)を参照してください。
+
 ## E2E テスト
 
 ```bash
