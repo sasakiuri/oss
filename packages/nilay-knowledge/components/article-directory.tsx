@@ -21,7 +21,11 @@ export interface ArticleDirectoryProps {
   entries: Record<string, ReactNode>;
 }
 
-export function ArticleDirectory({ articles, entries }: ArticleDirectoryProps) {
+export function ArticleDirectory({
+  articles,
+  entries,
+  structuredData,
+}: ArticleDirectoryProps & { structuredData?: ReactNode }) {
   const [{ category, tag: tags }, setFilters] = useQueryStates(
     { category: parseAsString.withDefault(''), tag: parseAsNativeArrayOf(parseAsString) },
     { history: 'push', shallow: true, scroll: false },
@@ -55,6 +59,8 @@ export function ArticleDirectory({ articles, entries }: ArticleDirectoryProps) {
 
   return (
     <div className="min-w-0">
+      {/* Full-directory markup only describes the unfiltered, visible list. */}
+      {!active && structuredData}
       <section aria-labelledby="article-filters" className="border-b border-line pb-6">
         <h2 id="article-filters" className="text-lg font-semibold text-ink">
           記事を絞り込む

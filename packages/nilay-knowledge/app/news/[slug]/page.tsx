@@ -62,9 +62,12 @@ export default async function NewsDetailPage({ params }: Props) {
       <div className="reading-layout mx-auto max-w-3xl px-5 pt-8 pb-12 sm:px-8">
         <article className="reading-article min-w-0">
           <header className="mb-8 border-b border-line pb-8">
-            <time dateTime={frontmatter.published} className="text-sm text-subtle">
-              {formatDate(frontmatter.published)}
-            </time>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-subtle">
+              <time dateTime={frontmatter.published}>{formatDate(frontmatter.published)} 公開</time>
+              {frontmatter.updated && (
+                <time dateTime={frontmatter.updated}>{formatDate(frontmatter.updated)} 更新</time>
+              )}
+            </div>
             <h1 className="page-title mt-3 [font-feature-settings:palt]">
               <TitleText>{frontmatter.title}</TitleText>
             </h1>

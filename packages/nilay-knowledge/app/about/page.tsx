@@ -1,19 +1,22 @@
 import Link from 'next/link';
 
 import { Breadcrumb } from '@/components/breadcrumb';
+import { JsonLd } from '@/components/json-ld';
 import { SnsShare } from '@/components/sns-share';
 import { siteConfig } from '@/lib/config';
 import { createPageMetadata } from '@/lib/metadata';
+import { createAboutSchema } from '@/lib/schema';
 
 export const dynamic = 'force-static';
 
 const title = 'このサイトについて';
 const slug = 'about';
+const description =
+  'Nilay/Knowledge は、銃・射撃・狩猟に関する情報を蓄積し、体系的にまとめるサイトです。運営者、情報の確認方法、記事の訂正窓口、関連サービスを紹介します。';
 
 export const metadata = createPageMetadata({
   title,
-  description:
-    'Nilay/Knowledge は、銃・射撃・狩猟に関する情報を蓄積し、体系的にまとめるサイトです。掲載コンテンツ、関連サービス、SNS の運用方針、お問い合わせ先を紹介します。',
+  description,
   path: '/about/',
 });
 
@@ -36,6 +39,7 @@ export default function AboutPage() {
 
   return (
     <>
+      <JsonLd data={createAboutSchema({ title, description })} />
       <Breadcrumb
         items={[
           { name: 'トップ', slug: '' },
@@ -49,6 +53,22 @@ export default function AboutPage() {
           <div className="py-2">
             <p className="leading-relaxed">
               Nilay/Knowledge は銃・射撃・狩猟に関する情報を蓄積し体系的にまとめることを目的としています。
+            </p>
+          </div>
+        </Section>
+
+        <Section title="運営者・掲載情報の確認と訂正">
+          <div className="space-y-4 py-2 leading-8">
+            <p>運営・編集：{siteConfig.author.name}</p>
+            <p>
+              記事とニュースには公開日を表示し、更新日が記録されている場合は併記しています。日付は日本時間です。
+              法令、手数料、講習日程などは変更されるため、記事の日付と出典をご確認ください。
+              手続きや申込みの際は、参照先の官公庁・団体の案内や担当窓口で最新の情報をご確認ください。
+            </p>
+            <p>
+              誤りや古い情報を見つけた場合は、各記事末尾の「修正を依頼（Issue）」または「編集して提案（PR）」から、
+              対象の箇所と参考資料をお知らせください。GitHub
+              を利用しない場合は、このページのお問い合わせ先をご利用ください。
             </p>
           </div>
         </Section>

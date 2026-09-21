@@ -49,6 +49,19 @@ describe('frontmatter validation', () => {
     expect(() => parseFrontmatter(input, source)).toThrow(`${source}: frontmatter must be a mapping`);
   });
 
+  it('rejects modification dates before publication, comparing instants across timezones', () => {
+    expect(() => parseFrontmatter({ ...metadata, updated: '2024-02-28' }, source)).toThrow(
+      `${source}: updated must be on or after published`,
+    );
+    const published = '2024-03-01T00:30:00+09:00';
+    expect(() => parseFrontmatter({ ...metadata, published, updated: '2024-02-29T15:29:59Z' }, source)).toThrow(
+      `${source}: updated must be on or after published`,
+    );
+    expect(parseFrontmatter({ ...metadata, published, updated: '2024-02-29T15:30:00Z' }, source).updated).toBe(
+      '2024-02-29T15:30:00Z',
+    );
+  });
+
   it.each([
     [undefined, 'a non-empty string'],
     ['', 'a non-empty string'],

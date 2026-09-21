@@ -4,24 +4,37 @@ import { Suspense } from 'react';
 import { ArticleDirectory, ArticleDirectoryResults } from '@/components/article-directory';
 import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { JsonLd } from '@/components/json-ld';
 import { HomeSearchButton } from '@/components/search-dialog';
 import { TitleText } from '@/components/title-text';
 import { articleCategoryHref } from '@/lib/content/category-pages';
 import { listContent } from '@/lib/content/server';
 import { createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
 import { createPageMetadata } from '@/lib/metadata';
+import { createCollectionSchema } from '@/lib/schema';
 
 const title = '記事一覧';
+const description =
+  '猟銃・空気銃の所持許可、狩猟免許、申請書類、射撃・狩猟の基礎知識をまとめた記事一覧。カテゴリーとタグから、手続きの解説や狩猟鳥獣図鑑、射撃場の情報を探せます。';
 export const metadata = createPageMetadata({
   title,
-  description:
-    '猟銃・空気銃の所持許可、狩猟免許、申請書類、射撃・狩猟の基礎知識をまとめた記事一覧。カテゴリーとタグから、手続きの解説や狩猟鳥獣図鑑、射撃場の情報を探せます。',
+  description,
   path: '/articles/',
 });
 
 export default async function ArticlesPage() {
   const articles = createArticleDirectory(await listContent('articles'));
   const categories = getDirectoryCategories(articles);
+  const structuredData = (
+    <JsonLd
+      data={createCollectionSchema({
+        title,
+        description,
+        path: '/articles/',
+        articles: categories.flatMap((category) => articles.filter((article) => article.category.id === category.id)),
+      })}
+    />
+  );
   const entries = Object.fromEntries(
     articles.map((article) => [
       article.slug,
@@ -77,8 +90,15 @@ export default async function ArticlesPage() {
             </Link>
           </nav>
           <div className="min-w-0 space-y-8">
-            <Suspense fallback={<ArticleDirectoryResults articles={articles} entries={entries} />}>
-              <ArticleDirectory articles={articles} entries={entries} />
+            <Suspense
+              fallback={
+                <>
+                  {structuredData}
+                  <ArticleDirectoryResults articles={articles} entries={entries} />
+                </>
+              }
+            >
+              <ArticleDirectory articles={articles} entries={entries} structuredData={structuredData} />
             </Suspense>
           </div>
         </div>

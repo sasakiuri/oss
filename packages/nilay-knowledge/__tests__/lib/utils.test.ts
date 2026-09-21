@@ -30,6 +30,14 @@ describe('cn (className merge utility)', () => {
 });
 
 describe('formatDate', () => {
+  it.each([
+    ['2024-01-15T00:30:00+09:00', '2024年1月15日'],
+    ['2024-12-31T16:00:00Z', '2025年1月1日'],
+    ['2024-01-15', '2024年1月15日'],
+  ])('displays %s in Japan time independently of the server timezone', (input, expected) => {
+    expect(formatDate(input)).toBe(expected);
+  });
+
   it('formats date in Japanese locale', () => {
     const result = formatDate('2024-01-15');
     expect(result).toContain('2024');
@@ -44,6 +52,11 @@ describe('formatDate', () => {
 });
 
 describe('formatDateShort', () => {
+  it('keeps the same Japan calendar date as the full date at the UTC day boundary', () => {
+    expect(formatDateShort('2024-01-15T00:30:00+09:00')).toBe('2024/01/15');
+    expect(formatDateShort('2024-12-31T16:00:00Z')).toBe('2025/01/01');
+  });
+
   it('formats date in short format', () => {
     const result = formatDateShort('2024-01-15');
     // Format: YYYY/MM/DD
