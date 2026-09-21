@@ -172,13 +172,16 @@ test('share popover dismisses when another control is clicked without stealing i
 for (const shortcut of ['Control+k', 'Meta+k']) {
   test(`search opens from a share link with ${shortcut} and restores a connected control`, async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'SNSで共有' }).click();
-    const popover = page.getByRole('dialog', { name: '共有先' });
+    const share = page.getByRole('button', { name: 'SNSで共有', includeHidden: true });
+    await share.click();
+    const popover = page.getByRole('dialog', { name: '共有先', includeHidden: true });
     await popover.getByRole('link').first().focus();
     await page.keyboard.press(shortcut);
     const search = page.getByRole('dialog', { name: '記事・ニュースを検索' });
     await expect(search.getByRole('combobox', { name: '検索キーワード' })).toBeFocused();
-    await expect(popover).not.toBeVisible();
+    // A modal hides background content from accessibility APIs before it unmounts.
+    await expect(share).toHaveAttribute('aria-expanded', 'false');
+    await expect(popover).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(search).not.toBeVisible();
     await expect(

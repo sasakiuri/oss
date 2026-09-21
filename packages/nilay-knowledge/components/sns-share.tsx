@@ -99,6 +99,16 @@ function ShareMenu({
             // Keep focus on the trigger; the next Tab reaches the first share link.
             event.preventDefault();
           }}
+          onBlur={(event) => {
+            // Release this layer when another dialog takes focus, before it can consume Escape.
+            if (
+              event.relatedTarget &&
+              !event.currentTarget.contains(event.relatedTarget) &&
+              event.relatedTarget !== triggerRef.current
+            ) {
+              setIsOpen(false);
+            }
+          }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             // An outside pointer press may remove the focused link without focusing another element.
