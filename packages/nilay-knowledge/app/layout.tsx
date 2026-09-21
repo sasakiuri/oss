@@ -61,7 +61,7 @@ export default function RootLayout({
           <ThemeProvider>
             <SkipLink />
             <GoogleAnalytics />
-            <SpeedInsights />
+            {process.env.VERCEL === '1' && <SpeedInsights />}
             <Header />
             <NavigationFocus />
             <main id="main-content" tabIndex={-1} className="flex-1">
