@@ -150,8 +150,8 @@ articles prioritize shared tags, then the same category, using editorial order t
 break ties. Unclassified articles are not related solely because they lack a category.
 
 The [metadata validator](lib/content/frontmatter.ts) requires `title`, `published` and `tags`. Dates accept `YYYY-MM-DD` or ISO
-timestamps with a timezone, and invalid calendar dates fail validation. `updated`
-and `image` are optional for both collections. Invalid metadata reports the source
+timestamps with a timezone, and invalid calendar dates fail validation. `updated`,
+`image` and `description` are optional for both collections. Invalid metadata reports the source
 file and field; I/O and parsing failures propagate. Slugs must be single URL
 segments made of letters, digits, underscores and hyphens, starting with a letter
 or digit. The server adapter treats invalid public route segments as missing
@@ -281,6 +281,44 @@ external links. Reports are retained for 30 days. Tests of actual lychee detecti
 run when the binary is available, including in that workflow; otherwise those
 integration cases are skipped. `lint:links:prepare` generates the inputs alone
 for CI.
+
+## Search metadata and crawl checks
+
+Each public page has a canonical URL with a trailing slash and its own description,
+Open Graph and Twitter metadata. Article frontmatter supports an optional plain-text
+`description`; the committed guides include editorial summaries. Without that field,
+the first visible paragraph supplies the summary. Markdown syntax, HTML comments,
+styles, scripts and hidden elements are excluded. Summaries are limited to 160 Unicode
+code points and shared by meta tags, Article/NewsArticle JSON-LD and RSS.
+This is an editorial limit, not a Google requirement or a guarantee of snippet length.
+Publication and modification dates come from frontmatter, never the build time.
+
+`app/robots.ts` advertises the sitemap and allows crawling, including page resources
+and social images. `X-Robots-Tag: noindex` applies only to public Markdown copies and
+the two search JSON indexes. It does not block crawling of those files, so crawlers
+can read the directive. PDF documents, images and archived HTML remain indexable.
+Filtered article directory URLs canonicalize to `/articles/`.
+
+After building, run the full-site checks and the representative Lighthouse audit:
+
+```bash
+npm run test:seo --workspace=@sasakiuri/nilay-knowledge
+npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
+```
+
+The SEO checks fetch every sitemap URL and inspect delivered HTML with JavaScript
+disabled. They verify repository/sitemap parity, HTTP status, unique titles and
+descriptions, canonicals, social metadata, structured data, crawlable internal links,
+robots rules, source headers and missing-page behavior. They run with the normal
+Playwright suite as well. Lighthouse samples seven pages on desktop and mobile;
+its SEO score alone does not detect duplicate descriptions or incomplete structured
+data. Local checks do not measure Google indexing or search rankings.
+
+The implementation follows Google's guidance on
+[descriptions](https://developers.google.com/search/docs/appearance/snippet),
+[canonical URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls),
+[Article structured data](https://developers.google.com/search/docs/appearance/structured-data/article)
+and [robots directives](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag).
 
 ## Reading, search and printing
 

@@ -6,11 +6,14 @@ import { ArticleFeedback } from '@/components/article-feedback';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
+import { JsonLd } from '@/components/json-ld';
 import { MarkdownContent } from '@/components/markdown-content';
 import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
+import { siteConfig } from '@/lib/config';
 import { createContentMetadata } from '@/lib/content/metadata';
 import { getContentDocument, getContentSource, listContentSlugs } from '@/lib/content/server';
+import { createContentSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
@@ -47,6 +50,7 @@ export default async function NewsDetailPage({ params }: Props) {
 
   return (
     <>
+      <JsonLd data={createContentSchema(news)} />
       <Breadcrumb
         items={[
           { name: 'トップ', slug: '' },
@@ -65,6 +69,9 @@ export default async function NewsDetailPage({ params }: Props) {
               <TitleText>{frontmatter.title}</TitleText>
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/about/" rel="author" className="text-xs text-brand hover:underline">
+                {siteConfig.author.name}
+              </Link>
               {frontmatter.tags.map((tag) => (
                 <span key={tag} className="text-xs text-subtle">
                   #{tag}

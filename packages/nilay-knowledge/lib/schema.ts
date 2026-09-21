@@ -1,6 +1,20 @@
-import type { Article, BreadcrumbList, WebSite, WithContext } from 'schema-dts';
+import type { Article, BreadcrumbList, NewsArticle, Organization, WebSite, WithContext } from 'schema-dts';
 
 import { siteConfig } from './config';
+import { contentDescription } from './content/description';
+import { contentImageUrl } from './content/metadata';
+import { contentPath } from './content/paths';
+import type { ContentSource } from './content/types';
+
+function publisher(): Organization {
+  return {
+    '@type': 'Organization',
+    '@id': `${siteConfig.siteUrl}/#organization`,
+    name: siteConfig.author.name,
+    url: `${siteConfig.siteUrl}/about/`,
+    logo: { '@type': 'ImageObject', url: `${siteConfig.siteUrl}/logo.png` },
+  };
+}
 
 // Factory functions
 export function createBreadcrumbSchema(items: { name: string; slug: string }[]): WithContext<BreadcrumbList> {
@@ -11,36 +25,28 @@ export function createBreadcrumbSchema(items: { name: string; slug: string }[]):
       '@type': 'ListItem',
       position: index + 1,
       name: item.name,
-      item: `${siteConfig.siteUrl}/${item.slug}`,
+      item: item.slug ? `${siteConfig.siteUrl}/${item.slug.replace(/\/$/, '')}/` : `${siteConfig.siteUrl}/`,
     })),
   };
 }
 
-export function createArticleSchema(params: {
-  title: string;
-  description: string;
-  published: string;
-  updated?: string;
-  slug: string;
-  image?: string;
-}): WithContext<Article> {
+export function createContentSchema(source: ContentSource): WithContext<Article | NewsArticle> {
+  const { frontmatter } = source;
+  const url = `${siteConfig.siteUrl}${contentPath(source.type, source.slug)}`;
   return {
     '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: params.title,
-    description: params.description,
-    datePublished: params.published,
-    dateModified: params.updated || params.published,
-    url: `${siteConfig.siteUrl}/articles/${params.slug}/`,
-    image: params.image ? new URL(params.image, siteConfig.siteUrl).href : undefined,
-    author: {
-      '@type': 'Organization',
-      name: siteConfig.author.name,
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: siteConfig.author.name,
-    },
+    '@type': source.type === 'news' ? 'NewsArticle' : 'Article',
+    '@id': `${url}#article`,
+    headline: frontmatter.title,
+    description: contentDescription(source),
+    datePublished: frontmatter.published,
+    dateModified: frontmatter.updated ?? frontmatter.published,
+    url,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    inLanguage: 'ja',
+    image: contentImageUrl(source),
+    author: publisher(),
+    publisher: publisher(),
   };
 }
 
@@ -48,8 +54,11 @@ export function createWebSiteSchema(): WithContext<WebSite> {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${siteConfig.siteUrl}/#website`,
     name: siteConfig.title,
-    url: siteConfig.siteUrl,
+    url: `${siteConfig.siteUrl}/`,
     description: siteConfig.description,
+    inLanguage: 'ja',
+    publisher: publisher(),
   };
 }

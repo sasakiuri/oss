@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { createBreadcrumbSchema } from '@/lib/schema';
 import { cn } from '@/lib/utils';
 
+import { JsonLd } from './json-ld';
+
 export interface BreadcrumbItem {
   name: string;
   slug: string;
@@ -22,7 +24,7 @@ export function Breadcrumb({ items, showNav = true, className }: BreadcrumbProps
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {items.length > 1 && <JsonLd data={jsonLd} />}
       {showNav && (
         <nav aria-label="パンくずリスト" className={cn('site-container', className)}>
           <ol className="flex min-w-0 flex-wrap items-center gap-1 py-2 text-xs text-subtle">
@@ -38,7 +40,7 @@ export function Breadcrumb({ items, showNav = true, className }: BreadcrumbProps
                   </span>
                 ) : (
                   <Link
-                    href={`/${item.slug}`}
+                    href={item.slug ? `/${item.slug.replace(/\/$/, '')}/` : '/'}
                     className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-2 hover:bg-muted-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     {item.slug === '' ? (

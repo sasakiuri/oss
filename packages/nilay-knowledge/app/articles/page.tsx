@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
@@ -9,9 +8,15 @@ import { HomeSearchButton } from '@/components/search-dialog';
 import { TitleText } from '@/components/title-text';
 import { listContent } from '@/lib/content/server';
 import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
+import { createPageMetadata } from '@/lib/metadata';
 
 const title = '記事一覧';
-export const metadata: Metadata = { title, alternates: { canonical: '/articles/' } };
+export const metadata = createPageMetadata({
+  title,
+  description:
+    '猟銃・空気銃の所持許可、狩猟免許、申請書類、射撃・狩猟の基礎知識をまとめた記事一覧。カテゴリーとタグから、手続きの解説や狩猟鳥獣図鑑、射撃場の情報を探せます。',
+  path: '/articles/',
+});
 
 export default async function ArticlesPage() {
   const articles = createArticleDirectory(await listContent('articles'));

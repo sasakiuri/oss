@@ -1,18 +1,21 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Breadcrumb } from '@/components/breadcrumb';
 import { SnsShare } from '@/components/sns-share';
 import { siteConfig } from '@/lib/config';
+import { createPageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-static';
 
 const title = 'このサイトについて';
 const slug = 'about';
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
   title,
-};
+  description:
+    'Nilay/Knowledge は、銃・射撃・狩猟に関する情報を蓄積し、体系的にまとめるサイトです。掲載コンテンツ、関連サービス、SNS の運用方針、お問い合わせ先を紹介します。',
+  path: '/about/',
+});
 
 interface CardProps {
   title: string;

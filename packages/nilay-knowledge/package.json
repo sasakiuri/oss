@@ -34,6 +34,7 @@
     "lint:prettier": "prettier --check .",
     "fix": "eslint . --fix && prettier --write .",
     "test:e2e": "playwright test",
+    "test:seo": "playwright test e2e/seo.spec.ts --project=chromium",
     "test:install": "playwright install --with-deps chromium firefox",
     "lint:text": "textlint --config .textlintrc.json --ignore-path .textlintignore \"content/**/*.md\"",
     "lint:markdown": "tsx scripts/lint-markdown.ts",
