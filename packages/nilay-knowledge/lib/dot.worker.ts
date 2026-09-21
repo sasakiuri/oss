@@ -1,19 +1,18 @@
-// cspell:ignore fontname
+// cspell:ignore fontname bgcolor
 import { instance } from '@viz-js/viz';
+import { expose } from 'comlink';
 
-self.onmessage = async (event: MessageEvent<string>) => {
-  try {
-    const viz = await instance();
-    const fontname = 'Noto Sans JP, sans-serif';
-    self.postMessage({
-      svg: viz.renderString(event.data, {
-        format: 'svg',
-        graphAttributes: { fontname, bgcolor: 'white' },
-        nodeAttributes: { fontname },
-        edgeAttributes: { fontname },
-      }),
-    });
-  } catch {
-    self.postMessage({ error: '図を表示できませんでした。' });
-  }
-};
+async function renderDot(source: string): Promise<string> {
+  const viz = await instance();
+  const fontname = 'Noto Sans JP, sans-serif';
+  return viz.renderString(source, {
+    format: 'svg',
+    graphAttributes: { fontname, bgcolor: 'white' },
+    nodeAttributes: { fontname },
+    edgeAttributes: { fontname },
+  });
+}
+
+export type DotWorkerApi = typeof renderDot;
+
+expose(renderDot);

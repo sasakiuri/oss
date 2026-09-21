@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { SnsShare } from '@/components/sns-share';
@@ -10,22 +10,22 @@ describe('SnsShare accessibility', () => {
     const trigger = screen.getByRole('button', { name: 'SNSで共有' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    const panel = screen.getByRole('group', { hidden: true });
-    expect(panel).not.toBeVisible();
-    expect(panel).toHaveAttribute('hidden');
-    expect(trigger).toHaveAttribute('aria-controls', panel.id);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
-  it('exposes named native share links after the trigger in keyboard order', () => {
+  it('exposes named native share links after the trigger in keyboard order', async () => {
     render(<SnsShare title="共有する記事 & 資料" slug="articles/example" />);
     const trigger = screen.getByRole('button', { name: 'SNSで共有' });
     trigger.focus();
-    fireEvent.click(trigger);
+    await act(async () => fireEvent.click(trigger));
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    const group = screen.getByRole('group', { name: '共有先' });
+    const group = screen.getByRole('dialog', { name: '共有先' });
     const links = within(group).getAllByRole('link');
     expect(links).toHaveLength(4);
     expect(trigger.compareDocumentPosition(links[0]!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(trigger).toHaveAttribute('aria-controls', group.id);
+    expect(trigger).toHaveFocus();
     for (const link of links) {
       expect(link).toHaveAccessibleName(/で共有（新しいタブで開く）/);
       expect(link).toHaveAttribute('target', '_blank');
@@ -40,19 +40,19 @@ describe('SnsShare accessibility', () => {
     expect(twitter.searchParams.get('url')).toBe(`${siteConfig.siteUrl}/articles/example`);
   });
 
-  it('dismisses with Escape from a share link and restores focus to the disclosure trigger', () => {
+  it('dismisses with Escape from a share link and restores focus to the disclosure trigger', async () => {
     render(<SnsShare />);
     const trigger = screen.getByRole('button', { name: 'SNSで共有' });
-    fireEvent.click(trigger);
+    await act(async () => fireEvent.click(trigger));
     const link = screen.getByRole('link', { name: /^LINE/ });
     link.focus();
     fireEvent.keyDown(link, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('stays open when focus moves between share links and closes when focus leaves', () => {
+  it('stays open when focus moves between share links and closes when focus leaves', async () => {
     render(
       <>
         <SnsShare />
@@ -60,7 +60,7 @@ describe('SnsShare accessibility', () => {
       </>,
     );
     const trigger = screen.getByRole('button', { name: 'SNSで共有' });
-    fireEvent.click(trigger);
+    await act(async () => fireEvent.click(trigger));
     screen.getByRole('link', { name: /^Twitter/ }).focus();
     screen.getByRole('link', { name: /^LINE/ }).focus();
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -71,7 +71,7 @@ describe('SnsShare accessibility', () => {
     expect(next).toHaveFocus();
   });
 
-  it('dismisses on an outside pointer press without leaving focus inside the hidden panel', () => {
+  it('dismisses on an outside pointer press without leaving focus inside the hidden panel', async () => {
     render(
       <>
         <SnsShare />
@@ -79,13 +79,15 @@ describe('SnsShare accessibility', () => {
       </>,
     );
     const trigger = screen.getByRole('button', { name: 'SNSで共有' });
-    fireEvent.click(trigger);
+    await act(async () => fireEvent.click(trigger));
     const link = screen.getByRole('link', { name: /^Twitter/ });
     link.focus();
     fireEvent.pointerDown(link);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.pointerDown(screen.getByText('共有先の外側'));
+    const outside = screen.getByText('共有先の外側');
+    fireEvent.pointerDown(outside);
+    fireEvent.click(outside);
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

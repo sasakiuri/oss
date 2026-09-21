@@ -1,5 +1,7 @@
+import { expose } from 'comlink';
+
 import { createSearchIndex, parseSearchDocuments, searchExcerpt } from './search';
-import type { SearchRequest, SearchResponse } from './search-protocol';
+import type { SearchWorkerApi } from './search-protocol';
 
 let index: Promise<ReturnType<typeof createSearchIndex>> | undefined;
 
@@ -9,32 +11,32 @@ async function loadIndex() {
   return createSearchIndex(parseSearchDocuments(await response.json()));
 }
 
-self.onmessage = async (event: MessageEvent<SearchRequest>) => {
-  const { id, query } = event.data;
-  let response: SearchResponse;
+async function getIndex() {
   try {
     index ??= loadIndex();
-    const loaded = await index;
-    if (query === undefined) response = { id, ready: true };
-    else {
-      const results = loaded.search(query.trim());
-      response = {
-        id,
-        results: {
-          total: results.length,
-          hits: results.slice(0, 20).map((result) => ({
-            id: String(result.id),
-            type: result.type,
-            title: String(result.title),
-            section: String(result.section),
-            excerpt: searchExcerpt(String(result.text), query),
-          })),
-        },
-      };
-    }
+    return await index;
   } catch {
     index = undefined;
-    response = { id, error: 'Search unavailable' };
+    throw new Error('Search unavailable');
   }
-  self.postMessage(response);
-};
+}
+
+expose({
+  async load() {
+    await getIndex();
+  },
+  async search(query: string) {
+    const loaded = await getIndex();
+    const results = loaded.search(query.trim());
+    return {
+      total: results.length,
+      hits: results.slice(0, 20).map((result) => ({
+        id: String(result.id),
+        type: result.type,
+        title: String(result.title),
+        section: String(result.section),
+        excerpt: searchExcerpt(String(result.text), query),
+      })),
+    };
+  },
+} satisfies SearchWorkerApi);

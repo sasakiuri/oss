@@ -1,5 +1,6 @@
 import MiniSearch from 'minisearch';
 
+import { searchDocumentsSchema } from './content/schemas';
 import type { SearchDocument } from './content/types';
 
 // Based on saika-docs: normalize full-width text and use stable Japanese bigrams.
@@ -31,24 +32,11 @@ export function createSearchIndex(documents: SearchDocument[]) {
 
 /** Validate the fetched index, including destinations, before rendering links. */
 export function parseSearchDocuments(value: unknown): SearchDocument[] {
-  if (!Array.isArray(value)) throw new Error('Invalid search index');
-  const ids = new Set<string>();
-  for (const document of value) {
-    if (
-      !document ||
-      typeof document !== 'object' ||
-      !['articles', 'news'].includes(document.type) ||
-      typeof document.id !== 'string' ||
-      !new RegExp(`^/${document.type}/[a-zA-Z0-9][a-zA-Z0-9_-]*/(?:#[^\\s#]+)?$`).test(document.id) ||
-      ids.has(document.id) ||
-      !['title', 'section', 'text'].every((field) => typeof document[field] === 'string') ||
-      !Array.isArray(document.tags) ||
-      !document.tags.every((tag: unknown) => typeof tag === 'string')
-    )
-      throw new Error('Invalid search document');
-    ids.add(document.id);
+  const result = searchDocumentsSchema.safeParse(value);
+  if (!result.success) {
+    throw new Error(result.error.issues[0]!.path.length === 0 ? 'Invalid search index' : 'Invalid search document');
   }
-  return value as SearchDocument[];
+  return result.data;
 }
 
 export function searchExcerpt(text: string, query: string): string {

@@ -19,6 +19,14 @@ describe('cn (className merge utility)', () => {
   it('handles undefined and null', () => {
     expect(cn('base', undefined, null, 'end')).toBe('base end');
   });
+
+  it('keeps Tailwind 4 text shadows independent of text color', () => {
+    expect(cn('text-shadow-sm text-red-500', 'text-shadow-lg text-blue-500')).toBe('text-shadow-lg text-blue-500');
+  });
+
+  it('merges Tailwind 4 inset shadows and rings', () => {
+    expect(cn('inset-shadow-sm inset-ring-1', 'inset-shadow-lg inset-ring-2')).toBe('inset-shadow-lg inset-ring-2');
+  });
 });
 
 describe('formatDate', () => {

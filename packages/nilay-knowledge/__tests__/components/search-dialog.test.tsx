@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HomeSearchButton, SearchDialog } from '@/components/search-dialog';
+import { SnsShare } from '@/components/sns-share';
 import { createSearchClient } from '@/lib/search-client';
 import type { SearchResults } from '@/lib/search-protocol';
 
@@ -138,6 +139,41 @@ describe('site search dialog', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
     fireEvent.click(await screen.findByRole('link', { name: /文書ガイド/ }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it.each(['ctrlKey', 'metaKey'])(
+    'opens with %s+K from sharing and restores focus after its opener unmounts',
+    async (modifier) => {
+      mockClient();
+      render(
+        <>
+          <SearchDialog />
+          <SnsShare />
+        </>,
+      );
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'SNSで共有' })));
+      const opener = screen.getByRole('link', { name: /^LINE/ });
+      opener.focus();
+      fireEvent.keyDown(opener, { key: 'k', [modifier]: true });
+      const input = await screen.findByRole('searchbox');
+      expect(input).toHaveFocus();
+      await waitFor(() => expect(opener).not.toBeInTheDocument());
+      fireEvent.keyDown(input, { key: 'Escape' });
+      await waitFor(() => expect(screen.getByRole('button', { name: '記事・ニュースを検索' })).toHaveFocus());
+    },
+  );
+
+  it('does not open another modal over an existing dialog', () => {
+    mockClient();
+    render(
+      <>
+        <SearchDialog />
+        <div role="dialog" aria-label="ナビゲーションメニュー" />
+      </>,
+    );
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(createSearchClient).not.toHaveBeenCalled();
   });
 
   it('opens the shared dialog from the home button and restores that button on Escape', async () => {

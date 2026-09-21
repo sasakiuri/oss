@@ -1,5 +1,8 @@
 import DOMPurify from 'isomorphic-dompurify';
 
+import type { DotWorkerApi } from './dot.worker';
+import { createWorkerClient } from './worker-client';
+
 let mermaidModule: Promise<(typeof import('mermaid'))['default']> | undefined;
 
 async function renderMermaid(source: string, id: string): Promise<string> {
@@ -20,35 +23,22 @@ async function renderMermaid(source: string, id: string): Promise<string> {
   return (await mermaid.render(id, source)).svg;
 }
 
-function renderDot(source: string, signal: AbortSignal): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./dot.worker.ts', import.meta.url));
-    const finish = () => {
-      clearTimeout(timeout);
-      signal.removeEventListener('abort', abort);
-      worker.terminate();
-    };
-    const abort = () => {
-      finish();
-      reject(new Error('図の描画を中止しました。'));
-    };
-    const timeout = setTimeout(() => {
-      finish();
-      reject(new Error('図の表示がタイムアウトしました。'));
-    }, 10_000);
-    worker.onmessage = (event: MessageEvent<{ svg?: string; error?: string }>) => {
-      finish();
-      if (event.data.svg) resolve(event.data.svg);
-      else reject(new Error('図を表示できませんでした。'));
-    };
-    worker.onerror = () => {
-      finish();
-      reject(new Error('図を表示できませんでした。'));
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    if (signal.aborted) abort();
-    else worker.postMessage(source);
-  });
+async function renderDot(source: string, signal: AbortSignal): Promise<string> {
+  signal.throwIfAborted();
+  const client = createWorkerClient<DotWorkerApi>(
+    new Worker(new URL('./dot.worker.ts', import.meta.url)),
+    '図を表示できませんでした。',
+  );
+  const abort = () => client.dispose(new Error('図の描画を中止しました。'));
+  const timeout = setTimeout(() => client.dispose(new Error('図の表示がタイムアウトしました。')), 10_000);
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    return await client.call((render) => render(source));
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', abort);
+    client.dispose();
+  }
 }
 
 export async function renderDiagram(

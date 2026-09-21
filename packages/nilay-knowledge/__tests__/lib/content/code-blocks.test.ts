@@ -1,3 +1,4 @@
+// cspell:words linenos
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -40,6 +41,18 @@ describe('code block metadata', () => {
       expect(figure?.querySelector('[data-code-controls]')).not.toBeNull();
     },
   );
+
+  it('finds adjacent fences inside block quotes and lists', async () => {
+    const document = await render(
+      '> ```ts:first.ts\n> const first = 1;\n> ```\n\n- ```js:second.js\n  const second = 2;\n  ```',
+    );
+    expect([...document.querySelectorAll('.code-caption')].map((caption) => caption.textContent)).toEqual([
+      'first.ts',
+      'second.js',
+    ]);
+    expect(document.querySelector('blockquote figure code')).toHaveTextContent('const first = 1;');
+    expect(document.querySelector('li figure code')).toHaveTextContent('const second = 2;');
+  });
 
   it('accepts spaces in quoted filenames and gives explicit metadata precedence', async () => {
     const document = await render('```ts:old.ts linenos filename="my example.ts"\nconst value = 1;\n```');

@@ -1,6 +1,7 @@
+// cspell:words pswp
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageZoom } from '@/components/image-zoom';
 
@@ -17,7 +18,24 @@ function Content({ enhance = true }: { enhance?: boolean }) {
 }
 
 describe('image enlargement', () => {
-  it('keeps detailed image explanations available inside the modal', () => {
+  const decode = vi.fn<() => Promise<void>>();
+
+  beforeEach(() => {
+    decode.mockReset().mockResolvedValue(undefined);
+    vi.stubGlobal('Image', function () {
+      const image = document.createElement('img');
+      Object.defineProperties(image, {
+        naturalWidth: { value: 1600 },
+        naturalHeight: { value: 1200 },
+        decode: { value: decode },
+      });
+      return image;
+    });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps detailed image explanations available inside the modal', async () => {
     render(
       <>
         <div
@@ -33,7 +51,8 @@ describe('image enlargement', () => {
     fireEvent.click(screen.getByRole('button', { name: '頭部の比較を拡大' }));
     const dialog = screen.getByRole('dialog', { name: '画像を拡大' });
     expect(dialog).toHaveAccessibleDescription('図にある模様と色の詳しい説明。');
-    expect(within(dialog).getByRole('img')).toHaveAccessibleName('頭部の比較');
+    expect(await within(dialog).findByRole('img')).toHaveAccessibleName('頭部の比較');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 
   it('offers a named button for informative images and restores focus after Escape', async () => {
@@ -43,7 +62,7 @@ describe('image enlargement', () => {
     opener.focus();
     fireEvent.click(opener);
     const dialog = screen.getByRole('dialog', { name: '画像を拡大' });
-    expect(within(dialog).getByRole('img', { name: '手続きの流れ' })).toHaveAttribute(
+    expect(await within(dialog).findByRole('img', { name: '手続きの流れ' })).toHaveAttribute(
       'src',
       new URL('/diagram.png', window.location.href).href,
     );
@@ -78,5 +97,33 @@ describe('image enlargement', () => {
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: '手続きの流れ' })).toBeInTheDocument();
+  });
+
+  it('reports loading failures and allows another attempt after closing', async () => {
+    decode.mockRejectedValueOnce(new Error('Image download failed'));
+    render(<Content />);
+    fireEvent.click(screen.getByRole('button', { name: '手続きの流れを拡大' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('画像を読み込めませんでした');
+    expect(screen.getByRole('button', { name: '画像を拡大・縮小' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '拡大画像を閉じる' }));
+    fireEvent.click(screen.getByRole('button', { name: '手続きの流れを拡大' }));
+    const dialog = screen.getByRole('dialog');
+    expect(await within(dialog).findByRole('img')).toHaveAccessibleName('手続きの流れ');
+  });
+
+  it('does not create a viewer after closing during image loading', async () => {
+    let finish!: () => void;
+    decode.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    render(<Content />);
+    fireEvent.click(screen.getByRole('button', { name: '手続きの流れを拡大' }));
+    expect(screen.getByRole('status')).toHaveTextContent('画像を読み込んでいます');
+    fireEvent.click(screen.getByRole('button', { name: '拡大画像を閉じる' }));
+    finish();
+    await waitFor(() => expect(document.querySelector('.pswp')).not.toBeInTheDocument());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

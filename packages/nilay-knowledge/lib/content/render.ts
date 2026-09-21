@@ -1,4 +1,6 @@
+// cspell:words rereference
 import type { Element, Root, RootContent } from 'hast';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
@@ -11,16 +13,12 @@ import remarkMath from 'remark-math';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
+import { visit } from 'unist-util-visit';
 
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import type { ContentSource, RenderedContent, SearchDocument, TocItem } from './types';
-
-function visitElements(node: Root | RootContent, visit: (element: Element) => void): void {
-  if (node.type === 'element') visit(node);
-  if ('children' in node) node.children.forEach((child) => visitElements(child, visit));
-}
 
 function headingText(node: RootContent): string {
   if (node.type === 'text') return node.value;
@@ -29,40 +27,27 @@ function headingText(node: RootContent): string {
   return '';
 }
 
-function headingAnchor(id: string, title: string): Element {
-  return {
-    type: 'element',
-    tagName: 'a',
-    properties: {
-      href: `#${encodeURIComponent(id)}`,
-      className: ['heading-anchor'],
-      ariaLabel: `「${title}」へのリンク`,
-    },
-    children: [
-      {
-        type: 'element',
-        tagName: 'svg',
-        properties: {
-          xmlns: 'http://www.w3.org/2000/svg',
-          width: 20,
-          height: 20,
-          viewBox: '0 0 24 24',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: '2',
-          strokeLinecap: 'round',
-          strokeLinejoin: 'round',
-          ariaHidden: 'true',
-          focusable: 'false',
-        },
-        children: [
-          'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71',
-          'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
-        ].map((d) => ({ type: 'element', tagName: 'path', properties: { d }, children: [] })),
-      },
-    ],
-  };
-}
+const headingAnchorIcon: Element = {
+  type: 'element',
+  tagName: 'svg',
+  properties: {
+    xmlns: 'http://www.w3.org/2000/svg',
+    width: 20,
+    height: 20,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '2',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    ariaHidden: 'true',
+    focusable: 'false',
+  },
+  children: [
+    'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71',
+    'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+  ].map((d) => ({ type: 'element', tagName: 'path', properties: { d }, children: [] })),
+};
 
 const processor = unified()
   .use(remarkParse)
@@ -84,11 +69,11 @@ const processor = unified()
   .use(() => (tree: Root) => {
     // The page already supplies its h1. Keep legacy Markdown's relative hierarchy.
     let hasTopLevelHeading = false;
-    visitElements(tree, (node) => {
+    visit(tree, 'element', (node) => {
       if (node.tagName === 'h1') hasTopLevelHeading = true;
     });
     if (!hasTopLevelHeading) return;
-    visitElements(tree, (node) => {
+    visit(tree, 'element', (node) => {
       if (/^h[1-6]$/.test(node.tagName) && node.properties.id !== 'footnote-label') {
         node.tagName = `h${Math.min(Number(node.tagName[1]) + 1, 6)}`;
       }
@@ -144,6 +129,16 @@ export async function renderContent(
 ): Promise<RenderedContent> {
   const tableOfContents: TocItem[] = [];
   const result = await processor()
+    .use(rehypeAutolinkHeadings, {
+      behavior: 'append',
+      test: (node) => node.properties.id !== 'footnote-label',
+      content: headingAnchorIcon,
+      // Explicit properties keep permalinks in the keyboard and accessibility trees.
+      properties: (node) => ({
+        className: ['heading-anchor'],
+        ariaLabel: `「${headingText(node)}」へのリンク`,
+      }),
+    })
     .use(() => async (tree: Root) => {
       let tableCount = 0;
       let codeCount = 0;
@@ -194,7 +189,7 @@ export async function renderContent(
         });
       }
       wrapTables(tree);
-      visitElements(tree, (node) => {
+      visit(tree, 'element', (node) => {
         if (node.tagName === 'pre') {
           codeCount += 1;
           node.properties.tabIndex = 0;
@@ -237,7 +232,11 @@ export async function renderContent(
           ...(Array.isArray(classes) ? classes : classes ? [String(classes)] : []),
           'heading-with-anchor',
         ];
-        node.children.push(headingAnchor(id, title));
+        const anchor = node.children.at(-1);
+        if (id && anchor?.type === 'element' && anchor.tagName === 'a') {
+          // The plugin emits raw fragments; keep the encoded URLs used by the TOC and search.
+          anchor.properties.href = `#${encodeURIComponent(id)}`;
+        }
       });
       await Promise.all(imageTasks);
     })

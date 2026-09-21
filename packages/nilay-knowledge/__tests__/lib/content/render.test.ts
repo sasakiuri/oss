@@ -97,6 +97,8 @@ Text[^note]
       expect(heading).toHaveAccessibleName(item.title);
       expect(heading?.querySelector('.heading-anchor')?.getAttribute('href')).toBe(`#${encodeURIComponent(item.id)}`);
       expect(heading?.querySelector('.heading-anchor')).toHaveAccessibleName(`「${item.title}」へのリンク`);
+      expect(heading?.querySelector<HTMLAnchorElement>('.heading-anchor')?.tabIndex).toBe(0);
+      expect(heading?.querySelector('.heading-anchor')).not.toHaveAttribute('aria-hidden');
       expect(heading?.lastElementChild?.className).toBe('heading-anchor');
       expect(heading?.getAttribute('tabindex')).toBe('-1');
       expect(heading?.querySelector('.heading-anchor svg')?.getAttribute('aria-hidden')).toBe('true');
@@ -104,6 +106,24 @@ Text[^note]
     }
     expect(document.getElementById('custom')?.className).toBe('existing heading-with-anchor');
     expect(document.getElementById('footnote-label')?.textContent).toBe('脚注');
+    expect(document.getElementById('footnote-label')?.querySelector('a')).toBeNull();
+  });
+
+  it('encodes authored IDs once while preserving inline content and author-provided heading names', async () => {
+    const { html, tableOfContents } = await renderContent(
+      source(
+        '<h2 id="日本語%20/例?" aria-labelledby="label"><em>資料</em> <img src="figure.png" alt="図"></h2><p id="label">著者のラベル</p>',
+      ),
+    );
+    const document = renderDocument(html);
+    const heading = document.getElementById('日本語%20/例?');
+    expect(tableOfContents).toEqual([{ id: '日本語%20/例?', level: 2, title: '資料 図' }]);
+    expect(heading).toHaveAccessibleName('著者のラベル');
+    expect(heading?.querySelector('em')?.textContent).toBe('資料');
+    expect(heading?.querySelector('img')).toHaveAttribute('src', '/content/articles/example/figure.png');
+    const anchor = heading?.querySelector('.heading-anchor');
+    expect(anchor).toHaveAttribute('href', `#${encodeURIComponent('日本語%20/例?')}`);
+    expect(anchor).toHaveAccessibleName('「資料 図」へのリンク');
   });
 
   it('places legacy top-level headings below the page title and preserves search destinations', async () => {

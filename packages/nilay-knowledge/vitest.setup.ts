@@ -12,6 +12,13 @@ afterEach(() => {
 
 // Browser mocks are unnecessary for repository and CLI tests in the Node environment.
 if (typeof window !== 'undefined') {
+  // jsdom has no top layer; its selector engine recurses for Floating UI's :modal check.
+  // Keep real Radix positioning and interaction code in tests, with native behavior covered by Playwright.
+  const originalMatches = Element.prototype.matches;
+  Element.prototype.matches = function (selector) {
+    return selector === ':modal' ? false : originalMatches.call(this, selector);
+  };
+
   HTMLElement.prototype.scrollIntoView = vi.fn();
   // Mock window.matchMedia
   Object.defineProperty(window, 'matchMedia', {
