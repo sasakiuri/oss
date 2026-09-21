@@ -26,6 +26,8 @@
     "test:lighthouse": "node --test scripts/lighthouse.test.mjs",
     "test:content-styles": "node --test scripts/prepare-content-styles.test.mjs",
     "test:size-budget": "node --test scripts/prepare-size-budget.test.mjs",
+    "test:deployment-smoke": "node --test scripts/deployment-smoke.test.mjs",
+    "test:deployment": "node scripts/deployment-smoke.mjs",
     "size-limit": "size-limit",
     "lint:eslint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
@@ -47,6 +49,7 @@
     "@radix-ui/react-popover": "1.1.23",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-visually-hidden": "^1.2.4",
+    "@vercel/speed-insights": "2.0.0",
     "@viz-js/viz": "3.30.0",
     "budoux": "0.7.0",
     "class-variance-authority": "^0.7.1",
@@ -148,9 +151,6 @@
     "url": "https://github.com/sasakiuri/oss/issues"
   },
   "homepage": "https://knowledge.nilay.jp",
-  "engines": {
-    "node": ">=22.22.2"
-  },
   "license": "(MIT AND CC-BY-SA-4.0)",
   "author": "Nilay"
 }

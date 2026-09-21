@@ -1,0 +1,47 @@
+name: Knowledge deployment verification
+
+on:
+  repository_dispatch:
+    types: [vercel.deployment.ready]
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Knowledge deployment URL to verify
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Knowledge deployment smoke
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.client_payload.project.id == 'prj_yiyI5AfNEtF7WiQdwjTDnQil9zY3' &&
+       github.event.client_payload.environment == 'production')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+    steps:
+      - name: Report the result on the deployed commit
+        if: github.event_name == 'repository_dispatch'
+        uses: vercel/repository-dispatch/actions/status@30f760c6640485cd92f8c785ef361382555fb712 # v1
+        with:
+          name: Knowledge deployment smoke (production)
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "26.8.2"
+      - name: Verify smoke check failure detection
+        run: node --test packages/nilay-knowledge/scripts/deployment-smoke.test.mjs
+      - name: Check the deployed site
+        run: node packages/nilay-knowledge/scripts/deployment-smoke.mjs
+        env:
+          SMOKE_BASE_URL: ${{ github.event.client_payload.url || inputs.deployment_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.KNOWLEDGE_VERCEL_AUTOMATION_BYPASS_SECRET }}

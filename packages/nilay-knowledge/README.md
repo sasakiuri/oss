@@ -28,7 +28,9 @@ Optional environment variables are `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
 the build cache key. `ANALYZE=true npm run build --workspace=@sasakiuri/nilay-knowledge`
 enables the bundle analyzer. When GA4 is configured, `useReportWebVitals` sends performance
 measurements (including LCP, INP and CLS) to that same property after GA initializes.
-Without a measurement ID, analytics and reporting stay disabled. Only metric IDs,
+Without a measurement ID, GA4 analytics and reporting stay disabled. Vercel Speed
+Insights independently collects performance metrics through the root layout's
+`SpeedInsights` component. GA4 reports contain only metric IDs,
 numbers and ratings/navigation types are included; DOM text and attribution URLs
 are not added. Text uses system fonts, so reading does not require
 downloading Japanese web fonts and builds do not contact Google Fonts. BudouX adds
@@ -59,19 +61,52 @@ Use the existing Vercel project with these settings:
 | Node.js                                         | `24.x`                     |
 
 [`vercel.json`](vercel.json) selects Next.js, installs the root lockfile with
-`npm ci --ignore-scripts`, runs this package's `npm run build`, and uses `.next/`.
+`npm ci --ignore-scripts --workspace=@sasakiuri/nilay-knowledge --include-workspace-root=false`,
+runs this package's `npm run build`, and uses `.next/`.
+Only this workspace and its dependencies are installed. The package does not
+override Node.js with `engines.node`; the Vercel project's `24.x` setting selects
+the deployment runtime independently of the repository's development tools.
 Skipping install scripts avoids the repository's Electron rebuild. The separate
 build command still runs `prebuild` to prepare styles, RSS and the sitemap.
 
-In the existing project's Git settings, connect `sasakiuri/oss`, then update the
-build settings above and the production branch. Keep the project's domains and
-environment variables. Remove any Ignored Build Step command that refers to a
-different package path. Deploy the commit containing this configuration from
-`1.x`; redeploying an older deployment uses its older source. Verify the homepage,
-an article, `/feed.xml`, `/sitemap.xml` and `/api/og` before promoting a preview.
+Enable **Skip deployment** under Root Directory so unrelated workspace changes do
+not deploy the site. Shared dependencies and repository-wide changes can still
+trigger a deployment. In Domains, redirect the fixed production `vercel.app`
+domain to `knowledge.nilay.jp` with status 308.
+
+Under Deployment Checks, require the GitHub checks `CI Required` and
+`Knowledge deployment smoke (production)` for production. The latter is published
+by `.github/workflows/knowledge-deployment.yml` on `vercel.deployment.ready`, before
+the production domain switches. The workflow must exist on the default branch.
+It uses the default branch's verification script and reports its result on the
+deployed commit, without running source code supplied by the deployment event.
+Store this project's automation bypass secret as the GitHub Actions secret
+`KNOWLEDGE_VERCEL_AUTOMATION_BYPASS_SECRET`; it is sent only to the deployment
+being checked and never forwarded through cross-origin redirects.
+
+The smoke check verifies the homepage, its JavaScript bundle, a sitemap-listed
+article, RSS, sitemap, static image and generated OG image. Run it manually with:
+
+```bash
+SMOKE_BASE_URL=https://knowledge.nilay.jp npm run test:deployment --workspace=@sasakiuri/nilay-knowledge
+```
+
+For a protected deployment, set `VERCEL_AUTOMATION_BYPASS_SECRET` in the shell
+environment as well. The workflow's manual trigger accepts a deployment URL.
+In Vercel's team **My Notifications**, keep **Deployment Failures** email and web
+notifications enabled for the deployment owner.
+
+To recover a failed release, use **Instant Rollback** on the project's production
+deployment, verify the destination and domains, and check the site again. Hobby
+supports returning to the immediately previous production deployment. Rollback
+restores that deployment's build and environment, not the current settings.
+After rollback, automatic production-domain assignment is suspended; promote a
+verified fix and restore automatic assignment when resuming normal deployments.
 
 See Vercel's [Git settings](https://vercel.com/docs/project-configuration/git-settings)
-and [monorepo configuration](https://vercel.com/docs/monorepos).
+and [monorepo configuration](https://vercel.com/docs/monorepos),
+[Deployment Checks](https://vercel.com/docs/deployment-checks), and
+[Instant Rollback](https://vercel.com/docs/instant-rollback).
 
 ## Content architecture
 
