@@ -1,12 +1,17 @@
 // @vitest-environment node
+import * as fs from 'node:fs/promises';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import sharp from 'sharp';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createImageDimensionsResolver } from '@/lib/content/images';
+
+vi.mock('node:fs/promises', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs/promises')>()),
+}));
 
 let directory: string;
 let publicContent: string;
@@ -20,6 +25,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(directory, { recursive: true, force: true });
 });
 
@@ -61,6 +67,7 @@ describe('published image dimensions', () => {
       'data:image/png;base64,example',
       '/image.png',
       '/content/assets/missing.png',
+      '/content/missing/nested/image.png',
     ]) {
       expect(await imageDimensions(src)).toBeNull();
     }
@@ -91,7 +98,24 @@ describe('published image dimensions', () => {
     await writeFile(path.join(publicContent, 'assets', 'broken.png'), 'not an image');
     await expect(imageDimensions('/content/assets/broken.png')).rejects.toThrow('Unable to read content image');
     await expect(imageDimensions('/content/assets')).rejects.toThrow('must be a regular file');
-    await expect(imageDimensions('/content/assets/broken.png/image.png')).rejects.toThrow('ENOTDIR');
+    for (const src of ['/content/assets/broken.png/image.png', '/content/assets/broken.png/nested/image.png']) {
+      await expect(imageDimensions(src)).rejects.toThrow('Content image parent must be a directory');
+    }
+  });
+
+  it.each(['ENOENT', 'ENOTDIR'])('rejects file traversal when realpath reports %s', async (code) => {
+    await writeFile(path.join(publicContent, 'assets', 'file'), 'not a directory');
+    const target = path.join(publicContent, 'assets', 'file', 'nested', 'image.png');
+    const realpath = fs.realpath;
+    vi.spyOn(fs, 'realpath').mockImplementation((filename, options) =>
+      filename === target
+        ? Promise.reject(Object.assign(new Error('Unable to resolve path'), { code }))
+        : realpath(filename, options),
+    );
+
+    await expect(imageDimensions('/content/assets/file/nested/image.png')).rejects.toThrow(
+      'Content image parent must be a directory',
+    );
   });
 
   it('observes asset changes between renders instead of retaining stale dimensions', async () => {

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import matter from 'gray-matter';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -132,7 +133,7 @@ describe('createContent', () => {
       process.execPath,
       [
         '--import',
-        createRequire(__filename).resolve('tsx'),
+        pathToFileURL(createRequire(__filename).resolve('tsx')).href,
         path.join(scriptsDirectory, script),
         'CLI "タイトル"\n次の行',
         ...(type === 'articles' ? ['--category', 'procedures', '--tag', '法令', '--tag', '資料'] : []),

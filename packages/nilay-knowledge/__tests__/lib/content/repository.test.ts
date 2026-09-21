@@ -88,7 +88,8 @@ describe('content repository', () => {
     ['title: Test\npublished: "2024-01-01"\ntags: []\nimage: []', 'image'],
   ])('rejects invalid metadata with its source and field (%s)', async (metadata, field) => {
     await entry('invalid', metadata);
-    await expect(repository.read('articles', 'invalid')).rejects.toThrow(`invalid/index.md: ${field}`);
-    await expect(repository.list('articles')).rejects.toThrow(`invalid/index.md: ${field}`);
+    const diagnostic = `${path.join(directory, 'articles', 'invalid', 'index.md')}: ${field}`;
+    await expect(repository.read('articles', 'invalid')).rejects.toThrow(diagnostic);
+    await expect(repository.list('articles')).rejects.toThrow(diagnostic);
   });
 });

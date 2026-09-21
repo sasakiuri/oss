@@ -116,7 +116,7 @@ describe('Markdown reference lint', () => {
       { encoding: 'utf8' },
     );
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('article/index.md:1:1 no-undefined-references:');
+    expect(result.stderr).toContain(`${path.join('article', 'index.md')}:1:1 no-undefined-references:`);
 
     await writeFile(path.join(directory, 'article/index.md'), '[working](https://example.com/)\n');
     const passing = spawnSync(
