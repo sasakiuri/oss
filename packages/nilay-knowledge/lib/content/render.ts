@@ -13,6 +13,7 @@ import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
+import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import type { ContentSource, RenderedContent, SearchDocument, TocItem } from './types';
 
@@ -137,12 +138,40 @@ export async function renderSearchDocuments(source: ContentSource): Promise<Sear
 }
 
 /** Render trusted, repository-owned Markdown. The TOC uses the rendered heading IDs. */
-export async function renderContent(source: ContentSource): Promise<RenderedContent> {
+export async function renderContent(
+  source: ContentSource,
+  options: { imageDimensions?: ImageDimensionsResolver } = {},
+): Promise<RenderedContent> {
   const tableOfContents: TocItem[] = [];
   const result = await processor()
-    .use(() => (tree: Root) => {
+    .use(() => async (tree: Root) => {
       let tableCount = 0;
       let codeCount = 0;
+      let imageCount = 0;
+      const dimensions = new Map<string, Promise<ImageDimensions | null>>();
+      const imageTasks: Promise<void>[] = [];
+      async function sizeImage(node: Element): Promise<void> {
+        const { src, width, height } = node.properties;
+        if (!options.imageDimensions || typeof src !== 'string' || (width != null && height != null)) return;
+        // Non-numeric author dimensions (such as percentages) cannot define a pixel aspect ratio.
+        if ([width, height].some((value) => value != null && !(Number.isFinite(Number(value)) && Number(value) > 0)))
+          return;
+        let metadata = dimensions.get(src);
+        if (!metadata) {
+          metadata = options.imageDimensions(src);
+          dimensions.set(src, metadata);
+        }
+        const size = await metadata;
+        if (!size) return;
+        if (width == null) {
+          node.properties.width =
+            height == null ? size.width : Math.max(1, Math.round((Number(height) * size.width) / size.height));
+        }
+        if (height == null) {
+          node.properties.height =
+            width == null ? size.height : Math.max(1, Math.round((Number(width) * size.height) / size.width));
+        }
+      }
       function wrapTables(node: Root | Element): void {
         node.children = node.children.map((child) => {
           if (child.type !== 'element') return child;
@@ -189,6 +218,12 @@ export async function renderContent(source: ContentSource): Promise<RenderedCont
           if (typeof value === 'string')
             node.properties[attribute] = resolveContentUrl(value, source.type, source.slug);
         }
+        if (node.tagName === 'img') {
+          node.properties.loading ??= imageCount === 0 ? 'eager' : 'lazy';
+          node.properties.decoding ??= 'async';
+          imageCount += 1;
+          imageTasks.push(sizeImage(node));
+        }
         if (!/^h[1-6]$/.test(node.tagName) || node.properties.id === 'footnote-label') return;
         const id = String(node.properties.id ?? '');
         const level = Number(node.tagName[1]);
@@ -204,6 +239,7 @@ export async function renderContent(source: ContentSource): Promise<RenderedCont
         ];
         node.children.push(headingAnchor(id, title));
       });
+      await Promise.all(imageTasks);
     })
     .use(rehypeHighlight, { detect: false, ignoreMissing: true, plainText: ['mermaid', 'dot', 'graphviz'] })
     .use(rehypeKatex)

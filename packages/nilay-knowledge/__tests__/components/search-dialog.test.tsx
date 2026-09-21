@@ -1,12 +1,14 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HomeSearchButton, SearchDialog } from '@/components/search-dialog';
-import type { SearchDocument } from '@/lib/content/types';
+import { createSearchClient } from '@/lib/search-client';
+import type { SearchResults } from '@/lib/search-protocol';
 
 const route = vi.hoisted(() => ({ pathname: '/' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
+vi.mock('@/lib/search-client', () => ({ createSearchClient: vi.fn() }));
 
 vi.mock('next/link', () => ({
   default: ({ href, children, onClick }: ComponentProps<'a'>) => (
@@ -22,34 +24,49 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-const documents: SearchDocument[] = [
-  {
-    id: '/articles/example/#print',
-    type: 'articles',
-    title: '文書ガイド',
-    section: '印刷の準備',
-    tags: ['資料'],
-    text: '印刷する前に設定を確認します。',
-  },
-];
+const results: SearchResults = {
+  total: 1,
+  hits: [
+    {
+      id: '/articles/example/#print',
+      type: 'articles',
+      title: '文書ガイド',
+      section: '印刷の準備',
+      excerpt: '印刷する前に設定を確認します。',
+    },
+  ],
+};
+
+beforeEach(() => vi.mocked(createSearchClient).mockReset());
 
 afterEach(() => {
   vi.unstubAllGlobals();
   route.pathname = '/';
 });
 
-function mockFetch() {
-  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => documents });
-  vi.stubGlobal('fetch', fetch);
-  return fetch;
+function mockClient(value = results) {
+  const client = {
+    load: vi.fn().mockResolvedValue(undefined),
+    search: vi.fn(async (query: string) => (query.includes('印刷') ? value : { total: 0, hits: [] })),
+    dispose: vi.fn(),
+  };
+  vi.mocked(createSearchClient).mockReturnValue(client);
+  return client;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
 }
 
 describe('site search dialog', () => {
   it('focuses main content when a selected result has no section fragment', async () => {
-    mockFetch().mockResolvedValue({
-      ok: true,
-      json: async () => [{ ...documents[0], id: '/articles/example/' }],
-    });
+    mockClient({ total: 1, hits: [{ ...results.hits[0]!, id: '/articles/example/' }] });
     route.pathname = '/articles/example/';
     render(
       <>
@@ -66,7 +83,7 @@ describe('site search dialog', () => {
   });
 
   it('focuses a selected section instead of returning to the opener', async () => {
-    mockFetch();
+    mockClient();
     route.pathname = '/articles/example/';
     render(
       <>
@@ -85,7 +102,7 @@ describe('site search dialog', () => {
   });
 
   it('keeps the dialog open for modified result clicks', async () => {
-    mockFetch();
+    mockClient();
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
@@ -94,9 +111,9 @@ describe('site search dialog', () => {
   });
 
   it('loads on demand, searches, restores focus and reuses data when reopened', async () => {
-    const fetch = mockFetch();
+    const client = mockClient();
     render(<SearchDialog />);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(createSearchClient).not.toHaveBeenCalled();
     const trigger = screen.getByRole('button', { name: '記事・ニュースを検索' });
     trigger.focus();
     fireEvent.click(trigger);
@@ -109,11 +126,13 @@ describe('site search dialog', () => {
     expect(trigger).toHaveFocus();
     fireEvent.click(trigger);
     expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(createSearchClient).toHaveBeenCalledTimes(1);
+    expect(client.load).toHaveBeenCalledTimes(1);
+    expect(client.dispose).not.toHaveBeenCalled();
   });
 
   it.each(['ctrlKey', 'metaKey'])('opens with %s+K and closes after choosing a result', async (modifier) => {
-    mockFetch();
+    mockClient();
     render(<SearchDialog />);
     fireEvent.keyDown(window, { key: 'k', [modifier]: true });
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
@@ -122,7 +141,7 @@ describe('site search dialog', () => {
   });
 
   it('opens the shared dialog from the home button and restores that button on Escape', async () => {
-    mockFetch();
+    mockClient();
     render(
       <>
         <SearchDialog />
@@ -138,8 +157,10 @@ describe('site search dialog', () => {
   });
 
   it('announces no results and supports retry after a failed download', async () => {
-    const fetch = mockFetch();
-    fetch.mockResolvedValueOnce({ ok: false });
+    const failed = mockClient();
+    failed.load.mockRejectedValueOnce(new Error('Search unavailable'));
+    const recovered = mockClient();
+    vi.mocked(createSearchClient).mockReturnValueOnce(failed);
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
     expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
@@ -147,14 +168,106 @@ describe('site search dialog', () => {
     expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '該当なし' } });
     expect(await screen.findByText('一致する記事・ニュースが見つかりません。')).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(createSearchClient).toHaveBeenCalledTimes(2);
+    expect(failed.dispose).toHaveBeenCalledOnce();
+    expect(recovered.load).toHaveBeenCalledOnce();
   });
 
-  it('shows a recoverable error for malformed search data', async () => {
-    mockFetch().mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'https://example.com/' }] });
+  it('shows a recoverable error if the worker cannot be created', async () => {
+    mockClient();
+    vi.mocked(createSearchClient).mockImplementationOnce(() => {
+      throw new Error('Worker blocked');
+    });
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
     expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '再試行' }));
+    expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
+  });
+
+  it('keeps initialization in progress across close and reopen without creating another worker', async () => {
+    const client = mockClient();
+    const loading = deferred<void>();
+    client.load.mockReturnValueOnce(loading.promise);
+    render(<SearchDialog />);
+    const trigger = screen.getByRole('button', { name: '記事・ニュースを検索' });
+    fireEvent.click(trigger);
+    expect(screen.getByText('検索を準備しています…')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(client.dispose).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    expect(screen.getByText('検索を準備しています…')).toBeInTheDocument();
+    await act(async () => loading.resolve());
+    expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
+    expect(createSearchClient).toHaveBeenCalledOnce();
+    expect(client.load).toHaveBeenCalledOnce();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
+    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+  });
+
+  it('ignores responses and failures from older queries', async () => {
+    const client = mockClient();
+    const oldResponse = deferred<SearchResults>();
+    const oldFailure = deferred<SearchResults>();
+    client.search.mockImplementation(async (query) => {
+      if (query === '古い検索') return oldResponse.promise;
+      if (query === '失敗する検索') return oldFailure.promise;
+      return query === '印刷' ? results : { total: 0, hits: [] };
+    });
+    render(<SearchDialog />);
+    fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
+    await screen.findByText('キーワードを入力してください。');
+    const input = screen.getByRole('searchbox');
+    fireEvent.change(input, { target: { value: '古い検索' } });
+    await waitFor(() => expect(client.search).toHaveBeenCalledWith('古い検索'));
+    fireEvent.change(input, { target: { value: '失敗する検索' } });
+    await waitFor(() => expect(client.search).toHaveBeenCalledWith('失敗する検索'));
+    fireEvent.change(input, { target: { value: '印刷' } });
+    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    await act(async () => {
+      oldResponse.resolve({ total: 0, hits: [] });
+      oldFailure.reject(new Error('Old request failed'));
+    });
+    expect(screen.getByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('1 件の検索結果');
+    expect(client.dispose).not.toHaveBeenCalled();
+  });
+
+  it('creates a fresh worker and restores the current query after a search failure', async () => {
+    const failed = mockClient();
+    failed.search.mockImplementation(async (query) => {
+      if (query) throw new Error('Worker stopped');
+      return { total: 0, hits: [] };
+    });
+    const recovered = mockClient();
+    vi.mocked(createSearchClient).mockReturnValueOnce(failed);
+    render(<SearchDialog />);
+    fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
+    await screen.findByText('キーワードを入力してください。');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
+    expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
+    expect(failed.dispose).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: '再試行' }));
+    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(recovered.search).toHaveBeenCalledWith('印刷');
+    expect(createSearchClient).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['initializing', 'ready'] as const)('disposes a %s worker when unmounted', async (state) => {
+    const client = mockClient();
+    const loading = deferred<void>();
+    if (state === 'initializing') client.load.mockReturnValueOnce(loading.promise);
+    const { unmount } = render(<SearchDialog />);
+    fireEvent.click(screen.getByRole('button', { name: '記事・ニュースを検索' }));
+    if (state === 'ready') await screen.findByText('キーワードを入力してください。');
+    unmount();
+    expect(client.dispose).toHaveBeenCalledOnce();
+    if (state === 'initializing') {
+      await act(async () => loading.reject(new Error('Search worker stopped')));
+    }
+    expect(client.dispose).toHaveBeenCalledOnce();
+    expect(client.search).toHaveBeenCalledTimes(state === 'initializing' ? 0 : 1);
   });
 });

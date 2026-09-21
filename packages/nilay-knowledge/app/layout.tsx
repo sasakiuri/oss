@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Noto_Sans_JP } from 'next/font/google';
 
 import { Footer } from '@/components/footer';
 import { GoogleAnalytics } from '@/components/google-analytics';
@@ -9,12 +8,6 @@ import { SkipLink } from '@/components/skip-link';
 import { ThemeProvider } from '@/components/theme-provider';
 import { siteConfig } from '@/lib/config';
 import './globals.css';
-
-const notoSansJP = Noto_Sans_JP({
-  subsets: ['latin'],
-  variable: '--font-noto-sans-jp',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.siteUrl),
@@ -61,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body className={`${notoSansJP.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <ThemeProvider>
           <SkipLink />
           <GoogleAnalytics />

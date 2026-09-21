@@ -1,5 +1,7 @@
 # Nilay Knowledge
 
+<!-- cspell:words NFKC licence -->
+
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
 Use Node 22.22.2 or newer and npm 10.9.4. Run commands from the repository root:
@@ -24,7 +26,8 @@ this import.
 Optional environment variables are `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
 `NEXT_PUBLIC_FACEBOOK_APP_ID`. Set them before building; Turbo includes both in
 the build cache key. `ANALYZE=true npm run build --workspace=@sasakiuri/nilay-knowledge`
-enables the bundle analyzer. The build downloads Noto Sans JP through `next/font`.
+enables the bundle analyzer. Text uses system fonts, so reading does not require
+downloading Japanese web fonts and builds do not contact Google Fonts.
 
 Articles and news live in `content/`; their committed public copies live in
 `public/content/`. When editing content or assets, keep the public copies in sync.
@@ -39,14 +42,15 @@ seconds; news slugs use the local calendar date.
 `app/` composes pages from server data and presentation components. Content access
 is divided into explicit boundaries under `lib/content/`:
 
-| Module                  | Responsibility                                                        |
-| ----------------------- | --------------------------------------------------------------------- |
-| `types.ts`              | Shared metadata, summary, source, rendered document and TOC contracts |
-| `repository.ts`         | File enumeration, reads, metadata validation and publication ordering |
-| `render.ts`, `paths.ts` | Markdown rendering, relative asset URLs and heading anchors           |
-| `server.ts`             | Server-only Next.js adapter with request-scoped React memoization     |
-| `metadata.ts`           | Canonical, Open Graph, Twitter and RSS discovery metadata             |
-| `publication.ts`        | RSS and sitemap serialization from validated content                  |
+| Module                  | Responsibility                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `types.ts`              | Shared metadata, summary, source, rendered document and TOC contracts          |
+| `repository.ts`         | File enumeration, reads, metadata validation and publication ordering          |
+| `render.ts`, `paths.ts` | Markdown rendering, relative asset URLs and heading anchors                    |
+| `images.ts`             | Intrinsic dimensions of published local images, injected by the server adapter |
+| `server.ts`             | Server-only Next.js adapter with request-scoped React memoization              |
+| `metadata.ts`           | Canonical, Open Graph, Twitter and RSS discovery metadata                      |
+| `publication.ts`        | RSS and sitemap serialization from validated content                           |
 
 The repository takes a content directory explicitly and has no dependency on
 React or Markdown rendering. `list()` returns summaries without bodies or HTML;
@@ -104,20 +108,42 @@ article and news titles, tags, headings and Markdown body text. Results link to
 the matching section using the same heading IDs as the rendered page. Attached
 PDFs and image contents are not indexed.
 
-Following Saika Docs, MiniSearch runs in the browser with Japanese character and
-bigram tokens, NFKC normalization and boosted heading/title matches. Multiple
+Following Saika Docs, MiniSearch runs in the browser with Japanese characters and
+bigrams, NFKC normalization and boosted heading/title matches. Multiple
 search terms must all match. The static `/search-index.json` route uses the
 validated content repository and the existing Markdown parser, excluding HTML
 markup, scripts and hidden text. The dialog downloads the index on first open,
 reuses it until the page is reloaded, and offers a retry on download or validation
-failure. Rebuild after changing content to update both pages and the search index.
+failure. A worker downloads, validates and indexes the data, then performs searches
+and returns only the top 20 excerpts and the total count. The search engine and its
+index are loaded only when search first opens; indexing does not block typing or
+dialog controls. Rebuild after changing content to update both pages and the search index.
 
-Use the browser's print command to print an article or news item. The print layout
+Use “ページを印刷” or `Ctrl+P` / `Cmd+P` on an article or news item. This opens
+collapsed content and waits for every article image to load and decode before
+opening the print dialog. Loading failures are announced and can be retried;
+navigating away cancels preparation. The browser's own print menu cannot wait for
+asynchronous preparation: check its preview and reopen it after images load, or use
+the page's print button. The print layout
 hides navigation, search, sharing and heading-link controls, expands the article
 to the page width, wraps tables and code, and retains the footer's attribution and
 license notice. On screen, wide tables and code blocks can be focused and scrolled
 with the keyboard. Collapsed article details open for printing and return to their
 previous state afterward. Check the print preview for unusually large images or tables.
+
+## Performance checks
+
+Home images use Next.js responsive image optimization, with the banner preloaded.
+Article images keep their original URLs and full-resolution zoom; dimensions are
+read from published local assets during generation to reserve space. The first
+image loads eagerly, subsequent images load lazily, and author-provided loading,
+decoding and dimensions are respected. Image paths are confined to `public/content`,
+including symlink resolution. Missing or external images keep their existing URLs
+without inferred dimensions; errors while reading local image dimensions fail the build.
+
+The browser suite checks deferred image loading, image dimensions, search-worker
+creation and reuse, and responsive home images. Run the reproducible browser
+benchmark against a production server as described in [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Accessibility checks
 
