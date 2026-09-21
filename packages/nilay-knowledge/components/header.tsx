@@ -11,6 +11,7 @@ import { SearchDialog } from '@/components/search-dialog';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { siteConfig } from '@/lib/config';
 import { focusContent } from '@/lib/focus-content';
+import { observeElementHeight } from '@/lib/observe-element-height';
 
 const navItems = [
   { href: '/articles', label: '記事一覧', icon: BookOpen },
@@ -27,16 +28,7 @@ export function Header() {
   React.useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
-    const updateHeight = () => {
-      document.documentElement.style.setProperty('--site-header-height', `${header.getBoundingClientRect().height}px`);
-    };
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(header);
-    updateHeight();
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty('--site-header-height');
-    };
+    return observeElementHeight(header, '--site-header-height');
   }, []);
 
   return (

@@ -141,3 +141,118 @@ test('printing retries a failed image download before starting the print dialog'
   await expect(page.locator('body')).toHaveAttribute('data-print-images-ready', 'true');
   expect(attempts).toBe(2);
 });
+
+test('responsive article images keep originals for zoom and print', async ({ page }) => {
+  await page.goto('/articles/1378038316/');
+  const image = page.locator('.article-content img').first();
+  await expect(image).toHaveAttribute('srcset', /\/_next\/image/);
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.currentSrc)).toContain('/_next/image');
+  const original = await image.getAttribute('data-original-src');
+  const sourceSet = await image.getAttribute('srcset');
+  await page.getByRole('button', { name: '猟銃・空気銃を所持するまでの流れを拡大' }).click();
+  const dialog = page.getByRole('dialog', { name: '画像を拡大' });
+  await expect(dialog.getByRole('button', { name: '画像を拡大・縮小' })).toBeEnabled();
+  await expect(dialog.getByRole('img').first()).toHaveAttribute('src', original!);
+  expect(await dialog.locator('.pswp').evaluate((element) => getComputedStyle(element).position)).toBe('absolute');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+  await expect(image).not.toHaveAttribute('srcset');
+  await expect
+    .poll(() => image.evaluate((element: HTMLImageElement) => new URL(element.currentSrc).pathname))
+    .toBe(original);
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await expect(image).toHaveAttribute('srcset', sourceSet!);
+});
+
+test('image links work before hydration and support keyboard zoom after hydration', async ({ browser, page }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL: 'http://127.0.0.1:3275' });
+  try {
+    const staticPage = await context.newPage();
+    await staticPage.goto('/articles/1378038316/');
+    const imageLink = staticPage.getByRole('link', { name: '猟銃・空気銃を所持するまでの流れを拡大' });
+    await expect(imageLink).toBeVisible();
+    const original = await imageLink.getAttribute('href');
+    await imageLink.click();
+    await expect(staticPage).toHaveURL(new RegExp(`${original!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  } finally {
+    await context.close();
+  }
+
+  await page.goto('/articles/1378038316/');
+  const trigger = page.getByRole('button', { name: '猟銃・空気銃を所持するまでの流れを拡大' });
+  for (const key of ['Enter', 'Space']) {
+    await trigger.focus();
+    await page.keyboard.press(key);
+    await expect(page.getByRole('dialog', { name: '画像を拡大' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+  }
+});
+
+test('offscreen field-guide entries remain reachable by fragment and fully rendered for print', async ({ page }) => {
+  await page.goto('/articles/1403693668/');
+  const entries = page.locator('.prose > .flex.border-t');
+  expect(await entries.count()).toBeGreaterThan(40);
+  const last = entries.last();
+  expect(await last.evaluate((element) => getComputedStyle(element).contentVisibility)).toBe('visible');
+  const target = last.locator('[id]').first();
+  const id = await target.getAttribute('id');
+  await page.evaluate((id) => {
+    window.location.hash = encodeURIComponent(id!);
+  }, id);
+  await expect(target).toBeInViewport();
+  await expect(last.locator('img')).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  expect(
+    await entries.evaluateAll((elements) =>
+      elements.every((element) => getComputedStyle(element).contentVisibility === 'visible'),
+    ),
+  ).toBe(true);
+});
+
+test('browser text search can reveal an offscreen field-guide entry', async ({ page }) => {
+  await page.goto('/articles/1403693668/');
+  expect(
+    await page.evaluate(() =>
+      (window as unknown as { find(text: string): boolean }).find('人畜共通感染症である野兎病の菌'),
+    ),
+  ).toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const selection = window.getSelection();
+        if (!selection?.rangeCount) return false;
+        const bounds = selection.getRangeAt(0).getBoundingClientRect();
+        return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+      }),
+    )
+    .toBe(true);
+});
+
+test('article code keeps its spacing when styles arrive after the site stylesheet', async ({ page }) => {
+  await page.goto('/articles/1378038316/');
+  await page.addStyleTag({ url: '/content-styles/github-dark.css' });
+  const padding = await page.locator('.prose').evaluate((article) => {
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.className = 'hljs';
+    code.textContent = 'const example = true;';
+    pre.append(code);
+    article.append(pre);
+    return getComputedStyle(code).padding;
+  });
+  expect(padding).toBe('0px');
+});
+
+test('browser history restores the reading position after a full navigation', async ({ page }) => {
+  await page.goto('/articles/1403693668/');
+  const target = page.locator('.prose > .flex.border-t').nth(23).locator('[id]').first();
+  await target.scrollIntoViewIfNeeded();
+  await expect(target).toBeInViewport();
+  // A full navigation leaves focus unchanged; clicking the sticky header can itself scroll the page.
+  await page.goto('/articles/');
+  await expect(page).toHaveURL(/\/articles\/$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/articles\/1403693668\/$/);
+  await expect(target).toBeInViewport();
+});

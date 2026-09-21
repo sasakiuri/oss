@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { Breadcrumb } from '@/components/breadcrumb';
+import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
 import { MarkdownContent } from '@/components/markdown-content';
 import { PrintContent } from '@/components/print-content';
@@ -71,6 +72,7 @@ export default async function NewsDetailPage({ params }: Props) {
             </div>
           </header>
 
+          <ContentStyles html={html} />
           <MarkdownContent key={slug} html={html} className="prose max-w-none" />
         </article>
       </div>

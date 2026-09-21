@@ -64,3 +64,12 @@ it('preserves source in server HTML and displays diagram failures explicitly', a
   expect(await screen.findByRole('alert')).toHaveTextContent('図のソースを確認してください');
   expect(screen.getByText('図のソース').parentElement).toHaveAttribute('open');
 });
+
+it('renders plain Markdown as static readable markup without enhancement controls', async () => {
+  const html = await markdown('本文だけの記事です。');
+  const { container } = render(<MarkdownContent html={html} className="prose" />);
+  expect(container.firstElementChild).toHaveClass('prose');
+  expect(screen.getByText('本文だけの記事です。')).toBeVisible();
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  expect(renderDiagram).not.toHaveBeenCalled();
+});

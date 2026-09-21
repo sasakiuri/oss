@@ -26,7 +26,11 @@ function ImageViewer({ image }: { image: ZoomImage }) {
 
     async function open() {
       try {
-        const [{ default: PhotoSwipe }] = await Promise.all([import('photoswipe'), original.decode()]);
+        const [{ default: PhotoSwipe }] = await Promise.all([
+          import('photoswipe'),
+          import('photoswipe/style.css'),
+          original.decode(),
+        ]);
         if (disposed) return;
         if (!original.naturalWidth || !original.naturalHeight) throw new Error('Missing image dimensions');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -150,40 +154,65 @@ function ImageViewer({ image }: { image: ZoomImage }) {
 
 export function ImageZoom() {
   const [image, setImage] = useState<ZoomImage | null>(null);
-  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const openerRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
-    const cleanups = Array.from(document.querySelectorAll<HTMLImageElement>('.prose img')).flatMap((img) => {
-      if (!img.alt.trim() || img.closest('a, button, [role="button"]')) return [];
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'image-zoom-trigger';
-      button.setAttribute('aria-label', `${img.alt}を拡大`);
-      button.setAttribute('aria-haspopup', 'dialog');
-      const open = () => {
-        openerRef.current = button;
-        const description = (img.getAttribute('aria-details') ?? img.getAttribute('aria-describedby') ?? '')
-          .split(/\s+/)
-          .flatMap((id) => document.getElementById(id)?.textContent?.trim() || [])
-          .join(' ');
-        setImage({
-          src: img.currentSrc || img.src,
-          alt: img.alt,
-          description: description || img.alt,
-          illustration: img.classList.contains('content-illustration'),
-        });
-      };
-      button.addEventListener('click', open);
-      img.replaceWith(button);
-      button.append(img);
-      return [
-        () => {
-          button.removeEventListener('click', open);
-          button.replaceWith(img);
-        },
-      ];
+    const selector = '.prose a[data-image-zoom]';
+    const triggers = document.querySelectorAll<HTMLAnchorElement>(selector);
+    triggers.forEach((trigger) => {
+      trigger.setAttribute('role', 'button');
+      trigger.setAttribute('aria-haspopup', 'dialog');
     });
-    return () => cleanups.forEach((cleanup) => cleanup());
+    const open = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const trigger = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>(selector) : null;
+      const img = trigger?.querySelector('img');
+      if (!trigger || !img) return;
+      event.preventDefault();
+      openerRef.current = trigger;
+      const description = (img.getAttribute('aria-details') ?? img.getAttribute('aria-describedby') ?? '')
+        .split(/\s+/)
+        .flatMap((id) => document.getElementById(id)?.textContent?.trim() || [])
+        .join(' ');
+      setImage({
+        src: img.dataset.originalSrc || img.currentSrc || img.src,
+        alt: img.alt,
+        description: description || img.alt,
+        illustration: img.classList.contains('content-illustration'),
+      });
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.key !== ' ' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      if (!(event.target instanceof HTMLAnchorElement) || !event.target.matches(selector)) return;
+      event.preventDefault();
+      if (!event.repeat) event.target.click();
+    };
+    document.addEventListener('click', open);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('click', open);
+      document.removeEventListener('keydown', onKeyDown);
+      triggers.forEach((trigger) => {
+        trigger.removeAttribute('role');
+        trigger.removeAttribute('aria-haspopup');
+      });
+    };
   }, []);
 
   return (

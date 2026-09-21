@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import type { TocItem } from '@/lib/content/types';
 import { focusContent } from '@/lib/focus-content';
+import { observeElementHeight } from '@/lib/observe-element-height';
 import { cn } from '@/lib/utils';
 
 export function TableOfContents({ items }: { items: TocItem[] }) {
@@ -19,16 +20,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
   useEffect(() => {
     const button = buttonRef.current;
     if (!button) return;
-    const updateHeight = () => {
-      document.documentElement.style.setProperty('--article-toc-height', `${button.getBoundingClientRect().height}px`);
-    };
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(button);
-    updateHeight();
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty('--article-toc-height');
-    };
+    return observeElementHeight(button, '--article-toc-height');
   }, []);
 
   useEffect(() => {
@@ -43,10 +35,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
     const updateActiveHeading = () => {
       frame = 0;
       const nav = navRef.current;
-      if (nav) {
-        const availableHeight = Math.max(0, window.innerHeight - nav.getBoundingClientRect().bottom - 24);
-        nav.style.setProperty('--toc-available-height', `${availableHeight}px`);
-      }
+      const availableHeight = nav ? Math.max(0, window.innerHeight - nav.getBoundingClientRect().bottom - 24) : 0;
       const offset = parseFloat(getComputedStyle(firstHeading).scrollMarginTop) || 0;
       const atBottom =
         window.scrollY > 0 && window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
@@ -56,6 +45,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
         if (!atBottom && heading.getBoundingClientRect().top > offset + 1) break;
         currentId = heading.id;
       }
+      nav?.style.setProperty('--toc-available-height', `${availableHeight}px`);
       setActiveId(currentId);
     };
     const scheduleUpdate = () => {

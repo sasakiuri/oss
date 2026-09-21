@@ -18,6 +18,7 @@ import { visit } from 'unist-util-visit';
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
+import { responsiveImageAttributes } from './responsive-images';
 import type { ContentSource, RenderedContent, SearchDocument, TocItem } from './types';
 
 function headingText(node: RootContent): string {
@@ -145,9 +146,9 @@ export async function renderContent(
       let imageCount = 0;
       const dimensions = new Map<string, Promise<ImageDimensions | null>>();
       const imageTasks: Promise<void>[] = [];
-      async function sizeImage(node: Element): Promise<void> {
+      async function sizeImage(node: Element, parent: Root | Element | undefined): Promise<void> {
         const { src, width, height } = node.properties;
-        if (!options.imageDimensions || typeof src !== 'string' || (width != null && height != null)) return;
+        if (!options.imageDimensions || typeof src !== 'string') return;
         // Non-numeric author dimensions (such as percentages) cannot define a pixel aspect ratio.
         if ([width, height].some((value) => value != null && !(Number.isFinite(Number(value)) && Number(value) > 0)))
           return;
@@ -166,6 +167,21 @@ export async function renderContent(
           node.properties.height =
             width == null ? size.height : Math.max(1, Math.round((Number(width) * size.height) / size.width));
         }
+        if (
+          node.properties.srcSet ||
+          node.properties.sizes ||
+          (parent?.type === 'element' && parent.tagName === 'picture')
+        )
+          return;
+        const layout = source.type === 'news' ? 'news' : tableOfContents.length > 0 ? 'article-with-toc' : 'article';
+        const responsive = responsiveImageAttributes(
+          src,
+          size.width,
+          size.height,
+          node.properties.loading === 'lazy',
+          layout,
+        );
+        if (responsive) Object.assign(node.properties, responsive);
       }
       function wrapTables(node: Root | Element): void {
         node.children = node.children.map((child) => {
@@ -189,7 +205,7 @@ export async function renderContent(
         });
       }
       wrapTables(tree);
-      visit(tree, 'element', (node) => {
+      visit(tree, 'element', (node, _index, parent) => {
         if (node.tagName === 'pre') {
           codeCount += 1;
           node.properties.tabIndex = 0;
@@ -215,9 +231,10 @@ export async function renderContent(
         }
         if (node.tagName === 'img') {
           node.properties.loading ??= imageCount === 0 ? 'eager' : 'lazy';
+          if (imageCount === 0 && node.properties.loading === 'eager') node.properties.fetchPriority ??= 'high';
           node.properties.decoding ??= 'async';
           imageCount += 1;
-          imageTasks.push(sizeImage(node));
+          imageTasks.push(sizeImage(node, parent));
         }
         if (!/^h[1-6]$/.test(node.tagName) || node.properties.id === 'footnote-label') return;
         const id = String(node.properties.id ?? '');
@@ -239,6 +256,39 @@ export async function renderContent(
         }
       });
       await Promise.all(imageTasks);
+      // Reserve the viewer trigger's layout in the initial HTML. Without JavaScript,
+      // it remains a normal link to the original image.
+      function wrapZoomImages(node: Root | Element, interactive = false): void {
+        const insideControl =
+          interactive ||
+          (node.type === 'element' && (['a', 'button'].includes(node.tagName) || node.properties.role === 'button'));
+        node.children = node.children.map((child) => {
+          if (child.type !== 'element' || insideControl) return child;
+          const image =
+            child.tagName === 'img'
+              ? child
+              : child.tagName === 'picture'
+                ? child.children.find((element) => element.type === 'element' && element.tagName === 'img')
+                : undefined;
+          if (image?.type === 'element' && String(image.properties.alt ?? '').trim() && image.properties.src) {
+            const trigger: Element = {
+              type: 'element',
+              tagName: 'a',
+              properties: {
+                className: ['image-zoom-trigger'],
+                dataImageZoom: '',
+                href: String(image.properties.dataOriginalSrc || image.properties.src),
+                ariaLabel: `${image.properties.alt}を拡大`,
+              },
+              children: [child],
+            };
+            return trigger;
+          }
+          wrapZoomImages(child, insideControl);
+          return child;
+        });
+      }
+      wrapZoomImages(tree);
     })
     .use(rehypeHighlight, { detect: false, ignoreMissing: true, plainText: ['mermaid', 'dot', 'graphviz'] })
     .use(rehypeKatex)

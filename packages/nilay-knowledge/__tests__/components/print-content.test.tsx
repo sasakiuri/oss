@@ -88,12 +88,19 @@ it('loads offscreen article images for printing and restores their loading polic
     </>,
   );
   const lazy = screen.getByAltText('遅延画像');
+  lazy.setAttribute('srcset', '/optimized.webp 128w');
+  lazy.setAttribute('data-original-src', '/lazy.png');
+  const eager = screen.getByAltText('優先画像');
+  eager.setAttribute('srcset', '/authored.webp 2x');
   fireEvent(window, new Event('beforeprint'));
   fireEvent(window, new Event('beforeprint'));
   expect(lazy).toHaveAttribute('loading', 'eager');
+  expect(lazy).not.toHaveAttribute('srcset');
+  expect(eager).toHaveAttribute('srcset', '/authored.webp 2x');
   expect(screen.getByAltText('記事以外')).toHaveAttribute('loading', 'lazy');
   fireEvent(window, new Event('afterprint'));
   expect(lazy).toHaveAttribute('loading', 'lazy');
+  expect(lazy).toHaveAttribute('srcset', '/optimized.webp 128w');
   expect(screen.getByAltText('優先画像')).toHaveAttribute('loading', 'eager');
   fireEvent(window, new Event('beforeprint'));
   unmount();
