@@ -1,18 +1,23 @@
 name: Scorecard
 
 on:
+  push:
+    branches: [1.x]
   schedule:
     - cron: "0 20 * * 0"
   workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
-  id-token: write
 
 jobs:
   scorecard:
     runs-on: ubuntu-latest
+    # Scorecard only accepts published results when write permissions are job-scoped.
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
 
     steps:
       - name: Checkout code
