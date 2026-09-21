@@ -145,9 +145,10 @@ export async function createPdfSearchIndex(
       if (!(await stat(realFilename)).isFile()) throw new Error('PDF must be a regular file');
       const task = getDocument({
         data: new Uint8Array(await readFile(realFilename)),
-        cMapUrl: `${path.join(pdfDirectory, 'cmaps')}${path.sep}`,
+        // PDF.js requires a forward slash suffix even for native Windows paths.
+        cMapUrl: `${path.join(pdfDirectory, 'cmaps')}/`,
         cMapPacked: true,
-        standardFontDataUrl: `${path.join(pdfDirectory, 'standard_fonts')}${path.sep}`,
+        standardFontDataUrl: `${path.join(pdfDirectory, 'standard_fonts')}/`,
         useSystemFonts: false,
         stopAtErrors: true,
       });
