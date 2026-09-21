@@ -125,10 +125,14 @@ test('native search scope keys do not select or open a result', async ({ page })
   // Native popup navigation differs by OS; verify filtering with an explicit selection.
   await scope.selectOption('articles');
   await expect(scope).toHaveValue('articles');
-  await expect(results.first()).toBeVisible();
-  expect(
-    await results.evaluateAll((items) => items.every((item) => item.getAttribute('href')?.startsWith('/articles/'))),
-  ).toBe(true);
+  // The selection can update before the worker has replaced the previous results.
+  await expect
+    .poll(() =>
+      results.evaluateAll(
+        (items) => items.length > 0 && items.every((item) => item.getAttribute('href')?.startsWith('/articles/')),
+      ),
+    )
+    .toBe(true);
 });
 
 test('groups matching sections, expands them by keyboard, and loads every remaining article', async ({ page }) => {
