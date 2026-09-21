@@ -8,45 +8,45 @@ tags: ["法令"]
 銃刀法や鳥獣法など、銃砲・狩猟・火薬類に関連する法令（法律・省令・府令・規則・政令）の一覧を掲載しています。このほか、警察庁の通達 PDF を保管してあります。
 
 __関連外部リンク：__  
-[[官報]](https://kanpou.npb.go.jp/) [[電子政府の総合窓口 e-Gov]](https://www.e-gov.go.jp/) [[警察庁 法令・訓令・通達等]](https://www.npa.go.jp/laws/notification/seian.html#hoan) [[農林水産省 鳥獣被害対策コーナー]](http://www.maff.go.jp/j/seisan/tyozyu/higai/)
+[\[官報\]](https://kanpou.npb.go.jp/) [\[電子政府の総合窓口 e-Gov\]](https://www.e-gov.go.jp/) [\[警察庁 法令・訓令・通達等\]](https://www.npa.go.jp/laws/notification/seian.html#hoan) [\[農林水産省 鳥獣被害対策コーナー\]](http://www.maff.go.jp/j/seisan/tyozyu/higai/)
 
 # 銃砲に関係した法令
 
-- 銃砲刀剣類所持等取締法 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333AC0000000006_20190401_430AC0000000042)
-- 銃砲刀剣類所持等取締法施行令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333CO0000000033)
-- 銃砲刀剣類所持等取締法施行規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333M50000002016_20190701_501M60000002012)
-- 技能検定、技能講習及び射撃教習に関する規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=353M50400000008)
-- 指定射撃場の指定に関する内閣府令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=337M50000002046)
-- 暴力的不法行為その他の罪に当たる違法な行為を定める規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=403M50400000008)
-- 猟銃の口径の長さの特例に関する規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=346M50400000005)
-- 猟銃安全指導委員規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=421M60400000012)
-- 銃砲刀剣類所持等取締法施行令第二条第二号の銃砲の範囲を定める命令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=350M50000082001)
-- 猟銃及び空気銃の取扱いに関する講習会及び年少射撃資格の認定のための講習会の開催に関する事務の一部を行わせることができる者の指定に関する規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=421M60400000011)
-- 武器製造法 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328M50000400043)
-- 武器製造法施行令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328CO0000000198)
-- 武器製造法施行規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328M50000400043)
+- 銃砲刀剣類所持等取締法 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333AC0000000006_20190401_430AC0000000042)
+- 銃砲刀剣類所持等取締法施行令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333CO0000000033)
+- 銃砲刀剣類所持等取締法施行規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=333M50000002016_20190701_501M60000002012)
+- 技能検定、技能講習及び射撃教習に関する規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=353M50400000008)
+- 指定射撃場の指定に関する内閣府令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=337M50000002046)
+- 暴力的不法行為その他の罪に当たる違法な行為を定める規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=403M50400000008)
+- 猟銃の口径の長さの特例に関する規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=346M50400000005)
+- 猟銃安全指導委員規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=421M60400000012)
+- 銃砲刀剣類所持等取締法施行令第二条第二号の銃砲の範囲を定める命令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=350M50000082001)
+- 猟銃及び空気銃の取扱いに関する講習会及び年少射撃資格の認定のための講習会の開催に関する事務の一部を行わせることができる者の指定に関する規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=421M60400000011)
+- 武器製造法 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328M50000400043)
+- 武器製造法施行令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328CO0000000198)
+- 武器製造法施行規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=328M50000400043)
 
 # 火薬類に関係した法令
 
-- 火薬類取締法 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325AC0000000149)
-- 火薬類取締法施行令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325CO0000000323)
-- 火薬類取締法施行規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325M50000400088)
-- 猟銃用火薬類等の譲渡、譲受け、輸入及び消費に関する内閣府令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=341M50000002046)
-- 火薬類の運搬に関する内閣府令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=335M50000002065)
-- 火薬類運送規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=336M50000800001)
+- 火薬類取締法 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325AC0000000149)
+- 火薬類取締法施行令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325CO0000000323)
+- 火薬類取締法施行規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=325M50000400088)
+- 猟銃用火薬類等の譲渡、譲受け、輸入及び消費に関する内閣府令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=341M50000002046)
+- 火薬類の運搬に関する内閣府令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=335M50000002065)
+- 火薬類運送規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=336M50000800001)
 
 # 狩猟に関係した法令
 
-- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414AC0000000088)
-- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律施行令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414M60001000028)
-- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律施行規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414M60001000028)
-- 鳥獣による農林水産業等に係る被害の防止のための特別措置に関する法律 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=419AC1000000134)
-- 鳥獣による農林水産業等に係る被害の防止のための特別措置に関する法律施行規則 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=420M60000200007)
+- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414AC0000000088)
+- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律施行令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414M60001000028)
+- 鳥獣の保護及び管理並びに狩猟の適正化に関する法律施行規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=414M60001000028)
+- 鳥獣による農林水産業等に係る被害の防止のための特別措置に関する法律 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=419AC1000000134)
+- 鳥獣による農林水産業等に係る被害の防止のための特別措置に関する法律施行規則 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=420M60000200007)
 
 # その他行政に関係した法令
 
-- 地方公共団体の手数料の標準に関する政令 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=412CO0000000016_20160623)
-- 行政手続法 [[e-Gov]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=405AC0000000088)
+- 地方公共団体の手数料の標準に関する政令 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=412CO0000000016_20160623)
+- 行政手続法 [\[e-Gov\]](https://elaws.e-gov.go.jp/search/elawsSearch/elaws_search/lsg0500/detail?lawId=405AC0000000088)
 
 # 警察庁の訓令・通達
 

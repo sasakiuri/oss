@@ -26,7 +26,7 @@ PDF ファイルと ODT ファイルの申請書・申込書をご利用いた�
 | 第11号（第9条関係） | [練習資格認定申請書](./docs/juto11.pdf) | [○](./docs/juto11.pdf) | [○](./docs/juto11.odt) |  |  |
 | 第12号（第11条、第17条関係） | 譲渡等承諾書 |  |  |
 | 第13号（第11条関係） | [同居親族書](https://gunman.nilay.jp) | [○](./docs/juto13.pdf) | [○](./docs/juto13.odt) | [○](./docs/juto13.example.pdf) |
-| 第19号（第20条関係） | [猟銃等講習受講申込書](./docs/documents/j19/juto19.pdf) | [○](./docs/juto19.pdf) | [○](./docs/juto19.odt) | [○](./docs/juto19.example.pdf) |
+| 第19号（第20条関係） | [猟銃等講習受講申込書](./docs/juto19.pdf) | [○](./docs/juto19.pdf) | [○](./docs/juto19.odt) | [○](./docs/juto19.example.pdf) |
 | 第25号（第26条関係） | [技能講習受講申込書](https://gunman.nilay.jp) | [○](./docs/juto25.pdf) | [○](./docs/juto25.odt) | [○](./docs/juto25.example.pdf) |
 | 第34号（第32条関係） | [銃砲刀剣類所持許可証書換申請書](https://gunman.nilay.jp) | [○](./docs/juto34.pdf) | [○](./docs/juto34.odt) | [○](./docs/juto34.example.pdf) |
 | 第35号（第33条関係） | 銃砲刀剣類所持許可証再交付申請書 | [○](./docs/juto35.pdf) | [○](./docs/juto35.odt) |  |
@@ -102,7 +102,7 @@ PDF ファイルと ODT ファイルの申請書・申込書をご利用いた�
 
 | 様式 | 名称 | PDF | ODT | 例 |
 | ---- | ---- | :-: | :-: | :-: |
-| [猟銃等講習受講申込書](./docs/documents/j19/juto19.pdf) | [○](./docs/juto19.odt) | [○](./docs/juto19.example.pdf)  |
+| [猟銃等講習受講申込書](./docs/juto19.pdf) | [○](./docs/juto19.odt) | [○](./docs/juto19.example.pdf)  |
 
 **その他添付書類等**
 

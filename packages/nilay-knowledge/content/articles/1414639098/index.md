@@ -57,6 +57,9 @@ tags: ["技能講習"]
 
 （平成27年1月30日通達　丁保発第27号　「技能講習実施基準の制定について」より）
 
+<!-- 原文引用の半角見出し記号・全角アルファベットを保持する。 -->
+<!-- textlint-disable ja-technical-writing/no-hankaku-kana,ja-technical-writing/ja-unnatural-alphabet -->
+
 ## 技能講習実施基準
 
 ### １　目的
@@ -470,3 +473,5 @@ tags: ["技能講習"]
         </tr>
     </tbody>
 </table>
+
+<!-- textlint-enable ja-technical-writing/no-hankaku-kana,ja-technical-writing/ja-unnatural-alphabet -->

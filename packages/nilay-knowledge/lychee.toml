@@ -1,0 +1,10 @@
+# Shared by the local command and the scheduled/manual workflow.
+no_progress = true
+timeout = 20
+max_retries = 1
+max_concurrency = 8
+index_files = ["index.html"]
+include_fragments = "anchor-only"
+
+# These are browser actions, not fetchable resources. Keep unknown schemes visible.
+exclude = ["^mailto:", "^tel:"]
