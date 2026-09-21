@@ -2,8 +2,6 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-
 function waitForImages(images: HTMLImageElement[], signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
@@ -27,7 +25,7 @@ function waitForImages(images: HTMLImageElement[], signal: AbortSignal): Promise
 }
 
 /** Wait for article images before printing and restore the reader's expanded sections afterward. */
-export function PrintContent() {
+export function useContentPrint() {
   const statusId = useId();
   const [phase, setPhase] = useState<'idle' | 'preparing' | 'printing' | 'failed'>('idle');
   const requestPrint = useRef<() => void>(() => {});
@@ -126,20 +124,10 @@ export function PrintContent() {
     failed: '画像を読み込めませんでした。通信状態を確認して、もう一度お試しください。',
   }[phase];
 
-  return (
-    <div className="mx-auto mb-8 max-w-5xl px-4 print:hidden">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => requestPrint.current()}
-        disabled={phase === 'preparing' || phase === 'printing'}
-        aria-describedby={statusId}
-      >
-        ページを印刷
-      </Button>
-      <p id={statusId} role="status" aria-atomic="true" className="mt-2 text-sm text-subtle">
-        {message}
-      </p>
-    </div>
-  );
+  return {
+    statusId,
+    message,
+    busy: phase === 'preparing' || phase === 'printing',
+    print: () => requestPrint.current(),
+  };
 }

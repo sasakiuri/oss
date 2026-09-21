@@ -196,7 +196,7 @@ test('mobile menu, TOC and short-viewport search remain keyboard accessible', as
   const dialog = page.getByRole('dialog', { name: 'ナビゲーションメニュー' });
   await expect(dialog.getByRole('button', { name: 'メニューを閉じる' })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
-  await expect(dialog.getByRole('link', { name: '案内所' })).toBeFocused();
+  await expect(dialog.getByRole('link', { name: '通信販売' })).toBeFocused();
   await audit(page);
   await page.keyboard.press('Escape');
   await expect(menu).toBeFocused();
@@ -233,9 +233,16 @@ test('reduced motion, forced colors and print retain usable controls and article
   await page.getByRole('button', { name: 'トップへ戻る' }).click();
   await expect(page.locator('#site-header')).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  await page.emulateMedia({ media: 'print' });
+  await page.getByRole('button', { name: '表示テーマを選ぶ' }).click();
+  await page.getByRole('menuitemradio', { name: 'ダーク', exact: true }).click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await page.emulateMedia({ media: 'print', forcedColors: 'none' });
+  await expect(page.locator('article header').getByRole('link', { name: 'イントロダクション' })).toHaveCSS(
+    'color',
+    'rgb(0, 0, 0)',
+  );
   await expect(image.getByRole('img')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'SNSで共有' })).not.toBeVisible();
+  await expect(page.getByRole('button', { name: '共有・印刷' })).not.toBeVisible();
 });
 
 test('selecting a search section transfers focus to the destination heading', async ({ page }) => {
@@ -309,10 +316,14 @@ test('text enlargement and spacing keep navigation, breadcrumbs and theme choice
     });
     await expectNoPageOverflow(page);
     if (route === '/') {
-      const card = page.getByRole('main').getByRole('link', { name: '狩猟鳥獣図鑑' });
+      const card = page
+        .getByRole('region', { name: '手続き・資料を探す' })
+        .getByRole('link', { name: /^狩猟鳥獣図鑑/ });
       expect(
         await card.evaluate((element) => {
-          const text = element.querySelector('span')!.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          const text = range.getBoundingClientRect();
           const bounds = element.getBoundingClientRect();
           return text.top >= bounds.top && text.bottom <= bounds.bottom;
         }),
@@ -325,8 +336,8 @@ test('text enlargement and spacing keep navigation, breadcrumbs and theme choice
     const menu = page.getByRole('menu', { name: '表示テーマ' });
     await expect(menu).toBeVisible();
     await page.keyboard.press('End');
-    await expect(menu.getByRole('menuitemradio', { name: '端末の設定に合わせる' })).toBeFocused();
-    await expect(menu.getByRole('menuitemradio', { name: '端末の設定に合わせる' })).toBeInViewport();
+    await expect(menu.getByRole('menuitemradio', { name: 'システム既定' })).toBeFocused();
+    await expect(menu.getByRole('menuitemradio', { name: 'システム既定' })).toBeInViewport();
     await expectNoPageOverflow(page);
     await audit(page);
     await page.keyboard.press('Escape');
@@ -406,4 +417,25 @@ test('browser history restores scroll without moving focus to an offscreen title
     .toBeLessThan(24);
   await page.getByRole('navigation', { name: 'メインナビゲーション' }).getByRole('link', { name: '案内所' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+});
+
+test('the mobile menu reflows with enlarged and widely spaced text', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await page.addStyleTag({
+    content: `
+      html { font-size: 200% !important; }
+      * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }
+    `,
+  });
+  const opener = page.getByRole('button', { name: 'メニューを開く' });
+  await opener.click();
+  const menu = page.getByRole('dialog', { name: 'ナビゲーションメニュー' });
+  await expect(menu.getByRole('button', { name: 'メニューを閉じる' })).toBeFocused();
+  expect(await menu.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await menu.getByRole('link', { name: '通信販売' }).focus();
+  await expect(menu.getByRole('link', { name: '通信販売' })).toBeInViewport();
+  await audit(page);
+  await page.keyboard.press('Escape');
+  await expect(opener).toBeFocused();
 });

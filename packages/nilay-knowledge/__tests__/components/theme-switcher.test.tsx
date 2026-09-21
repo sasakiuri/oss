@@ -27,10 +27,7 @@ it('lets keyboard users choose a theme, persists it, and restores focus after cl
   renderSwitcher();
   const trigger = screen.getByRole('button', { name: '表示テーマを選ぶ' });
   fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-  expect(await screen.findByRole('menuitemradio', { name: '端末の設定に合わせる' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  expect(await screen.findByRole('menuitemradio', { name: 'システム既定' })).toHaveAttribute('aria-checked', 'true');
   fireEvent.click(screen.getByRole('menuitemradio', { name: 'ダーク' }));
   await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
   expect(localStorage.getItem('knowledge-theme')).toBe('dark');
@@ -42,7 +39,7 @@ it('lets keyboard users choose a theme, persists it, and restores focus after cl
   expect(localStorage.getItem('knowledge-theme')).toBe('light');
 
   fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-  fireEvent.click(await screen.findByRole('menuitemradio', { name: '端末の設定に合わせる' }));
+  fireEvent.click(await screen.findByRole('menuitemradio', { name: 'システム既定' }));
   expect(localStorage.getItem('knowledge-theme')).toBe('system');
   await waitFor(() => expect(document.documentElement).toHaveClass('light'));
 });

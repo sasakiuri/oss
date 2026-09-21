@@ -66,7 +66,8 @@ test('home images use responsive optimization and text needs no downloaded fonts
   await page.waitForLoadState('networkidle');
   expect(fonts).toHaveLength(0);
   const hero = page.locator('main img').first();
-  await expect(hero).toHaveAttribute('sizes', '100vw');
+  await expect(hero).toHaveAttribute('sizes', '(min-width: 1152px) 426px, (min-width: 1024px) 40vw, 1px');
+  await expect(hero).toHaveAttribute('fetchpriority', 'high');
   expect(await hero.evaluate((image: HTMLImageElement) => new URL(image.currentSrc).pathname)).toMatch(
     /^\/_next\/image\/?$/,
   );
@@ -99,6 +100,7 @@ test('article printing waits for offscreen images before opening the print dialo
     await route.continue();
   });
   try {
+    await page.getByRole('button', { name: '共有・印刷' }).click();
     const button = page.getByRole('button', { name: 'ページを印刷' });
     await button.click();
     await expect(button).toBeDisabled();

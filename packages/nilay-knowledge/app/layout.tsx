@@ -55,14 +55,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body className="font-sans antialiased">
+      <body className="flex min-h-dvh flex-col font-sans antialiased">
         <NuqsAdapter>
           <ThemeProvider>
             <SkipLink />
             <GoogleAnalytics />
             <Header />
             <NavigationFocus />
-            <main id="main-content" tabIndex={-1} className="min-h-screen">
+            <main id="main-content" tabIndex={-1} className="flex-1">
               {children}
             </main>
             <Footer />

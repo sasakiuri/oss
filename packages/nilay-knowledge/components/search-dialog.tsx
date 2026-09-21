@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { Command } from 'cmdk';
-import { ArrowUpRight, Search, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
@@ -13,16 +13,24 @@ import { focusContent } from '@/lib/focus-content';
 import { createSearchClient } from '@/lib/search-client';
 import { searchScopes, type SearchResults } from '@/lib/search-protocol';
 
-export function HomeSearchButton() {
+// The home button can hydrate before the header's search boundary is ready.
+let searchRequested = false;
+
+export function HomeSearchButton({ compact = false }: { compact?: boolean }) {
   return (
     <button
       type="button"
       aria-haspopup="dialog"
-      onClick={() => window.dispatchEvent(new Event('knowledge:search'))}
-      className="mt-4 flex min-h-11 w-full max-w-md items-center justify-center gap-3 rounded-full bg-surface/80 px-4 text-body hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      aria-label="記事・ニュースを検索"
+      onClick={() => {
+        searchRequested = true;
+        window.dispatchEvent(new Event('knowledge:search'));
+      }}
+      className={`flex min-h-12 items-center gap-3 rounded-sm border border-line-strong bg-surface px-4 py-3 text-sm text-subtle transition-colors hover:border-brand hover:text-brand ${compact ? 'w-full sm:w-auto' : 'mt-6 w-full max-w-md'}`}
     >
-      <Search className="h-5 w-5" aria-hidden="true" />
-      記事・ニュースを検索
+      <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>記事・ニュースを検索</span>
+      <ArrowRight className="ml-auto size-4 shrink-0" aria-hidden="true" />
     </button>
   );
 }
@@ -35,11 +43,11 @@ export function SearchDialog() {
           type="button"
           disabled
           aria-label="記事・ニュースを検索 Ctrl / ⌘ K"
-          className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-3 text-sm text-white"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-3 text-sm text-white"
         >
           <Search className="h-5 w-5" aria-hidden="true" />
           <span className="hidden sm:inline">検索</span>
-          <kbd aria-hidden="true" className="hidden rounded border border-slate-400 px-1 text-xs lg:inline">
+          <kbd aria-hidden="true" className="hidden rounded-sm border border-white/30 px-1 text-xs xl:inline">
             Ctrl / ⌘ K
           </kbd>
         </button>
@@ -114,8 +122,12 @@ function SearchDialogContent() {
   }, [destination, open, pathname]);
 
   useEffect(() => {
-    const onSearch = () => changeOpen(true);
+    const onSearch = () => {
+      searchRequested = false;
+      changeOpen(true);
+    };
     window.addEventListener('knowledge:search', onSearch);
+    if (searchRequested) onSearch();
     return () => window.removeEventListener('knowledge:search', onSearch);
   }, [changeOpen]);
 
@@ -203,11 +215,11 @@ function SearchDialogContent() {
           type="button"
           aria-label="記事・ニュースを検索 Ctrl / ⌘ K"
           aria-keyshortcuts="Control+k Meta+k"
-          className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-3 text-sm text-white hover:bg-slate-600 focus-visible:outline-2 focus-visible:outline-white"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-3 text-sm text-white hover:bg-white/10"
         >
           <Search className="h-5 w-5" aria-hidden="true" />
           <span className="hidden sm:inline">検索</span>{' '}
-          <kbd aria-hidden="true" className="hidden rounded border border-slate-400 px-1 text-xs lg:inline">
+          <kbd aria-hidden="true" className="hidden rounded-sm border border-white/30 px-1 text-xs xl:inline">
             Ctrl / ⌘ K
           </kbd>
         </button>
@@ -227,11 +239,11 @@ function SearchDialogContent() {
               opener?.focus();
             }
           }}
-          className="fixed left-1/2 top-[5dvh] z-[60] max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl bg-surface p-5 shadow-xl sm:p-6 print:hidden"
+          className="fixed left-1/2 top-[3dvh] z-[60] max-h-[94dvh] w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 overflow-y-auto overscroll-contain rounded-sm border border-line bg-surface p-4 shadow-xl sm:top-[8dvh] sm:max-h-[84dvh] sm:p-7 print:hidden"
         >
-          <Dialog.Title className="pr-10 text-lg font-bold text-ink">記事・ニュースを検索</Dialog.Title>
-          <Dialog.Description className="mt-2 text-sm text-subtle">
-            記事・ニュースや添付PDFを検索します。上下キーで結果を選び、Enterで開きます。Escで閉じます。検索条件はURLに保存されます。
+          <Dialog.Title className="pr-10 text-lg font-semibold text-ink">記事・ニュースを検索</Dialog.Title>
+          <Dialog.Description className="mt-2 pr-3 text-xs leading-6 text-subtle">
+            記事の本文・見出しや、添付されたPDF資料から探せます。
           </Dialog.Description>
           <Dialog.Close asChild>
             <button
@@ -242,23 +254,6 @@ function SearchDialogContent() {
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </Dialog.Close>
-          <label className="mt-4 block text-sm font-medium text-ink">
-            検索対象
-            <select
-              aria-label="検索対象"
-              value={scope}
-              onChange={(event) => void setSearchParams({ type: event.target.value as typeof scope })}
-              className="mt-2 min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base"
-            >
-              <option value="all">記事・ニュース</option>
-              <option value="articles">記事</option>
-              <option value="news">ニュース</option>
-              <option value="pdf">PDF資料</option>
-            </select>
-          </label>
-          {scope === 'pdf' && (
-            <p className="mt-2 text-sm text-subtle">PDF内の文字を検索します。画像として保存された文字は対象外です。</p>
-          )}
           <Command
             label="検索キーワード"
             shouldFilter={false}
@@ -285,17 +280,55 @@ function SearchDialogContent() {
               }
             }}
           >
-            <p aria-hidden="true" className="mt-4 text-sm font-medium text-ink">
-              検索キーワード
-            </p>
-            <Command.Input
-              ref={inputRef}
-              aria-describedby={statusId}
-              value={query}
-              onValueChange={(q) => void setSearchParams({ q })}
-              placeholder="キーワードを入力"
-              className="mt-2 min-h-12 w-full rounded-lg border border-line-strong px-4 text-base text-ink placeholder:text-subtle focus-visible:outline-2 focus-visible:outline-brand"
-            />
+            <div className="relative mt-5">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-4 size-5 text-subtle" />
+              <Command.Input
+                ref={inputRef}
+                aria-describedby={statusId}
+                value={query}
+                onValueChange={(q) => void setSearchParams({ q })}
+                placeholder="キーワードを入力"
+                className="min-h-13 w-full rounded-sm border border-line-strong bg-surface pr-12 pl-11 text-base text-ink placeholder:text-subtle focus-visible:outline-2 focus-visible:outline-brand"
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="検索キーワードを消去"
+                  onKeyDown={(event) => {
+                    if (['Enter', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) event.stopPropagation();
+                  }}
+                  onClick={() => {
+                    void setSearchParams({ q: '' });
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-sm text-subtle hover:bg-muted"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <label className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-subtle">
+              検索対象
+              <select
+                aria-label="検索対象"
+                onKeyDown={(event) => {
+                  if (['Enter', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) event.stopPropagation();
+                }}
+                value={scope}
+                onChange={(event) => void setSearchParams({ type: event.target.value as typeof scope })}
+                className="min-h-11 min-w-0 max-w-full rounded-sm border border-line bg-surface px-3 text-sm text-body"
+              >
+                <option value="all">記事・ニュース</option>
+                <option value="articles">記事</option>
+                <option value="news">ニュース</option>
+                <option value="pdf">PDF資料</option>
+              </select>
+            </label>
+            {scope === 'pdf' && (
+              <p className="mt-2 text-xs leading-6 text-subtle">
+                PDF内の文字を検索します。画像として保存された文字は対象外です。
+              </p>
+            )}
             <p id={statusId} role="status" aria-atomic="true" className="my-3 text-sm text-subtle">
               {error
                 ? '検索データを読み込めませんでした。'
@@ -306,11 +339,13 @@ function SearchDialogContent() {
                     : pending || query !== deferredQuery
                       ? '検索しています…'
                       : results.total === 0
-                        ? '一致する記事・ニュースが見つかりません。'
+                        ? scope === 'pdf'
+                          ? '一致するPDF資料が見つかりません。'
+                          : '一致する記事・ニュースが見つかりません。'
                         : `${results.total} 件の検索結果${results.total > 20 ? '（上位20件を表示）' : ''}`}
             </p>
 
-            <Command.List label="検索結果" aria-busy={(!ready || pending) && !error} className="space-y-2 p-1">
+            <Command.List label="検索結果" aria-busy={(!ready || pending) && !error} className="border-t border-line">
               {!error &&
                 !pending &&
                 query === deferredQuery &&
@@ -332,7 +367,7 @@ function SearchDialogContent() {
                           setDestination(String(result.id));
                           changeOpen(false);
                         }}
-                        className="flex items-start gap-3 rounded-lg border border-line p-4 hover:bg-muted data-[selected=true]:bg-muted data-[selected=true]:ring-2 data-[selected=true]:ring-brand focus-visible:outline-2 focus-visible:outline-brand"
+                        className="flex items-start gap-3 border-b border-l-2 border-transparent border-b-line px-3 py-4 hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand"
                       >
                         <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                           <span className="text-xs text-subtle">
@@ -357,6 +392,34 @@ function SearchDialogContent() {
                 })}
             </Command.List>
           </Command>
+          {!error && !query.trim() && (
+            <div className="py-4">
+              <p className="text-xs text-subtle">キーワードの例</p>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                {['所持許可', '申請書', '狩猟免許'].map((keyword) => (
+                  <button
+                    key={keyword}
+                    type="button"
+                    onClick={() => {
+                      void setSearchParams({ q: keyword });
+                      inputRef.current?.focus();
+                    }}
+                    className="min-h-11 text-sm text-brand underline decoration-line-strong underline-offset-4 hover:decoration-brand"
+                  >
+                    {keyword}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!error && ready && query.trim() && !pending && query === deferredQuery && results.total === 0 && (
+            <p className="py-4 text-sm leading-7 text-subtle">
+              短いキーワードに変えるか、検索対象を変えてお試しください。
+            </p>
+          )}
+          <p className="mt-4 hidden border-t border-line pt-3 text-xs text-subtle sm:block">
+            ↑ ↓ で選択 · Enter で開く · Esc で閉じる
+          </p>
           {error && (
             <button
               type="button"

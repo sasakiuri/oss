@@ -167,7 +167,25 @@ for CI.
 
 ## Reading, search and printing
 
-Following Saika Docs, the header theme menu offers light, dark and system modes.
+The home page retains its photographic banner, with separate sections for
+introductory guides and reference links: forms, permit renewal, the species guide
+and shooting ranges. A compact news list
+shows the three most recent entries with their publication dates. The article directory provides native subject anchors, also linked
+from each article header. Subject IDs live in `lib/content/navigation.ts` and
+should remain stable when labels change. Shared layout and title utilities in
+`app/globals.css` set the reading width and use installed Japanese sans-serif
+fonts. The blue-gray header and footer and orange sharing control retain the original
+site theme, with warm neutral reading surfaces. A floating action button opens
+social and email sharing links; on articles and news it also offers a printing icon
+alongside the sharing icons. Print preparation
+and keyboard shortcuts remain active when this menu is closed.
+
+Article and news footers link to GitHub for corrections. The Issue link selects
+the generic report template and prefills the article title, public URL and source
+file. The PR link opens that Markdown file in GitHub's editor, where readers can
+propose a change. Repository location and target branch live in `lib/config.ts`.
+
+The header theme menu offers light, dark and system modes.
 The default follows the device setting; an explicit choice is saved in this
 browser under `knowledge-theme` and retained across pages and reloads. The same
 palette covers article text, tables, search and mobile menus. Printing always
@@ -179,7 +197,7 @@ is excluded from this sequence. Articles outside the curated index still link
 back to the index; add them to `lib/content/navigation.ts` to include them in the
 reading order. The news collection retains its publication-date ordering.
 
-The header and home page open the same search dialog. `Ctrl+K` or `Cmd+K` opens
+The header, home page and article directory open the same search dialog. `Ctrl+K` or `Cmd+K` opens
 it from any page and `Esc` closes it. The cmdk input supports Up/Down selection
 and Enter to follow a result; Tab and modified link clicks remain available.
 Japanese IME confirmation does not activate a result. Matching words in titles,
@@ -224,7 +242,8 @@ releases its proxy and listeners. Search initialization can retry a failed index
 download; Graphviz rendering retains cancellation and a ten-second timeout.
 Tests cover real Comlink message transport, remote errors and worker termination.
 
-Use “ページを印刷” or `Ctrl+P` / `Cmd+P` on an article or news item. This opens
+Open the floating “共有・印刷” menu and choose “ページを印刷”, or use
+`Ctrl+P` / `Cmd+P` on an article or news item. This opens
 collapsed content and waits for every article image to load and decode before
 opening the print dialog. Loading failures are announced and can be retried;
 navigating away cancels preparation. The browser's own print menu cannot wait for
@@ -238,7 +257,7 @@ previous state afterward. Check the print preview for unusually large images or 
 
 ## Performance checks
 
-Home images use Next.js responsive image optimization, with the banner preloaded.
+Home images use Next.js responsive image optimization, with the banner photograph preloaded.
 Article images keep their original URLs and full-resolution zoom; dimensions are
 read from published local assets during generation to reserve space. The first
 image loads eagerly, subsequent images load lazily, and author-provided loading,

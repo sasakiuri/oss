@@ -13,26 +13,26 @@ export function ArticleNavigation({ slug }: { slug: string }) {
           <Link
             href={`/${previous.slug}`}
             rel="prev"
-            className="rounded-lg border border-line p-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand"
+            className="border-b border-line py-4 hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand"
           >
             <span className="mb-2 flex items-center gap-2 text-xs text-subtle">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               前の記事
             </span>
-            <span className="text-sm font-medium text-brand">{previous.title}</span>
+            <span className="text-sm font-medium leading-7 text-ink">{previous.title}</span>
           </Link>
         )}
         {next && (
           <Link
             href={`/${next.slug}`}
             rel="next"
-            className="rounded-lg border border-line p-4 text-right hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand sm:col-start-2"
+            className="border-b border-line py-4 text-right hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand sm:col-start-2"
           >
             <span className="mb-2 flex items-center justify-end gap-2 text-xs text-subtle">
               次の記事
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span className="text-sm font-medium text-brand">{next.title}</span>
+            <span className="text-sm font-medium leading-7 text-ink">{next.title}</span>
           </Link>
         )}
       </div>

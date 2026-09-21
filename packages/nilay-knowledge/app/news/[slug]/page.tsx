@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { ArticleFeedback } from '@/components/article-feedback';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
 import { MarkdownContent } from '@/components/markdown-content';
-import { PrintContent } from '@/components/print-content';
 import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
 import { createContentMetadata } from '@/lib/content/metadata';
@@ -53,20 +54,19 @@ export default async function NewsDetailPage({ params }: Props) {
           { name: frontmatter.title, slug: `news/${slug}` },
         ]}
       />
-      <SnsShare title={frontmatter.title} slug={`news/${slug}`} />
 
-      <div className="reading-layout mx-auto max-w-3xl px-4 py-8">
-        <article className="reading-article overflow-hidden rounded-lg border border-line bg-surface p-5 sm:p-8">
-          <header className="mb-8">
+      <div className="reading-layout mx-auto max-w-3xl px-5 pt-8 pb-12 sm:px-8">
+        <article className="reading-article min-w-0">
+          <header className="mb-8 border-b border-line pb-8">
             <time dateTime={frontmatter.published} className="text-sm text-subtle">
               {formatDate(frontmatter.published)}
             </time>
-            <h1 className="mt-2 text-2xl font-bold leading-tight text-ink [font-feature-settings:palt]">
+            <h1 className="page-title mt-3 [font-feature-settings:palt]">
               <TitleText>{frontmatter.title}</TitleText>
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
               {frontmatter.tags.map((tag) => (
-                <span key={tag} className="rounded bg-muted-strong px-2 py-1 text-sm text-subtle">
+                <span key={tag} className="text-xs text-subtle">
                   #{tag}
                 </span>
               ))}
@@ -75,11 +75,18 @@ export default async function NewsDetailPage({ params }: Props) {
 
           <ContentStyles html={html} />
           <MarkdownContent key={slug} html={html} className="prose max-w-none" />
+          <SnsShare printable title={frontmatter.title} slug={`news/${slug}`} />
+          <ArticleFeedback type="news" slug={slug} title={frontmatter.title} />
+          <Link
+            href="/news"
+            className="mt-6 inline-flex min-h-11 items-center text-sm text-brand hover:underline print:hidden"
+          >
+            ニュース一覧へ戻る
+          </Link>
         </article>
       </div>
 
       <ImageZoom key={slug} />
-      <PrintContent />
     </>
   );
 }

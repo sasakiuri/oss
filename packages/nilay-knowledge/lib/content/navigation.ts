@@ -5,12 +5,14 @@ interface ArticleItem {
 }
 
 interface Category {
+  id: string;
   title: string;
   articleList: ArticleItem[];
 }
 
 export const articleCategories: Category[] = [
   {
+    id: 'news',
     title: 'ニュース',
     articleList: [
       {
@@ -21,6 +23,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'getting-started',
     title: 'イントロダクション',
     articleList: [
       {
@@ -36,6 +39,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'procedures',
     title: '制度と法令',
     articleList: [
       {
@@ -51,7 +55,7 @@ export const articleCategories: Category[] = [
         slug: `articles/1564639585`,
       },
       {
-        title: 'ライフル銃の所持許可取得の取得手順',
+        title: 'ライフル銃の所持許可の取得手順',
         slug: `articles/1379069901`,
       },
       {
@@ -79,6 +83,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'equipment',
     title: '銃砲と装弾',
     articleList: [
       {
@@ -94,6 +99,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'hunting',
     title: '狩猟',
     articleList: [
       {
@@ -104,6 +110,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'shooting',
     title: '標的射撃',
     articleList: [
       {
@@ -113,6 +120,7 @@ export const articleCategories: Category[] = [
     ],
   },
   {
+    id: 'resources',
     title: 'その他',
     articleList: [
       {
