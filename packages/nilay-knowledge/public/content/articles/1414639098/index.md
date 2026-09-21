@@ -2,6 +2,7 @@
 title: 技能講習について
 published: "2014-10-30T12:00:00+09:00"
 tags: ["技能講習"]
+category: procedures
 ---
 
 <style>

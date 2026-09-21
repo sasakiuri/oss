@@ -1,16 +1,37 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { parseFrontmatter } from '../lib/content/frontmatter';
+
 interface CreateContentOptions {
   type: 'articles' | 'news';
   contentRoot: string;
   title?: string;
+  category?: string;
+  tags?: string[];
   now?: Date;
 }
 
-export function createContent({ type, contentRoot, title, now = new Date() }: CreateContentOptions) {
+export function createContent({
+  type,
+  contentRoot,
+  title,
+  category,
+  tags = [],
+  now = new Date(),
+}: CreateContentOptions) {
   const published = now.toISOString();
   const label = type === 'articles' ? '記事' : 'ニュース';
+  if (type === 'news' && category !== undefined) throw new Error('Categories are only supported for articles.');
+  const metadata = parseFrontmatter(
+    {
+      title: title || `新しい${label}`,
+      published,
+      tags,
+      ...(type === 'articles' ? { category: category ?? 'uncategorized' } : {}),
+    },
+    `new ${type}`,
+  );
   const baseSlug =
     type === 'articles'
       ? Math.floor(now.getTime() / 1000).toString()
@@ -35,10 +56,10 @@ export function createContent({ type, contentRoot, title, now = new Date() }: Cr
   }
 
   const content = `---
-title: ${JSON.stringify(title || `新しい${label}`)}
+title: ${JSON.stringify(metadata.title)}
 published: ${JSON.stringify(published)}
-tags: []
----
+tags: ${JSON.stringify(metadata.tags)}
+${metadata.category ? `category: ${metadata.category}\n` : ''}---
 
 ここに${label}の内容を書いてください。
 `;

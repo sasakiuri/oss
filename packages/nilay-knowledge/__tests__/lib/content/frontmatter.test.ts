@@ -6,11 +6,30 @@ const source = 'articles/example/index.md';
 const metadata = { title: '  題名  ', published: '2024-02-29', tags: [' 記事 '] };
 
 describe('frontmatter validation', () => {
-  it('preserves text, strips unknown fields and omits undefined optional fields', () => {
-    expect(parseFrontmatter({ ...metadata, updated: undefined, image: undefined, extra: true }, source)).toEqual(
-      metadata,
-    );
+  it('accepts a defined category and permits explicitly unclassified articles', () => {
+    expect(parseFrontmatter({ ...metadata, category: 'procedures' }, source).category).toBe('procedures');
+    expect(parseFrontmatter({ ...metadata, category: 'uncategorized' }, source).category).toBe('uncategorized');
+    expect(parseFrontmatter(metadata, source)).not.toHaveProperty('category');
+  });
+
+  it.each(['unknown', '', '制度と法令', ['procedures'], null, 1])('rejects an invalid category %j', (category) => {
+    expect(() => parseFrontmatter({ ...metadata, category }, source)).toThrow(`${source}: category`);
+  });
+  it('preserves title text, normalizes tags, strips unknown fields and omits undefined optional fields', () => {
+    expect(parseFrontmatter({ ...metadata, updated: undefined, image: undefined, extra: true }, source)).toEqual({
+      ...metadata,
+      tags: ['記事'],
+    });
     expect(parseFrontmatter({ ...metadata, tags: [] }, source).tags).toEqual([]);
+  });
+
+  it('trims and deduplicates tags without changing case or punctuation', () => {
+    expect(parseFrontmatter({ ...metadata, tags: [' 記事 ', '記事', 'C++', 'c++', 'A/B'] }, source).tags).toEqual([
+      '記事',
+      'C++',
+      'c++',
+      'A/B',
+    ]);
   });
 
   it.each([

@@ -7,16 +7,16 @@ test('the introductory shooting guide opens the shooting article', async ({ page
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('クレー射撃について');
 });
 
-test('the directory jumps to a subject and the article links back to that subject', async ({ page }) => {
+test('the directory filters by subject and the article links back to that subject', async ({ page }) => {
   await page.goto('/articles/');
   await page.getByRole('navigation', { name: '記事の分野' }).getByRole('link', { name: '標的射撃' }).click();
-  const subject = page.getByRole('heading', { name: '標的射撃 1件' });
+  const subject = page.getByRole('heading', { name: /^標的射撃 \d+件$/ });
   await expect(subject).toBeInViewport();
   const header = await page.locator('#site-header').boundingBox();
   expect((await subject.boundingBox())!.y).toBeGreaterThanOrEqual(header!.height);
   await page.getByRole('link', { name: 'クレー射撃について', exact: true }).click();
   await page.locator('article header').getByRole('link', { name: '標的射撃' }).click();
-  await expect(page).toHaveURL(/\/articles\/#shooting$/);
+  await expect(page).toHaveURL(/\/articles\/\?category=shooting#shooting$/);
   await expect(subject).toBeInViewport();
 });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { articleCategoryTitles } from './categories';
 import { contentTypes } from './types';
 
 const nonEmptyText = z
@@ -28,7 +29,8 @@ export const frontmatterSchema = z.object(
   {
     title: nonEmptyText,
     published: publicationDate,
-    tags: z.array(nonEmptyText),
+    tags: z.array(nonEmptyText).transform((tags) => [...new Set(tags.map((tag) => tag.trim()))]),
+    category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),
     updated: publicationDate.optional(),
     image: nonEmptyText.optional(),
   },

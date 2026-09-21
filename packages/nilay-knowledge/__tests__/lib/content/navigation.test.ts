@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { expect, it } from 'vitest';
 
-import { articleCategories, getArticleNavigation } from '@/lib/content/navigation';
+import { articleReadingOrder, getArticleNavigation } from '@/lib/content/navigation';
 import { createContentRepository } from '@/lib/content/repository';
 
 it('follows the curated index across categories without linking to the news landing page', () => {
@@ -22,7 +22,7 @@ it('follows the curated index across categories without linking to the news land
 it('keeps each curated article unique and all navigation destinations backed by content', async () => {
   const repository = createContentRepository(path.join(process.cwd(), 'content'));
   const slugs = await repository.listSlugs('articles');
-  const links = articleCategories.flatMap((category) => category.articleList).filter((item) => item.slug !== 'news');
+  const links = articleReadingOrder;
   expect(new Set(links.map((item) => item.slug)).size).toBe(links.length);
   for (const link of links) {
     expect(slugs.map((slug) => `articles/${slug}`)).toContain(link.slug);
