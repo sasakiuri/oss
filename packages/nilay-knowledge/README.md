@@ -1,6 +1,6 @@
 # Nilay Knowledge
 
-<!-- cspell:words NFKC licence frontmatter -->
+<!-- cspell:words NFKC licence frontmatter cmdk nuqs -->
 
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
@@ -170,10 +170,20 @@ back to the index; add them to `lib/content/navigation.ts` to include them in th
 reading order. The news collection retains its publication-date ordering.
 
 The header and home page open the same search dialog. `Ctrl+K` or `Cmd+K` opens
-it from any page, `Esc` closes it, and Tab moves through the results. Search covers
+it from any page and `Esc` closes it. The cmdk input supports Up/Down selection
+and Enter to follow a result; Tab and modified link clicks remain available.
+Japanese IME confirmation does not activate a result. Matching words in titles,
+sections and excerpts use `highlight-words-core` and semantic `<mark>` elements.
+Search covers
 article and news titles, tags, headings and Markdown body text. Results link to
 the matching section using the same heading IDs as the rendered page. Attached
-PDFs and image contents are not indexed.
+PDFs are available through the separate PDF search target; image contents
+are not indexed. Article/news filters reuse the same content index. The query (`q`)
+and target (`type=articles`, `news`, or `pdf`; omitted for articles and news together)
+are synchronized to the URL by nuqs without page reloads or scrolling. Opening a
+shared URL with these conditions restores the search dialog. Typing replaces the
+current history entry and preserves unrelated parameters. Reopening search after
+following a result restores the last query.
 
 Following Saika Docs, MiniSearch runs in the browser with Japanese characters and
 bigrams, NFKC normalization and boosted heading/title matches. Multiple
@@ -185,6 +195,18 @@ failure. A worker downloads, validates and indexes the data, then performs searc
 and returns only the top 20 excerpts and the total count. The search engine and its
 index are loaded only when search first opens; indexing does not block typing or
 dialog controls. Rebuild after changing content to update both pages and the search index.
+
+The static `/pdf-search-index.json` route uses `pdfjs-dist` during the build to
+extract text from locally published PDFs linked by articles/news. Each result
+opens the original PDF at its matching page. External and unreferenced PDFs are
+excluded; paths and symlinks must stay inside `public/content`. Missing or broken
+referenced PDFs fail the build. Pages without extractable text are counted in the
+build log; OCR is not performed. PDF data is downloaded and indexed in the existing
+worker only for a nonempty query with the PDF target selected, then reused.
+The current corpus contains 135 linked PDFs / 1,615 pages, of which 1,509 pages
+have text; 106 blank or image-only pages are excluded. The extra index is about
+650 kB gzip, separate from the normal article/news download. PDF parsing code and
+fonts stay on the server.
 
 Search and Graphviz workers expose typed APIs through Comlink. The shared worker
 client rejects pending and future calls when a worker fails or is disposed, and

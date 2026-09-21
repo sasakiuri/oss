@@ -50,11 +50,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await opener.focus();
       await page.keyboard.press('Enter');
       const dialog = page.getByRole('dialog', { name: '記事・ニュースを検索' });
-      const input = dialog.getByRole('searchbox', { name: '検索キーワード' });
+      const input = dialog.getByRole('combobox', { name: '検索キーワード' });
       await expect(input).toBeFocused();
       await input.fill('申請');
       await expect(dialog.getByRole('status')).toContainText('件の検索結果');
-      const last = dialog.getByRole('link').last();
+      const last = dialog.getByRole('listbox').getByRole('option').last();
       await last.focus();
       await page.keyboard.press('Tab');
       await expect(dialog.getByRole('button', { name: '検索を閉じる' })).toBeFocused();
@@ -177,7 +177,7 @@ for (const shortcut of ['Control+k', 'Meta+k']) {
     await popover.getByRole('link').first().focus();
     await page.keyboard.press(shortcut);
     const search = page.getByRole('dialog', { name: '記事・ニュースを検索' });
-    await expect(search.getByRole('searchbox')).toBeFocused();
+    await expect(search.getByRole('combobox', { name: '検索キーワード' })).toBeFocused();
     await expect(popover).not.toBeVisible();
     await page.keyboard.press('Escape');
     await expect(search).not.toBeVisible();
@@ -212,8 +212,8 @@ test('mobile menu, TOC and short-viewport search remain keyboard accessible', as
   expect((await heading.boundingBox())!.y).toBeGreaterThanOrEqual(56);
   await page.setViewportSize({ width: 320, height: 256 });
   await page.getByRole('button', { name: '記事・ニュースを検索' }).click();
-  await page.getByRole('searchbox').fill('申請');
-  const results = page.getByRole('dialog').getByRole('link');
+  await page.getByRole('combobox', { name: '検索キーワード' }).fill('申請');
+  const results = page.getByRole('dialog').getByRole('listbox').getByRole('option');
   await expect(results.first()).toBeVisible();
   await results.last().focus();
   await expect(results.last()).toBeInViewport();
@@ -241,8 +241,13 @@ test('reduced motion, forced colors and print retain usable controls and article
 test('selecting a search section transfers focus to the destination heading', async ({ page }) => {
   await page.goto('/articles/1378038316/');
   await page.getByRole('button', { name: '記事・ニュースを検索' }).click();
-  await page.getByRole('searchbox').fill('申請書');
-  const result = page.getByRole('dialog').getByRole('link').filter({ hasText: '申請・申込別' }).first();
+  await page.getByRole('combobox', { name: '検索キーワード' }).fill('申請書');
+  const result = page
+    .getByRole('dialog')
+    .getByRole('listbox')
+    .getByRole('option')
+    .filter({ hasText: '申請・申込別' })
+    .first();
   await result.focus();
   const href = await result.getAttribute('href');
   await page.keyboard.press('Enter');
@@ -250,7 +255,13 @@ test('selecting a search section transfers focus to the destination heading', as
   const id = decodeURIComponent(href!.split('#')[1]!);
   await expect(page.locator(`[id=${JSON.stringify(id)}]`)).toBeFocused();
   await page.getByRole('button', { name: '記事・ニュースを検索' }).click();
-  await page.getByRole('dialog').getByRole('link').filter({ hasText: '申請・申込別' }).first().click();
+  await page
+    .getByRole('dialog')
+    .getByRole('listbox')
+    .getByRole('option')
+    .filter({ hasText: '申請・申込別' })
+    .first()
+    .click();
   await expect(page.locator(`[id=${JSON.stringify(id)}]`)).toBeFocused();
 });
 
@@ -348,10 +359,10 @@ test('retrying search keeps focus on the input after the retry button disappears
   const retry = dialog.getByRole('button', { name: '再試行' });
   await retry.focus();
   await page.keyboard.press('Enter');
-  await expect(dialog.getByRole('searchbox')).toBeFocused();
+  await expect(dialog.getByRole('combobox', { name: '検索キーワード' })).toBeFocused();
   await expect(dialog.getByRole('status')).toContainText('キーワードを入力');
   await page.keyboard.type('test');
-  await expect(dialog.getByRole('searchbox')).toHaveValue('test');
+  await expect(dialog.getByRole('combobox', { name: '検索キーワード' })).toHaveValue('test');
 });
 
 test('transparent comparison illustrations retain their canvas in dark mode and the image viewer', async ({ page }) => {

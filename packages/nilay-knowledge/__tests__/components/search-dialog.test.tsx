@@ -1,5 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import { act, fireEvent, render as testingRender, screen, waitFor, within } from '@testing-library/react';
+import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
+import type { ComponentProps, ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HomeSearchButton, SearchDialog } from '@/components/search-dialog';
@@ -7,13 +8,18 @@ import { SnsShare } from '@/components/sns-share';
 import { createSearchClient } from '@/lib/search-client';
 import type { SearchResults } from '@/lib/search-protocol';
 
+function render(ui: ReactElement, searchParams = '') {
+  return testingRender(ui, { wrapper: withNuqsTestingAdapter({ searchParams, hasMemory: true }) });
+}
+
 const route = vi.hoisted(() => ({ pathname: '/' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
 vi.mock('@/lib/search-client', () => ({ createSearchClient: vi.fn() }));
 
 vi.mock('next/link', () => ({
-  default: ({ href, children, onClick }: ComponentProps<'a'>) => (
+  default: ({ href, children, onClick, ...props }: ComponentProps<'a'>) => (
     <a
+      {...props}
       href={href}
       onClick={(event) => {
         event.preventDefault();
@@ -78,8 +84,8 @@ describe('site search dialog', () => {
       </>,
     );
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
-    fireEvent.click(await screen.findByRole('link', { name: /文書ガイド/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
+    fireEvent.click(await screen.findByRole('option', { name: /文書ガイド/ }));
     await waitFor(() => expect(screen.getByRole('main')).toHaveFocus());
   });
 
@@ -97,8 +103,8 @@ describe('site search dialog', () => {
       </>,
     );
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
-    fireEvent.click(await screen.findByRole('link', { name: /文書ガイド/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
+    fireEvent.click(await screen.findByRole('option', { name: /文書ガイド/ }));
     await waitFor(() => expect(screen.getByRole('heading', { name: '印刷の準備' })).toHaveFocus());
   });
 
@@ -106,10 +112,28 @@ describe('site search dialog', () => {
     mockClient();
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
-    fireEvent.click(await screen.findByRole('link', { name: /文書ガイド/ }), { ctrlKey: true });
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
+    fireEvent.click(await screen.findByRole('option', { name: /文書ガイド/ }), { ctrlKey: true });
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  it.each(['ctrlKey', 'metaKey', 'shiftKey'])(
+    'opens the selected result separately with %s+Enter',
+    async (modifier) => {
+      mockClient();
+      const open = vi.fn();
+      vi.stubGlobal('open', open);
+      render(<SearchDialog />, '?q=印刷');
+      const result = await screen.findByRole('option', { name: /文書ガイド/ });
+      await waitFor(() => expect(result).toHaveAttribute('aria-selected', 'true'));
+      const input = screen.getByRole('combobox', { name: '検索キーワード' });
+      fireEvent.keyDown(input, { key: 'Enter', [modifier]: true, isComposing: true, keyCode: 229 });
+      expect(open).not.toHaveBeenCalled();
+      fireEvent.keyDown(input, { key: 'Enter', [modifier]: true });
+      expect(open).toHaveBeenCalledExactlyOnceWith((result as HTMLAnchorElement).href, '_blank', 'noopener');
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    },
+  );
 
   it('loads on demand, searches, restores focus and reuses data when reopened', async () => {
     const client = mockClient();
@@ -118,15 +142,18 @@ describe('site search dialog', () => {
     const trigger = screen.getByRole('button', { name: /記事・ニュースを検索/ });
     trigger.focus();
     fireEvent.click(trigger);
-    const input = screen.getByRole('searchbox', { name: '検索キーワード' });
+    const input = screen.getByRole('combobox', { name: '検索キーワード' });
     expect(input).toHaveFocus();
     fireEvent.change(input, { target: { value: '印刷' } });
-    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toHaveAttribute('href', '/articles/example/#print');
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toHaveAttribute(
+      'href',
+      '/articles/example/#print',
+    );
     fireEvent.keyDown(input, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(trigger).toHaveFocus();
     fireEvent.click(trigger);
-    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
     expect(createSearchClient).toHaveBeenCalledTimes(1);
     expect(client.load).toHaveBeenCalledTimes(1);
     expect(client.dispose).not.toHaveBeenCalled();
@@ -136,8 +163,8 @@ describe('site search dialog', () => {
     mockClient();
     render(<SearchDialog />);
     fireEvent.keyDown(window, { key: 'k', [modifier]: true });
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
-    fireEvent.click(await screen.findByRole('link', { name: /文書ガイド/ }));
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
+    fireEvent.click(await screen.findByRole('option', { name: /文書ガイド/ }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
@@ -155,7 +182,7 @@ describe('site search dialog', () => {
       const opener = screen.getByRole('link', { name: /^LINE/ });
       opener.focus();
       fireEvent.keyDown(opener, { key: 'k', [modifier]: true });
-      const input = await screen.findByRole('searchbox');
+      const input = await screen.findByRole('combobox', { name: '検索キーワード' });
       expect(input).toHaveFocus();
       await waitFor(() => expect(opener).not.toBeInTheDocument());
       fireEvent.keyDown(input, { key: 'Escape' });
@@ -172,7 +199,7 @@ describe('site search dialog', () => {
       </>,
     );
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '検索キーワード' })).not.toBeInTheDocument();
     expect(createSearchClient).not.toHaveBeenCalled();
   });
 
@@ -188,7 +215,7 @@ describe('site search dialog', () => {
     home.focus();
     fireEvent.click(home);
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '検索キーワード' }), { key: 'Escape' });
     await waitFor(() => expect(home).toHaveFocus());
   });
 
@@ -202,7 +229,7 @@ describe('site search dialog', () => {
     expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '再試行' }));
     expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '該当なし' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '該当なし' } });
     expect(await screen.findByText('一致する記事・ニュースが見つかりません。')).toBeInTheDocument();
     expect(createSearchClient).toHaveBeenCalledTimes(2);
     expect(failed.dispose).toHaveBeenCalledOnce();
@@ -217,7 +244,7 @@ describe('site search dialog', () => {
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
     expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('listbox')).queryByRole('option')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '再試行' }));
     expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
   });
@@ -230,7 +257,7 @@ describe('site search dialog', () => {
     const trigger = screen.getByRole('button', { name: /記事・ニュースを検索/ });
     fireEvent.click(trigger);
     expect(screen.getByText('検索を準備しています…')).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: '検索キーワード' }), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(client.dispose).not.toHaveBeenCalled();
     fireEvent.click(trigger);
@@ -239,8 +266,8 @@ describe('site search dialog', () => {
     expect(await screen.findByText('キーワードを入力してください。')).toBeInTheDocument();
     expect(createSearchClient).toHaveBeenCalledOnce();
     expect(client.load).toHaveBeenCalledOnce();
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
-    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
   });
 
   it('ignores responses and failures from older queries', async () => {
@@ -255,18 +282,18 @@ describe('site search dialog', () => {
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
     await screen.findByText('キーワードを入力してください。');
-    const input = screen.getByRole('searchbox');
+    const input = screen.getByRole('combobox', { name: '検索キーワード' });
     fireEvent.change(input, { target: { value: '古い検索' } });
-    await waitFor(() => expect(client.search).toHaveBeenCalledWith('古い検索'));
+    await waitFor(() => expect(client.search).toHaveBeenCalledWith('古い検索', 'all'));
     fireEvent.change(input, { target: { value: '失敗する検索' } });
-    await waitFor(() => expect(client.search).toHaveBeenCalledWith('失敗する検索'));
+    await waitFor(() => expect(client.search).toHaveBeenCalledWith('失敗する検索', 'all'));
     fireEvent.change(input, { target: { value: '印刷' } });
-    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
     await act(async () => {
       oldResponse.resolve({ total: 0, hits: [] });
       oldFailure.reject(new Error('Old request failed'));
     });
-    expect(screen.getByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('1 件の検索結果');
     expect(client.dispose).not.toHaveBeenCalled();
   });
@@ -282,12 +309,12 @@ describe('site search dialog', () => {
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
     await screen.findByText('キーワードを入力してください。');
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '印刷' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '印刷' } });
     expect(await screen.findByText('検索データを読み込めませんでした。')).toBeInTheDocument();
     expect(failed.dispose).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: '再試行' }));
-    expect(await screen.findByRole('link', { name: /文書ガイド/ })).toBeInTheDocument();
-    expect(recovered.search).toHaveBeenCalledWith('印刷');
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(recovered.search).toHaveBeenCalledWith('印刷', 'all');
     expect(createSearchClient).toHaveBeenCalledTimes(2);
   });
 
