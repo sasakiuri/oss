@@ -2,16 +2,24 @@ import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Breadcrumb } from '@/components/breadcrumb';
+import { JsonLd } from '@/components/json-ld';
 import { HomeSearchButton } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
+import { siteConfig } from '@/lib/config';
 import { listContent } from '@/lib/content/server';
 import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
+import { createPageMetadata } from '@/lib/metadata';
 import { createWebSiteSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
+
+export const metadata = createPageMetadata({
+  title: '銃・射撃・狩猟の情報サイト',
+  description: siteConfig.description,
+  path: '/',
+});
 
 const guides = [
   {
@@ -48,8 +56,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(createWebSiteSchema()) }} />
-      <Breadcrumb items={[{ name: 'トップ', slug: '' }]} showNav={false} />
+      <JsonLd data={createWebSiteSchema()} />
       <div className="site-container pb-8">
         <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-line py-6">
           <div className="min-w-0">

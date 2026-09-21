@@ -9,11 +9,13 @@ import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
+import { JsonLd } from '@/components/json-ld';
 import { MarkdownContent } from '@/components/markdown-content';
 import { SnsShare } from '@/components/sns-share';
 import { TableOfContents } from '@/components/table-of-contents';
 import { TitleText } from '@/components/title-text';
-import { contentImageUrl, createContentMetadata } from '@/lib/content/metadata';
+import { siteConfig } from '@/lib/config';
+import { createContentMetadata } from '@/lib/content/metadata';
 import { getContentDocument, getContentSource, listContent, listContentSlugs } from '@/lib/content/server';
 import {
   articleDirectoryHref,
@@ -21,7 +23,7 @@ import {
   getArticleCategory,
   getRelatedArticles,
 } from '@/lib/content/taxonomy';
-import { createArticleSchema } from '@/lib/schema';
+import { createContentSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
@@ -46,38 +48,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return createContentMetadata(article);
 }
 
-function ArticleSchemaScript({
-  title,
-  description,
-  published,
-  updated,
-  slug,
-  image,
-}: {
-  title: string;
-  description: string;
-  published: string;
-  updated?: string;
-  slug: string;
-  image?: string;
-}) {
-  const jsonLd = createArticleSchema({
-    title,
-    description,
-    published,
-    updated,
-    slug,
-    image,
-  });
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
-    />
-  );
-}
-
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const article = await getContentDocument('articles', slug);
@@ -90,18 +60,10 @@ export default async function ArticlePage({ params }: Props) {
   const category = getArticleCategory(article);
   const relatedArticles = getRelatedArticles(createArticleDirectory(await listContent('articles')), slug);
   const displayDate = frontmatter.updated || frontmatter.published;
-  const image = contentImageUrl(article);
 
   return (
     <>
-      <ArticleSchemaScript
-        title={frontmatter.title}
-        description={article.content.slice(0, 160)}
-        published={frontmatter.published}
-        updated={frontmatter.updated}
-        slug={slug}
-        image={image}
-      />
+      <JsonLd data={createContentSchema(article)} />
       <Breadcrumb
         items={[
           { name: 'トップ', slug: '' },
@@ -131,6 +93,9 @@ export default async function ArticlePage({ params }: Props) {
               <time dateTime={displayDate} className="text-sm text-subtle">
                 {formatDate(displayDate)} {frontmatter.updated ? '更新' : '公開'}
               </time>
+              <Link href="/about/" rel="author" className="text-sm text-brand hover:underline">
+                {siteConfig.author.name}
+              </Link>
               <ArticleTags tags={frontmatter.tags} />
             </div>
           </header>

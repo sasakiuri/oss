@@ -45,6 +45,12 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // Keep source copies and machine search indexes out of search results. Crawling
+      // stays allowed so crawlers can read this directive; images and PDFs are unaffected.
+      ...['/content/:path*.md', '/search-index.json', '/pdf-search-index.json'].map((source) => ({
+        source,
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      })),
     ];
   },
 };

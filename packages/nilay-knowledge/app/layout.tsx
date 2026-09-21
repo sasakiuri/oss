@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     template: `%s | ${siteConfig.title}`,
   },
   description: siteConfig.description,
+  robots: { 'max-image-preview': 'large' },
   openGraph: {
     type: 'website',
     locale: 'ja_JP',
@@ -28,8 +29,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/ogp.png',
-        width: 1200,
-        height: 630,
+        width: 1280,
+        height: 670,
         alt: siteConfig.title,
       },
     ],

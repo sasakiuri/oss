@@ -1,9 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
 import { Breadcrumb } from '@/components/breadcrumb';
 
 describe('Breadcrumb', () => {
+  // Next.js injects this flag from trailingSlash: true in production builds.
+  beforeEach(() => vi.stubEnv('__NEXT_TRAILING_SLASH', 'true'));
+  afterEach(() => vi.unstubAllEnvs());
+
   const mockItems = [
     { name: 'トップ', slug: '' },
     { name: '記事一覧', slug: 'articles' },
@@ -25,7 +29,7 @@ describe('Breadcrumb', () => {
     const articlesLink = screen.getByRole('link', { name: '記事一覧' });
 
     expect(homeLink).toHaveAttribute('href', '/');
-    expect(articlesLink).toHaveAttribute('href', '/articles');
+    expect(articlesLink).toHaveAttribute('href', '/articles/');
   });
 
   it('identifies the current page without making it a link', () => {
@@ -58,5 +62,19 @@ describe('Breadcrumb', () => {
     const jsonLd = JSON.parse(script?.textContent || '{}');
     expect(jsonLd['@type']).toBe('BreadcrumbList');
     expect(jsonLd.itemListElement).toHaveLength(3);
+    expect(jsonLd.itemListElement[2].item).toBe('https://knowledge.nilay.jp/articles/test/');
+  });
+
+  it('does not emit an invalid single-item breadcrumb', () => {
+    const { container } = render(<Breadcrumb items={[mockItems[0]!]} showNav={false} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('escapes a closing script tag in editorial text while preserving JSON data', () => {
+    const name = '</script><script>alert(1)</script>';
+    const { container } = render(<Breadcrumb items={[mockItems[0]!, { name, slug: 'articles/example' }]} />);
+    const script = container.querySelector('script')!;
+    expect(script.textContent).not.toContain('</script>');
+    expect(JSON.parse(script.textContent!).itemListElement[1].name).toBe(name);
   });
 });

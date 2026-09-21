@@ -11,7 +11,7 @@ import type { ContentSource } from '@/lib/content/types';
 const older: ContentSource = {
   type: 'articles',
   slug: 'older',
-  content: 'An example <with> & text.',
+  content: 'An example & text.',
   frontmatter: { title: 'Title <one> & two', published: '2024-01-01', updated: '2024-03-01', tags: [] },
 };
 const newer: ContentSource = {
@@ -45,7 +45,7 @@ describe('publication artifacts', () => {
     const document = xml(createSitemap([older, newer]));
     const entries = [...document.querySelectorAll('url')];
     expect(entries.map((node) => node.querySelector('loc')?.textContent)).toEqual([
-      siteConfig.siteUrl,
+      `${siteConfig.siteUrl}/`,
       `${siteConfig.siteUrl}/articles/`,
       `${siteConfig.siteUrl}/news/`,
       `${siteConfig.siteUrl}/about/`,

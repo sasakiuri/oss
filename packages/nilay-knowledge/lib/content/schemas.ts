@@ -28,6 +28,7 @@ const publicationDate = nonEmptyText
 export const frontmatterSchema = z.object(
   {
     title: nonEmptyText,
+    description: nonEmptyText.optional(),
     published: publicationDate,
     tags: z.array(nonEmptyText).transform((tags) => [...new Set(tags.map((tag) => tag.trim()))]),
     category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),

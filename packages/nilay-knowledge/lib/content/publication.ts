@@ -2,6 +2,7 @@ import RSS from 'rss';
 
 import { siteConfig } from '../config';
 
+import { contentDescription } from './description';
 import { contentPath } from './paths';
 import { comparePublished } from './repository';
 import type { ContentSource, ContentSummary } from './types';
@@ -19,7 +20,7 @@ export function createFeed(items: ContentSource[], now = new Date()): string {
   for (const item of [...items].sort(comparePublished)) {
     feed.item({
       title: item.frontmatter.title,
-      description: item.content.slice(0, 200),
+      description: contentDescription(item),
       url: `${siteConfig.siteUrl}${contentPath(item.type, item.slug)}`,
       date: new Date(item.frontmatter.published),
     });
@@ -38,7 +39,7 @@ function escapeXml(value: string): string {
 
 export function createSitemap(items: ContentSummary[]): string {
   const pages: { url: string; priority: string; modified?: string }[] = [
-    { url: siteConfig.siteUrl, priority: '1.0' },
+    { url: `${siteConfig.siteUrl}/`, priority: '1.0' },
     { url: `${siteConfig.siteUrl}/articles/`, priority: '0.8' },
     { url: `${siteConfig.siteUrl}/news/`, priority: '0.8' },
     { url: `${siteConfig.siteUrl}/about/`, priority: '0.5' },
