@@ -3,6 +3,7 @@ title: 狩猟免許の取得手順
 published: "2014-06-28T12:00:00+09:00"
 updated: "2019-12-07T12:00:00+09:00"
 tags: ["チュートリアル", "狩猟免許"]
+category: getting-started
 image: 23576257-3f6e-4919-9187-3c052ea0096d.png
 ---
 

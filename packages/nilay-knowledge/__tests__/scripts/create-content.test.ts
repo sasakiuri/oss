@@ -26,7 +26,12 @@ describe('createContent', () => {
 
     expect(result.slug).toBe('1700000000');
     expect(result.filePath).toBe(path.join(contentRoot, 'articles', '1700000000', 'index.md'));
-    expect(data).toEqual({ title: '新しい記事', published: '2023-11-14T22:13:20.123Z', tags: [] });
+    expect(data).toEqual({
+      title: '新しい記事',
+      published: '2023-11-14T22:13:20.123Z',
+      tags: [],
+      category: 'uncategorized',
+    });
     expect(content).toContain('ここに記事の内容を書いてください。');
   });
 
@@ -47,7 +52,12 @@ describe('createContent', () => {
     const result = createContent({ type, contentRoot, title, now: new Date('2026-09-21T00:15:30.123+05:30') });
     const { data } = matter(fs.readFileSync(result.filePath, 'utf8'));
 
-    expect(data).toEqual({ title, published: '2026-09-20T18:45:30.123Z', tags: [] });
+    expect(data).toEqual({
+      title,
+      published: '2026-09-20T18:45:30.123Z',
+      tags: [],
+      ...(type === 'articles' ? { category: 'uncategorized' } : {}),
+    });
   });
 
   it.each(['articles', 'news'] as const)('uses suffixes and preserves existing %s files on collisions', (type) => {
@@ -88,6 +98,22 @@ describe('createContent', () => {
     expect(fs.readFileSync(path.join(contentRoot, 'articles'), 'utf8')).toBe('existing');
   });
 
+  it('validates and normalizes classification before writing any files', () => {
+    expect(() => createContent({ type: 'articles', contentRoot, category: 'typo' })).toThrow('category');
+    expect(() => createContent({ type: 'articles', contentRoot, tags: [' '] })).toThrow('tags');
+    expect(fs.readdirSync(contentRoot)).toEqual([]);
+    const result = createContent({
+      type: 'articles',
+      contentRoot,
+      category: 'procedures',
+      tags: [' 法令 ', '法令', 'A/B', 'C++'],
+    });
+    expect(matter(fs.readFileSync(result.filePath, 'utf8')).data).toMatchObject({
+      category: 'procedures',
+      tags: ['法令', 'A/B', 'C++'],
+    });
+  });
+
   it.each([
     { script: 'new-article.ts', type: 'articles' },
     { script: 'new-news.ts', type: 'news' },
@@ -97,9 +123,10 @@ describe('createContent', () => {
     const workingDirectory = path.join(contentRoot, 'unrelated');
     fs.mkdirSync(scriptsDirectory, { recursive: true });
     fs.mkdirSync(workingDirectory);
-    for (const filename of ['create-content.ts', script]) {
+    for (const filename of ['create-content.ts', 'article-options.ts', script]) {
       fs.copyFileSync(path.resolve(__dirname, '../../scripts', filename), path.join(scriptsDirectory, filename));
     }
+    fs.symlinkSync(path.resolve(__dirname, '../../lib'), path.join(packageDirectory, 'lib'), 'dir');
 
     const output = execFileSync(
       process.execPath,
@@ -108,6 +135,7 @@ describe('createContent', () => {
         createRequire(__filename).resolve('tsx'),
         path.join(scriptsDirectory, script),
         'CLI "タイトル"\n次の行',
+        ...(type === 'articles' ? ['--category', 'procedures', '--tag', '法令', '--tag', '資料'] : []),
       ],
       { cwd: workingDirectory, encoding: 'utf8' },
     );
@@ -120,5 +148,12 @@ describe('createContent', () => {
       'CLI "タイトル"\n次の行',
     );
     expect(fs.readdirSync(workingDirectory)).toEqual([]);
+    const { category, tags } = matter(
+      fs.readFileSync(path.join(collectionDirectory, slugs[0]!, 'index.md'), 'utf8'),
+    ).data;
+    expect({ category, tags }).toEqual({
+      category: type === 'articles' ? 'procedures' : undefined,
+      tags: type === 'articles' ? ['法令', '資料'] : [],
+    });
   });
 });

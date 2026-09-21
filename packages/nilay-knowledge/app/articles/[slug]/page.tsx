@@ -1,9 +1,11 @@
+// cspell:words palt
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ArticleFeedback } from '@/components/article-feedback';
 import { ArticleNavigation } from '@/components/article-navigation';
+import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
@@ -12,8 +14,13 @@ import { SnsShare } from '@/components/sns-share';
 import { TableOfContents } from '@/components/table-of-contents';
 import { TitleText } from '@/components/title-text';
 import { contentImageUrl, createContentMetadata } from '@/lib/content/metadata';
-import { articleCategories } from '@/lib/content/navigation';
-import { getContentDocument, getContentSource, listContentSlugs } from '@/lib/content/server';
+import { getContentDocument, getContentSource, listContent, listContentSlugs } from '@/lib/content/server';
+import {
+  articleDirectoryHref,
+  createArticleDirectory,
+  getArticleCategory,
+  getRelatedArticles,
+} from '@/lib/content/taxonomy';
 import { createArticleSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
@@ -80,9 +87,8 @@ export default async function ArticlePage({ params }: Props) {
   }
 
   const { frontmatter, html, tableOfContents } = article;
-  const category = articleCategories.find((item) =>
-    item.articleList.some((entry) => entry.slug === `articles/${slug}`),
-  );
+  const category = getArticleCategory(article);
+  const relatedArticles = getRelatedArticles(createArticleDirectory(await listContent('articles')), slug);
   const displayDate = frontmatter.updated || frontmatter.published;
   const image = contentImageUrl(article);
 
@@ -112,7 +118,7 @@ export default async function ArticlePage({ params }: Props) {
           <header className="mb-8 border-b border-line pb-8">
             {category && (
               <Link
-                href={`/articles#${category.id}`}
+                href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
                 className="mb-3 inline-flex min-h-8 items-center text-sm text-brand hover:underline"
               >
                 {category.title}
@@ -125,13 +131,7 @@ export default async function ArticlePage({ params }: Props) {
               <time dateTime={displayDate} className="text-sm text-subtle">
                 {formatDate(displayDate)} {frontmatter.updated ? '更新' : '公開'}
               </time>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                {frontmatter.tags.map((tag) => (
-                  <span key={tag} className="text-xs text-subtle">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
+              <ArticleTags tags={frontmatter.tags} />
             </div>
           </header>
 
@@ -139,6 +139,27 @@ export default async function ArticlePage({ params }: Props) {
           <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
           <SnsShare printable title={frontmatter.title} slug={`articles/${slug}`} />
           <ArticleFeedback type="articles" slug={slug} title={frontmatter.title} />
+          {relatedArticles.length > 0 && (
+            <aside aria-labelledby="related-articles" className="mt-8 border-t border-line pt-6 print:hidden">
+              <h2 id="related-articles" className="text-lg font-semibold text-ink">
+                関連記事
+              </h2>
+              <p className="mt-2 text-sm text-subtle">共通のタグや同じカテゴリーの記事を紹介します。</p>
+              <ul className="mt-3 divide-y divide-line">
+                {relatedArticles.map((related) => (
+                  <li key={related.slug} className="py-3">
+                    <Link
+                      href={`/articles/${related.slug}/`}
+                      className="inline-flex min-h-11 items-center text-sm font-medium text-brand hover:underline"
+                    >
+                      <TitleText>{related.frontmatter.title}</TitleText>
+                    </Link>
+                    <ArticleTags tags={related.frontmatter.tags} />
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
           <ArticleNavigation slug={slug} />
         </article>
       </div>

@@ -1,21 +1,35 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
+import { ArticleDirectory, ArticleDirectoryResults } from '@/components/article-directory';
+import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { HomeSearchButton } from '@/components/search-dialog';
-import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
-import { articleCategories } from '@/lib/content/navigation';
+import { listContent } from '@/lib/content/server';
+import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
 
-export const dynamic = 'force-static';
 const title = '記事一覧';
-export const metadata: Metadata = { title };
+export const metadata: Metadata = { title, alternates: { canonical: '/articles/' } };
 
-export default function ArticlesPage() {
-  const categories = [
-    ...articleCategories.filter((category) => category.id !== 'news'),
-    ...articleCategories.filter((category) => category.id === 'news'),
-  ];
+export default async function ArticlesPage() {
+  const articles = createArticleDirectory(await listContent('articles'));
+  const categories = getDirectoryCategories(articles);
+  const entries = Object.fromEntries(
+    articles.map((article) => [
+      article.slug,
+      <div key={article.slug}>
+        <Link href={`/articles/${article.slug}/`} className="group block min-h-11 py-2">
+          <h3 className="font-medium leading-7 text-brand underline-offset-4 group-hover:underline">
+            <TitleText>{article.frontmatter.title}</TitleText>
+          </h3>
+          {article.description && <p className="mt-1 text-sm leading-6 text-subtle">{article.description}</p>}
+        </Link>
+        <ArticleTags tags={article.frontmatter.tags} />
+      </div>,
+    ]),
+  );
   return (
     <>
       <Breadcrumb
@@ -29,7 +43,7 @@ export default function ArticlesPage() {
           <div>
             <h1 className="page-title">{title}</h1>
             <p className="mt-3 text-sm leading-7 text-subtle">
-              免許の取得、各種手続き、射撃と狩猟の基礎知識。分野別に探せます。
+              免許の取得、各種手続き、射撃と狩猟の基礎知識。カテゴリーとタグから探せます。
             </p>
           </div>
           <HomeSearchButton compact />
@@ -40,52 +54,26 @@ export default function ArticlesPage() {
             <ul className="flex flex-wrap gap-x-4 gap-y-1 border-b border-line pb-5 lg:block lg:space-y-1 lg:border-b-0 lg:border-l lg:pb-0">
               {categories.map((category) => (
                 <li key={category.id}>
-                  <a
-                    href={`#${category.id}`}
+                  <Link
+                    href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
                     className="inline-flex min-h-11 items-center justify-between gap-4 text-sm text-body underline-offset-4 hover:text-brand hover:underline lg:w-full lg:px-4"
                   >
                     {category.title}
                     <span aria-hidden="true" className="hidden text-xs text-faint tabular-nums lg:inline">
-                      {category.articleList.length}
+                      {articles.filter((article) => article.category.id === category.id).length}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
+            <Link href="/news/" className="mt-4 inline-flex min-h-11 items-center text-sm text-brand hover:underline">
+              銃・射撃・狩猟ニュース
+            </Link>
           </nav>
           <div className="min-w-0 space-y-8">
-            {categories.map((category) => (
-              <section key={category.id} aria-labelledby={category.id} className="min-w-0">
-                <h2
-                  id={category.id}
-                  tabIndex={-1}
-                  className="flex scroll-mt-[calc(var(--site-header-height)+1.5rem)] items-baseline justify-between gap-3 border-b border-line-strong pb-2 text-lg font-semibold text-ink"
-                >
-                  {category.title}
-                  <span className="text-xs font-normal text-subtle">{category.articleList.length}件</span>
-                </h2>
-                <ul>
-                  {category.articleList.map((article) => (
-                    <li key={article.slug}>
-                      <Link
-                        href={`/${article.slug}`}
-                        className="group -mx-3 flex min-h-11 items-center px-3 py-3 hover:bg-muted"
-                      >
-                        <div>
-                          <h3 className="font-medium leading-7 text-brand underline-offset-4 group-hover:underline">
-                            <TitleText>{article.title}</TitleText>
-                          </h3>
-                          {article.description && (
-                            <p className="mt-1 text-sm leading-6 text-subtle">{article.description}</p>
-                          )}
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-            <SnsShare title={title} slug="articles" />
+            <Suspense fallback={<ArticleDirectoryResults articles={articles} entries={entries} />}>
+              <ArticleDirectory articles={articles} entries={entries} />
+            </Suspense>
           </div>
         </div>
       </div>

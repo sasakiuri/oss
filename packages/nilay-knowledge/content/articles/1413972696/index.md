@@ -2,6 +2,7 @@
 title: "関東地方の射撃場一覧"
 published: "2014-10-22T07:31:36+09:00"
 tags: ["その他"]
+category: resources
 ---
 
 関東地方にある射撃場の一覧です。

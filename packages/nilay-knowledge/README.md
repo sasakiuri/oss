@@ -70,6 +70,22 @@ shares source reads between page metadata and detail rendering. The news page
 loads summaries once and filters them into its existing categories. The curated
 article index and reading order are shared in `lib/content/navigation.ts`.
 
+The article directory uses repository summaries, so article titles, categories and
+tags come from frontmatter and counts reflect existing content. The editorial
+reading order and optional descriptions remain in `navigation.ts`; changing an
+article's category does not change its previous/next reading links. New articles
+appear in the directory automatically, including articles outside that reading order.
+
+The directory supports one category and multiple tags, matching every selected
+tag. It stores filters as `category=<id>` and repeated `tag=<label>` query parameters,
+so bookmarks, reloads, browser history and the share menu preserve the selection.
+Tag counts reflect the current category and other selected tags. Unknown filters
+produce an explicit empty result and can be cleared. The complete directory is
+rendered statically; interactive filtering requires JavaScript. Existing category
+heading anchors remain available. Article tags link to the directory, and related
+articles prioritize shared tags, then the same category, using editorial order to
+break ties. Unclassified articles are not related solely because they lack a category.
+
 The [metadata validator](lib/content/frontmatter.ts) requires `title`, `published` and `tags`. Dates accept `YYYY-MM-DD` or ISO
 timestamps with a timezone, and invalid calendar dates fail validation. `updated`
 and `image` are optional for both collections. Invalid metadata reports the source
@@ -79,6 +95,44 @@ or digit. The server adapter treats invalid public route segments as missing
 content, so metadata and detail pages return the normal not-found response.
 The build generates detail pages from the enumerated content entries;
 rebuild the production site after changing content.
+
+Tags are trimmed and deduplicated during validation. Case and punctuation remain
+significant, and blank tags are rejected. Use the same tag spelling across articles
+to connect them; tags may be empty (`tags: []`).
+
+### Managing article categories and tags
+
+Edit `category` and `tags` in the article's `index.md` frontmatter, then synchronize
+its copy under `public/content/`. An article has one category and any number of tags:
+
+```yaml
+category: procedures
+tags: [所持許可, 申請書]
+```
+
+Category IDs, display names and directory order are defined once in
+[`lib/content/categories.ts`](lib/content/categories.ts). The IDs are
+`getting-started`, `procedures`, `equipment`, `hunting`, `shooting`, `resources`
+and `uncategorized`. Missing categories and `uncategorized` are displayed as
+`未分類`; unknown IDs are rejected with the source filename. Add a definition
+there before assigning a new category. Keep IDs stable because shared URLs use them.
+All existing articles have an explicit category. News retains its existing tag-based
+classification.
+
+Create articles with classification already filled in, or inspect existing usage:
+
+```bash
+npm run new:article --workspace=@sasakiuri/nilay-knowledge -- "申請の手順" --category procedures --tag 所持許可 --tag 申請書
+npm run new:article --workspace=@sasakiuri/nilay-knowledge -- --help
+npm run taxonomy --workspace=@sasakiuri/nilay-knowledge
+npm run lint:metadata --workspace=@sasakiuri/nilay-knowledge
+```
+
+Repeat `--tag` for multiple tags. Omitting `--category` creates an explicitly
+unclassified article. Invalid categories or blank tags fail before creating files.
+The `taxonomy` report lists category IDs, tag names and usage counts, and identifies
+unclassified or untagged articles by slug and title. `lint:metadata` validates all
+article/news frontmatter without rendering the bodies and runs as part of `lint`.
 
 Zod schemas define both runtime validation and the corresponding TypeScript data
 types. Search validation also checks collection-specific destinations and unique

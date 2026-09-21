@@ -10,10 +10,11 @@ export function parseFrontmatter(input: unknown, source: string): ContentFrontma
     throw new Error(`${source}: ${String(field)} must be ${expected}`);
   }
 
-  const { updated, image, ...required } = result.data;
+  const { updated, image, category, ...required } = result.data;
   return {
     ...required,
     ...(updated !== undefined ? { updated } : {}),
     ...(image !== undefined ? { image } : {}),
+    ...(category !== undefined ? { category } : {}),
   };
 }

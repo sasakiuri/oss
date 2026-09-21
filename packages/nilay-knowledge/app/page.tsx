@@ -6,8 +6,8 @@ import { Breadcrumb } from '@/components/breadcrumb';
 import { HomeSearchButton } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
-import { articleCategories } from '@/lib/content/navigation';
 import { listContent } from '@/lib/content/server';
+import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
 import { createWebSiteSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
@@ -43,7 +43,8 @@ const resources = [
 
 export default async function HomePage() {
   const news = (await listContent('news')).slice(0, 3);
-  const categories = articleCategories.filter((category) => category.id !== 'news');
+  const articles = createArticleDirectory(await listContent('articles'));
+  const categories = getDirectoryCategories(articles);
 
   return (
     <>
@@ -168,11 +169,13 @@ export default async function HomePage() {
               {categories.map((category) => (
                 <li key={category.id}>
                   <Link
-                    href={`/articles#${category.id}`}
+                    href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
                     className="flex min-h-11 items-center justify-between gap-3 text-sm text-body hover:text-brand hover:underline"
                   >
                     {category.title}
-                    <span className="text-xs text-faint tabular-nums">{category.articleList.length}</span>
+                    <span className="text-xs text-faint tabular-nums">
+                      {articles.filter((article) => article.category.id === category.id).length}
+                    </span>
                   </Link>
                 </li>
               ))}

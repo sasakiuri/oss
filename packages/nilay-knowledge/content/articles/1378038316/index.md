@@ -3,6 +3,7 @@ title: 猟銃・空気銃所持許可の新規取得手順
 published: "2013-09-01T12:00:00+09:00"
 updated: "2019-09-27T12:00:00+09:00"
 tags: ["チュートリアル", "猟銃・空気銃所持許可"]
+category: getting-started
 image: "6878fe18-66b0-4f94-8d46-b57acec979a1.png"
 ---
 
