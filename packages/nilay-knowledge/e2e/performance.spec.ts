@@ -65,13 +65,17 @@ test('home images use responsive optimization and text needs no downloaded fonts
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   expect(fonts).toHaveLength(0);
-  const hero = page.locator('main img').first();
-  await expect(hero).toHaveAttribute('sizes', '(min-width: 1152px) 426px, (min-width: 1024px) 40vw, 1px');
-  await expect(hero).toHaveAttribute('fetchpriority', 'high');
-  expect(await hero.evaluate((image: HTMLImageElement) => new URL(image.currentSrc).pathname)).toMatch(
+  const featuredImage = page.locator('main img').first();
+  await expect(featuredImage).toHaveAttribute('sizes', '(min-width: 640px) 200px, 104px');
+  const imagePreload = page.locator('link[rel="preload"][as="image"]');
+  await expect(imagePreload).toHaveAttribute('imagesizes', '(min-width: 640px) 200px, 104px');
+  expect(await imagePreload.getAttribute('imagesrcset')).toBe(await featuredImage.getAttribute('srcset'));
+  expect(await featuredImage.evaluate((image: HTMLImageElement) => new URL(image.currentSrc).pathname)).toMatch(
     /^\/_next\/image\/?$/,
   );
-  expect(await hero.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  expect(await featuredImage.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(
+    true,
+  );
   for (const image of await page.locator('main img').all()) {
     await expect(image).toHaveAttribute('srcset', /\/_next\/image/);
     await expect(image).toHaveAttribute('sizes');
