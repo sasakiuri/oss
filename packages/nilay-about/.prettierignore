@@ -4,7 +4,6 @@ out/
 coverage/
 next-env.d.ts
 public/
-lib/generated/
 playwright-report/
 test-results/
 THIRD-PARTY-LICENSES.txt

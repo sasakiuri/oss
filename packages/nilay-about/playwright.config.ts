@@ -42,7 +42,8 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3001',
       LOG_MASKING_SECRET: 'nilay-about-local-test-fixture',
-      DATABASE_URL: 'postgresql://ci:ci@127.0.0.1:9/nilay_about?connect_timeout=1',
+      MICROCMS_SERVICE_DOMAIN: '',
+      MICROCMS_API_KEY: '',
       SLACK_WEBHOOK_URL: 'http://127.0.0.1:9/slack',
       UPSTASH_REDIS_REST_URL: 'http://127.0.0.1:9',
       UPSTASH_REDIS_REST_TOKEN: '',

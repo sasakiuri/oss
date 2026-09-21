@@ -11,6 +11,14 @@ describe('production Content Security Policy', () => {
     vi.unstubAllEnvs();
   });
 
+  it('allows news images hosted by microCMS', async () => {
+    const { proxy } = await import('@/proxy');
+    const response = proxy(new NextRequest('https://about.nilay.jp/news/example'));
+    const csp = response.headers.get('Content-Security-Policy');
+    const imageSources = csp?.split('; ').find((directive) => directive.startsWith('img-src '));
+    expect(imageSources?.split(' ')).toContain('https://images.microcms-assets.io');
+  });
+
   it.each(['http://localhost:3001', 'http://127.0.0.1:3001', 'http://[::1]:3001'])(
     'allows local HTTP assets without weakening other directives at %s',
     async (origin) => {

@@ -67,9 +67,9 @@ describe('news HTTP boundary', () => {
     expect((await handlers.detail(request, { params: Promise.resolve({ id: 'gone' }) })).status).toBe(404);
   });
 
-  it('hides driver errors from the response', async () => {
+  it('hides upstream errors from the response', async () => {
     const repo = repository();
-    vi.mocked(repo.list).mockRejectedValue(new Error('postgresql://private:secret@db'));
+    vi.mocked(repo.list).mockRejectedValue(new Error('X-MICROCMS-API-KEY: private-test-key'));
     const response = await createNewsHandlers(repo, dependencies()).list(
       new Request('https://example.test/api/news'),
       undefined,

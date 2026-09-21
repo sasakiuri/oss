@@ -56,7 +56,7 @@ export function NewsDetailClient({ id }: NewsDetailClientProps) {
       <hr />
 
       {/* Content is sanitized to remove XSS vectors */}
-      <div dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
+      <div className="[&_img]:h-auto [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
     </article>
   );
 }

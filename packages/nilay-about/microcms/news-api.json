@@ -1,0 +1,42 @@
+{
+  "name": "ニュース",
+  "endpoint": "news",
+  "type": "list",
+  "apiFields": [
+    {
+      "fieldId": "title",
+      "name": "タイトル",
+      "kind": "text",
+      "required": true
+    },
+    {
+      "fieldId": "date",
+      "name": "掲載日時",
+      "kind": "date",
+      "required": true,
+      "dateFormat": false,
+      "description": "サイトに表示する日時です。予約公開の時刻は公開操作で別途設定します。"
+    },
+    {
+      "fieldId": "summary",
+      "name": "本文",
+      "kind": "richEditorV2",
+      "required": true,
+      "richEditorV2Options": [
+        "headerTwo",
+        "headerThree",
+        "paragraph",
+        "bold",
+        "italic",
+        "underline",
+        "blockquote",
+        "code",
+        "codeBlock",
+        "listBullet",
+        "listOrdered",
+        "link",
+        "image"
+      ]
+    }
+  ]
+}

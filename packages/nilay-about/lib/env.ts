@@ -21,9 +21,6 @@ const isProductionRuntime = isProductionEnv && !isBuildingEnv && !isVercelPrevie
  * use process.env.NEXT_PUBLIC_* directly.
  */
 const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().optional(),
-
   // External Services
   SLACK_WEBHOOK_URL: z.string().url().optional(),
 
@@ -85,7 +82,6 @@ function getEnv(): Env {
   const nodeEnv = process.env.NODE_ENV || 'development';
 
   const envVars = {
-    DATABASE_URL: process.env.DATABASE_URL,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
