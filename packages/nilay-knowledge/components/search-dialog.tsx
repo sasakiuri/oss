@@ -38,6 +38,7 @@ export function SearchDialog() {
   const inputId = useId();
   const statusId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const restoreOpenerRef = useRef(true);
   const changeOpen = useCallback((next: boolean) => {
@@ -73,7 +74,7 @@ export function SearchDialog() {
       if (event.defaultPrevented || event.isComposing || event.altKey) return;
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
       // Do not open another modal over the mobile navigation or image viewer.
-      if (!open && document.querySelector('[role="dialog"]')) return;
+      if (!open && document.querySelector('[role="dialog"]:not([aria-modal="false"])')) return;
       event.preventDefault();
       changeOpen(!open);
     };
@@ -143,6 +144,7 @@ export function SearchDialog() {
     <Dialog.Root open={open} onOpenChange={changeOpen}>
       <Dialog.Trigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           aria-label="記事・ニュースを検索"
           className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-3 text-sm text-white hover:bg-slate-600 focus-visible:outline-2 focus-visible:outline-white"
@@ -161,7 +163,11 @@ export function SearchDialog() {
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            if (restoreOpenerRef.current) openerRef.current?.focus();
+            if (restoreOpenerRef.current) {
+              // A non-modal opener, such as a share link, can unmount when search takes focus.
+              const opener = openerRef.current?.isConnected ? openerRef.current : triggerRef.current;
+              opener?.focus();
+            }
           }}
           className="fixed left-1/2 top-[5dvh] z-[60] max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl bg-surface p-5 shadow-xl sm:p-6 print:hidden"
         >

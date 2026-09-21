@@ -13,6 +13,7 @@ export interface SearchResults {
   hits: SearchHit[];
 }
 
-export type SearchRequest = { id: number; query?: string };
-export type SearchResponse =
-  { id: number; results: SearchResults } | { id: number; ready: true } | { id: number; error: string };
+export interface SearchWorkerApi {
+  load(): Promise<void>;
+  search(query: string): Promise<SearchResults>;
+}

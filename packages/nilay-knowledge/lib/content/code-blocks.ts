@@ -1,27 +1,24 @@
 import type { Element, Root } from 'hast';
-import type { Root as MarkdownRoot, RootContent as MarkdownContent } from 'mdast';
+import type { Root as MarkdownRoot } from 'mdast';
+import { visit } from 'unist-util-visit';
 
 /** Keep fence filenames as metadata so highlighting receives only the language. */
 export function remarkCodeMeta() {
   return (tree: MarkdownRoot): void => {
-    function visit(node: MarkdownRoot | MarkdownContent): void {
-      if (node.type === 'code') {
-        let filename: string | undefined;
-        const separator = node.lang?.indexOf(':') ?? -1;
-        if (node.lang && separator > 0) {
-          filename = node.lang.slice(separator + 1);
-          node.lang = node.lang.slice(0, separator);
-        }
-        const metadata = node.meta?.match(/(?:^|\s)filename=(?:"([^"]*)"|'([^']*)'|([^\s"']+))/);
-        filename = metadata?.[1] ?? metadata?.[2] ?? metadata?.[3] ?? filename;
-        if (filename) {
-          node.data ??= {};
-          node.data.hProperties = { ...node.data.hProperties, dataFilename: filename.slice(0, 200) };
-        }
+    visit(tree, 'code', (node) => {
+      let filename: string | undefined;
+      const separator = node.lang?.indexOf(':') ?? -1;
+      if (node.lang && separator > 0) {
+        filename = node.lang.slice(separator + 1);
+        node.lang = node.lang.slice(0, separator);
       }
-      if ('children' in node) node.children.forEach(visit);
-    }
-    visit(tree);
+      const metadata = node.meta?.match(/(?:^|\s)filename=(?:"([^"]*)"|'([^']*)'|([^\s"']+))/);
+      filename = metadata?.[1] ?? metadata?.[2] ?? metadata?.[3] ?? filename;
+      if (filename) {
+        node.data ??= {};
+        node.data.hProperties = { ...node.data.hProperties, dataFilename: filename.slice(0, 200) };
+      }
+    });
   };
 }
 

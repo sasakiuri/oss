@@ -4,13 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
-const originalMatches = Element.prototype.matches;
-
 beforeEach(() => {
-  // jsdom's selector engine recurses for :modal, which Floating UI uses for positioning.
-  vi.spyOn(Element.prototype, 'matches').mockImplementation(function (selector) {
-    return selector === ':modal' ? false : originalMatches.call(this, selector);
-  });
   localStorage.removeItem('knowledge-theme');
 });
 

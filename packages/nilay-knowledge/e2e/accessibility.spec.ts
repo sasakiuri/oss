@@ -1,3 +1,4 @@
+// cspell:words menuitemradio
 import { readdirSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
@@ -67,10 +68,27 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const dialog = page.getByRole('dialog', { name: '画像を拡大' });
       const close = dialog.getByRole('button', { name: '拡大画像を閉じる' });
       await expect(close).toBeFocused();
+      const zoom = dialog.getByRole('button', { name: '画像を拡大・縮小' });
+      await expect(zoom).toBeEnabled();
+      await page.keyboard.press('Tab');
+      await expect(zoom).toBeFocused();
+      const image = dialog.getByRole('img');
+      const initialWidth = (await image.boundingBox())!.width;
+      await page.keyboard.press('Enter');
+      await expect(zoom).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(initialWidth * 1.5);
+      await page.keyboard.press('Tab');
+      await expect(dialog.locator('p[tabindex]')).toBeFocused();
+      await page.keyboard.press('Tab');
+      const canvas = dialog.getByRole('region', { name: '画像（拡大後は矢印キーで移動できます）' });
+      await expect(canvas).toBeFocused();
+      const initialPosition = (await image.boundingBox())!.y;
+      await page.keyboard.press('ArrowDown');
+      await expect.poll(async () => (await image.boundingBox())!.y).not.toBe(initialPosition);
       await page.keyboard.press('Tab');
       await expect(close).toBeFocused();
       await page.keyboard.press('Shift+Tab');
-      await expect(close).toBeFocused();
+      await expect(canvas).toBeFocused();
       await audit(page);
       await page.keyboard.press('Escape');
       await expect(opener).toBeFocused();
@@ -94,7 +112,21 @@ test('skip link transfers keyboard focus and the next Tab enters the content', a
   expect(await page.getByRole('main').evaluate((main) => main.contains(document.activeElement))).toBe(true);
 });
 
-test('share disclosure removes closed links from tab order and restores focus with Escape', async ({ page }) => {
+test.describe('touch image zoom', () => {
+  test.use({ hasTouch: true });
+  test('tapping an image zooms it without closing the dialog', async ({ page }) => {
+    await page.goto('/articles/1403693668/');
+    await page.locator('.prose img.content-illustration').first().tap();
+    const dialog = page.getByRole('dialog', { name: '画像を拡大' });
+    const zoom = dialog.getByRole('button', { name: '画像を拡大・縮小' });
+    await expect(zoom).toBeEnabled();
+    await dialog.getByRole('img').tap();
+    await expect(zoom).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog).toBeVisible();
+  });
+});
+
+test('share popover removes closed links from tab order and restores focus with Escape', async ({ page }) => {
   await page.goto('/');
   const trigger = page.getByRole('button', { name: 'SNSで共有' });
   await expect(page.getByRole('link', { name: /Twitterで共有/ })).toHaveCount(0);
@@ -102,11 +134,50 @@ test('share disclosure removes closed links from tab order and restores focus wi
   await page.keyboard.press('Enter');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: /Twitterで共有/ })).toBeFocused();
+  await expectNoPageOverflow(page);
+  for (const link of await page.getByRole('dialog', { name: '共有先' }).getByRole('link').all()) {
+    await expect(link).toBeInViewport();
+  }
   await audit(page);
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
+
+test('share popover dismisses when another control is clicked without stealing its focus', async ({ page }) => {
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: 'SNSで共有' });
+  await trigger.click();
+  const popover = page.getByRole('dialog', { name: '共有先' });
+  await popover.getByRole('link').first().focus();
+  const theme = page.getByRole('button', { name: '表示テーマを選ぶ' });
+  await theme.click();
+  await expect(popover).not.toBeVisible();
+  await expect(page.getByRole('menu')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(theme).toBeFocused();
+  await trigger.click();
+  await expect(popover).toBeVisible();
+  await trigger.click();
+  await expect(popover).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+for (const shortcut of ['Control+k', 'Meta+k']) {
+  test(`search opens from a share link with ${shortcut} and restores a connected control`, async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'SNSで共有' }).click();
+    const popover = page.getByRole('dialog', { name: '共有先' });
+    await popover.getByRole('link').first().focus();
+    await page.keyboard.press(shortcut);
+    const search = page.getByRole('dialog', { name: '記事・ニュースを検索' });
+    await expect(search.getByRole('searchbox')).toBeFocused();
+    await expect(popover).not.toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(search).not.toBeVisible();
+    await expect(page.getByRole('button', { name: '記事・ニュースを検索', exact: true }).first()).toBeFocused();
+  });
+}
 
 test('mobile menu, TOC and short-viewport search remain keyboard accessible', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 400 });

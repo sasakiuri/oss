@@ -1,6 +1,6 @@
 # Nilay Knowledge
 
-<!-- cspell:words NFKC licence -->
+<!-- cspell:words NFKC licence frontmatter -->
 
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
@@ -45,6 +45,7 @@ is divided into explicit boundaries under `lib/content/`:
 | Module                  | Responsibility                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------ |
 | `types.ts`              | Shared metadata, summary, source, rendered document and TOC contracts          |
+| `schemas.ts`            | Zod schemas for frontmatter and search documents, with inferred data types     |
 | `repository.ts`         | File enumeration, reads, metadata validation and publication ordering          |
 | `render.ts`, `paths.ts` | Markdown rendering, relative asset URLs and heading anchors                    |
 | `images.ts`             | Intrinsic dimensions of published local images, injected by the server adapter |
@@ -69,13 +70,23 @@ content, so metadata and detail pages return the normal not-found response.
 The build generates detail pages from the enumerated content entries;
 rebuild the production site after changing content.
 
+Zod schemas define both runtime validation and the corresponding TypeScript data
+types. Search validation also checks collection-specific destinations and unique
+IDs. JSON-LD factories use `schema-dts` types without adding runtime code.
+
 Rendering operates on the parsed HTML tree. Relative links and images, including
 Markdown references and embedded HTML, resolve under `/content/<type>/<slug>/`.
 Code examples, URI schemes, root paths and fragment links keep their meaning.
 The TOC uses the same heading IDs as the generated HTML, including repeated and
-formatted headings. GitHub alerts are processed before soft line breaks. Raw HTML
+formatted headings. `rehype-autolink-headings` appends heading permalinks with
+Japanese accessible names; their encoded fragments match TOC and search URLs.
+GitHub alerts are processed before soft line breaks. Raw HTML
 is intentionally supported for trusted, reviewed repository content; this renderer
 is not an upload or user-input sanitization boundary.
+
+Element and code-fence visitors use `unist-util-visit`. Table wrapping and search
+text extraction retain their explicit recursive order for nested tables and
+spaces around block elements.
 
 The feed and sitemap scripts use the same repository as pages. They resolve paths
 from their own locations and also work when invoked directly from the repository
@@ -85,7 +96,10 @@ synchronization described above.
 
 Regression tests exercise temporary content directories, the real Markdown
 pipeline, all committed article TOC targets, feed/sitemap URL parity, metadata,
-and content creation from a different working directory. Run package tests,
+and content creation from a different working directory. `fast-check` generates
+Japanese, formatted and duplicate headings to check TOC, search and permalink
+destinations together, and exercises URL resolution with varied paths and fragments.
+Run package tests,
 lint, typecheck and build after changing a content boundary.
 
 ## Reading, search and printing
@@ -118,6 +132,12 @@ failure. A worker downloads, validates and indexes the data, then performs searc
 and returns only the top 20 excerpts and the total count. The search engine and its
 index are loaded only when search first opens; indexing does not block typing or
 dialog controls. Rebuild after changing content to update both pages and the search index.
+
+Search and Graphviz workers expose typed APIs through Comlink. The shared worker
+client rejects pending and future calls when a worker fails or is disposed, and
+releases its proxy and listeners. Search initialization can retry a failed index
+download; Graphviz rendering retains cancellation and a ten-second timeout.
+Tests cover real Comlink message transport, remote errors and worker termination.
 
 Use “ページを印刷” or `Ctrl+P` / `Cmd+P` on an article or news item. This opens
 collapsed content and waits for every article image to load and decode before
@@ -153,6 +173,15 @@ return it to their opener on dismissal; selecting a search result focuses the
 matching section. Informative image descriptions remain visible in the viewer.
 Linked images retain their original links. Reduced-motion and forced-color system
 preferences are respected, and focus indicators work on both light and dark surfaces.
+The image viewer loads PhotoSwipe's JavaScript only when opened. Its zoom button,
+image clicks and touch gestures enlarge the original image; focus the image region
+and use arrow keys to pan after zooming. Radix keeps keyboard focus inside the
+dialog and returns it to the original image button on close. Descriptions remain
+visible and scrollable, and comparison illustrations retain their light canvas.
+Image-loading failures are announced; close and reopen the viewer to retry.
+SNS sharing uses a non-modal Radix Popover for positioning and dismissal. Opening
+it keeps focus on the trigger so Tab reaches the first share link. Escape restores
+the trigger; clicking another control dismisses sharing without taking its focus.
 
 Following an internal page link moves reading focus to the new page title or the
 linked section; browser history retains its scroll restoration. Search retries

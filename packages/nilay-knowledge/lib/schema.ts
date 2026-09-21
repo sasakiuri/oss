@@ -1,56 +1,9 @@
+import type { Article, BreadcrumbList, WebSite, WithContext } from 'schema-dts';
+
 import { siteConfig } from './config';
 
-// Schema.org types for structured data
-export interface BreadcrumbListItem {
-  '@type': 'ListItem';
-  position: number;
-  name: string;
-  item: string;
-}
-
-export interface BreadcrumbListSchema {
-  '@context': 'https://schema.org';
-  '@type': 'BreadcrumbList';
-  itemListElement: BreadcrumbListItem[];
-}
-
-export interface ArticleSchema {
-  '@context': 'https://schema.org';
-  '@type': 'Article';
-  headline: string;
-  description: string;
-  datePublished: string;
-  dateModified: string;
-  url: string;
-  image?: string;
-  author: {
-    '@type': 'Organization';
-    name: string;
-  };
-  publisher: {
-    '@type': 'Organization';
-    name: string;
-  };
-}
-
-export interface WebSiteSchema {
-  '@context': 'https://schema.org';
-  '@type': 'WebSite';
-  name: string;
-  url: string;
-  description: string;
-  potentialAction?: {
-    '@type': 'SearchAction';
-    target: {
-      '@type': 'EntryPoint';
-      urlTemplate: string;
-    };
-    'query-input': string;
-  };
-}
-
 // Factory functions
-export function createBreadcrumbSchema(items: { name: string; slug: string }[]): BreadcrumbListSchema {
+export function createBreadcrumbSchema(items: { name: string; slug: string }[]): WithContext<BreadcrumbList> {
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -70,7 +23,7 @@ export function createArticleSchema(params: {
   updated?: string;
   slug: string;
   image?: string;
-}): ArticleSchema {
+}): WithContext<Article> {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -91,7 +44,7 @@ export function createArticleSchema(params: {
   };
 }
 
-export function createWebSiteSchema(): WebSiteSchema {
+export function createWebSiteSchema(): WithContext<WebSite> {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',

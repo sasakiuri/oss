@@ -85,6 +85,21 @@ describe('search content', () => {
     expect(() => parseSearchDocuments([{ ...document, tags: [1] }])).toThrow();
   });
 
+  it('preserves empty content and extra fields without sharing duplicate tracking between parses', () => {
+    const documents = [
+      { id: '/articles/example/', type: 'articles', title: '', section: '', text: '', tags: [''], extra: true },
+      { id: '/news/example/#%E8%A6%8B%E5%87%BA%E3%81%97', type: 'news', title: '', section: '', text: '', tags: [] },
+    ];
+    expect(parseSearchDocuments([])).toEqual([]);
+    expect(parseSearchDocuments(documents)).toEqual(documents);
+    expect(() => parseSearchDocuments([...documents, documents[0]])).toThrow('Invalid search document');
+    expect(parseSearchDocuments(documents)).toEqual(documents);
+  });
+
+  it.each([null, [], {}, 42, 'document'])('rejects malformed search entries %j', (document) => {
+    expect(() => parseSearchDocuments([document])).toThrow('Invalid search document');
+  });
+
   it('preserves Latin and numeric tokens adjacent to Japanese text', async () => {
     const index = createSearchIndex(
       await renderSearchDocuments({ ...source, content: 'USB接続、2024年、3500円、25kg以下、ＰＤＦ資料' }),

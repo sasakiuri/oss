@@ -9,6 +9,11 @@
       "pinVersion": "*"
     },
     {
+      "label": "Nilay Knowledge uses Tailwind 4.3-compatible class merging",
+      "packages": ["@sasakiuri/nilay-knowledge"],
+      "dependencies": ["tailwind-merge"]
+    },
+    {
       "label": "Nilay websites share Vitest 4 and Tailwind 4",
       "packages": ["@sasakiuri/nilay-knowledge", "@sasakiuri/nilay-about"],
       "dependencies": [

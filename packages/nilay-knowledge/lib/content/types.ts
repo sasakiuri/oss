@@ -1,14 +1,12 @@
+import type { z } from 'zod';
+
+import type { frontmatterSchema, searchDocumentSchema } from './schemas';
+
 export const contentTypes = ['articles', 'news'] as const;
 
 export type ContentType = (typeof contentTypes)[number];
 
-export interface ContentFrontmatter {
-  title: string;
-  published: string;
-  updated?: string;
-  tags: string[];
-  image?: string;
-}
+export type ContentFrontmatter = z.infer<typeof frontmatterSchema>;
 
 export interface ContentSummary {
   type: ContentType;
@@ -33,11 +31,4 @@ export interface RenderedContent {
 
 export interface ContentDocument extends ContentSource, RenderedContent {}
 
-export interface SearchDocument {
-  id: string;
-  type: ContentType;
-  title: string;
-  section: string;
-  tags: string[];
-  text: string;
-}
+export type SearchDocument = z.infer<typeof searchDocumentSchema>;
