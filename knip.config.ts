@@ -37,6 +37,9 @@ const config: KnipConfig = {
       // Preserve the imported site's reusable UI primitives and dependency baseline.
       entry: ["components/ui/**/*.{ts,tsx}"],
       ignoreDependencies: [
+        // Textlint loads these filters from configuration.
+        "textlint-filter-rule-comments",
+        "textlint-filter-rule-node-types",
         "@radix-ui/react-accordion",
         "@radix-ui/react-dropdown-menu",
         "@radix-ui/react-navigation-menu",

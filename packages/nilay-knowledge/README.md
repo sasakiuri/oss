@@ -102,6 +102,59 @@ destinations together, and exercises URL resolution with varied paths and fragme
 Run package tests,
 lint, typecheck and build after changing a content boundary.
 
+## Editorial checks
+
+`npm run lint:text --workspace=@sasakiuri/nilay-knowledge` checks authored
+`content/**/*.md` with `textlint-rule-prh` and
+`textlint-rule-preset-ja-technical-writing`. The dictionary in `prh.yml` checks
+site-name spelling and specific Japanese misspellings. The Japanese preset adds
+duplicate-word, grammar, invalid-character and paired-punctuation checks. Its
+sentence-length, long-kanji, tone and repeated-particle style rules are disabled
+to preserve legal terminology and historical prose. Block quotes, links, code
+and published copies under `public/` are excluded. Narrow `textlint-disable`
+comments identify exceptions in quoted source material. The command reports
+findings without modifying articles. The root text-spacing check continues to
+exclude imported content.
+
+`npm run lint:markdown --workspace=@sasakiuri/nilay-knowledge` checks the same
+authored Markdown with `remark-lint-no-undefined-references` and
+`remark-lint-no-duplicate-definitions`. It checks link, image and GFM footnote
+references before rendering, including references that would otherwise remain
+plain text. Literal square brackets must be escaped; GitHub alert markers are
+allowed. Frontmatter, GFM and math use the corresponding remark parsers. Findings
+include file paths and source positions, and make the command fail. Both editorial
+checks run as part of the package's normal `lint` command.
+
+Install [lychee v0.24.2](https://github.com/lycheeverse/lychee/releases/tag/lychee-v0.24.2)
+and put its executable on `PATH`, or set `LYCHEE_BIN` to its path. Then run:
+
+```bash
+npm run lint:links --workspace=@sasakiuri/nilay-knowledge
+npm run lint:links:external --workspace=@sasakiuri/nilay-knowledge
+```
+
+The first command checks local links, assets and article/news heading fragments
+without network access. It renders article and news bodies using the site's
+Markdown pipeline into `.cache/links/`, maps canonical site URLs to local targets,
+and uses actual public assets. Static App Router pages are registered as route
+targets; their page bodies are not scanned. This does not require a Next.js static
+export. Unsupported URL schemes fail preparation, including protocol typos that
+lychee would otherwise skip. A missing lychee executable fails with installation
+instructions. Run the commands separately because each rebuilds the temporary inputs.
+
+The external command also checks HTTP links and returns a failing exit code when
+links fail. Markdown reports are written to `.cache/links/internal.md` and
+`.cache/links/external.md`, respectively. External failures require review because
+rate limits and temporary network failures can resemble broken links.
+
+The `Knowledge content links` workflow checks local links on relevant pull
+requests. On its weekly schedule and manual runs, it also reports external
+failures in the workflow summary and artifacts without failing the job for dead
+external links. Reports are retained for 30 days. Tests of actual lychee detection
+run when the binary is available, including in that workflow; otherwise those
+integration cases are skipped. `lint:links:prepare` generates the inputs alone
+for CI.
+
 ## Reading, search and printing
 
 Following Saika Docs, the header theme menu offers light, dark and system modes.

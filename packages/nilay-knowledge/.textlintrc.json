@@ -1,0 +1,31 @@
+{
+  "filters": {
+    "comments": true,
+    "node-types": {
+      "nodeTypes": ["BlockQuote", "Link"]
+    }
+  },
+  "rules": {
+    "preset-ja-technical-writing": {
+      "sentence-length": false,
+      "max-comma": false,
+      "max-ten": false,
+      "max-kanji-continuous-len": false,
+      "no-mix-dearu-desumasu": false,
+      "ja-no-mixed-period": false,
+      "arabic-kanji-numbers": false,
+      "no-exclamation-question-mark": false,
+      "ja-no-weak-phrase": false,
+      "ja-no-redundant-expression": false,
+      "no-doubled-joshi": false,
+      "no-doubled-conjunction": false,
+      "no-doubled-conjunctive-particle-ga": false
+    },
+    "prh": {
+      "rulePaths": ["./prh.yml"],
+      "checkEmphasis": true,
+      "checkBlockQuote": false,
+      "checkLink": false
+    }
+  }
+}

@@ -1,0 +1,65 @@
+# cspell:words lycheeverse
+name: Knowledge content links
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 19 * * 0"
+  pull_request:
+    paths:
+      - "packages/nilay-knowledge/content/**"
+      - "packages/nilay-knowledge/public/**"
+      - "packages/nilay-knowledge/app/**"
+      - "packages/nilay-knowledge/lib/content/**"
+      - "packages/nilay-knowledge/lib/config.ts"
+      - "packages/nilay-knowledge/scripts/*links*"
+      - "packages/nilay-knowledge/scripts/link-check.ts"
+      - "packages/nilay-knowledge/__tests__/scripts/link-check.test.ts"
+      - "packages/nilay-knowledge/lychee.toml"
+      - "packages/nilay-knowledge/package.json"
+      - "package-lock.json"
+      - ".github/actions/setup-node/action.yml"
+      - ".github/workflows/knowledge-links.yml"
+permissions:
+  contents: read
+jobs:
+  links:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - name: Prepare rendered content and local route targets
+        run: npm run lint:links:prepare --workspace=@sasakiuri/nilay-knowledge
+      - name: Check local links and article heading fragments
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          lycheeVersion: v0.24.2
+          workingDirectory: packages/nilay-knowledge
+          args: --config .cache/links/lychee.toml --files-from .cache/links/inputs.txt --offline
+          output: .cache/links/internal.md
+          fail: true
+          failIfEmpty: true
+          jobSummary: true
+      - name: Verify missing route, asset and fragment detection
+        run: npm run test:run --workspace=@sasakiuri/nilay-knowledge -- __tests__/scripts/link-check.test.ts
+      - name: Report external link failures
+        if: github.event_name != 'pull_request'
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          lycheeVersion: v0.24.2
+          workingDirectory: packages/nilay-knowledge
+          args: --config .cache/links/lychee.toml --files-from .cache/links/inputs.txt
+          output: .cache/links/external.md
+          fail: false
+          failIfEmpty: true
+          jobSummary: true
+      - name: Upload link reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: knowledge-link-reports
+          path: packages/nilay-knowledge/.cache/links/*.md
+          if-no-files-found: ignore
+          retention-days: 30

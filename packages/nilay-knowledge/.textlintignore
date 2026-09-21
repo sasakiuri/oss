@@ -1,0 +1,7 @@
+# Only authored Markdown is checked by lint:text. Published copies are excluded.
+public/**
+node_modules/**
+.next/**
+coverage/**
+playwright-report/**
+test-results/**

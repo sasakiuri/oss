@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# cspell:words Knowledges
+# Keep this dictionary narrow: site names, spelling, and explicit terminology.
+# Do not import general style rules or rewrite historical/legal terminology.
+# Each rule's specs are checked automatically when textlint loads the dictionary.
+version: 1
+rules:
+  - expected: Nilay Knowledge
+    pattern: /\bNilay Knowledge\b/i
+    specs:
+      - from: nilay knowledge の記事
+        to: Nilay Knowledge の記事
+      - from: Nilay Knowledge の記事
+        to: Nilay Knowledge の記事
+      - from: Nilay/Knowledge と knowledge.nilay.jp
+        to: Nilay/Knowledge と knowledge.nilay.jp
+      - from: Nilay Knowledges
+        to: Nilay Knowledges
+
+  - expected: クレー射撃
+    pattern: クレイ射撃
+    specs:
+      - from: クレイ射撃を始める
+        to: クレー射撃を始める
+      - from: クレー射撃を始める
+        to: クレー射撃を始める
+      - from: クレイジー
+        to: クレイジー
+
+  - expected: シミュレーション
+    pattern: シュミレーション
+    specs:
+      - from: 弾道のシュミレーション
+        to: 弾道のシミュレーション
+      - from: 弾道のシミュレーション
+        to: 弾道のシミュレーション
