@@ -326,7 +326,7 @@ test("uses each workspace's resolved Vitest scope, including Docs' deliberate pa
     ["saika-protocol", "src/QualificationRecovery.ts", "src/types.d.ts"],
     ["saika-lane", "src/main/index.ts", "src/types.ts"],
     ["saika-director", "src/main/index.ts", "src/types.ts"],
-    ["nilay-about", "lib/utils.ts", "lib/generated/client.ts"],
+    ["nilay-about", "lib/utils.ts", "lib/utils.test.ts"],
     ["nilay-knowledge", "lib/utils.ts", "lib/utils.test.ts"],
   ]) {
     const directory = resolve(root, "packages", name);
