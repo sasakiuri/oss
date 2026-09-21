@@ -1,6 +1,6 @@
 # Nilay Knowledge
 
-<!-- cspell:words NFKC licence frontmatter cmdk nuqs -->
+<!-- cspell:words NFKC licence frontmatter BudouX cmdk nuqs -->
 
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
@@ -27,7 +27,12 @@ Optional environment variables are `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
 `NEXT_PUBLIC_FACEBOOK_APP_ID`. Set them before building; Turbo includes both in
 the build cache key. `ANALYZE=true npm run build --workspace=@sasakiuri/nilay-knowledge`
 enables the bundle analyzer. Text uses system fonts, so reading does not require
-downloading Japanese web fonts and builds do not contact Google Fonts.
+downloading Japanese web fonts and builds do not contact Google Fonts. BudouX adds
+phrase boundaries to page and home-card titles during server rendering using
+`<wbr>`; the original title text, metadata and heading IDs are preserved. BudouX
+is pinned to 0.7.0: the newer releases evaluated here pull in registry-authentication
+dependencies that this site does not use, including an npm audit finding. Reassess
+the dependency tree before updating it.
 
 Articles and news live in `content/`; their committed public copies live in
 `public/content/`. When editing content or assets, keep the public copies in sync.
@@ -289,6 +294,41 @@ announcements, browser-native 200% text size/400% zoom, and whether image descri
 information needed to understand the article. Downloaded PDFs and third-party
 pages need their own accessibility review. See the [WAI dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
 and [reflow guidance](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html).
+
+## Markdown authoring blocks
+
+`remark-directive` supplies two validated container blocks. Use `details` for a
+collapsible section and `figure` for an image with a caption:
+
+```markdown
+:::details[補足資料]
+
+- 通常の Markdown で本文を書けます。
+- [資料を開く](document.pdf)
+
+:::
+
+:::figure[図1 比較図]{illustration}
+![左右の違いを説明する代替テキスト。](comparison.png)
+:::
+```
+
+Both require a nonempty label. Labels support emphasis and inline code; links,
+images and raw HTML belong in the body. `details` accepts any Markdown body and
+the optional bare `{open}` attribute to start expanded. It renders native
+`details`/`summary`, so keyboard interaction and the existing print expansion
+continue to work. `figure` requires one Markdown image (inline or reference style)
+with nonempty alternative text. Its label becomes the caption after the image;
+optional `{illustration}` preserves a light image canvas in dark mode and zoom.
+Image URLs, intrinsic dimensions and zoom use the normal image pipeline.
+
+Names, forms and attributes outside this allowlist fail rendering and
+`lint:markdown` with source positions. Arbitrary classes, styles and event
+attributes are not accepted. Page rendering and search use the same transform,
+including the text and heading destinations inside collapsed sections. Nested
+blocks use more colons for the outer fence. Escape a literal directive colon as
+`\:name[label]`, or put examples in code fences. Existing trusted HTML remains
+supported. Update each edited article's `public/content/` copy alongside its source.
 
 ## Markdown diagrams and code
 
