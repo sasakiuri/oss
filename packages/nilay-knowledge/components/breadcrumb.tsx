@@ -31,7 +31,10 @@ export function Breadcrumb({ items, showNav = true, className }: BreadcrumbProps
             {items.map((item, index) => (
               <li
                 key={item.slug}
-                className={cn('flex items-center gap-1', index === items.length - 1 ? 'min-w-0 flex-1' : 'shrink-0')}
+                className={cn(
+                  'flex min-w-0 max-w-full items-center gap-1',
+                  index === items.length - 1 ? 'flex-auto' : 'shrink-0',
+                )}
               >
                 {index > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />}
                 {index === items.length - 1 ? (

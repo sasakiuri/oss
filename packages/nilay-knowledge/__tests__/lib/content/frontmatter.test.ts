@@ -6,6 +6,41 @@ const source = 'articles/example/index.md';
 const metadata = { title: '  題名  ', published: '2024-02-29', tags: [' 記事 '] };
 
 describe('frontmatter validation', () => {
+  const review = {
+    checked: '2026-09-22',
+    region: '東京都',
+    scope: '掲載した手数料の金額',
+    sources: [{ title: '公式の手数料一覧', url: 'https://example.go.jp/fees' }],
+  };
+
+  it('preserves explicit review evidence independently of modification dates', () => {
+    expect(parseFrontmatter({ ...metadata, review }, source)).toMatchObject({ review });
+    expect(parseFrontmatter({ ...metadata, review }, source)).not.toHaveProperty('updated');
+    expect(parseFrontmatter(metadata, source)).not.toHaveProperty('review');
+    // Editorial verification can happen before publication, including earlier the same day.
+    expect(parseFrontmatter({ ...metadata, published: '2026-09-22T12:00:00+09:00', review }, source)).toMatchObject({
+      review,
+    });
+    expect(
+      parseFrontmatter({ ...metadata, review: { ...review, checked: '2024-02-28' } }, source).review?.checked,
+    ).toBe('2024-02-28');
+  });
+
+  it.each([
+    { ...review, checked: '2026-02-30' },
+    { ...review, checked: undefined },
+    { ...review, region: ' ' },
+    { ...review, scope: '' },
+    { ...review, sources: [] },
+    { ...review, sources: [{ title: '', url: 'https://example.go.jp/' }] },
+    { ...review, sources: [{ title: '資料', url: 'javascript:alert(1)' }] },
+    { ...review, sources: [{ title: '資料', url: '/relative-source' }] },
+    { ...review, sources: [{ title: '資料', url: 'https://user:password@example.go.jp/' }] },
+    { ...review, source: 'typo' },
+  ])('rejects incomplete or unsafe review metadata %j', (invalidReview) => {
+    expect(() => parseFrontmatter({ ...metadata, review: invalidReview }, source)).toThrow(`${source}: review`);
+  });
+
   it('accepts a defined category and permits explicitly unclassified articles', () => {
     expect(parseFrontmatter({ ...metadata, category: 'procedures' }, source).category).toBe('procedures');
     expect(parseFrontmatter({ ...metadata, category: 'uncategorized' }, source).category).toBe('uncategorized');

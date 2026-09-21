@@ -103,7 +103,7 @@ describe('article image rendering', () => {
     const article = (await repository.read('articles', '1403693668'))!;
     const plain = await renderContent(article);
     const rendered = await renderContent(article, {
-      imageDimensions: createImageDimensionsResolver(path.join(process.cwd(), 'public', 'content')),
+      imageDimensions: createImageDimensionsResolver(path.join(process.cwd(), 'content')),
     });
     const plainDocument = new DOMParser().parseFromString(plain.html, 'text/html');
     const renderedDocument = new DOMParser().parseFromString(rendered.html, 'text/html');

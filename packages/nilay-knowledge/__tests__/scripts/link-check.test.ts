@@ -16,18 +16,14 @@ let packageDirectory: string;
 beforeEach(async () => {
   packageDirectory = await mkdtemp(path.join(os.tmpdir(), 'knowledge-links-'));
   await Promise.all(
-    [
-      'app/about',
-      'app/articles/[slug]',
-      'content/articles/example',
-      'content/news',
-      'public/content/articles/example',
-    ].map((directory) => mkdir(path.join(packageDirectory, directory), { recursive: true })),
+    ['app/about', 'app/articles/[slug]', 'content/articles/example', 'content/news', 'public'].map((directory) =>
+      mkdir(path.join(packageDirectory, directory), { recursive: true }),
+    ),
   );
   await copyFile(path.resolve(__dirname, '../../lychee.toml'), path.join(packageDirectory, 'lychee.toml'));
   await writeFile(path.join(packageDirectory, 'app/about/page.tsx'), '');
   await writeFile(path.join(packageDirectory, 'app/articles/[slug]/page.tsx'), '');
-  await writeFile(path.join(packageDirectory, 'public/content/articles/example/photo.png'), 'image');
+  await writeFile(path.join(packageDirectory, 'content/articles/example/photo.png'), 'image');
 });
 
 afterEach(async () => {
@@ -42,7 +38,7 @@ async function prepare(content: string) {
   return prepareLinkCheck(packageDirectory);
 }
 
-it('uses rendered anchors, actual public assets and only existing page targets', async () => {
+it('uses rendered anchors, assets from the authored content tree and only existing page targets', async () => {
   const { siteDirectory } = await prepare('## 見出し\n\n![Photo](photo.png)');
   const html = await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8');
   expect(html).toContain('id="見出し"');
@@ -59,6 +55,29 @@ it('rejects malformed URL schemes that lychee otherwise excludes silently', asyn
   await expect(prepare('[Broken](hhttps://example.com/path)')).rejects.toThrow(
     'Unsupported URL scheme in content/articles/example/index.md',
   );
+});
+
+it('checks review source links as rendered anchors outside the Markdown body', async () => {
+  await writeFile(
+    path.join(packageDirectory, 'content/articles/example/index.md'),
+    `---
+title: Test
+published: 2026-09-21
+tags: []
+review:
+  checked: 2026-09-22
+  region: 全国
+  scope: 制度の概要
+  sources:
+    - title: 公式資料
+      url: https://example.com/reference?a=1&b=2
+---
+記事の本文
+`,
+  );
+  const { siteDirectory } = await prepareLinkCheck(packageDirectory);
+  const html = await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8');
+  expect(html).toContain('href="https://example.com/reference?a=1&#x26;b=2">公式資料</a>');
 });
 
 it('does not treat code examples as malformed link attributes', async () => {

@@ -7,6 +7,7 @@ import { ArticleFeedback } from '@/components/article-feedback';
 import { ArticleNavigation } from '@/components/article-navigation';
 import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { ContentReview } from '@/components/content-review';
 import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
 import { JsonLd } from '@/components/json-ld';
@@ -101,6 +102,7 @@ export default async function ArticlePage({ params }: Props) {
               </Link>
               <ArticleTags tags={frontmatter.tags} />
             </div>
+            <ContentReview review={frontmatter.review} />
           </header>
 
           <ContentStyles html={html} />

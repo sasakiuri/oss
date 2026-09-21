@@ -27,6 +27,7 @@ app/
 ├── news/                 # お知らせ一覧・詳細
 │   ├── page.tsx
 │   └── [slug]/page.tsx
+├── content/[...path]/    # content/ のファイルを既存URLで直接配信
 └── about/page.tsx        # サイト概要
 components/
 ├── header.tsx            # ヘッダー
@@ -85,6 +86,8 @@ npm run test:run --workspace=@sasakiuri/nilay-knowledge # Vitest (CI向け)
 - **相対パス変換:** Markdown 内の相対パスを自動で絶対パスに変換
 - **SEO:** JSON-LD 構造化データ、Open Graph、Twitter Cards
 - **RSS フィード:** ビルド時に自動生成
+- **コンテンツ管理:** 記事・画像・PDF は `content/` のみ。公開コピーは作らない
+- **情報確認記録:** `review` に確認日・対象地域・確認範囲・出典を記録。確認日を自動補完しない
 
 コンテンツ処理の境界・メタデータ契約・検証方法は [README.md](README.md#content-architecture) を参照。
 

@@ -27,7 +27,7 @@ function isMissingPath(error: unknown): error is NodeJS.ErrnoException {
 
 async function resolveAssetPath(filename: string): Promise<string> {
   try {
-    // Next serves public assets separately; do not trace their dynamic paths into the server bundle.
+    // The asset route traces content explicitly; avoid bundling dynamic asset paths as modules.
     return await realpath(/* turbopackIgnore: true */ filename);
   } catch (error) {
     if (!isMissingPath(error)) throw error;
@@ -48,8 +48,8 @@ async function resolveAssetPath(filename: string): Promise<string> {
 }
 
 /** Read only published content assets. External and missing images keep their existing browser behavior. */
-export function createImageDimensionsResolver(publicContentDirectory: string): ImageDimensionsResolver {
-  const directory = path.resolve(publicContentDirectory);
+export function createImageDimensionsResolver(contentDirectory: string): ImageDimensionsResolver {
+  const directory = path.resolve(contentDirectory);
 
   return async (src) => {
     if (!src.startsWith('/content/')) return null;
@@ -60,11 +60,11 @@ export function createImageDimensionsResolver(publicContentDirectory: string): I
       throw new Error(`Invalid content image URL: ${src}`, { cause: error });
     }
     if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').includes('..')) {
-      throw new Error(`Content image path must stay within public/content: ${src}`);
+      throw new Error(`Content image path must stay within content: ${src}`);
     }
     const filename = path.resolve(directory, `.${pathname.slice('/content'.length)}`);
     if (!isWithin(directory, filename)) {
-      throw new Error(`Content image path must stay within public/content: ${src}`);
+      throw new Error(`Content image path must stay within content: ${src}`);
     }
 
     try {
@@ -73,7 +73,7 @@ export function createImageDimensionsResolver(publicContentDirectory: string): I
         resolveAssetPath(filename),
       ]);
       if (!isWithin(realDirectory, realFilename)) {
-        throw new Error('Image symlink must stay within public/content');
+        throw new Error('Image symlink must stay within content');
       }
       if (!(await stat(realFilename)).isFile()) throw new Error('Content image must be a regular file');
       const { autoOrient } = await sharp(realFilename).metadata();

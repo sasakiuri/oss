@@ -42,8 +42,10 @@ is pinned to 0.7.0: the newer releases evaluated here pull in registry-authentic
 dependencies that this site does not use, including an npm audit finding. Reassess
 the dependency tree before updating it.
 
-Articles and news live in `content/`; their committed public copies live in
-`public/content/`. When editing content or assets, keep the public copies in sync.
+Articles, news and their assets live only in `content/`. The Node.js route at
+`/content/...` serves these files directly, retaining existing image, PDF, document
+and Markdown URLs. There is no second `public/content/` tree to edit or synchronize.
+The deployment must include `content/`; the route's output tracing includes it.
 Use `npm run new:article --workspace=@sasakiuri/nilay-knowledge -- "Title"` or
 `npm run new:news --workspace=@sasakiuri/nilay-knowledge -- "Title"` to create entries.
 The creation commands reserve a new directory before writing, add a numeric suffix
@@ -165,8 +167,8 @@ to connect them; tags may be empty (`tags: []`).
 
 ### Managing article categories and tags
 
-Edit `category` and `tags` in the article's `index.md` frontmatter, then synchronize
-its copy under `public/content/`. An article has one category and any number of tags:
+Edit `category` and `tags` in the article's `content/articles/<slug>/index.md`
+frontmatter. An article has one category and any number of tags:
 
 ```yaml
 category: procedures
@@ -218,8 +220,7 @@ spaces around block elements.
 The feed and sitemap scripts use the same repository as pages. They resolve paths
 from their own locations and also work when invoked directly from the repository
 root. Sitemap detail entries use `updated ?? published`; static pages omit an
-invented modification date. Public asset copies remain committed and require the
-synchronization described above.
+invented modification date. Public asset URLs resolve directly to `content/`.
 
 Regression tests exercise temporary content directories, the real Markdown
 pipeline, all committed article TOC targets, feed/sitemap URL parity, metadata,
@@ -229,6 +230,35 @@ destinations together, and exercises URL resolution with varied paths and fragme
 Run package tests,
 lint, typecheck and build after changing a content boundary.
 
+### Recording information checks
+
+Article headers show an information-check record independently of the publication
+and modification dates. A missing record is displayed as `情報の最終確認日：未記録`;
+the build never invents a review date. Add `review` only after comparing the named
+scope with the linked sources:
+
+```yaml
+review:
+  checked: '2026-09-22'
+  region: '東京都'
+  scope: '掲載した申請・講習の手数料'
+  sources:
+    - title: '公式の手数料案内'
+      url: 'https://example.go.jp/fees'
+```
+
+This is an illustrative format, not evidence for an actual article. Each record
+requires a valid date, a nonempty region and scope, and
+at least one named HTTP(S) source without URL credentials. The rendered record is
+available without JavaScript and remains visible in print. A scoped check does
+not claim that every statement in the article or every jurisdiction was reviewed.
+Use `updated` when the article actually changes; merely recording a check does not
+automatically change RSS, sitemap or Article modification dates. The external-link
+check includes the recorded sources.
+
+The fees article has a scoped Tokyo review. Other articles retain an unrecorded
+check date until their contents have been checked against the relevant sources.
+
 ## Editorial checks
 
 `npm run lint:text --workspace=@sasakiuri/nilay-knowledge` checks authored
@@ -237,8 +267,8 @@ lint, typecheck and build after changing a content boundary.
 site-name spelling and specific Japanese misspellings. The Japanese preset adds
 duplicate-word, grammar, invalid-character and paired-punctuation checks. Its
 sentence-length, long-kanji, tone and repeated-particle style rules are disabled
-to preserve legal terminology and historical prose. Block quotes, links, code
-and published copies under `public/` are excluded. Narrow `textlint-disable`
+to preserve legal terminology and historical prose. Block quotes, links and code
+are excluded. Narrow `textlint-disable`
 comments identify exceptions in quoted source material. The command reports
 findings without modifying articles. The root text-spacing check continues to
 exclude imported content.
@@ -319,7 +349,7 @@ match the public social links in the footer; credentials and review claims are
 not inferred from the site's subject matter.
 
 `app/robots.ts` advertises the sitemap and allows crawling, including page resources
-and social images. `X-Robots-Tag: noindex` applies only to public Markdown copies and
+and social images. `X-Robots-Tag: noindex` applies only to raw Markdown URLs and
 the two search JSON indexes. It does not block crawling of those files, so crawlers
 can read the directive. PDF documents, images and archived HTML remain indexable.
 Filtered article directory URLs canonicalize to `/articles/`.
@@ -331,7 +361,7 @@ must include the slash themselves. The four historical law documents under
 them as historical material, and self-referencing canonicals. The historical label
 and navigation back to the source article render without JavaScript; the old script
 no longer overwrites the document title on load. Their original legal text is
-preserved, and their public copies must stay synchronized.
+preserved and served directly from their files in `content/`.
 
 After building, run the full-site checks and the representative Lighthouse audit:
 
@@ -442,14 +472,17 @@ validated content repository and the existing Markdown parser, excluding HTML
 markup, scripts and hidden text. The dialog downloads the index on first open,
 reuses it until the page is reloaded, and offers a retry on download or validation
 failure. A worker downloads, validates and indexes the data, then performs searches
-and returns only the top 20 excerpts and the total count. The search engine and its
+and groups matches by article/news URL (or by file for PDF search). Results show
+one matching section per group; readers can expand the other matching sections
+and use “もっと見る” to load subsequent groups. The worker returns 20 groups at
+a time, with separate document and matching-section counts. The search engine and its
 index are loaded only when search first opens; indexing does not block typing or
 dialog controls. Rebuild after changing content to update both pages and the search index.
 
 The static `/pdf-search-index.json` route uses `pdfjs-dist` during the build to
 extract text from locally published PDFs linked by articles/news. Each result
 opens the original PDF at its matching page. External and unreferenced PDFs are
-excluded; paths and symlinks must stay inside `public/content`. Missing or broken
+excluded; paths and symlinks must stay inside `content/`. Missing or broken
 referenced PDFs fail the build. Pages without extractable text are counted in the
 build log; OCR is not performed. PDF data is downloaded and indexed in the existing
 worker only for a nonempty query with the PDF target selected, then reused.
@@ -483,7 +516,7 @@ Home images use Next.js responsive image optimization, with the banner photograp
 Article images keep their original URLs and full-resolution zoom; dimensions are
 read from published local assets during generation to reserve space. The first
 image loads eagerly, subsequent images load lazily, and author-provided loading,
-decoding and dimensions are respected. Image paths are confined to `public/content`,
+decoding and dimensions are respected. Image paths are confined to `content/`,
 including symlink resolution. Missing or external images keep their existing URLs
 without inferred dimensions; errors while reading local image dimensions fail the build.
 
@@ -585,7 +618,7 @@ attributes are not accepted. Page rendering and search use the same transform,
 including the text and heading destinations inside collapsed sections. Nested
 blocks use more colons for the outer fence. Escape a literal directive colon as
 `\:name[label]`, or put examples in code fences. Existing trusted HTML remains
-supported. Update each edited article's `public/content/` copy alongside its source.
+supported. Edit the article in `content/`; no public copy needs updating.
 
 ## Markdown diagrams and code
 

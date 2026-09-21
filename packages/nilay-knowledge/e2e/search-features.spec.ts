@@ -7,7 +7,7 @@ test('shared search conditions restore on reload and preserve unrelated query pa
   const input = dialog.getByRole('combobox', { name: '検索キーワード' });
   await expect(input).toHaveValue('申請');
   await expect(dialog.getByRole('combobox', { name: '検索対象' })).toHaveValue('articles');
-  const options = dialog.getByRole('listbox').getByRole('option');
+  const options = dialog.getByRole('listbox').locator('a[role="option"]');
   await expect(options.first()).toBeVisible();
   expect(
     await options.evaluateAll((items) => items.every((item) => item.getAttribute('href')?.startsWith('/articles/'))),
@@ -25,10 +25,15 @@ test('command navigation respects composition and opens the selected section', a
   await page.goto('/?q=申請&type=articles');
   const dialog = page.getByRole('dialog');
   const input = dialog.getByRole('combobox', { name: '検索キーワード' });
-  const options = dialog.getByRole('listbox').getByRole('option');
-  await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByRole('listbox').getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
   await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, keyCode: 229 });
   await expect(dialog).toBeVisible();
+  const group = dialog
+    .locator('[data-search-group]')
+    .filter({ has: page.locator('button[cmdk-item]') })
+    .first();
+  await group.getByRole('option', { name: /一致箇所を表示$/ }).click();
+  const options = group.locator('a[role="option"]');
   await options.first().focus();
   await options.first().press('ArrowDown');
   await expect(input).toBeFocused();
@@ -109,7 +114,7 @@ test('native search scope keys do not select or open a result', async ({ page })
   await page.goto('/?q=申請');
   const dialog = page.getByRole('dialog', { name: '記事・ニュースを検索' });
   const scope = dialog.getByRole('combobox', { name: '検索対象' });
-  const results = dialog.getByRole('listbox').getByRole('option');
+  const results = dialog.getByRole('listbox').locator('a[role="option"]');
   await expect(results.first()).toBeVisible();
   await scope.focus();
   await scope.press('ArrowDown');
@@ -124,6 +129,62 @@ test('native search scope keys do not select or open a result', async ({ page })
   expect(
     await results.evaluateAll((items) => items.every((item) => item.getAttribute('href')?.startsWith('/articles/'))),
   ).toBe(true);
+});
+
+test('groups matching sections, expands them by keyboard, and loads every remaining article', async ({ page }) => {
+  const documents = Array.from({ length: 25 }, (_, index) => ({
+    id: `/articles/example-${index}/#print`,
+    type: 'articles',
+    title: `資料ガイド ${index}`,
+    section: '印刷',
+    tags: [],
+    text: '印刷する前に設定を確認します。',
+  }));
+  const sections = Array.from({ length: 30 }, (_, index) => ({
+    ...documents[0]!,
+    id: `/articles/example-0/#section-${index}`,
+  }));
+  await page.route('**/search-index.json', (route) => route.fulfill({ json: [...documents, ...sections] }));
+  await page.goto('/?q=印刷&type=articles');
+  const dialog = page.getByRole('dialog');
+  const input = dialog.getByRole('combobox', { name: '検索キーワード' });
+  const groups = dialog.locator('[data-search-group]');
+  await expect(groups).toHaveCount(20);
+  await expect(dialog.getByRole('status')).toContainText('25 件の検索結果（55 箇所が一致・20 件を表示）');
+  const firstGroup = dialog.locator('[data-search-group="/articles/example-0/"]');
+  const toggle = firstGroup.locator('button[cmdk-item]');
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(1);
+  await toggle.focus();
+  await toggle.press('Enter');
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(31);
+  await expect(firstGroup.getByText('資料ガイド 0', { exact: true })).toHaveCount(1);
+  const audit = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
+  expect(audit.violations).toEqual([]);
+  await toggle.press('Enter');
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(1);
+  await firstGroup.locator('a[cmdk-item]').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(input).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-selected', 'true');
+  await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, keyCode: 229 });
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(1);
+  await input.press('Enter');
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(31);
+  await dialog.getByRole('button', { name: 'もっと見る' }).press('Enter');
+  await expect(groups).toHaveCount(25);
+  await expect(dialog.getByRole('status')).toContainText('25 件を表示');
+  await expect(input).toBeFocused();
+  await expect(groups.nth(20).locator('a[cmdk-item]')).toHaveAttribute('aria-selected', 'true');
+  await expect(groups.nth(20).locator('a[cmdk-item]')).toBeInViewport();
+  await expect(dialog.getByRole('button', { name: 'もっと見る' })).toHaveCount(0);
+  expect(
+    new Set(await groups.evaluateAll((items) => items.map((item) => item.getAttribute('data-search-group')))).size,
+  ).toBe(25);
+  await input.fill('該当なし');
+  await expect(groups).toHaveCount(0);
+  await input.fill('印刷');
+  await expect(groups).toHaveCount(20);
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(1);
 });
 
 test('search helper controls preserve Tab focus cycling and the search shortcut', async ({ page }) => {

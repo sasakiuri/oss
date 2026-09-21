@@ -54,7 +54,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(input).toBeFocused();
       await input.fill('申請');
       await expect(dialog.getByRole('status')).toContainText('件の検索結果');
-      const last = dialog.getByRole('listbox').getByRole('option').last();
+      const last = dialog.locator('[cmdk-item], button').last();
       await last.focus();
       await page.keyboard.press('Tab');
       await expect(dialog.getByRole('button', { name: '検索を閉じる' })).toBeFocused();

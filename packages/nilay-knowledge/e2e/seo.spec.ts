@@ -287,7 +287,7 @@ test.describe('directory structured data with JavaScript', () => {
   });
 });
 
-test('historical law documents have distinct search metadata and synchronized source copies', async ({
+test('historical law documents have distinct search metadata and serve the authored source', async ({
   page,
   request,
 }) => {

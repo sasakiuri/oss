@@ -11,7 +11,7 @@ import { createContentRepository } from './repository';
 import { contentTypes, type ContentDocument, type ContentType } from './types';
 
 const repository = createContentRepository(path.join(process.cwd(), 'content'));
-const imageDimensions = createImageDimensionsResolver(path.join(process.cwd(), 'public/content'));
+const imageDimensions = createImageDimensionsResolver(path.join(process.cwd(), 'content'));
 
 // Request-scoped memoization shares reads between metadata and pages without stale process caches.
 export const listContentSlugs = cache(repository.listSlugs);
