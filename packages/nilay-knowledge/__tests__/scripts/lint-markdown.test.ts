@@ -78,6 +78,27 @@ describe('Markdown reference lint', () => {
     expect(file.messages).toEqual([expect.objectContaining({ ruleId: 'no-undefined-references', line: 5 })]);
   });
 
+  it('parses directive labels and checks references inside their Markdown bodies', async () => {
+    const valid = await lintMarkdown(
+      ':::details[資料の詳細]{open}\n[資料][source]\n:::\n\n[source]: document.pdf\n',
+      'article.md',
+    );
+    expect(valid.messages).toEqual([]);
+    const invalid = await lintMarkdown(':::details[詳細]\n[資料][missing]\n:::\n', 'article.md');
+    expect(invalid.messages).toEqual([expect.objectContaining({ ruleId: 'no-undefined-references', line: 2 })]);
+  });
+
+  it('reports directive errors with original file positions and continues checking following blocks', async () => {
+    const file = await lintMarkdown(
+      '---\ntitle: Test\n---\n\n:::unknown[Label]\nBody\n:::\n\n:::details[Label]{style="display:none"}\nBody\n:::\n',
+      'article.md',
+    );
+    expect(file.messages).toEqual([
+      expect.objectContaining({ ruleId: 'invalid-directive', line: 5, file: 'article.md' }),
+      expect.objectContaining({ ruleId: 'invalid-directive', line: 9, file: 'article.md' }),
+    ]);
+  });
+
   it('checks nested Markdown files and exits nonzero for broken references', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'knowledge-markdown-'));
     temporaryDirectories.push(directory);

@@ -7,6 +7,7 @@ import { ImageZoom } from '@/components/image-zoom';
 import { MarkdownContent } from '@/components/markdown-content';
 import { PrintContent } from '@/components/print-content';
 import { SnsShare } from '@/components/sns-share';
+import { TitleText } from '@/components/title-text';
 import { createContentMetadata } from '@/lib/content/metadata';
 import { getContentDocument, getContentSource, listContentSlugs } from '@/lib/content/server';
 import { formatDate } from '@/lib/utils';
@@ -61,7 +62,7 @@ export default async function NewsDetailPage({ params }: Props) {
               {formatDate(frontmatter.published)}
             </time>
             <h1 className="mt-2 text-2xl font-bold leading-tight text-ink [font-feature-settings:palt]">
-              {frontmatter.title}
+              <TitleText>{frontmatter.title}</TitleText>
             </h1>
             <div className="mt-4 flex flex-wrap gap-2">
               {frontmatter.tags.map((tag) => (

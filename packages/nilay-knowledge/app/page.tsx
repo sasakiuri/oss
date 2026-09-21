@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { HomeSearchButton } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
+import { TitleText } from '@/components/title-text';
 import { createWebSiteSchema } from '@/lib/schema';
 
 export const dynamic = 'force-static';
@@ -32,7 +33,9 @@ function MainCard({ title, description, image, slug }: MainCardProps) {
           sizes="(min-width: 768px) 230px, (min-width: 640px) calc((100vw - 80px) / 3), calc(100vw - 32px)"
         />
         <div className="relative col-start-1 row-start-1 self-end bg-slate-900/90 p-4">
-          <h2 className="text-lg font-bold text-white">{title}</h2>
+          <h2 className="text-lg font-bold text-white">
+            <TitleText>{title}</TitleText>
+          </h2>
         </div>
       </div>
       <p className="p-4 leading-relaxed text-body">{description}</p>
@@ -66,7 +69,9 @@ function SubCard({ title, image, slug }: SubCardProps) {
           className="col-start-1 row-start-1 aspect-[3/2] h-full w-full object-cover"
         />
         <div className="relative col-start-1 row-start-1 flex items-center justify-center bg-slate-900/80 px-3 py-4">
-          <span className="text-lg font-bold text-white">{title}</span>
+          <span className="text-lg font-bold text-white">
+            <TitleText>{title}</TitleText>
+          </span>
         </div>
       </div>
     </Link>

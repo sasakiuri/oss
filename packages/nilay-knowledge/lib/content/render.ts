@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
 import remarkBreaks from 'remark-breaks';
+import remarkDirective from 'remark-directive';
 import remarkGfm from 'remark-gfm';
 import remarkGithubAlerts from 'remark-github-alerts';
 import remarkMath from 'remark-math';
@@ -16,6 +17,7 @@ import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
+import { remarkContentDirectives } from './directives';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import { responsiveImageAttributes } from './responsive-images';
@@ -53,6 +55,8 @@ const headingAnchorIcon: Element = {
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
+  .use(remarkDirective)
+  .use(remarkContentDirectives)
   .use(remarkCodeMeta)
   .use(remarkGithubAlerts, {
     titles: { note: '補足', tip: 'ヒント', important: '重要', warning: '警告', caution: '注意' },
@@ -84,7 +88,8 @@ const processor = unified()
 
 /** Index visible text and sections using the same Markdown parsing and heading IDs as pages. */
 export async function renderSearchDocuments(source: ContentSource): Promise<SearchDocument[]> {
-  const tree = await processor.run(processor.parse(source.content));
+  const file = { value: source.content, path: `content/${source.type}/${source.slug}/index.md` };
+  const tree = await processor.run(processor.parse(file), file);
   const href = `/${source.type}/${source.slug}/`;
   const createSection = (id: string, section: string): SearchDocument => ({
     id,
@@ -113,7 +118,9 @@ export async function renderSearchDocuments(source: ContentSource): Promise<Sear
     }
     const block =
       node.type === 'element' &&
-      /^(h[1-6]|p|div|section|article|li|tr|td|th|br|pre|blockquote|summary)$/.test(node.tagName);
+      /^(h[1-6]|p|div|section|article|li|tr|td|th|br|pre|blockquote|summary|details|figure|figcaption)$/.test(
+        node.tagName,
+      );
     if (block) current.text += ' ';
     if ('children' in node) node.children.forEach(collect);
     if (block) current.text += ' ';
@@ -294,7 +301,7 @@ export async function renderContent(
     .use(rehypeKatex)
     .use(rehypeCodeBlocks)
     .use(rehypeStringify)
-    .process(source.content);
+    .process({ value: source.content, path: `content/${source.type}/${source.slug}/index.md` });
 
   return { html: String(result), tableOfContents };
 }

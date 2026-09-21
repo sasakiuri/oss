@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import remarkDirective from 'remark-directive';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
 import remarkLint from 'remark-lint';
@@ -12,17 +13,21 @@ import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { VFile } from 'vfile';
 
+import { remarkContentDirectives } from '../lib/content/directives';
+
 const processor = unified()
   .use(remarkParse)
   .use(remarkFrontmatter)
   .use(remarkGfm)
+  .use(remarkDirective)
   .use(remarkMath)
   .use(remarkLint)
   .use(remarkLintNoUndefinedReferences, {
     // These markers are consumed by the site's GitHub alert renderer.
     allow: ['!NOTE', '!TIP', '!IMPORTANT', '!WARNING', '!CAUTION'],
   })
-  .use(remarkLintNoDuplicateDefinitions);
+  .use(remarkLintNoDuplicateDefinitions)
+  .use(remarkContentDirectives, { lint: true });
 
 /** Keep frontmatter in the parse so diagnostics retain their original line numbers. */
 export async function lintMarkdown(value: string, filename: string) {
