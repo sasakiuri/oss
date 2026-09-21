@@ -30,7 +30,9 @@ enables the bundle analyzer. When GA4 is configured, `useReportWebVitals` sends 
 measurements (including LCP, INP and CLS) to that same property after GA initializes.
 Without a measurement ID, GA4 analytics and reporting stay disabled. Vercel Speed
 Insights independently collects performance metrics through the root layout's
-`SpeedInsights` component. GA4 reports contain only metric IDs,
+`SpeedInsights` component when Vercel provides `VERCEL=1`. Local builds omit this
+component because its collection routes are supplied by Vercel. Turbo includes
+`VERCEL` in the build cache key. GA4 reports contain only metric IDs,
 numbers and ratings/navigation types are included; DOM text and attribution URLs
 are not added. Text uses system fonts, so reading does not require
 downloading Japanese web fonts and builds do not contact Google Fonts. BudouX adds
