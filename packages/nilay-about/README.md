@@ -20,6 +20,7 @@ npm run dev --workspace=@sasakiuri/nilay-about
 開発サーバーは `http://localhost:3001` で起動します。
 ニュースの取得には `DATABASE_URL`、お問い合わせの送信には `SLACK_WEBHOOK_URL` が必要です。
 接続先を使わない画面の開発では、これらを未設定にできます。
+`features/` に機能、`lib/server/` にサーバー共通処理を分離しています。
 環境変数とアーキテクチャの詳細は [開発ガイド](DEVELOPMENT.md) を参照してください。
 
 ```bash

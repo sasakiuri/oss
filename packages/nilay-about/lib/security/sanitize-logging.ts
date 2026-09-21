@@ -1,142 +1,87 @@
-/**
- * Server-side sanitization utilities for logging
- *
- * This module does NOT depend on DOMPurify or jsdom,
- * making it safe to use in serverless environments.
- */
-
 import 'server-only';
-import { createHmac } from 'crypto';
 
-/**
- * Default sensitive field patterns for redaction
- */
-const DEFAULT_SENSITIVE_FIELDS = ['password', 'token', 'apiKey', 'secret', 'credential'];
+import { createHmac } from 'node:crypto';
 
-/**
- * Fields containing PII that should be hashed or truncated
- */
-const PII_FIELDS = ['ip', 'userAgent', 'email', 'phone'];
+const REDACTED = '[REDACTED]';
+const DEFAULT_SENSITIVE_FIELDS = ['password', 'token', 'apiKey', 'secret', 'credential', 'authorization', 'cookie'];
+const PII_FIELDS = new Set([
+  'ip',
+  'ipaddress',
+  'clientip',
+  'remoteip',
+  'remoteaddress',
+  'xforwardedfor',
+  'xrealip',
+  'xvercelforwardedfor',
+  'cfconnectingip',
+  'useragent',
+]);
 
-/**
- * Get the secret key for HMAC hashing
- *
- * 本番環境では LOG_MASKING_SECRET 環境変数が必須です。
- * 開発/テスト環境では未設定時にフォールバックキーを使用します。
- *
- * @throws Error 本番環境で LOG_MASKING_SECRET が未設定の場合
- */
-function getLogMaskingSecret(): string {
-  const secret = process.env.LOG_MASKING_SECRET;
-  if (secret) {
-    return secret;
-  }
-
-  // 本番環境では必須
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'LOG_MASKING_SECRET is required in production. ' +
-        'Please set this environment variable (16+ characters recommended) ' +
-        'to ensure secure PII hashing in logs.',
-    );
-  }
-
-  // 開発/テスト環境のみフォールバック
-  return 'dev-only-fallback-key-not-for-production';
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/**
- * Hash a string for privacy-preserving logging using HMAC-SHA256
- * Uses a keyed hash to prevent dictionary attacks on PII values
- *
- * @param value - The value to hash
- * @returns A truncated HMAC hash prefixed with [HMAC:]
- */
+function getLogMaskingSecret(): string {
+  const secret = process.env.LOG_MASKING_SECRET;
+  if (process.env.NODE_ENV === 'production' && (!secret || secret.length < 16)) {
+    throw new Error('LOG_MASKING_SECRET must be at least 16 characters in production.');
+  }
+  return secret || 'dev-only-fallback-key-not-for-production';
+}
+
 function hashForLogging(value: string): string {
-  const secret = getLogMaskingSecret();
-  const hmac = createHmac('sha256', secret);
-  hmac.update(value);
-  // Use first 12 hex characters (48 bits) - enough for correlation, not reversible
-  const hash = hmac.digest('hex').slice(0, 12);
+  const hash = createHmac('sha256', getLogMaskingSecret()).update(value).digest('hex').slice(0, 12);
   return `[HMAC:${hash}]`;
 }
 
-/**
- * Truncate User-Agent for logging (preserve browser/OS info, remove unique identifiers)
- */
-function truncateUserAgent(ua: string): string {
-  // Extract only the browser and OS information
-  const match = ua.match(/^([^(]+\([^)]+\)[^\s]*)/u);
-  const captured = match?.[1];
-  return captured ? `${captured.slice(0, 50)}...` : '[TRUNCATED]';
+function isPiiField(key: string): boolean {
+  return PII_FIELDS.has(key) || key.includes('email') || key.includes('phone');
 }
 
 /**
- * Sanitize a PII field value
+ * Return JSON-safe log data without mutating its input. Arrays keep their shape;
+ * only ancestors count as circular, so a shared object is sanitized each time.
+ * PII values are keyed hashes, including values inside a PII array or object.
+ * Error text is fingerprinted: arbitrary database/HTTP errors can contain inputs
+ * and credentials that field-based redaction cannot reliably identify.
  */
-function sanitizePiiValue(key: string, value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-
-  const lowerKey = key.toLowerCase();
-
-  if (lowerKey === 'ip' || lowerKey.includes('ip')) {
-    return hashForLogging(value);
-  }
-
-  if (lowerKey === 'useragent' || lowerKey.includes('agent')) {
-    return truncateUserAgent(value);
-  }
-
-  if (lowerKey === 'email' || lowerKey.includes('email')) {
-    // Mask email: show first 2 chars and domain
-    const atIndex = value.indexOf('@');
-    if (atIndex > 0) {
-      const local = value.slice(0, atIndex);
-      const domain = value.slice(atIndex + 1);
-      return `${local.slice(0, 2)}***@${domain}`;
-    }
-    return '[REDACTED]';
-  }
-
-  return hashForLogging(value);
-}
-
-/**
- * Sanitize object for logging (remove sensitive fields, mask PII)
- *
- * @param obj - Object to sanitize
- * @param sensitiveFields - Fields to completely redact (passwords, tokens, etc.)
- * @param maskPii - Whether to hash/truncate PII fields (IP, UserAgent, etc.)
- */
-export function sanitizeForLogging<T extends Record<string, unknown>>(
-  obj: T,
-  sensitiveFields: string[] = DEFAULT_SENSITIVE_FIELDS,
+export function sanitizeForLogging(
+  obj: Record<string, unknown>,
+  sensitiveFields: readonly string[] = DEFAULT_SENSITIVE_FIELDS,
   maskPii: boolean = true,
-): T {
-  const result = { ...obj };
+): Record<string, unknown> {
+  const sensitiveKeys = sensitiveFields.map(normalizeKey);
+  const ancestors = new Set<object>();
 
-  for (const key of Object.keys(result)) {
-    const lowerKey = key.toLowerCase();
+  function visit(value: unknown, key = '', inheritedPii = false, depth = 0): unknown {
+    const normalizedKey = normalizeKey(key);
+    if (sensitiveKeys.some((field) => normalizedKey.includes(field))) return REDACTED;
+    const pii = maskPii && (inheritedPii || isPiiField(normalizedKey));
 
-    // Completely redact sensitive fields
-    if (sensitiveFields.some((field) => lowerKey.includes(field.toLowerCase()))) {
-      (result as Record<string, unknown>)[key] = '[REDACTED]';
+    if (pii && (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint')) {
+      return hashForLogging(String(value));
     }
-    // Mask PII fields
-    else if (maskPii && PII_FIELDS.some((field) => lowerKey.includes(field.toLowerCase()))) {
-      (result as Record<string, unknown>)[key] = sanitizePiiValue(key, result[key]);
+    if (typeof value === 'bigint') return value.toString();
+    if (typeof value !== 'object' || value === null) return value;
+    if (depth >= 20) return '[Max depth]';
+    if (ancestors.has(value)) return '[Circular]';
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? '[Invalid Date]' : value.toISOString();
+    if (value instanceof Error) {
+      return {
+        name: /^[A-Za-z][A-Za-z0-9.]{0,79}$/.test(value.name) ? value.name : 'Error',
+        fingerprint: hashForLogging(value.message),
+      };
     }
-    // Recurse into nested objects
-    else if (typeof result[key] === 'object' && result[key] !== null) {
-      (result as Record<string, unknown>)[key] = sanitizeForLogging(
-        result[key] as Record<string, unknown>,
-        sensitiveFields,
-        maskPii,
-      );
-    }
+
+    ancestors.add(value);
+    const result: unknown = Array.isArray(value)
+      ? value.map((item) => visit(item, '', pii, depth + 1))
+      : Object.fromEntries(Object.entries(value).map(([name, item]) => [name, visit(item, name, pii, depth + 1)]));
+    ancestors.delete(value);
+    return result;
   }
 
-  return result;
+  return visit(obj) as Record<string, unknown>;
 }
 
 /**

@@ -32,17 +32,3 @@ export function truncate(text: string, maxLength: number, suffix = '…'): strin
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength).trim() + suffix;
 }
-
-/**
- * HTMLをサニタイズして安全な文字列を返す
- */
-export function escapeHtml(text: string): string {
-  const htmlEscapes: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] ?? char);
-}

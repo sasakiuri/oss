@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 
-import { RetroHeader, RetroFooter } from '@/components/layout';
-import { Providers } from '@/components/providers';
 import { siteConfig } from '@/lib/config';
 import './globals.css';
 
@@ -47,15 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="min-h-screen">
-        <Providers>
-          <RetroHeader />
-          <main id="main-content" role="main" tabIndex={-1} aria-label="メインコンテンツ">
-            {children}
-          </main>
-          <RetroFooter />
-        </Providers>
-      </body>
+      <body className="min-h-screen">{children}</body>
     </html>
   );
 }

@@ -9,8 +9,10 @@
 - メインサイトはレトロなデザイン、`app/(standalone)/labs/` は独立したマテリアルデザイン。
 - ニュースは `app/api/news/` → `lib/prisma.ts` → PostgreSQL の構成。
 - お問い合わせは `app/api/contact/` から Slack Incoming Webhook に送信する。
-- API 呼び出しは `lib/api/` と TanStack Query の `hooks/`、検証は `lib/schemas/` の Zod を使う。
-- 共通状態は `store/`、Labs の機能別状態と計算は各 `_store/` に置く。
+- 機能は `features/`。API 呼び出し・TanStack Query・Zod スキーマを機能ごとにまとめる。
+- サーバー adapter は `features/*/server/`、HTTP 境界・レート制限は `lib/server/` に置く。
+- Labs の store は画面ごとに生成し、純粋な計算は feature のモデルへ分離する。
+- `app/(site)/` と `app/(standalone)/` でレイアウトを分け、機能から `app/` を参照しない。
 - 操作を伴うコンポーネントには `"use client"` を指定する。
 
 ## 開発・検証

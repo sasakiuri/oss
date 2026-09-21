@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "target": "ES2022",
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "__tests__/**/*.ts",
+    "__tests__/**/*.tsx",
+    "features/**/*.test.ts",
+    "features/**/*.test.tsx",
+    "vitest.setup.ts"
+  ],
+  "exclude": ["node_modules"]
+}

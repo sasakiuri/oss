@@ -8,4 +8,3 @@ export function cn(...inputs: ClassValue[]) {
 // Re-export utilities for convenience
 export * from './utils/html';
 export * from './utils/date';
-export * from './errors';

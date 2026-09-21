@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { GameSpeciesTestClient } from './game-species-test-client';
+import { GameSpeciesTestClient } from '@/features/game-species/game-species-test-client';
 
 export const metadata: Metadata = {
   title: '狩猟鳥獣スライドショー',

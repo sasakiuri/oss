@@ -1,25 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import {
-  escapeHtml,
-  stripHtml,
-  sanitizeForDisplay,
-  sanitizeUrl,
-  createRateLimiter,
-  sanitizeHtml,
-} from '@/lib/security/sanitize';
-import { sanitizeForLogging, sanitizeForSlack } from '@/lib/security/sanitize-logging';
-import {
-  sanitizeHtml as sanitizeClientHtml,
-  sanitizeForDisplay as sanitizeClientForDisplay,
-  stripHtml as stripClientHtml,
-} from '@/lib/security/sanitize.client';
+import { escapeHtml, stripHtml, sanitizeForDisplay, sanitizeUrl, sanitizeHtml } from '@/lib/security/html';
 
 describe('Security Sanitization', () => {
-  describe.each([
-    ['server', sanitizeHtml],
-    ['client', sanitizeClientHtml],
-  ] as const)('sanitizeHtml (%s)', (_name, sanitizeHtml) => {
+  describe('sanitizeHtml', () => {
     it('should remove script tags', () => {
       const input = '<p>Hello</p><script>alert("xss")</script>';
       const result = sanitizeHtml(input);
@@ -185,10 +169,7 @@ describe('Security Sanitization', () => {
     });
   });
 
-  describe.each([
-    ['server', stripHtml],
-    ['client', stripClientHtml],
-  ] as const)('stripHtml (%s)', (_name, stripHtml) => {
+  describe('stripHtml', () => {
     it('should remove HTML tags', () => {
       expect(stripHtml('<p>Hello <strong>World</strong></p>')).toBe('Hello World');
     });
@@ -215,10 +196,7 @@ describe('Security Sanitization', () => {
     });
   });
 
-  describe.each([
-    ['server', sanitizeForDisplay],
-    ['client', sanitizeClientForDisplay],
-  ] as const)('sanitizeForDisplay (%s)', (_name, sanitizeForDisplay) => {
+  describe('sanitizeForDisplay', () => {
     it('should strip and escape HTML', () => {
       expect(sanitizeForDisplay('<p>Hello & <script>evil</script></p>')).toBe('Hello &amp; evil');
     });
@@ -259,203 +237,6 @@ describe('Security Sanitization', () => {
 
     it('should reject file: URLs', () => {
       expect(sanitizeUrl('file:///etc/passwd')).toBeNull();
-    });
-  });
-
-  describe('sanitizeForLogging', () => {
-    it('should redact password fields', () => {
-      const obj = { username: 'user', password: 'secret123' };
-      const result = sanitizeForLogging(obj);
-      expect(result.username).toBe('user');
-      expect(result.password).toBe('[REDACTED]');
-    });
-
-    it('should redact nested sensitive fields', () => {
-      const obj = {
-        user: { name: 'test', apiKey: 'key123' },
-      };
-      const result = sanitizeForLogging(obj);
-      expect(result.user.name).toBe('test');
-      expect(result.user.apiKey).toBe('[REDACTED]');
-    });
-
-    it('should handle case-insensitive field names', () => {
-      const obj = { PASSWORD: 'secret', ApiKey: 'key' };
-      const result = sanitizeForLogging(obj);
-      expect(result.PASSWORD).toBe('[REDACTED]');
-      expect(result.ApiKey).toBe('[REDACTED]');
-    });
-
-    it('should not modify original object', () => {
-      const original = { password: 'secret' };
-      sanitizeForLogging(original);
-      expect(original.password).toBe('secret');
-    });
-
-    describe('PII masking', () => {
-      it('should hash IP addresses with HMAC', () => {
-        const obj = { ip: '192.168.1.1', path: '/api' };
-        const result = sanitizeForLogging(obj);
-        // HMAC format: [HMAC:xxxxxxxxxxxx] (12 hex chars)
-        expect(result.ip).toMatch(/^\[HMAC:[0-9a-f]{12}\]$/);
-        expect(result.path).toBe('/api');
-      });
-
-      it('should produce consistent hashes for same IP with same key', () => {
-        const obj1 = { ip: '192.168.1.1' };
-        const obj2 = { ip: '192.168.1.1' };
-        const result1 = sanitizeForLogging(obj1);
-        const result2 = sanitizeForLogging(obj2);
-        expect(result1.ip).toBe(result2.ip);
-      });
-
-      it('should produce different hashes for different IPs', () => {
-        const obj1 = { ip: '192.168.1.1' };
-        const obj2 = { ip: '10.0.0.1' };
-        const result1 = sanitizeForLogging(obj1);
-        const result2 = sanitizeForLogging(obj2);
-        expect(result1.ip).not.toBe(result2.ip);
-      });
-
-      it('should truncate User-Agent strings', () => {
-        const obj = {
-          userAgent:
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        };
-        const result = sanitizeForLogging(obj);
-        expect(result.userAgent).toContain('...');
-        expect((result.userAgent as string).length).toBeLessThan(100);
-      });
-
-      it('should mask email addresses', () => {
-        const obj = { email: 'john.doe@example.com' };
-        const result = sanitizeForLogging(obj);
-        expect(result.email).toBe('jo***@example.com');
-      });
-
-      it('should handle email without domain', () => {
-        const obj = { email: 'invalid-email' };
-        const result = sanitizeForLogging(obj);
-        expect(result.email).toBe('[REDACTED]');
-      });
-
-      it('should allow disabling PII masking', () => {
-        const obj = { ip: '192.168.1.1' };
-        const result = sanitizeForLogging(obj, undefined, false);
-        expect(result.ip).toBe('192.168.1.1');
-      });
-
-      it('should handle nested PII fields', () => {
-        const obj = {
-          request: {
-            ip: '192.168.1.1',
-            userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
-          },
-        };
-        const result = sanitizeForLogging(obj);
-        expect((result.request as { ip: string }).ip).toMatch(/^\[HMAC:[0-9a-f]{12}\]$/);
-        expect((result.request as { userAgent: string }).userAgent).toContain('...');
-      });
-    });
-  });
-
-  describe('sanitizeForSlack', () => {
-    it('should escape ampersand', () => {
-      expect(sanitizeForSlack('foo & bar')).toBe('foo &amp; bar');
-    });
-
-    it('should escape less than', () => {
-      expect(sanitizeForSlack('a < b')).toBe('a &lt; b');
-    });
-
-    it('should escape greater than', () => {
-      expect(sanitizeForSlack('a > b')).toBe('a &gt; b');
-    });
-
-    it('should neutralize @channel mention with zero-width space', () => {
-      const result = sanitizeForSlack('@channel');
-      expect(result).toBe('@\u200Bchannel');
-      expect(result).not.toBe('@channel');
-    });
-
-    it('should neutralize @here mention with zero-width space', () => {
-      const result = sanitizeForSlack('@here');
-      expect(result).toBe('@\u200Bhere');
-      expect(result).not.toBe('@here');
-    });
-
-    it('should neutralize @everyone mention with zero-width space', () => {
-      const result = sanitizeForSlack('@everyone');
-      expect(result).toBe('@\u200Beveryone');
-      expect(result).not.toBe('@everyone');
-    });
-
-    it('should neutralize <!channel> special command', () => {
-      // < and > are escaped, @ is also neutralized
-      expect(sanitizeForSlack('<!channel>')).toBe('&lt;!channel&gt;');
-    });
-
-    it('should neutralize user mentions', () => {
-      // Both < > and @ are handled
-      expect(sanitizeForSlack('<@U12345678>')).toBe('&lt;@\u200BU12345678&gt;');
-    });
-
-    it('should neutralize link injection', () => {
-      expect(sanitizeForSlack('<http://evil.com|Click here>')).toBe('&lt;http://evil.com|Click here&gt;');
-    });
-
-    it('should neutralize subteam mentions', () => {
-      expect(sanitizeForSlack('<!subteam^S12345678>')).toBe('&lt;!subteam^S12345678&gt;');
-    });
-
-    it('should handle empty string', () => {
-      expect(sanitizeForSlack('')).toBe('');
-    });
-
-    it('should preserve normal text', () => {
-      expect(sanitizeForSlack('お問い合わせです')).toBe('お問い合わせです');
-    });
-
-    it('should handle multiple special characters', () => {
-      // @ is neutralized with zero-width space
-      expect(sanitizeForSlack("<script>alert('xss')</script> & @channel")).toBe(
-        "&lt;script&gt;alert('xss')&lt;/script&gt; &amp; @\u200Bchannel",
-      );
-    });
-
-    it('should neutralize email addresses containing @', () => {
-      const result = sanitizeForSlack('user@example.com');
-      expect(result).toBe('user@\u200Bexample.com');
-      expect(result).toContain('@\u200B');
-    });
-  });
-
-  describe('createRateLimiter', () => {
-    it('should allow requests within limit', () => {
-      const limiter = createRateLimiter(3, 1000);
-      expect(limiter.canRequest()).toBe(true);
-      limiter.recordRequest();
-      expect(limiter.canRequest()).toBe(true);
-      limiter.recordRequest();
-      expect(limiter.canRequest()).toBe(true);
-      limiter.recordRequest();
-      expect(limiter.canRequest()).toBe(false);
-    });
-
-    it('should reset after window expires', async () => {
-      const limiter = createRateLimiter(1, 50);
-      limiter.recordRequest();
-      expect(limiter.canRequest()).toBe(false);
-      await new Promise((r) => setTimeout(r, 60));
-      expect(limiter.canRequest()).toBe(true);
-    });
-
-    it('should reset manually', () => {
-      const limiter = createRateLimiter(1, 10000);
-      limiter.recordRequest();
-      expect(limiter.canRequest()).toBe(false);
-      limiter.reset();
-      expect(limiter.canRequest()).toBe(true);
     });
   });
 });

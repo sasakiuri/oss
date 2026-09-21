@@ -20,10 +20,3 @@ export function formatDate(date: Date | string | number, style: DateFormatStyle 
 
   return format(dateObj, formats[style], { locale: ja });
 }
-
-/**
- * 日付が有効かどうかを判定
- */
-export function isValidDate(date: unknown): date is Date {
-  return date instanceof Date && !isNaN(date.getTime());
-}
