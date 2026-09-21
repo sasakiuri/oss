@@ -205,6 +205,7 @@ jobs:
         run: |
           npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
           npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
+          npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge
           npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
 
       - name: Upload Nilay Knowledge Lighthouse reports
