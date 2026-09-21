@@ -4,12 +4,14 @@ import path from 'node:path';
 
 import { cache } from 'react';
 
+import { createImageDimensionsResolver } from './images';
 import { isContentSlug } from './paths';
 import { renderContent, renderSearchDocuments } from './render';
 import { createContentRepository } from './repository';
 import { contentTypes, type ContentDocument, type ContentType } from './types';
 
 const repository = createContentRepository(path.join(process.cwd(), 'content'));
+const imageDimensions = createImageDimensionsResolver(path.join(process.cwd(), 'public/content'));
 
 // Request-scoped memoization shares reads between metadata and pages without stale process caches.
 export const listContentSlugs = cache(repository.listSlugs);
@@ -27,5 +29,5 @@ export const getContentSource = cache(async (type: ContentType, slug: string) =>
 export const getContentDocument = cache(async (type: ContentType, slug: string): Promise<ContentDocument | null> => {
   const source = await getContentSource(type, slug);
   if (!source) return null;
-  return { ...source, ...(await renderContent(source)) };
+  return { ...source, ...(await renderContent(source, { imageDimensions })) };
 });

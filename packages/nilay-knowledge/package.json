@@ -17,6 +17,7 @@
     "new:article": "tsx scripts/new-article.ts",
     "new:news": "tsx scripts/new-news.ts",
     "analyze": "ANALYZE=true npm run build",
+    "benchmark:browser": "node scripts/measure-performance.mjs",
     "lint:eslint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "lint:prettier": "prettier --check .",
@@ -59,6 +60,7 @@
     "remark-rehype": "^11.1.1",
     "rss": "^1.2.2",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
     "tailwind-merge": "^2.6.0",
     "unified": "^11.0.5"
   },

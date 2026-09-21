@@ -4,11 +4,11 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowUpRight, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useId, useRef, useState } from 'react';
 
-import type { SearchDocument } from '@/lib/content/types';
 import { focusContent } from '@/lib/focus-content';
-import { createSearchIndex, parseSearchDocuments, searchExcerpt } from '@/lib/search';
+import { createSearchClient } from '@/lib/search-client';
+import type { SearchResults } from '@/lib/search-protocol';
 
 export function HomeSearchButton() {
   return (
@@ -28,7 +28,9 @@ export function SearchDialog() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [documents, setDocuments] = useState<SearchDocument[]>();
+  const [ready, setReady] = useState(false);
+  const [results, setResults] = useState<SearchResults>({ total: 0, hits: [] });
+  const clientRef = useRef<ReturnType<typeof createSearchClient> | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [destination, setDestination] = useState<string | null>(null);
@@ -80,24 +82,62 @@ export function SearchDialog() {
   }, [open, changeOpen]);
 
   useEffect(() => {
-    if (!open || documents) return;
-    const controller = new AbortController();
+    if (!open || clientRef.current) return;
+    let mounted = true;
     async function load() {
+      let client: ReturnType<typeof createSearchClient> | null = null;
       try {
-        const response = await fetch('/search-index.json', { signal: controller.signal });
-        if (!response.ok) throw new Error('Search index unavailable');
-        const data = parseSearchDocuments(await response.json());
-        if (!controller.signal.aborted) setDocuments(data);
+        client = createSearchClient();
+        clientRef.current = client;
+        await client.load();
+        if (clientRef.current === client) setReady(true);
       } catch {
-        if (!controller.signal.aborted) setError(true);
+        if (!client) {
+          if (mounted) setError(true);
+          return;
+        }
+        if (clientRef.current !== client) return;
+        client.dispose();
+        clientRef.current = null;
+        setReady(false);
+        setError(true);
       }
     }
     void load();
-    return () => controller.abort();
-  }, [open, documents, attempt]);
+    return () => {
+      mounted = false;
+    };
+  }, [open, attempt]);
 
-  const index = useMemo(() => (documents ? createSearchIndex(documents) : undefined), [documents]);
-  const results = useMemo(() => index?.search(deferredQuery.trim()) ?? [], [index, deferredQuery]);
+  useEffect(() => {
+    return () => {
+      const client = clientRef.current;
+      clientRef.current = null;
+      client?.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    const client = clientRef.current;
+    if (!ready || !client) return;
+    let current = true;
+    void client.search(deferredQuery).then(
+      (results) => {
+        if (current) setResults(results);
+      },
+      () => {
+        if (!current || clientRef.current !== client) return;
+        client.dispose();
+        clientRef.current = null;
+        setReady(false);
+        setResults({ total: 0, hits: [] });
+        setError(true);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [ready, deferredQuery]);
 
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
@@ -155,13 +195,13 @@ export function SearchDialog() {
           <p id={statusId} role="status" aria-atomic="true" className="my-3 text-sm text-subtle">
             {error
               ? '検索データを読み込めませんでした。'
-              : !documents
+              : !ready
                 ? '検索を準備しています…'
                 : !query.trim()
                   ? 'キーワードを入力してください。'
-                  : results.length === 0
+                  : results.total === 0
                     ? '一致する記事・ニュースが見つかりません。'
-                    : `${results.length} 件の検索結果${results.length > 20 ? '（上位20件を表示）' : ''}`}
+                    : `${results.total} 件の検索結果${results.total > 20 ? '（上位20件を表示）' : ''}`}
           </p>
           {error && (
             <button
@@ -176,8 +216,8 @@ export function SearchDialog() {
               再試行
             </button>
           )}
-          <ul aria-label="検索結果" aria-busy={!documents && !error} className="space-y-2 p-1">
-            {results.slice(0, 20).map((result) => (
+          <ul aria-label="検索結果" aria-busy={!ready && !error} className="space-y-2 p-1">
+            {results.hits.map((result) => (
               <li key={String(result.id)}>
                 <Link
                   href={String(result.id)}
@@ -194,9 +234,7 @@ export function SearchDialog() {
                     <span className="text-xs text-subtle">{result.type === 'articles' ? '記事' : 'ニュース'}</span>
                     <p className="mt-1 text-sm font-semibold text-brand">{String(result.title)}</p>
                     {result.section && <p className="mt-1 text-sm font-medium text-body">{String(result.section)}</p>}
-                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-subtle">
-                      {searchExcerpt(String(result.text), deferredQuery)}
-                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-subtle">{result.excerpt}</p>
                   </div>
                   <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
                 </Link>

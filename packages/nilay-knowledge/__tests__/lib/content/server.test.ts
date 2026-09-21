@@ -36,7 +36,9 @@ describe('server content adapter', () => {
     vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [] });
     const detail = await getContentDocument('articles', summary.slug);
     expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [] });
-    expect(renderContent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ slug: summary.slug }));
+    expect(renderContent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ slug: summary.slug }), {
+      imageDimensions: expect.any(Function),
+    });
     expect(await getContentDocument('articles', 'missing-entry')).toBeNull();
     expect(renderContent).toHaveBeenCalledTimes(1);
   });

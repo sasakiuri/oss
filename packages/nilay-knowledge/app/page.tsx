@@ -16,7 +16,7 @@ interface MainCardProps {
   slug: string;
 }
 
-function MainCard({ title, description, image, slug, priority = false }: MainCardProps & { priority?: boolean }) {
+function MainCard({ title, description, image, slug }: MainCardProps) {
   return (
     <Link
       href={`/${slug}`}
@@ -29,7 +29,7 @@ function MainCard({ title, description, image, slug, priority = false }: MainCar
           width={370}
           height={247}
           className="col-start-1 row-start-1 aspect-[3/2] h-full w-full object-cover"
-          priority={priority}
+          sizes="(min-width: 768px) 230px, (min-width: 640px) calc((100vw - 80px) / 3), calc(100vw - 32px)"
         />
         <div className="relative col-start-1 row-start-1 self-end bg-slate-900/90 p-4">
           <h2 className="text-lg font-bold text-white">{title}</h2>
@@ -62,6 +62,7 @@ function SubCard({ title, image, slug }: SubCardProps) {
           alt=""
           width={370}
           height={247}
+          sizes="(min-width: 768px) 235px, (min-width: 640px) calc((100vw - 64px) / 3), calc((100vw - 48px) / 2)"
           className="col-start-1 row-start-1 aspect-[3/2] h-full w-full object-cover"
         />
         <div className="relative col-start-1 row-start-1 flex items-center justify-center bg-slate-900/80 px-3 py-4">
@@ -74,12 +75,15 @@ function SubCard({ title, image, slug }: SubCardProps) {
 
 function SearchBanner() {
   return (
-    <div
-      className="relative flex min-h-[300px] flex-col items-center justify-center bg-cover bg-center text-slate-900"
-      style={{
-        backgroundImage: 'url(/content/assets/63141dde-f6ee-490c-b283-69b468b80813.jpg)',
-      }}
-    >
+    <div className="relative isolate flex min-h-[300px] flex-col items-center justify-center text-slate-900">
+      <Image
+        src="/content/assets/63141dde-f6ee-490c-b283-69b468b80813.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        preload
+        className="-z-10 object-cover"
+      />
       <p className="rounded bg-surface/95 px-3 py-1 text-sm text-ink">銃砲・射撃・狩猟の情報サイト</p>
       <h1 className="mt-2 rounded bg-surface/95 px-3 py-2 text-3xl font-bold text-ink [font-variant:small-caps]">
         Nilay/Knowledge
@@ -148,7 +152,7 @@ export default function HomePage() {
         {/* Main cards */}
         <div className="grid gap-6 sm:grid-cols-3">
           {mainCards.map((card, index) => (
-            <MainCard key={`main-${index}`} {...card} priority={index === 0} />
+            <MainCard key={`main-${index}`} {...card} />
           ))}
         </div>
 

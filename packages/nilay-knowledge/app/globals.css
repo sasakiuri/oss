@@ -61,7 +61,7 @@
 }
 
 @theme {
-  --font-sans: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-sans: system-ui, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
 
   /* Animation keyframes */
   --animate-fade-in: fade-in 0.2s ease-out;

@@ -34,7 +34,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   agentRules: false,
   images: {
-    unoptimized: true,
+    localPatterns: [{ pathname: '/content/**' }],
   },
   trailingSlash: true,
   async headers() {
