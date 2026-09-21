@@ -77,10 +77,15 @@ test("development configuration dependencies include their consumers", () => {
     "saika-protocol",
   ])
     assert.ok(plan.packages.includes(name(pkg)));
-  const docsConfig = select(["packages/lighthouse-config/index.mjs"]);
-  assert.deepEqual(names(docsConfig), ["lighthouse-config"]);
-  assert.equal(docsConfig.docs, true);
-  assert.equal(docsConfig.build, false);
+  const lighthouseConfig = select(["packages/lighthouse-config/index.mjs"]);
+  assert.deepEqual(names(lighthouseConfig), [
+    "lighthouse-config",
+    "nilay-knowledge",
+  ]);
+  assert.equal(lighthouseConfig.docs, true);
+  assert.equal(lighthouseConfig.build, true);
+  assert.equal(lighthouseConfig.electron, false);
+  assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest"]);
 });
 
 test("new website Markdown and assets get Linux-only build and tests", () => {

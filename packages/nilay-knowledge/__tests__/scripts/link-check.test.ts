@@ -92,13 +92,14 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
   });
 
   it.each([
-    ['route', '[Missing](/articles/missing/)'],
-    ['typo', '[Missing](/aticles/example/)'],
-    ['asset', '![Missing](missing.png)'],
-    ['fragment', '[Missing](/articles/example/#missing)'],
-  ])('rejects a missing %s', async (_label, content) => {
+    ['route', '[Missing](/articles/missing/)', 1],
+    ['typo', '[Missing](/aticles/example/)', 1],
+    // Images reference the original in both the zoom link and the image source.
+    ['asset', '![Missing](missing.png)', 2],
+    ['fragment', '[Missing](/articles/example/#missing)', 1],
+  ] as const)('rejects a missing %s', async (_label, content, errors) => {
     const result = await check(content);
     expect(result.status).not.toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({ errors: 1 });
+    expect(JSON.parse(result.stdout)).toMatchObject({ errors });
   });
 });

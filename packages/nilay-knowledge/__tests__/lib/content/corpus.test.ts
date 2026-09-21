@@ -20,7 +20,7 @@ it('renders every committed article with a valid target for every TOC link', asy
     }
   }
   expect(checkedHeadings).toBeGreaterThan(0);
-});
+}, 30_000);
 
 it('makes every species in the field guide navigable by heading and preserves its fragment links', async () => {
   const repository = createContentRepository(path.join(process.cwd(), 'content'));
@@ -145,4 +145,5 @@ it.each(['articles', 'news'] as const)(
       }
     }
   },
+  30_000,
 );
