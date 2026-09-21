@@ -4,9 +4,10 @@
  * Provides consistent, structured logging across the application
  */
 
-// Import directly to avoid loading DOMPurify in serverless environment
-import { isDevelopment } from '@/lib/env';
+import 'server-only';
+
 import { sanitizeForLogging } from '@/lib/security/sanitize-logging';
+import { getClientIp } from '@/lib/server/request';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -19,37 +20,14 @@ interface LogEntry {
   level: LogLevel;
   message: string;
   context?: LogContext;
-  error?: {
-    name: string;
-    message: string;
-    stack?: string;
-  };
+  error?: Error;
 }
 
 /**
  * Format log entry for output
  */
 function formatLogEntry(entry: LogEntry): string {
-  if (isDevelopment) {
-    // Pretty format for development
-    const parts = [`[${entry.timestamp}]`, `[${entry.level.toUpperCase()}]`, entry.message];
-
-    if (entry.context) {
-      parts.push(JSON.stringify(sanitizeForLogging(entry.context), null, 2));
-    }
-
-    if (entry.error) {
-      parts.push(`\nError: ${entry.error.name}: ${entry.error.message}`);
-      if (entry.error.stack) {
-        parts.push(`\n${entry.error.stack}`);
-      }
-    }
-
-    return parts.join(' ');
-  }
-
-  // JSON format for production (for log aggregation)
-  return JSON.stringify(sanitizeForLogging(entry as unknown as Record<string, unknown>));
+  return JSON.stringify(sanitizeForLogging({ ...entry }), null, process.env.NODE_ENV === 'development' ? 2 : undefined);
 }
 
 /**
@@ -67,11 +45,7 @@ function createLogEntry(level: LogLevel, message: string, context?: LogContext, 
   }
 
   if (error) {
-    entry.error = {
-      name: error.name,
-      message: error.message,
-      stack: isDevelopment ? error.stack : undefined,
-    };
+    entry.error = error;
   }
 
   return entry;
@@ -82,7 +56,7 @@ function createLogEntry(level: LogLevel, message: string, context?: LogContext, 
  */
 export const logger = {
   debug(message: string, context?: LogContext): void {
-    if (!isDevelopment) return;
+    if (process.env.NODE_ENV !== 'development') return;
     const entry = createLogEntry('debug', message, context);
     console.debug(formatLogEntry(entry));
   },
@@ -129,15 +103,6 @@ export function createLogger(baseContext: LogContext) {
 /**
  * Log and rethrow an error (useful in catch blocks)
  */
-export function logAndRethrow(message: string, error: unknown, context?: LogContext): never {
-  const err = error instanceof Error ? error : new Error(String(error));
-  logger.error(message, err, context);
-  throw err;
-}
-
-/**
- * Extract request context for structured logging
- */
 export function getRequestContext(request: Request): LogContext {
   const headers = request.headers;
   const url = new URL(request.url);
@@ -146,15 +111,9 @@ export function getRequestContext(request: Request): LogContext {
     requestId: headers.get('x-request-id') ?? headers.get('x-vercel-id') ?? crypto.randomUUID(),
     method: request.method,
     path: url.pathname,
-    query: Object.fromEntries(url.searchParams.entries()),
+    queryKeys: [...new Set(url.searchParams.keys())],
     userAgent: headers.get('user-agent') ?? undefined,
-    // 信頼できるヘッダを優先（rate-limit.ts の getClientIp と同じ順序）
-    ip:
-      headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ??
-      headers.get('cf-connecting-ip') ??
-      headers.get('x-real-ip') ??
-      headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      'unknown',
+    ip: getClientIp(request),
   };
 }
 

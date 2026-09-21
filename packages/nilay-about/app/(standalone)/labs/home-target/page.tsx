@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { HomeTargetClient } from './home-target-client';
+import { HomeTargetClient } from '@/features/home-target/home-target-client';
 
 export const metadata: Metadata = {
   title: 'Target Calculator',

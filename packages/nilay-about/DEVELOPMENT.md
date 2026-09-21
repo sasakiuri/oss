@@ -81,21 +81,56 @@ Playwright はビルド済みの本番サーバーを `http://127.0.0.1:3001` �
 
 ## アーキテクチャ
 
-| 場所                                    | 役割                                                                                 |
-| --------------------------------------- | ------------------------------------------------------------------------------------ |
-| `app/`                                  | App Router のページとレイアウト。メインサイトのスタイルは `globals.css` です。       |
-| `app/(standalone)/labs/`                | 射撃標的計算と狩猟鳥獣スライドショー。専用レイアウトと `standalone.css` を使います。 |
-| `app/api/news/`                         | Prisma 経由でニュースを取得する API です。                                           |
-| `app/api/contact/`                      | 入力を検証し、Slack にお問い合わせを送信する API です。                              |
-| `components/`                           | 共通の UI、レイアウト、プロバイダーです。                                            |
-| `hooks/`・`lib/api/`                    | TanStack Query のフック、HTTP クライアント、レスポンス検証です。                     |
-| `store/`・各機能の `_store/`            | 共通 UI と Labs の機能別 Zustand ストアです。                                        |
-| `lib/schemas/`                          | Zod の入力・レスポンススキーマです。                                                 |
-| `lib/prisma.ts`・`prisma/schema.prisma` | DB クライアントの遅延生成と PostgreSQL のモデル定義です。                            |
-| `lib/security/`・`lib/logging/`         | 入力のサニタイズ、ログ、個人情報マスキングです。                                     |
-| `__tests__/unit/`・`__tests__/e2e/`     | Vitest の単体テストと Playwright の画面テストです。                                  |
+`app/` は URL、メタデータ、レイアウトと依存の組み立てだけを担当します。
+機能の実装は `features/` に集約し、未使用の汎用 DI コンテナや互換 API は置きません。
 
-ページのメタデータや静的レイアウトは Server Components を使い、
-操作を伴う UI とフックを使うコンポーネントには `"use client"` を指定します。
-フォームは React Hook Form と Zod、API からのデータ取得は TanStack Query のフックを使います。
-Labs の状態と計算は機能ごとの `_store/` にまとめています。
+| 場所                                 | 責務                                                                                            |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `app/(site)/`                        | メインサイトのページとレトロなヘッダー・フッター。Query provider はこのレイアウトで生成します。 |
+| `app/(standalone)/`                  | Labs のページと独立したテーマ。URL にルートグループ名は含まれません。                           |
+| `app/api/`                           | 依存を明示して HTTP ハンドラーを組み立てます。                                                  |
+| `features/news/`                     | ニュースのスキーマ、HTTP クライアント、Query 定義、画面、サーバーの repository と handler。     |
+| `features/contact/`                  | 共通のフォームスキーマ、画面、mutation、サーバーの handler と Slack adapter。                   |
+| `features/home-target/`              | 長さのモデルと計算、競技データ、PDF 生成、画面ごとの store と UI。                              |
+| `features/game-species/`             | 問題データ、進捗計算、画面ごとの store、再生制御、UI。                                          |
+| `components/ui/`・`components/labs/` | 実際に利用する共通 UI と Labs のレイアウト。                                                    |
+| `lib/http/`                          | ブラウザーの JSON 通信・レスポンス検証・再試行方針。                                            |
+| `lib/server/`                        | HTTP エラー境界、レート制限、クライアント IP の判定。                                           |
+| `lib/prisma.ts`                      | server-only の DB クライアント。初回アクセスまで接続設定を要求しません。                        |
+| `lib/security/`・`lib/logging/`      | HTML のサニタイズ、構造化ログ、PII のマスキング。                                               |
+
+### 依存と状態のルール
+
+- ページは機能を参照し、機能から `app/` を参照しません。
+- サーバー処理は `features/*/server/` と `lib/server/` に置き、`server-only` でブラウザーバンドルへの混入を防ぎます。ESLint でも UI からの import を禁止します。
+- HTTP 境界で入力を検証し、ブラウザーでは取得した JSON をスキーマで検証します。フォームと API は同じ問い合わせスキーマを使います。
+- DB repository、Slack adapter、レート制限には関数またはオブジェクトで依存を渡します。テストは実サービスを呼びません。
+- ニュースの query はキャンセル信号を fetch に渡します。404・429・不正なレスポンスは自動再試行せず、一時的な障害だけを再試行します。
+- 問い合わせは通信が失敗しても既に届いている可能性があるため、自動再送しません。結果表示はフォーム内に保持します。
+- Labs の Zustand store は画面のマウントごとに生成します。計算や PDF 生成は React と store に依存しない純粋な関数です。
+- 長さは計算前に cm に正規化します。標的の高さと黒丸の直径も cm で返します。
+- Tailwind は `app/globals.css` だけで生成します。レトロな要素スタイルは `.site-shell`、Labs の色とスタイルは `.standalone-app` に閉じます。ダイアログも Labs 内に portal します。
+
+### HTTP とログ
+
+URL と成功レスポンスの形は維持しています。ニュースは `{ newsList }` / `{ news }`、
+問い合わせは `{ hasError, errorMessage, uuid }`、標的生成は PDF を返します。
+不正入力は 400、存在しないニュースは 404、送信制限は 429 と `Retry-After` です。
+Slack の応答・通信障害は 502、タイムアウトは 504 に整理しました。
+例外に含まれる DB 接続文字列や問い合わせ本文をレスポンスへ出しません。
+
+ログは IP・メール・User-Agent などを HMAC 化し、秘密情報を除去します。
+配列と循環参照にも対応し、Error は名前と fingerprint を記録します。
+スタックと例外の自由文は保存せず、リクエストの query は値ではなくキー名だけを記録します。
+IP ヘッダーは信頼できる ingress proxy が上書きする前提です。
+
+Slack メッセージは入力をエスケープし、タイトルを section、長文を複数の section に分割します。
+[header の150文字上限](https://docs.slack.dev/reference/block-kit/blocks/header-block/) と
+[section の3000文字上限](https://docs.slack.dev/reference/block-kit/blocks/section-block/) を守り、入力を切り捨てません。
+
+### 検証
+
+Vitest では HTTP の正常系・異常系、外部 adapter、レート制限、サニタイズ、
+長さの単位換算、PDF のバイト位置、スライドショーの状態とタイマーを検証します。
+Playwright では実サービスへの接続を使わず、ニュース、問い合わせ、Labs の画面操作とレイアウトを確認します。
+未使用コード・依存の確認にはルートから `npx knip --workspace packages/nilay-about` を使います。

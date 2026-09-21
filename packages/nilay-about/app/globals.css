@@ -51,6 +51,41 @@
     'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN',
     P052, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Sans Emoji';
   --font-mono: 'Courier New', 'Monaco', monospace;
+  --color-on-primary: var(--md-sys-color-on-primary);
+  --color-primary-container: var(--md-sys-color-primary-container);
+  --color-on-primary-container: var(--md-sys-color-on-primary-container);
+  --color-secondary-container: var(--md-sys-color-secondary-container);
+  --color-on-secondary-container: var(--md-sys-color-on-secondary-container);
+  --color-tertiary: var(--md-sys-color-tertiary);
+  --color-on-tertiary: var(--md-sys-color-on-tertiary);
+  --color-tertiary-container: var(--md-sys-color-tertiary-container);
+  --color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+  --color-error: var(--md-sys-color-error);
+  --color-on-error: var(--md-sys-color-on-error);
+  --color-error-container: var(--md-sys-color-error-container);
+  --color-on-error-container: var(--md-sys-color-on-error-container);
+  --color-surface: var(--md-sys-color-surface);
+  --color-on-surface: var(--md-sys-color-on-surface);
+  --color-surface-variant: var(--md-sys-color-surface-variant);
+  --color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+  --color-surface-container-low: var(--md-sys-color-surface-container-low);
+  --color-surface-container: var(--md-sys-color-surface-container);
+  --color-surface-container-high: var(--md-sys-color-surface-container-high);
+  --color-surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --color-outline: var(--md-sys-color-outline);
+  --color-outline-variant: var(--md-sys-color-outline-variant);
+  --color-inverse-surface: var(--md-sys-color-inverse-surface);
+  --color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --color-inverse-primary: var(--md-sys-color-inverse-primary);
+  --color-scrim: var(--md-sys-color-scrim);
+  --color-shadow: var(--md-sys-color-shadow);
+  --radius-xs: var(--md-sys-shape-corner-extra-small);
+  --radius-sm: var(--md-sys-shape-corner-small);
+  --radius-md: var(--md-sys-shape-corner-medium);
+  --radius-lg: var(--md-sys-shape-corner-large);
+  --radius-xl: var(--md-sys-shape-corner-extra-large);
+  --radius-full: var(--md-sys-shape-corner-full);
 }
 
 body {
@@ -65,116 +100,118 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Authentic early web link styling */
-a {
-  color: var(--link);
-  text-decoration: underline;
-}
+.site-shell {
+  /* Authentic early web link styling */
+  a {
+    color: var(--link);
+    text-decoration: underline;
+  }
 
-a:visited {
-  color: var(--link-visited);
-}
+  a:visited {
+    color: var(--link-visited);
+  }
 
-a:hover {
-  color: var(--link-active);
-}
+  a:hover {
+    color: var(--link-active);
+  }
 
-a:active {
-  color: var(--link-active);
-}
+  a:active {
+    color: var(--link-active);
+  }
 
-* {
-  box-sizing: border-box;
-}
+  * {
+    box-sizing: border-box;
+  }
 
-/* Classic HTML heading styles */
-h1 {
-  font-size: 2em;
-  font-weight: bold;
-  margin: 0.67em 0;
-}
+  /* Classic HTML heading styles */
+  h1 {
+    font-size: 2em;
+    font-weight: bold;
+    margin: 0.67em 0;
+  }
 
-h2 {
-  font-size: 1.5em;
-  font-weight: bold;
-  margin: 0.83em 0;
-}
+  h2 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0.83em 0;
+  }
 
-h3 {
-  font-size: 1.17em;
-  font-weight: bold;
-  margin: 1em 0;
-}
+  h3 {
+    font-size: 1.17em;
+    font-weight: bold;
+    margin: 1em 0;
+  }
 
-/* Classic list styling */
-ul,
-ol {
-  margin: 1em 0;
-  padding-left: 40px;
-  list-style: disc;
-}
+  /* Classic list styling */
+  ul,
+  ol {
+    margin: 1em 0;
+    padding-left: 40px;
+    list-style: disc;
+  }
 
-ol {
-  list-style: decimal;
-}
+  ol {
+    list-style: decimal;
+  }
 
-li {
-  margin: 0.5em 0;
-  display: list-item;
-}
+  li {
+    margin: 0.5em 0;
+    display: list-item;
+  }
 
-/* Navigation lists should not have list styling */
-nav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+  /* Navigation lists should not have list styling */
+  nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
 
-nav li {
-  margin: 0;
-  display: inline;
-}
+  nav li {
+    margin: 0;
+    display: inline;
+  }
 
-/* Classic paragraph */
-p {
-  margin: 1em 0;
-}
+  /* Classic paragraph */
+  p {
+    margin: 1em 0;
+  }
 
-/* Horizontal rule - early web style */
-hr {
-  border: none;
-  border-top: 1px solid #000000;
-  margin: 1em 0;
-}
+  /* Horizontal rule - early web style */
+  hr {
+    border: none;
+    border-top: 1px solid #000000;
+    margin: 1em 0;
+  }
 
-/* Form elements with retro styling */
-input[type='text'],
-input[type='email'],
-input[type='number'],
-textarea {
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  background: #ffffff;
-  border: 2px inset #808080;
-  padding: 4px;
-}
+  /* Form elements with retro styling */
+  input[type='text'],
+  input[type='email'],
+  input[type='number'],
+  textarea {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    background: #ffffff;
+    border: 2px inset #808080;
+    padding: 4px;
+  }
 
-input[type='submit'],
-button {
-  font-family: 'Times New Roman', serif;
-  background: #c0c0c0;
-  border: 2px outset #ffffff;
-  padding: 4px 12px;
-  cursor: pointer;
-}
+  input[type='submit'],
+  button {
+    font-family: 'Times New Roman', serif;
+    background: #c0c0c0;
+    border: 2px outset #ffffff;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
 
-input[type='submit']:active,
-button:active {
-  border-style: inset;
-}
+  input[type='submit']:active,
+  button:active {
+    border-style: inset;
+  }
 
-/* Address tag - commonly used in early web */
-address {
-  font-style: italic;
-  margin: 1em 0;
+  /* Address tag - commonly used in early web */
+  address {
+    font-style: italic;
+    margin: 1em 0;
+  }
 }

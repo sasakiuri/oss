@@ -26,6 +26,46 @@ const eslintConfig = [
     const { '@typescript-eslint': _typescript, ...plugins } = config.plugins;
     return { ...config, plugins };
   }),
+  {
+    files: ['features/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/app/**', '**/app/**'], message: 'Features and shared UI must not depend on route modules.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['features/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+    ignores: ['features/**/server/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/app/**', '**/app/**'], message: 'Features and shared UI must not depend on route modules.' },
+            {
+              group: [
+                '@/lib/server/**',
+                '@/lib/prisma',
+                '@/lib/env',
+                '@/lib/logging',
+                '@/lib/logging/**',
+                '@/lib/generated/**',
+                '@/lib/security/sanitize-logging',
+                '**/server/**',
+              ],
+              message: 'Keep server dependencies inside feature server adapters.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

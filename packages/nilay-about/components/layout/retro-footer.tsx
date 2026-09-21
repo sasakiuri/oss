@@ -1,5 +1,3 @@
-'use client';
-
 import { siteConfig } from '@/lib/config';
 
 const services = [

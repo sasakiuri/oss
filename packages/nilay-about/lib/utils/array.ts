@@ -13,22 +13,3 @@ export function shuffleArray<T>(arr: readonly T[]): T[] {
   }
   return result;
 }
-
-/**
- * Get a random element from an array
- */
-export function randomElement<T>(arr: readonly T[]): T | undefined {
-  if (arr.length === 0) return undefined;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-/**
- * Chunk an array into smaller arrays of a specified size
- */
-export function chunkArray<T>(arr: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
-}
