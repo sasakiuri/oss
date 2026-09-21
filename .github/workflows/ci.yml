@@ -24,6 +24,9 @@ jobs:
       build: ${{ steps.plan.outputs.build }}
       docs: ${{ steps.plan.outputs.docs }}
       electron: ${{ steps.plan.outputs.electron }}
+      knowledge: ${{ steps.plan.outputs.knowledge }}
+      e2e: ${{ steps.plan.outputs.e2e }}
+      e2eMatrix: ${{ steps.plan.outputs.e2eMatrix }}
       packages: ${{ steps.plan.outputs.packages }}
       os: ${{ steps.plan.outputs.os }}
     steps:
@@ -127,146 +130,209 @@ jobs:
       - name: Dependency version check
         run: npm run syncpack
 
-  build-and-test:
-    env:
-      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
-    name: Build & Test (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: changes
-    timeout-minutes: 60
     if: needs.changes.outputs.build == 'true'
+    timeout-minutes: 30
     permissions:
       contents: read
-
+    env:
+      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
     strategy:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.os) }}
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-          fetch-depth: 0
-
-      - name: Setup environment
-        uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-node
         with:
           enable-turbo-cache: "true"
           enable-electron-cache: "true"
-
-      - name: Build
+      - name: Build affected packages
         run: npm run ci:packages -- build
+      - name: Archive build outputs with their permissions
+        shell: bash
+        run: |
+          shopt -s nullglob
+          outputs=(packages/*/dist packages/*/build packages/*/.next packages/*/lib/generated packages/*/public/feed.xml packages/*/public/sitemap.xml packages/*/public/content-styles)
+          # An empty file list also supports workspaces with type-check-only builds.
+          touch build-output-files.txt
+          tar -cf build-output.tar --exclude='*/.next/cache' --exclude='*/.next/standalone' --exclude='*/.next/dev' -T build-output-files.txt "${outputs[@]}"
+      - name: Share build outputs with independent checks
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-${{ matrix.os }}
+          path: build-output.tar
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 1
+      - name: Bundle size check
+        run: npm run ci:packages -- size-limit
 
+  unit:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [changes, build]
+    if: needs.changes.outputs.build == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.changes.outputs.os) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-node
+        with:
+          enable-electron-cache: "true"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-${{ matrix.os }}
+      - name: Restore build outputs
+        shell: bash
+        run: tar -xf build-output.tar
       - name: Rebuild better-sqlite3 for Node.js tests
         if: needs.changes.outputs.electron == 'true'
         run: npm rebuild better-sqlite3
-
-      - name: Test affected packages
+      - name: Test with coverage (Linux)
+        if: runner.os == 'Linux'
         run: npm run ci:packages -- test
-
+      - name: Test without duplicate coverage (other platforms)
+        if: runner.os != 'Linux'
+        run: npm run ci:packages -- test --without-coverage
       - name: Require coverage of changed code
         if: runner.os == 'Linux' && github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: npm run coverage:diff -- --base "$BASE_SHA" --packages "$CI_PACKAGES_JSON"
-
       - name: Mutation test affected core libraries
         if: runner.os == 'Linux'
         run: npm run ci:packages -- test:mutation
-
       - name: Test release metadata
         if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-updater')
         run: npm run test:release-metadata
-
-      - name: Rebuild native modules for Electron (E2E)
-        if: needs.changes.outputs.electron == 'true'
-        run: npx electron-rebuild -f -w better-sqlite3 --module-dir=.
-
-      - name: Install Nilay About test browsers
-        if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-about')
-        run: npm run test:install --workspace=@sasakiuri/nilay-about
-
-      - name: Install Nilay Knowledge test browsers
-        if: contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
-        run: npm run test:install --workspace=@sasakiuri/nilay-knowledge
-
-      - name: E2E tests (Linux)
-        if: runner.os == 'Linux'
-        run: xvfb-run -a npm run ci:packages -- test:e2e
-
-      - name: E2E tests (non-Linux)
-        if: runner.os != 'Linux'
-        run: npm run ci:packages -- test:e2e
-
-      - name: Lighthouse regression checks (Nilay Knowledge)
-        if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
-        run: |
-          npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
-          npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
-          npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge
-          npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
-
-      - name: Upload Nilay Knowledge Lighthouse reports
-        if: always() && runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: nilay-knowledge-lighthouse-${{ matrix.os }}
-          path: packages/nilay-knowledge/.lighthouse.reports/
-          include-hidden-files: true
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: playwright-report-${{ matrix.os }}
-          path: |
-            packages/saika-lane/playwright-report/
-            packages/saika-lane/test-results/
-            packages/saika-director/playwright-report/
-            packages/saika-director/test-results/
-            packages/saika-vista/playwright-report/
-            packages/saika-vista/test-results/
-            packages/nilay-about/playwright-report/
-            packages/nilay-about/test-results/
-            packages/nilay-knowledge/playwright-report/
-            packages/nilay-knowledge/test-results/
-          retention-days: 7
-
-      - name: Upload test results
+      - name: Upload unit reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-results-${{ matrix.os }}
           path: |
-            packages/saika-lane/test-results/vitest-junit.xml
-            packages/saika-lane/test-results/playwright-junit.xml
-            packages/saika-director/test-results/vitest-junit.xml
-            packages/saika-director/test-results/playwright-junit.xml
+            packages/*/coverage/
+            packages/*/test-results/vitest-junit.xml
           if-no-files-found: ignore
-          retention-days: 1
-
-      - name: Bundle size check
-        run: npm run ci:packages -- size-limit
-
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-lane')
+          retention-days: 7
+      - name: Upload Saika Lane coverage
+        if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-lane')
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           directory: packages/saika-lane/coverage
           flags: saika-lane
           token: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Upload Saika Director coverage
-        if: matrix.os == 'ubuntu-latest' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-director')
+        if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-director')
         uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
         with:
           directory: packages/saika-director/coverage
           flags: saika-director
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  e2e:
+    name: E2E (${{ matrix.package }}, ${{ matrix.os }}, ${{ matrix.shard }}/${{ matrix.shards }})
+    runs-on: ${{ matrix.os }}
+    needs: [changes, build]
+    if: needs.changes.outputs.e2e == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.e2eMatrix) }}
+    env:
+      CI_PACKAGES_JSON: ${{ format('["{0}"]', matrix.package) }}
+      E2E_PACKAGE: ${{ matrix.package }}
+      E2E_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+        with:
+          enable-electron-cache: ${{ matrix.electron && 'true' || 'false' }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-${{ matrix.os }}
+      - name: Restore build outputs
+        shell: bash
+        run: tar -xf build-output.tar
+      # npm ci has already rebuilt native modules for Electron in this fresh job.
+      - name: Install browser dependencies
+        if: matrix.installBrowsers
+        shell: bash
+        run: npm run test:install --workspace="$E2E_PACKAGE"
+      - name: E2E tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+      - name: E2E tests (other platforms)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+      - name: Upload Playwright reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-${{ strategy.job-index }}-${{ matrix.os }}
+          path: |
+            ${{ matrix.directory }}/playwright-report/
+            ${{ matrix.directory }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  lighthouse:
+    name: Knowledge Lighthouse
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    if: needs.changes.outputs.knowledge == 'true'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-ubuntu-latest
+      - name: Restore build outputs
+        run: tar -xf build-output.tar
+      - name: Install Chromium for Lighthouse
+        run: npm exec --workspace=@sasakiuri/nilay-knowledge -- playwright install --with-deps chromium
+      - name: Lighthouse and asset regression checks
+        run: |
+          npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
+          npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
+          npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge
+          npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-knowledge-lighthouse
+          path: packages/nilay-knowledge/.lighthouse.reports/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
 
   docs:
     needs: changes
@@ -280,7 +346,8 @@ jobs:
   ci-required:
     name: CI Required
     runs-on: ubuntu-latest
-    needs: [changes, text, infrastructure, lint, build-and-test, docs]
+    needs:
+      [changes, text, infrastructure, lint, build, unit, e2e, lighthouse, docs]
     if: ${{ always() }}
     permissions:
       contents: read

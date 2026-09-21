@@ -4,13 +4,14 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+
 import { readGitWorkspaces } from "./select-ci-packages.mjs";
 
 export function packageCommands(
   task,
   names,
   workspaces,
-  { includeDocs = false } = {},
+  { includeDocs = false, coverage = true, shard } = {},
 ) {
   if (!Array.isArray(names) || new Set(names).size !== names.length) {
     throw new Error("Expected a unique package selection.");
@@ -22,6 +23,20 @@ export function packageCommands(
     }
     return pkg;
   });
+  if (shard !== undefined) {
+    const match = /^(\d+)\/(\d+)$/.exec(shard);
+    if (
+      task !== "test:e2e" ||
+      packages.length !== 1 ||
+      !packages[0]?.scripts?.["test:e2e"] ||
+      !match ||
+      Number(match[1]) < 1 ||
+      Number(match[1]) > Number(match[2])
+    )
+      throw new Error(
+        "Expected one E2E package and a valid shard index/total.",
+      );
+  }
   if (
     ["build", "typecheck", "lint", "depcruise", "size-limit"].includes(task)
   ) {
@@ -32,12 +47,26 @@ export function packageCommands(
   }
   if (["test", "test:e2e", "test:mutation"].includes(task)) {
     return packages.flatMap((pkg) => {
+      if (
+        task === "test" &&
+        !coverage &&
+        pkg.scripts?.["test:coverage"] &&
+        !pkg.scripts?.test
+      )
+        throw new Error(`Expected a normal unit test script for ${pkg.name}.`);
       const script =
-        task === "test" && pkg.scripts?.["test:coverage"]
+        task === "test" && coverage && pkg.scripts?.["test:coverage"]
           ? "test:coverage"
           : task;
       return pkg.scripts?.[script]
-        ? [["run", script, `--workspace=${pkg.name}`]]
+        ? [
+            [
+              "run",
+              script,
+              `--workspace=${pkg.name}`,
+              ...(shard ? ["--", `--shard=${shard}`] : []),
+            ],
+          ]
         : [];
     });
   }
@@ -88,7 +117,11 @@ export function runCommands(commands, npmCli, execute = spawnSync) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { values, positionals } = parseArgs({
-    options: { all: { type: "boolean", default: false } },
+    options: {
+      all: { type: "boolean", default: false },
+      "without-coverage": { type: "boolean", default: false },
+      shard: { type: "string" },
+    },
     allowPositionals: true,
   });
   if (positionals.length !== 1) throw new Error("Expected one package task.");
@@ -100,6 +133,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     : JSON.parse(process.env.CI_PACKAGES_JSON);
   const commands = packageCommands(positionals[0], packages, workspaces, {
     includeDocs: values.all,
+    coverage: !values["without-coverage"],
+    shard: values.shard,
   });
   if (values.all && positionals[0] === "test") {
     // Bound local coverage workers so startup imports do not contend across every CPU.
