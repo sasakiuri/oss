@@ -25,18 +25,23 @@ const publicationDate = nonEmptyText
     { error: 'a valid calendar date' },
   );
 
-export const frontmatterSchema = z.object(
-  {
-    title: nonEmptyText,
-    description: nonEmptyText.optional(),
-    published: publicationDate,
-    tags: z.array(nonEmptyText).transform((tags) => [...new Set(tags.map((tag) => tag.trim()))]),
-    category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),
-    updated: publicationDate.optional(),
-    image: nonEmptyText.optional(),
-  },
-  { error: 'a mapping' },
-);
+export const frontmatterSchema = z
+  .object(
+    {
+      title: nonEmptyText,
+      description: nonEmptyText.optional(),
+      published: publicationDate,
+      tags: z.array(nonEmptyText).transform((tags) => [...new Set(tags.map((tag) => tag.trim()))]),
+      category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),
+      updated: publicationDate.optional(),
+      image: nonEmptyText.optional(),
+    },
+    { error: 'a mapping' },
+  )
+  .refine(({ published, updated }) => updated === undefined || Date.parse(updated) >= Date.parse(published), {
+    path: ['updated'],
+    error: 'on or after published',
+  });
 
 function isSearchDestination(document: { id: string; type: string }): boolean {
   if (document.type !== 'pdf') {

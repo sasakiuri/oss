@@ -1,21 +1,24 @@
 import Link from 'next/link';
 
 import { Breadcrumb } from '@/components/breadcrumb';
+import { JsonLd } from '@/components/json-ld';
 import { SnsShare } from '@/components/sns-share';
 import { listContent } from '@/lib/content/server';
 import type { ContentSummary } from '@/lib/content/types';
 import { createPageMetadata } from '@/lib/metadata';
+import { createCollectionSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-static';
 
 const title = '銃・射撃・狩猟ニュース';
 const slug = 'news';
+const description =
+  '銃・射撃・狩猟に関するニュースの記録。猟銃や空気銃の事件・事故、法令・制度の改正について、発生日や出典とともに掲載しています。';
 
 export const metadata = createPageMetadata({
   title,
-  description:
-    '銃・射撃・狩猟に関するニュースの記録。猟銃や空気銃の事件・事故、法令・制度の改正について、発生日や出典とともに掲載しています。',
+  description,
   path: '/news/',
 });
 
@@ -62,6 +65,9 @@ export default async function NewsPage() {
 
   return (
     <>
+      <JsonLd
+        data={createCollectionSchema({ title, description, path: '/news/', articles: [...incidentNews, ...lawNews] })}
+      />
       <Breadcrumb
         items={[
           { name: 'トップ', slug: '' },

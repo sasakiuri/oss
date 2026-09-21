@@ -32,7 +32,14 @@ test('every sitemap page exposes unique metadata and consistent structured data 
   await page.route('**/*', (route) => route.abort());
   const sitemap = await request.get('/sitemap.xml');
   expect(sitemap.status()).toBe(200);
-  const urls = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]!);
+  const sitemapXml = await sitemap.text();
+  const urls = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]!);
+  const modificationDates = new Map(
+    [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map((match) => [
+      match[1]!,
+      match[2]!,
+    ]),
+  );
   const repository = createContentRepository(`${process.cwd()}/content`);
   const articles = await repository.list('articles');
   const news = await repository.list('news');
@@ -120,24 +127,63 @@ test('every sitemap page exposes unique metadata and consistent structured data 
         } else {
           expect(schema.image).toBeUndefined();
         }
-        await expect(page.locator(`article header time[datetime="${source.frontmatter.published}"]`)).toBeVisible();
-        if (path.startsWith('/articles/') && source.frontmatter.updated) {
-          await expect(page.locator(`article header time[datetime="${source.frontmatter.updated}"]`)).toBeVisible();
+        expect(modificationDates.get(url)).toBe(source.frontmatter.updated ?? source.frontmatter.published);
+        for (const field of ['published', 'updated'] as const) {
+          const date = source.frontmatter[field];
+          if (!date) continue;
+          const label = field === 'published' ? '公開' : '更新';
+          const visibleDate = new Intl.DateTimeFormat('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }).format(new Date(date));
+          await expect(page.locator(`article header time[datetime="${date}"]`).filter({ hasText: label })).toHaveText(
+            `${visibleDate} ${label}`,
+          );
         }
         await expect(page.locator('article a[rel="author"]')).toHaveAttribute('href', '/about/');
       }
+      if (path === '/about/') {
+        const about = schemas.find((entry) => entry['@type'] === 'AboutPage');
+        expect(about).toMatchObject({
+          url,
+          name: await page.locator('h1').innerText(),
+          description,
+          mainEntity: {
+            '@type': 'Organization',
+            '@id': `${siteConfig.siteUrl}/#organization`,
+            name: siteConfig.author.name,
+            url,
+          },
+        });
+        await expect(page.getByText(`運営・編集：${siteConfig.author.name}`, { exact: true })).toBeVisible();
+        for (const profile of about.mainEntity.sameAs) {
+          await expect(page.locator(`footer a[href="${profile}"]`)).toHaveCount(1);
+        }
+      }
       const category = categories.find((item) => item.path === path);
-      if (category) {
+      if (category || path === '/articles/' || path === '/news/') {
         const collection = schemas.find((entry) => entry['@type'] === 'CollectionPage');
+        const listedLinks = await page
+          .locator('main section ul > li a[href]')
+          .evaluateAll((nodes) =>
+            nodes.map((node) => node.getAttribute('href')!).filter((href) => /^\/(articles|news)\/[^/]+\/$/.test(href)),
+          );
+        const expectedItems = category?.articles ?? (path === '/articles/' ? articles : news);
         expect(collection).toMatchObject({
           url,
           name: await page.locator('h1').innerText(),
           description,
-          mainEntity: { '@type': 'ItemList', numberOfItems: category.articles.length },
+          mainEntity: { '@type': 'ItemList', numberOfItems: expectedItems.length },
         });
-        expect(collection.mainEntity.itemListElement.map((item: { url: string }) => item.url)).toEqual(
-          category.articles.map((article) => `${siteConfig.siteUrl}/articles/${article.slug}/`),
+        const listedUrls = collection.mainEntity.itemListElement.map((item: { url: string }) => item.url);
+        expect(listedUrls).toEqual(listedLinks.map((href) => `${siteConfig.siteUrl}${href}`));
+        expect([...listedUrls].sort()).toEqual(
+          expectedItems.map((item) => `${siteConfig.siteUrl}/${item.type}/${item.slug}/`).sort(),
         );
+      }
+      if (category) {
         const content = page.getByRole('region', { name: /この分野の記事/ });
         for (const article of category.articles) {
           await expect(content.locator(`a[href="/articles/${article.slug}/"]`)).toBeVisible();
@@ -199,6 +245,46 @@ test('every sitemap page exposes unique metadata and consistent structured data 
     const response = await request.head(resource, { maxRedirects: 0 });
     expect(response.status(), `Broken or redirected internal resource: ${resource}`).toBe(200);
   }
+});
+
+test('noncanonical page paths permanently redirect once while preserving query parameters', async ({ request }) => {
+  for (const path of ['/articles', '/news/20220128', '/articles/category/getting-started', '/about']) {
+    const query = '?utm_source=seo-check';
+    const response = await request.get(`${path}${query}`, { maxRedirects: 0 });
+    expect([301, 308]).toContain(response.status());
+    const destination = new URL(response.headers().location!, response.url());
+    expect(destination.pathname).toBe(`${path}/`);
+    expect(destination.search).toBe(query);
+    expect((await request.get(`${destination.pathname}${destination.search}`, { maxRedirects: 0 })).status()).toBe(200);
+  }
+});
+
+test.describe('directory structured data with JavaScript', () => {
+  test.use({ javaScriptEnabled: true });
+
+  test('only describes the full directory while all articles are visible, including history navigation', async ({
+    page,
+  }) => {
+    const collections = () =>
+      page
+        .locator('script[type="application/ld+json"]')
+        .evaluateAll((nodes) =>
+          nodes.map((node) => JSON.parse(node.textContent!)).filter((schema) => schema['@type'] === 'CollectionPage'),
+        );
+    await page.goto('/articles/?category=shooting&tag=クレー射撃');
+    await expect(page.getByRole('status')).toContainText('中 1件の記事');
+    await expect.poll(collections).toHaveLength(0);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${siteConfig.siteUrl}/articles/`);
+    await page.getByRole('button', { name: '絞り込みを解除' }).click();
+    await expect(page).toHaveURL(/\/articles\/$/);
+    await expect.poll(collections).toHaveLength(1);
+    const [collection] = await collections();
+    const articles = await createContentRepository(`${process.cwd()}/content`).list('articles');
+    expect(collection.mainEntity.numberOfItems).toBe(articles.length);
+    await page.goBack();
+    await expect(page.getByRole('status')).toContainText('中 1件の記事');
+    await expect.poll(collections).toHaveLength(0);
+  });
 });
 
 test('historical law documents have distinct search metadata and synchronized source copies', async ({

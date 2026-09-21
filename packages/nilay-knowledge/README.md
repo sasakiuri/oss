@@ -292,7 +292,10 @@ styles, scripts and hidden elements are excluded. Summaries are limited to 160 U
 code points and shared by meta tags, Article/NewsArticle JSON-LD and RSS.
 This is an editorial limit, not a Google requirement or a guarantee of snippet length.
 Publication and modification dates come from frontmatter, never the build time.
-Articles show both publication and modification dates when an update is recorded.
+Articles and news show both publication and modification dates when an update is recorded.
+Visible dates always use `Asia/Tokyo`, including on UTC production servers and in
+browsers outside Japan. Frontmatter rejects modification dates before publication,
+comparing timestamps as instants rather than lexicographically.
 OG/Twitter cards can fall back to a generated title card. Article JSON-LD includes
 an image only when frontmatter declares one, since a title/logo card is not a
 representative article image.
@@ -305,6 +308,15 @@ single-article subjects do not generate landing pages. Home, directory and artic
 links use these pages where available; other categories retain their directory
 filters. The sitemap follows the same eligibility rules. Existing article URLs and
 shared filter URLs are unchanged. Directory summaries prefer frontmatter descriptions.
+
+The article and news directories also expose CollectionPage/ItemList structured
+data in the same order as their server-rendered links.
+Filtered directories omit the full-list markup after hydration and restore it
+when filters are cleared; the no-JavaScript full directory retains its markup.
+The about page identifies Nilay as the editor/operator, explains date and source checking and correction
+channels, and exposes AboutPage/Organization data. Organization profile links
+match the public social links in the footer; credentials and review claims are
+not inferred from the site's subject matter.
 
 `app/robots.ts` advertises the sitemap and allows crawling, including page resources
 and social images. `X-Robots-Tag: noindex` applies only to public Markdown copies and
@@ -360,12 +372,17 @@ are checked separately, along with decoding the static and generated Japanese so
 images at their advertised dimensions. They run with the normal
 Playwright suite as well. Lighthouse samples eight pages, including a category guide, on desktop and mobile;
 its SEO score alone does not detect duplicate descriptions or incomplete structured
-data. Local checks do not measure Google indexing or search rankings.
+data. Date checks compare visible Japan dates, source metadata, JSON-LD and sitemap
+modification dates. Collection data must match the visible ordered links and the
+complete repository. Slashless page URLs must permanently redirect in one hop
+without losing query parameters. Local checks do not measure Google indexing or search rankings.
 
 The implementation follows Google's guidance on
 [descriptions](https://developers.google.com/search/docs/appearance/snippet),
 [canonical URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls),
-[Article structured data](https://developers.google.com/search/docs/appearance/structured-data/article)
+[Article structured data](https://developers.google.com/search/docs/appearance/structured-data/article),
+[publication dates](https://developers.google.com/search/docs/appearance/publication-dates),
+[Organization structured data](https://developers.google.com/search/docs/appearance/structured-data/organization)
 and [robots directives](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag).
 Sitemap publication and post-release verification follow the
 [sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).

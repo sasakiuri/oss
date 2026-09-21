@@ -1,4 +1,5 @@
 import type {
+  AboutPage,
   Article,
   BreadcrumbList,
   CollectionPage,
@@ -21,6 +22,34 @@ function publisher(): Organization {
     name: siteConfig.author.name,
     url: `${siteConfig.siteUrl}/about/`,
     logo: { '@type': 'ImageObject', url: `${siteConfig.siteUrl}/logo.png` },
+    sameAs: [
+      `https://twitter.com/${siteConfig.social.twitter}`,
+      `https://www.facebook.com/${siteConfig.social.facebook}`,
+      `https://www.youtube.com/channel/${siteConfig.social.youtube}`,
+      `https://www.instagram.com/${siteConfig.social.instagram}`,
+      `https://github.com/${siteConfig.social.github}`,
+    ],
+  };
+}
+
+export function createAboutSchema({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}): WithContext<AboutPage> {
+  const url = `${siteConfig.siteUrl}/about/`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    '@id': url,
+    url,
+    name: title,
+    description,
+    inLanguage: 'ja',
+    isPartOf: { '@type': 'WebSite', '@id': `${siteConfig.siteUrl}/#website` },
+    mainEntity: publisher(),
   };
 }
 
