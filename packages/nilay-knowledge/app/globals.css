@@ -1,7 +1,4 @@
 @import 'tailwindcss';
-@import 'katex/dist/katex.min.css';
-@import 'highlight.js/styles/github-dark.css';
-@import 'photoswipe/style.css';
 @plugin '@tailwindcss/typography';
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -23,7 +20,7 @@
 @layer base {
   :root {
     --site-header-height: 3.5rem;
-    --article-toc-height: 3rem;
+    --article-toc-height: 2.875rem;
     --surface: #fff;
     --muted: #f8fafc;
     --muted-strong: #f1f5f9;
@@ -62,7 +59,9 @@
 }
 
 @theme {
-  --font-sans: system-ui, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  /* Prefer installed Noto Japanese fonts before testing platform-specific families for each glyph. */
+  --font-sans:
+    system-ui, 'Noto Sans CJK JP', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
 
   /* Animation keyframes */
   --animate-fade-in: fade-in 0.2s ease-out;
@@ -127,6 +126,11 @@
   --tw-prose-code: var(--ink);
   --tw-prose-th-borders: var(--line);
   --tw-prose-td-borders: var(--line);
+}
+
+/* Fixed-width Markdown columns need not measure their full min-content width. */
+.prose .flex > * {
+  min-width: 0;
 }
 
 /* Heading with anchor links */
@@ -377,6 +381,11 @@
   display: block;
   margin-inline: auto;
   max-width: none;
+}
+
+/* Preserve code spacing regardless of when the optional highlight stylesheet loads. */
+.prose pre code.hljs {
+  padding: 0;
 }
 
 /* Inline code - Zenn style */

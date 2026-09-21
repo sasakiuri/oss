@@ -146,12 +146,15 @@ export function SearchDialog() {
         <button
           ref={triggerRef}
           type="button"
-          aria-label="記事・ニュースを検索"
+          aria-label="記事・ニュースを検索 Ctrl / ⌘ K"
+          aria-keyshortcuts="Control+k Meta+k"
           className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-3 text-sm text-white hover:bg-slate-600 focus-visible:outline-2 focus-visible:outline-white"
         >
           <Search className="h-5 w-5" aria-hidden="true" />
-          <span className="hidden sm:inline">検索</span>
-          <kbd className="hidden rounded border border-slate-400 px-1 text-xs lg:inline">Ctrl / ⌘ K</kbd>
+          <span className="hidden sm:inline">検索</span>{' '}
+          <kbd aria-hidden="true" className="hidden rounded border border-slate-400 px-1 text-xs lg:inline">
+            Ctrl / ⌘ K
+          </kbd>
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

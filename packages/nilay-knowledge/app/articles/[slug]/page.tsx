@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { ArticleNavigation } from '@/components/article-navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { ContentStyles } from '@/components/content-styles';
 import { ImageZoom } from '@/components/image-zoom';
 import { MarkdownContent } from '@/components/markdown-content';
 import { PrintContent } from '@/components/print-content';
@@ -100,7 +101,7 @@ export default async function ArticlePage({ params }: Props) {
       <SnsShare title={frontmatter.title} slug={`articles/${slug}`} />
 
       <div
-        className={`reading-layout mx-auto grid max-w-5xl gap-4 px-4 py-8 ${tableOfContents.length > 0 ? 'lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-8' : ''}`}
+        className={`reading-layout mx-auto grid max-w-5xl grid-cols-1 gap-4 px-4 py-8 ${tableOfContents.length > 0 ? 'lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-8' : ''}`}
       >
         <TableOfContents key={slug} items={tableOfContents} />
         <article className="reading-article min-w-0 overflow-hidden rounded-lg border border-line bg-surface p-5 sm:p-8 lg:col-start-1 lg:row-start-1">
@@ -120,6 +121,7 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           </header>
 
+          <ContentStyles html={html} />
           <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
           <ArticleNavigation slug={slug} />
         </article>

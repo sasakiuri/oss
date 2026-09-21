@@ -2,7 +2,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "outputs": [".next/**", "!.next/cache/**", "public/feed.xml", "public/sitemap.xml"],
+      "outputs": [".next/**", "!.next/cache/**", "public/feed.xml", "public/sitemap.xml", "public/content-styles/**"],
       "env": ["NEXT_PUBLIC_GA_MEASUREMENT_ID", "NEXT_PUBLIC_FACEBOOK_APP_ID", "ANALYZE"]
     },
     "dev": {

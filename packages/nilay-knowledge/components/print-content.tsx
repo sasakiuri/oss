@@ -35,12 +35,17 @@ export function PrintContent() {
   useEffect(() => {
     let closedDetails: HTMLDetailsElement[] = [];
     const originalLoading = new Map<HTMLImageElement, string | null>();
+    const originalSources = new Map<HTMLImageElement, string>();
     let active: AbortController | null = null;
     let mounted = true;
     const prepare = () => {
       const images = [...document.querySelectorAll<HTMLImageElement>('.reading-article img')];
       images.forEach((image) => {
         if (!originalLoading.has(image)) originalLoading.set(image, image.getAttribute('loading'));
+        if (image.dataset.originalSrc && image.hasAttribute('srcset')) {
+          if (!originalSources.has(image)) originalSources.set(image, image.getAttribute('srcset')!);
+          image.removeAttribute('srcset');
+        }
         // A failed image does not fetch again merely because loading becomes eager.
         const src = image.getAttribute('src');
         if (src && image.complete && image.naturalWidth === 0) image.setAttribute('src', src);
@@ -62,6 +67,8 @@ export function PrintContent() {
         else image.setAttribute('loading', loading);
       });
       originalLoading.clear();
+      originalSources.forEach((srcset, image) => image.setAttribute('srcset', srcset));
+      originalSources.clear();
     };
     const print = async () => {
       if (active) return;

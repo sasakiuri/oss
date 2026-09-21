@@ -15,6 +15,12 @@ async function expectNoPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 }
 
+test('the visible search shortcut is included in its accessible name', async ({ page }) => {
+  await page.goto('/articles/');
+  const results = await new AxeBuilder({ page }).withRules(['label-content-name-mismatch']).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(colorScheme, () => {
     test.use({ colorScheme });
@@ -175,7 +181,9 @@ for (const shortcut of ['Control+k', 'Meta+k']) {
     await expect(popover).not.toBeVisible();
     await page.keyboard.press('Escape');
     await expect(search).not.toBeVisible();
-    await expect(page.getByRole('button', { name: '記事・ニュースを検索', exact: true }).first()).toBeFocused();
+    await expect(
+      page.getByRole('button', { name: '記事・ニュースを検索 Ctrl / ⌘ K', exact: true }).first(),
+    ).toBeFocused();
   });
 }
 

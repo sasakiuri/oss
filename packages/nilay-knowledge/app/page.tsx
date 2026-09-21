@@ -82,6 +82,8 @@ function SearchBanner() {
         fill
         sizes="100vw"
         preload
+        fetchPriority="high"
+        quality={65}
         className="-z-10 object-cover"
       />
       <p className="rounded bg-surface/95 px-3 py-1 text-sm text-ink">銃砲・射撃・狩猟の情報サイト</p>

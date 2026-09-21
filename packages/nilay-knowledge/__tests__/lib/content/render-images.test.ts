@@ -58,11 +58,33 @@ describe('article image rendering', () => {
       ['150', '100'],
       ['50', '70'],
     ]);
-    expect(imageDimensions).toHaveBeenCalledExactlyOnceWith('/content/articles/example/image.png');
+    expect(imageDimensions).toHaveBeenCalledWith('/content/articles/example/image.png');
+    expect(imageDimensions).toHaveBeenCalledTimes(2);
     expect(images[0]).toHaveAttribute('src', '/content/articles/example/image.png');
 
     await renderContent(source('![Natural](image.png)'), { imageDimensions });
-    expect(imageDimensions).toHaveBeenCalledTimes(2);
+    expect(imageDimensions).toHaveBeenCalledTimes(3);
+  });
+
+  it('preserves authored responsive images and picture sources', async () => {
+    const imageDimensions = vi.fn().mockResolvedValue({ width: 1200, height: 800 });
+    document.body.innerHTML = (
+      await renderContent(
+        source(`
+<img src="photo.jpg" srcset="authored.jpg 2x" sizes="50vw" alt="Authored">
+<picture><source srcset="wide.webp" media="(min-width: 800px)"><img src="photo.jpg" alt="Art direction"></picture>
+
+![Responsive](photo.jpg)
+`),
+        { imageDimensions },
+      )
+    ).html;
+    const images = [...document.querySelectorAll('img')];
+    expect(images[0]).toHaveAttribute('srcset', 'authored.jpg 2x');
+    expect(images[0]).toHaveAttribute('sizes', '50vw');
+    expect(images[1]).not.toHaveAttribute('srcset');
+    expect(images[2]).toHaveAttribute('srcset', expect.stringContaining('/_next/image'));
+    expect(images[2]).toHaveAttribute('data-original-src', '/content/articles/example/photo.jpg');
   });
 
   it('preserves missing image dimensions and reports asset failures', async () => {

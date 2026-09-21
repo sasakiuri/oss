@@ -200,6 +200,23 @@ jobs:
         if: runner.os != 'Linux'
         run: npm run ci:packages -- test:e2e
 
+      - name: Lighthouse regression checks (Nilay Knowledge)
+        if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
+        run: |
+          npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
+          npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
+          npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
+
+      - name: Upload Nilay Knowledge Lighthouse reports
+        if: always() && runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/nilay-knowledge')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-knowledge-lighthouse-${{ matrix.os }}
+          path: packages/nilay-knowledge/.lighthouse.reports/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

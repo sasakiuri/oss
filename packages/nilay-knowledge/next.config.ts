@@ -35,6 +35,7 @@ const nextConfig: NextConfig = {
   agentRules: false,
   images: {
     localPatterns: [{ pathname: '/content/**' }],
+    qualities: [65, 75],
   },
   trailingSlash: true,
   async headers() {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImageZoom } from '@/components/image-zoom';
 
 const markup =
-  '<img src="/diagram.png" alt="手続きの流れ"><a href="/original.png"><img src="/linked.png" alt="原寸画像"></a><img src="/decoration.png" alt="">';
+  '<a class="image-zoom-trigger" data-image-zoom href="/diagram.png" aria-label="手続きの流れを拡大"><img src="/diagram.png" alt="手続きの流れ"></a><a href="/original.png"><img src="/linked.png" alt="原寸画像"></a><img src="/decoration.png" alt="">';
 
 function Content({ enhance = true }: { enhance?: boolean }) {
   return (
@@ -42,7 +42,7 @@ describe('image enlargement', () => {
           className="prose"
           dangerouslySetInnerHTML={{
             __html:
-              '<img src="/comparison.png" alt="頭部の比較" aria-details="comparison-description"><p id="comparison-description">図にある模様と色の詳しい説明。</p>',
+              '<a class="image-zoom-trigger" data-image-zoom href="/comparison.png" aria-label="頭部の比較を拡大"><img src="/comparison.png" alt="頭部の比較" aria-details="comparison-description"></a><p id="comparison-description">図にある模様と色の詳しい説明。</p>',
           }}
         />
         <ImageZoom />
@@ -80,6 +80,35 @@ describe('image enlargement', () => {
     expect(screen.getByRole('presentation')).toHaveAttribute('alt', '');
   });
 
+  it('enlarges the selected picture source when there is no separate original', async () => {
+    render(<Content />);
+    Object.defineProperty(screen.getByRole('img', { name: '手続きの流れ' }), 'currentSrc', {
+      value: 'https://example.com/high-resolution.webp',
+    });
+    fireEvent.click(screen.getByRole('button', { name: '手続きの流れを拡大' }));
+    const dialog = screen.getByRole('dialog', { name: '画像を拡大' });
+    expect(await within(dialog).findByRole('img')).toHaveAttribute('src', 'https://example.com/high-resolution.webp');
+  });
+
+  it('supports Space and leaves modified clicks available for opening the original', async () => {
+    render(<Content />);
+    const opener = screen.getByRole('button', { name: '手続きの流れを拡大' });
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey', 'altKey']) {
+      // Observe the viewer handler, then cancel navigation that jsdom cannot perform.
+      const navigation = vi.fn((event: MouseEvent) => {
+        expect(event.defaultPrevented).toBe(false);
+        event.preventDefault();
+      });
+      document.addEventListener('click', navigation, { once: true });
+      fireEvent.click(opener, { [modifier]: true });
+      expect(navigation).toHaveBeenCalledOnce();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }
+    opener.focus();
+    expect(fireEvent.keyDown(opener, { key: ' ' })).toBe(false);
+    expect(await screen.findByRole('dialog', { name: '画像を拡大' })).toBeVisible();
+  });
+
   it('closes with its button and cleans up enhancements on unmount', async () => {
     const { rerender } = render(
       <StrictMode>
@@ -96,6 +125,7 @@ describe('image enlargement', () => {
       </StrictMode>,
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '手続きの流れを拡大' })).toHaveAttribute('href', '/diagram.png');
     expect(screen.getByRole('img', { name: '手続きの流れ' })).toBeInTheDocument();
   });
 

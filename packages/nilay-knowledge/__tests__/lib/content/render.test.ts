@@ -18,6 +18,31 @@ function renderDocument(html: string): Document {
 }
 
 describe('Markdown rendering', () => {
+  it('renders original-image links before hydration without nesting controls or breaking pictures', async () => {
+    const { html } = await renderContent(
+      source(`
+![Photo](photo.jpg)
+[![Linked](linked.jpg)](destination.html)
+<button><span><img src="button.jpg" alt="Button image"></span></button>
+<span role="button"><img src="control.jpg" alt="Existing control"></span>
+<img src="decoration.jpg" alt=" ">
+<picture><source srcset="wide.webp" type="image/webp"><img src="picture.jpg" alt="Picture"></picture>
+`),
+      { imageDimensions: async () => ({ width: 800, height: 600 }) },
+    );
+    const document = renderDocument(html);
+    const triggers = [...document.querySelectorAll<HTMLAnchorElement>('a[data-image-zoom]')];
+    expect(triggers).toHaveLength(2);
+    expect(triggers[0]).toHaveAttribute('href', '/content/articles/example/photo.jpg');
+    expect(triggers[0]).toHaveAccessibleName('Photoを拡大');
+    expect(triggers[0]?.querySelector('img')).toHaveAttribute('srcset', expect.stringContaining('/_next/image'));
+    expect(triggers[1]).toHaveAttribute('href', '/content/articles/example/picture.jpg');
+    expect(triggers[1]?.querySelector('picture > img')).toHaveAttribute('alt', 'Picture');
+    expect(document.querySelector('picture > source')).toHaveAttribute('srcset', 'wide.webp');
+    expect(document.querySelector('picture img')).not.toHaveAttribute('srcset');
+    expect(document.querySelector('a a, button a, [role="button"] a, picture a')).toBeNull();
+  });
+
   it('resolves inline, reference and raw HTML URLs without rewriting code or URI schemes', async () => {
     const { html } = await renderContent(
       source(`
@@ -47,7 +72,7 @@ describe('Markdown rendering', () => {
       '/content/assets/shared.png',
       '/content/articles/example/raw.png',
     ]);
-    const links = [...document.querySelectorAll('a')].map((link) => link.getAttribute('href'));
+    const links = [...document.querySelectorAll('a:not([data-image-zoom])')].map((link) => link.getAttribute('href'));
     expect(links).toEqual([
       '/content/articles/example/docs/file.pdf?download=1#page=2',
       '/content/articles/example/report.pdf',
