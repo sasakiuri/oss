@@ -52,6 +52,9 @@ describe('SnsShare accessibility', () => {
     [undefined, '/'],
     ['about', '/about/'],
     ['news/example/', '/news/example/'],
+    ['articles/?category=procedures&tag=A%2FB&tag=C%2B%2B', '/articles/?category=procedures&tag=A%2FB&tag=C%2B%2B'],
+    ['articles?tag=hunting#resources', '/articles/?tag=hunting#resources'],
+    ['articles/example/#section', '/articles/example/#section'],
   ])('shares the canonical path for %s without duplicate trailing slashes', async (slug, path) => {
     render(<SnsShare slug={slug} />);
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'SNSで共有' })));

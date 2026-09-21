@@ -28,7 +28,9 @@ export function createArticleDirectory(content: ContentSummary[]): DirectoryArti
     .map((article) => ({
       ...article,
       category: getArticleCategory(article),
-      description: curated.find((entry) => entry.slug === `articles/${article.slug}`)?.description,
+      description:
+        article.frontmatter.description ??
+        curated.find((entry) => entry.slug === `articles/${article.slug}`)?.description,
     }))
     .sort(
       (a, b) =>

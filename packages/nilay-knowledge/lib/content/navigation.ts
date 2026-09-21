@@ -29,11 +29,11 @@ export const articleReadingOrder: ArticleItem[] = [
     slug: 'articles/1564639585',
   },
   {
-    title: 'ライフル銃の所持許可の取得手順',
+    title: 'ライフル銃の所持許可取得の手順',
     slug: 'articles/1379069901',
   },
   {
-    title: '申請・申込手数料の一覧',
+    title: '申請・申込手数料一覧',
     slug: 'articles/1379112442',
   },
   {
@@ -41,7 +41,7 @@ export const articleReadingOrder: ArticleItem[] = [
     slug: 'articles/1597956932',
   },
   {
-    title: '銃砲・狩猟・火薬類に関連する法令一覧',
+    title: '銃砲・狩猟・火薬類に関連する法令等の一覧',
     slug: 'articles/1379067191',
   },
   {

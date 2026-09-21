@@ -4,9 +4,23 @@ import { expect, test } from '@playwright/test';
 import sharp from 'sharp';
 
 import { siteConfig } from '../lib/config';
+import { getArticleCategoryPages } from '../lib/content/category-pages';
 import { createContentRepository } from '../lib/content/repository';
+import { createArticleDirectory } from '../lib/content/taxonomy';
 
 test.use({ javaScriptEnabled: false });
+
+// Live checks must not send analytics or any mutations, including from the one
+// historical-document test that explicitly enables JavaScript.
+test.beforeEach(async ({ page, baseURL }) => {
+  const origin = new URL(baseURL!).origin;
+  await page.route('**/*', (route) => {
+    const request = route.request();
+    return new URL(request.url()).origin === origin && ['GET', 'HEAD'].includes(request.method())
+      ? route.continue()
+      : route.abort();
+  });
+});
 
 test('every sitemap page exposes unique metadata and consistent structured data without JavaScript', async ({
   page,
@@ -20,13 +34,17 @@ test('every sitemap page exposes unique metadata and consistent structured data 
   expect(sitemap.status()).toBe(200);
   const urls = [...(await sitemap.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]!);
   const repository = createContentRepository(`${process.cwd()}/content`);
+  const articles = await repository.list('articles');
+  const news = await repository.list('news');
+  const categories = getArticleCategoryPages(createArticleDirectory(articles));
+  const sources = [...articles, ...news];
   const paths = [
     '/',
     '/articles/',
     '/news/',
     '/about/',
-    ...(await repository.listSlugs('articles')).map((slug) => `/articles/${slug}/`),
-    ...(await repository.listSlugs('news')).map((slug) => `/news/${slug}/`),
+    ...categories.map((category) => category.path),
+    ...sources.map(({ type, slug }) => `/${type}/${slug}/`),
   ];
   expect(urls.toSorted()).toEqual(paths.map((path) => `${siteConfig.siteUrl}${path}`).toSorted());
   const descriptions = new Set<string>();
@@ -96,8 +114,35 @@ test('every sitemap page exposes unique metadata and consistent structured data 
         expect(schema.dateModified).toBe(
           await page.locator('meta[property="article:modified_time"]').getAttribute('content'),
         );
-        expect(schema.image).toBe(await page.locator('meta[property="og:image"]').getAttribute('content'));
+        const source = sources.find((item) => `/${item.type}/${item.slug}/` === path)!;
+        if (source.frontmatter.image) {
+          expect(schema.image).toBe(await page.locator('meta[property="og:image"]').getAttribute('content'));
+        } else {
+          expect(schema.image).toBeUndefined();
+        }
+        await expect(page.locator(`article header time[datetime="${source.frontmatter.published}"]`)).toBeVisible();
+        if (path.startsWith('/articles/') && source.frontmatter.updated) {
+          await expect(page.locator(`article header time[datetime="${source.frontmatter.updated}"]`)).toBeVisible();
+        }
         await expect(page.locator('article a[rel="author"]')).toHaveAttribute('href', '/about/');
+      }
+      const category = categories.find((item) => item.path === path);
+      if (category) {
+        const collection = schemas.find((entry) => entry['@type'] === 'CollectionPage');
+        expect(collection).toMatchObject({
+          url,
+          name: await page.locator('h1').innerText(),
+          description,
+          mainEntity: { '@type': 'ItemList', numberOfItems: category.articles.length },
+        });
+        expect(collection.mainEntity.itemListElement.map((item: { url: string }) => item.url)).toEqual(
+          category.articles.map((article) => `${siteConfig.siteUrl}/articles/${article.slug}/`),
+        );
+        const content = page.getByRole('region', { name: /この分野の記事/ });
+        for (const article of category.articles) {
+          await expect(content.locator(`a[href="/articles/${article.slug}/"]`)).toBeVisible();
+          if (article.description) await expect(content.getByText(article.description, { exact: true })).toBeVisible();
+        }
       }
       const links = await page
         .locator('a[href]')
@@ -251,9 +296,15 @@ test('filtered directories keep the directory canonical and missing content retu
 }) => {
   await page.goto('/articles/?category=shooting&tag=クレー射撃');
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${siteConfig.siteUrl}/articles/`);
-  for (const path of ['/articles/does-not-exist/', '/news/does-not-exist/']) {
+  for (const path of [
+    '/articles/does-not-exist/',
+    '/news/does-not-exist/',
+    '/articles/category/does-not-exist/',
+    '/articles/category/shooting/',
+    '/articles/category/uncategorized/',
+  ]) {
     const response = await page.goto(path);
     expect(response?.status()).toBe(404);
-    await expect(page.locator('meta[name="robots"][content="noindex"]')).toHaveCount(1);
+    await expect(page.locator('meta[name="robots"][content="noindex"]').first()).toBeAttached();
   }
 });

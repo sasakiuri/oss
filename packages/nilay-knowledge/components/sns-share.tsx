@@ -72,7 +72,9 @@ function ShareMenu({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const fullTitle = title ? `${title} : ${siteConfig.title}` : siteConfig.title;
-  const url = slug ? `${siteConfig.siteUrl}/${slug.replace(/\/$/, '')}/` : `${siteConfig.siteUrl}/`;
+  const destination = new URL(`${siteConfig.siteUrl}/${slug ?? ''}`);
+  destination.pathname = `${destination.pathname.replace(/\/+$/, '')}/`;
+  const url = destination.href;
 
   return (
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>

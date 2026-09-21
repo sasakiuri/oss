@@ -288,7 +288,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const options = parseArguments(process.argv.slice(2));
     if (options.help) {
       console.log(
-        'Usage: npm run lhci:run -- [--profile=mobile,desktop] [--page=home,articles,species,getting,news,newsDetail,about] [--runs=3] [--output-dir=.lighthouse.reports]',
+        'Usage: npm run lhci:run -- [--profile=mobile,desktop] [--page=home,articles,category,species,getting,news,newsDetail,about] [--runs=3] [--output-dir=.lighthouse.reports]',
       );
       console.log(
         'Requires a production build. Reports use the package directory as the base for relative output paths.',

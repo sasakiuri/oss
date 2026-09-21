@@ -15,14 +15,10 @@ import { SnsShare } from '@/components/sns-share';
 import { TableOfContents } from '@/components/table-of-contents';
 import { TitleText } from '@/components/title-text';
 import { siteConfig } from '@/lib/config';
+import { articleCategoryHref, getArticleCategoryPages } from '@/lib/content/category-pages';
 import { createContentMetadata } from '@/lib/content/metadata';
 import { getContentDocument, getContentSource, listContent, listContentSlugs } from '@/lib/content/server';
-import {
-  articleDirectoryHref,
-  createArticleDirectory,
-  getArticleCategory,
-  getRelatedArticles,
-} from '@/lib/content/taxonomy';
+import { createArticleDirectory, getArticleCategory, getRelatedArticles } from '@/lib/content/taxonomy';
 import { createContentSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
 
@@ -58,8 +54,9 @@ export default async function ArticlePage({ params }: Props) {
 
   const { frontmatter, html, tableOfContents } = article;
   const category = getArticleCategory(article);
-  const relatedArticles = getRelatedArticles(createArticleDirectory(await listContent('articles')), slug);
-  const displayDate = frontmatter.updated || frontmatter.published;
+  const articles = createArticleDirectory(await listContent('articles'));
+  const relatedArticles = getRelatedArticles(articles, slug);
+  const categoryPage = getArticleCategoryPages(articles).find((item) => item.id === category.id);
 
   return (
     <>
@@ -68,6 +65,7 @@ export default async function ArticlePage({ params }: Props) {
         items={[
           { name: 'トップ', slug: '' },
           { name: '記事一覧', slug: 'articles' },
+          ...(categoryPage ? [{ name: category.title, slug: categoryPage.path.slice(1) }] : []),
           { name: frontmatter.title, slug: `articles/${slug}` },
         ]}
       />
@@ -80,7 +78,7 @@ export default async function ArticlePage({ params }: Props) {
           <header className="mb-8 border-b border-line pb-8">
             {category && (
               <Link
-                href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
+                href={articleCategoryHref(articles, category.id)}
                 className="mb-3 inline-flex min-h-8 items-center text-sm text-brand hover:underline"
               >
                 {category.title}
@@ -90,9 +88,14 @@ export default async function ArticlePage({ params }: Props) {
               <TitleText>{frontmatter.title}</TitleText>
             </h1>
             <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <time dateTime={displayDate} className="text-sm text-subtle">
-                {formatDate(displayDate)} {frontmatter.updated ? '更新' : '公開'}
+              <time dateTime={frontmatter.published} className="text-sm text-subtle">
+                {formatDate(frontmatter.published)} 公開
               </time>
+              {frontmatter.updated && (
+                <time dateTime={frontmatter.updated} className="text-sm text-subtle">
+                  {formatDate(frontmatter.updated)} 更新
+                </time>
+              )}
               <Link href="/about/" rel="author" className="text-sm text-brand hover:underline">
                 {siteConfig.author.name}
               </Link>

@@ -2,9 +2,11 @@ import RSS from 'rss';
 
 import { siteConfig } from '../config';
 
+import { getArticleCategoryPages } from './category-pages';
 import { contentDescription } from './description';
 import { contentPath } from './paths';
 import { comparePublished } from './repository';
+import { createArticleDirectory } from './taxonomy';
 import type { ContentSource, ContentSummary } from './types';
 
 export function createFeed(items: ContentSource[], now = new Date()): string {
@@ -43,6 +45,10 @@ export function createSitemap(items: ContentSummary[]): string {
     { url: `${siteConfig.siteUrl}/articles/`, priority: '0.8' },
     { url: `${siteConfig.siteUrl}/news/`, priority: '0.8' },
     { url: `${siteConfig.siteUrl}/about/`, priority: '0.5' },
+    ...getArticleCategoryPages(createArticleDirectory(items)).map((category) => ({
+      url: `${siteConfig.siteUrl}${category.path}`,
+      priority: '0.8',
+    })),
     ...[...items].sort(comparePublished).map((item) => ({
       url: `${siteConfig.siteUrl}${contentPath(item.type, item.slug)}`,
       priority: item.type === 'articles' ? '0.7' : '0.5',

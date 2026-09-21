@@ -11,6 +11,7 @@ const config = {
   pages: {
     home: '/',
     articles: '/articles/',
+    category: '/articles/category/getting-started/',
     species: '/articles/1403693668/',
     getting: '/articles/1378038316/',
     news: '/news/',

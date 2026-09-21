@@ -6,8 +6,9 @@ import { ArticleTags } from '@/components/article-tags';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { HomeSearchButton } from '@/components/search-dialog';
 import { TitleText } from '@/components/title-text';
+import { articleCategoryHref } from '@/lib/content/category-pages';
 import { listContent } from '@/lib/content/server';
-import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
+import { createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
 import { createPageMetadata } from '@/lib/metadata';
 
 const title = '記事一覧';
@@ -29,8 +30,8 @@ export default async function ArticlesPage() {
           <h3 className="font-medium leading-7 text-brand underline-offset-4 group-hover:underline">
             <TitleText>{article.frontmatter.title}</TitleText>
           </h3>
-          {article.description && <p className="mt-1 text-sm leading-6 text-subtle">{article.description}</p>}
         </Link>
+        {article.description && <p className="mt-1 text-sm leading-6 text-subtle">{article.description}</p>}
         <ArticleTags tags={article.frontmatter.tags} />
       </div>,
     ]),
@@ -60,7 +61,7 @@ export default async function ArticlesPage() {
               {categories.map((category) => (
                 <li key={category.id}>
                   <Link
-                    href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
+                    href={articleCategoryHref(articles, category.id)}
                     className="inline-flex min-h-11 items-center justify-between gap-4 text-sm text-body underline-offset-4 hover:text-brand hover:underline lg:w-full lg:px-4"
                   >
                     {category.title}

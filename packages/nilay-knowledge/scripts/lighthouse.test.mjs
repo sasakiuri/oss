@@ -23,7 +23,7 @@ function report(performance = 0.97) {
 test('default options cover all representative pages with the shared profile policies', () => {
   const options = parseArguments([]);
   assert.deepEqual(options.profiles, ['mobile', 'desktop']);
-  assert.equal(options.pages.length, 7);
+  assert.equal(options.pages.length, 8);
   assert.equal(options.runs, 3);
   assert.equal(isAbsolute(options.outputDirectory), true);
   assert.equal(config.minimum.performance, 0.95);

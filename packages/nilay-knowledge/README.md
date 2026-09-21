@@ -292,6 +292,19 @@ styles, scripts and hidden elements are excluded. Summaries are limited to 160 U
 code points and shared by meta tags, Article/NewsArticle JSON-LD and RSS.
 This is an editorial limit, not a Google requirement or a guarantee of snippet length.
 Publication and modification dates come from frontmatter, never the build time.
+Articles show both publication and modification dates when an update is recorded.
+OG/Twitter cards can fall back to a generated title card. Article JSON-LD includes
+an image only when frontmatter declares one, since a title/logo card is not a
+representative article image.
+
+Curated category pages at `/articles/category/{category}/` have their own titles,
+introductions, summaries, canonical URLs, breadcrumbs and CollectionPage/ItemList
+structured data. They are generated only for subjects with an editorial introduction
+in `lib/content/category-pages.ts` and at least two articles. Empty, unclassified and
+single-article subjects do not generate landing pages. Home, directory and article
+links use these pages where available; other categories retain their directory
+filters. The sitemap follows the same eligibility rules. Existing article URLs and
+shared filter URLs are unchanged. Directory summaries prefer frontmatter descriptions.
 
 `app/robots.ts` advertises the sitemap and allows crawling, including page resources
 and social images. `X-Robots-Tag: noindex` applies only to public Markdown copies and
@@ -315,6 +328,28 @@ npm run test:seo --workspace=@sasakiuri/nilay-knowledge
 npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
 ```
 
+After deploying this checkout, check the actual public responses as well:
+
+```bash
+npm run test:seo:live --workspace=@sasakiuri/nilay-knowledge
+# To check a preview deployment with production canonical URLs:
+SEO_BASE_URL=https://preview.example.com npm run test:seo:live --workspace=@sasakiuri/nilay-knowledge
+```
+
+The live check defaults to `https://knowledge.nilay.jp`, starts no local server and
+uses a single worker for read-only GET/HEAD requests. Browser requests to third-party
+origins and methods other than GET/HEAD are blocked, including analytics. It expects the deployed
+content to match this checkout; an older deployment or protected preview will fail.
+It does not publish changes or change any search-engine account settings.
+
+For search performance after release, submit `/sitemap.xml` in the site's Google
+Search Console property and inspect representative article and category URLs.
+Track impressions, clicks, CTR and indexing by page and query, comparing equivalent
+periods after recrawling. Search Console access and actual indexing are separate
+from local validation. Review date-sensitive articles (permits, fees, laws and
+lecture schedules) against their official sources before updating the text and
+its `updated` date; a deployment alone is not an editorial review.
+
 The SEO checks fetch every sitemap URL and inspect delivered HTML with JavaScript
 disabled. They verify repository/sitemap parity, HTTP status, unique titles and
 descriptions, canonicals, social metadata, structured data, crawlable internal links,
@@ -323,7 +358,7 @@ and broken internal resources, missing fragment targets, HTML embedded in link U
 and concatenated URL schemes. Historical document metadata and source-copy parity
 are checked separately, along with decoding the static and generated Japanese social
 images at their advertised dimensions. They run with the normal
-Playwright suite as well. Lighthouse samples seven pages on desktop and mobile;
+Playwright suite as well. Lighthouse samples eight pages, including a category guide, on desktop and mobile;
 its SEO score alone does not detect duplicate descriptions or incomplete structured
 data. Local checks do not measure Google indexing or search rankings.
 
@@ -332,6 +367,8 @@ The implementation follows Google's guidance on
 [canonical URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls),
 [Article structured data](https://developers.google.com/search/docs/appearance/structured-data/article)
 and [robots directives](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag).
+Sitemap publication and post-release verification follow the
+[sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
 
 ## Reading, search and printing
 

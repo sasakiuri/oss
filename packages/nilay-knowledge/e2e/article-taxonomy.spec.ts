@@ -20,6 +20,29 @@ function resultCount(tags: string[] = [], category?: string) {
   return `${articles.length}件中 ${count}件の記事`;
 }
 
+test('category guides connect home, matching articles and breadcrumbs', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByRole('navigation', { name: '分野から探す' })
+    .getByRole('link', { name: /イントロダクション/ })
+    .click();
+  await expect(page).toHaveURL(/\/articles\/category\/getting-started\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('猟銃・空気銃の所持許可と狩猟免許の取得ガイド');
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page
+    .getByRole('region', { name: /この分野の記事/ })
+    .getByRole('link', { name: /^猟銃・空気銃所持許可の新規取得手順/ })
+    .click();
+  await expect(page).toHaveURL(/\/articles\/1378038316\/$/);
+  await page
+    .getByRole('navigation', { name: 'パンくずリスト' })
+    .getByRole('link', { name: 'イントロダクション' })
+    .click();
+  await expect(page).toHaveURL(/\/articles\/category\/getting-started\/$/);
+});
+
 test('shared category links and existing anchors keep their heading below the header after hydration', async ({
   page,
 }) => {
