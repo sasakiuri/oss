@@ -8,7 +8,7 @@ import { TestWorker } from '../support/worker';
 
 let worker: TestWorker;
 let api: SearchWorkerApi;
-const results: SearchResults = { total: 0, hits: [] };
+const results: SearchResults = { total: 0, totalMatches: 0, groups: [], nextOffset: null };
 
 beforeEach(() => {
   api = { load: vi.fn(async () => {}), search: vi.fn(async () => results) };
@@ -27,6 +27,13 @@ afterEach(() => {
 });
 
 describe('search worker client with real Comlink transport', () => {
+  it('passes pagination and scope through the worker transport', async () => {
+    const client = createSearchClient();
+    await expect(client.search('印刷', 'pdf', 20)).resolves.toEqual(results);
+    expect(api.search).toHaveBeenCalledExactlyOnceWith('印刷', 'pdf', 20);
+    client.dispose();
+  });
+
   it('correlates concurrent requests even when responses arrive out of order', async () => {
     const first = Promise.withResolvers<SearchResults>();
     const second = Promise.withResolvers<SearchResults>();
@@ -36,8 +43,8 @@ describe('search worker client with real Comlink transport', () => {
     const firstSearch = client.search('印刷');
     const secondSearch = client.search('所持許可');
     await vi.waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
-    second.resolve({ total: 4, hits: [] });
-    await expect(secondSearch).resolves.toEqual({ total: 4, hits: [] });
+    second.resolve({ ...results, total: 4 });
+    await expect(secondSearch).resolves.toEqual({ ...results, total: 4 });
     first.resolve(results);
     await expect(firstSearch).resolves.toEqual(results);
     await expect(load).resolves.toBeUndefined();

@@ -32,27 +32,73 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('search worker API', () => {
-  it('matches Japanese search ordering, totals and excerpts while returning only twenty hits', async () => {
+  it('groups all sections before pagination and makes every match reachable without duplicate pages', async () => {
+    const additionalSections = Array.from({ length: 30 }, (_, section) => ({
+      ...documents[0]!,
+      id: `/articles/example-0/#section-${section}`,
+      section: `印刷 ${section}`,
+    }));
+    fetchIndex.mockResolvedValueOnce({ ok: true, json: async () => [...documents, ...additionalSections] });
+    const first = await api.search('印刷');
+    expect(first).toMatchObject({ total: 25, totalMatches: 55, nextOffset: 20 });
+    expect(first.groups).toHaveLength(20);
+    expect(first.groups.find((group) => group.id === '/articles/example-0/')?.matches).toHaveLength(31);
+    const second = await api.search('印刷', 'all', first.nextOffset!);
+    expect(second).toMatchObject({ total: 25, totalMatches: 55, nextOffset: null });
+    expect(second.groups).toHaveLength(5);
+    const pages = [...first.groups, ...second.groups];
+    expect(new Set(pages.map((group) => group.id)).size).toBe(25);
+    expect(new Set(pages.flatMap((group) => group.matches.map((match) => match.id))).size).toBe(55);
+    expect((await api.search('印刷', 'all', 25)).groups).toEqual([]);
+    expect(fetchIndex).toHaveBeenCalledOnce();
+  });
+
+  it.each([-1, 0.5, Infinity, NaN])('rejects the invalid page offset %s', async (offset) => {
+    await expect(api.search('印刷', 'all', offset)).rejects.toThrow('Invalid search offset');
+  });
+
+  it('groups PDF pages by their file while preserving matching page destinations', async () => {
+    const pdfPages = [2, 4, 7].map((page) => ({
+      ...documents[0]!,
+      type: 'pdf',
+      id: `/content/articles/example/file.pdf#page=${page}`,
+      section: `${page} ページ`,
+    }));
+    fetchIndex.mockResolvedValueOnce({ ok: true, json: async () => pdfPages });
+    const response = await api.search('印刷', 'pdf');
+    expect(response).toMatchObject({ total: 1, totalMatches: 3, nextOffset: null });
+    expect(response.groups[0]).toMatchObject({ id: '/content/articles/example/file.pdf', type: 'pdf' });
+    expect(response.groups[0]!.matches.map((match) => match.id).sort()).toEqual(pdfPages.map((page) => page.id));
+  });
+
+  it('matches Japanese search ordering, totals and excerpts while paginating twenty distinct pages', async () => {
     const index = createSearchIndex(documents);
     for (const query of ['印刷', '所持許可', '資料', 'ＵＳＢ', '印刷 申請', '存在しない', '']) {
       const expected = index.search(query.trim());
       expect(await api.search(query)).toEqual({
         total: expected.length,
-        hits: expected.slice(0, 20).map((result) => ({
-          id: String(result.id),
+        totalMatches: expected.length,
+        nextOffset: expected.length > 20 ? 20 : null,
+        groups: expected.slice(0, 20).map((result) => ({
+          id: String(result.id).split('#')[0],
           type: result.type,
           title: String(result.title),
-          section: String(result.section),
-          excerpt: searchExcerpt(String(result.text), query),
+          matches: [
+            {
+              id: String(result.id),
+              section: String(result.section),
+              excerpt: searchExcerpt(String(result.text), query),
+            },
+          ],
         })),
       });
     }
     const response = await api.search('印刷');
     expect(response.total).toBe(25);
-    expect(response.hits).toHaveLength(20);
-    expect(response.hits[0].excerpt).toContain('印刷する前に');
-    expect(response.hits[0].excerpt).toMatch(/^…/);
-    expect(response.hits[0]).not.toHaveProperty('text');
+    expect(response.groups).toHaveLength(20);
+    expect(response.groups[0].matches[0].excerpt).toContain('印刷する前に');
+    expect(response.groups[0].matches[0].excerpt).toMatch(/^…/);
+    expect(response.groups[0]).not.toHaveProperty('text');
     expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json');
   });
 
@@ -97,9 +143,12 @@ describe('search worker API', () => {
     }));
     await api.load();
     expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json');
-    expect(await api.search('印刷', 'news')).toMatchObject({ total: 1, hits: [{ type: 'news' }] });
+    expect(await api.search('印刷', 'news')).toMatchObject({ total: 1, groups: [{ type: 'news' }] });
     expect(await api.search('印刷', 'articles')).toMatchObject({ total: 25 });
-    expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1, hits: [{ id: pdf.id, type: 'pdf' }] });
+    expect(await api.search('印刷', 'pdf')).toMatchObject({
+      total: 1,
+      groups: [{ id: pdf.id.split('#')[0], type: 'pdf', matches: [{ id: pdf.id }] }],
+    });
     await api.search('申請', 'pdf');
     expect(fetchIndex).toHaveBeenCalledTimes(2);
   });

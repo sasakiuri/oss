@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { Command } from 'cmdk';
-import { ArrowRight, ArrowUpRight, Search, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ChevronDown, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
@@ -73,7 +73,13 @@ function SearchDialogContent() {
   const [pending, setPending] = useState(false);
   const [selectedResult, setSelectedResult] = useState('');
   const [ready, setReady] = useState(false);
-  const [results, setResults] = useState<SearchResults>({ total: 0, hits: [] });
+  const [results, setResults] = useState<SearchResults>({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const searchVersion = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const appendedResultRef = useRef<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<ReturnType<typeof createSearchClient> | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -184,6 +190,10 @@ function SearchDialogContent() {
     const client = clientRef.current;
     if (!open || !ready || !client) return;
     let current = true;
+    searchVersion.current += 1;
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+    setExpanded(new Set());
     setPending(true);
     void client.search(deferredQuery, scope).then(
       (results) => {
@@ -197,15 +207,57 @@ function SearchDialogContent() {
         client.dispose();
         clientRef.current = null;
         setReady(false);
-        setResults({ total: 0, hits: [] });
+        setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
         setPending(false);
         setError(true);
       },
     );
     return () => {
       current = false;
+      searchVersion.current += 1;
+      appendedResultRef.current = null;
     };
   }, [open, ready, deferredQuery, scope]);
+
+  useEffect(() => {
+    const id = appendedResultRef.current;
+    if (!id) return;
+    appendedResultRef.current = null;
+    // The appended link must exist before scrolling; keep keyboard focus on the input.
+    const match = Array.from(listRef.current?.querySelectorAll<HTMLAnchorElement>('a[cmdk-item]') ?? []).find(
+      (link) => link.getAttribute('href') === id,
+    );
+    match?.scrollIntoView({ block: 'nearest' });
+  }, [results]);
+
+  async function loadMore() {
+    const client = clientRef.current;
+    if (!client || results.nextOffset === null || loadingMoreRef.current) return;
+    const version = searchVersion.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    inputRef.current?.focus({ preventScroll: true });
+    try {
+      const page = await client.search(deferredQuery, scope, results.nextOffset);
+      if (version !== searchVersion.current || client !== clientRef.current) return;
+      appendedResultRef.current = page.groups[0]?.matches[0]?.id ?? null;
+      setResults((previous) => ({ ...page, groups: [...previous.groups, ...page.groups] }));
+      const next = page.groups[0]?.matches[0];
+      if (next) setSelectedResult(next.id);
+    } catch {
+      if (version !== searchVersion.current || client !== clientRef.current) return;
+      client.dispose();
+      clientRef.current = null;
+      setReady(false);
+      setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+      setError(true);
+    } finally {
+      if (version === searchVersion.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
@@ -263,7 +315,8 @@ function SearchDialogContent() {
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing || event.keyCode === 229) return;
               if (
-                event.target instanceof HTMLAnchorElement &&
+                event.target instanceof HTMLElement &&
+                event.target.matches('[cmdk-item]') &&
                 ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)
               )
                 inputRef.current?.focus();
@@ -342,56 +395,121 @@ function SearchDialogContent() {
                         ? scope === 'pdf'
                           ? '一致するPDF資料が見つかりません。'
                           : '一致する記事・ニュースが見つかりません。'
-                        : `${results.total} 件の検索結果${results.total > 20 ? '（上位20件を表示）' : ''}`}
+                        : `${results.total} 件の検索結果（${results.totalMatches} 箇所が一致・${results.groups.length} 件を表示）${loadingMore ? ' 追加の結果を読み込んでいます…' : ''}`}
             </p>
 
-            <Command.List label="検索結果" aria-busy={(!ready || pending) && !error} className="border-t border-line">
+            <Command.List
+              ref={listRef}
+              label="検索結果"
+              aria-busy={(!ready || pending || loadingMore) && !error}
+              className="border-t border-line"
+            >
               {!error &&
                 !pending &&
                 query === deferredQuery &&
-                results.hits.map((result) => {
-                  const ResultLink = result.type === 'pdf' ? 'a' : Link;
+                results.groups.map((group) => {
+                  const ResultLink = group.type === 'pdf' ? 'a' : Link;
+                  const isExpanded = expanded.has(group.id);
                   return (
-                    <Command.Item key={result.id} value={result.id} asChild>
-                      <ResultLink
-                        onFocus={() => setSelectedResult(result.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') event.stopPropagation();
-                        }}
-                        href={String(result.id)}
-                        {...(result.type === 'pdf' ? {} : { prefetch: false })}
-                        onClick={(event) => {
-                          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-                            return;
-                          restoreOpenerRef.current = false;
-                          setDestination(String(result.id));
-                          changeOpen(false);
-                        }}
-                        className="flex items-start gap-3 border-b border-l-2 border-transparent border-b-line px-3 py-4 hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand"
-                      >
-                        <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                          <span className="text-xs text-subtle">
-                            {result.type === 'articles' ? '記事' : result.type === 'pdf' ? 'PDF' : 'ニュース'}
-                          </span>
-                          <p className="mt-1 text-sm font-semibold text-brand">
-                            <SearchHighlight text={result.title} query={query} />
-                          </p>
-                          {result.section && (
-                            <p className="mt-1 text-sm font-medium text-body">
-                              <SearchHighlight text={result.section} query={query} />
-                            </p>
-                          )}
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-subtle">
-                            <SearchHighlight text={result.excerpt} query={query} />
-                          </p>
-                        </div>
-                        <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
-                      </ResultLink>
-                    </Command.Item>
+                    <Command.Group
+                      key={group.id}
+                      value={group.id}
+                      data-search-group={group.id}
+                      className="border-b border-line"
+                    >
+                      {group.matches.slice(0, isExpanded ? undefined : 1).map((result, index) => (
+                        <Command.Item key={result.id} value={result.id} asChild>
+                          <ResultLink
+                            onFocus={() => setSelectedResult(result.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.stopPropagation();
+                            }}
+                            href={String(result.id)}
+                            {...(group.type === 'pdf' ? {} : { prefetch: false })}
+                            onClick={(event) => {
+                              if (
+                                event.button !== 0 ||
+                                event.metaKey ||
+                                event.ctrlKey ||
+                                event.shiftKey ||
+                                event.altKey
+                              )
+                                return;
+                              restoreOpenerRef.current = false;
+                              setDestination(String(result.id));
+                              changeOpen(false);
+                            }}
+                            className={`flex items-start gap-3 border-l-2 border-transparent px-3 py-4 hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand ${index > 0 ? 'ml-4 border-t border-t-line' : ''}`}
+                          >
+                            <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                              {index === 0 && (
+                                <>
+                                  <span className="text-xs text-subtle">
+                                    {group.type === 'articles' ? '記事' : group.type === 'pdf' ? 'PDF' : 'ニュース'}
+                                  </span>
+                                  <p className="mt-1 text-sm font-semibold text-brand">
+                                    <SearchHighlight text={group.title} query={query} />
+                                  </p>
+                                </>
+                              )}
+                              {(result.section || index > 0) && (
+                                <p className="mt-1 text-sm font-medium text-body">
+                                  <SearchHighlight text={result.section || '本文'} query={query} />
+                                </p>
+                              )}
+                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-subtle">
+                                <SearchHighlight text={result.excerpt} query={query} />
+                              </p>
+                            </div>
+                            <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
+                          </ResultLink>
+                        </Command.Item>
+                      ))}
+                      {group.matches.length > 1 && (
+                        <Command.Item
+                          value={`expand:${group.id}`}
+                          onSelect={() =>
+                            setExpanded((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(group.id)) next.delete(group.id);
+                              else next.add(group.id);
+                              return next;
+                            })
+                          }
+                          asChild
+                        >
+                          <button
+                            type="button"
+                            aria-label={`「${group.title}」のほか ${group.matches.length - 1} 件の一致箇所を${isExpanded ? '閉じる' : '表示'}`}
+                            onFocus={() => setSelectedResult(`expand:${group.id}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+                            }}
+                            className="flex min-h-11 w-full items-center gap-2 border-l-2 border-transparent px-3 py-2 text-left text-xs text-brand hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand"
+                          >
+                            <ChevronDown
+                              aria-hidden="true"
+                              className={`size-4 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                            />
+                            {isExpanded ? '一致箇所を閉じる' : `ほか ${group.matches.length - 1} 件の一致箇所を表示`}
+                          </button>
+                        </Command.Item>
+                      )}
+                    </Command.Group>
                   );
                 })}
             </Command.List>
           </Command>
+          {!error && ready && query.trim() && !pending && query === deferredQuery && results.nextOffset !== null && (
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
+              className="mt-4 min-h-11 w-full rounded-sm border border-line-strong px-4 py-2 text-sm text-brand hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60"
+            >
+              {loadingMore ? '読み込んでいます…' : 'もっと見る'}
+            </button>
+          )}
           {!error && !query.trim() && (
             <div className="py-4">
               <p className="text-xs text-subtle">キーワードの例</p>

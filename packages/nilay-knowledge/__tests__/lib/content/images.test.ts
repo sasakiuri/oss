@@ -14,14 +14,14 @@ vi.mock('node:fs/promises', async (importOriginal) => ({
 }));
 
 let directory: string;
-let publicContent: string;
+let contentDirectory: string;
 let imageDimensions: ReturnType<typeof createImageDimensionsResolver>;
 
 beforeEach(async () => {
   directory = await mkdtemp(path.join(tmpdir(), 'nilay-images-'));
-  publicContent = path.join(directory, 'public', 'content');
-  await mkdir(path.join(publicContent, 'assets'), { recursive: true });
-  imageDimensions = createImageDimensionsResolver(publicContent);
+  contentDirectory = path.join(directory, 'content');
+  await mkdir(path.join(contentDirectory, 'assets'), { recursive: true });
+  imageDimensions = createImageDimensionsResolver(contentDirectory);
 });
 
 afterEach(async () => {
@@ -37,7 +37,7 @@ describe('published image dimensions', () => {
   it('reads intrinsic dimensions from encoded asset paths and ignores query strings and fragments', async () => {
     await fixture()
       .png()
-      .toFile(path.join(publicContent, 'assets', '鳥 の画像.png'));
+      .toFile(path.join(contentDirectory, 'assets', '鳥 の画像.png'));
     expect(await imageDimensions('/content/assets/%E9%B3%A5%20%E3%81%AE%E7%94%BB%E5%83%8F.png?v=1#image')).toEqual({
       width: 80,
       height: 40,
@@ -48,13 +48,13 @@ describe('published image dimensions', () => {
     await fixture()
       .jpeg()
       .withMetadata({ orientation: 6 })
-      .toFile(path.join(publicContent, 'assets', 'rotated.jpg'));
+      .toFile(path.join(contentDirectory, 'assets', 'rotated.jpg'));
     expect(await imageDimensions('/content/assets/rotated.jpg')).toEqual({ width: 40, height: 80 });
   });
 
   it('supports SVG assets without rasterizing them', async () => {
     await writeFile(
-      path.join(publicContent, 'assets', 'drawing.svg'),
+      path.join(contentDirectory, 'assets', 'drawing.svg'),
       '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><rect width="120" height="60"/></svg>',
     );
     expect(await imageDimensions('/content/assets/drawing.svg')).toEqual({ width: 120, height: 60 });
@@ -81,21 +81,19 @@ describe('published image dimensions', () => {
     '/content/assets/%00.png',
     '/content/',
   ])('rejects unsafe content paths before reading a file: %s', async (src) => {
-    await expect(imageDimensions(src)).rejects.toThrow('must stay within public/content');
+    await expect(imageDimensions(src)).rejects.toThrow('must stay within content');
   });
 
   it('rejects malformed URL encoding and symlinks that escape the content directory', async () => {
     await expect(imageDimensions('/content/assets/%broken.png')).rejects.toThrow('Invalid content image URL');
     const outside = path.join(directory, 'outside.png');
     await fixture().png().toFile(outside);
-    await symlink(outside, path.join(publicContent, 'assets', 'link.png'));
-    await expect(imageDimensions('/content/assets/link.png')).rejects.toThrow(
-      'symlink must stay within public/content',
-    );
+    await symlink(outside, path.join(contentDirectory, 'assets', 'link.png'));
+    await expect(imageDimensions('/content/assets/link.png')).rejects.toThrow('symlink must stay within content');
   });
 
   it('reports corrupt files and invalid filesystem paths instead of silently omitting dimensions', async () => {
-    await writeFile(path.join(publicContent, 'assets', 'broken.png'), 'not an image');
+    await writeFile(path.join(contentDirectory, 'assets', 'broken.png'), 'not an image');
     await expect(imageDimensions('/content/assets/broken.png')).rejects.toThrow('Unable to read content image');
     await expect(imageDimensions('/content/assets')).rejects.toThrow('must be a regular file');
     for (const src of ['/content/assets/broken.png/image.png', '/content/assets/broken.png/nested/image.png']) {
@@ -104,8 +102,8 @@ describe('published image dimensions', () => {
   });
 
   it.each(['ENOENT', 'ENOTDIR'])('rejects file traversal when realpath reports %s', async (code) => {
-    await writeFile(path.join(publicContent, 'assets', 'file'), 'not a directory');
-    const target = path.join(publicContent, 'assets', 'file', 'nested', 'image.png');
+    await writeFile(path.join(contentDirectory, 'assets', 'file'), 'not a directory');
+    const target = path.join(contentDirectory, 'assets', 'file', 'nested', 'image.png');
     const realpath = fs.realpath;
     vi.spyOn(fs, 'realpath').mockImplementation((filename, options) =>
       filename === target
@@ -119,7 +117,7 @@ describe('published image dimensions', () => {
   });
 
   it('observes asset changes between renders instead of retaining stale dimensions', async () => {
-    const filename = path.join(publicContent, 'assets', 'updated.png');
+    const filename = path.join(contentDirectory, 'assets', 'updated.png');
     await fixture().png().toFile(filename);
     expect(await imageDimensions('/content/assets/updated.png')).toEqual({ width: 80, height: 40 });
     await fixture(100, 25).png().toFile(filename);

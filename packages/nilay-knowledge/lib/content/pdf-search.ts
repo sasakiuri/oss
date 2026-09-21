@@ -82,10 +82,10 @@ async function findReferences(sources: readonly ContentSource[]): Promise<PdfRef
             throw new Error(`Invalid PDF URL in ${source.type}/${source.slug}: ${href}`, { cause: error });
           }
           if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').includes('..')) {
-            throw new Error(`PDF path must stay within public/content: ${href}`);
+            throw new Error(`PDF path must stay within content: ${href}`);
           }
           if (!pathname.startsWith('/content/')) {
-            if (!href.startsWith('/')) throw new Error(`PDF path must stay within public/content: ${href}`);
+            if (!href.startsWith('/')) throw new Error(`PDF path must stay within content: ${href}`);
             return;
           }
           const url = pathname.split('/').map(encodeURIComponent).join('/');
@@ -120,13 +120,13 @@ async function findReferences(sources: readonly ContentSource[]): Promise<PdfRef
 /** Build-time extraction; pdfjs-dist and its fonts/CMaps never enter the browser bundle. */
 export async function createPdfSearchIndex(
   sources: readonly ContentSource[],
-  publicDirectory: string,
+  contentDirectory: string,
 ): Promise<{ documents: PdfSearchDocument[]; report: PdfSearchReport }> {
   const references = await findReferences(sources);
   const report: PdfSearchReport = { files: references.length, pages: 0, indexedPages: 0, pagesWithoutText: [] };
   if (references.length === 0) return { documents: [], report };
 
-  const directory = await realpath(path.join(publicDirectory, 'content'));
+  const directory = await realpath(contentDirectory);
   const require = createRequire(path.join(process.cwd(), 'package.json'));
   // Keep native Node resolution: a bundled require.resolve() returns a module ID, not a filesystem path.
   // https://nextjs.org/docs/app/guides/lazy-loading#magic-comments
@@ -137,11 +137,11 @@ export async function createPdfSearchIndex(
   // Sequential files/pages bound memory use independently of corpus size and make failures reproducible.
   for (const reference of references) {
     const filename = path.resolve(directory, `.${decodeURIComponent(reference.url).slice('/content'.length)}`);
-    if (!isWithin(directory, filename)) throw new Error(`PDF path must stay within public/content: ${reference.url}`);
+    if (!isWithin(directory, filename)) throw new Error(`PDF path must stay within content: ${reference.url}`);
     try {
-      // Public assets are served separately; avoid tracing the entire content tree into the server bundle.
+      // The asset route traces content explicitly; avoid bundling dynamic asset paths as modules.
       const realFilename = await realpath(/* turbopackIgnore: true */ filename);
-      if (!isWithin(directory, realFilename)) throw new Error('PDF symlink must stay within public/content');
+      if (!isWithin(directory, realFilename)) throw new Error('PDF symlink must stay within content');
       if (!(await stat(realFilename)).isFile()) throw new Error('PDF must be a regular file');
       const task = getDocument({
         data: new Uint8Array(await readFile(realFilename)),

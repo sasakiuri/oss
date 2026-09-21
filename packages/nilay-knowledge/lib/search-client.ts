@@ -10,8 +10,14 @@ export function createSearchClient() {
 
   return {
     load: () => client.call((api) => api.load()),
-    search: (query: string, scope?: SearchScope) =>
-      client.call((api) => (scope === undefined ? api.search(query) : api.search(query, scope))),
+    search: (query: string, scope?: SearchScope, offset?: number) =>
+      client.call((api) =>
+        offset !== undefined
+          ? api.search(query, scope, offset)
+          : scope === undefined
+            ? api.search(query)
+            : api.search(query, scope),
+      ),
     dispose: () => client.dispose(),
   };
 }

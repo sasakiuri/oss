@@ -47,13 +47,13 @@ function source(content: string): ContentSource {
 
 describe('PDF search extraction', () => {
   let directory: string;
-  let publicDirectory: string;
+  let contentRoot: string;
   let contentDirectory: string;
 
   beforeEach(async () => {
     directory = await mkdtemp(path.join(os.tmpdir(), 'knowledge-pdf-'));
-    publicDirectory = path.join(directory, 'public');
-    contentDirectory = path.join(publicDirectory, 'content/articles/example');
+    contentRoot = path.join(directory, 'content');
+    contentDirectory = path.join(contentRoot, 'articles/example');
     await mkdir(contentDirectory, { recursive: true });
     await writeFile(path.join(contentDirectory, 'document.pdf'), pdfFixture());
   });
@@ -65,7 +65,7 @@ describe('PDF search extraction', () => {
   it('extracts real PDF text with page links and reports pages without a text layer', async () => {
     const { documents, report } = await createPdfSearchIndex(
       [source('[添付資料](./document.pdf#page=2)')],
-      publicDirectory,
+      contentRoot,
     );
     expect(documents).toEqual([
       {
@@ -94,7 +94,7 @@ describe('PDF search extraction', () => {
           frontmatter: { title: '別の記事', published: '2024-01-02', tags: ['別の記事'] },
         },
       ],
-      publicDirectory,
+      contentRoot,
     );
     expect(report.files).toBe(1);
     expect(documents[0]?.tags).toEqual(['資料', '別の記事']);
@@ -118,7 +118,7 @@ describe('PDF search extraction', () => {
 <div aria-hidden="true"><a href="./orphan.pdf">Hidden</a></div>
 `),
       ],
-      publicDirectory,
+      contentRoot,
     );
     expect(documents).toEqual([]);
     expect(report.files).toBe(0);
@@ -126,10 +126,10 @@ describe('PDF search extraction', () => {
 
   it('extracts Japanese text from an existing published PDF using local CMaps', async () => {
     await copyFile(
-      path.join(process.cwd(), 'public/content/articles/1597956932/docs/juto06.pdf'),
+      path.join(process.cwd(), 'content/articles/1597956932/docs/juto06.pdf'),
       path.join(contentDirectory, 'japanese.pdf'),
     );
-    const { documents } = await createPdfSearchIndex([source('[申請書](./japanese.pdf)')], publicDirectory);
+    const { documents } = await createPdfSearchIndex([source('[申請書](./japanese.pdf)')], contentRoot);
     expect(documents.length).toBeGreaterThan(0);
     expect(documents.map((document) => document.text).join('')).toContain('銃砲所持許可申請書');
   });
@@ -138,7 +138,7 @@ describe('PDF search extraction', () => {
     await copyFile(path.join(contentDirectory, 'document.pdf'), path.join(contentDirectory, '添付 資料.pdf'));
     const { documents } = await createPdfSearchIndex(
       [source('[○](./%E6%B7%BB%E4%BB%98%20%E8%B3%87%E6%96%99.pdf)')],
-      publicDirectory,
+      contentRoot,
     );
     expect(documents[0]?.title).toBe('添付 資料.pdf');
     expect(documents[0]?.id).toBe('/content/articles/example/%E6%B7%BB%E4%BB%98%20%E8%B3%87%E6%96%99.pdf#page=1');
@@ -147,7 +147,7 @@ describe('PDF search extraction', () => {
   it('uses the table row to identify downloads whose link label is only a symbol', async () => {
     const { documents } = await createPdfSearchIndex(
       [source('| 書類 | PDF |\n| --- | --- |\n| 添付資料 | [○](./document.pdf) |')],
-      publicDirectory,
+      contentRoot,
     );
     expect(documents[0]?.title).toBe('添付資料 (document.pdf)');
   });
@@ -158,9 +158,9 @@ describe('PDF search extraction', () => {
     '/content/%2e%2e/outside.pdf',
     '/content/articles/example/..%2F..%2F..%2Foutside.pdf',
     '/content/articles/example/evil%5Coutside.pdf',
-  ])('rejects PDF references outside the public content directory: %s', async (href) => {
-    await expect(createPdfSearchIndex([source(`[Invalid](${href})`)], publicDirectory)).rejects.toThrow(
-      'must stay within public/content',
+  ])('rejects PDF references outside the content directory: %s', async (href) => {
+    await expect(createPdfSearchIndex([source(`[Invalid](${href})`)], contentRoot)).rejects.toThrow(
+      'must stay within content',
     );
   });
 
@@ -168,17 +168,17 @@ describe('PDF search extraction', () => {
     const outside = path.join(directory, 'private.pdf');
     await writeFile(outside, pdfFixture());
     await symlink(outside, path.join(contentDirectory, 'escape.pdf'));
-    await expect(createPdfSearchIndex([source('[Private](./escape.pdf)')], publicDirectory)).rejects.toThrow(
-      'PDF symlink must stay within public/content',
+    await expect(createPdfSearchIndex([source('[Private](./escape.pdf)')], contentRoot)).rejects.toThrow(
+      'PDF symlink must stay within content',
     );
   });
 
   it('fails explicitly for missing and malformed PDFs', async () => {
-    await expect(createPdfSearchIndex([source('[Missing](./missing.pdf)')], publicDirectory)).rejects.toThrow(
+    await expect(createPdfSearchIndex([source('[Missing](./missing.pdf)')], contentRoot)).rejects.toThrow(
       'Unable to index PDF /content/articles/example/missing.pdf',
     );
     await writeFile(path.join(contentDirectory, 'malformed.pdf'), 'This is not a PDF');
-    await expect(createPdfSearchIndex([source('[Malformed](./malformed.pdf)')], publicDirectory)).rejects.toThrow(
+    await expect(createPdfSearchIndex([source('[Malformed](./malformed.pdf)')], contentRoot)).rejects.toThrow(
       'Unable to index PDF /content/articles/example/malformed.pdf',
     );
   });

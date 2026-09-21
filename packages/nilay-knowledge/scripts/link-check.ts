@@ -28,6 +28,8 @@ export async function prepareLinkCheck(packageDirectory: string) {
       entry.isDirectory() ? 'junction' : 'file',
     );
   }
+  // The /content route reads the authored tree directly; expose the same files to lychee.
+  await symlink(path.join(packageDirectory, 'content'), path.join(siteDirectory, 'content'), 'junction');
 
   // Only actual static App Router pages become targets. Dynamic article/news pages
   // are populated below from the repository, so a misspelled route stays missing.
@@ -55,6 +57,14 @@ export async function prepareLinkCheck(packageDirectory: string) {
       const { html } = await renderContent(source);
       const processor = unified().use(rehypeRaw).use(rehypeStringify);
       const tree = await processor.run({ type: 'root', children: [{ type: 'raw', value: html }] });
+      for (const reference of source.frontmatter.review?.sources ?? []) {
+        tree.children.push({
+          type: 'element',
+          tagName: 'a',
+          properties: { href: reference.url },
+          children: [{ type: 'text', value: reference.title }],
+        });
+      }
       // Check real attributes; code examples and data attributes are not links.
       visit(tree, 'element', (node) => {
         for (const attribute of ['href', 'src'] as const) {

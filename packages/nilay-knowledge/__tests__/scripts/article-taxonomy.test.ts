@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFile } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -40,16 +40,10 @@ describe('article classification management', () => {
     expect(report).toContain('タグなしの記事: 1件\n  draft: 未整理');
   });
 
-  it('keeps authored articles and their published copies synchronized', async () => {
+  it('loads articles from the sole content tree without public copies', async () => {
     const repository = createContentRepository(path.join(process.cwd(), 'content'));
     const articles = await repository.list('articles');
     expect(articles.length).toBeGreaterThan(0);
-    for (const article of articles) {
-      const relative = `articles/${article.slug}/index.md`;
-      const [source, published] = await Promise.all(
-        ['content', 'public/content'].map((root) => readFile(path.join(process.cwd(), root, relative), 'utf8')),
-      );
-      expect(source).toBe(published);
-    }
+    await expect(access(path.join(process.cwd(), 'public/content'))).rejects.toHaveProperty('code', 'ENOENT');
   });
 });

@@ -35,6 +35,31 @@ export const frontmatterSchema = z
       category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),
       updated: publicationDate.optional(),
       image: nonEmptyText.optional(),
+      review: z
+        .object({
+          checked: publicationDate,
+          region: nonEmptyText,
+          scope: nonEmptyText,
+          sources: z
+            .array(
+              z
+                .object({
+                  title: nonEmptyText,
+                  url: z.url().refine(
+                    (value) => {
+                      if (!URL.canParse(value)) return false;
+                      const url = new URL(value);
+                      return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password;
+                    },
+                    { error: 'an HTTP or HTTPS URL without credentials' },
+                  ),
+                })
+                .strict(),
+            )
+            .min(1),
+        })
+        .strict()
+        .optional(),
     },
     { error: 'a mapping' },
   )
