@@ -299,6 +299,15 @@ the two search JSON indexes. It does not block crawling of those files, so crawl
 can read the directive. PDF documents, images and archived HTML remain indexable.
 Filtered article directory URLs canonicalize to `/articles/`.
 
+Authored internal page links and social sharing URLs use the same trailing-slash
+canonical URLs. Next.js normalizes `Link` destinations; plain Markdown/HTML anchors
+must include the slash themselves. The four historical law documents under
+`content/articles/1379067191/olds/` have individual titles, descriptions identifying
+them as historical material, and self-referencing canonicals. The historical label
+and navigation back to the source article render without JavaScript; the old script
+no longer overwrites the document title on load. Their original legal text is
+preserved, and their public copies must stay synchronized.
+
 After building, run the full-site checks and the representative Lighthouse audit:
 
 ```bash
@@ -309,7 +318,11 @@ npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
 The SEO checks fetch every sitemap URL and inspect delivered HTML with JavaScript
 disabled. They verify repository/sitemap parity, HTTP status, unique titles and
 descriptions, canonicals, social metadata, structured data, crawlable internal links,
-robots rules, source headers and missing-page behavior. They run with the normal
+robots rules, source headers and missing-page behavior. They also reject redirects
+and broken internal resources, missing fragment targets, HTML embedded in link URLs,
+and concatenated URL schemes. Historical document metadata and source-copy parity
+are checked separately, along with decoding the static and generated Japanese social
+images at their advertised dimensions. They run with the normal
 Playwright suite as well. Lighthouse samples seven pages on desktop and mobile;
 its SEO score alone does not detect duplicate descriptions or incomplete structured
 data. Local checks do not measure Google indexing or search rankings.

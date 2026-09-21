@@ -1,4 +1,7 @@
+import { readdir, readFile } from 'node:fs/promises';
+
 import { expect, test } from '@playwright/test';
+import sharp from 'sharp';
 
 import { siteConfig } from '../lib/config';
 import { createContentRepository } from '../lib/content/repository';
@@ -29,6 +32,9 @@ test('every sitemap page exposes unique metadata and consistent structured data 
   const descriptions = new Set<string>();
   const titles = new Set<string>();
   const linksByPage = new Map<string, Set<string>>();
+  const resources = new Set<string>();
+  const fragments: { page: string; destination: string; fragment: string }[] = [];
+  const idsByPage = new Map<string, Set<string>>();
 
   for (const url of urls) {
     const path = new URL(url).pathname;
@@ -96,12 +102,33 @@ test('every sitemap page exposes unique metadata and consistent structured data 
       const links = await page
         .locator('a[href]')
         .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')!));
+      idsByPage.set(url, new Set(await page.locator('[id]').evaluateAll((nodes) => nodes.map((node) => node.id))));
       const destinations = new Set<string>();
       for (const href of links) {
+        expect(href, `Concatenated URLs on ${url}`).not.toMatch(/^https?:\/\/[^/]*https?:\/\//i);
         const link = new URL(href, url);
-        if (link.origin === siteConfig.siteUrl) destinations.add(`${link.origin}${link.pathname.replace(/\/?$/, '/')}`);
+        // Query values may legitimately contain quoted search terms or encoded HTML.
+        expect(link.pathname, `HTML embedded in a link path on ${url}`).not.toMatch(
+          /(?:%22|")(?:%3e|>)|(?:%3c|<)\/?a(?:%20|\s|%3e|>)/i,
+        );
+        if (link.origin !== siteConfig.siteUrl) continue;
+        const destination = `${link.origin}${link.pathname}`;
+        // Check the delivered href, not a normalized copy that could hide redirects.
+        if (/^\/(articles|news|about)(\/|$)/.test(link.pathname)) {
+          expect(urls, `Noncanonical or missing page linked from ${url}: ${href}`).toContain(destination);
+        }
+        destinations.add(destination);
+        resources.add(`${link.pathname}${link.search}`);
+        if (link.hash) fragments.push({ page: url, destination, fragment: link.hash.slice(1) });
       }
       linksByPage.set(url, destinations);
+      for (const src of await page
+        .locator('img')
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('src')!))) {
+        const image = new URL(src, url);
+        if (image.origin === siteConfig.siteUrl) resources.add(`${image.pathname}${image.search}`);
+      }
+      await expect(page.locator('img:not([alt])')).toHaveCount(0);
     });
   }
   // Traverse from home: self-links and disconnected groups must not hide orphan pages.
@@ -114,6 +141,85 @@ test('every sitemap page exposes unique metadata and consistent structured data 
     pending.push(...(linksByPage.get(url) ?? []));
   }
   for (const url of urls) expect(reachable, `Orphan page: ${url}`).toContain(url);
+  for (const { page: source, destination, fragment } of fragments) {
+    const ids = idsByPage.get(destination);
+    if (!ids) continue;
+    // Browsers try literal IDs before percent-decoding, including GFM footnotes.
+    expect(
+      ids.has(fragment) || ids.has(decodeURIComponent(fragment)),
+      `Missing anchor: ${source} → ${destination}#${fragment}`,
+    ).toBe(true);
+  }
+  for (const resource of resources) {
+    const response = await request.head(resource, { maxRedirects: 0 });
+    expect(response.status(), `Broken or redirected internal resource: ${resource}`).toBe(200);
+  }
+});
+
+test('historical law documents have distinct search metadata and synchronized source copies', async ({
+  page,
+  request,
+}) => {
+  await page.route('**/*', (route) => route.abort());
+  const directory = 'content/articles/1379067191/olds';
+  const files = (await readdir(directory)).filter((file) => file.endsWith('.html'));
+  expect(files).toHaveLength(4);
+  const titles = new Set<string>();
+  const descriptions = new Set<string>();
+  for (const file of files) {
+    const path = `/${directory}/${file}`;
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-robots-tag'] ?? '').not.toContain('noindex');
+    const html = await response.text();
+    expect(html).toBe(await readFile(`${directory}/${file}`, 'utf8'));
+    await page.setContent(html);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
+    const title = await page.title();
+    expect(title).toContain(await page.locator('h1').innerText());
+    expect(title).toContain('歴史資料');
+    expect(titles.has(title)).toBe(false);
+    titles.add(title);
+    const description = await page.locator('head meta[name="description"]').getAttribute('content');
+    expect(description).toContain('現行法令ではありません');
+    expect(descriptions.has(description!)).toBe(false);
+    descriptions.add(description!);
+    await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', `${siteConfig.siteUrl}${path}`);
+    await expect(page.getByRole('link', { name: '法令・通達一覧へ戻る' })).toHaveAttribute(
+      'href',
+      '/articles/1379067191/',
+    );
+    await expect(page.getByText('歴史資料（現行法令ではありません）', { exact: true })).toBeVisible();
+  }
+});
+
+test.describe('historical documents with JavaScript', () => {
+  test.use({ javaScriptEnabled: true });
+
+  test('keeps the historical title after the load event', async ({ page }) => {
+    const directory = 'content/articles/1379067191/olds';
+    for (const file of (await readdir(directory)).filter((file) => file.endsWith('.html'))) {
+      await page.goto(`/${directory}/${file}`, { waitUntil: 'load' });
+      await expect(page).toHaveTitle(/歴史資料.*Nilay\/Knowledge/);
+      await page.getByRole('link', { name: '法令・通達一覧へ戻る' }).click();
+      await expect(page).toHaveURL(/\/articles\/1379067191\/$/);
+    }
+  });
+});
+
+test('social images return decodable images at their advertised dimensions', async ({ request }) => {
+  for (const [path, width, height] of [
+    ['/ogp.png', 1280, 670],
+    [`/api/og/?title=${encodeURIComponent('銃を手に入れる & 狩猟の基礎')}`, 1200, 630],
+  ] as const) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toMatch(/^image\//);
+    expect(response.headers()['x-robots-tag'] ?? '').not.toContain('noindex');
+    const image = sharp(await response.body());
+    expect(await image.metadata()).toMatchObject({ width, height });
+    expect((await image.raw().toBuffer()).length).toBeGreaterThan(0);
+  }
 });
 
 test('crawler directives permit published pages and images while excluding source and search data', async ({

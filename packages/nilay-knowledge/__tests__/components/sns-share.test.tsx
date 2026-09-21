@@ -37,15 +37,26 @@ describe('SnsShare accessibility', () => {
         .getAttribute('href')!,
     );
     expect(twitter.searchParams.get('text')).toBe(`共有する記事 & 資料 : ${siteConfig.title}`);
-    expect(twitter.searchParams.get('url')).toBe(`${siteConfig.siteUrl}/articles/example`);
+    expect(twitter.searchParams.get('url')).toBe(`${siteConfig.siteUrl}/articles/example/`);
     const emailLink = within(group).getByRole('link', { name: 'メールで送る' });
     const email = new URL(emailLink.getAttribute('href')!);
     expect(email.protocol).toBe('mailto:');
     expect(email.searchParams.get('subject')).toBe(`共有する記事 & 資料 : ${siteConfig.title}`);
     expect(email.searchParams.get('body')).toBe(
-      `共有する記事 & 資料 : ${siteConfig.title}\n${siteConfig.siteUrl}/articles/example`,
+      `共有する記事 & 資料 : ${siteConfig.title}\n${siteConfig.siteUrl}/articles/example/`,
     );
     expect(emailLink).not.toHaveAttribute('target');
+  });
+
+  it.each([
+    [undefined, '/'],
+    ['about', '/about/'],
+    ['news/example/', '/news/example/'],
+  ])('shares the canonical path for %s without duplicate trailing slashes', async (slug, path) => {
+    render(<SnsShare slug={slug} />);
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'SNSで共有' })));
+    const link = new URL(screen.getByRole('link', { name: /^Twitter/ }).getAttribute('href')!);
+    expect(link.searchParams.get('url')).toBe(`${siteConfig.siteUrl}${path}`);
   });
 
   it('dismisses with Escape from a share link and restores focus to the disclosure trigger', async () => {
