@@ -13,6 +13,7 @@ npm run lint --workspace=@sasakiuri/nilay-knowledge
 npm run typecheck --workspace=@sasakiuri/nilay-knowledge
 npm run test:coverage --workspace=@sasakiuri/nilay-knowledge
 npm run build --workspace=@sasakiuri/nilay-knowledge
+npm run size-limit --workspace=@sasakiuri/nilay-knowledge
 npm run start --workspace=@sasakiuri/nilay-knowledge
 ```
 
@@ -26,7 +27,11 @@ this import.
 Optional environment variables are `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
 `NEXT_PUBLIC_FACEBOOK_APP_ID`. Set them before building; Turbo includes both in
 the build cache key. `ANALYZE=true npm run build --workspace=@sasakiuri/nilay-knowledge`
-enables the bundle analyzer. Text uses system fonts, so reading does not require
+enables the bundle analyzer. When GA4 is configured, `useReportWebVitals` sends performance
+measurements (including LCP, INP and CLS) to that same property after GA initializes.
+Without a measurement ID, analytics and reporting stay disabled. Only metric IDs,
+numbers and ratings/navigation types are included; DOM text and attribution URLs
+are not added. Text uses system fonts, so reading does not require
 downloading Japanese web fonts and builds do not contact Google Fonts. BudouX adds
 phrase boundaries to page and home-card titles during server rendering using
 `<wbr>`; the original title text, metadata and heading IDs are preserved. BudouX
@@ -244,6 +249,17 @@ without inferred dimensions; errors while reading local image dimensions fail th
 The browser suite checks deferred image loading, image dimensions, search-worker
 creation and reuse, and responsive home images. Run the reproducible browser
 benchmark against a production server as described in [PERFORMANCE.md](PERFORMANCE.md).
+
+`npm run size-limit --workspace=@sasakiuri/nilay-knowledge` checks an existing
+production build. The gzip budgets are 330 kB of initial JS and 20 kB of initial
+CSS per static page, 125 kB for the article/news index, and 800 kB for the optional
+PDF index. Initial script, stylesheet and preload references are collected from
+all generated HTML; shared assets are counted once per page and lazy chunks are
+excluded. Missing build artifacts fail the check. These are compressed file-size
+budgets, not measured network traffic or a performance score. CI runs the check
+through the existing Turbo `size-limit` task after building. Run
+`npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge` for its input
+validation tests.
 
 ## Accessibility checks
 
