@@ -50,7 +50,7 @@ category: resources
 - [FX Airguns](http://www.fxairguns.com/)
 - [GAMO](http://www.gamo.com/)
 - [Grünig &amp; Elmiger](http://www.gruenel.ch/home/)
-- [Airforce](http://www.gunpower.net/">Gunpower</a> (<a target="_blank" href="http://www.airforceairguns.com/))
+- [Gunpower](http://www.gunpower.net/)（[Airforce](http://www.airforceairguns.com/)）
 - [Hämmerli](http://www.haemmerli.info/en/home.html)
 - [Heckler &amp; Koch](http://www.heckler-koch.com/en.html)
 - [Ithaca](http://www.ithacagun.com/)
