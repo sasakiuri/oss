@@ -21,8 +21,7 @@ The development and production servers listen on port 3000. Build generates the
 RSS feed and sitemap in `public/`, then builds Next.js into `.next/`. This committed
 version uses a Next.js server, including `/api/og`; it does not export `out/`.
 The inherited Firebase configuration is retained as historical configuration and
-is not a deployment pipeline for this build. Hosting and DNS are unchanged by
-this import.
+is not a deployment pipeline for this build.
 
 Optional environment variables are `NEXT_PUBLIC_GA_MEASUREMENT_ID` and
 `NEXT_PUBLIC_FACEBOOK_APP_ID`. Set them before building; Turbo includes both in
@@ -46,6 +45,33 @@ Use `npm run new:article --workspace=@sasakiuri/nilay-knowledge -- "Title"` or
 The creation commands reserve a new directory before writing, add a numeric suffix
 when the slug already exists, and write UTC timestamps. Article slugs use Unix
 seconds; news slugs use the local calendar date.
+
+## Vercel deployment
+
+Use the existing Vercel project with these settings:
+
+| Setting                                         | Value                      |
+| ----------------------------------------------- | -------------------------- |
+| Git repository                                  | `sasakiuri/oss`            |
+| Production branch                               | `1.x`                      |
+| Root Directory                                  | `packages/nilay-knowledge` |
+| Include source files outside the Root Directory | Enabled                    |
+| Node.js                                         | `24.x`                     |
+
+[`vercel.json`](vercel.json) selects Next.js, installs the root lockfile with
+`npm ci --ignore-scripts`, runs this package's `npm run build`, and uses `.next/`.
+Skipping install scripts avoids the repository's Electron rebuild. The separate
+build command still runs `prebuild` to prepare styles, RSS and the sitemap.
+
+In the existing project's Git settings, connect `sasakiuri/oss`, then update the
+build settings above and the production branch. Keep the project's domains and
+environment variables. Remove any Ignored Build Step command that refers to a
+different package path. Deploy the commit containing this configuration from
+`1.x`; redeploying an older deployment uses its older source. Verify the homepage,
+an article, `/feed.xml`, `/sitemap.xml` and `/api/og` before promoting a preview.
+
+See Vercel's [Git settings](https://vercel.com/docs/project-configuration/git-settings)
+and [monorepo configuration](https://vercel.com/docs/monorepos).
 
 ## Content architecture
 
