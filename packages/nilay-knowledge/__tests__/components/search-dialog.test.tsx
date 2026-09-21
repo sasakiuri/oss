@@ -219,6 +219,19 @@ describe('site search dialog', () => {
     await waitFor(() => expect(home).toHaveFocus());
   });
 
+  it('keeps a home search request made before the shared dialog mounts', async () => {
+    mockClient();
+    render(<HomeSearchButton />);
+    const home = screen.getByRole('button', { name: '記事・ニュースを検索' });
+    home.focus();
+    fireEvent.click(home);
+    render(<SearchDialog />);
+    const input = await screen.findByRole('combobox', { name: '検索キーワード' });
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(home).toHaveFocus());
+  });
+
   it('announces no results and supports retry after a failed download', async () => {
     const failed = mockClient();
     failed.load.mockRejectedValueOnce(new Error('Search unavailable'));

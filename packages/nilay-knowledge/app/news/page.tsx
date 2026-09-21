@@ -23,19 +23,27 @@ interface NewsListProps {
 
 function NewsList({ title, newsList }: NewsListProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-surface">
-      <h2 className="border-b border-line bg-muted px-4 py-3 text-lg font-bold text-ink">{title}</h2>
+    <div className="">
+      <h2 className="flex items-baseline justify-between gap-4 border-b border-line-strong pb-4 text-lg font-semibold text-ink">
+        {title}
+        <span className="text-xs font-normal text-subtle">{newsList.length}件</span>
+      </h2>
       <ul className="divide-y divide-line">
         {newsList.map((news) => (
           <li key={news.slug}>
             <Link
               href={`/news/${news.slug}`}
-              className="flex flex-col items-start gap-1 sm:flex-row sm:gap-4 px-4 py-3 hover:bg-muted"
+              className="group flex flex-col items-start gap-2 -mx-3 px-3 py-5 sm:flex-row sm:gap-6 hover:bg-muted"
             >
-              <time dateTime={news.frontmatter.published} className="shrink-0 text-sm text-subtle">
+              <time
+                dateTime={news.frontmatter.published}
+                className="shrink-0 text-xs leading-7 text-subtle tabular-nums"
+              >
                 {formatDate(news.frontmatter.published)}
               </time>
-              <span className="text-brand">{news.frontmatter.title}</span>
+              <span className="leading-7 text-ink underline-offset-4 group-hover:text-brand group-hover:underline">
+                {news.frontmatter.title}
+              </span>
             </Link>
           </li>
         ))}
@@ -57,12 +65,27 @@ export default async function NewsPage() {
           { name: title, slug },
         ]}
       />
-      <SnsShare title={title} slug={slug} />
 
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        <h1 className="text-2xl font-bold text-ink">{title}</h1>
-        <NewsList title="事件・事故" newsList={incidentNews} />
-        <NewsList title="法令・制度" newsList={lawNews} />
+      <div className="mx-auto max-w-4xl space-y-12 px-5 pt-6 pb-12 sm:px-8 sm:pt-10">
+        <header>
+          <h1 className="page-title">{title}</h1>
+          <p className="mt-3 text-sm leading-7 text-subtle">銃・射撃・狩猟に関する事件・事故、法令・制度の記録。</p>
+          <nav aria-label="ニュースの分野" className="mt-6 flex flex-wrap gap-6 text-sm text-brand">
+            <a href="#incidents" className="inline-flex min-h-11 items-center underline underline-offset-4">
+              事件・事故
+            </a>
+            <a href="#laws" className="inline-flex min-h-11 items-center underline underline-offset-4">
+              法令・制度
+            </a>
+          </nav>
+        </header>
+        <section id="incidents" className="scroll-mt-[calc(var(--site-header-height)+1.5rem)]">
+          <NewsList title="事件・事故" newsList={incidentNews} />
+        </section>
+        <section id="laws" className="scroll-mt-[calc(var(--site-header-height)+1.5rem)]">
+          <NewsList title="法令・制度" newsList={lawNews} />
+        </section>
+        <SnsShare title={title} slug={slug} />
       </div>
     </>
   );

@@ -117,7 +117,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
         aria-expanded={isOpen}
         aria-controls={listId}
         onClick={() => setIsOpen((open) => !open)}
-        className="flex w-full items-center gap-2 rounded-lg border border-line bg-surface px-4 py-3 text-sm text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:hidden"
+        className="flex w-full items-center gap-2 rounded-sm border border-line bg-surface px-4 py-3 text-sm text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:hidden"
       >
         <List className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="shrink-0 font-bold">目次</span>
@@ -129,7 +129,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
         ref={listRef}
         id={listId}
         className={cn(
-          'absolute inset-x-0 top-full mt-2 max-h-[min(60dvh,var(--toc-available-height,60dvh))] overflow-y-auto overscroll-contain rounded-lg border border-line bg-surface p-2 lg:static lg:mt-0 lg:max-h-[calc(100dvh-var(--site-header-height)-4rem)] lg:rounded-none lg:border-0 lg:border-l lg:py-0 lg:pl-2 lg:pr-1',
+          'absolute inset-x-0 top-full mt-2 max-h-[min(60dvh,var(--toc-available-height,60dvh))] overflow-y-auto overscroll-contain rounded-sm border border-line bg-surface p-2 lg:static lg:mt-0 lg:max-h-[calc(100dvh-var(--site-header-height)-4rem)] lg:rounded-none lg:border-0 lg:border-l lg:py-0 lg:pl-2 lg:pr-1',
           isOpen ? 'block' : 'hidden lg:block',
         )}
       >
@@ -145,8 +145,8 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
                   focusContent(`#${encodeURIComponent(item.id)}`);
                 }}
                 className={cn(
-                  'block rounded-md px-3 py-2 leading-relaxed [overflow-wrap:anywhere] hover:bg-muted-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-brand lg:py-1.5',
-                  item.id === activeId ? 'bg-selected font-semibold text-brand' : 'text-subtle',
+                  'block border-l-2 border-transparent px-3 py-2 leading-relaxed [overflow-wrap:anywhere] hover:bg-muted-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-brand lg:py-1.5',
+                  item.id === activeId ? 'border-brand! bg-selected font-medium text-brand' : 'text-subtle',
                 )}
               >
                 {item.title}

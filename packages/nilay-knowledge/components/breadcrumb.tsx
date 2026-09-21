@@ -24,19 +24,16 @@ export function Breadcrumb({ items, showNav = true, className }: BreadcrumbProps
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {showNav && (
-        <nav aria-label="パンくずリスト" className={cn('mx-auto max-w-3xl px-4', className)}>
-          <ol className="flex min-w-0 flex-wrap items-center gap-1 border-b border-line py-2 text-sm text-subtle">
+        <nav aria-label="パンくずリスト" className={cn('site-container', className)}>
+          <ol className="flex min-w-0 flex-wrap items-center gap-1 py-2 text-xs text-subtle">
             {items.map((item, index) => (
               <li
                 key={item.slug}
-                className={cn(
-                  'flex items-center gap-1',
-                  index === items.length - 1 ? 'min-w-0 basis-full sm:flex-1 sm:basis-auto' : 'shrink-0',
-                )}
+                className={cn('flex items-center gap-1', index === items.length - 1 ? 'min-w-0 flex-1' : 'shrink-0')}
               >
                 {index > 0 && <ChevronRight className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />}
                 {index === items.length - 1 ? (
-                  <span aria-current="page" className="min-w-0 px-2 py-3 font-medium text-ink [overflow-wrap:anywhere]">
+                  <span aria-current="page" className="min-w-0 px-2 py-3 text-subtle [overflow-wrap:anywhere]">
                     {item.name}
                   </span>
                 ) : (

@@ -15,40 +15,48 @@
   --color-brand: var(--brand);
   --color-brand-strong: var(--brand-strong);
   --color-selected: var(--selected);
+  --color-navigation: var(--navigation);
+  --color-accent: var(--accent);
 }
 
 @layer base {
   :root {
-    --site-header-height: 3.5rem;
+    --site-header-height: 4.5rem;
     --article-toc-height: 2.875rem;
-    --surface: #fff;
-    --muted: #f8fafc;
-    --muted-strong: #f1f5f9;
-    --ink: #1e293b;
-    --body-ink: #374151;
-    --subtle: #475569;
-    --faint: #64748b;
-    --line: #e2e8f0;
-    --line-strong: #64748b;
-    --brand: #0369a1;
-    --brand-strong: #026495;
-    --selected: #f0f9ff;
+    /* Warm paper and ink, with Nilay blue-gray links and navigation. */
+    --surface: #f8f5ee;
+    --muted: #efeadf;
+    --muted-strong: #e5ded0;
+    --ink: #302c26;
+    --body-ink: #443e35;
+    --subtle: #625b50;
+    /* Keep small text readable on both paper and shaded surfaces. */
+    --faint: #685f52;
+    --line: rgb(48 44 38 / 0.16);
+    --line-strong: #8a8171;
+    --brand: #455f6c;
+    --brand-strong: #314955;
+    --selected: #e9e3d7;
+    --navigation: #37474f;
+    --accent: #d97706;
     color-scheme: light;
   }
 
   .dark {
-    --surface: #0f172a;
-    --muted: #1e293b;
-    --muted-strong: #334155;
-    --ink: #f1f5f9;
-    --body-ink: #e2e8f0;
-    --subtle: #cbd5e1;
-    --faint: #94a3b8;
-    --line: #334155;
-    --line-strong: #64748b;
-    --brand: #7dd3fc;
-    --brand-strong: #bae6fd;
-    --selected: #0c4a6e;
+    --surface: #172126;
+    --muted: #1e2b32;
+    --muted-strong: #293b45;
+    --ink: #edf3f6;
+    --body-ink: #ccd7dc;
+    --subtle: #a6b9c3;
+    --faint: #94aab6;
+    --line: rgb(255 255 255 / 0.1);
+    --line-strong: #6f8996;
+    --brand: #b1c9d5;
+    --brand-strong: #d8e7ee;
+    --selected: #2b414e;
+    --navigation: #263a45;
+    --accent: #f6a13b;
     color-scheme: dark;
   }
 
@@ -62,6 +70,7 @@
   /* Prefer installed Noto Japanese fonts before testing platform-specific families for each glyph. */
   --font-sans:
     system-ui, 'Noto Sans CJK JP', 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-editorial: Georgia, 'Noto Serif CJK JP', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
 
   /* Animation keyframes */
   --animate-fade-in: fade-in 0.2s ease-out;
@@ -106,9 +115,28 @@
   }
 }
 
-/* ===========================================
-   Zenn-style Markdown Styling
-   =========================================== */
+@utility site-container {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, 2rem);
+}
+
+@utility page-title {
+  font-size: clamp(1.65rem, 2.8vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+@utility section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+/* Long-form reading */
 
 .prose {
   --tw-prose-body: var(--body-ink);
@@ -177,14 +205,14 @@
 
 /* h2 - Section heading */
 .prose h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 600;
   color: var(--ink);
-  margin-top: 2.5rem;
+  margin-top: 3rem;
   margin-bottom: 1rem;
-  padding-bottom: 0.375rem;
+  padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--line);
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 /* h3 - Subsection heading */
@@ -212,7 +240,7 @@
 .prose p {
   margin-top: 1.25rem;
   margin-bottom: 1.25rem;
-  line-height: 1.8;
+  line-height: 1.95;
   color: var(--body-ink);
 }
 
@@ -228,6 +256,15 @@
 .prose a:hover {
   color: var(--brand-strong);
   text-decoration-color: var(--brand-strong);
+}
+
+/* Short image-credit links need usable targets even when a caption wraps. */
+.prose small a {
+  display: inline-block;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 100%;
+  line-height: 1.8;
 }
 
 /* Lists */
@@ -265,7 +302,7 @@
   margin-bottom: 0.5rem;
 }
 
-/* Blockquotes - Zenn style */
+/* Blockquotes */
 .prose blockquote {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
@@ -388,7 +425,7 @@
   padding: 0;
 }
 
-/* Inline code - Zenn style */
+/* Inline code */
 .prose :not(pre) > code {
   padding: 0.2em 0.4em;
   margin: 0 0.1em;
@@ -401,7 +438,7 @@
   border: 1px solid var(--line);
 }
 
-/* Tables - Zenn style */
+/* Tables */
 .prose table {
   width: 100%;
   margin-top: 1.5rem;
@@ -448,16 +485,12 @@
 .prose img {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  border-radius: 0.125rem;
 }
 
 .prose .image-zoom-trigger:hover img {
-  transform: scale(1.01);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  outline: 1px solid var(--line-strong);
+  outline-offset: 3px;
 }
 
 .prose .image-zoom-trigger {
@@ -616,7 +649,7 @@ html {
   scroll-padding-bottom: 5rem;
 }
 
-/* Text enlargement should grow labels without making five icon controls wider than a phone. */
+/* Icon controls retain their target size when readers enlarge text. */
 .site-header :is(a, button)[aria-label] {
   width: auto;
   height: auto;

@@ -22,11 +22,11 @@ describe('SnsShare accessibility', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     const group = screen.getByRole('dialog', { name: '共有先' });
     const links = within(group).getAllByRole('link');
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
     expect(trigger.compareDocumentPosition(links[0]!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(trigger).toHaveAttribute('aria-controls', group.id);
     expect(trigger).toHaveFocus();
-    for (const link of links) {
+    for (const link of links.slice(0, 4)) {
       expect(link).toHaveAccessibleName(/で共有（新しいタブで開く）/);
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -38,6 +38,14 @@ describe('SnsShare accessibility', () => {
     );
     expect(twitter.searchParams.get('text')).toBe(`共有する記事 & 資料 : ${siteConfig.title}`);
     expect(twitter.searchParams.get('url')).toBe(`${siteConfig.siteUrl}/articles/example`);
+    const emailLink = within(group).getByRole('link', { name: 'メールで送る' });
+    const email = new URL(emailLink.getAttribute('href')!);
+    expect(email.protocol).toBe('mailto:');
+    expect(email.searchParams.get('subject')).toBe(`共有する記事 & 資料 : ${siteConfig.title}`);
+    expect(email.searchParams.get('body')).toBe(
+      `共有する記事 & 資料 : ${siteConfig.title}\n${siteConfig.siteUrl}/articles/example`,
+    );
+    expect(emailLink).not.toHaveAttribute('target');
   });
 
   it('dismisses with Escape from a share link and restores focus to the disclosure trigger', async () => {

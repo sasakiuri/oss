@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { PrintContent } from '@/components/print-content';
+import { SnsShare } from '@/components/sns-share';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -20,7 +20,7 @@ function deferred() {
 }
 
 function articleImages() {
-  return render(
+  const view = render(
     <>
       <article className="reading-article">
         <details aria-label="閉じた資料">
@@ -29,9 +29,11 @@ function articleImages() {
         </details>
         <img src="/default.png" alt="通常画像" />
       </article>
-      <PrintContent />
+      <SnsShare printable />
     </>,
   );
+  fireEvent.click(screen.getByRole('button', { name: '共有・印刷' }));
+  return view;
 }
 
 function decodedImage(alt: string, promise = Promise.resolve(), width = 100) {
@@ -58,7 +60,7 @@ it('prints collapsed content and restores only the details it opened, including 
       <details aria-label="記事以外">
         <summary>その他</summary>本文
       </details>
-      <PrintContent />
+      <SnsShare printable />
     </>,
   );
   const closed = screen.getByLabelText('閉じた資料');
@@ -84,7 +86,7 @@ it('loads offscreen article images for printing and restores their loading polic
         <img src="/eager.png" alt="優先画像" loading="eager" />
       </article>
       <img src="/outside.png" alt="記事以外" loading="lazy" />
-      <PrintContent />
+      <SnsShare printable />
     </>,
   );
   const lazy = screen.getByAltText('遅延画像');
@@ -146,11 +148,14 @@ it.each(['ctrlKey', 'metaKey'] as const)(
     const pending = deferred();
     const lazy = decodedImage('遅延画像', pending.promise);
     decodedImage('通常画像');
+    fireEvent.click(screen.getByRole('button', { name: '共有・印刷' }));
+    expect(screen.queryByRole('button', { name: 'ページを印刷' })).not.toBeInTheDocument();
     const shortcut = new KeyboardEvent('keydown', { key: 'p', [modifier]: true, cancelable: true });
 
     fireEvent(window, shortcut);
     expect(shortcut.defaultPrevented).toBe(true);
     fireEvent.keyDown(window, { key: 'p', [modifier]: true });
+    fireEvent.click(screen.getByRole('button', { name: '共有・印刷' }));
     fireEvent.click(screen.getByRole('button', { name: 'ページを印刷' }));
     expect(lazy.decode).toHaveBeenCalledTimes(1);
     expect(print).not.toHaveBeenCalled();
@@ -236,4 +241,20 @@ it('aborts pending preparation on unmount and never prints after its images fini
 
   await act(async () => pending.resolve());
   expect(print).not.toHaveBeenCalled();
+});
+
+it('continues preparing images when the action menu closes', async () => {
+  articleImages();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const pending = deferred();
+  const lazy = decodedImage('遅延画像', pending.promise);
+  decodedImage('通常画像');
+  fireEvent.click(screen.getByRole('button', { name: 'ページを印刷' }));
+  fireEvent.click(screen.getByRole('button', { name: '共有・印刷' }));
+  expect(screen.queryByRole('button', { name: 'ページを印刷' })).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('印刷用の画像を読み込んでいます');
+  await act(async () => pending.resolve());
+  expect(print).toHaveBeenCalledTimes(1);
+  fireEvent(window, new Event('afterprint'));
+  expect(lazy.image).toHaveAttribute('loading', 'lazy');
 });

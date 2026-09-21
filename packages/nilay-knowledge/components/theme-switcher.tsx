@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes';
 const themes = [
   { value: 'light', label: 'ライト', icon: Sun },
   { value: 'dark', label: 'ダーク', icon: Moon },
-  { value: 'system', label: '端末の設定に合わせる', icon: Monitor },
+  { value: 'system', label: 'システム既定', icon: Monitor },
 ];
 
 export function ThemeSwitcher() {
@@ -19,7 +19,7 @@ export function ThemeSwitcher() {
         <button
           type="button"
           aria-label="表示テーマを選ぶ"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-md text-white hover:bg-slate-600 focus-visible:outline-2 focus-visible:outline-white"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-sm text-white hover:bg-white/10"
         >
           <Sun className="hidden h-5 w-5 dark:block" aria-hidden="true" />
           <Moon className="h-5 w-5 dark:hidden" aria-hidden="true" />

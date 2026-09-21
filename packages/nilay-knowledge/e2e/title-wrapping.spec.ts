@@ -11,10 +11,15 @@ for (const { path, title } of [
     await expect(heading).toHaveText(title);
     await expect(heading).toHaveAccessibleName(title);
     await expect(heading.locator('wbr').first()).toBeAttached();
-    const wideHeight = (await heading.boundingBox())!.height;
-
     await page.setViewportSize({ width: 320, height: 568 });
-    await expect.poll(async () => (await heading.boundingBox())!.height).toBeGreaterThan(wideHeight);
+    // Responsive type can wrap to multiple lines while being shorter in pixels.
+    await expect
+      .poll(() =>
+        heading.evaluate(
+          (element) => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight),
+        ),
+      )
+      .toBeGreaterThan(1.5);
     const titleText = heading.locator('span');
     await expect(titleText).toHaveCSS('word-break', 'keep-all');
     await expect(titleText).toHaveCSS('overflow-wrap', 'anywhere');
