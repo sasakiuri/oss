@@ -24,6 +24,7 @@ const ALLOWED_TAGS = [
   'ol',
   'li',
   'a',
+  'img',
   'blockquote',
   'code',
   'pre',

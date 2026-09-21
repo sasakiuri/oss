@@ -6,7 +6,6 @@ const config: KnipConfig = {
     "packages/nilay-about": {
       entry: ["__tests__/e2e/**/*.spec.ts", "playwright.config.ts"],
       playwright: false,
-      ignoreDependencies: ["@prisma/client", "pg", "@types/pg"],
     },
     "packages/nilay-knowledge": {
       // Preserve the imported site's reusable UI primitives and dependency baseline.

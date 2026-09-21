@@ -4,7 +4,7 @@
 射撃・狩猟・有害鳥獣駆除に関する情報、ニュース、お問い合わせ、Labs のツールを提供します。
 
 Next.js 16（App Router）、React 19、TypeScript、Tailwind CSS 4 を使用します。
-ニュースは Prisma 7 と PostgreSQL、お問い合わせ送信は Slack Webhook に接続します。
+ニュースは microCMS、お問い合わせ送信は Slack Webhook に接続します。
 メインサイトはレトロなデザイン、Labs は独立したレイアウトのマテリアルデザインです。
 
 ## 開発
@@ -18,7 +18,7 @@ npm run dev --workspace=@sasakiuri/nilay-about
 ```
 
 開発サーバーは `http://localhost:3001` で起動します。
-ニュースの取得には `DATABASE_URL`、お問い合わせの送信には `SLACK_WEBHOOK_URL` が必要です。
+ニュースの取得には `MICROCMS_SERVICE_DOMAIN` と `MICROCMS_API_KEY`、お問い合わせの送信には `SLACK_WEBHOOK_URL` が必要です。
 接続先を使わない画面の開発では、これらを未設定にできます。
 `features/` に機能、`lib/server/` にサーバー共通処理を分離しています。
 環境変数とアーキテクチャの詳細は [開発ガイド](DEVELOPMENT.md) を参照してください。
@@ -31,9 +31,8 @@ npm run test:coverage --workspace=@sasakiuri/nilay-about
 npm run build --workspace=@sasakiuri/nilay-about
 ```
 
-`dev` の起動前、`build`、`typecheck` で Prisma クライアントを生成します。
-生成先の `lib/generated/prisma/` は Git 管理対象外です。
-データベース接続はニュース API のリクエスト時に初期化するため、ビルドには DB の認証情報が不要です。
+microCMS の接続設定はニュース API のリクエスト時に確認するため、ビルドには認証情報が不要です。
+ニュース API の作成方法と編集手順は [microCMS ガイド](microcms/README.md) を参照してください。
 
 本番サーバーは `npm run start --workspace=@sasakiuri/nilay-about` でポート 3001 に起動します。
 本番実行には `NEXT_PUBLIC_SITE_URL` と 16 文字以上の `LOG_MASKING_SECRET` を設定してください。
@@ -48,7 +47,7 @@ npm run test:e2e --workspace=@sasakiuri/nilay-about
 ```
 
 Playwright はテスト専用の環境変数で本番サーバーを起動します。
-ポート 3001 の既存サーバーは再利用せず、実際の DB・Slack・Upstash には接続しません。
+ポート 3001 の既存サーバーは再利用せず、実際の microCMS・Slack・Upstash には接続しません。
 
 ## 取り込み元と履歴
 
@@ -71,5 +70,4 @@ Saika スイートとは独立してバージョンを管理します。
 元の Nilay の [MIT ライセンス](LICENSE) と `Copyright (c) 2022 Nilay` を保持しています。
 個別の素材に付された表記も保持してください。
 
-Prisma Studio が使用する未変更の `elkjs@0.11.1` は EPL-2.0 です。
-[配布元](https://github.com/kieler/elkjs) のライセンス全文を [サードパーティー通知](THIRD-PARTY-LICENSES.txt) に含めています。
+使用する依存パッケージのライセンスは [サードパーティー通知](THIRD-PARTY-LICENSES.txt) に含めています。

@@ -9,7 +9,8 @@ vi.mock('server-only', () => ({}));
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 delete process.env.SLACK_WEBHOOK_URL;
-process.env.DATABASE_URL = 'postgresql://127.0.0.1:9/nilay_about';
+delete process.env.MICROCMS_SERVICE_DOMAIN;
+delete process.env.MICROCMS_API_KEY;
 process.env.NEXT_PUBLIC_SITE_URL = 'http://localhost:3001';
 process.env.LOG_MASKING_SECRET = 'nilay-about-local-test-fixture';
 

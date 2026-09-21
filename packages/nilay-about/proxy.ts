@@ -18,7 +18,7 @@ function buildCSPHeader(request: NextRequest): string {
     // 'unsafe-inline' is required for Next.js hydration scripts
     "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
-    "img-src 'self' blob: data: https://cdn.nilay.jp https://www.irasutoya.com",
+    "img-src 'self' blob: data: https://cdn.nilay.jp https://www.irasutoya.com https://images.microcms-assets.io",
     "font-src 'self' https://fonts.gstatic.com",
     "object-src 'none'",
     "base-uri 'self'",

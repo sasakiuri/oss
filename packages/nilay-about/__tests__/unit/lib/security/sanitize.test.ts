@@ -63,6 +63,17 @@ describe('Security Sanitization', () => {
       expect(result).toBe(input);
     });
 
+    it('should preserve CMS images while removing executable attributes and URLs', () => {
+      const input =
+        '<img src="https://images.microcms-assets.io/assets/example/photo.jpg" alt="写真" width="800" height="600" onerror="alert(1)"><img src="javascript:alert(2)">';
+      const result = sanitizeHtml(input);
+      expect(result).toContain(
+        '<img src="https://images.microcms-assets.io/assets/example/photo.jpg" alt="写真" width="800" height="600">',
+      );
+      expect(result).not.toContain('onerror');
+      expect(result).not.toContain('javascript:');
+    });
+
     it('should preserve links with safe href', () => {
       const input = '<a href="https://example.com">Link</a>';
       const result = sanitizeHtml(input);

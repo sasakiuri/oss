@@ -11,7 +11,6 @@ const eslintConfig = [
       'out/**',
       'build/**',
       'coverage/**',
-      'lib/generated/**',
       'playwright-report/**',
       'test-results/**',
       'next-env.d.ts',
@@ -51,11 +50,9 @@ const eslintConfig = [
             {
               group: [
                 '@/lib/server/**',
-                '@/lib/prisma',
                 '@/lib/env',
                 '@/lib/logging',
                 '@/lib/logging/**',
-                '@/lib/generated/**',
                 '@/lib/security/sanitize-logging',
                 '**/server/**',
               ],
