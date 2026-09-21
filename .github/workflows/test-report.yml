@@ -32,8 +32,8 @@ jobs:
       - name: Playwright test report
         uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2
         with:
-          artifact: /^test-results-(ubuntu-latest|windows-latest|macos-latest)$/
-          name: "Playwright ($1)"
+          artifact: /^playwright-(\d+)-(ubuntu-latest|windows-latest|macos-latest)$/
+          name: "Playwright ($2, suite $1)"
           path: "**/playwright-junit.xml"
           reporter: java-junit
           fail-on-error: false

@@ -7,6 +7,8 @@ import path from "node:path";
 import { test } from "node:test";
 
 import {
+  affectedByLockfile,
+  platformRunners,
   planForRevision,
   readGitWorkspaces,
   selectCiPackages,
@@ -85,10 +87,10 @@ test("development configuration dependencies include their consumers", () => {
   assert.equal(lighthouseConfig.docs, true);
   assert.equal(lighthouseConfig.build, true);
   assert.equal(lighthouseConfig.electron, false);
-  assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest"]);
+  assert.deepEqual(lighthouseConfig.os, platformRunners);
 });
 
-test("new website Markdown and assets get Linux-only build and tests", () => {
+test("Knowledge Markdown and assets retain platform build and tests", () => {
   const packages = [
     ...current.filter((pkg) => pkg.name !== name("nilay-knowledge")),
     {
@@ -110,7 +112,7 @@ test("new website Markdown and assets get Linux-only build and tests", () => {
     assert.equal(plan.build, true);
     assert.equal(plan.docs, false);
     assert.equal(plan.electron, false);
-    assert.deepEqual(plan.os, ["ubuntu-latest"]);
+    assert.deepEqual(plan.os, platformRunners);
   }
 });
 
@@ -343,4 +345,171 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
     () => readGitWorkspaces(git("rev-parse", "HEAD"), cwd),
     /workspace patterns/,
   );
+});
+
+const lockWorkspaces = [
+  { name: "web", directory: "packages/web", scripts: { test: "test" } },
+  { name: "desktop", directory: "packages/desktop", scripts: { test: "test" } },
+];
+const lockFixture = () => ({
+  name: "repo",
+  lockfileVersion: 3,
+  requires: true,
+  packages: {
+    "": { devDependencies: { tool: "1" } },
+    "packages/web": { dependencies: { parser: "1" } },
+    "packages/desktop": { dependencies: { parser: "2" } },
+    "node_modules/web": { resolved: "packages/web", link: true },
+    "node_modules/desktop": { resolved: "packages/desktop", link: true },
+    "node_modules/parser": { version: "1", dependencies: { leaf: "1" } },
+    "node_modules/leaf": { version: "1", integrity: "old" },
+    "packages/desktop/node_modules/parser": { version: "2" },
+    "node_modules/tool": { version: "1" },
+  },
+});
+
+test("lockfile updates follow resolved transitive versions without selecting unrelated consumers", () => {
+  const before = lockFixture();
+  const after = structuredClone(before);
+  after.packages["node_modules/leaf"].integrity = "new";
+  const impact = affectedByLockfile(before, after, lockWorkspaces);
+  assert.equal(impact.all, false);
+  assert.deepEqual(impact.packages, ["web"]);
+  assert.deepEqual(
+    selectCiPackages(
+      ["package-lock.json"],
+      lockWorkspaces,
+      lockWorkspaces,
+      impact,
+    ).packages,
+    ["web"],
+  );
+  after.packages["packages/desktop/node_modules/parser"].version = "3";
+  assert.deepEqual(affectedByLockfile(before, after, lockWorkspaces).packages, [
+    "desktop",
+    "web",
+  ]);
+});
+
+test("removed dependencies and moved hoisted versions retain old and new consumers", () => {
+  const before = lockFixture();
+  const after = structuredClone(before);
+  delete after.packages["packages/web"].dependencies;
+  delete after.packages["node_modules/parser"];
+  delete after.packages["node_modules/leaf"];
+  assert.deepEqual(affectedByLockfile(before, after, lockWorkspaces).packages, [
+    "web",
+  ]);
+  const moved = structuredClone(before);
+  moved.packages["node_modules/parser"] = { version: "2" };
+  moved.packages["packages/web/node_modules/parser"] =
+    before.packages["node_modules/parser"];
+  delete moved.packages["packages/desktop/node_modules/parser"];
+  assert.deepEqual(affectedByLockfile(before, moved, lockWorkspaces).packages, [
+    "desktop",
+    "web",
+  ]);
+});
+
+test("workspace links, optional dependencies and peer dependencies propagate lockfile impact", () => {
+  const before = lockFixture();
+  before.packages["packages/desktop"].dependencies = { web: "*" };
+  before.packages["node_modules/parser"] = {
+    version: "1",
+    optionalDependencies: { absent: "1" },
+    peerDependencies: { leaf: "1", absent: "1" },
+    peerDependenciesMeta: { absent: { optional: true } },
+  };
+  const after = structuredClone(before);
+  after.packages["node_modules/leaf"].version = "2";
+  const impact = affectedByLockfile(before, after, lockWorkspaces);
+  assert.equal(impact.all, false);
+  assert.deepEqual(impact.packages, ["desktop", "web"]);
+});
+
+test("shared root dependencies and uncertain lockfile inputs conservatively select everyone with a reason", () => {
+  for (const mutate of [
+    (lock) => {
+      lock.packages["node_modules/tool"].version = "2";
+    },
+    (lock) => {
+      lock.packages[""].devDependencies.tool = "2";
+    },
+    (lock) => {
+      lock.lockfileVersion = 2;
+    },
+    (lock) => {
+      lock.packages[".."] = { dependencies: { bad: "1" } };
+    },
+    (lock) => {
+      delete lock.packages["node_modules/parser"];
+    },
+    (lock) => {
+      lock.packages["node_modules/unknown"] = { version: "1" };
+    },
+    (lock) => {
+      lock.packages["node_modules/web"].resolved = "missing";
+    },
+  ]) {
+    const before = lockFixture();
+    const after = structuredClone(before);
+    mutate(after);
+    const impact = affectedByLockfile(before, after, lockWorkspaces);
+    assert.equal(impact.all, true);
+    assert.ok(impact.reason);
+    assert.deepEqual(
+      selectCiPackages(
+        ["package-lock.json"],
+        lockWorkspaces,
+        lockWorkspaces,
+        impact,
+      ).packages,
+      ["desktop", "web"],
+    );
+  }
+});
+
+test("unchanged resolved lockfile data does not rebuild workspaces", () => {
+  const lock = lockFixture();
+  const impact = affectedByLockfile(
+    lock,
+    structuredClone(lock),
+    lockWorkspaces,
+  );
+  const plan = selectCiPackages(
+    ["package-lock.json"],
+    lockWorkspaces,
+    lockWorkspaces,
+    impact,
+  );
+  assert.deepEqual(plan.packages, []);
+  assert.equal(plan.text, true);
+  assert.equal(plan.build, false);
+});
+
+test("E2E plans partition Knowledge into two shards on every platform and other suites once", () => {
+  const plan = select(["package.json"]);
+  const knowledge = plan.e2eMatrix.filter(
+    (row) => row.package === name("nilay-knowledge"),
+  );
+  assert.equal(knowledge.length, 6);
+  for (const os of platformRunners) {
+    assert.deepEqual(
+      knowledge
+        .filter((row) => row.os === os)
+        .map((row) => [row.shard, row.shards]),
+      [
+        [1, 2],
+        [2, 2],
+      ],
+    );
+    const lane = plan.e2eMatrix.filter(
+      (row) => row.package === name("saika-lane") && row.os === os,
+    );
+    assert.equal(lane.length, 1);
+    assert.equal(lane[0].shards, 1);
+    assert.equal(lane[0].electron, true);
+  }
+  assert.equal(plan.e2e, true);
+  assert.equal(plan.knowledge, true);
 });

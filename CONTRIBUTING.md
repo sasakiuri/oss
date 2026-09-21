@@ -117,9 +117,12 @@ manifests, including development, peer, and optional dependencies. Package conte
 and assets also count as changes. For example, a Lane change tests Lane, while a
 Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequisites.
 
-Electron application changes run on Linux, Windows, and macOS. When no Electron
-package is affected, build jobs run only on Linux. Saika Docs keeps its dedicated
-quality workflow. Root dependency lock files, shared configuration, and CI scripts
+Electron and Nilay Knowledge changes retain build and unit tests on Linux,
+Windows, and macOS; other packages use Linux. Saika Docs keeps its dedicated
+quality workflow. Changes to the npm v3 lockfile select consumers of the changed
+installed dependency entries, following both the previous and current dependency
+graphs, including nested versions and workspace links. Root dependencies, shared
+configuration, CI scripts, and lock files that cannot be resolved confidently
 select all workspaces. Repository documentation, text and release-check tooling,
 dependency update policy, and infrastructure lint tooling skip package jobs.
 Unknown shared scripts still select all workspaces.
@@ -129,12 +132,21 @@ or the checked tools change. Infrastructure checks run when workflows, Actions,
 shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
 tool change. Security checks remain enabled. `CI Required` rejects failed
 detection, failed applicable checks, and unexpected skips. The Changes job
-summary lists the selected packages and shared checks.
+summary lists the selected packages, runners, E2E shards, and reasons for a
+shared or conservative selection.
 
-Changed-code coverage, core mutation checks, and bundle size limits run inside
-the applicable build jobs. Bundle size results are available in the CI logs;
-there is no separate rebuild for a size comparison comment. Test reports process
-only existing CI artifacts in one job while keeping OS-specific report names.
+Each platform builds once and passes its outputs in a tar archive to separate
+unit, E2E, and Lighthouse jobs. The archive preserves permissions and generated
+files; it excludes Next.js caches and standalone copies because browser checks
+use `next start`. Unit tests and browser checks can run concurrently. Coverage
+and core mutation checks run on Linux; other platforms run normal unit tests.
+Changed-code coverage remains required on pull requests. E2E suites run in
+separate package jobs, with Nilay Knowledge split across two Playwright shards
+per platform while preserving every configured browser project. Lighthouse runs
+independently on Linux. `CI Required` also validates the planned shard matrix.
+
+Bundle size checks reuse the build job outputs. Test reports process existing
+CI artifacts while keeping separate platform and E2E suite reports.
 Docs runs API lint and a local production-server k6 smoke test in its dedicated
 workflow.
 
