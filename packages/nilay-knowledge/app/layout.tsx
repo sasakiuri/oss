@@ -1,3 +1,4 @@
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import type { Metadata } from 'next';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
@@ -60,6 +61,7 @@ export default function RootLayout({
           <ThemeProvider>
             <SkipLink />
             <GoogleAnalytics />
+            <SpeedInsights />
             <Header />
             <NavigationFocus />
             <main id="main-content" tabIndex={-1} className="flex-1">
