@@ -7,8 +7,9 @@ import { HomeSearchButton } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
 import { TitleText } from '@/components/title-text';
 import { siteConfig } from '@/lib/config';
+import { articleCategoryHref } from '@/lib/content/category-pages';
 import { listContent } from '@/lib/content/server';
-import { articleDirectoryHref, createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
+import { createArticleDirectory, getDirectoryCategories } from '@/lib/content/taxonomy';
 import { createPageMetadata } from '@/lib/metadata';
 import { createWebSiteSchema } from '@/lib/schema';
 import { formatDate } from '@/lib/utils';
@@ -176,7 +177,7 @@ export default async function HomePage() {
               {categories.map((category) => (
                 <li key={category.id}>
                   <Link
-                    href={`${articleDirectoryHref({ category: category.id })}#${category.id}`}
+                    href={articleCategoryHref(articles, category.id)}
                     className="flex min-h-11 items-center justify-between gap-3 text-sm text-body hover:text-brand hover:underline"
                   >
                     {category.title}

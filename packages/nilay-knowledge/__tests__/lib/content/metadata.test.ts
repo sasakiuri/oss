@@ -26,7 +26,7 @@ describe('content metadata', () => {
     expect(createContentMetadata(source).openGraph).toMatchObject({
       images: [{ url: expected, alt: summary.frontmatter.title }],
     });
-    expect(createContentSchema(source).image).toBe(expected);
+    expect(createContentSchema(source).image).toBe(image ? expected : undefined);
     const serialized = JSON.stringify(createContentMetadata(source).openGraph);
     expect(serialized.includes('"width":1200')).toBe(image === undefined);
   });

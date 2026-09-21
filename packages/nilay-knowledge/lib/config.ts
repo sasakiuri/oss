@@ -1,7 +1,7 @@
 export const siteConfig = {
   title: 'Nilay/Knowledge',
   description:
-    '実銃・射撃・狩猟の情報を紹介するサイト。所持許可（免許）の取得方法、狩猟免許の取得方法、狩猟鳥獣の図鑑、クレー・ライフル射撃のルール、猟銃・空気銃の掃除の仕方などを掲載しています。銃刀法の申請・申込書と添付書類PDFをオンラインで作成できます。',
+    '猟銃・空気銃の所持許可、狩猟免許、射撃・狩猟の基礎知識を紹介する情報サイト。許可の取得・更新手順、申請書類、関連法令、狩猟鳥獣図鑑、クレー射撃、関東地方の射撃場について調べられます。',
   siteUrl: 'https://knowledge.nilay.jp',
   repository: {
     url: 'https://github.com/sasakiuri/oss',

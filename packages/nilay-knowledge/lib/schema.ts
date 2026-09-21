@@ -1,10 +1,18 @@
-import type { Article, BreadcrumbList, NewsArticle, Organization, WebSite, WithContext } from 'schema-dts';
+import type {
+  Article,
+  BreadcrumbList,
+  CollectionPage,
+  NewsArticle,
+  Organization,
+  WebSite,
+  WithContext,
+} from 'schema-dts';
 
 import { siteConfig } from './config';
 import { contentDescription } from './content/description';
 import { contentImageUrl } from './content/metadata';
 import { contentPath } from './content/paths';
-import type { ContentSource } from './content/types';
+import type { ContentSource, ContentSummary } from './content/types';
 
 function publisher(): Organization {
   return {
@@ -44,9 +52,44 @@ export function createContentSchema(source: ContentSource): WithContext<Article 
     url,
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
     inLanguage: 'ja',
-    image: contentImageUrl(source),
+    // Social title cards are not representative article photographs or illustrations.
+    ...(frontmatter.image ? { image: contentImageUrl(source) } : {}),
     author: publisher(),
     publisher: publisher(),
+  };
+}
+
+export function createCollectionSchema({
+  title,
+  description,
+  path,
+  articles,
+}: {
+  title: string;
+  description: string;
+  path: string;
+  articles: ContentSummary[];
+}): WithContext<CollectionPage> {
+  const url = new URL(path, siteConfig.siteUrl).href;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    '@id': url,
+    url,
+    name: title,
+    description,
+    inLanguage: 'ja',
+    isPartOf: { '@type': 'WebSite', '@id': `${siteConfig.siteUrl}/#website` },
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: articles.length,
+      itemListElement: articles.map((article, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: article.frontmatter.title,
+        url: `${siteConfig.siteUrl}${contentPath(article.type, article.slug)}`,
+      })),
+    },
   };
 }
 
