@@ -19,6 +19,8 @@ describe('search descriptions', () => {
     const content = `<!-- unpublished notes -->
 <style>.secret { display: none }</style>
 <script>privateScript()</script>
+<STYLE>.uppercaseSecret { display: none }</STYLE>
+<SCRIPT>uppercaseScript()</SCRIPT>
 <p hidden>hidden text</p>
 <div aria-hidden="true"><p>decorative text</p></div>
 
@@ -56,7 +58,7 @@ codeExample()
     const items = [...(await repository.listSources('articles')), ...(await repository.listSources('news'))];
     const descriptions = items.map((item) => {
       const description = contentDescription(item);
-      expect(description, `${item.type}/${item.slug}`).not.toMatch(/<\/?(?:style|script|table)|<!--|!\[|https?:\/\//);
+      expect(description, `${item.type}/${item.slug}`).not.toMatch(/<\/?(?:style|script|table)|<!--|!\[|https?:\/\//i);
       expect(description.length).toBeGreaterThan(10);
       return description;
     });

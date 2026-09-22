@@ -81,7 +81,7 @@ test('every sitemap page exposes unique metadata and consistent structured data 
       await expect(descriptionTags).toHaveCount(1);
       const description = (await descriptionTags.getAttribute('content'))!;
       expect(description.length).toBeGreaterThan(10);
-      expect(description).not.toMatch(/<\/?(?:style|script|table)|<!--|!\[/);
+      expect(description).not.toMatch(/<\/?(?:style|script|table)|<!--|!\[/i);
       expect(descriptions.has(description), `Duplicate description: ${url}`).toBe(false);
       descriptions.add(description);
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', url);
