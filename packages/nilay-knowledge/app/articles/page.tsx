@@ -71,19 +71,25 @@ export default async function ArticlesPage() {
           <nav aria-label="記事の分野" className="self-start lg:sticky lg:top-[calc(var(--site-header-height)+2rem)]">
             <h2 className="mb-3 text-sm font-semibold text-body">分野から探す</h2>
             <ul className="flex flex-wrap gap-x-4 gap-y-1 border-b border-line pb-5 lg:block lg:space-y-1 lg:border-b-0 lg:border-l lg:pb-0">
-              {categories.map((category) => (
-                <li key={category.id}>
-                  <Link
-                    href={articleCategoryHref(articles, category.id)}
-                    className="inline-flex min-h-11 items-center justify-between gap-4 text-sm text-body underline-offset-4 hover:text-brand hover:underline lg:w-full lg:px-4"
-                  >
-                    {category.title}
-                    <span aria-hidden="true" className="hidden text-xs text-faint tabular-nums lg:inline">
-                      {articles.filter((article) => article.category.id === category.id).length}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {categories.map((category) => {
+                const href = articleCategoryHref(articles, category.id);
+                // A document navigation lets the directory correct the fragment position
+                // after filtering. A same-page client transition can lose that scroll.
+                const CategoryLink = href.includes('#') ? 'a' : Link;
+                return (
+                  <li key={category.id}>
+                    <CategoryLink
+                      href={href}
+                      className="inline-flex min-h-11 items-center justify-between gap-4 text-sm text-body underline-offset-4 hover:text-brand hover:underline lg:w-full lg:px-4"
+                    >
+                      {category.title}
+                      <span aria-hidden="true" className="hidden text-xs text-faint tabular-nums lg:inline">
+                        {articles.filter((article) => article.category.id === category.id).length}
+                      </span>
+                    </CategoryLink>
+                  </li>
+                );
+              })}
             </ul>
             <Link href="/news/" className="mt-4 inline-flex min-h-11 items-center text-sm text-brand hover:underline">
               銃・射撃・狩猟ニュース
