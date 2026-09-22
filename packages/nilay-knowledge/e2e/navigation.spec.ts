@@ -10,6 +10,8 @@ test('the introductory shooting guide opens the shooting article', async ({ page
 test('the directory filters by subject and the article links back to that subject', async ({ page }) => {
   await page.goto('/articles/');
   await page.getByRole('navigation', { name: '記事の分野' }).getByRole('link', { name: '標的射撃' }).click();
+  await expect(page).toHaveURL(/\/articles\/\?category=shooting#shooting$/);
+  await expect(page.getByRole('combobox', { name: 'カテゴリー' })).toHaveValue('shooting');
   const subject = page.getByRole('heading', { name: /^標的射撃 \d+件$/ });
   await expect(subject).toBeInViewport();
   const header = await page.locator('#site-header').boundingBox();
@@ -18,6 +20,49 @@ test('the directory filters by subject and the article links back to that subjec
   await page.locator('article header').getByRole('link', { name: '標的射撃' }).click();
   await expect(page).toHaveURL(/\/articles\/\?category=shooting#shooting$/);
   await expect(subject).toBeInViewport();
+});
+
+test('directory category links reveal the filtered heading during slow rendering', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'CPU throttling requires Chromium.');
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  await page.goto('/articles/');
+  for (const [name, category] of [
+    ['標的射撃', 'shooting'],
+    ['狩猟', 'hunting'],
+  ] as const) {
+    await page.getByRole('navigation', { name: '記事の分野' }).getByRole('link', { name, exact: true }).click();
+    await expect(page).toHaveURL(`/articles/?category=${category}#${category}`);
+    await expect(page.getByRole('combobox', { name: 'カテゴリー' })).toHaveValue(category);
+    const heading = page.locator(`h2#${category}`);
+    await expect(heading).toBeInViewport();
+    await expect
+      .poll(async () => (await heading.boundingBox())!.y)
+      .toBeGreaterThanOrEqual((await page.locator('#site-header').boundingBox())!.height);
+  }
+});
+
+test('returning from a category link restores the directory reading position', async ({ page }) => {
+  await page.goto('/articles/?category=hunting#hunting');
+  await expect(page.getByRole('combobox', { name: 'カテゴリー' })).toHaveValue('hunting');
+  await expect(page.locator('h2#hunting')).toBeInViewport();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  const link = page.getByRole('navigation', { name: '記事の分野' }).getByRole('link', { name: '標的射撃' });
+  // Bringing the link into view can scroll a narrow viewport before navigation.
+  await link.scrollIntoViewIfNeeded();
+  const readingPosition = await page.evaluate(() => window.scrollY);
+  await link.click();
+  await expect(page.getByRole('combobox', { name: 'カテゴリー' })).toHaveValue('shooting');
+  await expect(page.locator('h2#shooting')).toBeInViewport();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/articles\/\?category=hunting#hunting$/);
+  await expect(page.getByRole('combobox', { name: 'カテゴリー' })).toHaveValue('hunting');
+  // Wait past the directory's animation-frame correction before checking restoration.
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  );
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(readingPosition);
 });
 
 test('the floating action button contains sharing and printing, and publication is labelled accurately', async ({

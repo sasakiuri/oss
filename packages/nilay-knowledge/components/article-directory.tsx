@@ -43,6 +43,9 @@ export function ArticleDirectory({
     if (hasMountedDirectory) return;
     const frame = requestAnimationFrame(() => {
       hasMountedDirectory = true;
+      // A document restored from history already has a saved reading position.
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      if (navigation?.type === 'back_forward') return;
       // The initial fragment scroll targets the static fallback. Correct it after
       // filtering, once per document, so later mounts preserve history restoration.
       const id = window.location.hash.slice(1);
