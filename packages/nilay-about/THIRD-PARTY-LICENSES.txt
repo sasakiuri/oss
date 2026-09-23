@@ -718,7 +718,7 @@ The following npm packages may be included in this product:
  - @next/env@16.3.4
  - @next/swc-linux-x64-gnu@16.3.4
  - @next/swc-linux-x64-musl@16.3.4
- - @upstash/core-analytics@0.0.10
+ - @upstash/core-analytics@v0.0.10
  - babel-plugin-react-compiler@1.0.0
  - client-only@0.0.1
  - react-remove-scroll-bar@2.3.8
@@ -1705,7 +1705,7 @@ MIT License
 
 The following npm packages may be included in this product:
 
- - @upstash/ratelimit@2.0.8
+ - @upstash/ratelimit@v2.0.8
  - @upstash/redis@1.38.4
 
 These packages each contain the following license:
