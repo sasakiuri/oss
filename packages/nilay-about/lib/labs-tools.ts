@@ -315,6 +315,17 @@ export const labsTools = [
     description:
       'イノシシ・シカ・サル・クマなどの獣種と出典を選んで、電気柵の段の地上高、柵線の総延長、支柱・ガイシ・出入口のグリップの数を計算します。電気さくの法令上の要件と点検項目も確認できます。',
   },
+  {
+    slug: 'bear-stats',
+    category: 'damage',
+    title: { ja: 'クマの出没・被害統計', en: 'Bear Incident Statistics' },
+    summary: {
+      ja: '環境省が公表するクマの人身被害・出没・捕獲の件数を、年度・都道府県・月別に表示します。',
+      en: 'Bear injuries, sightings and captures published by the Ministry of the Environment, by year, prefecture and month.',
+    },
+    description:
+      '環境省が公表するツキノワグマ・ヒグマの人身被害・出没件数・捕獲数・緊急銃猟の実施状況を、年度・都道府県・月別の表とグラフで確認できます（速報値）。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
