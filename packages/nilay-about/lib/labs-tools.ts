@@ -270,6 +270,18 @@ export const labsTools = [
     description:
       '半矢になった獲物の追跡に。血の色や泡などの手がかりから、公的資料が示す被弾部位の見方と追跡開始までの待ち時間の目安を出典つきで確認し、血痕の地点と時刻を記録します。',
   },
+  {
+    slug: 'trap-tag',
+    category: 'traps',
+    title: { ja: 'わな・網の標識', en: 'Trap and Net Tags' },
+    summary: {
+      ja: 'わな・網に付ける法定の標識を実寸で作成して印刷します。',
+      en: 'Make the legally required tag for a trap or net and print it at real size.',
+    },
+    description:
+      'くくりわな・箱わななどのわなや網に付ける標識（名札。住所・氏名・登録番号など）を、一字 10 mm 以上の実寸で作成して印刷します。狩猟と許可捕獲の記載事項に対応。',
+    japaneseOnly: true,
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
