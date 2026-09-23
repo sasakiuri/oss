@@ -171,7 +171,7 @@
   },
   "prettier": "@sasakiuri/prettier-config/tailwind",
   "engines": {
-    "node": ">=22.22.2"
+    "node": "24.x"
   },
   "dependencies": {
     "@axiomhq/js": "1.8.0",

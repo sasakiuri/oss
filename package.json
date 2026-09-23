@@ -15,8 +15,8 @@
   "license": "MIT",
   "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "engines": {
-    "node": ">=22.22.2",
-    "npm": ">=10.9.4"
+    "node": "24.x",
+    "npm": ">=11.13.0"
   },
   "type": "module",
   "repository": {
@@ -90,10 +90,10 @@
     "picomatch": "4.0.7"
   },
   "volta": {
-    "node": "22.22.2",
-    "npm": "10.9.4"
+    "node": "24.16.0",
+    "npm": "11.13.0"
   },
-  "packageManager": "npm@10.9.4",
+  "packageManager": "npm@11.13.0",
   "overrides": {
     "tar": ">=7.5.22",
     "tmp": "^0.2.5",

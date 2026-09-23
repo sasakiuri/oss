@@ -4,7 +4,7 @@
 
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
-Use Node 22.22.2 or newer and npm 10.9.4. Run commands from the repository root:
+Use Node 24.x (24.16.0) and npm 11.13.0. Run commands from the repository root:
 
 ```bash
 npm ci
