@@ -4,7 +4,7 @@ This document describes the Material Design 3 (M3) compliance for the standalone
 
 ## Overview
 
-The standalone apps (home-target, game-species-test) follow Material Design 3 guidelines for:
+The standalone apps under `app/(standalone)/labs/` follow Material Design 3 guidelines for:
 
 - Color System
 - Typography
@@ -137,9 +137,9 @@ M3 uses tonal surfaces for elevation hierarchy:
 
 **M3 Specifications:**
 
-- Height: 64dp
+- Minimum height: 80dp
 - Horizontal padding: 16dp (4dp for icons)
-- Title: Title Large (22sp)
+- Title: 18sp on small screens, 24sp on larger screens
 - Background: Surface (or Primary for colored variant)
 
 **Layout:**
@@ -148,16 +148,7 @@ M3 uses tonal surfaces for elevation hierarchy:
 [Navigation icon (48dp)] [Title] [Trailing actions]
 ```
 
-### 3.4 Bottom App Bar (AppFooter)
-
-**M3 Specifications:**
-
-- Height: 80dp
-- Horizontal padding: 16dp
-- Background: Surface-container
-- Elevation: Level 2
-
-### 3.5 Text Field (Input)
+### 3.4 Text Field (Input)
 
 **M3 Specifications (Outlined variant):**
 
@@ -175,7 +166,7 @@ M3 uses tonal surfaces for elevation hierarchy:
 - Disabled: 38% opacity
 - Error: Error color border
 
-### 3.6 Checkbox
+### 3.5 Checkbox
 
 **M3 Specifications:**
 
@@ -185,7 +176,7 @@ M3 uses tonal surfaces for elevation hierarchy:
 - Unchecked: Outline border
 - Checked: Primary fill with checkmark
 
-### 3.7 Progress Indicator
+### 3.6 Progress Indicator
 
 **M3 Specifications:**
 
@@ -194,7 +185,7 @@ M3 uses tonal surfaces for elevation hierarchy:
 - Track color: Surface-container-highest
 - Indicator color: Primary
 
-### 3.8 Dialog
+### 3.7 Dialog
 
 **M3 Specifications:**
 
@@ -209,7 +200,7 @@ M3 uses tonal surfaces for elevation hierarchy:
 - Headline: Headline Small (24sp)
 - Body: Body Medium (14sp)
 
-### 3.9 Menu
+### 3.8 Menu
 
 **M3 Specifications:**
 
@@ -292,7 +283,6 @@ cubic-bezier(0.3, 0, 0.8, 0.15)
 | `components/ui/checkbox.tsx`    | M3 Checkbox component                                    |
 | `components/ui/progress.tsx`    | M3 Progress Indicator                                    |
 | `_components/app-header.tsx`    | M3 Top App Bar                                           |
-| `_components/app-footer.tsx`    | M3 Bottom App Bar                                        |
 | `_components/language-menu.tsx` | M3 Menu                                                  |
 
 ---
@@ -307,39 +297,16 @@ cubic-bezier(0.3, 0, 0.8, 0.15)
 
 ---
 
-## 9. Review Cycle Summary
+## 9. Responsive Layout and Interaction
 
-### Cycle 1: Initial Analysis
-
-- Identified M3 color system gaps
-- Found typography non-compliance
-- Listed component violations
-
-### Cycle 2: Color System
-
-- Implemented full M3 color palette
-- Added surface levels and elevation
-- Created Tailwind color tokens
-
-### Cycle 3: Typography & Spacing
-
-- Added M3 type scale tokens
-- Updated heading styles
-- Standardized spacing to 4dp grid
-
-### Cycle 4: Components
-
-- Updated Button with M3 variants and state layers
-- Updated Card with M3 variants (elevated, filled, outlined)
-- Updated Input with M3 text field styling
-- Updated Dialog with 28dp corner radius
-- Updated App Bar components
-
-### Cycle 5: Polish & Documentation
-
-- Added missing color tokens
-- Created this specification document
-- Final component refinements
+- Labs navigation and every tool share the same theme and a back link.
+- The content width is at most 1152px; tools use two columns on large screens and one on small screens.
+- Content follows normal document flow so zoom and small viewports do not hide controls behind fixed bars.
+- Photos use contain sizing to preserve the entire subject.
+- Primary actions have text labels and at least 48px touch targets.
+- Language selection uses the Radix menu for focus and keyboard navigation.
+- Reduced-motion preferences disable decorative transitions.
+- Form errors appear beside fields; print failures are shown inline with a retryable download button.
 
 ---
 
