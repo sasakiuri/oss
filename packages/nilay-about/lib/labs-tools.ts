@@ -116,6 +116,17 @@ export const labsTools = [
     description:
       '距離ごとに実測した落差から、弾道係数（BC）か初速を実射に合わせて補正します（トゥルーイング）。補正後の残差と、測定精度から見た値の幅も表示します。',
   },
+  {
+    slug: 'twist-stability',
+    category: 'sighting',
+    title: { ja: 'ツイストと安定性の計算', en: 'Twist Rate and Stability' },
+    summary: {
+      ja: '弾頭とツイストからジャイロ安定係数を計算します。必要なツイストも求められます。',
+      en: 'Gyroscopic stability from the bullet and the twist rate, and the twist a bullet needs.',
+    },
+    description:
+      '弾頭の直径・長さ・重量とライフリングのツイスト、初速、気温・気圧から、Miller の式でジャイロ安定係数を計算します。必要なツイストと、そのツイストで安定する最大の弾長も求められます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
