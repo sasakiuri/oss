@@ -94,6 +94,17 @@ export const labsTools = [
     description:
       'スコープの mil（ミルドット）・MOA レティクルで読んだ見かけの大きさと実寸から、対象までの距離を計算します。SFP スコープの倍率補正と、読み取り誤差による距離の幅も確認できます。',
   },
+  {
+    slug: 'trajectory',
+    category: 'sighting',
+    title: { ja: '弾道計算とゼロイン', en: 'Ballistic Calculator' },
+    summary: {
+      ja: '距離ごとの落差・風偏・残存エネルギーを計算し、実寸の弾道カードを印刷します。',
+      en: 'Drop, wind drift and energy at each distance, printed as a real-size drop card.',
+    },
+    description:
+      '初速・弾頭重量・弾道係数（G1・G7）・ゼロイン距離から、距離ごとの落差・風偏・残存速度・エネルギー・飛行時間を計算する弾道計算機。最大直接照準距離も求められ、弾道カードを実寸で印刷できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
