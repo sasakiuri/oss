@@ -259,6 +259,17 @@ export const labsTools = [
     description:
       '出猟日ごとの場所・猟法・捕獲した鳥獣を記録し、狩猟者登録の満了後に提出する「狩猟の結果の報告」の下書きを様式の欄に沿って集計・印刷します。記録は端末の中だけに保存します。',
   },
+  {
+    slug: 'wounded-game',
+    category: 'field',
+    title: { ja: '半矢の追跡', en: 'Tracking Wounded Game' },
+    summary: {
+      ja: '血の色や泡について公的資料が示す被弾部位の見方と追跡までの待ち時間を確認し、血痕の地点を記録します。',
+      en: 'What public sources say blood sign means for the hit and the wait before trailing, with a log of the trail.',
+    },
+    description:
+      '半矢になった獲物の追跡に。血の色や泡などの手がかりから、公的資料が示す被弾部位の見方と追跡開始までの待ち時間の目安を出典つきで確認し、血痕の地点と時刻を記録します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
