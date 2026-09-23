@@ -326,6 +326,18 @@ export const labsTools = [
     description:
       '環境省が公表するツキノワグマ・ヒグマの人身被害・出没件数・捕獲数・緊急銃猟の実施状況を、年度・都道府県・月別の表とグラフで確認できます（速報値）。',
   },
+  {
+    slug: 'gibier-record',
+    category: 'harvest',
+    title: { ja: 'ジビエの捕獲時記録票', en: 'Game Meat Capture Record' },
+    summary: {
+      ja: '食肉処理施設に渡す捕獲時の記録票を 1 頭ごとに作成し、A4 で印刷します。',
+      en: 'Fill in the capture record a game meat facility needs for each animal, and print it on A4.',
+    },
+    description:
+      'シカ・イノシシをジビエとして食肉処理施設に持ち込むときの捕獲時の記録票を、厚生労働省のガイドラインと手引書の様式に沿って 1 頭ごとに作成し、A4 で印刷します。',
+    japaneseOnly: true,
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
