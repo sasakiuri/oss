@@ -83,6 +83,17 @@ export const labsTools = [
     description:
       '縦長標的を使ったタワーテスト（トラッキングテスト）の結果から、スコープの実際のクリック値・補正係数・公称値との誤差を計算します。必要な高さの縦長標的を A4 に分割して印刷できます。',
   },
+  {
+    slug: 'reticle-ranging',
+    category: 'sighting',
+    title: { ja: 'レティクルの測距', en: 'Reticle Ranging' },
+    summary: {
+      ja: 'mil・MOA レティクルで読んだ大きさから距離を求めます。',
+      en: 'Range an object from its size against a mil or MOA reticle.',
+    },
+    description:
+      'スコープの mil（ミルドット）・MOA レティクルで読んだ見かけの大きさと実寸から、対象までの距離を計算します。SFP スコープの倍率補正と、読み取り誤差による距離の幅も確認できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
