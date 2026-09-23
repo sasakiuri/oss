@@ -193,6 +193,17 @@ export const labsTools = [
     description:
       '散弾銃のパターンテスト用。パターンボードを撮影し、直径 76.2 cm（30 インチ）の円内の着弾数・パターン率・分布の偏りを数えます。粒の痕は自動で検出でき、画像は端末の外に送信しません。',
   },
+  {
+    slug: 'shot-pellets',
+    category: 'shotgun',
+    title: { ja: '散弾の粒数とエネルギー', en: 'Shot Pellet Count and Energy' },
+    summary: {
+      ja: '号数・材質・装弾量から粒数と、距離ごとの 1 粒の速度・エネルギーを計算します。',
+      en: 'Pellet count from shot size, material and load weight, and the energy per pellet at distance.',
+    },
+    description:
+      '散弾の号数（粒の直径）・材質（鉛・スチール・ビスマスなど）・装弾量・初速から、1 粒の重量と装弾の粒数、距離ごとの残存速度とエネルギーを計算します。鉛と非鉛弾を並べて比べられます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
