@@ -160,6 +160,17 @@ export const labsTools = [
     description:
       'ハンドロードの装薬量テスト（ラダーテストなど）の段ごとの初速と着弾から、平均と標準偏差、隣り合う段の差を求め、その差が発数から見たばらつきを超えているかを判定します。',
   },
+  {
+    slug: 'shot-group',
+    category: 'loads',
+    title: { ja: '着弾群の測定', en: 'Group Size Measurement' },
+    summary: {
+      ja: '標的を撮影して弾痕を検出し、グルーピングの大きさを MOA・mil で測ります。',
+      en: 'Photograph the target, find the holes and measure the group in MOA and mil.',
+    },
+    description:
+      '標的をスマートフォンで撮影し、弾痕を自動で検出して着弾群の大きさ（最大中心間距離・平均半径）と平均着弾点を測ります。MOA・mil に換算し、平均着弾点のズレを照準調整に使えます。画像は端末の外に送信しません。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
