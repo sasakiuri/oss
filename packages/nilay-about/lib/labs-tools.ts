@@ -215,6 +215,17 @@ export const labsTools = [
     description:
       'クレー射撃や鳥猟のリード（見越し）の計算。的の速度・距離・交差角から、的の何 m 先を狙うかと銃口を振る角度、弾の飛行時間を求めます。',
   },
+  {
+    slug: 'clay-score',
+    category: 'shotgun',
+    title: { ja: 'クレー射撃のスコアシート', en: 'Clay Shooting Score Sheet' },
+    summary: {
+      ja: 'トラップ・スキートの 25 枚を記録し、射台ごとの命中率を集計します。白紙のシートも印刷できます。',
+      en: 'Score a 25-target trap or skeet round and see the hit rate at each station. Blank sheets print too.',
+    },
+    description:
+      'トラップ・スキートの 1 ラウンド 25 枚を命中・失中で記録し、合計・射台別の命中率・連続命中を集計するスコアシート。ラウンドの履歴を残せて、白紙のスコアシートも印刷できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
