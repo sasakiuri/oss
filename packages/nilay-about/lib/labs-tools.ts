@@ -105,6 +105,17 @@ export const labsTools = [
     description:
       '初速・弾頭重量・弾道係数（G1・G7）・ゼロイン距離から、距離ごとの落差・風偏・残存速度・エネルギー・飛行時間を計算する弾道計算機。最大直接照準距離も求められ、弾道カードを実寸で印刷できます。',
   },
+  {
+    slug: 'trajectory-truing',
+    category: 'sighting',
+    title: { ja: '弾道の合わせ込み（トゥルーイング）', en: 'Trajectory Truing' },
+    summary: {
+      ja: '実測した落差に合わせて、弾道係数か初速を補正します。',
+      en: 'Adjust the ballistic coefficient or the muzzle velocity to match the drops you measured.',
+    },
+    description:
+      '距離ごとに実測した落差から、弾道係数（BC）か初速を実射に合わせて補正します（トゥルーイング）。補正後の残差と、測定精度から見た値の幅も表示します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
