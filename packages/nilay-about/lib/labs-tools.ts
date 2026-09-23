@@ -171,6 +171,17 @@ export const labsTools = [
     description:
       '標的をスマートフォンで撮影し、弾痕を自動で検出して着弾群の大きさ（最大中心間距離・平均半径）と平均着弾点を測ります。MOA・mil に換算し、平均着弾点のズレを照準調整に使えます。画像は端末の外に送信しません。',
   },
+  {
+    slug: 'recoil',
+    category: 'loads',
+    title: { ja: '反動の計算', en: 'Recoil Calculator' },
+    summary: {
+      ja: '銃と装弾の重さ・初速から自由反動エネルギー（J・ft-lb）を計算し、2 つの条件を比べます。',
+      en: 'Free recoil energy from the gun, the load and the velocity, with two setups side by side.',
+    },
+    description:
+      '銃の重量、弾頭・散弾の重量、装薬量、初速から、自由反動の運動量・速度・エネルギーを計算します。2 つの条件を並べて、反動が何 % 変わるかを比べられます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
