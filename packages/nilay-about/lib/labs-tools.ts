@@ -182,6 +182,17 @@ export const labsTools = [
     description:
       '銃の重量、弾頭・散弾の重量、装薬量、初速から、自由反動の運動量・速度・エネルギーを計算します。2 つの条件を並べて、反動が何 % 変わるかを比べられます。',
   },
+  {
+    slug: 'shot-pattern',
+    category: 'shotgun',
+    title: { ja: '散弾パターンの測定', en: 'Shotgun Pattern Measurement' },
+    summary: {
+      ja: 'パターンボードを撮影し、30 インチ円内の着弾数とパターン率を数えます。',
+      en: 'Photograph the pattern board and count the hits and the percentage inside the 30-inch circle.',
+    },
+    description:
+      '散弾銃のパターンテスト用。パターンボードを撮影し、直径 76.2 cm（30 インチ）の円内の着弾数・パターン率・分布の偏りを数えます。粒の痕は自動で検出でき、画像は端末の外に送信しません。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
