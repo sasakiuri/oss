@@ -149,6 +149,17 @@ export const labsTools = [
     description:
       '弾速計（クロノグラフ）で測った初速から、平均・標準偏差（SD）・最大最小差（ES）を集計し、発数に応じた SD の信頼区間と、距離ごとの縦の広がりを計算します。',
   },
+  {
+    slug: 'load-development',
+    category: 'loads',
+    title: { ja: 'ロード開発（ラダーテスト）の解析', en: 'Load Development' },
+    summary: {
+      ja: '装薬量の段ごとに初速と着弾を比べ、差がばらつきを超えているかを判定します。',
+      en: 'Compare velocity and impact between charge steps and see whether the differences exceed the scatter.',
+    },
+    description:
+      'ハンドロードの装薬量テスト（ラダーテストなど）の段ごとの初速と着弾から、平均と標準偏差、隣り合う段の差を求め、その差が発数から見たばらつきを超えているかを判定します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
