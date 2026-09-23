@@ -1,7 +1,7 @@
-FROM node:22.22.2-bookworm-slim AS dependencies
+FROM node:24.16.0-bookworm-slim AS dependencies
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 HUSKY=0
-RUN npm install --global npm@10.9.4
+RUN npm install --global npm@11.13.0
 COPY package.json package-lock.json .npmrc ./
 # Workspace directories must retain their names for npm's lockfile resolution.
 COPY packages/ ./packages/
@@ -35,7 +35,7 @@ ARG DOCS_SOFT_BREAKS=0
 ENV DOCS_OUTPUT=standalone
 RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build --workspace=@sasakiuri/saika-docs
 
-FROM node:22.22.2-bookworm-slim AS production
+FROM node:24.16.0-bookworm-slim AS production
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}

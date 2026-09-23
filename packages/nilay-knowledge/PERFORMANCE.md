@@ -2,7 +2,7 @@
 
 ## Lighthouse
 
-Use the repository's Node.js version (22.22.2 or newer), install the Playwright
+Use the repository's Node.js version (24.16.0), install the Playwright
 browsers, then run the production audit from the repository root:
 
 ```bash

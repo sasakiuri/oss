@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "26.8.2"
+          node-version: "24.16.0"
       - name: Verify smoke check failure detection
         run: node --test packages/nilay-knowledge/scripts/deployment-smoke.test.mjs
       - name: Check the deployed site
