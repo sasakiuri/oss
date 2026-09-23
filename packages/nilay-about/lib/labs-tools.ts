@@ -282,6 +282,17 @@ export const labsTools = [
       'くくりわな・箱わななどのわなや網に付ける標識（名札。住所・氏名・登録番号など）を、一字 10 mm 以上の実寸で作成して印刷します。狩猟と許可捕獲の記載事項に対応。',
     japaneseOnly: true,
   },
+  {
+    slug: 'snare-gauge',
+    category: 'traps',
+    title: { ja: 'くくりわなの規格ゲージ', en: 'Snare Gauge' },
+    summary: {
+      ja: '輪の直径 12 cm などくくりわなの基準と都道府県の緩和を確認し、輪の直径を測る実寸ゲージを印刷します。',
+      en: 'The snare rules and a prefecture’s relaxations, with a real-size gauge to check the loop.',
+    },
+    description:
+      'くくりわなの輪の直径 12 cm 以内・締付け防止金具・よりもどし・ワイヤー径 4 mm 以上などの基準を、都道府県の緩和とあわせて一覧にします。輪の内径を確かめる実寸ゲージを印刷できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
