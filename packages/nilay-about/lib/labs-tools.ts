@@ -138,6 +138,17 @@ export const labsTools = [
     description:
       'ライフル弾・スラッグ・散弾の粒が仰角をつけて撃たれたときの最大到達距離を計算します。そのときの仰角・滞空時間・落下時の速度とエネルギーも求められます。跳弾と地形は含まないため、安全距離の根拠にはなりません。',
   },
+  {
+    slug: 'velocity-spread',
+    category: 'loads',
+    title: { ja: '初速のばらつき', en: 'Velocity Spread' },
+    summary: {
+      ja: '弾速計（クロノグラフ）の記録から平均・標準偏差（SD）・最大最小差（ES）を集計します。',
+      en: 'Average, standard deviation and extreme spread from a chronograph string.',
+    },
+    description:
+      '弾速計（クロノグラフ）で測った初速から、平均・標準偏差（SD）・最大最小差（ES）を集計し、発数に応じた SD の信頼区間と、距離ごとの縦の広がりを計算します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
