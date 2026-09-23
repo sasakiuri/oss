@@ -1,0 +1,21 @@
+/* Only the draft goes to paper. The table flows over as many A4 pages as the log needs. */
+.sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  .sheet {
+    display: block;
+    color: #000;
+    background: #fff;
+  }
+
+  .sheet tr {
+    break-inside: avoid;
+  }
+}
