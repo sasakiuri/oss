@@ -293,6 +293,17 @@ export const labsTools = [
     description:
       'くくりわなの輪の直径 12 cm 以内・締付け防止金具・よりもどし・ワイヤー径 4 mm 以上などの基準を、都道府県の緩和とあわせて一覧にします。輪の内径を確かめる実寸ゲージを印刷できます。',
   },
+  {
+    slug: 'trap-check-log',
+    category: 'traps',
+    title: { ja: 'わな見回りの記録', en: 'Trap Check Log' },
+    summary: {
+      ja: 'わなごとの見回りを記録し、決めた間隔を過ぎたわなを知らせます。',
+      en: 'Log each trap check and see which traps are overdue.',
+    },
+    description:
+      'わなごとに設置日と場所を登録し、見回りの日時と結果を記録します。最後の見回りからの経過時間を表示し、決めた間隔を過ぎたわなを知らせます。CSV 書き出しと見回り表の印刷に対応。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
