@@ -1,7 +1,7 @@
 /**
  * The map picture and its reference points, kept in this browser's IndexedDB.
  *
- * A map picture runs to megabytes, beyond what localStorage holds, so it is stored as a Blob. It is
+ * A map picture runs to megabytes, beyond what localStorage holds, so its bytes are stored here. It is
  * written only when a new picture is chosen; the reference points are a small record of their own,
  * written as they are edited, so editing a point never copies the picture again.
  */

@@ -60,7 +60,8 @@ const draw = (latitude: number, longitude: number) => {
 };
 const savedImage = {
   id: 'map-1',
-  blob: new Blob(['x'], { type: 'image/png' }),
+  data: new ArrayBuffer(1),
+  type: 'image/png' as const,
   name: 'map.png',
   width: 4000,
   height: 3000,
@@ -142,7 +143,8 @@ describe('hunter map', () => {
     const input = await loaded(() => screen.findByLabelText('位置図の画像を選ぶ'));
     fireEvent.change(input, { target: { files: [new File(['png'], 'area.png', { type: 'image/png' })] } });
     expect(await loaded(() => screen.findByText('「area.png」（4000 × 3000 ピクセル）'))).toBeInTheDocument();
-    expect((saved.image as { name: string }).name).toBe('area.png');
+    expect(saved.image).toMatchObject({ name: 'area.png', type: 'image/png' });
+    expect((saved.image as { data: ArrayBuffer }).data.byteLength).toBe(3);
     fireEvent.click(screen.getByRole('button', { name: '基準点を追加' }));
     expect(screen.getByText('図の上で基準点 1 の位置をタップしてください。', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('図の上の位置がまだありません。')).toBeInTheDocument();
@@ -298,7 +300,7 @@ describe('hunter map', () => {
   });
 
   it('drops a saved record it cannot read', async () => {
-    saved.image = { id: 'map-1', blob: 'not a blob' };
+    saved.image = { id: 'map-1', data: 'not bytes' };
     render(<HunterMapClient />);
     // Once in the spoken region and once on the page.
     expect(await screen.findAllByText(discardedSaveMessage('ja'))).toHaveLength(2);
@@ -496,7 +498,7 @@ describe('hunter map', () => {
   });
 
   it('deletes a saved record that fails its schema, so the notice is not repeated', async () => {
-    saved.image = { id: 'map-1', blob: 'not a blob' };
+    saved.image = { id: 'map-1', data: 'not bytes' };
     render(<HunterMapClient />);
     // Once in the spoken region and once on the page.
     expect(await screen.findAllByText(discardedSaveMessage('ja'))).toHaveLength(2);

@@ -97,7 +97,7 @@ export const useHunterMapStore = create<HunterMapState>()((set, get) => {
       // A record can pass its schema and still hold a picture the browser cannot draw, or one whose size
       // no longer matches the size the points were placed against, so the picture is decoded again.
       if (imageData) {
-        const size = await readImageSize(imageData.blob);
+        const size = await readImageSize(new Blob([imageData.data], { type: imageData.type }));
         if (!size || size.width !== imageData.width || size.height !== imageData.height) {
           imageData = null;
           discarded = true;
