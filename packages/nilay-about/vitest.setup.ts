@@ -43,3 +43,30 @@ global.ResizeObserver = vi.fn().mockImplementation(function () {
 global.IntersectionObserver = vi.fn().mockImplementation(function () {
   return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
 });
+
+// jsdom has no canvas, so every draw prints a "Not implemented" stack that would bury a real error.
+// This stands in for the 2D context, which also lets the drawing run instead of returning early:
+// a fault in it is then reported by the test that rendered it.
+HTMLCanvasElement.prototype.getContext = vi.fn((type: string) =>
+  type === '2d'
+    ? {
+        arc: vi.fn(),
+        beginPath: vi.fn(),
+        drawImage: vi.fn(),
+        fill: vi.fn(),
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        lineTo: vi.fn(),
+        moveTo: vi.fn(),
+        setLineDash: vi.fn(),
+        setTransform: vi.fn(),
+        stroke: vi.fn(),
+        fillStyle: '',
+        font: '',
+        lineWidth: 0,
+        strokeStyle: '',
+        textAlign: '',
+        textBaseline: '',
+      }
+    : null,
+) as unknown as typeof HTMLCanvasElement.prototype.getContext;

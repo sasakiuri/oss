@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
+import { useLanguage } from '@/store';
+
 import {
   contactFormSchema,
   TITLE_MAX_LENGTH,
@@ -13,9 +15,33 @@ import {
 } from '../schema';
 import { useContactForm } from '../use-contact-form';
 
+/**
+ * What became of a submission, rather than the sentence that describes it.
+ *
+ * A sentence built when the form was sent would keep the language it was sent in, and the reader
+ * can change that afterwards.
+ */
+type Outcome = { kind: 'sent'; uuid: string } | { kind: 'failed' };
+
+/**
+ * The schema words its answers in Japanese. They are named again in English here, keyed by the
+ * Japanese sentence, so the reader sees the language the page is set to.
+ */
+const englishProblems: Record<string, string> = {
+  'Ｅメールアドレスは254文字以内で入力してください。': 'An email address can be no longer than 254 characters.',
+  'Ｅメールアドレスの形式が不正です。': 'That is not an email address.',
+  'タイトルは必須です。': 'A title is needed.',
+  [`タイトルは${TITLE_MAX_LENGTH}文字以内で入力してください。`]: `A title can be no longer than ${TITLE_MAX_LENGTH} characters.`,
+  'お問い合わせ内容は必須です。': 'A message is needed.',
+  [`お問い合わせ内容は${MESSAGE_MAX_LENGTH}文字以内で入力してください。`]: `A message can be no longer than ${MESSAGE_MAX_LENGTH} characters.`,
+  '返信を希望する場合はＥメールアドレスが必要です。': 'An email address is needed if you would like a reply.',
+};
+
 export function ContactForm() {
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
   const mutation = useContactForm();
+  const language = useLanguage();
+  const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   const {
     register,
@@ -37,24 +63,19 @@ export function ContactForm() {
 
   const requiresReply = useWatch({ control, name: 'requiresReply' });
 
+  const problemText = (problem?: string) => {
+    if (!problem) return '';
+    return language === 'ja' ? problem : (englishProblems[problem] ?? problem);
+  };
+
   const onSubmit = async (data: ContactFormData) => {
-    setAlert(null);
+    setOutcome(null);
     try {
       const result = await mutation.mutateAsync(data);
-
-      setAlert({
-        type: 'success',
-        title: '送信完了',
-        message: `お問い合わせありがとうございます。— お問い合わせ番号：${result.uuid}`,
-      });
+      setOutcome({ kind: 'sent', uuid: result.uuid });
       reset();
     } catch {
-      setAlert({
-        type: 'error',
-        title: '送信エラー',
-        message:
-          '何らかのエラーが発生しました。しばらく時間をおいてから送信するか、Ｅメールなどで直接お問い合わせください。',
-      });
+      setOutcome({ kind: 'failed' });
     }
   };
 
@@ -76,12 +97,12 @@ export function ContactForm() {
             },
           })}
         />{' '}
-        <label htmlFor="requiresReply">返信を希望する</label>
+        <label htmlFor="requiresReply">{t('返信を希望する', 'I would like a reply')}</label>
       </p>
 
       {requiresReply && (
         <p>
-          <label htmlFor="email">Ｅメールアドレス *</label>
+          <label htmlFor="email">{t('Ｅメールアドレス *', 'Email address *')}</label>
           <br />
           <input
             id="email"
@@ -94,14 +115,14 @@ export function ContactForm() {
           />
           {errors.email && (
             <span id="email-error" role="alert" className="block text-destructive mt-1">
-              {errors.email.message}
+              {problemText(errors.email.message)}
             </span>
           )}
         </p>
       )}
 
       <p>
-        <label htmlFor="title">タイトル *</label>
+        <label htmlFor="title">{t('タイトル *', 'Title *')}</label>
         <br />
         <input
           id="title"
@@ -116,13 +137,13 @@ export function ContactForm() {
         />
         {errors.title && (
           <span id="title-error" role="alert" className="block text-destructive mt-1">
-            {errors.title.message}
+            {problemText(errors.title.message)}
           </span>
         )}
       </p>
 
       <p>
-        <label htmlFor="message">お問い合わせ内容 *</label>
+        <label htmlFor="message">{t('お問い合わせ内容 *', 'Your message *')}</label>
         <br />
         <textarea
           id="message"
@@ -137,22 +158,31 @@ export function ContactForm() {
         />
         {errors.message && (
           <span id="message-error" role="alert" className="block text-destructive mt-1">
-            {errors.message.message}
+            {problemText(errors.message.message)}
           </span>
         )}
       </p>
 
       <p>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? '送信中...' : '送信'}
+          {isLoading ? t('送信中...', 'Sending…') : t('送信', 'Send')}
         </button>
       </p>
 
-      {alert && (
-        <p role="status" className={alert.type === 'success' ? 'text-foreground' : 'text-destructive'}>
-          <strong>{alert.title}</strong>: {alert.message}{' '}
-          <button type="button" onClick={() => setAlert(null)}>
-            [閉じる]
+      {outcome !== null && (
+        <p role="status" className={outcome.kind === 'sent' ? 'text-foreground' : 'text-destructive'}>
+          <strong>{outcome.kind === 'sent' ? t('送信完了', 'Sent') : t('送信エラー', 'Not sent')}</strong>:{' '}
+          {outcome.kind === 'sent'
+            ? t(
+                `お問い合わせありがとうございます。— お問い合わせ番号：${outcome.uuid}`,
+                `Thank you for writing. Your reference is ${outcome.uuid}.`,
+              )
+            : t(
+                '何らかのエラーが発生しました。しばらく時間をおいてから送信するか、Ｅメールなどで直接お問い合わせください。',
+                'Something went wrong. Please try again in a little while, or write to us by email instead.',
+              )}{' '}
+          <button type="button" onClick={() => setOutcome(null)}>
+            {t('[閉じる]', '[close]')}
           </button>
         </p>
       )}

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 
+import { useLanguage } from '@/store';
+
 interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
@@ -26,6 +28,9 @@ const isDevelopment = process.env.NODE_ENV === 'development';
  * @see https://nextjs.org/docs/app/building-your-application/routing/error-handling
  */
 export default function Error({ error, reset }: ErrorProps) {
+  const language = useLanguage();
+  const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
+
   useEffect(() => {
     // Log error to monitoring service in production
     // TODO: Integrate with Sentry, LogRocket, or similar
@@ -45,22 +50,25 @@ export default function Error({ error, reset }: ErrorProps) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1>エラーが発生しました</h1>
+      <h1>{t('エラーが発生しました', 'Something went wrong')}</h1>
 
-      <p className="mt-4">申し訳ございません。予期しないエラーが発生しました。</p>
+      <p className="mt-4">
+        {t('申し訳ございません。予期しないエラーが発生しました。', 'Sorry - something unexpected happened.')}
+      </p>
 
       {error.digest && (
         <p className="mt-2 text-sm">
-          エラーID: <code>{error.digest}</code>
+          {t('エラーID: ', 'Error ID: ')}
+          <code>{error.digest}</code>
         </p>
       )}
 
       <div className="mt-6 space-x-4">
         <button type="button" onClick={reset} className="underline">
-          再試行
+          {t('再試行', 'Try again')}
         </button>
         <Link href="/" className="underline">
-          ホームに戻る
+          {t('ホームに戻る', 'Back to the front page')}
         </Link>
       </div>
 
@@ -69,7 +77,9 @@ export default function Error({ error, reset }: ErrorProps) {
         <>
           <hr className="my-8" />
           <details className="text-sm">
-            <summary className="cursor-pointer">技術的な詳細（開発環境のみ）</summary>
+            <summary className="cursor-pointer">
+              {t('技術的な詳細（開発環境のみ）', 'Technical detail (development only)')}
+            </summary>
             <pre className="mt-2 p-4 bg-muted overflow-auto text-xs">
               {error.message}
               {error.stack && `\n\nStack trace:\n${error.stack}`}

@@ -1,4 +1,7 @@
+'use client';
+
 import { siteConfig } from '@/lib/config';
+import { useLanguage } from '@/store';
 
 const services = [
   { href: 'https://knowledge.nilay.jp/', label: 'Knowledge' },
@@ -16,11 +19,14 @@ const services = [
  * - No icons - text only
  */
 export function RetroFooter() {
+  const language = useLanguage();
+  const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
+
   return (
     <footer className="mt-8">
       <hr />
       <div className="max-w-3xl mx-auto px-4 py-4">
-        <h2 className="text-lg font-bold">Other Services</h2>
+        <h2 className="text-lg font-bold">{t('ほかのサービス (Other Services)', 'Other Services')}</h2>
         <ul className="mt-2">
           {services.map((service) => (
             <li key={service.href}>
@@ -36,9 +42,11 @@ export function RetroFooter() {
         <address>
           <strong>Nilay</strong>
           <br />
-          {siteConfig.location.prefecture}
-          {siteConfig.location.city}
-          {siteConfig.location.street}
+          <span lang="ja">
+            {siteConfig.location.prefecture}
+            {siteConfig.location.city}
+            {siteConfig.location.street}
+          </span>
           <br />
           Email: <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
         </address>
@@ -48,7 +56,7 @@ export function RetroFooter() {
         </p>
 
         <p className="mt-2 text-sm">
-          Follow us:{' '}
+          {t('フォローする: ', 'Follow us: ')}
           <a href={`https://twitter.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
             Twitter
           </a>

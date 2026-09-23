@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('keeps the main site theme when navigating through Labs', async ({ page }) => {
   await page.goto('/contact');
@@ -9,21 +9,20 @@ test('keeps the main site theme when navigating through Labs', async ({ page }) 
   await expect(validation).toBeVisible();
   const errorColor = await validation.evaluate((element) => getComputedStyle(element).color);
   await page.getByRole('link', { name: '[Labs]', exact: true }).click();
-  await page.getByRole('link', { name: 'home-target', exact: true }).click();
+  await page.getByRole('link', { name: '練習用標的の作成', exact: true }).click();
   await expect(page).toHaveURL(/\/labs\/home-target$/);
+  // Labs sits inside the site's own chrome, so there is still exactly one main landmark.
   await expect(page.getByRole('main')).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'Nilay/About', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '競技種目を編集' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'OK', exact: true })).toHaveCSS(
+  // The tool's own colours apply inside it: the primary action is Material's primary blue.
+  await expect(page.getByRole('button', { name: 'PDF をダウンロード' })).toHaveCSS(
     'background-color',
     'rgb(26, 115, 232)',
   );
-  await page.getByRole('button', { name: 'OK', exact: true }).click();
   await page.goBack();
   await page.getByRole('link', { name: '[Contact]', exact: true }).click();
   await page.getByRole('button', { name: '送信', exact: true }).click();
   await expect(validation).toBeVisible();
+  // Nothing of the tool's theme is left behind on the way back to the site.
   await expect(validation).toHaveCSS('color', errorColor);
   await expect(page.getByRole('main')).toHaveCount(1);
 });
@@ -33,7 +32,7 @@ test('downloads a valid PDF from the local target endpoint', async ({ page }) =>
   await expect(page.getByText('160.5 cm', { exact: true })).toBeVisible();
   const responsePromise = page.waitForResponse('**/api/home-targets');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: /Get Target/ }).click();
+  await page.getByRole('button', { name: 'PDF をダウンロード' }).click();
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toBe('application/pdf');
@@ -44,15 +43,14 @@ test('downloads a valid PDF from the local target endpoint', async ({ page }) =>
   expect(download.suggestedFilename()).toMatch(/\.pdf$/);
 });
 
-test('shows quiz answers, advances, and restarts', async ({ page }) => {
+test('shows quiz answers and advances', async ({ page }) => {
   await page.goto('/labs/game-species-test');
-  await expect(page.getByRole('img', { name: '鳥獣の画像', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /^正解を表示/ }).click();
-  await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
-  await page.getByRole('button', { name: /^次へ/ }).click();
-  await expect(page.getByRole('heading', { level: 2 })).toHaveCount(0);
-  await page.getByRole('button', { name: /^リセット/ }).click();
-  await expect(page.getByRole('img', { name: '鳥獣の画像', exact: true })).toBeVisible();
+  const reveal = page.getByRole('button', { name: '答えを見る', exact: true });
+  await expect(reveal).toBeVisible();
+  await reveal.click();
+  await expect(page.getByRole('button', { name: 'わかった', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '採点せず次へ' }).click();
+  await expect(reveal).toBeVisible();
 });
 
 test('can submit after hiding an invalid reply address', async ({ page }) => {

@@ -1,12 +1,17 @@
-import type { Metadata } from 'next';
+import { JsonLd } from '@/components/json-ld';
+import { RelatedTools } from '@/components/labs';
+import { labsToolJsonLd, labsToolMetadata } from '@/lib/seo';
 
-import { GameSpeciesTestClient } from '@/features/game-species/game-species-test-client';
+import { GameSpeciesTestClient } from './game-species-test-client';
 
-export const metadata: Metadata = {
-  title: '狩猟鳥獣スライドショー',
-  description: '狩猟鳥獣の画像と名前をスライドショーでご覧いただけます。',
-};
+export const metadata = labsToolMetadata('game-species-test');
 
 export default function GameSpeciesTestPage() {
-  return <GameSpeciesTestClient />;
+  return (
+    <>
+      <JsonLd data={labsToolJsonLd('game-species-test')} />
+      <GameSpeciesTestClient />
+      <RelatedTools slug="game-species-test" />
+    </>
+  );
 }

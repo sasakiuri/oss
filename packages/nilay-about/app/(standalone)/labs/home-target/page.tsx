@@ -1,12 +1,17 @@
-import type { Metadata } from 'next';
+import { JsonLd } from '@/components/json-ld';
+import { RelatedTools } from '@/components/labs';
+import { labsToolJsonLd, labsToolMetadata } from '@/lib/seo';
 
-import { HomeTargetClient } from '@/features/home-target/home-target-client';
+import { HomeTargetClient } from './home-target-client';
 
-export const metadata: Metadata = {
-  title: 'Target Calculator',
-  description: '距離に応じた標的の高さと黒丸のサイズを計算します。自宅での練習等にご活用ください。',
-};
+export const metadata = labsToolMetadata('home-target');
 
 export default function HomeTargetPage() {
-  return <HomeTargetClient />;
+  return (
+    <>
+      <JsonLd data={labsToolJsonLd('home-target')} />
+      <HomeTargetClient />
+      <RelatedTools slug="home-target" />
+    </>
+  );
 }

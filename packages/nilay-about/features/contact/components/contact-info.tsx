@@ -1,15 +1,23 @@
 'use client';
 
 import { siteConfig } from '@/lib/config';
+import { useLanguage } from '@/store';
 
 export function ContactInfo() {
+  const language = useLanguage();
+  const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
+
   return (
     <div className="mt-4">
       <ul>
         <li>
-          Ｅメール: <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
+          {t('Ｅメール: ', 'Email: ')}
+          <a href={`mailto:${siteConfig.contact.email}`}>{siteConfig.contact.email}</a>
         </li>
-        <li>電話: {siteConfig.contact.phone}</li>
+        <li>
+          {t('電話: ', 'Telephone: ')}
+          {siteConfig.contact.phone}
+        </li>
       </ul>
 
       <h3>SNS</h3>

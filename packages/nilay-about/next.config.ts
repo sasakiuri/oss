@@ -27,7 +27,9 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=()',
+    // Labs asks for the device position, on this origin only and never without a click:
+    // /labs/hunting-hours reads it to work out the hours, and it goes nowhere else.
+    value: 'camera=(), microphone=(), geolocation=(self)',
   },
 ];
 

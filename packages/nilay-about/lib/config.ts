@@ -4,7 +4,7 @@ export const siteConfig = {
     name: 'Nilay',
   },
   description:
-    'Nilay では射撃・狩猟・有害鳥獣駆除に関するサービスを提供しています。少しでも使いやすいサービスにしていきたいと思っておりますのでよろしくお願いいたします。',
+    '射撃・狩猟・有害鳥獣駆除のための Nilay のサービス紹介。狩猟鳥獣の判別練習、弾道計算、くくりわなの規格ゲージなど、ブラウザーで使える無料ツールも公開しています。',
   siteUrl: 'https://about.nilay.jp',
   image: 'https://cdn.nilay.jp/ecommerce/res/e5b2d52de6422d7fa2a1c7c0eede2477e1b4883d.png',
   social: {
