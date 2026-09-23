@@ -237,6 +237,17 @@ export const labsTools = [
     description:
       '日の出前と日没後の銃猟は禁止されています（鳥獣保護管理法第 38 条）。地点と日付から日の出・日の入りの時刻を計算し、銃猟ができる時間帯と日没までの残り時間を表示します。',
   },
+  {
+    slug: 'hunter-map',
+    category: 'field',
+    title: { ja: '狩猟マップ', en: 'Hunting Area Map' },
+    summary: {
+      ja: '手持ちの鳥獣保護区等位置図の画像に、現在地を重ねて表示します。',
+      en: 'Show where you are on an image of the protected-area map you already have.',
+    },
+    description:
+      '都道府県の鳥獣保護区等位置図（ハンターマップ）の画像に基準点を置いて位置を合わせ、GPS の現在地を図の上に表示します。図と位置情報は端末の外に送信しません。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
