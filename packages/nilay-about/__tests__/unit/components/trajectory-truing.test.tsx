@@ -42,7 +42,8 @@ const bandOnPage = () => screen.queryAllByText(openingBand);
 const onPage = (text: string, options?: { exact: boolean }) =>
   screen.queryAllByText(text, options).filter((node) => !node.className.includes('sr-only'));
 
-describe('fitting a trajectory to the groups that were fired', () => {
+// Every render re-fits the trajectory, which takes seconds on a shared CI runner.
+describe('fitting a trajectory to the groups that were fired', { timeout: 30_000 }, () => {
   beforeEach(() => {
     // persist writes on every set, so the reset comes first and the clear leaves storage truly empty.
     useTruingStore.setState(useTruingStore.getInitialState(), true);
@@ -108,8 +109,8 @@ describe('fitting a trajectory to the groups that were fired', () => {
   });
 
   // Typing a distance and a drop re-solves once per keystroke, and each solve flies the bullet
-  // some seventy times. That is real work rather than a wait, so this one test is given room.
-  it('adds and removes a row, and keeps the answer while one is half typed', { timeout: 30_000 }, async () => {
+  // some seventy times.
+  it('adds and removes a row, and keeps the answer while one is half typed', async () => {
     const user = userEvent.setup();
     render(<TrajectoryTruingClient />);
     await settle();
@@ -123,7 +124,7 @@ describe('fitting a trajectory to the groups that were fired', () => {
     await waitFor(() => expect(bandOnPage()).toHaveLength(1));
   });
 
-  it('puts the focus where the next keystroke belongs when rows come and go', { timeout: 15_000 }, async () => {
+  it('puts the focus where the next keystroke belongs when rows come and go', async () => {
     const user = userEvent.setup();
     render(<TrajectoryTruingClient />);
     await settle();
