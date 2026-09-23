@@ -39,6 +39,18 @@ export const labsTools = [
       '狩猟免許試験の鳥獣判別の練習に。狩猟鳥獣 44 種の写真を、自己採点のスライドショーと時間制限つきの 4 択テストで確認できます。間違えた鳥獣だけを復習できます。',
   },
   {
+    slug: 'law-quiz',
+    category: 'study',
+    title: { ja: '狩猟・銃砲の法令テスト', en: 'Hunting and Firearms Law Quiz' },
+    summary: {
+      ja: '鳥獣保護管理法・銃刀法・火薬類取締法などの 4 択問題。解答ごとに根拠の条文を表示します。',
+      en: 'Multiple-choice questions on Japanese hunting, firearms and explosives law, each with the article it is based on.',
+    },
+    description:
+      '鳥獣保護管理法・銃刀法・火薬類取締法・武器等製造法の条文から作った 4 択問題 97 問。狩猟免許試験や猟銃等講習会の考査の対策に。解答ごとに根拠の条番号と要旨を表示します。',
+    japaneseOnly: true,
+  },
+  {
     slug: 'home-target',
     category: 'sighting',
     title: { ja: '練習用標的の作成', en: 'Practice Target Maker' },
