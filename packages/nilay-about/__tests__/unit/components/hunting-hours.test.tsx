@@ -213,6 +213,12 @@ describe('the order of the page', () => {
     useStorageStatus.setState({ available: true, discarded: [] });
     useLanguageStore.setState({ language: 'ja' });
     window.history.replaceState(null, '', '/labs/hunting-hours?date=2026-06-21');
+    // The hours are shown in the device's time zone; these expectations are Japan Standard Time.
+    vi.stubEnv('TZ', 'Asia/Tokyo');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('asks for the day and the place before the hours, and names both on the answer', async () => {
