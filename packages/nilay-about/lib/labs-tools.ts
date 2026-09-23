@@ -127,6 +127,17 @@ export const labsTools = [
     description:
       '弾頭の直径・長さ・重量とライフリングのツイスト、初速、気温・気圧から、Miller の式でジャイロ安定係数を計算します。必要なツイストと、そのツイストで安定する最大の弾長も求められます。',
   },
+  {
+    slug: 'max-range',
+    category: 'sighting',
+    title: { ja: '最大到達距離の計算', en: 'Maximum Range' },
+    summary: {
+      ja: '弾や散弾が最も遠くまで届く距離と、落下時の速度・エネルギーを計算します。',
+      en: 'How far a bullet or shot can travel at most, and its speed and energy when it comes down.',
+    },
+    description:
+      'ライフル弾・スラッグ・散弾の粒が仰角をつけて撃たれたときの最大到達距離を計算します。そのときの仰角・滞空時間・落下時の速度とエネルギーも求められます。跳弾と地形は含まないため、安全距離の根拠にはなりません。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
