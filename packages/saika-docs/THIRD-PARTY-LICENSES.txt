@@ -1539,7 +1539,7 @@ The following npm packages may be included in this product:
  - @rollup/rollup-linux-x64-gnu@4.63.1
  - @rollup/rollup-linux-x64-musl@4.63.1
  - @sentry/server-utils@10.74.0
- - @upstash/core-analytics@0.0.10
+ - @upstash/core-analytics@v0.0.10
  - @viz-js/viz@3.30.0
  - agent-base@6.0.2
  - babel-plugin-react-compiler@1.0.0
@@ -2983,7 +2983,7 @@ SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - @upstash/ratelimit@2.0.8
+ - @upstash/ratelimit@v2.0.8
  - @upstash/redis@1.38.4
 
 These packages each contain the following license:
