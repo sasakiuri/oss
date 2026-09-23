@@ -2,7 +2,7 @@
 
 ## 環境構築
 
-Node.js 22.22.2 以上、npm 10.9.4 以上を使用します。
+Node.js 24.x（24.16.0）、npm 11.13.0 を使用します。
 以下のコマンドはすべて OSS リポジトリのルートで実行します。
 
 ```bash
@@ -83,22 +83,24 @@ microCMS の接続情報は空にし、Slack・Upstash には接続不能なル�
 ## アーキテクチャ
 
 `app/` は URL、メタデータ、レイアウトと依存の組み立てだけを担当します。
-機能の実装は `features/` に集約し、未使用の汎用 DI コンテナや互換 API は置きません。
+サイトの機能の実装は `features/` に集約し、Labs の各ツールは `app/(standalone)/labs/` に置きます。未使用の汎用 DI コンテナや互換 API は置きません。
 
-| 場所                                 | 責務                                                                                            |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `app/(site)/`                        | メインサイトのページとレトロなヘッダー・フッター。Query provider はこのレイアウトで生成します。 |
-| `app/(standalone)/`                  | Labs のページと独立したテーマ。URL にルートグループ名は含まれません。                           |
-| `app/api/`                           | 依存を明示して HTTP ハンドラーを組み立てます。                                                  |
-| `features/news/`                     | ニュースのスキーマ、HTTP クライアント、Query 定義、画面、サーバーの repository と handler。     |
-| `features/contact/`                  | 共通のフォームスキーマ、画面、mutation、サーバーの handler と Slack adapter。                   |
-| `features/home-target/`              | 長さのモデルと計算、競技データ、PDF 生成、画面ごとの store と UI。                              |
-| `features/game-species/`             | 問題データ、進捗計算、画面ごとの store、再生制御、UI。                                          |
-| `components/ui/`・`components/labs/` | 実際に利用する共通 UI と Labs のレイアウト。                                                    |
-| `lib/http/`                          | ブラウザーの JSON 通信・レスポンス検証・再試行方針。                                            |
-| `lib/server/`                        | HTTP エラー境界、レート制限、クライアント IP の判定。                                           |
-| `features/news/server/repository.ts` | microCMS の取得・レスポンス検証。API キーをサーバー内に保持します。                             |
-| `lib/security/`・`lib/logging/`      | HTML のサニタイズ、構造化ログ、PII のマスキング。                                               |
+| 場所                                 | 責務                                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`                     | 全ページ共通のレトロなヘッダー・フッター、表示言語、Query provider。Labs のツールもこの枠の中に表示します。 |
+| `app/(site)/`                        | メインサイトのページ。                                                                                      |
+| `app/(standalone)/labs/<ツール>/`    | Labs の各ツールの画面と、ツールごとの `_store/`。URL にルートグループ名は含まれません。                     |
+| `app/api/`                           | 依存を明示して HTTP ハンドラーを組み立てます。                                                              |
+| `features/news/`                     | ニュースのスキーマ、HTTP クライアント、Query 定義、画面、サーバーの repository と handler。                 |
+| `features/contact/`                  | 共通のフォームスキーマ、画面、mutation、サーバーの handler と Slack adapter。                               |
+| `features/game-species/`             | 狩猟鳥獣の問題データ。                                                                                      |
+| `lib/<ツール>.ts`・`lib/schemas/`    | Labs の計算と保存データの検証。React と store に依存しない純粋な関数です。                                  |
+| `components/ui/`・`components/labs/` | 実際に利用する共通 UI と Labs のレイアウト・部品。                                                          |
+| `components/layout/`・`store/`       | サイトのヘッダー・フッター・言語切替と、表示言語の store。                                                  |
+| `lib/http/`                          | ブラウザーの JSON 通信・レスポンス検証・再試行方針。                                                        |
+| `lib/server/`                        | HTTP エラー境界、レート制限、クライアント IP の判定。                                                       |
+| `features/news/server/repository.ts` | microCMS の取得・レスポンス検証。API キーをサーバー内に保持します。                                         |
+| `lib/security/`・`lib/logging/`      | HTML のサニタイズ、構造化ログ、PII のマスキング。                                                           |
 
 ### 依存と状態のルール
 
@@ -108,9 +110,9 @@ microCMS の接続情報は空にし、Slack・Upstash には接続不能なル�
 - ニュース repository、Slack adapter、レート制限には関数またはオブジェクトで依存を渡します。テストは実サービスを呼びません。
 - ニュースの query はキャンセル信号を fetch に渡します。404・429・不正なレスポンスは自動再試行せず、一時的な障害だけを再試行します。
 - 問い合わせは通信が失敗しても既に届いている可能性があるため、自動再送しません。結果表示はフォーム内に保持します。
-- Labs の Zustand store は画面のマウントごとに生成します。計算や PDF 生成は React と store に依存しない純粋な関数です。
+- Labs の状態は機能ごとの `_store/` の Zustand store が持ち、永続化は `persist` と `lib/browser-storage.ts` を使います。初期描画後に保存値を検証・復元し、自動再生や通信中の状態は保存しません。計算や PDF 生成は React と store に依存しない純粋な関数です。
 - 長さは計算前に cm に正規化します。標的の高さと黒丸の直径も cm で返します。
-- Tailwind は `app/globals.css` だけで生成します。レトロな要素スタイルは `.site-shell`、Labs の色とスタイルは `.standalone-app` に閉じます。ダイアログも Labs 内に portal します。
+- Tailwind は `app/globals.css` だけで生成します。サイトのレトロな要素スタイルは CSS の `base` レイヤーに置き、コンポーネントのユーティリティークラスで上書きできるようにしています。Labs の色とスタイルは `.standalone-app` に閉じ、About へ戻った際にテーマが残らない構成です。
 
 ### HTTP とログ
 
