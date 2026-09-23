@@ -72,6 +72,17 @@ export const labsTools = [
     description:
       'ゼロイン（照準合わせ）で、射距離と着弾のズレからスコープや照準器のダイヤルを回す向きとクリック数を計算します。1/4 MOA・0.1 mil など各調整単位に対応し、傾斜射撃の水平距離も求められます。',
   },
+  {
+    slug: 'click-verification',
+    category: 'sighting',
+    title: { ja: 'スコープのクリック値検証', en: 'Scope Click Verification' },
+    summary: {
+      ja: '縦長標的のタワーテストで、スコープの実際のクリック値と誤差を求めます。標的も印刷できます。',
+      en: 'Measure what one click on your scope really moves with a tall-target test. The target prints on A4.',
+    },
+    description:
+      '縦長標的を使ったタワーテスト（トラッキングテスト）の結果から、スコープの実際のクリック値・補正係数・公称値との誤差を計算します。必要な高さの縦長標的を A4 に分割して印刷できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];

@@ -1,0 +1,36 @@
+/*
+ * The target is printed by the browser, like the trap tag and the trajectory card, but it runs
+ * over several sheets, so each sheet is its own A4 page instead of one sheet pinned to the corner.
+ */
+.sheets {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  /* The app layout adds padding, so the sheets are taken out of it and start at the paper corner. */
+  .sheets {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    background: #fff;
+  }
+
+  .page {
+    display: block;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    break-after: page;
+  }
+
+  .page:last-child {
+    break-after: auto;
+  }
+}
