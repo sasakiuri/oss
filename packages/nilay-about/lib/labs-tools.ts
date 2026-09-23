@@ -204,6 +204,17 @@ export const labsTools = [
     description:
       '散弾の号数（粒の直径）・材質（鉛・スチール・ビスマスなど）・装弾量・初速から、1 粒の重量と装弾の粒数、距離ごとの残存速度とエネルギーを計算します。鉛と非鉛弾を並べて比べられます。',
   },
+  {
+    slug: 'target-lead',
+    category: 'shotgun',
+    title: { ja: 'リード（見越し）の計算', en: 'Lead Calculator' },
+    summary: {
+      ja: '動く的に対して前に取る距離と、銃口を振る角度を計算します。',
+      en: 'How far ahead of a moving target to shoot, and how far to swing the muzzle.',
+    },
+    description:
+      'クレー射撃や鳥猟のリード（見越し）の計算。的の速度・距離・交差角から、的の何 m 先を狙うかと銃口を振る角度、弾の飛行時間を求めます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
