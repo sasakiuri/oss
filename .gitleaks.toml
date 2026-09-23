@@ -1,0 +1,7 @@
+# Gitleaks reads this file from the repository root.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Browser storage keys of the nilay-about Labs tools (not secrets)"
+regexes = ['''^nilay-labs-[a-z0-9-]+-v[0-9]+$''']
