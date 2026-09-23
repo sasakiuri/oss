@@ -248,6 +248,17 @@ export const labsTools = [
     description:
       '都道府県の鳥獣保護区等位置図（ハンターマップ）の画像に基準点を置いて位置を合わせ、GPS の現在地を図の上に表示します。図と位置情報は端末の外に送信しません。',
   },
+  {
+    slug: 'hunting-log',
+    category: 'field',
+    title: { ja: '出猟・捕獲の記録', en: 'Hunting Log' },
+    summary: {
+      ja: '出猟日ごとの場所・猟法・捕獲数を記録し、狩猟の結果の報告の下書きを作ります。',
+      en: 'Log each day out and what you took, then total it into a draft of the end-of-season report.',
+    },
+    description:
+      '出猟日ごとの場所・猟法・捕獲した鳥獣を記録し、狩猟者登録の満了後に提出する「狩猟の結果の報告」の下書きを様式の欄に沿って集計・印刷します。記録は端末の中だけに保存します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
