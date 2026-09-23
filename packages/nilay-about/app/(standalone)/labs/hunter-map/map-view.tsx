@@ -15,7 +15,8 @@ export interface MapMarker {
 
 interface MapViewProps {
   /** The saved picture. It is shown through an object URL made here and released when it changes. */
-  blob: Blob;
+  data: ArrayBuffer;
+  type: string;
   size: { width: number; height: number };
   markers: readonly MapMarker[];
   /**
@@ -46,7 +47,8 @@ const positionColour = '#1a73e8';
  * are set from how many picture pixels one screen pixel covers, so they keep a constant size on screen.
  */
 export function MapView({
-  blob,
+  data,
+  type,
   size,
   markers,
   position,
@@ -76,13 +78,13 @@ export function MapView({
   useEffect(() => {
     const element = imageRef.current;
     if (!element || typeof URL.createObjectURL !== 'function') return;
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([data], { type }));
     element.src = url;
     return () => {
       element.removeAttribute('src');
       URL.revokeObjectURL(url);
     };
-  }, [blob]);
+  }, [data, type]);
 
   // Picture pixels per screen pixel. Before the frame is measured, a size that suits a phone.
   const unit = viewportWidth > 0 ? size.width / (viewportWidth * zoom) : size.width / 400;

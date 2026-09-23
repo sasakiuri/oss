@@ -30,6 +30,26 @@ async function tapMap(page: Page, x: number, y: number) {
   await map.click({ position: { x: (x / 800) * box.width, y: (y / 600) * box.height } });
 }
 
+/** The longitude of the saved reference point at `index`, as IndexedDB holds it now. */
+function savedLongitude(page: Page, index: number) {
+  return page.evaluate(
+    (at) =>
+      new Promise<string | null>((resolve) => {
+        const open = indexedDB.open('nilay-labs-hunter-map-v1');
+        open.onerror = () => resolve(null);
+        open.onsuccess = () => {
+          const read = open.result.transaction('map').objectStore('map').get('setup');
+          read.onerror = () => resolve(null);
+          read.onsuccess = () => {
+            open.result.close();
+            resolve((read.result as { points?: { longitude: string }[] } | undefined)?.points?.[at]?.longitude ?? null);
+          };
+        };
+      }),
+    index,
+  );
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/labs/hunter-map');
 });
@@ -60,6 +80,8 @@ test('aligns a map by three points, keeps it after reload and shows the position
   await expect(result.getByText('アフィン変換')).toBeVisible();
   await expect(result.getByText(/残差は必ず 0 です/)).toBeVisible();
 
+  // The points are written to IndexedDB as they are typed; reload only once the last one is there.
+  await expect.poll(() => savedLongitude(page, 2)).toBe('138.5562');
   await page.reload();
   await expect(page.getByText('「area.png」（800 × 600 ピクセル）')).toBeVisible();
   await expect(page.getByRole('listitem', { name: '基準点 3' }).getByLabel('経度（東経）')).toHaveValue('138.5562');

@@ -112,7 +112,8 @@ export function HunterMapClient() {
       setImageNotice('pdf');
       return;
     }
-    if (!(hunterMapImageTypes as readonly string[]).includes(file.type)) {
+    const type = hunterMapImageTypes.find((candidate) => candidate === file.type);
+    if (!type) {
       setImageNotice('unsupported');
       return;
     }
@@ -126,7 +127,7 @@ export function HunterMapClient() {
       if (!ok) return;
     }
     setImageNotice('reading');
-    const size = await readImageSize(file);
+    const [size, data] = await Promise.all([readImageSize(file), file.arrayBuffer()]);
     if (!onThisPage.current) return;
     if (!size) {
       setImageNotice('unreadable');
@@ -135,7 +136,7 @@ export function HunterMapClient() {
     setImageNotice(null);
     setActivePointId(null);
     setZoom(1);
-    setImage({ id: newImageId(), blob: file, name: file.name, width: size.width, height: size.height });
+    setImage({ id: newImageId(), data, type, name: file.name, width: size.width, height: size.height });
   };
 
   const locateForPoint = (id: string) => {
@@ -553,7 +554,8 @@ export function HunterMapClient() {
                       </p>
                     )}
                     <MapView
-                      blob={image.blob}
+                      data={image.data}
+                      type={image.type}
                       size={image}
                       markers={markers}
                       position={positionOnMap?.inside ? positionOnMap : null}

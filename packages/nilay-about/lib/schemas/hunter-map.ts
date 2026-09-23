@@ -8,7 +8,15 @@ export const hunterMapImageTypes = ['image/png', 'image/jpeg'] as const;
 
 export const savedMapImageSchema = z.object({
   id: z.string().min(1),
-  blob: z.custom<Blob>((value) => typeof Blob !== 'undefined' && value instanceof Blob, 'Expected a Blob'),
+  /**
+   * The picture's bytes. Stored as an ArrayBuffer rather than a Blob: Safari cannot put a Blob in
+   * IndexedDB in a private window.
+   */
+  data: z.custom<ArrayBuffer>(
+    (value) => Object.prototype.toString.call(value) === '[object ArrayBuffer]',
+    'Expected an ArrayBuffer',
+  ),
+  type: z.enum(hunterMapImageTypes),
   name: z.string(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),
