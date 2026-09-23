@@ -304,6 +304,17 @@ export const labsTools = [
     description:
       'わなごとに設置日と場所を登録し、見回りの日時と結果を記録します。最後の見回りからの経過時間を表示し、決めた間隔を過ぎたわなを知らせます。CSV 書き出しと見回り表の印刷に対応。',
   },
+  {
+    slug: 'electric-fence',
+    category: 'damage',
+    title: { ja: '電気柵の設計計算', en: 'Electric Fence Planner' },
+    summary: {
+      ja: 'シカ・イノシシ・サルなどに合わせた段の高さと、柵線・支柱・ガイシの数を計算します。',
+      en: 'Wire heights for deer, boar or monkeys, and how much wire, posts and insulators you need.',
+    },
+    description:
+      'イノシシ・シカ・サル・クマなどの獣種と出典を選んで、電気柵の段の地上高、柵線の総延長、支柱・ガイシ・出入口のグリップの数を計算します。電気さくの法令上の要件と点検項目も確認できます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
