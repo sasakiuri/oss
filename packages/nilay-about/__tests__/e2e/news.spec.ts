@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('renders the news list and sanitized detail after loading', async ({ page }) => {
   const errors: string[] = [];

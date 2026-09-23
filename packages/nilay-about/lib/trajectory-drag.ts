@@ -1,0 +1,82 @@
+/**
+ * Drag coefficients of the standard projectiles G1 and G7, against Mach number.
+ *
+ * Transcribed from the tabulation JBM Ballistics distributes as `mcg1.txt` and `mcg7.txt`
+ * (https://jbmballistics.com/downloads.html, retrieved 2026-09-22), where the site states
+ * of these files: "I obtained the G functions and sphere from BRL", the US Army Ballistic
+ * Research Laboratory that measured them. Every value here is that file's value: none was
+ * interpolated, rounded or invented. The same standard drag functions are described in
+ * Robert L. McCoy, "Modern Exterior Ballistics", 2nd ed., chapter 4, "Notes on Aerodynamic
+ * Drag"; the numbers below are not taken from that book, so its tables are not the source
+ * to check them against.
+ *
+ * Both tables give the drag coefficient of the standard projectile referred to its
+ * frontal area, which is what a ballistic coefficient published in pounds per square
+ * inch is measured against. G1 describes a flat-based projectile with a short nose and
+ * suits pistol and older rifle bullets; G7 describes a boat-tailed projectile with a
+ * long nose and fits modern match bullets far better over long distances.
+ *
+ * The Mach grid is deliberately uneven: it is dense through the transonic rise around
+ * Mach 1, where the drag of G7 rises from 0.1660 to 0.4015 over a tenth of a Mach, and
+ * sparse where the curve is nearly flat. The gap at Mach 0.65 in G1 and at Mach 1.45 in
+ * G7 is in the published tables and is left as published rather than filled with a guess.
+ */
+
+import { dragFromTable, dragTableRange, type DragTable } from './drag-table';
+import type { DragModel } from './schemas/trajectory';
+
+export type { DragModel } from './schemas/trajectory';
+
+// prettier-ignore
+const G1_TABLE: DragTable = [
+  [0.0, 0.2629], [0.05, 0.2558], [0.1, 0.2487], [0.15, 0.2413], [0.2, 0.2344],
+  [0.25, 0.2278], [0.3, 0.2214], [0.35, 0.2155], [0.4, 0.2104], [0.45, 0.2061],
+  [0.5, 0.2032], [0.55, 0.202], [0.6, 0.2034], [0.7, 0.2165], [0.725, 0.223],
+  [0.75, 0.2313], [0.775, 0.2417], [0.8, 0.2546], [0.825, 0.2706], [0.85, 0.2901],
+  [0.875, 0.3136], [0.9, 0.3415], [0.925, 0.3734], [0.95, 0.4084], [0.975, 0.4448],
+  [1.0, 0.4805], [1.025, 0.5136], [1.05, 0.5427], [1.075, 0.5677], [1.1, 0.5883],
+  [1.125, 0.6053], [1.15, 0.6191], [1.2, 0.6393], [1.25, 0.6518], [1.3, 0.6589],
+  [1.35, 0.6621], [1.4, 0.6625], [1.45, 0.6607], [1.5, 0.6573], [1.55, 0.6528],
+  [1.6, 0.6474], [1.65, 0.6413], [1.7, 0.6347], [1.75, 0.628], [1.8, 0.621],
+  [1.85, 0.6141], [1.9, 0.6072], [1.95, 0.6003], [2.0, 0.5934], [2.05, 0.5867],
+  [2.1, 0.5804], [2.15, 0.5743], [2.2, 0.5685], [2.25, 0.563], [2.3, 0.5577],
+  [2.35, 0.5527], [2.4, 0.5481], [2.45, 0.5438], [2.5, 0.5397], [2.6, 0.5325],
+  [2.7, 0.5264], [2.8, 0.5211], [2.9, 0.5168], [3.0, 0.5133], [3.1, 0.5105],
+  [3.2, 0.5084], [3.3, 0.5067], [3.4, 0.5054], [3.5, 0.504], [3.6, 0.503],
+  [3.7, 0.5022], [3.8, 0.5016], [3.9, 0.501], [4.0, 0.5006], [4.2, 0.4998],
+  [4.4, 0.4995], [4.6, 0.4992], [4.8, 0.499], [5.0, 0.4988],
+];
+
+// prettier-ignore
+const G7_TABLE: DragTable = [
+  [0.0, 0.1198], [0.05, 0.1197], [0.1, 0.1196], [0.15, 0.1194], [0.2, 0.1193],
+  [0.25, 0.1194], [0.3, 0.1194], [0.35, 0.1194], [0.4, 0.1193], [0.45, 0.1193],
+  [0.5, 0.1194], [0.55, 0.1193], [0.6, 0.1194], [0.65, 0.1197], [0.7, 0.1202],
+  [0.725, 0.1207], [0.75, 0.1215], [0.775, 0.1226], [0.8, 0.1242], [0.825, 0.1266],
+  [0.85, 0.1306], [0.875, 0.1368], [0.9, 0.1464], [0.925, 0.166], [0.95, 0.2054],
+  [0.975, 0.2993], [1.0, 0.3803], [1.025, 0.4015], [1.05, 0.4043], [1.075, 0.4034],
+  [1.1, 0.4014], [1.125, 0.3987], [1.15, 0.3955], [1.2, 0.3884], [1.25, 0.381],
+  [1.3, 0.3732], [1.35, 0.3657], [1.4, 0.358], [1.5, 0.344], [1.55, 0.3376],
+  [1.6, 0.3315], [1.65, 0.326], [1.7, 0.3209], [1.75, 0.316], [1.8, 0.3117],
+  [1.85, 0.3078], [1.9, 0.3042], [1.95, 0.301], [2.0, 0.298], [2.05, 0.2951],
+  [2.1, 0.2922], [2.15, 0.2892], [2.2, 0.2864], [2.25, 0.2835], [2.3, 0.2807],
+  [2.35, 0.2779], [2.4, 0.2752], [2.45, 0.2725], [2.5, 0.2697], [2.55, 0.267],
+  [2.6, 0.2643], [2.65, 0.2615], [2.7, 0.2588], [2.75, 0.2561], [2.8, 0.2533],
+  [2.85, 0.2506], [2.9, 0.2479], [2.95, 0.2451], [3.0, 0.2424], [3.1, 0.2368],
+  [3.2, 0.2313], [3.3, 0.2258], [3.4, 0.2205], [3.5, 0.2154], [3.6, 0.2106],
+  [3.7, 0.206], [3.8, 0.2017], [3.9, 0.1975], [4.0, 0.1935], [4.2, 0.1861],
+  [4.4, 0.1793], [4.6, 0.173], [4.8, 0.1672], [5.0, 0.1618],
+];
+
+const DRAG_TABLES: Record<DragModel, DragTable> = { g1: G1_TABLE, g7: G7_TABLE };
+
+/** Both published tables run from Mach 0 to Mach 5. Outside that the end value is held. */
+export const DRAG_TABLE_RANGE: Record<DragModel, { min: number; max: number }> = {
+  g1: dragTableRange(G1_TABLE),
+  g7: dragTableRange(G7_TABLE),
+};
+
+/** Drag coefficient of the standard projectile at a Mach number. Read as drag-table.ts describes. */
+export function dragCoefficient(model: DragModel, mach: number): number {
+  return dragFromTable(DRAG_TABLES[model], mach);
+}

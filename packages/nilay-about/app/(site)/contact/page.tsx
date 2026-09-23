@@ -1,27 +1,27 @@
-import type { Metadata } from 'next';
-
 import { ContactForm } from '@/features/contact/components/contact-form';
+import { ContactHeadings } from '@/features/contact/components/contact-headings';
 import { ContactInfo } from '@/features/contact/components/contact-info';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: 'お問い合わせ',
-  description: 'お気軽にお問い合わせください。Email、電話、各種 SNS でもお問い合わせいただけます。',
-};
+  description: 'Nilay へのお問い合わせ。フォームのほか、メール・電話・SNS でも受け付けています。',
+  path: '/contact',
+});
 
 export default function ContactPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1>お問い合わせ (Contact)</h1>
-      <p>お気軽にお問い合わせください。Ｅメール、電話、各種 SNS でもお問い合わせいただけます。</p>
+      <ContactHeadings part="intro" />
 
       <hr />
 
-      <h2>お問い合わせフォーム</h2>
+      <ContactHeadings part="form" />
       <ContactForm />
 
       <hr />
 
-      <h2>その他の連絡方法</h2>
+      <ContactHeadings part="other" />
       <ContactInfo />
     </div>
   );

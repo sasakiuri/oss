@@ -1,12 +1,17 @@
 import type { Metadata } from 'next';
 
+import { JsonLd } from '@/components/json-ld';
+import { LanguageBoundary } from '@/components/language-boundary';
+import { MainRegion, RetroHeader, RetroFooter } from '@/components/layout';
+import { Providers } from '@/components/providers';
 import { siteConfig } from '@/lib/config';
+import { siteJsonLd } from '@/lib/seo';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: {
     default: siteConfig.title,
-    template: `%s : ${siteConfig.title}`,
+    template: `%s | ${siteConfig.title}`,
   },
   description: siteConfig.description,
   metadataBase: new URL(siteConfig.siteUrl),
@@ -26,12 +31,11 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: siteConfig.title,
     description: siteConfig.description,
     site: `@${siteConfig.social.twitter}`,
-    creator: `@${siteConfig.social.twitter}`,
-    images: ['https://cdn.nilay.jp/ecommerce/res/40f542fd0fd0bf4b5b60be43e49007bfabc0b9e7.png'],
+    images: [siteConfig.image],
   },
   other: {
     'fb:app_id': siteConfig.social.facebookAppId,
@@ -44,8 +48,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // The server has no way to know the reader's language, so the document opens in Japanese and
+    // LanguageBoundary moves this attribute with the text once the page has loaded.
     <html lang="ja">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <JsonLd data={siteJsonLd()} />
+        <Providers>
+          <LanguageBoundary>
+            <RetroHeader />
+            <MainRegion>{children}</MainRegion>
+            <RetroFooter />
+          </LanguageBoundary>
+        </Providers>
+      </body>
     </html>
   );
 }

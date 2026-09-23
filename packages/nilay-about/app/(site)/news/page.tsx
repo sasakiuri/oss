@@ -1,17 +1,18 @@
-import type { Metadata } from 'next';
-
 import { NewsListClient } from '@/features/news/components/news-list';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = {
+import { NewsHeading } from './news-heading';
+
+export const metadata = pageMetadata({
   title: 'お知らせ',
-  description: 'Nilay からのお知らせです。商品の入荷情報やアップデート情報をお届けします。',
-};
+  description: 'Nilay からのお知らせ。商品の入荷やサービスの更新をお知らせします。',
+  path: '/news',
+});
 
 export default function NewsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1>お知らせ (News)</h1>
-      <p>Nilay からの最新情報です。商品の入荷情報やサービスのアップデート情報をお届けします。</p>
+      <NewsHeading />
       <hr />
       <NewsListClient />
     </div>
