@@ -226,6 +226,17 @@ export const labsTools = [
     description:
       'トラップ・スキートの 1 ラウンド 25 枚を命中・失中で記録し、合計・射台別の命中率・連続命中を集計するスコアシート。ラウンドの履歴を残せて、白紙のスコアシートも印刷できます。',
   },
+  {
+    slug: 'hunting-hours',
+    category: 'field',
+    title: { ja: '銃猟可能時間', en: 'Legal Shooting Hours' },
+    summary: {
+      ja: '地点と日付から日の出・日の入りを求め、銃猟ができる時間帯を表示します。',
+      en: 'Sunrise and sunset for a place and date, and the hours you may hunt with a gun.',
+    },
+    description:
+      '日の出前と日没後の銃猟は禁止されています（鳥獣保護管理法第 38 条）。地点と日付から日の出・日の入りの時刻を計算し、銃猟ができる時間帯と日没までの残り時間を表示します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
