@@ -338,6 +338,17 @@ export const labsTools = [
       'シカ・イノシシをジビエとして食肉処理施設に持ち込むときの捕獲時の記録票を、厚生労働省のガイドラインと手引書の様式に沿って 1 頭ごとに作成し、A4 で印刷します。',
     japaneseOnly: true,
   },
+  {
+    slug: 'meat-yield',
+    category: 'harvest',
+    title: { ja: '肉の歩留まり計算', en: 'Meat Yield Calculator' },
+    summary: {
+      ja: 'シカ・イノシシの体重から、枝肉と食肉の重さ（歩留まり）と冷凍パック数の目安を計算します。',
+      en: 'Carcass and meat weight from a deer or boar’s body weight, and how many freezer packs it makes.',
+    },
+    description:
+      'シカ・イノシシの体重から、枝肉と食肉にできる部位の重さ（歩留まり）の目安を計算します。係数は農林水産省の資料の参考値か自分で量った値を使い、冷凍のパック数も求められます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
