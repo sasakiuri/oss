@@ -61,6 +61,17 @@ export const labsTools = [
     description:
       '室内練習などの短い距離に合わせて、標的の黒点の直径と中心の高さを計算し、A4・Letter で実寸印刷できる PDF を作成します。エアライフル・エアピストル・50m ライフルなど ISSF の種目に対応。',
   },
+  {
+    slug: 'sight-adjustment',
+    category: 'sighting',
+    title: { ja: '照準調整のクリック数計算', en: 'Scope Click Calculator' },
+    summary: {
+      ja: '着弾のズレから、スコープのダイヤルを回す向きとクリック数を計算します。',
+      en: 'Which way to turn the turrets, and how many clicks, from where the shots landed.',
+    },
+    description:
+      'ゼロイン（照準合わせ）で、射距離と着弾のズレからスコープや照準器のダイヤルを回す向きとクリック数を計算します。1/4 MOA・0.1 mil など各調整単位に対応し、傾斜射撃の水平距離も求められます。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];
