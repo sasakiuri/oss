@@ -5,3 +5,18 @@ useDefault = true
 [allowlist]
 description = "Browser storage keys of the nilay-about Labs tools (not secrets)"
 regexes = ['''^nilay-labs-[a-z0-9-]+-v[0-9]+$''']
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Published RFC 8291 section 5 authentication test vector"
+condition = "AND"
+paths = ['''^packages/nilay-about/__tests__/unit/lib/server/web-push\.test\.ts$''']
+regexes = ['''^BTBZMqHH6r4Tts7J_aSIgg$''']
+
+[[rules.allowlists]]
+description = "Match timer event identifier"
+condition = "AND"
+paths = ['''^packages/nilay-about/app/\(standalone\)/labs/match-timer/match-timer-client\.tsx$''']
+regexes = ['''^3p-qualification$''']
