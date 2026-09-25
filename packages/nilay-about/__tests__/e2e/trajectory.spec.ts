@@ -140,14 +140,12 @@ test('explains invalid input beside the field without losing the page', async ({
 });
 
 test('shows the notes and stays translated after reload', async ({ page }) => {
-  await open(page, /^計算方法と注意/);
+  await open(page, /^計算方法/);
   await open(page, /^大気/);
-  await expect(page.getByText('入力はこのブラウザーに保存されます。', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^計算方法と注意/ })).toContainText('実射で確認してください');
+  await expect(page.getByRole('button', { name: /^計算方法/ })).toContainText('平射の質点モデル');
   await expect(page.getByText('コリオリの効果', { exact: false })).toBeVisible();
-  await expect(page.getByText('その日の高気圧・低気圧は反映されません', { exact: false })).toBeVisible();
+  await expect(page.getByText('その日の高気圧・低気圧は反映しません', { exact: false })).toBeVisible();
   await expect(page.getByText('NATO mil', { exact: false })).toBeVisible();
-  await expect(page.getByText('射撃場の規則に従い', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
@@ -264,4 +262,66 @@ test('scrolls the wide table inside itself at a narrow viewport', async ({ page 
   expect(Math.abs((head?.x ?? 0) - (cell?.x ?? 1))).toBeLessThan(1);
   await page.getByRole('link', { name: 'Labs 一覧に戻る' }).click();
   await expect(page.getByRole('heading', { name: /Labs/ })).toBeVisible();
+});
+
+test('reads drop in whole clicks once a click value is chosen, and carries it onto the card', async ({ page }) => {
+  // The radio is visually hidden inside its segment, so the reader's target is the segment itself.
+  await page
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: 'クリック' }) })
+    .click();
+  // No click value is assumed: the table asks for one.
+  await expect(page.getByText('「弾と銃」でスコープの調整単位を選ぶと、クリック数を表示します。')).toBeVisible();
+  await page.getByLabel('スコープの調整単位').selectOption('0.1-mil');
+  await expect(page.getByText(/1 クリック 0\.1 mil。整数に丸めています。/)).toBeVisible();
+  await page.getByLabel('カードの落差と風偏の単位').selectOption('clicks');
+  await expect(page.getByRole('img', { name: '印刷するカードのプレビュー' })).toContainText('1 クリック 0.1 mil');
+});
+
+test('bends the path for a slope and moves the velocity with the powder temperature', async ({ page }) => {
+  await open(page, /^傾斜と火薬温度/);
+  // Not entered, the shot is level and the velocity is the one typed; the heading says so.
+  await expect(page.getByRole('button', { name: /傾斜 未入力（水平）・火薬温度 未入力（補正なし）/ })).toBeVisible();
+  await page.getByRole('spinbutton', { name: /撃ち上げ・撃ち下ろしの角度/ }).fill('30');
+  await expect(page.getByText(/30° の撃ち上げ。表の距離は照準線に沿った距離/)).toBeVisible();
+  await page.getByRole('spinbutton', { name: /初速の温度係数/ }).fill('1');
+  await page.getByRole('spinbutton', { name: /初速を測ったときの火薬温度/ }).fill('15');
+  await page.getByRole('spinbutton', { name: /今日の火薬温度/ }).fill('35');
+  await expect(page.getByText(/今日の初速は 820 m\/s/)).toBeVisible();
+});
+
+test('draws the hold, prints a turret tape, and works out the chance of a hit', async ({ page }) => {
+  await open(page, /^レティクル上の狙い位置/);
+  await expect(page.getByText('未入力です。すべての欄を入力すると計算します。').first()).toBeVisible();
+  await page.getByRole('spinbutton', { name: /狙う距離/ }).fill('300');
+  await expect(page.getByRole('img', { name: '狙い位置を描いたレティクル' })).toBeVisible();
+  await expect(page.getByText(/300 m では目盛りの上に/)).toBeVisible();
+
+  await page.getByLabel('スコープの調整単位').selectOption('1/4-moa');
+  await open(page, /^ターレットテープの印刷/);
+  await page.getByRole('spinbutton', { name: /ターレットの円周/ }).fill('100');
+  await page.getByRole('spinbutton', { name: /1 回転のクリック数/ }).fill('60');
+  await page.getByRole('spinbutton', { name: /テープの距離の刻み/ }).fill('50');
+  await page.getByRole('spinbutton', { name: /テープの最大距離/ }).fill('300');
+  await expect(page.getByRole('img', { name: '印刷するテープのプレビュー' })).toBeVisible();
+
+  await open(page, /^命中確率と射程/);
+  for (const [name, value] of [
+    [/^群の大きさ/, '1'],
+    [/群の発数/, '5'],
+    [/初速の標準偏差/, '0'],
+    [/風速の読み違い/, '0'],
+    [/距離の見積もり誤差/, '0'],
+    [/求める命中確率/, '90'],
+  ] as const)
+    await page.getByRole('spinbutton', { name }).fill(value);
+  await expect(page.getByRole('region', { name: '距離ごとの命中確率' })).toBeVisible();
+
+  await open(page, /^ロードの比較/);
+  await page.getByRole('button', { name: '比べるロードを追加' }).click();
+  await expect(page.getByRole('region', { name: 'ロードごとの落差とエネルギー' })).toBeVisible();
+  // What was entered survives a reload with the rest of the settings.
+  await page.reload();
+  await open(page, /^ロードの比較/);
+  await expect(page.getByRole('button', { name: 'ロード B を外す' })).toBeVisible();
 });

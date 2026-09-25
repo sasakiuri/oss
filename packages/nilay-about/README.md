@@ -123,9 +123,12 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
 - **Scope Click Calculator** (照準調整のクリック数計算): from the distance, the offset of the shots and the adjustment unit,
   calculates the direction and number of clicks, and the offset left after rounding.
   Units: 1/8, 1/4, 1/2 and 1 MOA; 0.05 and 0.1 mil; or mm per 100 m.
-  Distance is in m or yd, offset in mm, cm or inch. It can also give the horizontal distance from the slant distance and angle.
+  Distance is in m or yd, offset in mm, cm or inch. It can also give the horizontal distance from the slant distance and angle;
+  holding for the drop there (the rifleman's rule) is an approximation that the ballistic calculator's slope input improves on.
   MOA is 1/60 of a degree and mil is the milliradian (not the NATO mil).
   The result is a geometric estimate. Adjust from the centre of a group of several shots.
+  The Group Size Measurement tool opens it with the measured distance and mean point of impact filled in. The values travel in the link and are
+  taken off the address once read, so a reload keeps later edits; the click value stays as set here.
 - **Ballistic Calculator** (弾道計算とゼロイン): from muzzle velocity, bullet weight, ballistic coefficient and drag model (G1 or G7),
   sight height and zero distance, tabulates drop (cm, MOA, mil), wind drift, remaining velocity, remaining energy (J, ft-lb)
   and time of flight at each distance.
@@ -140,10 +143,23 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   From an allowed radius it finds the maximum point-blank range and its zero distance in still air, and with the entered wind
   also shows where drop and drift together leave the radius. If the sight height is larger than the radius, the shot starts outside it and nothing is shown.
   The model is a flat-fire point-mass model that numerically integrates the published G1 and G7 standard drag tables.
-  Spin drift, Coriolis effect, vertical wind and humidity are not included. Confirm the zero by shooting.
+  Spin drift, Coriolis effect and vertical wind are not included. Confirm the zero by shooting.
+  Relative humidity enters the air density as dry air and water vapour at their partial pressures, with the saturation vapour pressure
+  from Buck (1981, J. Appl. Meteorol. 20, 1527) with his enhancement factor for water vapour in air; the speed of sound stays at the dry-air value.
+  An uphill or downhill angle tilts gravity against the line of sight; the rifle keeps the bore angle it was zeroed at on level ground,
+  table distances are along the line of sight, and the point-blank range is for level ground.
+  A powder temperature correction changes the muzzle velocity linearly (m/s per °C or fps per °F, entered by the user)
+  from the temperature it was measured at; the zero stays as set with the measured velocity, so warm powder shows as a hit high at the zero distance.
+  The turret click value (as in the Scope Click Calculator) gives drop and drift in whole clicks in the table and on the card.
+  Humidity, slope, powder temperature, the click value and the sections below the card start as not entered, and settings saved
+  before they were added still load unchanged. Nothing is filled in for them: without humidity the air is dry, without a slope the
+  shot is level and without a powder temperature the velocity is the one entered, each stated on screen; clicks, the turret tape and
+  the sections ask for their own values before they show anything.
+  No drag table for diabolo air-gun pellets (such as GA) is included, because no published table with a verifiable source and licence was found;
+  use the maker's G1 coefficient and true it with measured drops.
   The trajectory prints as a real-size drop card: a stock strip (100 × 45 mm), a business card (91 × 55 mm) or A7,
   with 1, 2, 4 or 6 cards on A4. The card has its own distance step and maximum distance, separate from the on-screen table,
-  and drop and drift in cm, MOA or mil.
+  and drop and drift in cm, MOA, mil or clicks.
   Drift can be for the entered wind or per unit of full-value (9 o'clock) wind. Time of flight, remaining velocity and remaining energy are optional columns.
   Muzzle velocity, bullet weight, ballistic coefficient, drag model, zero distance, temperature, pressure and wind are always printed,
   so a card cannot be mistaken for one made for another load, zero or day.
@@ -151,6 +167,33 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   The card sheet prints only from カードを印刷する (print the cards); the browser's own print command prints this screen as it is.
   Print at "Actual size (100%)" and check that the test line measures 50 mm. The on-screen preview is not to scale.
   Gun and load names are saved in the browser like the other settings, so leave them blank on a shared device.
+  Four sections below the card open on demand and work nothing out while closed:
+  - Hold on the reticle: the drop and drift at a chosen distance drawn as a hold on a plain mil (0.5 mil ticks) or MOA (1 MOA ticks) scale,
+    not any maker's reticle. A second-focal-plane reticle is scaled by calibrated / current magnification; a hold beyond ±10 mil or ±30 MOA
+    is shown on the edge with a note to dial it instead.
+  - Turret tape: from the turret circumference (measured by wrapping a strip, or diameter × π), the clicks per turn and the click value,
+    marks each distance past the zero at the click it needs, labelling later turns, and prints the strip at real size on A4 with the 50 mm line.
+    Tapes longer than 190 mm, or clicks closer than 0.5 mm even when thinned to every 2, 5 or 10, are reported instead of shrunk.
+  - Hit probability and range: the chance of landing in the target circle at each distance, from the group (Rayleigh σ, or the extreme spread
+    of one group converted with the published mean extreme spread for that shot count), the muzzle velocity SD, the error in the judged
+    full-value wind and the error in the distance, each one standard deviation. The parts are independent normal spreads added in variance
+    (velocity and distance vertically, wind horizontally, the group both ways), centred on the aim, and the circle probability is integrated
+    numerically (Rayleigh closed form when the two SDs are equal). The furthest distance at the chance the shooter chooses (90 % by default,
+    not a published standard) is searched to the table's furthest distance. Vital-zone sizes differ with the animal and the angle and no
+    primary source with dimensions for Japanese game species was found, so the circle is the target radius the user enters.
+  - Compare loads: up to three more loads (velocity, weight, BC and drag function) beside the form's, sharing its sight height, zero, air,
+    wind and slope; drop and energy by distance and the point-blank range for each.
+- **Shooting Unit Converter** (射撃の単位換算): converts one value into every unit of its quantity: pressure (bar, MPa, psi, kgf/cm², atm)
+  for PCP fills, torque (N·m, kgf·cm, in-lb, ft-lb) for mounts, velocity, weight (g, kg, grain, oz, lb), energy (J, ft-lb, kgf·m),
+  length, and angle (MOA, mil, degrees, cm at 100 m, inches at 100 yd). The factors follow from the exact definitions of the
+  international yard and pound, the grain, standard gravity, the bar and the standard atmosphere, as listed in NIST SP 811 Appendix B.8;
+  lengths on a target are converted through the tangent. Results are shown to six significant digits. Each quantity keeps its own value.
+- **Wind Call Practice** (風読みの練習): two kinds of question. Wind value: the share of a wind from a clock hour that crosses the line of fire,
+  the sine of its angle (3 and 9 o'clock full value, 1, 5, 7 and 11 half value). Hold: for a random distance, wind speed and hour,
+  how far and to which side to hold, in mil or MOA, worked out from the drift of a 1 m/s full-value wind in the Ballistic Calculator's
+  point-mass model for the user's velocity and ballistic coefficient (standard atmosphere, 100 m zero, 40 mm sight height), times the speed
+  and the wind value. Answers within the chosen tolerance count; the last 200 are kept in the browser and tallied by clock hour, with the
+  weakest hours named. Wind cues (flags, grass, mirage) are not taught here.
 - **Trajectory Truing** (弾道の合わせ込み（トゥルーイング）): from drops measured at several distances, adjusts either the ballistic coefficient
   or the muzzle velocity until the calculated trajectory matches. Drops can be entered as a length on the target (cm, inch) or an angle (MOA, mil).
   Below the point of aim is positive, above is negative. Up to 10 rows of distance and drop can be added, and each can be removed.

@@ -23,7 +23,9 @@ import {
 import { Button, Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
 import { labsTool } from '@/lib/labs-tools';
-import { fromMeters } from '@/lib/sight-adjustment';
+import { INCLINE_LIMIT_DEGREES, type PowderTemperatureSetting } from '@/lib/schemas/trajectory';
+import { fromMeters, withClickPreset } from '@/lib/sight-adjustment';
+import type { ClickPreset } from '@/lib/sight-adjustment';
 import {
   altitudeInRange,
   altitudeRange,
@@ -32,15 +34,18 @@ import {
   JOULES_PER_FOOT_POUND,
   MAX_TABLE_ROWS,
   calculateTrajectory,
+  offsetInClicks,
   fromMetersPerSecond,
   fromMetersToDropUnit,
   usesAltitude,
   usesPressureReading,
   type AltitudeUnit,
+  type ClickSetting,
   type DistanceUnit,
   type DragModel,
   type DropUnit,
   type MassUnit,
+  type PowderSensitivityUnit,
   type PressureSource,
   type PressureUnit,
   type SightHeightUnit,
@@ -68,22 +73,54 @@ import {
 import {
   convertAltitudeValue,
   convertMassValue,
+  convertPowderSensitivityValue,
   convertPressureValue,
   convertSightHeightValue,
   convertSpeedValue,
   convertTemperatureValue,
   convertWindSpeedValue,
 } from '@/lib/trajectory-units';
+import type { TurretTapeLayout } from '@/lib/turret-tape';
 import { cn } from '@/lib/utils';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
 import { initialTrajectorySettings, storageKey, useTrajectoryStore } from './_store';
+import { HitProbabilitySection } from './hit-probability-section';
+import { LazySection } from './lazy-section';
+import { LoadComparisonSection } from './load-comparison-section';
+import { ReticleHoldSection } from './reticle-hold-section';
 import { TrajectoryCardSheet } from './trajectory-card';
 import styles from './trajectory-card-print.module.css';
 import { TrajectoryTable } from './trajectory-table';
+import { TurretTapeSection, TurretTapeSheet } from './turret-tape-section';
 
 /** Below this Mach number a bullet that left supersonic is crossing its own shock wave. */
 const TRANSONIC_MACH = 1.2;
+
+/** The powder setting before any of it is typed: the units shown, the numbers blank. */
+const BLANK_POWDER: PowderTemperatureSetting = {
+  sensitivity: { value: NaN, unit: 'mps-per-c' },
+  unit: 'c',
+  reference: NaN,
+  temperature: NaN,
+};
+
+const CLICK_OPTIONS: readonly ClickPreset[] = [
+  '1/8-moa',
+  '1/4-moa',
+  '1/2-moa',
+  '1-moa',
+  '0.05-mil',
+  '0.1-mil',
+  'custom',
+];
+
+/** The click value as it is printed on a turret, or as the travel a custom one is quoted by. */
+function clickSettingLabel(click: ClickSetting | undefined, t: (ja: string, en: string) => string): string {
+  if (click === undefined) return t('未設定', 'not set');
+  if (click.preset === 'custom') return t(`${click.customMmPer100m} mm/100 m`, `${click.customMmPer100m} mm/100 m`);
+  return click.preset.replace('-moa', ' MOA').replace('-mil', ' mil');
+}
 
 /** A name for the rifle or the load. It is printed on the card and saved like any other setting. */
 function TextField({
@@ -138,6 +175,11 @@ export function TrajectoryClient() {
     wind,
     atmosphere,
     card,
+    humidityPercent,
+    inclineDegrees,
+    powder,
+    clickValue,
+    comparison,
     setMuzzleSpeed,
     setMass,
     setBallisticCoefficient,
@@ -152,6 +194,10 @@ export function TrajectoryClient() {
     setWind,
     setAtmosphere,
     setCard,
+    setHumidityPercent,
+    setInclineDegrees,
+    setPowder,
+    setClickValue,
   } = useTrajectoryStore();
   const language = useLanguage();
   const setLanguage = useSetLanguage();
@@ -160,7 +206,10 @@ export function TrajectoryClient() {
   const [ready, setReady] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   // Set by the print button only; the browser's own print command still prints the page.
-  const [printingCards, setPrintingCards] = useState(false);
+  const [printing, setPrinting] = useState<
+    { kind: 'cards' } | { kind: 'tape'; layout: TurretTapeLayout; caption: string } | null
+  >(null);
+  const printingCards = printing?.kind === 'cards';
   // How the screen table states drop and drift. A view of the same rows, so it is not saved.
   const [tableAngle, setTableAngle] = useState<TrajectoryCardDrop>('offset');
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
@@ -184,6 +233,9 @@ export function TrajectoryClient() {
       vitalRadius,
       wind,
       atmosphere,
+      humidityPercent,
+      inclineDegrees,
+      powder,
     }),
     [
       muzzleSpeed,
@@ -199,6 +251,9 @@ export function TrajectoryClient() {
       vitalRadius,
       wind,
       atmosphere,
+      humidityPercent,
+      inclineDegrees,
+      powder,
     ],
   );
   const computed = useMemo(() => calculateTrajectory(input), [input]);
@@ -241,6 +296,34 @@ export function TrajectoryClient() {
   const showsAltitude = usesAltitude(atmosphere.source);
   const pressureInvalid = showsPressure && !positive(atmosphere.pressure.value);
   const altitudeInvalid = showsAltitude && !altitudeInRange(atmosphere.altitude.value, atmosphere.altitude.unit);
+  // The humidity, the slope and the powder are not entered until typed. A blank one is not an error:
+  // the calculation leaves it out and the screen says so. Only a value that was typed is checked.
+  const humidityInvalid =
+    humidityPercent !== undefined &&
+    (!Number.isFinite(humidityPercent) || humidityPercent < 0 || humidityPercent > 100);
+  const inclineInvalid =
+    inclineDegrees !== undefined &&
+    (!Number.isFinite(inclineDegrees) || Math.abs(inclineDegrees) > INCLINE_LIMIT_DEGREES);
+  // A powder setting is all or nothing: once one of its numbers is typed, the rest are asked for.
+  const powderDraft = powder ?? BLANK_POWDER;
+  const sensitivityInvalid = powder !== undefined && !Number.isFinite(powder.sensitivity.value);
+  const powderReferenceInvalid = powder !== undefined && !temperatureInRange(powder.reference, powder.unit);
+  const powderTemperatureInvalid = powder !== undefined && !temperatureInRange(powder.temperature, powder.unit);
+  const editPowder = (next: PowderTemperatureSetting) =>
+    setPowder(
+      [next.sensitivity.value, next.reference, next.temperature].every((value) => Number.isNaN(value))
+        ? undefined
+        : next,
+    );
+  // A custom click value only feeds the clicks readings, so it blanks them and leaves the rest standing.
+  const clickInvalid =
+    clickValue?.preset === 'custom' &&
+    (!Number.isFinite(clickValue.customMmPer100m) || clickValue.customMmPer100m <= 0);
+  const clicksUnavailable = clickValue === undefined || clickInvalid;
+  const clicksOf = (offsetMeters: number, distanceMeters: number) =>
+    clickValue === undefined ? NaN : Math.round(offsetInClicks(offsetMeters, distanceMeters, clickValue));
+  /** A blank field clears the setting back to not entered. */
+  const enteredOrCleared = (value: number) => (Number.isNaN(value) ? undefined : value);
 
   // Marked fields are not calculated from, so no figure contradicts an error message.
   const inputInvalid =
@@ -256,7 +339,12 @@ export function TrajectoryClient() {
     windAngleInvalid ||
     temperatureInvalid ||
     pressureInvalid ||
-    altitudeInvalid;
+    altitudeInvalid ||
+    humidityInvalid ||
+    inclineInvalid ||
+    sensitivityInvalid ||
+    powderReferenceInvalid ||
+    powderTemperatureInvalid;
   const result = inputInvalid ? null : computed;
   const cardResult = inputInvalid ? null : computedCard;
   const cardDriftResult = inputInvalid ? null : computedCardDrift;
@@ -275,6 +363,14 @@ export function TrajectoryClient() {
     `${temperatureBounds.min} から ${temperatureBounds.max} ${temperatureUnitLabel} の範囲で入力してください。`,
     `Enter a temperature between ${temperatureBounds.min} and ${temperatureBounds.max} ${temperatureUnitLabel}.`,
   );
+  const temperatureRangeError = (unit: TemperatureUnit) => {
+    const bounds = temperatureRange(unit);
+    const label = unit === 'c' ? '°C' : '°F';
+    return t(
+      `${bounds.min} から ${bounds.max} ${label} の範囲で入力してください。`,
+      `Enter a temperature between ${bounds.min} and ${bounds.max} ${label}.`,
+    );
+  };
   const altitudeError = t(
     `${altitudeBounds.min} から ${altitudeBounds.max} ${altitudeUnitLabel} の範囲で入力してください。`,
     `Enter an altitude between ${altitudeBounds.min} and ${altitudeBounds.max} ${altitudeUnitLabel}.`,
@@ -325,18 +421,29 @@ export function TrajectoryClient() {
   const cardExtras = orderCardExtras(card.extras);
   const cardStepInvalid = !positive(card.step);
   const cardRangeInvalid = !positive(card.maxRange);
-  const cardOffsetLabel = card.drop === 'offset' ? dropUnit : card.drop === 'moa' ? 'MOA' : 'mil';
+  const clickLabel = clickSettingLabel(clickValue, t);
+  const cardOffsetLabel =
+    card.drop === 'offset'
+      ? dropUnit
+      : card.drop === 'moa'
+        ? 'MOA'
+        : card.drop === 'mil'
+          ? 'mil'
+          : t('クリック', 'clicks');
   const windUnitLabel = wind.unit === 'mps' ? 'm/s' : 'mph';
   const speedUnitLabel = muzzleSpeed.unit === 'mps' ? 'm/s' : 'fps';
 
   // Drop and drift share one reading. Angles keep one more decimal than lengths: a tenth of a mil
   // is a click on most turrets.
-  const offsetCell = (offsetMeters: number, moa: number, mil: number) =>
+  // Clicks are whole: a turret stops on nothing else. A blank custom click value prints a dash.
+  const offsetCell = (offsetMeters: number, moa: number, mil: number, distanceMeters: number) =>
     card.drop === 'offset'
       ? number(fromMetersToDropUnit(offsetMeters, dropUnit), 1)
       : card.drop === 'moa'
         ? number(moa, 1)
-        : number(mil, 2);
+        : card.drop === 'mil'
+          ? number(mil, 2)
+          : number(clicksOf(offsetMeters, distanceMeters), 0);
   const extraCell = (row: TrajectoryRow, extra: TrajectoryCardExtra) =>
     extra === 'time'
       ? number(row.timeSeconds, 2)
@@ -367,10 +474,14 @@ export function TrajectoryClient() {
     const driftRow = card.drift === 'per-speed' ? cardDriftResult?.rows[index] : row;
     return [
       number(fromMeters(row.distanceMeters, distanceUnit), 0),
-      offsetCell(row.dropMeters, row.dropMoa, row.dropMil),
+      offsetCell(row.dropMeters, row.dropMoa, row.dropMil, row.distanceMeters),
       ...(card.drift === 'none'
         ? []
-        : [driftRow ? offsetCell(driftRow.driftMeters, driftRow.driftMoa, driftRow.driftMil) : '—']),
+        : [
+            driftRow
+              ? offsetCell(driftRow.driftMeters, driftRow.driftMoa, driftRow.driftMil, driftRow.distanceMeters)
+              : '—',
+          ]),
       ...cardExtras.map((extra) => extraCell(row, extra)),
     ];
   });
@@ -388,6 +499,22 @@ export function TrajectoryClient() {
     custom: `${number(wind.customFromDegrees, 0)}°`,
   };
   const cardTitle = [card.gun.trim(), card.load.trim()].filter(Boolean).join(' / ');
+  // Printed only when they differ from the published tables' own assumptions, so a plain card stays short.
+  const cardExtraConditions = [
+    card.drop === 'clicks' ? t(`1 クリック ${clickLabel}`, `1 click ${clickLabel}`) : null,
+    humidityPercent !== undefined
+      ? t(`湿度 ${number(humidityPercent, 0)} %`, `RH ${number(humidityPercent, 0)} %`)
+      : null,
+    inclineDegrees !== undefined && inclineDegrees !== 0
+      ? t(`傾斜 ${number(inclineDegrees, 1)}°`, `slope ${number(inclineDegrees, 1)}°`)
+      : null,
+    powder !== undefined && cardResult && Math.abs(cardResult.muzzleSpeedMs - cardResult.zeroMuzzleSpeedMs) > 0.05
+      ? t(
+          `火薬温度 ${number(powder.temperature, 0)} ${powder.unit === 'c' ? '°C' : '°F'}（初速 ${number(fromMetersPerSecond(cardResult.muzzleSpeedMs, muzzleSpeed.unit), 1)} ${speedUnitLabel}）`,
+          `powder ${number(powder.temperature, 0)} ${powder.unit === 'c' ? '°C' : '°F'} (MV ${number(fromMetersPerSecond(cardResult.muzzleSpeedMs, muzzleSpeed.unit), 1)} ${speedUnitLabel})`,
+        )
+      : null,
+  ].filter((entry): entry is string => entry !== null);
   /** Always printed, so a card cannot be mistaken for another load, zero or day. */
   const cardConditions = cardResult
     ? [
@@ -404,6 +531,7 @@ export function TrajectoryClient() {
               `${number(atmosphere.temperature.value, 0)} ${atmosphere.temperature.unit === 'c' ? '°C' : '°F'}・${number(cardResult.conditions.pressurePa / 100, 0)} hPa・風 ${number(wind.speed, 1)} ${windUnitLabel} ${windClockLabel[wind.preset]}`,
               `${number(atmosphere.temperature.value, 0)} ${atmosphere.temperature.unit === 'c' ? '°C' : '°F'}・${number(cardResult.conditions.pressurePa / 100, 0)} hPa・wind ${number(wind.speed, 1)} ${windUnitLabel} ${windClockLabel[wind.preset]}`,
             ),
+        ...(cardExtraConditions.length > 0 ? [cardExtraConditions.join(t('・', ' · '))] : []),
       ]
     : [];
   const cardContent: TrajectoryCardContent = {
@@ -413,7 +541,7 @@ export function TrajectoryClient() {
     rows: cardRows,
   };
   const cardLayout = getTrajectoryCardLayout({ content: cardContent, size: card.size, copies: card.copies });
-  const screenOnly = printingCards ? 'print:hidden' : undefined;
+  const screenOnly = printing ? 'print:hidden' : undefined;
   // Only the card's own limits; no trajectory at all is reported once, in the results.
   const cardOverflowMessage =
     cardResult === null
@@ -447,6 +575,11 @@ export function TrajectoryClient() {
   );
 
   const printCard = () => {
+    // A card of clicks with no click value would print a column of dashes.
+    if (card.drop === 'clicks' && clicksUnavailable) {
+      document.getElementById(clickValue === undefined ? 'trajectory-click-value' : 'trajectory-click-custom')?.focus();
+      return;
+    }
     if (cardResult === null) {
       // The field that stops the card, wherever it is on the page: the zero when every field reads
       // as valid and the zero is what cannot be reached, and otherwise the card's own step.
@@ -460,17 +593,17 @@ export function TrajectoryClient() {
       document.getElementById('trajectory-card-size')?.focus();
       return;
     }
-    setPrintingCards(true);
+    setPrinting({ kind: 'cards' });
   };
 
   useEffect(() => {
-    if (!printingCards) return;
+    if (!printing) return;
     // Prints after the render that puts the sheet on the page.
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
-      setPrintingCards(false);
+      setPrinting(null);
     };
     // print() returning or afterprint, whichever comes first, puts the page back. React commits
     // the removal after this task, so the sheet stays while the dialog reads it.
@@ -478,7 +611,7 @@ export function TrajectoryClient() {
     window.print();
     finish();
     return () => window.removeEventListener('afterprint', finish);
-  }, [printingCards]);
+  }, [printing]);
 
   const pressureSourceLabel: Record<PressureSource, string> = {
     station: t('現地の気圧', 'station pressure'),
@@ -497,6 +630,9 @@ export function TrajectoryClient() {
         )
       : null,
     `${pressureSourceLabel[atmosphere.source]}`,
+    humidityPercent === undefined
+      ? t('湿度 未入力（乾燥空気）', 'RH not entered (dry air)')
+      : t(`湿度 ${number(humidityPercent, 0)} %`, `RH ${number(humidityPercent, 0)} %`),
   ]
     .filter(Boolean)
     .join(t('・', ' · '));
@@ -519,8 +655,13 @@ export function TrajectoryClient() {
             { id: 'zero-and-wind', label: t('ゼロインと風', 'Zero and wind') },
             { id: 'summary', label: t('弾道', 'Trajectory') },
             { id: 'atmosphere', label: t('大気', 'Atmosphere') },
+            { id: 'slope-and-powder', label: t('傾斜と火薬温度', 'Slope and powder') },
             { id: 'table-range', label: t('表の距離', 'Table range') },
             { id: 'ballistics-card', label: t('弾道カード', 'Card') },
+            { id: 'reticle-hold', label: t('レティクル', 'Reticle') },
+            { id: 'turret-tape', label: t('ターレットテープ', 'Turret tape') },
+            { id: 'hit-probability', label: t('命中確率', 'Hit probability') },
+            { id: 'load-comparison', label: t('ロード比較', 'Compare loads') },
             { id: 'notes', label: t('計算方法', 'Method') },
           ]}
         />
@@ -590,7 +731,6 @@ export function TrajectoryClient() {
                     min={0}
                     invalid={speedInvalid}
                     errorText={positiveError}
-                    hint={t('できれば実測値', 'Measured, if you can')}
                   />
                   <NumberField
                     label={t('弾頭重量', 'Bullet weight')}
@@ -628,8 +768,8 @@ export function TrajectoryClient() {
                     invalid={bcInvalid}
                     errorText={bcError}
                     hint={t(
-                      'メーカーの値と G1／G7 の別を合わせます。両方あればボートテール弾は G7。',
-                      'Match the maker’s figure to G1 or G7. If both are given, use G7 for boat tails.',
+                      'G1 と G7 の両方があれば、ボートテール弾は G7',
+                      'If both G1 and G7 are given, use G7 for boat tails',
                     )}
                   />
                   <NumberField
@@ -654,6 +794,36 @@ export function TrajectoryClient() {
                     errorText={nonNegativeError}
                     hint={t('照準線と銃身軸の間隔', 'Line of sight to bore axis')}
                   />
+                  <SelectField
+                    label={t('スコープの調整単位', 'Turret click value')}
+                    value={clickValue?.preset ?? ''}
+                    onChange={(value) =>
+                      setClickValue(value === '' ? undefined : withClickPreset(clickValue, value as ClickPreset))
+                    }
+                    options={[
+                      { value: '', label: t('未設定', 'Not set') },
+                      ...CLICK_OPTIONS.map((preset) => ({
+                        value: preset,
+                        label:
+                          preset === 'custom'
+                            ? t('カスタム', 'Custom')
+                            : clickSettingLabel({ preset, customMmPer100m: 0 }, t),
+                      })),
+                    ]}
+                    fieldId="trajectory-click-value"
+                  />
+                  {clickValue?.preset === 'custom' && (
+                    <NumberField
+                      label={t('100 m あたりの移動量', 'Travel per 100 m')}
+                      unit="mm"
+                      value={clickValue.customMmPer100m}
+                      onChange={(customMmPer100m) => setClickValue({ ...clickValue, customMmPer100m })}
+                      fieldId="trajectory-click-custom"
+                      min={0}
+                      invalid={clickInvalid}
+                      errorText={positiveError}
+                    />
+                  )}
                 </div>
               </Card>
 
@@ -679,10 +849,6 @@ export function TrajectoryClient() {
                     min={0}
                     invalid={zeroInvalid}
                     errorText={positiveError}
-                    hint={t(
-                      'm と yd を切り替えても数値はそのままです。',
-                      'Switching between m and yd keeps the numbers as typed.',
-                    )}
                   />
                   <NumberField
                     label={t('風速', 'Wind speed')}
@@ -718,8 +884,8 @@ export function TrajectoryClient() {
                       { value: 'custom', label: t('カスタム（角度）', 'Custom (angle)') },
                     ]}
                     hint={t(
-                      '風が吹いてくる方向。射手から見た時計の文字盤で。',
-                      'Where the wind comes from, on the shooter’s clock.',
+                      '風が吹いてくる方向（射手から見た時計）',
+                      'Where the wind comes from, on the shooter’s clock',
                     )}
                   />
                   {wind.preset === 'custom' && (
@@ -765,6 +931,22 @@ export function TrajectoryClient() {
                             : undefined
                       }
                     />
+                    {Math.abs(result.muzzleSpeedMs - result.zeroMuzzleSpeedMs) > 0.05 && (
+                      <p className="text-sm text-on-surface-variant">
+                        {t(
+                          `火薬温度の補正で、今日の初速は ${number(fromMetersPerSecond(result.muzzleSpeedMs, muzzleSpeed.unit), 1)} ${speedUnitLabel} です。ゼロインは基準温度の初速のままです。`,
+                          `Corrected for powder temperature, today’s muzzle velocity is ${number(fromMetersPerSecond(result.muzzleSpeedMs, muzzleSpeed.unit), 1)} ${speedUnitLabel}. The zero stays as set at the reference temperature.`,
+                        )}
+                      </p>
+                    )}
+                    {inclineDegrees !== undefined && inclineDegrees !== 0 && (
+                      <p className="text-sm text-on-surface-variant">
+                        {t(
+                          `${number(Math.abs(inclineDegrees), 1)}° の${inclineDegrees > 0 ? '撃ち上げ' : '撃ち下ろし'}。表の距離は照準線に沿った距離（斜距離）です。最大直接照準距離は水平で求めた値です。`,
+                          `${number(Math.abs(inclineDegrees), 1)}° ${inclineDegrees > 0 ? 'uphill' : 'downhill'}. Table distances are along the line of sight (slant range). The point blank range is for level ground.`,
+                        )}
+                      </p>
+                    )}
                     {windLimited !== null && (
                       <p className="text-sm text-on-surface-variant">
                         {t(
@@ -815,8 +997,25 @@ export function TrajectoryClient() {
                         { value: 'offset', label: dropUnit },
                         { value: 'moa', label: 'MOA' },
                         { value: 'mil', label: 'mil' },
+                        { value: 'clicks', label: t('クリック', 'Clicks') },
                       ]}
                     />
+                    {tableAngle === 'clicks' && clicksUnavailable && (
+                      <p className="text-sm text-destructive">
+                        {t(
+                          '「弾と銃」でスコープの調整単位を選ぶと、クリック数を表示します。',
+                          'Choose the turret click value under “Load and rifle” to see clicks.',
+                        )}
+                      </p>
+                    )}
+                    {tableAngle === 'clicks' && !clicksUnavailable && (
+                      <p className="text-xs text-on-surface-variant">
+                        {t(
+                          `1 クリック ${clickLabel}。整数に丸めています。`,
+                          `1 click = ${clickLabel}, rounded to whole clicks.`,
+                        )}
+                      </p>
+                    )}
                     {result.rows.length > 0 ? (
                       <TrajectoryTable
                         rows={result.rows}
@@ -824,6 +1023,7 @@ export function TrajectoryClient() {
                         distanceUnit={distanceUnit}
                         dropUnit={dropUnit}
                         angle={tableAngle}
+                        click={clickValue}
                         speedUnit={muzzleSpeed.unit}
                         transonicBelowMach={transonicBelowMach}
                         format={number}
@@ -832,8 +1032,8 @@ export function TrajectoryClient() {
                     ) : (
                       <p className="text-sm text-destructive">
                         {t(
-                          '表に出せる行がありません。距離の刻みが最大距離より大きくないか確認してください。',
-                          'No rows to show. Check that the step is not larger than the furthest distance.',
+                          '距離の刻みが最大距離より大きく、表に出せる行がありません。',
+                          'The step is larger than the furthest distance, so there are no rows.',
                         )}
                       </p>
                     )}
@@ -872,7 +1072,7 @@ export function TrajectoryClient() {
                 id="atmosphere"
                 title={t('大気', 'Atmosphere')}
                 summary={atmosphereSummary}
-                forceOpen={temperatureInvalid || pressureInvalid || altitudeInvalid}
+                forceOpen={temperatureInvalid || pressureInvalid || altitudeInvalid || humidityInvalid}
               >
                 <SelectField
                   label={t('気圧の求め方', 'Pressure from')}
@@ -984,6 +1184,17 @@ export function TrajectoryClient() {
                       errorText={altitudeError}
                     />
                   )}
+                  <NumberField
+                    label={t('湿度', 'Relative humidity')}
+                    unit="%"
+                    value={humidityPercent ?? NaN}
+                    onChange={(value) => setHumidityPercent(enteredOrCleared(value))}
+                    min={0}
+                    max={100}
+                    invalid={humidityInvalid}
+                    errorText={t('0 から 100 の範囲で入力してください。', 'Enter a value from 0 to 100.')}
+                    hint={t('空欄なら乾燥空気で計算します。', 'Left blank, the air is taken as dry.')}
+                  />
                 </div>
                 <dl className="grid gap-4 rounded-sm bg-surface-container p-4 sm:grid-cols-2">
                   {figure(
@@ -1006,8 +1217,105 @@ export function TrajectoryClient() {
                 </dl>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    '予報や空港の気圧は海面更正値です。現地の気圧として入れず、「海面更正気圧と標高」を選んでください。標高のみは海面気圧を 1013.25 hPa とし、その日の高気圧・低気圧は反映されません。',
-                    'Forecast and airfield pressures are corrected to sea level: choose “Sea-level pressure and altitude” for them, not the measured option. Altitude only assumes 1013.25 hPa at sea level and ignores the day’s weather.',
+                    '予報や空港の気圧は海面更正値なので、「海面更正気圧と標高」を選びます。標高のみは海面気圧を 1013.25 hPa とし、その日の高気圧・低気圧は反映しません。',
+                    'Forecast and airfield pressures are corrected to sea level: use “Sea-level pressure and altitude” for them. Altitude only assumes 1013.25 hPa at sea level, whatever the day’s weather.',
+                  )}
+                </p>
+              </ConditionSection>
+
+              <ConditionSection
+                id="slope-and-powder"
+                title={t('傾斜と火薬温度', 'Slope and powder temperature')}
+                summary={t(
+                  `${inclineDegrees === undefined ? '傾斜 未入力（水平）' : `傾斜 ${number(inclineDegrees, 1)}°`}・${powder === undefined ? '火薬温度 未入力（補正なし）' : `火薬 ${number(powder.temperature, 1)} ${powder.unit === 'c' ? '°C' : '°F'}（基準 ${number(powder.reference, 1)}）`}`,
+                  `${inclineDegrees === undefined ? 'Slope not entered (level)' : `Slope ${number(inclineDegrees, 1)}°`} · ${powder === undefined ? 'powder not entered (no correction)' : `powder ${number(powder.temperature, 1)} ${powder.unit === 'c' ? '°C' : '°F'} (reference ${number(powder.reference, 1)})`}`,
+                )}
+                forceOpen={inclineInvalid || sensitivityInvalid || powderReferenceInvalid || powderTemperatureInvalid}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField
+                    label={t('撃ち上げ・撃ち下ろしの角度', 'Uphill or downhill angle')}
+                    unit={t('度', 'degrees')}
+                    value={inclineDegrees ?? NaN}
+                    onChange={(value) => setInclineDegrees(enteredOrCleared(value))}
+                    min={-INCLINE_LIMIT_DEGREES}
+                    max={INCLINE_LIMIT_DEGREES}
+                    invalid={inclineInvalid}
+                    errorText={t(
+                      `-${INCLINE_LIMIT_DEGREES} から ${INCLINE_LIMIT_DEGREES} の範囲で入力してください。`,
+                      `Enter an angle between -${INCLINE_LIMIT_DEGREES} and ${INCLINE_LIMIT_DEGREES}.`,
+                    )}
+                    hint={t(
+                      '上りが正、下りが負。距離は照準線に沿った距離。空欄なら水平',
+                      'Positive uphill, negative downhill. Distances are along the line of sight. Blank is level',
+                    )}
+                  />
+                  <NumberField
+                    label={t('初速の温度係数', 'Velocity change per degree')}
+                    value={powderDraft.sensitivity.value}
+                    onChange={(value) =>
+                      editPowder({ ...powderDraft, sensitivity: { ...powderDraft.sensitivity, value } })
+                    }
+                    units={{
+                      value: powderDraft.sensitivity.unit,
+                      label: t('温度係数の単位', 'Sensitivity unit'),
+                      options: [
+                        { value: 'mps-per-c', label: 'm/s/°C' },
+                        { value: 'fps-per-f', label: 'fps/°F' },
+                      ],
+                      onChange: (unit: PowderSensitivityUnit) =>
+                        editPowder({
+                          ...powderDraft,
+                          sensitivity: {
+                            value: convertPowderSensitivityValue(
+                              powderDraft.sensitivity.value,
+                              powderDraft.sensitivity.unit,
+                              unit,
+                            ),
+                            unit,
+                          },
+                        }),
+                    }}
+                    invalid={sensitivityInvalid}
+                    errorText={t('数値を入力してください。', 'Enter a number.')}
+                    hint={t('3 つとも空欄なら補正しません', 'With all three blank, no correction is made')}
+                  />
+                  <NumberField
+                    label={t('初速を測ったときの火薬温度', 'Powder temperature when measured')}
+                    value={powderDraft.reference}
+                    onChange={(reference) => editPowder({ ...powderDraft, reference })}
+                    units={{
+                      value: powderDraft.unit,
+                      label: t('火薬温度の単位', 'Powder temperature unit'),
+                      options: [
+                        { value: 'c', label: '°C' },
+                        { value: 'f', label: '°F' },
+                      ],
+                      onChange: (unit: TemperatureUnit) =>
+                        editPowder({
+                          ...powderDraft,
+                          unit,
+                          reference: convertTemperatureValue(powderDraft.reference, powderDraft.unit, unit),
+                          temperature: convertTemperatureValue(powderDraft.temperature, powderDraft.unit, unit),
+                        }),
+                    }}
+                    invalid={powderReferenceInvalid}
+                    errorText={temperatureRangeError(powderDraft.unit)}
+                  />
+                  <NumberField
+                    label={t('今日の火薬温度', 'Powder temperature today')}
+                    unit={powderDraft.unit === 'c' ? '°C' : '°F'}
+                    value={powderDraft.temperature}
+                    onChange={(temperature) => editPowder({ ...powderDraft, temperature })}
+                    invalid={powderTemperatureInvalid}
+                    errorText={temperatureRangeError(powderDraft.unit)}
+                    hint={t('日なたの弾は気温より高くなります', 'Rounds in the sun run warmer than the air')}
+                  />
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  {t(
+                    '初速は温度差に比例して変わるとし、ゼロインは基準温度の初速で合わせたままとします。',
+                    'The velocity changes in proportion to the temperature difference; the zero stays as set with the reference velocity.',
                   )}
                 </p>
               </ConditionSection>
@@ -1057,8 +1365,8 @@ export function TrajectoryClient() {
                     invalid={vitalInvalid}
                     errorText={positiveError}
                     hint={t(
-                      '最大直接照準距離に使う急所の半径。単位は表の落差・風偏にも使います。',
-                      'Vital zone radius for the point blank range. The unit also sets drop and drift in the table.',
+                      '最大直接照準距離に使う急所の半径。表の落差・風偏もこの単位',
+                      'Vital zone radius for the point blank range. Also the unit for drop and drift in the table',
                     )}
                   />
                 </div>
@@ -1149,11 +1457,8 @@ export function TrajectoryClient() {
                       },
                       { value: 'moa', label: 'MOA' },
                       { value: 'mil', label: 'mil' },
+                      { value: 'clicks', label: t(`クリック数（${clickLabel}）`, `Clicks (${clickLabel})`) },
                     ]}
-                    hint={t(
-                      'スコープの調整単位に合わせると、そのまま回せます。',
-                      'Match your scope’s turrets to dial the figure as printed.',
-                    )}
                   />
                   <SelectField
                     label={t('風偏の列', 'Drift column')}
@@ -1174,8 +1479,8 @@ export function TrajectoryClient() {
                       { value: 'none', label: t('印字しない', 'None') },
                     ]}
                     hint={t(
-                      '「1 あたり」は、読んだ風速を掛けて使います。',
-                      'Multiply per-unit drift by the wind speed you read.',
+                      '「1 あたり」は読んだ風速を掛けて使う',
+                      'Multiply per-unit drift by the wind speed you read',
                     )}
                   />
                 </div>
@@ -1225,8 +1530,8 @@ export function TrajectoryClient() {
                       />
                       <figcaption className="text-center text-xs text-on-surface-variant">
                         {t(
-                          `A4 への配置（画面上は実寸ではありません）。1 枚 ${cardSizeText}、${cardRows.length} / ${cardLayout.maxRows} 行。`,
-                          `Layout on A4, not actual size on screen. Each card ${cardSizeText}, ${cardRows.length} of ${cardLayout.maxRows} rows.`,
+                          `1 枚 ${cardSizeText}、${cardRows.length} / ${cardLayout.maxRows} 行`,
+                          `Each card ${cardSizeText}, ${cardRows.length} of ${cardLayout.maxRows} rows`,
                         )}
                       </figcaption>
                     </figure>
@@ -1239,7 +1544,7 @@ export function TrajectoryClient() {
                 )}
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '「実際のサイズ（100%）」、余白なし、ヘッダーとフッターなしで印刷し、基準線が 50 mm あるか定規で確かめてください。',
+                    '「実際のサイズ（100%）」、余白なし、ヘッダーとフッターなしで印刷し、基準線が 50 mm あるか定規で確かめます。',
                     'Print at actual size (100%) with no margins, headers or footers, then check that the reference line measures 50 mm.',
                   )}
                 </p>
@@ -1249,42 +1554,90 @@ export function TrajectoryClient() {
                 </Button>
               </Card>
 
+              <LazySection
+                id="reticle-hold"
+                className="lg:col-span-2"
+                title={t('レティクル上の狙い位置', 'Hold on the reticle')}
+              >
+                <ReticleHoldSection input={input} inputInvalid={inputInvalid} t={t} format={number} />
+              </LazySection>
+              <LazySection
+                id="turret-tape"
+                className="lg:col-span-2"
+                title={t('ターレットテープの印刷', 'Print a turret tape')}
+              >
+                <TurretTapeSection
+                  input={input}
+                  inputInvalid={inputInvalid}
+                  click={clickValue}
+                  clickLabel={clickLabel}
+                  onPrint={(tape) => setPrinting({ kind: 'tape', ...tape })}
+                  t={t}
+                  format={number}
+                />
+              </LazySection>
+              <LazySection
+                id="hit-probability"
+                className="lg:col-span-2"
+                title={t('命中確率と射程', 'Hit probability and range')}
+              >
+                <HitProbabilitySection
+                  input={input}
+                  inputInvalid={inputInvalid}
+                  distancesMeters={result?.rows.map((row) => row.distanceMeters) ?? []}
+                  t={t}
+                  format={number}
+                />
+              </LazySection>
+              <LazySection
+                id="load-comparison"
+                className="lg:col-span-2"
+                title={t('ロードの比較', 'Compare loads')}
+                summary={t(
+                  `${(comparison?.length ?? 0) + 1} ロード`,
+                  `${(comparison?.length ?? 0) + 1} ${comparison === undefined ? 'load' : 'loads'}`,
+                )}
+              >
+                <LoadComparisonSection
+                  input={input}
+                  inputInvalid={inputInvalid}
+                  mainName={card.load.trim()}
+                  t={t}
+                  format={number}
+                />
+              </LazySection>
+
               <ConditionSection
                 id="notes"
-                title={t('計算方法と注意', 'Method and cautions')}
-                summary={t('ゼロインは実射で確認してください。', 'Confirm the zero by shooting.')}
-              >
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant" role="status">
-                    {t(
-                      '入力はこのブラウザーに保存されます。共用の端末では銃と装弾の名前を空欄にしてください。',
-                      'Settings are saved in this browser. On a shared device, leave the rifle and load names empty.',
-                    )}
-                  </p>
+                title={t('計算方法', 'Method')}
+                summary={t(
+                  '平射の質点モデル（G1・G7 標準抗力表）',
+                  'Flat-fire point-mass model (G1 and G7 drag tables)',
                 )}
+              >
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      '平射の質点モデルで G1・G7 の標準抗力表を数値積分します。スピンドリフト、コリオリの効果、上下の風、湿度は含みません。',
-                      'Flat-fire point-mass model, integrating the G1 and G7 drag functions. Spin drift, Coriolis, vertical wind and humidity are not included.',
+                      'スピンドリフト、コリオリの効果、上下の風は含みません。',
+                      'Spin drift, Coriolis and vertical wind are not included.',
                     )}
                   </li>
                   <li>
                     {t(
-                      `上り・下りの射撃では、「${labsTool('sight-adjustment').title.ja}」で斜距離を水平距離に直してから入力してください。`,
-                      `For uphill or downhill shots, convert the slant distance to horizontal with the ${labsTool('sight-adjustment').title.en} first.`,
+                      '湿度は乾燥空気と水蒸気の分圧から空気密度に入れます（飽和水蒸気圧は Buck 1981、空気中の増加係数を含む）。音速は乾燥空気の値のままです。',
+                      'Humidity enters the air density through the partial pressures of dry air and water vapour (saturation pressure from Buck 1981, with his enhancement factor for air). The speed of sound stays at the dry air value.',
                     )}
                   </li>
                   <li>
                     {t(
-                      'MOA は 1/60 度、mil はミリラジアン（1/1000 ラジアン）。円を 6400 分割する NATO mil ではありません。',
-                      'MOA is 1/60 degree; mil is a milliradian (1/1000 radian), not the 6400-per-circle NATO mil.',
+                      '傾斜は重力を照準線に対して傾けて計算します。ゼロインは水平で合わせた銃身の角度のままです。',
+                      'A slope tilts gravity against the line of sight. The bore keeps the angle it was zeroed at on level ground.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                      'Follow the law and the range rules, and shoot from a safe position in a safe direction.',
+                      'MOA は 1/60 度、mil はミリラジアン（1/1000 rad）で、円を 6400 分割する NATO mil とは別の単位です。',
+                      'MOA is 1/60 of a degree and mil is the milliradian (1/1000 rad), a different unit from the NATO mil of 1/6400 of a circle.',
                     )}
                   </li>
                 </ul>
@@ -1293,6 +1646,18 @@ export function TrajectoryClient() {
           }
         />
       </div>
+      {printing?.kind === 'tape' && (
+        <div className={styles.sheet}>
+          <TurretTapeSheet
+            layout={printing.layout}
+            caption={printing.caption}
+            note={t('50 mm の基準線／実際のサイズ（100%）で印刷', '50 mm reference line / print at actual size (100%)')}
+            turnLabel={(turn) => t(`${turn + 1} 周目`, `turn ${turn + 1}`)}
+            actualSize
+            className="block"
+          />
+        </div>
+      )}
       {printingCards && (
         <div className={styles.sheet}>
           <TrajectoryCardSheet

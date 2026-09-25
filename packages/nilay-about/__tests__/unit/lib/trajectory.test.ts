@@ -40,6 +40,13 @@ const standardAir = {
 
 const noWind = { speed: 0, unit: 'mps', preset: '9', customFromDegrees: 270 } satisfies TrajectoryInput['wind'];
 
+const steadyPowder = {
+  sensitivity: { value: 0, unit: 'mps-per-c' },
+  unit: 'c',
+  reference: 15,
+  temperature: 15,
+} satisfies TrajectoryInput['powder'];
+
 const input = (overrides: Partial<TrajectoryInput> = {}): TrajectoryInput => ({
   muzzleSpeed: { value: 800, unit: 'mps' },
   mass: { value: 10.9, unit: 'g' },
@@ -54,6 +61,9 @@ const input = (overrides: Partial<TrajectoryInput> = {}): TrajectoryInput => ({
   vitalRadius: 5,
   wind: noWind,
   atmosphere: standardAir,
+  humidityPercent: 0,
+  inclineDegrees: 0,
+  powder: steadyPowder,
   ...overrides,
 });
 

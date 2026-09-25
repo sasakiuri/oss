@@ -76,16 +76,14 @@ test('converts a slant distance and lists the size of each unit', async ({ page 
   await expect(page.getByText('NATO mil', { exact: false })).toBeVisible();
 });
 
-test('shows the safety note and stays translated after reload', async ({ page }) => {
-  await expect(page.getByText('設定はこのブラウザーに保存されます。', { exact: false })).toBeVisible();
+test('shows the measuring note and stays translated after reload', async ({ page }) => {
   await expect(page.getByText('数発の群の中心', { exact: false })).toBeVisible();
-  await expect(page.getByText('射撃場の規則に従い', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Elevation', { exact: true })).toBeVisible();
   await expect(page.getByText('UP 7 clicks', { exact: true })).toBeVisible();
-  await expect(page.getByText('from a safe position', { exact: false })).toBeVisible();
+  await expect(page.getByText('centre of a group of several shots', { exact: false })).toBeVisible();
   await page.reload();
   await expect(page.getByLabel('Distance', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Windage', { exact: true })).toBeVisible();
@@ -127,4 +125,20 @@ test('keeps the clicks on a phone screen while the error is typed', async ({ pag
   // 6 cm at 100 m is 8.25 clicks of 1/4 MOA.
   await page.getByLabel('上下のズレ').fill('6');
   await expect(page.getByText('UP 8 クリック', { exact: true })).toBeInViewport({ ratio: 1 });
+});
+
+test('takes the offset of a measured group from the link and gives the clicks', async ({ page }) => {
+  // 7.27 cm low and 1.45 cm right at 100 m, with the 1/4 MOA clicks the form opens with (7.27 mm each).
+  await page.goto(
+    '/labs/sight-adjustment?distance=100&distanceUnit=m&offsetUnit=cm&vertical=low&verticalValue=7.27&horizontal=right&horizontalValue=1.45',
+  );
+  await expect(page.getByText(/平均着弾点のズレを読み込みました/)).toBeVisible();
+  await expect(page.getByText('UP 10 クリック', { exact: true })).toBeVisible();
+  await expect(page.getByText('LEFT 2 クリック', { exact: true })).toBeVisible();
+  // The link is read once: the address drops it, so a reload keeps what was typed afterwards.
+  await expect(page).toHaveURL(/\/labs\/sight-adjustment$/);
+  await page.getByLabel('上下のズレ').fill('3');
+  await page.reload();
+  await expect(page.getByLabel('上下のズレ')).toHaveValue('3');
+  await expect(page.getByText(/平均着弾点のズレを読み込みました/)).toHaveCount(0);
 });

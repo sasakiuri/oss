@@ -134,3 +134,39 @@ describe('laying out a sight adjustment', () => {
     expect(screen.getByText('-90 から 90 の範囲で入力してください。')).toBeVisible();
   });
 });
+
+describe('opening from a measured group', () => {
+  beforeEach(() => {
+    useSightAdjustmentStore.setState(useSightAdjustmentStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  it('fills the distance and offset from the link and keeps the click value', async () => {
+    useSightAdjustmentStore.getState().setClick({ preset: '0.1-mil', customMmPer100m: 10 });
+    window.history.replaceState(
+      null,
+      '',
+      '?distance=50&distanceUnit=yd&offsetUnit=mm&vertical=high&verticalValue=12.5&horizontal=left&horizontalValue=4',
+    );
+    await renderLoaded();
+    expect(useSightAdjustmentStore.getState()).toMatchObject({
+      distance: { value: 50, unit: 'yd' },
+      offsetUnit: 'mm',
+      vertical: { direction: 'high', value: 12.5 },
+      horizontal: { direction: 'left', value: 4 },
+      click: { preset: '0.1-mil' },
+    });
+    expect(screen.getByText(/平均着弾点のズレを読み込みました/)).toBeTruthy();
+    // Read once and taken off the address, so a reload does not apply it over later edits.
+    expect(window.location.search).toBe('');
+  });
+
+  it('says so and keeps the saved values when the link cannot be read', async () => {
+    window.history.replaceState(null, '', '?distance=-1');
+    await renderLoaded();
+    expect(useSightAdjustmentStore.getState().distance).toEqual({ value: 100, unit: 'm' });
+    expect(screen.getByText(/リンクの値を読み取れなかった/)).toBeTruthy();
+    expect(window.location.search).toBe('');
+  });
+});

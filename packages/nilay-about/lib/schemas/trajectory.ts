@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { distanceUnitSchema } from './sight-adjustment';
+import { clickSettingSchema, distanceUnitSchema } from './sight-adjustment';
 
-export type { DistanceUnit } from './sight-adjustment';
+export type { ClickSetting, DistanceUnit } from './sight-adjustment';
 
 export const dragModelSchema = z.enum(['g1', 'g7']);
 export type DragModel = z.infer<typeof dragModelSchema>;
@@ -170,10 +170,11 @@ export type TrajectoryCardCopies = z.infer<typeof trajectoryCardCopiesSchema>;
 
 /**
  * Which reading of the drop the card carries: the length on the target in the unit the tool
- * is set to, or the angle to dial on the sight. A card is read to correct a sight, so all
- * three are the same figure said in the unit the sight is marked in.
+ * is set to, the angle to dial on the sight, or that angle counted in the sight's own clicks.
+ * A card is read to correct a sight, so all four are the same figure said in the unit the
+ * sight is marked in.
  */
-export const trajectoryCardDropSchema = z.enum(['offset', 'moa', 'mil']);
+export const trajectoryCardDropSchema = z.enum(['offset', 'moa', 'mil', 'clicks']);
 export type TrajectoryCardDrop = z.infer<typeof trajectoryCardDropSchema>;
 
 /**
@@ -229,6 +230,110 @@ export const initialTrajectoryCard: TrajectoryCardSetting = {
   load: '',
 };
 
+/**
+ * How the powder's temperature moves the muzzle velocity: a rate per degree, in the unit pair a
+ * powder maker or a chronograph log gives it in. The rate has its own unit rather than borrowing
+ * the velocity's and the temperature's, so a figure copied off a data sheet is typed as printed.
+ */
+export const powderSensitivityUnitSchema = z.enum(['mps-per-c', 'fps-per-f']);
+export type PowderSensitivityUnit = z.infer<typeof powderSensitivityUnitSchema>;
+
+export const powderTemperatureSchema = z
+  .object({
+    // Some powders lose a little velocity as they warm, so the rate may be negative.
+    sensitivity: z.object({ value: z.number().finite(), unit: powderSensitivityUnitSchema }),
+    unit: temperatureUnitSchema,
+    reference: z.number().finite(),
+    temperature: z.number().finite(),
+  })
+  .superRefine((powder, context) => {
+    for (const key of ['reference', 'temperature'] as const)
+      if (!temperatureInRange(powder[key], powder.unit))
+        context.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'A powder temperature has to lie between -60 and 60 °C.',
+        });
+  });
+export type PowderTemperatureSetting = z.infer<typeof powderTemperatureSchema>;
+
+/** Slopes a line of sight can have and still be one. Straight up or down there is no drop to speak of. */
+export const INCLINE_LIMIT_DEGREES = 89;
+
+/**
+ * The turret tape: a strip wrapped round the elevation turret with the distances marked where
+ * the turret stops for them. What it needs from the sight is where the strip goes round - the
+ * circumference, which a strip of paper wrapped once measures more closely than a diameter - and
+ * how many clicks one turn holds. `direction` is the way the numbers run when the tape is read
+ * facing the turret, which differs from one maker to the next.
+ */
+export const turretTapeSchema = z.object({
+  circumferenceMm: z.number().finite().positive(),
+  clicksPerRevolution: z.number().int().positive(),
+  step: z.number().finite().positive(),
+  maxRange: z.number().finite().positive(),
+  direction: z.enum(['left-to-right', 'right-to-left']),
+});
+export type TurretTapeSetting = z.infer<typeof turretTapeSchema>;
+
+export const reticleUnitSchema = z.enum(['mil', 'moa']);
+export type ReticleUnit = z.infer<typeof reticleUnitSchema>;
+
+/**
+ * The reticle the hold is drawn on: a plain scale in mil or MOA, not any maker's pattern. A second
+ * focal plane reticle only reads true at the magnification it was calibrated at, so both are kept.
+ */
+export const reticleSchema = z
+  .object({
+    unit: reticleUnitSchema,
+    focalPlane: z.enum(['ffp', 'sfp']),
+    // Only a second focal plane reticle reads them, so a first focal plane one leaves them out.
+    calibratedMagnification: z.number().finite().positive().optional(),
+    magnification: z.number().finite().positive().optional(),
+    distance: z.number().finite().positive(),
+  })
+  .refine(
+    (reticle) =>
+      reticle.focalPlane === 'ffp' ||
+      (reticle.calibratedMagnification !== undefined && reticle.magnification !== undefined),
+    { path: ['magnification'], message: 'A second focal plane reticle needs both magnifications.' },
+  );
+export type ReticleSetting = z.infer<typeof reticleSchema>;
+
+/** Up to three more loads beside the one in the form, which makes the two to four the chart compares. */
+export const MAX_COMPARED_LOADS = 3;
+
+/** A load to compare, in the velocity and weight units of the main form so the columns line up. */
+export const comparedLoadSchema = z.object({
+  name: z.string().max(TRAJECTORY_CARD_NAME_MAX),
+  muzzleSpeed: z.number().finite().positive(),
+  mass: z.number().finite().positive(),
+  ballisticCoefficient: z.number().finite().min(0.01).max(2),
+  dragModel: dragModelSchema,
+});
+export type ComparedLoad = z.infer<typeof comparedLoadSchema>;
+
+/**
+ * What spreads the shots around the point that was aimed at, for the chance of a hit.
+ *
+ * The group is the rifle and the shooter together, given as the Rayleigh σ the group tool reports
+ * or as the extreme spread of one group of so many shots. The others are the errors of the day:
+ * the round-to-round spread of the muzzle velocity, the error in the wind the shooter reads, and
+ * the error in the distance. Each is one standard deviation, in the unit of its own field.
+ */
+export const hitProbabilitySchema = z.object({
+  groupMeasure: z.enum(['sigma', 'extreme-spread']),
+  groupSize: z.number().finite().nonnegative(),
+  groupUnit: reticleUnitSchema,
+  groupShots: z.number().int().min(2).max(30),
+  velocitySd: z.number().finite().nonnegative(),
+  windSd: z.number().finite().nonnegative(),
+  rangeSd: z.number().finite().nonnegative(),
+  /** The chance of a hit the shooter asks of a shot, in per cent. */
+  threshold: z.number().finite().gt(0).lt(100),
+});
+export type HitProbabilitySetting = z.infer<typeof hitProbabilitySchema>;
+
 export const trajectorySettingsSchema = z.object({
   muzzleSpeed: z.object({ value: z.number().finite().positive(), unit: speedUnitSchema }),
   mass: z.object({ value: z.number().finite().positive(), unit: massUnitSchema }),
@@ -248,6 +353,17 @@ export const trajectorySettingsSchema = z.object({
   // Added after the tool shipped, so settings saved before the card existed still parse and
   // open with the card's own defaults rather than being reported as an unreadable save.
   card: trajectoryCardSchema.default(initialTrajectoryCard),
+  // Everything below was added after the tool shipped. Each is absent until the shooter enters it,
+  // so settings saved before these fields existed are still read as they were saved, and the screen
+  // shows each one as not entered rather than as a value nobody typed.
+  humidityPercent: z.number().finite().min(0).max(100).optional(),
+  inclineDegrees: z.number().finite().min(-INCLINE_LIMIT_DEGREES).max(INCLINE_LIMIT_DEGREES).optional(),
+  powder: powderTemperatureSchema.optional(),
+  clickValue: clickSettingSchema.optional(),
+  turretTape: turretTapeSchema.optional(),
+  reticle: reticleSchema.optional(),
+  comparison: z.array(comparedLoadSchema).max(MAX_COMPARED_LOADS).optional(),
+  hitProbability: hitProbabilitySchema.optional(),
 });
 export type TrajectorySettings = z.infer<typeof trajectorySettingsSchema>;
 

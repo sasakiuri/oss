@@ -26,6 +26,7 @@ import { groupVerdict, summariseStatistics } from '@/lib/group-statistics';
 import { detectHoles, thresholdFor } from '@/lib/hole-detection';
 import { MARKER_SIZE_MM } from '@/lib/home-target';
 import { readImagePixels } from '@/lib/image-pixels';
+import { sightAdjustmentHandoff } from '@/lib/labs-handoff';
 import { labsTool } from '@/lib/labs-tools';
 import type { BulletUnit } from '@/lib/schemas/shot-group';
 import type { DistanceUnit, OffsetUnit } from '@/lib/schemas/sight-adjustment';
@@ -35,6 +36,7 @@ import {
   fromSheetPoint,
   measureImpact,
   placeImpact,
+  fromMillimeters,
   summariseGroup,
   toAimOffset,
   toAngularSize,
@@ -367,11 +369,7 @@ export function ShotGroupClient() {
         : t(
             `上限を超えた小さい ${format(detection.overCap, 0)} 件も除外しました。`,
             ` Excluded ${format(detection.overCap, 0)} smaller marks over the limit.`,
-          )) +
-      t(
-        '過不足は、図をタップして追加するか、一覧から削除してください。',
-        ' To fix the count, tap the drawing to add or delete from the list.',
-      )
+          ))
     );
   };
 
@@ -435,6 +433,21 @@ export function ShotGroupClient() {
   };
 
   const handoff = summary.mpi ? toAimOffset(summary.mpi) : null;
+  // The offset goes over in the unit on screen, at the precision it is shown in.
+  const inOffsetUnit = (millimetres: number) =>
+    Number(fromMillimeters(millimetres, offsetUnit).toFixed(UNIT_DIGITS[offsetUnit]));
+  const sightHref =
+    handoff !== null && distanceUsable
+      ? sightAdjustmentHandoff.href({
+          distance: distance.value,
+          distanceUnit: distance.unit,
+          offsetUnit,
+          vertical: handoff.vertical.direction,
+          verticalValue: inOffsetUnit(handoff.vertical.valueMm),
+          horizontal: handoff.horizontal.direction,
+          horizontalValue: inOffsetUnit(handoff.horizontal.valueMm),
+        })
+      : '/labs/sight-adjustment';
   const impactName = (direction: 'high' | 'low' | 'right' | 'left') =>
     ({ high: t('上', 'high'), low: t('下', 'low'), right: t('右', 'right'), left: t('左', 'left') })[direction];
 
@@ -475,10 +488,7 @@ export function ShotGroupClient() {
     : t('射距離が未設定です。', 'Distance not set.');
   const statisticsSummary =
     statistics === null
-      ? t(
-          '着弾 2 発以上で、95% 信頼区間と必要な発数を表示します。',
-          'Shows the 95% intervals and the shots needed once there are two impacts.',
-        )
+      ? t('着弾 2 発以上で表示', 'Needs two or more impacts')
       : t(
           `平均半径 ${length(summary.meanRadiusMm)} ・ 標準偏差 ${length(summary.horizontalSdMm)} / ${length(summary.verticalSdMm)}`,
           `Mean radius ${length(summary.meanRadiusMm)} · SD ${length(summary.horizontalSdMm)} / ${length(summary.verticalSdMm)}`,
@@ -500,12 +510,12 @@ export function ShotGroupClient() {
 
   const statisticsNotes = [
     t(
-      '最大中心間距離は最も離れた 2 発だけで決まり、3 発では偶然に大きく左右されます。平均半径と標準偏差は全弾を使うので安定しやすい値です。銃・実包・射手の評価には、5 発以上の群を複数撃って比べてください。',
-      'The extreme spread depends on two shots only, so a three-shot group is largely chance. The mean radius and standard deviations use every shot and settle sooner. To judge a rifle, load or shooter, compare several groups of five or more shots.',
+      '最大中心間距離は最も離れた 2 発だけで決まり、3 発では偶然に大きく左右されます。平均半径と標準偏差は全弾を使うので安定します。',
+      'The extreme spread depends on two shots only, so a three-shot group is largely chance. The mean radius and standard deviations use every shot and settle sooner.',
     ),
     t(
-      '統計は、撃ち方と条件が最後まで同じだったことを前提にします。射手の疲れ、銃身の加熱、風の変化、依託の崩れがあると、区間も必要発数も実際より狭く出ます。フライヤーを外すのは、理由を説明できるときだけにしてください。',
-      'The statistics assume the shooting and conditions stayed the same throughout. Fatigue, a heating barrel, a change in the wind or a slipping rest make the intervals and shot counts tighter than they really are. Remove a flyer only when you can say why it was one.',
+      '射手の疲れ、銃身の加熱、風の変化、依託の崩れがあると、区間も必要発数も実際より狭く出ます。',
+      'Fatigue, a heating barrel, a change in the wind or a slipping rest make the intervals and shot counts tighter than they really are.',
     ),
     t(
       'MOA は 1/60 度、mil はミリラジアン（1/1000 ラジアン）です。NATO mil（円周 6400 分割）ではありません。',
@@ -575,8 +585,8 @@ export function ShotGroupClient() {
                 </h2>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '的を平らに張り、正面から撮影してください。カメラの映像と写真は送信も保存もしません。写真なしでも座標で入力できます。',
-                    'Keep the target flat and photograph it straight on. The camera feed and the photo are never sent or saved. You can also enter impacts by coordinates without one.',
+                    '的を平らに張り、正面から撮影してください。写真なしでも座標で入力できます。',
+                    'Keep the target flat and photograph it straight on. You can also enter impacts by coordinates without one.',
                   )}
                 </p>
                 <CameraCapture
@@ -1175,18 +1185,14 @@ export function ShotGroupClient() {
                       </div>
                     </dl>
                   )}
-                  <p className="text-xs text-on-surface-variant">
-                    {t(
-                      `ダイヤルの向きとクリック数は「${sightTool}」で出せます。値は手で入力してください。`,
-                      `Enter these in the ${sightTool} for the turret direction and clicks. They are not carried over.`,
-                    )}
-                  </p>
                   <div className="flex flex-wrap gap-x-6">
                     <Link
-                      href="/labs/sight-adjustment"
+                      href={sightHref}
                       className="inline-flex min-h-12 items-center gap-2 text-sm font-medium text-primary"
                     >
-                      {t(`${sightTool}を開く`, `Open the ${sightTool}`)}
+                      {handoff !== null && distanceUsable
+                        ? t(`このズレで${sightTool}を開く`, `Open the ${sightTool} with this offset`)
+                        : t(`${sightTool}を開く`, `Open the ${sightTool}`)}
                       <LuArrowRight aria-hidden="true" className="size-4" />
                     </Link>
                     <a
@@ -1212,8 +1218,8 @@ export function ShotGroupClient() {
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '弾径に合う丸い痕のうち、周囲より暗いものと、黒点の中で明るく抜けたものを探します。重なった弾痕は 1 つに数え、印刷や汚れを拾うこともあるので、結果は標的と見比べてください。',
-                    'Looks for round marks the size of the bullet, darker than the paper or lighter where they go through a black bull. Overlapping holes count as one, and printing or dirt can be picked up, so check the result against the target.',
+                    '重なった弾痕は 1 つに数え、印刷や汚れを拾うこともあります。',
+                    'Overlapping holes count as one, and printing or dirt can be picked up.',
                   )}
                 </p>
                 <div className="min-w-0 space-y-2">
@@ -1387,10 +1393,7 @@ export function ShotGroupClient() {
                 title={t('7. 記録を保存', '7. Save the group')}
                 summary={
                   records.length === 0
-                    ? t(
-                        'メモを付けて名前で保存し、CSV に書き出せます。',
-                        'Save the group by name with a note, and export CSV.',
-                      )
+                    ? t('保存した群はありません', 'No saved groups')
                     : t(
                         `保存した群 ${records.length} 件`,
                         `${records.length} saved ${records.length === 1 ? 'group' : 'groups'}`,
