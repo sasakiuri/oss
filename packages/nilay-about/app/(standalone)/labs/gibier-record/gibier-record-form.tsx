@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { useGibierRecordStore } from './_store';
+import { GibierLocationField, GibierPhotoField } from './gibier-record-media';
 
 const fieldId = (key: string) => `gibier-${key}`;
 
@@ -200,7 +201,14 @@ const Section = ({ id, title, children }: { id: string; title: string; children:
  * The record in the order the hunter comes to know it: the capture, the animal as found, the kill
  * and bleeding, then the carcass on its way to the facility. The printed sheet keeps 様式 2's order.
  */
-export function GibierRecordForm({ record }: { record: GibierRecord }) {
+export function GibierRecordForm({
+  record,
+  onPhotosChange,
+}: {
+  record: GibierRecord;
+  /** Told when a photo is added or deleted, so the printed sheet shows the photos as they are. */
+  onPhotosChange: () => void;
+}) {
   const setField = useGibierRecordStore((state) => state.setField);
   const toggleSite = useGibierRecordStore((state) => state.toggleSite);
   const setAbnormality = useGibierRecordStore((state) => state.setAbnormality);
@@ -210,6 +218,13 @@ export function GibierRecordForm({ record }: { record: GibierRecord }) {
   return (
     <>
       <Section id="capture" title="捕獲">
+        <TextField
+          name="individualNumber"
+          label="個体番号"
+          value={record.individualNumber ?? ''}
+          onChange={text('individualNumber')}
+          hint="タグの番号など。施設が付ける受入個体管理番号とは別です。記録票に QR コードで印刷します。"
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField name="hunterName" label="捕獲者名" value={record.hunterName} onChange={text('hunterName')} />
           <TextField
@@ -263,6 +278,7 @@ export function GibierRecordForm({ record }: { record: GibierRecord }) {
             onChange={text('captureArea')}
           />
         </div>
+        <GibierLocationField record={record} />
         <TextField name="weather" label="捕獲時の天候" value={record.weather} onChange={text('weather')} />
         <SegmentedControl
           legend="捕獲方法"
@@ -359,9 +375,7 @@ export function GibierRecordForm({ record }: { record: GibierRecord }) {
       </Section>
 
       <Section id="bleeding" title="止め刺し・放血">
-        <p className="text-sm text-on-surface-variant">
-          ※ は様式 2 に欄がなく、ガイドライン 第 3（6）に基づいて加えた項目です。
-        </p>
+        <p className="text-sm text-on-surface-variant">※：様式 2 に欄がなく、ガイドライン 第 3（6）に基づく項目</p>
         <TextField
           name="slaughtererName"
           label="止め刺し者名"
@@ -611,6 +625,10 @@ export function GibierRecordForm({ record }: { record: GibierRecord }) {
             className={boxClass}
           />
         </div>
+      </Section>
+
+      <Section id="photos" title="写真">
+        <GibierPhotoField record={record} onChange={onPhotosChange} />
       </Section>
     </>
   );

@@ -20,6 +20,16 @@ const numberText = z.string().max(GIBIER_MAX_NUMBER_TEXT);
 const dateTimeText = z.string().regex(/^$|^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 /** The value of an `<input type="time">`, or empty. The form asks for the hour and minute only. */
 const timeText = z.string().regex(/^$|^\d{2}:\d{2}$/);
+/** Decimal degrees within `limit` either way (WGS 84: latitude ±90°, longitude ±180°). */
+const withinDegrees = (value: string, limit: number) => value === '' || Math.abs(Number(value)) <= limit;
+export const isGibierLatitude = (value: string) => /^-?\d{1,2}\.\d{1,6}$/.test(value) && withinDegrees(value, 90);
+export const isGibierLongitude = (value: string) => /^-?\d{1,3}\.\d{1,6}$/.test(value) && withinDegrees(value, 180);
+/** Decimal degrees as the device reported them, rounded to six places, or empty. */
+const latitudeText = z.string().refine((value) => value === '' || isGibierLatitude(value));
+const longitudeText = z.string().refine((value) => value === '' || isGibierLongitude(value));
+
+/** Photos kept per animal. Each is a downscaled copy held in the browser's IndexedDB. */
+export const GIBIER_MAX_PHOTOS = 4;
 
 /** 有／無 and はい／いいえ on the form. Empty until answered, because an unanswered item is not a no. */
 export const gibierYesNoSchema = z.enum(['', 'yes', 'no']);
@@ -67,6 +77,13 @@ export const gibierRecordSchema = z.object({
   id: z.string().min(1).max(64),
   /** When the record was started, as an ISO string. Only orders the list. */
   createdAt: z.string().max(40),
+  // The fields below were added after records were first saved. They are optional so that a record
+  // saved before them still reads; absent means not entered, and the screen says so.
+  /**
+   * The number the hunter and the facility use for this animal, such as a tag number. Printed with a
+   * QR code of it. The facility's own 受入個体管理番号 is a separate box it fills in.
+   */
+  individualNumber: shortText.optional(),
 
   // 1. 捕獲に関する情報
   species: gibierSpeciesSchema,
@@ -80,6 +97,11 @@ export const gibierRecordSchema = z.object({
   capturedAt: dateTimeText,
   captureCity: shortText,
   captureArea: shortText,
+  /** Where the animal was taken, from the device's position. Not a box on 様式 2, which asks for the place in words. */
+  latitude: latitudeText.optional(),
+  longitude: longitudeText.optional(),
+  /** The accuracy the device gave for that position, in metres. */
+  locationAccuracyM: numberText.optional(),
   weather: shortText,
   method: gibierMethodSchema,
   methodOther: shortText,

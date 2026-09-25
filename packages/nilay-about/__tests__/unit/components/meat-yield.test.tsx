@@ -68,10 +68,6 @@ describe('meat yield', () => {
     // 30 kg × 20 % = 6 kg of meat; 30 kg × 50 % = 15 kg of carcass.
     expect(figure('食肉にできる部位')).toBe('6kg');
     expect(figure('枝肉')).toBe('15kg');
-    // Beside the meat weight: a weight, not a verdict on the meat.
-    expect(screen.getByText('食肉にできる部位', { selector: 'p' }).closest('div')?.parentElement).toHaveTextContent(
-      '食用に適するかどうかは判定しません。',
-    );
     expect(figure('全体重')).toBe('30kg');
     expect(figure('内臓摘出後')).toBe('—');
     expect(screen.getByLabelText('枝肉の割合', { exact: false })).toHaveValue(50);
@@ -198,5 +194,42 @@ describe('meat yield', () => {
     // 60 kg × 30 % = 18 kg.
     expect(figure('食肉にできる部位')).toBe('18kg');
     expect(screen.getByRole('button', { name: /パック数と冷凍庫/ })).toHaveTextContent('1,000 g ずつで 18 パック');
+    // Saved before the cuts existed (the shape at b303c7fe): read as it is, with nothing discarded.
+    expect(useStorageStatus.getState().discarded).toEqual([]);
+    expect(screen.getByRole('button', { name: /^部位別の内訳と 1 頭の収支/ })).toHaveTextContent('未入力');
+  });
+});
+
+describe('cuts and the balance per animal', () => {
+  it('names the chart cuts, prices them and works out the balance', async () => {
+    window.localStorage.clear();
+    useMeatYieldStore.setState(useMeatYieldStore.getInitialState(), true);
+    render(<MeatYieldClient />);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^部位別の内訳と 1 頭の収支/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'カットチャートの部位名を入れる' }));
+    // The deer chart: ネック, カタ, ロース, 外モモ, シンタマ, 内モモ, スネ, 前スネ.
+    expect(useMeatYieldStore.getState().parts?.map((part) => part.name)).toEqual([
+      'ネック',
+      'カタ',
+      'ロース',
+      '外モモ',
+      'シンタマ',
+      '内モモ',
+      'スネ',
+      '前スネ',
+    ]);
+    // 30 kg × 20 % = 6 kg of meat; a quarter of it as loin at 4,000 yen/kg.
+    fireEvent.change(screen.getByLabelText(/^ロースの割合/), { target: { value: '25' } });
+    fireEvent.change(screen.getByLabelText(/^ロースの単価/), { target: { value: '4000' } });
+    expect(screen.getByText('約 1.5 kg・6,000 円')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '費用を追加' }));
+    fireEvent.change(screen.getByLabelText(/^費用 1$/), { target: { value: '処理料金' } });
+    fireEvent.change(screen.getByLabelText(/^処理料金の金額/), { target: { value: '2500' } });
+    fireEvent.change(screen.getByLabelText(/^捕獲の交付金などの収入/), { target: { value: '7000' } });
+    expect(screen.getByText('売上 6,000 円 ＋ 収入 7,000 円 − 費用 2,500 円')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^部位別の内訳と 1 頭の収支/ })).toHaveTextContent(
+      '売上 6,000 円・収支 10,500 円',
+    );
   });
 });

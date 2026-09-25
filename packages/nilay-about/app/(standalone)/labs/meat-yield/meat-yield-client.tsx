@@ -36,6 +36,7 @@ import {
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
 import { initialMeatYieldSettings, storageKey, useMeatYieldStore } from './_store';
+import { MeatYieldSales } from './meat-yield-sales';
 
 const stages: readonly YieldStage[] = ['dressed', 'carcass', 'meat'];
 
@@ -183,8 +184,8 @@ export function MeatYieldClient() {
               <ResetButton
                 language={language}
                 description={{
-                  ja: '動物の種類・重さ・割合・冷凍の条件を初期値に戻します。',
-                  en: 'Resets the species, weight, shares and freezer settings.',
+                  ja: '動物の種類・重さ・割合・部位と収支・冷凍の条件を初期値に戻します。',
+                  en: 'Resets the species, weight, shares, cuts and balance, and freezer settings.',
                 }}
                 onReset={() =>
                   useMeatYieldStore.setState({
@@ -257,9 +258,7 @@ export function MeatYieldClient() {
                 <h2 id="ratios" className="text-xl font-medium">
                   {t('歩留まりの割合', 'Yield shares')}
                 </h2>
-                <p className="text-sm text-on-surface-variant">
-                  {t('いずれも全体重に対する割合です。', 'All shares are of the whole animal.')}
-                </p>
+                <p className="text-sm text-on-surface-variant">{t('全体重に対する %', 'Of the whole animal')}</p>
               </div>
               {stages.map((target) => {
                 const error = ratioError(target);
@@ -301,9 +300,6 @@ export function MeatYieldClient() {
                   unit={meatKg === null ? undefined : 'kg'}
                   note={stageNote('meat', meatKg)}
                 />
-                <p className="text-xs text-on-surface-variant">
-                  {t('食用に適するかどうかは判定しません。', 'This does not judge whether the meat is fit to eat.')}
-                </p>
               </ResultPanel>
               <dl className="divide-y divide-outline-variant text-sm">
                 {stageRow('whole', result?.wholeKg ?? null)}
@@ -325,14 +321,15 @@ export function MeatYieldClient() {
               )}
               <p className="text-xs text-on-surface-variant">
                 {t(
-                  '実際の歩留まりは、個体の大きさ・季節・被弾部位・処理の仕方で大きく変わります。肉を販売・提供する場合の処理は、管轄の保健所に確認してください。',
-                  'The actual yield varies widely with size, season, where the animal was hit and how it is processed. Before selling or serving the meat, ask the local public health centre how it must be processed.',
+                  '食肉を販売・提供するには、食肉処理業の許可を受けた施設での処理が必要です。',
+                  'Meat for sale or serving must be processed in a licensed facility.',
                 )}
               </p>
             </Card>
           }
           extras={
             <>
+              <MeatYieldSales language={language} meatKg={meatKg} />
               <ConditionSection
                 id="freezer"
                 title={t('パック数と冷凍庫', 'Packs and freezer space')}
@@ -357,10 +354,7 @@ export function MeatYieldClient() {
                     min={0}
                     invalid={freezerInvalid}
                     errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
-                    hint={t(
-                      '任意。容量（リットル）ではなく、実際に入った肉の重さで入力します。',
-                      'Optional. Enter the weight of meat it holds, not its volume.',
-                    )}
+                    hint={t('任意。リットルでなく肉の重さで', 'Optional. Meat weight, not litres')}
                   />
                 </div>
                 <dl className="grid gap-3 rounded-sm bg-surface-container p-4 text-sm sm:grid-cols-2">
@@ -426,23 +420,11 @@ export function MeatYieldClient() {
                 </ul>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    'シカの枝肉 50 % は、食肉処理施設の収支計算例で想定された値です（同じ例は、剥皮後に食肉に適さない個体を見込んで、食肉として扱える割合を別に 75 % としています）。シカ 20 %・イノシシ 30 % は資料では「程度」とされています。内臓摘出後の割合とイノシシの枝肉の割合は、公的資料に値がないため空欄にしています。',
-                    'The 50 % deer carcass share is the value assumed in a worked example of a processing plant’s accounts (the same example takes 75 % as the share usable as meat, allowing for animals found unfit after skinning). The 20 % (deer) and 30 % (wild boar) are given as approximate. The field-dressed share and the wild boar carcass share are left blank because no public figure was found.',
+                    'シカの枝肉 50 % は食肉処理施設の収支計算例の想定値です。シカ 20 %・イノシシ 30 % は資料では「程度」とされています。',
+                    'The 50 % deer carcass share is from a worked example of a processing plant’s accounts. The 20 % (deer) and 30 % (wild boar) are given as approximate.',
                   )}
                 </p>
-                <p className="text-sm text-on-surface-variant">
-                  {storageAvailable
-                    ? t(
-                        '入力はこのブラウザーに保存され、外部には送信されません。',
-                        'Inputs are saved in this browser and not sent anywhere.',
-                      )
-                    : t('入力は外部に送信されません。', 'Inputs are not sent anywhere.')}
-                </p>
-                {language === 'en' && (
-                  <p className="text-xs text-on-surface-variant">
-                    Sources are in Japanese; titles and quotes are shown as published.
-                  </p>
-                )}
+                {language === 'en' && <p className="text-xs text-on-surface-variant">Sources are in Japanese.</p>}
               </ConditionSection>
             </>
           }

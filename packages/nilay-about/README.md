@@ -398,9 +398,51 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   Welfare's guidelines on the hygiene of wild game meat and Form 2 of its handbook, and prints it on A4. If any of the 11 abnormality checks applies,
   the wording of the guidelines is shown.
   It shows the time since bleeding began and the handbook's body temperature guide. The processing facility decides whether to accept the animal. Japanese only.
+  An individual number (such as a tag number agreed with the facility) is printed with a QR code of it, drawn in the browser
+  (byte mode, error correction level M). The device's position can be recorded (latitude within ±90°, longitude within ±180°) and printed beside the place; the link to the
+  GSI map sends the coordinates to that site. Up to four photos per animal are redrawn at up to 1,600 px as JPEG, which drops
+  the file's metadata including any position, kept in the browser's IndexedDB and printed on a page after the form.
+  All records can be downloaded as CSV (UTF-8 with BOM, one animal per row in the sheet's order, text that would read as a
+  spreadsheet formula prefixed with an apostrophe). A guide to abnormal findings lists, stage by stage and for deer or wild boar,
+  what the MHLW colour atlas to the guideline (last revised 19 March 2025, checked 2026-09-24) shows and what it says to discard,
+  with the page. These fields are optional: records saved before they were added still open, with them shown as not entered.
 - **Meat Yield Calculator** (肉の歩留まり計算): from a weight (whole animal, field-dressed or carcass), estimates the weight at each stage and the number of freezer packs.
   The only reference values are those in the Ministry of Agriculture's manuals (carcass 50 % for deer; usable meat about 20 % for deer and 30 % for wild boar);
   the rest are entered by the user. It does not judge whether meat is fit to eat.
+  The usable meat can be split into cuts, each with its share and price per kg, for the sales; the cut names of the national game
+  meat certification scheme's cut chart (deer and wild boar, checked 2026-09-24) can be filled in, but no share is given because
+  the chart gives none. Costs per animal and a subsidy or other income are entered to give the balance per animal. Settings saved
+  before the cuts were added still open, with no cuts or costs entered.
+- **Cure and Sausage Calculator** (塩漬け・ソーセージの配合計算): from the lean, fat and water weights and the recipe's percentages
+  (of the meat, or of the meat and water for an equilibrium brine), gives the grams of salt, curing agent and other ingredients.
+  The salt in the curing agent counts towards the salt, and an agent whose salt and sodium nitrite come to more than 100 % is
+  refused. The nitrite added is given per kg of the whole batch as mixed. It is not judged against the Japanese use standard
+  for sodium nitrite (Specifications and Standards for Foods, Food Additives, etc., MHW Notification No. 370 of 1959, part 2 F:
+  no more than 0.070 g of nitrite per kg may remain in a meat product; checked 2026-09-25), because that limit is on what
+  remains in the finished product, which drying, heating and storage change and only testing shows. Sodium nitrite is
+  converted to nitrite by IUPAC atomic weights. It also blends two trimmings to a fat share, and gives the link count, casing length and cost from prices the user
+  enters. No recipe values are filled in. The cooking section quotes the MHLW game meat guideline (75 °C at the centre for
+  1 minute or equivalent) and the manufacturing standard for heated meat products (63 °C for 30 minutes, a standard for
+  licensed makers), and that selling meat products needs a meat product manufacturing licence (checked 2026-09-24).
+- **Freezer Stock** (冷凍庫の在庫): records frozen meat by animal, cut (the cut chart's names are suggested), weight per pack,
+  number of packs and the date frozen, lists it oldest first with the days since freezing and the totals, and takes packs out one
+  at a time. No official storage period for frozen game meat was found, so the tool sets no use-by date; the user may enter one.
+  It quotes the storage temperatures of the MHLW game meat guideline (packaged frozen meat at −15 °C or below) and of the MHLW
+  home food poisoning page (checked 2026-09-24).
+- **Age from Teeth** (歯による年齢の目安): answers about the lower jaw give a rough age class. Sika deer: milk first incisors
+  are 0 years; wear classes I to IV of the permanent first incisor are 1, 2, 3–5 and 6 or more years, with the mean age by sex
+  (Osaki 2003, Hyogo). Wild boar: read from the third molar forwards, using when each molar comes through (Tsuji and Yokoyama 2014,
+  Hyogo, 1 May taken as the birthday); past the full third molar the age cannot be told from eruption. Both studies call their
+  tables a rough guide. Nothing is saved (checked 2026-09-24).
+- **Cuts and Butchering Guide** (部位と解体の手引き): the cuts of deer and wild boar under the names and division points of the
+  national game meat certification scheme's cut chart, on a schematic drawn for this page, and a checklist of hygiene points
+  for bleeding and gutting in the field, carrying and dressing at the facility, each with the words of the MHLW guideline it comes
+  from (checked 2026-09-24). Ticks are not saved.
+- **Antler Photo Measure** (角の写真計測): on a photo taken with the camera or chosen from a file, two taps on a reference object
+  of known length set the scale, and points tapped along an antler, tusk or span give its length in cm; several named measures
+  can be taken. Lengths on a photo are estimates. No trophy score is given: the CIC states that the content, structure and
+  formulas of its measurement sheets are copyrighted and need its written approval to store in data processing systems, and
+  B&C materials may not be reproduced without permission (checked 2026-09-24). The photo is neither saved nor sent.
 - **Bear Incident Statistics** (クマの出没・被害統計): shows the Ministry of the Environment's figures for bear injuries, sightings and captures under permit
   (all preliminary), and emergency shootings, as tables and bar charts by year, prefecture and month.
   The figures are static data built from the material as of the date checked, and do not change when the ministry updates them.
