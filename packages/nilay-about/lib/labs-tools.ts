@@ -75,6 +75,17 @@ export const labsTools = [
     japaneseOnly: true,
   },
   {
+    slug: 'course-schedules',
+    category: 'study',
+    title: { ja: '講習会・試験の日程リンク集', en: 'Course and Exam Schedules' },
+    summary: {
+      ja: '都道府県別の公式日程へのリンク。受講予定をカレンダーに登録できます。',
+      en: 'Official exam and course schedules by prefecture, with calendar export.',
+    },
+    description:
+      '狩猟免許試験・猟銃等講習会・技能講習の公式の日程案内ページを都道府県ごとにまとめたリンク集。申込日や受講日を入力すると、カレンダーに取り込める .ics ファイルを作ります。',
+  },
+  {
     slug: 'home-target',
     category: 'sighting',
     title: { ja: '練習用標的の作成', en: 'Practice Target Maker' },
@@ -207,6 +218,18 @@ export const labsTools = [
       '銃の重量、弾頭・散弾の重量、装薬量、初速から、自由反動の運動量・速度・エネルギーを計算します。2 つの条件を並べて、反動が何 % 変わるかを比べられます。',
   },
   {
+    slug: 'ammo-purchase-plan',
+    category: 'loads',
+    title: { ja: '火薬類の消費（購入）計画', en: 'Cartridge Purchase Plan' },
+    summary: {
+      ja: '譲受許可申請の「消費（購入）計画」を作成し、印刷します。',
+      en: 'Prepare and print the consumption plan for a cartridge acquisition permit.',
+    },
+    description:
+      '猟銃用火薬類等譲受許可申請書（別記様式第 2 号）の別紙「消費（購入）計画」を作ります。予定ごとの数量を種類別に合計し、譲受期間が 1 年を超えないか、申請数量と合うかを確かめて印刷できます。',
+    japaneseOnly: true,
+  },
+  {
     slug: 'shot-pattern',
     category: 'shotgun',
     title: { ja: '散弾パターンの測定', en: 'Shotgun Pattern Measurement' },
@@ -282,6 +305,39 @@ export const labsTools = [
     },
     description:
       '出猟日ごとの場所・猟法・捕獲した鳥獣を記録し、狩猟者登録の満了後に提出する「狩猟の結果の報告」の下書きを様式の欄に沿って集計・印刷します。記録は端末の中だけに保存します。',
+  },
+  {
+    slug: 'hunting-seasons',
+    category: 'field',
+    title: { ja: '猟期と捕獲数制限の早見表', en: 'Hunting Seasons and Bag Limits' },
+    summary: {
+      ja: '都道府県ごとの猟期と捕獲数制限を、日付を指定して確認します。',
+      en: 'Check hunting seasons and bag limits by prefecture and date.',
+    },
+    description:
+      '鳥獣保護管理法施行規則の猟期と 1 日の捕獲数の上限に、都道府県が告示する猟期の延長や捕獲の制限を重ねて表示します。資料の確認日を示し、猟期を .ics でカレンダーに登録できます。',
+  },
+  {
+    slug: 'hunting-costs',
+    category: 'field',
+    title: { ja: '狩猟にかかる費用の計算', en: 'Hunting Cost Calculator' },
+    summary: {
+      ja: '狩猟免許の手数料・狩猟税・登録手数料・猟友会費などを、初年度・通常の年・更新年で合計します。',
+      en: 'Licence fees, hunting tax, registration fees and club dues, totalled for the first year, a usual year and a renewal year.',
+    },
+    description:
+      '狩猟免許の手数料、狩猟者登録の手数料、狩猟税（所得割・放鳥獣猟区・許可捕獲の 1/2 軽減・非課税の特例）、猟友会費や保険を、初年度・通常の年・更新年で計算します。複数の都道府県の登録に対応。',
+  },
+  {
+    slug: 'permit-deadlines',
+    category: 'field',
+    title: { ja: '所持許可・狩猟免許の期限', en: 'Permit and Licence Deadlines' },
+    summary: {
+      ja: '所持許可・狩猟免許の期限と更新申請期間を計算し、カレンダーに書き出します。',
+      en: 'Calculate permit and licence deadlines and renewal windows, and export them to a calendar.',
+    },
+    description:
+      '銃刀法 第 7 条の 2 の所持許可の満了日と更新申請の期間、鳥獣保護管理法 第 44 条の狩猟免許の期限を計算し、.ics に書き出します。更新の持ち物と、許可用途に 2 年使っていない銃の確認つき。',
   },
   {
     slug: 'wounded-game',

@@ -139,7 +139,10 @@ describe('registration period (法第五十五条第二項)', () => {
 });
 
 describe('report deadline (法第六十六条)', () => {
-  it('is the 30th day counted from the day after expiry (民法第百四十条)', () => {
+  // 「有効期間が満了したときは、…その日から起算して三十日を経過する日までに」: the period runs to the end of
+  // its last day, so it has expired from the next day, which is day 1 of the thirty. 愛媛県「狩猟者登録証の
+  // 返納等について」 (checked 2026-09-25) gives 15 May for the registrations ending on 15 April.
+  it('is the 30th day counting the first day after the registration as day 1', () => {
     // 16 April is day 1, 30 April day 15, 15 May day 30.
     expect(reportDeadline('2026-04-15')).toBe('2026-05-15');
     // 1 February is day 1, 28 February day 28, 1 March day 29, 2 March day 30 (2026 is not a leap year).
