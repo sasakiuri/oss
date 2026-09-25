@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { LuCrosshair, LuImage, LuLocateFixed, LuMapPin, LuPlus, LuTrash2 } from 'react-icons/lu';
+import { LuCrosshair, LuLocateFixed, LuMap, LuMapPin, LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import {
   AppHeader,
@@ -21,27 +21,31 @@ import { Button, Card } from '@/components/ui';
 import { useDiscardedSave } from '@/lib/browser-storage';
 import {
   effectiveModel,
-  accuracyEllipse,
   fitGeoreference,
   geoToImage,
   isInsideImage,
   parseCoordinate,
+  zoneProximity,
   type Georeference,
+  type ImagePoint,
   type Model,
   type Projection,
   type ReferencePair,
 } from '@/lib/hunter-map';
-import { readImageSize } from '@/lib/hunter-map-storage';
 import { labsTool } from '@/lib/labs-tools';
-import { hunterMapImageTypes, maxReferencePoints, type ReferencePoint } from '@/lib/schemas/hunter-map';
+import { maxReferencePoints, maxZoneVertices, type ReferencePoint } from '@/lib/schemas/hunter-map';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
-import { newImageId, storageKey, useHunterMapStore } from './_store';
+import { selectSetup, storageKey, useHunterMapStore } from './_store';
+import { GsiOverlay } from './gsi-overlay';
+import { MapExport } from './map-export';
+import { MapLibrary } from './map-library';
 import { MapView, type MapMarker } from './map-view';
 import { prefectureMaps, prefectureMapsCheckedOn } from './prefecture-maps';
+import { ZoneEditor } from './zone-editor';
 
 type LocationFault = 'unsupported' | 'denied' | 'timeout' | 'failed';
-type ImageNotice = 'reading' | 'pdf' | 'unsupported' | 'unreadable' | 'saved-unreadable' | null;
+type ImageNotice = 'saved-unreadable' | null;
 
 interface DevicePosition {
   latitude: number;
@@ -54,8 +58,14 @@ const zoomLevels = [1, 2, 4, 8] as const;
 const checkedOn = '2026-09-23';
 
 export function HunterMapClient() {
-  const { image, points, model, projection, storageFault } = useHunterMapStore();
-  const { setImage, addPoint, updatePoint, removePoint, setModel, setProjection, reset } = useHunterMapStore.getState();
+  const { setups, activeId, image, storageFault } = useHunterMapStore();
+  const setup = selectSetup({ setups, activeId });
+  const points = setup?.points ?? [];
+  const model = setup?.model ?? 'affine';
+  const projection = setup?.projection ?? 'transverse-mercator';
+  const zones = setup?.zones ?? [];
+  const { addPoint, updatePoint, removePoint, setModel, setProjection, reset, addZone, renameZone, removeZone } =
+    useHunterMapStore.getState();
   const language = useLanguage();
   const setLanguage = useSetLanguage();
   const discardedSave = useDiscardedSave(storageKey);
@@ -68,6 +78,12 @@ export function HunterMapClient() {
   const [pointFault, setPointFault] = useState<{ id: string; fault: LocationFault } | null>(null);
   const [watching, setWatching] = useState(false);
   const [position, setPosition] = useState<DevicePosition | null>(null);
+  // The corners of an area being traced, or null.
+  const [draft, setDraft] = useState<ImagePoint[] | null>(null);
+  // The reference point waiting for a tap on the GSI map.
+  const [gsiPickId, setGsiPickId] = useState<string | null>(null);
+  // Read on the device after mounting: the year a map is for is checked against the device's date.
+  const [today, setToday] = useState<{ year: number; month: number } | null>(null);
   const [positionFault, setPositionFault] = useState<LocationFault | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const watchId = useRef<number | null>(null);
@@ -76,7 +92,11 @@ export function HunterMapClient() {
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
 
   useEffect(() => {
-    void Promise.all([useHunterMapStore.getState().hydrate(), rehydrateLanguage()]).then(() => setReady(true));
+    void Promise.all([useHunterMapStore.getState().hydrate(), rehydrateLanguage()]).then(() => {
+      const now = new Date();
+      setToday({ year: now.getFullYear(), month: now.getMonth() + 1 });
+      setReady(true);
+    });
   }, []);
 
   // Ignore late positions and stop the watch on unmount.
@@ -87,6 +107,17 @@ export function HunterMapClient() {
       if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current);
     };
   }, []);
+
+  // Taps waiting for the previous map would land on the wrong picture.
+  const [shownMap, setShownMap] = useState(activeId);
+  if (shownMap !== activeId) {
+    setShownMap(activeId);
+    setActivePointId(null);
+    setDraft(null);
+    setGsiPickId(null);
+    setZoom(1);
+    setImageNotice(null);
+  }
 
   const faultOf = (error: GeolocationPositionError): LocationFault =>
     error.code === error.PERMISSION_DENIED ? 'denied' : error.code === error.TIMEOUT ? 'timeout' : 'failed';
@@ -106,39 +137,6 @@ export function HunterMapClient() {
             )
           : t('現在地を取得できませんでした。', 'Could not get your location.');
 
-  const choosePicture = async (file: File | null) => {
-    if (!file) return;
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-      setImageNotice('pdf');
-      return;
-    }
-    const type = hunterMapImageTypes.find((candidate) => candidate === file.type);
-    if (!type) {
-      setImageNotice('unsupported');
-      return;
-    }
-    if (points.length > 0) {
-      const ok = window.confirm(
-        t(
-          '図を替えると、置いた基準点はすべて消えます。続けますか？',
-          'Changing the map deletes all reference points. Continue?',
-        ),
-      );
-      if (!ok) return;
-    }
-    setImageNotice('reading');
-    const [size, data] = await Promise.all([readImageSize(file), file.arrayBuffer()]);
-    if (!onThisPage.current) return;
-    if (!size) {
-      setImageNotice('unreadable');
-      return;
-    }
-    setImageNotice(null);
-    setActivePointId(null);
-    setZoom(1);
-    setImage({ id: newImageId(), data, type, name: file.name, width: size.width, height: size.height });
-  };
-
   const locateForPoint = (id: string) => {
     setPointFault(null);
     if (!navigator.geolocation) {
@@ -156,7 +154,7 @@ export function HunterMapClient() {
           accuracy: Math.round(result.coords.accuracy),
         });
         // Wait for the tap that places it on the map.
-        const point = useHunterMapStore.getState().points.find((entry) => entry.id === id);
+        const point = (selectSetup(useHunterMapStore.getState())?.points ?? []).find((entry) => entry.id === id);
         if (point && point.x === null) setActivePointId(id);
       },
       (error) => {
@@ -206,7 +204,7 @@ export function HunterMapClient() {
   // Typed pixels place the point, so cancel the pending tap.
   const typePixels = (id: string, changes: { x?: number | null; y?: number | null }) => {
     updatePoint(id, changes);
-    const placed = useHunterMapStore.getState().points.find((entry) => entry.id === id);
+    const placed = (selectSetup(useHunterMapStore.getState())?.points ?? []).find((entry) => entry.id === id);
     if (
       activePointId === id &&
       image &&
@@ -252,7 +250,6 @@ export function HunterMapClient() {
             point,
             metres: position.accuracy,
             linear: { a, b, d, e },
-            ellipse: accuracyEllipse(fitted.transform, position.accuracy),
             inside: isInsideImage(point, image),
           };
         })()
@@ -346,24 +343,10 @@ export function HunterMapClient() {
   const activeIndex = points.findIndex((point) => point.id === activePointId);
   const imageStatus = (() => {
     switch (imageNotice) {
-      case 'reading':
-        return t('画像を読み込んでいます…', 'Reading the image…');
-      case 'pdf':
-        return t(
-          'PDF は読み込めません。必要な範囲を PNG か JPEG で保存するか、スクリーンショットを撮って読み込んでください。',
-          'PDFs cannot be loaded. Save the part you need as a PNG or JPEG, or take a screenshot, and load that.',
-        );
-      case 'unsupported':
-        return t('PNG または JPEG の画像を選んでください。', 'Choose a PNG or JPEG image.');
       case 'saved-unreadable':
         return t(
           '保存していた図を表示できませんでした。図の画像を選び直してください。',
           'The saved map could not be shown. Choose the map image again.',
-        );
-      case 'unreadable':
-        return t(
-          'この画像を読み込めませんでした。別の画像を選んでください。',
-          'Could not read this image. Choose another.',
         );
       default:
         return image
@@ -426,6 +409,9 @@ export function HunterMapClient() {
             { id: 'map', label: t('1. 位置図', '1. Map') },
             { id: 'points', label: t('2. 基準点', '2. Points') },
             { id: 'position', label: t('3. 現在地', '3. Position') },
+            { id: 'zones', label: t('4. 区域', '4. Areas') },
+            { id: 'gsi-map', label: t('地理院地図', 'GSI map') },
+            { id: 'export', label: t('書き出し', 'Export') },
             { id: 'method', label: t('位置合わせの方法', 'Alignment method') },
             { id: 'prefecture-maps', label: t('位置図の入手先', 'Where to get maps') },
             { id: 'notes', label: t('測地系', 'Datum') },
@@ -440,8 +426,8 @@ export function HunterMapClient() {
               <ResetButton
                 language={language}
                 description={{
-                  ja: '保存した位置図の画像と基準点をすべて削除します。',
-                  en: 'Deletes the saved map image and all reference points.',
+                  ja: '保存したすべての位置図と、その基準点・区域を削除します。',
+                  en: 'Deletes every saved map with its reference points and areas.',
                 }}
                 onReset={() => {
                   stopWatching();
@@ -449,6 +435,8 @@ export function HunterMapClient() {
                   setActivePointId(null);
                   setImageNotice(null);
                   setZoom(1);
+                  setDraft(null);
+                  setGsiPickId(null);
                   reset();
                 }}
               />
@@ -474,8 +462,8 @@ export function HunterMapClient() {
         )}
         <p className="rounded-sm bg-surface-container p-4 text-sm">
           {t(
-            '区域の正否は保証しません。鳥獣保護区等は毎年見直されるので、都道府県の最新の位置図を使ってください。表示位置には位置情報・基準点・図の誤差が重なります。境界の近くでは、都道府県・市町村の担当窓口や現地の標識で確認してください。',
-            'Boundaries are not guaranteed. Protected areas are revised every year, so use the prefecture’s latest map. The position shown carries location, reference point and map errors: near a boundary, check with the prefecture or municipality and the signs on site.',
+            '鳥獣保護区等は毎年見直されるので、都道府県の最新の位置図を使ってください。表示位置には位置情報・基準点・図の誤差が重なります。境界の近くでは現地の標識や都道府県・市町村の窓口で確かめてください。',
+            'Protected areas are revised every year, so use the prefecture’s latest map. The position shown adds up location, reference point and map errors. Near a boundary, check the signs on site or ask the prefecture or municipality.',
           )}
         </p>
         <ToolLayout
@@ -490,34 +478,15 @@ export function HunterMapClient() {
                 {!image && (
                   <p className="text-sm text-on-surface-variant">
                     {t(
-                      '都道府県の鳥獣保護区等位置図を PNG か JPEG の画像にして選びます。画像はこのブラウザーにだけ保存します。',
-                      'Choose the prefecture’s protected-area map as a PNG or JPEG image. It stays in this browser.',
+                      '都道府県の鳥獣保護区等位置図（PNG・JPEG・PDF）。',
+                      'The prefecture’s protected-area map (PNG, JPEG or PDF).',
                     )}{' '}
                     <a href="#prefecture-maps" className="text-primary underline">
                       {t('都道府県別の入手先', 'Where to get it')}
                     </a>
                   </p>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  {/* Drawn as its label so the wording follows the page language. */}
-                  <input
-                    id="map-file"
-                    type="file"
-                    accept="image/png,image/jpeg,application/pdf"
-                    className="peer sr-only"
-                    onChange={(event) => {
-                      void choosePicture(event.target.files?.[0] ?? null);
-                      event.target.value = '';
-                    }}
-                  />
-                  <label
-                    htmlFor="map-file"
-                    className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-outline px-6 text-sm font-medium text-primary hover:bg-[color-mix(in_srgb,var(--md-sys-color-primary)_8%,transparent)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary"
-                  >
-                    <LuImage aria-hidden="true" className="size-[18px]" />
-                    {image ? t('別の図に替える', 'Choose another map') : t('位置図の画像を選ぶ', 'Choose a map image')}
-                  </label>
-                </div>
+                <MapLibrary language={language} today={today} />
                 <p role="status" className="text-sm">
                   {imageStatus}
                 </p>
@@ -559,10 +528,22 @@ export function HunterMapClient() {
                       size={image}
                       markers={markers}
                       position={positionOnMap?.inside ? positionOnMap : null}
-                      placing={activeIndex >= 0}
+                      placing={activeIndex >= 0 || draft !== null}
+                      zones={zones.map((zone, index) => ({
+                        id: zone.id,
+                        label: zone.name || String(index + 1),
+                        points: zone.points,
+                        emphasised: false,
+                      }))}
+                      draft={draft ?? []}
                       zoom={zoom}
                       viewportRef={viewportRef}
                       onPick={(point) => {
+                        if (draft) {
+                          if (draft.length < maxZoneVertices)
+                            setDraft([...draft, { x: Math.round(point.x), y: Math.round(point.y) }]);
+                          return;
+                        }
                         if (!activePointId) return;
                         updatePoint(activePointId, { x: Math.round(point.x), y: Math.round(point.y) });
                         setActivePointId(null);
@@ -589,13 +570,13 @@ export function HunterMapClient() {
                   <>
                     <p className="text-sm text-on-surface-variant">
                       {t(
-                        '緯度経度のわかる地点（図の四隅や交差点）を図の上でタップし、緯度経度を入力します。図全体に離して 3 点以上置くとよく合います。',
+                        '緯度経度のわかる地点（図の四隅や交差点）をタップして、緯度経度を入力します。図全体に離して 3 点以上置くとよく合います。',
                         'Tap a spot whose coordinates you know (a map corner or a junction) and enter them. Three or more points spread across the map fit best.',
                       )}
                     </p>
                     <p className="text-xs text-on-surface-variant">
                       {t(
-                        '10 進数（35.6812）か度分秒（35°40′52″・35 40 52・35度40分52秒）で入力します。',
+                        '10 進数（35.6812）か度分秒（35°40′52″・35 40 52・35度40分52秒）。',
                         'Decimal degrees (35.6812) or degrees, minutes and seconds (35°40′52″, 35 40 52).',
                       )}
                     </p>
@@ -719,6 +700,21 @@ export function HunterMapClient() {
                               ? t('取得中…', 'Locating…')
                               : t('いまいる場所を基準点にする', 'Use my location')}
                           </Button>
+                          <Button
+                            variant={gsiPickId === point.id ? 'default' : 'outline'}
+                            aria-pressed={gsiPickId === point.id}
+                            onClick={() => {
+                              const next = gsiPickId === point.id ? null : point.id;
+                              setGsiPickId(next);
+                              if (next)
+                                window.requestAnimationFrame(() =>
+                                  document.getElementById('gsi-map')?.scrollIntoView({ behavior: 'smooth' }),
+                                );
+                            }}
+                          >
+                            <LuMap aria-hidden="true" />
+                            {t('国土地理院の地図で選ぶ', 'Pick on the GSI map')}
+                          </Button>
                         </div>
                         {pointFault?.id === point.id && (
                           <p role="alert" className="text-sm text-destructive">
@@ -748,7 +744,7 @@ export function HunterMapClient() {
                 </ol>
                 <Button
                   variant="outline"
-                  disabled={points.length >= maxReferencePoints}
+                  disabled={!setup || points.length >= maxReferencePoints}
                   onClick={() => {
                     const id = addPoint();
                     if (id && image) setActivePointId(id);
@@ -757,6 +753,34 @@ export function HunterMapClient() {
                   <LuPlus aria-hidden="true" />
                   {t('基準点を追加', 'Add a reference point')}
                 </Button>
+              </Card>
+
+              <Card variant="outlined" className="space-y-4 rounded-md p-5 sm:p-6">
+                <h2 id="zones" className="text-xl font-medium">
+                  {t('4. 区域をなぞる', '4. Trace areas')}
+                </h2>
+                <ZoneEditor
+                  language={language}
+                  zones={zones}
+                  draft={draft}
+                  canDraw={image !== null}
+                  onStart={() => {
+                    setActivePointId(null);
+                    setDraft([]);
+                    window.requestAnimationFrame(() =>
+                      document.getElementById('map')?.scrollIntoView({ behavior: 'smooth' }),
+                    );
+                  }}
+                  onUndo={() => setDraft((current) => (current ? current.slice(0, -1) : current))}
+                  onFinish={() => {
+                    if (draft && draft.length >= 3)
+                      addZone({ name: t(`区域 ${zones.length + 1}`, `Area ${zones.length + 1}`), points: draft });
+                    setDraft(null);
+                  }}
+                  onCancel={() => setDraft(null)}
+                  onRename={renameZone}
+                  onRemove={removeZone}
+                />
               </Card>
             </>
           }
@@ -778,22 +802,44 @@ export function HunterMapClient() {
                     label={t('位置情報の誤差（95%）', 'Position uncertainty (95%)')}
                     value={`±${number(position.accuracy)}`}
                     unit="m"
-                    note={
-                      positionOnMap?.inside
-                        ? positionOnMap.ellipse.major - positionOnMap.ellipse.minor <=
-                          positionOnMap.ellipse.major * 0.01
-                          ? t(
-                              `図上では半径 約 ${number(positionOnMap.ellipse.major, 1)} ピクセルの円です。`,
-                              `On the map, a circle of about ${number(positionOnMap.ellipse.major, 1)} px radius.`,
-                            )
-                          : t(
-                              `図上では、長い方の半径 約 ${number(positionOnMap.ellipse.major, 1)} ピクセル・短い方 約 ${number(positionOnMap.ellipse.minor, 1)} ピクセルの楕円です。`,
-                              `On the map, an ellipse with semi-axes of about ${number(positionOnMap.ellipse.major, 1)} and ${number(positionOnMap.ellipse.minor, 1)} px.`,
-                            )
-                        : undefined
-                    }
                   />
                 </ResultPanel>
+              )}
+              {fitted && position && zones.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-medium">{t('なぞった区域との位置', 'Against the traced areas')}</h3>
+                  <ul className="space-y-1 text-sm">
+                    {zones.map((zone, index) => {
+                      const proximity = zoneProximity(fitted, zone.points, position);
+                      if (!proximity) return null;
+                      // Nearer than the position's own uncertainty, the tool cannot tell which side you are on.
+                      const unsure = proximity.distanceMetres <= position.accuracy;
+                      const label = zone.name || t(`区域 ${index + 1}`, `Area ${index + 1}`);
+                      return (
+                        <li
+                          key={zone.id}
+                          role={proximity.inside || unsure ? 'alert' : undefined}
+                          className={proximity.inside || unsure ? 'font-medium text-destructive' : undefined}
+                        >
+                          {proximity.inside
+                            ? t(
+                                `「${label}」の中にいます（境界まで 約 ${number(proximity.distanceMetres)} m）。`,
+                                `You are inside “${label}” (about ${number(proximity.distanceMetres)} m from its edge).`,
+                              )
+                            : t(
+                                `「${label}」の境界まで 約 ${number(proximity.distanceMetres)} m（外側）。`,
+                                `About ${number(proximity.distanceMetres)} m outside “${label}”.`,
+                              )}
+                          {unsure &&
+                            t(
+                              ' 位置情報の誤差より近いため、内外を判断できません。',
+                              ' This is within the position’s uncertainty, so which side you are on cannot be told.',
+                            )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
               <div className="space-y-2">
                 <h3 className="font-medium">{t('位置合わせ', 'Alignment')}</h3>
@@ -881,6 +927,55 @@ export function HunterMapClient() {
           }
           extras={
             <>
+              {image && (
+                <ConditionSection
+                  id="gsi-map"
+                  title={t('国土地理院の地図に重ねる', 'Over the GSI map')}
+                  summary={t(
+                    '位置図を重ねて確かめる・基準点の緯度経度を選ぶ',
+                    'Check the fit, and pick reference point coordinates',
+                  )}
+                  forceOpen={gsiPickId !== null}
+                >
+                  <GsiOverlay
+                    language={language}
+                    image={image}
+                    fitted={fitted}
+                    zones={zones}
+                    position={position}
+                    pickingLabel={
+                      gsiPickId
+                        ? t(
+                            `基準点 ${points.findIndex((point) => point.id === gsiPickId) + 1}`,
+                            `reference point ${points.findIndex((point) => point.id === gsiPickId) + 1}`,
+                          )
+                        : null
+                    }
+                    onPick={(picked) => {
+                      if (gsiPickId) {
+                        updatePoint(gsiPickId, {
+                          latitude: picked.latitude.toFixed(6),
+                          longitude: picked.longitude.toFixed(6),
+                          accuracy: null,
+                        });
+                        const placed = points.find((point) => point.id === gsiPickId);
+                        if (placed && placed.x === null) setActivePointId(gsiPickId);
+                      }
+                      setGsiPickId(null);
+                    }}
+                    onCancelPick={() => setGsiPickId(null)}
+                  />
+                </ConditionSection>
+              )}
+              {image && (
+                <ConditionSection
+                  id="export"
+                  title={t('KMZ・KML に書き出す', 'Export KMZ or KML')}
+                  summary={t('他の地図アプリで使う', 'For other map apps')}
+                >
+                  <MapExport language={language} image={image} fitted={fitted} name={setup?.name ?? ''} zones={zones} />
+                </ConditionSection>
+              )}
               <ConditionSection
                 id="prefecture-maps"
                 title={t('都道府県の位置図の入手先', 'Where prefectures publish their maps')}
@@ -889,12 +984,7 @@ export function HunterMapClient() {
                   `${prefectureMaps.length} prefectures (checked ${prefectureMapsCheckedOn})`,
                 )}
               >
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '多くは PDF です。必要な範囲を画像にして読み込んでください。載っていない都道府県は未確認です。',
-                    'Pages in Japanese. Most maps are PDFs: save the part you need as an image. Prefectures not listed have not been checked.',
-                  )}
-                </p>
+                {language === 'en' && <p className="text-sm text-on-surface-variant">Pages in Japanese.</p>}
                 <ul className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
                   {prefectureMaps.map((entry) => (
                     <li key={entry.url}>
@@ -908,19 +998,10 @@ export function HunterMapClient() {
 
               <ConditionSection
                 id="notes"
-                title={t('測地系と計算方法', 'Datum and method')}
-                summary={t(
-                  '世界測地系（WGS84）で計算。図と基準点はこのブラウザーにだけ保存。',
-                  'WGS84 coordinates. The map and points stay in this browser.',
-                )}
+                title={t('測地系と出典', 'Datum and sources')}
+                summary={t('世界測地系（WGS84）', 'WGS84')}
               >
                 <ul className="space-y-2 text-sm text-on-surface-variant">
-                  <li>
-                    {t(
-                      '位置図の画像と基準点は、このブラウザーの IndexedDB に保存します。「現在地を表示」の現在地は保存しません。どこにも送信せず、地図タイルも使いません。',
-                      'The map image and reference points are saved in this browser’s IndexedDB. The position from “Show my position” is not saved. Nothing is sent and no map tiles are used.',
-                    )}
-                  </li>
                   <li>
                     {t(
                       '端末の位置情報は世界測地系（WGS84）の緯度経度で、誤差は 95% の半径です（W3C Geolocation 仕様）。日本測地系 2011・2024 とは実用上同じです（国土地理院）。',
@@ -933,17 +1014,11 @@ export function HunterMapClient() {
                       'Coordinates on the old Tokyo datum (before the 2002 survey law revision) are about 450 m off to the north-west around Tokyo (Geospatial Information Authority of Japan). Convert them to the world datum before entering them.',
                     )}
                   </li>
-                  <li>
-                    {t(
-                      '横メルカトル図法の計算は、国土地理院が公開する平面直角座標への換算式（GRS80 楕円体）によります。位置合わせは基準点を使った最小二乗法です。',
-                      'Transverse Mercator uses the Geospatial Information Authority of Japan formula for plane rectangular coordinates (GRS80). The alignment is a least-squares fit to the reference points.',
-                    )}
-                  </li>
                 </ul>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    `出典: 国土地理院「平面直角座標への換算」計算式・「日本測地系と世界測地系の違い」・「測地基準系」・「地図の一般的事項」（刊行地図の図法）、W3C「Geolocation」、各都道府県の鳥獣保護区等位置図の公開ページ（いずれも ${checkedOn} 確認）。`,
-                    `Sources: Geospatial Information Authority of Japan, the plane rectangular coordinate formula, the Tokyo and world datum comparison, the geodetic reference system page and the map FAQ (projections of its maps); W3C Geolocation; each prefecture's map page (all checked ${checkedOn}).`,
+                    `出典: 国土地理院「平面直角座標への換算」計算式・「日本測地系と世界測地系の違い」・「測地基準系」・「地図の一般的事項」（刊行地図の図法）、W3C「Geolocation」、各都道府県の鳥獣保護区等位置図の公開ページ（いずれも ${checkedOn} 確認）。地図: 地理院タイル（2026-09-24 確認）。PDF の画像化: PDF.js（Mozilla、Apache License 2.0）。KMZ・KML: OGC KML 2.2 と Google の拡張 gx:LatLonQuad。`,
+                    `Sources: Geospatial Information Authority of Japan, the plane rectangular coordinate formula, the Tokyo and world datum comparison, the geodetic reference system page and the map FAQ (projections of its maps); W3C Geolocation; each prefecture's map page (all checked ${checkedOn}). Map: GSI Tiles (checked 2026-09-24). PDF pages are drawn with PDF.js (Mozilla, Apache License 2.0). KMZ and KML: OGC KML 2.2 with Google’s gx:LatLonQuad extension.`,
                   )}
                 </p>
               </ConditionSection>

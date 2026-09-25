@@ -37,12 +37,31 @@ export const referencePointSchema = z.object({
 export type ReferencePoint = z.infer<typeof referencePointSchema>;
 
 export const maxReferencePoints = 20;
+export const maxZones = 50;
+export const maxZoneVertices = 200;
+export const MAP_NAME_MAX = 100;
+export const ZONE_NAME_MAX = 60;
 
+/** An area the reader traced on the picture, such as a protected area, in the picture's pixels. */
+export const zoneSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().max(ZONE_NAME_MAX),
+  points: z
+    .array(z.object({ x: z.number().finite(), y: z.number().finite() }))
+    .min(3)
+    .max(maxZoneVertices),
+});
+export type Zone = z.infer<typeof zoneSchema>;
+
+/** One map's setup. Its id is the id of its picture, so points are never read against another picture. */
 export const hunterMapSetupSchema = z.object({
-  /** The picture these points were placed on, so points are never read against another picture. */
-  imageId: z.string().nullable(),
+  id: z.string().min(1),
+  name: z.string().max(MAP_NAME_MAX),
+  /** The fiscal year (April to March) the prefecture's map is for, such as 2025 for 令和7年度. */
+  fiscalYear: z.number().int().min(1989).max(2100).nullable(),
   points: z.array(referencePointSchema).max(maxReferencePoints),
   model: hunterMapModelSchema,
   projection: hunterMapProjectionSchema,
+  zones: z.array(zoneSchema).max(maxZones),
 });
 export type HunterMapSetup = z.infer<typeof hunterMapSetupSchema>;

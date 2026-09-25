@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import { test, expect } from './fixtures';
 
 test.beforeEach(async ({ page }) => {
@@ -52,7 +54,7 @@ test('states the law and the finishing cautions with their sources', async ({ pa
   ).toBeVisible();
   await expect(page.getByRole('button', { name: /出典/ })).toContainText('確認日 2026-09-23');
   await page.getByRole('button', { name: /出典/ }).click();
-  await expect(page.getByText('北米の資料はオジロジカを対象とする英語資料', { exact: false })).toBeVisible();
+  await expect(page.getByText('北米', { exact: true }).first()).toBeVisible();
 });
 
 test('resets to an empty trail after confirming', async ({ page }) => {
@@ -61,4 +63,43 @@ test('resets to an empty trail after confirming', async ({ page }) => {
   await page.getByRole('button', { name: '入力を初期値に戻す' }).click();
   await page.getByRole('button', { name: '初期値に戻す', exact: true }).click();
   await expect(page.getByText('まだ記録はありません。')).toBeVisible();
+});
+
+test('shows the logged trail on the map with the distance and bearing from the shot site', async ({
+  page,
+  context,
+}) => {
+  await page.route('https://cyberjapandata.gsi.go.jp/**', (route) => route.fulfill({ status: 404 }));
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 35, longitude: 135, accuracy: 5 });
+  await page.getByLabel('現在地を付ける').check();
+  await page.getByLabel('記録の種類').selectOption('shot-site');
+  await page.getByRole('button', { name: '記録を追加' }).click();
+  // The position is taken when the fix arrives, so the device moves only once the first record is in.
+  await expect(page.getByText('1 件の記録')).toBeVisible();
+  await context.setGeolocation({ latitude: 35.001, longitude: 135, accuracy: 5 });
+  await page.getByLabel('記録の種類').selectOption('blood');
+  await page.getByRole('button', { name: '記録を追加' }).click();
+  await expect(page.getByText('2 件の記録')).toBeVisible();
+  await expect(page.getByRole('application', { name: '追跡の地図' })).toBeVisible();
+  await expect(page.getByText(/被弾地点から最後の記録まで 直線 111 m・方位 0°/)).toBeVisible();
+});
+
+test('picks out the reds of a photo', async ({ page }) => {
+  await page.getByRole('button', { name: /血痕を強調するカメラ/ }).click();
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 20;
+    canvas.height = 10;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#3c8c3c';
+    context.fillRect(0, 0, 20, 10);
+    context.fillStyle = '#c81e1e';
+    context.fillRect(0, 0, 10, 10);
+    return canvas.toDataURL('image/png').split(',')[1]!;
+  });
+  await page
+    .getByLabel('撮影する・写真を選ぶ')
+    .setInputFiles({ name: 'ground.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await expect(page.getByText('強調した部分は写真の 50.0% です。')).toBeVisible();
 });

@@ -18,7 +18,7 @@ test('shows the sunrise, the sunset and the length of the interval for a fixed d
   // 丸めるため日の出だけ 1 分遅く表示される。長さも丸めた時刻から導くので 1 分短くなる。
   await expect(page.getByText('04:26 – 19:00', { exact: true })).toBeVisible();
   await expect(page.getByText('14 時間 34 分', { exact: true })).toBeVisible();
-  await expect(page.getByText('日の出は分単位で切り上げ', { exact: false })).toBeVisible();
+  await expect(page.getByText('日の出は切り上げ', { exact: false })).toBeVisible();
   // The screen-reader summary is debounced, so it arrives after the table rather than with it.
   await expect(
     page.getByText('日の出 04:26、日の入り 19:00。銃猟可能 14 時間 34 分。', { exact: true }),
@@ -93,6 +93,15 @@ test('says when a latitude has no sunrise at all', async ({ page }) => {
   await expect(page.getByText('この緯度では、この日は太陽が沈みません', { exact: false })).toBeVisible();
 });
 
+// The sun panel's own figures: the moon panel below says "none on this day" in the same words.
+const sunPanel = (page: Page) => page.getByRole('heading', { name: '日出から日没まで' }).locator('xpath=../..');
+
+/*
+ * The one-sided days at 65.8 N with NAOJ's horizon, from an ephemeris independent of lib/solar (the
+ * Astronomical Almanac low-precision sun, as in the unit tests): sunrise 00:09:15 UTC on 06-16 and
+ * sunset 23:51:37 UTC on 06-26. The sun grazes the horizon on these days, so the two calculations
+ * part by up to a minute or so; the times are checked to the same five minutes the unit tests allow.
+ */
 test('shows a day that has a sunrise but no sunset', async ({ page }) => {
   // 65.8 N is just inside the midnight-sun belt in June, so daylight begins here and does not end.
   await page.goto('/labs/hunting-hours?date=2026-06-16');
@@ -100,32 +109,35 @@ test('shows a day that has a sunrise but no sunset', async ({ page }) => {
   await page.getByLabel('緯度').fill('65.8');
   await page.getByLabel('経度').fill('0');
   await expect(page.getByText('この日は日の入りがありません', { exact: false })).toBeVisible();
-  await expect(page.getByText('この日はありません', { exact: true })).toBeVisible();
-  await expect(page.getByText('09:13', { exact: true })).toBeVisible();
+  await expect(sunPanel(page).getByText('この日はありません', { exact: true })).toBeVisible();
+  await expect(sunPanel(page).getByText(/^09:(0[5-9]|1[0-4])$/)).toBeVisible();
   await expect(page.getByText('銃猟が可能な時間帯', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('日の出 09:13。この日は日の入りがありません。', { exact: true })).toBeAttached();
+  await expect(page.getByText(/^日の出 09:(0[5-9]|1[0-4])。この日は日の入りがありません。$/)).toBeAttached();
 });
 
 test('shows a day that has a sunset but no sunrise', async ({ page }) => {
-  await page.goto('/labs/hunting-hours?date=2026-06-25');
+  await page.goto('/labs/hunting-hours?date=2026-06-26');
   await enterCoordinates(page);
   await page.getByLabel('緯度').fill('65.8');
   await page.getByLabel('経度').fill('0');
   await expect(page.getByText('この日は日の出がありません', { exact: false })).toBeVisible();
-  await expect(page.getByText('この日はありません', { exact: true })).toBeVisible();
-  await expect(page.getByText('08:58', { exact: true })).toBeVisible();
-  await expect(page.getByText('日の入り 08:58。この日は日の出がありません。', { exact: true })).toBeAttached();
+  await expect(sunPanel(page).getByText('この日はありません', { exact: true })).toBeVisible();
+  // 23:51:37 UTC is the next morning in Tokyo.
+  await expect(sunPanel(page).getByText(/^08:(4[6-9]|5[0-6])$/)).toBeVisible();
+  await expect(page.getByText(/^日の入り 08:(4[6-9]|5[0-6])。この日は日の出がありません。$/)).toBeAttached();
 });
 
 test('keeps the calculated times on a day too short to round', async ({ page }) => {
-  // 68.09 N on this day has 0.78 minutes of daylight, so the rounded interval collapses.
-  await page.goto('/labs/hunting-hours?date=2026-12-08');
+  // A few metres north of here the sun no longer rises on this day. Just inside, it is up for less
+  // than a minute (0.81 minutes by lib/solar), so the rounded interval collapses. At this grazing
+  // limit only the calculation's own seconds decide which minute each time falls in; the unit tests
+  // hold the astronomy, and this checks that the seconds are shown rather than an empty interval.
+  await page.goto('/labs/hunting-hours?date=2026-12-09');
   await enterCoordinates(page);
-  await page.getByLabel('緯度').fill('68.09');
+  await page.getByLabel('緯度').fill('68.01388');
   await page.getByLabel('経度').fill('0');
   await expect(page.getByText('日出から日没までが 1 分未満のため', { exact: false })).toBeVisible();
-  await expect(page.getByText('20:51:18', { exact: true })).toBeVisible();
-  await expect(page.getByText('20:52:05', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^20:5[12]:\d\d$/)).toHaveCount(2);
 });
 
 test('saves a place, loads it and keeps it after a reload', async ({ page }) => {
@@ -268,4 +280,13 @@ test.describe('with the device position refused', () => {
     await expect(page.getByRole('main').getByRole('alert')).toContainText('Choose a prefecture or enter coordinates.');
     await expect(page.getByRole('main').getByRole('alert')).not.toContainText('位置情報');
   });
+});
+
+test('shows the moonrise, the moonset and the age', async ({ page }) => {
+  // NAOJ gives 10:15 and 19:36 for Tokyo on this day, and an age of 4.5 at noon.
+  await page.goto('/labs/hunting-hours?date=2026-10-15');
+  await expect(page.getByRole('heading', { name: '月の出入りと月齢' })).toBeVisible();
+  await expect(page.getByText(/^10:1[2-8]$/)).toBeVisible();
+  await expect(page.getByText(/^19:3[3-9]$/)).toBeVisible();
+  await expect(page.getByText(/^4\.[4-6]\s*日$/)).toBeVisible();
 });

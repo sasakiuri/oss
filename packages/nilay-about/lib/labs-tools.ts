@@ -377,11 +377,11 @@ export const labsTools = [
     category: 'field',
     title: { ja: '狩猟マップ', en: 'Hunting Area Map' },
     summary: {
-      ja: '手持ちの鳥獣保護区等位置図の画像に、現在地を重ねて表示します。',
-      en: 'Show where you are on an image of the protected-area map you already have.',
+      ja: '鳥獣保護区等位置図の画像や PDF に、現在地と区域を重ねて表示します。',
+      en: 'Show your location and area boundaries on a protected-area map image or PDF.',
     },
     description:
-      '都道府県の鳥獣保護区等位置図（ハンターマップ）の画像に基準点を置いて位置を合わせ、GPS の現在地を図の上に表示します。図と位置情報は端末の外に送信しません。',
+      '都道府県の鳥獣保護区等位置図（ハンターマップ）の画像や PDF に基準点を置いて位置を合わせ、GPS の現在地を表示します。区域への接近の表示、国土地理院の地図との重ね合わせ、KMZ 書き出しに対応。',
   },
   {
     slug: 'hunting-log',
@@ -437,6 +437,61 @@ export const labsTools = [
     },
     description:
       '半矢になった獲物の追跡に。血の色や泡などの手がかりから、公的資料が示す被弾部位の見方と追跡開始までの待ち時間の目安を出典つきで確認し、血痕の地点と時刻を記録します。',
+  },
+  {
+    slug: 'trip-plan',
+    category: 'field',
+    title: { ja: '入山計画と帰着予定', en: 'Outing Plan Card' },
+    summary: {
+      ja: '行き先・同行者・帰着予定・緊急連絡先を記入し、家族に渡す計画書を作ります。',
+      en: 'Prepare a plan for your family with your destination, companions, return time and emergency contacts.',
+    },
+    description:
+      '出猟の行き先・同行者・行程・帰着予定・緊急連絡先をまとめたカードを作り、印刷・文章のコピー・カレンダー（.ics、帰着予定に通知）で家族や猟隊に渡せます。',
+  },
+  {
+    slug: 'trail-camera',
+    category: 'field',
+    title: { ja: 'トレイルカメラの出没時刻', en: 'Trail Camera Activity' },
+    summary: {
+      ja: 'トレイルカメラの撮影時刻を、時間帯・日付・月齢ごとに集計します。',
+      en: 'Summarise trail camera activity by time of day, date and moon phase.',
+    },
+    description:
+      'トレイルカメラの SD カードの写真や ZIP をまとめて選ぶと、撮影時刻（Exif）を端末内で読み、時間帯×日付、日の出・日の入りからの時間、月齢ごとの出没回数を集計します。',
+  },
+  {
+    slug: 'drive-hunt',
+    category: 'field',
+    title: { ja: '巻き狩りの配置図', en: 'Drive Hunt Plan' },
+    summary: {
+      ja: '待ち場と発砲禁止方向を地図に描き、参加者の配置を決めて印刷します。',
+      en: 'Map stands and no-fire directions, assign participants and print the plan.',
+    },
+    description:
+      '巻き狩り（追い出し猟）の待ち場（タツ）を地図に置き、撃ってはいけない方向を描いて、待ち場を抽選で割り当てます。配置図と参加者名簿・署名欄を印刷して事前の説明に使えます。',
+  },
+  {
+    slug: 'shot-danger',
+    category: 'field',
+    title: { ja: '射撃の危険範囲', en: 'Shooting Danger Area' },
+    summary: {
+      ja: '射座・射向・弾から、米陸軍の射撃場安全基準の危険区域を地図に描きます。',
+      en: 'Draw the US Army range safety danger zone from a firing point, a bearing and the ammunition.',
+    },
+    description:
+      '射座と撃つ方向、弾の種類から、米陸軍の射撃場安全基準の図と表の値どおりに散布域・跳弾域・緩衝帯を国土地理院の地図に描きます。矢先の確認の参考に。',
+  },
+  {
+    slug: 'coordinate-convert',
+    category: 'field',
+    title: { ja: '座標の変換', en: 'Coordinate Converter' },
+    summary: {
+      ja: '緯度経度、UTM、MGRS、平面直角座標、地域メッシュを相互に変換します。',
+      en: 'Convert coordinates between latitude/longitude, UTM, MGRS and Japanese grid systems.',
+    },
+    description:
+      '緯度経度（10 進・度分秒）、UTM、MGRS、平面直角座標系（I〜XIX 系）、地域メッシュコード（1 次〜8 分の 1、5 倍・2 倍）を相互に変換し、国土地理院の地図で位置を確かめられます。',
   },
   {
     slug: 'trap-tag',

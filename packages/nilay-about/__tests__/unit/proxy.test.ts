@@ -19,6 +19,17 @@ describe('production Content Security Policy', () => {
     expect(imageSources?.split(' ')).toContain('https://images.microcms-assets.io');
   });
 
+  it('allows the GSI map tiles the field tools show, and no other map host', async () => {
+    const { proxy } = await import('@/proxy');
+    const response = proxy(new NextRequest('https://about.nilay.jp/labs/hunter-map'));
+    const imageSources = response.headers
+      .get('Content-Security-Policy')
+      ?.split('; ')
+      .find((directive) => directive.startsWith('img-src '));
+    expect(imageSources?.split(' ')).toContain('https://cyberjapandata.gsi.go.jp');
+    expect(imageSources).not.toContain('*');
+  });
+
   it.each(['http://localhost:3001', 'http://127.0.0.1:3001', 'http://[::1]:3001'])(
     'allows local HTTP assets without weakening other directives at %s',
     async (origin) => {
