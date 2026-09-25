@@ -28,6 +28,9 @@ import type { DistanceUnit } from '@/lib/schemas/sight-adjustment';
 import {
   chargeFromKilograms,
   comparePellets,
+  convertCharge,
+  convertDiameter,
+  convertSpeed,
   diameterFromMeters,
   diameterToMeters,
   MATERIAL_DENSITIES,
@@ -53,7 +56,11 @@ import {
 } from '@/lib/trajectory';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
+import { rehydrateGear } from '../shotgun-gear/_store';
+import { GearPicker } from '../shotgun-gear/gear-picker';
+
 import { initialShotPelletsSettings, storageKey, useShotPelletsStore } from './_store';
+import { NonLeadConversion } from './nonlead-conversion';
 
 /** Half of the hundredth of a millimetre a shot diameter is given to. */
 const SHOT_NUMBER_MATCH_METERS = 0.005e-3;
@@ -92,7 +99,9 @@ export function ShotPelletsClient() {
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
 
   useEffect(() => {
-    void Promise.all([useShotPelletsStore.persist.rehydrate(), rehydrateLanguage()]).then(() => setReady(true));
+    void Promise.all([useShotPelletsStore.persist.rehydrate(), rehydrateGear(), rehydrateLanguage()]).then(() =>
+      setReady(true),
+    );
   }, []);
 
   const units = { diameterUnit, shotChargeUnit, speedUnit, distanceUnit };
@@ -161,6 +170,7 @@ export function ShotPelletsClient() {
     { value: 'lead', label: t('鉛', 'Lead') },
     { value: 'bismuth', label: t('ビスマス', 'Bismuth') },
     { value: 'iron', label: t('鉄（スチール）', 'Iron (steel)') },
+    { value: 'tss', label: t('TSS（Federal 公称）', 'TSS (Federal figure)') },
   ];
 
   // One unit setting for both loads, offered in every field that uses it.
@@ -248,13 +258,28 @@ export function ShotPelletsClient() {
           <legend className="sr-only">
             {isBaseline ? t('条件 A の入力', 'Condition A inputs') : t('条件 B の入力', 'Condition B inputs')}
           </legend>
+          <GearPicker
+            className="mb-4"
+            language={language}
+            kind="cartridge"
+            onPickCartridge={(cartridge) =>
+              change({
+                diameter: convertDiameter(cartridge.diameterMm, 'mm', diameterUnit),
+                density: cartridge.densityGcm3,
+                shotCharge: convertCharge(cartridge.chargeG, 'g', shotChargeUnit),
+                ...(cartridge.muzzleSpeedMps === null
+                  ? {}
+                  : { muzzleSpeed: convertSpeed(cartridge.muzzleSpeedMps, 'mps', speedUnit) }),
+              })
+            }
+          />
           {/* The shot number and the material come first: they are what the box says. */}
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
               label={t('号数', 'Shot number')}
               value={shotNumber === undefined ? '' : String(shotNumber)}
               onChange={(value) => value !== '' && applyShotNumber(id, Number(value))}
-              hint={hint(t('SAAMI の式による平均直径を入れます。', "Fills in the average diameter from SAAMI's rule."))}
+              hint={hint(t('SAAMI の式による平均直径', "Average diameter by SAAMI's rule"))}
               options={[
                 { value: '', label: t('直径を直接入力', 'Custom diameter') },
                 ...SHOT_NUMBERS.map((shotNumber) => ({
@@ -299,7 +324,6 @@ export function ShotPelletsClient() {
             <NumberField
               label={t('装弾量', 'Shot charge')}
               units={shotChargeUnits}
-              hint={hint(t('1 発に入っている粒の総重量。', 'Weight of shot in one shell.'))}
               value={load.shotCharge}
               onChange={(shotCharge) => change({ shotCharge })}
               min={0}
@@ -743,11 +767,28 @@ export function ShotPelletsClient() {
               </ConditionSection>
 
               <ConditionSection
+                id="non-lead"
+                title={t('非鉛弾への換算', 'Non-lead equivalent')}
+                summary={t(
+                  '条件 A と同じ距離で同じエネルギーになる、鉄・ビスマス・TSS の粒の大きさ',
+                  'The steel, bismuth and TSS pellet with the same energy as condition A at the comparison distance',
+                )}
+              >
+                <NonLeadConversion
+                  load={a}
+                  units={units}
+                  conditions={conditions}
+                  referenceDistance={referenceDistance}
+                  language={language}
+                />
+              </ConditionSection>
+
+              <ConditionSection
                 id="method-and-source"
                 title={t('計算方法と出典', 'Method and sources')}
                 summary={t(
-                  '球の粒の速度とエネルギー。獲物への効果は判定しません。',
-                  'Velocity and energy of a spherical pellet. Effect on game is not assessed.',
+                  '球の抗力表、SAAMI の号数の式、材質の密度',
+                  'Sphere drag table, SAAMI shot size rule, material densities',
                 )}
               >
                 <p className="text-sm text-on-surface-variant">
@@ -771,27 +812,21 @@ export function ShotPelletsClient() {
                 </ul>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '球の抗力係数は、JBM Ballistics が配布する米陸軍弾道研究所（BRL）由来の表（mcgs.txt、2026-09-22 取得）を使います。号数からの直径は、SAAMI 用語集「SHOT SIZE」（https://saami.org/glossary/shot-size/、2026-09-22 取得）の式「直径（1/100 インチ）= 17 − 号数」によります。この式は平均直径で、公差・適用範囲・バックショットには触れていません。材質の密度は英国王立化学会の周期表（https://periodic-table.rsc.org/、2026-09-22 取得）の値で、鉛 11.3、ビスマス 9.79、鉄 7.87 g/cm³ です。',
-                    "Sphere drag coefficients: the US Army Ballistic Research Laboratory table distributed by JBM Ballistics (mcgs.txt, retrieved 2026-09-22). Diameters from shot numbers: the rule in SAAMI's glossary entry SHOT SIZE (https://saami.org/glossary/shot-size/, retrieved 2026-09-22), diameter in hundredths of an inch = 17 − number. It gives an average diameter and does not cover tolerances, its valid range or buckshot. Material densities: the Royal Society of Chemistry periodic table (https://periodic-table.rsc.org/, retrieved 2026-09-22), lead 11.3, bismuth 9.79, iron 7.87 g/cm³.",
+                    '球の抗力係数は、JBM Ballistics が配布する米陸軍弾道研究所（BRL）由来の表（mcgs.txt、2026-09-22 取得）を使います。号数からの直径は、SAAMI 用語集「SHOT SIZE」（https://saami.org/glossary/shot-size/、2026-09-22 取得）の式「直径（1/100 インチ）= 17 − 号数」によります。この式は平均直径です。材質の密度は英国王立化学会の周期表（https://periodic-table.rsc.org/、2026-09-22 取得）の値で、鉛 11.3、ビスマス 9.79、鉄 7.87 g/cm³ です。TSS の 18 g/cm³ は Federal が HEAVYWEIGHT TSS について公表している値（https://www.federalpremium.com/shotshell/heavyweight-tss/、2026-09-24 確認）で、その製品だけの値です。',
+                    "Sphere drag coefficients: the US Army Ballistic Research Laboratory table distributed by JBM Ballistics (mcgs.txt, retrieved 2026-09-22). Diameters from shot numbers: the rule in SAAMI's glossary entry SHOT SIZE (https://saami.org/glossary/shot-size/, retrieved 2026-09-22), diameter in hundredths of an inch = 17 − number. It gives an average diameter. Material densities: the Royal Society of Chemistry periodic table (https://periodic-table.rsc.org/, retrieved 2026-09-22), lead 11.3, bismuth 9.79, iron 7.87 g/cm³. TSS at 18 g/cm³ is Federal's published figure for HEAVYWEIGHT TSS (https://www.federalpremium.com/shotshell/heavyweight-tss/, checked 2026-09-24) and applies to that product only.",
                   )}
                 </p>
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      '国内の装弾の号数がこの式に従うかは未確認です。装弾の表示か実測で確かめてください。',
-                      'Whether Japanese shot numbers follow this rule is unverified. Check against the box or a measurement.',
+                      '国内の装弾の粒径は、装弾の表示か実測で確かめてください。',
+                      'Check the pellet size of Japanese shells against the box or a measurement.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '抗力の表は直径 9/16 インチ（約 14.3 mm）の球の測定値で、数 mm の粒への適用は近似です。この計算で最大の仮定です。',
-                      'The drag table was measured on a 9/16-inch (about 14.3 mm) sphere, so applying it to pellets a few millimetres across is an approximation, and the largest assumption here.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '抗力係数は球の前面投影面積に対する値です。弾頭の弾道計算には使わないでください。',
-                      "The drag coefficient is based on the sphere's frontal area. Do not use it for bullets.",
+                      '抗力の表は直径 9/16 インチ（約 14.3 mm）の球の測定値で、数 mm の粒への適用は近似です。',
+                      'The drag table was measured on a 9/16-inch (about 14.3 mm) sphere, so applying it to pellets a few millimetres across is an approximation.',
                     )}
                   </li>
                   <li>
@@ -807,18 +842,7 @@ export function ShotPelletsClient() {
                     </Link>
                     {t('で、実際の銃と装弾のパターンを測れます。', ' measures it for your gun and load.')}
                   </li>
-                  <li>
-                    {t(
-                      '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                      'Follow the law and range rules, and shoot from a safe position in a safe direction.',
-                    )}
-                  </li>
                 </ul>
-                {storageAvailable && (
-                  <p className="text-xs text-on-surface-variant">
-                    {t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser.')}
-                  </p>
-                )}
               </ConditionSection>
             </>
           }

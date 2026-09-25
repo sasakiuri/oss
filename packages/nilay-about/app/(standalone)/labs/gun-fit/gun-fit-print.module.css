@@ -1,0 +1,26 @@
+/*
+ * The dimension sheet is printed by the browser: its labels are Japanese text, which the
+ * shared PDF writer cannot set. Only the sheet is shown on paper.
+ */
+.sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  /* The app layout adds padding, so the sheet is pinned to the paper corner and fits one page. */
+  .sheet {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    background: #fff;
+  }
+}

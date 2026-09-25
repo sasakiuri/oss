@@ -74,7 +74,7 @@ export function shotNumberDiameterInches(number: number): number {
 /** Birdshot numbers the menu offers. Every diameter shown is shotNumberDiameterInches of it. */
 export const SHOT_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 7.5, 8, 9, 10] as const;
 
-export type PelletMaterial = 'lead' | 'bismuth' | 'iron';
+export type PelletMaterial = 'lead' | 'bismuth' | 'iron' | 'tss';
 
 /**
  * Densities of the pure metals shot is made from, in grams per cubic centimetre.
@@ -85,14 +85,24 @@ export type PelletMaterial = 'lead' | 'bismuth' | 'iron';
  * Shot is not the pure metal. Lead shot for hunting is hardened with antimony and comes out
  * a little lighter than lead; steel shot is a low carbon steel rather than pure iron; and
  * the tungsten shot sold for waterfowl is a composite whose density is set by its maker and
- * is not the density of tungsten, which is why no tungsten figure is offered here. These
- * are starting points for the field, not a claim about any particular shot.
+ * is not the density of tungsten. The one tungsten figure offered is a maker's own: Federal
+ * states "a density of 18 g/cc" for its HEAVYWEIGHT TSS
+ * (https://www.federalpremium.com/shotshell/heavyweight-tss/, retrieved 2026-09-24), and it
+ * stands for that product only. These are starting points for the field, not a claim about
+ * any particular shot.
  */
 export const MATERIAL_DENSITIES: Record<PelletMaterial, number> = {
   lead: 11.3,
   bismuth: 9.79,
   iron: 7.87,
+  tss: 18,
 };
+
+export const TSS_DENSITY_SOURCE = {
+  name: 'Federal Premium, HEAVYWEIGHT TSS',
+  url: 'https://www.federalpremium.com/shotshell/heavyweight-tss/',
+  checkedOn: '2026-09-24',
+} as const;
 
 const GRAMS_PER_KILOGRAM = 1000;
 const CUBIC_CENTIMETRES_PER_CUBIC_METRE = 1e6;
@@ -205,6 +215,9 @@ function collectCautions(values: Record<PelletCautionKey, number>): PelletCautio
 interface Pellet {
   /** Frontal area over twice the mass: the constant part of the drag deceleration. */
   dragFactor: number;
+  /** Gravity split along the barrel's line (x) and across it (y), for a barrel raised or lowered. */
+  gravityAlong: number;
+  gravityAcross: number;
 }
 
 interface State {
@@ -240,8 +253,8 @@ function rates(state: State, pellet: Pellet, conditions: Conditions): Rates {
   return {
     x: state.vx,
     y: state.vy,
-    vx: -factor * state.vx,
-    vy: -factor * state.vy - STANDARD_GRAVITY,
+    vx: -factor * state.vx - pellet.gravityAlong,
+    vy: -factor * state.vy - pellet.gravityAcross,
   };
 }
 
@@ -290,21 +303,27 @@ export interface PelletRow {
   speedMs: number;
   energyJoules: number;
   timeSeconds: number;
-  /** How far gravity has taken the pellet below the line it left the muzzle on. */
+  /** How far gravity has taken the pellet below the line it left the muzzle on, across that line. */
   dropMeters: number;
 }
 
 export interface PelletFlightOptions {
   timeStepSeconds?: number;
+  /** Elevation of the barrel above level, positive up. Level unless given. */
+  launchRadians?: number;
 }
 
 /**
- * The pellet at each of the distances asked for, fired horizontally.
+ * The pellet at each of the distances asked for, fired horizontally or at `launchRadians`.
  *
  * The muzzle is the origin and the barrel points along x, so the drop is what gravity alone
  * has done over the time of flight. A shotgun is pointed at the bird rather than dialled to
  * a zero, so that is the figure a shooter can use: it is how far the swarm has fallen by the
  * time it arrives, not an error against a sighted-in line.
+ *
+ * Fired up or down a slope, x and y stay along and across the barrel and gravity is split between
+ * them: g·sin(angle) slows or speeds the pellet along its line, and only g·cos(angle) pulls it off
+ * the line. Distances and drops are then along and across the barrel's line, not level and vertical.
  */
 export function flyPellet(
   {
@@ -314,14 +333,19 @@ export function flyPellet(
   }: { diameterMeters: number; densityKgPerM3: number; muzzleSpeedMs: number },
   conditions: Conditions,
   distancesMeters: readonly number[],
-  { timeStepSeconds = TIME_STEP_SECONDS }: PelletFlightOptions = {},
+  { timeStepSeconds = TIME_STEP_SECONDS, launchRadians = 0 }: PelletFlightOptions = {},
 ): PelletRow[] | null {
   const massKg = sphereMassKg(diameterMeters, densityKgPerM3);
   const areaM2 = sphereFrontalAreaM2(diameterMeters);
   if (!Number.isFinite(massKg) || massKg <= 0 || !Number.isFinite(areaM2)) return null;
   if (!Number.isFinite(muzzleSpeedMs) || muzzleSpeedMs <= 0) return null;
   if (!Number.isFinite(timeStepSeconds) || timeStepSeconds <= 0) return null;
-  const pellet: Pellet = { dragFactor: areaM2 / (2 * massKg) };
+  if (!Number.isFinite(launchRadians) || Math.abs(launchRadians) > Math.PI / 2) return null;
+  const pellet: Pellet = {
+    dragFactor: areaM2 / (2 * massKg),
+    gravityAlong: STANDARD_GRAVITY * Math.sin(launchRadians),
+    gravityAcross: STANDARD_GRAVITY * Math.cos(launchRadians),
+  };
 
   const wanted = distancesMeters.filter((distance) => Number.isFinite(distance) && distance >= 0).sort((a, b) => a - b);
   const rows: PelletRow[] = [];
@@ -476,3 +500,71 @@ export function comparePellets(a: PelletSummary | null, b: PelletSummary | null)
 }
 
 export type { Conditions } from './trajectory';
+
+export interface EquivalentPellet {
+  densityKgPerM3: number;
+  /** The diameter whose pellet carries the reference energy at the reference distance. */
+  diameterMeters: number;
+  massKg: number;
+  /** The shot number whose SAAMI average diameter is nearest, or null outside the numbers the menu offers. */
+  nearestShotNumber: number | null;
+  /** Pellets in the same weight of charge as the reference load. */
+  count: number;
+  energyJoules: number;
+  speedMs: number;
+}
+
+/** Smallest and largest diameters searched: No. 12 birdshot to a ball that fills a 12 bore. */
+const EQUIVALENT_SEARCH_METERS = PLAUSIBLE_RANGES.diameter;
+const EQUIVALENT_BISECTIONS = 50;
+
+/**
+ * The pellet of another material that arrives at a distance with the same energy as the reference
+ * pellet, fired at a given muzzle velocity. Nothing here is a rule of thumb: both pellets are flown by
+ * `flyPellet`, and the diameter is found by bisection, since a bigger sphere of the same material and
+ * start speed always carries more energy at the same distance. Null when no diameter in the search
+ * range reaches the energy, or when the reference pellet itself never gets there.
+ */
+export function equivalentPellet(
+  reference: { diameterMeters: number; densityKgPerM3: number; muzzleSpeedMs: number; chargeKg: number },
+  target: { densityKgPerM3: number; muzzleSpeedMs: number },
+  distanceMeters: number,
+  conditions: Conditions,
+): EquivalentPellet | null {
+  const energyAt = (diameterMeters: number, densityKgPerM3: number, muzzleSpeedMs: number) =>
+    flyPellet({ diameterMeters, densityKgPerM3, muzzleSpeedMs }, conditions, [distanceMeters])?.[0] ?? null;
+  const wanted = energyAt(reference.diameterMeters, reference.densityKgPerM3, reference.muzzleSpeedMs);
+  if (!wanted || !(reference.chargeKg > 0)) return null;
+  const at = (diameter: number) => energyAt(diameter, target.densityKgPerM3, target.muzzleSpeedMs);
+  let low = EQUIVALENT_SEARCH_METERS.min;
+  let high = EQUIVALENT_SEARCH_METERS.max;
+  const highest = at(high);
+  if (!highest || highest.energyJoules < wanted.energyJoules) return null;
+  const lowest = at(low);
+  if (lowest && lowest.energyJoules >= wanted.energyJoules) return null;
+  for (let step = 0; step < EQUIVALENT_BISECTIONS; step++) {
+    const middle = (low + high) / 2;
+    const row = at(middle);
+    if (row && row.energyJoules >= wanted.energyJoules) high = middle;
+    else low = middle;
+  }
+  const row = at(high);
+  if (!row) return null;
+  const massKg = sphereMassKg(high, target.densityKgPerM3);
+  const numberFromDiameter = 17 - (high / (MM_PER_INCH / 1000)) * 100;
+  const nearest = [...SHOT_NUMBERS].sort(
+    (a, b) => Math.abs(a - numberFromDiameter) - Math.abs(b - numberFromDiameter),
+  )[0]!;
+  // Only within half a size of a number the menu offers; beyond them the SAAMI rule is not quoted.
+  const nearestShotNumber =
+    Math.abs(shotNumberDiameterInches(nearest) * (MM_PER_INCH / 1000) - high) <= 0.000127 ? nearest : null;
+  return {
+    densityKgPerM3: target.densityKgPerM3,
+    diameterMeters: high,
+    massKg,
+    nearestShotNumber,
+    count: reference.chargeKg / massKg,
+    energyJoules: row.energyJoules,
+    speedMs: row.speedMs,
+  };
+}

@@ -8,7 +8,7 @@ test('records a trap round, saves it and keeps the history after reload', async 
   await expect(page).toHaveTitle(/クレー射撃のスコアシート/);
   await page.getByLabel('開始射台').selectOption('3');
   await expect(page.getByText('次：1 枚目・射台 3')).toBeVisible();
-  const hit = page.getByRole('button', { name: '命中 ○' });
+  const hit = page.getByRole('button', { name: '初矢 ①' });
   const miss = page.getByRole('button', { name: '失中 ×' });
   // Target 6 is the second from station 3 when the round starts there.
   for (let index = 0; index < 25; index++) await (index === 5 ? miss : hit).click();
@@ -25,18 +25,18 @@ test('records a trap round, saves it and keeps the history after reload', async 
 });
 
 test('keeps a round in progress across a reload and corrects one box', async ({ page }) => {
-  await page.getByRole('button', { name: '命中 ○' }).click();
-  await page.getByRole('button', { name: '命中 ○' }).click();
+  await page.getByRole('button', { name: '初矢 ①' }).click();
+  await page.getByRole('button', { name: '初矢 ①' }).click();
   await page.reload();
   await expect(page.getByText('次：3 枚目・射台 3')).toBeVisible();
-  await page.getByRole('button', { name: '2 枚目・射台 2：命中' }).click();
-  await expect(page.getByRole('button', { name: '2 枚目・射台 2：失中' })).toBeVisible();
+  await page.getByRole('button', { name: '2 枚目・射台 2：初矢で命中' }).click();
+  await expect(page.getByRole('button', { name: '2 枚目・射台 2：二の矢で命中' })).toBeVisible();
   await page.getByRole('button', { name: '最後の記録を消す' }).click();
   await expect(page.getByText('次：2 枚目・射台 2')).toBeVisible();
 });
 
 test('switches to skeet after confirming and shows the rule book sequence', async ({ page }) => {
-  await page.getByRole('button', { name: '命中 ○' }).click();
+  await page.getByRole('button', { name: '初矢 ①' }).click();
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByText('スキート', { exact: true }).click();
   await expect(page.getByText('次：1 枚目・射台 1・シングル・ハイハウス')).toBeVisible();
@@ -45,8 +45,27 @@ test('switches to skeet after confirming and shows the rule book sequence', asyn
   await expect(page.getByRole('img', { name: 'スキートの白紙スコアシートのプレビュー' })).toBeVisible();
 });
 
-test('states that it does not replace the official score', async ({ page }) => {
-  await expect(page.getByText('練習の記録用で、公式記録の代わりにはなりません', { exact: false })).toBeVisible();
+test('links the ISSF rule book in the sources', async ({ page }) => {
   await page.getByRole('button', { name: /出典/ }).click();
   await expect(page.getByRole('link', { name: /ISSF Rule Book 2026 Edition/ })).toBeVisible();
+});
+
+test('records by key with the direction, and scores a squad in turn', async ({ page }) => {
+  await page.getByLabel('クレーの飛んだ方向も記録する').check();
+  await page.getByRole('button', { name: /キーボード・リモコンでの入力/ }).click();
+  await page.getByLabel('キーで記録する').check();
+  // Keys typed while a field has focus stay in the field, so leave the checkbox first.
+  await page.getByRole('heading', { name: 'このラウンド' }).click();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('1');
+  await expect(page.getByRole('button', { name: '1 枚目・射台 1：初矢で命中・左', exact: true })).toBeVisible();
+  await page.keyboard.press('Backspace');
+  await expect(page.getByRole('button', { name: '1 枚目・射台 1：未記録', exact: true })).toBeVisible();
+
+  await page.getByLabel('射手の人数').selectOption('2');
+  await page.getByLabel('射順 1 の名前').fill('Aki');
+  await page.getByLabel('射順 2 の名前').fill('Ben');
+  await expect(page.getByText('次：Aki・1 枚目・射台 1')).toBeVisible();
+  await page.getByRole('button', { name: '初矢 ①・正面' }).click();
+  await expect(page.getByText('次：Ben・1 枚目・射台 2')).toBeVisible();
 });

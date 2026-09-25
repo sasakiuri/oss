@@ -52,6 +52,11 @@ describe('announcing a target lead', () => {
   it('shows the flight, the lead and the swing for the shot in the form', async () => {
     render(<TargetLeadClient />);
     await screen.findByLabelText('射距離', { exact: false });
+    act(() => {
+      // The average-speed model, where the figures below follow from the closed form.
+      useTargetLeadStore.getState().setSpeedModel('average');
+      useTargetLeadStore.getState().setProjectileSpeed({ value: 350, unit: 'm/s' });
+    });
     // 30 m, a projectile averaging 350 m/s and a target crossing square at 60 km/h: the meeting is
     // 0.086 s out, by which time the target has covered 1.43 m, all of it across the line of sight.
     // The unit sits in a span of its own, so the figure is the whole text of its node.
@@ -110,6 +115,11 @@ describe('announcing a target lead', () => {
   it('keeps the notice out of the summary, so a new result does not repeat it', async () => {
     render(<TargetLeadClient />);
     await screen.findByLabelText('射距離', { exact: false });
+    act(() => {
+      // The average-speed model, where the figures below follow from the closed form.
+      useTargetLeadStore.getState().setSpeedModel('average');
+      useTargetLeadStore.getState().setProjectileSpeed({ value: 350, unit: 'm/s' });
+    });
     const [notice, summary] = spokenRegions();
     if (!notice || !summary) throw new Error('Expected the two spoken regions.');
     act(() => reportDiscardedSave(storageKey));
@@ -139,9 +149,9 @@ describe('laying out a target lead', () => {
     render(<TargetLeadClient />);
     const toggle = await screen.findByRole('button', { name: /^弾速と発砲の遅れ/ });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle).toHaveTextContent('350 m/s・遅れなし');
+    expect(toggle).toHaveTextContent('抗力で計算・2.41 mm・初速 400 m/s・遅れなし');
     act(() => useTargetLeadStore.getState().setDelay(0.02));
-    expect(toggle).toHaveTextContent('350 m/s・遅れ 0.02 秒');
+    expect(toggle).toHaveTextContent('初速 400 m/s・遅れ 0.02 秒');
     act(() => useTargetLeadStore.getState().setDelay(-1));
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('0 以上の数値を入力してください。')).toBeVisible();
@@ -153,5 +163,28 @@ describe('laying out a target lead', () => {
     act(() => useTargetLeadStore.getState().setProjectileSpeed({ value: 0, unit: 'm/s' }));
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('0 より大きい数値を入力してください。')).toBeVisible();
+  });
+});
+
+describe('the drag model and a climbing target', () => {
+  beforeEach(() => {
+    useTargetLeadStore.setState(useTargetLeadStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  it('holds above for the drop, splits a climbing lead and draws both views', async () => {
+    render(<TargetLeadClient />);
+    await screen.findByLabelText('的の上昇角', { exact: false });
+    const vertical = () => screen.getByText('上下方向', { exact: true }).parentElement as HTMLElement;
+    expect(vertical()).toHaveTextContent(/上/);
+    expect(vertical()).toHaveTextContent(/落下 .* cm を含む/);
+    expect(screen.getByText('到達時の速度')).toBeInTheDocument();
+    act(() => useTargetLeadStore.getState().setClimb(-40));
+    expect(vertical()).toHaveTextContent(/ m 下/);
+    expect(screen.getByRole('img', { name: /射手から見た図/ })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /真上から見た図/ })).toBeInTheDocument();
+    act(() => useTargetLeadStore.getState().setClimb(90));
+    expect(screen.getByText('-85 から 85 の範囲で入力してください。')).toBeInTheDocument();
   });
 });

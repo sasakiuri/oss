@@ -6,6 +6,9 @@ import { useShotPatternStore } from '@/app/(standalone)/labs/shot-pattern/_store
 import { ShotPatternClient } from '@/app/(standalone)/labs/shot-pattern/shot-pattern-client';
 import { useStorageStatus } from '@/lib/browser-storage';
 
+// Whole-page runs through several sections; under a parallel suite jsdom can take longer than the default 5 s.
+const SLOW_TEST_MS = 15_000;
+
 // Only the shared chrome is stubbed: it needs the Next.js app router, which a unit render has not mounted.
 vi.mock('@/components/labs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/labs')>();
@@ -107,4 +110,86 @@ describe('counting a shot pattern', () => {
     expect(screen.getByText('実寸の基準が未設定です。')).toBeInTheDocument();
     expect(screen.queryByText('円内に着弾がありません。')).not.toBeInTheDocument();
   });
+});
+
+describe('density, comparison and the choke plan', () => {
+  beforeEach(() => {
+    useShotPatternStore.setState(useShotPatternStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  const open = async () => {
+    render(<ShotPatternClient />);
+    await screen.findByRole('heading', { name: '5. 結果' });
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
+  };
+
+  it('maps the density of the shots on screen and states the gaps', async () => {
+    await open();
+    act(() => {
+      for (let index = 0; index < 20; index++)
+        store().addShotAtOffset({ x: (index % 5) * 3, y: Math.floor(index / 5) * 3 });
+    });
+    fireEvent.click(screen.getByRole('button', { name: /密度マップとすき間/ }));
+    expect(screen.getByRole('img', { name: /密度マップ。空のマス/ })).toBeInTheDocument();
+    expect(screen.getByText(/直径 10 cm の的が粒に当たらない位置は円内の \d+%/)).toBeInTheDocument();
+  });
+
+  it(
+    'saves the setup and the distance with a measurement',
+    async () => {
+      await open();
+      act(() => {
+        store().replaceShots(Array.from({ length: 70 }, () => store().centre));
+        store().setPellets(100);
+      });
+      fireEvent.click(screen.getByRole('button', { name: /6\. 記録を保存/ }));
+      fireEvent.change(screen.getByLabelText('装備（銃・チョーク・装弾）'), { target: { value: 'IC' } });
+      fireEvent.change(screen.getByLabelText(/距離（銃口から標的）/), { target: { value: '25' } });
+      fireEvent.change(screen.getByLabelText('記録名'), { target: { value: 'IC 25' } });
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      expect(store().records.map((record) => [record.name, record.setup, record.distanceM])).toEqual([
+        ['IC 25', 'IC', 25],
+      ]);
+    },
+    SLOW_TEST_MS,
+  );
+
+  const record = (name: string, setup: string, distanceM: number, inside: number) => ({
+    id: name,
+    name,
+    savedAt: '2026-09-24T00:00:00.000Z',
+    diameterCm: 76.2,
+    pellets: 100,
+    note: '',
+    setup,
+    distanceM,
+    shots: Array.from({ length: inside }, () => ({ x: 0, y: 0 })),
+  });
+
+  it(
+    'compares saved measurements and plans by distance from them',
+    async () => {
+      useShotPatternStore.setState({ records: [record('IC 25', 'IC', 25, 70), record('Full 35', 'Full', 35, 60)] });
+      await open();
+      fireEvent.click(screen.getByRole('button', { name: /記録の比較/ }));
+      fireEvent.click(screen.getByLabelText('IC 25'));
+      fireEvent.click(screen.getByLabelText('Full 35'));
+      expect(screen.getByText('記録の比較', { selector: 'caption' }).closest('table')).toHaveTextContent(
+        /IC 25.*25 m.*70%/,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /チョークの計画/ }));
+      fireEvent.change(screen.getByLabelText('撃つ距離（m、カンマ区切り）'), { target: { value: '25, 35' } });
+      fireEvent.change(screen.getByLabelText(/目標のパターン率/), { target: { value: '65' } });
+      const rows = screen
+        .getByText('装備と距離ごとの、測ったパターン率の平均')
+        .closest('table')!
+        .querySelectorAll('tbody tr');
+      expect(rows[0]).toHaveTextContent(/Full.*—.*60%/);
+      expect(rows[1]).toHaveTextContent(/IC.*70%.*✓.*—/);
+    },
+    SLOW_TEST_MS,
+  );
 });

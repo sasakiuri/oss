@@ -333,11 +333,33 @@ export const labsTools = [
     category: 'shotgun',
     title: { ja: 'クレー射撃のスコアシート', en: 'Clay Shooting Score Sheet' },
     summary: {
-      ja: 'トラップ・スキートの 25 枚を記録し、射台ごとの命中率を集計します。白紙のシートも印刷できます。',
-      en: 'Score a 25-target trap or skeet round and see the hit rate at each station. Blank sheets print too.',
+      ja: 'トラップ・スキートの命中と失中を記録・集計します。スクワッド採点にも対応。',
+      en: 'Record hits and misses in trap and skeet, individually or for a squad.',
     },
     description:
-      'トラップ・スキートの 1 ラウンド 25 枚を命中・失中で記録し、合計・射台別の命中率・連続命中を集計するスコアシート。ラウンドの履歴を残せて、白紙のスコアシートも印刷できます。',
+      'トラップ・スキートの 25 枚を初矢・二の矢・失中と射出方向で記録します。射台別・方向別の命中率を集計し、最大 6 人のスクワッド採点やスコアシートの印刷もできます。',
+  },
+  {
+    slug: 'shotgun-gear',
+    category: 'shotgun',
+    title: { ja: '散弾銃の装備の登録', en: 'Shotgun Gear' },
+    summary: {
+      ja: '銃身・チョーク・装弾の組み合わせを保存し、採点や測定で使います。',
+      en: 'Save barrel, choke and cartridge combinations for scoring and measurements.',
+    },
+    description:
+      '散弾銃の銃身・チョーク・装弾（号数・材質・装弾量・初速）を登録し、組み合わせをクレー射撃のスコアシート・散弾パターンの測定・粒数とエネルギー・リードの計算で選べるようにします。',
+  },
+  {
+    slug: 'gun-fit',
+    category: 'shotgun',
+    title: { ja: 'ガンフィットと利き目', en: 'Gun Fit and Eye Dominance' },
+    summary: {
+      ja: '銃床の寸法（引き長・落差・キャスト）を記録して印刷し、利き目を確かめます。',
+      en: 'Record and print stock dimensions (length of pull, drop, cast), and check which eye is dominant.',
+    },
+    description:
+      '散弾銃のガンフィット用。引き長・コム落差・ヒール落差・キャストを記録して A4 の寸法シートに印刷し、両手の穴で見る方法で利き目（優位眼）を確かめます。',
   },
   {
     slug: 'hunting-hours',

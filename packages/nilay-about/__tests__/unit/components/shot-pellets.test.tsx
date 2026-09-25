@@ -97,14 +97,13 @@ describe('announcing a pellet comparison', () => {
     expect(within(results).getByText('条件 A', { selector: 'p' }).parentElement).toHaveTextContent('338粒');
   });
 
-  it('names its sources and does not claim the Japanese numbering follows the same rule', async () => {
+  it('names its sources and tells the reader to check Japanese shot sizes', async () => {
     render(<ShotPelletsClient />);
     await screen.findAllByLabelText('粒の直径', { exact: false });
     expect(screen.getByText(/SHOT SIZE/)).toBeInTheDocument();
     expect(screen.getByText(/mcgs\.txt/)).toBeInTheDocument();
-    expect(screen.getByText(/号数がこの式に従うかは未確認です/)).toBeInTheDocument();
+    expect(screen.getByText(/国内の装弾の粒径は、装弾の表示か実測で確かめてください。/)).toBeInTheDocument();
     expect(screen.getByText(/9\/16 インチ/)).toBeInTheDocument();
-    expect(screen.getByText(/獲物への効果は判定しません/)).toBeInTheDocument();
   });
 
   it('keeps the notice out of the summary, so a new result does not repeat it', async () => {
@@ -204,5 +203,38 @@ describe('announcing a pellet comparison', () => {
     act(() => useShotPelletsStore.getState().setAtmosphere({ ...atmosphere, temperature: { value: 70, unit: 'c' } }));
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('-60 から 60 °C の範囲で入力してください。')).toBeVisible();
+  });
+});
+
+describe('converting condition A to non-lead shot', () => {
+  beforeEach(() => {
+    useShotPelletsStore.setState(useShotPelletsStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  it('lists the steel, bismuth and TSS pellet with the same energy, larger than lead only for the lighter metals', async () => {
+    render(<ShotPelletsClient />);
+    await screen.findAllByLabelText('粒の直径', { exact: false });
+    fireEvent.click(screen.getByRole('button', { name: /非鉛弾への換算/ }));
+    const table = screen.getByText('同じエネルギーの非鉛弾', { selector: 'caption' }).closest('table')!;
+    const diameter = (name: RegExp) => {
+      const row = within(table).getByRole('row', { name });
+      return Number(row.querySelectorAll('td')[0]!.textContent!.match(/^([\d.]+) mm/)![1]);
+    };
+    // Condition A is 2.41 mm lead.
+    expect(diameter(/鉄/)).toBeGreaterThan(2.41);
+    expect(diameter(/ビスマス/)).toBeGreaterThan(2.41);
+    expect(diameter(/TSS/)).toBeLessThan(2.41);
+    // A faster steel load needs a smaller pellet.
+    const before = diameter(/鉄/);
+    fireEvent.change(screen.getByLabelText(/非鉛弾の初速/), { target: { value: '450' } });
+    expect(diameter(/鉄/)).toBeLessThan(before);
+  });
+
+  it('offers TSS among the materials, at the maker figure', async () => {
+    render(<ShotPelletsClient />);
+    await screen.findAllByLabelText('粒の直径', { exact: false });
+    expect(screen.getAllByRole('option', { name: 'TSS（Federal 公称） 18 g/cm³' }).length).toBeGreaterThan(0);
   });
 });

@@ -3,10 +3,15 @@
 import { useState } from 'react';
 import { LuDownload, LuSave } from 'react-icons/lu';
 
+import { NumberField } from '@/components/labs';
 import { Button } from '@/components/ui';
 import { useStorageStatus } from '@/lib/browser-storage';
+import { PATTERN_SETUP_MAX_LENGTH } from '@/lib/schemas/shot-pattern';
 import { buildRecordsCsv, summarisePattern } from '@/lib/shot-pattern';
+import { estimatedPelletCount, setupLabel } from '@/lib/shotgun-gear';
 import { useLanguage } from '@/store';
+
+import { GearPicker } from '../shotgun-gear/gear-picker';
 
 import { selectScale, useShotPatternStore } from './_store';
 
@@ -17,6 +22,11 @@ export function SavedMeasurements() {
     shots,
     note,
     setNote,
+    setup,
+    setSetup,
+    distanceM,
+    setDistanceM,
+    setPellets,
     diameterCm,
     pellets,
     deletedRecord,
@@ -42,14 +52,16 @@ export function SavedMeasurements() {
   const saveProblem = (): [string, string] =>
     selectScale(state) === null
       ? ['実寸の基準を設定してください。', 'Set the scale before saving.']
-      : !(diameterCm > 0)
-        ? ['円の直径に 0 より大きい数値を入力してください。', 'Enter a circle diameter greater than zero.']
-        : pellets !== null && !(Number.isInteger(pellets) && pellets > 0)
-          ? [
-              '装弾の総粒数は 1 以上の整数で入力してください。',
-              'Enter the pellet count as a whole number of 1 or more.',
-            ]
-          : ['同じ名前の記録があります。別の名前にしてください。', 'That name is already used. Choose another.'];
+      : Number.isFinite(distanceM) && !(distanceM > 0)
+        ? ['距離には 0 より大きい数値を入力してください。', 'Enter a distance greater than zero.']
+        : !(diameterCm > 0)
+          ? ['円の直径に 0 より大きい数値を入力してください。', 'Enter a circle diameter greater than zero.']
+          : pellets !== null && !(Number.isInteger(pellets) && pellets > 0)
+            ? [
+                '装弾の総粒数は 1 以上の整数で入力してください。',
+                'Enter the pellet count as a whole number of 1 or more.',
+              ]
+            : ['同じ名前の記録があります。別の名前にしてください。', 'That name is already used. Choose another.'];
   // Loading overwrites the measurement on screen, with no undo.
   const confirmReplace = (name: string) =>
     (shots.length === 0 && note === '') ||
@@ -76,12 +88,9 @@ export function SavedMeasurements() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-on-surface-variant" role="status">
+      <p className="text-sm text-on-surface-variant empty:hidden" role="status">
         {available
-          ? t(
-              '写真は保存しません。保存するのは打点の座標（cm）・円の設定・メモ・日時です。',
-              'The photo is not saved. Saved: shot positions (cm), circle setup, note and time.',
-            )
+          ? ''
           : t(
               '記録は保存できませんが、CSV には書き出せます。',
               'Measurements cannot be saved here, but CSV export works.',
@@ -100,6 +109,42 @@ export function SavedMeasurements() {
           className="w-full rounded-sm border border-outline bg-surface p-3 text-base text-on-surface"
         />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="pattern-setup" className="block text-sm font-medium">
+            {t('装備（銃・チョーク・装弾）', 'Setup (gun, choke, cartridge)')}
+          </label>
+          <input
+            id="pattern-setup"
+            type="text"
+            value={setup}
+            maxLength={PATTERN_SETUP_MAX_LENGTH}
+            onChange={(event) => setSetup(event.target.value)}
+            placeholder={t('例：上下二連（下・IC）／ 7.5 号 24 g', 'e.g. O/U (under, IC) / No. 7.5 24 g')}
+          />
+        </div>
+        <NumberField
+          label={t('距離（銃口から標的）', 'Distance (muzzle to board)')}
+          unit="m"
+          value={distanceM}
+          min={0}
+          onChange={setDistanceM}
+          invalid={Number.isFinite(distanceM) && !(distanceM > 0)}
+          errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
+        />
+      </div>
+      <GearPicker
+        language={language}
+        kind="setup"
+        hint={t(
+          '装弾が登録されていれば、総粒数に計算上の推定値を入れます。',
+          'With a registered cartridge, the pellet count is set to a calculated estimate.',
+        )}
+        onPickSetup={(resolved) => {
+          setSetup(setupLabel(resolved));
+          if (resolved.cartridge) setPellets(Math.round(estimatedPelletCount(resolved.cartridge)));
+        }}
+      />
       <form
         className="space-y-2"
         onSubmit={(event) => {
@@ -150,7 +195,10 @@ export function SavedMeasurements() {
                   {summary.patternPercentage !== null &&
                     ` ・ ${t('パターン率', 'Pattern')} ${percent.format(summary.patternPercentage / 100)}`}
                   {` ・ ${t('円の直径', 'Circle')} ${number.format(record.diameterCm)} cm`}
+                  {record.distanceM !== undefined &&
+                    ` ・ ${t('距離', 'Distance')} ${number.format(record.distanceM)} m`}
                 </p>
+                {record.setup && <p className="text-sm">{record.setup}</p>}
                 {record.note && <p className="whitespace-pre-wrap text-sm">{record.note}</p>}
                 <div className="flex flex-wrap gap-2">
                   <Button
