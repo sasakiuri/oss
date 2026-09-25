@@ -76,6 +76,7 @@ export function SpeciesPanel({ language, photos, onChange }: SpeciesPanelProps) 
   const backendRef = useRef<'webgpu' | 'wasm'>('wasm');
   const photosRef = useRef(photos);
   const [loaded, setLoaded] = useState(false);
+  const [cacheAvailable, setCacheAvailable] = useState(true);
 
   useEffect(() => {
     photosRef.current = photos;
@@ -84,8 +85,9 @@ export function SpeciesPanel({ language, photos, onChange }: SpeciesPanelProps) 
   useEffect(() => {
     let cancelled = false;
     void Promise.all(Object.values(SPECIES_MODEL_FILES).map(isModelCached)).then((found) => {
-      if (!cancelled)
-        setStage((current) => (current.kind === 'idle' ? { kind: 'idle', kept: found.every(Boolean) } : current));
+      if (cancelled) return;
+      setCacheAvailable(modelCacheAvailable());
+      setStage((current) => (current.kind === 'idle' ? { kind: 'idle', kept: found.every(Boolean) } : current));
     });
     return () => {
       cancelled = true;
@@ -286,7 +288,7 @@ export function SpeciesPanel({ language, photos, onChange }: SpeciesPanelProps) 
       <p role="status" className="text-sm">
         {status}
       </p>
-      {!modelCacheAvailable() && (
+      {!cacheAvailable && (
         <p className="text-xs text-on-surface-variant">
           {t(
             'このブラウザーはモデルを保存できないため、使うたびにダウンロードします。',
