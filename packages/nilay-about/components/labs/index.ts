@@ -12,3 +12,6 @@ export * from './fields';
 export * from './tool-layout';
 export * from './condition-pair';
 export * from './related-tools';
+export * from './named-settings';
+export * from './photo-attachments';
+export * from './offline-support';

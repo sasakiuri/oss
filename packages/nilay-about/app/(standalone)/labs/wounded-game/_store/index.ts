@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
-import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
+import { browserStorage, readStoredText, reportDiscardedSave } from '@/lib/browser-storage';
 import {
   ENTRY_LIMIT,
   woundedGameStateSchema,
@@ -43,13 +43,8 @@ export const initialWoundedGameState: WoundedGameState = {
  * its older log over entries added elsewhere. `null` when there is nothing readable to build on.
  */
 function latestSaved(): WoundedGameState | null {
-  let raw: string | null;
-  try {
-    raw = window.localStorage.getItem(storageKey);
-  } catch {
-    return null;
-  }
-  if (raw === null) return null;
+  const raw = readStoredText(storageKey);
+  if (raw === null || raw === 'unreadable') return null;
   try {
     const envelope: unknown = JSON.parse(raw);
     const parsed = savedSchema.safeParse(

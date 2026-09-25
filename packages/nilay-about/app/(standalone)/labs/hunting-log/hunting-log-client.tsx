@@ -8,6 +8,7 @@ import {
   AppLayout,
   ConditionSection,
   LanguageMenu,
+  PhotoAttachments,
   ResetButton,
   ResultFigure,
   ResultPanel,
@@ -38,6 +39,8 @@ import {
   type OutingDraftField,
 } from '@/lib/hunting-log';
 import { labsTool } from '@/lib/labs-tools';
+import { savedAsShown } from '@/lib/persisted-store';
+import { deletePhotosOf, deleteToolPhotos } from '@/lib/photo-storage';
 import {
   GAME_SPECIES,
   HUNTING_LOG_MAX_COUNT,
@@ -201,7 +204,22 @@ export function HuntingLogClient() {
       return;
     removeOuting(id);
     if (editingId === id) resetForm(lastPrefecture);
+    // The record's photos go with it, but only once its removal is on disk: a record that failed to
+    // save comes back on the next visit, and its photos must still be there with it.
+    if (!savedAsShown(useHuntingLogStore)) {
+      setNotice({
+        ja: `${formatJapaneseDate(date)}の記録を削除できなかった可能性があります。写真は残しています。`,
+        en: `The record for ${date} may not have been deleted. Its photos are kept.`,
+      });
+      return;
+    }
     setNotice({ ja: `${formatJapaneseDate(date)}の記録を削除しました。`, en: `Record for ${date} deleted.` });
+    deletePhotosOf('hunting-log', id).catch(() =>
+      setNotice({
+        ja: `${formatJapaneseDate(date)}の記録を削除しましたが、写真を削除できませんでした。`,
+        en: `Record for ${date} deleted, but its photos could not be deleted.`,
+      }),
+    );
   };
 
   const edit = (id: string) => {
@@ -233,13 +251,19 @@ export function HuntingLogClient() {
               <ResetButton
                 language={language}
                 description={{
-                  ja: 'この端末に保存した出猟の記録をすべて削除します。元に戻せません。',
-                  en: 'Deletes every outing saved on this device. This cannot be undone.',
+                  ja: 'この端末に保存した出猟の記録と写真をすべて削除します。元に戻せません。',
+                  en: 'Deletes every outing and photo saved on this device. This cannot be undone.',
                 }}
                 onReset={() => {
                   clearAll();
                   resetForm(null);
                   setNotice({ ja: '記録をすべて削除しました。', en: 'All records deleted.' });
+                  deleteToolPhotos('hunting-log').catch(() =>
+                    setNotice({
+                      ja: '記録をすべて削除しましたが、写真を削除できませんでした。',
+                      en: 'All records deleted, but the photos could not be deleted.',
+                    }),
+                  );
                 }}
               />
               <LanguageMenu language={language} onLanguageChange={setLanguage} />
@@ -764,6 +788,15 @@ export function HuntingLogClient() {
                         >
                           <LuTrash2 aria-hidden="true" />
                         </Button>
+                        <div className="basis-full">
+                          <PhotoAttachments
+                            language={language}
+                            tool="hunting-log"
+                            ownerId={outing.id}
+                            savedIn={HUNTING_LOG_STORAGE_KEY}
+                            ownerLabel={t(`${formatJapaneseDate(outing.date)}の記録`, `the record of ${outing.date}`)}
+                          />
+                        </div>
                       </li>
                     ))}
                   </ul>

@@ -4,7 +4,13 @@ import type { KnipConfig } from "knip";
 const config: KnipConfig = {
   workspaces: {
     "packages/nilay-about": {
-      entry: ["__tests__/e2e/**/*.spec.ts", "playwright.config.ts"],
+      // The service workers are registered by URL, which knip cannot follow.
+      entry: [
+        "__tests__/e2e/**/*.spec.ts",
+        "playwright.config.ts",
+        "public/labs-sw.js",
+        "public/labs-push-sw.js",
+      ],
       playwright: false,
     },
     "packages/nilay-knowledge": {

@@ -322,6 +322,40 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
 Records and settings are saved in the browser in use. They are not synced to other devices and are lost
 if the browser's site data is cleared. Where saving is not possible, the page says so.
 
+- **Back up and restore** (`/labs/data`, データの書き出し・読み込み): exports everything the tools keep in this browser
+  (each tool's saved state, named settings, every hunter map with its picture and the open one, and attached photos) to one file,
+  and reads such a file back. The file is JSON Lines (`.jsonl`): a header with the saved state and the counts, then one line per photo,
+  and for each map a line with its settings followed by its picture in lines of at most 1 MiB, so the export and the restore handle
+  one picture at a time and never hold one as text whole. The export estimates the size first and refuses, with the reason,
+  a file over 256 MB. The file is not encrypted.
+  Each part of the file is checked by the tool's own store before anything is written; a part that does not pass is listed and left out.
+  A tool in the file replaces that tool's data; tools not in the file are left alone. Photos travel with their tool's records and only
+  for records in the file. Maps or photos the export could not read are marked as not included and leave the device's own alone;
+  an empty map list or photo list clears them.
+  The restore is one unit: maps and photos are first written under keys of the restore, then swapped in, and what they replaced is kept
+  as stored until every part is in. If a write fails, everything is put back. Every Labs page holds a shared Web Lock (`nilay-labs-open`)
+  from before it first reads saved data until it closes; a restore takes it exclusively, so it runs only while no other Labs page is open,
+  and a page opened during a restore waits for it. The data page takes the lock shared while it reads the device to export, so it never
+  exports a device half restored. A note in localStorage lets a restore cut short (a closed tab) be undone by the next Labs page to open,
+  before it reads anything. If that undo fails, the note is marked, the tools open without saving and do not try again, and `/labs/data`
+  offers to try once more or to delete the note and keep the data as it is. A map picture is set aside only up to what the file could carry.
+  Every store that saves to localStorage is listed in `app/(standalone)/labs/data/saved-data.ts`, including the study record shared by
+  the study tools; a unit test reads every file that makes a persisted store and fails while one is missing.
+- **Offline use**: `/labs` and each tool work without a connection once they have been opened. The service worker
+  `public/labs-sw.js` (scope `/labs`, no dependencies) is registered by the Labs layout and the Labs list in production builds only.
+  Pages come from the network first and from the kept copy when the network fails or takes over 4 seconds;
+  `/_next/static` files and pictures are kept as they load. `/api/*`, server component requests and other sites are never cached.
+  The cache is named after a version fixed at build time (`NEXT_PUBLIC_LABS_OFFLINE_VERSION`: the Vercel deployment, or the build time).
+  A new version installs by fetching again every page the previous one kept, takes over at once, and deletes the older cache;
+  if that fetch fails, the previous version stays in use. The species identification test asks for all its photos to be kept.
+- **Photos** can be attached to a record (so far, each outing in the hunting log): up to 10 per record, scaled to 1600 px on the
+  longer side and re-encoded as JPEG, which drops the location a phone writes into a photo. They are kept in IndexedDB
+  and deleted with their record.
+- **Named settings** keep several sets of inputs under names beside a tool's own saved state (so far, bullets and barrels in twist rate and stability),
+  and **links between tools** carry a value in the query string (velocity spread sends its average to twist rate and stability).
+  A link that cannot be read changes nothing and says so. Tools add both with `createNamedSettingsStore` / `NamedSettings`
+  and `defineHandoff` / `receiveHandoff`; `lib/csv.ts` writes CSV per RFC 4180 with typed text kept inert for spreadsheets.
+
 ## Search engines
 
 - Each page gets a canonical URL (based on `https://about.nilay.jp`), Open Graph and an X card from `pageMetadata` in `lib/seo.ts`.

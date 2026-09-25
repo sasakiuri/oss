@@ -27,14 +27,26 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    // Labs asks for the device position, on this origin only and never without a click:
-    // /labs/hunting-hours reads it to work out the hours, and it goes nowhere else.
-    value: 'camera=(), microphone=(), geolocation=(self)',
+    // Labs asks for these on this origin only and never without a click, and nothing leaves the device:
+    // the camera photographs targets and pattern boards, the microphone hears shots for the shot timer,
+    // and the position works out the hunting hours and places the reader on a map.
+    value: 'camera=(self), microphone=(self), geolocation=(self)',
   },
 ];
 
+/**
+ * The version of the Labs offline cache (`public/labs-sw.js`), one per build. The service worker is
+ * registered with it, so each deployment installs a worker of its own and retires the previous cache.
+ * On Vercel it is the deployment; elsewhere the time of the build.
+ */
+const labsOfflineVersion =
+  process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? Date.now().toString(36);
+
 const nextConfig: NextConfig = {
   agentRules: false,
+  env: {
+    NEXT_PUBLIC_LABS_OFFLINE_VERSION: labsOfflineVersion,
+  },
   images: {
     remotePatterns: [
       {

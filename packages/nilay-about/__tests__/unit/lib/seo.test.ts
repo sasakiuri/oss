@@ -13,6 +13,8 @@ import { labsToolJsonLd, labsToolMetadata, pageMetadata } from '@/lib/seo';
 const toolDirectories = readdirSync(join(__dirname, '../../../app/(standalone)/labs'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
+  // The backup page lives beside the tools but is not one of them.
+  .filter((name) => name !== 'data')
   .sort();
 
 describe('the Labs registry', () => {

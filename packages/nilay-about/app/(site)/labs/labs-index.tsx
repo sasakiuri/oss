@@ -15,10 +15,29 @@ export function LabsIndex() {
 
       <p>
         {t(
-          '狩猟と射撃のための計算・練習・記録のツールです。登録不要で、入力した内容はこのブラウザーの中だけに保存します。',
-          'Calculators, practice tests and logs for hunting and shooting. No sign-up; what you enter stays in this browser.',
+          '狩猟・射撃の計算、試験の練習、記録に使えます。利用登録は不要です。',
+          'Calculators, practice tests and logs for hunting and shooting. No sign-up required.',
         )}
       </p>
+      <p>
+        {t(
+          'オフラインで使うツールは、事前に一度開いてください。通知や地図の取得などには通信が必要です。',
+          'Open tools before going offline. Notifications, map downloads and some other features need a connection.',
+        )}
+      </p>
+      <p>
+        <Link href="/labs/data">{t('保存データの書き出し・読み込み', 'Export or import saved data')}</Link>
+      </p>
+
+      <nav aria-label={t('ツールの分類', 'Tool categories')}>
+        <ul className="flex flex-wrap gap-x-4 gap-y-2">
+          {labsCategories.map((category) => (
+            <li key={category.id}>
+              <a href={`#labs-${category.id}`}>{category.title[language]}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
       {labsCategories.map((category) => {
         const tools = labsTools.filter((tool) => tool.category === category.id);

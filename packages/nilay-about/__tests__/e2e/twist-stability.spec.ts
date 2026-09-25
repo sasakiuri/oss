@@ -29,7 +29,7 @@ test('works the opening bullet through the rule and keeps it after a reload', as
   await expect(page.getByText('同じ重量で安定する最大の弾長').locator('xpath=following-sibling::p[1]')).toContainText(
     '32.3',
   );
-  await expect(page.getByText('（十分）')).toBeVisible();
+  await expect(page.getByText('（十分）', { exact: true })).toBeVisible();
 
   // A tighter barrel raises the factor, and the choice survives a reload.
   await page.getByRole('spinbutton', { name: /ツイスト/ }).fill('9');

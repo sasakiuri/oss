@@ -9,6 +9,7 @@ import {
   ConditionSection,
   DiscardedSaveNotice,
   LanguageMenu,
+  NamedSettings,
   NumberField,
   ResetButton,
   StorageUnavailableNotice,
@@ -21,6 +22,7 @@ import {
 } from '@/components/labs';
 import { Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
+import { receiveHandoff, twistStabilityHandoff } from '@/lib/labs-handoff';
 import { labsTool } from '@/lib/labs-tools';
 import {
   altitudeInRange,
@@ -35,7 +37,11 @@ import {
   type PressureUnit,
   type TemperatureUnit,
 } from '@/lib/schemas/trajectory';
-import { MAX_TARGET_STABILITY, MIN_TARGET_STABILITY } from '@/lib/schemas/twist-stability';
+import {
+  MAX_TARGET_STABILITY,
+  MIN_TARGET_STABILITY,
+  twistStabilitySettingsSchema,
+} from '@/lib/schemas/twist-stability';
 import {
   ADEQUATE_STABILITY,
   BENCHREST_STABILITY,
@@ -55,7 +61,13 @@ import {
 } from '@/lib/twist-stability';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
-import { initialTwistStabilitySettings, storageKey, useTwistStabilityStore } from './_store';
+import {
+  initialTwistStabilitySettings,
+  profilesStorageKey,
+  storageKey,
+  useTwistStabilityProfiles,
+  useTwistStabilityStore,
+} from './_store';
 
 export function TwistStabilityClient() {
   const {
@@ -80,15 +92,41 @@ export function TwistStabilityClient() {
   const setLanguage = useSetLanguage();
   const storageAvailable = useStorageStatus((status) => status.available);
   const discardedSave = useDiscardedSave(storageKey);
+  const discardedProfiles = useDiscardedSave(profilesStorageKey);
   const [ready, setReady] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [handoff, setHandoff] = useState<ReturnType<typeof twistStabilityHandoff.read>>({ state: 'none' });
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
 
   useEffect(() => {
-    void Promise.all([useTwistStabilityStore.persist.rehydrate(), rehydrateLanguage()]).then(() => setReady(true));
+    void Promise.all([
+      useTwistStabilityStore.persist.rehydrate(),
+      useTwistStabilityProfiles.persist.rehydrate(),
+      rehydrateLanguage(),
+    ]).then(() => {
+      // A mean velocity sent from the velocity spread tool replaces the saved muzzle velocity. The link is
+      // read once: a second run of this effect (React's Strict Mode) finds it gone and keeps the first notice.
+      const found = receiveHandoff(twistStabilityHandoff, (values) =>
+        useTwistStabilityStore.getState().setSettings({ muzzleSpeed: values.muzzleSpeed, speedUnit: values.speedUnit }),
+      );
+      if (found.state !== 'none') setHandoff(found);
+      setReady(true);
+    });
   }, []);
 
-  const result = calculateTwistStability({
+  const handoffText =
+    handoff.state === 'received'
+      ? t(
+          `初速のばらつきの平均 ${handoff.values.muzzleSpeed} ${handoff.values.speedUnit === 'mps' ? 'm/s' : 'fps'} を初速に入れました。`,
+          `Filled in the muzzle velocity with the average from velocity spread, ${handoff.values.muzzleSpeed} ${handoff.values.speedUnit === 'mps' ? 'm/s' : 'fps'}.`,
+        )
+      : handoff.state === 'invalid'
+        ? t(
+            'リンクの値を読み取れなかったため、初速は変えていません。',
+            'The value in the link could not be read, so the muzzle velocity was left as it was.',
+          )
+        : '';
+  const currentSettings = {
     bulletUnit,
     twistUnit,
     massUnit,
@@ -100,7 +138,10 @@ export function TwistStabilityClient() {
     muzzleSpeed,
     targetStability,
     atmosphere,
-  });
+  };
+  const settingsValid = twistStabilitySettingsSchema.safeParse(currentSettings).success;
+
+  const result = calculateTwistStability(currentSettings);
 
   const number = (value: number, digits = 2) =>
     Number.isFinite(value) ? new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(value) : '—';
@@ -152,8 +193,8 @@ export function TwistStabilityClient() {
         `Stable, but below the ${ADEQUATE_STABILITY.toFixed(1)} recommended for most uses (${BENCHREST_STABILITY.toFixed(1)} at the very least).`,
       ),
       adequate: t(
-        `${ADEQUATE_STABILITY.toFixed(1)} 以上あり、十分です。寒冷地では ${COLD_WEATHER_STABILITY.toFixed(1)} 以上が目安です。`,
-        `At or above ${ADEQUATE_STABILITY.toFixed(1)}, enough for most uses. Aim for ${COLD_WEATHER_STABILITY.toFixed(1)} in cold weather.`,
+        `${ADEQUATE_STABILITY.toFixed(1)} 以上あり、十分です。寒冷地では ${COLD_WEATHER_STABILITY.toFixed(1)} 以上にします。`,
+        `At or above ${ADEQUATE_STABILITY.toFixed(1)}, enough for most uses. Use ${COLD_WEATHER_STABILITY.toFixed(1)} or more in cold weather.`,
       ),
     })[band];
 
@@ -260,6 +301,7 @@ export function TwistStabilityClient() {
           sections={[
             { id: 'bullet', label: t('弾頭', 'Bullet') },
             { id: 'barrel-and-shot', label: t('銃身と初速', 'Barrel and velocity') },
+            { id: 'saved-bullets', label: t('保存', 'Saved') },
             { id: 'results', label: t('安定係数', 'Stability') },
             { id: 'atmosphere', label: t('大気', 'Atmosphere') },
             { id: 'method-and-source', label: t('計算方法', 'Method') },
@@ -294,13 +336,18 @@ export function TwistStabilityClient() {
       {/* Mounted empty from the first paint: a status region inserted with its text already set is not announced. */}
       {/* Separate from the result summary: a status region is atomic. */}
       <p className="sr-only" role="status" lang={language}>
-        {discardedSave ? discardedSaveMessage(language) : ''}
+        {[discardedSave || discardedProfiles ? discardedSaveMessage(language) : '', handoffText]
+          .filter(Boolean)
+          .join(' ')}
       </p>
       <p className="sr-only" role="status" lang={language}>
         {announcement}
       </p>
       <div lang={language} className="space-y-6" inert={!ready} aria-busy={!ready}>
         <DiscardedSaveNotice storageKey={storageKey} language={language} />
+        <DiscardedSaveNotice storageKey={profilesStorageKey} language={language} />
+        {/* Read out with the notices about saved data above. */}
+        {handoffText && <p className="text-sm">{handoffText}</p>}
         <StorageUnavailableNotice available={storageAvailable} language={language} />
         <ToolLayout
           resultLabel={t('計算結果', 'Results')}
@@ -345,7 +392,6 @@ export function TwistStabilityClient() {
                       ],
                       onChange: (unit: MassUnit) => setMassUnit(unit),
                     }}
-                    hint={t('装弾全体ではなく弾頭のみ', 'Bullet only, not the cartridge')}
                     value={mass}
                     onChange={(value) => setSettings({ mass: value })}
                     min={0}
@@ -397,7 +443,6 @@ export function TwistStabilityClient() {
                       ],
                       onChange: (unit: SpeedUnit) => setSpeedUnit(unit),
                     }}
-                    hint={t('実測値か、箱の表示値', 'Measured, or the figure on the box')}
                     value={muzzleSpeed}
                     onChange={(value) => setSettings({ muzzleSpeed: value })}
                     min={0}
@@ -406,6 +451,17 @@ export function TwistStabilityClient() {
                   />
                 </div>
               </Card>
+
+              <NamedSettings
+                id="saved-bullets"
+                language={language}
+                store={useTwistStabilityProfiles}
+                current={currentSettings}
+                valid={settingsValid}
+                onLoad={(settings) => setSettings(settings)}
+                heading={['保存した弾頭と銃身', 'Saved bullets and barrels']}
+                placeholder={['例：.308 168gr SMK', 'e.g. .308 168 gr SMK']}
+              />
             </>
           }
           result={
@@ -602,14 +658,14 @@ export function TwistStabilityClient() {
                 id="method-and-source"
                 title={t('計算方法と出典', 'Method and source')}
                 summary={t(
-                  'Don Miller の経験式（2005 年）による銃口での値。詳細な計算より約 7 % 低めに出ます。',
-                  'Don Miller’s rule (2005), at the muzzle. Reads about 7 % below a detailed calculation.',
+                  'Don Miller の経験式（2005 年）による銃口での値。詳細な計算より約 7 % 低く（安全側に）出ます。',
+                  'Don Miller’s rule (2005), at the muzzle. Reads about 7 % below a detailed calculation, on the safe side.',
                 )}
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    'Sg は弾が先端を前にして飛ぶだけの回転があるかを表し、1.0 未満では首を振ります。飛翔中は大きくなるので、最も小さい銃口での値を計算します。',
-                    'Sg shows whether a bullet spins fast enough to fly point forward; below 1.0 it yaws. It rises in flight, so the muzzle value, the lowest, is calculated.',
+                    'Sg が 1.0 未満だと弾は首を振ります。Sg は飛翔中に大きくなるため、最も小さい銃口での値を出します。',
+                    'Below Sg 1.0 the bullet yaws. Sg rises in flight, so the muzzle value is the lowest.',
                   )}
                 </p>
                 <ul className="space-y-2 text-sm text-on-surface-variant">
@@ -641,14 +697,14 @@ export function TwistStabilityClient() {
                 </p>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '米陸軍弾道研究所が測った 39 個の弾の慣性モーメントと転倒モーメントの相関を、厳密な安定性の式に当てはめた経験式で、著者は「おおよその見当」としています。2009 年の比較では他の簡易式より良く合い、詳細な計算より約 7 % 低め（安全側）でした。',
-                    'A semi-empirical rule: the moments of inertia and overturning moments of 39 projectiles measured at the US Army Ballistic Research Laboratory, fitted into the exact stability equation. The author calls it a ballpark guide. In the 2009 comparison it matched better than other simple rules and read about 7 % below a detailed calculation (the safe side).',
+                    '米陸軍弾道研究所が測った 39 個の弾の慣性モーメントと転倒モーメントの相関を、厳密な安定性の式に当てはめた経験式です。',
+                    'Semi-empirical: the moments of inertia and overturning moments of 39 projectiles measured at the US Army Ballistic Research Laboratory, fitted into the exact stability equation.',
                   )}
                 </p>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    '定数 30 は grain・inch 単位での値なので、入力を grain と inch に換算して計算します。基準は Army Standard Metro（59 °F、750 mmHg、湿度 78 %）と初速 2800 fps です。ISO 2533 標準大気（15 °C、1013.25 hPa）では大気補正は約 0.987 になり、29.92 inHg 基準の計算機は同じ弾で約 1.3 % 高く出ます。',
-                    'The constant 30 holds only in grains and inches, so inputs are converted to them for the calculation. The reference is Army Standard Metro (59 °F, 750 mmHg, 78 % humidity) at 2800 ft/s. At the ISO 2533 atmosphere (15 °C, 1013.25 hPa) the air correction is about 0.987, so calculators referenced to 29.92 inHg read about 1.3 % higher for the same bullet.',
+                    '基準は Army Standard Metro（59 °F、750 mmHg、湿度 78 %）と初速 2800 fps です。ISO 2533 標準大気（15 °C、1013.25 hPa）では大気補正は約 0.987 になり、29.92 inHg 基準の計算機は同じ弾で約 1.3 % 高く出ます。',
+                    'The reference is Army Standard Metro (59 °F, 750 mmHg, 78 % humidity) at 2800 ft/s. At the ISO 2533 atmosphere (15 °C, 1013.25 hPa) the air correction is about 0.987, so calculators referenced to 29.92 inHg read about 1.3 % higher for the same bullet.',
                   )}
                 </p>
               </ConditionSection>
@@ -656,39 +712,27 @@ export function TwistStabilityClient() {
                 id="notes"
                 title={t('弾の種類と弾痕での確認', 'Bullet types and checking on target')}
                 summary={t(
-                  'ジャイロ安定のみの計算です。実際に安定しているかは弾痕の形で確認してください。',
-                  'Gyroscopic stability only. Check the bullet holes on the target.',
+                  '弾痕が丸ければ安定、横長なら首を振っています。',
+                  'A round hole means stable; an elongated one means the bullet is yawing.',
                 )}
               >
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant" role="status">
-                    {t('入力はこのブラウザーに保存されます。', 'Settings are saved in this browser.')}
-                  </p>
-                )}
-
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      '材質は重量に表れるので、鉛芯のジャケット弾も銅の単一素材弾も同じ式で計算できます（出典では密度 2.8 のアルミニウム合金弾でも誤差 2 %）。',
-                      'Material shows in the weight, so lead-core, jacketed and solid copper bullets use the same rule (the source found a 2 % error even for an aluminium alloy projectile of density 2.8).',
+                      '材質は重量に表れるので、鉛芯のジャケット弾も銅の単一素材弾も同じ式です。密度 2.8 のアルミニウム合金弾でも誤差は 2 % でした。',
+                      'Material shows in the weight, so lead-core, jacketed and solid copper bullets use the same rule. Even an aluminium alloy projectile of density 2.8 was within 2 %.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '非鉛弾は同じ重量でも鉛の弾より長く、長さは安定係数に最も強く効きます。同じ重量の銅弾に替えるときは、弾長を測って入力し直してください。',
-                      'A non-lead bullet is longer than a lead one of the same weight, and length matters most here. When switching to a copper bullet of the same weight, measure its length and enter it again.',
+                      '非鉛弾は同じ重量でも鉛の弾より長く、長さが安定係数に最も効きます。銅弾に替えたら弾長を測り直してください。',
+                      'A non-lead bullet is longer than a lead one of the same weight, and length matters most. When switching to copper, measure the new length.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '樹脂チップ付きの弾はこの式の前提外です。軽いチップも長さとして扱われ、安定係数が低めに出ます。',
-                      'Plastic-tipped bullets fall outside this rule: the light tip counts as length, so the factor reads low.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '飛翔中に姿勢が収まるか（動的安定）はこの式では分かりません。推奨値の 1.3〜2.0 はその余裕を見た値です。',
-                      'Dynamic stability (whether the bullet settles in flight) is not covered; the recommended 1.3 to 2.0 leaves room for it.',
+                      '樹脂チップ付きの弾は、軽いチップも長さに入るため安定係数が低めに出ます。',
+                      'On plastic-tipped bullets the light tip counts as length, so the factor reads low.',
                     )}
                   </li>
                   <li>
@@ -697,18 +741,6 @@ export function TwistStabilityClient() {
                       {labsTool('trajectory').title[language]}
                     </Link>
                     {t('で計算します（スピンドリフトは含みません）。', ' (spin drift not included).')}
-                  </li>
-                  <li>
-                    {t(
-                      '弾痕が丸ければ安定しています。横長の穴は弾が首を振っています。',
-                      'A round hole means the bullet is stable; an elongated one means it is yawing.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                      'Follow the law and the range rules, and shoot from a safe position in a safe direction.',
-                    )}
                   </li>
                 </ul>
               </ConditionSection>

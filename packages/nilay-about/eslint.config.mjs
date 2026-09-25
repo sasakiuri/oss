@@ -63,6 +63,45 @@ const eslintConfig = [
       ],
     },
   },
+  // Browser storage is reached only through the shared modules, which keep a backup restore apart from
+  // the tools, keep the tools read-only while a cut-short restore waits, and are what the backup reads.
+  // A tool that used localStorage or IndexedDB itself would be left out of all three.
+  {
+    files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
+    ignores: [
+      '__tests__/**',
+      'public/**',
+      '*.config.*',
+      'lib/browser-storage.ts',
+      'lib/indexed-db.ts',
+      'lib/hunter-map-storage.ts',
+      'lib/labs-restore-journal.ts',
+      'app/(standalone)/labs/data/backup.ts',
+      // The site's language setting, which is not Labs data and is never part of a backup.
+      'store/language-store.ts',
+    ],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...['localStorage', 'sessionStorage', 'indexedDB'].map((name) => ({
+          name,
+          message:
+            'Use browserStorage / readStoredText (lib/browser-storage.ts) or createIndexedDb (lib/indexed-db.ts).',
+        })),
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].flatMap((object) =>
+          ['localStorage', 'sessionStorage', 'indexedDB'].map((property) => ({
+            object,
+            property,
+            message:
+              'Use browserStorage / readStoredText (lib/browser-storage.ts) or createIndexedDb (lib/indexed-db.ts).',
+          })),
+        ),
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

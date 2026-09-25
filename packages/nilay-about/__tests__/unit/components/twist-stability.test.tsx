@@ -1,8 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { storageKey, useTwistStabilityStore } from '@/app/(standalone)/labs/twist-stability/_store';
+import {
+  profilesStorageKey,
+  storageKey,
+  useTwistStabilityProfiles,
+  useTwistStabilityStore,
+} from '@/app/(standalone)/labs/twist-stability/_store';
 import { TwistStabilityClient } from '@/app/(standalone)/labs/twist-stability/twist-stability-client';
 import { discardedSaveMessage } from '@/components/labs';
 import { reportDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
@@ -200,5 +205,58 @@ describe('announcing a stability factor', () => {
     expect(screen.queryByText('-76 から 140 °F の範囲で入力してください。')).not.toBeInTheDocument();
     setTemperature(150);
     expect(screen.getByText('-76 から 140 °F の範囲で入力してください。')).toBeInTheDocument();
+  });
+});
+
+describe('named bullets and the velocity sent from velocity spread', () => {
+  beforeEach(() => {
+    useTwistStabilityStore.setState(useTwistStabilityStore.getInitialState(), true);
+    useTwistStabilityProfiles.setState({ entries: [], removed: null });
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+    window.history.replaceState(null, '', '/labs/twist-stability');
+  });
+
+  it('saves the bullet under a name and brings it back after it was changed', async () => {
+    render(<TwistStabilityClient />);
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
+    fireEvent.change(screen.getByLabelText('名前'), { target: { value: '168 SMK' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(await screen.findByText('保存しました。')).toBeInTheDocument();
+    expect(window.localStorage.getItem(profilesStorageKey)).toContain('168 SMK');
+
+    act(() => useTwistStabilityStore.getState().setSettings({ twist: 9 }));
+    fireEvent.click(screen.getByRole('button', { name: '168 SMK' }));
+    expect(useTwistStabilityStore.getState().twist).toBe(12);
+    expect(screen.getByText('「168 SMK」を読み込みました。')).toBeInTheDocument();
+  });
+
+  it('puts the mean velocity from the link into the muzzle velocity and clears the link', async () => {
+    window.history.replaceState(null, '', '/labs/twist-stability?muzzleSpeed=2750&speedUnit=fps');
+    render(<TwistStabilityClient />);
+    await waitFor(() => expect(useTwistStabilityStore.getState().muzzleSpeed).toBe(2750));
+    expect(useTwistStabilityStore.getState().speedUnit).toBe('fps');
+    expect(screen.getAllByText(/初速のばらつきの平均 2750 fps を初速に入れました。/)).not.toHaveLength(0);
+    expect(window.location.search).toBe('');
+  });
+
+  it('keeps the notice when React runs the effect twice (Strict Mode)', async () => {
+    window.history.replaceState(null, '', '/labs/twist-stability?muzzleSpeed=2750&speedUnit=fps');
+    render(
+      <StrictMode>
+        <TwistStabilityClient />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getAllByText(/初速のばらつきの平均 2750 fps を初速に入れました。/)).not.toHaveLength(0);
+  });
+
+  it('says so and changes nothing when the link cannot be read', async () => {
+    window.history.replaceState(null, '', '/labs/twist-stability?muzzleSpeed=fast&speedUnit=fps');
+    const opening = useTwistStabilityStore.getState().muzzleSpeed;
+    render(<TwistStabilityClient />);
+    expect(await screen.findAllByText(/リンクの値を読み取れなかったため、初速は変えていません。/)).not.toHaveLength(0);
+    expect(useTwistStabilityStore.getState().muzzleSpeed).toBe(opening);
   });
 });
