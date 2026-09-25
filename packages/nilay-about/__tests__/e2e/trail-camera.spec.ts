@@ -43,3 +43,25 @@ test('counts photos by hour and against sunrise, and keeps the settings', async 
   await page.reload();
   await expect(page.getByLabel('緯度（日の出入り用）')).toHaveValue('35.6581');
 });
+
+test('counts by the species chosen for each photo, and asks before fetching the AI', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(request.url()));
+  await page.goto('/labs/trail-camera');
+  await page.getByLabel('写真・ZIP を選ぶ').setInputFiles([
+    { name: 'IMG_0001.JPG', mimeType: 'image/jpeg', buffer: jpegTakenAt('2026:10:15 06:20:00') },
+    { name: 'IMG_0002.JPG', mimeType: 'image/jpeg', buffer: jpegTakenAt('2026:10:15 21:40:00') },
+  ]);
+  await page.getByLabel('IMG_0001.JPG に写っているもの').selectOption({ label: 'ニホンジカ' });
+  await page.getByLabel('IMG_0002.JPG に写っているもの').selectOption({ label: 'イノシシ' });
+  await page.getByLabel('集計する写真').selectOption({ label: 'イノシシ（1）' });
+  await expect(page.getByText('21:00–', { exact: true })).toBeVisible();
+  // The boar was the only one of its kind; marked as a deer instead, the counts go back to all and stay there.
+  await page.getByLabel('IMG_0002.JPG に写っているもの').selectOption({ label: 'ニホンジカ' });
+  await expect(page.getByLabel('集計する写真')).toHaveValue('all');
+  await page.getByLabel('IMG_0002.JPG に写っているもの').selectOption({ label: 'イノシシ' });
+  await expect(page.getByLabel('集計する写真')).toHaveValue('all');
+  await expect(page.getByRole('button', { name: /^AI で判別する（\d+\.\d MB）$/ })).toBeVisible();
+  // Nothing is fetched from Hugging Face until the reader presses the button.
+  expect(requests.filter((url) => url.includes('huggingface.co'))).toEqual([]);
+});
