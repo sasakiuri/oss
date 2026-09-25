@@ -59,7 +59,7 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   The identification test is multiple choice with four options; choose the species, the number of questions and a time limit per question
   (5 s, 10 s or none). Results are shown together at the end, and only wrong and unanswered species are added to the review list.
   Correct answers do not change the self-marked record.
-  Because of the time limit, progress is not saved and a reload discards it. Only the 44 game species are asked.
+  Because of the time limit, progress is not saved and a reload discards it. Only the 46 game species are asked; the hare (ノウサギ) and the mountain hare (ユキウサギ) share one question, so there are 45.
   The hunting licence exam also shows non-game species, so this is not a reproduction of the exam.
 - **Hunting and Firearms Law Quiz** (狩猟・銃砲の法令テスト): 97 multiple-choice questions in 12 topics,
   drawn from four acts and their cabinet orders, Cabinet Office orders and ministerial ordinances:
@@ -396,5 +396,13 @@ It is versioned independently of the Saika suite.
 
 The original Nilay [MIT licence](LICENSE) and `Copyright (c) 2022 Nilay` are kept.
 Keep any notices attached to individual assets as well.
+
+Three photos in the game species identification were taken from Wikimedia Commons, cropped and resized:
+
+| File                                     | Species        | Source                                                                                                               | Licence       |
+| ---------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `public/images/game-species/117_001.jpg` | ノイヌ         | [Feral Dog.jpg](https://commons.wikimedia.org/wiki/File:Feral_Dog.jpg)                                               | Public domain |
+| `public/images/game-species/118_001.jpg` | ノネコ         | [Stray cat standing in the street.JPG](https://commons.wikimedia.org/wiki/File:Stray_cat_standing_in_the_street.JPG) | CC0 1.0       |
+| `public/images/game-species/119_001.jpg` | シベリアイタチ | [Mustela sibirica 230828854.jpg](https://commons.wikimedia.org/wiki/File:Mustela_sibirica_230828854.jpg)             | CC0 1.0       |
 
 The licences of the dependencies are included in the [third-party notices](THIRD-PARTY-LICENSES.txt).

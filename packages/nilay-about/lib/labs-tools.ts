@@ -32,11 +32,11 @@ export const labsTools = [
     category: 'study',
     title: { ja: '狩猟鳥獣の判別練習', en: 'Game Species Identification' },
     summary: {
-      ja: '狩猟鳥獣 44 種の写真を見て名前を答えます。自己採点のスライドショーと、時間制限つきの 4 択テスト。',
-      en: 'Name the 44 game species from photos, as a self-marked slideshow or a timed multiple-choice test.',
+      ja: '写真で鳥獣の名前を覚え、4 択テストで確認します。',
+      en: 'Learn species from photos and test yourself with multiple-choice questions.',
     },
     description:
-      '狩猟免許試験の鳥獣判別の練習に。狩猟鳥獣 44 種の写真を、自己採点のスライドショーと時間制限つきの 4 択テストで確認できます。間違えた鳥獣だけを復習できます。',
+      '狩猟免許試験の鳥獣判別の練習に。狩猟鳥獣 46 種の写真を、自己採点のスライドショーと時間制限つきの 4 択テストで確認できます。間違えた鳥獣だけを復習できます。',
   },
   {
     slug: 'law-quiz',

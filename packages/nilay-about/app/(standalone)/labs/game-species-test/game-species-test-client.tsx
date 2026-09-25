@@ -271,15 +271,19 @@ export function GameSpeciesTestClient() {
   const categoryLabel = (category: SessionOptions['category']) =>
     category === 'all' ? t('全種類', 'All species') : category === 'birds' ? t('鳥類', 'Birds') : t('獣類', 'Mammals');
   const categoryOptions = [
-    { value: 'all', name: t('全種類', 'All'), count: 44 },
-    { value: 'birds', name: t('鳥類', 'Birds'), count: 28 },
-    { value: 'mammals', name: t('獣類', 'Mammals'), count: 16 },
+    { value: 'all', name: t('全種類', 'All'), count: quizList.length },
+    { value: 'birds', name: t('鳥類', 'Birds'), count: quizList.filter((quiz) => quiz.category === 'birds').length },
+    {
+      value: 'mammals',
+      name: t('獣類', 'Mammals'),
+      count: quizList.filter((quiz) => quiz.category === 'mammals').length,
+    },
   ].map(({ value, name, count }) => ({
     value,
     label: (
       <span>
         {name}
-        <span className="block text-xs opacity-80">{t(`${count} 種`, `${count}`)}</span>
+        <span className="block text-xs opacity-80">{t(`${count} 問`, `${count}`)}</span>
       </span>
     ),
   }));
