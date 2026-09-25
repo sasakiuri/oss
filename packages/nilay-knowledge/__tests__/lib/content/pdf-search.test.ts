@@ -62,7 +62,8 @@ describe('PDF search extraction', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it('extracts real PDF text with page links and reports pages without a text layer', async () => {
+  // The first extraction also loads PDF.js and initializes its worker on the CI runner.
+  it('extracts real PDF text with page links and reports pages without a text layer', { timeout: 15_000 }, async () => {
     const { documents, report } = await createPdfSearchIndex(
       [source('[添付資料](./document.pdf#page=2)')],
       contentRoot,
