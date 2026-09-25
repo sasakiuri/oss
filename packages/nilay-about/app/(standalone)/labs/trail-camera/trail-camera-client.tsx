@@ -23,11 +23,32 @@ import { Card } from '@/components/ui';
 import { useDiscardedSave } from '@/lib/browser-storage';
 import { readExifTime } from '@/lib/exif';
 import { labsTool } from '@/lib/labs-tools';
-import { MOON_PHASE_BINS, summarise, type CameraPhoto } from '@/lib/trail-camera';
+import { CAMERA_SPECIES, type CameraSpeciesId } from '@/lib/species-model';
+import { MOON_PHASE_BINS, summarise } from '@/lib/trail-camera';
 import { readZip } from '@/lib/zip';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
 import { storageKey, useTrailCameraStore } from './_store';
+import { SpeciesPanel, type TaggedPhoto } from './species-panel';
+
+/**
+ * A photo inside a ZIP, read again for the AI. The archive is read from the chosen file once for a run
+ * of photos from it and let go a little after the last, so it is not held for as long as the list is.
+ */
+let openZip: { file: File; entries: Promise<ReturnType<typeof readZip>>; release: number } | null = null;
+async function zipEntryPhoto(file: File, index: number): Promise<Blob> {
+  if (openZip?.file !== file)
+    openZip = { file, entries: file.arrayBuffer().then((buffer) => readZip(new Uint8Array(buffer))), release: 0 };
+  const current = openZip;
+  window.clearTimeout(current.release);
+  current.release = window.setTimeout(() => {
+    if (openZip === current) openZip = null;
+  }, 10_000);
+  // By position, since a ZIP may hold two entries of the same name.
+  const entry = (await current.entries)[index];
+  if (!entry) throw new Error(`Entry ${index} is no longer in the ZIP`);
+  return new Blob([(await entry.read()) as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' });
+}
 
 /** Exif sits at the start of a JPEG; reading this much of each photo is enough and keeps memory low. */
 const HEADER_BYTES = 256 * 1024;
@@ -55,7 +76,9 @@ export function TrailCameraClient() {
   const setLanguage = useSetLanguage();
   const discarded = useDiscardedSave(storageKey);
   const [ready, setReady] = useState(false);
-  const [photos, setPhotos] = useState<CameraPhoto[]>([]);
+  const [photos, setPhotos] = useState<TaggedPhoto[]>([]);
+  // Which photos the counts are for: all of them, those not yet marked, or one species.
+  const [shown, setShown] = useState<'all' | 'unmarked' | CameraSpeciesId>('all');
   const [skipped, setSkipped] = useState<string[]>([]);
   const [reading, setReading] = useState<{ done: number; total: number } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -69,16 +92,22 @@ export function TrailCameraClient() {
 
   const readFiles = async (files: File[]) => {
     setProblem(null);
-    const found: CameraPhoto[] = [];
+    const found: TaggedPhoto[] = [];
     const missed: string[] = [];
     // Each source is a JPEG, or a ZIP whose JPEG entries are read one by one.
-    const sources: { name: string; bytes: () => Promise<Uint8Array> }[] = [];
+    // `whole` reads the whole photo again, only for the AI; the time needs just the start.
+    const sources: { name: string; bytes: () => Promise<Uint8Array>; whole: () => Promise<Blob> }[] = [];
     for (const file of files) {
       if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
         try {
           const entries = readZip(new Uint8Array(await file.arrayBuffer()));
-          for (const entry of entries)
-            if (isJpegName(entry.name)) sources.push({ name: `${file.name}/${entry.name}`, bytes: entry.read });
+          for (const [index, entry] of entries.entries())
+            if (isJpegName(entry.name))
+              sources.push({
+                name: `${file.name}/${entry.name}`,
+                bytes: entry.read,
+                whole: () => zipEntryPhoto(file, index),
+              });
         } catch {
           setProblem(
             t(`「${file.name}」を ZIP として読めませんでした。`, `“${file.name}” could not be read as a ZIP.`),
@@ -88,6 +117,7 @@ export function TrailCameraClient() {
         sources.push({
           name: file.name,
           bytes: async () => new Uint8Array(await file.slice(0, HEADER_BYTES).arrayBuffer()),
+          whole: async () => file,
         });
       } else missed.push(file.name);
     }
@@ -95,7 +125,16 @@ export function TrailCameraClient() {
     for (const [index, source] of sources.entries()) {
       try {
         const time = readExifTime(await source.bytes());
-        if (time) found.push({ name: source.name, time });
+        if (time)
+          found.push({
+            id: crypto.randomUUID(),
+            name: source.name,
+            time,
+            species: null,
+            markedBy: null,
+            guess: null,
+            read: source.whole,
+          });
         else missed.push(source.name);
       } catch {
         missed.push(source.name);
@@ -103,6 +142,7 @@ export function TrailCameraClient() {
       if (index % 20 === 19) setReading({ done: index + 1, total: sources.length });
     }
     setPhotos(found);
+    setShown('all');
     setSkipped(missed);
     setReading(null);
   };
@@ -112,9 +152,25 @@ export function TrailCameraClient() {
     valid.latitude !== null && valid.longitude !== null
       ? { latitude: valid.latitude, longitude: valid.longitude }
       : null;
+  const speciesCounts = CAMERA_SPECIES.map((species) => ({
+    ...species,
+    count: photos.filter((photo) => photo.species === species.id).length,
+  })).filter((species) => species.count > 0);
+  const unmarked = photos.filter((photo) => photo.species === null).length;
+  // A kind whose last photo was changed to another is no longer offered, so the counts go back to all,
+  // and stay there if that kind comes back.
+  const shownGone =
+    shown !== 'all' && !(shown === 'unmarked' ? unmarked > 0 : speciesCounts.some((species) => species.id === shown));
+  // Set while rendering, as React allows for state that follows other state; the next render has 'all'.
+  if (shownGone) setShown('all');
+  const counting = shownGone ? 'all' : shown;
+  const counted =
+    counting === 'all'
+      ? photos
+      : photos.filter((photo) => (counting === 'unmarked' ? photo.species === null : photo.species === counting));
   const summary =
-    photos.length > 0
-      ? summarise(photos, {
+    counted.length > 0
+      ? summarise(counted, {
           zoneOffsetMinutes: valid.zoneOffsetMinutes,
           clockCorrectionMinutes: valid.clockCorrectionMinutes,
           location,
@@ -201,12 +257,6 @@ export function TrailCameraClient() {
                 <h2 id="photos" className="text-xl font-medium">
                   {t('1. 写真を選ぶ', '1. Choose the photos')}
                 </h2>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    'SD カードの JPEG 写真をまとめて選ぶか、ZIP にまとめたものを選びます。撮影時刻（Exif）だけを読み、写真は保存も送信もしません。',
-                    'Choose the JPEG photos from the SD card, or a ZIP of them. Only the time taken (Exif) is read; the photos are neither saved nor sent.',
-                  )}
-                </p>
                 <input
                   id={inputId}
                   type="file"
@@ -319,6 +369,12 @@ export function TrailCameraClient() {
                   </p>
                 )}
               </Card>
+              <Card variant="outlined" className="space-y-4 rounded-md p-5 sm:p-6">
+                <h2 id="species" className="text-xl font-medium">
+                  {t('3. 何が写っているか（任意）', '3. What each photo shows (optional)')}
+                </h2>
+                <SpeciesPanel language={language} photos={photos} onChange={setPhotos} />
+              </Card>
             </>
           }
           result={
@@ -326,8 +382,39 @@ export function TrailCameraClient() {
               <h2 id="counts" className="text-xl font-medium">
                 {t('出没時刻の集計', 'When they came')}
               </h2>
+              {(speciesCounts.length > 0 || shown !== 'all') && (
+                <>
+                  <SelectField
+                    label={t('集計する写真', 'Photos to count')}
+                    value={counting}
+                    onChange={(value) => setShown(value as typeof shown)}
+                    options={[
+                      { value: 'all', label: t(`すべて（${photos.length} 枚）`, `All (${photos.length})`) },
+                      ...speciesCounts.map((species) => ({
+                        value: species.id,
+                        label: `${language === 'ja' ? species.ja : species.en}（${species.count}）`,
+                      })),
+                      { value: 'unmarked', label: t(`未選択（${unmarked} 枚）`, `Not marked (${unmarked})`) },
+                    ]}
+                  />
+                  {bars(
+                    [
+                      ...speciesCounts.map((species) => ({
+                        label: language === 'ja' ? species.ja : species.en,
+                        value: species.count,
+                      })),
+                      { label: t('未選択', 'Not marked'), value: unmarked },
+                    ],
+                    t('種別の枚数', 'Photos by species'),
+                  )}
+                </>
+              )}
               {!summary ? (
-                <p className="text-sm">{t('写真を選ぶと集計します。', 'Choose photos to count them.')}</p>
+                <p className="text-sm">
+                  {photos.length === 0
+                    ? t('写真を選ぶと集計します。', 'Choose photos to count them.')
+                    : t('選んだ種の写真はありません。', 'No photos of the chosen kind.')}
+                </p>
               ) : (
                 <>
                   <ResultPanel className="grid-cols-2">
@@ -432,12 +519,7 @@ export function TrailCameraClient() {
                       'The time is the Exif time taken (CIPA DC-008), with its OffsetTime when written, or else the chosen time zone.',
                     )}
                   </li>
-                  <li>
-                    {t(
-                      '連写や動画の静止画も 1 枚ずつ数えます。何の動物かは判別しません（写真を見て確かめてください）。',
-                      'Bursts count photo by photo. The animal is not identified; look at the photos.',
-                    )}
-                  </li>
+                  <li>{t('連写も 1 枚ずつ数えます。', 'Bursts count photo by photo.')}</li>
                   <li>
                     {t(
                       '月齢は直前の新月からの日数で、8 つに分けています。',
