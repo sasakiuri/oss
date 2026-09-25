@@ -91,8 +91,9 @@ test('names its sources, warns about impossible input and switches to English', 
   await expect(page.getByText('SHOT SIZE', { exact: false })).toBeHidden();
   await page.getByRole('button', { name: /計算方法と出典/ }).click();
   await expect(page.getByText('SHOT SIZE', { exact: false })).toBeVisible();
-  await expect(page.getByText('号数がこの式に従うかは未確認です', { exact: false })).toBeVisible();
-  await expect(page.getByText('獲物への効果は判定しません', { exact: false })).toBeVisible();
+  await expect(
+    page.getByText('国内の装弾の粒径は、装弾の表示か実測で確かめてください。', { exact: false }),
+  ).toBeVisible();
   // The related-tools list at the foot of the page links there too; this is the one in the notes.
   await page.locator('#method-and-source').getByRole('link', { name: '散弾パターンの測定' }).click();
   await expect(page).toHaveURL(/\/labs\/shot-pattern/);
@@ -126,4 +127,13 @@ test('reflows at a narrow viewport and returns to the Labs list', async ({ page 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'Labs 一覧に戻る' }).click();
   await expect(page.getByRole('heading', { name: /Labs/ })).toBeVisible();
+});
+
+test('converts condition A to the non-lead pellet with the same energy', async ({ page }) => {
+  await page.goto('/labs/shot-pellets');
+  await page.getByRole('button', { name: /非鉛弾への換算/ }).click();
+  const table = page.getByRole('table', { name: '同じエネルギーの非鉛弾' });
+  await expect(table.getByRole('row', { name: /鉄/ })).toContainText('mm');
+  await expect(table.getByRole('row', { name: /TSS/ })).toContainText('mm');
+  await expect(page.getByRole('link', { name: 'Federal Premium, HEAVYWEIGHT TSS' }).first()).toBeAttached();
 });

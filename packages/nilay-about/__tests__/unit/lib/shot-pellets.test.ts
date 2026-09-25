@@ -6,6 +6,7 @@ import {
   convertDiameter,
   convertSpeed,
   densityToKgPerM3,
+  equivalentPellet,
   flyPellet,
   KILOGRAMS_PER_OUNCE,
   MATERIAL_DENSITIES,
@@ -117,6 +118,22 @@ describe('flying a pellet', () => {
     // Nothing has slowed the pellet downrange, so the whole of the speed it has gained is
     // the gt it has fallen at: the total is larger than the muzzle speed, not equal to it.
     expect(row?.speedMs).toBeCloseTo(Math.hypot(400, STANDARD_GRAVITY * 0.25), 5);
+  });
+
+  it('splits gravity along and across a barrel raised or lowered', () => {
+    // In a vacuum, fired 30° up: x = u t - ½ g sin30 t², drop = ½ g cos30 t².
+    const up = 30 * (Math.PI / 180);
+    const [row] = flyPellet(pellet, vacuum, [100], { launchRadians: up })!;
+    const g = STANDARD_GRAVITY;
+    const t = (400 - Math.sqrt(400 ** 2 - 2 * g * Math.sin(up) * 100)) / (g * Math.sin(up));
+    expect(row!.timeSeconds).toBeCloseTo(t, 6);
+    expect(row!.dropMeters).toBeCloseTo(0.5 * g * Math.cos(up) * t ** 2, 4);
+    // Straight up nothing pulls it off the line, and down a slope it arrives sooner than uphill.
+    expect(flyPellet(pellet, vacuum, [100], { launchRadians: Math.PI / 2 })![0]!.dropMeters).toBeCloseTo(0, 12);
+    const [down] = flyPellet(pellet, conditions, [100], { launchRadians: -up })!;
+    const [rising] = flyPellet(pellet, conditions, [100], { launchRadians: up })!;
+    expect(down!.timeSeconds).toBeLessThan(rising!.timeSeconds);
+    expect(flyPellet(pellet, vacuum, [100], { launchRadians: 2 })).toBeNull();
   });
 
   it('sheds speed the whole way down the range once there is air to fly through', () => {
@@ -234,5 +251,41 @@ describe('warning about a load that is not one', () => {
     expect(summarisePellets({ ...load, diameter: NaN }, units, conditions, table)).toBeNull();
     expect(summarisePellets({ ...load, shotCharge: 0 }, units, conditions, table)).toBeNull();
     expect(comparePellets(null, null)).toBeNull();
+  });
+});
+
+describe('the non-lead pellet with the same energy', () => {
+  // No. 4 lead (0.13 in) from 400 m/s, 32 g.
+  const lead = { diameterMeters: 0.13 * 0.0254, densityKgPerM3: 11300, muzzleSpeedMs: 400, chargeKg: 0.032 };
+
+  it('gives the same material and speed back as the same pellet', () => {
+    const same = equivalentPellet(lead, { densityKgPerM3: 11300, muzzleSpeedMs: 400 }, 35, conditions)!;
+    expect(same.diameterMeters).toBeCloseTo(lead.diameterMeters, 7);
+    expect(same.nearestShotNumber).toBe(4);
+  });
+
+  it('needs a larger steel pellet and a smaller TSS one, each carrying the same energy', () => {
+    const reference = flyPellet(lead, conditions, [35])![0]!;
+    const steel = equivalentPellet(lead, { densityKgPerM3: 7870, muzzleSpeedMs: 400 }, 35, conditions)!;
+    const tss = equivalentPellet(lead, { densityKgPerM3: 18000, muzzleSpeedMs: 400 }, 35, conditions)!;
+    expect(steel.diameterMeters).toBeGreaterThan(lead.diameterMeters);
+    expect(tss.diameterMeters).toBeLessThan(lead.diameterMeters);
+    for (const pellet of [steel, tss]) expect(pellet.energyJoules).toBeCloseTo(reference.energyJoules, 6);
+    // A heavier pellet means fewer of them in the same weight of charge, and the reverse.
+    expect(steel.count).toBeLessThan(tss.count);
+    expect(steel.count).toBeCloseTo(0.032 / steel.massKg, 9);
+  });
+
+  it('asks for less steel when the steel load is faster', () => {
+    const slow = equivalentPellet(lead, { densityKgPerM3: 7870, muzzleSpeedMs: 400 }, 35, conditions)!;
+    const fast = equivalentPellet(lead, { densityKgPerM3: 7870, muzzleSpeedMs: 450 }, 35, conditions)!;
+    expect(fast.diameterMeters).toBeLessThan(slow.diameterMeters);
+  });
+
+  it('has no answer when nothing in the search range reaches the energy', () => {
+    expect(equivalentPellet(lead, { densityKgPerM3: 100, muzzleSpeedMs: 400 }, 35, conditions)).toBeNull();
+    expect(
+      equivalentPellet({ ...lead, chargeKg: 0 }, { densityKgPerM3: 7870, muzzleSpeedMs: 400 }, 35, conditions),
+    ).toBeNull();
   });
 });

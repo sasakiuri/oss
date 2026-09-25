@@ -132,3 +132,35 @@ describe('target lead settings', () => {
     expect(useStorageStatus.getState().available).toBe(false);
   });
 });
+
+describe('target lead settings saved before the drag model', () => {
+  beforeEach(() => {
+    useTargetLeadStore.setState(useTargetLeadStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  it('reads a save made before the drag model as it is: an average speed, the target level and flat', async () => {
+    const settings = {
+      targetSpeed: { value: 45, unit: 'mph' },
+      distance: { value: 35, unit: 'yd' },
+      crossingAngleDegrees: 60,
+      projectileSpeed: { value: 1150, unit: 'fps' },
+      delaySeconds: 0,
+    };
+    window.localStorage.setItem(storageKey, JSON.stringify({ state: { settings }, version: 0 }));
+    await useTargetLeadStore.persist.rehydrate();
+    expect(useTargetLeadStore.getState()).toMatchObject({
+      ...settings,
+      speedModel: 'average',
+      elevationDegrees: 0,
+      climbDegrees: 0,
+      pellet: initialTargetLeadSettings.pellet,
+    });
+    expect(useStorageStatus.getState().discarded).toEqual([]);
+  });
+
+  it('opens new with the drag model', () => {
+    expect(initialTargetLeadSettings.speedModel).toBe('drag');
+  });
+});

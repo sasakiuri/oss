@@ -3,7 +3,12 @@ import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
 import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
-import { patternRecordSchema, type PatternRecord, type ShotOffset } from '@/lib/schemas/shot-pattern';
+import {
+  PATTERN_SETUP_MAX_LENGTH,
+  patternRecordSchema,
+  type PatternRecord,
+  type ShotOffset,
+} from '@/lib/schemas/shot-pattern';
 import { PATTERN_DIAMETER_CM, getScale, toImagePoint, toOffsetCm, type Point } from '@/lib/shot-pattern';
 
 export interface ImageSize {
@@ -47,6 +52,10 @@ interface ShotPatternStore {
   diameterCm: number;
   pellets: number | null;
   note: string;
+  /** Gun, barrel, choke and cartridge, saved with the record; empty when not stated. */
+  setup: string;
+  /** Muzzle to board in metres; NaN when not stated. */
+  distanceM: number;
   shots: Shot[];
   records: PatternRecord[];
   deletedRecord: { record: PatternRecord; index: number } | null;
@@ -66,6 +75,8 @@ interface ShotPatternStore {
   clearShots: () => void;
   setPellets: (pellets: number | null) => void;
   setNote: (note: string) => void;
+  setSetup: (setup: string) => void;
+  setDistanceM: (distanceM: number) => void;
   saveRecord: (name: string) => boolean;
   loadRecord: (id: string) => boolean;
   deleteRecord: (id: string) => void;
@@ -80,6 +91,8 @@ const initialState = {
   diameterCm: PATTERN_DIAMETER_CM,
   pellets: null,
   note: '',
+  setup: '',
+  distanceM: NaN,
   shots: [] as Shot[],
   records: [] as PatternRecord[],
   deletedRecord: null as { record: PatternRecord; index: number } | null,
@@ -136,11 +149,15 @@ export const useShotPatternStore = create<ShotPatternStore>()(
       clearShots: () => set({ shots: [] }),
       setPellets: (pellets) => set({ pellets }),
       setNote: (note) => set({ note }),
+      setSetup: (setup) => set({ setup: setup.slice(0, PATTERN_SETUP_MAX_LENGTH) }),
+      setDistanceM: (distanceM) => set({ distanceM }),
       saveRecord: (name) => {
         const state = get();
         const scale = selectScale(state);
         const trimmed = name.trim();
         if (scale === null || !trimmed || state.records.some((record) => record.name === trimmed)) return false;
+        // A distance typed wrong is refused rather than dropped from the record.
+        if (Number.isFinite(state.distanceM) && state.distanceM <= 0) return false;
         const record = patternRecordSchema.safeParse({
           id: crypto.randomUUID(),
           name: trimmed,
@@ -149,6 +166,9 @@ export const useShotPatternStore = create<ShotPatternStore>()(
           pellets: state.pellets,
           note: state.note,
           shots: state.shots.map((shot) => toOffsetCm(shot, state.centre, scale)),
+          // Left out when not stated, so the record says nothing rather than a made-up value.
+          ...(state.setup.trim() ? { setup: state.setup.trim() } : {}),
+          ...(Number.isFinite(state.distanceM) && state.distanceM > 0 ? { distanceM: state.distanceM } : {}),
         });
         if (!record.success) return false;
         set({ records: [...state.records, record.data] });
@@ -164,6 +184,8 @@ export const useShotPatternStore = create<ShotPatternStore>()(
           lastValidDiameterCm: record.diameterCm,
           pellets: record.pellets,
           note: record.note,
+          setup: record.setup ?? '',
+          distanceM: record.distanceM ?? NaN,
           shots: record.shots.map((offset) => ({
             id: crypto.randomUUID(),
             ...toImagePoint(offset, state.centre, scale),

@@ -325,7 +325,7 @@ test('says when the saved measurements could not be read', async ({ page }) => {
   // The notice keeps that region to itself: a status region is atomic, and sharing one with the
   // result would read the notice out again after every change.
   await expect(page.locator('p[role="status"].sr-only').filter({ hasText: notice })).toHaveText(notice);
-  await expect(page.getByLabel('円の直径')).toHaveValue('76.2');
+  await expect(page.getByRole('spinbutton', { name: '円の直径 (cm)', exact: true })).toHaveValue('76.2');
 });
 
 test('announces the result only once the input settles', async ({ page }) => {
@@ -364,24 +364,20 @@ test('restates the message about a shot in the language chosen after it', async 
   await expect(page.getByText('Added a shot at right 10 cm, down 5 cm.')).toBeVisible();
 });
 
-test('states that the photo stays in the browser, in both languages', async ({ page }) => {
+test('keeps the photo and detection notes together, in both languages', async ({ page }) => {
   const notes = page.getByRole('button', { name: /^撮影と自動検出の注意/ });
-  await expect(notes).toContainText('カメラの映像と写真は、送信も保存もしません。');
+  await expect(notes).toContainText('重なった痕、撮影角度、ボードのたわみ');
   await open(page, /^撮影と自動検出の注意/);
-  await expect(page.getByText('自動検出は粒の大きさの丸い暗い痕を数えるだけ', { exact: false })).toBeVisible();
+  await expect(page.getByText('自動検出は粒の大きさの丸い暗い痕を数えます', { exact: false })).toBeVisible();
   await expect(page.getByText('正面から撮影してください。', { exact: false })).toBeVisible();
-  await expect(
-    page.getByText('同じ銃・チョーク・実包・距離で複数回撃って比べてください。', { exact: false }),
-  ).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: /^Photos and detection/ })).toContainText(
-    'The camera feed and the photo are never sent or saved.',
+    'Overlapping holes, camera angle, board flatness',
   );
-  await expect(page.getByText('only counts round dark marks', { exact: false })).toBeVisible();
+  await expect(page.getByText('counts round dark marks', { exact: false })).toBeVisible();
   await expect(page.getByText('photograph it straight on', { exact: false })).toBeVisible();
-  await expect(page.getByText('same gun, choke, load and distance', { exact: false })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Shotgun Pattern Measurement' })).toBeVisible();
   await expect(page.getByLabel('Choose a photo')).toBeVisible();
@@ -462,4 +458,33 @@ test('asks for the pellet count up front and keeps the result beside the workspa
   // Every tap in the workspace changes the answer, which stays in view beside it.
   await expect(value(page, 'パターン率')).toHaveText('25%');
   await expect(value(page, 'パターン率')).toBeInViewport();
+});
+
+test('maps the density, compares saved measurements and plans chokes by distance', async ({ page }) => {
+  await addShot(page, 0, 0);
+  await addShot(page, 5, 5);
+  await page.getByLabel('装弾の総粒数').fill('4');
+  await open(page, /^密度マップとすき間/);
+  await expect(page.getByRole('img', { name: /^密度マップ。空のマス/ })).toBeVisible();
+
+  await openRecords(page);
+  await page.getByLabel('装備（銃・チョーク・装弾）').fill('IC');
+  await page.getByLabel('距離（銃口から標的）').fill('25');
+  await page.getByLabel('記録名').fill('IC 25');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await page.getByLabel('装備（銃・チョーク・装弾）').fill('Full');
+  await page.getByLabel('距離（銃口から標的）').fill('35');
+  await page.getByLabel('記録名').fill('Full 35');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+
+  await open(page, /^記録の比較/);
+  await page.getByLabel('IC 25', { exact: true }).check();
+  await page.getByLabel('Full 35', { exact: true }).check();
+  await expect(page.getByRole('img', { name: '「IC 25」の密度マップ' })).toBeVisible();
+
+  await open(page, /^チョークの計画/);
+  await page.getByLabel('撃つ距離（m、カンマ区切り）').fill('25, 35');
+  // The comparison above has an IC row too; this is the plan's table.
+  const plan = page.getByRole('table', { name: '装備と距離ごとの、測ったパターン率の平均' });
+  await expect(plan.getByRole('row', { name: /^IC/ })).toContainText('50%');
 });

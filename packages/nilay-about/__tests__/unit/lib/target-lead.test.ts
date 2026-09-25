@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { flyPellet } from '@/lib/shot-pellets';
 import { MIL_RADIANS, MOA_RADIANS, angularSizeMm } from '@/lib/sight-adjustment';
+import { sphereDragCoefficient, sphereFrontalAreaM2, sphereMassKg } from '@/lib/sphere-drag';
 import {
   LEAD_TABLE_ANGLES_DEGREES,
   LEAD_TABLE_DISTANCE_FACTORS,
@@ -11,6 +13,7 @@ import {
   type TargetLeadInput,
   type TargetLeadResult,
 } from '@/lib/target-lead';
+import { STANDARD_GRAVITY, resolveConditions } from '@/lib/trajectory';
 
 // The shot every case below varies: 40 m of range, a projectile averaging 400 m/s and a target at
 // 90 km/h, which is 25 m/s. Crossing square, the meeting takes 40 / sqrt(400² - 25²) seconds.
@@ -290,5 +293,147 @@ describe('lead table', () => {
     expect(leadTable(input({ projectileSpeed: { value: 0, unit: 'm/s' } }))).toEqual([]);
     expect(leadTable(input({ delaySeconds: NaN }))).toEqual([]);
     expect(leadTable(input({ targetSpeed: { value: 500, unit: 'm/s' }, crossingAngleDegrees: 90 }))).toEqual([]);
+  });
+});
+
+describe('a target above the gun, climbing or dropping', () => {
+  it('leaves a crossing lead unchanged by the elevation alone', () => {
+    const level = lead()!;
+    const raised = lead({ elevationDegrees: 30 })!;
+    expect(raised.totalSeconds).toBeCloseTo(level.totalSeconds, 12);
+    expect(raised.crossLead.meters).toBeCloseTo(level.crossLead.meters, 12);
+    expect(raised.verticalLead.meters).toBeCloseTo(0, 12);
+    expect(raised.verticalDegrees).toBeCloseTo(0, 10);
+  });
+
+  it('splits the lead of a climbing target into sideways and up', () => {
+    const level = lead()!;
+    const climbing = lead({ climbDegrees: 30 })!;
+    // Square across and level with the gun, the climb adds no closing speed, so the flight is the same.
+    expect(climbing.totalSeconds).toBeCloseTo(level.totalSeconds, 12);
+    expect(climbing.crossLead.meters).toBeCloseTo(level.lead.meters * Math.cos(30 * RADIANS), 10);
+    expect(climbing.verticalLead.meters).toBeCloseTo(level.lead.meters * Math.sin(30 * RADIANS), 10);
+    expect(climbing.verticalDegrees).toBeGreaterThan(0);
+    expect(climbing.angleRadians).toBeCloseTo(level.angleRadians, 10);
+    expect(lead({ climbDegrees: -30 })!.verticalLead.meters).toBeLessThan(0);
+  });
+
+  it('rejects a line of sight or path steeper than the limit', () => {
+    expect(calculateTargetLead(input({ elevationDegrees: 86 })).kind).toBe('incomplete');
+    expect(calculateTargetLead(input({ climbDegrees: -86 })).kind).toBe('incomplete');
+  });
+});
+
+describe('a pellet that slows and falls', () => {
+  // No. 7.5 lead (0.095 in) from 400 m/s.
+  const pellet = { model: 'drag' as const, diameterMeters: 0.002413, densityKgPerM3: 11300 };
+  const conditions = resolveConditions({
+    source: 'station',
+    temperature: { value: 15, unit: 'c' },
+    pressure: { value: 1013.25, unit: 'hpa' },
+    altitude: { value: 0, unit: 'm' },
+  })!;
+
+  it('meets a standing target when the pellet has flown the range, aiming above by the drop', () => {
+    const result = lead({ flight: pellet, targetSpeed: { value: 0, unit: 'm/s' } })!;
+    const [row] = flyPellet(
+      { diameterMeters: pellet.diameterMeters, densityKgPerM3: pellet.densityKgPerM3, muzzleSpeedMs: PROJECTILE },
+      conditions,
+      [RANGE],
+    )!;
+    expect(result.flightSeconds).toBeCloseTo(row!.timeSeconds, 3);
+    expect(result.dropMeters).toBeCloseTo(row!.dropMeters, 3);
+    expect(result.verticalLead.meters).toBeCloseTo(result.dropMeters, 6);
+    expect(result.impactSpeedMps).toBeCloseTo(row!.speedMs, 0);
+    expect(result.impactSpeedMps).toBeLessThan(PROJECTILE);
+    expect(result.averageSpeedMps).toBeLessThan(PROJECTILE);
+    expect(result.averageSpeedMps).toBeGreaterThan(result.impactSpeedMps);
+  });
+
+  it('needs more lead than the muzzle velocity taken as the average', () => {
+    const steady = lead()!;
+    const slowing = lead({ flight: pellet })!;
+    expect(slowing.flightSeconds).toBeGreaterThan(steady.flightSeconds);
+    expect(slowing.crossLead.meters).toBeGreaterThan(steady.crossLead.meters);
+  });
+
+  it('never catches a fast target going away at long range', () => {
+    const outcome = calculateTargetLead(
+      input({
+        flight: pellet,
+        distance: { value: 120, unit: 'm' },
+        crossingAngleDegrees: 180,
+        targetSpeed: { value: 30, unit: 'm/s' },
+      }),
+    );
+    expect(outcome.kind).toBe('unreachable');
+  });
+
+  it('flies the pellet along the sloping line it is fired on', () => {
+    // A reference flown in world coordinates, x level and z up, with the same sphere table and air,
+    // and the launch angle found by bisection so the pellet passes through a standing target 120 m
+    // out on an 80° line of sight.
+    const range = 120;
+    const elevation = 80 * RADIANS;
+    const target = [range * Math.cos(elevation), range * Math.sin(elevation)] as const;
+    const mass = sphereMassKg(pellet.diameterMeters, pellet.densityKgPerM3);
+    const factor = sphereFrontalAreaM2(pellet.diameterMeters) / (2 * mass);
+    const fly = (launch: number) => {
+      type S = [number, number, number, number];
+      const rate = ([, , vx, vz]: S): S => {
+        const speed = Math.hypot(vx, vz);
+        const k = factor * conditions.densityKgPerM3 * sphereDragCoefficient(speed / conditions.speedOfSoundMs) * speed;
+        return [vx, vz, -k * vx, -k * vz - STANDARD_GRAVITY];
+      };
+      const along = (s: S, r: S, h: number): S => s.map((value, index) => value + r[index]! * h) as S;
+      let state: S = [0, 0, PROJECTILE * Math.cos(launch), PROJECTILE * Math.sin(launch)];
+      let t = 0;
+      const dt = 1e-4;
+      // Step until the pellet crosses the line of sight at the target's distance along it.
+      const reach = (s: S) => s[0] * Math.cos(elevation) + s[1] * Math.sin(elevation) - range;
+      while (reach(state) < 0) {
+        const a = rate(state);
+        const b = rate(along(state, a, dt / 2));
+        const c = rate(along(state, b, dt / 2));
+        const d = rate(along(state, c, dt));
+        const next = state.map(
+          (value, index) => value + (dt / 6) * (a[index]! + 2 * b[index]! + 2 * c[index]! + d[index]!),
+        ) as S;
+        if (reach(next) >= 0) {
+          const f = -reach(state) / (reach(next) - reach(state));
+          return { t: t + f * dt, z: state[1] + f * (next[1] - state[1]) };
+        }
+        state = next;
+        t += dt;
+      }
+      return { t, z: state[1] };
+    };
+    let low = elevation;
+    let high = elevation + 2 * RADIANS;
+    for (let step = 0; step < 30; step++) {
+      const middle = (low + high) / 2;
+      if (fly(middle).z < target[1]) low = middle;
+      else high = middle;
+    }
+    const launch = (low + high) / 2;
+    const result = lead({
+      flight: pellet,
+      targetSpeed: { value: 0, unit: 'm/s' },
+      distance: { value: range, unit: 'm' },
+      elevationDegrees: 80,
+    })!;
+    expect(result.flightSeconds / fly(launch).t).toBeCloseTo(1, 3);
+    expect(result.verticalDegrees / ((launch - elevation) / RADIANS)).toBeCloseTo(1, 2);
+  });
+
+  it('builds the table from the same flight', () => {
+    const rows = leadTable(input({ flight: pellet }));
+    expect(rows).toHaveLength(LEAD_TABLE_DISTANCE_FACTORS.length);
+    const current = rows.find((row) => row.current)!;
+    expect(current.cells.find((cell) => cell.angleDegrees === 90)!.crossLeadMeters).toBeCloseTo(
+      lead({ flight: pellet })!.crossLead.meters,
+      10,
+    );
+    expect(calculateTargetLead(input({ flight: { ...pellet, diameterMeters: 0 } })).kind).toBe('incomplete');
   });
 });

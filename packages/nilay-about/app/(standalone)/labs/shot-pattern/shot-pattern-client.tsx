@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuImage, LuPlus, LuScanSearch, LuTrash2, LuUndo2 } from 'react-icons/lu';
 
 import {
@@ -36,6 +36,7 @@ import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 import { RoundedNumberField } from '../shot-group/fields';
 
 import { selectScale, storageKey, useShotPatternStore, type ImageSize } from './_store';
+import { ChokePlan, PatternAnalysis, PatternComparison } from './pattern-analysis';
 import { PatternCanvas, type PointerMode } from './pattern-canvas';
 import { SavedMeasurements } from './saved-measurements';
 
@@ -101,7 +102,11 @@ export function ShotPatternClient() {
   const hasImage = imageUrl !== null;
   const scale = selectScale(state);
   const pixelSpan = distanceBetween(calibration.a, calibration.b);
-  const offsets = scale === null ? null : shots.map((shot) => toOffsetCm(shot, centre, scale));
+  // Kept between renders, so the density and gap analysis only reruns when the shots or the frame change.
+  const offsets = useMemo(
+    () => (scale === null ? null : shots.map((shot) => toOffsetCm(shot, centre, scale))),
+    [shots, centre, scale],
+  );
   const summary = summarisePattern(offsets ?? [], { diameterCm, pellets });
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
   const percent = new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 1 });
@@ -333,16 +338,12 @@ export function ShotPatternClient() {
 
   const notes = [
     t(
-      '自動検出は粒の大きさの丸い暗い痕を数えるだけです。重なった痕は 1 つに数え、汚れや印刷も拾います。結果はボードと見比べてください。',
-      'Detection only counts round dark marks the size of a pellet hole. Overlapping holes count as one, and dirt or printing can be picked up. Check the result against the board.',
+      '自動検出は粒の大きさの丸い暗い痕を数えます。重なった痕は 1 つに数え、汚れや印刷も拾います。',
+      'Detection counts round dark marks the size of a pellet hole. Overlapping holes count as one, and dirt or printing can be picked up.',
     ),
     t(
       '撮影角度・レンズの歪み・ボードのたわみは誤差になります。ボードを平らに張り、正面から撮影してください。',
       'Camera angle, lens distortion and a board that is not flat add error. Keep the board flat and photograph it straight on.',
-    ),
-    t(
-      '同じ銃・チョーク・実包・距離で複数回撃って比べてください。',
-      'Compare several shots with the same gun, choke, load and distance.',
     ),
   ];
 
@@ -406,12 +407,6 @@ export function ShotPatternClient() {
                 <h2 id="step-1-photo" className="text-xl font-medium">
                   {t('1. 写真を読み込む', '1. Load a photo')}
                 </h2>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '写真がなくても、座標を入力して測定できます。',
-                    'Without a photo, enter the shots by coordinates.',
-                  )}
-                </p>
                 <CameraCapture
                   language={language}
                   label={t('カメラのプレビュー', 'Camera preview')}
@@ -795,8 +790,8 @@ export function ShotPatternClient() {
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '円の内側と、円の外へ半径の 4 分の 1 までを探します。それより外の着弾は作業エリアを押して追加します。',
-                    'Searches the circle and a quarter of its radius beyond it. Tap the workspace to add shots further out.',
+                    '円の内側と、円の外へ半径の 4 分の 1 までを探します。',
+                    'Searches the circle and a quarter of its radius beyond it.',
                   )}
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -932,30 +927,53 @@ export function ShotPatternClient() {
           extras={
             <>
               <ConditionSection
+                id="density"
+                title={t('密度マップとすき間', 'Density map and gaps')}
+                summary={t('マスごとの着弾数とすき間', 'Shots per cell and gaps')}
+              >
+                {offsets && circleSet ? (
+                  <PatternAnalysis shots={offsets} diameterCm={diameterCm} language={language} />
+                ) : (
+                  <p className="text-sm text-on-surface-variant">
+                    {t(
+                      '実寸の基準と円の直径を設定すると表示します。',
+                      'Set the scale and the circle diameter to see this.',
+                    )}
+                  </p>
+                )}
+              </ConditionSection>
+
+              <ConditionSection
                 id="step-6-records"
                 title={t('6. 記録を保存', '6. Save the measurement')}
-                summary={
-                  records.length === 0
-                    ? t(
-                        'メモを付けて名前で保存し、CSV に書き出せます。',
-                        'Save the measurement by name with a note, and export CSV.',
-                      )
-                    : t(
-                        `保存した測定 ${records.length} 件`,
-                        `${records.length} saved ${records.length === 1 ? 'measurement' : 'measurements'}`,
-                      )
-                }
+                summary={t(
+                  `保存した測定 ${records.length} 件`,
+                  `${records.length} saved ${records.length === 1 ? 'measurement' : 'measurements'}`,
+                )}
               >
                 <SavedMeasurements />
               </ConditionSection>
 
               <ConditionSection
+                id="compare"
+                title={t('記録の比較', 'Compare measurements')}
+                summary={t('最大 4 件', 'Up to four')}
+              >
+                <PatternComparison records={records} language={language} />
+              </ConditionSection>
+
+              <ConditionSection
+                id="choke-plan"
+                title={t('チョークの計画', 'Choke plan')}
+                summary={t('距離ごとの装備別パターン率', 'Pattern by setup and distance')}
+              >
+                <ChokePlan records={records} language={language} />
+              </ConditionSection>
+
+              <ConditionSection
                 id="notes"
                 title={t('撮影と自動検出の注意', 'Photos and detection')}
-                summary={t(
-                  'カメラの映像と写真は、送信も保存もしません。',
-                  'The camera feed and the photo are never sent or saved.',
-                )}
+                summary={t('重なった痕、撮影角度、ボードのたわみ', 'Overlapping holes, camera angle, board flatness')}
               >
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   {notes.map((item) => (

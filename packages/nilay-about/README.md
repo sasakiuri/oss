@@ -332,6 +332,12 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   With the total pellet count of the load, it gives the pattern percentage.
   The camera feed, the photo and the image analysis stay in the browser; nothing is sent or saved.
   Only the hit coordinates, settings and notes are saved, and records can be exported as CSV.
+  A density map counts the hits in square cells of 2.5, 5 or 10 cm, and a gap check samples the circle every 1 cm for places where a disc of a
+  chosen diameter (the size of the target of interest) would hold no hit, giving the share of such places and the largest empty circle.
+  Each measurement can carry its setup (typed, or filled from Shotgun Gear with an estimated pellet count) and its distance.
+  Up to four saved measurements can be compared side by side with their maps, and a choke plan averages the user's own pattern percentages
+  by setup for each planned distance (records within 2.5 m), leaving distances without a record empty. No general choke tables are included,
+  as no source for them could be confirmed.
 - **Shot Pellet Count and Energy** (散弾の粒数とエネルギー): from pellet diameter, material density, load weight and muzzle velocity,
   calculates the weight of one pellet and the number in the load, and at each distance the remaining velocity, remaining energy (J, ft-lb),
   time of flight and drop from gravity.
@@ -340,7 +346,11 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   Choosing a shot size fills in its average diameter, using SAAMI "SHOT SIZE": diameter (hundredths of an inch) = 17 − shot size.
   No source was found confirming that shot sizes on shells sold in Japan follow the same system, so check the actual size on the box or by measuring.
   Material densities default to the Royal Society of Chemistry periodic table values of lead 11.3, bismuth 9.79 and iron 7.87 g/cm³, and can be overwritten.
-  Hardened lead and tungsten alloys differ in density from the pure metals.
+  Hardened lead and tungsten alloys differ in density from the pure metals. TSS is offered at 18 g/cm³, the figure Federal publishes for its
+  HEAVYWEIGHT TSS (checked 2026-09-24), which applies to that product only. A cartridge from Shotgun Gear can fill either condition.
+  The non-lead equivalent flies condition A and a steel, bismuth or TSS pellet at a chosen muzzle velocity with the same model and finds,
+  by bisection, the diameter that carries the same energy at the comparison distance, with the nearest shot number (within half a size)
+  and the pellets in the same weight of charge. It is not a rule-of-thumb table, and the same energy is not the same effect.
   Pellets are treated as spheres subject only to drag and gravity, integrated numerically with a sphere drag table from the US Army Ballistic Research Laboratory.
   That table was measured on 9/16-inch spheres, so applying it to pellets a few millimetres across is an approximation.
   Pellet deformation at firing, interaction between pellets, shot string length, choke and wad are not included.
@@ -350,12 +360,17 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   calculates the time of flight and the lead needed ahead of a moving target.
   Lead is shown in m and cm or inch and ft, and the swing angle of the muzzle in degrees, MOA and mil, with a table comparing distances and crossing angles.
   Speed is in km/h, m/s or mph, distance in m or yd, and shot velocity in m/s or fps.
-  Enter the average velocity over the distance. Using the muzzle velocity underestimates the time of flight and gives too little lead.
-  The delay from trigger to firing and the shooter's reaction are added to the time of flight only when entered.
+  The target can be above the gun (elevation) and climbing or dropping (climb); the lead is then split into a sideways and an up-or-down part.
+  By default the shot velocity is the muzzle velocity and one pellet of the given diameter and density is flown with the shot pellet calculator's
+  sphere drag table and gravity in the sea-level standard atmosphere, so it slows and falls; the aiming point includes the drop.
+  The pellet is flown along the line the muzzle points on, so up or down a slope the part of gravity along that line slows or speeds it as well.
+  A cartridge from Shotgun Gear can fill the pellet and velocity. Alternatively an average velocity over the distance can be entered, and the shot
+  then flies straight at that speed without drop, as in earlier versions; settings saved before the drag model open with it.
   It solves for the shot and the target reaching the same point at the same time, so the time of flight is shorter for incoming
-  and longer for outgoing targets.
-  A crossing angle of 0° is a target coming straight at the shooter, 90° is crossing, and 180° is going straight away.
-  It assumes constant shot velocity and does not include drop, target slowdown, wind or shot string length. If the shot cannot catch the target, it says so.
+  targets and longer for outgoing ones. A crossing angle of 0° is a target coming straight at the shooter, 90° is crossing, and 180° is going straight away.
+  The delay from trigger to firing and the shooter's reaction are added to the time of flight only when entered.
+  A shooter's-eye view and a view from above show the target, the aiming point and the meeting point.
+  It does not include target slowdown, a change of course, wind or shot string length. If the shot cannot catch the target, it says so.
   The result is the geometric lead, not an instruction on technique such as maintained lead or swing-through.
   No muzzle velocities or standard distances for each discipline are built in, as no source could be confirmed. Enter the values for the load you use.
 - **Recoil Calculator** (反動の計算): from gun weight, projectile weight, wad, powder charge, muzzle velocity and gun type,
@@ -414,10 +429,31 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   Scatter within a step uses the pooled standard deviation, and the two axes (horizontal and height) use Bonferroni intervals.
   There is no official threshold for a change small enough to ignore, so the user enters it; the tool does not pick a best step.
   It quotes the Explosives Control Act and its Enforcement Regulations on making cartridges but does not judge whether anything is lawful.
-- **Clay Shooting Score Sheet** (クレー射撃のスコアシート): records the 25 targets of a trap or skeet round as hit or miss, and totals the score,
+- **Clay Shooting Score Sheet** (クレー射撃のスコアシート): records the 25 targets of a trap or skeet round and totals the score,
   the hit rate at each station and the longest run.
-  The station layout and target counts follow the ISSF Rule Book 2026 Edition. Rounds with all 25 recorded are kept in the history, and blank sheets can be printed.
-  It is for practice records and does not replace an official referee's record.
+  Trap hits can be recorded with the barrel that broke them (first or second), which gives the first-barrel rate, and optionally the direction
+  the target flew (left, centre, right), which gives the hit rate and misses by direction. Skeet is tallied by high and low house, singles and doubles.
+  Up to six shooters can be scored on one device in the ISSF shooting order: trap passes target by target, skeet finishes each station per shooter.
+  Each round carries tags for the gun, cartridge, range and weather (typed in, or filled from Shotgun Gear), and rounds saved together form a session.
+  The history filters by shooter and tags and draws the score of each round over time.
+  Results can be entered with keys the user assigns; a Bluetooth remote that acts as a keyboard works if its key reaches the page, which the
+  assignment screen shows. Volume keys often do not.
+  The station layout, directions per station, squad size and order follow the ISSF Rule Book 2026 Edition (rules 6.4.18-19, 9.6.1.3, 9.8.1, 9.9.1.1, 9.9.2.2, 9.10.2.1).
+  The Japan Clay Target Shooting Association rule book is sold rather than published, so domestic disciplines are not offered.
+  The barrels, directions, shooter, tags and session are optional in a saved round: rounds saved before they existed read as they are,
+  and count as without barrels, directions or tags, each outside any session.
+  Blank sheets can be printed. It is for practice records and does not replace an official referee's record.
+- **Shotgun Gear** (散弾銃の装備の登録): registers guns and their barrels, chokes and cartridges (pellet diameter, material density, shot charge,
+  muzzle velocity), and combinations of barrel, choke and cartridge. The score sheet, pattern measurement, pellet calculator and lead calculator offer them as a
+  choice that copies the values into their own fields, so later changes to the registry do not rewrite saved records.
+  The TSS density of 18 g/cm³ is Federal's published figure for HEAVYWEIGHT TSS (checked 2026-09-24) and applies to that product only.
+- **Gun Fit and Eye Dominance** (ガンフィットと利き目): records a stock's length of pull, drop at comb, drop at heel and cast (with its side,
+  seen from behind the gun) in mm or inches, saves sheets by gun name and prints an A4 dimension sheet with a diagram of where each is measured.
+  The definitions follow Orvis's "Shotgun Stock & Measurements" and Browning's fit FAQ (checked 2026-09-24); pitch and lengths to heel and toe
+  have no field of their own, as no primary source defining them was confirmed, and go in the note. It does not judge which dimensions fit.
+  The eye test follows the sighting method in Lopes-Ferreira et al. (BioMed Research International, 2013): a distant letter through an opening
+  between the outstretched hands, one eye closed at a time. It tallies the trials and names an eye only when it was seen in more than half of them.
+  It is not a medical diagnosis, and the paper found it agreed with another method in 72.7 % of cases.
 - **Hunting Area Map** (狩猟マップ): place reference points (a point on the image and its latitude and longitude) on an image (PNG or JPEG)
   of a protected-area map you already have, and fit a similarity or affine transform by least squares in either transverse Mercator
   (GSI plane rectangular coordinates) or Web Mercator.
