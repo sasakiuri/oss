@@ -150,3 +150,40 @@ test('keeps the preview and the print button beside the fields on a wide screen'
   await expect(page.getByRole('img', { name: '印刷する標識のプレビュー' })).toBeInViewport();
   await expect(page.getByRole('button', { name: '印刷する' })).toBeInViewport();
 });
+
+test('prints a combined tag on two sides and downloads it as a real-size PDF', async ({ page }) => {
+  await page.locator('label').filter({ hasText: /^共用/ }).click();
+  await page.getByLabel('両面に印刷する（鳥獣の種類を裏面へ）').check();
+  await page.getByLabel('住所').fill(ADDRESS);
+  await page.getByLabel('氏名又は名称').fill(NAME);
+  await page.getByLabel('許可証に記載された環境大臣又は都道府県知事名').fill('東京都知事');
+  await page.getByLabel('許可の有効期間').fill('令和8年4月1日〜令和9年3月31日');
+  await page.getByLabel('許可証の番号').fill('第123号');
+  await page.getByLabel('捕獲等をしようとする鳥獣又は採取等をしようとする鳥類の卵の種類').fill('ニホンジカ');
+  await page.getByLabel('狩猟者登録証に記載された都道府県知事名').fill('東京都知事');
+  await page.getByLabel('登録年度').fill('令和8年度');
+  await page.getByLabel('登録番号').fill('第12345号');
+  await expect(page.getByRole('img', { name: '印刷する標識の裏面のプレビュー' })).toContainText('ニ');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '実寸の PDF をダウンロード' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('trap-tags.pdf');
+  await page.getByRole('button', { name: '印刷する' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __printCount: number }).__printCount)).toBe(1);
+});
+
+test('makes tags for several people from a CSV without saving them', async ({ page }) => {
+  await openSection(page, /CSV からまとめて作る/);
+  await page.getByLabel('CSV ファイル').setInputFiles({
+    name: 'tags.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      '﻿住所,氏名,登録の都道府県知事名,登録年度,登録番号\r\n東京都,山田太郎,東京都知事,令和8年度,第1号\r\n埼玉県,鈴木花子,埼玉県知事,令和8年度,第2号\r\n',
+    ),
+  });
+  await expect(page.getByText('2 人分を読み込みました')).toBeVisible();
+  await page.getByRole('button', { name: 'CSV の 2 人分を印刷する' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __printCount: number }).__printCount)).toBe(1);
+  expect((await savedSession(page)) ?? '').not.toContain('鈴木花子');
+});

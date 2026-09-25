@@ -59,6 +59,17 @@ describe('the stores the backup covers', () => {
     const records = photoRecords('hunting-log')!;
     expect(records.key).toBe('nilay-labs-hunting-log-v1');
     expect([...records.ids({ state: { outings: [{ id: 'a' }, { id: 'b' }] }, version: 0 })]).toEqual(['a', 'b']);
+    const rounds = photoRecords('trap-check-log')!;
+    expect(rounds.key).toBe('nilay-labs-trap-check-log-v1');
+    expect([
+      ...rounds.ids({
+        state: { traps: [{ checks: [{ id: 'r1' }, { id: 'r2' }] }, { checks: [{ id: 'r3' }] }] },
+        version: 0,
+      }),
+    ]).toEqual(['r1', 'r2', 'r3']);
+    const captures = photoRecords('gibier-record')!;
+    expect(captures.key).toBe('nilay-labs-gibier-record-v1');
+    expect([...captures.ids({ state: { records: [{ id: 'g1' }] }, version: 0 })]).toEqual(['g1']);
     expect(photoRecords('recoil')).toBeUndefined();
     expect(photoRecords('not-a-tool')).toBeUndefined();
   });

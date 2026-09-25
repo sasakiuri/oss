@@ -42,16 +42,38 @@ export function isLocalDateTime(value: string): boolean {
 
 export const localDateTimeSchema = z.string().refine(isLocalDateTime);
 
-export const trapCheckSchema = z.object({
-  id: z.string().min(1),
-  at: localDateTimeSchema,
-  result: checkResultSchema,
-  note: z.string().max(TRAP_TEXT_MAX_LENGTH),
-});
-export type TrapCheck = z.infer<typeof trapCheckSchema>;
-
 export const latitudeSchema = z.number().finite().min(-90).max(90);
 export const longitudeSchema = z.number().finite().min(-180).max(180);
+/** The radius the device gave for a position it read, in metres. */
+export const accuracySchema = z.number().finite().nonnegative();
+
+/** The most animals one round can record in a single trap. */
+export const HEADS_MAX = 99;
+
+/** Whether a result is an animal in the trap, which has a count and a species. */
+export const isCatchResult = (result: CheckResult) => result === 'caught' || result === 'bycatch';
+
+/*
+ * The fields after `note` were added on 2026-09-24. They are optional because each one is something
+ * a round may simply not have: a position that was not read, a photo that was not taken. A catch
+ * recorded before then has no head count, and the per-trap figures say so instead of assuming one.
+ */
+export const trapCheckSchema = z
+  .object({
+    id: z.string().min(1),
+    at: localDateTimeSchema,
+    result: checkResultSchema,
+    note: z.string().max(TRAP_TEXT_MAX_LENGTH),
+    heads: z.number().int().min(1).max(HEADS_MAX).optional(),
+    species: z.string().trim().max(TRAP_NAME_MAX_LENGTH).optional(),
+    latitude: latitudeSchema.optional(),
+    longitude: longitudeSchema.optional(),
+    accuracyM: accuracySchema.optional(),
+  })
+  // A position is a pair, and a count belongs only to an animal in the trap.
+  .refine((check) => (check.latitude === undefined) === (check.longitude === undefined), { path: ['longitude'] })
+  .refine((check) => check.heads === undefined || isCatchResult(check.result), { path: ['heads'] });
+export type TrapCheck = z.infer<typeof trapCheckSchema>;
 
 export const trapSchema = z.object({
   id: z.string().min(1),
@@ -61,11 +83,26 @@ export const trapSchema = z.object({
   location: z.string().max(TRAP_TEXT_MAX_LENGTH),
   latitude: latitudeSchema.nullable(),
   longitude: longitudeSchema.nullable(),
+  /** Present when the coordinates were read from the device rather than typed. */
+  accuracyM: accuracySchema.optional(),
   /** Set once the trap has been taken up. A removed trap is kept for the record but no longer watched. */
   removedAt: localDateTimeSchema.nullable(),
   checks: z.array(trapCheckSchema).max(CHECKS_PER_TRAP_MAX),
 });
 export type Trap = z.infer<typeof trapSchema>;
+
+/** One stretch of work on the traps: travel, rounds, dispatching. An open stretch has no end yet. */
+export const WORK_SESSIONS_MAX = 2000;
+export const workSessionSchema = z
+  .object({
+    id: z.string().min(1),
+    start: localDateTimeSchema,
+    end: localDateTimeSchema.nullable(),
+    note: z.string().max(TRAP_TEXT_MAX_LENGTH),
+  })
+  // The fixed-width format compares as text in time order.
+  .refine((session) => session.end === null || session.end >= session.start, { path: ['end'] });
+export type WorkSession = z.infer<typeof workSessionSchema>;
 
 export const intervalHoursSchema = z.number().int().min(INTERVAL_HOURS_MIN).max(INTERVAL_HOURS_MAX);
 

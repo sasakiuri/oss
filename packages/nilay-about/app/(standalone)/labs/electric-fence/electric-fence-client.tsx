@@ -37,8 +37,10 @@ import { MAX_WIRE_ROWS } from '@/lib/schemas/electric-fence';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
 import { initialElectricFenceSettings, storageKey, useElectricFenceStore } from './_store';
+import { powerStorageKey, usePowerStore } from './_store/power';
 import { FenceFigure } from './fence-figure';
 import { FenceLegal } from './fence-legal';
+import { FencePower } from './fence-power';
 
 const speciesOrder: readonly FenceSpecies[] = ['boar', 'deer', 'deer-boar', 'monkey', 'bear', 'mesocarnivore'];
 
@@ -67,7 +69,11 @@ export function ElectricFenceClient() {
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
 
   useEffect(() => {
-    void Promise.all([useElectricFenceStore.persist.rehydrate(), rehydrateLanguage()]).then(() => setReady(true));
+    void Promise.all([
+      useElectricFenceStore.persist.rehydrate(),
+      usePowerStore.persist.rehydrate(),
+      rehydrateLanguage(),
+    ]).then(() => setReady(true));
   }, []);
 
   const preset = findPreset(presetId);
@@ -171,6 +177,7 @@ export function ElectricFenceClient() {
       </p>
       <div lang={language} className="space-y-6" inert={!ready} aria-busy={!ready}>
         <DiscardedSaveNotice storageKey={storageKey} language={language} />
+        <DiscardedSaveNotice storageKey={powerStorageKey} language={language} />
         <StorageUnavailableNotice available={storageAvailable} language={language} />
         <ToolLayout
           resultLabel={t('計算結果', 'Results')}
@@ -197,7 +204,6 @@ export function ElectricFenceClient() {
                         : [{ value: '', label: t('（選択）', '(choose)') }]),
                       ...presetOptions,
                     ]}
-                    hint={t('出典の段の高さが入ります。', 'Fills in the source’s row heights.')}
                   />
                 </div>
                 {preset && (
@@ -259,10 +265,10 @@ export function ElectricFenceClient() {
                     hint={
                       preset?.postSpacingM
                         ? t(
-                            `出典は ${preset.postSpacingM[0]}〜${preset.postSpacingM[1]} m。短い側を入れています。`,
-                            `Source: ${preset.postSpacingM[0]}–${preset.postSpacingM[1]} m; the shorter end is entered.`,
+                            `出典は ${preset.postSpacingM[0]}〜${preset.postSpacingM[1]} m`,
+                            `Source: ${preset.postSpacingM[0]}–${preset.postSpacingM[1]} m`,
                           )
-                        : t('出典に記載なし。', 'Not given by the source.')
+                        : t('出典に記載なし', 'Not given by the source')
                     }
                   />
                   <NumberField
@@ -474,7 +480,6 @@ export function ElectricFenceClient() {
                     min={0}
                     invalid={roughInvalid}
                     errorText={t('0 以上、外周長以下で入力してください。', 'Enter zero or more, up to the perimeter.')}
-                    hint={t('外周のうち支柱間隔を詰める区間。', 'The part of the perimeter where posts go closer.')}
                   />
                   <NumberField
                     label={t('起伏区間の支柱間隔', 'Spacing on uneven ground')}
@@ -485,8 +490,8 @@ export function ElectricFenceClient() {
                     invalid={roughSpacingInvalid}
                     errorText={positiveError}
                     hint={t(
-                      '最下段と地面の間が広がらない間隔に（京都府は 20 cm 以下）。',
-                      'Close enough that the gap under the lowest wire holds (Kyoto: 20 cm or less).',
+                      '最下段と地面の間を京都府は 20 cm 以下としています。',
+                      'Kyoto keeps the gap under the lowest wire at 20 cm or less.',
                     )}
                   />
                   <NumberField
@@ -509,6 +514,8 @@ export function ElectricFenceClient() {
           }
           extras={
             <>
+              <FencePower result={result} perimeterM={perimeterM} species={species} language={language} />
+
               <FenceLegal language={language} />
 
               <ConditionSection
@@ -568,12 +575,6 @@ export function ElectricFenceClient() {
                     );
                   })}
                 </ul>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '地域の実情は、市町村の鳥獣被害対策の担当や都道府県の普及指導機関に確認してください。',
-                    'For local conditions, ask your municipality’s wildlife damage office or the prefecture’s extension service.',
-                  )}
-                </p>
               </ConditionSection>
 
               <ConditionSection
@@ -587,8 +588,8 @@ export function ElectricFenceClient() {
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      '支柱：角・出入口の両脇・起伏区間の両端（起伏区間は 1 か所とします）に立て、その間を支柱間隔以下で割ります。辺の長さを入力しないため「外周÷間隔の切り上げ（起伏区間は詰めた間隔）＋固定する支柱 − 1」本で、どの配置でも足ります。実際は最大で「固定する支柱 − 1」本少なく済みます。',
-                      'Posts: one at every corner, both sides of each gate and both ends of the uneven stretch (taken as one stretch), with the lengths between split at no more than the post spacing. Side lengths are not entered, so the count is perimeter ÷ spacing rounded up (closer on the uneven stretch) plus fixed posts − 1. That is enough for any layout; a real one may need up to (fixed posts − 1) fewer.',
+                      '支柱：角・出入口の両脇・起伏区間の両端に立て、その間を支柱間隔以下で割ります。本数は「外周÷間隔の切り上げ（起伏区間は詰めた間隔）＋固定する支柱 − 1」で、配置によっては最大「固定する支柱 − 1」本少なく済みます。',
+                      'Posts: one at every corner, both sides of each gate and both ends of the uneven stretch, with the lengths between split at no more than the post spacing. The count is perimeter ÷ spacing rounded up (closer on the uneven stretch) plus fixed posts − 1; some layouts need up to (fixed posts − 1) fewer.',
                     )}
                   </li>
                   <li>
@@ -605,22 +606,12 @@ export function ElectricFenceClient() {
                   </li>
                   <li>
                     {t(
-                      '外側の線は、柵が凸形に囲むものとして計算します。地形・角の形・資材の規格（1 巻の長さ・支柱の長さ）で数量は変わります。',
-                      'The outer line assumes the fence encloses a convex shape. Ground, corner shapes and material sizes (reel and post lengths) change the quantities.',
+                      '外側の線は、柵が凸形に囲むものとして計算します。',
+                      'The outer line assumes the fence encloses a convex shape.',
                     )}
                   </li>
-                  <li>
-                    {t(
-                      '電源装置・アース棒・危険表示板・ネット・防草シートは含みません。電源装置は柵の延長に合う能力のものを説明書で選んでください。',
-                      'Energiser, earth rods, danger signs, nets and weed sheets are not included. Choose an energiser rated for the fence length, per its manual.',
-                    )}
-                  </li>
+                  <li>{t('ネット・防草シートは含みません。', 'Nets and weed sheets are not included.')}</li>
                 </ul>
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant">
-                    {t('入力はこのブラウザーに保存されます。', 'Saved in this browser.')}
-                  </p>
-                )}
               </ConditionSection>
             </>
           }

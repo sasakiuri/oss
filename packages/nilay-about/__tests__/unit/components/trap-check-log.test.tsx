@@ -190,7 +190,7 @@ describe('the trap check log', () => {
     await renderReady();
     expect(
       within(screen.getByRole('group', { name: '沢 1 号' })).getByText(
-        /設置から（見回りの記録がすべて設置日時より前のため数えていません。日時を確認してください）/,
+        /設置から（見回りの日時がすべて設置より前のため数えていません）/,
       ),
     ).toBeInTheDocument();
   });
@@ -252,5 +252,74 @@ describe('the trap check log', () => {
     expect(screen.queryByRole('group', { name: '沢 1 号' })).toBeNull();
     expect(saved().state.traps).toEqual([]);
     confirm.mockRestore();
+  });
+});
+
+describe('heads, work time and the calendar file', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    useTrapCheckLogStore.setState(useTrapCheckLogStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+    useLanguageStore.setState({ language: 'ja' });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('asks for the heads and species of a catch and counts them for the trap', async () => {
+    seed([savedTrap()]);
+    await renderReady();
+    const card = screen.getByRole('group', { name: '沢 1 号' });
+    fireEvent.click(within(card).getByRole('button', { name: '見回りを記録' }));
+    expect(within(card).queryByLabelText('頭数')).toBeNull();
+    fireEvent.change(within(card).getByLabelText('結果'), { target: { value: 'caught' } });
+    fireEvent.change(within(card).getByLabelText('頭数'), { target: { value: '0' } });
+    expect(within(card).getByText('1 から 99 までの整数で入力してください。')).toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: '記録する' }));
+    expect(saved().state.traps[0].checks).toHaveLength(1);
+    fireEvent.change(within(card).getByLabelText('頭数'), { target: { value: '2' } });
+    fireEvent.change(within(card).getByLabelText('獣種（任意）'), { target: { value: 'イノシシ' } });
+    fireEvent.click(within(card).getByRole('button', { name: '記録する' }));
+    expect(saved().state.traps[0].checks[1]).toMatchObject({ result: 'caught', heads: 2, species: 'イノシシ' });
+    expect(within(card).getByText(/捕獲 2 頭・錯誤捕獲 0 頭・100 わな日あたり/)).toBeInTheDocument();
+  });
+
+  it('starts and ends a stretch of work and shows it on the day’s report', async () => {
+    await renderReady();
+    fireEvent.click(screen.getByRole('button', { name: /作業時間・日報・わな別の集計/ }));
+    fireEvent.click(screen.getByRole('button', { name: '作業を開始' }));
+    expect(saved().state.work[0]).toMatchObject({ start: '2026-09-22T12:00', end: null });
+    vi.setSystemTime(new Date('2026-09-22T13:30:00'));
+    // The first is the running stretch's; the second belongs to the form for work entered afterwards.
+    fireEvent.change(screen.getAllByLabelText('作業内容のメモ（任意）')[0]!, { target: { value: '見回り 3 基' } });
+    fireEvent.click(screen.getByRole('button', { name: '作業を終了' }));
+    expect(saved().state.work[0]).toMatchObject({ end: '2026-09-22T13:30', note: '見回り 3 基' });
+    expect(screen.getByRole('rowheader', { name: '2026-09-22' })).toBeInTheDocument();
+    expect(screen.getByText('合計 1 時間 30 分／見回り 0 回')).toBeInTheDocument();
+  });
+
+  it('refuses work entered afterwards that ends before it starts', async () => {
+    await renderReady();
+    fireEvent.click(screen.getByRole('button', { name: /作業時間・日報・わな別の集計/ }));
+    fireEvent.click(screen.getByText('あとから作業を入力する'));
+    fireEvent.change(screen.getByLabelText('開始'), { target: { value: '2026-09-21T08:00' } });
+    fireEvent.change(screen.getByLabelText('終了'), { target: { value: '2026-09-21T07:00' } });
+    fireEvent.click(screen.getByRole('button', { name: '作業を追加' }));
+    expect(screen.getByText('終了は開始より後にしてください。')).toBeInTheDocument();
+    expect(saved()?.state.work ?? []).toEqual([]);
+  });
+
+  it('exports the next rounds as a calendar file', async () => {
+    seed([savedTrap()]);
+    const create = vi.fn(() => 'blob:ics');
+    URL.createObjectURL = create;
+    URL.revokeObjectURL = vi.fn();
+    await renderReady();
+    fireEvent.click(screen.getByRole('button', { name: '次の見回りを予定に書き出す（.ics）' }));
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/次の見回り 1 件を予定ファイル（.ics）に書き出しました。/)).toBeInTheDocument();
   });
 });

@@ -156,8 +156,24 @@ export function savedDataEntry(key: string): SavedDataEntry | undefined {
  * how to list their ids. A tool that starts using photos adds itself here; the backup carries and
  * restores a tool's photos only together with its records, and only photos of records that are there.
  */
-const photoToolRecords: Partial<Record<LabsToolSlug, (state: unknown) => unknown[]>> = {
-  'hunting-log': (state) => (state as { outings?: unknown[] }).outings ?? [],
+const photoToolRecords: Partial<
+  Record<LabsToolSlug, { records: (state: unknown) => unknown[]; maxPerRecord: number }>
+> = {
+  'hunting-log': {
+    records: (state) => (state as { outings?: unknown[] }).outings ?? [],
+    maxPerRecord: PHOTOS_PER_RECORD_MAX,
+  },
+  // The printed sheet has room for four, which is also what the tool lets a reader add.
+  'gibier-record': {
+    records: (state) => (state as { records?: unknown[] }).records ?? [],
+    maxPerRecord: GIBIER_MAX_PHOTOS,
+  },
+  // Photos belong to a round, so the records are every round of every trap.
+  'trap-check-log': {
+    records: (state) =>
+      ((state as { traps?: { checks?: unknown[] }[] }).traps ?? []).flatMap((trap) => trap.checks ?? []),
+    maxPerRecord: PHOTOS_PER_RECORD_MAX,
+  },
 };
 
 export const photoTools = Object.keys(photoToolRecords) as LabsToolSlug[];

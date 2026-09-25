@@ -97,7 +97,7 @@ describe('saving the input on this device', () => {
     await screen.findByLabelText('住所');
     const section = () => screen.getByRole('button', { name: /^この端末への保存/ });
     expect(section()).toHaveAttribute('aria-expanded', 'false');
-    expect(section()).toHaveTextContent('オフ：住所と氏名を含むため、既定では保存しません。');
+    expect(section()).toHaveTextContent('オフ：保存していません。');
     openSaving();
     fireEvent.click(screen.getByLabelText('この端末に保存する'));
     expect(section()).toHaveTextContent('オン：入力内容をこのブラウザーに保存しています。');
@@ -337,7 +337,7 @@ describe('announcing the tag size', () => {
     render(<TrapTagClient />);
     fireEvent.change(await screen.findByLabelText('住所'), { target: { value: '東京都' } });
     const caption = screen.getByRole('img', { name: '印刷する標識のプレビュー' }).closest('figure');
-    expect(caption).toHaveTextContent('標識 1 枚 38 × 22 mm、1 行 18 字で折り返し。');
+    expect(caption).toHaveTextContent('標識 1 枚 38 × 22 mm、1 行 18 字で折り返し');
   });
 
   it('waits for the typing to settle instead of reading out every keystroke', async () => {
@@ -438,5 +438,57 @@ describe('a layout that does not fit on the sheet', () => {
     fireEvent.change(screen.getByLabelText('A4 1 枚に並べる数'), { target: { value: '1' } });
     expect(screen.getByRole('img', { name: '印刷する標識のプレビュー' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('two-sided, combined and blank tags', () => {
+  beforeEach(() => {
+    useTrapTagStore.setState(useTrapTagStore.getInitialState(), true);
+    window.localStorage.clear();
+    useStorageStatus.setState({ available: true, discarded: [] });
+  });
+
+  const fill = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+
+  it('puts the species on a back sheet and warns that a combined tag needs checking', async () => {
+    render(<TrapTagClient />);
+    await screen.findByLabelText('住所');
+    fireEvent.click(screen.getByRole('radio', { name: /共用/ }));
+    expect(screen.getByText(/共用の標識を使えるかは/)).toBeInTheDocument();
+    fill('住所', ADDRESS);
+    fill('氏名又は名称', '山田太郎');
+    fireEvent.click(screen.getByLabelText('両面に印刷する（鳥獣の種類を裏面へ）'));
+    fill('捕獲等をしようとする鳥獣又は採取等をしようとする鳥類の卵の種類', 'ニホンジカ');
+    expect(screen.getByRole('img', { name: '印刷する標識の裏面のプレビュー' })).toBeInTheDocument();
+    expect(useTrapTagStore.getState()).toMatchObject({ purpose: 'combined', twoSided: true });
+  });
+
+  it('prints an item left blank as boxes and stops asking for it', async () => {
+    render(<TrapTagClient />);
+    await screen.findByLabelText('住所');
+    fill('住所', ADDRESS);
+    fill('氏名', '山田太郎');
+    fill('狩猟者登録証に記載された都道府県知事名', '東京都知事');
+    fill('登録年度', '令和8年度');
+    const blanks = screen.getAllByLabelText('空欄で印刷（手書きする）');
+    // The fifth item is the registration number.
+    fireEvent.click(blanks[4]!);
+    expect(screen.getByLabelText('登録番号')).toBeDisabled();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    fireEvent.click(screen.getByRole('button', { name: '印刷する' }));
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
+  it('reads a CSV and prints one sheet for each person', async () => {
+    render(<TrapTagClient />);
+    await screen.findByLabelText('住所');
+    fireEvent.click(screen.getByRole('button', { name: /CSV からまとめて作る/ }));
+    const csv =
+      '住所,氏名,登録の都道府県知事名,登録年度,登録番号\n東京都,山田太郎,東京都知事,令和8年度,第1号\n埼玉県,鈴木花子,埼玉県知事,令和8年度,第2号';
+    const file = new File([csv], 'tags.csv', { type: 'text/csv' });
+    fireEvent.change(screen.getByLabelText('CSV ファイル'), { target: { files: [file] } });
+    expect(await screen.findByText('2 人分を読み込みました')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'CSV の 2 人分を印刷する' })).toBeInTheDocument();
   });
 });

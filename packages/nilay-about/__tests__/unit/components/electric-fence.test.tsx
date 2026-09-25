@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { storageKey, useElectricFenceStore } from '@/app/(standalone)/labs/electric-fence/_store';
+import { powerStorageKey, usePowerStore } from '@/app/(standalone)/labs/electric-fence/_store/power';
 import { ElectricFenceClient } from '@/app/(standalone)/labs/electric-fence/electric-fence-client';
 import { discardedSaveMessage } from '@/components/labs';
 import { useStorageStatus } from '@/lib/browser-storage';
@@ -108,7 +109,6 @@ describe('electric fence planner', () => {
       expect(screen.getByText(requirement.item)).toBeVisible();
       expect(screen.getByText(requirement.ja)).toBeVisible();
     }
-    expect(screen.getByText(/基準への適合と安全は保証されません/)).toBeVisible();
     expect(
       screen.getByText(/経済産業省「電気設備の技術基準の解釈」（令和7年11月20日改正）。2026-09-23 確認/),
     ).toBeVisible();
@@ -160,5 +160,32 @@ describe('electric fence planner', () => {
     useElectricFenceStore.setState({ perimeterM: 200 });
     await open();
     expect(useElectricFenceStore.getState().perimeterM).toBe(90);
+  });
+
+  it('sizes the solar panel and totals the cost from the prices entered, in its own saved key', async () => {
+    usePowerStore.setState(usePowerStore.getInitialState(), true);
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /電源装置・ソーラー・付帯資材・費用/ }));
+    // The default fence: 1,200 m of powered wire.
+    expect(screen.getByText(/通電する柵線は計 1,200 m/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/本器の消費電力/), { target: { value: '0.7888' } });
+    fireEvent.change(screen.getByLabelText(/ピーク日照時間/), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/日照なしで動かす日数/), { target: { value: '5' } });
+    // 0.7888 W × 24 h = 18.93 Wh; ÷ 3 h × 1.2 = 7.6 W; 1.58 Ah × 5 ÷ 0.5 = 15.8 Ah.
+    expect(screen.getByText('7.6 W')).toBeInTheDocument();
+    expect(screen.getByText('15.8 Ah')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('柵線（通電、1 m）の単価'), { target: { value: '10' } });
+    expect(screen.getByText(/合計 12,000 円/)).toBeInTheDocument();
+    const saved = JSON.parse(window.localStorage.getItem(powerStorageKey) ?? 'null');
+    expect(saved.state.settings).toMatchObject({ energizerW: 0.7888, prices: { wire: 10 } });
+  });
+
+  it('requires an earth-leakage breaker only for a mains-fed fence', async () => {
+    usePowerStore.setState(usePowerStore.getInitialState(), true);
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: /電源装置・ソーラー・付帯資材・費用/ }));
+    expect(screen.queryByText(/漏電遮断器（電流動作型/)).toBeNull();
+    fireEvent.click(screen.getByLabelText(/30 V 以上の電源から給電/));
+    expect(screen.getByText(/漏電遮断器（電流動作型/)).toBeInTheDocument();
   });
 });
