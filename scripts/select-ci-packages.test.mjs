@@ -487,15 +487,28 @@ test("unchanged resolved lockfile data does not rebuild workspaces", () => {
   assert.equal(plan.build, false);
 });
 
-test("E2E plans partition Knowledge into two shards on every platform and other suites once", () => {
+test("E2E plans partition Knowledge and About into two shards on every platform and other suites once", () => {
   const plan = select(["package.json"]);
   const knowledge = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-knowledge"),
   );
   assert.equal(knowledge.length, 6);
+  const about = plan.e2eMatrix.filter(
+    (row) => row.package === name("nilay-about"),
+  );
+  assert.equal(about.length, 6);
   for (const os of platformRunners) {
     assert.deepEqual(
       knowledge
+        .filter((row) => row.os === os)
+        .map((row) => [row.shard, row.shards]),
+      [
+        [1, 2],
+        [2, 2],
+      ],
+    );
+    assert.deepEqual(
+      about
         .filter((row) => row.os === os)
         .map((row) => [row.shard, row.shards]),
       [

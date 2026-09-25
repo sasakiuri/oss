@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const docsName = "@sasakiuri/saika-docs";
 const knowledgeName = "@sasakiuri/nilay-knowledge";
+const aboutName = "@sasakiuri/nilay-about";
 export const platformRunners = [
   "ubuntu-latest",
   "windows-latest",
@@ -162,7 +163,7 @@ export function e2eMatrix(packages, runners) {
     !pkg.scripts?.["test:e2e"]
       ? []
       : runners.flatMap((os) => {
-          const shards = pkg.name === knowledgeName ? 2 : 1;
+          const shards = [knowledgeName, aboutName].includes(pkg.name) ? 2 : 1;
           return Array.from({ length: shards }, (_, index) => ({
             package: pkg.name,
             directory: pkg.directory,
