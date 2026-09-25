@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { LuCopy, LuHouse, LuRefreshCw } from 'react-icons/lu';
 import { z } from 'zod';
 
-import { ConditionSection, ToolLayout } from '@/components/labs';
+import { ScheduledChecksPaused, ConditionSection, ToolLayout } from '@/components/labs';
 import { Button, Card } from '@/components/ui';
 import { errorKind, ERROR_MESSAGES, sendJson } from '@/features/labs-notify/client';
 import { PushSetup } from '@/features/labs-notify/components/push-setup';
@@ -25,6 +25,7 @@ import {
   RETURN_NOTE_MAX_LENGTH,
   watchFragment,
 } from '@/lib/return-alert';
+import { SCHEDULED_CHECKS_PAUSED } from '@/lib/scheduled-checks';
 import { createdReturnPlanSchema, returnPlanViewSchema, type ReturnPlanView } from '@/lib/schemas/return-alert';
 import type { Language } from '@/store';
 
@@ -263,7 +264,7 @@ export function ReturnAlertClient() {
 
   // A plan saved but not yet confirmed as armed (the page was closed in between) is armed now.
   useEffect(() => {
-    if (rearmed.current || !value.own || value.own.armed) return;
+    if (SCHEDULED_CHECKS_PAUSED || rearmed.current || !value.own || value.own.armed) return;
     rearmed.current = true;
     void armSaved(value.own.planId);
     // Runs once the saved plan is known.
@@ -406,7 +407,8 @@ export function ReturnAlertClient() {
                         'This device is alerted if “I’m back” is not pressed by the time due back.',
                       )}
                     </p>
-                    <Button onClick={() => void watch(language)} disabled={push.busy}>
+                    <ScheduledChecksPaused language={language} />
+                    <Button onClick={() => void watch(language)} disabled={SCHEDULED_CHECKS_PAUSED || push.busy}>
                       {t('この計画を見守る', 'Watch this plan')}
                     </Button>
                   </Card>
@@ -422,7 +424,8 @@ export function ReturnAlertClient() {
                       )}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => void armSaved(own.planId)} disabled={arming}>
+                      <ScheduledChecksPaused language={language} />
+                      <Button onClick={() => void armSaved(own.planId)} disabled={SCHEDULED_CHECKS_PAUSED || arming}>
                         {t('登録を完了する', 'Finish registering')}
                       </Button>
                       <Button variant="outline" onClick={() => void ownAction('cancel')} disabled={arming}>
@@ -556,7 +559,12 @@ export function ReturnAlertClient() {
                         )}
                       </p>
                     </div>
-                    <Button className="w-full" onClick={() => void create(language)} disabled={push.busy || creating}>
+                    <ScheduledChecksPaused language={language} />
+                    <Button
+                      className="w-full"
+                      onClick={() => void create(language)}
+                      disabled={SCHEDULED_CHECKS_PAUSED || push.busy || creating}
+                    >
                       {t('登録して見守り用リンクを作る', 'Register and make a watch link')}
                     </Button>
                   </Card>

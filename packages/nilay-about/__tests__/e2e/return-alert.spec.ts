@@ -1,7 +1,12 @@
 import type { Page } from '@playwright/test';
 
+import { SCHEDULED_CHECKS_PAUSED } from '../../lib/scheduled-checks';
+
 import { test, expect } from './fixtures';
 import { FAKE_SUBSCRIPTION, mockApi, stubPush, VAPID_KEY } from './labs-push';
+
+// Registering is paused with the scheduled checks; `scheduled-checks-paused.spec.ts` covers the page meanwhile.
+test.skip(SCHEDULED_CHECKS_PAUSED, 'the scheduled checks are paused');
 
 const PLAN_ID = 'p'.repeat(22);
 const OWNER = 'o'.repeat(43);

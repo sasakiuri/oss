@@ -1,5 +1,10 @@
+import { SCHEDULED_CHECKS_PAUSED } from '../../lib/scheduled-checks';
+
 import { test, expect } from './fixtures';
 import { FAKE_SUBSCRIPTION, mockApi, stubPush, VAPID_KEY } from './labs-push';
+
+// Registering is paused with the scheduled checks; `scheduled-checks-paused.spec.ts` covers the page meanwhile.
+test.skip(SCHEDULED_CHECKS_PAUSED, 'the scheduled checks are paused');
 
 test.beforeEach(async ({ page }) => {
   await stubPush(page);

@@ -3,6 +3,7 @@ export * from './camera-capture';
 export * from './app-layout';
 export * from './language-menu';
 export * from './discarded-save-notice';
+export * from './scheduled-checks-paused';
 export * from './reset-button';
 export * from './result-figure';
 export * from './section-nav';
