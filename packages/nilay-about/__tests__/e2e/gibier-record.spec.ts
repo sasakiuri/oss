@@ -82,6 +82,14 @@ test('says in English that the tool is Japanese only', async ({ page }) => {
 test('reflows at a narrow viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 667 });
   await expect(page.getByRole('button', { name: 'この 1 頭を印刷する' })).toBeVisible();
+  const exportButton = page.getByRole('button', { name: 'すべての記録を CSV で書き出す' });
+  await expect
+    .poll(() =>
+      exportButton.evaluate(
+        (button) => button.getBoundingClientRect().right - button.parentElement!.getBoundingClientRect().right,
+      ),
+    )
+    .toBeLessThanOrEqual(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
