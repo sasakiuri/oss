@@ -41,6 +41,7 @@ function decodedImage(alt: string, promise = Promise.resolve(), width = 100) {
   const decode = vi.fn().mockReturnValue(promise);
   Object.defineProperties(image, {
     decode: { value: decode, configurable: true },
+    complete: { value: true, configurable: true },
     naturalWidth: { value: width, configurable: true },
   });
   return { image, decode };
@@ -138,6 +139,66 @@ it('waits for every image to decode before printing and restores reading state a
   expect(lazy.image).toHaveAttribute('loading', 'lazy');
   expect(normal.image).not.toHaveAttribute('loading');
   expect(button).toBeEnabled();
+});
+
+it('waits for a pending replacement image to load and decode before printing', async () => {
+  articleImages();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const replacement = deferred();
+  const lazy = decodedImage('遅延画像');
+  decodedImage('通常画像');
+  Object.defineProperty(lazy.image, 'complete', { value: false, configurable: true });
+  lazy.decode.mockReturnValueOnce(Promise.resolve()).mockReturnValueOnce(replacement.promise);
+
+  fireEvent.click(screen.getByRole('button', { name: 'ページを印刷' }));
+  await act(async () => {});
+  expect(print).not.toHaveBeenCalled();
+
+  Object.defineProperty(lazy.image, 'complete', { value: true, configurable: true });
+  await act(async () => fireEvent.load(lazy.image));
+  expect(print).not.toHaveBeenCalled();
+  await act(async () => replacement.resolve());
+  expect(print).toHaveBeenCalledTimes(1);
+  fireEvent(window, new Event('afterprint'));
+});
+
+it('reports a replacement image load failure and allows another print attempt', async () => {
+  articleImages();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const lazy = decodedImage('遅延画像');
+  const regular = decodedImage('通常画像');
+  Object.defineProperty(lazy.image, 'complete', { value: false, configurable: true });
+  Object.defineProperty(regular.image, 'complete', { value: false, configurable: true });
+  const button = screen.getByRole('button', { name: 'ページを印刷' });
+  fireEvent.click(button);
+  await act(async () => {});
+  await act(async () => fireEvent.error(lazy.image));
+  expect(print).not.toHaveBeenCalled();
+  expect(screen.getByRole('status')).toHaveTextContent('画像を読み込めませんでした');
+  expect(button).toBeEnabled();
+  Object.defineProperty(regular.image, 'complete', { value: true, configurable: true });
+  await act(async () => fireEvent.load(regular.image));
+  expect(regular.decode).toHaveBeenCalledTimes(1);
+
+  decodedImage('遅延画像');
+  fireEvent.click(button);
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  fireEvent(window, new Event('afterprint'));
+});
+
+it('cancels a pending replacement load on unmount without printing a late result', async () => {
+  const { unmount } = articleImages();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const lazy = decodedImage('遅延画像');
+  decodedImage('通常画像');
+  Object.defineProperty(lazy.image, 'complete', { value: false, configurable: true });
+  fireEvent.click(screen.getByRole('button', { name: 'ページを印刷' }));
+  await act(async () => {});
+  unmount();
+  Object.defineProperty(lazy.image, 'complete', { value: true, configurable: true });
+  await act(async () => fireEvent.load(lazy.image));
+  expect(print).not.toHaveBeenCalled();
+  expect(lazy.image).toHaveAttribute('loading', 'lazy');
 });
 
 it.each(['ctrlKey', 'metaKey'] as const)(
