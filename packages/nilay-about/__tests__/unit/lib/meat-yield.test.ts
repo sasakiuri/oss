@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   REFERENCE_RATIOS,
+  animalBalance,
   calculateMeatYield,
   freezerFit,
   isValidShare,
   packCount,
+  partsBreakdown,
   ratioOrderProblem,
   referenceRatios,
 } from '@/lib/meat-yield';
@@ -149,6 +151,24 @@ describe('packCount', () => {
     expect(packCount(0.1 + 0.2, 300)?.packs).toBe(1);
   });
 
+  it('adds a pack for an excess larger than floating-point rounding', () => {
+    // 1,000.0000001 g of meat does not fit in one 1,000 g pack.
+    expect(packCount(1.0000000001, 1000)?.packs).toBe(2);
+    // 0.9 ng over is still over: the tolerance is floating-point rounding, not a weight.
+    expect(packCount(1.0000000000009, 1000)?.packs).toBe(2);
+  });
+
+  it('does not add a pack for the rounding of a weight worked back through the shares', () => {
+    // 1 kg dressed at 44 % and meat at 22 % is 0.5 kg exactly, which the shares give as 0.5000000000000001.
+    const yieldKg = calculateMeatYield({
+      stage: 'dressed',
+      weightKg: 1,
+      ratios: { dressed: 44, carcass: 30, meat: 22 },
+    });
+    expect(yieldKg.ok && yieldKg.meatKg).toBe(0.5000000000000001);
+    expect(yieldKg.ok && packCount(yieldKg.meatKg!, 500)?.packs).toBe(1);
+  });
+
   it('gives nothing without a usable weight or pack size', () => {
     expect(packCount(0, 500)).toBeNull();
     expect(packCount(6, 0)).toBeNull();
@@ -162,6 +182,14 @@ describe('freezerFit', () => {
     expect(freezerFit(6, 6)).toEqual({ percent: 100, animals: 1, shownPercent: 100 });
     expect(freezerFit(6, 5)).toEqual({ percent: 120, animals: 0, shownPercent: 120 });
     expect(freezerFit(6, 0)).toBeNull();
+  });
+
+  it('does not fit meat over the freezer by more than floating-point rounding', () => {
+    expect(freezerFit(100.00000001, 100)?.animals).toBe(0);
+    // 50 ng over a 100 kg freezer does not fit either.
+    expect(freezerFit(100.00000000005, 100)?.animals).toBe(0);
+    // Floating-point dust still fits: 0.1 + 0.2 kg in a 0.3 kg space.
+    expect(freezerFit(0.1 + 0.2, 0.3)?.animals).toBe(1);
   });
 
   it('never prints 100 % for meat that does not fit, nor over 100 % for meat that does', () => {
@@ -184,10 +212,29 @@ describe('meatYieldSettingsSchema', () => {
     ratios: { dressed: null, carcass: 50, meat: 20 },
     packGrams: 500,
     freezerKg: null,
+    parts: [],
+    costs: [],
+    subsidyYen: null,
   };
 
   it('keeps blank shares as null', () => {
     expect(meatYieldSettingsSchema.safeParse(settings).success).toBe(true);
+  });
+
+  it('reads settings saved before the cuts and the balance were added, as nothing entered for them', () => {
+    // The shape saved at b303c7fe, before the cuts, costs and subsidy existed.
+    const older = {
+      species: 'boar',
+      stage: 'carcass',
+      weightKg: 20,
+      ratios: { dressed: null, carcass: 60, meat: 30 },
+      packGrams: 500,
+      freezerKg: 40,
+    };
+    const parsed = meatYieldSettingsSchema.parse(older);
+    // Nothing is filled in on the way in: the added fields stay absent.
+    expect(parsed).toEqual(older);
+    expect('parts' in parsed).toBe(false);
   });
 
   it('rejects shares outside 0 < share ≤ 100 and unknown species', () => {
@@ -198,5 +245,50 @@ describe('meatYieldSettingsSchema', () => {
       meatYieldSettingsSchema.safeParse({ ...settings, ratios: { ...settings.ratios, carcass: 120 } }).success,
     ).toBe(false);
     expect(meatYieldSettingsSchema.safeParse({ ...settings, species: 'bear' }).success).toBe(false);
+  });
+});
+
+describe('partsBreakdown and animalBalance', () => {
+  const part = (id: string, percent: number | null, pricePerKg: number | null) => ({
+    id,
+    name: id,
+    percent,
+    pricePerKg,
+  });
+
+  it('weighs each cut as its share of the usable meat and prices it', () => {
+    const breakdown = partsBreakdown(10, [
+      part('ロース', 20, 3000),
+      part('モモ', 30, null),
+      part('ネック', null, 1000),
+    ]);
+    expect(breakdown.lines).toEqual([
+      { id: 'ロース', kg: 2, sales: 6000 },
+      { id: 'モモ', kg: 3, sales: null },
+      { id: 'ネック', kg: null, sales: null },
+    ]);
+    expect(breakdown.assignedPercent).toBe(50);
+    expect(breakdown.overAssigned).toBe(false);
+    expect(breakdown.sales).toBe(6000);
+    expect(breakdown.unpriced).toBe(1);
+  });
+
+  it('flags shares over the whole of the meat and leaves weights empty without a meat weight', () => {
+    expect(partsBreakdown(10, [part('a', 60, null), part('b', 50, null)]).overAssigned).toBe(true);
+    expect(partsBreakdown(null, [part('a', 60, 1000)]).lines[0]).toEqual({ id: 'a', kg: null, sales: null });
+  });
+
+  it('adds the income and takes off the costs', () => {
+    const balance = animalBalance(
+      6000,
+      [
+        { id: 'fee', name: '処理料金', yen: 5000 },
+        { id: 'bag', name: '袋', yen: 300 },
+        { id: 'blank', name: '', yen: null },
+      ],
+      8000,
+    );
+    expect(balance).toEqual({ sales: 6000, subsidy: 8000, costs: 5300, net: 8700 });
+    expect(animalBalance(0, [{ id: 'fee', name: '', yen: 2000 }], null).net).toBe(-2000);
   });
 });

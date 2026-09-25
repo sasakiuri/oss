@@ -32,3 +32,14 @@ test('explains a share out of order and shows the sources', async ({ page }) => 
   await page.getByRole('button', { name: /計算方法と出典/ }).click();
   await expect(page.getByRole('link', { name: /野生鳥獣被害防止マニュアル【総合対策編】/ })).toBeVisible();
 });
+
+test('prices the chart cuts and works out the balance per animal', async ({ page }) => {
+  await page.getByRole('button', { name: /^部位別の内訳と 1 頭の収支/ }).click();
+  await page.getByRole('button', { name: 'カットチャートの部位名を入れる' }).click();
+  await page.getByLabel(/^ロースの割合/).fill('25');
+  await page.getByLabel(/^ロースの単価/).fill('4000');
+  await expect(page.getByText('約 1.5 kg・6,000 円')).toBeVisible();
+  await page.getByLabel(/^捕獲の交付金などの収入/).fill('7000');
+  await page.reload();
+  await expect(page.getByRole('button', { name: /^部位別の内訳と 1 頭の収支/ })).toContainText('収支 13,000 円');
+});

@@ -108,3 +108,34 @@
   margin-top: 2mm;
   font-size: 7.5pt;
 }
+
+.number {
+  margin-top: 1mm;
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+/* Large enough for a phone to read off paper: 25 mm across, quiet zone included. */
+.qr {
+  width: 25mm;
+  height: 25mm;
+  flex-shrink: 0;
+}
+
+/* The photos start on a page of their own, so the form keeps to its one A4 sheet. */
+.photos {
+  break-before: page;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+}
+
+.photoGrid img {
+  width: 100%;
+  max-height: 120mm;
+  object-fit: contain;
+  break-inside: avoid;
+}

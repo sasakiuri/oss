@@ -1,6 +1,13 @@
-import type { MeatYieldSpecies, WeighedStage, YieldRatios } from './schemas/meat-yield';
+import type { MeatYieldCost, MeatYieldPart, MeatYieldSpecies, WeighedStage, YieldRatios } from './schemas/meat-yield';
 
-export type { MeatYieldSettings, MeatYieldSpecies, WeighedStage, YieldRatios } from './schemas/meat-yield';
+export type {
+  MeatYieldCost,
+  MeatYieldPart,
+  MeatYieldSettings,
+  MeatYieldSpecies,
+  WeighedStage,
+  YieldRatios,
+} from './schemas/meat-yield';
 
 /** The three shares of the whole body weight the tool works with. */
 export type YieldStage = keyof YieldRatios;
@@ -142,8 +149,13 @@ export function calculateMeatYield({ stage, weightKg, ratios }: MeatYieldInput):
   return { ok: true, wholeKg, dressedKg: at('dressed'), carcassKg: at('carcass'), meatKg: at('meat') };
 }
 
-// Shares worked out in floating point can land a hair either side of a whole number of packs.
-const EPSILON = 1e-9;
+/**
+ * Shares worked out in floating point can land a hair either side of a whole number of packs. The
+ * weight goes through at most six roundings (back to the whole animal, on to the stage, into grams and
+ * into packs), each within half a unit in the last place, so eight units in the last place absorb them
+ * and nothing more: meat over a 1,000 g pack by more than 2 pg takes another pack.
+ */
+const RELATIVE_TOLERANCE = 8 * Number.EPSILON;
 
 export interface PackCount {
   packs: number;
@@ -154,7 +166,7 @@ export interface PackCount {
 export function packCount(meatKg: number, packGrams: number): PackCount | null {
   if (!(meatKg > 0) || !(packGrams > 0) || !Number.isFinite(meatKg) || !Number.isFinite(packGrams)) return null;
   const grams = meatKg * 1000;
-  const packs = Math.ceil(grams / packGrams - EPSILON);
+  const packs = Math.ceil((grams / packGrams) * (1 - RELATIVE_TOLERANCE));
   return { packs, lastPackGrams: grams - (packs - 1) * packGrams };
 }
 
@@ -173,7 +185,63 @@ export interface FreezerFit {
 export function freezerFit(meatKg: number, freezerKg: number): FreezerFit | null {
   if (!(meatKg > 0) || !(freezerKg > 0) || !Number.isFinite(meatKg) || !Number.isFinite(freezerKg)) return null;
   const percent = (meatKg / freezerKg) * 100;
-  const animals = Math.floor(freezerKg / meatKg + EPSILON);
+  const animals = Math.floor((freezerKg / meatKg) * (1 + RELATIVE_TOLERANCE));
   const rounded = Math.round(percent);
   return { percent, animals, shownPercent: animals === 0 ? Math.max(101, rounded) : Math.min(100, rounded) };
+}
+
+export interface PartLine {
+  id: string;
+  kg: number | null;
+  sales: number | null;
+}
+
+export interface PartsBreakdown {
+  lines: PartLine[];
+  /** The shares entered, added up. */
+  assignedPercent: number;
+  /** Over 100 % of the usable meat cannot be cut from it. */
+  overAssigned: boolean;
+  /** Sales of the lines that have both a share and a price. */
+  sales: number;
+  /** Lines with a share but no price, left out of the sales. */
+  unpriced: number;
+}
+
+const validPercent = (percent: number | null): percent is number =>
+  percent !== null && Number.isFinite(percent) && percent >= 0 && percent <= 100;
+const validYen = (yen: number | null): yen is number => yen !== null && Number.isFinite(yen) && yen >= 0;
+
+/** Each cut's weight as its share of the usable meat, and what it sells for at its price per kilogram. */
+export function partsBreakdown(meatKg: number | null, parts: readonly MeatYieldPart[]): PartsBreakdown {
+  const lines = parts.map((part) => {
+    const kg = meatKg !== null && validPercent(part.percent) ? (meatKg * part.percent) / 100 : null;
+    return { id: part.id, kg, sales: kg !== null && validYen(part.pricePerKg) ? kg * part.pricePerKg : null };
+  });
+  const assignedPercent = parts.reduce((sum, part) => sum + (validPercent(part.percent) ? part.percent : 0), 0);
+  return {
+    lines,
+    assignedPercent,
+    overAssigned: assignedPercent > 100 * (1 + RELATIVE_TOLERANCE),
+    sales: lines.reduce((sum, line) => sum + (line.sales ?? 0), 0),
+    unpriced: lines.filter((line) => line.kg !== null && line.sales === null).length,
+  };
+}
+
+export interface AnimalBalance {
+  sales: number;
+  subsidy: number;
+  costs: number;
+  net: number;
+}
+
+/** Sales and any subsidy, less the costs: what one animal brings in. */
+export function animalBalance(
+  sales: number,
+  costs: readonly MeatYieldCost[],
+  subsidyYen: number | null,
+): AnimalBalance {
+  const costTotal = costs.reduce((sum, cost) => sum + (validYen(cost.yen) ? cost.yen : 0), 0);
+  const subsidy = validYen(subsidyYen) ? subsidyYen : 0;
+  return { sales, subsidy, costs: costTotal, net: sales + subsidy - costTotal };
 }

@@ -17,6 +17,29 @@ export const yieldRatiosSchema = z.object({
 });
 export type YieldRatios = z.infer<typeof yieldRatiosSchema>;
 
+export const MEAT_YIELD_MAX_ROWS = 16;
+export const MEAT_YIELD_MAX_NAME = 30;
+
+/**
+ * A cut the meat is sold as: its share of the usable meat and its price per kilogram. Either may be
+ * left empty (`null`) while it is not known.
+ */
+export const meatYieldPartSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(MEAT_YIELD_MAX_NAME),
+  percent: z.number().finite().nullable(),
+  pricePerKg: z.number().finite().nullable(),
+});
+export type MeatYieldPart = z.infer<typeof meatYieldPartSchema>;
+
+/** A cost for the animal, such as a processing fee or packaging, in yen. */
+export const meatYieldCostSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(MEAT_YIELD_MAX_NAME),
+  yen: z.number().finite().nullable(),
+});
+export type MeatYieldCost = z.infer<typeof meatYieldCostSchema>;
+
 export const meatYieldSettingsSchema = z.object({
   species: meatYieldSpeciesSchema,
   stage: weighedStageSchema,
@@ -25,5 +48,10 @@ export const meatYieldSettingsSchema = z.object({
   packGrams: z.number().finite().positive(),
   /** What the reader's own freezer holds, by weight. Nothing is converted from its volume. */
   freezerKg: z.number().finite().positive().nullable(),
+  // Added after settings were first saved: optional so earlier settings still read. Absent means none entered.
+  parts: z.array(meatYieldPartSchema).max(MEAT_YIELD_MAX_ROWS).optional(),
+  costs: z.array(meatYieldCostSchema).max(MEAT_YIELD_MAX_ROWS).optional(),
+  /** A capture subsidy or other income per animal, in yen. It differs by municipality, so it is entered. */
+  subsidyYen: z.number().finite().nullable().optional(),
 });
 export type MeatYieldSettings = z.infer<typeof meatYieldSettingsSchema>;

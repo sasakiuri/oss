@@ -13,17 +13,40 @@ import {
   formatGibierDateTime,
   formatGibierDuration,
   gibierElapsed,
+  gibierLocationText,
   gibierRecordInForce,
   gibierSitesText,
   gibierSpeciesText,
   presenceLabel,
 } from '@/lib/gibier-record';
+import { encodeQrCode, qrCodePath } from '@/lib/qr-code';
 import { GIBIER_ABNORMALITY_KEYS, type GibierRecord } from '@/lib/schemas/gibier-record';
 
 import styles from './gibier-record-print.module.css';
 
 interface GibierRecordSheetProps {
   record: GibierRecord;
+  /** The record's photos as object URLs, printed after the form. */
+  photoUrls?: readonly string[];
+}
+
+/** The individual number as a QR code, for the facility to read into its own records. */
+function NumberCode({ value }: { value: string }) {
+  const code = encodeQrCode(value);
+  if (!code) return null;
+  const side = code.size + 8;
+  return (
+    <svg
+      className={styles.qr}
+      viewBox={`0 0 ${side} ${side}`}
+      role="img"
+      aria-label={`個体番号 ${value} の QR コード`}
+      shapeRendering="crispEdges"
+    >
+      <rect width={side} height={side} fill="#fff" />
+      <path d={qrCodePath(code)} fill="#000" />
+    </svg>
+  );
 }
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -40,7 +63,7 @@ const join = (...parts: (string | false | undefined)[]) => parts.filter(Boolean)
  * The record on A4, item by item in the order of 様式 2. The boxes the facility fills in (記録者,
  * 衛生管理者, 受入の可否, 受入個体管理番号) are printed empty for them.
  */
-export function GibierRecordSheet({ record: entered }: GibierRecordSheetProps) {
+export function GibierRecordSheet({ record: entered, photoUrls = [] }: GibierRecordSheetProps) {
   // Details behind an answer switched to 無 are kept in the form but never printed beside it.
   const record = gibierRecordInForce(entered);
   const elapsed = gibierElapsed(record.bleedingStartedAt, record.deliveredAt);
@@ -51,14 +74,18 @@ export function GibierRecordSheet({ record: entered }: GibierRecordSheetProps) {
         ? `その他（${record.methodOther.trim()}）`
         : GIBIER_METHOD_LABELS[record.method];
   return (
-    <div className={styles.sheet} lang="ja">
+    <div className={styles.sheet} lang="ja" data-gibier-sheet="">
       <div className={styles.head}>
         <div>
           <p className={styles.title}>捕獲個体の記録</p>
           <p className={styles.subtitle}>
             様式 2「捕獲・受入個体記録表（日報）」の項目に沿った捕獲時の記録（1 頭ごと）
           </p>
+          {(record.individualNumber ?? '').trim() && (
+            <p className={styles.number}>個体番号：{(record.individualNumber ?? '').trim()}</p>
+          )}
         </div>
+        {(record.individualNumber ?? '').trim() && <NumberCode value={(record.individualNumber ?? '').trim()} />}
         <table className={styles.signature}>
           <tbody>
             <tr>
@@ -93,7 +120,14 @@ export function GibierRecordSheet({ record: entered }: GibierRecordSheetProps) {
             )}
           </Row>
           <Row label="捕獲日時">{formatGibierDateTime(record.capturedAt)}</Row>
-          <Row label="捕獲場所">{join(record.captureCity, record.captureArea)}</Row>
+          <Row label="捕獲場所">
+            {join(
+              record.captureCity,
+              record.captureArea,
+              gibierLocationText(record) &&
+                `（緯度・経度 ${gibierLocationText(record)}${record.locationAccuracyM ? `、誤差 約 ${record.locationAccuracyM} m` : ''}）`,
+            )}
+          </Row>
           <Row label="捕獲時の天候">{record.weather}</Row>
           <Row label="捕獲方法">{method}</Row>
           <Row label="被弾または止め刺し、電気ショッカー行使部位">
@@ -217,6 +251,17 @@ export function GibierRecordSheet({ record: entered }: GibierRecordSheetProps) {
           <Row label="受入個体管理番号（施設記入）">{''}</Row>
         </tbody>
       </table>
+      {photoUrls.length > 0 && (
+        <div className={styles.photos}>
+          <p className={styles.section}>写真</p>
+          <div className={styles.photoGrid}>
+            {photoUrls.map((url, index) => (
+              // eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an optimisable asset
+              <img key={url} src={url} alt={`写真 ${index + 1}`} />
+            ))}
+          </div>
+        </div>
+      )}
       <p className={styles.footnote}>
         ※ 様式 2 に欄がなく、ガイドライン 第 3（6）ホ・ヌに基づいて追加した項目。異常の確認は様式 2
         の文言で、「舌」「水疱」はガイドラインの表記に合わせています。

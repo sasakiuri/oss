@@ -473,6 +473,61 @@ export const labsTools = [
     description:
       'シカ・イノシシの体重から、枝肉と食肉にできる部位の重さ（歩留まり）の目安を計算します。係数は農林水産省の資料の参考値か自分で量った値を使い、冷凍のパック数も求められます。',
   },
+  {
+    slug: 'cure-mix',
+    category: 'harvest',
+    title: { ja: '塩漬け・ソーセージの配合計算', en: 'Cure and Sausage Calculator' },
+    summary: {
+      ja: '肉の重さに応じた食塩・発色剤・香辛料の分量と、亜硝酸根の添加量を計算します。',
+      en: 'Calculate salt, curing agent, spices and added nitrite from meat weight.',
+    },
+    description:
+      'ジビエのハム・ベーコン・ソーセージ作りに。肉と水の重さから食塩・発色剤・香辛料の分量と、加える亜硝酸根の量（mg/kg）を計算します。赤身と脂の比率、ケーシングの長さ、原価も求められます。',
+  },
+  {
+    slug: 'freezer-stock',
+    category: 'harvest',
+    title: { ja: '冷凍庫の在庫', en: 'Freezer Stock' },
+    summary: {
+      ja: 'ジビエの部位・重さ・冷凍日を記録し、残りのパック数を管理します。',
+      en: 'Track frozen game meat by cut, weight, freezing date and packs remaining.',
+    },
+    description:
+      '冷凍したシカ・イノシシの肉を、部位・1 パックの重さ・パック数・冷凍した日で記録し、古い順に並べて合計の重さを表示します。使い切る日を自分で決めて入力でき、ガイドラインの保存温度も確認できます。',
+  },
+  {
+    slug: 'teeth-age',
+    category: 'harvest',
+    title: { ja: '歯による年齢の目安', en: 'Age from Teeth' },
+    summary: {
+      ja: 'ニホンジカは前歯のすり減り、イノシシは奥歯の生え方から年齢を推定します。',
+      en: 'Age class of sika deer from front tooth wear, and of wild boar from the molars.',
+    },
+    description:
+      '捕獲したニホンジカは下あごの第一切歯の摩滅、イノシシは後臼歯の萌出の状態に答えると、兵庫県の調査に基づく年齢の目安を表示します。ジビエの記録票の推定年齢の記入に。',
+  },
+  {
+    slug: 'butchering-guide',
+    category: 'harvest',
+    title: { ja: '部位と解体の手引き', en: 'Cuts and Butchering Guide' },
+    summary: {
+      ja: 'シカ・イノシシの部位図と、解体時の衛生チェックリスト。',
+      en: 'Deer and boar cut diagrams with a butchering hygiene checklist.',
+    },
+    description:
+      'シカ・イノシシの部位（ネック・カタ・ロース・モモ・スネなど）を国産ジビエ認証制度のカットチャートの名前で図に示し、放血・内臓摘出・運搬・剥皮の衛生の要点を厚生労働省のガイドラインに沿ってチェックできます。',
+  },
+  {
+    slug: 'antler-measure',
+    category: 'harvest',
+    title: { ja: '角の写真計測', en: 'Antler Photo Measure' },
+    summary: {
+      ja: '写真に写した定規を基準に、角や牙に沿って長さを測ります。',
+      en: 'Trace antlers or tusks to measure their length using a ruler in the photo.',
+    },
+    description:
+      'シカの角やイノシシの牙の写真に、長さの分かる基準物を一緒に写して縮尺を合わせ、角に沿って点をたどると長さを計算します。',
+  },
 ] as const satisfies readonly LabsTool[];
 
 export type LabsToolSlug = (typeof labsTools)[number]['slug'];

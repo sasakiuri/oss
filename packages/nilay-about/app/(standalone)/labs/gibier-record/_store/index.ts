@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
-import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
+import { browserStorage, readStoredText, reportDiscardedSave } from '@/lib/browser-storage';
 import { sortGibierRecords } from '@/lib/gibier-record';
 import {
   createGibierRecord,
@@ -52,7 +52,16 @@ type SiteOf<K extends SiteListKey> = K extends 'hitSites'
     ? GibierSnareSite
     : GibierDisinfection;
 /** Every field that holds one value, so a list or the abnormality answers cannot be overwritten whole. */
-type ScalarKey = Exclude<keyof GibierRecord, 'id' | 'createdAt' | SiteListKey | 'abnormalities'>;
+type ScalarKey = Exclude<
+  keyof GibierRecord,
+  'id' | 'createdAt' | SiteListKey | 'abnormalities' | 'latitude' | 'longitude' | 'locationAccuracyM'
+>;
+
+export interface GibierLocation {
+  latitude: string;
+  longitude: string;
+  accuracyM: string;
+}
 
 interface GibierRecordStore {
   records: GibierRecord[];
@@ -60,6 +69,8 @@ interface GibierRecordStore {
   setField: <K extends ScalarKey>(key: K, value: GibierRecord[K]) => void;
   toggleSite: <K extends SiteListKey>(key: K, site: SiteOf<K>) => void;
   setAbnormality: (key: GibierAbnormalityKey, value: GibierYesNo) => void;
+  /** The position is set or cleared as a whole, so a latitude never stands beside another reading's longitude. */
+  setLocation: (location: GibierLocation | null) => void;
   /** Starts the next animal, carrying over who caught it: a day's records are usually one hunter's. */
   addRecord: () => void;
   selectRecord: (id: string) => void;
@@ -98,6 +109,13 @@ export const useGibierRecordStore = create<GibierRecordStore>()(
           }),
         setAbnormality: (key, value) =>
           editCurrent((record) => ({ ...record, abnormalities: { ...record.abnormalities, [key]: value } })),
+        setLocation: (location) =>
+          editCurrent((record) => ({
+            ...record,
+            latitude: location?.latitude ?? '',
+            longitude: location?.longitude ?? '',
+            locationAccuracyM: location?.accuracyM ?? '',
+          })),
         addRecord: () =>
           set((state) => {
             const current = state.records.find((record) => record.id === state.currentId);
@@ -123,11 +141,7 @@ export const useGibierRecordStore = create<GibierRecordStore>()(
           set(initialRecord());
           void useGibierRecordStore.persist.clearStorage();
           // The status flag follows the last write rather than this removal, so the removal answers for itself.
-          try {
-            return window.localStorage.getItem(GIBIER_RECORD_STORAGE_KEY) === null;
-          } catch {
-            return false;
-          }
+          return readStoredText(GIBIER_RECORD_STORAGE_KEY) === null;
         },
       };
     },

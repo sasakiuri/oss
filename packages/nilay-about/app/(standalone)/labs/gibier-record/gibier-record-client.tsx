@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LuPlus, LuPrinter, LuTrash2 } from 'react-icons/lu';
+import { LuDownload, LuPlus, LuPrinter, LuRefreshCw, LuTrash2 } from 'react-icons/lu';
 
 import {
   AppHeader,
@@ -13,6 +13,7 @@ import {
   ResultPanel,
   SectionNav,
   ToolLayout,
+  useRecordPhotoUrls,
 } from '@/components/labs';
 import { Button, Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
@@ -30,14 +31,18 @@ import {
   hasGibierSetAsideDetails,
   gibierSpeciesText,
   checkGibierAbdominalHit,
+  gibierRecordsCsv,
   sortGibierRecords,
 } from '@/lib/gibier-record';
 import { labsTool } from '@/lib/labs-tools';
+import { savedAsShown } from '@/lib/persisted-store';
+import { deletePhotosOf, deleteToolPhotos, listPhotos } from '@/lib/photo-storage';
 import { GIBIER_ABNORMALITY_KEYS } from '@/lib/schemas/gibier-record';
 import { cn } from '@/lib/utils';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
 import { GIBIER_RECORD_STORAGE_KEY, useGibierRecordStore } from './_store';
+import { GibierFindingsGuide } from './gibier-record-findings';
 import { GibierRecordForm } from './gibier-record-form';
 import { GibierRecordSheet } from './gibier-record-sheet';
 
@@ -93,6 +98,9 @@ export function GibierRecordClient() {
   const delivered = inForce.deliveredAt !== '';
   const elapsed = gibierElapsed(inForce.bleedingStartedAt, delivered ? inForce.deliveredAt : (now ?? ''));
   const abdominal = checkGibierAbdominalHit(record);
+  // Bumped when a photo is added or deleted, so the printed sheet reads them again.
+  const [photoVersion, setPhotoVersion] = useState(0);
+  const photos = useRecordPhotoUrls('gibier-record', record.id, photoVersion);
 
   const abnormalitySummary =
     abnormalities.status === 'found'
@@ -104,17 +112,65 @@ export function GibierRecordClient() {
   const recordName = (item: typeof record) =>
     [formatGibierDateTime(item.capturedAt) || '捕獲日時未入力', gibierSpeciesText(item) || '獣種未入力'].join('　');
 
-  // browserStorage swallows failed writes, so the outcome is read back before saying it happened.
-  const report = (done: string, failed: string, outcome?: boolean) => {
-    const succeeded = outcome ?? useStorageStatus.getState().available;
-    setNotice({ error: !succeeded, text: succeeded ? done : failed });
-  };
-
   const startNext = () => {
     addRecord();
     setNotice(null);
     // The blank form starts far above the button, out of sight on a long page.
     document.getElementById('capture')?.scrollIntoView?.();
+  };
+
+  /**
+   * The photos are kept apart from the records, under the record's id, and are deleted only once the
+   * change to the records is on disk: a record that failed to save comes back on the next visit, and
+   * its photos must still be there with it.
+   */
+  const dropPhotosOnceSaved = (deletePhotos: () => Promise<void>, done: string, failed: string) => {
+    if (!savedAsShown(useGibierRecordStore)) {
+      setNotice({ error: true, text: `${failed}写真は残しています。` });
+      return;
+    }
+    setNotice({ error: false, text: done });
+    deletePhotos().then(
+      () => setPhotoVersion((value) => value + 1),
+      () => setNotice({ error: true, text: `${done}ただし写真を削除できませんでした。` }),
+    );
+  };
+
+  const printSheet = async () => {
+    const images = [...document.querySelectorAll<HTMLImageElement>('[data-gibier-sheet] img')];
+    // A picture that cannot be drawn is printed as the browser shows it rather than holding the print.
+    await Promise.all(
+      images.map((image) => (typeof image.decode === 'function' ? image.decode().catch(() => undefined) : undefined)),
+    );
+    window.print();
+  };
+
+  const exportCsv = async () => {
+    // The records are written whatever happens to the photos; only their count is left blank if the
+    // photos cannot be read.
+    let counts: Map<string, number> | null = new Map();
+    try {
+      for (const item of sorted) counts.set(item.id, (await listPhotos('gibier-record', item.id)).photos.length);
+    } catch {
+      counts = null;
+    }
+    const blob = new Blob([gibierRecordsCsv(sorted, counts)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    link.href = url;
+    link.download = `gibier-records-${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNotice(
+      counts === null
+        ? {
+            error: true,
+            text: `${records.length} 頭分の記録を CSV で書き出しました。写真をこのブラウザーから読み取れなかったため、写真の枚数は空欄です。`,
+          }
+        : { error: false, text: `${records.length} 頭分の記録を CSV で書き出しました。` },
+    );
   };
 
   const discardedText = t(
@@ -136,7 +192,14 @@ export function GibierRecordClient() {
                   ja: '表示中の 1 頭の入力をすべて空にします。一覧のほかの記録は残ります。',
                   en: 'Clears the record on screen. Other records in the list are kept.',
                 }}
-                onReset={resetCurrent}
+                onReset={() => {
+                  resetCurrent();
+                  dropPhotosOnceSaved(
+                    () => deletePhotosOf('gibier-record', record.id),
+                    '表示中の記録を空にしました。',
+                    '表示中の記録を空にできなかった可能性があります。',
+                  );
+                }}
               />
               <LanguageMenu language={language} onLanguageChange={setLanguage} />
             </>
@@ -151,8 +214,10 @@ export function GibierRecordClient() {
             { id: 'animal', label: t('異常の確認', 'Checks on the animal') },
             { id: 'bleeding', label: t('止め刺し・放血', 'Kill and bleeding') },
             { id: 'delivery', label: t('内臓・冷却・搬入', 'Gutting and delivery') },
+            { id: 'photos', label: t('写真', 'Photos') },
             { id: 'checks', label: t('印刷', 'Print') },
             { id: 'records', label: t('記録の一覧', 'Records') },
+            { id: 'findings', label: t('異常の見分け方', 'Abnormal findings') },
           ]}
         />
       }
@@ -172,7 +237,7 @@ export function GibierRecordClient() {
         )}
         {language === 'en' && (
           <p lang="en" className="rounded-sm bg-surface-container p-4 text-sm">
-            This tool is in Japanese only. It follows the wording of a Japanese record form and guideline.
+            Japanese only. The fields follow a Japanese record form and guideline.
           </p>
         )}
         {!storageAvailable && (
@@ -184,7 +249,7 @@ export function GibierRecordClient() {
           resultLabel={t('確認と印刷', 'Checks and printing')}
           primary={
             <div lang="ja" className="space-y-6">
-              <GibierRecordForm record={record} />
+              <GibierRecordForm record={record} onPhotosChange={() => setPhotoVersion((value) => value + 1)} />
             </div>
           }
           result={
@@ -222,8 +287,8 @@ export function GibierRecordClient() {
                         ? '搬入日時が放血の開始日時より前です。日時を確認してください。'
                         : '放血の開始日時が現在より後です。日時を確認してください。'
                       : elapsed.kind === 'missing'
-                        ? '放血「有」と開始日時を入力すると表示します。'
-                        : '上限の時間はガイドラインにありません。搬入前に搬入予定時刻を施設に伝えてください（第 3（2））。'
+                        ? undefined
+                        : '搬入前に搬入予定時刻を施設に伝えてください（ガイドライン 第 3（2））。'
                   }
                 />
               </ResultPanel>
@@ -278,8 +343,8 @@ export function GibierRecordClient() {
               )}
               {temperature.kind === 'noReference' && (
                 <p className="text-sm text-on-surface-variant">
-                  この獣種の体温の目安は手引書にありません（イノシシ {GIBIER_TEMPERATURE_REFERENCE_C.boar}℃・シカ{' '}
-                  {GIBIER_TEMPERATURE_REFERENCE_C.deer}℃ のみ）。
+                  手引書の体温の目安はイノシシ {GIBIER_TEMPERATURE_REFERENCE_C.boar}℃・シカ{' '}
+                  {GIBIER_TEMPERATURE_REFERENCE_C.deer}℃ だけです。
                 </p>
               )}
               {abdominal === 'bullet' && (
@@ -296,22 +361,37 @@ export function GibierRecordClient() {
               )}
               {setAside && (
                 <p role="note" className="rounded-sm bg-surface-container p-4 text-sm">
-                  「無」などに切り替えた項目の詳細は、印刷と確認に含めていません。元の選択に戻すと再び使われます。
+                  「無」などに切り替えた項目の詳細は、印刷と確認に含めていません。
                 </p>
               )}
-              <p className="text-sm text-on-surface-variant">
-                受入の可否は、食肉処理業者が 1 頭ごとに異常の有無と捕獲時の状況を確認して判断します（ガイドライン 第 4
-                の 3（1））。
-              </p>
 
               <div className="space-y-2">
-                <Button className="w-full" onClick={() => window.print()}>
+                {/* The photos are read from the browser's storage after the record; the sheet is printed
+                    only once they are there and drawn, so none is left off the paper. */}
+                <Button className="w-full" disabled={!photos.ready} onClick={() => void printSheet()}>
                   <LuPrinter aria-hidden="true" />
-                  この 1 頭を印刷する
+                  {photos.ready
+                    ? 'この 1 頭を印刷する'
+                    : photos.failed
+                      ? '写真を読み込めませんでした'
+                      : '写真を読み込んでいます…'}
                 </Button>
+                {photos.failed && (
+                  <div className="space-y-2 rounded-sm bg-error-container p-4 text-sm text-on-error-container">
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setPhotoVersion((value) => value + 1)}>
+                        <LuRefreshCw aria-hidden="true" />
+                        写真を読み込み直す
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => void printSheet()}>
+                        <LuPrinter aria-hidden="true" />
+                        写真なしで印刷する
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-on-surface-variant">
-                  A4 縦、様式 2
-                  の項目順。記録者・衛生管理者・受入の可否・受入個体管理番号の欄は施設が記入します。搬入先に独自の様式があれば、そちらに従ってください。
+                  A4 縦。記録者・衛生管理者・受入の可否・受入個体管理番号の欄は施設が記入します。
                 </p>
               </div>
               <div className="space-y-2">
@@ -364,7 +444,11 @@ export function GibierRecordClient() {
                           onClick={() => {
                             if (!window.confirm(`${recordName(item)} の記録を削除しますか？元に戻せません。`)) return;
                             deleteRecord(item.id);
-                            report('記録を削除しました。', '記録を削除できなかった可能性があります。');
+                            dropPhotosOnceSaved(
+                              () => deletePhotosOf('gibier-record', item.id),
+                              '記録を削除しました。',
+                              '記録を削除できなかった可能性があります。',
+                            );
                           }}
                         >
                           <LuTrash2 aria-hidden="true" />
@@ -374,6 +458,13 @@ export function GibierRecordClient() {
                     );
                   })}
                 </ul>
+                <div className="space-y-1">
+                  <Button variant="outline" onClick={() => void exportCsv()}>
+                    <LuDownload aria-hidden="true" />
+                    すべての記録を CSV で書き出す
+                  </Button>
+                  <p className="text-xs text-on-surface-variant">1 頭 1 行、UTF-8（BOM 付き）。写真は含みません。</p>
+                </div>
                 {/* Mounted from the start and empty until there is something to say, so the first message is read out. */}
                 <p
                   lang="ja"
@@ -388,29 +479,35 @@ export function GibierRecordClient() {
                 id="saving"
                 title="この端末への保存"
                 summary={
-                  storageAvailable
-                    ? '記録はこのブラウザーにだけ保存され、外部には送信されません。'
-                    : 'このブラウザーでは保存できません。'
+                  storageAvailable ? '記録表の保存期間と、共用の端末での削除' : 'このブラウザーでは保存できません。'
                 }
               >
                 <div lang="ja" className="space-y-3 text-sm text-on-surface-variant">
                   <p>
-                    記録には氏名、狩猟免許番号、捕獲場所が含まれ、同じブラウザーを使う人なら見られます。共用の端末では、印刷後に「すべての記録を削除」で消してください。
+                    記録の氏名、狩猟免許番号、捕獲場所、写真は、同じブラウザーを使う人なら見られます。共用の端末では、印刷後に「すべての記録を削除」で消してください。
                   </p>
                   <p>
                     記録表は 1 年以上（冷凍品は 2 年間）保存します（様式 2
-                    の注意事項）。ブラウザーの記録はサイトデータの削除などで消えるので、保管は印刷した紙で行ってください。
+                    の注意事項）。ブラウザーの記録は消えることがあるため、印刷した紙で保管します。
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={() => {
                     if (!window.confirm('この端末に保存したすべての記録を削除しますか？元に戻せません。')) return;
-                    const removed = deleteAll();
-                    report(
-                      'すべての記録を削除しました。',
-                      '記録を削除できなかった可能性があります。ブラウザーの設定から、このサイトのデータを削除してください。',
-                      removed,
+                    // The removal answers for itself; only once it landed are the photos deleted.
+                    if (!deleteAll()) {
+                      setNotice({
+                        error: true,
+                        text: '記録を削除できなかった可能性があります。写真は残しています。ブラウザーの設定から、このサイトのデータを削除してください。',
+                      });
+                      return;
+                    }
+                    setNotice({ error: false, text: 'すべての記録を削除しました。' });
+                    deleteToolPhotos('gibier-record').then(
+                      () => setPhotoVersion((value) => value + 1),
+                      () =>
+                        setNotice({ error: true, text: 'すべての記録を削除しましたが、写真を削除できませんでした。' }),
                     );
                   }}
                 >
@@ -421,7 +518,8 @@ export function GibierRecordClient() {
             </>
           }
           extras={
-            <div lang="ja">
+            <div lang="ja" className="space-y-6">
+              <GibierFindingsGuide species={record.species} />
               <ConditionSection
                 id="basis"
                 title="根拠"
@@ -442,9 +540,8 @@ export function GibierRecordClient() {
                     放血後から食肉処理施設に搬入されるまでにかかった時間
                   </Quote>
                   <p className="text-on-surface-variant">
-                    異常の確認は様式 2 の文言です。様式 2 は ト に化膿部位、皮膚の炎症、かさぶたを加えています。様式 2
-                    の「下」「水泡」は、ガイドラインに合わせて「舌」「水疱」と表記しています。ガイドライン 第 2 の
-                    2（1）の原文：
+                    異常の確認は様式 2 の文言です。様式 2 は ト
+                    に化膿部位、皮膚の炎症、かさぶたを加えています。ガイドライン 第 2 の 2（1）の原文：
                   </p>
                   <ul
                     lang="ja"
@@ -474,8 +571,7 @@ export function GibierRecordClient() {
                     の注意事項「異常温度の目安：猪 42℃、鹿 40℃」、衛生管理方法の「放血」の項）。
                   </p>
                   <p className="text-on-surface-variant">
-                    家畜伝染病の発生状況による扱い（第 2 の
-                    2（2））は、地域の情報を確認してください。確認日より後のガイドライン・手引書の改正は反映していません。
+                    家畜伝染病の発生状況による扱い（第 2 の 2（2））は、地域の情報を確認してください。
                   </p>
                   <ul className="list-disc space-y-2 pl-5">
                     {Object.values(GIBIER_SOURCES).map((source) => (
@@ -493,7 +589,7 @@ export function GibierRecordClient() {
           }
         />
       </div>
-      <GibierRecordSheet record={record} />
+      <GibierRecordSheet record={record} photoUrls={photos.urls.map((photo) => photo.url)} />
     </AppLayout>
   );
 }
