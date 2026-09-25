@@ -451,6 +451,17 @@ export const labsTools = [
       'わなごとに設置日と場所を登録し、見回りの日時と結果を記録します。最後の見回りからの経過時間を表示し、決めた間隔を過ぎたわなを知らせます。CSV 書き出しと見回り表の印刷に対応。',
   },
   {
+    slug: 'trap-sign',
+    category: 'traps',
+    title: { ja: 'わな設置中の注意看板', en: 'Trap Warning Sign' },
+    summary: {
+      ja: '「わな設置中」の注意看板を A4・A3 で作って印刷します。',
+      en: 'Make and print a “traps set” warning sign on A4 or A3.',
+    },
+    description:
+      'くくりわな・箱わなの設置場所に掲げる「わな設置中」の注意看板を、対象の鳥獣・期間・設置者・連絡先を入れて A4・A3 で印刷します。英語の行も加えられます。',
+  },
+  {
     slug: 'electric-fence',
     category: 'damage',
     title: { ja: '電気柵の設計計算', en: 'Electric Fence Planner' },
@@ -471,6 +482,61 @@ export const labsTools = [
     },
     description:
       '環境省が公表するツキノワグマ・ヒグマの人身被害・出没件数・捕獲数・緊急銃猟の実施状況を、年度・都道府県・月別の表とグラフで確認できます（速報値）。',
+  },
+  {
+    slug: 'bear-bell',
+    category: 'damage',
+    title: { ja: '熊鈴と遭遇時の備え', en: 'Bear Bell and Encounter Guide' },
+    summary: {
+      ja: '熊鈴の音を再生します。入山前の確認事項とクマに遭遇した際の対処も掲載。',
+      en: 'Play a bear bell sound and read the pre-trip and encounter guidance.',
+    },
+    description:
+      '熊鈴の音をブラウザーで鳴らします（一定間隔・ランダム・歩行連動）。環境省の資料に基づく入山前のチェックリストと、クマに遭遇したときの行動・クマ撃退スプレーの要点も確認できます。',
+  },
+  {
+    slug: 'trace-gauge',
+    category: 'damage',
+    title: { ja: '足跡・糞の実寸ゲージ', en: 'Print and Dropping Gauges' },
+    summary: {
+      ja: '足跡と糞の大きさを実寸で印刷し、現地で当てて比べます。',
+      en: 'Real-size prints of tracks and droppings to hold against what you find.',
+    },
+    description:
+      'ツキノワグマ・アライグマ・ハクビシン・タヌキ・アナグマ・キツネ・ノウサギ・イノシシの足跡と、クマ・シカ・タヌキなどの糞の大きさを、農林水産省や県の資料の値で実寸印刷します。加害獣を見分ける目安に。',
+  },
+  {
+    slug: 'village-check',
+    category: 'damage',
+    title: { ja: '集落点検・誘引物チェック', en: 'Village Attractant Check' },
+    summary: {
+      ja: '集落の誘引物・潜み場・クマの痕跡を点検し、記録・印刷します。',
+      en: 'Record and print inspections for attractants, cover and bear signs in a village.',
+    },
+    description:
+      '総務省の集落点検チェックシート（クマの項目）、農林水産省の鳥獣被害防止対策チェックシート別表、環境省のクマ類出没対応マニュアルの項目で、放任果樹・生ゴミ・藪などの誘引物を点検します。結果を保存して前回と比べ、点検表を印刷できます。',
+  },
+  {
+    slug: 'deer-density',
+    category: 'damage',
+    title: { ja: 'シカの生息密度の推定', en: 'Deer Density Estimate' },
+    summary: {
+      ja: 'カメラの撮影頻度（REM）や糞粒調査の結果から、シカの生息密度を計算します。',
+      en: 'Deer per km² from camera trap rates (REM) or pellet counts.',
+    },
+    description:
+      'センサーカメラの撮影頻度から REM（Rowcliffe ら 2008）で、糞粒調査の結果から Taylor and Williams の式や FUNRYU（岩本ら 2000）で、ニホンジカの生息密度（頭/km²）を計算します。式と出典を表示します。',
+  },
+  {
+    slug: 'capture-check',
+    category: 'harvest',
+    title: { ja: '捕獲確認の写真と報償金', en: 'Capture Photos and Payments' },
+    summary: {
+      ja: '捕獲の証拠写真を確認し、撮影用の標示板を印刷します。報償金も試算できます。',
+      en: 'Check capture evidence photos, print a photo board and estimate payments.',
+    },
+    description:
+      '有害鳥獣の捕獲確認（証拠写真）の準備に。農林水産省の捕獲確認マニュアル（令和7年4月）に沿った撮影チェック、標示板（捕獲日・従事者氏名・個体番号）の印刷、写真の撮影日時と位置の確認、国の上限単価と市町村の上乗せによる報償金の試算ができます。',
   },
   {
     slug: 'gibier-record',

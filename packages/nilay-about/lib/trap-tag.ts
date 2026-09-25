@@ -1,4 +1,4 @@
-import { TRAP_TAG_FIELDS, type TrapTagPurpose } from './schemas/trap-tag';
+import { TRAP_TAG_FIELDS, type TrapTagFieldKey, type TrapTagPurpose } from './schemas/trap-tag';
 
 // 施行規則第 70 条第 2 項・第 7 条第 18 項: every character is at least 10 mm tall and wide.
 export const TRAP_TAG_MIN_CHAR_SIZE_MM = 10;
@@ -37,6 +37,8 @@ export interface TrapTagLayout {
   cell: { widthMm: number; heightMm: number };
   maxCharsPerLine: number;
   lines: string[];
+  /** Lines left as empty boxes to fill in by hand, by index into `lines`. */
+  blankLines: number[];
   lineHeightMm: number;
   paddingMm: number;
   tag: { widthMm: number; heightMm: number };
@@ -57,6 +59,31 @@ export function normalizeCopies(value: unknown): TrapTagCopies {
 /** Values are printed in the statutory order, one item per line. */
 export function getTrapTagPrintValues(purpose: TrapTagPurpose, fields: Record<string, string>): string[] {
   return TRAP_TAG_FIELDS[purpose].map((key) => (fields[key] ?? '').trim());
+}
+
+/**
+ * The items on each side. On a two-sided tag the species goes on the back, which leaves the front
+ * short enough for the larger characters; everything else stays on the front in the statutory order.
+ */
+export function trapTagSides(
+  purpose: TrapTagPurpose,
+  twoSided: boolean,
+): { front: TrapTagFieldKey[]; back: TrapTagFieldKey[] } {
+  const keys: TrapTagFieldKey[] = [...TRAP_TAG_FIELDS[purpose]];
+  if (!twoSided || purpose === 'hunting') return { front: keys, back: [] };
+  return { front: keys.filter((key) => key !== 'species'), back: ['species'] };
+}
+
+/** The values of one side, and which of them print as boxes to fill in by hand. */
+export function sideValues(
+  keys: readonly TrapTagFieldKey[],
+  fields: Record<string, string>,
+  blanks: readonly TrapTagFieldKey[],
+): { values: string[]; blanks: boolean[] } {
+  return {
+    values: keys.map((key) => (blanks.includes(key) ? '' : (fields[key] ?? '').trim())),
+    blanks: keys.map((key) => blanks.includes(key)),
+  };
 }
 
 /** Japanese text wraps by character, and code points keep surrogate pairs in one cell. */
@@ -80,10 +107,16 @@ export function getTrapTagLayout({
   values,
   charSizeMm,
   copies,
+  blanks = [],
+  mirror = false,
 }: {
   values: readonly string[];
   charSizeMm: unknown;
   copies: unknown;
+  /** Items printed as a row of empty boxes, parallel to `values`. */
+  blanks?: readonly boolean[];
+  /** The back of a sheet printed on both sides, flipped on the long edge: columns run right to left. */
+  mirror?: boolean;
 }): TrapTagLayout {
   const charSize = normalizeCharSizeMm(charSizeMm);
   const count = normalizeCopies(copies);
@@ -91,7 +124,18 @@ export function getTrapTagLayout({
   const cellWidthMm = (A4_WIDTH_MM - PAGE_MARGIN_MM * 2 - GUTTER_MM * (columns - 1)) / columns;
   const cellHeightMm = (A4_HEIGHT_MM - PAGE_MARGIN_MM * 2 - FOOTER_MM - GUTTER_MM * (rows - 1)) / rows;
   const maxCharsPerLine = Math.floor((cellWidthMm - TAG_PADDING_MM * 2) / charSize);
-  const lines = wrapTagLines(values, maxCharsPerLine);
+  const lines: string[] = [];
+  const blankLines: number[] = [];
+  values.forEach((value, index) => {
+    if (blanks[index]) {
+      if (maxCharsPerLine < 1) return;
+      blankLines.push(lines.length);
+      // One full line of boxes, which is what a hand-written item usually needs.
+      lines.push('\u3000'.repeat(maxCharsPerLine));
+      return;
+    }
+    lines.push(...wrapTagLines([value], maxCharsPerLine));
+  });
   const lineHeightMm = charSize * LINE_HEIGHT_RATIO;
   const longestLine = lines.reduce((longest, line) => Math.max(longest, countCharacters(line)), 0);
   const tagWidthMm = longestLine * charSize + TAG_PADDING_MM * 2;
@@ -99,7 +143,7 @@ export function getTrapTagLayout({
   // 'width' needs a cell too narrow for a single character. The present grid and
   // sizes cannot reach it, because the narrowest cell is 92 mm and the largest
   // character 15 mm, but a denser grid or a larger size would.
-  const overflow: TrapTagOverflow = !values.some((value) => value.trim())
+  const overflow: TrapTagOverflow = !values.some((value, index) => value.trim() || blanks[index])
     ? 'empty'
     : maxCharsPerLine < 1
       ? 'width'
@@ -107,7 +151,7 @@ export function getTrapTagLayout({
         ? 'height'
         : 'none';
   const positions = Array.from({ length: count }, (_, index) => {
-    const column = index % columns;
+    const column = mirror ? columns - 1 - (index % columns) : index % columns;
     const row = Math.floor(index / columns);
     return {
       x: PAGE_MARGIN_MM + column * (cellWidthMm + GUTTER_MM) + (cellWidthMm - tagWidthMm) / 2,
@@ -123,6 +167,7 @@ export function getTrapTagLayout({
     cell: { widthMm: cellWidthMm, heightMm: cellHeightMm },
     maxCharsPerLine: Math.max(maxCharsPerLine, 0),
     lines,
+    blankLines,
     lineHeightMm,
     paddingMm: TAG_PADDING_MM,
     tag: { widthMm: tagWidthMm, heightMm: tagHeightMm },

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import {
@@ -358,10 +359,7 @@ export function BearStatsClient() {
                 </p>
               )}
               <p className="text-sm">
-                {t(
-                  '過去の集計です。いまの出没情報と対応は、都道府県・市町村の発表に従ってください。',
-                  'These are past figures. For current sightings and what to do, follow the prefecture and municipality.',
-                )}
+                <Link href="/labs/bear-bell">{t('熊鈴と遭遇時の備え', 'Bear bell and encounter guide')}</Link>
               </p>
               <p className="text-xs text-on-surface-variant">
                 {t(
@@ -554,10 +552,7 @@ export function BearStatsClient() {
                   </p>
                 )}
                 <p className="text-xs text-on-surface-variant">
-                  {t(
-                    'グラフは多い順（0 は省略）、表は資料の順。九州・沖縄は資料の対象外です。',
-                    'Chart: largest first, zeros left out. Table: the ministry’s order. Kyushu and Okinawa are not covered.',
-                  )}
+                  {t('九州・沖縄は資料の対象外です。', 'Kyushu and Okinawa are not covered.')}
                 </p>
                 {collapsedTable(
                   t('都道府県別の表', 'Table by prefecture'),
@@ -671,31 +666,12 @@ export function BearStatsClient() {
                     </li>
                   ))}
                 </ul>
-                <ul className="list-disc space-y-2 pl-5 text-sm text-on-surface-variant">
-                  <li>
-                    {t(
-                      '環境省が都道府県などから集めた暫定値で、変わることがあります。都道府県の合計は各資料の全国計と一致します。',
-                      'Provisional figures the ministry gathered from the prefectures; they may change. The prefectures add up to each table’s national total.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '確定値は環境省の「鳥獣関係統計」（確認日時点で令和3年度まで）で公表されますが、区分が異なるため収録していません。',
-                      'Final figures appear in the ministry’s wildlife statistics (to FY2021 as of the check date). Their categories differ, so they are not included.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '令和8年度の人身被害は、年度別の表が「R08年7月末」まで、月別の表が8月分までです。ここでは月別の表に合わせています。',
-                      'For FY2026 injuries, the yearly table runs to the end of July and the monthly table to August. This tool follows the monthly table.',
-                    )}
-                  </li>
-                </ul>
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant">
-                    {t('選択はこのブラウザーに保存されます。', 'Your choices are saved in this browser.')}
-                  </p>
-                )}
+                <p className="text-sm text-on-surface-variant">
+                  {t(
+                    '令和8年度の人身被害は月別の表（8月分まで）の値です。年度別の表は「R08年7月末」までです。',
+                    'FY2026 injuries come from the monthly table, which runs to August. The yearly table runs to the end of July.',
+                  )}
+                </p>
               </ConditionSection>
             </>
           }

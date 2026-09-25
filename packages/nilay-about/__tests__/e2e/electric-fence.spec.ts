@@ -45,3 +45,17 @@ test('resets to the defaults', async ({ page }) => {
   await page.getByRole('button', { name: '初期値に戻す', exact: true }).click();
   await expect(page.getByLabel('外周長')).toHaveValue('200');
 });
+
+test('gives the energiser rating and the solar sizing, and keeps the prices', async ({ page }) => {
+  await page.getByRole('button', { name: /電源装置・ソーラー・付帯資材・費用/ }).click();
+  await expect(page.getByText(/通電する柵線は計 1,200 m/)).toBeVisible();
+  await page.getByLabel(/本器の消費電力/).fill('0.7888');
+  await page.getByLabel(/ピーク日照時間/).fill('3');
+  await page.getByLabel(/日照なしで動かす日数/).fill('5');
+  await expect(page.getByText('7.6 W')).toBeVisible();
+  await page.getByLabel('柵線（通電、1 m）の単価').fill('10');
+  await expect(page.getByText(/合計 12,000 円/)).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: /電源装置・ソーラー・付帯資材・費用/ }).click();
+  await expect(page.getByText(/合計 12,000 円/)).toBeVisible();
+});

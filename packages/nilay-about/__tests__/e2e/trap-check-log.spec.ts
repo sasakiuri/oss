@@ -80,9 +80,103 @@ test('exports the log as CSV and prints it', async ({ page }) => {
   expect(await page.evaluate(() => (window as unknown as { __printCount: number }).__printCount)).toBe(1);
 });
 
+test('fills the coordinates from the device position when asked', async ({ page, context }) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 35.6581234, longitude: 139.7414321, accuracy: 12 });
+  await page.getByLabel('識別名').fill('尾根');
+  await page.getByRole('button', { name: '現在地を入れる' }).click();
+  await expect(page.getByLabel('緯度')).toHaveValue('35.658123');
+  await expect(page.getByLabel('経度')).toHaveValue('139.741432');
+  await expect(page.getByText('端末の位置（誤差 ±12 m）')).toBeVisible();
+  await page.getByRole('button', { name: '登録する' }).click();
+  const saved = await page.evaluate((key) => window.localStorage.getItem(key), STORAGE_KEY);
+  expect(JSON.parse(saved ?? 'null').state.traps[0]).toMatchObject({
+    latitude: 35.658123,
+    longitude: 139.741432,
+    accuracyM: 12,
+  });
+});
+
+test('exports the next rounds as a calendar file and prints the daily report', async ({ page }) => {
+  await page.getByLabel('識別名').fill('沢 1 号');
+  await page.getByRole('button', { name: '登録する' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: '次の見回りを予定に書き出す（.ics）' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('trap-check-rounds-2026-09-22.ics');
+
+  await page.getByRole('button', { name: /作業時間・日報・わな別の集計/ }).click();
+  await page.getByRole('button', { name: '作業を開始' }).click();
+  await page.getByRole('button', { name: '作業を終了' }).click();
+  await expect(page.getByRole('rowheader', { name: '2026-09-22' })).toBeVisible();
+  await page.getByRole('button', { name: '日報を印刷する' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __printCount: number }).__printCount)).toBe(1);
+  await expect(page.getByTestId('trap-daily-report-sheet')).toBeAttached();
+});
+
 test('shows the public sources behind the interval', async ({ page }) => {
   await page.getByRole('button', { name: /見回り頻度の根拠/ }).click();
   await expect(page.getByText('頻繁にわなを見回ること', { exact: false })).toBeVisible();
   await expect(page.getByText('１日１回以上の見回りを実施する', { exact: false })).toBeVisible();
   await expect(page.getByText('原則として毎日', { exact: false }).first()).toBeVisible();
+});
+
+// A 1 × 1 PNG: enough for the browser to decode, shrink and store.
+const PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test('keeps no round’s photo still being prepared in one tab after another tab deleted every record', async ({
+  page,
+  context,
+}) => {
+  // This tab holds the photo at the last step of scaling it down until the test lets it go.
+  await page.addInitScript(() => {
+    const toBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (this: HTMLCanvasElement, ...args) {
+      (window as unknown as { releasePhoto?: () => void }).releasePhoto = () => toBlob.apply(this, args);
+    };
+  });
+  await page.reload();
+  await page.getByLabel('識別名').fill('沢 1 号');
+  await page.getByLabel('設置日時').fill('2026-09-21T06:00');
+  await page.getByRole('button', { name: '登録する' }).click();
+  const card = page.getByRole('group', { name: '沢 1 号' });
+  await card.getByRole('button', { name: '見回りを記録' }).click();
+  await card.getByLabel('写真（任意）').setInputFiles({ name: 'round.png', mimeType: 'image/png', buffer: PIXEL_PNG });
+  await card.getByRole('button', { name: '記録する' }).click();
+  await page.waitForFunction(
+    () => typeof (window as unknown as { releasePhoto?: unknown }).releasePhoto === 'function',
+  );
+
+  // Another tab deletes every record while the photo is being prepared here.
+  const other = await context.newPage();
+  await other.goto('/labs/trap-check-log');
+  await expect(other.locator('[aria-busy="true"]')).toHaveCount(0);
+  other.once('dialog', (dialog) => void dialog.accept());
+  await other.getByRole('button', { name: /^この端末への保存/ }).click();
+  await other.getByRole('button', { name: '記録をすべて削除' }).click();
+  await expect(other.getByText('記録をすべて削除しました。')).toBeVisible();
+
+  await page.evaluate(() => (window as unknown as { releasePhoto: () => void }).releasePhoto());
+  await expect(page.getByText(/の見回りを 2026-09-22 12:00 で記録しました/)).toBeVisible();
+  const photos = await page.evaluate(
+    () =>
+      new Promise<unknown[]>((resolve, reject) => {
+        const open = indexedDB.open('nilay-labs-photos-v1');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const request = open.result.transaction('photos').objectStore('photos').getAll();
+          request.onsuccess = () => {
+            open.result.close();
+            resolve(request.result);
+          };
+          request.onerror = () => reject(request.error);
+        };
+      }),
+  );
+  // Only the photos; the deletion counts kept beside them in the same store are not photos.
+  expect((photos as { tool?: string }[]).filter((photo) => photo.tool === 'trap-check-log')).toEqual([]);
 });

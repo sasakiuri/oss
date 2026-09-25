@@ -39,26 +39,40 @@ export function TrapTagSheet({ layout, note, label, actualSize = false, classNam
             strokeWidth={0.3}
           />
           {lines.map((line, row) =>
-            // One character per cell so the printed width matches the calculation.
-            // textLength stretches half-width digits and letters, whose advance is
-            // about half an em, up to the selected size instead of rewriting the
-            // required items into full-width characters.
-            Array.from(line).map((character, column) => (
-              <text
-                key={`${row}-${column}`}
-                x={position.x + paddingMm + (column + 0.5) * charSizeMm}
-                y={position.y + paddingMm + (row + 0.5) * lineHeightMm}
-                fontFamily={TAG_FONT}
-                fontSize={charSizeMm}
-                textLength={charSizeMm}
-                lengthAdjust="spacingAndGlyphs"
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="#000000"
-              >
-                {character}
-              </text>
-            )),
+            layout.blankLines.includes(row)
+              ? // An item left to write by hand: one box per character, at the size chosen.
+                Array.from(line).map((_, column) => (
+                  <rect
+                    key={`${row}-${column}`}
+                    x={position.x + paddingMm + column * charSizeMm}
+                    y={position.y + paddingMm + (row + 0.5) * lineHeightMm - charSizeMm / 2}
+                    width={charSizeMm}
+                    height={charSizeMm}
+                    fill="none"
+                    stroke="#000000"
+                    strokeWidth={0.15}
+                  />
+                ))
+              : // One character per cell so the printed width matches the calculation.
+                // textLength stretches half-width digits and letters, whose advance is
+                // about half an em, up to the selected size instead of rewriting the
+                // required items into full-width characters.
+                Array.from(line).map((character, column) => (
+                  <text
+                    key={`${row}-${column}`}
+                    x={position.x + paddingMm + (column + 0.5) * charSizeMm}
+                    y={position.y + paddingMm + (row + 0.5) * lineHeightMm}
+                    fontFamily={TAG_FONT}
+                    fontSize={charSizeMm}
+                    textLength={charSizeMm}
+                    lengthAdjust="spacingAndGlyphs"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#000000"
+                  >
+                    {character}
+                  </text>
+                )),
           )}
         </g>
       ))}

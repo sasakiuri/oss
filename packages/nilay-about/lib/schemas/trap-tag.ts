@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const trapTagPurposeSchema = z.enum(['hunting', 'permit']);
+/** combined: one tag carrying both the hunting and the permit items, for traps used under both. */
+export const trapTagPurposeSchema = z.enum(['hunting', 'permit', 'combined']);
 export type TrapTagPurpose = z.infer<typeof trapTagPurposeSchema>;
 
 // Every character on the tag is at least 10 mm wide, so long values cannot fit.
@@ -27,7 +28,13 @@ export const permitTagSchema = z.object({
   species: requiredField,
 });
 
-export const trapTagSchemas = { hunting: huntingTagSchema, permit: permitTagSchema } as const;
+export const combinedTagSchema = permitTagSchema.merge(huntingTagSchema);
+
+export const trapTagSchemas = {
+  hunting: huntingTagSchema,
+  permit: permitTagSchema,
+  combined: combinedTagSchema,
+} as const;
 
 export type HuntingTagFields = z.infer<typeof huntingTagSchema>;
 export type PermitTagFields = z.infer<typeof permitTagSchema>;
@@ -36,6 +43,18 @@ export type PermitTagFields = z.infer<typeof permitTagSchema>;
 export const TRAP_TAG_FIELDS = {
   hunting: ['address', 'name', 'governor', 'fiscalYear', 'registrationNumber'],
   permit: ['address', 'name', 'authority', 'validPeriod', 'permitNumber', 'species'],
+  // The shared address and name, then the permit items, then the hunting registration.
+  combined: [
+    'address',
+    'name',
+    'authority',
+    'validPeriod',
+    'permitNumber',
+    'species',
+    'governor',
+    'fiscalYear',
+    'registrationNumber',
+  ],
 } as const;
 export type TrapTagFieldKey = (typeof TRAP_TAG_FIELDS)[TrapTagPurpose][number];
 
@@ -76,13 +95,22 @@ export interface TrapTagValidation {
   errors: Partial<Record<TrapTagFieldKey, TrapTagFieldError>>;
 }
 
-export function validateTrapTagFields(purpose: TrapTagPurpose, values: Record<string, string>): TrapTagValidation {
+/** Items chosen to be left blank and written by hand are not required. */
+export function validateTrapTagFields(
+  purpose: TrapTagPurpose,
+  values: Record<string, string>,
+  blanks: readonly TrapTagFieldKey[] = [],
+): TrapTagValidation {
   const result = trapTagSchemas[purpose].safeParse(values);
   if (result.success) return { valid: true, values: result.data, errors: {} };
   const errors: Partial<Record<TrapTagFieldKey, TrapTagFieldError>> = {};
   for (const issue of result.error.issues) {
     const key = issue.path[0] as TrapTagFieldKey | undefined;
-    if (key) errors[key] = issue.code === 'too_big' ? 'tooLong' : 'required';
+    if (!key) continue;
+    const error = issue.code === 'too_big' ? 'tooLong' : 'required';
+    if (error === 'required' && blanks.includes(key)) continue;
+    errors[key] = error;
   }
+  if (Object.keys(errors).length === 0) return { valid: true, values: { ...values }, errors: {} };
   return { valid: false, values: null, errors };
 }

@@ -391,6 +391,19 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   and write the tag itself on metal or plastic.
   Because it contains an address and name, the input is not saved by default.
   It is saved only when この端末に保存する (save on this device) is chosen, and turning that off deletes what was saved.
+  A combined tag carries the items of both hunting and the permit (the shared address and name once); the law only requires the items
+  on each trap and no rule allowing or forbidding a combined tag was found, so the page asks the reader to check with the prefecture.
+  A permit or combined tag can be printed on two sides with the species on the back; the back sheet swaps its columns so each tag
+  backs onto itself when flipped on the long edge. Any item can be left blank to write by hand, printed as a row of empty
+  character boxes at the chosen size, and is then not required. Several people's tags can be made from a CSV (Japanese headers,
+  a template per purpose, up to 50 rows, one sheet each, checked row by row and not saved). Besides the browser's print, the
+  sheets download as a real-size PDF: each is drawn at 300 dpi with the browser's fonts and placed as a JPEG over an A4 page, so no
+  font is embedded and the print dialog cannot rescale it.
+- **Trap Warning Sign** (わな設置中の注意看板): prints a "traps set" sign on A4 or A3 portrait: 危険, the headline (traps, snares or box
+  traps) and "keep away from the traps", with optional English lines and optional target species, period, setter and contact.
+  Nothing is saved, as the sign can carry a name and a number. No nationwide duty or format for such a sign was found; Wakayama
+  Prefecture makes one a condition for snares over 12 cm without setting its wording, which the page quotes. It does not replace
+  the tag each trap must carry.
 - **Scope Click Verification** (スコープのクリック値検証): from the amount dialled and the amount moved on a tall target, calculates the correction factor
   (expected ÷ measured), the tracking ratio, the effective click value (nominal × measured ÷ expected), the error, and the cant implied by sideways movement.
   The definitions follow the Applied Ballistics Tall Target Test Worksheet. The correction factor and the effective click value are applied in opposite
@@ -426,11 +439,29 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   It flags a trap when the time since its last check passes an interval the user chooses. The law sets no single interval; the relevant passages of the
   Ministry of the Environment's basic guidelines and prefectural guidance are cited.
   Records can be exported as CSV and printed.
+  The device's position can fill in a trap's coordinates or be recorded with a round, read once when the button is pressed, with its accuracy.
+  A catch or non-target catch records the head count and, optionally, the species; a round can carry a photo, shrunk to 1600 px
+  and kept in IndexedDB on the device (drawing it on a canvas drops the file's metadata). The next round of every set trap exports
+  as an iCalendar (.ics) file with an alarm at the time the interval runs out; the page itself does not notify, and the file does not
+  move when rounds are recorded. Work time is recorded by start and end (or entered afterwards) and totalled into a daily report
+  for a month, counted on the day the work started, with CSV and print. Report forms differ between municipalities, so the report
+  is a draft. Each trap shows its trap-days, rounds, catch per 100 trap-days (CPUE, one trap standing one day as the unit of effort)
+  and the non-target share; rounds saved without a head count are left out and counted separately.
 - **Electric Fence Planner** (電気柵の設計計算): choose wire heights from presets taken from the Ministry of Agriculture's manual and material from
   Tottori, Fukui and Kyoto prefectures, and calculate the wire, posts, insulators and gate handles from the perimeter, gates, uneven sections and a spare margin.
   The requirements of Article 74 of the Ministerial Ordinance on Technical Standards for Electrical Equipment and Article 192 of its interpretation,
   and sourced inspection points, are always shown.
   It does not judge whether an installation meets the standards.
+  A further section covers the energiser, solar, fittings and cost. Japanese makers rate energisers by maximum wire length, not
+  joules, and the national manual says the capacity follows from the length, so it gives the powered wire length a model has to
+  be rated for; for a bear fence it also shows Kyoto Prefecture's guide (1 J for a perimeter of 300–450 m, 1.5 J for 450–600 m,
+  2 J for 600–900 m), which notes that joules cannot be compared between makers. The solar panel and battery follow Kencove's
+  method (a US supplier, stated as such): daily Wh = power draw × hours, panel = daily Wh ÷ peak sun hours × 1.2, battery = daily
+  Ah × days without sun ÷ usable share (50 % by default). The power draw, peak sun hours (NEDO's database is pointed to) and days
+  are entered by the user. Danger signs are counted at a spacing the user enters, as the rules say only "at suitable intervals";
+  earth rods follow the energiser's manual. An earth-leakage breaker is shown as required for a fence fed from 30 V or more where
+  people can easily go (article 192(iv) of the interpretation). The cost multiplies the quantities by unit prices the user
+  enters, with an optional subsidy share. These inputs are saved under their own key (`nilay-labs-electric-fence-power-v1`).
 - **Tracking Wounded Game** (半矢の追跡): from signs such as blood colour and froth, shows with sources how to read where the animal was hit
   and a guide to how long to wait before trailing.
   No wait times were found in Japanese public material, so figures from North American state agencies and course material are given for reference,
@@ -449,6 +480,39 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   spreadsheet formula prefixed with an apostrophe). A guide to abnormal findings lists, stage by stage and for deer or wild boar,
   what the MHLW colour atlas to the guideline (last revised 19 March 2025, checked 2026-09-24) shows and what it says to discard,
   with the page. These fields are optional: records saved before they were added still open, with them shown as not entered.
+- **Print and Dropping Gauges** (足跡・糞の実寸ゲージ): prints real-size gauges of the print and dropping sizes public sources give:
+  the Ministry of Agriculture's mesocarnivore manual (raccoon, masked palm civet, raccoon dog, badger), Yamaguchi Prefecture's
+  measurements of 144 Asian black bears (means), Toyota City and Ishikawa Prefecture's Hakusan centre (bear, raccoon dog and deer
+  droppings) and, marked as university material, the University of Tsukuba's tracking booklet (fox, hare, boar). Prints are boxes
+  of length by width, a length alone is a dashed bar, and droppings are circles of their width; the source's words are shown for
+  each. No source gave a sika deer print or any macaque size, so none is drawn, and the badger's figures differ between the
+  ministry's manuals, which the page notes. The chosen gauges flow over A4 pages with a 100 mm check line on each.
+- **Village Attractant Check** (集落点検・誘引物チェック): inspects a village for what draws animals in. The items are 5-16 to 5-18
+  of the village inspection form of the Ministry of Internal Affairs (the bear items added on 3 July 2026), table 1 of the Ministry
+  of Agriculture's wildlife damage checklist (cover on riverbanks, abandoned fields, unpicked persimmons, crop residue, bamboo shoots,
+  rice regrowth, unstaffed stalls, rubbish points, pet food, kitchen gardens, grave offerings) and the attractants in the Ministry
+  of the Environment's bear manual (hives, compost, things stored outdoors), each quoting its source. Each item is found, none or
+  not checked, with a note. Inspections are saved by date on the device and compared with the one before (new, resolved, still
+  there); saving clears the form for the next one. The sheet prints blank for use on site, or filled in.
+- **Deer Density Estimate** (シカの生息密度の推定): deer per km² by three published methods. The random encounter model uses
+  eqn 4 of Rowcliffe et al. (2008), D = (y/t)·π/(v·r·(2+θ))·g, from independent passes per camera-day, day range, detection radius
+  and angle, and mean group size; the defaults of 7.4 km/day, 18.1 m and 57° come from a Gunma Prefecture sika deer study.
+  The pellet method with a measured loss uses the Taylor and Williams formula as written in Nagano Prefecture's management plan,
+  with its pellets per deer per day (1,385 in January to March, 1,521 in October to December, Horino and Nomiya 2008).
+  FUNRYU follows eqs (2), (5) and (9) of Iwamoto et al. (2000): monthly loss from temperature and pellet age, traced back 100 months,
+  with the monthly pellet counts of its appendix, and reproduces that appendix's worked example. The authors limit FUNRYU to forests on
+  the Kyushu mainland for now, which the page states; a month below about −4.1 °C gives a negative loss and is refused.
+- **Capture Photos and Payments** (捕獲確認の写真と報償金): a checklist of what the Ministry of Agriculture's capture confirmation
+  manual (revised 1 April 2025) asks the photos to show when a capture is confirmed from documents: the oil-based marking, the
+  animal with its feet down and head to the right, the hunter, the animal, the date and the marking in one photo, the permit or
+  certificate when captured alone, at least one of the extra anti-fraud measures, and the evidence (the tail, or both legs of a bird).
+  The programme (usually the municipality) decides the details, and the page says its instructions take precedence.
+  The board of the manual's example (capture date, hunter's name, individual number) prints on A4 landscape, with a line to write on
+  for an item left blank; it holds a name, so it is not saved. A chosen JPEG's date taken and GPS position are read from its Exif
+  on the device, or reported as missing; they can be edited, so this is not proof. The board's lines can be drawn on a copy of the
+  photo, which has no metadata. The payment estimate adds the prefectural and municipal amounts the user enters to the national upper
+  limit per head in annex 4 of the FY2026 guideline of the wildlife damage grant (revised 7 April 2026, p.109). No national amount
+  for young animals is written there, so it is entered by hand, and the rule for areas under shipping restrictions is not included.
 - **Meat Yield Calculator** (肉の歩留まり計算): from a weight (whole animal, field-dressed or carcass), estimates the weight at each stage and the number of freezer packs.
   The only reference values are those in the Ministry of Agriculture's manuals (carcass 50 % for deer; usable meat about 20 % for deer and 30 % for wild boar);
   the rest are entered by the user. It does not judge whether meat is fit to eat.
@@ -534,6 +598,16 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   2026-09-24 are listed (14 prefectures so far); the others say they are not collected, and pages for a single year are marked.
   Schedules are not copied or watched: the user enters the exam, course or application dates they chose and exports them as an `.ics` file
   with reminders a week and a day before.
+  It links to the bear bell below.
+- **Bear Bell and Encounter Guide** (熊鈴と遭遇時の備え): rings a bell sound synthesised with Web Audio (three tones, no recordings)
+  at a fixed interval, optionally varied between 0.5 and 1.5 times it and in volume between 60 and 100 %, or with each step
+  detected from the motion sensor (iOS asks for permission). A timer can stop it, and the Screen Wake Lock API keeps the screen on
+  where the browser allows. The page states that a web page's sound can stop when the screen is locked or another app is shown:
+  iOS Safari interrupts the audio (MDN), and no browser guarantees otherwise. It also says that no effect on bears is promised.
+  A pre-trip checklist (kept until cleared), the staged actions for an encounter, the limits of a bell and the points on bear spray
+  quote the Ministry of the Environment (the six rules of 2026, the injury analysis of April 2026, the 2021 manual, the spray
+  requirements of August 2026), the government's public relations article of 10 September 2026, Akita Prefecture and the Consumer
+  Affairs Agency, checked on 2026-09-24. Where they differ, the newer material is followed.
 
 Records and settings are saved in the browser in use. They are not synced to other devices and are lost
 if the browser's site data is cleared. Where saving is not possible, the page says so.
@@ -564,7 +638,7 @@ if the browser's site data is cleared. Where saving is not possible, the page sa
   The cache is named after a version fixed at build time (`NEXT_PUBLIC_LABS_OFFLINE_VERSION`: the Vercel deployment, or the build time).
   A new version installs by fetching again every page the previous one kept, takes over at once, and deletes the older cache;
   if that fetch fails, the previous version stays in use. The species identification test asks for all its photos to be kept.
-- **Photos** can be attached to a record (so far, each outing in the hunting log): up to 10 per record, scaled to 1600 px on the
+- **Photos** can be attached to a record (each outing in the hunting log, each round in the trap check log, and each animal in the game meat record, up to 4 there for the printed sheet): up to 10 per record, scaled to 1600 px on the
   longer side and re-encoded as JPEG, which drops the location a phone writes into a photo. They are kept in IndexedDB
   and deleted with their record.
 - **Named settings** keep several sets of inputs under names beside a tool's own saved state (so far, bullets and barrels in twist rate and stability),

@@ -1,10 +1,23 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { LuClipboardCheck, LuTrash2 } from 'react-icons/lu';
+import { LuClipboardCheck, LuLocateFixed, LuTrash2 } from 'react-icons/lu';
 
+import { PhotoAttachments } from '@/components/labs/photo-attachments';
 import { Button, Card } from '@/components/ui';
-import { CHECK_RESULTS, TRAP_TEXT_MAX_LENGTH, type CheckResult, type Trap } from '@/lib/schemas/trap-check-log';
+import { savedAsShown } from '@/lib/persisted-store';
+import { preparePhoto } from '@/lib/photo-resize';
+import { PhotoOwnerDeletedError, addPhoto, deletePhotosOf, photoOwnerTicket } from '@/lib/photo-storage';
+import {
+  CHECK_RESULTS,
+  HEADS_MAX,
+  TRAP_NAME_MAX_LENGTH,
+  TRAP_TEXT_MAX_LENGTH,
+  isCatchResult,
+  type CheckResult,
+  type Trap,
+  type TrapCheck,
+} from '@/lib/schemas/trap-check-log';
 import {
   CHECK_RESULT_LABELS,
   TRAP_KIND_LABELS,
@@ -14,12 +27,15 @@ import {
   getTrapStatus,
   sortedChecks,
   toLocalDateTime,
+  validateCheckTime,
   type CheckTimeError,
 } from '@/lib/trap-check-log';
+import { trapStats } from '@/lib/trap-check-report';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/store';
 
-import { useTrapCheckLogStore } from './_store';
+import { TRAP_CHECK_LOG_STORAGE_KEY, useTrapCheckLogStore } from './_store';
+import { positionErrorText, readPosition, type PositionError, type ReadPosition } from './read-position';
 
 export const fieldClass =
   'block min-h-12 w-full rounded-lg border border-outline bg-background p-3 text-on-surface aria-[invalid=true]:border-destructive';
@@ -44,9 +60,20 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
   const [result, setResult] = useState<CheckResult>('nothing');
   const [note, setNote] = useState('');
   const [atError, setAtError] = useState<CheckTimeError | null>(null);
+  const [heads, setHeads] = useState('1');
+  const [species, setSpecies] = useState('');
+  const [position, setPosition] = useState<ReadPosition | null>(null);
+  const [positionState, setPositionState] = useState<'idle' | 'reading' | PositionError>('idle');
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
   const status = getTrapStatus(trap, intervalHours, nowMs);
   const checks = sortedChecks(trap);
+  const stats = trapStats(trap, nowMs);
   const name = trap.name;
+  const number = (value: number, digits = 1) =>
+    new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(value);
+  const headsValue = Number(heads);
+  const headsValid = /^\d+$/.test(heads.trim()) && headsValue >= 1 && headsValue <= HEADS_MAX;
 
   const startRecord = () => {
     setAt('');
@@ -54,12 +81,48 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
     setResult('nothing');
     setNote('');
     setAtError(null);
+    setHeads('1');
+    setSpecies('');
+    setPosition(null);
+    setPositionState('idle');
+    setPhoto(null);
     setOpen(true);
   };
 
-  const saveCheck = () => {
+  const takePosition = () => {
+    setPositionState('reading');
+    readPosition().then(
+      (read) => {
+        setPosition(read);
+        setPositionState('idle');
+      },
+      (error: PositionError) => setPositionState(error),
+    );
+  };
+
+  const saveCheck = async () => {
     const when = atEdited ? at : currentLocalMinute();
-    const outcome = addCheck(trap.id, { at: when, result, note: note.trim() });
+    const timeError = validateCheckTime(trap, when);
+    if (timeError) {
+      setAtError(timeError);
+      document.getElementById(`${formId}-at`)?.focus();
+      return;
+    }
+    const counted = isCatchResult(result);
+    if (counted && !headsValid) {
+      document.getElementById(`${formId}-heads`)?.focus();
+      return;
+    }
+    const id = crypto.randomUUID();
+    const entry: Omit<TrapCheck, 'id'> = {
+      at: when,
+      result,
+      note: note.trim(),
+      ...(counted ? { heads: headsValue } : {}),
+      ...(counted && species.trim() ? { species: species.trim() } : {}),
+      ...(position ?? {}),
+    };
+    const outcome = addCheck(trap.id, entry, id);
     if (outcome === 'invalid' || outcome === 'beforeInstalled') {
       setAtError(outcome);
       document.getElementById(`${formId}-at`)?.focus();
@@ -73,13 +136,59 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
       });
       return;
     }
+    // The photo is kept once the round is: it belongs to the round, as every Labs photo belongs to a record.
+    // The ticket is taken now, before the photo is scaled down: a round, trap or log deleted meanwhile
+    // takes the photo with it rather than getting it back afterwards.
+    let photoFailed = false;
+    if (photo) {
+      // Asked for at once, so a deletion of the round asked for after this is counted after it.
+      const ticketing = photoOwnerTicket('trap-check-log', id, TRAP_CHECK_LOG_STORAGE_KEY);
+      setSaving(true);
+      try {
+        const ticket = await ticketing;
+        const prepared = await preparePhoto(photo);
+        if (!prepared) throw new Error('The photo could not be read');
+        await addPhoto(
+          {
+            id: crypto.randomUUID(),
+            tool: 'trap-check-log',
+            ownerId: id,
+            type: 'image/jpeg',
+            ...prepared,
+            addedAt: new Date().toISOString(),
+          },
+          ticket,
+        );
+      } catch (error) {
+        // A round deleted meanwhile was meant to go with its photo; that is not a failure to report.
+        if (!(error instanceof PhotoOwnerDeletedError)) photoFailed = true;
+      }
+      setSaving(false);
+    }
     setOpen(false);
-    onNotice({
-      error: false,
-      ja: `「${name}」の見回りを ${formatLocalDateTime(when)} で記録しました。`,
-      en: `Recorded a round of “${name}” at ${formatLocalDateTime(when)}.`,
-    });
+    onNotice(
+      photoFailed
+        ? {
+            error: true,
+            ja: `「${name}」の見回りを ${formatLocalDateTime(when)} で記録しました。写真はこのブラウザーに保存できませんでした。`,
+            en: `Recorded a round of “${name}” at ${formatLocalDateTime(when)}. The photo could not be saved in this browser.`,
+          }
+        : {
+            error: false,
+            ja: `「${name}」の見回りを ${formatLocalDateTime(when)} で記録しました。`,
+            en: `Recorded a round of “${name}” at ${formatLocalDateTime(when)}.`,
+          },
+    );
   };
+
+  const statsLine = t(
+    `設置 ${number(stats.trapDays)} 日・見回り ${stats.rounds} 回・捕獲 ${stats.heads} 頭・錯誤捕獲 ${stats.bycatchHeads} 頭${
+      stats.headsPer100TrapDays === null ? '' : `・100 わな日あたり ${number(stats.headsPer100TrapDays)} 頭`
+    }${stats.uncountedRounds > 0 ? `（頭数未記録の見回り ${stats.uncountedRounds} 回を除く）` : ''}`,
+    `Set ${number(stats.trapDays)} days, ${stats.rounds} rounds, ${stats.heads} caught, ${stats.bycatchHeads} non-target${
+      stats.headsPer100TrapDays === null ? '' : `, ${number(stats.headsPer100TrapDays)} per 100 trap-days`
+    }${stats.uncountedRounds > 0 ? ` (leaving out ${stats.uncountedRounds} rounds with no count)` : ''}`,
+  );
 
   const statusLine = () => {
     switch (status.state) {
@@ -106,8 +215,8 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
             : status.since === 'installed'
               ? t('設置から（見回り記録なし）', 'since setting (no round yet)')
               : t(
-                  '設置から（見回りの記録がすべて設置日時より前のため数えていません。日時を確認してください）',
-                  'since setting (all rounds are dated before the setting time and not counted; check the times)',
+                  '設置から（見回りの日時がすべて設置より前のため数えていません）',
+                  'since setting (every round is dated before the setting time and not counted)',
                 );
         const due =
           status.state === 'overdue'
@@ -150,6 +259,7 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
           {trap.latitude !== null && trap.longitude !== null && (
             <span className="ml-2 tabular-nums">
               ({trap.latitude}, {trap.longitude})
+              {trap.accuracyM !== undefined && t(` 誤差 ±${trap.accuracyM} m`, ` ±${trap.accuracyM} m`)}
             </span>
           )}
         </p>
@@ -158,6 +268,7 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
         {status.state === 'overdue' && <span className="mr-1">{t('【間隔超過】', '[Overdue]')}</span>}
         {statusLine()}
       </p>
+      <p className="text-xs text-on-surface-variant">{statsLine}</p>
 
       {trap.removedAt === null && !open && (
         <div className="flex flex-wrap gap-2">
@@ -237,6 +348,49 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
               </select>
             </div>
           </div>
+          {isCatchResult(result) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor={`${formId}-heads`} className="block text-sm font-medium">
+                  {t('頭数', 'Head')}
+                </label>
+                <input
+                  id={`${formId}-heads`}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={HEADS_MAX}
+                  step={1}
+                  value={heads}
+                  onChange={(event) => setHeads(event.target.value)}
+                  aria-invalid={!headsValid}
+                  aria-describedby={headsValid ? undefined : `${formId}-heads-error`}
+                  className={fieldClass}
+                />
+                {!headsValid && (
+                  <p id={`${formId}-heads-error`} className="text-sm text-destructive">
+                    {t(
+                      `1 から ${HEADS_MAX} までの整数で入力してください。`,
+                      `Enter a whole number from 1 to ${HEADS_MAX}.`,
+                    )}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label htmlFor={`${formId}-species`} className="block text-sm font-medium">
+                  {t('獣種（任意）', 'Species (optional)')}
+                </label>
+                <input
+                  id={`${formId}-species`}
+                  type="text"
+                  value={species}
+                  maxLength={TRAP_NAME_MAX_LENGTH}
+                  placeholder={t('例：ニホンジカ', 'e.g. Sika deer')}
+                  onChange={(event) => setSpecies(event.target.value)}
+                />
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label htmlFor={`${formId}-note`} className="block text-sm font-medium">
               {t('メモ（任意）', 'Note (optional)')}
@@ -249,8 +403,41 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
               onChange={(event) => setNote(event.target.value)}
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={takePosition} disabled={positionState === 'reading'}>
+              <LuLocateFixed aria-hidden="true" />
+              {positionState === 'reading'
+                ? t('現在地を取得中…', 'Reading position…')
+                : t('現在地を記録（任意）', 'Record position (optional)')}
+            </Button>
+            <p className="text-sm text-on-surface-variant" role="status">
+              {position
+                ? t(
+                    `${position.latitude}, ${position.longitude}（誤差 ±${position.accuracyM} m）`,
+                    `${position.latitude}, ${position.longitude} (±${position.accuracyM} m)`,
+                  )
+                : positionState !== 'idle' && positionState !== 'reading'
+                  ? positionErrorText(positionState, language)
+                  : ''}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor={`${formId}-photo`} className="block text-sm font-medium">
+              {t('写真（任意）', 'Photo (optional)')}
+            </label>
+            <input
+              id={`${formId}-photo`}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
+              className="block text-sm"
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={saveCheck}>{t('記録する', 'Save round')}</Button>
+            <Button onClick={() => void saveCheck()} disabled={saving}>
+              {t('記録する', 'Save round')}
+            </Button>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               {t('やめる', 'Cancel')}
             </Button>
@@ -270,11 +457,23 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
               .slice()
               .reverse()
               .map((check) => (
-                <li key={check.id} className="flex items-center justify-between gap-2 py-2">
+                <li key={check.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span className="min-w-0">
                     <span className="tabular-nums">{formatLocalDateTime(check.at)}</span>
                     <span className="ml-2">{CHECK_RESULT_LABELS[check.result][language]}</span>
+                    {check.heads !== undefined && (
+                      <span className="ml-2">
+                        {check.species ? `${check.species} ` : ''}
+                        {t(`${check.heads} 頭`, `${check.heads} head`)}
+                      </span>
+                    )}
                     {check.note && <span className="ml-2 break-words text-on-surface-variant">{check.note}</span>}
+                    {check.latitude !== undefined && (
+                      <span className="ml-2 text-on-surface-variant tabular-nums">
+                        ({check.latitude}, {check.longitude}
+                        {check.accuracyM !== undefined && ` ±${check.accuracyM} m`})
+                      </span>
+                    )}
                   </span>
                   <Button
                     variant="ghost"
@@ -286,11 +485,40 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
                     onClick={() => {
                       if (!window.confirm(t('この見回りの記録を削除しますか？', 'Delete this round?'))) return;
                       deleteCheck(trap.id, check.id);
-                      onNotice({ error: false, ja: '見回りの記録を削除しました。', en: 'Deleted the round.' });
+                      // The round's photos go with it, once its removal is on disk (see savedAsShown).
+                      if (!savedAsShown(useTrapCheckLogStore)) {
+                        onNotice({
+                          error: true,
+                          ja: '見回りの記録を削除できなかった可能性があります。写真は残しています。',
+                          en: 'The round may not have been deleted. Its photos are kept.',
+                        });
+                        return;
+                      }
+                      deletePhotosOf('trap-check-log', check.id).then(
+                        () => onNotice({ error: false, ja: '見回りの記録を削除しました。', en: 'Deleted the round.' }),
+                        () =>
+                          onNotice({
+                            error: true,
+                            ja: '見回りの記録を削除しましたが、写真を削除できませんでした。',
+                            en: 'Deleted the round, but its photos could not be deleted.',
+                          }),
+                      );
                     }}
                   >
                     <LuTrash2 aria-hidden="true" />
                   </Button>
+                  <div className="basis-full">
+                    <PhotoAttachments
+                      language={language}
+                      tool="trap-check-log"
+                      ownerId={check.id}
+                      savedIn={TRAP_CHECK_LOG_STORAGE_KEY}
+                      ownerLabel={t(
+                        `${formatLocalDateTime(check.at)} の見回り`,
+                        `the round at ${formatLocalDateTime(check.at)}`,
+                      )}
+                    />
+                  </div>
                 </li>
               ))}
           </ul>
@@ -310,7 +538,22 @@ export function TrapCard({ trap, intervalHours, nowMs, language, onNotice }: Tra
           )
             return;
           deleteTrap(trap.id);
+          if (!savedAsShown(useTrapCheckLogStore)) {
+            onNotice({
+              error: true,
+              ja: `「${name}」を削除できなかった可能性があります。写真は残しています。`,
+              en: `“${name}” may not have been deleted. Its photos are kept.`,
+            });
+            return;
+          }
           onNotice({ error: false, ja: `「${name}」を削除しました。`, en: `Deleted “${name}”.` });
+          Promise.all(trap.checks.map((check) => deletePhotosOf('trap-check-log', check.id))).catch(() =>
+            onNotice({
+              error: true,
+              ja: `「${name}」を削除しましたが、写真を削除できませんでした。`,
+              en: `Deleted “${name}”, but its photos could not be deleted.`,
+            }),
+          );
         }}
       >
         <LuTrash2 aria-hidden="true" />

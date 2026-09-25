@@ -1,8 +1,10 @@
 /*
  * The tag is printed by the browser instead of the shared PDF writer: the items
  * are Japanese text, and lib/home-target-pdf.ts writes Helvetica glyphs only.
+ * A two-sided tag and a CSV of several people run over several sheets, so each
+ * sheet is its own A4 page, as with the tall target.
  */
-.sheet {
+.sheets {
   display: none;
 }
 
@@ -12,16 +14,25 @@
     margin: 0;
   }
 
-  /* The app layout adds padding, so the sheet is pinned to the paper corner and
-     keeps its millimetre sizes on a single page. */
-  .sheet {
+  /* The app layout adds padding, so the sheets are taken out of it and start at the paper corner. */
+  .sheets {
     display: block;
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 210mm;
+    background: #fff;
+  }
+
+  .page {
+    display: block;
+    width: 210mm;
     height: 297mm;
     overflow: hidden;
-    background: #fff;
+    break-after: page;
+  }
+
+  .page:last-child {
+    break-after: auto;
   }
 }

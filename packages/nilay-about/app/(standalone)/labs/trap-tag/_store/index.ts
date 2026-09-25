@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
-import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
+import { browserStorage, readStoredText, reportDiscardedSave } from '@/lib/browser-storage';
 import {
   emptyTrapTagDraft,
   trapTagDraftSchema,
@@ -11,6 +11,7 @@ import {
   type TrapTagFieldKey,
   type TrapTagPurpose,
 } from '@/lib/schemas/trap-tag';
+import { TRAP_TAG_FIELDS } from '@/lib/schemas/trap-tag';
 import { normalizeCharSizeMm, normalizeCopies, type TrapTagCharSizeMm, type TrapTagCopies } from '@/lib/trap-tag';
 
 // Only the offered options are accepted, so a saved session holding anything else
@@ -26,6 +27,10 @@ const savedSchema = z.object({
   copies: savedCopiesSchema,
   remember: z.boolean(),
   fields: trapTagDraftSchema.optional(),
+  // Added on 2026-09-24. A session saved before then printed every item on one side, which is what
+  // their absence means.
+  blanks: z.array(z.enum(TRAP_TAG_FIELDS.combined)).optional(),
+  twoSided: z.boolean().optional(),
 });
 type SavedState = z.infer<typeof savedSchema>;
 
@@ -35,11 +40,17 @@ interface TrapTagStore {
   copies: TrapTagCopies;
   remember: boolean;
   fields: TrapTagDraft;
+  /** Items printed as empty boxes, to be written by hand. */
+  blanks: TrapTagFieldKey[];
+  /** Species on the back, for a permit or combined tag. */
+  twoSided: boolean;
   setPurpose: (purpose: TrapTagPurpose) => void;
   setCharSizeMm: (charSizeMm: TrapTagCharSizeMm) => void;
   setCopies: (copies: TrapTagCopies) => void;
   setRemember: (remember: boolean) => void;
   setField: (field: TrapTagFieldKey, value: string) => void;
+  toggleBlank: (field: TrapTagFieldKey) => void;
+  setTwoSided: (twoSided: boolean) => void;
   clearSaved: () => boolean;
 }
 
@@ -49,6 +60,8 @@ export const initialTrapTagState = {
   copies: 1 as TrapTagCopies,
   remember: false,
   fields: emptyTrapTagDraft,
+  blanks: [] as TrapTagFieldKey[],
+  twoSided: false,
 };
 
 export const TRAP_TAG_STORAGE_KEY = 'nilay-labs-trap-tag-v1';
@@ -76,16 +89,17 @@ export const useTrapTagStore = create<TrapTagStore>()(
       setCopies: (copies) => set({ copies: normalizeCopies(copies) }),
       setRemember: (remember) => set({ remember }),
       setField: (field, value) => set((state) => ({ fields: { ...state.fields, [field]: value } })),
+      toggleBlank: (field) =>
+        set((state) => ({
+          blanks: state.blanks.includes(field) ? state.blanks.filter((key) => key !== field) : [...state.blanks, field],
+        })),
+      setTwoSided: (twoSided) => set({ twoSided }),
       clearSaved: () => {
         set({ remember: false, fields: { ...emptyTrapTagDraft } });
         void useTrapTagStore.persist.clearStorage();
         // The write above can fail on its own, and the shared status flag follows the last write
         // rather than this removal, so the removal is checked here and answers for itself.
-        try {
-          return window.localStorage.getItem(TRAP_TAG_STORAGE_KEY) === null;
-        } catch {
-          return false;
-        }
+        return readStoredText(TRAP_TAG_STORAGE_KEY) === null;
       },
     }),
     {
@@ -97,6 +111,8 @@ export const useTrapTagStore = create<TrapTagStore>()(
         charSizeMm: state.charSizeMm,
         copies: state.copies,
         remember: state.remember,
+        blanks: state.blanks,
+        twoSided: state.twoSided,
         // The tag carries a home address and a name, so the input is written to
         // this device only while the person asks for it.
         ...(state.remember ? { fields: state.fields } : {}),
@@ -117,6 +133,8 @@ export const useTrapTagStore = create<TrapTagStore>()(
           copies: parsed.data.copies,
           remember: parsed.data.remember,
           fields: parsed.data.remember && parsed.data.fields ? parsed.data.fields : current.fields,
+          blanks: parsed.data.blanks ?? [],
+          twoSided: parsed.data.twoSided ?? false,
         };
       },
     },

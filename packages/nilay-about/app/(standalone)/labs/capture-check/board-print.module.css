@@ -1,0 +1,22 @@
+/* The board prints from the browser: its items are Japanese text, which the shared PDF writer cannot set. */
+.sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  .sheet {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 297mm;
+    height: 210mm;
+    overflow: hidden;
+    background: #fff;
+  }
+}
