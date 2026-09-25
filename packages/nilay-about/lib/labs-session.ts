@@ -39,6 +39,8 @@ let leaving: Promise<unknown> = Promise.resolve();
 let waiting: AbortController | null = null;
 /** Set while the session settles an interrupted restore, whose own reads and writes must not wait on it. */
 let settling = false;
+/** Aborted when the tab moves to the data page, with every wait of the tool session tied to it. */
+let toolSession = new AbortController();
 
 const locks = () => (typeof navigator === 'undefined' ? undefined : navigator.locks);
 
@@ -167,6 +169,14 @@ export async function writesSettled(): Promise<void> {
   while (pendingWrites.size > 0) await Promise.allSettled([...pendingWrites]);
 }
 
+/**
+ * The signal of this tab's tool session: aborted once the tab moves to the data page (and already
+ * aborted there), so a wait begun by a tool screen is given up rather than granted after the move.
+ */
+export function toolSessionSignal(): AbortSignal {
+  return toolSession.signal;
+}
+
 /** Thrown by a write refused while a restore cut short waits for the data page. */
 export class LabsReadOnlyError extends Error {
   constructor() {
@@ -185,6 +195,7 @@ export function enterDataPage(): () => void {
   mode = 'data';
   waiting?.abort();
   waiting = null;
+  toolSession.abort();
   // A write the tool screen had under way lands before the lock goes, so a restore or an export that
   // takes the lock after it finds the device as that write left it.
   const giveUp = release;
@@ -198,6 +209,7 @@ export function enterDataPage(): () => void {
   opened = false;
   return () => {
     mode = 'tool';
+    toolSession = new AbortController();
   };
 }
 

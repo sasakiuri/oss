@@ -6,6 +6,7 @@ import { PHOTOS_PER_RECORD_MAX } from '@/lib/schemas/photos';
 import { useStudyLogStore } from '@/store/study-log';
 
 import { useAmmoPlanStore } from '../ammo-purchase-plan/_store';
+import { BEAR_ALERTS_STORAGE_KEY } from '../bear-alerts/_store';
 import { useBearBellStore } from '../bear-bell/_store';
 import { useBearStatsStore } from '../bear-stats/_store';
 import { useCaptureCheckStore } from '../capture-check/_store';
@@ -13,11 +14,13 @@ import { useClayScoreStore } from '../clay-score/_store';
 import { useClickVerificationStore } from '../click-verification/_store';
 import { useCoordinateConvertStore } from '../coordinate-convert/_store';
 import { useCourseSchedulesStore } from '../course-schedules/_store';
+import { COURSE_WATCH_STORAGE_KEY } from '../course-watch/_store';
 import { useCureMixStore } from '../cure-mix/_store';
 import { useDeerDensityStore } from '../deer-density/_store';
 import { useDriveHuntStore } from '../drive-hunt/_store';
 import { useElectricFenceStore } from '../electric-fence/_store';
 import { usePowerStore } from '../electric-fence/_store/power';
+import { EVENT_RESULTS_STORAGE_KEY } from '../event-results/_store';
 import { useFreezerStore } from '../freezer-stock/_store';
 import { useGameSpeciesStore } from '../game-species-test/_store';
 import { useGibierRecordStore } from '../gibier-record/_store';
@@ -30,6 +33,7 @@ import { useHuntingSeasonsStore } from '../hunting-seasons/_store';
 import { useLawQuizStore } from '../law-quiz/_store';
 import { useLicenseExamStore } from '../license-exam/_store';
 import { useLoadDevelopmentStore } from '../load-development/_store';
+import { LOCATION_SHARE_STORAGE_KEY } from '../location-share/_store';
 import { useMatchTimerStore } from '../match-timer/_store';
 import { useMaxRangeStore } from '../max-range/_store';
 import { useMeatYieldStore } from '../meat-yield/_store';
@@ -37,6 +41,7 @@ import { usePcpFillStore } from '../pcp-fill/_store';
 import { usePermitDeadlinesStore } from '../permit-deadlines/_store';
 import { useRecoilStore } from '../recoil/_store';
 import { useReticleRangingStore } from '../reticle-ranging/_store';
+import { RETURN_ALERT_STORAGE_KEY } from '../return-alert/_store';
 import { useShotDangerStore } from '../shot-danger/_store';
 import { useShotGroupStore } from '../shot-group/_store';
 import { useShotPatternStore } from '../shot-pattern/_store';
@@ -51,6 +56,7 @@ import { useTraceGaugeStore } from '../trace-gauge/_store';
 import { useTrailCameraStore } from '../trail-camera/_store';
 import { useTrajectoryStore } from '../trajectory/_store';
 import { useTruingStore } from '../trajectory-truing/_store';
+import { TRAP_ALERTS_STORAGE_KEY } from '../trap-alerts/_store';
 import { useTrapCheckLogStore } from '../trap-check-log/_store';
 import { useTrapTagStore } from '../trap-tag/_store';
 import { useTripPlanStore } from '../trip-plan/_store';
@@ -143,6 +149,23 @@ export const savedDataEntries: readonly SavedDataEntry[] = [
     title: { ja: '学習の記録（学習した日・試験日）', en: 'Study record (days studied, exam date)' },
     store: useStudyLogStore,
   },
+];
+
+/**
+ * The stores Labs keeps in localStorage that the backup leaves out on purpose. They describe
+ * registrations on the server that belong to this browser's push subscription, and several hold the
+ * keys that control them (a plan's owner key, a hook's trigger and manage keys, a room's member key).
+ * Restored in another browser they would claim registrations that browser does not have, and the
+ * backup file, which is not encrypted, would carry keys that let anyone holding it end a plan, send
+ * a hook's alert or read a room. They all expire on the server within days to weeks.
+ */
+export const unbackedStoreKeys: readonly string[] = [
+  BEAR_ALERTS_STORAGE_KEY,
+  COURSE_WATCH_STORAGE_KEY,
+  EVENT_RESULTS_STORAGE_KEY,
+  LOCATION_SHARE_STORAGE_KEY,
+  RETURN_ALERT_STORAGE_KEY,
+  TRAP_ALERTS_STORAGE_KEY,
 ];
 
 const byKey = new Map(savedDataEntries.map((entry) => [persistedKey(entry.store), entry]));

@@ -101,6 +101,16 @@ export function createLogger(baseContext: LogContext) {
 }
 
 /**
+ * The segment after these prefixes is a credential (a webhook token) or a capability id (a room or
+ * a results page); it is replaced before the path is logged.
+ */
+const SECRET_PATH = /^(\/api\/labs\/(?:hooks|rooms|results))\/[^/]+/;
+
+export function redactPath(pathname: string): string {
+  return pathname.replace(SECRET_PATH, '$1/[id]');
+}
+
+/**
  * Log and rethrow an error (useful in catch blocks)
  */
 export function getRequestContext(request: Request): LogContext {
@@ -110,7 +120,7 @@ export function getRequestContext(request: Request): LogContext {
   return {
     requestId: headers.get('x-request-id') ?? headers.get('x-vercel-id') ?? crypto.randomUUID(),
     method: request.method,
-    path: url.pathname,
+    path: redactPath(url.pathname),
     queryKeys: [...new Set(url.searchParams.keys())],
     userAgent: headers.get('user-agent') ?? undefined,
     ip: getClientIp(request),

@@ -86,6 +86,17 @@ export const labsTools = [
       '狩猟免許試験・猟銃等講習会・技能講習の公式の日程案内ページを都道府県ごとにまとめたリンク集。申込日や受講日を入力すると、カレンダーに取り込める .ics ファイルを作ります。',
   },
   {
+    slug: 'course-watch',
+    category: 'study',
+    title: { ja: '講習会ページの更新通知', en: 'Course Page Watch' },
+    summary: {
+      ja: '警察の猟銃等講習会の日程ページが更新されたら、スマートフォンに通知します。',
+      en: 'Get a notification when a police firearms course schedule page changes.',
+    },
+    description:
+      '警視庁・埼玉県警察の猟銃等講習会（初心者講習など）の日程ページを 1 日 2 回確認し、内容が変わったら Web Push で通知します。日程は元のページへのリンクで確認します。',
+  },
+  {
     slug: 'home-target',
     category: 'sighting',
     title: { ja: '練習用標的の作成', en: 'Practice Target Maker' },
@@ -362,6 +373,17 @@ export const labsTools = [
       '散弾銃のガンフィット用。引き長・コム落差・ヒール落差・キャストを記録して A4 の寸法シートに印刷し、両手の穴で見る方法で利き目（優位眼）を確かめます。',
   },
   {
+    slug: 'event-results',
+    category: 'shotgun',
+    title: { ja: '大会リザルトの公開', en: 'Match Results Page' },
+    summary: {
+      ja: '表計算ソフトの成績表を貼り付け、期限つきの共有ページを作ります。',
+      en: 'Paste results from a spreadsheet to create a page with an expiry date.',
+    },
+    description:
+      'クレー射撃などの大会の成績表を表計算ソフトから貼り付け、リンクで共有できる公開ページを作ります。主催者の合言葉で修正・削除でき、7・30・90 日の期限で自動的に削除されます。',
+  },
+  {
     slug: 'hunting-hours',
     category: 'field',
     title: { ja: '銃猟可能時間', en: 'Legal Shooting Hours' },
@@ -494,6 +516,28 @@ export const labsTools = [
       '緯度経度（10 進・度分秒）、UTM、MGRS、平面直角座標系（I〜XIX 系）、地域メッシュコード（1 次〜8 分の 1、5 倍・2 倍）を相互に変換し、国土地理院の地図で位置を確かめられます。',
   },
   {
+    slug: 'return-alert',
+    category: 'field',
+    title: { ja: '帰着予定の見守り', en: 'Return Check' },
+    summary: {
+      ja: '帰着予定を過ぎても帰着の報告がない場合に、家族や同行者に通知します。',
+      en: 'Notify family or companions if you have not checked in by your planned return time.',
+    },
+    description:
+      '出猟・入山の前に帰着予定と行き先のメモを登録し、見守り用リンクを家族や同行者に渡します。予定時刻を過ぎても「帰着した」が押されなければ、本人と見守りの端末に Web Push で通知します。',
+  },
+  {
+    slug: 'location-share',
+    category: 'field',
+    title: { ja: '位置の共有（巻き狩り）', en: 'Party Location Sharing' },
+    summary: {
+      ja: '合言葉で参加するルーム内で、巻き狩りの参加者の現在地を共有します。',
+      en: 'Share participants’ locations in a passphrase-protected room during a drive hunt.',
+    },
+    description:
+      '巻き狩りなどで、勢子と射手の現在地を合言葉つきの一時的なルームで共有し、互いの距離と方角を表示します。保存するのは各参加者の最新の位置だけで、ルームは最長 24 時間で自動的に削除されます。',
+  },
+  {
     slug: 'trap-tag',
     category: 'traps',
     title: { ja: 'わな・網の標識', en: 'Trap and Net Tags' },
@@ -537,6 +581,17 @@ export const labsTools = [
     },
     description:
       'くくりわな・箱わなの設置場所に掲げる「わな設置中」の注意看板を、対象の鳥獣・期間・設置者・連絡先を入れて A4・A3 で印刷します。英語の行も加えられます。',
+  },
+  {
+    slug: 'trap-alerts',
+    category: 'traps',
+    title: { ja: 'わな・電気柵の遠隔通知', en: 'Trap and Fence Alerts' },
+    summary: {
+      ja: 'センサーからの信号を受け取る URL を発行し、端末に通知します。',
+      en: 'Create a URL for sensor signals and receive notifications on your device.',
+    },
+    description:
+      'わなの作動センサーや電気柵の監視装置、IFTTT などの自動化サービスから POST できる通知用 URL（Webhook）を発行し、受信したら登録した端末に Web Push で通知します。',
   },
   {
     slug: 'electric-fence',
@@ -614,6 +669,17 @@ export const labsTools = [
     },
     description:
       '有害鳥獣の捕獲確認（証拠写真）の準備に。農林水産省の捕獲確認マニュアル（令和7年4月）に沿った撮影チェック、標示板（捕獲日・従事者氏名・個体番号）の印刷、写真の撮影日時と位置の確認、国の上限単価と市町村の上乗せによる報償金の試算ができます。',
+  },
+  {
+    slug: 'bear-alerts',
+    category: 'damage',
+    title: { ja: 'クマ出没の通知', en: 'Bear Sighting Alerts' },
+    summary: {
+      ja: '秋田県の公開データに、指定地点付近の新しいクマ出没情報が載ると通知します。',
+      en: 'Get alerts for new bear sightings near a chosen location in Akita’s published data.',
+    },
+    description:
+      '秋田県が CC BY 4.0 で公開するクマ出没情報（クマダス）のオープンデータを 3 時間ごとに確認し、登録した地点から 1〜20 km の範囲に新しい出没が載ったら Web Push で通知します。',
   },
   {
     slug: 'gibier-record',
