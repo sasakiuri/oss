@@ -16,7 +16,9 @@ function buildCSPHeader(request: NextRequest): string {
   const directives = [
     "default-src 'self'",
     // 'unsafe-inline' is required for Next.js hydration scripts
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
+    // 'wasm-unsafe-eval' lets the page compile WebAssembly, which /labs/photo-measure needs to run its
+    // outline model on the device. It allows WebAssembly only, not JavaScript eval.
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com",
     "style-src 'self' 'unsafe-inline'", // Tailwind requires unsafe-inline
     // cyberjapandata.gsi.go.jp serves the GSI map tiles the Labs field tools show (地理院タイル).
     "img-src 'self' blob: data: https://cdn.nilay.jp https://www.irasutoya.com https://images.microcms-assets.io https://cyberjapandata.gsi.go.jp",
@@ -25,7 +27,8 @@ function buildCSPHeader(request: NextRequest): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://gunman.nilay.jp wss://*.firebaseio.com",
+    // huggingface.co and its CDN (*.hf.co) serve the outline model /labs/photo-measure fetches on request.
+    "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://gunman.nilay.jp wss://*.firebaseio.com https://huggingface.co https://*.hf.co",
   ];
 
   // WebKit upgrades loopback assets too, which breaks the local HTTP server.

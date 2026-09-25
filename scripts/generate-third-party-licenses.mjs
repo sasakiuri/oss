@@ -357,26 +357,7 @@ const generateForApplication = async (appDirectory) => {
     dependencyPaths,
     appPackageJsonPath,
   );
-  // Files that do not come from npm, such as a machine-learning model served
-  // from `public/`, carry their notices in `third-party-assets.txt` beside the
-  // package manifest. It is appended as written, so the report stays complete.
-  let assetNotices = null;
-  try {
-    assetNotices = normalizeText(
-      await readFile(join(appDirectory, "third-party-assets.txt"), "utf8"),
-    );
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
-  const report = assetNotices
-    ? `${formatReport(records, appPackage.name)}\n${[
-        "THIRD-PARTY FILES OTHER THAN NPM PACKAGES",
-        "",
-        "Copied from third-party-assets.txt.",
-        "",
-        assetNotices,
-      ].join("\n")}\n`
-    : formatReport(records, appPackage.name);
+  const report = formatReport(records, appPackage.name);
 
   if (checkOnly) {
     let currentReport;

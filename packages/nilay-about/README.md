@@ -635,6 +635,23 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   can be taken. Lengths on a photo are estimates. No trophy score is given: the CIC states that the content, structure and
   formulas of its measurement sheets are copyrighted and need its written approval to store in data processing systems, and
   B&C materials may not be reproduced without permission (checked 2026-09-24). The photo is neither saved nor sent.
+
+- **Body and Antler Photo Measure** (写真で体長・角を測る): on a photo with a ruler or another object of known length beside the animal,
+  place reference points A and B on its ends and enter its length; the scale is that length over the pixels between them.
+  Body length is traced from the snout to the anus, and each antler as its own path from base to tip; each is the sum of the straight segments.
+  The photo and the points stay in the page; only the reference length and the animal chosen are saved.
+  An optional outline runs SlimSAM-77 (a slimmed Segment Anything) with ONNX Runtime Web in a Web Worker, on WebGPU where the browser has it
+  and on WebAssembly otherwise, and the page says which. Taps on the animal (and on parts to leave out) prompt it. The model (13.8 MB) and
+  the runtime (26.8 MB) are fetched only after the reader presses the button that states their size: the model from Hugging Face at a pinned revision, the runtime from this site.
+  The model files are checked against their SHA-256 and kept in Cache Storage; they can be deleted from the page. The photo is not sent anywhere.
+  From the outline the page gives its length along the principal axis, which can be used as the body points; it is not a body length itself.
+  For wild boar the weight is estimated from the head and body length with the regressions of Abe (1986, Journal of the Mammalogical Society of Japan 11(3-4): 147–154,
+  [doi:10.11238/jmammsocjapan1952.11.147](https://doi.org/10.11238/jmammsocjapan1952.11.147), checked 2026-09-24):
+  log W = 3.38 log L − 5.34 (males) and 3.35 log L − 5.30 (females), W in kg without the chest and abdominal organs, L in cm from the snout to the anus.
+  The range shown is one standard error of the estimate (0.06 and 0.05 on the log scale), and lengths outside those measured (60–151 cm, 60–135 cm) get no estimate.
+  No weight is given for sika deer, as no body length to weight relation could be confirmed in a primary source.
+  The page states the limits: the scale holds only in the plane of the reference, lens distortion, a general-purpose segmentation model,
+  antler lengths as projected, and the population and method behind the regression.
 - **Bear Incident Statistics** (クマの出没・被害統計): shows the Ministry of the Environment's figures for bear injuries, sightings and captures under permit
   (all preliminary), and emergency shootings, as tables and bar charts by year, prefecture and month.
   The figures are static data built from the material as of the date checked, and do not change when the ministry updates them.
@@ -912,5 +929,23 @@ They were downloaded with a User-Agent that names the project only.
 | `public/images/game-species/601_001.jpg` | ニホンカモシカ       | [Japanese serow (Capricornis crispus) ニホンカモシカ.jpg](<https://commons.wikimedia.org/wiki/File:Japanese_serow_(Capricornis_crispus)_%E3%83%8B%E3%83%9B%E3%83%B3%E3%82%AB%E3%83%A2%E3%82%B7%E3%82%AB.jpg>) | Ken Ishigaki                          | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
 | `public/images/game-species/602_001.jpg` | ニホンリス           | [Japanese Squirrel.jpg](https://commons.wikimedia.org/wiki/File:Japanese_Squirrel.jpg)                                                                                                                        | Ma2bara                               | Public domain                                                   |
 | `public/images/game-species/604_001.jpg` | ニホンザル           | [Macaca fuscata 166252187.jpg](https://commons.wikimedia.org/wiki/File:Macaca_fuscata_166252187.jpg)                                                                                                          | Mark Bolnik                           | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+
+The outline model in Body and Antler Photo Measure is the unmodified 8-bit ONNX export of SlimSAM-77, fetched by the browser
+published as [Xenova/slimsam-77-uniform](https://huggingface.co/Xenova/slimsam-77-uniform) (revision `5850ab45f587c112167512ffef949107115e26a0`),
+under the Apache License 2.0, as are [SlimSAM](https://github.com/czg1225/SlimSAM) and [Segment Anything](https://github.com/facebookresearch/segment-anything) (checked 2026-09-24).
+It is not part of this repository or the site's files.
+
+The browser AI models that were considered and not used, checked 2026-09-24:
+
+| Model                                                                                                   | Licence                                                                                                                                                                                                   | Why it is not used                                                                                  |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [MegaDetector](https://github.com/agentmorris/MegaDetector) v5 and v1000 (redwood, cedar, spruce)       | Code MIT; the [release notes](https://github.com/agentmorris/MegaDetector/blob/main/docs/release-notes/mdv1000-release.md) give the inference libraries as GPL, and PyTorch-Wildlife lists v5 as AGPL-3.0 | GPL or AGPL                                                                                         |
+| MegaDetector v1000 larch and sorrel, and the Ultralytics-based MegaDetector v6 models                   | AGPL-3.0                                                                                                                                                                                                  | AGPL                                                                                                |
+| [MegaDetector v6](https://github.com/microsoft/Biodiversity) MIT (YOLOv9) and Apache (RT-DETR) variants | MIT or Apache 2.0 in the model zoo; the [Zenodo record](https://zenodo.org/records/15398270) says CC BY 4.0                                                                                               | No published ONNX; checkpoints of 119–1,225 MB need converting and hosting outside the repository   |
+| [SpeciesNet](https://github.com/google/cameratrapai)                                                    | Apache 2.0 (code and weights)                                                                                                                                                                             | About 224–231 MB, too large for the repository; no Japanese macaque, serow or Japanese badger label |
+| [BirdNET](https://github.com/birdnet-team/BirdNET-Analyzer) v2.4                                        | Model CC BY-NC-SA 4.0                                                                                                                                                                                     | Non-commercial                                                                                      |
+| [BirdNET+ V3.0](https://zenodo.org/records/20703646) preview                                            | CC BY-SA 4.0 with use restrictions                                                                                                                                                                        | A preview for research and evaluation, with share-alike terms and use restrictions                  |
+| [Perch 2.0](https://www.kaggle.com/models/google/bird-vocalization-classifier)                          | Apache 2.0                                                                                                                                                                                                | About 410 MB, too large for the repository and for a browser download                               |
+| [EdgeSAM](https://github.com/chongzhou96/EdgeSAM)                                                       | NTU S-Lab License 1.0                                                                                                                                                                                     | Non-commercial                                                                                      |
 
 The licences of the dependencies are included in the [third-party notices](THIRD-PARTY-LICENSES.txt).

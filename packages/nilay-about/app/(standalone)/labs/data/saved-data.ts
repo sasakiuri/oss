@@ -39,6 +39,7 @@ import { useMaxRangeStore } from '../max-range/_store';
 import { useMeatYieldStore } from '../meat-yield/_store';
 import { usePcpFillStore } from '../pcp-fill/_store';
 import { usePermitDeadlinesStore } from '../permit-deadlines/_store';
+import { usePhotoMeasureStore } from '../photo-measure/_store';
 import { useRecoilStore } from '../recoil/_store';
 import { useReticleRangingStore } from '../reticle-ranging/_store';
 import { RETURN_ALERT_STORAGE_KEY } from '../return-alert/_store';
@@ -117,6 +118,7 @@ export const savedDataEntries: readonly SavedDataEntry[] = [
   { slug: 'meat-yield', part: 'main', store: useMeatYieldStore },
   { slug: 'pcp-fill', part: 'main', store: usePcpFillStore },
   { slug: 'permit-deadlines', part: 'main', store: usePermitDeadlinesStore },
+  { slug: 'photo-measure', part: 'main', store: usePhotoMeasureStore },
   { slug: 'recoil', part: 'main', store: useRecoilStore },
   { slug: 'reticle-ranging', part: 'main', store: useReticleRangingStore },
   { slug: 'shot-danger', part: 'main', store: useShotDangerStore },
