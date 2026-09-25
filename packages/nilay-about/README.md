@@ -24,7 +24,7 @@ Because the language is kept in the browser rather than in the URL:
 - `title`, `description` and the Open Graph values are generated on the server and stay in Japanese. Search results show the Japanese page.
 - News articles are stored in microCMS in Japanese only, so an article stays in Japanese when the site is in English.
   Only what surrounds it, such as headings and date formats, changes. Articles carry `lang="ja"`.
-- The law quiz, the trap and net tags and the game meat capture record deal with Japanese statutes and official forms,
+- The law quiz, the trap and net tags, the game meat capture record and the cartridge purchase plan deal with Japanese statutes and official forms,
   so they are in Japanese only. The Labs list says so.
 
 ## Labs
@@ -40,7 +40,7 @@ Until the browser has read what was saved, the tool is held inert and `aria-busy
 The Playwright specs import `test` from `__tests__/e2e/fixtures.ts`, which waits for that after each `goto` and `reload`.
 
 Every tool has a fixed bar at the top with two actions always available: back to the Labs list, and switch language.
-The 14 tools that keep inputs or measurements also have a reset button (入力を初期値に戻す) there.
+The 18 tools that keep inputs or measurements also have a reset button (入力を初期値に戻す) there.
 Trap and net tags uses 保存した内容を削除 (delete saved input) in its card instead, and the two tests use the action that returns to the test settings.
 The reset says what will be cleared and asks for confirmation. Named setups, places and records are kept.
 In group size and shotgun pattern measurement it clears the photo, the scale, the recorded points and the inputs; saved measurements are kept.
@@ -317,7 +317,8 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   PDFs cannot be loaded, so convert them to an image first. The correctness of the areas is not guaranteed.
 - **Hunting Log** (出猟・捕獲の記録): records the place, method and game taken on each day out, and totals and prints a draft of the hunting results report
   (Article 66 of the Act, Article 65(13) of the Enforcement Regulations) in the columns of the report section on the back of the hunter registration certificate (Form 17).
-  The report is due on the 30th day counting from the day the registration expires.
+  The report is due on the 30th day after the registration expires, counting the first day after its last day as day 1: 15 May for a registration
+  ending on 15 April, the date Ehime Prefecture gives in its guidance on returning the certificate (https://www.pref.ehime.jp/page/111683.html, checked 2026-09-25).
   Prefectures may use different forms, and the user submits the report. The report table is in Japanese only.
 - **Snare Gauge** (くくりわなの規格ゲージ): shows the standards in Article 10(3)(ix) and (x) of the Enforcement Regulations and the relaxations of the loop
   diameter that the 47 prefectures have set for hunting, by species, area, period and condition. The relaxations are based on each prefecture's guidance
@@ -350,6 +351,51 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
 - **Bear Incident Statistics** (クマの出没・被害統計): shows the Ministry of the Environment's figures for bear injuries, sightings and captures under permit
   (all preliminary), and emergency shootings, as tables and bar charts by year, prefecture and month.
   The figures are static data built from the material as of the date checked, and do not change when the ministry updates them.
+- **Hunting Cost Calculator** (狩猟にかかる費用の計算): totals the hunting licence fees, hunter registration fees, hunting tax and entered costs
+  such as club dues and insurance for three cases: the year the licences are first taken, a usual year with registrations only, and the renewal year.
+  Registrations are entered per prefecture and licence, so hunting in several prefectures is added up.
+  The tax follows Article 700-52 of the Local Tax Act (16,500 / 11,000 yen for class 1 gun, 8,200 / 5,500 yen for net and trap, 5,500 yen for class 2 gun;
+  ¼ and ¾ for released-game hunting areas) and Supplementary Articles 32 and 32-2 (no tax for damage control team members and workers of certified
+  capture businesses, half for those who captured under permit in the prefecture within the year before applying), which cover registrations up to 31 March 2029
+  (rechecked on e-Gov on 2026-09-25). That day falls inside the 2028 registration year (16 April 2028 to 15 April 2029), so a registration with relief
+  in that year needs the day it is made; settings saved before this field was added are discarded with a notice.
+  How the relief combines with the released-game area rates is not set out, so that combination is not calculated.
+  The fees default to the national standard of the Cabinet Order on standard local government fees (application 5,200 yen, 3,900 yen with part of the exam exempted,
+  renewal 2,900 yen, registration 1,800 yen); prefectures set the actual fees by ordinance, so they can be edited. Checked on e-Gov on 2026-09-24.
+- **Permit and Licence Deadlines** (所持許可・狩猟免許の期限): from the date of birth and the day a firearms permit was granted (or the day the
+  permit before renewal ended), shows the last day of the permit (the third birthday after that day, with 29 February taken as 28 February;
+  Article 7-2 of the Firearms Act) and the renewal application period (two to one month before; Article 34 of its Enforcement Regulations),
+  and whether the cognitive test for holders 75 or older on the last day applies (Articles 4-3 and 7-3(3)); age is reached on the day
+  before the birthday, or on 28 February in common years for those born on 29 February (Age Calculation Act and Civil Code Article 143,
+  checked 2026-09-25). A hunting licence ends on 14 September of the year three years after the exam,
+  and a renewed one three years after the last (Article 44 of the Wildlife Act, Article 60 of its Enforcement Regulations).
+  The last day a course certificate and a skills course certificate count (three years counted from and including the day of issue, so the day before the same date three years later; Article 5-2) is shown when their dates are entered.
+  These and any dates the user adds, such as a doctor's certificate, insurance or a club card, are exported as an `.ics` file of all-day events
+  with optional reminders. A renewal checklist follows Articles 9, 10, 11, 16 and 34 and Table 2 of the Enforcement Regulations
+  (hunting guns except competition shooters, and air guns).
+  For each gun it shows whether two years in a row without use for a permitted purpose (Article 11(5), in force from 1 March 2025) have passed,
+  counted from the day after the last use (a last use before the day of the permit is refused); for a permit held before that day, Supplementary Article 5 of the 2024 amendment reads three years
+  and all purposes until some purpose goes two years unused after 1 March 2025. The National Police Agency's leaflet on what does not count as use is quoted.
+  It only compares dates; whether a use counts and any action are for the public safety commission. Checked on e-Gov on 2026-09-24.
+- **Cartridge Purchase Plan** (火薬類の消費（購入）計画): builds the attached sheet of Form 2 of the Cabinet Office Order on hunting-gun explosives
+  (猟銃用火薬類等譲受許可申請書), whose columns are planned time, planned quantity (kind, quantity and reason), planned place and remarks.
+  Each planned row is totalled by kind (cartridges, blanks, primers, smokeless and black powder) and compared with the quantities applied for;
+  the acquisition period is checked against note 3 of the form (not more than one year) and each row against the period. The sheet prints on A4.
+  The quantities one may acquire or use without a permit (Articles 4 and 12) are quoted for reference. Police stations differ in how detailed a plan they ask for.
+  Japanese only. Checked on e-Gov on 2026-09-24.
+- **Hunting Seasons and Bag Limits** (猟期と捕獲数制限の早見表): for a prefecture and a day, shows the national hunting season
+  (15 November to 15 February, Hokkaido 1 October to 31 January; Article 9 of the Enforcement Regulations of the Wildlife Act),
+  the national daily limits and bans (Article 10), and what the prefecture has published on top of them: season extensions and shortenings,
+  bag limits and bans, each with the prefecture's wording, the quoted passage and a link to its page or notice.
+  The prefectural rules are static data for the prefectures collected so far (12 in Kanto, Chubu and Tokai, checked on 2026-09-24),
+  each with the date checked and the season its documents are for. Data for an earlier season than the current one is shown with a warning,
+  and a prefecture not collected says so and links to its own page. Whether a place falls inside an area is not judged.
+  The national season and the dated extensions and shortenings of the season can be exported as an `.ics` file.
+- **Course and Exam Schedules** (講習会・試験の日程リンク集): links, by prefecture, to the official pages with the schedules of the hunting licence exam
+  (prefectural wildlife offices), the firearms safety course and the skills course (prefectural police). Only pages opened and checked on
+  2026-09-24 are listed (14 prefectures so far); the others say they are not collected, and pages for a single year are marked.
+  Schedules are not copied or watched: the user enters the exam, course or application dates they chose and exports them as an `.ics` file
+  with reminders a week and a day before.
 
 Records and settings are saved in the browser in use. They are not synced to other devices and are lost
 if the browser's site data is cleared. Where saving is not possible, the page says so.

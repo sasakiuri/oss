@@ -9,6 +9,7 @@ export * from './section-nav';
 export * from './segmented-control';
 export * from './condition-section';
 export * from './fields';
+export * from './date-field';
 export * from './tool-layout';
 export * from './condition-pair';
 export * from './related-tools';

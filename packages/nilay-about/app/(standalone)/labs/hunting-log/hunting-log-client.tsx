@@ -33,6 +33,7 @@ import {
   reportGroups,
   isRegistrationDateInRange,
   registrationDateRange,
+  REPORT_DEADLINE_GUIDE,
   type CatchError,
   type OutingDraft,
   type OutingDraftError,
@@ -235,8 +236,8 @@ export function HuntingLogClient() {
   const withoutMeshWarning =
     report && report.withoutMesh > 0
       ? t(
-          `捕獲のあった記録のうち ${report.withoutMesh} 件にメッシュ番号がありません。捕獲場所の欄には、都道府県が示す図面のメッシュ番号等を記載します（様式第十七 備考 7）。${report.withoutPlace > 0 ? '場所が空の記録は「（未入力）」と表示しています。' : 'メッシュ番号のない記録は市町村名で表示しています。'}`,
-          `${report.withoutMesh} record(s) with game taken have no mesh number. The place column takes the mesh number from the prefecture's map (Form 17, note 7). ${report.withoutPlace > 0 ? 'Records with no place at all show “（未入力）”.' : 'Records without one show the municipality instead.'}`,
+          `捕獲のあった記録のうち ${report.withoutMesh} 件にメッシュ番号がありません。捕獲場所の欄には、都道府県が示す図面のメッシュ番号等を記載します（様式第十七 備考 7）。`,
+          `${report.withoutMesh} record(s) with game taken have no mesh number. The place column takes the mesh number from the prefecture's map (Form 17, note 7).`,
         )
       : '';
 
@@ -257,6 +258,13 @@ export function HuntingLogClient() {
                 onReset={() => {
                   clearAll();
                   resetForm(null);
+                  if (!savedAsShown(useHuntingLogStore)) {
+                    setNotice({
+                      ja: '記録を削除できなかった可能性があります。写真は残しています。',
+                      en: 'The records may not have been deleted. The photos are kept.',
+                    });
+                    return;
+                  }
                   setNotice({ ja: '記録をすべて削除しました。', en: 'All records deleted.' });
                   deleteToolPhotos('hunting-log').catch(() =>
                     setNotice({
@@ -316,8 +324,8 @@ export function HuntingLogClient() {
                 </h2>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '出猟日ごとに 1 件。捕獲がなかった日は、鳥獣を追加せずに記録します。',
-                    'One record per day out. For a day with nothing taken, add no game.',
+                    '出猟日ごとに 1 件。捕獲なしの日も記録します。',
+                    'One record per day out, including days with nothing taken.',
                   )}
                 </p>
               </div>
@@ -596,14 +604,6 @@ export function HuntingLogClient() {
                   {t(notice.ja, notice.en)}
                 </p>
               )}
-              {storageAvailable && (
-                <p className="text-xs text-on-surface-variant">
-                  {t(
-                    '記録はこのブラウザーにだけ保存します。サイトデータを消すと記録も消えます。',
-                    'Records are kept in this browser only. Clearing the site data deletes them.',
-                  )}
-                </p>
-              )}
             </Card>
           }
           result={
@@ -615,8 +615,8 @@ export function HuntingLogClient() {
                 <p className="rounded-sm bg-surface-container p-4 text-sm">
                   {outings.length === 0
                     ? t(
-                        '出猟を記録すると、ここに報告の下書き（捕獲場所・鳥獣の種類・数）ができます。',
-                        'Record an outing and the report draft (place, species and count) appears here.',
+                        '出猟を記録すると、ここに報告の下書きができます。',
+                        'Record an outing to get the report draft here.',
                       )
                     : t(
                         '登録の有効期間内の記録を追加すると、報告の下書きを表示します。',
@@ -713,12 +713,6 @@ export function HuntingLogClient() {
                     <LuPrinter aria-hidden="true" />
                     {t('下書きを印刷する', 'Print draft')}
                   </Button>
-                  <p className="text-xs text-on-surface-variant">
-                    {t(
-                      '提出は、登録都道府県の定める方法で行ってください。',
-                      'Submit the report as the prefecture of registration requires.',
-                    )}
-                  </p>
                 </>
               )}
             </Card>
@@ -738,12 +732,7 @@ export function HuntingLogClient() {
                   </p>
                 )}
                 {listed.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">
-                    {t(
-                      'まだ記録がありません。上のフォームから追加します。',
-                      'No records yet. Add one with the form above.',
-                    )}
-                  </p>
+                  <p className="text-sm text-on-surface-variant">{t('まだ記録がありません。', 'No records yet.')}</p>
                 ) : (
                   <ul className="divide-y divide-outline-variant">
                     {listed.map((outing) => (
@@ -860,6 +849,9 @@ export function HuntingLogClient() {
                     <a href={CIVIL_CODE_URL} target="_blank" rel="noreferrer">
                       {t('民法（e-Gov 法令検索）', 'Civil Code (e-Gov)')}
                     </a>
+                    <a href={REPORT_DEADLINE_GUIDE.url} target="_blank" rel="noreferrer">
+                      {t(REPORT_DEADLINE_GUIDE.name, 'Ehime Prefecture: returning the hunter registration certificate')}
+                    </a>
                   </p>
                 </div>
                 <ul className="list-disc space-y-2 pl-5 text-sm text-on-surface-variant">
@@ -871,20 +863,14 @@ export function HuntingLogClient() {
                   </li>
                   <li>
                     {t(
-                      '報告期限は、満了日の翌日から数えて 30 日目です（初日不算入、民法第百四十条）。4 月 15 日に満了したときは 5 月 15 日です。返納・報告の期限と手続は、登録した都道府県の案内で確認してください。',
-                      'The due date is day 30 counted from the day after expiry (Civil Code art. 140): 15 May for a registration ending on 15 April. Check the deadlines and procedure for returning the certificate and reporting with the prefecture where you registered.',
+                      `報告期限は、有効期間の末日の翌日を 1 日目として 30 日目です。4 月 15 日に満了すれば 5 月 15 日です（${REPORT_DEADLINE_GUIDE.name}も返納期限を毎年 5 月 15 日としています。${REPORT_DEADLINE_GUIDE.checkedOn} 確認）。`,
+                      `The report is due on day 30, counting the day after the registration ends as day 1: 15 May for a registration ending on 15 April (Ehime Prefecture also gives 15 May as the yearly deadline; checked ${REPORT_DEADLINE_GUIDE.checkedOn}).`,
                     )}
                   </li>
                   <li>
                     {t(
-                      '報告の様式、備考欄、提出の方法は都道府県によって違うことがあります。種類によって出猟カレンダーなど別の用紙や、捕獲年月日・出猟日数を求める都道府県もあります。印刷する出猟の記録には日ごとの日付と捕獲が載ります。',
-                      'The form, the remarks column and how to submit can differ between prefectures. Some ask for certain species on a separate sheet (such as a hunting calendar), or for the date of each take or the days out. The printed log has each date and its takes.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '鳥獣・期間・区域・猟法が適法だったかは判定しません。',
-                      'Whether the species, season, area and method were lawful is not checked.',
+                      '報告の様式・備考欄・提出の方法は都道府県で違うことがあります。種類によって出猟カレンダーなど別の用紙や、捕獲年月日・出猟日数を求める都道府県もあります。',
+                      'The form, the remarks column and how to submit can differ between prefectures. Some ask for certain species on a separate sheet (such as a hunting calendar), or for the date of each take or the days out.',
                     )}
                   </li>
                 </ul>

@@ -93,10 +93,21 @@ export function seasonOf(date: string, prefecture: Prefecture): number | null {
   return null;
 }
 
+/** A prefecture's own statement of the report deadline, the basis of `reportDeadline`'s reading. */
+export const REPORT_DEADLINE_GUIDE = {
+  name: '愛媛県「狩猟者登録証の返納等について」',
+  url: 'https://www.pref.ehime.jp/page/111683.html',
+  checkedOn: '2026-09-25',
+} as const;
+
 /**
- * 法第六十六条 「その日から起算して三十日を経過する日まで」. The expiry itself is not counted
- * (民法第百四十条), so the thirty days run from the next day: a registration that ends on 15 April
- * is reported by 15 May. One that ends early (returned or cancelled) ends on another day.
+ * 法第六十六条 「その狩猟者登録の有効期間が満了したときは、…その日から起算して三十日を経過する日までに」.
+ * The starting point is the expiry of the period, not a day named by date: the period runs to the end of
+ * its last day (法第五十五条第二項, 15 April), so it has expired from the next day, which is day 1 of the
+ * thirty. A registration that ends on 15 April is reported by 15 May, as 愛媛県 gives the date
+ * (`REPORT_DEADLINE_GUIDE`). This differs from 銃刀法 第五条の二 「その交付を受けた日から起算して」, where
+ * the day named, the day of issue, is itself day 1 (see `certificateLastDay`). One that ends early
+ * (returned or cancelled) ends on another day.
  */
 export function reportDeadline(expiry: string): string {
   const parts = splitIsoDate(expiry);
