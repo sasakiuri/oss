@@ -27,9 +27,9 @@ export function SavedPlaces() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-on-surface-variant" role="status">
+      <p className="text-sm text-on-surface-variant empty:hidden" role="status">
         {available
-          ? t('いま表示している地点に名前を付けて保存します。', 'Save the current place under a name.')
+          ? ''
           : t(
               'このブラウザーでは地点を保存できません。緯度経度を控えてください。',
               'This browser cannot save places. Write the coordinates down.',

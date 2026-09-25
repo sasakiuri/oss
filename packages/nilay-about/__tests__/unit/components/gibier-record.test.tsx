@@ -72,8 +72,6 @@ describe('the abnormality check', () => {
     const alert = within(checks()).getByRole('alert');
     expect(within(alert).getByRole('listitem')).toHaveTextContent(/^ホ\s脱毛が著しい$/);
     expect(alert).toHaveTextContent('異常が一つでも見られる場合は、食用に供してはならない。');
-    // The decision on accepting the animal stays with the facility.
-    expect(checks()).toHaveTextContent('受入の可否は、食肉処理業者が');
   });
 
   it('says only that all eleven were answered いいえ, never that the meat is fit to eat', async () => {
@@ -118,8 +116,8 @@ describe('temperature, time and the abdomen', () => {
     type('施設（または移動式解体処理車）への搬入日時', '2026-09-23T06:00');
     expect(checks()).toHaveTextContent('搬入日時が放血の開始日時より前です。');
     type('施設（または移動式解体処理車）への搬入日時', '2026-09-23T08:35');
-    // No upper limit is invented: the guideline sets none.
-    expect(checks()).toHaveTextContent('上限の時間はガイドラインにありません。');
+    // No upper limit is invented: the guideline sets none, only that the facility is told the time.
+    expect(checks()).toHaveTextContent('搬入前に搬入予定時刻を施設に伝えてください');
   });
 
   it('counts to the present before a delivery time is entered', async () => {
@@ -262,7 +260,7 @@ describe('language', () => {
     expect(screen.getByText('ジビエの捕獲時記録票')).toBeInTheDocument();
     act(() => useLanguageStore.setState({ language: 'en' }));
     expect(screen.getByText('Game Meat Capture Record')).toBeInTheDocument();
-    expect(screen.getByText(/This tool is in Japanese only/)).toBeInTheDocument();
+    expect(screen.getByText(/Japanese only\. The fields follow/)).toBeInTheDocument();
     expect(screen.getByLabelText('捕獲者名')).toBeInTheDocument();
   });
 });

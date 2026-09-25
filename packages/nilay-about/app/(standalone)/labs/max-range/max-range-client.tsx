@@ -195,8 +195,8 @@ export function MaxRangeClient() {
   const summary =
     result?.maximum != null
       ? t(
-          `最大到達距離 ${distance(result.maximum.flight.rangeMeters)}（仰角 ${number(result.maximum.angleDegrees)} 度）。仰角 ${number(elevationDegrees)} 度では ${distance(result.chosen?.rangeMeters)}。この先が安全という意味ではありません。`,
-          `Maximum range ${distance(result.maximum.flight.rangeMeters)} at ${number(result.maximum.angleDegrees)} degrees. At ${number(elevationDegrees)} degrees: ${distance(result.chosen?.rangeMeters)}. Neither figure means anything beyond it is safe.`,
+          `最大到達距離 ${distance(result.maximum.flight.rangeMeters)}（仰角 ${number(result.maximum.angleDegrees)} 度）。仰角 ${number(elevationDegrees)} 度では ${distance(result.chosen?.rangeMeters)}。安全距離ではありません。`,
+          `Maximum range ${distance(result.maximum.flight.rangeMeters)} at ${number(result.maximum.angleDegrees)} degrees. At ${number(elevationDegrees)} degrees: ${distance(result.chosen?.rangeMeters)}. Not a safe distance.`,
         )
       : emptyMessage;
 
@@ -333,7 +333,6 @@ export function MaxRangeClient() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField
                       label={t('弾道係数', 'Ballistic coefficient')}
-                      hint={t('メーカーの公表値', 'The maker’s published figure')}
                       value={bullet.ballisticCoefficient}
                       onChange={(ballisticCoefficient) => setBullet({ ballisticCoefficient })}
                       units={{
@@ -518,8 +517,8 @@ export function MaxRangeClient() {
                   </ResultPanel>
                   <p className="text-sm font-medium">
                     {t(
-                      'ここまで届き得るという距離です。この先が安全という意味ではなく、安全距離の根拠にもなりません。矢先の確認、バックストップ、射線の管理の代わりにはなりません。',
-                      'This is how far the shot can carry. It does not make anything beyond it safe and is not a basis for a safety distance. It does not replace checking beyond the target, a backstop or control of the line of fire.',
+                      '弾が届き得る距離で、安全距離ではありません。矢先の確認、バックストップ、射線の管理は別に必要です。',
+                      'How far the shot can carry, not a safe distance. You still need to check beyond the target, a backstop and control of the line of fire.',
                     )}
                   </p>
                   {result.cautions.length > 0 && (
@@ -547,8 +546,8 @@ export function MaxRangeClient() {
               {result !== null && result.journeeMeters !== null && Number.isFinite(result.journeeMeters) && (
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    `参考: 鉛の球の Journée の経験則では、この直径で ${distance(result.journeeMeters)}。`,
-                    `For comparison, Journée's rule for lead shot gives ${distance(result.journeeMeters)} for this diameter.`,
+                    `Journée の経験則では、この直径の鉛の球で ${distance(result.journeeMeters)}。`,
+                    `Journée's rule gives ${distance(result.journeeMeters)} for lead shot of this diameter.`,
                   )}
                 </p>
               )}
@@ -621,10 +620,6 @@ export function MaxRangeClient() {
                   <NumberField
                     label={t('仰角', 'Elevation')}
                     unit={t('度', 'degrees')}
-                    hint={t(
-                      '0 度は銃口の高さから水平、90 度は真上',
-                      '0 is level from the muzzle height, 90 is straight up',
-                    )}
                     value={elevationDegrees}
                     onChange={setElevation}
                     min={0}
@@ -723,8 +718,8 @@ export function MaxRangeClient() {
                 id="method-and-source"
                 title={t('計算方法と出典', 'Method and source')}
                 summary={t(
-                  '質点モデルと公表された抗力表で計算し、公表値と比べています。',
-                  'Point-mass model with published drag tables, checked against published figures.',
+                  '質点モデルと公表された抗力表で計算します。',
+                  'Point-mass model with published drag tables.',
                 )}
               >
                 <p className="text-sm text-on-surface-variant">
@@ -735,25 +730,19 @@ export function MaxRangeClient() {
                 </p>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '大気は ISO 2533 標準大気です。入力した気温・気圧を地表の値とし、高さごとの空気密度と音速を求めます。',
-                    'The atmosphere is ISO 2533, starting from the entered temperature and pressure at the firing point; air density and the speed of sound are calculated at each height.',
+                    '大気は ISO 2533 標準大気で、入力した気温・気圧を地表の値として高さごとの空気密度と音速を求めます。',
+                    'ISO 2533 atmosphere, from the entered temperature and pressure at the firing point, with air density and the speed of sound worked out at each height.',
                   )}
                 </p>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '公表値との比較: 12 番 #7 1/2（直径 0.095 インチ）の鉛の粒を初速 1200 fps で撃った場合、NRA Range Services の散弾計算書では最大 668 フィート（約 204 m）、仰角 23〜24 度、落下速度約 73 ft/s。このツールでは約 196 m、仰角約 24 度、落下速度約 74 ft/s です。7.62 mm NATO 級の弾（147 grain、初速 2750 fps、G7 0.200）では約 4.1 km で、米陸軍の射撃場安全基準 DA PAM 385-63 が 7.62 mm M80 に示す 4,100 m とほぼ同じです（同基準の距離は跳弾を含む）。',
-                    'Comparison with published figures: for a 12 gauge #7½ lead pellet (0.095 inch) at 1200 fps, the NRA Range Services shotshell calculation gives 668 ft (about 204 m) at 23 to 24 degrees with an impact velocity of about 73 ft/s; this tool gives about 196 m at about 24 degrees and about 74 ft/s. For a 7.62 mm NATO class bullet (147 grain, 2750 fps, G7 0.200) it gives about 4.1 km, against the 4,100 m that the US Army range safety pamphlet DA PAM 385-63 lists for 7.62 mm M80 (that figure includes ricochet).',
-                  )}
-                </p>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    'これらの資料は、示された距離の内側に弾を留めるよう射撃場や危険範囲を設計するためのものです。このツールは「どこまで届き得るか」を見積もるだけで、封じ込めを設計するための資料ではありません。',
-                    'Both documents are for laying out ranges and danger areas so that shots stay within the distances they give. This tool only estimates how far a shot could carry; it is not for designing containment.',
+                    '公表値: 12 番 #7 1/2（直径 0.095 インチ）の鉛の粒を初速 1200 fps で撃った場合、NRA Range Services の散弾計算書では最大 668 フィート（約 204 m）、仰角 23〜24 度、落下速度約 73 ft/s。米陸軍の射撃場安全基準 DA PAM 385-63 は 7.62 mm M80 に 4,100 m を示しています（跳弾を含む）。',
+                    'Published figures: for a 12 gauge #7½ lead pellet (0.095 inch) at 1200 fps, the NRA Range Services shotshell calculation gives 668 ft (about 204 m) at 23 to 24 degrees with an impact velocity of about 73 ft/s. The US Army range safety pamphlet DA PAM 385-63 lists 4,100 m for 7.62 mm M80, including ricochet.',
                   )}
                 </p>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    'Journée の経験則（鉛の球の最大到達距離は、直径をインチで表した数の約 2200 倍のヤード数）は、20 世紀初めの実験による目安です。鋼など鉛以外の粒には当てはまりません。',
+                    'Journée の経験則（鉛の球の最大到達距離は、直径をインチで表した数の約 2200 倍のヤード数）は 20 世紀初めの実験によるもので、鋼など鉛以外の粒には当てはまりません。',
                     "Journée's rule (maximum range of lead shot in yards ≈ 2200 × pellet diameter in inches) comes from early 20th-century experiments. It does not apply to steel or other non-lead shot.",
                   )}
                 </p>
@@ -764,22 +753,17 @@ export function MaxRangeClient() {
                 title={t('跳弾・地形と法令', 'Ricochet, terrain and the law')}
                 summary={t('跳弾・風・地形は含みません。', 'Ricochet, wind and terrain are not included.')}
               >
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant" role="status">
-                    {t('入力はこのブラウザーに保存されます。', 'Settings are saved in this browser.')}
-                  </p>
-                )}
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      '弾は最後まで先端を前に向けて飛ぶと仮定しています。高い仰角の弾は落下中に横を向いたり回転したりするため、実際の到達距離は計算値より短くなりがちです。',
+                      '弾は最後まで先端を前に向けて飛ぶとしています。高い仰角の弾は落下中に横を向いたり回転したりするため、実際の到達距離は計算値より短くなりがちです。',
                       'The projectile is assumed to stay nose-forward. Fired steeply, it yaws or tumbles on the way down, so the real range tends to be shorter.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '跳弾は含みません。水面、凍った地面、硬い路面で跳ねた弾は速度を保って飛ぶため、跳弾があり得る場所ではこの計算は上限になりません。公表されている射撃場の危険範囲は跳弾を含んだ距離です。',
-                      'Ricochet is not included. A shot that skips off water, frozen ground or a hard road keeps much of its speed, so where ricochet is possible this is not an upper bound. Published range danger areas include ricochet.',
+                      '水面、凍った地面、硬い路面で跳ねた弾は速度を保って飛ぶため、跳弾があり得る場所ではこの計算は上限になりません。公表されている射撃場の危険範囲は跳弾を含んだ距離です。',
+                      'A shot that skips off water, frozen ground or a hard road keeps much of its speed, so where ricochet is possible this is not an upper bound. Published range danger areas include ricochet.',
                     )}
                   </li>
                   <li>
@@ -798,8 +782,8 @@ export function MaxRangeClient() {
                   )}
                   <li>
                     {t(
-                      '銃猟は鳥獣保護管理法、都道府県の規制、射撃場の規則に従ってください。住居が集合している地域や広場、道路などでの銃猟は法令で禁じられています。',
-                      'Follow the law, prefectural rules and range rules. Shooting in built-up areas, public squares and roads is prohibited by law in Japan.',
+                      '住居が集合している地域や広場、道路などでの銃猟は法令で禁じられています。',
+                      'Shooting in built-up areas, public squares and roads is prohibited by law in Japan.',
                     )}
                   </li>
                 </ul>

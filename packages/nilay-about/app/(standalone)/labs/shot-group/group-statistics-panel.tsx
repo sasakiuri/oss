@@ -116,8 +116,8 @@ export function GroupStatisticsPanel({
       return t('角度で指定するときは射距離を入力してください。', 'Enter the distance to use an angle.');
     if (shotsNeeded === 'over-limit')
       return t(
-        `このばらつきでは ${format(REQUIRED_SHOTS_LIMIT, 0)} 発撃っても ±${length(targetMm)} に届きません。目標を広げるか、ばらつきを小さくしてください。`,
-        `At this dispersion even ${format(REQUIRED_SHOTS_LIMIT, 0)} shots will not reach ±${length(targetMm)}. Widen the target or tighten the group.`,
+        `このばらつきでは ${format(REQUIRED_SHOTS_LIMIT, 0)} 発撃っても ±${length(targetMm)} に届きません。`,
+        `At this dispersion even ${format(REQUIRED_SHOTS_LIMIT, 0)} shots will not reach ±${length(targetMm)}.`,
       );
     // Unreachable (both null cases are handled above); narrows the type.
     if (shotsNeeded === null) return '';
@@ -139,13 +139,6 @@ export function GroupStatisticsPanel({
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-on-surface-variant">
-        {t(
-          `軸ごとに、狙点からのズレが照準によるものか偶然かを ${percent}% 信頼区間で判定します。`,
-          `For each axis, whether the offset from the aim point is the sight's or chance, at ${percent}% confidence.`,
-        )}
-      </p>
-
       {statistics !== null && (
         <table className="w-full text-sm">
           <caption className="sr-only">
@@ -224,12 +217,6 @@ export function GroupStatisticsPanel({
           errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
         />
         <p className="text-sm">{requiredText()}</p>
-        <p className="text-xs text-on-surface-variant">
-          {t(
-            '今のばらつきが続くと仮定した発数です。ばらつきも少ない発数からの推定なので、撃ち進めると変わります。',
-            'Assumes the dispersion so far holds. That dispersion is itself an estimate, so the count changes as you shoot more.',
-          )}
-        </p>
       </div>
 
       {statistics !== null && (
@@ -295,8 +282,8 @@ export function GroupStatisticsPanel({
           {statistics.circularModelDoubtful && (
             <p className="rounded-sm bg-error-container p-4 text-sm text-on-error-container">
               {t(
-                `縦と横のばらつきの差が大きく（${format(statistics.axisRatio, 1)} 倍）、この節の前提（縦横が同じばらつき）から外れています。σ・平均半径・最大中心間距離の予測は目安です。判定と必要発数はこの前提を使わないため、影響を受けません。`,
-                `The group is far from round (one axis scatters ${format(statistics.axisRatio, 1)} times the other), outside the equal-scatter model this section assumes. Treat σ, the mean radius and the predicted extreme spread as rough. The verdicts and the shot count do not use this model.`,
+                `縦と横のばらつきの差が大きい（${format(statistics.axisRatio, 1)} 倍）ため、縦横が同じばらつきとした σ・平均半径・最大中心間距離の予測は目安です。判定と必要発数は影響を受けません。`,
+                `One axis scatters ${format(statistics.axisRatio, 1)} times the other. σ, the mean radius and the predicted extreme spread assume equal scatter, so treat them as rough. The verdicts and the shot count are not affected.`,
               )}
             </p>
           )}

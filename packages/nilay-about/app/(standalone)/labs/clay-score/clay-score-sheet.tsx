@@ -222,10 +222,6 @@ export function ClayScoreSheet({ discipline, language, label, actualSize = false
           '1 ラウンド 25 枚の構成は ISSF 規則（2026 年版）によります。',
           '25 targets per round, per the ISSF Rules (2026 edition).',
         ),
-        t(
-          '個人の練習記録用です。審判による公式記録の代わりにはなりません。',
-          'For personal practice records. Not a substitute for the official scorecard kept by the referees.',
-        ),
       ].map((text, row) => (
         <Text key={row} x={MARGIN} y={PAGE.height - MARGIN - 8 + row * 4.5} size={2.8}>
           {text}

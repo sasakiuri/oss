@@ -81,8 +81,8 @@ export function HuntingLogReport({ draft, prefecture, full = false, className }:
             {draft.period.fromRegistrationDate ? '' : '。登録日が未入力のため、開始日は法定の最も早い日'}）
           </p>
           <p className="text-sm">
-            報告期限の目安：{formatJapaneseDate(draft.deadline)}
-            （有効期間が上記の日に満了した場合。実際の期限は登録都道府県の案内で確認してください）
+            報告期限：{formatJapaneseDate(draft.deadline)}
+            （有効期間が上記の日に満了した場合）
           </p>
         </header>
       )}
@@ -132,11 +132,9 @@ export function HuntingLogReport({ draft, prefecture, full = false, className }:
               </tbody>
             </table>
           </section>
-          <ul className="list-disc space-y-1 pl-5 text-xs">
-            <li>これは下書きです。登録都道府県の定める方法（狩猟者登録証の報告欄への記入など）で提出してください。</li>
-            <li>備考欄は空けてあります。様式や記載事項は登録都道府県の案内に従ってください。</li>
-            <li>鳥獣の種類別の数は、捕獲場所ごとに合計しています。</li>
-          </ul>
+          <p className="text-xs">
+            下書きです。様式と提出の方法は登録都道府県の案内に従ってください。鳥獣の種類別の数は、捕獲場所ごとの合計です。
+          </p>
         </>
       )}
     </div>

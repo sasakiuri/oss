@@ -21,10 +21,8 @@ export type SourceId =
   | 'rule'
   | 'mhlw'
   | 'maff-safety'
-  | 'maff-capture'
   | 'fukui'
   | 'env-emergency'
-  | 'akita'
   | 'mo-bow-when'
   | 'mo-bow-blood'
   | 'mo-bow-approach'
@@ -85,16 +83,6 @@ export const sources: Record<SourceId, Source> = {
     publisher: { ja: '農林水産省', en: 'Ministry of Agriculture, Forestry and Fisheries' },
     url: 'https://www.maff.go.jp/j/seisan/tyozyu/higai/manyuaru/attach/pdf/manual-49.pdf',
   },
-  'maff-capture': {
-    id: 'maff-capture',
-    region: 'jp',
-    title: {
-      ja: '野生鳥獣被害防止マニュアル【総合対策編】第3章 鳥獣被害対策の3つの柱',
-      en: 'Wildlife damage prevention manual (general), chapter 3: the three pillars',
-    },
-    publisher: { ja: '農林水産省', en: 'Ministry of Agriculture, Forestry and Fisheries' },
-    url: 'https://www.maff.go.jp/j/seisan/tyozyu/higai/manyuaru/attach/pdf/manual-46.pdf',
-  },
   fukui: {
     id: 'fukui',
     region: 'jp',
@@ -111,13 +99,6 @@ export const sources: Record<SourceId, Source> = {
     title: { ja: '緊急銃猟ガイドライン（令和8年4月改訂）', en: 'Emergency shooting guidelines (revised April 2026)' },
     publisher: { ja: '環境省', en: 'Ministry of the Environment' },
     url: 'https://www.env.go.jp/nature/choju/effort/effort15/doc/guideline.pdf',
-  },
-  akita: {
-    id: 'akita',
-    region: 'jp',
-    title: { ja: '令和7年度に秋田県内で狩猟をされる皆さまへ', en: 'To hunters in Akita Prefecture, 2025 season' },
-    publisher: { ja: '秋田県', en: 'Akita Prefecture' },
-    url: 'https://www.pref.akita.lg.jp/pages/archive/84844',
   },
   'mo-bow-when': {
     id: 'mo-bow-when',

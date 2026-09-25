@@ -256,19 +256,9 @@ export function RecoilClient() {
     const hint = (text: string) => (isBaseline ? text : undefined);
     return (
       <Card variant="outlined" className="space-y-5 rounded-md p-5 sm:p-6">
-        <div className="space-y-2">
-          <h2 id={isBaseline ? 'condition-a' : 'condition-b'} className="text-xl font-medium">
-            {isBaseline ? t('条件 A', 'Condition A') : t('条件 B', 'Condition B')}
-          </h2>
-          {isBaseline && (
-            <p className="text-sm text-on-surface-variant">
-              {t(
-                '差の割合は A が基準です。単位は A・B 共通で、切り替えると換算します。',
-                'Percentages are relative to A. Units are shared by A and B; switching converts the values.',
-              )}
-            </p>
-          )}
-        </div>
+        <h2 id={isBaseline ? 'condition-a' : 'condition-b'} className="text-xl font-medium">
+          {isBaseline ? t('条件 A', 'Condition A') : t('条件 B', 'Condition B')}
+        </h2>
         {/* A fieldset keeps its own min-content width, so the grid lives inside it rather than on it. */}
         <fieldset className="min-w-0">
           <legend className="sr-only">
@@ -286,7 +276,7 @@ export function RecoilClient() {
             <NumberField
               label={t('銃の重量', 'Gun weight')}
               units={gunMassUnits}
-              hint={hint(t('照準器や付属品を含めた重量', 'Including the sight and accessories'))}
+              hint={hint(t('スコープ・付属品込み', 'With scope and accessories'))}
               value={load.gunMass}
               onChange={(gunMass) => change({ gunMass })}
               min={0}
@@ -470,8 +460,8 @@ export function RecoilClient() {
               </ResultPanel>
               <p className="text-sm text-on-surface-variant">
                 {t(
-                  '銃が自由に後退するとしたときの値です。肩で感じる反動は構え方、銃床、作動方式、リコイルパッドで変わり、マズルブレーキやサプレッサー付きにはこの式が当てはまりません。',
-                  'This assumes the gun moves back freely. Felt recoil also depends on stance, stock, action and recoil pad, and the formula does not apply with a muzzle brake or suppressor.',
+                  '銃が自由に後退するとした値です。肩で感じる反動は構え方、銃床、作動方式、リコイルパッドで変わります。マズルブレーキやサプレッサー付きには当てはまりません。',
+                  'Assumes the gun moves back freely. Felt recoil also depends on stance, stock, action and recoil pad. Does not apply with a muzzle brake or suppressor.',
                 )}
               </p>
             </Card>
@@ -500,12 +490,6 @@ export function RecoilClient() {
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-on-surface-variant">
-                  {t(
-                    '自由反動エネルギーは自由反動速度の 2 乗に比例します。初速や装弾の重量が 2 倍なら、およそ 4 倍です。',
-                    'Free recoil energy is proportional to the square of the free recoil velocity: doubling the velocity or the load weight roughly quadruples it.',
-                  )}
-                </p>
               </ConditionSection>
 
               <ConditionSection
@@ -515,7 +499,7 @@ export function RecoilClient() {
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '発射物・ワッズ・発射ガスが前方へ持ち去る運動量と同じ大きさの運動量で、銃が後方へ動くとして計算します。',
+                    '発射物・ワッズ・発射ガスが前へ持ち去る運動量と同じ運動量で、銃が後ろへ動くとします。',
                     'The gun moves back with the same momentum that the projectile, wad and propellant gas carry forward.',
                   )}
                 </p>
@@ -538,38 +522,27 @@ export function RecoilClient() {
                 </ul>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '発射ガスの実効速度は、初速に係数を掛けて求めます。係数は SAAMI「Gun Recoil - Technical: Free Recoil Energy」（Rev. 7/9/2018）の値で、高威力ライフル 1.75、標準的な銃身長の散弾銃 1.50、長銃身の散弾銃 1.25、拳銃・回転式拳銃 1.50 です。同文書は、この係数の由来を 1929 年の British Text Book of Small Arms の実験としています。',
-                    'The effective gas velocity is the muzzle velocity times a factor. The factors are from SAAMI, "Gun Recoil - Technical: Free Recoil Energy" (Rev. 7/9/2018): 1.75 for high-powered rifles, 1.50 for average-length shotguns, 1.25 for long-barrelled shotguns and 1.50 for pistols and revolvers. SAAMI traces them to experiments in the British Text Book of Small Arms (1929), confirmed by later work.',
+                    '発射ガスの実効速度 = 初速 × 係数。係数は SAAMI「Gun Recoil - Technical: Free Recoil Energy」（Rev. 7/9/2018）の値で、高威力ライフル 1.75、標準的な銃身長の散弾銃 1.50、長銃身の散弾銃 1.25、拳銃・回転式拳銃 1.50。元は 1929 年の British Text Book of Small Arms の実験です。',
+                    'Effective gas velocity = muzzle velocity × factor. The factors are from SAAMI, "Gun Recoil - Technical: Free Recoil Energy" (Rev. 7/9/2018): 1.75 for high-powered rifles, 1.50 for average-length shotguns, 1.25 for long-barrelled shotguns and 1.50 for pistols and revolvers. They come from experiments in the British Text Book of Small Arms (1929).',
                   )}
                 </p>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '発射ガスの速度を 4000 fps や 4700 fps の定数とする方法もあり、同じ装弾でも値が変わります。他の資料の数値と比べるときは、どちらの方法による値かを確認してください。',
-                    'Some methods use a constant gas velocity instead, such as 4000 fps or 4700 fps, which gives a different answer for the same load. Check which method a figure uses before comparing.',
+                    'ガス速度を 4000 fps や 4700 fps の定数とする計算法では、同じ装弾でも値が変わります。',
+                    'Methods that take the gas velocity as a constant 4000 or 4700 fps give different figures for the same load.',
                   )}
                 </p>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    'SAAMI と同じく、発射ガスの質量は装薬量と等しいとします。計算は SI（kg、m/s、J）で行い、表示時に換算します。同文書の計算例（7 lb の散弾銃、射出質量 589.9 grain、装薬 33.4 grain、初速 1275 fps）は、同文書で 30.22 ft-lb、このツールで 30.17 ft-lb です。差は同文書の途中の丸めによります。',
-                    'As in SAAMI, the gas weight is taken as equal to the powder charge. Calculations are in SI (kg, m/s, J) and converted for display. For the worked example in that document (7 lb shotgun, 589.9 grains of ejecta, 33.4 grains of powder, 1275 fps), the document gives 30.22 ft-lb and this tool 30.17 ft-lb; the difference comes from rounding of intermediate values in the document.',
+                    '発射ガスの質量は装薬量と同じとします（SAAMI と同じ）。',
+                    'Gas weight equals the powder charge, as in SAAMI.',
                   )}
                 </p>
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    '単位の切り替えでは表示桁で丸めるため、往復すると末尾が変わることがあります。1 grain = 64.79891 mg、1 lb = 0.45359237 kg、1 ft = 0.3048 m。',
-                    'Converted values are rounded to the digits shown, so switching units back and forth can change the last digit. 1 grain = 64.79891 mg, 1 lb = 0.45359237 kg, 1 ft = 0.3048 m.',
+                    '1 grain = 64.79891 mg、1 lb = 0.45359237 kg、1 ft = 0.3048 m。',
+                    '1 grain = 64.79891 mg, 1 lb = 0.45359237 kg, 1 ft = 0.3048 m.',
                   )}
-                </p>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                    'Follow the law and range rules, and shoot in a safe direction from a safe position.',
-                  )}
-                </p>
-                <p className="text-sm text-on-surface-variant" role="status">
-                  {storageAvailable
-                    ? t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser.')
-                    : ''}
                 </p>
               </ConditionSection>
             </>

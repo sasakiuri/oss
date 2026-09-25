@@ -89,12 +89,8 @@ describe('checking what a shot group settles', () => {
   it('waits for a second shot before judging anything', async () => {
     render(<ShotGroupClient />);
     await panel();
-    // No impacts: one line on how to start, not a panel of empty figures.
-    expect(
-      screen.getByText(
-        '図で弾痕の中心をタップするか、写真から自動で検出すると、群の大きさと狙点からのズレを表示します。',
-      ),
-    ).toBeInTheDocument();
+    // No impacts: one line, not a panel of empty figures.
+    expect(screen.getByText('着弾がまだありません。')).toBeInTheDocument();
     expect(screen.queryByText('最大中心間距離')).not.toBeInTheDocument();
     expect(screen.queryByText('着弾を 2 発以上記録すると、補正してよいかを判定します。')).not.toBeInTheDocument();
     record([{ x: 30, y: 0 }]);
@@ -167,9 +163,9 @@ describe('checking what a shot group settles', () => {
       { x: -1, y: 31 },
       { x: 0, y: -14 },
     ]);
-    expect(screen.getByText(/縦と横のばらつきの差が大きく/)).toBeInTheDocument();
+    expect(screen.getByText(/縦と横のばらつきの差が大きい/)).toBeInTheDocument();
     // The verdicts do not rest on that model, and the warning has to say so.
-    expect(screen.getByText(/判定と必要発数はこの前提を使わないため、影響を受けません。/)).toBeInTheDocument();
+    expect(screen.getByText(/判定と必要発数は影響を受けません。/)).toBeInTheDocument();
   });
 
   it('reads the verdict out with the figures, once the typing settles', async () => {

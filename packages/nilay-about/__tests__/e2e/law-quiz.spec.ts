@@ -17,7 +17,6 @@ const answerCurrentQuestion = async (page: Page, index: number) => {
 
 test('marks each answer and shows the article it rests on', async ({ page }) => {
   await expect(page).toHaveTitle(/狩猟・銃砲の法令テスト/);
-  await expect(page.getByText('猟銃等講習会の考査の再現ではありません', { exact: false })).toBeVisible();
   await chooseCount(page, '5 問');
   await page.getByRole('button', { name: 'テストを開始' }).click();
 
@@ -71,7 +70,7 @@ test('names its sources and switches the interface to English', async ({ page })
   await expect(page.getByRole('heading', { name: /^出典/ })).toBeVisible();
   await expect(page.getByText('平成十四年法律第八十八号', { exact: false })).toBeVisible();
   await expect(page.getByText('平成十四年環境省令第二十八号', { exact: false })).toBeVisible();
-  await expect(page.getByText('その後の改正は反映していません。', { exact: false })).toBeVisible();
+  await expect(page.getByText('条文は e-Gov 法令検索', { exact: false })).toBeVisible();
   await expect(page.getByText('都道府県が定めます', { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: '言語を選択' }).click();

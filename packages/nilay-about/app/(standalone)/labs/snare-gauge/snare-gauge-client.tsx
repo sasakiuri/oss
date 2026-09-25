@@ -76,7 +76,7 @@ function stateText(state: SnareCaseState, language: Language): string {
     case 'outOfPeriod':
       return ja ? '期間外' : 'Out of period';
     case 'periodUndetermined':
-      return ja ? '期間は毎年決まります（判定しません）' : 'Period set each year; not checked here';
+      return ja ? '期間は毎年決まります' : 'Period set each year';
     case 'disputed':
       return ja ? '資料が食い違うため適用しません' : 'Not applied: prefectural documents disagree';
     case 'expired':
@@ -178,8 +178,8 @@ export function SnareGaugeClient() {
     slit: t('ワイヤー 4 mm（参考）', 'Wire 4 mm (reference)'),
     ruler: t('100 mm 確認線：定規で測る', '100 mm check line: measure with a ruler'),
     footer: t(
-      `「実際のサイズ（100%）」で印刷／目安です。適否は都道府県の案内に従ってください（確認日 ${SNARE_DATA_CHECKED_ON}）`,
-      `Print at Actual size (100%). A guide only; follow the prefecture's guidance (checked ${SNARE_DATA_CHECKED_ON}).`,
+      `「実際のサイズ（100%）」で印刷／確認日 ${SNARE_DATA_CHECKED_ON}`,
+      `Print at Actual size (100%) / checked ${SNARE_DATA_CHECKED_ON}`,
     ),
   };
 
@@ -356,9 +356,6 @@ export function SnareGaugeClient() {
                     {t(`${rule.name}の条件つきの緩和`, `Conditional relaxation in ${rule.nameEn}`)}
                     {requirements.status === 'unconfirmed' && t('（未確認）', ' (not confirmed)')}
                   </h3>
-                  {language === 'en' && (
-                    <p className="text-on-surface-variant">Prefectural details are quoted in Japanese.</p>
-                  )}
                   {requirements.cases.length > 0 ? (
                     <ul className="space-y-2">{requirements.cases.map(caseLine)}</ul>
                   ) : rule.status === 'relaxed' ? (
@@ -377,8 +374,8 @@ export function SnareGaugeClient() {
                   {rule.status === 'none' && rule.validUntil && isPastDate(rule.validUntil, today) && (
                     <p className="text-on-surface-variant">
                       {t(
-                        `緩和なしの根拠とした資料の期間（${rule.validUntil} まで）が過ぎたため、未確認として法令の基準で表示しています。`,
-                        `The source for no relaxation ran until ${rule.validUntil}, so this is shown as not confirmed, with the national rule.`,
+                        `資料の期間（${rule.validUntil} まで）が過ぎたため、法令の基準で表示しています。`,
+                        `The source ran until ${rule.validUntil}. The national rule is shown.`,
                       )}
                     </p>
                   )}
@@ -389,14 +386,14 @@ export function SnareGaugeClient() {
                   ))}
                   {rule.validUntil && requirements.cases.length > 0 && (
                     <p className="text-on-surface-variant">
-                      {t(`根拠とした計画の期間：${rule.validUntil} まで`, `Plan period: until ${rule.validUntil}`)}
+                      {t(`計画の期間：${rule.validUntil} まで`, `Plan period: until ${rule.validUntil}`)}
                     </p>
                   )}
                   {rule.sources.length > 0 && <SourceList sources={rule.sources} language={language} />}
                   <p className="text-xs text-on-surface-variant">
                     {t(
-                      '出典は県の案内と管理計画です（告示本文は未確認）。区域・条件に当たるかは、狩猟者登録をする都道府県に確認してください。',
-                      'Sources are prefectural guidance and plans (public notices not checked). Ask the prefecture where you register whether the area and conditions apply to you.',
+                      '区域・条件に当たるかは、狩猟者登録をする都道府県に確認してください。',
+                      'Ask the prefecture where you register whether the area and conditions apply to you.',
                     )}
                   </p>
                 </section>
@@ -409,7 +406,7 @@ export function SnareGaugeClient() {
                 {t('実寸ゲージを印刷', 'Print a real-size gauge')}
               </h2>
               {requirements.hasNoLimitCase && (
-                <p className="rounded-sm bg-surface-container p-3 text-sm">
+                <p className="text-sm">
                   {t(
                     '上限なしの緩和に当たる場合、ゲージは不要です。当たらない場合は 12 cm のゲージを使います。',
                     'Where a no-limit relaxation applies, no gauge is needed. Otherwise use the 12 cm gauge.',
@@ -438,9 +435,6 @@ export function SnareGaugeClient() {
                   )}
                   className="mx-auto max-h-[32rem] w-full drop-shadow-sm"
                 />
-                <figcaption className="text-center text-xs text-on-surface-variant">
-                  {t('A4 への配置。画面上は実寸ではありません。', 'Layout on A4. Not actual size on screen.')}
-                </figcaption>
               </figure>
               <Button className="w-full" onClick={print}>
                 <LuPrinter aria-hidden="true" />
@@ -515,16 +509,11 @@ export function SnareGaugeClient() {
                   <ul className="list-disc space-y-2 pl-5 text-on-surface-variant">
                     <li>
                       {t(
-                        '止まり帯は、輪の内側に最大長の直線と直角に当てます。すき間が残れば上限超過、収まらなければ上限以下です。ちょうど収まるときは上限と同じで、違反ではありません。紙の帯ではちょうどかどうか見分けにくいので、定規やノギスで測ってください。',
-                        'Lay the no-go strip inside the loop at right angles to the longest inner line. Room to spare: over the limit. Does not fit: within it. An exact fit equals the limit, which is allowed. A paper strip cannot reliably show an exact fit, so check with a ruler or calipers.',
+                        '止まり帯がちょうど収まるときは上限と同じで、違反ではありません。際どいときは定規やノギスで測ってください。',
+                        'An exact fit of the no-go strip equals the limit, which is allowed. When it is close, measure with a ruler or calipers.',
                       )}
                     </li>
-                    <li>
-                      {t(
-                        'ワイヤーの 4 mm のすき間は参考用です。太さはノギスなどで測ってください。',
-                        'The 4 mm slit is for reference. Measure the wire with calipers.',
-                      )}
-                    </li>
+                    <li>{t('ワイヤーの太さはノギスで測ってください。', 'Measure the wire with calipers.')}</li>
                   </ul>
                 </div>
               </ConditionSection>
@@ -537,11 +526,6 @@ export function SnareGaugeClient() {
                 )}
               >
                 <div className="space-y-3 text-sm">
-                  {language === 'en' && (
-                    <p className="text-on-surface-variant">
-                      Japanese text of the prohibited hunting methods that concern traps.
-                    </p>
-                  )}
                   <blockquote
                     lang="ja"
                     className="space-y-2 border-l-4 border-outline-variant pl-4 text-on-surface-variant"
@@ -636,9 +620,6 @@ function MeasuringFigure({ language }: { language: Language }) {
           {t('ここを測る', 'Measure here')}
         </text>
       </svg>
-      <figcaption className="text-center text-xs text-on-surface-variant">
-        {t('図は実寸ではありません。', 'Not to scale.')}
-      </figcaption>
     </figure>
   );
 }

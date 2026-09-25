@@ -28,8 +28,7 @@ vi.mock('@/components/labs', async (importOriginal) => {
 const spokenRegions = () =>
   screen.getAllByRole('status').filter((node) => node.tagName === 'P' && node.className.includes('sr-only'));
 
-const openingSummary =
-  '最大到達距離 196 m（仰角 24.2 度）。仰角 30 度では 194 m。この先が安全という意味ではありません。';
+const openingSummary = '最大到達距離 196 m（仰角 24.2 度）。仰角 30 度では 194 m。安全距離ではありません。';
 
 describe('working out how far a shot can carry', () => {
   beforeEach(() => {
@@ -107,11 +106,11 @@ describe('working out how far a shot can carry', () => {
     await screen.findAllByLabelText('初速', { exact: false });
     expect(
       screen.getByText(
-        'ここまで届き得るという距離です。この先が安全という意味ではなく、安全距離の根拠にもなりません。矢先の確認、バックストップ、射線の管理の代わりにはなりません。',
+        '弾が届き得る距離で、安全距離ではありません。矢先の確認、バックストップ、射線の管理は別に必要です。',
       ),
     ).toBeInTheDocument();
     // The summary a screen reader hears carries the same warning as the one on the page.
-    expect(openingSummary).toContain('この先が安全という意味ではありません');
+    expect(openingSummary).toContain('安全距離ではありません');
   });
 
   it('reads the settled result out once typing has stopped', async () => {
@@ -147,8 +146,6 @@ describe('working out how far a shot can carry', () => {
     expect(screen.getByText(/NRA Range Services/)).toBeInTheDocument();
     expect(screen.getByText(/DA PAM 385-63/)).toBeInTheDocument();
     expect(screen.getByText(/Journée の経験則（鉛の球の最大到達距離は/)).toBeInTheDocument();
-    // Those documents lay out ranges; this one does not.
-    expect(screen.getByText(/封じ込めを設計するための資料ではありません/)).toBeInTheDocument();
   });
 
   it('asks the questions a bullet needs once a bullet is chosen', async () => {

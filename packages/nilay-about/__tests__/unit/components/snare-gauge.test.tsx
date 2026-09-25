@@ -218,7 +218,7 @@ describe('the snare gauge', () => {
   it('goes back to the defaults on reset', async () => {
     render(<SnareGaugeClient />);
     fireEvent.change(await prefectureSelect(), { target: { value: 'yamanashi' } });
-    expect(screen.getByText('状態：期間は毎年決まります（判定しません）')).toBeInTheDocument();
+    expect(screen.getByText('状態：期間は毎年決まります')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: '20 cm' }));
     expect(useSnareGaugeStore.getState().gaugeMm).toBe(200);
     fireEvent.click(screen.getByRole('button', { name: '入力を初期値に戻す' }));
@@ -239,7 +239,6 @@ describe('the snare gauge', () => {
     expect(area).toHaveAttribute('lang', 'ja');
     expect(area.parentElement).toHaveTextContent('Area: 県内（引用した記載に区域の限定なし）');
     expect(area.parentElement?.closest('[lang]')).toHaveAttribute('lang', 'en');
-    expect(screen.getByText('Prefectural details are quoted in Japanese.')).toBeVisible();
     expect(screen.getByText(/足くくりわなに限り、直径が15cm以下/).closest('[lang]')).toHaveAttribute('lang', 'ja');
     for (const region of spokenRegions()) expect(region).toHaveAttribute('lang', 'en');
   });

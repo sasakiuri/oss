@@ -169,7 +169,7 @@ describe('reading a load development series', () => {
     expect(
       screen.getByText(/射的練習の用に供するために当該練習者が製造する場合には、一日につき実包又は空包百個以下/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/2026-09-23 に e-Gov 法令検索で確認/)).toBeInTheDocument();
+    expect(screen.getByText(/（2026-09-23 確認）/)).toBeInTheDocument();
   });
 
   it('owns up to a saved series it could not read', async () => {

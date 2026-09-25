@@ -456,12 +456,6 @@ export function ReticleRangingClient() {
                 title={t('読み違えたときの距離', 'If the reading is off')}
                 summary={misreadSummary}
               >
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    `目盛りを ${number(READING_STEP, 1)} ${reticleLabel(apparent.unit)} 読み違えたときの距離です。`,
-                    `Distance if the reading is off by ${number(READING_STEP, 1)} ${reticleLabel(apparent.unit)}.`,
-                  )}
-                </p>
                 <dl className="grid gap-4 rounded-sm bg-surface-container p-4 sm:grid-cols-2">
                   <div>
                     <dt className="text-sm">{t('目盛りを多く読んだ場合', 'Reading too high')}</dt>
@@ -493,12 +487,6 @@ export function ReticleRangingClient() {
                       ? `${distanceText(result.sizeUncertainty.lowMeters, distance.unit)} – ${distanceText(result.sizeUncertainty.highMeters, distance.unit)}`
                       : '—'}
                   </dd>
-                  <dd className="mt-1 text-sm text-on-surface-variant">
-                    {t(
-                      '実寸には個体差があり、姿勢や向きでも見かけが変わります。距離は実寸に比例します。',
-                      'Targets vary in size, and posture and angle change how large they look. Distance is proportional to size.',
-                    )}
-                  </dd>
                 </dl>
               </ConditionSection>
 
@@ -513,25 +501,12 @@ export function ReticleRangingClient() {
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
-                      'MOA は 1/60 度、mil はミリラジアン（1/1000 rad）です。円を 6400 分割する NATO mil ではありません。',
-                      'MOA is 1/60 of a degree; mil is a milliradian (1/1000 rad), not the NATO mil of 1/6400 of a circle.',
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      '「1 mil は 100 m で 10 cm」のような近似ではなく tan で計算します。',
-                      'Uses the tangent, not shortcuts such as "1 mil = 10 cm at 100 m".',
+                      'MOA は 1/60 度、mil はミリラジアン（1/1000 rad）で、円を 6400 分割する NATO mil とは別の単位です。',
+                      'MOA is 1/60 of a degree and mil is the milliradian (1/1000 rad), a different unit from the NATO mil of 1/6400 of a circle.',
                     )}
                   </li>
                 </ul>
               </ConditionSection>
-              <p className="text-xs text-on-surface-variant">
-                {storageAvailable && t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser. ')}
-                {t(
-                  '測距の結果は距離計や実射で確かめ、射撃は法令と射撃場の規則に従ってください。',
-                  'Confirm the range with a rangefinder, and follow the law and range rules when shooting.',
-                )}
-              </p>
             </>
           }
         />

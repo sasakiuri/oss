@@ -22,16 +22,6 @@ export function LegalNotes({ language }: LegalNotesProps) {
       'Hunting with firearms must not be carried out towards any person, kept or captive animal, building, or vehicle such as a train, car or vessel that a bullet may reach.',
     ),
   ];
-  const cautions = [
-    t(
-      '時刻は天文計算の値です。地形・天候・標高によって実際の明るさは異なります。',
-      'Times are calculated. Terrain, weather and elevation change how light it actually is.',
-    ),
-    t(
-      '夜間銃猟の認定や緊急銃猟などの例外があります。実際に撃てるかは、都道府県の規制と許可の条件で確認してください。',
-      'Exceptions include authorised night shooting and emergency shooting. Check the prefecture’s rules and your permit conditions.',
-    ),
-  ];
 
   return (
     <ConditionSection
@@ -65,13 +55,12 @@ export function LegalNotes({ language }: LegalNotesProps) {
           </p>
         )}
       </blockquote>
-      <ul className="divide-y divide-outline-variant border-y border-outline-variant text-sm leading-relaxed text-on-surface-variant">
-        {cautions.map((caution) => (
-          <li key={caution} className="py-3">
-            {caution}
-          </li>
-        ))}
-      </ul>
+      <p className="text-sm leading-relaxed text-on-surface-variant">
+        {t(
+          '夜間銃猟の認定や緊急銃猟などの例外は、都道府県の規制と許可の条件で確かめてください。',
+          'For exceptions such as authorised night shooting and emergency shooting, check the prefecture’s rules and your permit conditions.',
+        )}
+      </p>
       <p className="text-sm">
         {t('出典：', 'Source: ')}
         <a href={LAW_URL} target="_blank" rel="noreferrer" className="underline">

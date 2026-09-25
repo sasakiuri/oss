@@ -106,11 +106,11 @@ describe('verifying the click value', () => {
     await renderLoaded();
     await screen.findByLabelText('横ずれ（任意）', { exact: false });
     // No offset, no tilt line.
-    expect(screen.queryByText(/横ずれから見た傾き/)).toBeNull();
+    expect(screen.queryByText(/° 傾いています/)).toBeNull();
     fireEvent.click(screen.getByRole('radio', { name: '左' }));
     fireEvent.change(screen.getByLabelText('横ずれ（任意）', { exact: false }), { target: { value: '15' } });
     // atan(15 / 860) = 0.99924°.
-    expect(screen.getByText(/横ずれから見た傾き：縦線から左へ約 1°。/)).toBeInTheDocument();
+    expect(screen.getByText(/縦線から左へ約 1° 傾いています。/)).toBeInTheDocument();
   });
 
   it('explains a missing value and gives no factor', async () => {

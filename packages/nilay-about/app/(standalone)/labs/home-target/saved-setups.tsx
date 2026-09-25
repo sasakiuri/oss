@@ -48,10 +48,7 @@ export function SavedSetups() {
       </h2>
       <p className="text-sm text-on-surface-variant" role="status">
         {available
-          ? t(
-              '入力はこのブラウザーに自動で保存されます。名前を付けて保存すると、あとで呼び出せます。',
-              'Inputs are saved in this browser. Name a setup to come back to it later.',
-            )
+          ? ''
           : t(
               'このブラウザーでは保存できません。条件は共有リンクで残せます。',
               'This browser cannot save settings. Keep your setup with a share link.',
@@ -197,10 +194,7 @@ export function SavedSetups() {
           {t('条件の共有リンクをコピー', 'Copy setup link')}
         </Button>
         <p className="mt-2 text-xs text-on-surface-variant">
-          {t(
-            '別の端末で同じ条件を開けます。設定名は含みません。',
-            'Opens this setup on another device. The setup name is not included.',
-          )}
+          {t('設定名は含みません。', 'The setup name is not included.')}
         </p>
       </div>
       {/* One region, mounted empty so later text is announced. Not atomic, so the undo offer and
