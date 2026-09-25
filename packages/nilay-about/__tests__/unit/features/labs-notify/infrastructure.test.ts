@@ -7,7 +7,20 @@ afterEach(() => {
 import { withCronLock } from '@/features/labs-notify/server/cron-lock';
 import { fetchPublicText } from '@/features/labs-notify/server/fetch-source';
 
-import { createFakeUpstash, installFakeUpstash } from './fake-upstash';
+import { createFakeUpstash, FAKE_UPSTASH_URL, installFakeUpstash } from './fake-upstash';
+
+describe('fake Upstash request boundary', () => {
+  it.each([
+    `${FAKE_UPSTASH_URL}.example.test`,
+    `${FAKE_UPSTASH_URL}@example.test`,
+    `${FAKE_UPSTASH_URL}:8443`,
+    'http://fake-labs.upstash.io',
+  ])('rejects requests to a different origin: %s', async (url) => {
+    const fake = createFakeUpstash(() => 0);
+    await expect(fake.fetch(url, { body: JSON.stringify(['get', 'missing']) })).rejects.toThrow('Unexpected request');
+    expect(fake.commands).toEqual([]);
+  });
+});
 
 describe('fetchPublicText (M6)', () => {
   const stream = (chunks: number, size: number) =>
