@@ -73,9 +73,9 @@ describe('species exam', () => {
     expect(buildExamQuestions(quizList, 0, always(0))).toHaveLength(0);
     expect(store().exam).toBeNull();
     store().startExam({ category: 'mammals', questionCount: 20, timeLimit: 5 }, always(0));
-    expect(store().exam?.questions).toHaveLength(16);
+    expect(store().exam?.questions).toHaveLength(19);
     expect(store().exam).toMatchObject({ category: 'mammals', questionCount: 20, timeLimit: 5 });
-    expect(store().exam?.questions.map((question) => categoryOf(question.answer))).toEqual(Array(16).fill('mammals'));
+    expect(store().exam?.questions.map((question) => categoryOf(question.answer))).toEqual(Array(19).fill('mammals'));
   });
   it('sends only missed and unanswered species to review, once the exam ends', () => {
     const known = quizList[0] as Quiz;
@@ -182,7 +182,7 @@ describe('species exam', () => {
     expect(screen.queryByRole('group', { name: '選択肢' })).toBeNull();
     // The settings wait closed below the slideshow; opening them is part of starting over.
     fireEvent.click(screen.getByRole('button', { name: /^出題設定/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'この設定で開始（44 問）' }));
+    fireEvent.click(screen.getByRole('button', { name: 'この設定で開始（45 問）' }));
     expect(confirmed).not.toHaveBeenCalled();
   });
   it('repeats an exam with the settings it started with, and shows the settings only to change them', async () => {

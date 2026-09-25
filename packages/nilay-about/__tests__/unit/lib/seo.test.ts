@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { lawQuestions } from '@/app/(standalone)/labs/law-quiz/questions';
 import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
-import { quizList } from '@/features/game-species/quiz-data';
 import { labsCategories, labsTools } from '@/lib/labs-tools';
+import { GAME_SPECIES } from '@/lib/schemas/hunting-log';
 import { labsToolJsonLd, labsToolMetadata, pageMetadata } from '@/lib/seo';
 
 const toolDirectories = readdirSync(join(__dirname, '../../../app/(standalone)/labs'), { withFileTypes: true })
@@ -33,7 +33,7 @@ describe('the Labs registry', () => {
   it('quotes the number of questions and species the tools really hold', () => {
     const text = (slug: string) => JSON.stringify(labsTools.find((tool) => tool.slug === slug));
     expect(text('law-quiz')).toContain(`${lawQuestions.length} 問`);
-    expect(text('game-species-test')).toContain(`${quizList.length} 種`);
+    expect(text('game-species-test')).toContain(`${GAME_SPECIES.length} 種`);
   });
 
   it('gives every tool its own title', () => {

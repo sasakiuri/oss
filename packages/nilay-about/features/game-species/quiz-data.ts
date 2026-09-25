@@ -16,8 +16,6 @@ export const quizList: Quiz[] = [
   { image: '/images/game-species/009_001.jpg', answer: 'スズガモ', category: 'birds' },
   { image: '/images/game-species/010_001.jpg', answer: 'キンクロハジロ', category: 'birds' },
   { image: '/images/game-species/011_001.jpg', answer: 'クロガモ', category: 'birds' },
-  { image: '/images/game-species/012_001.jpg', answer: 'ゴイサギ', category: 'birds' },
-  { image: '/images/game-species/013_001.jpg', answer: 'バン', category: 'birds' },
   { image: '/images/game-species/014_001.jpg', answer: 'タシギ', category: 'birds' },
   { image: '/images/game-species/015_001.jpg', answer: 'ヤマシギ', category: 'birds' },
   { image: '/images/game-species/016_001.jpg', answer: 'カワウ', category: 'birds' },
@@ -49,4 +47,7 @@ export const quizList: Quiz[] = [
   { image: '/images/game-species/114_001.jpg', answer: 'ミンク', category: 'mammals' },
   { image: '/images/game-species/115_001.jpg', answer: 'アナグマ', category: 'mammals' },
   { image: '/images/game-species/116_001.jpg', answer: 'ハクビシン', category: 'mammals' },
+  { image: '/images/game-species/117_001.jpg', answer: 'ノイヌ', category: 'mammals' },
+  { image: '/images/game-species/118_001.jpg', answer: 'ノネコ', category: 'mammals' },
+  { image: '/images/game-species/119_001.jpg', answer: 'シベリアイタチ', category: 'mammals' },
 ];

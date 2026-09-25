@@ -8,8 +8,8 @@ export function ExamScopeNotice({ language }: { language: Language }) {
     <div className="rounded-sm bg-secondary-container p-4 text-sm text-on-secondary-container">
       <p>
         {t(
-          '出題は狩猟鳥獣 44 種だけです。狩猟免許試験の鳥獣判別では非狩猟鳥獣も出題され、狩猟鳥獣かどうかも問われます。',
-          'Only the 44 game species are shown. The licence exam also shows non-game species and asks which ones may be hunted.',
+          '出題は狩猟鳥獣 46 種だけです（ノウサギとユキウサギは 1 問）。狩猟免許試験の鳥獣判別では非狩猟鳥獣も出題され、狩猟鳥獣かどうかも問われます。',
+          'Only the 46 game species are shown (the hare and the mountain hare share one question). The licence exam also shows non-game species and asks which ones may be hunted.',
         )}
       </p>
     </div>

@@ -147,7 +147,7 @@ describe('species learning', () => {
     // Empty in the server HTML and filled once the record is read: live then, it would be read out on every visit.
     expect(container.querySelector('[aria-live]')).toBeNull();
     await loaded();
-    expect(screen.getByText('1 / 44')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByText('1 / 45')).toHaveAttribute('aria-live', 'polite');
   });
   it('keeps the warning about unusable storage in sight in both modes', async () => {
     // A successful write clears the flag again, so the browser has to keep refusing for real.
@@ -197,7 +197,7 @@ describe('species learning', () => {
     expect(new Set(store().order).size).toBe(5);
     expect(store().order.every((id) => quizList.find((q) => q.image === id)?.category === 'birds')).toBe(true);
     store().start('all', { category: 'mammals', questionCount: 20 });
-    expect(store().order).toHaveLength(16);
+    expect(store().order).toHaveLength(19);
     expect(store().order.every((id) => quizList.find((q) => q.image === id)?.category === 'mammals')).toBe(true);
   });
   it('limits review to the chosen category and retains all-time ratings', () => {
@@ -263,7 +263,7 @@ describe('the slideshow screen', () => {
     });
     render(createElement(GameSpeciesTestClient));
     expect(await screen.findByText('前回の続きから再開しています。')).toBeInTheDocument();
-    expect(screen.getByText('2 / 44')).toBeInTheDocument();
+    expect(screen.getByText('2 / 45')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '採点せず次へ' }));
     expect(screen.queryByText('前回の続きから再開しています。')).toBeNull();
   });
@@ -273,12 +273,12 @@ describe('the slideshow screen', () => {
     await loaded();
     const toggle = screen.getByRole('button', { name: /^出題設定/ });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle).toHaveTextContent('全種類 · 44 問');
-    expect(screen.queryByRole('button', { name: 'この設定で開始（44 問）' })).toBeNull();
+    expect(toggle).toHaveTextContent('全種類 · 45 問');
+    expect(screen.queryByRole('button', { name: 'この設定で開始（45 問）' })).toBeNull();
     fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('radio', { name: /^獣類/ }));
-    // Sixteen mammals: the largest count asks every one of them, and the choice says so.
-    expect(screen.getByRole('radio', { name: '16 問' })).toBeInTheDocument();
+    // Nineteen mammals: the largest count asks every one of them, and the choice says so.
+    expect(screen.getByRole('radio', { name: '19 問' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: '20 問' })).toBeNull();
     fireEvent.click(screen.getByRole('radio', { name: '5 問' }));
     expect(toggle).toHaveTextContent('獣類 · 5 問');

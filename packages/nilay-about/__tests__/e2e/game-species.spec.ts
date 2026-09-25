@@ -13,14 +13,14 @@ test('remembers missed species, resumes progress and offers a focused review', a
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/labs/game-species-test');
-  await expect(page.getByText('1 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
   const firstImage = await page.locator('figure img').getAttribute('src');
   await page.getByRole('button', { name: '答えを見る', exact: true }).click();
   await page.getByRole('button', { name: '要復習', exact: true }).click();
-  await expect(page.getByText('2 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 / 45', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '答えを見る', exact: true })).toBeFocused();
   await page.reload();
-  await expect(page.getByText('2 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 / 45', { exact: true })).toBeVisible();
   await expect(page.getByText('前回の続きから再開しています。')).toBeVisible();
   await openSettings(page);
   page.once('dialog', (dialog) => dialog.accept());
@@ -43,7 +43,7 @@ test('autoplay reveals each answer, remains ungraded, and resumes paused', async
   await page.clock.fastForward(3100);
   await expect(page.getByRole('button', { name: 'わかった', exact: true })).toBeVisible();
   await page.clock.fastForward(3100);
-  await expect(page.getByText('2 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 / 45', { exact: true })).toBeVisible();
   await openSettings(page);
   await expect(page.getByRole('button', { name: '要復習から出題（0 問）' })).toBeDisabled();
   await page.reload();
@@ -55,13 +55,13 @@ test('can go back without cropping photos or overflowing a narrow viewport', asy
   await page.goto('/labs/game-species-test');
   await page.getByRole('button', { name: '採点せず次へ' }).click();
   await page.getByRole('button', { name: '前へ', exact: true }).click();
-  await expect(page.getByText('1 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
   await expect(page.locator('figure img')).toHaveCSS('object-fit', 'contain');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // Enter on a focused control must not also run the global answer shortcut.
   await page.getByRole('button', { name: '採点せず次へ' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('2 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 / 45', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '答えを見る', exact: true })).toBeVisible();
 });
 
@@ -81,11 +81,11 @@ test('recovers from corrupt saved data and handles unavailable storage', async (
 
 test('starts a short session and reviews only the selected ungraded answers', async ({ page }) => {
   await page.goto('/labs/game-species-test');
-  await expect(page.getByRole('button', { name: /^出題設定/ })).toContainText('全種類 · 44 問');
+  await expect(page.getByRole('button', { name: /^出題設定/ })).toContainText('全種類 · 45 問');
   await openSettings(page);
   await pick(page, '種類', '獣類');
   await pick(page, '問題数', '5 問');
-  await expect(page.getByText('1 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'この設定で開始（5 問）' }).click();
   await expect(page.getByText('1 / 5', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '答えを見る', exact: true }).click();
@@ -130,7 +130,7 @@ test('enlarges an unanswered image without revealing the name and pauses playbac
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('button', { name: '画像を拡大', exact: true })).toBeFocused();
   await expect(page.getByRole('button', { name: '自動再生', exact: true })).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByText('1 / 44', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '答えを見る', exact: true })).toBeVisible();
 });
 
