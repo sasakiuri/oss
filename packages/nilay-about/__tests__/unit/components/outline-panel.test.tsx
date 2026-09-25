@@ -84,6 +84,7 @@ describe('on-device outline model lifecycle', () => {
     const view = render(<OutlinePanel {...callbacks} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Use the saved model' }));
     await waitFor(() => expect(callbacks.onActivate).toHaveBeenCalledOnce());
+    await waitFor(() => expect(callbacks.onOutline).toHaveBeenLastCalledWith(expect.objectContaining({ score: 0.9 })));
     expect(downloadModel).not.toHaveBeenCalled();
     vi.mocked(model().setPhoto).mockRejectedValueOnce(new Error('decode failed'));
     view.rerender(<OutlinePanel {...callbacks} photo={new Image()} />);
