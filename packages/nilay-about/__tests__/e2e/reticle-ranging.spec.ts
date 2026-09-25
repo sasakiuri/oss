@@ -52,11 +52,10 @@ test('explains missing input, shows the method and stays translated after reload
   await expect(page.locator('p:not(.sr-only)', { hasText: '必要な 2 つの値を入力してください。' })).toBeVisible();
   await page.getByLabel('レティクルの読み値').fill('2');
   await expect(page.getByText('500 m', { exact: true })).toBeVisible();
-  await expect(page.getByText('設定はこのブラウザーに保存されます。', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: /計算方法/ }).click();
   await expect(page.getByText('NATO mil', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: /読み違えたときの距離/ }).click();
-  await expect(page.getByText('個体差があり', { exact: false })).toBeVisible();
+  await expect(page.getByText('対象の実寸が 10 % ずれていた場合', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');

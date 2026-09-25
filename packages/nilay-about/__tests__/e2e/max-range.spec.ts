@@ -41,7 +41,7 @@ test('asks a bullet the questions a bullet needs, and reads the answer in yards'
 test('refuses to let the distance be read as a safe distance, and names its sources', async ({ page }) => {
   await expect(
     page.getByText(
-      'ここまで届き得るという距離です。この先が安全という意味ではなく、安全距離の根拠にもなりません。矢先の確認、バックストップ、射線の管理の代わりにはなりません。',
+      '弾が届き得る距離で、安全距離ではありません。矢先の確認、バックストップ、射線の管理は別に必要です。',
       { exact: true },
     ),
   ).toBeVisible();
@@ -52,11 +52,10 @@ test('refuses to let the distance be read as a safe distance, and names its sour
   await expect(page.getByText('跳弾があり得る場所ではこの計算は上限になりません', { exact: false })).toBeVisible();
   await expect(page.getByText('NRA Range Services', { exact: false })).toBeVisible();
   await expect(page.getByText('DA PAM 385-63', { exact: false })).toBeVisible();
-  await expect(page.getByText('封じ込めを設計するための資料ではありません', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('It does not make anything beyond it safe', { exact: false })).toBeVisible();
+  await expect(page.getByText('How far the shot can carry, not a safe distance.', { exact: false })).toBeVisible();
 });
 
 test('warns about impossible input without refusing to calculate it', async ({ page }) => {

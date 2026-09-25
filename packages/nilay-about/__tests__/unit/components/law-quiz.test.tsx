@@ -81,11 +81,10 @@ describe('the law quiz screen', () => {
     }
   });
 
-  it('opens on the settings, and says it is not the licence exam and when the law was read', async () => {
+  it('opens on the settings, and says when the law was read', async () => {
     render(<LawQuizClient />);
     expect(await loaded()).toBeInTheDocument();
     expect(screen.getByLabelText('分野')).toHaveValue('all');
-    expect(screen.getByText(/猟銃等講習会の考査の再現ではありません/)).toBeInTheDocument();
     expect(screen.getAllByText(new RegExp(LAW_TEXT_CHECKED_ON)).length).toBeGreaterThan(0);
     expect(screen.getByText('鳥獣の保護及び管理並びに狩猟の適正化に関する法律')).toBeInTheDocument();
   });

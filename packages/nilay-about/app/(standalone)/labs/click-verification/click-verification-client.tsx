@@ -384,8 +384,8 @@ export function ClickVerificationClient() {
                   {result.tiltDegrees !== null && result.tiltSide !== null && (
                     <p>
                       {t(
-                        `横ずれから見た傾き：縦線から${sideName(result.tiltSide)}へ約 ${number(result.tiltDegrees, 2)}°。縦線の傾き、キャント、調整機構のどれが原因かは区別できません。`,
-                        `Tilt from the sideways offset: about ${number(result.tiltDegrees, 2)}° to the ${sideName(result.tiltSide)} of the line. A line that is not plumb, cant and the turret cannot be told apart.`,
+                        `縦線から${sideName(result.tiltSide)}へ約 ${number(result.tiltDegrees, 2)}° 傾いています。縦線の傾き、キャント、調整機構のどれかが原因です。`,
+                        `Tilted about ${number(result.tiltDegrees, 2)}° to the ${sideName(result.tiltSide)} of the line. The cause is the line not being plumb, cant or the turret.`,
                       )}
                     </p>
                   )}
@@ -402,12 +402,6 @@ export function ClickVerificationClient() {
           extras={
             <>
               <ConditionSection id="print" title={t('縦長標的の印刷', 'Print the tall target')} summary={printSummary}>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '中央の縦線に、狙点からの高さを 1 mm 目盛りで入れます。高さ = 期待移動量 × 1.1 + 30 mm。',
-                    'A centre line marked in millimetres above the aim point. Height = expected travel × 1.1 + 30 mm.',
-                  )}
-                </p>
                 {layout && !layout.fits && (
                   <p role="alert" className="rounded-sm bg-error-container p-4 text-sm text-on-error-container">
                     {t(
@@ -434,9 +428,6 @@ export function ClickVerificationClient() {
                         </li>
                       ))}
                     </ol>
-                    <p className="text-xs text-on-surface-variant">
-                      {t('プレビューは実寸ではありません。', 'Preview, not actual size.')}
-                    </p>
                     <Button className="w-full" onClick={() => window.print()}>
                       <LuPrinter aria-hidden="true" />
                       {t(`${layout.pageCount} 枚を印刷する`, `Print ${layout.pageCount} sheets`)}
@@ -513,31 +504,17 @@ export function ClickVerificationClient() {
                     )}
                   </li>
                   <li>
-                    {t(
-                      '出典の記入例（102 yd・30 MOA・実測 29.8 inch）：期待移動量 32.04 inch・補正係数 1.075。このツールでは 32.05 inch・1.0753。差は出典の比例式と丸めた定数によるもので、100 MOA でも 0.05% 未満です。',
-                      "Source worked example (30 MOA at 102 yd, 29.8 in measured): 32.04 in expected, factor 1.075. This tool: 32.05 in, 1.0753. The difference comes from the source's linear formula and rounded constants, and is under 0.05% even at 100 MOA.",
-                    )}
-                  </li>
-                  <li>
                     {t('出典：', 'Source: ')}
                     <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="underline" lang="en">
                       Applied Ballistics, “Tall Target Test Worksheet” (2021)
                     </a>
                     {t(
-                      `（手順・換算定数・補正係数の定義・記入例）。確認日 ${CHECKED_ON}。`,
-                      ` (procedure, constants, correction factor, worked example). Checked ${CHECKED_ON}.`,
+                      `（手順・換算定数・補正係数の定義）。確認日 ${CHECKED_ON}。`,
+                      ` (procedure, constants, correction factor). Checked ${CHECKED_ON}.`,
                     )}
                   </li>
                 </ul>
               </ConditionSection>
-
-              <p className="text-xs text-on-surface-variant">
-                {storageAvailable && t('入力はこのブラウザーに保存されます。', 'Inputs are saved in this browser. ')}
-                {t(
-                  '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                  'Follow the law and the range rules, and shoot in a safe direction from a safe position.',
-                )}
-              </p>
             </>
           }
         />

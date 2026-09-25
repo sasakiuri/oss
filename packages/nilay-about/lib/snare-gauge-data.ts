@@ -76,11 +76,10 @@ export interface SnarePrefectureRule {
   sources: readonly SnareSource[];
 }
 
-const UNCONFIRMED_NOTE =
-  '資料で緩和の有無を確認できませんでした。法令の基準で表示します。狩猟者登録をする都道府県の案内で確かめてください。';
+const UNCONFIRMED_NOTE = '法令の基準で表示します。緩和の有無は狩猟者登録をする都道府県に確かめてください。';
 
 const NONE_NOTE =
-  '確認した県の狩猟案内・管理計画では、狩猟でのくくりわなの輪の直径の緩和の記載を確認できませんでした。法令の基準で表示します。';
+  '県の狩猟案内・管理計画に、狩猟でのくくりわなの輪の直径の緩和の記載はありません。法令の基準で表示します。';
 
 export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
   {
@@ -415,7 +414,7 @@ export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
     // The end of the fifth deer plan (1 April 2022 to 31 March 2027), the only source for 'none'.
     validUntil: '2027-03-31',
     notes: [
-      'ニホンジカ管理計画は、くくりわなを設置する際は 12 cm 規制を徹底するとしています。イノシシについては資料で確認できていないため、未確認として法令の基準で表示します。',
+      'ニホンジカ管理計画は、くくりわなを設置する際は 12 cm 規制を徹底するとしています。イノシシは未確認のため、法令の基準で表示します。',
     ],
     sources: [
       {
@@ -451,10 +450,7 @@ export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
       },
     ],
     validUntil: '2027-03-31',
-    notes: [
-      '根拠は令和8年度狩猟者登録の案内で、同じページに「令和8年度の情報は10月中に更新します」とあります。令和8年度の末日（2027-03-31）を過ぎたら期限切れとして扱います。',
-      '期間外は法令の 12 cm 以下が適用されます。今年度の開始時期は県の案内で確かめてください。',
-    ],
+    notes: ['期間外は法令の 12 cm 以下が適用されます。今年度の開始時期は県の案内で確かめてください。'],
     sources: [],
   },
   {
@@ -499,7 +495,7 @@ export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
     // The end of the third boar plan (1 April 2025 to 31 March 2030), the only source for 'none'.
     validUntil: '2030-03-31',
     notes: [
-      'イノシシ管理計画は、くくりわなの径の制限を解除する区域は設けないとしています。ニホンジカについては資料で確認できていないため、未確認として法令の基準で表示します。',
+      'イノシシ管理計画は、くくりわなの径の制限を解除する区域は設けないとしています。ニホンジカは未確認のため、法令の基準で表示します。',
     ],
     sources: [
       {
@@ -578,7 +574,6 @@ export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
     ],
     validUntil: '2027-03-15',
     notes: [
-      '根拠は令和8年度狩猟者登録の案内です。延長後の狩猟期間の終わり（令和9年3月15日）を過ぎたら期限切れとして扱います。',
       '表の期間外や東名高速道路より北側（山側）の 11月1日～12月31日及び3月1日～3月15日は、法令の 12 cm 以下です。',
     ],
     sources: [
@@ -596,9 +591,7 @@ export const SNARE_PREFECTURE_RULES: readonly SnarePrefectureRule[] = [
     status: 'unconfirmed',
     cases: [],
     validUntil: null,
-    notes: [
-      '県の案内は購入時にわなの規格を確かめるよう呼びかけるもので、緩和の有無は資料で確認できませんでした。法令の基準で表示します。',
-    ],
+    notes: ['法令の基準で表示します。緩和の有無は狩猟者登録をする都道府県に確かめてください。'],
     sources: [
       {
         title: '愛知県「出猟時に注意するポイント」',

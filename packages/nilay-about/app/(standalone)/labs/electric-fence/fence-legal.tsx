@@ -14,12 +14,6 @@ export function FenceLegal({ language }: { language: Language }) {
       <h2 id="legal" className="text-xl font-medium">
         {t('電気さくの法令要件', 'Legal requirements for electric fences')}
       </h2>
-      <p className="text-sm">
-        {t(
-          'この一覧に沿っても、基準への適合と安全は保証されません。電源装置の説明書と出典の本文で確認してください。',
-          'This list does not make a fence compliant or safe. Read the energiser’s manual and the source texts.',
-        )}
-      </p>
       <section className="space-y-2">
         <h3 className="font-medium">
           <span lang="ja">{ordinance.title}</span>
@@ -29,8 +23,8 @@ export function FenceLegal({ language }: { language: Language }) {
         </blockquote>
         {language === 'en' && (
           <p className="text-sm text-on-surface-variant">
-            Summary: electric fences are prohibited, except on fields, pasture or similar places to keep wild animals
-            out or livestock in, installed so that the bare wire causes no electric shock or fire.
+            Electric fences are prohibited, except on fields, pasture or similar places to keep wild animals out or
+            livestock in, installed so that the bare wire causes no electric shock or fire.
           </p>
         )}
       </section>
@@ -52,8 +46,8 @@ export function FenceLegal({ language }: { language: Language }) {
       </section>
       <p className="text-xs text-on-surface-variant">
         {t(
-          `出典：e-Gov 法令検索「電気設備に関する技術基準を定める省令」（${ordinance.issued}）、経済産業省「電気設備の技術基準の解釈」（${interpretation.issued}）。${SOURCES_CHECKED_ON} 確認。以降の改正は反映していません。`,
-          `Sources: the ministerial ordinance at e-Gov (in force from 20 March 2023) and METI’s interpretation of the technical standards (revised 20 November 2025), checked on ${SOURCES_CHECKED_ON}. Later amendments are not reflected. The Japanese text is binding; the English is a summary.`,
+          `出典：e-Gov 法令検索「電気設備に関する技術基準を定める省令」（${ordinance.issued}）、経済産業省「電気設備の技術基準の解釈」（${interpretation.issued}）。${SOURCES_CHECKED_ON} 確認。`,
+          `Sources: the ministerial ordinance at e-Gov (in force from 20 March 2023) and METI’s interpretation of the technical standards (revised 20 November 2025), checked on ${SOURCES_CHECKED_ON}.`,
         )}
       </p>
     </Card>

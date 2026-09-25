@@ -189,8 +189,8 @@ export const FENCE_PRESETS: readonly FencePreset[] = [
     pavementClearanceCm: 50,
     voltage: KYOTO_VOLTAGE,
     note: {
-      ja: '①の 5 段。図の間隔は下から 20・20・20〜25・25〜30・30〜40 cm で、範囲は下限で入れています。跳び越えに備えて支柱は 2 m 以上。②として、その上に電気を通さないヒモを 2 段足す構成もあり、資料は「1m50cm 以上の高さの線はシカが跳ばずに触れることはほとんど無い」としています。ヒモを足す場合、この理由が当てはまるのは 150 cm 以上の線です。',
-      en: 'Option ①, five powered rows. The figure gives gaps of 20, 20, 20–25, 25–30 and 30–40 cm from the ground; the lower end of each range is used. Posts of 2 m or more, against jumping. Option ② adds two unpowered cords above, and the source says a deer hardly touches a line 1.5 m or higher without jumping; that reasoning holds only for a cord at 150 cm or above.',
+      ja: '①の 5 段。図の間隔は下から 20・20・20〜25・25〜30・30〜40 cm（範囲は下限）。支柱は 2 m 以上。②はその上に通電しないヒモを 2 段足す構成で、資料は「1m50cm 以上の高さの線はシカが跳ばずに触れることはほとんど無い」としています。',
+      en: 'Option ①, five powered rows. The figure gives gaps of 20, 20, 20–25, 25–30 and 30–40 cm from the ground (lower end used). Posts of 2 m or more. Option ② adds two unpowered cords above; the source says a deer hardly touches a line 1.5 m or higher without jumping.',
     },
   },
   {

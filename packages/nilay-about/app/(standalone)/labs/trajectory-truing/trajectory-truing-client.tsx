@@ -425,7 +425,6 @@ export function TrajectoryTruingClient() {
                     max={BALLISTIC_COEFFICIENT_RANGE.high}
                     invalid={coefficientInvalid}
                     errorText={coefficientError}
-                    hint={t('メーカーの値と、その G1／G7 の別', 'The maker’s figure, with G1 or G7')}
                   />
                   <NumberField
                     label={t('スコープ高', 'Sight height')}
@@ -461,10 +460,7 @@ export function TrajectoryTruingClient() {
                     min={0}
                     invalid={zeroInvalid}
                     errorText={positiveError}
-                    hint={t(
-                      '群を撃ったときのゼロイン。m と yd を切り替えても数値はそのままです。',
-                      'The zero the groups were fired with. Switching between m and yd keeps the numbers as typed.',
-                    )}
+                    hint={t('群を撃ったときのゼロイン', 'The zero the groups were fired with')}
                   />
                 </div>
               </ConditionSection>
@@ -579,8 +575,8 @@ export function TrajectoryTruingClient() {
                   />
                   <p className="text-xs text-on-surface-variant">
                     {t(
-                      '初速を弾速計で測ったなら弾道係数を、測っていなければ初速を合わせます。もう一方は入力値のままです。',
-                      'If you measured the velocity with a chronograph, fit the ballistic coefficient; if not, fit the velocity. The other stays as entered.',
+                      '初速を弾速計で測ったなら弾道係数を、測っていなければ初速を合わせます。',
+                      'If you measured the velocity with a chronograph, fit the ballistic coefficient. If not, fit the velocity.',
                     )}
                   </p>
                 </div>
@@ -608,8 +604,8 @@ export function TrajectoryTruingClient() {
                       : positiveError
                   }
                   hint={t(
-                    '群の中心を測るときの誤差。この幅に収まれば一致とみなします。',
-                    'How far off a group centre could be. A fit within this counts as a match.',
+                    '群の中心を測る誤差。この幅以内なら一致とします。',
+                    'How far off a group centre could be. Within this counts as a match.',
                   )}
                 />
               </Card>
@@ -873,15 +869,10 @@ export function TrajectoryTruingClient() {
                 id="method"
                 title={t('計算方法と注意', 'Method and cautions')}
                 summary={t(
-                  '弾そのものの値ではなく、この銃・装弾・その日の条件で実測を再現する値です。測った距離の範囲でだけ確かめられています。',
-                  'Not a measurement of the bullet: the value that reproduces these shots with this rifle, load and day, checked only over the distances measured.',
+                  'この銃・装弾・その日の条件で実測を再現する値です。',
+                  'The value that reproduces these shots with this rifle, load and day.',
                 )}
               >
-                {storageAvailable && (
-                  <p className="text-sm text-on-surface-variant" role="status">
-                    {t('入力はこのブラウザーに保存されます。', 'Settings are saved in this browser.')}
-                  </p>
-                )}
                 <ul className="space-y-2 text-sm text-on-surface-variant">
                   <li>
                     {t(
@@ -897,8 +888,8 @@ export function TrajectoryTruingClient() {
                   </li>
                   <li>
                     {t(
-                      '近い距離だけで合わせても値は決まりません。範囲の幅を見て、どの桁まで信用できるか判断してください。',
-                      'Close-range groups do not decide the value. Check the band’s width before trusting a digit.',
+                      '近い距離だけで合わせても値は決まりません。範囲が広いほど値は当てになりません。',
+                      'Close-range groups do not decide the value. The wider the band, the less the value means.',
                     )}
                   </li>
                   <li>
@@ -909,14 +900,14 @@ export function TrajectoryTruingClient() {
                   </li>
                   <li>
                     {t(
-                      '風は計算に入れていません。強い追い風・向かい風の日の群は、その影響が合わせ込みに入ります。',
-                      'Wind is not included. Groups shot in a strong head or tail wind carry that effect into the fit.',
+                      '風は計算に入りません。強い追い風・向かい風の日の群では、その影響も合わせ込まれます。',
+                      'Wind is not included. Groups shot in a strong head or tail wind carry it into the fit.',
                     )}
                   </li>
                   <li>
                     {t(
-                      '測った範囲より遠くで使う場合は、その距離でも実測してください。',
-                      'To use it further out, measure further out.',
+                      '測った範囲より遠くで使う場合は、その距離でも撃って確かめます。',
+                      'To use it further out, shoot at that distance too.',
                     )}
                   </li>
                 </ul>

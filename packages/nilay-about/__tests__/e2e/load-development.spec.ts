@@ -26,10 +26,9 @@ test('keeps an added step after a reload', async ({ page }) => {
   await expect(page.getByLabel('段 7の初速', { exact: false })).toHaveValue('821\n824');
 });
 
-test('shows the provisions it quotes and leaves the legal judgement to the reader', async ({ page }) => {
+test('shows the provisions it quotes', async ({ page }) => {
   await page.getByRole('button', { name: /^実包を自ら製造することと法令/ }).click();
   await expect(page.getByText('一日につき実包又は空包百個以下', { exact: false }).first()).toBeVisible();
-  await expect(page.getByText('所管の行政機関（都道府県など）に確認してください', { exact: false })).toBeVisible();
 });
 
 test('reflows at a narrow viewport and returns to the Labs list', async ({ page }) => {

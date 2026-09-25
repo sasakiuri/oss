@@ -66,7 +66,9 @@ test('says when the other figure alone cannot explain the same shots', async ({ 
 
 test('never lets the fitted figure be read as a measurement of the bullet', async ({ page }) => {
   // Said in the closed heading as well, so it is read without opening anything.
-  await expect(page.getByRole('button', { name: /^計算方法/ })).toContainText('弾そのものの値ではなく');
+  await expect(page.getByRole('button', { name: /^計算方法/ })).toContainText(
+    'この銃・装弾・その日の条件で実測を再現する値',
+  );
   await open(page, /^計算方法/);
   await expect(page.getByText('初速やクロノグラフの誤差もそこに吸収されます', { exact: false })).toBeVisible();
   await expect(page.getByText('近い距離だけで合わせても値は決まりません', { exact: false })).toBeVisible();
@@ -74,7 +76,7 @@ test('never lets the fitted figure be read as a measurement of the bullet', asyn
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('Not a measurement of the bullet', { exact: false })).toBeVisible();
+  await expect(page.getByText('reproduces these shots with this rifle', { exact: false })).toBeVisible();
 });
 
 test('asks for the load first, then folds it to the line that states it', async ({ page }) => {

@@ -416,8 +416,8 @@ export function LoadDevelopmentClient() {
               </Button>
               <p className="text-xs text-on-surface-variant">
                 {t(
-                  `${LOAD_STEP_LIMIT} 段、各段 ${STEP_SHOT_LIMIT} 発まで。装薬量の上限や安全な範囲は扱いません。弾頭・火薬・銃の製造者が公表する資料に従ってください。`,
-                  `Up to ${LOAD_STEP_LIMIT} steps and ${STEP_SHOT_LIMIT} shots per step. Maximum charges and safe ranges are not covered; follow the data published by the component and firearm makers.`,
+                  `${LOAD_STEP_LIMIT} 段、各段 ${STEP_SHOT_LIMIT} 発まで。装薬量は弾頭・火薬・銃の製造者が公表する範囲内にしてください。`,
+                  `Up to ${LOAD_STEP_LIMIT} steps and ${STEP_SHOT_LIMIT} shots per step. Keep charges within the data published by the component and firearm makers.`,
                 )}
               </p>
             </Card>
@@ -489,12 +489,6 @@ export function LoadDevelopmentClient() {
               summary={thresholdSummary}
               forceOpen={!velocityThresholdValid || !movementThresholdValid}
             >
-              <p className="text-sm text-on-surface-variant">
-                {t(
-                  '決まった基準はありません。初期値は例です。',
-                  'There is no standard threshold. The defaults are examples.',
-                )}
-              </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <NumberField
                   label={t('隣り合う段の平均初速の差', 'Change in average velocity')}
@@ -672,15 +666,12 @@ export function LoadDevelopmentClient() {
               <ConditionSection
                 id="method-and-source"
                 title={t('計算方法', 'Method')}
-                summary={t(
-                  '段の中のばらつきを合算し、隣り合う段の差に t 分布による 95 % 区間を付けます。',
-                  'Pooled within-step scatter, with a 95 % t interval on each change between adjacent steps.',
-                )}
+                summary={t('合算 SD と t 分布による 95 % 区間', 'Pooled SD and 95 % t intervals')}
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '2 発以上の段の中のばらつきを合算して 1 つの標準偏差にします（自由度は各段の「発数 − 1」の合計）。差の 95 % 区間は「差 ± t × 合算 SD × √(1/n₁ + 1/n₂)」です。2 発以上の段がほかにあれば、1 発の段も比べられます。ばらつきはどの段でも同程度と仮定します。段ごとの標準偏差とその区間（カイ二乗分布）は表にあります。',
-                    'The scatter within every step with two or more shots is pooled into one SD, with the sum of (shots − 1) as its degrees of freedom. The 95 % interval on a change is "change ± t × pooled SD × √(1/n₁ + 1/n₂)". A one-shot step can be compared if another step has repeated shots. The scatter is assumed to be similar at every step; the table shows each step\'s SD and its chi-squared interval.',
+                    '2 発以上の段の中のばらつきを合算して 1 つの標準偏差にします（自由度は各段の「発数 − 1」の合計）。差の 95 % 区間は「差 ± t × 合算 SD × √(1/n₁ + 1/n₂)」です。2 発以上の段がほかにあれば、1 発の段も比べられます。ばらつきはどの段でも同程度と仮定します。段ごとの SD の区間はカイ二乗分布です。',
+                    'The scatter within every step with two or more shots is pooled into one SD, with the sum of (shots − 1) as its degrees of freedom. The 95 % interval on a change is "change ± t × pooled SD × √(1/n₁ + 1/n₂)". A one-shot step can be compared if another step has repeated shots. The scatter is assumed to be similar at every step. The interval on each step\'s SD uses the chi-squared distribution.',
                   )}
                 </p>
                 <p className="text-sm text-on-surface-variant">
@@ -691,20 +682,9 @@ export function LoadDevelopmentClient() {
                 </p>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    't 分布・カイ二乗分布は「初速のばらつき」「着弾群の測定」と同じ計算で、NIST/SEMATECH e-Handbook of Statistical Methods の数表で確認しています。',
-                    'The t and chi-squared distributions are the same as in Velocity Spread and Group Size Measurement, checked against the tables in the NIST/SEMATECH e-Handbook of Statistical Methods.',
+                    '計測器の誤差、気温、銃身温度、射手のぶれは区別できず、段の中のばらつきか段の差に含まれます。',
+                    'Chronograph error, air and barrel temperature and shooter error cannot be separated; they end up in the scatter or in the changes.',
                   )}
-                </p>
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '計測器の誤差、気温、銃身温度、射手のぶれは区別できず、段の中のばらつきか段の差に含まれます。最適な段は選びません。',
-                    'Chronograph error, air and barrel temperature and shooter error cannot be separated; they end up in the scatter or in the changes. The tool does not pick a best step.',
-                  )}
-                </p>
-                <p className="text-sm text-on-surface-variant" role="status">
-                  {storageAvailable
-                    ? t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser.')
-                    : ''}
                 </p>
               </ConditionSection>
 
@@ -747,20 +727,6 @@ export function LoadDevelopmentClient() {
                     </a>
                   </p>
                 </section>
-                <ul className="list-disc space-y-2 pl-5 text-sm text-on-surface-variant">
-                  <li>
-                    {t(
-                      `条文は ${LAW_TEXT_CHECKED_ON} に e-Gov 法令検索で確認しました。以降の改正は反映していません。`,
-                      `Text checked on e-Gov 法令検索 on ${LAW_TEXT_CHECKED_ON}. Later amendments are not reflected.`,
-                    )}
-                  </li>
-                  <li>
-                    {t(
-                      'このツールは、製造・所持・譲受け・消費が法令に合っているかを判断しません。ここにない条文や、銃砲刀剣類所持等取締法など他の法令も関係します。扱いは所管の行政機関（都道府県など）に確認してください。',
-                      'This tool does not judge whether making, possessing, acquiring or using cartridges is lawful. Provisions not quoted here and other laws, such as the Firearms and Swords Control Act, also apply. Check with the responsible authority, such as your prefecture.',
-                    )}
-                  </li>
-                </ul>
               </ConditionSection>
             </>
           }

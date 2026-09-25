@@ -79,7 +79,7 @@ test('shows the cold weather case, names its source and switches language', asyn
   await open(page, /^弾の種類と弾痕での確認/);
   await expect(page.getByText('Precision Shooting', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Army Standard Metro', { exact: false }).first()).toBeVisible();
-  await expect(page.getByText('樹脂チップ付きの弾はこの式の前提外です', { exact: false })).toBeVisible();
+  await expect(page.getByText('軽いチップも長さに入るため安定係数が低めに出ます', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
