@@ -20,8 +20,8 @@ const journal = () => ({
 async function page() {
   vi.resetModules();
   const session = await import('@/lib/labs-session');
-  const { browserStorage } = await import('@/lib/browser-storage');
-  return { session, browserStorage };
+  const storage = await import('@/lib/browser-storage');
+  return { session, browserStorage: storage.browserStorage, storage };
 }
 
 const settled = async <T>(promise: Promise<T> | T) => {
@@ -173,6 +173,44 @@ describe('the Labs session', () => {
     land();
     await session.toolSessionLeft();
     expect(locks.holders('nilay-labs-open')).toEqual([]);
+  });
+
+  it('withdraws a wait for a saved value’s lock when the tab moves to the data page', async () => {
+    const { browserStorage, session, storage } = await page();
+    await browserStorage.getItem(KEY);
+    // Another tab holds the value, talking to the server.
+    const release = locks.hold('nilay-labs-save:probe', 'exclusive');
+    const work = vi.fn(async () => 'done');
+    const waiting = storage.withSavedValue('probe', work);
+    waiting.catch(() => undefined);
+    await settled(Promise.resolve());
+    session.enterDataPage();
+    release();
+    await expect(waiting).rejects.toMatchObject({ name: 'AbortError' });
+    expect(work).not.toHaveBeenCalled();
+    expect(await settled(session.toolSessionLeft())).toBe(true);
+  });
+
+  it('keeps the tool session for a saved value’s work under way when the tab moves to the data page', async () => {
+    const { browserStorage, session, storage } = await page();
+    await browserStorage.getItem(KEY);
+    let finish: () => void = () => undefined;
+    const running = storage.withSavedValue('probe', () => new Promise<void>((resolve) => (finish = resolve)));
+    await settled(Promise.resolve());
+    session.enterDataPage();
+    // The data page waits for it, as for a write to IndexedDB, before it exports or restores.
+    expect(await settled(session.toolSessionLeft())).toBe(false);
+    finish();
+    await running;
+    expect(await settled(session.toolSessionLeft())).toBe(true);
+  });
+
+  it('runs no saved value’s work asked for on the data page', async () => {
+    const { session, storage } = await page();
+    session.enterDataPage();
+    const work = vi.fn(async () => 'done');
+    await expect(storage.withSavedValue('probe', work)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(work).not.toHaveBeenCalled();
   });
 
   it('refuses the writes of a tool screen left behind on the data page, but not the data page’s own', async () => {

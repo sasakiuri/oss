@@ -699,6 +699,26 @@ from zoom 5, photographs from zoom 14), credited as 地理院タイル with a li
 (checked 2026-09-24). Fetching tiles tells GSI roughly which area is on screen; the background can be set to なし (none),
 which requests nothing. Tiles are not stored for offline use.
 
+- **Bear Sighting Alerts** (クマ出没の通知): register up to five places with a radius of 1 to 20 km; every three hours the server reads Akita Prefecture's
+  bear sighting open data (クマダス, CC BY 4.0, [catalogue](https://ckan.pref.akita.lg.jp/dataset/050008_shizenhogoka_003), checked 2026-09-24)
+  with a conditional request and sends a Web Push for new bear sightings, signs and injuries dated within 30 days that fall inside a place.
+  Only the id, kind, municipality, date and coordinates are read; addresses and descriptions are not. Alerts follow the prefecture's publishing
+  and can lag days to months behind a sighting. The credit required by the licence is shown on the page and in each notification.
+- **Course Page Watch** (講習会ページの更新通知): twice a day the server fetches the firearms course schedule pages of the Tokyo Metropolitan Police
+  and the Saitama Prefectural Police, hashes the text of the page's content element, and notifies subscribers when it changes. The text is neither
+  stored nor copied; the notification links to the page. Both sites publish no robots.txt, and their site policies allow links and reuse with
+  attribution (checked 2026-09-24).
+- **Return Check** (帰着予定の見守り): register the expected return time, a grace period and a short note, and share a watch link. At the return time
+  the owner is reminded; after the grace period the owner's devices and the watchers are alerted by Web Push, three times an hour apart, until
+  “I'm back” is pressed. The entry plan card can open it with `?returnAt=YYYY-MM-DDTHH:mm&note=…`. It sends no email or SMS and calls no one.
+- **Party Location Sharing** (位置の共有（巻き狩り）): a room joined by an invitation link and a passphrase shares each member's latest position
+  every five seconds, with distance and bearing from you. See _Server-backed tools_ for what is stored.
+- **Trap and Fence Alerts** (わな・電気柵の遠隔通知): creates a secret URL that a trap sensor, fence monitor or automation service can POST to;
+  the registered devices get a Web Push with the message (JSON `message`, `text` or `value1`, a form field, or plain text). GET never notifies.
+  The URL can only raise alerts; adding devices and deleting the hook need a separate manage link that stays on the person's devices.
+- **Match Results Page** (大会リザルトの公開): publishes a table pasted from a spreadsheet or CSV at `/labs/event-results/view#<id>`, kept out of
+  search engines, editable with the organiser's passphrase and deleted after 7, 30 or 90 days. It is not an official record.
+
 Records and settings are saved in the browser in use. They are not synced to other devices and are lost
 if the browser's site data is cleared. Where saving is not possible, the page says so.
 
@@ -708,6 +728,12 @@ if the browser's site data is cleared. Where saving is not possible, the page sa
   and for each map a line with its settings followed by its picture in lines of at most 1 MiB, so the export and the restore handle
   one picture at a time and never hold one as text whole. The export estimates the size first and refuses, with the reason,
   a file over 256 MB. The file is not encrypted.
+  The server-backed tools (bear alerts, course page watch, results pages, location sharing, return alerts, trap alerts) are left out:
+  what they keep describes registrations on the server that belong to this browser's push subscription, and several hold the keys that
+  control them (a plan's owner key, a hook's trigger and manage keys, a room's member key). Restored in another browser they would claim
+  registrations it does not have, and the unencrypted file would let anyone holding it end a plan, send a hook's alert or read a room.
+  They expire on the server within days to weeks. The return alert saves its plan under an exclusive Web Lock of its own
+  (`nilay-labs-save:<key>`, taken inside the Labs session), reading the saved value again first, so tabs never undo each other's saves.
   Each part of the file is checked by the tool's own store before anything is written; a part that does not pass is listed and left out.
   A tool in the file replaces that tool's data; tools not in the file are left alone. Photos travel with their tool's records and only
   for records in the file. Maps or photos the export could not read are marked as not included and leave the device's own alone;
@@ -735,6 +761,44 @@ if the browser's site data is cleared. Where saving is not possible, the page sa
   and **links between tools** carry a value in the query string (velocity spread sends its average to twist rate and stability).
   A link that cannot be read changes nothing and says so. Tools add both with `createNamedSettingsStore` / `NamedSettings`
   and `defineHandoff` / `receiveHandoff`; `lib/csv.ts` writes CSV per RFC 4180 with typed text kept inert for spreadsheets.
+
+### Server-backed tools
+
+The six tools above use `app/api/labs/`, Vercel Cron (`vercel.json`) and Upstash Redis; without Upstash and the VAPID keys the APIs answer 503.
+Web Push (RFC 8291 encryption and RFC 8292 VAPID) is implemented with `node:crypto`, without a library. Notifications work in browsers with
+Web Push; on iPhone and iPad only from a site added to the Home Screen (iOS 16.4 or later). Delivery is never guaranteed, and each page says so.
+
+What the server keeps, and for how long (every key expires on its own):
+
+- A device's push subscription (endpoint, keys, language): 90 days after it was last registered. “Stop all notifications here” deletes it
+  and the device's bear places and course pages at once.
+- Bear alert places (latitude, longitude, radius): 90 days. Course pages chosen: 90 days.
+- A return plan (time, grace, note, devices to notify): deleted by “I'm back” or “Cancel”, otherwise 24 hours after its last alert.
+- A location room: each member's display name and **latest position only** (no track), sent only after the member presses the switch and only
+  while the page is open. “Leave” deletes the member's name and position, the creator's “Close room” deletes everything, and the room is deleted
+  when it ends (2 to 24 hours, chosen when it is made).
+- A trap hook: its name and devices, 90 days after its last call or visit to the page, which also renew its devices' subscriptions;
+  messages are not stored. Bear places and course pages are renewed the same way on each visit.
+- A results page: its table until it expires.
+
+Hook, room and plan credentials are stored as SHA-256 hashes and passphrases with scrypt. Passphrase tries are limited per address and
+per room or page, counted in Redis so that an unreachable Redis refuses them. Anonymous creation is capped per day (rooms, results pages,
+plans, hooks), with at most 200 open rooms and 300 results pages of up to 128 KiB. Room polling is limited per member, not per address.
+Records and their places in the service-wide counts are written and deleted together in single Lua scripts, as are a
+room's member limit, a hook's renewal with its devices, and the job lock; hooks and results pages are changed with compare and set.
+Everything that changes a return plan or sends for it (the check, the return or cancel, a new time, a new watcher) holds a
+per-plan lock that outlives the request holding it (90 s against a 60-second route limit); the holder checks it still has the
+lock before sending, and every send and store request has its own timeout. A plan's messages therefore go out in the order of its
+changes: a return pressed while an overdue alert is going out is sent after it, under the same notification tag. What to send (an
+alert, or the return or cancel) is stored on the plan with the change that calls for it and removed after sending, so a request or
+check that stops half-way is completed by the next check (at least once); devices not reached are tried again, three tries per device
+(a device there was no time for keeps its tries). An ended plan is kept for a day without its note or devices, so pressing the return again is answered as done. A plan, its place in the check's schedule and its place in the count of held plans (scored by when the plan's record expires) are written in one Lua script, so they never disagree. Bear and course alerts go out as batches that resume across runs: the progress (a cursor in the index and the devices to try again) is saved after every page, so a run that runs out of time is continued, not restarted; a device is marked per batch after it is told, so registering again mid-scan does not tell it twice. A batch is named by its content and by the revision of the source or page it came from, so the same change happening again later is a new batch. A plan is made in two steps: creating it stores it unarmed for ten minutes (not scheduled, sends nothing); the page saves the keys and then arms it, which schedules it. If the answer to a creation is lost the page makes a new plan and the first one expires unannounced; arming is idempotent, so a lost answer to it is repaired by arming again. Every save of the page's plan and watched plans runs under one Web Lock over the values read again from the storage, and each tab takes in the others' saves (storage event), so a tab holding an older state never overwrites a plan's keys; the page makes one plan at a time (a browser without Web Locks is refused) and none while a plan is saved, arms a plan only after reading its keys back from the browser's storage, and shows an unarmed plan as not registered, without the watch link. An unarmed plan cannot be watched, read or moved, cancelling it tells no one, and one whose return time has passed is refused (410). Unarmed plans count toward the daily and total limits. One address may make 10 plans a day, and one device may have 3 plans armed at once (counted in the same script as the plan's writes), so one person cannot fill the check's queue. Devices found gone when an alert is sent are removed from the plan in the same write, so the watcher count stays true. Course alerts mark each page per device, so a retry does not repeat a page already told. A stored plan in a format this version does not read is counted in the job's result.
+Stored subscriptions (50,000), watchers of each kind (20,000) and new subscriptions a day (5,000) are capped. The trap alerts page
+asks the server for each hook's current expiry and forgets a hook only when the server no longer has it. Jobs page through their watchers, send a few at a time, mark each device per batch, and stop within
+a time budget, leaving the rest for the next run. Each server instance has at most 25 push requests under way at once (5 per notification), handed round the notifications waiting one at a time, and holds a place only for the request, not while reading the subscription. The limit is per instance: sends come only from the scheduled jobs (each route runs once at a time under its cron lock) and from trap hooks (limited to 20 calls a minute per IP and 6 per hook). A push service gets 10 seconds to accept a message (5 seconds for the return-alert check). The return-alert check starts due plans 100 at a time, longest overdue first, and keeps taking the next hundred while it has time to start plans, so plans whose devices stall do not hold up the others; devices there was no time for stay queued without using up an attempt. Its worst case, with every store call and push running to its timeout, fits its route's 280-second limit (a Vercel Pro limit); a test holds that calculation. A call to a trap hook answers with the devices reached (`delivered`), not reached this time (`failed`) and registered (`devices`); a caller can call again when `failed` is not 0. Subscription keys must be points on P-256, and a VAPID key pair that does not
+match stops the server at start. Room tokens, plan notes and results links kept in the browser are removed once they have expired on the server.
+Browser writes must carry the site's `Origin`, bodies are size-limited, pushes go only to the FCM, Mozilla, Apple and Windows push services,
+cron routes require `CRON_SECRET`, and logs replace hook tokens and room and page ids in paths.
 
 ## Search engines
 

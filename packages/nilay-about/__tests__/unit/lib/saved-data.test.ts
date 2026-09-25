@@ -3,7 +3,12 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { photoRecords, savedDataEntries, savedDataEntry } from '@/app/(standalone)/labs/data/saved-data';
+import {
+  photoRecords,
+  savedDataEntries,
+  savedDataEntry,
+  unbackedStoreKeys,
+} from '@/app/(standalone)/labs/data/saved-data';
 import { useStorageStatus } from '@/lib/browser-storage';
 import { acceptsPersisted, persistedKey, type PersistedStore } from '@/lib/persisted-store';
 import { languageStorageKey } from '@/store/language-store';
@@ -32,7 +37,7 @@ function keysOfPersistedStores(): string[] {
   for (const directory of ['app', 'store', 'lib', 'features', 'components'])
     for (const file of sourceFiles(join(packageDirectory, directory))) {
       const source = readFileSync(file, 'utf8');
-      if (!/\bpersist\(|createJSONStorage\(|createNamedSettingsStore\(/.test(source)) continue;
+      if (!/\bpersist\(|createJSONStorage\(|createNamedSettingsStore\(|createSavedStore[<(]/.test(source)) continue;
       for (const match of source.matchAll(/'(nilay-[a-z0-9-]+-v\d+)'/g)) keys.add(match[1]!);
     }
   return [...keys].filter((key) => !SITE_KEYS.includes(key)).sort();
@@ -52,7 +57,20 @@ describe('the stores the backup covers', () => {
     const keys = keysOfPersistedStores();
     // The two a registry that read only the tools' `_store/index.ts` would miss.
     expect(keys).toEqual(expect.arrayContaining(['nilay-labs-electric-fence-power-v1', 'nilay-study-log-v1']));
-    expect(savedDataEntries.map((entry) => persistedKey(entry.store)).sort()).toEqual(keys);
+    // Each one is either backed up, or left out on purpose, with the reason given where the list is.
+    expect([...savedDataEntries.map((entry) => persistedKey(entry.store)), ...unbackedStoreKeys].sort()).toEqual(keys);
+    expect(unbackedStoreKeys.filter((key) => savedDataEntry(key))).toEqual([]);
+  });
+
+  it('leave out the server tools, whose saved values hold the keys to registrations of this browser', () => {
+    expect([...unbackedStoreKeys].sort()).toEqual([
+      'nilay-labs-bear-alerts-v1',
+      'nilay-labs-course-watch-v1',
+      'nilay-labs-event-results-v1',
+      'nilay-labs-location-share-v1',
+      'nilay-labs-return-alert-v1',
+      'nilay-labs-trap-alerts-v1',
+    ]);
   });
 
   it('tie the photos of a tool to the key of its records, and give no key to a tool without photos', () => {
