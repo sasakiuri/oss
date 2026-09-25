@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { LuBell } from 'react-icons/lu';
 import { z } from 'zod';
 
-import { ConditionSection, ToolLayout } from '@/components/labs';
+import { ScheduledChecksPaused, ConditionSection, ToolLayout } from '@/components/labs';
 import { Button, Card } from '@/components/ui';
 import { errorKind, ERROR_MESSAGES, sendJson } from '@/features/labs-notify/client';
 import { PushSetup } from '@/features/labs-notify/components/push-setup';
@@ -14,6 +14,7 @@ import { useRenewal } from '@/features/labs-notify/use-renewal';
 import { WATCHED_PAGES } from '@/lib/course-watch';
 import { requestJson } from '@/lib/http/client';
 import { labsTool } from '@/lib/labs-tools';
+import { SCHEDULED_CHECKS_PAUSED } from '@/lib/scheduled-checks';
 import { useLanguage, type Language } from '@/store';
 
 import { COURSE_WATCH_STORAGE_KEY, useCourseWatchStore } from './_store';
@@ -149,7 +150,11 @@ export function CourseWatchClient() {
                       : t('未登録です。', 'Not registered.')}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => void register(language)} disabled={push.busy || value.pages.length === 0}>
+                    <ScheduledChecksPaused language={language} />
+                    <Button
+                      onClick={() => void register(language)}
+                      disabled={SCHEDULED_CHECKS_PAUSED || push.busy || value.pages.length === 0}
+                    >
                       <LuBell aria-hidden="true" />
                       {t('更新を通知する', 'Notify me of changes')}
                     </Button>

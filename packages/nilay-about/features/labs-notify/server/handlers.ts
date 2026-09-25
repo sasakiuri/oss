@@ -3,6 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 
 import { WATCHED_PAGE_IDS } from '@/lib/course-watch';
+import { SCHEDULED_CHECKS_PAUSED_MESSAGE } from '@/lib/scheduled-checks';
 import { bearWatchRequestSchema } from '@/lib/schemas/bear-alerts';
 import {
   createResultsSchema,
@@ -43,6 +44,8 @@ export interface LabsNotifyDependencies {
   siteUrl: () => string;
   vapidPublicKey: () => string | undefined;
   cronSecret: () => string | undefined;
+  /** Whether the scheduled checks are paused (`lib/scheduled-checks.ts`); registrations for them are refused. */
+  scheduledChecksPaused: () => boolean;
   push: PushService;
   bear: ReturnType<typeof createBearAlerts>;
   course: ReturnType<typeof createCourseWatch>;
@@ -74,6 +77,11 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
 export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
+  /** Refuses a registration that only a scheduled check would act on, while those checks are paused. */
+  const assertScheduledChecksRunning = () => {
+    if (deps.scheduledChecksPaused()) throw new RequestError(503, SCHEDULED_CHECKS_PAUSED_MESSAGE.ja);
+  };
+
   const route = <C = unknown>(
     rateLimit: RateLimitConfig,
     handle: (request: Request, context: C) => Promise<Response>,
@@ -138,6 +146,7 @@ export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
     }),
 
     bearWatch: route(rateLimitPresets.apiWrite, async (request) => {
+      assertScheduledChecksRunning();
       const { subscription, language, places } = await body(request, bearWatchRequestSchema);
       const { expiresAt } = await deps.bear.register(subscription, language, places);
       return json({ expiresAt: expiresAt.toISOString() });
@@ -150,6 +159,7 @@ export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
 
     coursePages: route(rateLimitPresets.apiRead, async () => json({ pages: await deps.course.pageStates() })),
     courseWatch: route(rateLimitPresets.apiWrite, async (request) => {
+      assertScheduledChecksRunning();
       const { subscription, language, pages } = await body(
         request,
         subscriptionRequestSchema.extend({ pages: z.array(z.enum(WATCHED_PAGE_IDS)).min(1) }),
@@ -164,6 +174,7 @@ export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
     }),
 
     createReturnPlan: route(rateLimitPresets.apiWrite, async (request) => {
+      assertScheduledChecksRunning();
       const { subscription, language, ...fields } = await body(request, createReturnPlanSchema);
       return json(await deps.returns.create(subscription, language, fields, getClientIp(request)), 201);
     }),
@@ -171,10 +182,12 @@ export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
       const { action } = await context.params;
       switch (action) {
         case 'watch': {
+          assertScheduledChecksRunning();
           const { planId, token, subscription, language } = await body(request, watchReturnPlanSchema);
           return json({ plan: await deps.returns.watch(planId, token, subscription, language) });
         }
         case 'arm': {
+          assertScheduledChecksRunning();
           const { planId, token } = await body(request, returnPlanTokenSchema);
           return json({ plan: await deps.returns.arm(planId, token) });
         }
@@ -183,6 +196,7 @@ export function createLabsNotifyHandlers(deps: LabsNotifyDependencies) {
           return json({ plan: await deps.returns.status(planId, token) });
         }
         case 'update': {
+          assertScheduledChecksRunning();
           const { planId, token, returnAt } = await body(request, updateReturnPlanSchema);
           return json({ plan: await deps.returns.update(planId, token, returnAt) });
         }

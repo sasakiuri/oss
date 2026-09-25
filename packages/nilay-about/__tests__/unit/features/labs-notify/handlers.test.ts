@@ -43,7 +43,8 @@ const subscription = (n: number) => ({
   keys: { p256dh: userAgentKey(n), auth: `${String(n).padStart(22, 'a')}` },
 });
 
-function setup(options: { retry?: boolean; realTimeScale?: number } = {}) {
+function setup(options: { retry?: boolean; realTimeScale?: number; scheduledChecksPaused?: boolean } = {}) {
+  const scheduledChecksPaused = options.scheduledChecksPaused ?? false;
   let clock = Date.parse('2026-11-15T08:00:00+09:00');
   // With a scale, the clock also runs with real time, that many times faster, so work done at the
   // same time takes the same time on it (for tests of what a run manages within its budget).
@@ -78,6 +79,7 @@ function setup(options: { retry?: boolean; realTimeScale?: number } = {}) {
     siteUrl: () => SITE,
     vapidPublicKey: () => 'B'.padEnd(87, 'x'),
     cronSecret: () => CRON_SECRET,
+    scheduledChecksPaused: () => scheduledChecksPaused,
     push,
     bear: createBearAlerts({ store, push, fetch, now }),
     course: createCourseWatch({ store, push, fetch, now }),
@@ -251,6 +253,24 @@ const AKITA_HEADER =
 const akitaFile = (...rows: string[]) => [AKITA_HEADER, ...rows].join('\n');
 const akitaRow = (id: number, date: string, latitude: number, longitude: number) =>
   `${id},目撃,秋田市,住所,${date},ツキノワグマ,不明,単独,1,状況,${latitude},${longitude}`;
+
+describe('while the scheduled checks are paused', () => {
+  it('refuses every registration a scheduled check would act on', async () => {
+    const { handlers } = setup({ scheduledChecksPaused: true });
+    const refusals = [
+      await call(handlers.bearWatch, 'PUT', {}),
+      await call(handlers.courseWatch, 'PUT', {}),
+      await call(handlers.createReturnPlan, 'POST', {}),
+      ...(await Promise.all(
+        ['watch', 'arm', 'update'].map((action) => call(handlers.returnPlanAction, 'POST', {}, { params: { action } })),
+      )),
+    ];
+    for (const refusal of refusals) {
+      expect(refusal.status).toBe(503);
+      expect(JSON.stringify(refusal.body)).toContain('定期確認を一時停止');
+    }
+  });
+});
 
 describe('bear alerts', () => {
   it('records the data on the first run and notifies nearby watchers of new rows only', async () => {

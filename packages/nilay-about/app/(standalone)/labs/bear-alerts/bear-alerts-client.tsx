@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { LuBell, LuTrash2 } from 'react-icons/lu';
 import { z } from 'zod';
 
-import { ConditionSection, ToolLayout } from '@/components/labs';
+import { ScheduledChecksPaused, ConditionSection, ToolLayout } from '@/components/labs';
 import { Button, Card } from '@/components/ui';
 import { errorKind, ERROR_MESSAGES, sendJson } from '@/features/labs-notify/client';
 import { PlacePicker } from '@/features/labs-notify/components/place-picker';
@@ -14,6 +14,7 @@ import { usePush } from '@/features/labs-notify/use-push';
 import { useRenewal } from '@/features/labs-notify/use-renewal';
 import { BEAR_SOURCES, RADIUS_KM_OPTIONS, RECENT_DAYS } from '@/lib/bear-alerts';
 import { labsTool } from '@/lib/labs-tools';
+import { SCHEDULED_CHECKS_PAUSED } from '@/lib/scheduled-checks';
 import { BEAR_PLACES_MAX } from '@/lib/schemas/bear-alerts';
 import { useLanguage, type Language } from '@/store';
 
@@ -159,7 +160,11 @@ export function BearAlertsClient() {
                       : t('未登録です。', 'Not registered.')}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => void register(language)} disabled={push.busy || value.places.length === 0}>
+                    <ScheduledChecksPaused language={language} />
+                    <Button
+                      onClick={() => void register(language)}
+                      disabled={SCHEDULED_CHECKS_PAUSED || push.busy || value.places.length === 0}
+                    >
                       <LuBell aria-hidden="true" />
                       {value.registeredUntil
                         ? t('地点を更新する', 'Update places')

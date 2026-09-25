@@ -790,7 +790,7 @@ if the browser's site data is cleared. Where saving is not possible, the page sa
 
 ### Server-backed tools
 
-The six tools above use `app/api/labs/`, Vercel Cron (`vercel.json`) and Upstash Redis; without Upstash and the VAPID keys the APIs answer 503.
+The six tools above use `app/api/labs/`, Vercel Cron (`vercel.json`) and Upstash Redis; without Upstash and the VAPID keys the APIs answer 503. The scheduled checks are paused for now: `vercel.json` lists no crons, and Bear Sighting Alerts, Course Page Watch and Return Check take no new registrations, on the page or the server (`lib/scheduled-checks.ts`); removing a registration still works.
 Web Push (RFC 8291 encryption and RFC 8292 VAPID) is implemented with `node:crypto`, without a library. Notifications work in browsers with
 Web Push; on iPhone and iPad only from a site added to the Home Screen (iOS 16.4 or later). Delivery is never guaranteed, and each page says so.
 

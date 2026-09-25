@@ -62,7 +62,7 @@ node -e "const {generateKeyPairSync}=require('node:crypto');const j=generateKeyP
 
 鍵を作り直すと既存の購読はすべて無効になり、利用者は通知を登録し直す必要があります。
 
-定期実行は `vercel.json` の Vercel Cron で、時刻は UTC です。
+定期実行は `vercel.json` の Vercel Cron で、時刻は UTC です。現在は一時停止中で、`vercel.json` に cron を載せず、`lib/scheduled-checks.ts` の `SCHEDULED_CHECKS_PAUSED` によってクマ出没の通知・講習会の監視・帰着の連絡の新規登録（入山計画の確定・見守り・予定変更を含む）を画面とサーバーの両方で止めています。再開するときは、下表の 3 件を `vercel.json` の `crons` に戻し、`SCHEDULED_CHECKS_PAUSED` を `false` にします。
 
 | パス                      | 間隔                             | 内容                                                      |
 | ------------------------- | -------------------------------- | --------------------------------------------------------- |
