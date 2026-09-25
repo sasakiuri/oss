@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
@@ -48,7 +48,7 @@ describe('browser storage', () => {
     const found: string[] = [];
     for (const directory of ['app', 'lib', 'components', 'store', 'features'])
       for (const file of sourceFiles(join(packageDirectory, directory))) {
-        const path = relative(packageDirectory, file);
+        const path = relative(packageDirectory, file).split(sep).join('/');
         if (ALLOWED.includes(path)) continue;
         const source = withoutComments(readFileSync(file, 'utf8'));
         if (MENTION.test(source)) found.push(path);
