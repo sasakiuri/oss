@@ -207,6 +207,50 @@ export const labsTools = [
       '標的をスマートフォンで撮影し、弾痕を自動で検出して着弾群の大きさ（最大中心間距離・平均半径）と平均着弾点を測ります。MOA・mil に換算し、平均着弾点のズレを照準調整に使えます。画像は端末の外に送信しません。',
   },
   {
+    slug: 'target-score',
+    category: 'loads',
+    title: { ja: '標的の採点', en: 'Target Scoring' },
+    summary: {
+      ja: 'ISSF 標的をタップや写真から採点し、シリーズごとの得点を記録します。',
+      en: 'Score ISSF targets by tapping or from photos, and record series totals.',
+    },
+    description:
+      '10m エアライフル・エアピストル・50m ライフルなど ISSF 標的の弾痕をタップか写真から読み取り、小数点（10.9）とインナーテンで採点。シリーズ合計・平均・推移を記録できます。',
+  },
+  {
+    slug: 'shot-timer',
+    category: 'loads',
+    title: { ja: 'ショットタイマー', en: 'Shot Timer' },
+    summary: {
+      ja: '開始音から発砲までの時間と発砲間隔を、マイクや動画の音声から測ります。',
+      en: 'Measure shot times and splits from microphone or video audio.',
+    },
+    description:
+      'ブラウザで動くショットタイマー。ランダム遅延の開始音と par タイム、マイクによる発砲検出（しきい値調整）でスプリットを計測。射撃動画の音から発砲のタイミングも出せます。',
+  },
+  {
+    slug: 'match-timer',
+    category: 'loads',
+    title: { ja: '競技の号令タイマー', en: 'Match Command Timer' },
+    summary: {
+      ja: 'ISSF 競技の号令を読み上げ、残り時間を表示する練習用タイマー。',
+      en: 'A practice timer with spoken ISSF commands and a countdown.',
+    },
+    description:
+      'ISSF 規則の準備・試射時間、本射、決勝の号令と持ち時間を音声で読み上げる練習用タイマー。10m エアライフル・エアピストル、50m 伏射・3 姿勢に対応し、残り時間を表示します。',
+  },
+  {
+    slug: 'pcp-fill',
+    category: 'loads',
+    title: { ja: 'PCP 空気銃の充填回数', en: 'PCP Fill Calculator' },
+    summary: {
+      ja: 'ダイビングボンベなどから PCP 空気銃に何回充填できるかを、容積と圧力から計算します。',
+      en: 'How many times a cylinder fills a PCP air gun, from the volumes and pressures.',
+    },
+    description:
+      'ダイビングボンベやカーボンボンベから PCP（プレチャージ式）空気銃に満充填できる回数と、充填ごとのボンベの残圧を、容積と圧力（bar・MPa・psi）から計算します。',
+  },
+  {
     slug: 'recoil',
     category: 'loads',
     title: { ja: '反動の計算', en: 'Recoil Calculator' },

@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import { test, expect, type Page } from './fixtures';
 
 const spreadTable = '距離ごとの縦の広がり';
@@ -53,14 +55,14 @@ test('says how many shots the deviation itself would take, and when it is out of
 });
 
 test('never lets the spread be read as the size of a group', async ({ page }) => {
-  await expect(page.getByText('群の大きさではありません', { exact: false })).toBeVisible();
+  await expect(page.getByText('実際の群はこれより大きくなります', { exact: false })).toBeVisible();
   await expect(page.getByText('発数の違う ES どうしは比べられません', { exact: false })).toBeVisible();
   await open(page, /^計算方法と出典/);
   await expect(page.getByText('計測器の誤差は含みません', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: '言語を選択' }).click();
   await page.getByRole('menuitem', { name: 'English' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText('a real group is always larger', { exact: false })).toBeVisible();
+  await expect(page.getByText('A real group is larger', { exact: false })).toBeVisible();
 });
 
 test('keeps the unit with the readings, and the load behind a heading that states it', async ({ page }) => {
@@ -82,4 +84,22 @@ test('reflows at a narrow viewport and returns to the Labs list', async ({ page 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('link', { name: 'Labs 一覧に戻る' }).click();
   await expect(page.getByRole('heading', { name: /Labs/ })).toBeVisible();
+});
+
+test('loads the velocities from a ShotView CSV in the unit it was recorded in', async ({ page }) => {
+  await page.goto('/labs/velocity-spread');
+  const csv = [
+    '"Load A"',
+    '#,SPEED (FPS),Δ AVG (FPS),KE (FT-LB),POWER FACTOR (KGR⋅FT/S),TIME,CLEAN BORE,COLD BORE,SHOT NOTES',
+    '1, 2808.2, 13.9, , , 1:41:26 PM, , , ""',
+    '2, 2790.7, -3.6, , , 1:41:52 PM, , , ""',
+    '-,,,,,,',
+    'AVERAGE SPEED,2799.5,,,,,,,',
+  ].join('\n');
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page
+    .getByLabel('弾速計の CSV を読み込む')
+    .setInputFiles({ name: 'shotview.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await expect(page.getByText('Garmin ShotView のファイル「Load A」から 2 発（fps）を読み込みました。')).toBeVisible();
+  await expect(page.getByLabel('初速の記録', { exact: false })).toHaveValue('2808.2\n2790.7');
 });

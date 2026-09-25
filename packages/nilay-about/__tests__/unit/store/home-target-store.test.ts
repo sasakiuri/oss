@@ -146,6 +146,7 @@ describe('target calculations and saved setups', () => {
     const {
       copies: _copies,
       showConditions: _showConditions,
+      markers: _markers,
       ...settings
     } = useHomeTargetStore.getState().lastValidSettings;
     window.localStorage.setItem(
@@ -159,7 +160,8 @@ describe('target calculations and saved setups', () => {
     expect(useHomeTargetStore.getState()).toMatchObject({
       copies: 1,
       showConditions: false,
-      profiles: [{ settings: { copies: 1, showConditions: false } }],
+      markers: false,
+      profiles: [{ settings: { copies: 1, showConditions: false, markers: false } }],
     });
   });
 
