@@ -8,13 +8,18 @@ const openSettings = (page: Page) => page.getByRole('button', { name: /^出題�
 const pick = (page: Page, group: string, label: string) =>
   page.getByRole('group', { name: group }).locator('label', { hasText: label }).click();
 const openQuizMode = (page: Page) => page.locator('label', { hasText: '判別テスト' }).click();
+// The photo being asked about: the look-alike section below lays out figures of its own.
+const quizPhoto = (page: Page) =>
+  page.locator('figure', { has: page.getByRole('button', { name: '画像を拡大', exact: true }) }).locator('img');
+// The quiz asks only the game species, and points to the exam style for the non-game ones.
+const examScope = /^出題は狩猟鳥獣 46 種です（ノウサギとユキウサギは 1 問）。$/;
 
 test('remembers missed species, resumes progress and offers a focused review', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/labs/game-species-test');
   await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
-  const firstImage = await page.locator('figure img').getAttribute('src');
+  const firstImage = await quizPhoto(page).getAttribute('src');
   await page.getByRole('button', { name: '答えを見る', exact: true }).click();
   await page.getByRole('button', { name: '要復習', exact: true }).click();
   await expect(page.getByText('2 / 45', { exact: true })).toBeVisible();
@@ -25,7 +30,7 @@ test('remembers missed species, resumes progress and offers a focused review', a
   await openSettings(page);
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '要復習から出題（1 問）', exact: true }).click();
-  await expect(page.locator('figure img')).toHaveAttribute('src', firstImage!);
+  await expect(quizPhoto(page)).toHaveAttribute('src', firstImage!);
   await expect(page.getByText('1 / 1', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '答えを見る', exact: true }).click();
   await page.getByRole('button', { name: 'わかった', exact: true }).click();
@@ -56,7 +61,7 @@ test('can go back without cropping photos or overflowing a narrow viewport', asy
   await page.getByRole('button', { name: '採点せず次へ' }).click();
   await page.getByRole('button', { name: '前へ', exact: true }).click();
   await expect(page.getByText('1 / 45', { exact: true })).toBeVisible();
-  await expect(page.locator('figure img')).toHaveCSS('object-fit', 'contain');
+  await expect(quizPhoto(page)).toHaveCSS('object-fit', 'contain');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // Enter on a focused control must not also run the global answer shortcut.
   await page.getByRole('button', { name: '採点せず次へ' }).focus();
@@ -109,7 +114,7 @@ test('starts a short session and reviews only the selected ungraded answers', as
   await page.reload();
   await expect(page.getByText('1 / 3', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '答えを見る', exact: true }).click();
-  const answer = await page.locator('figure').locator('img').getAttribute('alt');
+  const answer = await quizPhoto(page).getAttribute('alt');
   expect(selected.some((name) => name?.includes(answer!))).toBe(true);
 });
 
@@ -149,7 +154,7 @@ test('scores a four-choice quiz, counts a timeout as no answer, and reviews only
   await expect(choices.first()).toBeFocused();
   await expect(choices).toHaveCount(4);
   const shownSpecies = async () => {
-    const source = decodeURIComponent((await page.locator('figure img').first().getAttribute('src')) ?? '');
+    const source = decodeURIComponent((await quizPhoto(page).getAttribute('src')) ?? '');
     const quiz = quizList.find((item) => source.includes(item.image));
     expect(quiz, `unknown photo: ${source}`).toBeDefined();
     return quiz!.answer;
@@ -173,8 +178,8 @@ test('scores a four-choice quiz, counts a timeout as no answer, and reviews only
   await expect(score.filter({ hasText: '正答' })).toHaveText(/^正答\s*1$/);
   await expect(score.filter({ hasText: '誤答' })).toHaveText(/^誤答\s*14$/);
   await expect(score.filter({ hasText: '未回答' })).toHaveText(/^未回答\s*1$/);
-  // The score is not a verdict on the licence exam, and the results say so where the score is read.
-  await expect(page.getByText('非狩猟鳥獣も出題され', { exact: false })).toBeVisible();
+  // The score covers the game species only, and the results say so where the score is read.
+  await expect(page.getByText(examScope)).toBeVisible();
   // One tap from the score reviews every miss; the list below it can narrow the pick.
   await expect(page.getByRole('button', { name: '間違えた 15 種をスライドショーで復習' })).toBeInViewport();
   await page.getByRole('button', { name: '選んだ 15 問をスライドショーで復習' }).click();
@@ -186,7 +191,7 @@ test('scores a four-choice quiz, counts a timeout as no answer, and reviews only
 test('states the limits of the quiz and drops an unfinished one on reload', async ({ page }) => {
   await page.goto('/labs/game-species-test');
   await openQuizMode(page);
-  await expect(page.getByText('非狩猟鳥獣も出題され', { exact: false })).toBeVisible();
+  await expect(page.getByText(examScope)).toBeVisible();
   await expect(page.getByText('テストの途中経過は保存しません。')).toBeVisible();
   await expect(page.getByText('誤答・未回答の鳥獣を「要復習」に記録します。', { exact: false })).toBeVisible();
   await pick(page, '1 問の制限時間', '無制限');

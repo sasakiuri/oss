@@ -51,6 +51,30 @@ export const labsTools = [
     japaneseOnly: true,
   },
   {
+    slug: 'license-exam',
+    category: 'study',
+    title: { ja: '狩猟免許試験・考査の練習', en: 'Hunting Licence and Firearms Course Practice' },
+    summary: {
+      ja: '狩猟免許試験と猟銃等講習会の模擬試験。間違えた問題を復習できます。',
+      en: 'Mock hunting licence and firearms course exams, with review of missed questions.',
+    },
+    description:
+      '狩猟免許試験の知識試験（法令・猟具・鳥獣・保護管理）と猟銃等講習会の考査の練習問題。免許の種類別の出題、本番形式の模擬試験と合否判定、分野別正答率、今日のテスト、間隔反復の復習。',
+    japaneseOnly: true,
+  },
+  {
+    slug: 'shoot-decision',
+    category: 'study',
+    title: { ja: '撃つか撃たないかの判断と急所', en: 'Shoot or Hold, and Where to Aim' },
+    summary: {
+      ja: '場面ごとに撃つか見送るかを判断する練習と、急所の図解。',
+      en: 'Practise shoot-or-hold decisions and learn aiming points from diagrams.',
+    },
+    description:
+      'シカ・イノシシ・クマに出会った場面で、背後の安全・時間・区域・猟期などから撃ってよいかを判断し、撃たない理由と根拠の条文を確認します。急所（頭部・頸部・胸部）の位置を図で練習。',
+    japaneseOnly: true,
+  },
+  {
     slug: 'home-target',
     category: 'sighting',
     title: { ja: '練習用標的の作成', en: 'Practice Target Maker' },

@@ -60,7 +60,12 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   (5 s, 10 s or none). Results are shown together at the end, and only wrong and unanswered species are added to the review list.
   Correct answers do not change the self-marked record.
   Because of the time limit, progress is not saved and a reload discards it. Only the 46 game species are asked; the hare (ノウサギ) and the mountain hare (ユキウサギ) share one question, so there are 45.
-  The hunting licence exam also shows non-game species, so this is not a reproduction of the exam.
+  本番形式 (exam style) mixes the game species with 23 non-game species that are easily mistaken for them (photos credited below):
+  16 photos, 5 s, 10 s or no limit each, first 狩猟鳥獣 (game) or not, and for game, the name from four.
+  The 16 photos, about 5 seconds and the two answers follow Kochi Prefecture's notice for the licence exam (updated 2024-06-28).
+  Birds and mammals, mammals only (the trap licence judges mammals only, regulation art. 53) or birds only.
+  The points taken off per mistake are not published, so the results count wrong status, wrong name and no answer instead of a score.
+  It is not saved. The look-alike section shows each non-game species beside the game species it is set against.
 - **Hunting and Firearms Law Quiz** (狩猟・銃砲の法令テスト): 97 multiple-choice questions in 12 topics,
   drawn from four acts and their cabinet orders, Cabinet Office orders and ministerial ordinances:
   the Wildlife Protection and Management Act (鳥獣保護管理法: hunting basics, licences and registration, area and season restrictions,
@@ -73,6 +78,33 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   Each answer immediately shows whether it was right, with the article number and a summary of the text.
   Wrong and unanswered questions are added to the review list and can be retried on their own. Answering correctly does not remove them.
   The articles were checked against e-Gov Law Search, and the date checked and the laws referred to are shown on screen.
+- **Hunting Licence and Firearms Course Practice** (狩猟免許試験・考査の練習): practice for the knowledge test of the hunting licence exam
+  and for the test at the end of the beginners' firearms course (猟銃等講習会の考査). Choose the exam and, for the licence exam, the licence
+  (網猟, わな猟, 第一種銃猟, 第二種銃猟); only the gear questions differ between licences.
+  The law questions are the law quiz's wildlife questions cut to three choices (the answer and two of its wrong choices).
+  The gear, wildlife and management questions (three choices) and the course items (true or false) were written from the act and its regulation,
+  the National Police Agency circular on the course test (令和7年11月28日 丁保発第224号, appendix 3 model statements; false items change one point of a statement),
+  and Ministry of the Environment guidance. Each answer shows its explanation and source. No textbook, question book or other site was used.
+  Practice draws 10, 20, 30 or all questions from one area or all; 今日のテスト (today's test) is 10 questions fixed by the date, exam and licence.
+  The mock exam follows published figures: the licence exam is 30 three-way questions (law 13, gear 6, wildlife 9, management 2) in 90 minutes
+  with 70% to pass (regulation art. 54; count, time and split from Kochi Prefecture's notice), or 10 gear questions in 30 minutes for holders of another licence
+  (Tokyo's notice); the course test is 50 true-or-false questions in 60 minutes with 45 to pass, split by the circular's syllabus weights.
+  Answers are not marked until the paper is handed in; questions can be revisited and flagged, and the clock hands it in at zero.
+  Results show the pass verdict and the rate per area.
+  Spaced repetition: a missed question is due at once; each right answer moves it out to 1 day, then 3 days, and three right in a row marks it learnt (習得済み).
+  Settings, the session in progress and the record are saved in this browser.
+- **Shoot or Hold, and Where to Aim** (撃つか撃たないかの判断と急所): 15 scenes with deer, wild boar and bears, each a drawing and a
+  short situation (date, time, place). Choose 撃つ (shoot), or 撃たない (hold) and the reason: no backstop you can see, target not identified,
+  people, buildings or roads in range, ricochet, before sunrise or after sunset, a place where shooting is not allowed, out of season,
+  or an animal that may not be taken. Each answer shows the explanation and its source: articles 2, 11, 34-2 and 38 of the act,
+  articles 7, 8 and 10 and appended table 2 of its regulation, the police circular's model statements on handling,
+  and the Ministry of the Environment's text for certified capture operators (2026-01) and emergency shooting guideline (2026-04).
+  Where to aim: tap a side view of a deer, boar or bear, then see the head (brain), neck (vertebrae) and chest (heart and lungs) zones.
+  The drawings are schematic and made for this tool; the zones follow the emergency shooting guideline (bear and boar, pp. 107-110)
+  and Hokkaido's deer capture text (2020, pp. 3-9), quoted under the drawing. Answers are not saved.
+- **Study streak and exam countdown** (all study tools): the species identification, the law quiz, the licence exam practice and shoot or hold show the days studied in a row,
+  the longest run and the days left to an exam date. A day counts once a question is answered. The record is shared by the study tools
+  under one key (`nilay-study-log-v1`) and kept in this browser only.
   The range standards come from the Cabinet Office Order on the Designation of Designated Shooting Ranges, and the cartridge quantities
   from the Cabinet Office Order on the Transfer, Acquisition, Import and Consumption of Explosives for Hunting Guns.
   This is not a reproduction of the hunting licence exam, which also covers equipment and species and whose format varies by prefecture,
@@ -438,5 +470,35 @@ Three photos in the game species identification were taken from Wikimedia Common
 | `public/images/game-species/117_001.jpg` | ノイヌ         | [Feral Dog.jpg](https://commons.wikimedia.org/wiki/File:Feral_Dog.jpg)                                               | Public domain |
 | `public/images/game-species/118_001.jpg` | ノネコ         | [Stray cat standing in the street.JPG](https://commons.wikimedia.org/wiki/File:Stray_cat_standing_in_the_street.JPG) | CC0 1.0       |
 | `public/images/game-species/119_001.jpg` | シベリアイタチ | [Mustela sibirica 230828854.jpg](https://commons.wikimedia.org/wiki/File:Mustela_sibirica_230828854.jpg)             | CC0 1.0       |
+
+The non-game species in the identification practice (exam style and the look-alike comparison) are photos from Wikimedia Commons,
+chosen only under CC0, public domain or CC BY, cropped to a square and resized to 400 × 400 px (checked 2026-09-24).
+They were downloaded with a User-Agent that names the project only.
+
+| File                                     | Species              | Source                                                                                                                                                                                                        | Author                                | Licence                                                         |
+| ---------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------- |
+| `public/images/game-species/501_001.jpg` | オシドリ             | [Mandarin duck (Aix galericulata) on ice 02.jpg](<https://commons.wikimedia.org/wiki/File:Mandarin_duck_(Aix_galericulata)_on_ice_02.jpg>)                                                                    | Stephan Sprinz                        | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/502_001.jpg` | トモエガモ           | [Sibirionetta formosa 01.jpg](https://commons.wikimedia.org/wiki/File:Sibirionetta_formosa_01.jpg)                                                                                                            | Sun Jiao (Interaccoonale)             | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/503_001.jpg` | アカハジロ           | [Aythya baeri cropped.jpg](https://commons.wikimedia.org/wiki/File:Aythya_baeri_cropped.jpg)                                                                                                                  | Sun Jiao (Interaccoonale)             | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/504_001.jpg` | ホオジロガモ         | [Bucephala Clangula Oulu 20100502.JPG](https://commons.wikimedia.org/wiki/File:Bucephala_Clangula_Oulu_20100502.JPG)                                                                                          | Estormiz                              | Public domain                                                   |
+| `public/images/game-species/505_001.jpg` | ミコアイサ           | [Mergellus-albellus-London.JPG](https://commons.wikimedia.org/wiki/File:Mergellus-albellus-London.JPG)                                                                                                        | Bert Seghers                          | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| `public/images/game-species/506_001.jpg` | カワアイサ           | [Mergus merganser -Sandwell -England -male-8.jpg](https://commons.wikimedia.org/wiki/File:Mergus_merganser_-Sandwell_-England_-male-8.jpg)                                                                    | Tony Hisgett                          | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/507_001.jpg` | マガン               | [Greater white-fronted goose (Anser albifrons) 2022.jpg](<https://commons.wikimedia.org/wiki/File:Greater_white-fronted_goose_(Anser_albifrons)_2022.jpg>)                                                    | TRinaud                               | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/508_001.jpg` | オオバン             | [Eurasian Coot at Wallnau, Fehmarn.jpg](https://commons.wikimedia.org/wiki/File:Eurasian_Coot_at_Wallnau,_Fehmarn.jpg)                                                                                        | Herring404                            | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/509_001.jpg` | バン                 | [Waterhoen 1-4-17 (33617378382).jpg](<https://commons.wikimedia.org/wiki/File:Waterhoen_1-4-17_(33617378382).jpg>)                                                                                            | Bas van Oorschot from The Netherlands | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/510_001.jpg` | ゴイサギ             | [Nycticorax nycticorax nycticorax (44354186612).jpg](<https://commons.wikimedia.org/wiki/File:Nycticorax_nycticorax_nycticorax_(44354186612).jpg>)                                                            | LiCheng Shih                          | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/511_001.jpg` | ウミウ               | [Phalacrocorax capillatus from iNaturalist photo 525002293.jpg](https://commons.wikimedia.org/wiki/File:Phalacrocorax_capillatus_from_iNaturalist_photo_525002293.jpg)                                        | Andrew Bazdyrev (andrewbazdyrev)      | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/512_001.jpg` | ライチョウ           | [ライチョウ20220507-IMG 2046.jpg](https://commons.wikimedia.org/wiki/File:%E3%83%A9%E3%82%A4%E3%83%81%E3%83%A7%E3%82%A620220507-IMG_2046.jpg)                                                                 | くろふね                              | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/513_001.jpg` | ウズラ               | [Japanese Quail.jpg](https://commons.wikimedia.org/wiki/File:Japanese_Quail.jpg)                                                                                                                              | Ingrid Taylar                         | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/514_001.jpg` | アオバト             | [2018-01-22 Treron sieboldii, Osaka, Japan 1.jpg](https://commons.wikimedia.org/wiki/File:2018-01-22_Treron_sieboldii,_Osaka,_Japan_1.jpg)                                                                    | Jin Kemoole                           | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/515_001.jpg` | カワラバト（ドバト） | [Feral pigeon 2022 03 18 01.jpg](https://commons.wikimedia.org/wiki/File:Feral_pigeon_2022_03_18_01.jpg)                                                                                                      | Alexis Lours                          | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/517_001.jpg` | ツグミ               | [Turdus eunomus - Forest Botial-Jarvis - 616099817 (cropped).jpeg](<https://commons.wikimedia.org/wiki/File:Turdus_eunomus_-_Forest_Botial-Jarvis_-_616099817_(cropped).jpeg>)                                | Forest Botial-Jarvis                  | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/518_001.jpg` | ホオジロ             | [Emberiza cioides -Japan-8.jpg](https://commons.wikimedia.org/wiki/File:Emberiza_cioides_-Japan-8.jpg)                                                                                                        | coniferconifer from japan             | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/519_001.jpg` | コクマルガラス       | [Coloeus dauuricus, adult, Izumi, Kagoshima, Japan 1.jpg](https://commons.wikimedia.org/wiki/File:Coloeus_dauuricus,_adult,_Izumi,_Kagoshima,_Japan_1.jpg)                                                    | christoph_moning                      | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/520_001.jpg` | オオジシギ           | [Latham's Snipe (25203522309).jpg](<https://commons.wikimedia.org/wiki/File:Latham%27s_Snipe_(25203522309).jpg>)                                                                                              | Ed Dunens                             | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/521_001.jpg` | イソヒヨドリ         | [BlueRock-Thrush.jpg](https://commons.wikimedia.org/wiki/File:BlueRock-Thrush.jpg)                                                                                                                            | Daniel Polin                          | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
+| `public/images/game-species/601_001.jpg` | ニホンカモシカ       | [Japanese serow (Capricornis crispus) ニホンカモシカ.jpg](<https://commons.wikimedia.org/wiki/File:Japanese_serow_(Capricornis_crispus)_%E3%83%8B%E3%83%9B%E3%83%B3%E3%82%AB%E3%83%A2%E3%82%B7%E3%82%AB.jpg>) | Ken Ishigaki                          | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0)        |
+| `public/images/game-species/602_001.jpg` | ニホンリス           | [Japanese Squirrel.jpg](https://commons.wikimedia.org/wiki/File:Japanese_Squirrel.jpg)                                                                                                                        | Ma2bara                               | Public domain                                                   |
+| `public/images/game-species/604_001.jpg` | ニホンザル           | [Macaca fuscata 166252187.jpg](https://commons.wikimedia.org/wiki/File:Macaca_fuscata_166252187.jpg)                                                                                                          | Mark Bolnik                           | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0)        |
 
 The licences of the dependencies are included in the [third-party notices](THIRD-PARTY-LICENSES.txt).
