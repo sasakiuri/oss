@@ -82,7 +82,7 @@ test('says in English that the tool is Japanese only', async ({ page }) => {
 test('reflows at a narrow viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 667 });
   await expect(page.getByRole('button', { name: 'この 1 頭を印刷する' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 // A 1 × 1 PNG: enough for the browser to decode, shrink and store.
