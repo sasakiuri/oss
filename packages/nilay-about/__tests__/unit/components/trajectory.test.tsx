@@ -30,6 +30,11 @@ const spokenRegions = () =>
 // The tool is on the page from the first render; it is settled once the saved settings are read.
 const settled = () => waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
 
+// The hit probability and load comparison sections add tables of their own, so the distance table is
+// found by the region that holds it.
+const trajectoryTable = () =>
+  within(screen.getByRole('region', { name: /Trajectory by distance|距離ごとの弾道の表/ })).getByRole('table');
+
 describe('the trajectory tool on screen', () => {
   beforeEach(() => {
     // persist writes on every set, so the reset comes first and the clear leaves storage truly empty.
@@ -56,13 +61,13 @@ describe('the trajectory tool on screen', () => {
   it('prints a row for every step out to the furthest distance', async () => {
     render(<TrajectoryClient />);
     await settled();
-    const table = screen.getByRole('table');
+    const table = trajectoryTable();
     // 50 m steps out to 500 m, plus the head row.
     expect(within(table).getAllByRole('row')).toHaveLength(11);
     expect(within(table).getByRole('rowheader', { name: '500' })).toBeInTheDocument();
     // Every column says which unit it is in, so no figure has to be guessed at.
     const heads = () =>
-      within(screen.getByRole('table'))
+      within(trajectoryTable())
         .getAllByRole('columnheader')
         .map((head) => head.textContent);
     expect(heads()).toEqual(['距離m', '落差cm', '風偏cm', '残存速度m/s', 'エネルギーJ', '飛行時間s']);
@@ -111,7 +116,7 @@ describe('the trajectory tool on screen', () => {
     // Said wherever an answer would have been: the summary, the table and the card.
     expect(screen.getAllByText('エラーのある欄を直してください。')[0]).toBeVisible();
     fireEvent.change(field, { target: { value: '0.5' } });
-    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    await waitFor(() => expect(trajectoryTable()).toBeInTheDocument());
   });
 
   it('rewrites a measured value when its unit changes, so the load stays the same load', async () => {
@@ -205,7 +210,7 @@ describe('the trajectory tool on screen', () => {
   it('gives the card its own step and range, apart from the table', async () => {
     render(<TrajectoryClient />);
     await settled();
-    const table = screen.getByRole('table');
+    const table = trajectoryTable();
     // The table opens at 50 m steps to 500 m and the card at 50 m steps to 300 m.
     expect(within(table).getByRole('rowheader', { name: '500' })).toBeInTheDocument();
     const card = screen.getByRole('img', { name: '印刷するカードのプレビュー' });
@@ -214,7 +219,7 @@ describe('the trajectory tool on screen', () => {
     fireEvent.change(screen.getByLabelText(/^カードの最大距離 \(/), { target: { value: '400' } });
     expect(screen.getByRole('img', { name: '印刷するカードのプレビュー' }).textContent).toContain('400');
     // The table is untouched by the card's own range.
-    expect(within(screen.getByRole('table')).getByRole('rowheader', { name: '500' })).toBeInTheDocument();
+    expect(within(trajectoryTable()).getByRole('rowheader', { name: '500' })).toBeInTheDocument();
   });
 
   it('says why a card cannot be printed rather than shrinking it to fit', async () => {

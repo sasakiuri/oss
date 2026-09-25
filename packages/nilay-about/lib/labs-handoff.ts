@@ -1,4 +1,10 @@
 import type { LabsToolSlug } from '@/lib/labs-tools';
+import {
+  distanceUnitSchema,
+  horizontalImpactSchema,
+  offsetUnitSchema,
+  verticalImpactSchema,
+} from '@/lib/schemas/sight-adjustment';
 import { speedUnitSchema } from '@/lib/schemas/trajectory';
 
 /**
@@ -127,4 +133,18 @@ export function receiveHandoff<P extends HandoffParams>(
 export const twistStabilityHandoff = defineHandoff('twist-stability', {
   muzzleSpeed: numberParam({ positive: true }),
   speedUnit: enumParam(speedUnitSchema.options),
+});
+
+/**
+ * Group size measurement → scope click calculator: the distance and the mean point of impact become the
+ * offset to correct. The click value belongs to the sight and stays as the click calculator has it.
+ */
+export const sightAdjustmentHandoff = defineHandoff('sight-adjustment', {
+  distance: numberParam({ positive: true }),
+  distanceUnit: enumParam(distanceUnitSchema.options),
+  offsetUnit: enumParam(offsetUnitSchema.options),
+  vertical: enumParam(verticalImpactSchema.options),
+  verticalValue: numberParam({ min: 0 }),
+  horizontal: enumParam(horizontalImpactSchema.options),
+  horizontalValue: numberParam({ min: 0 }),
 });

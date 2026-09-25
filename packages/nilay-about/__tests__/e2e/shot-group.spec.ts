@@ -68,7 +68,11 @@ test('says what one shot cannot measure and hands the rest to the sight adjustme
   await expect(page.getByText('下に 30 mm')).toBeVisible();
   await expect(page.getByText('右に 20 mm')).toBeVisible();
   await page.getByRole('link', { name: '照準調整のクリック数計算を開く' }).click();
+  // The offset travels in the link, fills the sight adjustment form and is then taken off the address.
   await expect(page).toHaveURL(/\/labs\/sight-adjustment$/);
+  await expect(page.getByText(/平均着弾点のズレを読み込みました/)).toBeVisible();
+  await expect(page.getByLabel('上下のズレ')).toHaveValue('30');
+  await expect(page.getByLabel('左右のズレ')).toHaveValue('20');
 });
 
 test('keeps saved groups and the chosen unit after a reload', async ({ page }) => {
@@ -135,14 +139,12 @@ test('names the axis a group settles and counts the shots a tighter answer needs
   await page.reload();
   await expect(page.getByLabel('目標の単位')).toHaveValue('moa');
   await expect(page.getByLabel('平均着弾点を決めたい精度')).toHaveValue('0.5');
-  // The impacts are not kept, so the result says how to start rather than showing empty figures.
-  await expect(
-    page.getByText('図で弾痕の中心をタップするか、写真から自動で検出すると、群の大きさと狙点からのズレを表示します。'),
-  ).toBeVisible();
+  // The impacts are not kept, so the result says there are none rather than showing empty figures.
+  await expect(page.getByText('着弾がまだありません。')).toBeVisible();
 });
 
 test('keeps each caution with the step it concerns and stays translated after switching language', async ({ page }) => {
-  await expect(page.getByText('カメラの映像と写真は送信も保存もしません。', { exact: false })).toBeVisible();
+  await expect(page.getByText('写真なしでも座標で入力できます。', { exact: false })).toBeVisible();
   await open(page, /^自動検出の感度/);
   await expect(page.getByText('重なった弾痕は 1 つに数え', { exact: false })).toBeVisible();
   await open(page, /^6\. 統計で確かめる/);

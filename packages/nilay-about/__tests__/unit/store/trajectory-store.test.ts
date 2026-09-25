@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initialTrajectorySettings, storageKey, useTrajectoryStore } from '@/app/(standalone)/labs/trajectory/_store';
 import { reportDiscardedSave, useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
-import { initialTrajectoryCard } from '@/lib/schemas/trajectory';
+import { initialTrajectoryCard, trajectorySettingsSchema } from '@/lib/schemas/trajectory';
+import { withClickPreset } from '@/lib/sight-adjustment';
 import { calculateTrajectory } from '@/lib/trajectory';
 
 describe('trajectory settings', () => {
@@ -222,5 +223,116 @@ describe('trajectory settings', () => {
     expect(() => useTrajectoryStore.getState().setZeroDistance(300)).not.toThrow();
     expect(useTrajectoryStore.getState().zeroDistance).toBe(300);
     expect(useStorageStatus.getState().available).toBe(false);
+  });
+  it('reads a save from before the humidity, slope, powder and click settings as it was saved', async () => {
+    // The settings as the tool saved them at b303c7fe, before any of the fields added since existed.
+    const older = {
+      muzzleSpeed: { value: 2650, unit: 'fps' },
+      mass: { value: 168, unit: 'grain' },
+      ballisticCoefficient: 0.462,
+      dragModel: 'g1',
+      sightHeight: { value: 1.5, unit: 'inch' },
+      distanceUnit: 'yd',
+      zeroDistance: 200,
+      step: 100,
+      maxRange: 500,
+      dropUnit: 'inch',
+      vitalRadius: 3,
+      wind: { speed: 10, unit: 'mph', preset: '9', customFromDegrees: 270 },
+      atmosphere: {
+        source: 'station',
+        temperature: { value: 59, unit: 'f' },
+        pressure: { value: 29.92, unit: 'inhg' },
+        altitude: { value: 0, unit: 'ft' },
+      },
+      card: { ...initialTrajectoryCard, drop: 'moa', gun: 'Rifle', load: 'GM308M' },
+    };
+    expect(trajectorySettingsSchema.safeParse(older).success).toBe(true);
+    window.localStorage.setItem(storageKey, JSON.stringify({ state: { settings: older }, version: 0 }));
+    await useTrajectoryStore.persist.rehydrate();
+    expect(useStorageStatus.getState().discarded).toEqual([]);
+    const state = useTrajectoryStore.getState();
+    expect(state).toMatchObject(older);
+    // Nothing is put in for the fields the save never had: each stays not entered.
+    for (const key of [
+      'humidityPercent',
+      'inclineDegrees',
+      'powder',
+      'clickValue',
+      'turretTape',
+      'reticle',
+      'comparison',
+      'hitProbability',
+    ] as const)
+      expect(state[key]).toBeUndefined();
+    // And the trajectory is the one the save always gave: dry, level air at the entered velocity.
+    expect(calculateTrajectory(state)?.muzzleSpeedMs).toBeCloseTo(2650 * 0.3048, 9);
+  });
+
+  it('reads a save from before the card existed, with the card the tool opens with', async () => {
+    const { card, ...older } = initialTrajectorySettings;
+    void card;
+    window.localStorage.setItem(storageKey, JSON.stringify({ state: { settings: older }, version: 0 }));
+    await useTrajectoryStore.persist.rehydrate();
+    expect(useStorageStatus.getState().discarded).toEqual([]);
+    expect(useTrajectoryStore.getState().card).toEqual(initialTrajectoryCard);
+  });
+
+  it('clears a field back to not entered, and keeps a half-filled section out of the save', () => {
+    const store = useTrajectoryStore.getState();
+    store.setHumidityPercent(60);
+    expect(useTrajectoryStore.getState().lastValidSettings.humidityPercent).toBe(60);
+    store.setHumidityPercent(undefined);
+    expect(useTrajectoryStore.getState().lastValidSettings.humidityPercent).toBeUndefined();
+    // One number of the turret tape typed: the others are blank, so the saved settings do not change.
+    store.setTurretTape({ step: 50 });
+    expect(useTrajectoryStore.getState().turretTape).toMatchObject({ step: 50, direction: 'left-to-right' });
+    expect(useTrajectoryStore.getState().lastValidSettings.turretTape).toBeUndefined();
+    store.setTurretTape({ circumferenceMm: 100, clicksPerRevolution: 60, maxRange: 300 });
+    expect(useTrajectoryStore.getState().lastValidSettings.turretTape).toMatchObject({ step: 50, maxRange: 300 });
+    // A first focal plane reticle needs only its distance; a second focal plane one both magnifications.
+    store.setReticle({ distance: 300 });
+    expect(useTrajectoryStore.getState().lastValidSettings.reticle).toEqual({
+      unit: 'mil',
+      focalPlane: 'ffp',
+      distance: 300,
+    });
+    store.setReticle({ focalPlane: 'sfp' });
+    expect(useTrajectoryStore.getState().lastValidSettings.reticle?.focalPlane).toBe('ffp');
+    // Removing the last compared load leaves the field absent, as it started.
+    store.setComparison([{ name: '', muzzleSpeed: 800, mass: 10, ballisticCoefficient: 0.5, dragModel: 'g1' }]);
+    store.setComparison([]);
+    expect(useTrajectoryStore.getState().comparison).toBeUndefined();
+  });
+
+  it('rewrites the compared loads and the spreads when a unit changes, so they stay the same loads', () => {
+    const store = useTrajectoryStore.getState();
+    store.setComparison([{ name: 'B', muzzleSpeed: 800, mass: 10, ballisticCoefficient: 0.5, dragModel: 'g7' }]);
+    store.setHitProbability({ velocitySd: 10, windSd: 2 });
+    store.setMuzzleSpeed({ value: 2624.7, unit: 'fps' });
+    store.setMass({ value: 168.21, unit: 'grain' });
+    store.setWind({ ...useTrajectoryStore.getState().wind, speed: 8.9, unit: 'mph' });
+    const state = useTrajectoryStore.getState();
+    expect(state.comparison?.[0]).toMatchObject({ muzzleSpeed: 2624.7, mass: 154.32 });
+    expect(state.hitProbability?.velocitySd).toBeCloseTo(32.8, 5);
+    expect(state.hitProbability?.windSd).toBeCloseTo(4.5, 5);
+    // The same unit again changes nothing but the value typed.
+    store.setMuzzleSpeed({ value: 2700, unit: 'fps' });
+    expect(useTrajectoryStore.getState().comparison?.[0]?.muzzleSpeed).toBe(2624.7);
+  });
+
+  it('saves a MOA or mil click value chosen with the custom travel left blank', async () => {
+    const store = useTrajectoryStore.getState();
+    store.setClickValue(withClickPreset(undefined, '1/4-moa'));
+    store.setComparison([{ name: '', muzzleSpeed: 820, mass: 10.9, ballisticCoefficient: 0.45, dragModel: 'g1' }]);
+    const saved = window.localStorage.getItem(storageKey)!;
+    useTrajectoryStore.setState(useTrajectoryStore.getInitialState(), true);
+    window.localStorage.setItem(storageKey, saved);
+    await useTrajectoryStore.persist.rehydrate();
+    expect(useTrajectoryStore.getState().clickValue).toEqual({ preset: '1/4-moa' });
+    expect(useTrajectoryStore.getState().comparison).toHaveLength(1);
+    // Custom asks for its travel again rather than being saved without one.
+    store.setClickValue(withClickPreset(useTrajectoryStore.getState().clickValue, 'custom'));
+    expect(trajectorySettingsSchema.safeParse(useTrajectoryStore.getState()).success).toBe(false);
   });
 });

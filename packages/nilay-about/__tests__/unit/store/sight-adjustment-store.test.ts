@@ -7,7 +7,13 @@ import {
   useSightAdjustmentStore,
 } from '@/app/(standalone)/labs/sight-adjustment/_store';
 import { reportDiscardedSave, useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
-import { METERS_PER_YARD, calculateSightAdjustment, calculateSlant, toMeters } from '@/lib/sight-adjustment';
+import {
+  METERS_PER_YARD,
+  calculateSightAdjustment,
+  calculateSlant,
+  toMeters,
+  withClickPreset,
+} from '@/lib/sight-adjustment';
 
 describe('sight adjustment settings', () => {
   beforeEach(() => {
@@ -134,5 +140,26 @@ describe('sight adjustment settings', () => {
     expect(() => useSightAdjustmentStore.getState().setDistance({ value: 200, unit: 'm' })).not.toThrow();
     expect(useSightAdjustmentStore.getState().distance.value).toBe(200);
     expect(useStorageStatus.getState().available).toBe(false);
+  });
+
+  it('keeps saving once a preset is chosen after a custom travel was cleared', async () => {
+    const store = useSightAdjustmentStore.getState();
+    store.setClick({ preset: 'custom', customMmPer100m: NaN });
+    store.setClick(withClickPreset(useSightAdjustmentStore.getState().click, '0.1-mil'));
+    store.setDistance({ value: 50, unit: 'm' });
+    const saved = window.localStorage.getItem(storageKey)!;
+    useSightAdjustmentStore.setState(useSightAdjustmentStore.getInitialState(), true);
+    window.localStorage.setItem(storageKey, saved);
+    await useSightAdjustmentStore.persist.rehydrate();
+    expect(useSightAdjustmentStore.getState()).toMatchObject({
+      click: { preset: '0.1-mil' },
+      distance: { value: 50, unit: 'm' },
+    });
+    // A travel that was typed is kept for when custom is chosen again.
+    store.setClick({ preset: 'custom', customMmPer100m: 12 });
+    expect(withClickPreset(useSightAdjustmentStore.getState().click, '1-moa')).toEqual({
+      preset: '1-moa',
+      customMmPer100m: 12,
+    });
   });
 });

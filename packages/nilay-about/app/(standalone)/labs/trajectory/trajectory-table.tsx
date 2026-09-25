@@ -1,9 +1,9 @@
 'use client';
 
-import type { TrajectoryCardDrop } from '@/lib/schemas/trajectory';
+import type { ClickSetting, TrajectoryCardDrop } from '@/lib/schemas/trajectory';
 import { fromMeters } from '@/lib/sight-adjustment';
 import type { DistanceUnit, DropUnit, SpeedUnit, TrajectoryRow } from '@/lib/trajectory';
-import { JOULES_PER_FOOT_POUND, fromMetersPerSecond, fromMetersToDropUnit } from '@/lib/trajectory';
+import { JOULES_PER_FOOT_POUND, fromMetersPerSecond, fromMetersToDropUnit, offsetInClicks } from '@/lib/trajectory';
 import type { Language } from '@/store';
 
 interface TrajectoryTableProps {
@@ -13,6 +13,8 @@ interface TrajectoryTableProps {
   dropUnit: DropUnit;
   /** Drop and drift as a length on the target, or as the angle a sight is turned by. */
   angle: TrajectoryCardDrop;
+  /** The turret's click, for the clicks reading. */
+  click: ClickSetting | undefined;
   speedUnit: SpeedUnit;
   /** Mach number below which a supersonic load is marked as transonic, or null when it never was. */
   transonicBelowMach: number | null;
@@ -32,6 +34,7 @@ export function TrajectoryTable({
   distanceUnit,
   dropUnit,
   angle,
+  click,
   speedUnit,
   transonicBelowMach,
   format,
@@ -51,13 +54,16 @@ export function TrajectoryTable({
   const drop = t('落差', 'Drop');
   const drift = t('風偏', 'Drift');
   const offsetUnit = dropUnit === 'cm' ? 'cm' : 'inch';
-  const angleUnit = angle === 'offset' ? offsetUnit : angle === 'moa' ? 'MOA' : 'mil';
-  const inAngle = (meters: number, moa: number, mil: number) =>
+  const angleUnit =
+    angle === 'offset' ? offsetUnit : angle === 'moa' ? 'MOA' : angle === 'mil' ? 'mil' : t('クリック', 'clicks');
+  const inAngle = (meters: number, moa: number, mil: number, distanceMeters: number) =>
     angle === 'offset'
       ? format(fromMetersToDropUnit(meters, dropUnit), 1)
       : angle === 'moa'
         ? format(moa, 1)
-        : format(mil, 2);
+        : angle === 'mil'
+          ? format(mil, 2)
+          : format(click === undefined ? NaN : Math.round(offsetInClicks(meters, distanceMeters, click)), 0);
   const imperial = speedUnit === 'fps';
 
   return (
@@ -98,8 +104,8 @@ export function TrajectoryTable({
                 >
                   {format(fromMeters(row.distanceMeters, distanceUnit), 0)}
                 </th>
-                <td className={bodyCell}>{inAngle(row.dropMeters, row.dropMoa, row.dropMil)}</td>
-                <td className={bodyCell}>{inAngle(row.driftMeters, row.driftMoa, row.driftMil)}</td>
+                <td className={bodyCell}>{inAngle(row.dropMeters, row.dropMoa, row.dropMil, row.distanceMeters)}</td>
+                <td className={bodyCell}>{inAngle(row.driftMeters, row.driftMoa, row.driftMil, row.distanceMeters)}</td>
                 <td className={bodyCell}>
                   {format(fromMetersPerSecond(row.speedMs, speedUnit), 0)}
                   {transonic && (

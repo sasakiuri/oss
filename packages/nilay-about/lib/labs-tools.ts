@@ -174,6 +174,28 @@ export const labsTools = [
       'ライフル弾・スラッグ・散弾の粒が仰角をつけて撃たれたときの最大到達距離を計算します。そのときの仰角・滞空時間・落下時の速度とエネルギーも求められます。跳弾と地形は含まないため、安全距離の根拠にはなりません。',
   },
   {
+    slug: 'unit-converter',
+    category: 'sighting',
+    title: { ja: '射撃の単位換算', en: 'Shooting Unit Converter' },
+    summary: {
+      ja: '充填圧・締付けトルク・速度・重さ・エネルギー・長さ・MOA と mil を換算します。',
+      en: 'Convert fill pressure, torque, velocity, weight, energy, length, and MOA and mil.',
+    },
+    description:
+      'PCP の充填圧（bar・MPa・psi）、スコープマウントの締付けトルク（N·m・kgf·cm・in-lb）、初速、弾頭重量（g・grain）、エネルギー（J・ft-lb）、MOA・mil・100 m あたりの cm を一度に換算します。',
+  },
+  {
+    slug: 'wind-practice',
+    category: 'sighting',
+    title: { ja: '風読みの練習', en: 'Wind Call Practice' },
+    summary: {
+      ja: '風向き・風速・距離に応じたホールド量を答える練習。',
+      en: 'Practise wind holds for different wind directions, speeds and distances.',
+    },
+    description:
+      '時計の文字盤で表した風向きから横風の割合（フルバリュー・ハーフバリュー）を、風速と距離から自分の弾の風偏のホールド量（mil・MOA）を答える練習。間違えやすい風向きを集計します。',
+  },
+  {
     slug: 'velocity-spread',
     category: 'loads',
     title: { ja: '初速のばらつき', en: 'Velocity Spread' },

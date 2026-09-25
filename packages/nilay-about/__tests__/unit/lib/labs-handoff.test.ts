@@ -6,6 +6,7 @@ import {
   numberParam,
   plainDecimal,
   receiveHandoff,
+  sightAdjustmentHandoff,
   twistStabilityHandoff,
 } from '@/lib/labs-handoff';
 
@@ -97,5 +98,40 @@ describe('receiveHandoff', () => {
     expect(receiveHandoff(twistStabilityHandoff, apply)).toEqual({ state: 'none' });
     expect(apply).not.toHaveBeenCalled();
     expect(window.location.search).toBe('?other=1');
+  });
+});
+
+describe('the handoff from a measured group to the click calculator', () => {
+  const values = {
+    distance: 100,
+    distanceUnit: 'm',
+    offsetUnit: 'cm',
+    vertical: 'low',
+    verticalValue: 3.25,
+    horizontal: 'right',
+    horizontalValue: 1.5,
+  } as const;
+
+  it('opens the click calculator with the distance and the offset, and reads them back', () => {
+    const href = sightAdjustmentHandoff.href(values);
+    expect(href.startsWith('/labs/sight-adjustment?')).toBe(true);
+    expect(sightAdjustmentHandoff.read(href.slice(href.indexOf('?')))).toEqual({ state: 'received', values });
+  });
+
+  it('refuses a link it cannot trust rather than filling the form with part of it', () => {
+    const query = new URLSearchParams(sightAdjustmentHandoff.href(values).split('?')[1]);
+    for (const [key, text] of [
+      ['distance', '0'],
+      ['distanceUnit', 'km'],
+      ['verticalValue', ''],
+      ['vertical', 'up'],
+      ['horizontalValue', '-1'],
+    ] as const) {
+      const broken = new URLSearchParams(query);
+      broken.set(key, text);
+      expect(sightAdjustmentHandoff.read(broken)).toEqual({ state: 'invalid' });
+    }
+    const partial = new URLSearchParams({ distance: '100' });
+    expect(sightAdjustmentHandoff.read(partial)).toEqual({ state: 'invalid' });
   });
 });

@@ -20,12 +20,14 @@ import {
 } from '@/components/labs';
 import { Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
+import { receiveHandoff, sightAdjustmentHandoff } from '@/lib/labs-handoff';
 import { labsTool } from '@/lib/labs-tools';
 import {
   calculateSightAdjustment,
   calculateSlant,
   conversionTable,
   fromMeters,
+  withClickPreset,
   type AxisAdjustment,
   type ClickPreset,
   type ConversionRow,
@@ -63,10 +65,24 @@ export function SightAdjustmentClient() {
   const discardedSave = useDiscardedSave(storageKey);
   const [ready, setReady] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  // A group measured in the group tool arrives in the link and fills the distance and the offset.
+  const [handoffStatus, setHandoffStatus] = useState<'loaded' | 'invalid' | null>(null);
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
 
   useEffect(() => {
-    void Promise.all([useSightAdjustmentStore.persist.rehydrate(), rehydrateLanguage()]).then(() => setReady(true));
+    void Promise.all([useSightAdjustmentStore.persist.rehydrate(), rehydrateLanguage()]).then(() => {
+      // The link is read once and taken off the address, so a reload keeps later edits. A second run of
+      // this effect (React's Strict Mode) finds it gone and keeps the first notice.
+      const found = receiveHandoff(sightAdjustmentHandoff, (values) => {
+        const store = useSightAdjustmentStore.getState();
+        store.setDistance({ value: values.distance, unit: values.distanceUnit });
+        store.setOffsetUnit(values.offsetUnit);
+        store.setVertical({ direction: values.vertical, value: values.verticalValue });
+        store.setHorizontal({ direction: values.horizontal, value: values.horizontalValue });
+      });
+      if (found.state !== 'none') setHandoffStatus(found.state === 'received' ? 'loaded' : 'invalid');
+      setReady(true);
+    });
   }, []);
 
   const result = calculateSightAdjustment({ distance, offsetUnit, vertical, horizontal, click });
@@ -220,6 +236,20 @@ export function SightAdjustmentClient() {
       <p className="sr-only" role="status" lang={language}>
         {announcement}
       </p>
+      {/* Mounted empty so the text is announced when it arrives. */}
+      <p role="status" lang={language} className={handoffStatus ? 'mb-4 text-sm' : ''}>
+        {handoffStatus === 'loaded'
+          ? t(
+              `「${labsTool('shot-group').title.ja}」で測った平均着弾点のズレを読み込みました。調整単位を確認してください。`,
+              `Loaded the mean point of impact measured in the ${labsTool('shot-group').title.en}. Check the click value.`,
+            )
+          : handoffStatus === 'invalid'
+            ? t(
+                'リンクの値を読み取れなかったため、保存済みの値を表示しています。',
+                'The values in the link could not be read, so your saved values are shown.',
+              )
+            : ''}
+      </p>
       <div lang={language} className="space-y-6" inert={!ready} aria-busy={!ready}>
         <DiscardedSaveNotice storageKey={storageKey} language={language} />
         <StorageUnavailableNotice available={storageAvailable} language={language} />
@@ -252,7 +282,7 @@ export function SightAdjustmentClient() {
                 <SelectField
                   label={t('照準器の調整単位', 'Turret click value')}
                   value={click.preset}
-                  onChange={(value) => setClick({ ...click, preset: value as ClickPreset })}
+                  onChange={(value) => setClick(withClickPreset(click, value as ClickPreset))}
                   options={[
                     { value: '1/8-moa', label: '1/8 MOA' },
                     { value: '1/4-moa', label: '1/4 MOA' },
@@ -373,7 +403,7 @@ export function SightAdjustmentClient() {
                   />
                 </div>
                 <dl className="rounded-sm bg-surface-container p-4">
-                  <dt className="text-sm">{t('弾道に使う水平距離', 'Horizontal distance for ballistics')}</dt>
+                  <dt className="text-sm">{t('水平距離', 'Horizontal distance')}</dt>
                   <dd className="mt-1 text-2xl font-medium tabular-nums">
                     {slantResult
                       ? `${number(fromMeters(slantResult.horizontalMeters, distance.unit))} ${distance.unit}`
@@ -390,8 +420,8 @@ export function SightAdjustmentClient() {
                 </dl>
                 <p className="text-sm text-on-surface-variant">
                   {t(
-                    '撃ち上げでも撃ち下ろしでも、落下は水平距離で見込みます。',
-                    'Uphill or downhill, allow for the drop at the horizontal distance.',
+                    '水平距離で落下を見込むライフルマンの法則は近似で、急な角度では補正量が数 % ずれ、撃ち上げと撃ち下ろしでも差が出ます。弾道計算の傾斜角はこの差も含めて計算します。',
+                    'The rifleman’s rule, holding for the drop at the horizontal distance, is an approximation: at steep angles it is off by a few per cent and differs uphill and downhill. The ballistic calculator’s slope input includes this.',
                   )}
                 </p>
               </ConditionSection>
@@ -434,19 +464,11 @@ export function SightAdjustmentClient() {
                 )}
                 <p className="text-xs text-on-surface-variant">
                   {t(
-                    'MOA は 1/60 度、mil はミリラジアン（1/1000 rad）です。円を 6400 分割する NATO mil ではありません。',
-                    'MOA is 1/60 of a degree; mil is a milliradian (1/1000 rad), not the NATO mil of 1/6400 of a circle.',
+                    'MOA は 1/60 度、mil はミリラジアン（1/1000 rad）で、円を 6400 分割する NATO mil とは別の単位です。',
+                    'MOA is 1/60 of a degree and mil is the milliradian (1/1000 rad), a different unit from the NATO mil of 1/6400 of a circle.',
                   )}
                 </p>
               </ConditionSection>
-
-              <p className="text-xs text-on-surface-variant">
-                {storageAvailable && t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser. ')}
-                {t(
-                  '射撃は法令と射撃場の規則に従い、安全な方向・射座で行ってください。',
-                  'Follow the law and range rules, and shoot in a safe direction from a safe position.',
-                )}
-              </p>
             </>
           }
         />

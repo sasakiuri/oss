@@ -10,19 +10,23 @@
  * Trajectory", and chapter 7, "The Effect of Wind on Flat-Fire Trajectories".
  *
  * What the model leaves out, because it needs data a shooter does not have to hand:
- * spin drift, aerodynamic jump, the Coriolis effect, vertical wind, humidity, and any
- * change of the bullet's own drag with yaw. Over the distances this tool is meant for
- * they stay below the spread of the load itself. Shots up and down a slope are not
- * modelled either; the incline card of the sight adjustment tool converts a slant
- * distance to the horizontal distance to enter here.
+ * spin drift, aerodynamic jump, the Coriolis effect, vertical wind, and any change of the
+ * bullet's own drag with yaw. Over the distances this tool is meant for they stay below
+ * the spread of the load itself.
+ *
+ * Three things the published tables leave at their reference values can be set here: the
+ * humidity of the air, the slope of the line of sight, and the temperature of the powder.
+ * Each is a separate step below and each says where its numbers come from.
  */
 
+import type { ClickSetting } from './schemas/sight-adjustment';
 import type {
   AltitudeUnit,
   DistanceUnit,
   DragModel,
   DropUnit,
   MassUnit,
+  PowderSensitivityUnit,
   PressureSource,
   PressureUnit,
   SightHeightUnit,
@@ -31,9 +35,10 @@ import type {
   WindPreset,
   WindSpeedUnit,
 } from './schemas/trajectory';
-import { MIL_RADIANS, MM_PER_INCH, MOA_RADIANS, toMeters, toMillimeters } from './sight-adjustment';
+import { MIL_RADIANS, MM_PER_INCH, MOA_RADIANS, clickSizeMm, toMeters, toMillimeters } from './sight-adjustment';
 import { dragCoefficient } from './trajectory-drag';
 
+export type { ClickSetting } from './schemas/sight-adjustment';
 export type {
   AltitudeUnit,
   AtmosphereSetting,
@@ -41,6 +46,8 @@ export type {
   DragModel,
   DropUnit,
   MassUnit,
+  PowderSensitivityUnit,
+  PowderTemperatureSetting,
   PressureSource,
   PressureUnit,
   SightHeightUnit,
@@ -211,6 +218,69 @@ export function speedOfSound(temperatureK: number): number {
 }
 
 /**
+ * Molar gas constant, exact since the 2019 redefinition of the SI (CODATA 2018), over the
+ * molar mass of water, 18.01528 g/mol: the specific gas constant of water vapour.
+ */
+const WATER_VAPOUR_GAS_CONSTANT = 8.314462618 / 0.01801528;
+
+/**
+ * Saturation vapour pressure over liquid water, in pascals.
+ *
+ * Arden L. Buck, "New Equations for Computing Vapor Pressure and Enhancement Factor", Journal
+ * of Applied Meteorology 20 (1981) 1527-1532, equation (8): e = 6.1121 exp(17.502 t / (240.97 + t))
+ * hPa with t in °C. Buck gives it for -20 to +50 °C at a few hundredths of a per cent. It is
+ * read over water below freezing as well, because relative humidity is reported against water
+ * at every temperature (WMO Guide to Instruments and Methods of Observation, WMO-No. 8), so it is
+ * the pressure a hygrometer's figure is a fraction of. Outside Buck's range the air holds so
+ * little water, or the tool is so far past any hunting weather, that the density barely moves.
+ */
+export function saturationVapourPressurePa(temperatureK: number): number {
+  const celsius = temperatureK - KELVIN_AT_ZERO_CELSIUS;
+  return 611.21 * Math.exp((17.502 * celsius) / (240.97 + celsius));
+}
+
+/**
+ * Partial pressure of water vapour in air at a relative humidity (0-1).
+ *
+ * Saturated water vapour in air holds a little more than over pure water, by Buck's (1981)
+ * enhancement factor over water, f = 1.0007 + 3.46e-6 P with P in hPa (his equation for e'w), and
+ * relative humidity is read against that saturation in air (WMO-No. 8, annex 4.B).
+ */
+export function vapourPressurePa(pressurePa: number, temperatureK: number, relativeHumidity: number): number {
+  const enhancement = 1.0007 + 3.46e-6 * (pressurePa / 100);
+  return relativeHumidity * enhancement * saturationVapourPressurePa(temperatureK);
+}
+
+/**
+ * Density of moist air as a mixture of two ideal gases, dry air and water vapour, each at its
+ * own partial pressure. Water vapour is lighter than the air it replaces, so humid air is thinner
+ * and a bullet drops a little less in it.
+ */
+export function humidAirDensity(pressurePa: number, temperatureK: number, relativeHumidity: number): number {
+  const vapourPa = vapourPressurePa(pressurePa, temperatureK, relativeHumidity);
+  return (
+    (pressurePa - vapourPa) / (DRY_AIR_GAS_CONSTANT * temperatureK) +
+    vapourPa / (WATER_VAPOUR_GAS_CONSTANT * temperatureK)
+  );
+}
+
+/**
+ * The same conditions with the day's relative humidity in the density.
+ *
+ * Only the density changes. Humid air also carries sound a few tenths of a per cent faster, which
+ * moves the transonic rise by a metre or two at the distances this tool prints; the speed of
+ * sound is left at the dry air value and the notes on the page say so. Humidity outside 0-100 %
+ * is not a reading, and more vapour than the whole pressure could hold is no air at all.
+ */
+export function withHumidity(conditions: Conditions, humidityPercent: number): Conditions | null {
+  if (!Number.isFinite(humidityPercent) || humidityPercent < 0 || humidityPercent > 100) return null;
+  const vapourPa = vapourPressurePa(conditions.pressurePa, conditions.temperatureK, humidityPercent / 100);
+  if (!(vapourPa < conditions.pressurePa)) return null;
+  const densityKgPerM3 = humidAirDensity(conditions.pressurePa, conditions.temperatureK, humidityPercent / 100);
+  return { ...conditions, densityKgPerM3, densityRatio: densityKgPerM3 / STANDARD_AIR_DENSITY };
+}
+
+/**
  * Geopotential height for a height read off a map or a satellite receiver.
  *
  * The barometric formula below is written against geopotential height, which folds in the
@@ -293,6 +363,14 @@ interface Shot {
   /** The wind as a velocity: x downrange, z to the shooter's right. */
   windX: number;
   windZ: number;
+  /**
+   * Gravity in the frame of the line of sight, x along it and y square to it. Level, all of it
+   * is -g along y. Up or down a slope the line of sight is tilted and gravity is not: part of it
+   * pulls along the line, back towards the shooter uphill, and only g·cos(slope) pulls the bullet
+   * off the line. That is the whole of what a slope does to a point mass.
+   */
+  gravityX: number;
+  gravityY: number;
   densityKgPerM3: number;
   speedOfSoundMs: number;
   timeStepSeconds: number;
@@ -344,8 +422,8 @@ function rates(state: State, shot: Shot): Rates {
     x: state.vx,
     y: state.vy,
     z: state.vz,
-    vx: -factor * relativeX,
-    vy: -factor * relativeY - STANDARD_GRAVITY,
+    vx: -factor * relativeX + shot.gravityX,
+    vy: -factor * relativeY + shot.gravityY,
     vz: -factor * relativeZ,
   };
 }
@@ -569,6 +647,8 @@ function makeShot(parts: {
   sightHeightMeters: number;
   windX: number;
   windZ: number;
+  /** Slope of the line of sight, positive uphill. */
+  inclineRadians: number;
   conditions: Conditions;
   timeStepSeconds: number;
 }): Shot {
@@ -579,6 +659,8 @@ function makeShot(parts: {
     sightHeightMeters: parts.sightHeightMeters,
     windX: parts.windX,
     windZ: parts.windZ,
+    gravityX: -STANDARD_GRAVITY * Math.sin(parts.inclineRadians),
+    gravityY: -STANDARD_GRAVITY * Math.cos(parts.inclineRadians),
     densityKgPerM3: parts.conditions.densityKgPerM3,
     speedOfSoundMs: parts.conditions.speedOfSoundMs,
     timeStepSeconds: parts.timeStepSeconds,
@@ -634,7 +716,10 @@ export interface PointBlankResult {
 
 export interface TrajectoryResult {
   conditions: Conditions;
+  /** The velocity of the day, after the powder temperature. */
   muzzleSpeedMs: number;
+  /** The velocity the rifle was sighted in with. The same as the above when the powder is at its reference. */
+  zeroMuzzleSpeedMs: number;
   muzzleEnergyJoules: number;
   massKg: number;
   zeroAngleRadians: number;
@@ -656,6 +741,37 @@ export interface TrajectoryResult {
   windSpeedMs: number;
 }
 
+/** The sensitivity of the muzzle velocity to the powder's temperature, in m/s per kelvin. */
+export function powderSensitivityMsPerKelvin(value: number, unit: PowderSensitivityUnit): number {
+  // A degree Fahrenheit is five ninths of a kelvin, so a change per °F is nine fifths of one per K.
+  return unit === 'fps-per-f' ? (value * METERS_PER_FOOT * 9) / 5 : value;
+}
+
+export interface PowderTemperatureInput {
+  sensitivity: { value: number; unit: PowderSensitivityUnit };
+  unit: TemperatureUnit;
+  /** The powder temperature the muzzle velocity was measured at. */
+  reference: number;
+  /** The powder temperature of the day being worked out. */
+  temperature: number;
+}
+
+/**
+ * The muzzle velocity at the powder temperature of the day.
+ *
+ * A chronograph reading holds for the temperature the cartridges were at when it was taken.
+ * Warmer powder burns faster and gives more velocity, colder powder less, and over the
+ * temperatures a rifle is used at the change is close enough to a straight line that makers
+ * and ballistic programs quote it as a single rate: so many m/s, or fps, per degree. That rate
+ * is what is entered here. It differs from powder to powder and is best measured, so it opens at
+ * zero, which is the published table's own assumption that the velocity never changes.
+ */
+export function adjustedMuzzleSpeedMs(muzzleSpeedMs: number, powder: PowderTemperatureInput): number {
+  const perKelvin = powderSensitivityMsPerKelvin(powder.sensitivity.value, powder.sensitivity.unit);
+  const change = toKelvin(powder.temperature, powder.unit) - toKelvin(powder.reference, powder.unit);
+  return muzzleSpeedMs + perKelvin * change;
+}
+
 export interface TrajectoryInput {
   muzzleSpeed: { value: number; unit: SpeedUnit };
   mass: { value: number; unit: MassUnit };
@@ -670,6 +786,18 @@ export interface TrajectoryInput {
   vitalRadius: number;
   wind: { speed: number; unit: WindSpeedUnit; preset: WindPreset; customFromDegrees: number };
   atmosphere: AtmosphereInput;
+  /**
+   * Relative humidity, 0 to 100. Absent when it was not entered: the air is then taken as dry, as
+   * the published tables and this tool before the field existed take it, and the screen says so.
+   */
+  humidityPercent?: number;
+  /**
+   * Slope of the line of sight in degrees, positive uphill. Absent when it was not entered: the shot
+   * is then level, which is what a table without a slope describes.
+   */
+  inclineDegrees?: number;
+  /** Absent when no powder temperature was entered: the velocity is then the one entered. */
+  powder?: PowderTemperatureInput;
   /** Only the tests set this, to show that the answer stops moving as the step shrinks. */
   timeStepSeconds?: number;
 }
@@ -688,8 +816,40 @@ function sampleDistances(input: TrajectoryInput): { meters: number[]; truncated:
   return { meters, truncated: capped < count };
 }
 
-export function calculateTrajectory(input: TrajectoryInput): TrajectoryResult | null {
-  const muzzleSpeedMs = toMetersPerSecond(input.muzzleSpeed.value, input.muzzleSpeed.unit);
+/** Everything one trajectory needs, solved once and flown as often as the caller likes. */
+interface Prepared {
+  conditions: Conditions;
+  massKg: number;
+  /** The velocity of the day, after the powder temperature. */
+  muzzleSpeedMs: number;
+  /** The velocity the rifle was sighted in with, at the reference powder temperature. */
+  zeroMuzzleSpeedMs: number;
+  zeroDistanceMeters: number;
+  zeroAngleRadians: number;
+  vitalRadiusMeters: number;
+  windSpeedMs: number;
+  windFromDegrees: number;
+  /** The shot of the day: its velocity, its wind, its slope. */
+  shot: Shot;
+  /** The same shot on level ground, which is where a point blank range is sighted in. */
+  levelShot: Shot;
+}
+
+/**
+ * Solve the zero and build the shot of the day.
+ *
+ * The rifle is sighted in on level ground with the velocity it had when the chronograph was read,
+ * that is at the reference powder temperature, and then fired on the day with whatever velocity
+ * the powder gives and up or down whatever slope there is. Sighting in again for the day's
+ * velocity would put every table back on the line of sight at the zero distance, which is the one
+ * thing a change of powder temperature does not do. The zero is solved in the day's air: the tool
+ * holds a single atmosphere, not a separate one for the day the rifle was zeroed.
+ */
+function prepare(input: TrajectoryInput): Prepared | null {
+  const zeroMuzzleSpeedMs = toMetersPerSecond(input.muzzleSpeed.value, input.muzzleSpeed.unit);
+  const muzzleSpeedMs =
+    input.powder === undefined ? zeroMuzzleSpeedMs : adjustedMuzzleSpeedMs(zeroMuzzleSpeedMs, input.powder);
+  const inclineDegrees = input.inclineDegrees ?? 0;
   const massKg = toKilograms(input.mass.value, input.mass.unit);
   const sightHeightMeters = sightHeightToMeters(input.sightHeight.value, input.sightHeight.unit);
   const zeroDistanceMeters = toMeters(input.zeroDistance, input.distanceUnit);
@@ -697,80 +857,194 @@ export function calculateTrajectory(input: TrajectoryInput): TrajectoryResult | 
   const windSpeedMs = windToMetersPerSecond(input.wind.speed, input.wind.unit);
   const windFromDegrees = windDirectionDegrees(input.wind);
   const timeStepSeconds = input.timeStepSeconds ?? TIME_STEP_SECONDS;
-  const conditions = resolveConditions(input.atmosphere);
+  const dryConditions = resolveConditions(input.atmosphere);
+  if (dryConditions === null) return null;
+  const conditions =
+    input.humidityPercent === undefined ? dryConditions : withHumidity(dryConditions, input.humidityPercent);
   if (conditions === null) return null;
-  if (!(muzzleSpeedMs > 0) || !(massKg > 0) || !(input.ballisticCoefficient > 0)) return null;
+  if (!(zeroMuzzleSpeedMs > 0) || !(muzzleSpeedMs > 0) || !(massKg > 0) || !(input.ballisticCoefficient > 0))
+    return null;
   if (!(sightHeightMeters >= 0) || !(zeroDistanceMeters > 0)) return null;
   if (!(input.step > 0) || !(input.maxRange > 0) || !(vitalRadiusMeters > 0)) return null;
   if (!(windSpeedMs >= 0) || !Number.isFinite(windFromDegrees)) return null;
+  // Straight up or down there is no line of sight left to measure a drop from.
+  if (!Number.isFinite(inclineDegrees) || Math.abs(inclineDegrees) >= 90) return null;
   // A step of zero never moves the state on, so the loop would never reach its own end.
   if (!(timeStepSeconds > 0) || timeStepSeconds > MAX_TIME_STEP_SECONDS) return null;
 
   // The wind is named by where it comes from, so it blows towards the opposite side: from
   // twelve o'clock it blows back down the range, from nine o'clock it pushes to the right.
+  // It is taken along and across the line of sight; on a slope the small part of a head or
+  // tail wind that would cross the line vertically is left out, as vertical wind is.
   const windRadians = (windFromDegrees * Math.PI) / 180;
-  const shot = makeShot({
+  const parts = {
     dragModel: input.dragModel,
     ballisticCoefficient: input.ballisticCoefficient,
-    muzzleSpeedMs,
     sightHeightMeters,
     windX: -windSpeedMs * Math.cos(windRadians),
     windZ: -windSpeedMs * Math.sin(windRadians),
     conditions,
     timeStepSeconds,
-  });
-
-  const zeroAngleRadians = sightIn(shot, zeroDistanceMeters);
+  };
+  const zeroShot = makeShot({ ...parts, muzzleSpeedMs: zeroMuzzleSpeedMs, inclineRadians: 0 });
+  const zeroAngleRadians = sightIn(zeroShot, zeroDistanceMeters);
   if (zeroAngleRadians === null) return null;
+  return {
+    conditions,
+    massKg,
+    muzzleSpeedMs,
+    zeroMuzzleSpeedMs,
+    zeroDistanceMeters,
+    zeroAngleRadians,
+    vitalRadiusMeters,
+    windSpeedMs,
+    windFromDegrees,
+    shot: makeShot({ ...parts, muzzleSpeedMs, inclineRadians: (inclineDegrees * Math.PI) / 180 }),
+    levelShot: makeShot({ ...parts, muzzleSpeedMs, inclineRadians: 0 }),
+  };
+}
+
+function toRow(sample: State, distanceMeters: number, prepared: Prepared, shot: Shot): TrajectoryRow {
+  const dropMeters = -sample.y;
+  const driftMeters = sample.z;
+  const speedMs = Math.hypot(sample.vx, sample.vy, sample.vz);
+  return {
+    distanceMeters,
+    dropMeters,
+    dropMoa: angleOf(dropMeters, distanceMeters) / MOA_RADIANS,
+    dropMil: angleOf(dropMeters, distanceMeters) / MIL_RADIANS,
+    driftMeters,
+    driftMoa: angleOf(driftMeters, distanceMeters) / MOA_RADIANS,
+    driftMil: angleOf(driftMeters, distanceMeters) / MIL_RADIANS,
+    speedMs,
+    // Drag was read at the speed through the air, so the Mach shown is that speed and not
+    // the speed over the ground; in a head or tail wind the two are not the same number.
+    mach: airspeed(sample, shot) / prepared.conditions.speedOfSoundMs,
+    energyJoules: 0.5 * prepared.massKg * speedMs ** 2,
+    timeSeconds: sample.t,
+  };
+}
+
+export function calculateTrajectory(input: TrajectoryInput): TrajectoryResult | null {
+  const prepared = prepare(input);
+  if (prepared === null) return null;
+  const { shot } = prepared;
 
   const { meters: distances, truncated } = sampleDistances(input);
-  const limitMeters = Math.max(distances[distances.length - 1] ?? 0, zeroDistanceMeters);
-  const flight = fly(shot, zeroAngleRadians, { samples: distances, limitMeters });
+  const limitMeters = Math.max(distances[distances.length - 1] ?? 0, prepared.zeroDistanceMeters);
+  const flight = fly(shot, prepared.zeroAngleRadians, { samples: distances, limitMeters });
   const rows: TrajectoryRow[] = [];
   for (const [index, distanceMeters] of distances.entries()) {
     const sample = flight.samples[index];
     if (sample === null || sample === undefined) continue;
-    const dropMeters = -sample.y;
-    const driftMeters = sample.z;
-    const speedMs = Math.hypot(sample.vx, sample.vy, sample.vz);
-    rows.push({
-      distanceMeters,
-      dropMeters,
-      dropMoa: angleOf(dropMeters, distanceMeters) / MOA_RADIANS,
-      dropMil: angleOf(dropMeters, distanceMeters) / MIL_RADIANS,
-      driftMeters,
-      driftMoa: angleOf(driftMeters, distanceMeters) / MOA_RADIANS,
-      driftMil: angleOf(driftMeters, distanceMeters) / MIL_RADIANS,
-      speedMs,
-      // Drag was read at the speed through the air, so the Mach shown is that speed and not
-      // the speed over the ground; in a head or tail wind the two are not the same number.
-      mach: airspeed(sample, shot) / conditions.speedOfSoundMs,
-      energyJoules: 0.5 * massKg * speedMs ** 2,
-      timeSeconds: sample.t,
-    });
+    rows.push(toRow(sample, distanceMeters, prepared, shot));
   }
 
-  const pointBlank = solvePointBlank(shot, vitalRadiusMeters);
+  // Sighted in on the level: a point blank range is a way to zero a rifle, not a slope's answer.
+  const pointBlank = solvePointBlank(prepared.levelShot, prepared.vitalRadiusMeters);
   return {
-    conditions,
-    muzzleSpeedMs,
-    muzzleEnergyJoules: 0.5 * massKg * muzzleSpeedMs ** 2,
-    massKg,
-    zeroAngleRadians,
-    zeroDistanceMeters,
+    conditions: prepared.conditions,
+    muzzleSpeedMs: prepared.muzzleSpeedMs,
+    zeroMuzzleSpeedMs: prepared.zeroMuzzleSpeedMs,
+    muzzleEnergyJoules: 0.5 * prepared.massKg * prepared.muzzleSpeedMs ** 2,
+    massKg: prepared.massKg,
+    zeroAngleRadians: prepared.zeroAngleRadians,
+    zeroDistanceMeters: prepared.zeroDistanceMeters,
     nearZeroMeters: flight.nearZeroMeters,
     farZeroMeters: flight.farZeroMeters,
     // A zero short of the top of the arc is the crossing on the way up, not the one on the way down.
-    zeroSide: zeroDistanceMeters < flight.apex.distanceMeters ? 'rising' : 'falling',
+    zeroSide: prepared.zeroDistanceMeters < flight.apex.distanceMeters ? 'rising' : 'falling',
     apex: flight.apex,
     rows,
     truncated,
     reachedMeters: flight.reachedMeters,
     pointBlank: typeof pointBlank === 'string' ? null : pointBlank,
     pointBlankUnavailable: typeof pointBlank === 'string' ? pointBlank : null,
-    windFromDegrees,
-    windSpeedMs,
+    windFromDegrees: prepared.windFromDegrees,
+    windSpeedMs: prepared.windSpeedMs,
   };
+}
+
+/**
+ * The same trajectory read at any distances, in any order, with no row limit.
+ *
+ * The table stops at a fixed number of rows because it is read by a person. A figure that has to
+ * be looked for between the rows - the furthest distance at which a hit is still likely enough -
+ * needs the path far more finely than that, and it needs it again with the velocity changed while
+ * the rifle keeps the zero it was given. `muzzleSpeedMs` replaces the velocity of the day for this
+ * flight only; the zero is still the one solved for the input. An entry is null where the bullet
+ * never got that far.
+ */
+export function sampleTrajectory(
+  input: TrajectoryInput,
+  distancesMeters: readonly number[],
+  overrides: TrajectoryVariant = {},
+): (TrajectoryRow | null)[] | null {
+  return sampleTrajectoryVariants(input, distancesMeters, [overrides])?.[0] ?? null;
+}
+
+/**
+ * A change to one flight of an already sighted-in rifle: another velocity, or a full value
+ * crosswind from nine o'clock of this many m/s in place of the day's wind.
+ */
+export interface TrajectoryVariant {
+  muzzleSpeedMs?: number;
+  crosswindMs?: number;
+}
+
+/**
+ * Several flights of the same rifle, solved for its zero once.
+ *
+ * The zero solve flies the bullet many times over; a caller that wants the same load at a second
+ * velocity and in a second wind should not pay for it again. Each variant keeps the zero of the
+ * input and changes only what it names.
+ */
+export function sampleTrajectoryVariants(
+  input: TrajectoryInput,
+  distancesMeters: readonly number[],
+  variants: readonly TrajectoryVariant[],
+): (TrajectoryRow | null)[][] | null {
+  const prepared = prepare(input);
+  if (prepared === null) return null;
+  if (!distancesMeters.every((meters) => Number.isFinite(meters) && meters > 0)) return null;
+  const order = distancesMeters.map((meters, index) => ({ meters, index })).sort((a, b) => a.meters - b.meters);
+  const ascending = order.map((entry) => entry.meters);
+  const flights: (TrajectoryRow | null)[][] = [];
+  for (const variant of variants) {
+    const muzzleSpeedMs = variant.muzzleSpeedMs ?? prepared.muzzleSpeedMs;
+    if (!(muzzleSpeedMs > 0)) return null;
+    const crosswind = variant.crosswindMs;
+    if (crosswind !== undefined && !Number.isFinite(crosswind)) return null;
+    // From nine o'clock the wind blows to the shooter's right, which is +z.
+    const shot: Shot = {
+      ...prepared.shot,
+      muzzleSpeedMs,
+      ...(crosswind === undefined ? {} : { windX: 0, windZ: crosswind }),
+    };
+    const flight = fly(shot, prepared.zeroAngleRadians, {
+      samples: ascending,
+      limitMeters: ascending[ascending.length - 1] ?? 0,
+    });
+    const rows: (TrajectoryRow | null)[] = distancesMeters.map(() => null);
+    for (const [position, entry] of order.entries()) {
+      const sample = flight.samples[position];
+      if (sample !== null && sample !== undefined) rows[entry.index] = toRow(sample, entry.meters, prepared, shot);
+    }
+    flights.push(rows);
+  }
+  return flights;
+}
+
+/**
+ * An offset on the target in clicks of a sight, unrounded.
+ *
+ * The same division the sight adjustment tool makes: the offset over the travel of one click at
+ * that distance, which for an angular click is distance × tan(click). A turret only stops on whole
+ * clicks, so the screen rounds this.
+ */
+export function offsetInClicks(offsetMeters: number, distanceMeters: number, click: ClickSetting): number {
+  const size = clickSizeMm(click, distanceMeters);
+  return Number.isFinite(size) && size > 0 ? (offsetMeters * 1000) / size : NaN;
 }
 
 /**
@@ -872,6 +1146,7 @@ function resolveShot(shot: ShotDescription): Shot | null {
     sightHeightMeters,
     windX: 0,
     windZ: 0,
+    inclineRadians: 0,
     conditions,
     timeStepSeconds,
   });

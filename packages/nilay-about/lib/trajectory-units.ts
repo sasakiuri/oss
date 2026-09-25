@@ -8,6 +8,7 @@ import {
   altitudeRange,
   type AltitudeUnit,
   type MassUnit,
+  type PowderSensitivityUnit,
   type PressureUnit,
   type SightHeightUnit,
   type SpeedUnit,
@@ -73,4 +74,15 @@ export function convertAltitudeValue(value: number, from: AltitudeUnit, to: Alti
   if (!altitudeInRange(value, from) || altitudeInRange(converted, to)) return converted;
   const { min, max } = altitudeRange(to);
   return Math.min(max, Math.max(min, converted));
+}
+
+/** A velocity change per degree: fps per °F is 0.3048 m/s per 5/9 K, or 0.54864 m/s per °C. */
+export function convertPowderSensitivityValue(
+  value: number,
+  from: PowderSensitivityUnit,
+  to: PowderSensitivityUnit,
+): number {
+  if (from === to) return value;
+  const factor = (METERS_PER_FOOT * 9) / 5;
+  return round(to === 'fps-per-f' ? value / factor : value * factor, 3);
 }

@@ -18,6 +18,7 @@ export type {
   SightAdjustmentSettings,
   VerticalImpact,
 } from './schemas/sight-adjustment';
+export { withClickPreset } from './schemas/sight-adjustment';
 
 export const MM_PER_INCH = 25.4;
 export const METERS_PER_YARD = 0.9144;
@@ -140,7 +141,9 @@ export function calculateSlant(value: number, unit: DistanceUnit, angleDegrees: 
   const slantMeters = toMeters(value, unit);
   if (!Number.isFinite(slantMeters) || slantMeters <= 0) return null;
   if (!Number.isFinite(angleDegrees) || Math.abs(angleDegrees) > 90) return null;
-  // Uphill and downhill shots shorten the ballistic distance by the same cosine.
+  // The level distance to the target, the same cosine up or down. Holding for the drop at this
+  // distance is the rifleman's rule, an approximation: gravity along the line of sight slows the
+  // shot uphill and speeds it downhill, which the trajectory tool's slope input models.
   const cosine = Math.cos((Math.abs(angleDegrees) * Math.PI) / 180);
   return { horizontalMeters: slantMeters * cosine, cosine, reductionMeters: slantMeters * (1 - cosine) };
 }
