@@ -335,7 +335,7 @@ export function createFakeUpstash(now: () => number) {
 
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
-    if (!url.startsWith(FAKE_UPSTASH_URL)) throw new Error(`Unexpected request to ${url}`);
+    if (new URL(url).origin !== FAKE_UPSTASH_URL) throw new Error(`Unexpected request to ${url}`);
     const command = JSON.parse(String(init?.body)) as unknown[];
     // A test can run its own requests before this command, to interleave them with it.
     const hook = beforeCommand;
