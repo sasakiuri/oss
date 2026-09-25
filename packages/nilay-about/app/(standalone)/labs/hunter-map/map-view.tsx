@@ -13,7 +13,19 @@ export interface MapMarker {
   active: boolean;
 }
 
+export interface MapZone {
+  id: string;
+  label: string;
+  points: readonly ImagePoint[];
+  /** Drawn thicker, for the area the position is in or nearest. */
+  emphasised: boolean;
+}
+
 interface MapViewProps {
+  /** Areas traced on the picture. */
+  zones?: readonly MapZone[];
+  /** The area being traced, not yet closed. */
+  draft?: readonly ImagePoint[];
   /** The saved picture. It is shown through an object URL made here and released when it changes. */
   data: ArrayBuffer;
   type: string;
@@ -51,6 +63,8 @@ export function MapView({
   type,
   size,
   markers,
+  zones = [],
+  draft = [],
   position,
   placing,
   zoom,
@@ -140,6 +154,47 @@ export function MapView({
           viewBox={`0 0 ${size.width} ${size.height}`}
           className="pointer-events-none absolute inset-0 h-full w-full"
         >
+          {zones.map((zone) => (
+            <g key={zone.id}>
+              <polygon
+                points={zone.points.map((point) => `${point.x},${point.y}`).join(' ')}
+                fill="rgba(179,38,30,0.12)"
+                stroke={activeColour}
+                strokeWidth={unit * (zone.emphasised ? 4 : 2)}
+                strokeLinejoin="round"
+              />
+              {zone.points[0] && (
+                <text
+                  x={zone.points.reduce((sum, point) => sum + point.x, 0) / zone.points.length}
+                  y={zone.points.reduce((sum, point) => sum + point.y, 0) / zone.points.length}
+                  fill={activeColour}
+                  fontSize={unit * 13}
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  stroke="#ffffff"
+                  strokeWidth={unit * 3}
+                  paintOrder="stroke"
+                >
+                  {zone.label}
+                </text>
+              )}
+            </g>
+          ))}
+          {draft.length > 0 && (
+            <g>
+              <polyline
+                points={draft.map((point) => `${point.x},${point.y}`).join(' ')}
+                fill="none"
+                stroke={activeColour}
+                strokeWidth={unit * 2}
+                strokeDasharray={`${unit * 6} ${unit * 4}`}
+              />
+              {draft.map((point, index) => (
+                <circle key={index} cx={point.x} cy={point.y} r={unit * 4} fill={activeColour} />
+              ))}
+            </g>
+          )}
           {markers.map((marker) => {
             const colour = marker.active ? activeColour : pointColour;
             return (

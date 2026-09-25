@@ -37,6 +37,7 @@ import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 import { STORAGE_KEY, useHuntingHoursStore } from './_store';
 import { LegalNotes } from './legal-notes';
 import { presetLocationLabel, presetLocations } from './locations';
+import { MoonPanel } from './moon-panel';
 import { SavedPlaces } from './saved-places';
 
 const CUSTOM_PRESET = 'custom';
@@ -261,7 +262,7 @@ export function HuntingHoursClient() {
                 'この緯度では、この日は太陽が昇りません（極夜）。',
                 'At this latitude the sun does not rise on this day.',
               )
-        } ${t('日本国内では起こりません。', 'This does not happen in Japan.')}`,
+        }`,
       );
     }
     // Every time shown uses the rounded pair, so no minute outside the legal hours is shown.
@@ -301,10 +302,7 @@ export function HuntingHoursClient() {
           return t('日没後のため、今は銃猟できません。', 'After sunset: no shooting now.');
         case 'until-sunset': {
           const left = durationText(status.untilMs);
-          return t(
-            start ? `今は日出から日没までの時間帯です。日没まであと ${left}。` : `日没まであと ${left}。`,
-            start ? `Now between sunrise and sunset. Sunset in ${left}.` : `Sunset in ${left}.`,
-          );
+          return t(`日没まであと ${left}。`, `Sunset in ${left}.`);
         }
         case 'no-sunset':
           return t('今は日出後です。この日は日没がありません。', 'The sun is up and does not set on this day.');
@@ -323,7 +321,7 @@ export function HuntingHoursClient() {
               !end
                 ? t('この日は日の入りがありません。', 'There is no sunset on this day.')
                 : t('この日は日の出がありません。', 'There is no sunrise on this day.')
-            } ${t('日本国内では起こりません。', 'This does not happen in Japan.')}`,
+            }`,
           )}
         <ResultPanel className={start && end ? undefined : 'grid-cols-2'}>
           {start && end ? (
@@ -516,29 +514,29 @@ export function HuntingHoursClient() {
                       {t('都道府県を選ぶか、緯度経度を入力してください。', 'Choose a prefecture or enter coordinates.')}
                     </p>
                   )}
-                  <p className="text-xs text-on-surface-variant">
-                    {t('現在地はどこにも送信しません。', 'Your location is not sent anywhere.')}
-                  </p>
                 </div>
               </div>
             </Card>
           }
           result={
-            <Card variant="outlined" className="min-w-0 space-y-4 rounded-md p-5 sm:p-6">
-              <div className="space-y-1">
-                <h2 id="hours" className="text-xl font-medium">
-                  {t('日出から日没まで', 'Sunrise to sunset')}
-                </h2>
-                {resultCaption && <p className="text-sm text-on-surface-variant">{resultCaption}</p>}
-              </div>
-              {results()}
-              <p className="text-xs leading-relaxed text-on-surface-variant">
-                {t(
-                  'この端末のタイムゾーンの時刻です。日の出は分単位で切り上げ、日の入りは切り捨てるため、公表値と 1 分ずれることがあります。',
-                  'Times are in this device’s time zone. Sunrise is rounded up and sunset down to the minute, so they can differ from published times by one minute.',
-                )}
-              </p>
-            </Card>
+            <>
+              <Card variant="outlined" className="min-w-0 space-y-4 rounded-md p-5 sm:p-6">
+                <div className="space-y-1">
+                  <h2 id="hours" className="text-xl font-medium">
+                    {t('日出から日没まで', 'Sunrise to sunset')}
+                  </h2>
+                  {resultCaption && <p className="text-sm text-on-surface-variant">{resultCaption}</p>}
+                </div>
+                {results()}
+                <p className="text-xs leading-relaxed text-on-surface-variant">
+                  {t(
+                    'この端末のタイムゾーンの時刻です。太陽の上辺が地平線（大気差 35′8″）に来る時刻で、国立天文台と同じ定義です。日の出は切り上げ、日の入りは切り捨てのため、公表値と 1 分ずれることがあります。',
+                    'Times are in this device’s time zone. The sun’s upper limb on the horizon with 35′8″ of refraction, as NAOJ defines it. Sunrise is rounded up and sunset down, so they can be a minute off the published times.',
+                  )}
+                </p>
+              </Card>
+              <MoonPanel language={language} date={date} location={location.success ? location.data : null} />
+            </>
           }
           secondary={
             <ConditionSection

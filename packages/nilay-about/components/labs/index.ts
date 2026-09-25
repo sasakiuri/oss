@@ -18,3 +18,6 @@ export * from './photo-attachments';
 export * from './offline-support';
 export * from './study-progress';
 export * from './trend-chart';
+export * from './geo-map';
+export * from './use-device-position';
+export * from './recovery-notice';

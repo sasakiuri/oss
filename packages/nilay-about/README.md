@@ -393,8 +393,44 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
 - **Legal Shooting Hours** (銃猟可能時間): from a prefecture preset, entered latitude and longitude, or the current location, and a date,
   shows sunrise and sunset, the hours gun hunting is allowed, and the time left until sunset. Places can be saved by name.
   Article 38(1) of the Wildlife Protection and Management Act prohibits gun hunting before sunrise and after sunset.
+  Sunrise and sunset are the sun's upper limb on the horizon with 35′8″ of refraction, as NAOJ defines them.
   The times are astronomical estimates; actual light varies with terrain, weather and altitude.
   There are exceptions such as night shooting permits, so check the prefecture's rules and the conditions of any permit.
+  For reference it also shows moonrise, moonset (the Moon's centre on the horizon with 35′8″ of refraction, as NAOJ defines them),
+  the age at noon and the lit fraction. The Moon's position uses the Astronomical Almanac's low-precision formulae (1900–2100),
+  so the times can differ from NAOJ's tables by a few minutes.
+- **Outing Plan Card** (入山計画と帰着予定): collects where the hunter is going, with whom, the route, departure and the time due
+  back, vehicle, radio, gear and an emergency contact into a card that prints on its own, copies as text, or downloads as an
+  iCalendar file (RFC 5545) with one event from departure to the time due back and an alarm at the time due back, so the calendar
+  it is imported into gives the alert. No law prescribes the items, and the page never contacts anyone itself. Because it holds
+  names and a phone number, it is saved only when この端末に保存する (save on this device) is ticked.
+- **Trail Camera Activity** (トレイルカメラの出没時刻): reads the time each JPEG was taken from its Exif data (DateTimeOriginal,
+  else DateTimeDigitized or DateTime, with OffsetTime when written; CIPA DC-008), from photos chosen together or from a ZIP
+  (stored or deflated entries, inflated with the browser's DecompressionStream), and counts them by hour, by date and hour,
+  by hours from sunrise and sunset at a given place, and by moon age in eight parts. The camera clock's time zone (Japan by
+  default) and a correction for a fast or slow clock can be set. Each photo counts once and the animal is not identified.
+  Only the first 256 KB of each photo is read; nothing is saved or sent except the settings.
+- **Drive Hunt Plan** (巻き狩りの配置図): places the stands on the map (by tapping or at the device position), gives each stand
+  up to four directions not to shoot into (bearings clockwise from true north, drawn as wedges whose length is for legibility only),
+  keeps a roster with roles, and draws lots for the stands among the people on stands with the browser's cryptographic random
+  numbers. The plan prints on its own: a to-scale sketch of the stands with north and a scale bar (no map picture), the stand list
+  and the roster with a signature column. No law prescribes such a plan, and nothing is shared live on the day.
+- **Shooting Danger Area** (射撃の危険範囲): from a firing point (the device position or a tap on the map), a bearing
+  (typed or picked on the map) and a row of the tables of the US Army range safety pamphlet DA PAM 385-63 (16 April 2014),
+  draws that pamphlet's cone surface danger zone, figure 4-1: a dispersion area 5° either side of the line of fire, ricochet
+  areas the next 5° and Area A opening at 30°, with Distance X and the width of Area A taken from the same row (earth or water
+  impact): 12-gauge slug, buckshot and shot larger than 7½ 1,073 m and 100 m (table 4-1), .22 LR 1,400 m and 100 m (table 4-3).
+  No other range is fitted to the figure. 12-gauge 7½, 8 and 9 shot is not drawn, since the pamphlet uses its trap range
+  shotfall figure 4-8 for it; the 2° dispersion of paragraph 4-1 d (range training under an approved risk assessment) and the
+  batwing of figure 4-3 are not drawn either. It is a military range design standard, not Japanese law, and not a line beyond
+  which a shot is safe; terrain, hard ground, water and wind are not included, and no Japanese public figure for ricochet was found.
+- **Coordinate Converter** (座標の変換): converts one point between decimal degrees, degrees–minutes–seconds, UTM, MGRS,
+  the 19 plane rectangular coordinate systems (MLIT Notice No. 9 of 2002, scale 0.9999) and the standard grid square codes
+  (Administrative Management Agency Notice No. 143 of 1973: first to eighth level, and the fivefold and twofold squares).
+  A point can also come from the device position or a tap on the map. The projections use the Gauss–Krüger series GSI publishes
+  (Kawase 2011) on JGD2011; the old Tokyo datum is not handled. The mesh number in the hunting results report is the one on the
+  prefecture's map, which need not be the standard grid. An MGRS reference or a grid square code is read as the centre of the
+  square it names (MGRS from 1 m to 100 km precision).
 - **Trap and Net Tags** (わな・網の標識): makes the tag the law requires on each trap or net. The items switch between hunting
   (Article 62(3) of the Act, Article 70 of the Enforcement Regulations) and capture under permit (Article 9(12) of the Act, Article 7 of the Enforcement Regulations).
   The character box is 10, 12 or 15 mm, and 1, 2, 4 or 6 tags print at real size on A4.
@@ -459,7 +495,16 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   (GSI plane rectangular coordinates) or Web Mercator.
   The device's position is overlaid on the map, with the residual of each reference point. The image and points are stored in IndexedDB;
   the position is neither saved nor sent.
-  PDFs cannot be loaded, so convert them to an image first. The correctness of the areas is not guaranteed.
+  A PDF can be loaded as it is: the chosen page is drawn in the browser with PDF.js at 3,000, 5,000 or 7,000 px on the longer side
+  (within 16 million pixels) and kept as a PNG. Several maps can be kept, named and switched between; each has its own points,
+  areas and fiscal year (April to March, as the prefectures date them), and a map whose fiscal year has ended carries a warning.
+  Areas such as protected areas can be traced on the picture; with the position shown, the tool says whether it is inside each area
+  and how far the edge is, and says it cannot tell when the edge is closer than the position's uncertainty.
+  The aligned picture can be laid over the GSI map with a chosen opacity (drawn piecewise through the fit, so a transverse Mercator
+  fit lands correctly on the Web Mercator tiles), and a reference point's coordinates can be picked on the GSI map.
+  The map can be exported as a KMZ (JPEG pieces, whole or split 2 × 2 to 4 × 4, corners written as gx:LatLonQuad, traced areas as
+  polygons) and the areas alone as KML. Maps saved by the earlier single-map version are carried over when the page opens.
+  The correctness of the areas is not guaranteed.
 - **Hunting Log** (出猟・捕獲の記録): records the place, method and game taken on each day out, and totals and prints a draft of the hunting results report
   (Article 66 of the Act, Article 65(13) of the Enforcement Regulations) in the columns of the report section on the back of the hunter registration certificate (Form 17).
   The report is due on the 30th day after the registration expires, counting the first day after its last day as day 1: 15 May for a registration
@@ -503,7 +548,11 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   No wait times were found in Japanese public material, so figures from North American state agencies and course material are given for reference,
   with the regional difference stated.
   It quotes Japanese material on the ban on leaving game (Article 18 of the Act, Article 19 of the Enforcement Regulations) and on safety when dispatching,
-  and records the places and times along the trail.
+  and records the places and times along the trail. Entries logged with a position are shown on the map in time order, with
+  the straight-line distance and true bearing of the last one from the shot site.
+  The blood-finding camera takes a photo with the phone's camera (through the file picker) and, on the device, paints reddish
+  pixels in cyan or yellow and greys the rest, with a sensitivity setting. It picks out colour, not blood, and the photo is
+  neither saved nor sent.
 - **Game Meat Capture Record** (ジビエの捕獲時記録票): creates the capture record for each animal following the items of the Ministry of Health, Labour and
   Welfare's guidelines on the hygiene of wild game meat and Form 2 of its handbook, and prints it on A4. If any of the 11 abnormality checks applies,
   the wording of the guidelines is shown.
@@ -644,6 +693,11 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   quote the Ministry of the Environment (the six rules of 2026, the injury analysis of April 2026, the 2021 manual, the spray
   requirements of August 2026), the government's public relations article of 10 September 2026, Akita Prefecture and the Consumer
   Affairs Agency, checked on 2026-09-24. Where they differ, the newer material is followed.
+
+The field tools draw on a shared map (`components/labs/geo-map.tsx`) over the GSI tiles (地理院タイル: standard and pale maps
+from zoom 5, photographs from zoom 14), credited as 地理院タイル with a link to GSI's tile list as GSI requires for real-time use
+(checked 2026-09-24). Fetching tiles tells GSI roughly which area is on screen; the background can be set to なし (none),
+which requests nothing. Tiles are not stored for offline use.
 
 Records and settings are saved in the browser in use. They are not synced to other devices and are lost
 if the browser's site data is cleared. Where saving is not possible, the page says so.

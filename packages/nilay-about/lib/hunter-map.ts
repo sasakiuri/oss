@@ -13,16 +13,15 @@
  * zero whatever the error. Only an extra point can show how well the picture and the fit agree.
  */
 
-/** GRS80, the ellipsoid of the Japanese geodetic datum. GPS positions are on WGS84, which differs negligibly here. */
-const GRS80 = { a: 6378137, inverseFlattening: 298.257222101 } as const;
+import type { GeoPoint } from './geodesy';
+import { inverseTransverseMercator, transverseMercator } from './transverse-mercator';
+
+export type { GeoPoint };
+
+const GRS80_A = 6378137;
 
 export type Projection = 'transverse-mercator' | 'web-mercator';
 export type Model = 'affine' | 'similarity';
-
-export interface GeoPoint {
-  latitude: number;
-  longitude: number;
-}
 
 export interface ImagePoint {
   x: number;
@@ -38,58 +37,11 @@ export interface PlanePoint {
 const degrees = Math.PI / 180;
 
 /**
- * Gauss–Krüger (transverse Mercator) on GRS80, by the series the Geospatial Information Authority
- * of Japan publishes for plane rectangular coordinates (Kawase 2011). Returns the survey convention:
- * `x` northward and `y` eastward, in metres from the origin.
- */
-export function transverseMercator(point: GeoPoint, origin: GeoPoint, scale = 1): { x: number; y: number } {
-  const n = 1 / (2 * GRS80.inverseFlattening - 1);
-  const alpha = [
-    n / 2 - (2 / 3) * n ** 2 + (5 / 16) * n ** 3 + (41 / 180) * n ** 4 - (127 / 288) * n ** 5,
-    (13 / 48) * n ** 2 - (3 / 5) * n ** 3 + (557 / 1440) * n ** 4 + (281 / 630) * n ** 5,
-    (61 / 240) * n ** 3 - (103 / 140) * n ** 4 + (15061 / 26880) * n ** 5,
-    (49561 / 161280) * n ** 4 - (179 / 168) * n ** 5,
-    (34729 / 80640) * n ** 5,
-  ];
-  const A0 = 1 + n ** 2 / 4 + n ** 4 / 64;
-  // A1 to A5, in order.
-  const A = [
-    -1.5 * (n - n ** 3 / 8 - n ** 5 / 64),
-    (15 / 16) * (n ** 2 - n ** 4 / 4),
-    (-35 / 48) * (n ** 3 - (5 / 16) * n ** 5),
-    (315 / 512) * n ** 4,
-    (-693 / 1280) * n ** 5,
-  ];
-  const phi = point.latitude * degrees;
-  const phi0 = origin.latitude * degrees;
-  const lambda = (point.longitude - origin.longitude) * degrees;
-  const Abar = ((scale * GRS80.a) / (1 + n)) * A0;
-  let Sphi0 = Abar * phi0;
-  A.forEach((coefficient, index) => {
-    Sphi0 += ((scale * GRS80.a) / (1 + n)) * coefficient * Math.sin(2 * (index + 1) * phi0);
-  });
-
-  const k = (2 * Math.sqrt(n)) / (1 + n);
-  const t = Math.sinh(Math.atanh(Math.sin(phi)) - k * Math.atanh(k * Math.sin(phi)));
-  const tbar = Math.sqrt(1 + t * t);
-  const xi = Math.atan2(t, Math.cos(lambda));
-  const eta = Math.atanh(Math.sin(lambda) / tbar);
-  let x = xi;
-  let y = eta;
-  alpha.forEach((coefficient, index) => {
-    const j = index + 1;
-    x += coefficient * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta);
-    y += coefficient * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta);
-  });
-  return { x: Abar * x - Sphi0, y: Abar * y };
-}
-
-/**
  * The Mercator of web maps, which treats the latitude as if the earth were a sphere. Scaled by the
  * cosine of the origin's latitude so that, near the origin, a unit is close to a metre on the ground.
  */
 export function webMercator(point: GeoPoint, origin: GeoPoint): PlanePoint {
-  const scale = GRS80.a * Math.cos(origin.latitude * degrees);
+  const scale = GRS80_A * Math.cos(origin.latitude * degrees);
   const isometric = (latitude: number) => Math.atanh(Math.sin(latitude * degrees));
   return {
     u: scale * (point.longitude - origin.longitude) * degrees,
@@ -101,6 +53,19 @@ export function project(point: GeoPoint, origin: GeoPoint, projection: Projectio
   if (projection === 'web-mercator') return webMercator(point, origin);
   const { x, y } = transverseMercator(point, origin);
   return { u: y, v: -x };
+}
+
+/** The inverse of `project`: plane metres back to latitude and longitude. */
+export function unproject(plane: PlanePoint, origin: GeoPoint, projection: Projection): GeoPoint {
+  if (projection === 'web-mercator') {
+    const scale = GRS80_A * Math.cos(origin.latitude * degrees);
+    const isometric = Math.atanh(Math.sin(origin.latitude * degrees)) - plane.v / scale;
+    return {
+      latitude: Math.asin(Math.tanh(isometric)) / degrees,
+      longitude: origin.longitude + plane.u / scale / degrees,
+    };
+  }
+  return inverseTransverseMercator({ x: -plane.v, y: plane.u }, origin);
 }
 
 /** `x = a·u + b·v + c`, `y = d·u + e·v + f`: plane metres to picture pixels. */
@@ -324,30 +289,77 @@ export function fitGeoreference(
   };
 }
 
+/** Picture pixels back to plane metres, or null for a transform that flattens the plane to a line. */
+export function imageToPlane(transform: PlaneTransform, point: ImagePoint): PlanePoint | null {
+  const det = transform.a * transform.e - transform.b * transform.d;
+  if (det === 0 || !Number.isFinite(det)) return null;
+  const dx = point.x - transform.c;
+  const dy = point.y - transform.f;
+  return { u: (transform.e * dx - transform.b * dy) / det, v: (transform.a * dy - transform.d * dx) / det };
+}
+
+/** Where a pixel of the picture lies on the ground, by the fit. */
+export function imageToGeo(georeference: Extract<Georeference, { status: 'ok' }>, point: ImagePoint): GeoPoint | null {
+  const plane = imageToPlane(georeference.transform, point);
+  return plane ? unproject(plane, georeference.origin, georeference.projection) : null;
+}
+
 export function geoToImage(georeference: Extract<Georeference, { status: 'ok' }>, point: GeoPoint): ImagePoint {
   return applyTransform(georeference.transform, project(point, georeference.origin, georeference.projection));
 }
 
-/**
- * A circle of `metres` on the ground as it lands on the picture: an ellipse, because an affine fit may
- * scale the picture differently across and down, or skew it. Its semi-axes are the singular values of
- * the transform's linear part times the radius. The page draws the ellipse itself by mapping the
- * circle through the transform; these lengths say how large it came out.
- */
-export function accuracyEllipse(transform: PlaneTransform, metres: number): { major: number; minor: number } {
-  const { a, b, d, e } = transform;
-  // Singular values of [[a, b], [d, e]] from the eigenvalues of its Gram matrix.
-  const sum = a * a + b * b + d * d + e * e;
-  const det = Math.abs(a * e - b * d);
-  const spread = Math.sqrt(Math.max(0, sum * sum - 4 * det * det));
-  return {
-    major: metres * Math.sqrt((sum + spread) / 2),
-    minor: metres * Math.sqrt(Math.max(0, (sum - spread) / 2)),
-  };
-}
-
 export function isInsideImage(point: ImagePoint, size: { width: number; height: number }): boolean {
   return point.x >= 0 && point.y >= 0 && point.x <= size.width && point.y <= size.height;
+}
+
+/**
+ * Whether a map for the fiscal year `fiscalYear` (April to the next March, as prefectures date their
+ * maps: 令和7年度 is 2025) has run out on `today`: from 1 April of the year after.
+ */
+export function fiscalYearEnded(fiscalYear: number, today: { year: number; month: number }): boolean {
+  const current = today.month >= 4 ? today.year : today.year - 1;
+  return current > fiscalYear;
+}
+
+/** The Japanese era name for a fiscal year: 令和 from 2019, 平成 before. */
+export function eraYear(fiscalYear: number): { era: '令和' | '平成'; year: number } {
+  return fiscalYear >= 2019 ? { era: '令和', year: fiscalYear - 2018 } : { era: '平成', year: fiscalYear - 1988 };
+}
+
+export interface ZoneProximity {
+  inside: boolean;
+  /** Metres from the position to the nearest edge of the area, in the fitted plane. */
+  distanceMetres: number;
+}
+
+/**
+ * Where a position stands against an area traced on the picture: inside or not, and how far from
+ * its edge. Worked in the plane of the fit, whose units are metres on the ground near the reference
+ * points, so the answer carries the fit's error as well as the position's.
+ */
+export function zoneProximity(
+  georeference: Extract<Georeference, { status: 'ok' }>,
+  zone: readonly ImagePoint[],
+  position: GeoPoint,
+): ZoneProximity | null {
+  if (zone.length < 3) return null;
+  const ring = zone.map((point) => imageToPlane(georeference.transform, point));
+  if (ring.some((point) => point === null)) return null;
+  const vertices = ring as PlanePoint[];
+  const here = project(position, georeference.origin, georeference.projection);
+  let inside = false;
+  let nearest = Infinity;
+  for (let index = 0, previous = vertices.length - 1; index < vertices.length; previous = index, index += 1) {
+    const a = vertices[previous]!;
+    const b = vertices[index]!;
+    if (a.v > here.v !== b.v > here.v && here.u < ((b.u - a.u) * (here.v - a.v)) / (b.v - a.v) + a.u) inside = !inside;
+    const du = b.u - a.u;
+    const dv = b.v - a.v;
+    const length = du * du + dv * dv;
+    const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((here.u - a.u) * du + (here.v - a.v) * dv) / length));
+    nearest = Math.min(nearest, Math.hypot(here.u - (a.u + t * du), here.v - (a.v + t * dv)));
+  }
+  return { inside, distanceMetres: nearest };
 }
 
 /**

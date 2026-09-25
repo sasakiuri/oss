@@ -10,7 +10,7 @@ import {
   getSunTimes,
   isSameCalendarDate,
   parseCalendarDate,
-  SUN_HORIZON_DEGREES,
+  sunHorizonDegrees,
   type CalendarDate,
 } from '@/lib/solar';
 
@@ -69,8 +69,22 @@ describe('getSunTimes', () => {
     },
   );
 
-  it('uses the standard horizon of -0.833 degrees', () => {
-    expect(SUN_HORIZON_DEGREES).toBe(-0.833);
+  /**
+   * NAOJ defines sunrise and sunset as the sun's upper limb on the apparent horizon, with 35′8″ of
+   * refraction at the horizon, so the centre stands one semidiameter lower: 15′59.63″ at 1 au,
+   * 16′16″ at perihelion and 15′44″ at aphelion.
+   */
+  it('puts the sun’s centre 35′8″ and one semidiameter below the horizon, as NAOJ defines it', () => {
+    const refraction = 35 / 60 + 8 / 3600;
+    // 2026-01-03 perihelion 0.98330 au, 2026-07-06 aphelion 1.01665 au.
+    expect(sunHorizonDegrees(new Date(Date.UTC(2026, 0, 3, 17)))).toBeCloseTo(
+      -(refraction + 959.63 / 0.9833 / 3600),
+      4,
+    );
+    expect(sunHorizonDegrees(new Date(Date.UTC(2026, 6, 6, 18)))).toBeCloseTo(
+      -(refraction + 959.63 / 1.01665 / 3600),
+      4,
+    );
   });
 
   it('reports the days when the sun never sets or never rises', () => {
@@ -92,25 +106,24 @@ describe('getSunTimes', () => {
    * Read the tolerances here the opposite way round from the rest of the file. On these two days
    * the sensitive assertion is the `kind`, not the time. What decides a kind is the sun's altitude
    * at the two midnights around the solar day, and at 65.8 N those margins are almost nothing.
-   * A day is only as robust as its smaller margin, since either midnight can flip it:
+   * A day is only as robust as its smaller margin, since either midnight can flip it. With NAOJ's
+   * horizon (35′8″ of refraction and the semidiameter), from the independent ephemeris below:
    *
-   *   06-15 rise-set      before -0.06759°  after -0.02735°   decisive 0.0274°
-   *   06-16 sunrise-only  before -0.02734°  after +0.00604°   decisive 0.0060°
-   *   06-17 midnight-sun  before +0.00604°  after +0.03254°   decisive 0.0060°
-   *   06-21 midnight-sun  before +0.07072°  after +0.06966°   decisive 0.0697°
-   *   06-24 midnight-sun  before +0.04688°  after +0.02517°   decisive 0.0252°
-   *   06-25 sunset-only   before +0.02517°  after -0.00340°   decisive 0.0034°
-   *   06-26 rise-set      before -0.00341°  after -0.03883°   decisive 0.0034°
+   *   06-15 rise-set      before -0.05569°  after -0.01545°   decisive 0.0155°
+   *   06-16 sunrise-only  before -0.01545°  after +0.01792°   decisive 0.0155°
+   *   06-21 midnight-sun  before +0.08258°  after +0.08152°   decisive 0.0815°
+   *   06-25 midnight-sun  before +0.03704°  after +0.00848°   decisive 0.0085°
+   *   06-26 sunset-only   before +0.00848°  after -0.02693°   decisive 0.0085°
+   *   06-27 rise-set      before -0.02693°  after -0.06917°   decisive 0.0269°
    *
-   * Move the horizon constant by 0.01° and 06-16 becomes rise-set, 06-25 becomes midnight-sun and
-   * 06-26 becomes sunset-only. So a failure on those kinds is not automatically a regression:
-   * check the margin first. Note that neighbouring is not the same as robust — 06-26 shares its
-   * decisive midnight with 06-25 and is every bit as fragile. Only 06-21, at 0.0697°, has real
-   * room, and 06-15 at 0.0274° has some.
+   * The horizon decides these kinds: the former -0.833° made 06-25 the sunset-only day and 06-26
+   * a rise-set day. So a failure on those kinds is not automatically a regression: check the
+   * margin first. Neighbouring is not the same as robust — 06-25 shares its decisive midnight
+   * with 06-26 and is every bit as fragile. Only 06-21 has real room.
    *
    * Do not thin these cases out on the grounds that the surrounding days would catch the same
    * thing. They would not. The regression this block exists for — a solver that found one event
-   * of a pair and reported the day as having neither — changed 06-16 and 06-25 and no other day
+   * of a pair and reported the day as having neither — changed the two one-sided days and no other day
    * in this range; every other day returned the same kind before and after the fix. The two kind
    * assertions below are the only thing in this file that detects it.
    *
@@ -121,9 +134,9 @@ describe('getSunTimes', () => {
    *
    * Expected times come from an ephemeris and a root finder independent of this module: the
    * Astronomical Almanac low-precision sun (different series and structure from the NOAA equations
-   * used here) with a 10-second scan and bisection on the altitude. It gives 00:12:45 UTC on
-   * 2026-06-16 and 23:57:18 UTC on 2026-06-25, against 00:12:06.7 and 23:58:46.1 from this module
-   * — 38 and 88 seconds apart. That gap is the same grazing sensitivity, not an error in either.
+   * used here), its distance for the semidiameter, and a 10-second scan with bisection on the
+   * altitude. It gives 00:09:15 UTC on 2026-06-16 and 23:51:37 UTC on 2026-06-26. The gap to this
+   * module is the grazing sensitivity, not an error in either.
    */
   describe('the days that open and close a midnight-sun season', () => {
     const TRANSITION_TOLERANCE_MS = 5 * 60 * 1000;
@@ -134,20 +147,21 @@ describe('getSunTimes', () => {
       const times = getSunTimes({ year: 2026, month: 6, day: 16 }, 65.8, 0);
       expect(times.kind).toBe('sunrise-only');
       if (times.kind !== 'sunrise-only') return;
-      expect(Math.abs(times.sunrise.getTime() - utc(16, 0, 12, 45))).toBeLessThanOrEqual(TRANSITION_TOLERANCE_MS);
+      expect(Math.abs(times.sunrise.getTime() - utc(16, 0, 9, 15))).toBeLessThanOrEqual(TRANSITION_TOLERANCE_MS);
     });
 
     it('keeps the sunset on the day the daylight ends', () => {
-      const times = getSunTimes({ year: 2026, month: 6, day: 25 }, 65.8, 0);
+      const times = getSunTimes({ year: 2026, month: 6, day: 26 }, 65.8, 0);
       expect(times.kind).toBe('sunset-only');
       if (times.kind !== 'sunset-only') return;
-      expect(Math.abs(times.sunset.getTime() - utc(25, 23, 57, 18))).toBeLessThanOrEqual(TRANSITION_TOLERANCE_MS);
+      expect(Math.abs(times.sunset.getTime() - utc(26, 23, 51, 37))).toBeLessThanOrEqual(TRANSITION_TOLERANCE_MS);
     });
 
     it('still reports the days on either side of the season', () => {
       expect(getSunTimes({ year: 2026, month: 6, day: 15 }, 65.8, 0).kind).toBe('rise-set');
       expect(getSunTimes({ year: 2026, month: 6, day: 21 }, 65.8, 0).kind).toBe('midnight-sun');
-      expect(getSunTimes({ year: 2026, month: 6, day: 26 }, 65.8, 0).kind).toBe('rise-set');
+      expect(getSunTimes({ year: 2026, month: 6, day: 25 }, 65.8, 0).kind).toBe('midnight-sun');
+      expect(getSunTimes({ year: 2026, month: 6, day: 27 }, 65.8, 0).kind).toBe('rise-set');
     });
 
     /**
@@ -156,8 +170,8 @@ describe('getSunTimes', () => {
      * both on the same date.
      */
     it('drops both events together where polar night begins', () => {
-      expect(getSunTimes({ year: 2026, month: 12, day: 8 }, 68, 0).kind).toBe('rise-set');
-      expect(getSunTimes({ year: 2026, month: 12, day: 9 }, 68, 0).kind).toBe('polar-night');
+      expect(getSunTimes({ year: 2026, month: 12, day: 9 }, 68, 0).kind).toBe('rise-set');
+      expect(getSunTimes({ year: 2026, month: 12, day: 10 }, 68, 0).kind).toBe('polar-night');
     });
   });
 
@@ -293,7 +307,7 @@ describe('getDaylightStatus', () => {
     expect(getDaylightStatus(start, null, new Date(start.getTime() - 1)).phase).toBe('before-sunrise');
     expect(getDaylightStatus(start, null, new Date(start.getTime() + 1)).phase).toBe('no-sunset');
 
-    const setting = getSunTimes({ year: 2026, month: 6, day: 25 }, 65.8, 0);
+    const setting = getSunTimes({ year: 2026, month: 6, day: 26 }, 65.8, 0);
     expect(setting.kind).toBe('sunset-only');
     if (setting.kind !== 'sunset-only') return;
     const end = floorToMinute(setting.sunset);

@@ -42,6 +42,8 @@ import {
 import { rehydrateLanguage, useLanguage, useSetLanguage, type Language } from '@/store';
 
 import { initialWoundedGameState, storageKey, useWoundedGameStore } from './_store';
+import { BloodCamera } from './blood-camera';
+import { TrailMap } from './trail-map';
 
 const cueOrder: readonly CueId[] = [
   'bright-red',
@@ -197,8 +199,8 @@ export function WoundedGameClient() {
     />
   );
   const inSightNote = t(
-    '銃猟の教材では、倒れた個体が見えている場合は待ち時間の例外です。生きていることがあるため、近づき方を先に確認してください。',
-    'The firearm course makes an exception to the wait when the downed animal is in sight. It may still be alive: check how to approach first.',
+    '銃猟の教材では、倒れた個体が見えている場合は待ち時間の例外です。まだ生きていることがあります。',
+    'The firearm course makes an exception to the wait when the downed animal is in sight. It may still be alive.',
   );
   const summary = advice.downInSight
     ? inSightNote
@@ -472,8 +474,8 @@ export function WoundedGameClient() {
               )}
               <p className="text-xs text-on-surface-variant">
                 {t(
-                  '待ち時間と手がかりの読み方は、北米のオジロジカ猟の教材と州機関の資料によります（確認した国内の公的資料には記述がありません）。動物種・地形・気象・銃か弓かで変わり、当たった位置や追跡の可否を判定するものではありません。手がかりが食い違うときは、最も長く待つ腹の兆候を優先します。',
-                  'Waiting times and sign readings come from North American material on white-tailed deer; the Japanese public sources checked do not cover them. Species, terrain, weather and weapon all change them, and they do not decide where the animal was hit or whether to follow. When signs conflict, go by the gut sign, which has the longest wait.',
+                  '待ち時間と手がかりは北米のオジロジカ猟の資料によります。手がかりが食い違うときは、最も長く待つ腹の兆候に従います。',
+                  'Waiting times and signs are from North American material on white-tailed deer. When signs conflict, go by the gut sign, which has the longest wait.',
                 )}
               </p>
               <p className="text-xs text-on-surface-variant">
@@ -490,6 +492,13 @@ export function WoundedGameClient() {
           }
           extras={
             <>
+              <ConditionSection
+                id="blood-camera"
+                title={t('血痕を強調するカメラ', 'Blood-finding camera')}
+                summary={t('写真の赤を強調', 'Picks out reds in a photo')}
+              >
+                <BloodCamera language={language} />
+              </ConditionSection>
               <ConditionSection
                 id="trail-log"
                 title={t('追跡の記録', 'Trail log')}
@@ -624,18 +633,7 @@ export function WoundedGameClient() {
                     })}
                   </ol>
                 )}
-                <p className="text-xs text-on-surface-variant">
-                  {t(
-                    '被弾地点からの距離は、位置付きの最初の「被弾地点」からの直線距離です（位置情報の誤差を含みます）。',
-                    'Distance is a straight line from the first shot site logged with a location, including location error.',
-                  )}{' '}
-                  {storageAvailable
-                    ? t(
-                        '記録と位置はこのブラウザーにだけ保存します。',
-                        'The log and positions are kept in this browser only.',
-                      )
-                    : t('位置はどこにも送信しません。', 'Positions are not sent anywhere.')}
-                </p>
+                <TrailMap language={language} entries={entries} kindLabel={(kind) => pick(entryKindLabels[kind])} />
                 <div className="space-y-1 text-sm">
                   <p>
                     {t(
@@ -677,15 +675,6 @@ export function WoundedGameClient() {
                   <li className="space-y-1">
                     <p>
                       {t(
-                        '捕獲時の怪我や事故の多くは止め刺しの際に起こるとされています。個体をなるべく興奮させずに作業します。',
-                        'Many capture injuries and accidents happen while finishing the animal. Keep it as calm as possible.',
-                      )}
-                    </p>
-                    <SourceLinks ids={['maff-capture']} language={language} />
-                  </li>
-                  <li className="space-y-1">
-                    <p>
-                      {t(
                         '手負い（半矢）の個体が逃げる方向は、予測も誘導も難しいとされています。',
                         'Where a wounded animal will run is hard to predict or control.',
                       )}
@@ -713,8 +702,8 @@ export function WoundedGameClient() {
                   <li className="space-y-1">
                     <p>
                       {t(
-                        '法は銃器を使用した鳥獣の捕獲等（捕獲又は殺傷）を「銃猟」とし、日出前・日没後の銃猟、住居が集合している地域等での銃猟、弾丸の到達するおそれのある人・動物・建物・乗物に向かっての銃猟を禁じています。止め刺しでの扱いや地域の規制は、都道府県の鳥獣行政担当に確認してください。',
-                        'The Act calls capturing or killing wildlife with a firearm “shooting” and forbids it before sunrise and after sunset, in residential areas and places where people gather, and toward people, animals, buildings or vehicles a bullet could reach. Ask the prefecture’s wildlife office how this and local rules apply to finishing an animal.',
+                        '法は銃器を使用した鳥獣の捕獲等（捕獲又は殺傷）を「銃猟」とし、日出前・日没後の銃猟、住居が集合している地域等での銃猟、弾丸の到達するおそれのある人・動物・建物・乗物に向かっての銃猟を禁じています。',
+                        'The Act calls capturing or killing wildlife with a firearm “shooting” and forbids it before sunrise and after sunset, in residential areas and places where people gather, and toward people, animals, buildings or vehicles a bullet could reach.',
                       )}
                     </p>
                     <p className="text-xs text-on-surface-variant">
@@ -768,26 +757,13 @@ export function WoundedGameClient() {
                     {t(
                       '第18条に違反した者は、30 万円以下の罰金に処せられます（法第86条第1号）。',
                       'Breaking Article 18 is punishable by a fine of up to 300,000 yen (Article 86(1)).',
-                    )}{' '}
-                    {t(
-                      '追跡を尽くしたか、過失があったかはこのツールでは判断しません。',
-                      'Whether the search was thorough enough, or anyone was at fault, is not judged here.',
                     )}
                   </p>
                   <SourceLinks ids={['law']} language={language} />
-                  <div className="space-y-1">
-                    <p>
-                      {t(
-                        '放置が禁じられている理由として、放置された鳥獣を猛禽類などが食べて鉛弾で鉛中毒を起こすことや、死体を食べる動物が増えて生態系がかく乱されるおそれが挙げられています。',
-                        'Reasons given: raptors eating an abandoned carcass can be poisoned by lead shot, and more carcass-eating animals can disturb the ecosystem.',
-                      )}
-                    </p>
-                    <SourceLinks ids={['akita']} language={language} />
-                  </div>
                   <p className="text-on-surface-variant">
                     {t(
-                      '個別の扱いや、猟犬による追跡など地域の規則は、狩猟者登録をした都道府県の鳥獣行政担当に確認してください。追跡の記録は状況の説明に使えます。',
-                      'For individual cases and local rules, such as tracking with dogs, ask the wildlife office of the prefecture where you are registered. The trail log can help explain what happened.',
+                      '止め刺しや猟犬による追跡など地域の規則は、狩猟者登録をした都道府県の鳥獣行政担当に確認します。',
+                      'For local rules on finishing and tracking with dogs, ask the wildlife office of the prefecture where you are registered.',
                     )}
                   </p>
                 </div>
@@ -805,17 +781,11 @@ export function WoundedGameClient() {
                         {source.publisher[language]}「{source.title[language]}」
                       </a>
                       <span className="ml-2 text-xs text-on-surface-variant">
-                        {source.region === 'jp' ? t('国内', 'Japan') : t('北米（参考）', 'North America (reference)')}
+                        {source.region === 'jp' ? t('国内', 'Japan') : t('北米', 'North America')}
                       </span>
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-on-surface-variant">
-                  {t(
-                    '北米の資料はオジロジカを対象とする英語資料で、要旨を訳しています。',
-                    'The North American sources cover white-tailed deer.',
-                  )}
-                </p>
               </ConditionSection>
             </>
           }

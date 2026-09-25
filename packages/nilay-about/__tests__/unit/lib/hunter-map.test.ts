@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  accuracyEllipse,
   effectiveModel,
   fitGeoreference,
   fitPlane,
   geoToImage,
+  eraYear,
+  fiscalYearEnded,
+  imageToGeo,
   isInsideImage,
   parseCoordinate,
   project,
-  transverseMercator,
+  unproject,
+  zoneProximity,
   type GeoPoint,
   type ReferencePair,
 } from '@/lib/hunter-map';
+import { inverseTransverseMercator, transverseMercator } from '@/lib/transverse-mercator';
 
 describe('transverse Mercator', () => {
   // Zone IX of the plane rectangular coordinate system: origin 36° N 139°50′ E, scale 0.9999.
@@ -28,6 +32,17 @@ describe('transverse Mercator', () => {
     const result = transverseMercator({ latitude, longitude }, zone9, 0.9999);
     expect(result.x).toBeCloseTo(x, 3);
     expect(result.y).toBeCloseTo(y, 3);
+  });
+
+  it.each([
+    [36.5, 140.2, 55538.7916, 32846.8514],
+    [35.0, 139.0, -110621.3733, -76066.7927],
+    [37.2, 141.1, 133902.4306, 112443.3681],
+  ])('reads %f N %f E back from the published plane coordinates', (latitude, longitude, x, y) => {
+    const result = inverseTransverseMercator({ x, y }, zone9, 0.9999);
+    // 1e-8 degrees is about a millimetre; the published plane values are given to 0.1 mm.
+    expect(result.latitude).toBeCloseTo(latitude, 8);
+    expect(result.longitude).toBeCloseTo(longitude, 8);
   });
 });
 
@@ -230,30 +245,6 @@ describe('aligning a map by its reference points', () => {
   });
 });
 
-describe('drawing the accuracy area', () => {
-  it('stretches a ground circle into the ellipse an affine fit makes of it', () => {
-    // 1 px per metre across and 0.25 px per metre down: 10 m is 10 px one way and 2.5 px the other.
-    // A single averaged scale, sqrt(|det|) = 0.5, would have drawn 5 px and halved the width.
-    expect(accuracyEllipse({ a: 1, b: 0, c: 0, d: 0, e: 0.25, f: 0 }, 10)).toEqual({ major: 10, minor: 2.5 });
-  });
-
-  it('keeps a circle a circle under a turned and scaled similarity', () => {
-    // 2 px per metre turned by 30°: every direction is scaled by 2.
-    const cos = 2 * Math.cos(Math.PI / 6);
-    const sin = 2 * Math.sin(Math.PI / 6);
-    const ellipse = accuracyEllipse({ a: cos, b: -sin, c: 0, d: sin, e: cos, f: 0 }, 10);
-    expect(ellipse.major).toBeCloseTo(20, 10);
-    expect(ellipse.minor).toBeCloseTo(20, 10);
-  });
-
-  it('takes the larger stretch of a skew as the long axis', () => {
-    // [[1, 1], [0, 1]] has singular values (1 ± √5)/2 in magnitude: 1.618 and 0.618.
-    const ellipse = accuracyEllipse({ a: 1, b: 1, c: 0, d: 0, e: 1, f: 0 }, 1);
-    expect(ellipse.major).toBeCloseTo((1 + Math.sqrt(5)) / 2, 10);
-    expect(ellipse.minor).toBeCloseTo((Math.sqrt(5) - 1) / 2, 10);
-  });
-});
-
 describe('the limits of Web Mercator', () => {
   it('refuses a pole instead of fitting to infinity', () => {
     const pairs = [
@@ -263,5 +254,81 @@ describe('the limits of Web Mercator', () => {
     expect(fitGeoreference(pairs, 'affine', 'web-mercator')).toEqual({ status: 'out-of-range' });
     // Transverse Mercator reaches the pole on its own meridian, so the same points still fit there.
     expect(fitGeoreference(pairs, 'affine', 'transverse-mercator').status).toBe('ok');
+  });
+});
+
+describe('from the picture back to the ground', () => {
+  it.each(['transverse-mercator', 'web-mercator'] as const)('undoes the %s projection', (projection) => {
+    const origin = { latitude: 35.5, longitude: 138.5 };
+    const point = { latitude: 35.62, longitude: 138.31 };
+    const back = unproject(project(point, origin, projection), origin, projection);
+    expect(back.latitude).toBeCloseTo(point.latitude, 9);
+    expect(back.longitude).toBeCloseTo(point.longitude, 9);
+  });
+
+  it('puts a pixel back on the ground where the fit placed it', () => {
+    const pairs: ReferencePair[] = [
+      { image: { x: 100, y: 100 }, geo: { latitude: 35.52, longitude: 138.48 } },
+      { image: { x: 900, y: 120 }, geo: { latitude: 35.52, longitude: 138.56 } },
+      { image: { x: 880, y: 700 }, geo: { latitude: 35.47, longitude: 138.56 } },
+      { image: { x: 90, y: 690 }, geo: { latitude: 35.47, longitude: 138.48 } },
+    ];
+    const fit = fitGeoreference(pairs, 'affine', 'transverse-mercator');
+    if (fit.status !== 'ok') throw new Error('fit failed');
+    const ground = { latitude: 35.5, longitude: 138.51 };
+    const back = imageToGeo(fit, geoToImage(fit, ground))!;
+    expect(back.latitude).toBeCloseTo(ground.latitude, 9);
+    expect(back.longitude).toBeCloseTo(ground.longitude, 9);
+  });
+});
+
+describe('the year a map is for', () => {
+  it('runs from April to the next March', () => {
+    expect(fiscalYearEnded(2025, { year: 2026, month: 3 })).toBe(false);
+    expect(fiscalYearEnded(2025, { year: 2026, month: 4 })).toBe(true);
+    expect(fiscalYearEnded(2026, { year: 2026, month: 9 })).toBe(false);
+  });
+
+  it('names the era year', () => {
+    expect(eraYear(2025)).toEqual({ era: '令和', year: 7 });
+    expect(eraYear(2019)).toEqual({ era: '令和', year: 1 });
+    expect(eraYear(2018)).toEqual({ era: '平成', year: 30 });
+  });
+});
+
+describe('a position against a traced area', () => {
+  // 1 px per metre, north up, around 35.5° N 138.5° E.
+  const origin = { latitude: 35.5, longitude: 138.5 };
+  const pixel = (geo: GeoPoint) => {
+    const { u, v } = project(geo, origin, 'transverse-mercator');
+    return { x: 5000 + u, y: 5000 + v };
+  };
+  const pairs: ReferencePair[] = [
+    { latitude: 35.48, longitude: 138.48 },
+    { latitude: 35.48, longitude: 138.52 },
+    { latitude: 35.52, longitude: 138.52 },
+    { latitude: 35.52, longitude: 138.48 },
+  ].map((geo) => ({ geo, image: pixel(geo) }));
+  const fit = fitGeoreference(pairs, 'affine', 'transverse-mercator');
+  if (fit.status !== 'ok') throw new Error('fit failed');
+  // A 200 m square centred on the origin.
+  const square = [
+    { x: 4900, y: 4900 },
+    { x: 5100, y: 4900 },
+    { x: 5100, y: 5100 },
+    { x: 4900, y: 5100 },
+  ];
+
+  it('is inside at the centre, 100 m from the edge', () => {
+    const result = zoneProximity(fit, square, origin)!;
+    expect(result.inside).toBe(true);
+    expect(result.distanceMetres).toBeCloseTo(100, 0);
+  });
+
+  it('is outside 300 m east, 200 m from the edge', () => {
+    const east = unproject({ u: 300, v: 0 }, origin, 'transverse-mercator');
+    const result = zoneProximity(fit, square, east)!;
+    expect(result.inside).toBe(false);
+    expect(result.distanceMetres).toBeCloseTo(200, 0);
   });
 });
