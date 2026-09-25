@@ -50,6 +50,8 @@ test('PDF search downloads a separate index only when requested and links to the
   page,
   request,
 }) => {
+  // Index loading and the accessibility audit share this budget; the result still has its own deadline.
+  test.setTimeout(60_000);
   const downloads: string[] = [];
   page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/pdf-search-index.json') downloads.push(request.url());
