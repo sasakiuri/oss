@@ -30,6 +30,29 @@ describe('production Content Security Policy', () => {
     expect(imageSources).not.toContain('*');
   });
 
+  it('lets the photo measure tool fetch its model from Hugging Face', async () => {
+    const { proxy } = await import('@/proxy');
+    const response = proxy(new NextRequest('https://about.nilay.jp/labs/photo-measure'));
+    const connectSources = response.headers
+      .get('Content-Security-Policy')
+      ?.split('; ')
+      .find((directive) => directive.startsWith('connect-src '))
+      ?.split(' ');
+    expect(connectSources).toEqual(expect.arrayContaining(['https://huggingface.co', 'https://*.hf.co']));
+  });
+
+  it('allows WebAssembly for the on-device model without allowing JavaScript eval', async () => {
+    const { proxy } = await import('@/proxy');
+    const response = proxy(new NextRequest('https://about.nilay.jp/labs/photo-measure'));
+    const csp = response.headers.get('Content-Security-Policy');
+    const scriptSources = csp
+      ?.split('; ')
+      .find((directive) => directive.startsWith('script-src '))
+      ?.split(' ');
+    expect(scriptSources).toContain("'wasm-unsafe-eval'");
+    expect(scriptSources).not.toContain("'unsafe-eval'");
+  });
+
   it.each(['http://localhost:3001', 'http://127.0.0.1:3001', 'http://[::1]:3001'])(
     'allows local HTTP assets without weakening other directives at %s',
     async (origin) => {

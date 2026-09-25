@@ -123,8 +123,8 @@ export const labsTools = [
     category: 'sighting',
     title: { ja: 'スコープのクリック値検証', en: 'Scope Click Verification' },
     summary: {
-      ja: '縦長標的のタワーテストで、スコープの実際のクリック値と誤差を求めます。標的も印刷できます。',
-      en: 'Measure what one click on your scope really moves with a tall-target test. The target prints on A4.',
+      ja: 'タワーテストの実測値からクリック値の誤差を計算し、検証用の標的を印刷します。',
+      en: 'Calculate click error from a tall-target test and print a test target.',
     },
     description:
       '縦長標的を使ったタワーテスト（トラッキングテスト）の結果から、スコープの実際のクリック値・補正係数・公称値との誤差を計算します。必要な高さの縦長標的を A4 に分割して印刷できます。',
@@ -237,7 +237,7 @@ export const labsTools = [
       en: 'Photograph the target, find the holes and measure the group in MOA and mil.',
     },
     description:
-      '標的をスマートフォンで撮影し、弾痕を自動で検出して着弾群の大きさ（最大中心間距離・平均半径）と平均着弾点を測ります。MOA・mil に換算し、平均着弾点のズレを照準調整に使えます。画像は端末の外に送信しません。',
+      '標的をスマートフォンで撮影し、弾痕を自動で検出して着弾群の大きさ（最大中心間距離・平均半径）と平均着弾点を測ります。MOA・mil に換算し、平均着弾点のズレを照準調整に使えます。',
   },
   {
     slug: 'target-score',
@@ -315,7 +315,7 @@ export const labsTools = [
       en: 'Photograph the pattern board and count the hits and the percentage inside the 30-inch circle.',
     },
     description:
-      '散弾銃のパターンテスト用。パターンボードを撮影し、直径 76.2 cm（30 インチ）の円内の着弾数・パターン率・分布の偏りを数えます。粒の痕は自動で検出でき、画像は端末の外に送信しません。',
+      '散弾銃のパターンテスト用。パターンボードを撮影し、直径 76.2 cm（30 インチ）の円内の着弾数・パターン率・分布の偏りを数えます。粒の痕は自動で検出できます。',
   },
   {
     slug: 'shot-pellets',
@@ -410,11 +410,11 @@ export const labsTools = [
     category: 'field',
     title: { ja: '出猟・捕獲の記録', en: 'Hunting Log' },
     summary: {
-      ja: '出猟日ごとの場所・猟法・捕獲数を記録し、狩猟の結果の報告の下書きを作ります。',
-      en: 'Log each day out and what you took, then total it into a draft of the end-of-season report.',
+      ja: '出猟場所・猟法・捕獲数を記録し、「狩猟の結果の報告」の下書きを作ります。',
+      en: 'Log hunting locations, methods and catches to prepare an end-of-season report.',
     },
     description:
-      '出猟日ごとの場所・猟法・捕獲した鳥獣を記録し、狩猟者登録の満了後に提出する「狩猟の結果の報告」の下書きを様式の欄に沿って集計・印刷します。記録は端末の中だけに保存します。',
+      '出猟日ごとの場所・猟法・捕獲した鳥獣を記録し、狩猟者登録の満了後に提出する「狩猟の結果の報告」の下書きを様式の欄に沿って集計・印刷します。',
   },
   {
     slug: 'hunting-seasons',
@@ -454,11 +454,11 @@ export const labsTools = [
     category: 'field',
     title: { ja: '半矢の追跡', en: 'Tracking Wounded Game' },
     summary: {
-      ja: '血の色や泡について公的資料が示す被弾部位の見方と追跡までの待ち時間を確認し、血痕の地点を記録します。',
-      en: 'What public sources say blood sign means for the hit and the wait before trailing, with a log of the trail.',
+      ja: '血の色や泡から被弾部位と追跡までの待ち時間を調べ、血痕の地点を記録します。',
+      en: 'Read blood sign for where the animal was hit and how long to wait before trailing, and log the trail.',
     },
     description:
-      '半矢になった獲物の追跡に。血の色や泡などの手がかりから、公的資料が示す被弾部位の見方と追跡開始までの待ち時間の目安を出典つきで確認し、血痕の地点と時刻を記録します。',
+      '半矢になった獲物の追跡用。血の色や泡などの手がかりから被弾部位と追跡開始までの待ち時間を調べ、血痕の地点と時刻を記録します。',
   },
   {
     slug: 'trip-plan',
@@ -554,8 +554,8 @@ export const labsTools = [
     category: 'traps',
     title: { ja: 'くくりわなの規格ゲージ', en: 'Snare Gauge' },
     summary: {
-      ja: '輪の直径 12 cm などくくりわなの基準と都道府県の緩和を確認し、輪の直径を測る実寸ゲージを印刷します。',
-      en: 'The snare rules and a prefecture’s relaxations, with a real-size gauge to check the loop.',
+      ja: 'くくりわなの規格を確認し、輪の直径を測るゲージを実寸で印刷します。',
+      en: 'Check snare specifications and print a full-size loop gauge.',
     },
     description:
       'くくりわなの輪の直径 12 cm 以内・締付け防止金具・よりもどし・ワイヤー径 4 mm 以上などの基準を、都道府県の緩和とあわせて一覧にします。輪の内径を確かめる実寸ゲージを印刷できます。',
@@ -758,6 +758,17 @@ export const labsTools = [
     },
     description:
       'シカの角やイノシシの牙の写真に、長さの分かる基準物を一緒に写して縮尺を合わせ、角に沿って点をたどると長さを計算します。',
+  },
+  {
+    slug: 'photo-measure',
+    category: 'harvest',
+    title: { ja: '写真で体長・角を測る', en: 'Body and Antler Photo Measure' },
+    summary: {
+      ja: '写真に写した物差しを基準に、体長や角の長さを測ります。',
+      en: 'Measure body and antler lengths using a ruler in the photo.',
+    },
+    description:
+      '物差しなどの基準物と一緒に撮影した写真から、シカ・イノシシの体長や角の長さを測ります。輪郭の自動抽出と、イノシシの体長からの体重推定にも対応します。',
   },
 ] as const satisfies readonly LabsTool[];
 
