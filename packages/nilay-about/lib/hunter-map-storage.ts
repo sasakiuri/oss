@@ -64,6 +64,17 @@ export async function writeMapImage(image: SavedMapImage | null, setup: HunterMa
   ]);
 }
 
+/**
+ * Puts back values exactly as `readSavedMap` returned them, unchecked, for undoing a restore: a map the
+ * current schema cannot read is still the reader's, and is kept rather than lost. Undefined deletes.
+ */
+export async function writeRawMap(saved: { image: unknown; setup: unknown }): Promise<void> {
+  await run('readwrite', (store) => [
+    saved.image === undefined ? store.delete(imageKey) : store.put(saved.image, imageKey),
+    saved.setup === undefined ? store.delete(setupKey) : store.put(saved.setup, setupKey),
+  ]);
+}
+
 export async function writeMapSetup(setup: HunterMapSetup): Promise<void> {
   await run('readwrite', (store) => [store.put(setup, setupKey)]);
 }

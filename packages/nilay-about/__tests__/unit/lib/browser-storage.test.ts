@@ -1,7 +1,13 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { browserStorage, reportDiscardedSave, useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
+import {
+  browserStorage,
+  collectDiscardedSaves,
+  reportDiscardedSave,
+  useDiscardedSave,
+  useStorageStatus,
+} from '@/lib/browser-storage';
 
 const KEY = 'nilay-labs-test-v1';
 
@@ -119,5 +125,31 @@ describe('browserStorage', () => {
     reportDiscardedSave(KEY);
     reportDiscardedSave('nilay-labs-other-v1');
     expect(useStorageStatus.getState().discarded).toEqual([KEY, 'nilay-labs-other-v1']);
+  });
+});
+
+describe('collectDiscardedSaves', () => {
+  it('returns what a check reported, without raising or clearing a notice', () => {
+    useStorageStatus.setState({ available: true, discarded: ['open-tool'] });
+    const reports = collectDiscardedSaves(() => {
+      reportDiscardedSave('checked-key');
+      reportDiscardedSave('open-tool');
+    });
+    expect([...reports].sort()).toEqual(['checked-key', 'open-tool']);
+    expect(useStorageStatus.getState().discarded).toEqual(['open-tool']);
+    // Once the check is over, reports are notices again.
+    reportDiscardedSave('later');
+    expect(useStorageStatus.getState().discarded).toEqual(['open-tool', 'later']);
+  });
+
+  it('stops collecting even when the check throws', () => {
+    useStorageStatus.setState({ available: true, discarded: [] });
+    expect(() =>
+      collectDiscardedSaves(() => {
+        throw new Error('broken');
+      }),
+    ).toThrow('broken');
+    reportDiscardedSave('after');
+    expect(useStorageStatus.getState().discarded).toEqual(['after']);
   });
 });

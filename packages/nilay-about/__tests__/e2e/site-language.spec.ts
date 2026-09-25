@@ -1,3 +1,5 @@
+import { labsTools } from '../../lib/labs-tools';
+
 import { test, expect } from './fixtures';
 
 const english = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'English' });
@@ -52,7 +54,7 @@ test('lists the tools inside the site rather than on a screen of its own', async
 
   // One term per tool, inside the page rather than the whole document.
   const tools = page.getByRole('main').getByRole('term');
-  await expect(tools).toHaveCount(29);
+  await expect(tools).toHaveCount(labsTools.length);
   await page.getByRole('link', { name: '弾道の合わせ込み（トゥルーイング）' }).click();
   await expect(page).toHaveURL(/\/labs\/trajectory-truing$/);
 });

@@ -11,6 +11,7 @@ import {
   discardedSaveMessage,
   LanguageMenu,
   SegmentedControl,
+  useOfflineAssets,
 } from '@/components/labs';
 import { Button, Card, Progress } from '@/components/ui';
 import { quizList } from '@/features/game-species/quiz-data';
@@ -25,6 +26,9 @@ import { ExamRun } from './exam-run';
 import { SessionResults } from './session-results';
 import { SpeciesImage, SpeciesImageFrame } from './species-image';
 
+/** Every photo, kept for offline use: a session shows only some of them while online. */
+const speciesPhotos = quizList.map((quiz) => quiz.image);
+
 /** A two-line tab label, read out as one phrase. */
 const modeLabel = (name: string, detail: string, spoken: string) => (
   <>
@@ -38,6 +42,7 @@ const modeLabel = (name: string, detail: string, spoken: string) => (
 
 export function GameSpeciesTestClient() {
   const state = useGameSpeciesStore();
+  useOfflineAssets(speciesPhotos);
   const [ready, setReady] = useState(false);
   const [toolMode, setToolMode] = useState<'slideshow' | 'exam'>('slideshow');
   const [options, setOptions] = useState<SessionOptions>({ category: 'all', questionCount: null });

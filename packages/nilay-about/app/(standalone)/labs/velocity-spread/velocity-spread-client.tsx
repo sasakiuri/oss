@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react';
 
 import {
@@ -22,6 +23,7 @@ import {
 import { Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
 import { PUBLISHED_GROUP_SIZE_LIMIT } from '@/lib/group-statistics';
+import { twistStabilityHandoff } from '@/lib/labs-handoff';
 import { labsTool } from '@/lib/labs-tools';
 import { VELOCITY_READINGS_MAX, VELOCITY_SPREAD_ROW_LIMIT } from '@/lib/schemas/velocity-spread';
 import { fromMeters, toMeters, type DistanceUnit } from '@/lib/sight-adjustment';
@@ -399,6 +401,16 @@ export function VelocitySpreadClient() {
                       )}
                     />
                   </ResultPanel>
+                  {/* The mean, as shown, carried into the next tool that asks for a muzzle velocity. */}
+                  <Link
+                    href={twistStabilityHandoff.href({
+                      muzzleSpeed: Number(fromMetersPerSecond(summary.meanMs, speedUnit).toFixed(1)),
+                      speedUnit,
+                    })}
+                    className="inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    {t('この平均初速でライフリングの安定を計算', 'Check twist and stability at this average velocity')}
+                  </Link>
                   <p className="text-sm text-on-surface-variant">
                     {t(
                       '発数の違う ES どうしは比べられません。装弾の比較は SD で、SD の差が 95 % 区間に収まるなら差があるとは言えません。',

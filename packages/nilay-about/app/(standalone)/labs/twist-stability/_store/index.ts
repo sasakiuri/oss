@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
 import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
+import { createNamedSettingsStore } from '@/lib/named-settings-store';
 import {
   twistStabilitySettingsSchema,
   type BulletLengthUnit,
@@ -13,6 +14,10 @@ import {
 import { convertBulletLength, convertMass, convertSpeed } from '@/lib/twist-stability';
 
 export const storageKey = 'nilay-labs-twist-stability-v1';
+export const profilesStorageKey = 'nilay-labs-twist-stability-profiles-v1';
+
+/** Bullets and barrels kept by name, apart from the form so that saving one never changes what the form saves. */
+export const useTwistStabilityProfiles = createNamedSettingsStore(profilesStorageKey, twistStabilitySettingsSchema);
 
 const savedSchema = z.object({
   settings: twistStabilitySettingsSchema.nullable(),
