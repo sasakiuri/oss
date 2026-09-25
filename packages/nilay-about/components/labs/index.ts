@@ -17,3 +17,4 @@ export * from './named-settings';
 export * from './photo-attachments';
 export * from './offline-support';
 export * from './study-progress';
+export * from './trend-chart';

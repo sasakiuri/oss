@@ -1,4 +1,4 @@
-import { getTargetLayout, type TargetPaper } from './home-target';
+import { MARKER_CENTRE_MM, MARKER_SIZE_MM, getTargetLayout, type TargetPaper } from './home-target';
 import type { TargetPrintOptions } from './schemas/home-target';
 
 export function generateTargetPdf(
@@ -25,6 +25,12 @@ export function generateTargetPdf(
         `${n(cx + r * k)} ${n(cy - r)} ${n(cx + r)} ${n(cy - r * k)} ${n(cx + r)} ${n(cy)} c f`,
       ];
     }),
+    // Each corner mark is a black square with a white square punched in its middle.
+    ...(layout.markers?.centres.flatMap(({ x, y }) => {
+      const square = (size: number) =>
+        `${n(pt(x - size / 2))} ${n(pt(layout.height - y - size / 2))} ${n(pt(size))} ${n(pt(size))} re f`;
+      return ['0 0 0 rg', square(MARKER_SIZE_MM), '1 1 1 rg', square(MARKER_CENTRE_MM), '0 0 0 rg'];
+    }) ?? []),
     ...layout.labels.map((label, index) => `BT /F1 8 Tf ${n(pt(10))} ${n(pt(40 - index * 6))} Td (${label}) Tj ET`),
     '0 0 0 RG 0.5 w',
     `${n(pt(layout.rulerX))} ${n(pt(20))} m ${n(pt(layout.rulerX + 50))} ${n(pt(20))} l S`,

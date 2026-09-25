@@ -294,3 +294,28 @@ test('reads holes on both sides of a printed bull, and passes over the scoring r
   await expect(page.getByText('4 発を検出し、着弾を置き換えました。', { exact: false })).toBeVisible();
   await expect(page.getByRole('img', { name: '標的の作図。狙点と 4 発の着弾。' })).toBeVisible();
 });
+
+test('reads a sheet through its four corner marks and keeps the choice after reload', async ({ page }) => {
+  await open(page, /^2\. 実寸を合わせる/);
+  await page.getByRole('group', { name: '実寸の合わせ方' }).getByText('四隅の目印').click();
+  await expect(page.getByLabel('目印の中心間（横）')).toHaveValue('186');
+  await expect(page.getByLabel('目印の中心間（縦）')).toHaveValue('273');
+  await expect(page.getByRole('group', { name: '図をタップして置くもの' }).getByText('四隅の目印')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /^2\. 実寸を合わせる/ })).toContainText('四隅の目印');
+});
+
+test('keeps several groups on one photo and compares them', async ({ page }) => {
+  await addImpact(page, '0', '0');
+  await addImpact(page, '10', '0');
+  await page.getByRole('button', { name: 'この群を残して次の群を始める' }).click();
+  await addImpact(page, '0', '0');
+  await addImpact(page, '0', '20');
+  await expect(page.getByText('この写真の群：2 群（編集中は群 2）')).toBeVisible();
+  const table = page.getByRole('table');
+  await expect(table.getByRole('row')).toHaveCount(3);
+  await expect(table.getByRole('row', { name: /^1 2 10 mm/ })).toBeVisible();
+  await expect(table.getByRole('row', { name: /^2（編集中） 2 20 mm/ })).toBeVisible();
+  await page.getByRole('button', { name: '群 1 を編集' }).click();
+  await expect(page.getByText('この写真の群：2 群（編集中は群 1）')).toBeVisible();
+});

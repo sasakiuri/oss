@@ -20,7 +20,13 @@ import {
 } from '@/components/labs';
 import { Button, Card } from '@/components/ui';
 import { useDiscardedSave } from '@/lib/browser-storage';
-import { getTargetLayout, type TargetPaper } from '@/lib/home-target';
+import {
+  MARKER_CENTRE_MM,
+  MARKER_SIZE_MM,
+  getMarkerLayout,
+  getTargetLayout,
+  type TargetPaper,
+} from '@/lib/home-target';
 import { labsTool } from '@/lib/labs-tools';
 import { targetRequestSchema, type TargetCopies } from '@/lib/schemas/home-target';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
@@ -77,8 +83,10 @@ export function HomeTargetClient() {
     paper,
     copies,
     showConditions,
+    markers,
     setCopies,
     setShowConditions,
+    setMarkers,
     setHeightOfEye,
     setDistanceToTarget,
     setDiscipline,
@@ -100,6 +108,7 @@ export function HomeTargetClient() {
   const validSettings = targetSettingsSchema.safeParse(state).success;
   const printOptions = {
     copies,
+    markers,
     ...(showConditions
       ? {
           conditions: {
@@ -135,7 +144,10 @@ export function HomeTargetClient() {
     paperLabel,
     t(`1 ページに ${copies} 個`, `${copies} per page`),
     showConditions ? t('設置条件を印字', 'setup printed') : t('設置条件は印字しない', 'no setup notes'),
+    ...(markers ? [t('四隅に目印', 'corner marks')] : []),
   ].join(t('・', ' · '));
+  const a4Marks = getMarkerLayout(210, 297).spacing;
+  const a4MarkSpacing = `${lengthNumber.format(a4Marks.width)} × ${lengthNumber.format(a4Marks.height)} mm`;
   const positiveError = t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.');
 
   useEffect(() => {
@@ -324,6 +336,24 @@ export function HomeTargetClient() {
                     {layout.centers.map((center, index) => (
                       <circle key={index} cx={center.x} cy={center.y} r={layout.diameter / 2} fill="black" />
                     ))}
+                    {layout.markers?.centres.map((centre, index) => (
+                      <g key={`marker-${index}`}>
+                        <rect
+                          x={centre.x - MARKER_SIZE_MM / 2}
+                          y={centre.y - MARKER_SIZE_MM / 2}
+                          width={MARKER_SIZE_MM}
+                          height={MARKER_SIZE_MM}
+                          fill="black"
+                        />
+                        <rect
+                          x={centre.x - MARKER_CENTRE_MM / 2}
+                          y={centre.y - MARKER_CENTRE_MM / 2}
+                          width={MARKER_CENTRE_MM}
+                          height={MARKER_CENTRE_MM}
+                          fill="white"
+                        />
+                      </g>
+                    ))}
                     {layout.labels.map((label, index) => (
                       <text key={label} x={10} y={layout.height - 40 + index * 6} fontSize="2.82" fill="black">
                         {label}
@@ -494,6 +524,18 @@ export function HomeTargetClient() {
                   />
                   {t('設置条件を余白に印字（英語）', 'Print setup conditions in the margin')}
                 </label>
+                <label className="flex min-h-12 cursor-pointer items-center gap-3 text-sm">
+                  <input type="checkbox" checked={markers} onChange={(e) => setMarkers(e.target.checked)} />
+                  {t('四隅に写真補正用の目印を印刷', 'Print corner marks for correcting photos')}
+                </label>
+                {markers && (
+                  <p className="text-xs text-on-surface-variant">
+                    {t(
+                      `目印の間隔を用紙に印字します（A4 は ${a4MarkSpacing}）。「着弾群の測定」と「標的の採点」で使います。`,
+                      `The mark spacing is printed on the sheet (${a4MarkSpacing} on A4). Used by the group size and target scoring tools.`,
+                    )}
+                  </p>
+                )}
               </ConditionSection>
               <SavedSetups />
             </>

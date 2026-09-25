@@ -24,28 +24,52 @@ import { Button, Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
 import { groupVerdict, summariseStatistics } from '@/lib/group-statistics';
 import { detectHoles, thresholdFor } from '@/lib/hole-detection';
+import { MARKER_SIZE_MM } from '@/lib/home-target';
 import { readImagePixels } from '@/lib/image-pixels';
 import { labsTool } from '@/lib/labs-tools';
 import type { BulletUnit } from '@/lib/schemas/shot-group';
 import type { DistanceUnit, OffsetUnit } from '@/lib/schemas/sight-adjustment';
 import {
   distanceBetween,
+  frameScaleAt,
+  fromSheetPoint,
+  measureImpact,
+  placeImpact,
   summariseGroup,
   toAimOffset,
   toAngularSize,
-  toImagePoint,
-  toImpactMm,
+  toSheetPoint,
+  type PhotoFrame,
+  type Point,
   type ShotImpact,
 } from '@/lib/shot-group';
 import { MOA_RADIANS, angularSizeMm, toMeters, toMillimeters } from '@/lib/sight-adjustment';
 import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
 
-import { selectBulletDiameterMm, selectScale, storageKey, useShotGroupStore, type ImageSize } from './_store';
+import {
+  selectBulletDiameterMm,
+  selectFrame,
+  selectPhotoGroups,
+  selectScale,
+  storageKey,
+  useShotGroupStore,
+  type CalibrationMode,
+  type ImageSize,
+  type Impact,
+} from './_store';
 import { RoundedNumberField } from './fields';
 import { createFormatters, UNIT_DIGITS } from './format';
-import { GroupCanvas, type PointerMode } from './group-canvas';
+import { GroupCanvas, type OtherGroupDrawing, type PointerMode } from './group-canvas';
 import { GroupStatisticsPanel, statisticsHeadline, targetPrecisionInvalid } from './group-statistics-panel';
+import { PhotoGroupsTable } from './photo-groups-table';
 import { SavedGroups } from './saved-groups';
+
+/** Every impact of a group in millimetres from its aim point, or null while the frame cannot read one. */
+export function measureGroup(impacts: readonly Impact[], aim: Point, frame: PhotoFrame | null): ShotImpact[] | null {
+  if (frame === null) return null;
+  const measured = impacts.map((impact) => measureImpact(impact, aim, frame));
+  return measured.every((impact) => impact !== null) ? (measured as ShotImpact[]) : null;
+}
 
 /** Impacts are read from the whole photo: a group can sit anywhere on the target. */
 const wholeImageRegion = (width: number, height: number) => ({
@@ -58,7 +82,10 @@ export function ShotGroupClient() {
   const state = useShotGroupStore();
   const {
     imageSize,
+    calibrationMode,
     calibration,
+    corners,
+    markerSpacing,
     aim,
     distance,
     offsetUnit,
@@ -68,9 +95,12 @@ export function ShotGroupClient() {
     records,
     targetPrecision,
     setImage,
+    setCalibrationMode,
     setCalibrationPoint,
     setReferenceValue,
     setReferenceUnit,
+    setCorner,
+    setMarkerSpacing,
     setAim,
     setDistance,
     setOffsetUnit,
@@ -82,6 +112,9 @@ export function ShotGroupClient() {
     removeImpact,
     undoImpact,
     clearImpacts,
+    startNextGroup,
+    selectGroup,
+    removeGroup,
     reset,
   } = state;
   const language = useLanguage();
@@ -117,9 +150,16 @@ export function ShotGroupClient() {
   // A photo that failed to decode is gone even though its frame stays, so this follows the object URL.
   const hasImage = imageUrl !== null;
   const scale = selectScale(state);
+  const frame = selectFrame(state);
   const pixelSpan = distanceBetween(calibration.a, calibration.b);
   const bulletDiameterMm = selectBulletDiameterMm(state);
-  const measured = scale === null ? null : impacts.map((impact) => toImpactMm(impact, aim, scale));
+  const measured = measureGroup(impacts, aim, frame);
+  const photoGroups = selectPhotoGroups(state);
+  const groupNumber = photoGroups.findIndex((group) => group.current) + 1;
+  const otherGroupDrawings: OtherGroupDrawing[] = photoGroups
+    .map((group, index) => ({ group, number: index + 1 }))
+    .filter(({ group }) => !group.current)
+    .map(({ group, number }) => ({ number, aim: group.aim, impacts: group.impacts }));
   const summary = summariseGroup(measured ?? [], { bulletDiameterMm });
   const statistics = measured === null ? null : summariseStatistics(measured);
   const distanceMeters = toMeters(distance.value, distance.unit);
@@ -128,7 +168,10 @@ export function ShotGroupClient() {
   const offsetAngle = toAngularSize(summary.mpi?.offsetMm ?? null, distanceMeters);
   const moaAtDistance = distanceUsable ? angularSizeMm(MOA_RADIANS, distanceMeters) : NaN;
   const mpiPoint =
-    summary.mpi && scale !== null ? toImagePoint({ x: summary.mpi.rightMm, y: summary.mpi.upMm }, aim, scale) : null;
+    summary.mpi && frame !== null ? placeImpact({ x: summary.mpi.rightMm, y: summary.mpi.upMm }, aim, frame) : null;
+  // The aim point as millimetres on the sheet, which is what its coordinate fields show.
+  const aimOnSheet = frame === null ? null : toSheetPoint(aim, frame);
+  const frameScale = frame === null ? null : frameScaleAt(frame, aim);
 
   useEffect(() => {
     void Promise.all([useShotGroupStore.persist.rehydrate(), rehydrateLanguage()]).then(() => setReady(true));
@@ -176,7 +219,7 @@ export function ShotGroupClient() {
   const summarySentence =
     impacts.length === 0
       ? ''
-      : scale === null
+      : frame === null
         ? t('実寸の基準が未設定のため、測定できません。', 'The scale is not set, so nothing is measured.')
         : t(
             `${format(summary.count, 0)} 発。`,
@@ -233,7 +276,7 @@ export function ShotGroupClient() {
       ),
     );
 
-  const holeDiameterPx = scale !== null && bulletDiameterMm !== null ? bulletDiameterMm / scale : null;
+  const holeDiameterPx = frameScale !== null && bulletDiameterMm !== null ? bulletDiameterMm / frameScale : null;
   const canDetect = hasImage && photo !== null && holeDiameterPx !== null && !detecting;
 
   const runDetection = () => {
@@ -241,10 +284,16 @@ export function ShotGroupClient() {
       setDetection({ kind: 'not-ready' });
       return;
     }
+    const recorded = photoGroups.some((group) => group.impacts.length > 0);
     if (
-      impacts.length > 0 &&
+      recorded &&
       !window.confirm(
-        t('現在の着弾を検出結果で置き換えますか？', 'Replace the current impacts with the detected ones?'),
+        photoGroups.length > 1
+          ? t(
+              'すべての群の着弾を検出結果で置き換えますか？各弾痕は狙点がいちばん近い群に入ります。',
+              'Replace the impacts of every group with the detected ones? Each hole goes to the group with the nearest aim point.',
+            )
+          : t('現在の着弾を検出結果で置き換えますか？', 'Replace the current impacts with the detected ones?'),
       )
     )
       return;
@@ -266,12 +315,28 @@ export function ShotGroupClient() {
             // Darker on white paper, lighter inside a printed bull where the backing shows through.
             polarity: 'either',
           });
-          replaceImpacts(result.holes.map((hole) => ({ x: hole.x / pixels.scaleX, y: hole.y / pixels.scaleY })));
-          setDetection({ kind: 'found', found: result.holes.length, ...result.rejected });
+          const holes = result.holes
+            .map((hole) => ({ x: hole.x / pixels.scaleX, y: hole.y / pixels.scaleY }))
+            // The white middle of a corner mark looks just like a hole through a black bull.
+            .filter((hole) => !onCornerMark(hole));
+          replaceImpacts(holes);
+          setDetection({ kind: 'found', found: holes.length, ...result.rejected });
         } finally {
           setDetecting(false);
         }
       }, 0),
+    );
+  };
+
+  const onCornerMark = (point: Point) => {
+    if (frame === null || frame.kind !== 'sheet') return false;
+    const onSheet = toSheetPoint(point, frame);
+    const markCentres = corners.map((corner) => toSheetPoint(corner, frame));
+    return (
+      onSheet !== null &&
+      markCentres.some(
+        (centre) => centre !== null && Math.hypot(onSheet.x - centre.x, onSheet.y - centre.y) <= MARKER_SIZE_MM,
+      )
     );
   };
 
@@ -311,22 +376,41 @@ export function ShotGroupClient() {
   };
 
   // Short, so the four fit on one row of a phone.
-  const modes: { value: PointerMode; label: string }[] = [
-    { value: 'impact', label: t('着弾', 'Impacts') },
-    { value: 'aim', label: t('狙点', 'Aim point') },
-    { value: 'scaleA', label: t('基準点 A', 'Point A') },
-    { value: 'scaleB', label: t('基準点 B', 'Point B') },
-  ];
+  const modes: { value: PointerMode; label: string }[] =
+    calibrationMode === 'corners'
+      ? [
+          { value: 'impact', label: t('着弾', 'Impacts') },
+          { value: 'aim', label: t('狙点', 'Aim point') },
+          { value: 'corner', label: t('四隅の目印', 'Corner marks') },
+        ]
+      : [
+          { value: 'impact', label: t('着弾', 'Impacts') },
+          { value: 'aim', label: t('狙点', 'Aim point') },
+          { value: 'scaleA', label: t('基準点 A', 'Point A') },
+          { value: 'scaleB', label: t('基準点 B', 'Point B') },
+        ];
   const modeHint = {
     impact: t('弾痕の中心をタップして着弾を追加します。', 'Tap the centre of a hole to add an impact.'),
     aim: t('狙った点をタップすると、青い十字が移動します。', 'Tap the point you aimed at to move the blue cross.'),
     scaleA: t('実寸のわかる 2 点の 1 点目をタップします。', 'Tap the first of two points a known distance apart.'),
     scaleB: t('実寸のわかる 2 点の 2 点目をタップします。', 'Tap the second of the two points.'),
+    corner: t(
+      '目印の白い中心をタップすると、いちばん近い番号の点が移動します。1 左上・2 右上・3 右下・4 左下の順です。',
+      'Tap the white centre of a mark to move the nearest numbered point there: 1 top left, 2 top right, 3 bottom right, 4 bottom left.',
+    ),
   }[mode];
   const pick = (point: { x: number; y: number }) => {
     if (mode === 'impact') addImpact(point);
     else if (mode === 'aim') setAim(point);
-    else setCalibrationPoint(mode === 'scaleA' ? 'a' : 'b', point);
+    else if (mode === 'corner') {
+      let nearest = 0;
+      corners.forEach((corner, index) => {
+        const best = corners[nearest] as Point;
+        if (Math.hypot(point.x - corner.x, point.y - corner.y) < Math.hypot(point.x - best.x, point.y - best.y))
+          nearest = index;
+      });
+      setCorner(nearest as 0 | 1 | 2 | 3, point);
+    } else setCalibrationPoint(mode === 'scaleA' ? 'a' : 'b', point);
   };
   const positionError = (value: number) =>
     Number.isFinite(value) ? undefined : t('座標を数値で入力してください。', 'Enter the coordinate as a number.');
@@ -360,13 +444,22 @@ export function ShotGroupClient() {
     const point = calibration[key as 'a' | 'b'];
     return !Number.isFinite(point.x) || !Number.isFinite(point.y);
   });
+  const cornersInvalid = corners.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y));
+  const spacingInvalid = !(markerSpacing.width > 0) || !(markerSpacing.height > 0);
   const scaleSummary =
-    scale === null
-      ? t('基準が未設定です。', 'Scale not set.')
-      : t(
-          `A–B ${format(calibration.value, UNIT_DIGITS[calibration.unit])} ${calibration.unit}（写真上 ${format(pixelSpan, 1)} px、1 px = ${format(scale, 4)} mm）`,
-          `A–B ${format(calibration.value, UNIT_DIGITS[calibration.unit])} ${calibration.unit} (${format(pixelSpan, 1)} px on the photo, ${format(scale, 4)} mm per pixel)`,
-        );
+    calibrationMode === 'corners'
+      ? frame === null
+        ? t('四隅の目印が未設定です。', 'Corner marks not set.')
+        : t(
+            `四隅の目印（中心間 ${format(markerSpacing.width, 1)} × ${format(markerSpacing.height, 1)} mm）で斜めの写真を補正`,
+            `Corner marks ${format(markerSpacing.width, 1)} × ${format(markerSpacing.height, 1)} mm apart, correcting for the angle`,
+          )
+      : scale === null
+        ? t('基準が未設定です。', 'Scale not set.')
+        : t(
+            `A–B ${format(calibration.value, UNIT_DIGITS[calibration.unit])} ${calibration.unit}（写真上 ${format(pixelSpan, 1)} px、1 px = ${format(scale, 4)} mm）`,
+            `A–B ${format(calibration.value, UNIT_DIGITS[calibration.unit])} ${calibration.unit} (${format(pixelSpan, 1)} px on the photo, ${format(scale, 4)} mm per pixel)`,
+          );
   const bulletText =
     bulletDiameter.value === null || bulletInvalid
       ? t('弾径 未入力', 'no bullet diameter')
@@ -390,6 +483,20 @@ export function ShotGroupClient() {
           `平均半径 ${length(summary.meanRadiusMm)} ・ 標準偏差 ${length(summary.horizontalSdMm)} / ${length(summary.verticalSdMm)}`,
           `Mean radius ${length(summary.meanRadiusMm)} · SD ${length(summary.horizontalSdMm)} / ${length(summary.verticalSdMm)}`,
         );
+
+  const chooseCalibration = (next: CalibrationMode) => {
+    setCalibrationMode(next);
+    // The points the other calibration used are not on the drawing any more, so neither is their mode.
+    if (next === 'corners' && (mode === 'scaleA' || mode === 'scaleB')) setMode('corner');
+    if (next === 'two-point' && mode === 'corner') setMode('scaleA');
+  };
+  const cornerNames = [
+    t('1 左上', '1 top left'),
+    t('2 右上', '2 top right'),
+    t('3 右下', '3 bottom right'),
+    t('4 左下', '4 bottom left'),
+  ];
+  const homeTargetTool = labsTool('home-target').title[language];
 
   const statisticsNotes = [
     t(
@@ -537,65 +644,155 @@ export function ShotGroupClient() {
                 title={t('2. 実寸を合わせる', '2. Set the scale')}
                 summary={scaleSummary}
                 defaultOpen={hasImage}
-                forceOpen={scale === null || calibrationInvalid}
+                forceOpen={
+                  frame === null ||
+                  (calibrationMode === 'corners' ? cornersInvalid || spacingInvalid : calibrationInvalid)
+                }
               >
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '図で A・B を実寸のわかる 2 点（定規の目盛りなど）に合わせ、その間の長さを入力します。',
-                    'In the workspace, place A and B on two points a known distance apart, such as ruler marks, and enter that distance.',
-                  )}
-                </p>
-                <RoundedNumberField<OffsetUnit>
-                  className="sm:max-w-xs"
-                  label={t('基準点 A–B の実寸', 'Real distance between A and B')}
-                  value={calibration.value}
-                  digits={UNIT_DIGITS[calibration.unit]}
-                  onChange={(value) => setReferenceValue(value ?? NaN)}
-                  min={0}
-                  units={{
-                    value: calibration.unit,
-                    label: t('実寸の単位', 'Reference unit'),
-                    options: [
-                      { value: 'mm', label: 'mm' },
-                      { value: 'cm', label: 'cm' },
-                      { value: 'inch', label: 'inch' },
-                    ],
-                    // A measured length: converted, so the scale does not jump.
-                    onChange: setReferenceUnit,
-                  }}
-                  hint={t('単位を変えると換算されます。', 'Changing the unit converts the value.')}
-                  invalid={scale === null}
-                  errorText={t(
-                    '0 より大きい長さを入力し、A と B を離して置いてください。',
-                    'Enter a length greater than zero and keep A and B apart.',
-                  )}
+                <SegmentedControl
+                  legend={t('実寸の合わせ方', 'How to set the scale')}
+                  orientation="inline"
+                  value={calibrationMode}
+                  onChange={(value) => chooseCalibration(value as CalibrationMode)}
+                  options={[
+                    { value: 'two-point', label: t('2 点の実寸', 'Two points') },
+                    { value: 'corners', label: t('四隅の目印', 'Corner marks') },
+                  ]}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  {(['a', 'b'] as const).map((key) =>
-                    (['x', 'y'] as const).map((axis) => (
+                {calibrationMode === 'corners' ? (
+                  <>
+                    <p className="text-sm text-on-surface-variant">
+                      {t(
+                        `「${homeTargetTool}」で目印を付けた標的用。図の 1〜4 を目印の白い中心に合わせます。`,
+                        `For a sheet with corner marks from the ${homeTargetTool}. Place points 1 to 4 on the white centres of the marks.`,
+                      )}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
                       <RoundedNumberField
-                        key={`${key}${axis}`}
-                        label={
-                          axis === 'x'
-                            ? t(
-                                `基準点 ${key.toUpperCase()}：左端からの距離`,
-                                `Point ${key.toUpperCase()}: from the left edge`,
-                              )
-                            : t(
-                                `基準点 ${key.toUpperCase()}：上端からの距離`,
-                                `Point ${key.toUpperCase()}: from the top edge`,
-                              )
-                        }
-                        unit="px"
+                        label={t('目印の中心間（横）', 'Marks apart, across')}
+                        unit="mm"
+                        digits={1}
                         min={0}
-                        value={calibration[key][axis]}
-                        onChange={(value) => setCalibrationPoint(key, { ...calibration[key], [axis]: value ?? NaN })}
-                        invalid={positionError(calibration[key][axis]) !== undefined}
-                        errorText={positionError(calibration[key][axis])}
+                        value={markerSpacing.width}
+                        onChange={(value) => setMarkerSpacing({ ...markerSpacing, width: value ?? NaN })}
+                        invalid={!(markerSpacing.width > 0)}
+                        errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
                       />
-                    )),
-                  )}
-                </div>
+                      <RoundedNumberField
+                        label={t('目印の中心間（縦）', 'Marks apart, down')}
+                        unit="mm"
+                        digits={1}
+                        min={0}
+                        value={markerSpacing.height}
+                        onChange={(value) => setMarkerSpacing({ ...markerSpacing, height: value ?? NaN })}
+                        invalid={!(markerSpacing.height > 0)}
+                        errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
+                      />
+                    </div>
+                    <p className="text-xs text-on-surface-variant">
+                      {t(
+                        '用紙の下に印字された「Marker centres」の値です。A4 は 186 × 273 mm。印刷の倍率が 100% でないと合いません。',
+                        'The “Marker centres” figures printed at the foot of the sheet: 186 × 273 mm on A4. They only hold if the sheet was printed at 100%.',
+                      )}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {corners.map((corner, index) =>
+                        (['x', 'y'] as const).map((axis) => (
+                          <RoundedNumberField
+                            key={`${index}${axis}`}
+                            label={
+                              axis === 'x'
+                                ? t(
+                                    `目印 ${cornerNames[index]}：左端からの距離`,
+                                    `Mark ${cornerNames[index]}: from the left edge`,
+                                  )
+                                : t(
+                                    `目印 ${cornerNames[index]}：上端からの距離`,
+                                    `Mark ${cornerNames[index]}: from the top edge`,
+                                  )
+                            }
+                            unit="px"
+                            min={0}
+                            value={corner[axis]}
+                            onChange={(value) => setCorner(index as 0 | 1 | 2 | 3, { ...corner, [axis]: value ?? NaN })}
+                            invalid={positionError(corner[axis]) !== undefined}
+                            errorText={positionError(corner[axis])}
+                          />
+                        )),
+                      )}
+                    </div>
+                    {frame === null && !cornersInvalid && !spacingInvalid && (
+                      <p className="text-sm text-destructive">
+                        {t(
+                          '1 左上・2 右上・3 右下・4 左下の順に、それぞれの目印へ合わせてください。',
+                          'Place 1 top left, 2 top right, 3 bottom right and 4 bottom left, each on its own mark.',
+                        )}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-on-surface-variant">
+                      {t(
+                        '図で A・B を実寸のわかる 2 点（定規の目盛りなど）に合わせ、その間の長さを入力します。',
+                        'In the workspace, place A and B on two points a known distance apart, such as ruler marks, and enter that distance.',
+                      )}
+                    </p>
+                    <RoundedNumberField<OffsetUnit>
+                      className="sm:max-w-xs"
+                      label={t('基準点 A–B の実寸', 'Real distance between A and B')}
+                      value={calibration.value}
+                      digits={UNIT_DIGITS[calibration.unit]}
+                      onChange={(value) => setReferenceValue(value ?? NaN)}
+                      min={0}
+                      units={{
+                        value: calibration.unit,
+                        label: t('実寸の単位', 'Reference unit'),
+                        options: [
+                          { value: 'mm', label: 'mm' },
+                          { value: 'cm', label: 'cm' },
+                          { value: 'inch', label: 'inch' },
+                        ],
+                        // A measured length: converted, so the scale does not jump.
+                        onChange: setReferenceUnit,
+                      }}
+                      hint={t('単位を変えると換算されます。', 'Changing the unit converts the value.')}
+                      invalid={scale === null}
+                      errorText={t(
+                        '0 より大きい長さを入力し、A と B を離して置いてください。',
+                        'Enter a length greater than zero and keep A and B apart.',
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      {(['a', 'b'] as const).map((key) =>
+                        (['x', 'y'] as const).map((axis) => (
+                          <RoundedNumberField
+                            key={`${key}${axis}`}
+                            label={
+                              axis === 'x'
+                                ? t(
+                                    `基準点 ${key.toUpperCase()}：左端からの距離`,
+                                    `Point ${key.toUpperCase()}: from the left edge`,
+                                  )
+                                : t(
+                                    `基準点 ${key.toUpperCase()}：上端からの距離`,
+                                    `Point ${key.toUpperCase()}: from the top edge`,
+                                  )
+                            }
+                            unit="px"
+                            min={0}
+                            value={calibration[key][axis]}
+                            onChange={(value) =>
+                              setCalibrationPoint(key, { ...calibration[key], [axis]: value ?? NaN })
+                            }
+                            invalid={positionError(calibration[key][axis]) !== undefined}
+                            errorText={positionError(calibration[key][axis])}
+                          />
+                        )),
+                      )}
+                    </div>
+                  </>
+                )}
                 <p className="text-xs text-on-surface-variant">
                   {t(
                     '座標は写真の左上からのピクセル数です。',
@@ -664,23 +861,35 @@ export function ShotGroupClient() {
                     errorText={t('0 より大きい数値を入力してください。', 'Enter a number greater than zero.')}
                   />
                 </div>
-                {scale !== null && (
+                {frame !== null && aimOnSheet !== null && (
                   <div className="grid grid-cols-2 gap-4">
                     <RoundedNumberField
-                      label={t('狙点：左端からの距離', 'Aim point: from the left edge')}
+                      label={
+                        frame.kind === 'sheet'
+                          ? t('狙点：目印 1 から右へ', 'Aim point: right of mark 1')
+                          : t('狙点：左端からの距離', 'Aim point: from the left edge')
+                      }
                       unit="mm"
-                      value={aim.x * scale}
+                      value={aimOnSheet.x}
                       digits={1}
-                      onChange={(value) => setAim({ ...aim, x: (value ?? NaN) / scale })}
+                      onChange={(value) =>
+                        setAim(fromSheetPoint({ ...aimOnSheet, x: value ?? NaN }, frame) ?? { ...aim, x: NaN })
+                      }
                       invalid={positionError(aim.x) !== undefined}
                       errorText={positionError(aim.x)}
                     />
                     <RoundedNumberField
-                      label={t('狙点：上端からの距離', 'Aim point: from the top edge')}
+                      label={
+                        frame.kind === 'sheet'
+                          ? t('狙点：目印 1 から下へ', 'Aim point: below mark 1')
+                          : t('狙点：上端からの距離', 'Aim point: from the top edge')
+                      }
                       unit="mm"
-                      value={aim.y * scale}
+                      value={aimOnSheet.y}
                       digits={1}
-                      onChange={(value) => setAim({ ...aim, y: (value ?? NaN) / scale })}
+                      onChange={(value) =>
+                        setAim(fromSheetPoint({ ...aimOnSheet, y: value ?? NaN }, frame) ?? { ...aim, y: NaN })
+                      }
                       invalid={positionError(aim.y) !== undefined}
                       errorText={positionError(aim.y)}
                     />
@@ -706,8 +915,12 @@ export function ShotGroupClient() {
                   <GroupCanvas
                     imageUrl={imageUrl}
                     imageSize={imageSize}
+                    calibrationMode={calibrationMode}
                     calibration={calibration}
+                    corners={corners}
                     aim={aim}
+                    groupNumber={photoGroups.length > 1 ? groupNumber : null}
+                    otherGroups={otherGroupDrawings}
                     impacts={impacts}
                     extremePair={summary.extremePair}
                     mpiPoint={mpiPoint}
@@ -715,10 +928,17 @@ export function ShotGroupClient() {
                     onPick={pick}
                     onImageLoad={handleImageLoad}
                     onImageError={handleImageError}
-                    label={t(
-                      `標的の作図。狙点と ${impacts.length} 発の着弾。`,
-                      `Target drawing: the aim point and ${impacts.length} impacts.`,
-                    )}
+                    label={
+                      photoGroups.length > 1
+                        ? t(
+                            `標的の作図。${photoGroups.length} 群のうち群 ${groupNumber} の狙点と ${impacts.length} 発の着弾。`,
+                            `Target drawing: group ${groupNumber} of ${photoGroups.length}, its aim point and ${impacts.length} impacts.`,
+                          )
+                        : t(
+                            `標的の作図。狙点と ${impacts.length} 発の着弾。`,
+                            `Target drawing: the aim point and ${impacts.length} impacts.`,
+                          )
+                    }
                     describedBy="workspace-caption"
                   />
                 </div>
@@ -735,6 +955,69 @@ export function ShotGroupClient() {
                     <LuScanSearch aria-hidden="true" />
                     {detecting ? t('検出中…', 'Detecting…') : t('写真から自動で検出', 'Detect impacts')}
                   </Button>
+                </div>
+                <div className="space-y-2 border-t border-outline-variant pt-4">
+                  <p className="text-sm font-medium">
+                    {photoGroups.length > 1
+                      ? t(
+                          `この写真の群：${photoGroups.length} 群（編集中は群 ${groupNumber}）`,
+                          `Groups on this photo: ${photoGroups.length} (editing group ${groupNumber})`,
+                        )
+                      : t('この写真の群：1 群', 'Groups on this photo: 1')}
+                  </p>
+                  {photoGroups.length > 1 && (
+                    <ul className="flex flex-wrap gap-2">
+                      {photoGroups.map((group, index) =>
+                        group.current ? (
+                          <li key={group.id}>
+                            <span className="inline-flex min-h-12 items-center rounded-full bg-primary px-4 text-sm font-medium text-on-primary">
+                              {t(`群 ${index + 1}（編集中）`, `Group ${index + 1} (editing)`)}
+                            </span>
+                          </li>
+                        ) : (
+                          <li key={group.id} className="flex items-center">
+                            <Button variant="outline" onClick={() => selectGroup(group.id)}>
+                              {t(`群 ${index + 1} を編集`, `Edit group ${index + 1}`)}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              aria-label={t(`群 ${index + 1} を削除`, `Delete group ${index + 1}`)}
+                              onClick={() => {
+                                if (
+                                  group.impacts.length === 0 ||
+                                  window.confirm(
+                                    t(
+                                      `群 ${index + 1} の着弾 ${group.impacts.length} 発を消しますか？`,
+                                      `Delete group ${index + 1} and its ${group.impacts.length} impacts?`,
+                                    ),
+                                  )
+                                )
+                                  removeGroup(group.id);
+                              }}
+                            >
+                              <LuTrash2 aria-hidden="true" />
+                            </Button>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      startNextGroup();
+                      setMode('aim');
+                    }}
+                  >
+                    <LuPlus aria-hidden="true" />
+                    {t('この群を残して次の群を始める', 'Keep this group and start the next')}
+                  </Button>
+                  <p className="text-xs text-on-surface-variant">
+                    {t(
+                      '1 枚に複数の群を撃ったときは、群ごとに狙点を置きます。保存と統計は編集中の群が対象です。',
+                      'For several groups on one sheet, give each group its own aim point. Saving and the statistics use the group being edited.',
+                    )}
+                  </p>
                 </div>
                 {!canDetect && !detecting && (
                   <p className="text-xs text-on-surface-variant">
@@ -756,6 +1039,12 @@ export function ShotGroupClient() {
                     '紫の A・B：実寸の基準。青の十字：狙点。黒い点：着弾（番号は一覧と対応）。赤い線：最大中心間距離。緑の ×：平均着弾点。',
                     'Purple A and B: scale points. Blue cross: aim point. Black dots: impacts, numbered as in the list. Red line: extreme spread. Green ×: mean point of impact.',
                   )}
+                  {calibrationMode === 'corners' && t('紫の 1〜4：四隅の目印。', ' Purple 1 to 4: corner marks.')}
+                  {photoGroups.length > 1 &&
+                    t(
+                      '灰色：ほかの群の狙点（番号付き）と着弾。',
+                      ' Grey: the other groups’ numbered aim points and impacts.',
+                    )}
                 </p>
               </Card>
             </>
@@ -765,18 +1054,25 @@ export function ShotGroupClient() {
               <h2 id="step-5-result" className="text-xl font-medium">
                 {t('5. 結果', '5. Result')}
               </h2>
-              {scale === null && (
+              {frame === null && (
                 <p className="rounded-sm bg-error-container p-4 text-sm text-on-error-container">
                   {t('実寸の基準を設定してください（手順 2）。', 'Set the scale (step 2).')}
                 </p>
               )}
-              {scale !== null && impacts.length === 0 && (
-                <p className="text-sm text-on-surface-variant">
-                  {t(
-                    '図で弾痕の中心をタップするか、写真から自動で検出すると、群の大きさと狙点からのズレを表示します。',
-                    'Tap the centre of each hole on the drawing, or detect them from the photo, to see the group size and the offset from the aim point.',
-                  )}
-                </p>
+              {photoGroups.length > 1 && (
+                <PhotoGroupsTable
+                  groups={photoGroups.map((group) => ({
+                    current: group.current,
+                    impacts: measureGroup(group.impacts, group.aim, frame),
+                  }))}
+                  distanceMeters={distanceMeters}
+                  bulletDiameterMm={bulletDiameterMm}
+                  language={language}
+                  offsetUnit={offsetUnit}
+                />
+              )}
+              {frame !== null && impacts.length === 0 && (
+                <p className="text-sm text-on-surface-variant">{t('着弾がまだありません。', 'No impacts yet.')}</p>
               )}
               {impacts.length > 0 && (
                 <ResultPanel className="grid-cols-2">
@@ -845,7 +1141,7 @@ export function ShotGroupClient() {
                 <div className="space-y-3 border-t border-outline-variant pt-5">
                   <h3 className="text-base font-medium">{t('照準調整に使う値', 'Values for sight adjustment')}</h3>
                   {/* Whether to correct at all comes before the values. */}
-                  <p className="text-sm">{statisticsHeadline(statistics, scale !== null, language)}</p>
+                  <p className="text-sm">{statisticsHeadline(statistics, frame !== null, language)}</p>
                   {handoff === null || !distanceUsable ? (
                     <p className="text-sm text-on-surface-variant">
                       {t(

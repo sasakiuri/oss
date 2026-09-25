@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
 
 import { browserStorage, reportDiscardedSave } from '@/lib/browser-storage';
+import { getMarkerLayout } from '@/lib/home-target';
+import type { Quad } from '@/lib/homography';
 import {
   bulletUnitSchema,
   groupRecordSchema,
@@ -18,7 +20,16 @@ import {
   type DistanceUnit,
   type OffsetUnit,
 } from '@/lib/schemas/sight-adjustment';
-import { fromMillimeters, getScale, toBulletDiameterMm, toImagePoint, toImpactMm, type Point } from '@/lib/shot-group';
+import {
+  fromMillimeters,
+  getScale,
+  measureImpact,
+  placeImpact,
+  sheetFrame,
+  toBulletDiameterMm,
+  type PhotoFrame,
+  type Point,
+} from '@/lib/shot-group';
 import { toMillimeters } from '@/lib/sight-adjustment';
 
 export interface ImageSize {
@@ -42,6 +53,18 @@ export interface TargetPrecision {
   value: number | null;
   unit: PrecisionUnit;
 }
+/** How the photo is read in millimetres: two points a known distance apart, or four marks on the sheet. */
+export type CalibrationMode = 'two-point' | 'corners';
+export interface MarkerSpacing {
+  width: number;
+  height: number;
+}
+/** Another group on the same photo, with its own aim point. It stays in photo pixels, like the one being edited. */
+export interface PhotoGroup {
+  id: string;
+  aim: Point;
+  impacts: Impact[];
+}
 
 export const storageKey = 'nilay-labs-shot-group-v1';
 
@@ -51,6 +74,9 @@ export const defaultImageSize: ImageSize = { width: 1200, height: 900 };
 /** A ruler laid on the target is the usual reference, so the default is a round length in millimetres. */
 export const defaultReferenceMm = 100;
 
+/** The marks the practice target maker prints on A4, which is the sheet most readers will have. */
+export const defaultMarkerSpacing: MarkerSpacing = getMarkerLayout(210, 297).spacing;
+
 const defaultCalibration = (size: ImageSize): Calibration => ({
   a: { x: size.width * 0.25, y: size.height * 0.75 },
   b: { x: size.width * 0.75, y: size.height * 0.75 },
@@ -58,6 +84,13 @@ const defaultCalibration = (size: ImageSize): Calibration => ({
   unit: 'mm',
 });
 const defaultAim = (size: ImageSize): Point => ({ x: size.width / 2, y: size.height / 2 });
+/** The four marks start near the corners of the photo, in the order they sit round the sheet. */
+const defaultCorners = ({ width, height }: ImageSize): Quad => [
+  { x: width * 0.1, y: height * 0.1 },
+  { x: width * 0.9, y: height * 0.1 },
+  { x: width * 0.9, y: height * 0.9 },
+  { x: width * 0.1, y: height * 0.9 },
+];
 
 const isLength = (value: number) => Number.isFinite(value) && value > 0;
 const finite = z.number().finite();
@@ -70,30 +103,48 @@ const savedSchema = z.object({
   // Optional: a save written before the statistics were added carries no target, and reading one
   // has to leave the rest of that save - the setup and every group in it - intact.
   targetPrecision: z.object({ value: finite.positive().nullable(), unit: precisionUnitSchema }).optional(),
+  // Optional for the same reason: saves from before the corner marks existed carry no sheet.
+  sheet: z
+    .object({
+      mode: z.enum(['two-point', 'corners']),
+      spacing: z.object({ width: finite.positive(), height: finite.positive() }),
+    })
+    .optional(),
   records: z.array(groupRecordSchema),
 });
 type SavedState = z.infer<typeof savedSchema>;
 
 interface ShotGroupStore {
   imageSize: ImageSize;
+  calibrationMode: CalibrationMode;
   calibration: Calibration;
+  corners: Quad;
+  markerSpacing: MarkerSpacing;
+  /** The group being edited. */
   aim: Point;
+  impacts: Impact[];
+  /** The other groups on this photo, in order, and where the one being edited sits among them. */
+  otherGroups: PhotoGroup[];
+  groupIndex: number;
   distance: { value: number; unit: DistanceUnit };
   offsetUnit: OffsetUnit;
   bulletDiameter: BulletDiameter;
   targetPrecision: TargetPrecision;
   note: string;
-  impacts: Impact[];
   records: GroupRecord[];
   deletedRecord: { record: GroupRecord; index: number } | null;
   lastValidReferenceValue: number;
+  lastValidMarkerSpacing: MarkerSpacing;
   lastValidDistanceValue: number;
   lastValidBulletDiameter: number | null;
   lastValidTargetPrecision: number | null;
   setImage: (size: ImageSize | null) => void;
+  setCalibrationMode: (mode: CalibrationMode) => void;
   setCalibrationPoint: (key: 'a' | 'b', point: Point) => void;
   setReferenceValue: (value: number) => void;
   setReferenceUnit: (unit: OffsetUnit) => void;
+  setCorner: (index: 0 | 1 | 2 | 3, point: Point) => void;
+  setMarkerSpacing: (spacing: MarkerSpacing) => void;
   setAim: (aim: Point) => void;
   setDistance: (distance: { value: number; unit: DistanceUnit }) => void;
   setOffsetUnit: (offsetUnit: OffsetUnit) => void;
@@ -103,11 +154,19 @@ interface ShotGroupStore {
   setTargetPrecisionUnit: (unit: PrecisionUnit) => void;
   addImpact: (point: Point) => void;
   addImpactAtOffset: (impact: ShotImpact) => boolean;
-  /** Put a whole set of impacts in place of the current ones, as an automatic reading does. */
+  /**
+   * Put a whole set of impacts in place of the current ones, as an automatic reading does. With
+   * more than one group on the photo, each point goes to the group whose aim point is nearest.
+   */
   replaceImpacts: (points: readonly Point[]) => void;
   removeImpact: (id: string) => void;
   undoImpact: () => void;
   clearImpacts: () => void;
+  /** Keep the group being edited on the photo and start another after it, aimed where this one was. */
+  startNextGroup: () => void;
+  /** Edit another group on the photo. The one being edited stays in its place among them. */
+  selectGroup: (id: string) => void;
+  removeGroup: (id: string) => void;
   setNote: (note: string) => void;
   saveRecord: (name: string) => boolean;
   loadRecord: (id: string) => boolean;
@@ -118,8 +177,14 @@ interface ShotGroupStore {
 
 const initialState = {
   imageSize: defaultImageSize,
+  calibrationMode: 'two-point' as CalibrationMode,
   calibration: defaultCalibration(defaultImageSize),
+  corners: defaultCorners(defaultImageSize),
+  markerSpacing: defaultMarkerSpacing,
   aim: defaultAim(defaultImageSize),
+  impacts: [] as Impact[],
+  otherGroups: [] as PhotoGroup[],
+  groupIndex: 0,
   distance: { value: 100, unit: 'm' as DistanceUnit },
   offsetUnit: 'mm' as OffsetUnit,
   bulletDiameter: { value: null, unit: 'mm' as BulletUnit } as BulletDiameter,
@@ -127,18 +192,40 @@ const initialState = {
   // with a number so the question it answers is visible without the reader typing anything.
   targetPrecision: { value: 10, unit: 'mm' as PrecisionUnit } as TargetPrecision,
   note: '',
-  impacts: [] as Impact[],
   records: [] as GroupRecord[],
   deletedRecord: null as { record: GroupRecord; index: number } | null,
   lastValidReferenceValue: defaultReferenceMm,
+  lastValidMarkerSpacing: defaultMarkerSpacing,
   lastValidDistanceValue: 100,
   lastValidBulletDiameter: null as number | null,
   lastValidTargetPrecision: 10 as number | null,
 };
 
-/** Millimetres per pixel of the current calibration, or null while it is incomplete. */
+/** Millimetres per pixel of the two-point calibration, or null while it is incomplete. */
 export const selectScale = (state: Pick<ShotGroupStore, 'calibration'>): number | null =>
   getScale(state.calibration.a, state.calibration.b, toMillimeters(state.calibration.value, state.calibration.unit));
+
+/** How the photo is read in millimetres under the chosen calibration, or null while it is incomplete. */
+export const selectFrame = (
+  state: Pick<ShotGroupStore, 'calibrationMode' | 'calibration' | 'corners' | 'markerSpacing'>,
+): PhotoFrame | null => {
+  if (state.calibrationMode === 'corners') return sheetFrame(state.corners, state.markerSpacing);
+  const scale = selectScale(state);
+  return scale === null ? null : { kind: 'scale', mmPerPixel: scale };
+};
+
+/** Every group on the photo in order, the one being edited included, with the one being edited marked. */
+export const selectPhotoGroups = (
+  state: Pick<ShotGroupStore, 'aim' | 'impacts' | 'otherGroups' | 'groupIndex'>,
+): (PhotoGroup & { current: boolean })[] => {
+  const others = state.otherGroups.map((group) => ({ ...group, current: false }));
+  const index = Math.min(Math.max(0, state.groupIndex), others.length);
+  return [
+    ...others.slice(0, index),
+    { id: 'current', aim: state.aim, impacts: state.impacts, current: true },
+    ...others.slice(index),
+  ];
+};
 
 /** The bullet diameter in millimetres, or null while the field is blank or unusable. */
 export const selectBulletDiameterMm = (state: Pick<ShotGroupStore, 'bulletDiameter'>): number | null => {
@@ -150,21 +237,29 @@ export const selectBulletDiameterMm = (state: Pick<ShotGroupStore, 'bulletDiamet
 // A length keeps four decimals so switching between millimetres and inches stays readable and reversible.
 const readable = (value: number) => Math.round(value * 10000) / 10000;
 
+const isFinitePoint = (point: Point) => Number.isFinite(point.x) && Number.isFinite(point.y);
+const toImpacts = (points: readonly Point[]): Impact[] =>
+  points.filter(isFinitePoint).map((point) => ({ id: crypto.randomUUID(), x: point.x, y: point.y }));
+
 export const useShotGroupStore = create<ShotGroupStore>()(
   persist(
     (set, get) => ({
       ...initialState,
       setImage: (size) => {
-        // Impacts, the aim point and the calibration all belong to one photo, so a new photo starts over.
+        // Impacts, aim points and the calibration all belong to one photo, so a new photo starts over.
         const imageSize = size && size.width > 0 && size.height > 0 ? size : defaultImageSize;
         const { calibration } = get();
         set({
           imageSize,
           calibration: { ...defaultCalibration(imageSize), value: calibration.value, unit: calibration.unit },
+          corners: defaultCorners(imageSize),
           aim: defaultAim(imageSize),
           impacts: [],
+          otherGroups: [],
+          groupIndex: 0,
         });
       },
+      setCalibrationMode: (calibrationMode) => set({ calibrationMode }),
       setCalibrationPoint: (key, point) => set((state) => ({ calibration: { ...state.calibration, [key]: point } })),
       // Keep the last usable length while a field is being edited, so a blank draft is never stored.
       setReferenceValue: (value) =>
@@ -183,6 +278,19 @@ export const useShotGroupStore = create<ShotGroupStore>()(
             ...(isLength(value) ? { lastValidReferenceValue: value } : {}),
           };
         }),
+      setCorner: (index, point) =>
+        set((state) => {
+          const corners = [...state.corners] as [Point, Point, Point, Point];
+          corners[index] = point;
+          return { corners };
+        }),
+      // The spacing is printed on the sheet in millimetres, so it is always read in millimetres.
+      setMarkerSpacing: (markerSpacing) =>
+        set(
+          isLength(markerSpacing.width) && isLength(markerSpacing.height)
+            ? { markerSpacing, lastValidMarkerSpacing: markerSpacing }
+            : { markerSpacing },
+        ),
       setAim: (aim) => set({ aim }),
       // The shooting distance is a range that was chosen, not a length that was measured, so 100 m
       // becomes 100 yd rather than 109.36 yd. This is how the sight adjustment tool reads it too.
@@ -218,30 +326,86 @@ export const useShotGroupStore = create<ShotGroupStore>()(
         })),
       setTargetPrecisionUnit: (unit) => set((state) => ({ targetPrecision: { ...state.targetPrecision, unit } })),
       addImpact: (point) => {
-        if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+        if (!isFinitePoint(point)) return;
         set((state) => ({ impacts: [...state.impacts, { id: crypto.randomUUID(), ...point }] }));
       },
       addImpactAtOffset: (impact) => {
-        const scale = selectScale(get());
-        if (scale === null || !Number.isFinite(impact.x) || !Number.isFinite(impact.y)) return false;
-        get().addImpact(toImagePoint(impact, get().aim, scale));
+        const frame = selectFrame(get());
+        if (frame === null || !isFinitePoint(impact)) return false;
+        const point = placeImpact(impact, get().aim, frame);
+        if (!point) return false;
+        get().addImpact(point);
         return true;
       },
-      replaceImpacts: (points) =>
+      replaceImpacts: (points) => {
+        const { otherGroups, aim } = get();
+        if (otherGroups.length === 0) {
+          set({ impacts: toImpacts(points) });
+          return;
+        }
+        // The nearest aim point on the photo, which is what a reader lining up a ladder on one sheet means.
+        const aims = [aim, ...otherGroups.map((group) => group.aim)];
+        const buckets: Point[][] = aims.map(() => []);
+        for (const point of points.filter(isFinitePoint)) {
+          let nearest = 0;
+          aims.forEach((candidate, index) => {
+            const distance = Math.hypot(point.x - candidate.x, point.y - candidate.y);
+            const best = aims[nearest] as Point;
+            if (distance < Math.hypot(point.x - best.x, point.y - best.y)) nearest = index;
+          });
+          buckets[nearest]?.push(point);
+        }
         set({
-          impacts: points
-            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-            .map((point) => ({ id: crypto.randomUUID(), x: point.x, y: point.y })),
-        }),
+          impacts: toImpacts(buckets[0] ?? []),
+          otherGroups: otherGroups.map((group, index) => ({ ...group, impacts: toImpacts(buckets[index + 1] ?? []) })),
+        });
+      },
       removeImpact: (id) => set((state) => ({ impacts: state.impacts.filter((impact) => impact.id !== id) })),
       undoImpact: () => set((state) => ({ impacts: state.impacts.slice(0, -1) })),
       clearImpacts: () => set({ impacts: [] }),
+      startNextGroup: () =>
+        set((state) => {
+          const others = [...state.otherGroups];
+          const index = Math.min(state.groupIndex, others.length);
+          others.splice(index, 0, { id: crypto.randomUUID(), aim: state.aim, impacts: state.impacts });
+          return { otherGroups: others, groupIndex: index + 1, impacts: [] };
+        }),
+      selectGroup: (id) =>
+        set((state) => {
+          const target = state.otherGroups.findIndex((group) => group.id === id);
+          const chosen = state.otherGroups[target];
+          if (!chosen) return state;
+          // The group being edited goes back into its place, and the chosen one comes out of its own.
+          const all = selectPhotoGroups(state).map((group) =>
+            group.current ? { id: crypto.randomUUID(), aim: group.aim, impacts: group.impacts } : group,
+          );
+          const position = all.findIndex((group) => group.id === id);
+          return {
+            aim: chosen.aim,
+            impacts: chosen.impacts,
+            otherGroups: all
+              .filter((group) => group.id !== id)
+              .map(({ id: groupId, aim, impacts }) => ({ id: groupId, aim, impacts })),
+            groupIndex: position,
+          };
+        }),
+      removeGroup: (id) =>
+        set((state) => {
+          const index = state.otherGroups.findIndex((group) => group.id === id);
+          if (index < 0) return state;
+          return {
+            otherGroups: state.otherGroups.filter((group) => group.id !== id),
+            groupIndex: index < state.groupIndex ? state.groupIndex - 1 : state.groupIndex,
+          };
+        }),
       setNote: (note) => set({ note }),
       saveRecord: (name) => {
         const state = get();
-        const scale = selectScale(state);
+        const frame = selectFrame(state);
         const trimmed = name.trim();
-        if (scale === null || !trimmed || state.records.some((record) => record.name === trimmed)) return false;
+        if (frame === null || !trimmed || state.records.some((record) => record.name === trimmed)) return false;
+        const impacts = state.impacts.map((impact) => measureImpact(impact, state.aim, frame));
+        if (impacts.some((impact) => impact === null)) return false;
         const record = groupRecordSchema.safeParse({
           id: crypto.randomUUID(),
           name: trimmed,
@@ -249,7 +413,7 @@ export const useShotGroupStore = create<ShotGroupStore>()(
           distance: state.distance,
           bulletDiameterMm: selectBulletDiameterMm(state),
           note: state.note,
-          impacts: state.impacts.map((impact) => toImpactMm(impact, state.aim, scale)),
+          impacts,
         });
         if (!record.success) return false;
         set({ records: [...state.records, record.data] });
@@ -258,8 +422,10 @@ export const useShotGroupStore = create<ShotGroupStore>()(
       loadRecord: (id) => {
         const state = get();
         const record = state.records.find((item) => item.id === id);
-        const scale = selectScale(state);
-        if (!record || scale === null) return false;
+        const frame = selectFrame(state);
+        if (!record || frame === null) return false;
+        const points = record.impacts.map((impact) => placeImpact(impact, state.aim, frame));
+        if (points.some((point) => point === null)) return false;
         // The diameter is stored in millimetres; it is read back in the unit the field is showing.
         const bulletDiameterValue =
           record.bulletDiameterMm === null
@@ -271,10 +437,7 @@ export const useShotGroupStore = create<ShotGroupStore>()(
           bulletDiameter: { value: bulletDiameterValue, unit: state.bulletDiameter.unit },
           lastValidBulletDiameter: bulletDiameterValue,
           note: record.note,
-          impacts: record.impacts.map((impact) => ({
-            id: crypto.randomUUID(),
-            ...toImagePoint(impact, state.aim, scale),
-          })),
+          impacts: toImpacts(points as Point[]),
         });
         return true;
       },
@@ -316,6 +479,7 @@ export const useShotGroupStore = create<ShotGroupStore>()(
         offsetUnit: state.offsetUnit,
         bulletDiameter: { value: state.lastValidBulletDiameter, unit: state.bulletDiameter.unit },
         targetPrecision: { value: state.lastValidTargetPrecision, unit: state.targetPrecision.unit },
+        sheet: { mode: state.calibrationMode, spacing: state.lastValidMarkerSpacing },
         records: state.records,
       }),
       merge: (saved, current) => {
@@ -339,6 +503,10 @@ export const useShotGroupStore = create<ShotGroupStore>()(
                 parsed.data.targetPrecision === undefined
                   ? current.lastValidTargetPrecision
                   : parsed.data.targetPrecision.value,
+              // A save from before the corner marks opens on the two-point scale it was made with.
+              calibrationMode: parsed.data.sheet?.mode ?? current.calibrationMode,
+              markerSpacing: parsed.data.sheet?.spacing ?? current.markerSpacing,
+              lastValidMarkerSpacing: parsed.data.sheet?.spacing ?? current.lastValidMarkerSpacing,
               records: parsed.data.records,
             }
           : current;

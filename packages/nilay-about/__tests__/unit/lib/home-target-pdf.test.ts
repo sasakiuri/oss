@@ -58,4 +58,27 @@ describe('printable targets', () => {
     expect(getTargetLayout(90, 'target', options).fits).toBe(true);
     expect(targetRequestSchema.safeParse({ blackAreaSize: { number: 4, unit: 'cm' }, copies: 3 }).success).toBe(false);
   });
+  it('prints four corner marks with their spacing, clear of the targets and the 50 mm line', () => {
+    const layout = getTargetLayout(40, 'a4', { copies: 4, markers: true });
+    expect(layout.markers?.centres).toEqual([
+      { x: 12, y: 12 },
+      { x: 198, y: 12 },
+      { x: 198, y: 285 },
+      { x: 12, y: 285 },
+    ]);
+    expect(layout.markers?.spacing).toEqual({ width: 186, height: 273 });
+    expect(layout.labels).toContain('Marker centres: 186 x 273 mm');
+    // A mark reaches 4 mm either side of its centre; the targets start 20 mm down and 10 mm in.
+    for (const centre of layout.centers) expect(centre.y - 20).toBeGreaterThanOrEqual(16);
+    // A narrow custom sheet widens so the bottom marks miss the caption under the 50 mm line.
+    const narrow = getTargetLayout(10, 'target', { copies: 1, markers: true });
+    expect(narrow.width).toBe(110);
+    expect(narrow.rulerX).toBeGreaterThan(16);
+    expect(narrow.rulerX + 50).toBeLessThan(narrow.width - 16);
+    const pdf = new TextDecoder().decode(generateTargetPdf(40, 'a4', { copies: 1, markers: true }));
+    expect(pdf.match(/ re f/g)).toHaveLength(8);
+    expect(pdf).toContain('(Marker centres: 186 x 273 mm)');
+    expect(new TextDecoder().decode(generateTargetPdf(40, 'a4'))).not.toContain(' re f');
+    expect(targetRequestSchema.parse({ blackAreaSize: { number: 2, unit: 'cm' } }).markers).toBe(false);
+  });
 });

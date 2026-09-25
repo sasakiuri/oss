@@ -1,3 +1,11 @@
+import {
+  applyHomography,
+  invertHomography,
+  localScale,
+  solveHomography,
+  type Homography,
+  type Quad,
+} from './homography';
 import type { BulletUnit, GroupRecord, ShotImpact } from './schemas/shot-group';
 import type { HorizontalImpact, OffsetUnit, VerticalImpact } from './schemas/sight-adjustment';
 import { MIL_RADIANS, MM_PER_INCH, MOA_RADIANS, toMeters, toMillimeters } from './sight-adjustment';
@@ -27,6 +35,87 @@ export function toImpactMm(point: Point, aim: Point, mmPerPixel: number): ShotIm
 
 export function toImagePoint(impact: ShotImpact, aim: Point, mmPerPixel: number): Point {
   return { x: aim.x + impact.x / mmPerPixel, y: aim.y - impact.y / mmPerPixel };
+}
+
+/**
+ * How a photo is read in millimetres.
+ *
+ * `scale` is one length per pixel from two points, which holds only for a photo taken square on.
+ * `sheet` maps the photo onto the sheet itself through four marks whose spacing is known, so a
+ * photo taken at an angle is read in true millimetres everywhere on the sheet. Sheet coordinates
+ * run from the top left mark, x to the right and y down, like the photo's own.
+ */
+export type PhotoFrame =
+  { kind: 'scale'; mmPerPixel: number } | { kind: 'sheet'; toSheet: Homography; toPhoto: Homography };
+
+/**
+ * The frame four marks give. The marks are taken in the order they sit round the sheet - top left,
+ * top right, bottom right, bottom left - and `spacing` is centre to centre across and down.
+ */
+export function sheetFrame(corners: Quad, spacing: { width: number; height: number }): PhotoFrame | null {
+  const { width, height } = spacing;
+  if (!(Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0)) return null;
+  const sheet: Quad = [
+    { x: 0, y: 0 },
+    { x: width, y: 0 },
+    { x: width, y: height },
+    { x: 0, y: height },
+  ];
+  // Marks tapped in the wrong order fold the sheet over on itself, which a real photo never does.
+  // The map would then turn the sheet inside out, and every length read through it would be wrong,
+  // so the four have to go round the same way on the photo as on the sheet, with no edge crossing.
+  if (!isSameWayRound(corners)) return null;
+  const toSheet = solveHomography(corners, sheet);
+  const toPhoto = toSheet && invertHomography(toSheet);
+  if (!toSheet || !toPhoto) return null;
+  return { kind: 'sheet', toSheet, toPhoto };
+}
+
+/** Whether the four points turn clockwise at every corner on screen (y down), as the sheet's do. */
+function isSameWayRound(corners: Quad): boolean {
+  return corners.every((point, index) => {
+    const next = corners[(index + 1) % 4] as Point;
+    const after = corners[(index + 2) % 4] as Point;
+    return (next.x - point.x) * (after.y - next.y) - (next.y - point.y) * (after.x - next.x) > 0;
+  });
+}
+
+/** A photo point as millimetres from the aim point, x to the right and y upwards. */
+export function measureImpact(point: Point, aim: Point, frame: PhotoFrame): ShotImpact | null {
+  if (frame.kind === 'scale') return toImpactMm(point, aim, frame.mmPerPixel);
+  const hit = applyHomography(frame.toSheet, point);
+  const centre = applyHomography(frame.toSheet, aim);
+  if (!hit || !centre) return null;
+  return { x: hit.x - centre.x, y: centre.y - hit.y };
+}
+
+/** Where an impact given in millimetres from the aim point falls on the photo. */
+export function placeImpact(impact: ShotImpact, aim: Point, frame: PhotoFrame): Point | null {
+  if (frame.kind === 'scale') return toImagePoint(impact, aim, frame.mmPerPixel);
+  const centre = applyHomography(frame.toSheet, aim);
+  if (!centre) return null;
+  return applyHomography(frame.toPhoto, { x: centre.x + impact.x, y: centre.y - impact.y });
+}
+
+/** A photo point as millimetres on the sheet, or from the photo's top left for a plain scale. */
+export function toSheetPoint(point: Point, frame: PhotoFrame): Point | null {
+  if (frame.kind === 'scale') return { x: point.x * frame.mmPerPixel, y: point.y * frame.mmPerPixel };
+  return applyHomography(frame.toSheet, point);
+}
+
+export function fromSheetPoint(point: Point, frame: PhotoFrame): Point | null {
+  if (frame.kind === 'scale') return { x: point.x / frame.mmPerPixel, y: point.y / frame.mmPerPixel };
+  return applyHomography(frame.toPhoto, point);
+}
+
+/**
+ * Millimetres per photo pixel near a point. It is the same everywhere for a plain scale; through
+ * the marks it changes across a photo taken at an angle, so a hole is looked for at the size it
+ * has where the group is.
+ */
+export function frameScaleAt(frame: PhotoFrame, point: Point): number | null {
+  if (frame.kind === 'scale') return frame.mmPerPixel;
+  return localScale(frame.toSheet, point);
 }
 
 /** The inverse of toMillimeters, for reading a measured length back in the unit the reader chose. */

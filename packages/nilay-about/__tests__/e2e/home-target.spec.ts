@@ -220,3 +220,16 @@ test('keeps the height and the download beside the setup on a wide screen', asyn
   await expect(page.getByText('160.5 cm', { exact: true })).toBeInViewport();
   await expect(page.getByRole('button', { name: 'PDF をダウンロード' })).toBeInViewport();
 });
+
+test('prints corner marks for correcting a photo when asked', async ({ page }) => {
+  await page
+    .getByRole('heading', { name: /^印刷の設定/ })
+    .getByRole('button')
+    .click();
+  await page.getByLabel('四隅に写真補正用の目印を印刷').check();
+  await expect(page.getByText('A4 は 186 × 273 mm', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^印刷の設定/ })).toContainText('四隅に目印');
+  const request = page.waitForRequest('**/api/home-targets');
+  await page.getByRole('button', { name: 'PDF をダウンロード' }).click();
+  expect((await request).postDataJSON()).toMatchObject({ markers: true });
+});

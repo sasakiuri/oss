@@ -279,6 +279,8 @@ describe('shot group measurements', () => {
       'offsetUnit',
       'records',
       'reference',
+      // How the scale is set and the printed mark spacing: part of the setup, not of the photo.
+      'sheet',
       'targetPrecision',
     ]);
     expect(saved.state.records[0].impacts[0].x).toBeCloseTo(5);

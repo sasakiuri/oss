@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { LuDownload, LuSave } from 'react-icons/lu';
 
+import { TrendChart } from '@/components/labs';
 import { Button } from '@/components/ui';
 import { useStorageStatus } from '@/lib/browser-storage';
 import { buildRecordsCsv, summariseGroup, toAngularSize } from '@/lib/shot-group';
 import { toMeters } from '@/lib/sight-adjustment';
 import { useLanguage } from '@/store';
 
-import { selectScale, useShotGroupStore } from './_store';
+import { selectFrame, useShotGroupStore } from './_store';
 
 export function SavedGroups() {
   const state = useShotGroupStore();
@@ -23,13 +24,13 @@ export function SavedGroups() {
   const t = (ja: string, en: string) => (language === 'ja' ? ja : en);
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
   const dateTime = new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' });
-  const ready = selectScale(state) !== null;
+  const ready = selectFrame(state) !== null;
   // Every write can fail on a full device, so what reaches storage is reported, not assumed.
   const storedMessage = (done: [string, string]): [string, string] =>
     useStorageStatus.getState().available ? done : ['端末に保存できませんでした。', 'Could not save to this device.'];
   // saveRecord only reports failure, so the reason is derived here.
   const saveProblem = (): [string, string] =>
-    selectScale(state) === null
+    selectFrame(state) === null
       ? ['実寸の基準を設定してください。', 'Set the scale before saving.']
       : !(distance.value > 0)
         ? ['射距離に 0 より大きい数値を入力してください。', 'Enter a shooting distance greater than zero.']
@@ -43,6 +44,16 @@ export function SavedGroups() {
         `Unsaved impacts and note will be lost. Load “${name}”?`,
       ),
     );
+
+  // The trend runs in the order the groups were shot, and in MOA so groups at different distances compare.
+  const chronological = [...records].sort((a, b) => Date.parse(a.savedAt) - Date.parse(b.savedAt));
+  const angular = (sizeMm: number | null, record: (typeof records)[number]) =>
+    toAngularSize(sizeMm, toMeters(record.distance.value, record.distance.unit))?.moa ?? null;
+  const trend = chronological.map((record) => {
+    const summary = summariseGroup(record.impacts, { bulletDiameterMm: record.bulletDiameterMm });
+    return { spread: angular(summary.extremeSpreadMm, record), radius: angular(summary.meanRadiusMm, record) };
+  });
+  const shortDate = new Intl.DateTimeFormat(language, { month: 'numeric', day: 'numeric' });
 
   const exportCsv = () => {
     // Excel needs the byte order mark to read UTF-8.
@@ -62,10 +73,7 @@ export function SavedGroups() {
     <div className="flex flex-col gap-4">
       <p className="text-sm text-on-surface-variant" role="status">
         {available
-          ? t(
-              '写真は保存しません。保存するのは着弾位置（狙点から mm）・射距離・弾径・メモ・日時です。',
-              'The photo is not saved. Saved: impact positions (mm from the aim point), distance, bullet diameter, note and time.',
-            )
+          ? t('写真は保存しません。', 'The photo is not saved.')
           : t('記録は保存できませんが、CSV には書き出せます。', 'Groups cannot be saved here, but CSV export works.')}
       </p>
       <div className="space-y-2">
@@ -166,6 +174,23 @@ export function SavedGroups() {
             );
           })}
         </ul>
+      )}
+      {records.length > 1 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-medium">{t('保存した群の推移（MOA）', 'Saved groups over time (MOA)')}</h3>
+          <TrendChart
+            label={t(
+              `保存した ${records.length} 群の最大中心間距離と平均半径の推移（MOA）`,
+              `Extreme spread and mean radius of the ${records.length} saved groups over time, in MOA`,
+            )}
+            points={chronological.map((record) => shortDate.format(new Date(record.savedAt)))}
+            series={[
+              { name: t('最大中心間距離', 'Extreme spread'), values: trend.map((point) => point.spread) },
+              { name: t('平均半径', 'Mean radius'), values: trend.map((point) => point.radius) },
+            ]}
+            formatValue={(value) => number.format(value)}
+          />
+        </div>
       )}
       <div className="space-y-2 border-t border-outline-variant pt-4">
         <Button variant="outline" disabled={records.length === 0} onClick={exportCsv}>

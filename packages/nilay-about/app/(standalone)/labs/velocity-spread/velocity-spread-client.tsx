@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react';
+import { LuUpload } from 'react-icons/lu';
 
 import {
   AppHeader,
@@ -22,6 +23,7 @@ import {
 } from '@/components/labs';
 import { Card } from '@/components/ui';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
+import { readChronographFile } from '@/lib/chrono-import';
 import { PUBLISHED_GROUP_SIZE_LIMIT } from '@/lib/group-statistics';
 import { twistStabilityHandoff } from '@/lib/labs-handoff';
 import { labsTool } from '@/lib/labs-tools';
@@ -191,6 +193,50 @@ export function VelocitySpreadClient() {
   }, [ready, spoken]);
 
   const readingsId = useId();
+  const [importMessage, setImportMessage] = useState<[string, string] | null>(null);
+  const importFile = async (file: File) => {
+    const result = readChronographFile(await file.text());
+    if (result.kind === 'error') {
+      setImportMessage(
+        {
+          'unknown-format': [
+            'このファイルの形式は読み取れません。ShotView と LabRadar（初代）の CSV に対応しています。',
+            'This file’s layout is not recognised. ShotView and original LabRadar CSV files are supported.',
+          ] as [string, string],
+          'no-shots': ['ファイルに初速の行がありませんでした。', 'The file has no velocity rows.'] as [string, string],
+          unit: [
+            'ファイルの速度の単位を確かめられないため、読み込みませんでした。',
+            'The file’s speed unit could not be confirmed, so it was not loaded.',
+          ] as [string, string],
+        }[result.problem],
+      );
+      return;
+    }
+    const text = result.velocities.join('\n');
+    if (text.length > VELOCITY_READINGS_MAX) {
+      setImportMessage([
+        `${result.velocities.length} 発は多すぎて入りません。`,
+        `${result.velocities.length} readings are too many to hold.`,
+      ]);
+      return;
+    }
+    if (
+      readings.trim() !== '' &&
+      !window.confirm(
+        t('入力済みの初速をファイルの値で置き換えますか？', 'Replace the readings with the ones in the file?'),
+      )
+    )
+      return;
+    // The file says which unit the chronograph recorded in, so the readings keep it rather than being converted.
+    setSpeedUnit(result.unit);
+    setReadings(text);
+    const source = result.format === 'shotview' ? 'Garmin ShotView' : 'LabRadar';
+    const unitLabel = result.unit === 'mps' ? 'm/s' : 'fps';
+    setImportMessage([
+      `${source} のファイル${result.session ? `「${result.session}」` : ''}から ${result.velocities.length} 発（${unitLabel}）を読み込みました。`,
+      `Loaded ${result.velocities.length} readings (${unitLabel}) from the ${source} file${result.session ? ` “${result.session}”` : ''}.`,
+    ]);
+  };
 
   const pressureSourceLabel: Record<PressureSource, string> = {
     station: t('現地で測った気圧', 'Measured station pressure'),
@@ -323,8 +369,8 @@ export function VelocitySpreadClient() {
                   />
                   <p id={`${readingsId}-count`} className="text-xs text-on-surface-variant">
                     {t(
-                      `1 行に 1 つ、またはカンマ区切り。${parsed.values.length} 件を読み取りました（${VELOCITY_SAMPLE_LIMIT} 件まで）。`,
-                      `One per line, or separated by commas. ${parsed.values.length} readings found (up to ${VELOCITY_SAMPLE_LIMIT}).`,
+                      `1 行に 1 つかカンマ区切り。${parsed.values.length} 件を読み取りました（${VELOCITY_SAMPLE_LIMIT} 件まで）。`,
+                      `One per line or comma-separated. ${parsed.values.length} readings (up to ${VELOCITY_SAMPLE_LIMIT}).`,
                     )}
                   </p>
                   {parsed.invalid.length > 0 && (
@@ -343,6 +389,35 @@ export function VelocitySpreadClient() {
                       )}
                     </p>
                   )}
+                </div>
+                <div className="space-y-2">
+                  <input
+                    id={`${readingsId}-file`}
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    className="peer sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (file) void importFile(file);
+                    }}
+                  />
+                  <label
+                    htmlFor={`${readingsId}-file`}
+                    className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-outline px-6 text-sm font-medium text-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary"
+                  >
+                    <LuUpload aria-hidden="true" className="size-[18px]" />
+                    {t('弾速計の CSV を読み込む', 'Load a chronograph CSV')}
+                  </label>
+                  <p className="text-xs text-on-surface-variant">
+                    {t(
+                      'Garmin ShotView（Xero C1）、LabRadar（初代）の CSV。',
+                      'Garmin ShotView (Xero C1) or original LabRadar CSV.',
+                    )}
+                  </p>
+                  <p role="status" className="text-sm">
+                    {importMessage ? t(...importMessage) : ''}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -414,7 +489,7 @@ export function VelocitySpreadClient() {
                   <p className="text-sm text-on-surface-variant">
                     {t(
                       '発数の違う ES どうしは比べられません。装弾の比較は SD で、SD の差が 95 % 区間に収まるなら差があるとは言えません。',
-                      'ES grows with the number of shots, so only compare ES over the same count. Compare loads by SD; a difference inside the 95 % interval is not a real difference.',
+                      'Only compare ES over the same number of shots. Compare loads by SD; a difference inside the 95 % interval is not significant.',
                     )}
                   </p>
                   <div className="space-y-2">
@@ -453,9 +528,6 @@ export function VelocitySpreadClient() {
                 summary={loadSummary}
                 forceOpen={loadInvalid}
               >
-                <p className="text-sm text-on-surface-variant">
-                  {t('初速には記録の平均を使います。', 'The muzzle velocity is the average of the readings.')}
-                </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <NumberField
                     label={t('弾道係数', 'Ballistic coefficient')}
@@ -628,8 +700,8 @@ export function VelocitySpreadClient() {
                   </h2>
                   <p className="text-sm text-on-surface-variant">
                     {t(
-                      `初速の差だけによる上下の差で、群の大きさではありません。実際の群はこれより大きくなります。95 % 幅は ±${number(SPREAD_WIDE_SIGMAS, 2)} SD。`,
-                      `Vertical spread from velocity alone, not a group size: a real group is always larger. The 95 % band is ±${number(SPREAD_WIDE_SIGMAS, 2)} SD.`,
+                      `初速の差だけによる上下の差で、実際の群はこれより大きくなります。95 % 幅は ±${number(SPREAD_WIDE_SIGMAS, 2)} SD。`,
+                      `From velocity alone; a real group is larger. The 95 % band is ±${number(SPREAD_WIDE_SIGMAS, 2)} SD.`,
                     )}
                   </p>
                 </div>
@@ -716,10 +788,7 @@ export function VelocitySpreadClient() {
               <ConditionSection
                 id="method-and-source"
                 title={t('計算方法と出典', 'Method and source')}
-                summary={t(
-                  '標本の平均と標準偏差。95 % 区間は t 分布とカイ二乗分布から求めます。',
-                  'Sample average and SD, with 95 % intervals from the t and chi-squared distributions.',
-                )}
+                summary={t('t 分布、カイ二乗分布、Ballistipedia', 't and chi-squared distributions, Ballistipedia')}
               >
                 <p className="text-sm text-on-surface-variant">
                   {t(
@@ -744,11 +813,6 @@ export function VelocitySpreadClient() {
                     '計測器の誤差は含みません。機種によっては装弾のばらつきと同程度です。',
                     'Chronograph error is not included. On some units it is as large as the spread being measured.',
                   )}
-                </p>
-                <p className="text-sm text-on-surface-variant" role="status">
-                  {storageAvailable
-                    ? t('設定はこのブラウザーに保存されます。', 'Settings are saved in this browser.')
-                    : ''}
                 </p>
               </ConditionSection>
             </>

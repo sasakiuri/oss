@@ -32,6 +32,7 @@ export const targetSettingsSchema = z.object({
   paper: paperSchema,
   copies: copiesSchema.default(1),
   showConditions: z.boolean().default(false),
+  markers: z.boolean().default(false),
 });
 export type TargetSettings = z.infer<typeof targetSettingsSchema>;
 const profileSchema = z.object({ id: z.string(), name: z.string().trim().min(1), settings: targetSettingsSchema });
@@ -50,6 +51,7 @@ interface HomeTargetStore extends TargetSettings {
   setPaper: (paper: TargetPaper) => void;
   setCopies: (copies: TargetCopies) => void;
   setShowConditions: (showConditions: boolean) => void;
+  setMarkers: (markers: boolean) => void;
   applySettings: (settings: TargetSettings) => void;
   saveProfile: (name: string) => boolean;
   updateProfile: (id: string) => boolean;
@@ -68,6 +70,7 @@ export const initialTargetSettings: TargetSettings = {
   paper: 'a4',
   copies: 1,
   showConditions: false,
+  markers: false,
   // Start on the 50 m rifle by name, so a first visit shows which discipline the dimensions belong to.
   discipline: {
     name: '50m Rifle',
@@ -97,6 +100,7 @@ export const useHomeTargetStore = create<HomeTargetStore>()(
         setPaper: (paper) => edit({ paper }),
         setCopies: (copies) => edit({ copies }),
         setShowConditions: (showConditions) => edit({ showConditions }),
+        setMarkers: (markers) => edit({ markers }),
         applySettings: (settings) => {
           const parsed = targetSettingsSchema.safeParse(settings);
           if (parsed.success) edit(parsed.data);

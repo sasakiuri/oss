@@ -118,6 +118,8 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   Print at "Actual size (100%)" and check that the test line measures 50 mm.
   The on-screen preview is not to scale. Setups can be saved by name, loaded, overwritten, renamed and deleted.
   The last deletion can be undone while the page is open. A copied share link opens the same setup on another device.
+  Corner marks can be added: an 8 mm black square with a 2 mm white centre, centred 12 mm in from each corner of the sheet,
+  with the centre-to-centre spacing printed at the foot (186 × 273 mm on A4). Group size measurement and target scoring use them to correct photos taken at an angle.
 - **Scope Click Calculator** (照準調整のクリック数計算): from the distance, the offset of the shots and the adjustment unit,
   calculates the direction and number of clicks, and the offset left after rounding.
   Units: 1/8, 1/4, 1/2 and 1 MOA; 0.05 and 0.1 mil; or mm per 100 m.
@@ -185,6 +187,11 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   The trajectory uses the ballistic calculator's point-mass model with the published G1 and G7 drag tables.
   The result is the vertical difference from velocity alone. Gun and shooter movement, wind, aiming error, shot-to-shot differences in
   ballistic coefficient and chronograph error are not included, so real groups are never smaller than this.
+  Velocities can be loaded from a chronograph's CSV file, read in the browser: Garmin ShotView (Xero C1) exports, recognised by the `#,` header row and
+  the unit in brackets (FPS or MPS) whatever the app's language, with decimal commas; and original LabRadar `SR#### Report.csv` files (`sep=;`,
+  the `V0` column, fps). The layouts were checked against real exported files on 2026-09-24, as neither maker publishes a specification.
+  The file's unit replaces the reading unit rather than converting the values, and a file in a unit not seen in a real export is refused.
+  Garmin FIT files are not read, as the FIT SDK licence forbids redistributing it and treats the protocol documentation as confidential.
 - **Twist Rate and Stability** (ツイストと安定性の計算): from bullet diameter, length and weight, rifling twist, muzzle velocity,
   temperature and pressure, calculates the gyroscopic stability factor. Below 1.0 the bullet is unstable; published recommendations are
   1.3 (benchrest), 1.5 (most uses), 2.0 (margin for cold weather), and 1.5 to 2.5 for the military.
@@ -225,8 +232,54 @@ Units are chosen inside each number field. On narrow screens, recoil and shot pe
   and the shots needed do not use that assumption and are not affected.
   The statistics assume the shooting and conditions stayed the same throughout, so shooter fatigue, barrel heat or changing wind make
   the intervals and the shots needed come out narrower than they really are. The σ estimate and the extreme spread by shot count are from Ballistipedia's published material.
+  The scale can instead come from the four corner marks of a sheet printed by the practice target maker: with the marks placed and their printed
+  spacing entered, the photo is mapped onto the sheet by a plane projective transform (homography) from the four points, so a photo taken at an
+  angle is read in true millimetres. Lens distortion is not corrected, and the marks only give true lengths if the sheet was printed at 100 %.
+  Several groups on one photo, such as a ladder test, each get their own aim point; the groups are compared side by side,
+  and detection puts each hole in the group with the nearest aim point. Saving and the statistics use the group being edited.
+  With two or more saved groups, the extreme spread and mean radius of each are drawn over time in MOA.
   The camera feed, the photo and the image analysis stay in the browser; nothing is sent or saved.
   Only the hit coordinates, settings and notes are saved, and records can be exported as CSV.
+- **Target Scoring** (標的の採点): scores shots on the 10m Air Rifle, 10m Air Pistol, 50m Rifle and 25m precision / 50m Pistol targets
+  (the last for the 5.6 mm events or the 25m Centre Fire precision stage),
+  either by tapping where each hole is on the drawn target or from a photo. A photo is lined up by the target centre and the edge of the black,
+  or by the corner marks of a sheet from the practice target maker, which also corrects a photo taken at an angle; holes are then detected
+  with the same detection as group size measurement and can be added or removed by hand.
+  Scores are decimal (to 10.9) or whole rings, with inner tens, sighters kept apart, series of ten, total, average per shot and the mean point of impact.
+  Cards can be saved by name, and the average per shot of saved cards is drawn over time.
+  Ring sizes are the outside diameters in the ISSF Rule Book 2026 (Edition 2025, second print 07/2026; rules 6.3.4.2, 6.3.4.3, 6.3.4.5, 6.3.4.6),
+  checked 2026-09-24. A hole of the event's calibre (4.5 or 5.6 mm, and 9.65 mm for 25m Centre Fire whatever its calibre, as the
+  scoring gauges are: ISSF Rules for Paper Target Scoring 1.4.1 and 1.4.3, checked 2026-09-25) touching the outer edge of a higher ring
+  scores the higher value (Paper Target Scoring 5.2.1), and decimal rings divide each ring's scoring area into ten (Rule Book 6.3.3.1).
+  Series are of ten shots, as ties are broken on them (Rule Book 6.15.1 b); in the 25m events, fired in series of five, two make one.
+  The rules do not give the formula electronic targets use, so this is a practice score, not a gauge decision or an electronic target's score.
+  The 25m / 50m pistol target is scored in whole rings, since its 10 ring is wider than the others. The photo is neither sent nor saved.
+- **Shot Timer** (ショットタイマー): after a fixed or random delay a start beep sounds, and an optional second beep at the par time.
+  With the microphone on, each block of sound (128 samples, read by an AudioWorklet on the audio clock the beep was scheduled on) whose peak
+  reaches a threshold in dBFS counts as a shot, then nothing is counted for a set gap so the echo is not a second shot.
+  The timer's own beeps are ignored. It shows the time of each shot from the beep, the splits, the first and last shot and whether the last was within par,
+  with a live level meter for setting the threshold. Detection goes by loudness alone, so the next bay, echoes or a dropped magazine can count
+  and quiet shots can be missed; speaker and microphone latency is not corrected. The microphone can be turned off to use it as a par timer.
+  The screen is kept on with the Screen Wake Lock API where the browser allows it, and the page says when it cannot.
+  A video or recording of a run can be loaded instead: its sound is decoded in the browser and the same detector, in 1 ms blocks, lists each loud moment.
+  The reader picks the start signal and unticks what was not a shot, and the shot times and splits follow. The file is neither sent nor saved.
+  Only the settings are saved; strings timed on the page are lost when it is closed.
+- **Match Command Timer** (競技の号令タイマー): plays the commands and times of ISSF 10m Air Rifle / Air Pistol qualification (60 shots in 75 min),
+  50m Prone qualification (50 min), 50m 3 Positions qualification (90 min indoors, 105 min outdoors), the 10m Air Rifle / Air Pistol final
+  and the 50m 3 Positions final, with the time left in each phase, the last and next command and the full list of commands.
+  Each command beeps and is read by the device's speech synthesis in English as the Rule Book writes it, or in this tool's Japanese rendering.
+  It can be paused, resumed and skipped to the next command, and the screen is kept on with the Screen Wake Lock API where the browser allows it.
+  Times and wordings are from the ISSF Rule Book 2026 (Edition 2025, second print 07/2026; rules 6.11.1, 6.11.9, 7.7.4, 8.11, 6.17.2, 6.17.3),
+  checked 2026-09-24; qualification times are those for electronic targets. The rules give the 10 and 5 minute announcements in qualification
+  a time but no wording, so the wording is this tool's and is marked. Finals timings are guidelines in the rules, which point to a separate ISSF
+  document, "Commands and Announcements for Finals", that has not been checked; the pause from a STOP to the next LOAD is the reader's setting (20 s by default).
+  In a real final STOP comes as soon as everyone has fired, and eliminations and tie-breaks are announced. It is a practice clock.
+- **PCP Fill Calculator** (PCP 空気銃の充填回数): from the cylinder's water capacity and pressure, the gun's reservoir volume, the pressure it is filled to
+  and the pressure it is down to, and the hose volume bled after each fill, counts the full fills, the partial last fill and the pressure left
+  in the cylinder, with the pressures after each fill. Pressures are gauge readings in bar, MPa or psi (1 psi = 6894.757 Pa); changing the unit converts them.
+  With the shots per fill it also gives the total shots. Air is treated as an ideal gas at constant temperature (Boyle's law) with 1.01325 bar added
+  for absolute pressure. At 200 to 300 bar real air is less compressible than an ideal gas, so real cylinders give fewer fills than calculated,
+  and filling warms the air so gauges read high until it cools. It never suggests exceeding a gun's or cylinder's rated pressure.
 - **Shotgun Pattern Measurement** (散弾パターンの測定): photograph the pattern board with the camera or load an existing photo,
   set the scale from two points and their real distance, and overlay a 76.2 cm (30-inch) circle.
   Enter the pellet diameter and press 写真から自動で検出 (detect from photo) to find round marks around the circle that are darker than the paper and the size of a pellet,

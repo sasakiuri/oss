@@ -2,17 +2,30 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import type { Quad } from '@/lib/homography';
 import type { Point } from '@/lib/shot-group';
 
-import type { Calibration, ImageSize, Impact } from './_store';
+import type { Calibration, CalibrationMode, ImageSize, Impact } from './_store';
 
-export type PointerMode = 'impact' | 'aim' | 'scaleA' | 'scaleB';
+export type PointerMode = 'impact' | 'aim' | 'scaleA' | 'scaleB' | 'corner';
+
+/** A group on the photo other than the one being edited, drawn quieter and labelled with its number. */
+export interface OtherGroupDrawing {
+  number: number;
+  aim: Point;
+  impacts: readonly Point[];
+}
 
 interface GroupCanvasProps {
   imageUrl: string | null;
   imageSize: ImageSize;
+  calibrationMode: CalibrationMode;
   calibration: Calibration;
+  corners: Quad;
   aim: Point;
+  /** The number of the group being edited, shown beside its aim point once there is more than one. */
+  groupNumber: number | null;
+  otherGroups: readonly OtherGroupDrawing[];
   impacts: Impact[];
   /** The pair the extreme spread was measured across, drawn as the line between them. */
   extremePair: readonly [number, number] | null;
@@ -41,12 +54,17 @@ const impactColour = '#1f1f1f';
 const spreadColour = '#b3261e';
 const mpiColour = '#1e8e3e';
 const scaleColour = '#8430ce';
+const otherColour = '#5f6368';
 
 export function GroupCanvas({
   imageUrl,
   imageSize,
+  calibrationMode,
   calibration,
+  corners,
   aim,
+  groupNumber,
+  otherGroups,
   impacts,
   extremePair,
   mpiPoint,
@@ -122,6 +140,34 @@ export function GroupCanvas({
       context.setLineDash([]);
     };
 
+    const arm = unit * 9;
+    // A group's number sits on a white plate above and to the left of its aim point.
+    const groupLabel = (point: Point, text: string, colour: string) => {
+      context.font = `${unit * 11}px sans-serif`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      context.fillRect(point.x - arm * 1.9 - unit * 7, point.y - arm - unit * 6, unit * 14, unit * 12);
+      context.fillStyle = colour;
+      context.fillText(text, point.x - arm * 1.9, point.y - arm);
+    };
+    // Other groups on the photo are drawn first and in grey, so the one being edited stays on top.
+    for (const group of otherGroups) {
+      outlined(
+        () => {
+          context.moveTo(group.aim.x - arm * 0.7, group.aim.y);
+          context.lineTo(group.aim.x + arm * 0.7, group.aim.y);
+          context.moveTo(group.aim.x, group.aim.y - arm * 0.7);
+          context.lineTo(group.aim.x, group.aim.y + arm * 0.7);
+        },
+        otherColour,
+        unit,
+      );
+      for (const impact of group.impacts)
+        outlined(() => context.arc(impact.x, impact.y, unit * 2.5, 0, Math.PI * 2), otherColour, unit);
+      groupLabel(group.aim, String(group.number), otherColour);
+    }
+
     // The extreme spread runs under the holes it was measured between, so the line never hides a hole.
     const first = extremePair && impacts[extremePair[0]];
     const second = extremePair && impacts[extremePair[1]];
@@ -137,7 +183,6 @@ export function GroupCanvas({
 
     // An upright cross for the aim point and a diagonal one for the mean point of impact: the two
     // markers differ in shape as well as in colour, so neither is told apart by hue alone.
-    const arm = unit * 9;
     outlined(
       () => {
         context.moveTo(aim.x - arm, aim.y);
@@ -149,6 +194,7 @@ export function GroupCanvas({
       unit * 1.4,
     );
     outlined(() => context.arc(aim.x, aim.y, unit * 4, 0, Math.PI * 2), aimColour, unit);
+    if (groupNumber !== null) groupLabel(aim, String(groupNumber), aimColour);
     if (mpiPoint)
       outlined(
         () => {
@@ -162,21 +208,32 @@ export function GroupCanvas({
         unit * 1.4,
       );
 
+    // The reference the scale is read from: two points, or the four corner marks and the sheet between them.
+    const references: [string, Point][] =
+      calibrationMode === 'corners'
+        ? corners.map((point, index): [string, Point] => [String(index + 1), point])
+        : [
+            ['A', calibration.a],
+            ['B', calibration.b],
+          ];
     outlined(
       () => {
-        context.moveTo(calibration.a.x, calibration.a.y);
-        context.lineTo(calibration.b.x, calibration.b.y);
+        references.forEach(([, point], index) => {
+          if (index === 0) context.moveTo(point.x, point.y);
+          else context.lineTo(point.x, point.y);
+        });
+        // Back to the first mark, so the outline shows the whole sheet the marks enclose.
+        const [, first] = references[0] ?? [];
+        if (calibrationMode === 'corners' && first) context.lineTo(first.x, first.y);
       },
       scaleColour,
       unit * 1.2,
+      calibrationMode === 'corners' ? [unit * 4, unit * 3] : [],
     );
     context.font = `${unit * 12}px sans-serif`;
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    for (const [key, point] of [
-      ['A', calibration.a],
-      ['B', calibration.b],
-    ] as const) {
+    for (const [key, point] of references) {
       context.fillStyle = '#ffffff';
       context.beginPath();
       context.arc(point.x, point.y, unit * 5, 0, Math.PI * 2);
@@ -208,7 +265,20 @@ export function GroupCanvas({
       context.fillStyle = impactColour;
       context.fillText(String(index + 1), labelX, labelY);
     });
-  }, [photo, imageSize, calibration, aim, impacts, extremePair, mpiPoint, displayWidth]);
+  }, [
+    photo,
+    imageSize,
+    calibrationMode,
+    calibration,
+    corners,
+    aim,
+    groupNumber,
+    otherGroups,
+    impacts,
+    extremePair,
+    mpiPoint,
+    displayWidth,
+  ]);
 
   const readPoint = (event: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const rect = event.currentTarget.getBoundingClientRect();
