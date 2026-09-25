@@ -5,13 +5,12 @@
  * The form asks for the planned times, quantities with their reason, places and remarks, and says the
  * acquisition period must not exceed one year (備考 3). Nothing else about the plan is set in law, so
  * the tool totals what the reader plans, checks it against the period and the quantities applied for,
- * and prints the sheet. Read on e-Gov on AMMO_PLAN_CHECKED_ON.
+ * and prints the sheet. Read on e-Gov on 2026-09-24.
  */
 
 import { isIsoDate, lastDayOfYears } from './calendar-days';
 import type { AmmoKind, AmmoPlanRow, AmmoPlanSettings } from './schemas/ammo-purchase-plan';
 
-export const AMMO_PLAN_CHECKED_ON = '2026-09-24';
 export const AMMO_PLAN_ORDINANCE_URL = 'https://laws.e-gov.go.jp/law/341M50000002046';
 
 export const AMMO_KIND_LABELS: Record<AmmoKind, { name: string; unit: string }> = {
