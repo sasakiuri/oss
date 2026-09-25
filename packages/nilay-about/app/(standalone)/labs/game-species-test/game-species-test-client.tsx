@@ -12,22 +12,26 @@ import {
   LanguageMenu,
   SegmentedControl,
   useOfflineAssets,
+  StudyProgress,
 } from '@/components/labs';
 import { Button, Card, Progress } from '@/components/ui';
+import { nonGameList } from '@/features/game-species/non-game';
 import { quizList } from '@/features/game-species/quiz-data';
 import { useDiscardedSave, useStorageStatus } from '@/lib/browser-storage';
 import { labsTool } from '@/lib/labs-tools';
-import { rehydrateLanguage, useLanguage, useSetLanguage } from '@/store';
+import { rehydrateLanguage, useLanguage, useSetLanguage, useStudyLogStore } from '@/store';
 
 import { speciesStorageKey, useGameSpeciesStore, type ExamOptions, type SessionOptions } from './_store';
+import { CompareList } from './compare-list';
 import { ExamIntro } from './exam-intro';
 import { ExamResults } from './exam-results';
 import { ExamRun } from './exam-run';
+import { JudgeMode } from './judge-mode';
 import { SessionResults } from './session-results';
 import { SpeciesImage, SpeciesImageFrame } from './species-image';
 
 /** Every photo, kept for offline use: a session shows only some of them while online. */
-const speciesPhotos = quizList.map((quiz) => quiz.image);
+const speciesPhotos = [...quizList.map((quiz) => quiz.image), ...nonGameList.map((species) => species.image)];
 
 /** A two-line tab label, read out as one phrase. */
 const modeLabel = (name: string, detail: string, spoken: string) => (
@@ -44,7 +48,10 @@ export function GameSpeciesTestClient() {
   const state = useGameSpeciesStore();
   useOfflineAssets(speciesPhotos);
   const [ready, setReady] = useState(false);
-  const [toolMode, setToolMode] = useState<'slideshow' | 'exam'>('slideshow');
+  const [toolMode, setToolMode] = useState<'slideshow' | 'exam' | 'judge'>('slideshow');
+  const [judgeRunning, setJudgeRunning] = useState(false);
+  const recordStudy = useStudyLogStore((store) => store.recordStudy);
+  const markStudied = useCallback(() => void recordStudy(), [recordStudy]);
   const [options, setOptions] = useState<SessionOptions>({ category: 'all', questionCount: null });
   const [examOptions, setExamOptions] = useState<ExamOptions>({ category: 'all', questionCount: 10, timeLimit: 10 });
   const [examAttempt, setExamAttempt] = useState(0);
@@ -71,6 +78,7 @@ export function GameSpeciesTestClient() {
     });
   const grade = (known: boolean) => {
     rate(known);
+    markStudied();
     focusNextAction();
   };
   const storageAvailable = useStorageStatus((s) => s.available);
@@ -108,7 +116,8 @@ export function GameSpeciesTestClient() {
     (quiz) => examOptions.category === 'all' || quiz.category === examOptions.category,
   );
   const examCount = Math.min(examOptions.questionCount ?? examCandidates.length, examCandidates.length);
-  const showingExam = toolMode === 'exam';
+  // Both tests hide the slideshow's controls and keys.
+  const showingExam = toolMode !== 'slideshow';
   const examRunning = exam !== null && exam.answers.length < exam.questions.length;
   const examIndex = exam ? exam.answers.length : 0;
   // Ignore a tick from the previous question.
@@ -124,6 +133,13 @@ export function GameSpeciesTestClient() {
               `${examIndex + 1} 問目。残り ${exam.timeLimit} 秒。`,
               `Question ${examIndex + 1}. ${exam.timeLimit} seconds left.`,
             );
+  const handleExamAnswer = useCallback(
+    (choice: string | null) => {
+      answerExam(choice);
+      markStudied();
+    },
+    [answerExam, markStudied],
+  );
   const handleExamTick = useCallback((index: number, left: number) => setExamTick({ index, left }), []);
   const sessionCategory = new Set(order.map((id) => quizList.find((quiz) => quiz.image === id)?.category));
   const sessionLabel =
@@ -133,9 +149,7 @@ export function GameSpeciesTestClient() {
         ? t('鳥類', 'Birds')
         : t('獣類', 'Mammals');
   const discardedNotice = discardedSaveMessage(language, 'record');
-  const savingNotice = !storageAvailable
-    ? t('このブラウザーでは記録を保存できません。', 'This browser cannot save your record.')
-    : t('進み具合は自動保存され、次回は続きから再開します。', 'Progress is saved and resumes next time.');
+  const savingNotice = t('このブラウザーでは記録を保存できません。', 'This browser cannot save your record.');
   // Only problems are announced, each in its own region so one is not re-read with the other.
   const discardedAlert = storageDiscarded ? discardedNotice : '';
   const savingAlert = storageAvailable ? '' : savingNotice;
@@ -259,10 +273,12 @@ export function GameSpeciesTestClient() {
     focusExamIntro();
   };
 
-  const switchMode = (value: 'slideshow' | 'exam') => {
+  const switchMode = (value: 'slideshow' | 'exam' | 'judge') => {
     if (value === toolMode) return;
     // Leaving quiz mode ends the quiz.
-    if (value === 'slideshow' && !discardExam()) return;
+    if (toolMode === 'exam' && !discardExam()) return;
+    if (toolMode === 'judge' && judgeRunning && !window.confirm(t('今のテストを終了しますか？', 'End this test?')))
+      return;
     setAutoPlay(false);
     setToolMode(value);
   };
@@ -318,6 +334,7 @@ export function GameSpeciesTestClient() {
           {examMessage}
         </p>
         <DiscardedSaveNotice storageKey={speciesStorageKey} language={language} subject="record" />
+        <StudyProgress language={language} />
         {/* The legend is for screen readers only. */}
         <div className="[&_legend]:sr-only">
           <SegmentedControl
@@ -341,8 +358,16 @@ export function GameSpeciesTestClient() {
                   t('判別テスト（4 択・制限時間つき）', 'Timed quiz (four choices)'),
                 ),
               },
+              {
+                value: 'judge',
+                label: modeLabel(
+                  t('本番形式', 'Exam style'),
+                  t('非狩猟鳥獣も出題', 'with non-game'),
+                  t('本番形式（非狩猟鳥獣も出題）', 'Exam style (with non-game species)'),
+                ),
+              },
             ]}
-            onChange={(value) => switchMode(value as 'slideshow' | 'exam')}
+            onChange={(value) => switchMode(value as 'slideshow' | 'exam' | 'judge')}
           />
         </div>
         <Card
@@ -350,7 +375,9 @@ export function GameSpeciesTestClient() {
           variant="outlined"
           className="scroll-mt-[calc(var(--labs-bar-height,4rem)+1rem)] overflow-hidden rounded-md"
         >
-          {showingExam ? (
+          {toolMode === 'judge' ? (
+            <JudgeMode language={language} onAnswered={markStudied} onRunningChange={setJudgeRunning} />
+          ) : showingExam ? (
             !exam ? (
               <ExamIntro
                 language={language}
@@ -369,7 +396,7 @@ export function GameSpeciesTestClient() {
                 language={language}
                 remaining={examLeft}
                 onTick={handleExamTick}
-                onAnswer={answerExam}
+                onAnswer={handleExamAnswer}
                 onQuit={leaveExam}
               />
             ) : (
@@ -600,17 +627,19 @@ export function GameSpeciesTestClient() {
             </div>
           </ConditionSection>
         )}
+        <ConditionSection
+          id="lookalikes"
+          title={t('間違えやすい非狩猟鳥獣との比較', 'Look-alike non-game species')}
+          summary={t('狩猟鳥獣と非狩猟鳥獣の写真を並べて表示', 'Game and non-game species side by side')}
+        >
+          <CompareList language={language} />
+        </ConditionSection>
         <div className="space-y-2">
-          {(!showingExam || !storageAvailable) && <p className="text-xs text-on-surface-variant">{savingNotice}</p>}
+          {!storageAvailable && <p className="text-xs text-on-surface-variant">{savingNotice}</p>}
           {!showingExam && (
-            <>
-              <p className="text-xs text-on-surface-variant">
-                {t('自動再生では採点しません。', 'Auto play does not mark answers.')}
-              </p>
-              <p className="hidden text-xs text-on-surface-variant lg:block">
-                {t('キーボード：← 前へ / → 次へ / Enter 答え', 'Keyboard: ← back / → next / Enter answer')}
-              </p>
-            </>
+            <p className="hidden text-xs text-on-surface-variant lg:block">
+              {t('キーボード：← 前へ / → 次へ / Enter 答え', 'Keyboard: ← back / → next / Enter answer')}
+            </p>
           )}
         </div>
       </div>

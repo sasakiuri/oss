@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { LabsIndex } from '@/app/(site)/labs/labs-index';
+import { labsTools } from '@/lib/labs-tools';
 import { useLanguageStore } from '@/store';
 
 describe('the list of tools', () => {
@@ -11,7 +12,7 @@ describe('the list of tools', () => {
     render(<LabsIndex />);
     // One description list is how a screen reader announces what is on offer and how much of it.
     const terms = screen.getAllByRole('term');
-    expect(terms).toHaveLength(29);
+    expect(terms).toHaveLength(labsTools.length);
     for (const term of terms) expect(within(term).getByRole('link').getAttribute('href')).toMatch(/^\/labs\//);
   });
 
@@ -32,7 +33,7 @@ describe('the list of tools', () => {
   it('reads in Japanese when that is what the site is set to', () => {
     render(<LabsIndex />);
     expect(screen.getByRole('heading', { level: 1, name: '狩猟・射撃のツール (Labs)' })).toBeInTheDocument();
-    expect(screen.getByText(/登録不要で、入力した内容はこのブラウザーの中だけに保存します。/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '保存データの書き出し・読み込み' })).toHaveAttribute('href', '/labs/data');
   });
 
   it('reads in English when that is what the site is set to', () => {
@@ -40,13 +41,15 @@ describe('the list of tools', () => {
     render(<LabsIndex />);
     expect(screen.getByRole('heading', { level: 1, name: 'Hunting and shooting tools (Labs)' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Trajectory Truing' })).toHaveAttribute('href', '/labs/trajectory-truing');
-    expect(screen.getByText(/No sign-up; what you enter stays in this browser\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Export or import saved data' })).toHaveAttribute('href', '/labs/data');
   });
 
   it('says which tools it cannot offer in English', () => {
     useLanguageStore.setState({ language: 'en' });
     render(<LabsIndex />);
-    // Three of them are written against Japanese statutes and forms and are not translated.
-    expect(screen.getAllByText(/Japanese only/)).toHaveLength(3);
+    // The ones written against Japanese statutes and forms are not translated, and say so.
+    const japaneseOnly = labsTools.filter((tool) => 'japaneseOnly' in tool && tool.japaneseOnly);
+    expect(japaneseOnly.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Japanese only/)).toHaveLength(japaneseOnly.length);
   });
 });

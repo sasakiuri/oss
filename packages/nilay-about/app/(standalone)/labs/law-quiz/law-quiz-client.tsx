@@ -10,6 +10,7 @@ import {
   DiscardedSaveNotice,
   LanguageMenu,
   SegmentedControl,
+  StudyProgress,
   discardedSaveMessage,
 } from '@/components/labs';
 import { Button, Card, Progress } from '@/components/ui';
@@ -24,7 +25,7 @@ import {
   type LawQuizFamily,
   type LawQuizScope,
 } from '@/lib/schemas/law-quiz';
-import { rehydrateLanguage, useLanguage, useSetLanguage, type Language } from '@/store';
+import { rehydrateLanguage, useLanguage, useSetLanguage, useStudyLogStore, type Language } from '@/store';
 
 import { sessionScore, storageKey, useLawQuizStore } from './_store';
 import {
@@ -153,6 +154,7 @@ function bringIntoView(element: HTMLElement | null) {
 export function LawQuizClient() {
   const { options, session, reviewIds, setScope, setQuestionCount, start, startReview, answer, advance, exit } =
     useLawQuizStore();
+  const recordStudy = useStudyLogStore((state) => state.recordStudy);
   const language = useLanguage();
   const setLanguage = useSetLanguage();
   const storageAvailable = useStorageStatus((status) => status.available);
@@ -272,6 +274,7 @@ export function LawQuizClient() {
   // The pressed choice unmounts, so focus moves to the next button. Only a key press (`detail` 0) scrolls to it.
   const answerWith = (choice: string | null, byKeyboard: boolean) => {
     answer(choice);
+    void recordStudy();
     window.requestAnimationFrame(() => {
       bringCardIntoView();
       nextButton.current?.focus({ preventScroll: !byKeyboard });
@@ -335,10 +338,7 @@ export function LawQuizClient() {
       </div>
       {reviewIds.length > 0 && (
         <p className="text-sm text-on-surface-variant">
-          {t(
-            '誤答・未回答の問題は「要復習」に残ります。正答しても消えません。',
-            'Missed and skipped questions stay marked for review, even after a correct answer.',
-          )}
+          {t('要復習の問題は正答しても消えません。', 'Marked questions stay marked after a correct answer.')}
         </p>
       )}
       {language === 'en' && (
@@ -553,6 +553,7 @@ export function LawQuizClient() {
       </p>
       <div lang={language} className="mx-auto max-w-3xl space-y-6" inert={!ready} aria-busy={!ready}>
         <DiscardedSaveNotice storageKey={storageKey} language={language} />
+        <StudyProgress language={language} />
         {session === null ? intro : complete ? results : run}
 
         <ConditionSection
@@ -565,8 +566,8 @@ export function LawQuizClient() {
         >
           <p className="text-sm text-on-surface-variant">
             {t(
-              `${LAW_TEXT_CHECKED_ON} に e-Gov 法令検索で確認した条文から出題しています。その後の改正は反映していません。`,
-              `Questions are based on the text on e-Gov 法令検索 as of ${LAW_TEXT_CHECKED_ON}. Later amendments are not reflected.`,
+              `条文は e-Gov 法令検索（${LAW_TEXT_CHECKED_ON} 時点）によります。`,
+              `The text is from e-Gov 法令検索 as of ${LAW_TEXT_CHECKED_ON}.`,
             )}
           </p>
           <ul className="space-y-2 text-sm text-on-surface-variant">
@@ -595,25 +596,14 @@ export function LawQuizClient() {
             )}
           </p>
         </ConditionSection>
-        <div className="space-y-2 text-sm text-on-surface-variant">
-          <p>
-            {t(
-              '狩猟免許試験や猟銃等講習会の考査の再現ではありません。狩猟や射撃をする地域の規制を確認してください。',
-              'This is not the hunting licence exam or the firearms course test. Check the rules where you hunt or shoot.',
-            )}
-          </p>
-          <p role="status">
-            {storageAvailable
-              ? t(
-                  '設定、途中経過、要復習の記録はこのブラウザーに保存されます。',
-                  'Settings, progress and review marks are saved in this browser.',
-                )
-              : t(
-                  'このブラウザーでは保存できません。再読み込みすると最初からになります。',
-                  'This browser cannot save anything. Reloading starts over.',
-                )}
-          </p>
-        </div>
+        <p role="status" className="text-sm text-on-surface-variant">
+          {storageAvailable
+            ? ''
+            : t(
+                'このブラウザーでは保存できません。再読み込みすると最初からになります。',
+                'This browser cannot save anything. Reloading starts over.',
+              )}
+        </p>
       </div>
     </AppLayout>
   );
