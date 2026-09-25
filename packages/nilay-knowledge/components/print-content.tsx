@@ -2,6 +2,33 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
+function waitForImageLoad(image: HTMLImageElement, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      image.removeEventListener('load', loaded);
+      image.removeEventListener('error', failed);
+      signal.removeEventListener('abort', aborted);
+    };
+    const loaded = () => {
+      cleanup();
+      resolve();
+    };
+    const failed = () => {
+      cleanup();
+      reject(new Error('Image replacement failed to load'));
+    };
+    const aborted = () => {
+      cleanup();
+      reject(signal.reason);
+    };
+    image.addEventListener('load', loaded);
+    image.addEventListener('error', failed);
+    signal.addEventListener('abort', aborted);
+    if (signal.aborted) aborted();
+    else if (image.complete) loaded();
+  });
+}
+
 function waitForImages(images: HTMLImageElement[], signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
@@ -9,6 +36,11 @@ function waitForImages(images: HTMLImageElement[], signal: AbortSignal): Promise
     Promise.all(
       images.map(async (image) => {
         await image.decode();
+        // Decoding the current image can finish while its replacement is still loading.
+        if (!image.complete) {
+          await waitForImageLoad(image, signal);
+          await image.decode();
+        }
         if (image.naturalWidth === 0) throw new Error('Image has no decoded content');
       }),
     ).then(
@@ -83,6 +115,7 @@ export function useContentPrint() {
         window.print();
       } catch {
         if (!mounted || active !== controller) return;
+        controller.abort();
         restore();
         active = null;
         setPhase('failed');
