@@ -459,7 +459,11 @@ export function GibierRecordClient() {
                   })}
                 </ul>
                 <div className="space-y-1">
-                  <Button variant="outline" onClick={() => void exportCsv()}>
+                  <Button
+                    variant="outline"
+                    className="h-auto min-h-10 max-w-full whitespace-normal"
+                    onClick={() => void exportCsv()}
+                  >
                     <LuDownload aria-hidden="true" />
                     すべての記録を CSV で書き出す
                   </Button>
