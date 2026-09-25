@@ -15,7 +15,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'firefox',
+      // Leave room for Windows Firefox startup without changing assertion deadlines.
+      timeout: process.platform === 'win32' ? 60_000 : 30_000,
+      use: { ...devices['Desktop Firefox'] },
+    },
     { name: 'mobile', use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 568 } } },
   ],
   webServer: {
