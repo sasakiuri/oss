@@ -1,4 +1,6 @@
 name: CI
+# Temporary verification only: run the unchanged #134 source across all platforms.
+# This draft verification branch must not be merged.
 
 on:
   push:
