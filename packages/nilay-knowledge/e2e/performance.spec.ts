@@ -110,7 +110,8 @@ test('article printing waits for offscreen images before opening the print dialo
     await expect(button).toBeDisabled();
     await expect(page.locator('body')).not.toHaveAttribute('data-print-images-ready');
     release();
-    await expect(page.locator('body')).toHaveAttribute('data-print-images-ready', 'true');
+    // Printing allows 15 seconds for native image loading/decoding, then reports failure.
+    await expect(page.locator('body')).toHaveAttribute('data-print-images-ready', 'true', { timeout: 20_000 });
     await expect(page.locator('.article-content img[loading="lazy"]')).toHaveCount(93);
   } finally {
     release();
@@ -144,7 +145,8 @@ test('printing retries a failed image download before starting the print dialog'
   await expect(page.getByRole('status')).toContainText('画像を読み込めませんでした');
   await expect(page.locator('body')).not.toHaveAttribute('data-print-images-ready');
   await page.keyboard.press('Control+p');
-  await expect(page.locator('body')).toHaveAttribute('data-print-images-ready', 'true');
+  // Allow the application's 15-second image preparation deadline plus assertion scheduling.
+  await expect(page.locator('body')).toHaveAttribute('data-print-images-ready', 'true', { timeout: 20_000 });
   expect(attempts).toBe(2);
 });
 
