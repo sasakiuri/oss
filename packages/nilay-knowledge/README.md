@@ -488,9 +488,9 @@ excluded; paths and symlinks must stay inside `content/`. Missing or broken
 referenced PDFs fail the build. Pages without extractable text are counted in the
 build log; OCR is not performed. PDF data is downloaded and indexed in the existing
 worker only for a nonempty query with the PDF target selected, then reused.
-The current corpus contains 214 linked PDFs / 2,708 pages, of which 2,596 pages
-have text; 112 blank or image-only pages are excluded. The extra index is about
-1.05 MB gzip, separate from the normal article/news download. PDF parsing code and
+The current corpus contains 284 linked PDFs / 3,202 pages, of which 2,920 pages
+have text; 282 blank or image-only pages are excluded. The extra index is about
+1.22 MB gzip, separate from the normal article/news download. PDF parsing code and
 fonts stay on the server.
 
 Search and Graphviz workers expose typed APIs through Comlink. The shared worker
@@ -528,9 +528,9 @@ benchmark against a production server as described in [PERFORMANCE.md](PERFORMAN
 
 `npm run size-limit --workspace=@sasakiuri/nilay-knowledge` checks an existing
 production build. The gzip budgets are 330 kB of initial JS and 20 kB of initial
-CSS per static page, 125 kB for the article/news index, and 1.2 MB for the optional
-PDF index. The PDF budget includes the 79 files added with the 2022–2026 circular
-backfill; this index is fetched only when PDF search is requested.
+CSS per static page, 125 kB for the article/news index, and 1.4 MB for the optional
+PDF index. The PDF budget includes the historical circular archive; this index
+is fetched only when PDF search is requested.
 Initial script, stylesheet and preload references are collected from
 all generated HTML; shared assets are counted once per page and lazy chunks are
 excluded. Missing build artifacts fail the check. These are compressed file-size
