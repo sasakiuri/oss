@@ -2,7 +2,7 @@
 title: 銃砲・狩猟・火薬類に関連する法令等の一覧
 description: 銃刀法、鳥獣法、火薬類取締法など、銃砲・狩猟・火薬類に関係する法令を分野別に紹介。警察庁の訓令・通達と保存資料も掲載しています。
 published: "2013-09-13T12:00:00+09:00"
-updated: "2026-09-26T03:15:12.812Z"
+updated: "2026-09-26T03:30:48.224Z"
 tags: ["法令"]
 category: procedures
 review:
@@ -14,13 +14,13 @@ review:
       url: "https://www.npa.go.jp/laws/notification/seian.html#hoan"
     - title: "環境省：猟銃等の購入に関する財政支援及び取扱い等の連名通知"
       url: "https://www.env.go.jp/nature/choju/effort/effort12/kuma-oshirase-r080212.html"
-    - title: "警察庁の通達一覧（Internet Archive保存版）"
+    - title: "警察庁の通達一覧（Internet Archive・2025年7月17日保存版）"
       url: "https://web.archive.org/web/20250717103250/https://www.npa.go.jp/laws/notification/seian.html"
-    - title: "警察庁の通達一覧（Internet Archive保存版）"
+    - title: "警察庁の通達一覧（Internet Archive・2024年9月15日保存版）"
       url: "https://web.archive.org/web/20240915172913/https://www.npa.go.jp/laws/notification/seian.html"
-    - title: "警察庁の通達一覧（Internet Archive保存版）"
+    - title: "警察庁の通達一覧（Internet Archive・2023年6月8日保存版）"
       url: "https://web.archive.org/web/20230608122500/https://www.npa.go.jp/laws/notification/seian.html"
-    - title: "警察庁の通達一覧（Internet Archive保存版）"
+    - title: "警察庁の通達一覧（Internet Archive・2022年6月29日保存版）"
       url: "https://web.archive.org/web/20220629144455/https://www.npa.go.jp/laws/notification/seian.html"
     - title: "国立国会図書館WARP：2025-01-24付 銃砲又はクロスボウに係る許可証等への旧姓記載等の運用について（通達）"
       url: "https://warp.ndl.go.jp/web/20250301134014/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-14.pdf"

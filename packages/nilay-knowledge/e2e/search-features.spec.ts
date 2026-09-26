@@ -49,6 +49,7 @@ test('command navigation respects composition and opens the selected section', a
 test('PDF search downloads a separate index only when requested and links to the matching page', async ({
   page,
   request,
+  browserName,
 }) => {
   // Index loading and the accessibility audit share this budget; the result still has its own deadline.
   test.setTimeout(60_000);
@@ -62,7 +63,8 @@ test('PDF search downloads a separate index only when requested and links to the
   expect(downloads).toHaveLength(0);
   await dialog.getByRole('combobox', { name: '検索対象' }).selectOption('pdf');
   const result = dialog.getByRole('listbox').getByRole('option').first();
-  await expect(result).toBeVisible({ timeout: 20_000 });
+  // The circular backfill grows the corpus from 1,509 to 2,596 pages; Firefox needs more indexing time.
+  await expect(result).toBeVisible({ timeout: browserName === 'firefox' ? 40_000 : 20_000 });
   const href = await result.getAttribute('href');
   expect(href).toMatch(/^\/content\/.*\.pdf#page=[1-9]\d*$/);
   const response = await request.get(href!.split('#')[0]!);
