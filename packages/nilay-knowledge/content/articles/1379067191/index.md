@@ -2,13 +2,13 @@
 title: 銃砲・狩猟・火薬類に関連する法令等の一覧
 description: 銃刀法、鳥獣法、火薬類取締法など、銃砲・狩猟・火薬類に関係する法令を分野別に紹介。警察庁の訓令・通達と保存資料も掲載しています。
 published: "2013-09-13T12:00:00+09:00"
-updated: "2026-09-26T02:41:32.121Z"
+updated: "2026-09-26T03:15:12.812Z"
 tags: ["法令"]
 category: procedures
 review:
   checked: "2026-09-26"
   region: "全国"
-  scope: "警察庁の訓令・通達欄に追補した2022年1月28日以降の資料の発出日・文書番号・題名・全文と概要の区分・原文PDF。新資料に明記された旧通達の廃止も確認。法令本文と既存資料全体の現行有効性は対象外。"
+  scope: "警察庁の訓令・通達欄に追補した2022年1月28日以降の資料の発出日・文書番号・題名・全文と概要の区分・原文PDF。新資料に明記された旧通達の廃止も確認。既存資料の継続・期間満了は網羅していない。法令本文と既存資料全体の現行有効性は対象外。"
   sources:
     - title: "警察庁：警察庁の施策を示す通達（生活安全局）"
       url: "https://www.npa.go.jp/laws/notification/seian.html#hoan"
@@ -22,6 +22,12 @@ review:
       url: "https://web.archive.org/web/20230608122500/https://www.npa.go.jp/laws/notification/seian.html"
     - title: "警察庁の通達一覧（Internet Archive保存版）"
       url: "https://web.archive.org/web/20220629144455/https://www.npa.go.jp/laws/notification/seian.html"
+    - title: "国立国会図書館WARP：2025-01-24付 銃砲又はクロスボウに係る許可証等への旧姓記載等の運用について（通達）"
+      url: "https://warp.ndl.go.jp/web/20250301134014/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-14.pdf"
+    - title: "国立国会図書館WARP：2024-03-15付 技能講習の開催要領について（通達）"
+      url: "https://warp.ndl.go.jp/web/20240501132909/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/ginoukousyuu.pdf"
+    - title: "国立国会図書館WARP：2023-12-22付 銃砲刀剣類所持等取締法第13条に基づく検査の実施要領について（通達）"
+      url: "https://warp.ndl.go.jp/web/20240401135908/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/isseikennsa.pdf"
 ---
 
 銃刀法や鳥獣法など、銃砲・狩猟・火薬類に関連する法令（法律・省令・府令・規則・政令）の一覧を掲載しています。このほか、警察庁の通達 PDF を保管してあります。
@@ -71,7 +77,7 @@ __関連外部リンク：__
 
 銃砲・狩猟・火薬類に関係する通達・通知を、発出年ごとに掲載しています。題名のリンクは当サイトで保存した PDF です。2026年9月26日の追補分には、文書番号と警察庁などの掲載元を添えています。
 
-「概要」と記した資料は、公表された概要 PDF です。旧版や有効期間が終了した資料も含むため、利用する際は原文の有効期間・改正・廃止の記載と、[警察庁の公表一覧](https://www.npa.go.jp/laws/notification/seian.html#hoan)を確認してください。
+「概要」と記した資料は、警察庁の公表一覧で「概要」欄に分類された PDF です。旧版や有効期間が終了した資料も含むため、利用する際は原文の有効期間・改正・廃止の記載と、[警察庁の公表一覧](https://www.npa.go.jp/laws/notification/seian.html#hoan)を確認してください。
 
 2026年2月12日の連名通知は、[環境省の通知・別添掲載ページ](https://www.env.go.jp/nature/choju/effort/effort12/kuma-oshirase-r080212.html)でも確認できます。
 
@@ -110,25 +116,28 @@ __関連外部リンク：__
 - 令和7年01月24日　[銃砲刀剣類所持等取締法上の行政調査等の適正な実施について（通達）](./dcl/npa-20250124-a3fcbe5e6e10.pdf)（警察庁丁保発第15号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-15.pdf)
 - 令和7年01月24日　[事業に対する被害を防止するための特定ライフル銃の所持許可申請等への対応について（通達）](./dcl/npa-20250124-ef8daaab9d55.pdf)（警察庁丁保発第12号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-12.pdf)
 - 令和7年01月24日　[技能講習実施基準の制定について（通達）](./dcl/npa-20250124-5fd122ecac6b.pdf)（警察庁丁保発第11号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-11.pdf)
+- 令和7年01月24日　[銃砲又はクロスボウに係る許可証等への旧姓記載等の運用について（通達）](./dcl/npa-20250124-c71157eacab7.pdf)（丁保発第14号、全文）。掲載元PDFはリンク切れ。[保存版（国立国会図書館WARP）](https://warp.ndl.go.jp/web/20250301134014/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-14.pdf)。[2026年3月24日付通達](./dcl/npa-20260324-5d283f2c7652.pdf)に廃止の記載あり
 - 令和7年01月24日　[技能講習の開催要領について（通達）](./dcl/npa-20250124-930d275e1f54.pdf)（丁保発第10号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/R070124-tei-10.pdf)。[2025年11月28日付通達](./dcl/npa-20251128-a296d9926e18.pdf)に廃止の記載あり
 
 ## 令和6年
 
-- 令和6年12月24日　[猟銃の所持許可を受けようとする者への周知について（通知）](./dcl/npa-20241224-642fb2a91ba0.pdf)（丁保発第166号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/061224_syuchi_tsuuchi.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20241226091958/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/061224_syuchi_tsuuchi.pdf)
+- 令和6年12月24日　[猟銃の所持許可を受けようとする者への周知について（通知）](./dcl/npa-20241224-642fb2a91ba0.pdf)（丁保発第166号、全文）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20241226091958/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/061224_syuchi_tsuuchi.pdf)
 - 令和6年12月23日　[銃砲刀剣類所持等取締法第13条の規定に基づく検査の実施要領について（通達）](./dcl/npa-20241223-0d2de48e10f1.pdf)（丁保発第164号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/R061223_kensa.pdf)。原文の有効期間末：2025年12月31日
 - 令和6年12月10日　[モデル審査基準等の改定について（通知）](./dcl/npa-20241210-00fbdea6004a.pdf)（警察庁丙保発第22号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/20241210moderu-shinsakijun.pdf)
 - 令和6年11月29日　[事業に対する被害を防止するための特定ライフル銃の所持許可の特例的運用について（通達）](./dcl/npa-20241129-a50f0c8882bb.pdf)（警察庁丁保発第147号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/061129_tokureiunyou_tuutatu2.pdf)
 - 令和6年11月29日　[事業に対する被害を防止するための特定ライフル銃の所持許可の特例的運用について（通知）](./dcl/npa-20241129-ce6c36da4cb5.pdf)（6農振第1998号、6林整研第200号、環自野発第2411291号、警察庁丙保発第20号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/061129_tokureiunyou_tuutatu1.pdf)
 - 令和6年07月04日　[銃砲刀剣類所持等取締法の一部を改正する法律の施行に伴う運用上の留意事項等について（通達）](./dcl/npa-20240704-7336e9b3db8c.pdf)（警察庁丙保発第10号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/juhotokaisei_0704.pdf)
-- 令和6年06月18日　[猟銃等の所持許可のための調査及び審査の実施要領について（通達）](./dcl/npa-20240618-c98956587ff4.pdf)（丁保発第81号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/ryoujuuchousatsuutatsu.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20240914170156/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/ryoujuuchousatsuutatsu.pdf)
+- 令和6年06月18日　[猟銃等の所持許可のための調査及び審査の実施要領について（通達）](./dcl/npa-20240618-c98956587ff4.pdf)（丁保発第81号、概要）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20240914170156/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/ryoujuuchousatsuutatsu.pdf)
 - 令和6年06月14日　[警察における電磁石銃等の引取りについて（通達）](./dcl/npa-20240614-62e9aa196251.pdf)（警察庁丁保発第74号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/denjishakuju_0614.pdf)
 - 令和6年03月15日　[狩猟等のため車両で移動する際における猟銃等の携帯、運搬及び保管に係る留意事項について（通達）](./dcl/npa-20240315-f21f2f88f667.pdf)（警察庁丁保発第36号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/syuryounosyaryou.pdf)
 - 令和6年03月15日　[猟銃、空気銃の銃全長、銃身長及び実測口径の測定方法について（通達）](./dcl/npa-20240315-ca0d06f5b279.pdf)（警察庁丁保発第35号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/sokuteihouhou.pdf)
+- 令和6年03月15日　[技能講習の開催要領について（通達）](./dcl/npa-20240315-788f5ef1d6e6.pdf)（丁保発第38号、全文）。掲載元PDFはリンク切れ。[保存版（国立国会図書館WARP）](https://warp.ndl.go.jp/web/20240501132909/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/ginoukousyuu.pdf)。[2025年1月24日付通達](./dcl/npa-20250124-930d275e1f54.pdf)に廃止の記載あり
 - 令和6年03月15日　[猟銃及び空気銃の取扱いに関する講習会の実施要領について（通達）](./dcl/npa-20240315-6c17094352dc.pdf)（丁保発第37号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/kousyuukai.pdf)
 - 令和6年03月07日　[アナログ規制の見直し結果を踏まえた指定射撃場の指定に関する内閣府令等の運用について（通達）](./dcl/npa-20240307-66734640596d.pdf)（丁保発第28号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/anarogukisei.pdf)。原文の有効期間末：2025年3月31日
 
 ## 令和5年
 
+- 令和5年12月22日　[銃砲刀剣類所持等取締法第13条に基づく検査の実施要領について（通達）](./dcl/npa-20231222-6ea4886935dc.pdf)（丁保発第151号、全文）。掲載元PDFはリンク切れ。[保存版（国立国会図書館WARP）](https://warp.ndl.go.jp/web/20240401135908/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/isseikennsa.pdf)。原文の有効期間末：2025年3月31日。[2024年12月23日付通達](./dcl/npa-20241223-0d2de48e10f1.pdf)に廃止の記載あり
 - 令和5年12月08日　[クロスボウの取扱いに関する講習会の実施要領について（通達）](./dcl/npa-20231208-6a620ff7e9e0.pdf)（丁保発第142号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/kurosuboukousyuukai.pdf)。[2025年11月28日付通達](./dcl/npa-20251128-c5a6a7610a1e.pdf)に廃止の記載あり
 - 令和5年12月07日　[日豪部隊間協力円滑化協定に係る火薬類運搬上の措置に関する対応について（通達）](./dcl/npa-20231207-4a7c90cf4f51.pdf)（警察庁丁保発第139号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/hoan20231207.pdf)
 - 令和5年09月29日　[危険物運搬車両に対する指導取締りにおける留意事項について（通達）](./dcl/npa-20230929-c04e2547b742.pdf)（警察庁丁保発第114号、警察庁丁交指発第123号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/hoan20230929.pdf)
@@ -145,7 +154,7 @@ __関連外部リンク：__
 - 令和4年04月21日　[銃砲刀剣類所持等取締法上の認知機能検査に係る「認知機能検査実施要領」について（通達）](./dcl/npa-20220421-b6d9c417be3c.pdf)（警察庁丁保発第85号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/hoan20220421-2.pdf)
 - 令和4年04月21日　[銃砲刀剣類所持等取締法上の認知機能検査の運用について（通達）](./dcl/npa-20220421-ee1860a8070c.pdf)（警察庁丁保発第84号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/hoan20220421-1.pdf)
 - 令和4年04月14日　[銃砲刀剣類所持等取締法施行規則の一部を改正する内閣府令の施行について（通達）](./dcl/npa-20220414-ee5ad404ad2b.pdf)（警察庁丙保発第14号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoan20220414.pdf)
-- 令和4年04月01日　[許可等事務における新型コロナウイルス感染症への対策等について（通達）](./dcl/npa-20220401-034e7e044bf1.pdf)（丁生企発第162号、丁人少発第6号、丁保発第74号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/seiki/20220401kyokajimukorona.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20220630081437/https://www.npa.go.jp/laws/notification/seian/seiki/20220401kyokajimukorona.pdf)。原文の有効期間末：2023年3月31日。[2023年3月8日付通達](./dcl/npa-20230308-7b741285d98c.pdf)に廃止の記載あり
+- 令和4年04月01日　[許可等事務における新型コロナウイルス感染症への対策等について（通達）](./dcl/npa-20220401-034e7e044bf1.pdf)（丁生企発第162号、丁人少発第6号、丁保発第74号、全文）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20220630081437/https://www.npa.go.jp/laws/notification/seian/seiki/20220401kyokajimukorona.pdf)。原文の有効期間末：2023年3月31日。[2023年3月8日付通達](./dcl/npa-20230308-7b741285d98c.pdf)に廃止の記載あり
 - 令和4年03月10日　[本邦に輸入されるクロスボウの取扱いに係る税関との連携等について（通達）](./dcl/npa-20220310-e790fabf44ca.pdf)（警察庁丁保発第60号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/19_zeikan.pdf)
 - 令和4年03月07日　[クロスボウ講習会における考査の運用要領について（通達）](./dcl/npa-20220307-2af0854b98e1.pdf)（丁保発第59号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/18_kousanounyo.pdf)。[2025年11月28日付通達](./dcl/npa-20251128-ca28a0f48e92.pdf)に廃止の記載あり
 - 令和4年03月03日　[銃砲刀剣類所持等取締法第29条の規定による申出制度の適正な運用について（通達）](./dcl/npa-20220303-e271278ad34d.pdf)（警察庁丁保発第57号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/16_mousideseido.pdf)
@@ -158,10 +167,10 @@ __関連外部リンク：__
 - 令和4年03月03日　[標的射撃を行う場所において都道府県公安委員会が危害防止上有効であると認める措置の認定について（通達）](./dcl/npa-20220303-144e9b67bdff.pdf)（警察庁丁保発第41号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/3_hyotekisyagekiwookonaubasyo.pdf)
 - 令和4年03月03日　[銃砲刀剣類所持等取締法の一部を改正する法律等の施行に伴う運用上の留意事項について（通達）](./dcl/npa-20220303-762408e3e01a.pdf)（警察庁丁保発第40号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/2_jyutouhousekouryuui.pdf)
 - 令和4年03月03日　[銃砲行政における新型コロナウイルス感染症対策について（通達）](./dcl/npa-20220303-d2d633bdaf14.pdf)（丁保発第58号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/17_singatakorona.pdf)。原文の有効期間末：2023年3月31日
-- 令和4年03月03日　[銃砲刀剣類所持等取締法上の行政調査等の適正な実施について（通達）](./dcl/npa-20220303-61d762ce2ad1.pdf)（丁保発第55号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/15_gyouseityousa.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20220810095300/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/15_gyouseityousa.pdf)。[2025年1月24日付通達](./dcl/npa-20250124-a3fcbe5e6e10.pdf)に廃止の記載あり
-- 令和4年03月03日　[銃砲又はクロスボウに係る許可証等への旧姓記載等の運用について（通達）](./dcl/npa-20220303-b69b511a9f41.pdf)（丁保発第50号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/10_kyuuseikisai.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20220810095308/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/10_kyuuseikisai.pdf)
+- 令和4年03月03日　[銃砲刀剣類所持等取締法上の行政調査等の適正な実施について（通達）](./dcl/npa-20220303-61d762ce2ad1.pdf)（丁保発第55号、全文）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20220810095300/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/15_gyouseityousa.pdf)。[2025年1月24日付通達](./dcl/npa-20250124-a3fcbe5e6e10.pdf)に廃止の記載あり
+- 令和4年03月03日　[銃砲又はクロスボウに係る許可証等への旧姓記載等の運用について（通達）](./dcl/npa-20220303-b69b511a9f41.pdf)（丁保発第50号、全文）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20220810095308/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/10_kyuuseikisai.pdf)。[2025年1月24日付通達](./dcl/npa-20250124-c71157eacab7.pdf)に廃止の記載あり
 - 令和4年03月03日　[クロスボウの取扱いに関する講習会の実施要領について（通達）](./dcl/npa-20220303-313e931af522.pdf)（丁保発第47号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatsu/8_kurosubounokousyukai.pdf)。[2023年12月8日付通達](./dcl/npa-20231208-6a620ff7e9e0.pdf)に廃止の記載あり
-- 令和4年03月03日　[銃砲刀剣類の所持許可に関する各種調査の実施要領について（通達）](./dcl/npa-20220303-55c6c7c1712a.pdf)（丁保発第42号、概要）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/4_chousanojissiyouryo.pdf)。[保存版（Internet Archive）](https://web.archive.org/web/20230605013922/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/4_chousanojissiyouryo.pdf)
+- 令和4年03月03日　[銃砲刀剣類の所持許可に関する各種調査の実施要領について（通達）](./dcl/npa-20220303-55c6c7c1712a.pdf)（丁保発第42号、概要）。掲載元PDFはリンク切れ。[保存版（Internet Archive）](https://web.archive.org/web/20230605013922/https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/4_chousanojissiyouryo.pdf)
 - 令和4年03月01日　[「証拠品事務規程の一部を改正する訓令の運用について（依命通達）」の発出について（通達）](./dcl/npa-20220301-9ff4d70fc13b.pdf)（警察庁丁保発第39号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoantsutatu2/shokohin.pdf)
 - 令和4年01月28日　[銃砲刀剣類所持等取締法施行令の一部を改正する政令等の施行について（通達）](./dcl/npa-20220128-3ea876aed56c.pdf)（警察庁丙保発第3号、全文）。[掲載元PDF](https://www.npa.go.jp/laws/notification/seian/hoan/hoan20220128.pdf)
 - 令和4年01月27日　[モデル審査基準等の改定について](./dcl/d5c19a5b-ef97-4bae-87a4-c6c476221ef9.pdf)
@@ -273,7 +282,7 @@ __関連外部リンク：__
 - 平成26年03月31日　[銃砲刀剣類所持等取締法上の行政調査等の適正な実施について](./dcl/7d961b9c675615bcdcec4d6f7d1c6579d84c17fa.pdf)
 - 平成26年03月31日　[銃砲刀剣類所持等取締法第 12 条の３に規定する医師の指定について](./dcl/a39c4fad0e56bddd8f50caee93264c1022472a36.pdf)
 - 平成26年03月31日　[猟銃、空気銃の銃全長、銃身長及び実測口径の測定方法について](./dcl/11c6853ab9e170d6c86f830f109ed743c4c4c586.pdf)
-- 平成26年03月27日　[技能講習の開催要領について](./dcl/f2e94c61-80e2-4d6d-9dd1-52cea5e559e3.pdf)
+- 平成26年03月27日　[技能講習の開催要領について](./dcl/f2e94c61-80e2-4d6d-9dd1-52cea5e559e3.pdf)。[2024年3月15日付通達](./dcl/npa-20240315-788f5ef1d6e6.pdf)に廃止の記載あり
 
 ## 平成25年
 
