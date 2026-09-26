@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Verify CI selection and gate behavior
-        run: node --test scripts/select-ci-packages.test.mjs scripts/run-package-ci.test.mjs scripts/check-required-ci.test.mjs
+        run: node --test scripts/select-ci-packages.test.mjs scripts/run-package-ci.test.mjs scripts/check-required-ci.test.mjs scripts/install-ci-dependencies.test.mjs scripts/install-windows-browser-deps.test.mjs
       - name: Select affected packages and runners
         id: plan
         run: node scripts/select-ci-packages.mjs
@@ -269,6 +269,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           enable-electron-cache: ${{ matrix.electron && 'true' || 'false' }}
+          prepare-windows-browser-deps: ${{ runner.os == 'Windows' && matrix.package == '@sasakiuri/nilay-knowledge' && 'true' || 'false' }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: build-${{ matrix.os }}
