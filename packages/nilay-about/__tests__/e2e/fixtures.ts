@@ -8,7 +8,9 @@ import { test as base, expect, type Page } from '@playwright/test';
  */
 export const test = base.extend({
   page: async ({ page }, use) => {
-    const settle = () => expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    // Readiness is part of navigation, bounded by the existing action/test deadline.
+    // Waiting for the selector to disappear also includes hidden busy regions.
+    const settle = () => page.locator('[aria-busy="true"]').first().waitFor({ state: 'detached' });
     const goto = page.goto.bind(page);
     const reload = page.reload.bind(page);
     page.goto = async (...args) => {
