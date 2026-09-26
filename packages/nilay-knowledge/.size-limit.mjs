@@ -9,6 +9,7 @@ export default await prepareSizeBudget({
     javascript: '330 kB',
     stylesheet: '20 kB',
     searchIndex: '125 kB',
-    pdfIndex: '800 kB',
+    // The 2022–2026 circular backfill adds 79 PDFs; this index loads only for PDF searches.
+    pdfIndex: '1.2 MB',
   },
 });
