@@ -18,6 +18,10 @@ inputs:
     description: "npm registry URL (for publish workflows)"
     required: false
     default: ""
+  prepare-windows-browser-deps:
+    description: "Provision Windows browser dependencies alongside npm ci"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -53,9 +57,24 @@ runs:
 
     # Bootstrap the exact package manager before installing the lockfile.
     - name: Pin npm
-      run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      run: | # zizmor: ignore[adhoc-packages]
+        if [ "$(npm --version)" != "11.13.0" ]; then
+          npm install --global npm@11.13.0
+        fi
+        test "$(npm --version)" = "11.13.0"
       shell: bash
 
     - name: Install dependencies
+      if: inputs.prepare-windows-browser-deps != 'true'
       run: npm ci
+      shell: bash
+
+    - name: Verify concurrent setup behavior
+      if: inputs.prepare-windows-browser-deps == 'true'
+      run: node --test scripts/install-ci-dependencies.test.mjs scripts/install-windows-browser-deps.test.mjs
+      shell: bash
+
+    - name: Install dependencies and Windows browser prerequisites
+      if: inputs.prepare-windows-browser-deps == 'true'
+      run: npm run ci:install -- --windows-browser-deps
       shell: bash
