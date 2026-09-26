@@ -8,6 +8,8 @@ export default defineConfig({
   retries: 0,
   workers: 2,
   reporter: [['list'], ['html', { open: 'never' }]],
+  // Keep large document diffs out of reports and avoid fetch/diff work during CI startup.
+  captureGitInfo: { diff: false },
   use: {
     baseURL: 'http://127.0.0.1:3275',
     trace: 'retain-on-failure',
