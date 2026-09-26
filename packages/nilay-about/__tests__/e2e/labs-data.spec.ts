@@ -213,21 +213,49 @@ test('a tool opens read-only while a restore cut short could not be undone', asy
   expect(await page.evaluate(() => window.localStorage.getItem('nilay-labs-restore-journal-v1'))).toBeNull();
 });
 
-test('a tool opened while a restore runs waits for it before reading', async ({ page, context }) => {
-  await page.goto('/labs/data');
-  // Stand in for a long restore: hold the lock the data page takes while it restores.
-  await page.evaluate(() => {
-    void navigator.locks.request('nilay-labs-open', { mode: 'exclusive' }, () => {
-      window.localStorage.setItem('nilay-labs-recoil-v1', JSON.stringify({ state: { settings: null }, version: 0 }));
-      return new Promise<void>((done) => ((window as unknown as { finish: () => void }).finish = done));
-    });
-  });
-  const tool = await context.newPage();
-  const opening = tool.goto('/labs/recoil', { waitUntil: 'domcontentloaded' });
-  await opening;
-  // Held busy: it has not read its saved data yet.
-  await expect(tool.locator('[aria-busy="true"]')).toHaveCount(1);
-  await page.evaluate(() => (window as unknown as { finish: () => void }).finish());
+test('a tool opened while a restore runs waits for it before reading', async ({ page: tool, context }) => {
+  const data = await context.newPage();
+  await data.goto('/labs/data');
+  // Acknowledge the exclusive restore lock before opening the tool.
+  await data.evaluate(
+    () =>
+      new Promise<void>((locked) => {
+        void navigator.locks.request('nilay-labs-open', { mode: 'exclusive' }, () => {
+          window.localStorage.setItem(
+            'nilay-labs-recoil-v1',
+            JSON.stringify({ state: { settings: null }, version: 0 }),
+          );
+          const restoring = new Promise<void>((done) => ((window as unknown as { finish: () => void }).finish = done));
+          locked();
+          return restoring;
+        });
+      }),
+  );
+  let finished = false;
+  // Handle rejection immediately so the old five-second fixture can be tested without an unhandled promise.
+  const opening = tool.goto('/labs/recoil', { waitUntil: 'domcontentloaded' }).then(
+    (response) => {
+      finished = true;
+      return { response, error: null };
+    },
+    (error: unknown) => {
+      finished = true;
+      return { response: null, error };
+    },
+  );
+  try {
+    await expect(tool.locator('[aria-busy="true"]')).toHaveCount(1);
+    await tool.waitForLoadState('domcontentloaded');
+    // Deliberately hold restoration beyond the ordinary five-second assertion deadline.
+    await tool.waitForTimeout(6000);
+    await expect(tool.locator('[aria-busy="true"]')).toHaveCount(1);
+    expect(finished).toBe(false);
+  } finally {
+    await data.evaluate(() => (window as unknown as { finish: () => void }).finish());
+  }
+  const result = await opening;
+  expect(result.error).toBeNull();
+  expect(result.response?.ok()).toBe(true);
   await expect(tool.locator('[aria-busy="true"]')).toHaveCount(0);
 });
 
