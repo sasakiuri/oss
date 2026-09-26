@@ -20,17 +20,17 @@
     "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
-    "@stryker-mutator/core": "9.6.1",
-    "@stryker-mutator/vitest-runner": "9.6.1",
-    "@vitest/coverage-v8": "4.1.11",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@vitest/coverage-v8": "5.0.1",
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/prettier-config": "*",
     "@sasakiuri/typescript-config": "*",
-    "dependency-cruiser": "17.4.3",
-    "eslint": "^9",
+    "dependency-cruiser": "18.3.1",
+    "eslint": "^10",
     "prettier": "^3.6.2",
-    "typescript": "5.7.3",
-    "vitest": "4.1.11"
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
   },
   "prettier": "@sasakiuri/prettier-config"
 }
