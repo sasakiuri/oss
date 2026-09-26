@@ -31,7 +31,7 @@ jobs:
       os: ${{ steps.plan.outputs.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -50,7 +50,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - name: Setup environment
@@ -73,7 +73,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - name: Lint workflows, shell scripts, Dockerfiles, and Actions security
@@ -91,7 +91,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
 
@@ -145,7 +145,7 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.os) }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node
@@ -163,7 +163,7 @@ jobs:
           touch build-output-files.txt
           tar -cf build-output.tar --exclude='*/.next/cache' --exclude='*/.next/standalone' --exclude='*/.next/dev' -T build-output-files.txt "${outputs[@]}"
       - name: Share build outputs with independent checks
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build-${{ matrix.os }}
           path: build-output.tar
@@ -188,14 +188,14 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.os) }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
           fetch-depth: 0
       - uses: ./.github/actions/setup-node
         with:
           enable-electron-cache: "true"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-${{ matrix.os }}
       - name: Restore build outputs
@@ -223,7 +223,7 @@ jobs:
         run: npm run test:release-metadata
       - name: Upload unit reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-${{ matrix.os }}
           path: |
@@ -233,14 +233,14 @@ jobs:
           retention-days: 7
       - name: Upload Saika Lane coverage
         if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-lane')
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v5
         with:
           directory: packages/saika-lane/coverage
           flags: saika-lane
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload Saika Director coverage
         if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-director')
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v5
         with:
           directory: packages/saika-director/coverage
           flags: saika-director
@@ -263,14 +263,14 @@ jobs:
       E2E_PACKAGE: ${{ matrix.package }}
       E2E_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node
         with:
           enable-electron-cache: ${{ matrix.electron && 'true' || 'false' }}
           prepare-windows-browser-deps: ${{ runner.os == 'Windows' && matrix.package == '@sasakiuri/nilay-knowledge' && 'true' || 'false' }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-${{ matrix.os }}
       - name: Restore build outputs
@@ -290,7 +290,7 @@ jobs:
         run: npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
       - name: Upload Playwright reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-${{ strategy.job-index }}-${{ matrix.os }}
           path: |
@@ -308,11 +308,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-ubuntu-latest
       - name: Restore build outputs
@@ -328,7 +328,7 @@ jobs:
           npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
       - name: Upload Lighthouse reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nilay-knowledge-lighthouse
           path: packages/nilay-knowledge/.lighthouse.reports/
@@ -354,7 +354,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           persist-credentials: false
       - name: Verify gate behavior
