@@ -20,6 +20,7 @@ const TEAM = new RegExp(`^${LABEL}\\.cloudflareaccess\\.com$`);
 const MAX_JWKS = 131072;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const FETCH_SITES = new Set(["none", "same-origin", "same-site"]);
+const NAVIGATION_METHODS = new Set(["GET", "HEAD"]);
 
 type Json = Record<string, unknown>;
 interface RsaKey {
@@ -181,7 +182,18 @@ export class Access {
       if (!SAFE_METHODS.has(method.toUpperCase()) && origin !== this.origin)
         return false;
       const site = request.get("sec-fetch-site");
-      if (site !== null && !FETCH_SITES.has(site)) return false;
+      // The Access login redirects back cross-site, so only a top-level document read may arrive that way.
+      if (
+        site !== null &&
+        !FETCH_SITES.has(site) &&
+        !(
+          site === "cross-site" &&
+          NAVIGATION_METHODS.has(method.toUpperCase()) &&
+          request.get("sec-fetch-mode") === "navigate" &&
+          request.get("sec-fetch-dest") === "document"
+        )
+      )
+        return false;
       const token = request.get("cf-access-jwt-assertion") ?? "";
       if (
         token.length > 16384 ||
