@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: MIT
+import type {
+  Analysis,
+  Article,
+  Job,
+  Post,
+  PostClaim,
+  Publication,
+  Settings,
+  Source,
+} from "./domain.ts";
+import type { CollectedItem, SourceConfig } from "./sources/types.ts";
+
+export interface FinishPostOptions {
+  postId?: string | null;
+  error?: string | null;
+  timestamp?: number;
+  claimToken?: string;
+}
+export interface RecordOptions {
+  expiresAt?: number;
+  leaseHost?: string;
+  leaseToken?: string;
+}
+export interface NewsRepository {
+  initialize(): Promise<void>;
+  stateVersion(): Promise<number>;
+  settings(): Promise<Settings>;
+  updateSettings(changes: Record<string, unknown>): Promise<Settings>;
+  sources(): Promise<Source[]>;
+  updateSource(sourceId: string, changes: Partial<Source>): Promise<Source>;
+  ingest(source: SourceConfig, items: CollectedItem[]): Promise<number>;
+  articles(limit?: number, offset?: number): Promise<Article[]>;
+  article(articleId: string): Promise<Article>;
+  review(articleId: string, status: unknown): Promise<Article>;
+  publicationState(): Promise<Publication>;
+  postCandidates(): Promise<Article[]>;
+  claimPost(timestamp: number): Promise<PostClaim | null>;
+  finishPost(
+    articleId: string,
+    status: "posted" | "failed" | "unknown",
+    options?: FinishPostOptions,
+  ): Promise<void>;
+  submitPost(
+    articleId: string,
+    bufferId: string,
+    channelId: string,
+    timestamp: number,
+    claimToken?: string,
+  ): Promise<void>;
+  claimPostCheck(timestamp: number): Promise<Post | null>;
+  recoverPosts(timestamp?: number): Promise<number>;
+  resolvePost(articleId: string, outcome: unknown): Promise<Publication>;
+  evidenceHash(article: Article): Promise<string>;
+  analyzeResult(
+    articleId: string,
+    evidenceHash: string,
+    rubric: string,
+    result: Analysis,
+    relationHash?: string | null,
+  ): Promise<boolean>;
+  queueJob(kind: string, articleIds?: string[] | null): Promise<Job>;
+  getJob(): Promise<Job>;
+  claimJob(now: number, leaseSeconds?: number): Promise<Job | null>;
+  updateJob(token: string, changes: Partial<Job>): Promise<Job>;
+  releaseJob(token: string, changes: Partial<Job>): Promise<Job>;
+  finishJob(token: string, changes?: Partial<Job>): Promise<Job>;
+  getRecord<T extends object = Record<string, unknown>>(
+    namespace: string,
+    key: string,
+  ): Promise<T | null>;
+  putRecord(
+    namespace: string,
+    key: string,
+    value: object,
+    options?: RecordOptions,
+  ): Promise<void>;
+  deleteRecord(namespace: string, key: string): Promise<void>;
+  acquireHost(
+    host: string,
+    now: number,
+    leaseSeconds: number,
+  ): Promise<string | null>;
+  releaseHost(host: string, token: string): Promise<boolean>;
+  getBlob(key: string): Promise<Uint8Array | null>;
+  putBlob(key: string, value: Uint8Array, expiresAt?: number): Promise<void>;
+  exportSnapshot(): Promise<object>;
+  importSnapshot(snapshot: unknown): Promise<object>;
+}

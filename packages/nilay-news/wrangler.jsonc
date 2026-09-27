@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nilay-news",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-27",
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nilay-news",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+      "remote": false,
+    },
+  ],
+  "triggers": { "crons": ["* * * * *"] },
+  "limits": { "cpu_ms": 30000 },
+  "vars": {
+    "STORAGE_BACKEND": "d1",
+    "NILAY_PUBLIC_ORIGIN": "",
+    "CF_ACCESS_TEAM_DOMAIN": "",
+    "CF_ACCESS_AUD": "",
+    "CF_ACCESS_ALLOWED_EMAILS": "",
+  },
+}

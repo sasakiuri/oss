@@ -91,3 +91,10 @@ npx turbo fix
 maintained as `@sasakiuri/nilay-about`. Run
 `npm run dev --workspace=@sasakiuri/nilay-about` to start the development server at
 `http://localhost:3001`.
+
+## Nilay News
+
+[Nilay News](packages/nilay-news/README.md) collects Japanese news from RSS,
+public comments, and government bills for manual review, optional Jev triage,
+and posting to X through Buffer. It runs on Cloudflare Workers with D1 storage
+and Cloudflare Access authentication. The package README covers local development.

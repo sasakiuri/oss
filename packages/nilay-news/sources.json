@@ -1,0 +1,248 @@
+[
+  {
+    "id": "google-1",
+    "name": "Google ニュース｜狩猟・鳥獣・ジビエ",
+    "url": "https://news.google.com/rss/search?q=%28%E5%AE%B3%E7%8D%A3+OR+%E5%AE%B3%E9%B3%A5+OR+%E9%B3%A5%E7%8D%A3+OR+%E7%8C%9F%E9%8A%83+OR+%E7%8B%A9%E7%8C%9F+OR+%E7%8C%9F%E5%8F%8B+OR+%E7%8C%9F%E7%8A%AC+OR+%E3%83%A9%E3%82%A4%E3%83%95%E3%83%AB+OR+%E6%95%A3%E5%BC%BE+OR+%E7%A9%BA%E6%B0%97%E9%8A%83+OR+%E9%A7%86%E9%99%A4+OR+%E5%B0%84%E6%92%83+OR+%E7%BD%A0+OR+%E3%82%B8%E3%83%93%E3%82%A8+OR+%E7%8C%9F%E5%B8%AB+OR+%E3%83%8F%E3%83%B3%E3%82%BF%E3%83%BC+OR+%E7%8C%9F%E7%8A%AC+OR+%E3%83%92%E3%82%B0%E3%83%9E+OR+%E3%83%84%E3%82%AD%E3%83%8E%E3%83%AF%E3%82%B0%E3%83%9E+OR+%E3%82%AF%E3%83%9E+OR+%E3%82%B7%E3%82%AB+OR+%E3%83%8B%E3%83%9B%E3%83%B3%E3%82%B8%E3%82%AB+OR+%E3%82%A4%E3%83%8E%E3%82%B7%E3%82%B7%29+-%E3%82%B2%E3%83%BC%E3%83%A0+when%3A7d&hl=ja&gl=JP&ceid=JP%3Aja",
+    "kind": "rss",
+    "enabled": true,
+    "description": "直近7日間の検索 RSS。「ゲーム」を含む記事を除外。記事へのリンクは Google 経由。",
+    "minCollectionMinutes": 360,
+    "minRequestIntervalSeconds": 1800,
+    "robotsException": true,
+    "robotsExceptionReason": "Google検索RSSは robots.txt の制限対象です。利用者の指定により、登録した検索RSSのURLだけを例外として低頻度で収集します。サイトから利用許諾を得たことを示すものではありません。"
+  },
+  {
+    "id": "google-2",
+    "name": "Google ニュース｜野生動物・外来種",
+    "url": "https://news.google.com/rss/search?q=%28%E3%82%A2%E3%83%A9%E3%82%A4%E3%82%B0%E3%83%9E+OR+%E3%83%8F%E3%82%AF%E3%83%93%E3%82%B7%E3%83%B3+OR+%E3%83%A0%E3%82%AF%E3%83%89%E3%83%AA+OR+%E3%82%AD%E3%83%84%E3%83%8D+OR+%E3%82%BF%E3%83%8C%E3%82%AD+OR+%E3%82%AD%E3%83%A7%E3%83%B3+OR+%E3%82%AB%E3%83%AF%E3%82%A6+OR+%E3%82%A2%E3%83%8A%E3%82%B0%E3%83%9E+OR+%E3%82%A4%E3%82%BF%E3%83%81+OR+%E3%82%BF%E3%82%A4%E3%83%AF%E3%83%B3%E3%83%AA%E3%82%B9+OR+%E3%83%8C%E3%83%BC%E3%83%88%E3%83%AA%E3%82%A2+OR+%E3%82%AB%E3%83%A9%E3%82%B9+OR+%E3%83%92%E3%83%A8%E3%83%89%E3%83%AA+OR+%E3%82%AB%E3%83%A2+OR+%E3%82%B5%E3%83%AB+OR+%E3%83%8B%E3%83%9B%E3%83%B3%E3%82%B6%E3%83%AB%29+when%3A7d&hl=ja&gl=JP&ceid=JP%3Aja",
+    "kind": "rss",
+    "enabled": true,
+    "description": "直近7日間の検索 RSS。記事へのリンクは Google 経由。",
+    "minCollectionMinutes": 360,
+    "minRequestIntervalSeconds": 1800,
+    "robotsException": true,
+    "robotsExceptionReason": "Google検索RSSは robots.txt の制限対象です。利用者の指定により、登録した検索RSSのURLだけを例外として低頻度で収集します。サイトから利用許諾を得たことを示すものではありません。"
+  },
+  {
+    "id": "ceek-1",
+    "name": "CEEK｜狩猟・銃・射撃・ジビエ",
+    "url": "https://news.ceek.jp/search.cgi?q=%E7%8C%9F%E9%8A%83+OR+%E7%8B%A9%E7%8C%9F+OR+%E7%8C%9F%E5%8F%8B+OR+%E3%83%A9%E3%82%A4%E3%83%95%E3%83%AB+OR+%E6%95%A3%E5%BC%BE+OR+%E7%A9%BA%E6%B0%97%E9%8A%83+OR+%E9%A7%86%E9%99%A4+OR+%E5%B0%84%E6%92%83+OR+%E7%BD%A0+OR+%E3%82%B8%E3%83%93%E3%82%A8+OR+%E7%8C%9F%E5%B8%AB+OR+%E3%83%8F%E3%83%B3%E3%82%BF%E3%83%BC+-%E3%83%A2%E3%83%B3%E3%82%B9%E3%82%BF%E3%83%BC%E3%83%8F%E3%83%B3%E3%82%BF%E3%83%BC&feed=1",
+    "kind": "rss",
+    "enabled": true,
+    "description": "狩猟・銃・射撃・ジビエなどの検索 RSS。「モンスターハンター」を除外。",
+    "minCollectionMinutes": 360,
+    "minRequestIntervalSeconds": 1800
+  },
+  {
+    "id": "ceek-2",
+    "name": "CEEK｜鳥獣被害・クマ・シカ",
+    "url": "https://news.ceek.jp/search.cgi?q=%E5%AE%B3%E7%8D%A3+OR+%E5%AE%B3%E9%B3%A5+OR+%E9%B3%A5%E7%8D%A3+OR+%E3%82%AF%E3%83%9E+OR+%E3%82%B7%E3%82%AB+OR+%E3%82%A4%E3%83%8E%E3%82%B7%E3%82%B7+OR+%E3%82%AB%E3%83%A2+OR+%E3%82%AB%E3%83%A9%E3%82%B9+OR+%E3%83%92%E3%83%A8%E3%83%89%E3%83%AA+OR+%E3%83%92%E3%82%B0%E3%83%9E+OR+%E3%83%84%E3%82%AD%E3%83%8E%E3%83%AF%E3%82%B0%E3%83%9E&feed=1",
+    "kind": "rss",
+    "enabled": true,
+    "description": "鳥獣被害・クマ・シカ・イノシシ・カラス・ヒヨドリなどの検索 RSS。",
+    "minCollectionMinutes": 360,
+    "minRequestIntervalSeconds": 1800
+  },
+  {
+    "id": "ceek-3",
+    "name": "CEEK｜バイアスロン・鉛弾・ノネコ",
+    "url": "https://news.ceek.jp/search.cgi?q=%E3%83%90%E3%82%A4%E3%82%A2%E3%82%B9%E3%83%AD%E3%83%B3+OR+%E9%89%9B%E5%BC%BE+OR+%E3%83%8E%E3%83%8D%E3%82%B3&feed=1",
+    "kind": "rss",
+    "enabled": true,
+    "description": "「バイアスロン」「鉛弾」「ノネコ」のいずれかを含む記事の検索 RSS。",
+    "minCollectionMinutes": 360,
+    "minRequestIntervalSeconds": 1800
+  },
+  {
+    "id": "tyoujuu-blog",
+    "name": "鳥獣ニュース",
+    "url": "https://tyoujuu-news.blogspot.com/feeds/posts/default?alt=rss",
+    "kind": "rss",
+    "enabled": true,
+    "description": "鳥獣関連ニュースの RSS。複数の記事をまとめた日別記事も含む。",
+    "maxItems": 30
+  },
+  {
+    "id": "kanpo",
+    "name": "官報｜法令・告示",
+    "url": "https://www.kanpo.go.jp/",
+    "kind": "kanpo",
+    "enabled": false,
+    "collectionBlocked": "官報は日付別ページのクロール制限があるため自動収集を停止しています。保存済みの記事と原文リンクは引き続き確認できます。",
+    "description": "保存済みの法令・告示・官庁報告を閲覧できます。本文は掲載開始ページのみで、続きのページは含みません。",
+    "issueDays": 3,
+    "maxItems": 100,
+    "maxPdfPages": 12
+  },
+  {
+    "id": "egov-comments",
+    "name": "e-Gov｜パブコメ募集",
+    "url": "https://public-comment.e-gov.go.jp/servlet/Public?CLASSNAME=PCMMSTLIST&Mode=0",
+    "kind": "egov",
+    "enabled": true,
+    "description": "意見募集の最新100件まで。所管省庁・募集期限を保存し、関連語を優先して最大10件の詳細ページと資料リンクを取得。添付資料本文は未取得。",
+    "maxItems": 100,
+    "maxDetails": 10,
+    "maxPages": 5
+  },
+  {
+    "id": "egov-results",
+    "name": "e-Gov｜パブコメ結果",
+    "url": "https://public-comment.e-gov.go.jp/servlet/Public?CLASSNAME=PCMMSTLIST&Mode=1",
+    "kind": "egov",
+    "enabled": true,
+    "maxItems": 100,
+    "maxDetails": 10,
+    "maxPages": 5,
+    "description": "結果公示の最新100件まで。募集とは別の更新として保存し、関連語を優先して最大10件の詳細ページと資料リンクを取得。添付資料本文は未取得。"
+  },
+  {
+    "id": "npa-notifications",
+    "name": "警察庁｜生活安全局の通達",
+    "url": "https://www.npa.go.jp/laws/notification/seian.html",
+    "kind": "html",
+    "enabled": true,
+    "description": "保安分野の通達一覧にある見出しとPDFリンクを収集。PDF本文の取得・変更検知は未対応。初回は過去の掲載分を含む。",
+    "allowedPathPattern": "^/laws/notification/seian/hoan/[^?#]+\\.pdf$",
+    "maxItems": 40
+  },
+  {
+    "id": "env-news",
+    "name": "環境省｜新着情報",
+    "url": "https://www.env.go.jp/newsindex.html",
+    "kind": "html",
+    "enabled": true,
+    "description": "新着一覧の報道発表と調達・委託業務を収集。報道発表との同URL重複は統合。見出し・公開日・リンクを保存し、本文と添付PDFは未取得。",
+    "allowedPathPattern": "^/(?:press/(?!index)[^/]+\\.html|kanbo/chotatsu/chotatsu_\\d+\\.html)$"
+  },
+  {
+    "id": "env-press",
+    "name": "環境省｜報道発表",
+    "url": "https://www.env.go.jp/press/index.html",
+    "kind": "html",
+    "enabled": true,
+    "description": "一覧にある最新100件までの見出しを収集。個別記事本文の取得は行わない。",
+    "allowedPathPattern": "^/press/(?!index)[^/]+\\.html$"
+  },
+  {
+    "id": "maff-press",
+    "name": "農林水産省｜報道発表",
+    "url": "https://www.maff.go.jp/j/press/index.html",
+    "kind": "html",
+    "enabled": true,
+    "description": "一覧にある同省の個別記事見出しを収集。他省庁へのリンクは対象外。",
+    "allowedPathPattern": "^/j/press/(?:[^/]+/)+\\d[^/]*\\.html$"
+  },
+  {
+    "id": "rinya-press",
+    "name": "林野庁｜報道発表",
+    "url": "https://www.rinya.maff.go.jp/j/press/index.html",
+    "kind": "html",
+    "enabled": true,
+    "description": "一覧の先頭40件までの個別記事見出しを収集。初回は過去の掲載分を含む。",
+    "allowedPathPattern": "^/j/press/(?:[^/]+/)+\\d[^/]*\\.html$",
+    "maxItems": 40
+  },
+  {
+    "id": "npa-bills",
+    "name": "警察庁｜国会提出法案",
+    "url": "https://www.npa.go.jp/laws/kokkai/index.html",
+    "kind": "bills",
+    "enabled": true,
+    "description": "直近2国会の法案・制度改正を名称と資料リンク付きで収集。詳細HTMLは最大20件。PDF本文は未取得。初回は過去の掲載分を含む。",
+    "agency": "npa",
+    "maxSessions": 2,
+    "maxDetails": 20,
+    "maxItems": 100
+  },
+  {
+    "id": "env-bills",
+    "name": "環境省｜国会提出法律案",
+    "url": "https://www.env.go.jp/info/hoan/",
+    "kind": "bills",
+    "enabled": true,
+    "description": "直近2国会の法案・制度改正を名称と資料リンク付きで収集。詳細HTMLは最大20件。PDF本文は未取得。初回は過去の掲載分を含む。",
+    "agency": "env",
+    "maxSessions": 2,
+    "maxDetails": 20,
+    "maxItems": 100
+  },
+  {
+    "id": "mof-tax",
+    "name": "財務省｜税制改正の概要",
+    "url": "https://www.mof.go.jp/tax_policy/tax_reform/outline/",
+    "kind": "bills",
+    "enabled": true,
+    "description": "直近2年度の税制改正を資料名とリンク付きで収集。索引ページのみを取得し、リンク先HTML・PDF本文は未取得。初回は過去の掲載分を含む。",
+    "agency": "mof-tax",
+    "maxSessions": 2,
+    "maxDetails": 0,
+    "maxItems": 100
+  },
+  {
+    "id": "mof-bills",
+    "name": "財務省｜国会提出法案",
+    "url": "https://www.mof.go.jp/about_mof/bills/",
+    "kind": "bills",
+    "agency": "mof",
+    "enabled": true,
+    "maxSessions": 2,
+    "maxDetails": 20,
+    "maxItems": 100,
+    "description": "直近2国会の財務省関連法案を収集。税制改正の概要とは別に法案名・提出日・資料リンクを保存。詳細HTMLは最大20件、PDF本文は未取得。"
+  },
+  {
+    "id": "yahoo-domestic",
+    "name": "Yahoo!ニュース｜国内",
+    "url": "https://news.yahoo.co.jp/rss/categories/domestic.xml",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 50,
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+  },
+  {
+    "id": "yahoo-local",
+    "name": "Yahoo!ニュース｜地域",
+    "url": "https://news.yahoo.co.jp/rss/categories/local.xml",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 50,
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+  },
+  {
+    "id": "yahoo-science",
+    "name": "Yahoo!ニュース｜科学",
+    "url": "https://news.yahoo.co.jp/rss/categories/science.xml",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 50,
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+  },
+  {
+    "id": "riflesports-news",
+    "name": "日本ライフル射撃協会｜お知らせ",
+    "url": "https://www.riflesports.jp/feed/",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 30,
+    "description": "競技会・代表選手・講習会・銃所持関連の公式RSS。配信分の見出し、公開日時、要約を収集。詳細ページや添付PDFは取得しない。"
+  },
+  {
+    "id": "clay-shooting-news",
+    "name": "日本クレー射撃協会｜お知らせ",
+    "url": "https://clay-shooting.website/feed/",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 30,
+    "description": "クレー射撃の大会日程・開催変更・育成事業などの公式RSS。配信分の見出し、公開日時、要約を収集。詳細ページや添付PDFは取得しない。"
+  },
+  {
+    "id": "gibier-news",
+    "name": "日本ジビエ振興協会｜お知らせ",
+    "url": "https://www.gibier.or.jp/feed/",
+    "kind": "rss",
+    "enabled": true,
+    "maxItems": 30,
+    "description": "ジビエの利活用・セミナー・地域での活動などの公式RSS。配信分の見出し、公開日時、要約を収集。詳細ページや添付PDFは取得しない。"
+  }
+]

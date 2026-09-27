@@ -14,6 +14,7 @@ const config = {
         "saika-docs",
         "nilay-knowledge",
         "nilay-about",
+        "nilay-news",
         "eslint-config",
         "prettier-config",
         "stylelint-config",

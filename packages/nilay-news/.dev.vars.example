@@ -1,0 +1,6 @@
+# Local Worker secrets only. Copy to .dev.vars (ignored by Git).
+TYPESAFE_API_KEY=
+TYPESAFE_MODEL=jev-latest
+BUFFER_API_KEY=
+BUFFER_CHANNEL_ID=
+SLACK_WEBHOOK_URL=

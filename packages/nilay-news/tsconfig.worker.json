@@ -1,0 +1,9 @@
+{
+  "extends": "@sasakiuri/typescript-config/vite.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"],
+    "incremental": false,
+    "lib": ["ES2022"]
+  },
+  "include": ["src/**/*.ts"]
+}
