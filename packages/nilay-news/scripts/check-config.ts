@@ -29,11 +29,35 @@ export function loadConfig(path: string): unknown {
   return config;
 }
 
+// One DNS label, as used for Worker names and workers.dev account subdomains.
+const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/** The only production origin: the Worker's default workers.dev hostname. */
+export function workersDevOrigin(name: unknown, origin: unknown): boolean {
+  if (typeof name !== "string" || !LABEL.test(name)) return false;
+  if (typeof origin !== "string") return false;
+  const prefix = `https://${name}.`;
+  const suffix = ".workers.dev";
+  if (!origin.startsWith(prefix) || !origin.endsWith(suffix)) return false;
+  const subdomain = origin.slice(prefix.length, -suffix.length);
+  return LABEL.test(subdomain);
+}
+
+/**
+ * Checks the Worker security controls. The offline template keeps workers.dev
+ * disabled; enabling it activates the public hostname, so it always requires
+ * the complete deployment checks.
+ */
 export function validateConfig(config: unknown, deployment = false): string[] {
   if (!isRecord(config)) return ["Worker configuration must be an object"];
   const errors: string[] = [];
-  for (const name of ["workers_dev", "preview_urls"])
-    if (config[name] !== false) errors.push(`${name} must be explicitly false`);
+  if (config.preview_urls !== false)
+    errors.push("preview_urls must be explicitly false");
+  if (deployment && config.workers_dev !== true)
+    errors.push("workers_dev must be true for deployment");
+  else if (config.workers_dev !== true && config.workers_dev !== false)
+    errors.push("workers_dev must be explicitly true or false");
+  const complete = deployment || config.workers_dev === true;
   const assets = config.assets;
   if (
     !isRecord(assets) ||
@@ -53,8 +77,8 @@ export function validateConfig(config: unknown, deployment = false): string[] {
     errors.push(
       "Use a separate complete config for each target, without env overrides",
     );
-  if (config.route)
-    errors.push("Use routes with an explicit custom_domain instead of route");
+  if ("route" in config || "routes" in config)
+    errors.push("Serve only the workers.dev hostname, without route or routes");
   if (config.unsafe) errors.push("unsafe binding overrides are not supported");
   const variables = isRecord(config.vars) ? config.vars : {};
   if (!isRecord(config.vars)) errors.push("vars must be an object");
@@ -66,7 +90,7 @@ export function validateConfig(config: unknown, deployment = false): string[] {
     const value = variables[name];
     if (typeof value !== "string")
       errors.push(`vars must include ${name} as a string`);
-    else if (deployment && !value.trim())
+    else if (complete && !value.trim())
       errors.push(`${name} must be configured before deployment`);
   }
   const databases = config.d1_databases;
@@ -88,43 +112,14 @@ export function validateConfig(config: unknown, deployment = false): string[] {
       !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(db.database_id)
     ) {
       errors.push("D1 database_id must be a UUID");
-    } else if (deployment && /^0{8}(?:-0{4}){3}-0{12}$/.test(db.database_id))
+    } else if (complete && /^0{8}(?:-0{4}){3}-0{12}$/.test(db.database_id))
       errors.push("Replace the placeholder D1 database_id before deployment");
   }
-  if (deployment) {
-    const origin = variables.NILAY_PUBLIC_ORIGIN;
-    let host: string | undefined;
-    if (typeof origin === "string") {
-      try {
-        const url = new URL(origin);
-        if (
-          url.protocol === "https:" &&
-          origin === `https://${url.hostname}` &&
-          /^[a-z0-9.-]+$/.test(url.hostname)
-        )
-          host = url.hostname;
-      } catch {
-        /* Report the invalid origin below. */
-      }
-    }
-    if (!host)
+  if (complete) {
+    if (!workersDevOrigin(config.name, variables.NILAY_PUBLIC_ORIGIN))
       errors.push(
-        "NILAY_PUBLIC_ORIGIN must be a canonical HTTPS origin without a port",
+        "NILAY_PUBLIC_ORIGIN must be https://<name>.<account subdomain>.workers.dev",
       );
-    const routes = config.routes;
-    if (
-      !host ||
-      !Array.isArray(routes) ||
-      routes.length !== 1 ||
-      !isRecord(routes[0]) ||
-      routes[0].pattern !== host ||
-      routes[0].custom_domain !== true ||
-      Object.keys(routes[0]).length !== 2
-    ) {
-      errors.push(
-        "routes must contain only the public origin's explicit custom domain",
-      );
-    }
     if (
       typeof variables.CF_ACCESS_TEAM_DOMAIN !== "string" ||
       !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$/.test(

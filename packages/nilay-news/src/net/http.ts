@@ -10,13 +10,15 @@ import { canonicalUrl, hostnameOf, unquote, urljoin, urlsplit } from "./url.ts";
 export const USER_AGENT = "NilayNews/0.1 (+local news and RSS reader)";
 const TOO_LARGE = "取得サイズの上限を超えました";
 
+// Plain fields keep this module loadable by Node's type stripping in deployment scripts.
 export class FetchError extends UserError {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly retryAfter?: number,
-  ) {
+  readonly status?: number;
+  readonly retryAfter?: number;
+
+  constructor(message: string, status?: number, retryAfter?: number) {
     super(message);
+    this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
