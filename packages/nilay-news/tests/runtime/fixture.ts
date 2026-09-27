@@ -2,7 +2,8 @@
 import { Access, CONFIG_NAMES } from "../../src/access.ts";
 import { Application } from "../../src/application.ts";
 import { CachedFetch } from "../../src/crawl.ts";
-import { Jev } from "../../src/jev.ts";
+import { ENDPOINT, Jev } from "../../src/jev.ts";
+import { FetchError } from "../../src/net/http.ts";
 import type { FetchBytes } from "../../src/net/types.ts";
 import { BufferClient } from "../../src/publishing.ts";
 import { collectSource } from "../../src/sources/index.ts";
@@ -90,7 +91,12 @@ const handlers = createHandlers(
     const repo = await createD1Repository(env.DB, [source], () => now);
     return new Application(
       repo,
-      new Jev(),
+      // Every classification request fails like an unavailable paid API.
+      new Jev("fixture-key", "jev-latest", async (url) => {
+        if (url !== ENDPOINT) throw new Error("Unexpected Jev request");
+        calls.push("jev");
+        throw new FetchError("HTTP 503", 503);
+      }),
       new BufferClient("fixture-key", "fixture-channel", transport),
       {
         clock: () => now,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** Test-only SQLite driver running the exact D1 migration with D1's batch transaction semantics. */
-import { readFileSync } from "node:fs";
+/** Test-only SQLite driver running the exact D1 migrations with D1's batch transaction semantics. */
+import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLOutputValue } from "node:sqlite";
 
@@ -15,10 +15,14 @@ import type {
   SqlDriver,
 } from "../../src/storage/repository.ts";
 
-const MIGRATION = readFileSync(
-  new URL("../../migrations/0001_news.sql", import.meta.url),
-  "utf8",
-);
+const MIGRATIONS = new URL("../../migrations/", import.meta.url);
+/** Every D1 migration in the order Wrangler applies them. */
+export const MIGRATION_FILES = readdirSync(MIGRATIONS)
+  .filter((name) => name.endsWith(".sql"))
+  .sort();
+export function migration(name: string): string {
+  return readFileSync(new URL(name, MIGRATIONS), "utf8");
+}
 
 function value(item: SQLOutputValue): SQLValue {
   if (typeof item === "bigint") return Number(item);
@@ -31,10 +35,29 @@ export class SQLiteDriver implements SqlDriver {
   readonly db: DatabaseSync;
 
   /** A file path lets several drivers act as independent connections to one database. */
-  constructor(readonly path = ":memory:") {
+  constructor(
+    readonly path = ":memory:",
+    migrations: readonly string[] = MIGRATION_FILES,
+  ) {
     this.db = new DatabaseSync(path, { timeout: 10_000 });
     this.db.exec("PRAGMA foreign_keys=ON");
-    this.db.exec(MIGRATION);
+    // Like `wrangler d1 migrations apply`, each migration runs once per database.
+    this.db.exec(
+      "CREATE TABLE IF NOT EXISTS d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL)",
+    );
+    const applied = this.db.prepare("SELECT 1 FROM d1_migrations WHERE name=?");
+    for (const name of migrations) {
+      if (applied.get(name)) continue;
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        this.db.exec(migration(name));
+        this.db.prepare("INSERT INTO d1_migrations(name) VALUES (?)").run(name);
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
   }
 
   async batch(statements: SQLStatement[]): Promise<SQLResult[]> {

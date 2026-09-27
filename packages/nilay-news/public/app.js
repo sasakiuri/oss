@@ -1243,9 +1243,23 @@ function renderSettings() {
     el(
       "p",
       "form-help",
-      "「未判定を仕分け」で最大 100 件の記事情報を TypeSafe に送信します。収集時には実行されません。利用料金がかかります。",
+      "「未判定を仕分け」で最大 100 件の記事情報を TypeSafe に送信します。利用料金がかかります。",
     ),
   );
+  if (state.settings.autoAnalyze) {
+    const pausedUntil = state.settings.autoAnalyzePausedUntil;
+    jev.append(
+      el(
+        "p",
+        "form-help",
+        !state.settings.jevConfigured
+          ? "自動仕分けは有効ですが、API キーが未設定のため実行されません。"
+          : pausedUntil && pausedUntil * 1000 > Date.now()
+            ? `仕分けに失敗したため、自動仕分けは ${dateText(pausedUntil * 1000, true)} まで休止しています。失敗した記事は自動では再送しません。`
+            : "自動仕分けは有効です。",
+      ),
+    );
+  }
   right.append(jev);
 
   const posting = el("section", "settings-card");
@@ -1362,6 +1376,25 @@ function renderSettings() {
   autoCollect.name = "autoCollect";
   autoCollect.checked = !!state.settings.autoCollect;
   check.append(autoCollect, el("span", "", "一定間隔で記事を自動収集する"));
+  const analyzeCheck = el("label", "check-label");
+  const autoAnalyze = el("input");
+  autoAnalyze.type = "checkbox";
+  autoAnalyze.name = "autoAnalyze";
+  autoAnalyze.checked = !!state.settings.autoAnalyze;
+  // A missing key cannot be enabled, but an enabled setting can be turned off.
+  autoAnalyze.disabled =
+    !state.settings.jevConfigured && !state.settings.autoAnalyze;
+  autoAnalyze.setAttribute("aria-describedby", "analyze-help");
+  analyzeCheck.append(
+    autoAnalyze,
+    el("span", "", "未判定の記事を Jev で自動仕分けする"),
+  );
+  const analyzeHelp = el(
+    "p",
+    "form-help",
+    "待機中に、まだ仕分けていない記事を古い順に、最大 100 件かつ収集間隔の分数までずつ TypeSafe に送信します。既存の未判定記事も対象で、利用料金がかかります。仕分けに失敗した記事は自動では再送せず、失敗後は収集間隔の分だけ休止します。無効にしても、開始済みの仕分けは最後まで続きます。",
+  );
+  analyzeHelp.id = "analyze-help";
   const intervalLabel = el("label", "", "収集間隔（分）");
   intervalLabel.htmlFor = "poll-input";
   const interval = el("input");
@@ -1378,7 +1411,7 @@ function renderSettings() {
   const intervalHelp = el(
     "p",
     "form-help",
-    "15〜1,440 分。処理は順番に進みます。自動収集で Jev の仕分けは実行されません。",
+    "15〜1,440 分。処理は順番に進みます。期限が来た収集を優先しますが、収集が終わるたびに自動仕分けを 1 回分実行できます。自動収集と自動仕分けは個別に有効にできます。",
   );
   intervalHelp.id = "poll-help";
   const submit = el("button", "button button-primary", "設定を保存");
@@ -1388,6 +1421,8 @@ function renderSettings() {
     rubric,
     rubricHelp,
     check,
+    analyzeCheck,
+    analyzeHelp,
     intervalLabel,
     interval,
     intervalHelp,
@@ -1402,6 +1437,7 @@ function renderSettings() {
       {
         rubric: rubric.value.trim(),
         autoCollect: autoCollect.checked,
+        autoAnalyze: autoAnalyze.checked,
         pollMinutes: Number(interval.value),
       },
       "設定を保存しました。",

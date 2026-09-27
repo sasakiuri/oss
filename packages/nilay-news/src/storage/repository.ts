@@ -77,6 +77,7 @@ const SETTING_KEYS = new Set([
   "rubric",
   "pollMinutes",
   "autoCollect",
+  "autoAnalyze",
   "autoPost",
   "postSelection",
 ]);
@@ -92,6 +93,7 @@ const JOB_OWNERSHIP = new Set([
   "kind",
   "articleIds",
   "running",
+  "automatic",
 ]);
 const DETAIL_KEYS = [
   "body",
@@ -117,6 +119,8 @@ const SOURCE_STATE = [
   "lastDeferred",
   "nextFetchAt",
 ] as const;
+/** Records deciding automatic jobs; their writes take part in revision fencing. */
+const SCHEDULER = "scheduler";
 const YAHOO_ARTICLE = /^https:\/\/news\.yahoo\.co\.jp\/articles\/[a-f0-9]{40}$/;
 const ROW_LIMIT = 1_800_000;
 const BLOB_LIMIT = 4_000_000;
@@ -130,6 +134,7 @@ export const DEFAULT_RUBRIC = `日本国内を中心とする狩猟、猟銃・�
 
 const DEFAULT_JOB: Job = {
   running: false,
+  automatic: false,
   kind: null,
   articleIds: null,
   phase: "待機中",
@@ -497,10 +502,19 @@ export class SQLRepository implements NewsRepository {
 
   async initialize(): Promise<void> {
     await this.mutate(["state", "sources"], (state) => {
+      const stored = state.state.settings;
+      if (stored && typeof stored.autoAnalyze !== "boolean")
+        throw new Error("D1 migration 0002_auto_analyze has not been applied");
+      const job = state.state.job;
+      if (job && typeof job.automatic !== "boolean")
+        throw new Error(
+          "D1 migration 0003_automatic_jobs has not been applied",
+        );
       state.state.settings ??= {
         rubric: DEFAULT_RUBRIC,
         autoCollect: false,
         pollMinutes: 60,
+        autoAnalyze: false,
         autoPost: false,
         postSelection: "both",
       };
@@ -552,6 +566,7 @@ export class SQLRepository implements NewsRepository {
         throw new UserError("収集間隔は15〜1440分にしてください");
       if (
         typeof settings.autoCollect !== "boolean" ||
+        typeof settings.autoAnalyze !== "boolean" ||
         typeof settings.autoPost !== "boolean"
       ) {
         throw new UserError("自動実行の設定が不正です");
@@ -1078,22 +1093,81 @@ export class SQLRepository implements NewsRepository {
     ) {
       throw new UserError("記事の指定が不正です");
     }
+    if (articleIds !== null && articleIds.length > 100)
+      throw new UserError("記事は100件以内で指定してください");
     return this.mutate(["state"], (state) => {
       const previous = jobOf(state.state);
       if (previous.running)
         throw new UserError("処理中です。完了してから再実行してください");
-      const job: Job = {
-        ...DEFAULT_JOB,
-        id: randomToken(),
-        running: true,
-        kind,
-        articleIds: articleIds && [...articleIds],
-        queuedAt: timestamp(this.clock()),
-        phase: kind === "collect" ? "取得の準備中" : "仕分けの準備中",
-        lastFinishedAt: previous.lastFinishedAt,
-      };
-      state.state.job = job;
-      return job;
+      return this.newJob(state.state, kind, articleIds, false);
+    });
+  }
+
+  private newJob(
+    state: StateRows,
+    kind: "collect" | "analyze",
+    articleIds: string[] | null,
+    automatic: boolean,
+  ): Job {
+    const job: Job = {
+      ...DEFAULT_JOB,
+      id: randomToken(),
+      running: true,
+      automatic,
+      kind,
+      articleIds: articleIds && [...articleIds],
+      queuedAt: timestamp(this.clock()),
+      phase: kind === "collect" ? "取得の準備中" : "仕分けの準備中",
+      lastFinishedAt: jobOf(state).lastFinishedAt,
+    };
+    state.job = job;
+    return job;
+  }
+
+  /**
+   * Decides and queues at most one scheduler job in one atomic mutation.
+   *
+   * Scheduler records are read inside the mutation; every scheduler record
+   * write increments the revision, so a concurrent job, setting, cooldown or
+   * analysis result makes this decision retry from the new state. Due
+   * collection wins, except that one analysis batch may follow a finished
+   * collection so that collection longer than its interval cannot starve
+   * classification. Only never-analyzed articles are chosen, oldest first.
+   */
+  async queueAutomaticJob(canAnalyze: boolean): Promise<Job | null> {
+    return this.mutate(["state", "articles", "sources"], async (state) => {
+      const previous = jobOf(state.state);
+      if (previous.running) return null;
+      const settings = settingsOf(state.state);
+      const now = this.clock();
+      const collection = await this.getRecord<{ nextAt: number }>(
+        "scheduler",
+        "collection",
+      );
+      const collect =
+        settings.autoCollect &&
+        now >= (collection?.nextAt ?? 0) &&
+        this.sourceConfig.some(
+          (config) => state.sources.get(config.id)?.enabled === true,
+        );
+      let analyze: string[] = [];
+      if (canAnalyze && settings.autoAnalyze) {
+        const pause = await this.getRecord<{ nextAt: number }>(
+          "scheduler",
+          "analysis",
+        );
+        if (now >= (pause?.nextAt ?? 0))
+          analyze = [...state.articles.values()]
+            .filter((article) => article.analysisStatus === "pending")
+            .sort(chronological)
+            .slice(0, Math.min(100, settings.pollMinutes))
+            .map((article) => article.id);
+      }
+      if (collect && !(analyze.length && previous.kind === "collect"))
+        return this.newJob(state.state, "collect", null, true);
+      if (analyze.length)
+        return this.newJob(state.state, "analyze", analyze, true);
+      return null;
     });
   }
 
@@ -1170,35 +1244,66 @@ export class SQLRepository implements NewsRepository {
     value: object,
     options: RecordOptions = {},
   ): Promise<void> {
-    const { expiresAt, leaseHost, leaseToken } = options;
+    const { expiresAt, leaseHost, leaseToken, jobToken } = options;
     if ((leaseHost === undefined) !== (leaseToken === undefined))
       throw new UserError("取得処理の所有権が不正です");
-    let guard = "1";
-    let args: SQLValue[] = [];
+    if (jobToken !== undefined && !jobToken)
+      throw new UserError("処理の所有権が不正です");
+    const now = this.clock();
+    const guards: string[] = [];
+    const args: SQLValue[] = [];
     if (leaseHost !== undefined && leaseToken !== undefined) {
-      guard =
-        "EXISTS (SELECT 1 FROM news_host_leases WHERE host=? AND token=? AND expires>?)";
-      args = [leaseHost, leaseToken, this.clock()];
+      guards.push(
+        "EXISTS (SELECT 1 FROM news_host_leases WHERE host=? AND token=? AND expires>?)",
+      );
+      args.push(leaseHost, leaseToken, now);
     }
-    const result = await this.driver.batch([
+    if (jobToken !== undefined) {
+      guards.push(
+        "EXISTS (SELECT 1 FROM news_state WHERE id='job' AND json_extract(data,'$.token')=? " +
+          "AND json_extract(data,'$.running')=1 AND json_extract(data,'$.leaseUntil')>?)",
+      );
+      args.push(jobToken, now);
+    }
+    const guard = guards.join(" AND ") || "1";
+    const statements: SQLStatement[] = [
       [
         `INSERT INTO news_records(namespace,key,data,expires) SELECT ?,?,?,? WHERE ${guard} ` +
           "ON CONFLICT(namespace,key) DO UPDATE SET data=excluded.data,expires=excluded.expires",
         [namespace, key, encode(value), expiresAt ?? null, ...args],
       ],
-      ["DELETE FROM news_records WHERE expires<=?", [this.clock()]],
-    ]);
+    ];
+    // Scheduler decisions are fenced by the revision, like every business row.
+    // The guard still holds within the transaction, so a denied write never
+    // changes the revision.
+    if (namespace === SCHEDULER)
+      statements.push([
+        `UPDATE news_meta SET revision=revision+1 WHERE id=1 AND ${guard}`,
+        args,
+      ]);
+    statements.push(["DELETE FROM news_records WHERE expires<=?", [now]]);
+    const result = await this.driver.batch(statements);
     if (result[0]?.meta.changes !== 1)
-      throw new UserError("取得処理の有効期限または所有権が変わりました");
+      throw new UserError(
+        jobToken === undefined
+          ? "取得処理の有効期限または所有権が変わりました"
+          : "処理の有効期限または所有権が変わりました",
+      );
   }
 
   async deleteRecord(namespace: string, key: string): Promise<void> {
-    await this.driver.batch([
-      [
-        "DELETE FROM news_records WHERE namespace=? AND key=?",
+    const statements: SQLStatement[] = [];
+    if (namespace === SCHEDULER)
+      statements.push([
+        "UPDATE news_meta SET revision=revision+1 WHERE id=1 AND EXISTS " +
+          "(SELECT 1 FROM news_records WHERE namespace=? AND key=?)",
         [namespace, key],
-      ],
+      ]);
+    statements.push([
+      "DELETE FROM news_records WHERE namespace=? AND key=?",
+      [namespace, key],
     ]);
+    await this.driver.batch(statements);
   }
 
   async acquireHost(
@@ -1293,7 +1398,7 @@ export class SQLRepository implements NewsRepository {
     ]);
     return {
       format: "nilay-news",
-      version: 1,
+      version: 2,
       revision,
       exportedAt: timestamp(this.clock()),
       settings: settingsOf(state.state),
@@ -1317,7 +1422,7 @@ export class SQLRepository implements NewsRepository {
     if (
       !isRecord(snapshot) ||
       snapshot.format !== "nilay-news" ||
-      snapshot.version !== 1
+      snapshot.version !== 2
     ) {
       throw new UserError("対応していない移行データ形式です");
     }
@@ -1334,6 +1439,7 @@ export class SQLRepository implements NewsRepository {
       !validPollMinutes(settings.pollMinutes) ||
       !SELECTIONS.has(settings.postSelection) ||
       typeof settings.autoCollect !== "boolean" ||
+      typeof settings.autoAnalyze !== "boolean" ||
       typeof settings.autoPost !== "boolean"
     ) {
       throw new UserError("移行データの設定が不正です");
@@ -1452,6 +1558,7 @@ export class SQLRepository implements NewsRepository {
       ...settings,
       autoPost: false,
       autoCollect: false,
+      autoAnalyze: false,
     } as unknown as Settings;
     const importedSchedule: Schedule = {
       next_at: Math.max(schedule.next_at, this.clock() + 3600),
@@ -1466,7 +1573,7 @@ export class SQLRepository implements NewsRepository {
         throw new UserError("移行先は空のデータベースにしてください");
       }
       const current = settingsOf(state.state);
-      if (current.autoPost || current.autoCollect)
+      if (current.autoPost || current.autoCollect || current.autoAnalyze)
         throw new UserError("移行先の自動実行を停止してください");
       // The validated portable documents become repository rows unchanged.
       for (const [id, article] of articles)

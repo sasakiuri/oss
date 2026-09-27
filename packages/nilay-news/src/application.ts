@@ -69,6 +69,10 @@ export class Application {
       }
       return { ...article, postDraft };
     });
+    const analysis = await this.repository.getRecord<{ nextAt: number }>(
+      "scheduler",
+      "analysis",
+    );
     return {
       articles,
       sources: await this.repository.sources(),
@@ -86,6 +90,8 @@ export class Application {
         jevConfigured: Boolean(this.jev.key),
         model: this.jev.model,
         slackConfigured: this.notifier.configured,
+        autoAnalyzePausedUntil:
+          analysis && analysis.nextAt > this.clock() ? analysis.nextAt : null,
       },
       stats: {
         total: articles.length,
@@ -117,6 +123,8 @@ export class Application {
   }
 
   async settings(changes: Record<string, unknown>) {
+    if (changes.autoAnalyze === true && !this.jev.key)
+      throw new UserError("自動仕分けには Jev の API キーを設定してください");
     if (changes.autoPost === true && !this.buffer.configured)
       throw new UserError(
         "Buffer の API キーとチャンネル ID を設定してください",
@@ -169,20 +177,7 @@ export class Application {
       }
     }
     const previous = await repository.getJob();
-    if (!previous.running) {
-      const settings = await repository.settings();
-      const schedule = await repository.getRecord<{ nextAt: number }>(
-        "scheduler",
-        "collection",
-      );
-      if (settings.autoCollect && this.clock() >= (schedule?.nextAt ?? 0)) {
-        try {
-          await this.start("collect");
-        } catch (error) {
-          if (!(error instanceof UserError)) throw error;
-        }
-      }
-    }
+    if (!previous.running) await this.queueAutomatic();
     const job = await repository.claimJob(this.clock(), 600);
     if (!job?.token) return;
     const token = job.token;
@@ -205,6 +200,7 @@ export class Application {
           ? error.message
           : "処理を完了できませんでした。再実行してください";
       try {
+        if (job.kind === "analyze") await this.pauseAnalysis(token);
         await repository.finishJob(token, {
           error: truncate(message, 1000),
           phase: "一部未完了",
@@ -226,6 +222,38 @@ export class Application {
         "管理画面で処理状況を確認し、必要に応じて再実行してください。",
       );
     }
+  }
+
+  /**
+   * Queues at most one automatic job while idle. The repository decides
+   * atomically; only the missing-key notice is sent from here.
+   */
+  private async queueAutomatic(): Promise<void> {
+    const settings = await this.repository.settings();
+    if (!settings.autoCollect && !settings.autoAnalyze) return;
+    const job = await this.repository.queueAutomaticJob(Boolean(this.jev.key));
+    if (settings.autoAnalyze && !this.jev.key)
+      await this.notifier.report(
+        "auto-analysis",
+        "自動仕分けを実行できません",
+        "Jev の API キーが未設定です。キーを設定するか、設定で自動仕分けを無効にしてください。",
+      );
+    else if (job?.kind === "analyze")
+      await this.notifier.recover("auto-analysis", "自動仕分けを再開しました");
+  }
+
+  /**
+   * After a failed classification, automatic batches wait one interval. Only
+   * the current lease holder can pause, so a stale slice never delays a newer job.
+   */
+  private async pauseAnalysis(token: string): Promise<void> {
+    const { pollMinutes } = await this.repository.settings();
+    await this.repository.putRecord(
+      "scheduler",
+      "analysis",
+      { nextAt: this.clock() + pollMinutes * 60 },
+      { jobToken: token },
+    );
   }
 
   private async runSlice(
@@ -252,18 +280,26 @@ export class Application {
           )
           .map((source) => source.id);
         const settings = await repository.settings();
-        await repository.putRecord("scheduler", "collection", {
-          nextAt: this.clock() + settings.pollMinutes * 60,
-        });
+        await repository.putRecord(
+          "scheduler",
+          "collection",
+          { nextAt: this.clock() + settings.pollMinutes * 60 },
+          { jobToken: token },
+        );
       } else {
         const articles = await repository.articles();
-        const chosen = job.articleIds === null ? null : new Set(job.articleIds);
-        work = articles
-          .filter((article) =>
-            chosen ? chosen.has(article.id) : article.analysisStatus !== "done",
-          )
-          .slice(0, 100)
-          .map((article) => article.id);
+        if (job.articleIds === null) {
+          work = articles
+            .filter((article) => article.analysisStatus !== "done")
+            .slice(0, 100)
+            .map((article) => article.id);
+        } else {
+          // Requested order is kept: automatic batches are chronological.
+          const existing = new Set(articles.map((article) => article.id));
+          work = [...new Set(job.articleIds)]
+            .filter((id) => existing.has(id))
+            .slice(0, 100);
+        }
       }
       signal.throwIfAborted();
       const changes = {
@@ -320,6 +356,7 @@ export class Application {
       const error = failed
         ? `${failed} 件を処理できませんでした。詳細を確認して再実行してください`
         : null;
+      if (error && active.kind === "analyze") await this.pauseAnalysis(token);
       await repository.finishJob(token, {
         ...changes,
         phase: error ? "一部未完了" : "完了",
@@ -437,6 +474,13 @@ export class Application {
     const earlier = (await repository.articles()).filter(
       (item) => chronological(item, article) < 0,
     );
+    // A crash after storing a result but before recording progress replays
+    // this item. An automatic job never pays for an analyzed article again;
+    // a stored failure still counts, so the batch still pauses automation.
+    if (job.automatic && article.analysisStatus !== "pending") {
+      if (article.analysisStatus === "error") job.failed += 1;
+      return;
+    }
     let result: Analysis;
     try {
       signal.throwIfAborted();
