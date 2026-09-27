@@ -69,6 +69,8 @@ export interface Job {
   created?: number;
   limited?: number;
   deferred?: number;
+  /** Epoch of the fixed daily JST slot an automatic daily collection serves. */
+  dailyCollectionAt?: number;
 }
 export type PostStatus =
   "publishing" | "submitted" | "unknown" | "failed" | "posted";

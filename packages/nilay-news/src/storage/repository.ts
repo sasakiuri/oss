@@ -28,6 +28,7 @@ import type {
   NewsRepository,
   RecordOptions,
 } from "../repository.ts";
+import { dailySlot, nextDailyRun } from "../schedule.ts";
 import {
   citationOnly,
   type CollectedItem,
@@ -98,6 +99,7 @@ const JOB_OWNERSHIP = new Set([
   "articleIds",
   "running",
   "automatic",
+  "dailyCollectionAt",
 ]);
 const DETAIL_KEYS = [
   "body",
@@ -1152,21 +1154,83 @@ export class SQLRepository implements NewsRepository {
   }
 
   /**
+   * An automatic collection of the given sources, fully initialized so that
+   * the slice runner neither expands it to every source nor moves the
+   * regular collection interval.
+   */
+  private dailyJob(state: StateRows, sourceIds: string[], slot: number): Job {
+    return Object.assign(this.newJob(state, "collect", null, true), {
+      phase: "定時収集の準備中",
+      dailyCollectionAt: slot,
+      workIds: sourceIds,
+      total: sourceIds.length,
+      progress: 0,
+      rubric: settingsOf(state).rubric,
+      failed: 0,
+      created: 0,
+      limited: 0,
+      deferred: 0,
+    });
+  }
+
+  /**
    * Decides and queues at most one scheduler job in one atomic mutation.
    *
    * Scheduler records are read inside the mutation; every scheduler record
    * write increments the revision, so a concurrent job, setting, cooldown or
-   * analysis result makes this decision retry from the new state. Due
-   * collection wins, except that one analysis batch may follow a finished
-   * collection so that collection longer than its interval cannot starve
-   * classification. Only never-analyzed articles are chosen, oldest first.
+   * analysis result makes this decision retry from the new state.
+   *
+   * Fixed daily sources due at their JST time come first, independent of the
+   * regular interval. An idle automatic job yields to them at an item
+   * boundary, and its remaining sources follow the daily ones; manual jobs
+   * and live leases are never replaced, and a queued daily batch continues.
+   * Their last start is not revision-fenced, so a source claimed meanwhile
+   * is deferred by CachedFetch.beginSource under the host lease instead.
+   *
+   * Otherwise due regular collection wins, except that one analysis batch may
+   * follow a finished collection so that collection longer than its interval
+   * cannot starve classification. Only never-analyzed articles are chosen,
+   * oldest first.
    */
   async queueAutomaticJob(canAnalyze: boolean): Promise<Job | null> {
     return this.mutate(["state", "articles", "sources"], async (state) => {
       const previous = jobOf(state.state);
-      if (previous.running) return null;
       const settings = settingsOf(state.state);
       const now = this.clock();
+      const active = (config: SourceConfig) => {
+        const source = state.sources.get(config.id);
+        return source?.enabled === true && !source.collectionBlocked;
+      };
+      const daily: string[] = [];
+      let slot = 0;
+      for (const config of this.sourceConfig) {
+        if (!settings.autoCollect || !config.dailyAtJst || !active(config))
+          continue;
+        const started = await this.getRecord<{ last_requested: number }>(
+          "crawl_source",
+          config.id,
+        );
+        if (nextDailyRun(now, config.dailyAtJst, started?.last_requested) > now)
+          continue;
+        daily.push(config.id);
+        slot = Math.max(slot, dailySlot(now, config.dailyAtJst));
+      }
+      if (previous.running) {
+        if (!previous.automatic || previous.leaseUntil > now) return null;
+        const remaining = previous.workIds?.slice(previous.progress) ?? [];
+        if (
+          previous.dailyCollectionAt !== undefined &&
+          daily.every((id) => remaining.includes(id))
+        )
+          return null;
+        if (!daily.length) return null;
+        const carried =
+          previous.kind === "collect"
+            ? remaining.filter((id) => !daily.includes(id))
+            : [];
+        return this.dailyJob(state.state, [...daily, ...carried], slot);
+      }
+      if (daily.length) return this.dailyJob(state.state, daily, slot);
       const collection = await this.getRecord<{ nextAt: number }>(
         "scheduler",
         "collection",
@@ -1175,7 +1239,7 @@ export class SQLRepository implements NewsRepository {
         settings.autoCollect &&
         now >= (collection?.nextAt ?? 0) &&
         this.sourceConfig.some(
-          (config) => state.sources.get(config.id)?.enabled === true,
+          (config) => !config.dailyAtJst && active(config),
         );
       let analyze: string[] = [];
       if (canAnalyze && settings.autoAnalyze) {

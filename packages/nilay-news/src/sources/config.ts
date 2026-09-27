@@ -2,6 +2,7 @@
 /** Validation of the bundled sources.json collection configuration. */
 import { UserError } from "../errors.ts";
 import { canonicalUrl, hostnameOf, urlsplit } from "../net/url.ts";
+import { dailyMinutes } from "../schedule.ts";
 import { isInteger, isRecord, strip } from "../text.ts";
 
 import type { SourceConfig } from "./types.ts";
@@ -23,8 +24,44 @@ function nonEmpty(value: unknown): value is string {
   return typeof value === "string" && strip(value) !== "";
 }
 
-/** Whether a robots exception is limited to the documented, low-frequency Google search RSS. */
+export const KANPO_HOME = "https://www.kanpo.go.jp/";
+const KANPO_TOC =
+  /^https:\/\/www\.kanpo\.go\.jp\/(\d{8})\/\1\.fullcontents\.html$/;
+
+/** The `YYYYMMDD` issue date of an exact official daily gazette TOC URL, or null. */
+export function kanpoTocDate(url: string): string | null {
+  const date = KANPO_TOC.exec(url)?.[1];
+  if (!date) return null;
+  const [year, month, day] = [
+    date.slice(0, 4),
+    date.slice(4, 6),
+    date.slice(6),
+  ].map(Number) as [number, number, number];
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+    ? date
+    : null;
+}
+
+function atLeast(value: unknown, low: number): boolean {
+  return isInteger(value) && value >= low;
+}
+
+/**
+ * Whether a robots exception is limited to the documented, low-frequency
+ * Google search RSS or the daily gazette TOCs of the official gazette site.
+ */
 export function validRobotsException(source: Record<string, unknown>): boolean {
+  if (!nonEmpty(source.robotsExceptionReason)) return false;
+  if (source.kind === "kanpo")
+    return (
+      source.url === KANPO_HOME &&
+      atLeast(source.minCollectionMinutes, 1440) &&
+      atLeast(source.minRequestIntervalSeconds, 3) &&
+      inRange(source.issueDays, 1, 3)
+    );
   try {
     const parts = urlsplit(String(source.url));
     return (
@@ -32,13 +69,8 @@ export function validRobotsException(source: Record<string, unknown>): boolean {
       parts.scheme === "https" &&
       parts.netloc === "news.google.com" &&
       parts.path === "/rss/search" &&
-      (isInteger(source.minCollectionMinutes)
-        ? source.minCollectionMinutes
-        : 0) >= 360 &&
-      (isInteger(source.minRequestIntervalSeconds)
-        ? source.minRequestIntervalSeconds
-        : 0) >= 1800 &&
-      nonEmpty(source.robotsExceptionReason)
+      atLeast(source.minCollectionMinutes, 360) &&
+      atLeast(source.minRequestIntervalSeconds, 1800)
     );
   } catch {
     return false;
@@ -68,6 +100,15 @@ function validate(source: Record<string, unknown>, id: string): void {
       throw new UserError(`${id}: ${name} は ${low}〜${high} にしてください`);
   }
   if (
+    "dailyAtJst" in source &&
+    (dailyMinutes(source.dailyAtJst) === null ||
+      source.minCollectionMinutes !== 1440)
+  ) {
+    throw new UserError(
+      `${id}: dailyAtJst は HH:MM 形式にし、minCollectionMinutes を 1440 にしてください`,
+    );
+  }
+  if (
     "feedContent" in source &&
     (source.kind !== "rss" || source.feedContent !== "links")
   ) {
@@ -88,7 +129,7 @@ function validate(source: Record<string, unknown>, id: string): void {
     (source.robotsException !== true || !validRobotsException(source))
   ) {
     throw new UserError(
-      `${id}: robots 例外は理由と低頻度設定のある Google検索RSSだけに限定してください`,
+      `${id}: robots 例外は理由と低頻度設定のある Google検索RSSと官報の日別目次だけに限定してください`,
     );
   }
   if (source.kind === "html") {
@@ -116,12 +157,11 @@ function validate(source: Record<string, unknown>, id: string): void {
     const parts = urlsplit(url);
     if (parts.scheme !== "https" || hostnameOf(parts) !== expected)
       throw new UserError(`${id}: 専用収集には公式 HTTPS URL が必要です`);
+    if (source.kind === "kanpo" && "maxPdfPages" in source)
+      throw new UserError(`${id}: 官報は目次だけを収集し、PDF は取得しません`);
     const options: [string, number, number][] =
       source.kind === "kanpo"
-        ? [
-            ["issueDays", 1, 10],
-            ["maxPdfPages", 1, 40],
-          ]
+        ? [["issueDays", 1, 3]]
         : [
             ["maxPages", 1, 5],
             ["maxDetails", 0, 100],

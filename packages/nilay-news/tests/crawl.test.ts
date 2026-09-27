@@ -337,10 +337,136 @@ describe("CachedFetch", () => {
     expect((error as CrawlDeferred).until).toBe(START + 86400);
     now = START + 86400;
     await crawler(bundled).beginSource(daily);
-    // The gazette keeps its daily limit but stays stopped.
-    await expect(
-      crawler(bundled).beginSource(byId.get("kanpo")!),
-    ).rejects.toBeInstanceOf(CrawlStopped);
+    // Fixed daily sources wait for the next 11:00 JST, not 24 hours.
+    const gazette = byId.get("kanpo")!;
+    expect(gazette.dailyAtJst).toBe("11:00");
+    await crawler(bundled).beginSource(gazette);
+    const later = await crawler(bundled)
+      .beginSource(gazette)
+      .catch((caught: unknown) => caught);
+    expect(later).toBeInstanceOf(CrawlDeferred);
+    const until = (later as CrawlDeferred).until;
+    expect(new Date(until * 1000).toISOString()).toMatch(/T02:00:00\.000Z$/);
+    expect(until - now).toBeLessThan(86400);
+  });
+
+  describe("fixed daily JST sources", () => {
+    // 2026-09-28 11:00 JST is 02:00 UTC.
+    const ELEVEN = Date.UTC(2026, 8, 28, 2) / 1000;
+    const DAY = 86400;
+    const daily = source({
+      url: `${ORIGIN}/daily`,
+      dailyAtJst: "11:00",
+      minCollectionMinutes: 1440,
+    });
+    const deferral = (promise: Promise<unknown>) =>
+      promise.then(
+        () => null,
+        (error: unknown) => {
+          expect(error).toBeInstanceOf(CrawlDeferred);
+          return (error as CrawlDeferred).until;
+        },
+      );
+
+    it("starts at 11:00 JST and never drifts after a late run", async () => {
+      now = ELEVEN - 1;
+      expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN);
+      expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
+      // Yesterday's run started late at 11:17 and finished at 11:27.
+      now = ELEVEN - DAY + 17 * 60;
+      await crawler([daily]).beginSource(daily);
+      now += 600;
+      await crawler([daily]).endSource(daily);
+      now = ELEVEN - 1;
+      expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
+      now = ELEVEN;
+      expect(await crawler([daily]).nextDue(daily)).toBe(0);
+      await crawler([daily]).beginSource(daily);
+      now = ELEVEN + 17 * 60;
+      await crawler([daily]).endSource(daily);
+      expect(await deferral(crawler([daily]).beginSource(daily))).toBe(
+        ELEVEN + DAY,
+      );
+      expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN + DAY);
+      expect(calls).toEqual([]);
+    });
+
+    it("catches up only the current JST day after missed days", async () => {
+      now = ELEVEN - DAY;
+      await crawler([daily]).beginSource(daily);
+      now = ELEVEN + 3 * DAY - 3600;
+      expect(await deferral(crawler([daily]).beginSource(daily))).toBe(
+        ELEVEN + 3 * DAY,
+      );
+      // 23:59:59 JST the same day is still today's run.
+      now = ELEVEN + 3 * DAY + 13 * 3600 - 1;
+      await crawler([daily]).beginSource(daily);
+      // Midnight JST does not make the next day's run due before 11:00.
+      now += 1;
+      expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN + 4 * DAY);
+      await crawler([daily]).endSource(daily);
+      expect(await repo.getRecord("crawl_source", daily.id)).toEqual({
+        last_requested: ELEVEN + 3 * DAY + 13 * 3600 - 1,
+      });
+    });
+
+    it("claims each slot once under concurrent starts and stays blocked when stopped", async () => {
+      now = ELEVEN + 60;
+      const results = await Promise.allSettled([
+        crawler([daily]).beginSource(daily),
+        crawler([daily]).beginSource(daily),
+      ]);
+      expect(
+        results.filter((item) => item.status === "fulfilled"),
+      ).toHaveLength(1);
+      const rejected = results.find((item) => item.status === "rejected");
+      expect(rejected?.reason).toBeInstanceOf(CrawlDeferred);
+      await expect(
+        crawler().beginSource({
+          ...daily,
+          id: "stopped",
+          collectionBlocked: "停止",
+        }),
+      ).rejects.toBeInstanceOf(CrawlStopped);
+    });
+
+    it("reuses a response within one run but never the previous day's", async () => {
+      now = ELEVEN;
+      const url = daily.url;
+      await crawler([daily]).fetch(url);
+      now += 1800;
+      await crawler([daily]).fetch(url);
+      expect(calls.filter(([called]) => called === url)).toHaveLength(1);
+      now = ELEVEN + DAY;
+      await crawler([daily]).fetch(url);
+      expect(calls.filter(([called]) => called === url)).toHaveLength(2);
+      // The rolling 24-hour source keeps its cache and URL interval.
+      const rolling = source({
+        id: "rolling",
+        url: `${ORIGIN}/rolling`,
+        minCollectionMinutes: 1440,
+      });
+      await crawler([rolling]).fetch(rolling.url);
+      now += DAY - 1;
+      await crawler([rolling]).fetch(rolling.url);
+      expect(calls.filter(([called]) => called === rolling.url)).toHaveLength(
+        1,
+      );
+    });
+
+    it("refreshes the root after upgrading from a rolling 24-hour cache", async () => {
+      const rolling = source({ url: daily.url, minCollectionMinutes: 1440 });
+      now = ELEVEN - DAY + 17 * 60;
+      await crawler([rolling]).fetch(daily.url);
+      // The old unscoped response is still valid until today's 11:17.
+      now = ELEVEN;
+      await crawler([daily]).beginSource(daily);
+      await crawler([daily]).fetch(daily.url);
+      expect(calls.filter(([url]) => url === daily.url)).toHaveLength(2);
+      now += 60;
+      await crawler([daily]).fetch(daily.url);
+      expect(calls.filter(([url]) => url === daily.url)).toHaveLength(2);
+    });
   });
 
   it("uses the default hourly source interval", async () => {
@@ -491,6 +617,142 @@ describe("CachedFetch", () => {
       ),
     ).rejects.toBeInstanceOf(CrawlStopped);
     expect(calls.filter(([url]) => url === GOOGLE)).toHaveLength(1);
+  });
+
+  describe("gazette TOC robots exception", () => {
+    const HOME = "https://www.kanpo.go.jp/";
+    const TOC = `${HOME}20260925/20260925.fullcontents.html`;
+    const gazette = source({
+      id: "kanpo",
+      url: HOME,
+      kind: "kanpo",
+      issueDays: 3,
+      minCollectionMinutes: 1440,
+      minRequestIntervalSeconds: 3,
+      robotsException: true,
+      robotsExceptionReason: "利用者指定の日別目次",
+    });
+    beforeEach(() => {
+      rules = "User-agent: *\nDisallow: /20\nDisallow: /old/\n";
+    });
+
+    it("accepts only the bounded gazette configuration", () => {
+      expect(() => crawler([gazette])).not.toThrow();
+      for (const changes of [
+        { issueDays: 4 },
+        { minCollectionMinutes: 1439 },
+        { url: `${HOME}index.html` },
+        { robotsExceptionReason: "" },
+        { kind: "html" as const },
+      ]) {
+        expect(() => crawler([{ ...gazette, ...changes }])).toThrow(
+          "robots 例外",
+        );
+      }
+    });
+
+    it("fetches exact daily TOCs after robots.txt and nothing else under /20", async () => {
+      const cache = crawler([gazette]);
+      expect(text(await cache.fetch(HOME))).toBe("content");
+      expect(text(await cache.fetch(TOC))).toBe("content");
+      for (const url of [
+        `${HOME}20260925/20260925h01795/20260925h017950002f.html`,
+        `${HOME}20260925/20260925h01795/20260925h01795full00010032f.pdf`,
+        `${HOME}20260925/20260924.fullcontents.html`,
+        `${HOME}20260231/20260231.fullcontents.html`,
+        `${TOC}?page=2`,
+        `${HOME}old/20260925/20260925.fullcontents.html`,
+        "http://www.kanpo.go.jp/20260925/20260925.fullcontents.html",
+        "https://www.kanpo.go.jp:8443/20260925/20260925.fullcontents.html",
+        "https://kanpo.go.jp/20260925/20260925.fullcontents.html",
+      ]) {
+        await expect(cache.fetch(url)).rejects.toThrow("禁止");
+      }
+      const fetched = calls.map(([url]) => url);
+      expect(fetched.filter((url) => !url.endsWith("/robots.txt"))).toEqual([
+        HOME,
+        TOC,
+      ]);
+      expect(spaced()).toBe(true);
+    });
+
+    it("never applies to redirects, disabled sources or other sources", async () => {
+      const hop: FetchBytes = async (url, options) => {
+        calls.push([url, now]);
+        if (url.endsWith("/robots.txt"))
+          return { data: utf8(rules), url, contentType: "text/plain" };
+        await options?.beforeRedirect?.(
+          `${HOME}20260924/20260924.fullcontents.html`,
+        );
+        return { data: utf8("content"), url, contentType: "text/html" };
+      };
+      await expect(
+        crawler([gazette], { transport: hop }).fetch(TOC),
+      ).rejects.toThrow("転送先を取得しません");
+      now += 60;
+      await expect(
+        crawler([{ ...gazette, enabled: false }]).fetch(TOC),
+      ).rejects.toThrow("禁止");
+      await expect(crawler().fetch(TOC)).rejects.toThrow("禁止");
+      const google = source({
+        url: GOOGLE,
+        robotsException: true,
+        robotsExceptionReason: "公開検索RSS",
+        minCollectionMinutes: 360,
+        minRequestIntervalSeconds: 1800,
+      });
+      await expect(crawler([google]).fetch(TOC)).rejects.toThrow("禁止");
+      expect(calls.filter(([url]) => url === TOC)).toHaveLength(1);
+    });
+
+    it("rejects every gazette redirect before requesting its target", async () => {
+      const login = `${HOME}login`;
+      const hop =
+        (from: string): FetchBytes =>
+        async (url, options) => {
+          const result = await transport(url, options);
+          if (url !== from) return result;
+          await options?.beforeRedirect?.(login);
+          return transport(login, options);
+        };
+      for (const from of [HOME, TOC]) {
+        await expect(
+          crawler([gazette], { transport: hop(from) }).fetch(from),
+        ).rejects.toThrow("転送先を取得しません");
+        now += 60;
+      }
+      expect(calls.map(([url]) => url)).not.toContain(login);
+      // robots.txt allows /login and a direct TOC request still works.
+      expect(new RobotsPolicy(rules).allows(login)).toBe(true);
+      now += 86400;
+      expect(text(await crawler([gazette]).fetch(TOC))).toBe("content");
+      // Other hosts keep following robots-allowed same-host redirects.
+      expect(
+        text(
+          await crawler([], {
+            transport: redirecting(`${ORIGIN}/moved`),
+          }).fetch(`${ORIGIN}/start`),
+        ),
+      ).toBe("content");
+    });
+
+    it("still requires robots.txt and keeps host backoff", async () => {
+      errors.set(`${HOME}robots.txt`, new FetchError("unavailable", 503));
+      await expect(crawler([gazette]).fetch(TOC)).rejects.toThrow(
+        "robots.txt を確認できない",
+      );
+      expect(calls.map(([url]) => url)).toEqual([`${HOME}robots.txt`]);
+      errors.clear();
+      now += 86400;
+      errors.set(TOC, new FetchError("forbidden", 403));
+      await expect(crawler([gazette]).fetch(TOC)).rejects.toThrow("forbidden");
+      await expect(
+        crawler([gazette]).fetch(`${HOME}20260924/20260924.fullcontents.html`),
+      ).rejects.toThrow("停止しています");
+      expect((await hostState("kanpo.go.jp"))?.blocked_until).toBeGreaterThan(
+        now + 3600,
+      );
+    });
   });
 
   it("refuses blocked and disabled sources before any request", async () => {
