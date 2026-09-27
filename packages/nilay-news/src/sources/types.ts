@@ -12,6 +12,8 @@ export interface SourceConfig {
   readonly kind: SourceKind;
   readonly enabled: boolean;
   readonly maxItems?: number;
+  /** RSS only: `links` collects each external link in an entry body instead of the entry. */
+  readonly feedContent?: "links";
   readonly minCollectionMinutes?: number;
   readonly minRequestIntervalSeconds?: number;
   readonly robotsException?: true;
@@ -34,6 +36,18 @@ export interface Attachment {
 }
 
 export type Metadata = Record<string, string>;
+
+/** Metadata naming a roundup post that linked the article, not article details. */
+const CITATION_KEYS: ReadonlySet<string> = new Set([
+  "roundupUrl",
+  "roundupTitle",
+  "roundupPublishedAt",
+]);
+
+export function citationOnly(metadata: Metadata): boolean {
+  const keys = Object.keys(metadata);
+  return keys.length > 0 && keys.every((key) => CITATION_KEYS.has(key));
+}
 
 export interface CollectedItem {
   title: string;

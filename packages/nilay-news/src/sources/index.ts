@@ -6,7 +6,7 @@ import { canonicalUrl } from "../net/url.ts";
 import { collectBills } from "./bills.ts";
 import { MAX_ITEMS } from "./config.ts";
 import { collectEgov } from "./egov.ts";
-import { parseFeed } from "./feed.ts";
+import { parseFeed, parseFeedLinks } from "./feed.ts";
 import { parseHeadlines } from "./headlines.ts";
 import {
   collection,
@@ -62,7 +62,10 @@ export async function collectSource(
     throw new UserError("収集元の応答が 5 MB を超えています");
   if (!canonicalUrl(url)) throw new UserError("収集元の転送先 URL が不正です");
   const limit = source.maxItems ?? MAX_ITEMS;
-  if (source.kind === "rss") return collection(parseFeed(data, url, limit));
+  if (source.kind === "rss")
+    return source.feedContent === "links"
+      ? parseFeedLinks(data, url, limit)
+      : collection(parseFeed(data, url, limit));
   if (contentType && !contentType.toLowerCase().includes("html"))
     throw new UserError("HTML の代わりに別形式の応答が返されました");
   const items = parseHeadlines(

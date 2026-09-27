@@ -72,6 +72,10 @@ const forbidden: SourceFetch = () => {
   throw new Error("must not fetch");
 };
 
+/** Acquisition problems, as opposed to expected coverage notes. */
+const alerts = (result: Collection) =>
+  result.warnings.filter((warning) => !result.notes.includes(warning));
+
 describe("RSS and Atom", () => {
   const collect = async (body: string | Uint8Array, maxItems?: number) =>
     (
@@ -458,6 +462,144 @@ describe("source kinds", () => {
   });
 });
 
+describe("RSS roundup links", () => {
+  const FEED = "https://roundup.example.com/feeds/posts/default?alt=rss";
+  const roundup = new Uint8Array(
+    readFileSync(new URL("roundup-feed.xml", FIXTURES)),
+  );
+  const collect = (
+    body: string | Uint8Array,
+    options: Partial<SourceConfig> = {},
+  ) =>
+    collectSource(
+      config("rss", FEED, { feedContent: "links", ...options }),
+      replay(() => body, "application/rss+xml").fetch,
+    );
+  const rss = (description: string) =>
+    `<rss version="2.0"><channel><item><title>まとめ</title>
+    <link>https://roundup.example.com/2026/09/1.html</link>
+    <description><![CDATA[${description}]]></description></item></channel></rss>`;
+
+  test("each external link is an item titled by its own headline", async () => {
+    const result = await collect(roundup);
+    expect(result.warnings).toEqual([]);
+    expect(result.items.map(({ title, url }) => [title, url])).toEqual([
+      [
+        "静岡 山から人里へ…ニホンカモシカの報告例増",
+        "https://news.example.jp/article/1",
+      ],
+      [
+        "長野 登山中にクマの親子と遭遇",
+        "https://news.yahoo.co.jp/articles/3cc4bfea28bf4ab82b9da68fff4987d9596475bf",
+      ],
+      // No headline of its own: neither the previous headline nor "（共同）".
+      ["https://paper.example.jp/a/2", "https://paper.example.jp/a/2"],
+      ["福井 有害獣を狩猟し加工する企業", "https://paper.example.jp/a/3"],
+      ["北海道 ヒグマ計画を改定", "https://www.hokkaido.example.jp/article/4/"],
+      ["埼玉 けもの相談所がクマ対策講座", "https://news.example.jp/article/5"],
+    ]);
+  });
+
+  test("the roundup is attribution only, not the article date", async () => {
+    const { items } = await collect(roundup);
+    expect(items.some((item) => item.url.includes("roundup.example.com"))).toBe(
+      false,
+    );
+    // The repeated link keeps the newest roundup's headline and attribution.
+    expect(items[0]).toEqual({
+      title: "静岡 山から人里へ…ニホンカモシカの報告例増",
+      url: "https://news.example.jp/article/1",
+      excerpt:
+        "鳥獣ニュース(2026年 9月28日) で紹介されたリンク（リンク先の本文・公開日は未取得）",
+      publishedAt: null,
+      metadata: {
+        roundupUrl: "https://roundup.example.com/2026/09/2026-928.html",
+        roundupTitle: "鳥獣ニュース(2026年 9月28日)",
+        roundupPublishedAt: "2026-09-27T15:30:00Z",
+      },
+    });
+    expect(items.at(-1)?.metadata?.roundupUrl).toBe(
+      "https://roundup.example.com/2026/09/2026-927.html",
+    );
+  });
+
+  test("maxItems bounds individual links with a coverage note", async () => {
+    const result = await collect(roundup, { maxItems: 2 });
+    expect(result.items).toHaveLength(2);
+    expect(result.warnings).toEqual([
+      "記事リンク 6 件のうち新しい投稿から 2 件だけ取得しました",
+    ]);
+    expect(alerts(result)).toEqual([]);
+  });
+
+  test("headlines never carry over between links or blocks", async () => {
+    const { items } = await collect(
+      rss(`<p>本日のニュース</p><ul>
+        <li><a href="https://a.example.jp/1">https://a.example.jp/1</a></li>
+        <li><a href="https://a.example.jp/2">https://a.example.jp/2</a> 続報</li>
+        <li>見出しと同じ行 <a href="https://a.example.jp/3">https://a.example.jp/3</a></li>
+        <li>https://a.example.jp/4) 補足</li>
+        <li>見出し https://roundup.example.com/x http://127.0.0.1/ https://a.example.jp/5</li></ul>`),
+    );
+    expect(items.map(({ title, url }) => [title, url])).toEqual([
+      ["本日のニュース", "https://a.example.jp/1"],
+      ["https://a.example.jp/2", "https://a.example.jp/2"],
+      ["見出しと同じ行", "https://a.example.jp/3"],
+      ["https://a.example.jp/4", "https://a.example.jp/4"],
+      ["見出し", "https://a.example.jp/5"],
+    ]);
+  });
+
+  test("malformed URLs are skipped without losing other links", async () => {
+    const result = await collect(
+      rss(`<div>壊れたリンク</div><a href="https://[invalid/">https://[invalid/</a>
+        <div>見出し一</div><a href="https://a.example.jp/1">https://a.example.jp/1</a>
+        <div>見出し二 https://[bad/x https://a.example.jp/2</div>`).replace(
+        "</channel>",
+        `<item><title>壊れた投稿</title><link>https://[broken/</link>
+        <description><![CDATA[<a href="https://a.example.jp/3">https://a.example.jp/3</a>]]></description></item></channel>`,
+      ),
+    );
+    expect(result.items.map(({ title, url }) => [title, url])).toEqual([
+      ["見出し一", "https://a.example.jp/1"],
+      ["見出し二", "https://a.example.jp/2"],
+    ]);
+    expect(alerts(result)).toEqual([
+      "1 件の投稿から記事リンクを抽出できませんでした。本文の構成を確認してください",
+    ]);
+  });
+
+  test("a roundup without external links is an error, not an item", async () => {
+    await expect(
+      collect(rss(`<div>鳥獣ニュース</div><a href="/about">about</a>`)),
+    ).rejects.toThrow("記事リンクを抽出できません");
+    const partial = await collect(
+      rss(
+        `<div>見出し</div><a href="https://a.example.jp/1">https://a.example.jp/1</a>`,
+      ).replace(
+        "</channel>",
+        "<item><title>空</title><link>https://roundup.example.com/2</link><description>休刊</description></item></channel>",
+      ),
+    );
+    expect(partial.items.map((item) => item.title)).toEqual(["見出し"]);
+    expect(alerts(partial)).toEqual([
+      "1 件の投稿から記事リンクを抽出できませんでした。本文の構成を確認してください",
+    ]);
+  });
+
+  test("without the option a roundup stays one feed entry", async () => {
+    const { items } = await collectSource(
+      config("rss", FEED),
+      replay(() => roundup, "application/rss+xml").fetch,
+    );
+    expect(items.map((item) => item.url)).toEqual([
+      "https://roundup.example.com/2026/09/2026-928.html",
+      "https://roundup.example.com/2026/09/2026-927.html",
+    ]);
+    expect(items[0]?.metadata).toBeUndefined();
+  });
+});
+
 describe("source configuration", () => {
   const good = {
     id: "test",
@@ -492,6 +634,21 @@ describe("source configuration", () => {
     ]) {
       expect(byId.get(id)?.enabled).toBe(true);
     }
+    expect(byId.get("tyoujuu-blog")).toMatchObject({
+      kind: "rss",
+      enabled: true,
+      feedContent: "links",
+      maxItems: 100,
+      minCollectionMinutes: 1440,
+    });
+    expect(byId.get("kanpo")).toMatchObject({
+      enabled: false,
+      minCollectionMinutes: 1440,
+    });
+    expect(byId.get("kanpo")?.collectionBlocked).toBeTruthy();
+    expect(
+      sources.filter((source) => source.feedContent).map((source) => source.id),
+    ).toEqual(["tyoujuu-blog"]);
     expect(
       sources.some((source) => source.enabled && source.kind === "html"),
     ).toBe(true);
@@ -508,6 +665,18 @@ describe("source configuration", () => {
     [[{ ...good, url: "http://localhost/" }]],
     [[{ ...good, enabled: "yes" }]],
     [[{ ...good, maxItems: 101 }]],
+    [[{ ...good, feedContent: "entries" }]],
+    [[{ ...good, feedContent: true }]],
+    [
+      [
+        {
+          ...good,
+          kind: "html",
+          allowedPathPattern: "^/news/",
+          feedContent: "links",
+        },
+      ],
+    ],
     [[{ ...good, kind: "html" }]],
     [[{ ...good, kind: "html", allowedPathPattern: "^(" }]],
     [[{ ...good, kind: "bills", agency: "env" }]],
@@ -588,10 +757,6 @@ async function bills(
   expect(calls.some((url) => url.toLowerCase().endsWith(".pdf"))).toBe(false);
   return { ...result, calls };
 }
-
-/** Acquisition problems, as opposed to expected coverage notes. */
-const alerts = (result: Collection) =>
-  result.warnings.filter((warning) => !result.notes.includes(warning));
 
 describe("official bill indexes", () => {
   test("NPA rows have dates and separate, stable identities", async () => {
