@@ -495,9 +495,12 @@ describe("source configuration", () => {
     expect(
       sources.some((source) => source.enabled && source.kind === "html"),
     ).toBe(true);
-    expect(sources.some((source) => source.url.includes("nifty.com"))).toBe(
-      false,
-    );
+    expect(
+      sources.some((source) => {
+        const { hostname } = new URL(source.url);
+        return hostname === "nifty.com" || hostname.endsWith(".nifty.com");
+      }),
+    ).toBe(false);
   });
 
   test.each([
