@@ -1504,7 +1504,7 @@ describe("records, host leases and blobs", () => {
         .prepare("SELECT COUNT(*) AS parts FROM news_blobs WHERE key='blob0'")
         .get()?.parts,
     ).toBe(0);
-  });
+  }, 30_000); // Writes 48 MB to a real SQLite file, including chunking and eviction.
 });
 
 describe("snapshots", () => {
