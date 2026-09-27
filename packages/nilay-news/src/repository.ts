@@ -21,6 +21,8 @@ export interface RecordOptions {
   expiresAt?: number;
   leaseHost?: string;
   leaseToken?: string;
+  /** Write only while this token holds the running job's unexpired lease. */
+  jobToken?: string;
 }
 export interface NewsRepository {
   initialize(): Promise<void>;
@@ -60,6 +62,7 @@ export interface NewsRepository {
     relationHash?: string | null,
   ): Promise<boolean>;
   queueJob(kind: string, articleIds?: string[] | null): Promise<Job>;
+  queueAutomaticJob(canAnalyze: boolean): Promise<Job | null>;
   getJob(): Promise<Job>;
   claimJob(now: number, leaseSeconds?: number): Promise<Job | null>;
   updateJob(token: string, changes: Partial<Job>): Promise<Job>;

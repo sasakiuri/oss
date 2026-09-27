@@ -42,12 +42,15 @@ export interface Settings {
   rubric: string;
   autoCollect: boolean;
   pollMinutes: number;
+  autoAnalyze: boolean;
   autoPost: boolean;
   postSelection: "saved" | "candidates" | "both";
 }
 export interface Job {
   id?: string;
   running: boolean;
+  /** Queued by the scheduler rather than requested; never changes afterwards. */
+  automatic: boolean;
   kind: "collect" | "analyze" | null;
   articleIds: string[] | null;
   phase: string;

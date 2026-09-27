@@ -8,14 +8,18 @@ import type { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { Article, Post } from "../src/domain.ts";
+import type { Article, Job, Post } from "../src/domain.ts";
 import { NotFoundError, UserError } from "../src/errors.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/repository.ts";
 import type { SQLResult, SQLStatement } from "../src/storage/repository.ts";
 import { isRecord } from "../src/text.ts";
 
-import { SQLiteDriver, testRepository } from "./helpers/storage.ts";
+import {
+  MIGRATION_FILES,
+  SQLiteDriver,
+  testRepository,
+} from "./helpers/storage.ts";
 
 const SOURCE: SourceConfig = {
   id: "one",
@@ -136,7 +140,9 @@ beforeEach(async () => {
   ({ repo, driver } = opened);
   drivers.push(driver);
   await repo.initialize();
-});
+  // A new file-backed SQLite database with every migration can exceed the
+  // default hook timeout on hosted Windows runners.
+}, 30_000);
 
 afterEach(() => {
   for (const item of drivers) item.close();
@@ -532,6 +538,168 @@ describe("ingest and evidence", () => {
   });
 });
 
+describe("automatic classification setting", () => {
+  it("starts disabled and is persisted independently", async () => {
+    expect(await repo.settings()).toMatchObject({
+      autoCollect: false,
+      autoAnalyze: false,
+      autoPost: false,
+    });
+    await repo.updateSettings({ autoAnalyze: true });
+    expect(await open().settings()).toMatchObject({
+      autoCollect: false,
+      autoAnalyze: true,
+      autoPost: false,
+    });
+  });
+
+  it("migrates existing settings to disabled and fails without the migration", async () => {
+    const legacy = new SQLiteDriver(join(directory, "legacy.sqlite3"), [
+      "0001_news.sql",
+    ]);
+    drivers.push(legacy);
+    const settings = {
+      rubric: "既存の運用で使っている選定基準です",
+      autoCollect: true,
+      pollMinutes: 45,
+      autoPost: false,
+      postSelection: "saved",
+    };
+    // A collection started by the old Worker is still running.
+    const job = {
+      id: "old-job",
+      running: true,
+      kind: "collect",
+      articleIds: null,
+      phase: "1/23 件完了・次の処理を待機中",
+      progress: 1,
+      total: 23,
+      cursor: 0,
+      error: null,
+      warning: null,
+      lastFinishedAt: "2026-09-27T00:00:00+00:00",
+      token: "old-token",
+      leaseUntil: now + 300,
+      queuedAt: "2026-09-27T01:00:00+00:00",
+      workIds: ["one"],
+      rubric: settings.rubric,
+      failed: 0,
+      created: 2,
+      limited: 0,
+      deferred: 0,
+    };
+    const insert = legacy.db.prepare(
+      "INSERT INTO news_state(id,data) VALUES (?,?)",
+    );
+    insert.run("settings", JSON.stringify(settings));
+    insert.run("job", JSON.stringify(job));
+    const before = revision(legacy.db);
+    const upgraded = new SQLRepository(legacy, [SOURCE], () => now);
+    await expect(upgraded.initialize()).rejects.toThrow(
+      "0002_auto_analyze has not been applied",
+    );
+    expect(revision(legacy.db)).toBe(before);
+    expect(MIGRATION_FILES).toEqual([
+      "0001_news.sql",
+      "0002_auto_analyze.sql",
+      "0003_automatic_jobs.sql",
+    ]);
+    const partial = new SQLiteDriver(join(directory, "legacy.sqlite3"), [
+      "0001_news.sql",
+      "0002_auto_analyze.sql",
+    ]);
+    drivers.push(partial);
+    await expect(upgraded.initialize()).rejects.toThrow(
+      "0003_automatic_jobs has not been applied",
+    );
+    // Reopening applies only the pending migrations, as Wrangler does.
+    drivers.push(new SQLiteDriver(join(directory, "legacy.sqlite3")));
+    expect(revision(legacy.db)).toBe(before + 2);
+    const state = stored(legacy.db, "state");
+    expect(state.get("settings")).toEqual({ ...settings, autoAnalyze: false });
+    expect(state.get("job")).toEqual({ ...job, automatic: false });
+    await upgraded.initialize();
+    expect(await upgraded.settings()).toEqual({
+      ...settings,
+      autoAnalyze: false,
+    });
+    // The old lease still owns the job and keeps its progress.
+    expect(await upgraded.claimJob(now)).toBeNull();
+    await upgraded.releaseJob("old-token", { progress: 2 });
+    expect(await upgraded.getJob()).toMatchObject({
+      id: "old-job",
+      automatic: false,
+      progress: 2,
+      created: 2,
+    });
+  });
+
+  it("creates disabled settings on a fresh migrated database", async () => {
+    const fresh = new SQLiteDriver(join(directory, "fresh.sqlite3"));
+    drivers.push(fresh);
+    expect(stored(fresh.db, "state").size).toBe(0);
+    expect(revision(fresh.db)).toBe(0);
+    const created = new SQLRepository(fresh, [SOURCE], () => now);
+    await created.initialize();
+    expect((await created.settings()).autoAnalyze).toBe(false);
+    expect((await created.getJob()).automatic).toBe(false);
+  });
+
+  it("queues only never-analyzed articles, oldest first and bounded", async () => {
+    const items = ["2026-09-03", "2026-09-01", "2026-09-04", "2026-09-02"].map(
+      (day, index) => ({
+        ...ITEM,
+        url: `https://example.org/${index}`,
+        publishedAt: `${day}T00:00:00Z`,
+      }),
+    );
+    await repo.ingest(SOURCE, items);
+    const ids = await Promise.all(
+      items.map(async (item) => (await find(item.url)).id),
+    );
+    await analyze(ids[1]!, {});
+    await analyze(ids[3]!, { analysisStatus: "error", analysisError: "失敗" });
+    await repo.review(ids[0]!, "dismissed");
+    expect(await repo.queueAutomaticJob(true)).toBeNull();
+    await repo.updateSettings({ autoAnalyze: true });
+    expect(await repo.queueAutomaticJob(false)).toBeNull();
+    const version = await repo.stateVersion();
+    const job = await repo.queueAutomaticJob(true);
+    expect(job).toMatchObject({
+      running: true,
+      automatic: true,
+      kind: "analyze",
+      articleIds: [ids[0], ids[2]],
+    });
+    expect(await repo.stateVersion()).toBe(version + 1);
+    expect(await repo.queueAutomaticJob(true)).toBeNull();
+    expect((await repo.getJob()).id).toBe(job?.id);
+    expect((await repo.article(ids[0]!)).reviewStatus).toBe("dismissed");
+    const token = (await repo.claimJob(now))!.token!;
+    await expect(
+      repo.updateJob(token, { automatic: false } as Partial<Job>),
+    ).rejects.toThrow("処理の所有権は変更できません");
+  });
+
+  it("waits for the analysis pause and needs an enabled source to collect", async () => {
+    await repo.ingest(SOURCE, [ITEM]);
+    await repo.updateSettings({ autoAnalyze: true, autoCollect: true });
+    await repo.putRecord("scheduler", "analysis", { nextAt: now + 60 });
+    expect(await repo.queueAutomaticJob(true)).toMatchObject({
+      kind: "collect",
+      automatic: true,
+    });
+    const token = (await repo.claimJob(now))!.token!;
+    await repo.finishJob(token);
+    await repo.updateSource("one", { enabled: false });
+    expect(await repo.queueAutomaticJob(true)).toBeNull();
+    now += 60;
+    expect(await repo.queueAutomaticJob(true)).toMatchObject({
+      kind: "analyze",
+    });
+  });
+});
+
 describe("settings, listing and review", () => {
   it("validates settings atomically", async () => {
     const before = await repo.settings();
@@ -549,6 +717,12 @@ describe("settings, listing and review", () => {
       "収集間隔は15〜1440分にしてください",
     );
     await expect(repo.updateSettings({ autoPost: 1 })).rejects.toThrow(
+      "自動実行の設定が不正です",
+    );
+    await expect(repo.updateSettings({ autoAnalyze: "true" })).rejects.toThrow(
+      "自動実行の設定が不正です",
+    );
+    await expect(repo.updateSettings({ autoAnalyze: null })).rejects.toThrow(
       "自動実行の設定が不正です",
     );
     await expect(repo.updateSettings({ postSelection: "all" })).rejects.toThrow(
@@ -1001,6 +1175,12 @@ describe("jobs", () => {
     await expect(
       repo.queueJob("analyze", [1] as unknown as string[]),
     ).rejects.toThrow("記事の指定が不正です");
+    await expect(
+      repo.queueJob(
+        "analyze",
+        Array.from({ length: 101 }, (_, index) => String(index)),
+      ),
+    ).rejects.toThrow("記事は100件以内で指定してください");
     await expect(repo.claimJob(now, 0)).rejects.toThrow("処理の期限が不正です");
     expect(await repo.claimJob(now)).toBeNull();
     const job = await repo.queueJob("analyze", ["a"]);
@@ -1065,6 +1245,69 @@ describe("records, host leases and blobs", () => {
     expect(await repo.getRecord("scheduler", "collection")).toBeNull();
   });
 
+  it("fences scheduler records by revision and by the job lease", async () => {
+    let version = revision(driver.db);
+    await repo.putRecord("notifications", "a", { at: 1 });
+    await repo.deleteRecord("notifications", "a");
+    expect(revision(driver.db)).toBe(version);
+    await repo.putRecord("scheduler", "collection", { nextAt: 1 });
+    expect(revision(driver.db)).toBe(++version);
+    await repo.deleteRecord("scheduler", "collection");
+    expect(revision(driver.db)).toBe(++version);
+    await repo.deleteRecord("scheduler", "collection");
+    expect(revision(driver.db)).toBe(version);
+    const denied = "処理の有効期限または所有権が変わりました";
+    await expect(
+      repo.putRecord("scheduler", "analysis", {}, { jobToken: "none" }),
+    ).rejects.toThrow(denied);
+    await expect(
+      repo.putRecord("scheduler", "analysis", {}, { jobToken: "" }),
+    ).rejects.toThrow("処理の所有権が不正です");
+    await repo.queueJob("analyze", []);
+    const token = (await repo.claimJob(now, 60))!.token!;
+    version = revision(driver.db);
+    await repo.putRecord(
+      "scheduler",
+      "analysis",
+      { nextAt: 5 },
+      { jobToken: token },
+    );
+    expect(revision(driver.db)).toBe(++version);
+    now += 60;
+    await expect(
+      repo.putRecord(
+        "scheduler",
+        "analysis",
+        { nextAt: 9 },
+        { jobToken: token },
+      ),
+    ).rejects.toThrow(denied);
+    const newer = (await repo.claimJob(now))!.token!;
+    await expect(
+      repo.putRecord(
+        "scheduler",
+        "analysis",
+        { nextAt: 9 },
+        { jobToken: token },
+      ),
+    ).rejects.toThrow(denied);
+    expect(revision(driver.db)).toBe(version + 1);
+    await repo.finishJob(newer);
+    version = revision(driver.db);
+    await expect(
+      repo.putRecord(
+        "scheduler",
+        "analysis",
+        { nextAt: 9 },
+        { jobToken: newer },
+      ),
+    ).rejects.toThrow(denied);
+    expect(revision(driver.db)).toBe(version);
+    expect(await repo.getRecord("scheduler", "analysis")).toEqual({
+      nextAt: 5,
+    });
+  });
+
   it("chunks, replaces and expires blobs", async () => {
     const value = new Uint8Array(3_600_000).map((_, index) => index % 251);
     await repo.putBlob("one", value, now + 5);
@@ -1108,9 +1351,13 @@ describe("records, host leases and blobs", () => {
 describe("snapshots", () => {
   it("round-trips while disabling automation and preserving unknown sends", async () => {
     const articleId = await ready();
-    await repo.updateSettings({ autoCollect: true });
+    await repo.updateSettings({ autoCollect: true, autoAnalyze: true });
     const attempt = await claim();
     const snapshot = await repo.exportSnapshot();
+    expect(snapshot).toMatchObject({
+      version: 2,
+      settings: { autoAnalyze: true },
+    });
     expect(snapshot).not.toHaveProperty("job");
     expect(JSON.stringify(snapshot)).toContain('"_identity"');
     const other = open([SOURCE], join(directory, "restored.sqlite3"));
@@ -1122,6 +1369,7 @@ describe("snapshots", () => {
     });
     expect(await other.settings()).toMatchObject({
       autoCollect: false,
+      autoAnalyze: false,
       autoPost: false,
     });
     expect((await other.publicationState()).nextAt).toBe(now + 3600);
@@ -1196,10 +1444,19 @@ describe("snapshots", () => {
     await expect(other.importSnapshot(snapshot)).rejects.toThrow(
       "移行先の自動実行を停止してください",
     );
+    await other.updateSettings({ autoCollect: false, autoAnalyze: true });
+    await expect(other.importSnapshot(snapshot)).rejects.toThrow(
+      "移行先の自動実行を停止してください",
+    );
   });
 
   it.each([
     ["format", { format: "other" }, "対応していない移行データ形式です"],
+    [
+      "version before automatic classification",
+      { version: 1 },
+      "対応していない移行データ形式です",
+    ],
     [
       "settings keys",
       { settings: { rubric: "x" } },
@@ -1226,6 +1483,18 @@ describe("snapshots", () => {
       expect(await repo.articles()).toEqual([]);
     },
   );
+
+  it("requires a boolean automatic classification setting", async () => {
+    const snapshot = await exported(repo);
+    const settings = snapshot.settings as Record<string, unknown>;
+    const { autoAnalyze: _omitted, ...missing } = settings;
+    for (const invalid of [missing, { ...settings, autoAnalyze: "false" }]) {
+      await expect(
+        repo.importSnapshot({ ...snapshot, settings: invalid }),
+      ).rejects.toThrow("移行データの設定が不正です");
+    }
+    expect(await repo.articles()).toEqual([]);
+  });
 
   it("rejects duplicate ids, orphan posts and incomplete Buffer records", async () => {
     const articleId = await candidate();
