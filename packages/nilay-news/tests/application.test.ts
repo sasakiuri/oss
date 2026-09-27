@@ -675,6 +675,8 @@ describe("automatic classification races and replays", () => {
       expect(b.analyze.mock.calls.length).toBe(paid + calls);
       expect((await a.repo.getJob()).automatic).toBe(false);
     },
+    // Two real SQLite connections and completed jobs can exceed 5 s on Windows CI.
+    30_000,
   );
 
   it.each([

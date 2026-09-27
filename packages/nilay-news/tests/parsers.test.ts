@@ -499,8 +499,8 @@ describe("RSS roundup links", () => {
 
   test("the roundup is attribution only, not the article date", async () => {
     const { items } = await collect(roundup);
-    expect(items.some((item) => item.url.includes("roundup.example.com"))).toBe(
-      false,
+    expect(items.map((item) => new URL(item.url).hostname)).not.toContain(
+      "roundup.example.com",
     );
     // The repeated link keeps the newest roundup's headline and attribution.
     expect(items[0]).toEqual({
