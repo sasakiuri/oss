@@ -103,13 +103,21 @@ describe("production config", () => {
     );
     return { output, result };
   }
-  it("writes a private config file that check-config accepts", () => {
+  it("writes a deployment config file that check-config accepts", () => {
     const { output, result } = write(ENV);
     expect(result.status).toBe(0);
-    expect(statSync(output).mode & 0o077).toBe(0);
     expect(validateConfig(loadConfig(output), true)).toEqual([]);
     expect(readFileSync(output, "utf8")).toContain(ENV.CF_ACCESS_AUD);
   });
+  // Windows uses ACLs; Node does not expose POSIX owner/group permission bits there.
+  it.skipIf(process.platform === "win32")(
+    "restricts the config file to its owner on POSIX systems",
+    () => {
+      const { output, result } = write(ENV);
+      expect(result.status).toBe(0);
+      expect(statSync(output).mode & 0o077).toBe(0);
+    },
+  );
   it("fails without writing or echoing the allowed emails", () => {
     const { output, result } = write({
       ...ENV,
