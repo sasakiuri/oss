@@ -53,5 +53,7 @@ export async function closeLane(running: RunningLane | undefined): Promise<void>
     await applicationExited;
   }
 
-  await rm(running.userDataDirectory, { recursive: true, force: true });
+  // On Windows, Chromium's child processes can hold user-data files briefly after the main process
+  // exits; retry the removal the way Playwright removes its own browser profiles.
+  await rm(running.userDataDirectory, { recursive: true, force: true, maxRetries: 10 });
 }
