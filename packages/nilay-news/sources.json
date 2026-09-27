@@ -59,8 +59,10 @@
     "url": "https://tyoujuu-news.blogspot.com/feeds/posts/default?alt=rss",
     "kind": "rss",
     "enabled": true,
-    "description": "鳥獣関連ニュースの RSS。複数の記事をまとめた日別記事も含む。",
-    "maxItems": 30
+    "description": "鳥獣関連ニュースの日別まとめ記事から、紹介された各記事の見出しとリンクを個別に収集（24時間に1回、最大100件）。まとめ記事自体は収集対象外で、リンク先の本文と公開日は取得しない。",
+    "feedContent": "links",
+    "maxItems": 100,
+    "minCollectionMinutes": 1440
   },
   {
     "id": "kanpo",
@@ -72,7 +74,8 @@
     "description": "保存済みの法令・告示・官庁報告を閲覧できます。本文は掲載開始ページのみで、続きのページは含みません。",
     "issueDays": 3,
     "maxItems": 100,
-    "maxPdfPages": 12
+    "maxPdfPages": 12,
+    "minCollectionMinutes": 1440
   },
   {
     "id": "egov-comments",

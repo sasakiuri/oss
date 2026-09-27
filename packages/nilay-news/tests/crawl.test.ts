@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CrawlOptions } from "../src/crawl.ts";
@@ -11,6 +13,7 @@ import {
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { RobotsPolicy } from "../src/robots.ts";
+import { loadSources } from "../src/sources/config.ts";
 import type { FetchResult, SourceConfig } from "../src/sources/types.ts";
 import type { SQLRepository } from "../src/storage/repository.ts";
 import { utf8 } from "../src/text.ts";
@@ -315,6 +318,29 @@ describe("CachedFetch", () => {
     now += 10;
     await cache.endSource(configured);
     expect(await cache.nextDue(configured)).toBe(now + 21600);
+  });
+
+  it("collects the bundled daily sources at most once a day", async () => {
+    const bundled = loadSources(
+      JSON.parse(
+        readFileSync(new URL("../sources.json", import.meta.url), "utf8"),
+      ),
+    );
+    const byId = new Map(bundled.map((item) => [item.id, item]));
+    const daily = byId.get("tyoujuu-blog")!;
+    await crawler(bundled).beginSource(daily);
+    now = START + 86399;
+    const error = await crawler(bundled)
+      .beginSource(daily)
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(CrawlDeferred);
+    expect((error as CrawlDeferred).until).toBe(START + 86400);
+    now = START + 86400;
+    await crawler(bundled).beginSource(daily);
+    // The gazette keeps its daily limit but stays stopped.
+    await expect(
+      crawler(bundled).beginSource(byId.get("kanpo")!),
+    ).rejects.toBeInstanceOf(CrawlStopped);
   });
 
   it("uses the default hourly source interval", async () => {

@@ -426,6 +426,165 @@ describe("ingest and evidence", () => {
     }
   });
 
+  it("keeps a roundup citation from replacing publisher content", async () => {
+    const roundup: SourceConfig = { ...SOURCE, id: "roundup", name: "まとめ" };
+    const cited: CollectedItem = {
+      ...ITEM,
+      title: "まとめ側の見出し",
+      excerpt:
+        "鳥獣ニュース(2026年 9月28日) で紹介されたリンク（リンク先の本文・公開日は未取得）",
+      publishedAt: null,
+      metadata: {
+        roundupUrl: "https://roundup.example.com/2026/09/1.html",
+        roundupTitle: "鳥獣ニュース(2026年 9月28日)",
+        roundupPublishedAt: "2026-09-27T15:30:00Z",
+      },
+    };
+    const store = open([SOURCE, roundup], ":memory:");
+    await store.initialize();
+    await store.ingest(SOURCE, [ITEM]);
+    const [article] = await store.articles();
+    if (!article) throw new Error("missing article");
+    const hash = await store.evidenceHash(article);
+    const rubric = (await store.settings()).rubric;
+    expect(
+      await store.analyzeResult(article.id, hash, rubric, {
+        analysisStatus: "done",
+        decision: "candidate",
+      }),
+    ).toBe(true);
+    for (let run = 0; run < 2; run += 1)
+      expect(await store.ingest(roundup, [cited])).toBe(0);
+    const current = await store.article(article.id);
+    expect(await store.articles()).toHaveLength(1);
+    expect(current).toMatchObject({
+      title: ITEM.title,
+      excerpt: ITEM.excerpt,
+      publishedAt: ITEM.publishedAt,
+      sourceName: SOURCE.name,
+      sourceIds: ["one", "roundup"],
+      analysisStatus: "done",
+      decision: "candidate",
+    });
+    expect(current.metadata).toBeUndefined();
+    expect(current.contentSourceId).toBeUndefined();
+    expect(await store.evidenceHash(current)).toBe(hash);
+
+    // A cited article is still promoted by a source with real details.
+    const rich: SourceConfig = { ...SOURCE, id: "bills", name: "法案" };
+    const other = open([roundup, rich], ":memory:");
+    await other.initialize();
+    await other.ingest(roundup, [cited]);
+    const [first] = await other.articles();
+    if (!first) throw new Error("missing article");
+    expect(first.contentSourceId).toBeUndefined();
+    await other.ingest(rich, [
+      { ...ITEM, title: "法案の正式名称", metadata: { agency: "環境省" } },
+    ]);
+    expect(await other.article(first.id)).toMatchObject({
+      title: "法案の正式名称",
+      excerpt: ITEM.excerpt,
+      publishedAt: ITEM.publishedAt,
+      sourceName: "法案",
+      contentSourceId: "bills",
+      metadata: { agency: "環境省" },
+      sourceIds: ["roundup", "bills"],
+    });
+  });
+
+  it("promotes publisher RSS over an earlier citation and retains its ownership", async () => {
+    const roundup: SourceConfig = {
+      ...SOURCE,
+      id: "roundup",
+      name: "まとめ",
+      feedContent: "links",
+    };
+    const cited: CollectedItem = {
+      ...ITEM,
+      title: "まとめの見出し",
+      excerpt:
+        "まとめ投稿に掲載された記事リンクです。リンク先本文は取得していません。",
+      publishedAt: null,
+      metadata: { roundupUrl: "https://roundup.example.com/day1" },
+    };
+    const store = open([roundup, SOURCE], ":memory:");
+    await store.initialize();
+    await store.ingest(roundup, [cited]);
+    await store.ingest(SOURCE, [ITEM]);
+    const [article] = await store.articles();
+    if (!article) throw new Error("missing article");
+    expect(article).toMatchObject({
+      title: ITEM.title,
+      excerpt: ITEM.excerpt,
+      publishedAt: ITEM.publishedAt,
+      sourceName: SOURCE.name,
+      contentSourceId: SOURCE.id,
+      sourceIds: [roundup.id, SOURCE.id],
+    });
+    await store.review(article.id, "saved");
+    const hash = await store.evidenceHash(article);
+    const rubric = (await store.settings()).rubric;
+    expect(
+      await store.analyzeResult(article.id, hash, rubric, {
+        analysisStatus: "done",
+        decision: "candidate",
+      }),
+    ).toBe(true);
+    await store.ingest(roundup, [
+      {
+        ...cited,
+        metadata: { roundupUrl: "https://roundup.example.com/day2" },
+      },
+    ]);
+    const retained = await store.article(article.id);
+    expect(retained).toMatchObject({
+      title: ITEM.title,
+      excerpt: ITEM.excerpt,
+      publishedAt: ITEM.publishedAt,
+      sourceName: SOURCE.name,
+      contentSourceId: SOURCE.id,
+      analysisStatus: "done",
+      reviewStatus: "saved",
+    });
+    expect(await store.evidenceHash(retained)).toBe(hash);
+    await store.ingest(SOURCE, [{ ...ITEM, title: "配信元の更新見出し" }]);
+    expect((await store.article(article.id)).title).toBe("配信元の更新見出し");
+    expect(await store.articles()).toHaveLength(1);
+  });
+
+  it("still enriches publisher content after a roundup introduced the article", async () => {
+    const roundup: SourceConfig = { ...SOURCE, id: "roundup" };
+    const richSource: SourceConfig = { ...SOURCE, id: "details" };
+    const citation: CollectedItem = {
+      ...ITEM,
+      publishedAt: null,
+      metadata: { roundupUrl: "https://roundup.example.com/day1" },
+    };
+    const detail: CollectedItem = {
+      ...ITEM,
+      title: "詳細を取得した記事",
+      body: "法案の内容と適用範囲についての本文",
+      metadata: { agency: "環境省" },
+    };
+    for (const citationFirst of [true, false]) {
+      const store = open([roundup, SOURCE, richSource], ":memory:");
+      await store.initialize();
+      if (citationFirst) await store.ingest(roundup, [citation]);
+      await store.ingest(SOURCE, [ITEM]);
+      if (!citationFirst) await store.ingest(roundup, [citation]);
+      await store.ingest(richSource, [detail]);
+      await store.ingest(roundup, [citation]);
+      const articles = await store.articles();
+      expect(articles).toHaveLength(1);
+      expect(articles[0]).toMatchObject({
+        title: detail.title,
+        body: detail.body,
+        metadata: detail.metadata,
+        contentSourceId: richSource.id,
+      });
+    }
+  });
+
   it("keeps separate notices on one page and follows their detail URL", async () => {
     const notices = [
       { ...ITEM, sourceKey: "notice1" },

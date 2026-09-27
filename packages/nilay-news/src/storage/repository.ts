@@ -28,7 +28,11 @@ import type {
   NewsRepository,
   RecordOptions,
 } from "../repository.ts";
-import type { CollectedItem, SourceConfig } from "../sources/types.ts";
+import {
+  citationOnly,
+  type CollectedItem,
+  type SourceConfig,
+} from "../sources/types.ts";
 import {
   isInteger,
   isRecord,
@@ -252,8 +256,21 @@ function resetAnalysis(article: Article): void {
   });
 }
 
+/** Details make a source the content owner; a roundup citation alone does not. */
 function hasDetails(value: Partial<CollectedItem>): boolean {
-  return DETAIL_KEYS.some((key) => value[key] !== undefined);
+  return DETAIL_KEYS.some((key) =>
+    key === "metadata"
+      ? value.metadata !== undefined && !citationOnly(value.metadata)
+      : value[key] !== undefined,
+  );
+}
+
+function isCitation(item: CollectedItem): boolean {
+  return (
+    item.metadata !== undefined &&
+    citationOnly(item.metadata) &&
+    !hasDetails(item)
+  );
 }
 
 function updateContent(
@@ -680,12 +697,22 @@ export class SQLRepository implements NewsRepository {
         const details = hasDetails(item);
         let owner = article.contentSourceId;
         if (!owner && hasDetails(article)) owner = article.sourceIds[0];
-        const promote = details && !owner;
+        // A publisher feed outranks an attribution-only roundup even without
+        // a full body. Persist that ownership so later citations cannot undo it.
+        // A pinned plain feed still allows actual rich details to enrich it.
+        const promote =
+          (details && (!owner || !hasDetails(article))) ||
+          (!owner && isCitation(article) && !isCitation(item));
         const sameSource =
           promote || source.id === (owner || article.sourceIds[0]);
-        if (details && sameSource) article.contentSourceId = source.id;
+        if ((details || promote) && sameSource)
+          article.contentSourceId = source.id;
         if (promote) article.sourceName = source.name;
-        if (sameSource || length(item.excerpt ?? "") > length(article.excerpt))
+        if (
+          sameSource ||
+          (!isCitation(item) &&
+            length(item.excerpt ?? "") > length(article.excerpt))
+        )
           article.excerpt = item.excerpt ?? "";
         if (sameSource) article.title = item.title;
         if (item.publishedAt && (!article.publishedAt || sameSource))

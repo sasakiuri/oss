@@ -68,6 +68,14 @@ function validate(source: Record<string, unknown>, id: string): void {
       throw new UserError(`${id}: ${name} は ${low}〜${high} にしてください`);
   }
   if (
+    "feedContent" in source &&
+    (source.kind !== "rss" || source.feedContent !== "links")
+  ) {
+    throw new UserError(
+      `${id}: feedContent は RSS の "links" だけ指定できます`,
+    );
+  }
+  if (
     "collectionBlocked" in source &&
     typeof source.collectionBlocked !== "string"
   ) {
