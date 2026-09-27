@@ -205,6 +205,10 @@
   ],
   "overrides": [
     {
+      "filename": "packages/nilay-news/{README.md,scripts/**/*.ts,tests/**/*.ts}",
+      "words": ["CEEK", "cloudflareaccess", "typesafe"]
+    },
+    {
       "filename": "packages/nilay-news/src/**/*.ts",
       "words": [
         "bunya",

@@ -1,0 +1,110 @@
+name: News deployment
+
+on:
+  push:
+    branches: [1.x]
+    paths:
+      - packages/nilay-news/**
+      - packages/eslint-config/**
+      - packages/typescript-config/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/news-deployment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Production deployments and D1 migrations never overlap or get cancelled midway.
+concurrency:
+  group: nilay-news-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify News
+    if: github.ref == 'refs/heads/1.x'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/nilay-news
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      # Bootstrap the exact package manager before installing the lockfile.
+      - run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      - name: Install News dependencies
+        working-directory: .
+        run: npm ci --ignore-scripts --include-workspace-root --workspace=@sasakiuri/nilay-news
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Test, including the local Worker runtime
+        run: npm run test
+      - run: npm run build
+
+  deploy:
+    name: Deploy News to production
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: nilay-news-production
+      url: ${{ vars.NILAY_PUBLIC_ORIGIN }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/nilay-news
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      NILAY_NEWS_D1_DATABASE_ID: ${{ vars.NILAY_NEWS_D1_DATABASE_ID }}
+      NILAY_PUBLIC_ORIGIN: ${{ vars.NILAY_PUBLIC_ORIGIN }}
+      CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+      CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
+      WRANGLER_SEND_METRICS: "false"
+      # Binding summaries truncate values, which can bypass full-secret masking.
+      WRANGLER_LOG: warn
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      - run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      - name: Install News dependencies
+        working-directory: .
+        run: npm ci --ignore-scripts --include-workspace-root --workspace=@sasakiuri/nilay-news
+      - name: Write the production Worker configuration
+        env:
+          CF_ACCESS_ALLOWED_EMAILS: ${{ secrets.CF_ACCESS_ALLOWED_EMAILS }}
+        run: |
+          # Mask individual addresses in addition to GitHub's whole-list masking.
+          IFS=',' read -ra emails <<< "$CF_ACCESS_ALLOWED_EMAILS"
+          for email in "${emails[@]}"; do
+            email="${email//[[:space:]]/}"
+            if [ -n "$email" ]; then echo "::add-mask::$email"; fi
+          done
+          node scripts/production-config.ts wrangler.production.jsonc
+          node scripts/check-config.ts wrangler.production.jsonc --deployment
+      - name: Dry-run the production bundle
+        run: npx --no-install wrangler deploy --dry-run --config wrangler.production.jsonc --outdir .local/production-dist
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --no-install wrangler d1 migrations apply DB --remote --config wrangler.production.jsonc
+      - name: Deploy the Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --no-install wrangler deploy --config wrangler.production.jsonc
+      - name: Confirm Access protects the deployment
+        run: node scripts/deployment-smoke.ts

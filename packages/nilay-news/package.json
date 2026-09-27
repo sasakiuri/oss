@@ -6,8 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "wrangler d1 migrations apply DB --local && wrangler dev",
-    "dev:local": "node scripts/dev.ts",
+    "dev": "node scripts/dev.ts",
     "build": "node scripts/check-config.ts && wrangler deploy --dry-run --outdir .local/dist",
     "test": "vitest run",
     "test:runtime": "vitest run --project runtime",
