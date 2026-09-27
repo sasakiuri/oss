@@ -206,7 +206,25 @@
   "overrides": [
     {
       "filename": "packages/nilay-news/{README.md,scripts/**/*.ts,tests/**/*.ts}",
-      "words": ["CEEK", "cloudflareaccess", "typesafe"]
+      "words": [
+        "CEEK",
+        "cloudflareaccess",
+        "dspcnt",
+        "egov",
+        "egovui",
+        "fullcontents",
+        "gibier",
+        "husho",
+        "kanpo",
+        "maff",
+        "pcmmstdetail",
+        "pcmmstlist",
+        "riflesports",
+        "rinya",
+        "tyoujuu",
+        "typesafe",
+        "urlsplit"
+      ]
     },
     {
       "filename": "packages/nilay-news/src/**/*.ts",
@@ -220,6 +238,7 @@
         "egov",
         "egovui",
         "fbclid",
+        "fullcontents",
         "gclid",
         "heisei",
         "hextet",
@@ -250,6 +269,7 @@
         "rtspu",
         "shttp",
         "snews",
+        "tocs",
         "transactionally",
         "typesafe",
         "urlencode",

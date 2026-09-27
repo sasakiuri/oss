@@ -177,11 +177,16 @@ export class Application {
       }
     }
     const previous = await repository.getJob();
-    if (!previous.running) await this.queueAutomatic();
+    // Decided every tick: a due daily collection may replace an idle automatic job.
+    await this.queueAutomatic();
     const job = await repository.claimJob(this.clock(), 600);
     if (!job?.token) return;
     const token = job.token;
-    if (previous.token && previous.leaseUntil <= this.clock()) {
+    if (
+      previous.token &&
+      previous.leaseUntil <= this.clock() &&
+      previous.id === job.id
+    ) {
       await this.notifier.report(
         "job",
         "中断された処理を再開します",
@@ -265,8 +270,9 @@ export class Application {
     if (!job.workIds?.length) {
       let work: string[];
       if (job.kind === "collect") {
+        // Fixed daily sources have their own automatic batch at their JST time.
         const sources = (await repository.sources()).filter(
-          (source) => source.enabled,
+          (source) => source.enabled && !(job.automatic && source.dailyAtJst),
         );
         if (!sources.length)
           throw new UserError("設定で情報源を1つ以上有効にしてください");

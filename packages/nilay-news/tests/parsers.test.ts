@@ -419,10 +419,7 @@ describe("HTML headline pages", () => {
 });
 
 describe("source kinds", () => {
-  test("gazette collection is always disabled and blocked sources are never fetched", async () => {
-    await expect(
-      collectSource(config("kanpo", "https://www.kanpo.go.jp/"), forbidden),
-    ).rejects.toThrow("官報の自動収集は停止しています");
+  test("blocked sources and unknown kinds are never fetched", async () => {
     await expect(
       collectSource(
         config("rss", "https://example.org/rss", {
@@ -600,6 +597,20 @@ describe("RSS roundup links", () => {
   });
 });
 
+const KANPO = {
+  id: "kanpo",
+  name: "官報",
+  description: "目次",
+  url: "https://www.kanpo.go.jp/",
+  kind: "kanpo",
+  enabled: true,
+  issueDays: 3,
+  minCollectionMinutes: 1440,
+  minRequestIntervalSeconds: 3,
+  robotsException: true,
+  robotsExceptionReason: "利用者指定の例外",
+};
+
 describe("source configuration", () => {
   const good = {
     id: "test",
@@ -642,10 +653,42 @@ describe("source configuration", () => {
       minCollectionMinutes: 1440,
     });
     expect(byId.get("kanpo")).toMatchObject({
-      enabled: false,
+      enabled: true,
+      issueDays: 3,
+      maxItems: 100,
       minCollectionMinutes: 1440,
+      minRequestIntervalSeconds: 3,
+      robotsException: true,
     });
-    expect(byId.get("kanpo")?.collectionBlocked).toBeTruthy();
+    expect(byId.get("kanpo")).not.toHaveProperty("collectionBlocked");
+    // The user-selected sources run once a day from 11:00 JST; others keep rolling intervals.
+    expect(
+      sources.filter((source) => source.dailyAtJst).map((source) => source.id),
+    ).toEqual([
+      "kanpo",
+      "egov-comments",
+      "egov-results",
+      "npa-notifications",
+      "env-news",
+      "env-press",
+      "maff-press",
+      "rinya-press",
+      "npa-bills",
+      "env-bills",
+      "mof-tax",
+      "mof-bills",
+      "riflesports-news",
+      "clay-shooting-news",
+      "gibier-news",
+    ]);
+    for (const source of sources.filter((item) => item.dailyAtJst)) {
+      expect(source).toMatchObject({
+        dailyAtJst: "11:00",
+        minCollectionMinutes: 1440,
+      });
+      expect(source.description).toContain("毎日11時（日本時間）");
+    }
+    expect(byId.get("kanpo")).not.toHaveProperty("maxPdfPages");
     expect(
       sources.filter((source) => source.feedContent).map((source) => source.id),
     ).toEqual(["tyoujuu-blog"]);
@@ -703,10 +746,282 @@ describe("source configuration", () => {
         },
       ],
     ],
+    [[{ ...good, dailyAtJst: "24:00", minCollectionMinutes: 1440 }]],
+    [[{ ...good, dailyAtJst: "11:0", minCollectionMinutes: 1440 }]],
+    [[{ ...good, dailyAtJst: 1100, minCollectionMinutes: 1440 }]],
+    [[{ ...good, dailyAtJst: "11:00" }]],
+    [[{ ...good, dailyAtJst: "11:00", minCollectionMinutes: 360 }]],
+    [[{ ...KANPO, maxPdfPages: 12 }]],
+    [[{ ...KANPO, issueDays: 4 }]],
+    [[{ ...KANPO, minCollectionMinutes: 1439 }]],
+    [[{ ...KANPO, robotsExceptionReason: " " }]],
+    [[{ ...KANPO, url: "https://www.kanpo.go.jp/index.html" }]],
+    [[{ ...KANPO, kind: "html", allowedPathPattern: "^/20" }]],
+    [[{ ...good, robotsException: true, robotsExceptionReason: "理由" }]],
     [{}],
     [[]],
   ])("invalid configuration %j", (value) => {
     expect(() => loadSources(value)).toThrow(UserError);
+  });
+});
+
+const KANPO_HOME = "https://www.kanpo.go.jp/";
+const tocUrl = (date: string) =>
+  `https://www.kanpo.go.jp/${date}/${date}.fullcontents.html`;
+/** The 2026-09-25 TOC fixture rewritten for another issue date. */
+const tocFor = (date: string) =>
+  text(read("kanpo-toc")).replaceAll("20260925", date);
+
+function kanpoFetch(pages: Record<string, Response> = {}) {
+  const routes: Record<string, Response> = {
+    [KANPO_HOME]: read("kanpo-home"),
+    [tocUrl("20260925")]: read("kanpo-toc"),
+    [tocUrl("20260924")]: tocFor("20260924"),
+    [tocUrl("20260918")]: tocFor("20260918"),
+    ...pages,
+  };
+  return replay((url) => routes[url]);
+}
+
+async function kanpo(
+  options: Record<string, unknown> = {},
+  pages: Record<string, Response> = {},
+) {
+  const { fetch, calls } = kanpoFetch(pages);
+  const result = await collectSource(untyped({ ...KANPO, ...options }), fetch);
+  return { ...result, calls };
+}
+
+describe("official gazette TOCs", () => {
+  test("collects legal notices from the latest daily TOCs only", async () => {
+    const { items, calls, warnings, notes } = await kanpo();
+    // Only the homepage and three newest TOCs; no notice pages or PDFs.
+    expect(calls).toEqual([
+      KANPO_HOME,
+      tocUrl("20260925"),
+      tocUrl("20260924"),
+      tocUrl("20260918"),
+    ]);
+    expect(alerts({ items, warnings, notes })).toEqual([]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("本文・PDFは取得せず");
+    expect(items).toHaveLength(27);
+    const day = items.filter(
+      (item) => item.metadata?.issueDate === "2026-09-25",
+    );
+    expect(day.map((item) => item.metadata?.section)).toEqual([
+      "省令",
+      "規則",
+      "法規的告示",
+      "法規的告示",
+      "その他告示",
+      "官庁報告",
+      "官庁報告",
+      "その他告示",
+      "その他告示",
+    ]);
+    expect(day[0]).toEqual({
+      title:
+        "労働保険事務組合に対する報奨金に関する省令の一部を改正する省令（厚生労働一四一）",
+      url: "https://www.kanpo.go.jp/20260925/20260925h01795/20260925h017950002f.html",
+      excerpt:
+        "官報 2026-09-25 本紙 第1795号 2頁（省令）。公式の全体目次に掲載された見出しで、本文は取得していません。",
+      publishedAt: "2026-09-24T15:00:00Z",
+      sourceKey: expect.stringMatching(/^kanpo:[0-9a-f]{32}$/),
+      metadata: {
+        issueDate: "2026-09-25",
+        edition: "本紙",
+        issueNumber: "1795",
+        section: "省令",
+        page: "2",
+        tocUrl: tocUrl("20260925"),
+      },
+    });
+    // Distinct headlines sharing one notice page stay separate articles.
+    expect(day[0]?.url).toBe(day[1]?.url);
+    expect(new Set(items.map((item) => item.sourceKey)).size).toBe(27);
+    expect(day[6]?.metadata).toMatchObject({
+      section: "官庁報告",
+      subsection: "労働",
+      page: "8",
+    });
+    expect(day[6]?.excerpt).toContain("（官庁報告・労働）");
+    expect(day.map((item) => item.metadata?.edition).slice(-2)).toEqual([
+      "号外",
+      "特別号外",
+    ]);
+    const titles = items.map((item) => item.title).join("\n");
+    for (const excluded of ["農林水産省", "相続", "入札公告", "国会事項"])
+      expect(titles).not.toContain(excluded);
+    expect(titles).not.toMatch(/\s\d+$/);
+  });
+
+  test("source keys are stable across runs and TOC reordering", async () => {
+    const first = await kanpo({ issueDays: 1 });
+    const again = await kanpo({ issueDays: 1 });
+    expect(again.items).toEqual(first.items);
+    const reversed = text(read("kanpo-toc")).replace(
+      /(<section>\s*<h2 class="title"><span class="text">省令[\s\S]*?<\/section>)(\s*)(<section>\s*<h2 class="title"><span class="text">規則[\s\S]*?<\/section>)/,
+      "$3$2$1",
+    );
+    const moved = await kanpo(
+      { issueDays: 1 },
+      { [tocUrl("20260925")]: reversed },
+    );
+    expect(moved.items.slice(0, 2).map((item) => item.sourceKey)).toEqual(
+      first.items
+        .slice(0, 2)
+        .map((item) => item.sourceKey)
+        .reverse(),
+    );
+  });
+
+  test("bounds issue days and items", async () => {
+    const one = await kanpo({ issueDays: 1 });
+    expect(one.calls).toEqual([KANPO_HOME, tocUrl("20260925")]);
+    expect(one.items).toHaveLength(9);
+    const limited = await kanpo({ maxItems: 10 });
+    expect(limited.items).toHaveLength(10);
+    expect(limited.items.at(-1)?.metadata?.issueDate).toBe("2026-09-24");
+    expect(limited.calls).toHaveLength(3);
+    expect(alerts(limited)).toEqual([]);
+    expect(limited.notes.at(-1)).toContain("上限の 10 件");
+    // A larger configured day count is still capped at three TOCs.
+    const capped = await kanpo({ issueDays: 10 });
+    expect(capped.calls).toHaveLength(4);
+  });
+
+  test("follows only exact official daily TOC links from the homepage", async () => {
+    const decoys = [
+      "./20260930/20260930.fullcontents.html?x=1",
+      "./20260930/20260929.fullcontents.html",
+      "./20260231/20260231.fullcontents.html",
+      "http://www.kanpo.go.jp/20260930/20260930.fullcontents.html",
+      "https://www.kanpo.go.jp:8443/20260930/20260930.fullcontents.html",
+      "https://user@www.kanpo.go.jp/20260930/20260930.fullcontents.html",
+      "https://kanpo.go.jp/20260930/20260930.fullcontents.html",
+      "./old/20260930/20260930.fullcontents.html",
+      "./20260930/20260930h01799/20260930h017990000f.html",
+      "./20260930/20260930.fullcontents.html#top",
+    ]
+      .map((href) => `<a href="${href}">目次</a>`)
+      .join("");
+    const home = text(read("kanpo-home")).replace("<body>", `<body>${decoys}`);
+    const { calls } = await kanpo({}, { [KANPO_HOME]: home });
+    expect(calls).toEqual([
+      KANPO_HOME,
+      tocUrl("20260925"),
+      tocUrl("20260924"),
+      tocUrl("20260918"),
+    ]);
+  });
+
+  test("rejects unsafe or inconsistent notice links", async () => {
+    const good =
+      '<a href="20260925h01795/20260925h017950002f.html"><span class="text">正しい省令</span><span class="date">2</span></a>';
+    const links = [
+      good,
+      good.replace(".html", ".html?x=1"),
+      good.replace("20260925h01795/", "https://example.org/20260925h01795/"),
+      good.replace(/20260925h/g, "20260924h"),
+      good.replace(/h01795/g, "h01796"),
+      good.replace(/h01795/g, "c01795"),
+      good.replace("0002f.html", "0002.pdf"),
+      good.replace(
+        '<span class="date">2</span>',
+        '<span class="date">3</span>',
+      ),
+      good.replace('<span class="date">2</span>', ""),
+      good.replace('<span class="text">正しい省令</span>', ""),
+      '<a href="javascript:void(0);"><span class="text">不正</span><span class="date">2</span></a>',
+    ];
+    const toc = `<dl class="allIndexBox"><dt>本紙 第1795号</dt><dd><section><h2><span class="text">省令</span></h2><ul class="iconList">${links
+      .map((link) => `<li>${link}</li>`)
+      .join("")}</ul></section></dd></dl>`;
+    const { items, warnings, calls } = await kanpo(
+      { issueDays: 1 },
+      { [tocUrl("20260925")]: toc },
+    );
+    expect(items.map((item) => item.title)).toEqual(["正しい省令"]);
+    expect(warnings).toContain(
+      "官報 20260925 の目次で、掲載ページを確認できない見出し 10 件を除外しました",
+    );
+    expect(calls).toHaveLength(2);
+  });
+
+  test("reports partial days, empty days and malformed layouts", async () => {
+    const partial = await kanpo(
+      {},
+      {
+        [tocUrl("20260924")]: "<html><body><p>メンテナンス中</p></body></html>",
+        [tocUrl("20260918")]: {
+          data: utf8(tocFor("20260918")),
+          url: "https://www.kanpo.go.jp/old/index.html",
+          contentType: "text/html",
+        },
+      },
+    );
+    expect(partial.items).toHaveLength(9);
+    expect(alerts(partial)).toEqual([
+      "官報 20260924 の全体目次を取得できません：全体目次の構成を読み取れません",
+      "官報 20260918 の全体目次を取得できません：官報のページが想定外の URL に転送されました",
+    ]);
+    // A TOC with only announcements yields no items and no placeholder.
+    const announcements =
+      '<dl class="allIndexBox"><dt>本紙 第1795号</dt><dd><section><h2><span class="text">公告</span></h2><ul class="iconList"><li><a href="20260925h01795/20260925h017950010f.html"><span class="text">相続関係</span><span class="date">10</span></a></li></ul></section></dd></dl>';
+    const empty = await kanpo(
+      { issueDays: 1 },
+      { [tocUrl("20260925")]: announcements },
+    );
+    expect(empty.items).toEqual([]);
+    expect(alerts(empty)).toEqual([]);
+    expect(empty.notes).toContain(
+      "官報 20260925 の全体目次には、収集対象の区分（法令・告示・官庁報告）の見出しがありませんでした",
+    );
+    const unreadable =
+      "官報 20260925 の目次で、号または区分の見出しを読み取れない号 1 件があります。ページ構成の確認が必要です";
+    for (const toc of [
+      announcements.replace("本紙 第1795号", "目録"),
+      '<dl class="allIndexBox"><dt></dt></dl>',
+      '<dl class="allIndexBox"><dt>本紙 第1795号</dt></dl>',
+      // A list whose section heading has disappeared.
+      announcements.replace('<h2><span class="text">公告</span></h2>', ""),
+      announcements.replace('<span class="text">公告</span>', ""),
+    ]) {
+      const result = await kanpo(
+        { issueDays: 1 },
+        { [tocUrl("20260925")]: toc },
+      );
+      expect(result.items).toEqual([]);
+      expect(alerts(result)).toEqual([unreadable]);
+      expect(result.notes.join()).not.toContain("見出しがありませんでした");
+    }
+    await expect(
+      kanpo({ issueDays: 1 }, { [tocUrl("20260925")]: "<html></html>" }),
+    ).rejects.toThrow("いずれも取得できません");
+    await expect(
+      kanpo({}, { [KANPO_HOME]: "<html><body>準備中</body></html>" }),
+    ).rejects.toThrow("全体目次を見つけられません");
+  });
+
+  test("accepts only UTF-8 HTML of bounded size at the exact URL", async () => {
+    const page = (changes: Partial<FetchResult>) => ({
+      data: read("kanpo-home"),
+      url: KANPO_HOME,
+      contentType: "text/html; charset=UTF-8",
+      ...changes,
+    });
+    for (const [changes, message] of [
+      [{ contentType: "text/html; charset=Shift_JIS" }, "UTF-8"],
+      [{ contentType: "application/pdf" }, "UTF-8"],
+      [{ data: new Uint8Array([0x3c, 0xff, 0xfe]) }, "UTF-8"],
+      [{ data: new Uint8Array(4_000_001) }, "4 MB"],
+      [{ url: "https://www.kanpo.go.jp/index.html" }, "想定外の URL"],
+    ] as const) {
+      await expect(kanpo({}, { [KANPO_HOME]: page(changes) })).rejects.toThrow(
+        message,
+      );
+    }
   });
 });
 

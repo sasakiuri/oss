@@ -15,6 +15,11 @@ export interface SourceConfig {
   /** RSS only: `links` collects each external link in an entry body instead of the entry. */
   readonly feedContent?: "links";
   readonly minCollectionMinutes?: number;
+  /**
+   * Collect once per JST day from this `HH:MM` time instead of a rolling
+   * interval; requires `minCollectionMinutes` 1440.
+   */
+  readonly dailyAtJst?: string;
   readonly minRequestIntervalSeconds?: number;
   readonly robotsException?: true;
   readonly robotsExceptionReason?: string;
@@ -26,7 +31,6 @@ export interface SourceConfig {
   readonly maxDetails?: number;
   readonly maxPages?: number;
   readonly issueDays?: number;
-  readonly maxPdfPages?: number;
   readonly detailKeywords?: unknown;
 }
 

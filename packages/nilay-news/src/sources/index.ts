@@ -8,6 +8,7 @@ import { MAX_ITEMS } from "./config.ts";
 import { collectEgov } from "./egov.ts";
 import { parseFeed, parseFeedLinks } from "./feed.ts";
 import { parseHeadlines } from "./headlines.ts";
+import { collectKanpo } from "./kanpo.ts";
 import {
   collection,
   type Collection,
@@ -45,8 +46,7 @@ export async function collectSource(
   if (source.collectionBlocked) throw new UserError(source.collectionBlocked);
   switch (source.kind) {
     case "kanpo":
-      // The official gazette is blocked by robots; no PDF fallback exists here.
-      throw new UserError("官報の自動収集は停止しています");
+      return collectKanpo(source, fetch);
     case "bills":
       return collectBills(source, fetch);
     case "egov":

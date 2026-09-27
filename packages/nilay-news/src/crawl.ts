@@ -12,7 +12,12 @@ import type { FetchBytes, FetchOptions } from "./net/types.ts";
 import { hostname, queryValue, urlsplit } from "./net/url.ts";
 import type { NewsRepository } from "./repository.ts";
 import { RobotsPolicy } from "./robots.ts";
-import { validRobotsException } from "./sources/config.ts";
+import { dailySlot, nextDailyRun } from "./schedule.ts";
+import {
+  KANPO_HOME,
+  kanpoTocDate,
+  validRobotsException,
+} from "./sources/config.ts";
 import type { FetchResult, SourceConfig } from "./sources/types.ts";
 import { sha256 } from "./text.ts";
 import { isoSeconds } from "./time.ts";
@@ -58,6 +63,7 @@ const LEASE_SECONDS = 120;
 const MIN_INTERVAL = 3;
 const MAX_WAIT = 3;
 const MAX_BYTES = 4_000_000;
+const GAZETTE_HOST = hostOf(KANPO_HOME);
 
 function timer(seconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -107,8 +113,11 @@ export class CachedFetch {
     signal?: AbortSignal,
   ) => Promise<void>;
   private readonly urlIntervals = new Map<string, number>();
+  private readonly dailyUrls = new Map<string, string>();
   private readonly hostDelays = new Map<string, number>();
   private readonly robotsExceptions = new Set<string>();
+  /** An enabled gazette source with the documented exception may fetch daily TOCs. */
+  private kanpoTocs = false;
 
   constructor(
     private readonly repository: NewsRepository,
@@ -131,11 +140,14 @@ export class CachedFetch {
     this.sleep = sleep;
     for (const source of sources) {
       const { url } = source;
+      if (source.dailyAtJst) this.dailyUrls.set(url, source.dailyAtJst);
+      // A daily source is gated by its JST slot in beginSource; a rolling URL
+      // interval would also stretch its cache into the next day's run.
       this.urlIntervals.set(
         url,
         Math.max(
           this.urlIntervals.get(url) ?? 0,
-          (source.minCollectionMinutes ?? 0) * 60,
+          source.dailyAtJst ? 0 : (source.minCollectionMinutes ?? 0) * 60,
         ),
       );
       const host = hostOf(url);
@@ -149,13 +161,26 @@ export class CachedFetch {
       if (source.robotsException) {
         if (!validRobotsException({ ...source }))
           throw new UserError("robots 例外の収集設定が不正です");
-        this.robotsExceptions.add(url);
+        if (source.kind === "kanpo") this.kanpoTocs ||= source.enabled;
+        else this.robotsExceptions.add(url);
       }
     }
   }
 
   /** Earliest time the source may be collected again; 0 when it is due now. */
   async nextDue(source: SourceConfig): Promise<number> {
+    if (source.dailyAtJst) {
+      const started = await this.repository.getRecord<Requested>(
+        "crawl_source",
+        source.id,
+      );
+      const due = nextDailyRun(
+        this.clock(),
+        source.dailyAtJst,
+        started?.last_requested,
+      );
+      return due > this.clock() ? due : 0;
+    }
     const [started, requested] = await Promise.all([
       this.repository.getRecord<Requested>("crawl_source", source.id),
       this.repository.getRecord<Requested>("crawl_url", source.url),
@@ -182,9 +207,12 @@ export class CachedFetch {
         "crawl_source",
         source.id,
       );
-      const interval = (source.minCollectionMinutes ?? 60) * 60;
-      if (row && row.last_requested + interval > this.clock())
-        throw new CrawlDeferred(row.last_requested + interval);
+      const due = source.dailyAtJst
+        ? nextDailyRun(this.clock(), source.dailyAtJst, row?.last_requested)
+        : row
+          ? row.last_requested + (source.minCollectionMinutes ?? 60) * 60
+          : 0;
+      if (due > this.clock()) throw new CrawlDeferred(due);
       await this.put(
         "crawl_source",
         source.id,
@@ -198,6 +226,8 @@ export class CachedFetch {
   }
 
   async endSource(source: SourceConfig): Promise<void> {
+    // A fixed daily slot is claimed at the start, even if completion is late.
+    if (source.dailyAtJst) return;
     const host = hostOf(source.url);
     const token = await this.acquire(host);
     try {
@@ -216,9 +246,15 @@ export class CachedFetch {
   /** GET a source URL: cached, paced, robots-checked and budgeted. */
   async fetch(url: string): Promise<FetchResult> {
     this.signal?.throwIfAborted();
+    const dailyAt = this.dailyUrls.get(url);
+    // A new day's root must not reuse a previous slot or a pre-deployment
+    // rolling-interval response. The actual request URL remains unchanged.
+    const responseKey = dailyAt
+      ? `daily:${dailySlot(this.clock(), dailyAt)}:${url}`
+      : url;
     const cached = await this.repository.getRecord<CachedResponse>(
       "crawl_response",
-      url,
+      responseKey,
     );
     if (cached) {
       const data = await this.repository.getBlob(cached.blob);
@@ -288,7 +324,7 @@ export class CachedFetch {
       await this.repository.putBlob(blob, result.data, expiry);
       await this.put(
         "crawl_response",
-        url,
+        responseKey,
         { blob, final_url: result.url, content_type: result.contentType },
         host,
         token,
@@ -401,6 +437,9 @@ export class CachedFetch {
     const beforeRedirect = async (target: string) => {
       if (hostOf(target) !== host)
         throw new CrawlStopped("許可していない転送先です");
+      // Gazette pages are read only at their exact homepage and TOC URLs.
+      if (!robots && host === GAZETTE_HOST)
+        throw new CrawlStopped("官報のページは転送先を取得しません");
       await this.finish(host, token, state);
       if (robots) {
         await this.pace(state);
@@ -497,7 +536,10 @@ export class CachedFetch {
     return policy;
   }
 
-  /** The documented robots exception covers only the exact configured URL, never a redirect target. */
+  /**
+   * The documented robots exceptions cover only the exact configured URL or an
+   * exact official daily gazette TOC URL, never a redirect target.
+   */
   private async guard(
     url: string,
     host: string,
@@ -507,7 +549,11 @@ export class CachedFetch {
   ): Promise<void> {
     await this.pace(state);
     const policy = await this.robots(url, host, token, state);
-    if (!policy.allows(url) && !(initial && this.robotsExceptions.has(url))) {
+    const excepted =
+      initial &&
+      (this.robotsExceptions.has(url) ||
+        (this.kanpoTocs && kanpoTocDate(url) !== null));
+    if (!policy.allows(url) && !excepted) {
       throw new CrawlStopped(
         "robots.txt でこの URL の自動取得が禁止されているため収集を停止しました",
       );
