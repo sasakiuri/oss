@@ -171,6 +171,91 @@ describe("Access", () => {
     expect(() => options?.beforeRedirect?.("https://evil.example")).toThrow();
   });
 
+  describe("cross-site top-level navigation after the Access login redirect", () => {
+    const NAVIGATION = {
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "document",
+    };
+
+    it.each(["GET", "HEAD", "get"])(
+      "accepts a signed %s document navigation",
+      async (method) => {
+        expect(await allowed(undefined, NAVIGATION, STATE, method)).toBe(true);
+        expect(
+          await allowed(
+            undefined,
+            { ...NAVIGATION, "sec-fetch-user": "?1" },
+            "https://news.example.com/",
+            method,
+          ),
+        ).toBe(true);
+      },
+    );
+
+    it.each(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"])(
+      "denies a cross-site %s even with a matching Origin and navigation metadata",
+      async (method) => {
+        expect(
+          await allowed(
+            undefined,
+            { ...NAVIGATION, origin: CONFIG.NILAY_PUBLIC_ORIGIN },
+            STATE,
+            method,
+          ),
+        ).toBe(false);
+      },
+    );
+
+    it.each<[string, Record<string, string>]>([
+      ["a foreign Origin", { origin: "https://else.example.com" }],
+      ["an opaque Origin", { origin: "null" }],
+      ["an iframe", { "sec-fetch-dest": "iframe" }],
+      ["a frame", { "sec-fetch-dest": "frame" }],
+      ["an embed", { "sec-fetch-dest": "embed" }],
+      ["an object", { "sec-fetch-dest": "object" }],
+      ["a script", { "sec-fetch-dest": "script" }],
+      ["an image", { "sec-fetch-dest": "image" }],
+      ["an API fetch", { "sec-fetch-mode": "cors", "sec-fetch-dest": "empty" }],
+      [
+        "a no-cors fetch",
+        { "sec-fetch-mode": "no-cors", "sec-fetch-dest": "empty" },
+      ],
+      ["a cors document", { "sec-fetch-mode": "cors" }],
+      ["a same-origin mode", { "sec-fetch-mode": "same-origin" }],
+      ["a websocket", { "sec-fetch-mode": "websocket" }],
+      ["a missing mode", { "sec-fetch-mode": "" }],
+      ["a missing destination", { "sec-fetch-dest": "" }],
+      ["an uppercase mode", { "sec-fetch-mode": "Navigate" }],
+      ["an unknown site", { "sec-fetch-site": "cross-origin" }],
+    ])("denies a cross-site request with %s", async (_, change) => {
+      const headers: Record<string, string> = { ...NAVIGATION, ...change };
+      for (const [name, value] of Object.entries(change))
+        if (!value) delete headers[name];
+      expect(await allowed(undefined, headers)).toBe(false);
+      expect(await allowed(undefined, headers, STATE, "HEAD")).toBe(false);
+    });
+
+    it("still requires a valid token for the allowed identity", async () => {
+      expect(
+        await access.allowed(STATE, "GET", {
+          ...NAVIGATION,
+          "cf-access-authenticated-user-email": "admin@example.com",
+        }),
+      ).toBe(false);
+      const [head, payload] = (await sign()).split(".");
+      for (const token of [
+        `${head}.${payload}.${base64url(encoder.encode("forged"))}`,
+        await sign({}, {}, rotated),
+        await sign({ email: "other@example.com" }),
+        await sign({ iss: "https://evil.cloudflareaccess.com" }),
+        await sign({ aud: "other" }),
+        await sign({ exp: 1000 }),
+      ])
+        expect(await allowed(token, NAVIGATION)).toBe(false);
+    });
+  });
+
   it("accepts a Headers object with case-insensitive names", async () => {
     const headers = new Headers({
       "CF-Access-Jwt-Assertion": await sign(),
