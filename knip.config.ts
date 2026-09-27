@@ -3,6 +3,15 @@ import type { KnipConfig } from "knip";
 
 const config: KnipConfig = {
   workspaces: {
+    "packages/nilay-news": {
+      entry: [
+        "src/local-worker.ts",
+        "public/app.js",
+        "scripts/*.ts",
+        "tests/**/*.test.ts",
+        "tests/runtime/fixture.ts",
+      ],
+    },
     "packages/nilay-about": {
       // The service workers are registered by URL, which knip cannot follow.
       entry: [
