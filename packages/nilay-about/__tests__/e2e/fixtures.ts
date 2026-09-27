@@ -23,6 +23,37 @@ export const test = base.extend({
       await settle();
       return response;
     };
+    // Temporary diagnostics: record, without tracing, the loads that fail before hydration can finish.
+    // Failed loads, error responses, page errors and crashes are all kept; console errors are capped.
+    const network: object[] = [];
+    const pending = new Map<object, object>();
+    const consoleErrors = { kept: 0, dropped: 0 };
+    if (process.platform === 'win32') {
+      const started = Date.now();
+      const note = (entry: object) => network.push({ at: Date.now() - started, ...entry });
+      page.on('request', (request) =>
+        pending.set(request, { at: Date.now() - started, url: request.url(), type: request.resourceType() }),
+      );
+      page.on('requestfinished', (request) => pending.delete(request));
+      page.on('requestfailed', (request) => {
+        pending.delete(request);
+        note({ failed: request.url(), type: request.resourceType(), error: request.failure()?.errorText });
+      });
+      page.on('response', (response) => {
+        if (response.status() >= 400) note({ status: response.status(), url: response.url() });
+      });
+      page.on('console', (message) => {
+        if (message.type() !== 'error') return;
+        if (consoleErrors.kept === 50) {
+          consoleErrors.dropped += 1;
+          return;
+        }
+        consoleErrors.kept += 1;
+        note({ console: message.text().slice(0, 2000) });
+      });
+      page.on('pageerror', (error) => note({ pageError: String(error).slice(0, 2000) }));
+      page.on('crash', () => note({ crash: true }));
+    }
     try {
       await use(page); // eslint-disable-line react-hooks/rules-of-hooks -- Playwright fixture, not a React hook
     } finally {
@@ -52,7 +83,19 @@ export const test = base.extend({
                 labsBarHeight: document.documentElement.style.getPropertyValue('--labs-bar-height'),
                 statuses: [...document.querySelectorAll('[role="status"]')].map((node) => node.textContent),
                 scripts: [...document.scripts].map((script) => script.src).filter(Boolean),
+                chunks: performance
+                  .getEntriesByType('resource')
+                  .filter((entry) => entry.name.includes('/_next/static/chunks/'))
+                  .map((entry) => {
+                    const { name, duration, responseStatus, transferSize } = entry as PerformanceResourceTiming;
+                    return { name, duration: Math.round(duration), responseStatus, transferSize };
+                  }),
               };
+              // A load that failed at the network may leave no timing entry at all.
+              const timed = new Set(state.chunks.map((chunk) => chunk.name));
+              const untimedChunks = state.scripts.filter(
+                (src) => src.includes('/_next/static/chunks/') && !timed.has(src),
+              );
               let lockDeadline: ReturnType<typeof setTimeout> | undefined;
               try {
                 const locks = navigator.locks
@@ -63,7 +106,7 @@ export const test = base.extend({
                       }),
                     ])
                   : 'unavailable';
-                return { ...state, locks };
+                return { ...state, untimedChunks, locks };
               } finally {
                 clearTimeout(lockDeadline);
               }
@@ -84,6 +127,10 @@ export const test = base.extend({
         } finally {
           clearTimeout(deadline);
         }
+        await testInfo.attach('network-state', {
+          body: JSON.stringify({ network, consoleErrors, pending: [...pending.values()] }, null, 2),
+          contentType: 'application/json',
+        });
       }
     }
   },
