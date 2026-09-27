@@ -289,7 +289,12 @@ jobs:
       - name: E2E tests (other platforms)
         if: runner.os != 'Linux'
         shell: bash
-        run: npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" && "$E2E_PACKAGE" == "@sasakiuri/nilay-about" ]]; then
+            npm run test:e2e --workspace="$E2E_PACKAGE" -- --shard="$E2E_SHARD" --trace=retain-on-failure
+          else
+            npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+          fi
       - name: Upload Playwright reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
