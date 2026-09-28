@@ -75,6 +75,7 @@ async function setup(sources: SourceConfig[], jev = new Jev()) {
     repo,
     app,
     collected,
+    now: () => now,
     at: (epoch: number) => {
       now = epoch;
     },
@@ -225,13 +226,14 @@ describe("fixed daily collection", () => {
     await tick(ELEVEN - 2 * MINUTE);
     await tick(ELEVEN - MINUTE);
     const batch = await repo.getJob();
+    // Each invocation classifies up to ten articles.
     expect(batch).toMatchObject({
       kind: "analyze",
       running: true,
-      progress: 2,
+      progress: 20,
     });
     await tick(ELEVEN);
-    expect(analyzed).toHaveLength(2);
+    expect(analyzed).toHaveLength(20);
     expect(collected).toEqual(["rss", "kanpo"]);
     expect(await repo.getJob()).toMatchObject({
       kind: "collect",
@@ -245,9 +247,64 @@ describe("fixed daily collection", () => {
       kind: "analyze",
       running: true,
     });
-    expect(analyzed).toHaveLength(4);
-    expect(new Set(analyzed).size).toBe(4);
+    expect(analyzed).toHaveLength(40);
+    expect(new Set(analyzed).size).toBe(40);
     expect((await repo.article(reviewed.id)).reviewStatus).toBe("saved");
+  });
+
+  it("interrupts a classification run at 11:00 and collects one daily source per invocation", async () => {
+    const jev = new Jev("test-key");
+    const analyzed: string[] = [];
+    const context = await setup(
+      [daily("kanpo"), daily("env"), feed("rss")],
+      jev,
+    );
+    const { repo, collected, tick, now, at } = context;
+    // Before 11:00 each classification takes 5 seconds.
+    vi.spyOn(jev, "analyze").mockImplementation(async (article) => {
+      analyzed.push(article.id);
+      if (now() < ELEVEN) at(now() + 5);
+      return { analysisStatus: "done", decision: "candidate" };
+    });
+    await repo.ingest(
+      feed("rss"),
+      Array.from({ length: 30 }, (_, index) => ({
+        title: `既存記事 ${index}`,
+        url: `https://example.org/existing/${index}`,
+        excerpt: "",
+        publishedAt: null,
+      })),
+    );
+    await repo.updateSettings({
+      autoCollect: true,
+      autoAnalyze: true,
+      pollMinutes: 60,
+    });
+    await tick(ELEVEN - 3 * MINUTE);
+    expect(collected).toEqual(["rss"]);
+    expect(analyzed).toHaveLength(0);
+    // Articles start at 10:59:40, :45, :50 and :55; 11:00 is due before the fifth.
+    await tick(ELEVEN - 20);
+    expect(analyzed).toHaveLength(4);
+    expect(collected).toEqual(["rss", "kanpo"]);
+    expect(await repo.getJob()).toMatchObject({
+      kind: "collect",
+      automatic: true,
+      dailyCollectionAt: ELEVEN,
+      workIds: ["kanpo", "env"],
+      running: true,
+      token: null,
+      progress: 1,
+    });
+    // The daily batch continues one source per invocation before classification.
+    await tick(ELEVEN + MINUTE);
+    expect(collected).toEqual(["rss", "kanpo", "env"]);
+    expect(analyzed).toHaveLength(4);
+    expect((await repo.getJob()).running).toBe(false);
+    await tick(ELEVEN + 2 * MINUTE);
+    expect(collected).toHaveLength(3);
+    expect(analyzed).toHaveLength(14);
+    expect(new Set(analyzed).size).toBe(14);
   });
 
   it("retains manual jobs and does not fetch a source twice in one day", async () => {

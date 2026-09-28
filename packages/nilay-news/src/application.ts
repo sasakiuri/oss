@@ -14,6 +14,22 @@ import { truncate } from "./text.ts";
 import { isoSeconds } from "./time.ts";
 
 type Crawl = Pick<CachedFetch, "fetch" | "beginSource" | "endSource">;
+/** Whether the scheduler may start another item in the same invocation. */
+type Step = "continue" | "stop";
+/** State of one scheduled invocation across its items. */
+interface Burst {
+  started: number;
+  /** The job the previous item of this invocation belonged to. */
+  jobId?: string;
+}
+/** Classification items one scheduled invocation may process in sequence. */
+const ANALYSIS_ITEMS_PER_TICK = 10;
+/**
+ * No additional item starts once this much of the invocation has elapsed.
+ * The first item always starts, so slow publication housekeeping never delays
+ * collection.
+ */
+const ANALYSIS_SECONDS_PER_TICK = 45;
 type ActiveJob = Job &
   Required<
     Pick<
@@ -40,6 +56,7 @@ export class Application {
   private readonly clock: Clock;
   private readonly collector: typeof collectSource;
   private readonly crawl?: Crawl;
+  private readonly maxAnalysisItemsPerTick: number;
 
   constructor(
     readonly repository: NewsRepository,
@@ -50,8 +67,17 @@ export class Application {
       collector?: typeof collectSource;
       crawl?: Crawl;
       notifier?: Notifier;
+      maxAnalysisItemsPerTick?: number;
     } = {},
   ) {
+    const items = options.maxAnalysisItemsPerTick ?? ANALYSIS_ITEMS_PER_TICK;
+    if (
+      !Number.isInteger(items) ||
+      items < 1 ||
+      items > ANALYSIS_ITEMS_PER_TICK
+    )
+      throw new RangeError("maxAnalysisItemsPerTick must be 1 to 10");
+    this.maxAnalysisItemsPerTick = items;
     this.clock = options.clock ?? systemClock;
     this.collector = options.collector ?? collectSource;
     this.crawl = options.crawl;
@@ -132,7 +158,34 @@ export class Application {
     return this.repository.updateSettings(changes);
   }
 
+  /**
+   * Publication housekeeping runs once, then up to ten classification items
+   * run one after another. Each item claims the job afresh, so a due daily
+   * collection wins between items and a competing lease ends the burst. The
+   * first item always starts; an additional item starts only within 45
+   * seconds of the invocation start, and a started item keeps its own
+   * deadline. A collection item, a failure, a finished job with errors or a
+   * manual job queued during the invocation ends the burst.
+   */
   async scheduled(): Promise<void> {
+    const burst: Burst = { started: this.clock() };
+    await this.housekeeping();
+    for (let item = 0; item < this.maxAnalysisItemsPerTick; item += 1) {
+      if (item && this.late(burst)) return;
+      if ((await this.step(burst, item > 0)) === "stop") return;
+    }
+  }
+
+  private late(burst: Burst): boolean {
+    return this.clock() - burst.started >= ANALYSIS_SECONDS_PER_TICK;
+  }
+
+  /** A manual job this invocation did not start with belongs to the next one. */
+  private static foreign(burst: Burst, job: Job): boolean {
+    return job.running && !job.automatic && job.id !== burst.jobId;
+  }
+
+  private async housekeeping(): Promise<void> {
     const repository = this.repository;
     await repository.recoverPosts(this.clock());
     if (this.buffer.configured) {
@@ -176,12 +229,27 @@ export class Application {
         );
       }
     }
+  }
+
+  /**
+   * Claims the job for one item; the claim is released or finished before
+   * returning. An additional item rechecks the time budget and the job's
+   * identity around the claim and releases a fresh claim unchanged.
+   */
+  private async step(burst: Burst, additional: boolean): Promise<Step> {
+    const repository = this.repository;
     const previous = await repository.getJob();
-    // Decided every tick: a due daily collection may replace an idle automatic job.
+    if (additional && Application.foreign(burst, previous)) return "stop";
+    // Decided every item: a due daily collection may replace an idle automatic job.
     await this.queueAutomatic();
+    if (additional && this.late(burst)) return "stop";
     const job = await repository.claimJob(this.clock(), 600);
-    if (!job?.token) return;
+    if (!job?.token) return "stop";
     const token = job.token;
+    if (additional && Application.foreign(burst, job)) {
+      await repository.releaseJob(token, {});
+      return "stop";
+    }
     if (
       previous.token &&
       previous.leaseUntil <= this.clock() &&
@@ -194,8 +262,13 @@ export class Application {
         "warning",
       );
     }
+    if (additional && this.late(burst)) {
+      await repository.releaseJob(token, {});
+      return "stop";
+    }
+    burst.jobId = job.id;
     try {
-      await withDeadline(
+      return await withDeadline(
         (signal) => this.runSlice(job, token, signal),
         240_000,
       );
@@ -218,7 +291,7 @@ export class Application {
           finishError instanceof UserError &&
           (await repository.getJob()).token !== token
         )
-          return;
+          return "stop";
         throw finishError;
       }
       await this.notifier.report(
@@ -226,6 +299,7 @@ export class Application {
         "収集・仕分け処理が中断されました",
         "管理画面で処理状況を確認し、必要に応じて再実行してください。",
       );
+      return "stop";
     }
   }
 
@@ -265,7 +339,7 @@ export class Application {
     job: Job,
     token: string,
     signal: AbortSignal,
-  ): Promise<void> {
+  ): Promise<Step> {
     const repository = this.repository;
     if (!job.workIds?.length) {
       let work: string[];
@@ -338,9 +412,10 @@ export class Application {
         phase: "完了",
         lastFinishedAt: isoSeconds(this.clock()),
       });
-      return;
+      return "stop";
     }
     signal.throwIfAborted();
+    const failedBefore = active.failed;
     if (job.kind === "collect")
       await this.collect(active, token, itemId, signal);
     else await this.analyze(active, token, itemId, signal);
@@ -370,17 +445,21 @@ export class Application {
         warning: warning.join("。") || null,
         lastFinishedAt: isoSeconds(this.clock()),
       });
-      if (!error)
-        await this.notifier.recover(
-          "job",
-          "収集・仕分け処理が正常に完了しました",
-        );
+      if (error) return "stop";
+      await this.notifier.recover(
+        "job",
+        "収集・仕分け処理が正常に完了しました",
+      );
     } else {
       await repository.releaseJob(token, {
         ...changes,
         phase: `${progress}/${active.total} 件完了・次の処理を待機中`,
       });
     }
+    // Collection keeps one source per tick; a failure waits for the next tick.
+    return active.kind === "analyze" && failed === failedBefore
+      ? "continue"
+      : "stop";
   }
 
   private async collect(

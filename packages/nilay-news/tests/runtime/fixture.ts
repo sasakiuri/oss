@@ -22,13 +22,50 @@ const source: SourceConfig = {
 };
 let now = 1_801_000_000;
 const calls: string[] = [];
+/** Set by `/fixture/classify`: a feed of 12 articles and a working Jev API. */
+let classify = false;
+const feedItems = (count: number) =>
+  Array.from({ length: count }, (_, index) => {
+    const suffix = index ? String(index) : "";
+    return `<item><title>クマの出没と対策${suffix}</title><link>https://example.org/a${suffix}</link><description>市が対策を発表</description></item>`;
+  }).join("");
+const choice = (value: string, names: string[]) => ({
+  type: "choice",
+  choice: value,
+  probabilities: Object.fromEntries(
+    names.map((name) => [
+      name,
+      name === value ? 0.9 : 0.1 / (names.length - 1),
+    ]),
+  ),
+});
+const irrelevant = JSON.stringify({
+  answers: {
+    relevance: choice("irrelevant", ["candidate", "review", "irrelevant"]),
+    topic: choice("その他", [
+      "狩猟・猟銃",
+      "射撃競技",
+      "鳥獣被害・管理",
+      "ジビエ",
+      "制度・行政",
+      "その他",
+    ]),
+    reason: choice("unrelated", [
+      "relevant",
+      "policy",
+      "fiction",
+      "unrelated",
+      "insufficient",
+    ]),
+    priority: choice("0", ["0", "1", "2", "3"]),
+  },
+});
 const transport: FetchBytes = async (url, options) => {
   let response: string;
   if (url === "https://example.org/robots.txt")
     response = "User-agent: *\nAllow: /";
   else if (url === source.url)
-    response =
-      "<rss><channel><item><title>クマの出没と対策</title><link>https://example.org/a</link><description>市が対策を発表</description></item></channel></rss>";
+    response = `<rss><channel>${feedItems(classify ? 12 : 1)}</channel></rss>`;
   else if (url === "https://api.buffer.com" && options?.body) {
     const body: unknown = JSON.parse(new TextDecoder().decode(options.body));
     if (
@@ -91,11 +128,13 @@ const handlers = createHandlers(
     const repo = await createD1Repository(env.DB, [source], () => now);
     return new Application(
       repo,
-      // Every classification request fails like an unavailable paid API.
+      // Unless enabled by /fixture/classify, every classification request
+      // fails like an unavailable paid API.
       new Jev("fixture-key", "jev-latest", async (url) => {
         if (url !== ENDPOINT) throw new Error("Unexpected Jev request");
         calls.push("jev");
-        throw new FetchError("HTTP 503", 503);
+        if (!classify) throw new FetchError("HTTP 503", 503);
+        return { data: utf8(irrelevant), url, contentType: "application/json" };
       }),
       new BufferClient("fixture-key", "fixture-channel", transport),
       {
@@ -121,6 +160,10 @@ export default {
       return new Response("ok");
     }
     if (path === "/fixture/calls") return Response.json(calls);
+    if (path === "/fixture/classify") {
+      classify = true;
+      return new Response("ok");
+    }
     if (path === "/fixture/encodings") {
       const samples: [string, number[]][] = [
         [
