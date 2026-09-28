@@ -40,7 +40,7 @@ export function publicationSeconds(
  * item's `metadata.publicationPrecision`; only `"date"` on a time that is
  * exactly JST midnight selects the calendar rule (today or yesterday in JST
  * is fresh, earlier is stale, a later date is future). Any other precision,
- * including a missing or unrecognised one, uses the rolling window.
+ * including a missing or unrecognized one, uses the rolling window.
  */
 export function freshness(
   value: string | null | undefined,
