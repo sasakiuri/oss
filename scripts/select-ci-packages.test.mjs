@@ -87,10 +87,10 @@ test("development configuration dependencies include their consumers", () => {
   assert.equal(lighthouseConfig.docs, true);
   assert.equal(lighthouseConfig.build, true);
   assert.equal(lighthouseConfig.electron, false);
-  assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest", "macos-latest"]);
+  assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest"]);
 });
 
-test("Knowledge Markdown and assets retain Linux and macOS build and tests", () => {
+test("Knowledge Markdown and assets retain Linux build and tests", () => {
   const packages = [
     ...current.filter((pkg) => pkg.name !== name("nilay-knowledge")),
     {
@@ -112,10 +112,9 @@ test("Knowledge Markdown and assets retain Linux and macOS build and tests", () 
     assert.equal(plan.build, true);
     assert.equal(plan.docs, false);
     assert.equal(plan.electron, false);
-    assert.deepEqual(plan.os, ["ubuntu-latest", "macos-latest"]);
+    assert.deepEqual(plan.os, ["ubuntu-latest"]);
     assert.deepEqual(plan.packageMatrix, [
       { os: "ubuntu-latest", packages: [name("nilay-knowledge")] },
-      { os: "macos-latest", packages: [name("nilay-knowledge")] },
     ]);
   }
 });
@@ -193,6 +192,38 @@ test("text and policy tooling changes do not rebuild applications", () => {
   assert.equal(select(["README.md"]).infrastructure, false);
   assert.equal(select(["scripts/lint-text.test.mjs"]).infrastructure, false);
   assert.equal(select(["scripts/pre-release-check.sh"]).infrastructure, true);
+});
+
+test("unused-code configuration runs its own check without rebuilding applications", () => {
+  const plan = select(["knip.config.ts"]);
+  assert.equal(plan.knip, true);
+  assert.deepEqual(plan.packages, []);
+  for (const job of ["ci", "build", "docs", "e2e", "knowledge", "text"])
+    assert.equal(plan[job], false, job);
+  const mixed = select([
+    "knip.config.ts",
+    "packages/nilay-news/src/application.ts",
+  ]);
+  assert.equal(mixed.knip, true);
+  assert.deepEqual(names(mixed), ["nilay-news"]);
+  assert.equal(mixed.build, true);
+  assert.equal(mixed.docs, false);
+  assert.equal(mixed.e2e, false);
+  assert.deepEqual(mixed.os, ["ubuntu-latest"]);
+  assert.equal(select(["packages/nilay-news/src/application.ts"]).knip, false);
+});
+
+test("each Nilay web application runs builds and tests only on Linux", () => {
+  for (const app of ["nilay-knowledge", "nilay-about", "nilay-news"]) {
+    const plan = select([`packages/${app}/package.json`]);
+    assert.deepEqual(names(plan), [app]);
+    assert.deepEqual(plan.packageMatrix, [
+      { os: "ubuntu-latest", packages: [name(app)] },
+    ]);
+    assert.equal(plan.build, true);
+    assert.equal(plan.e2eMatrix.length, app === "nilay-news" ? 0 : 2);
+    assert.ok(plan.e2eMatrix.every((row) => row.os === "ubuntu-latest"));
+  }
 });
 
 test("infrastructure checks follow workflows, tools, shell and Docker inputs", () => {
@@ -491,31 +522,32 @@ test("unchanged resolved lockfile data does not rebuild workspaces", () => {
   assert.equal(plan.build, false);
 });
 
-test("shared CI keeps Knowledge off Windows while retaining other platform checks", () => {
+test("shared CI keeps web apps on Linux while retaining other platform checks", () => {
   const plan = select(["package.json"]);
   assert.deepEqual(plan.os, platformRunners);
+  const webApps = ["nilay-knowledge", "nilay-about", "nilay-news"].map(name);
   for (const row of plan.packageMatrix) {
     assert.deepEqual(
       row.packages,
       plan.packages.filter(
-        (pkg) => row.os !== "windows-latest" || pkg !== name("nilay-knowledge"),
+        (pkg) => row.os === "ubuntu-latest" || !webApps.includes(pkg),
       ),
     );
   }
   const knowledge = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-knowledge"),
   );
-  assert.equal(knowledge.length, 4);
+  assert.equal(knowledge.length, 2);
   const about = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-about"),
   );
-  assert.equal(about.length, 6);
+  assert.equal(about.length, 2);
   for (const os of platformRunners) {
     assert.deepEqual(
       knowledge
         .filter((row) => row.os === os)
         .map((row) => [row.shard, row.shards]),
-      os === "windows-latest"
+      os !== "ubuntu-latest"
         ? []
         : [
             [1, 2],
@@ -526,10 +558,12 @@ test("shared CI keeps Knowledge off Windows while retaining other platform check
       about
         .filter((row) => row.os === os)
         .map((row) => [row.shard, row.shards]),
-      [
-        [1, 2],
-        [2, 2],
-      ],
+      os !== "ubuntu-latest"
+        ? []
+        : [
+            [1, 2],
+            [2, 2],
+          ],
     );
     const lane = plan.e2eMatrix.filter(
       (row) => row.package === name("saika-lane") && row.os === os,

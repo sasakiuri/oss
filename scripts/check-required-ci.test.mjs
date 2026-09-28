@@ -65,6 +65,7 @@ test("workflow output names and aggregate dependencies carry real plans to the g
   for (const file of [
     "README.md",
     "package.json",
+    "knip.config.ts",
     "packages/nilay-knowledge/package.json",
     "packages/saika-docs/content/page.md",
   ]) {
@@ -76,6 +77,7 @@ test("workflow output names and aggregate dependencies carry real plans to the g
       changes: true,
       text: plan.text,
       infrastructure: plan.infrastructure,
+      knip: plan.knip,
       lint: plan.ci,
       build: plan.build,
       unit: plan.build,
@@ -115,6 +117,7 @@ test("workflow output names and aggregate dependencies carry real plans to the g
 function needsFor({
   text = false,
   infrastructure = false,
+  knip = false,
   ci = false,
   build = false,
   docs = false,
@@ -144,6 +147,7 @@ function needsFor({
       outputs: {
         text: String(text),
         infrastructure: String(infrastructure),
+        knip: String(knip),
         ci: String(ci),
         build: String(build),
         docs: String(docs),
@@ -158,6 +162,7 @@ function needsFor({
     },
     text: { result: text ? "success" : "skipped" },
     infrastructure: { result: infrastructure ? "success" : "skipped" },
+    knip: { result: knip ? "success" : "skipped" },
     lint: { result: ci ? "success" : "skipped" },
     build: { result: build ? "success" : "skipped" },
     unit: { result: build ? "success" : "skipped" },
@@ -170,6 +175,8 @@ function needsFor({
 test("all applicable checks must succeed for every supported plan", () => {
   const packagePlans = [
     {},
+    { knip: true },
+    { ci: true, build: true, knip: true },
     { docs: true },
     { ci: true },
     { ci: true, build: true },
@@ -194,6 +201,7 @@ test("all applicable checks must succeed for every supported plan", () => {
       "changes",
       "text",
       "infrastructure",
+      "knip",
       "lint",
       "build",
       "unit",
@@ -222,6 +230,7 @@ test("missing and malformed decisions cannot silently skip checks", () => {
   for (const key of [
     "text",
     "infrastructure",
+    "knip",
     "ci",
     "build",
     "docs",
@@ -309,7 +318,7 @@ test("missing, duplicate, skipped and altered E2E shards fail closed", () => {
     (matrix) => [...matrix, matrix[0]],
     (matrix) => matrix.map((row) => ({ ...row, shard: 1 })),
     (matrix) => matrix.map((row) => ({ ...row, shards: 1 })),
-    (matrix) => matrix.filter((row) => row.os === "ubuntu-latest"),
+    (matrix) => matrix.map((row) => ({ ...row, os: "windows-latest" })),
     (matrix) => matrix.map((row) => ({ ...row, package: "@sasakiuri/other" })),
   ]) {
     const needs = needsFor({ ci: true, build: true, knowledge: true });

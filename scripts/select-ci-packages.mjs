@@ -12,9 +12,13 @@ export const platformRunners = [
   "windows-latest",
   "macos-latest",
 ];
-const knowledgeRunners = ["ubuntu-latest", "macos-latest"];
+const linuxOnlyPackages = new Set([
+  knowledgeName,
+  aboutName,
+  "@sasakiuri/nilay-news",
+]);
 const runsOn = (pkg, os) =>
-  pkg.name !== knowledgeName || knowledgeRunners.includes(os);
+  os === "ubuntu-latest" || !linuxOnlyPackages.has(pkg.name);
 const dependencyFields = [
   "dependencies",
   "devDependencies",
@@ -162,11 +166,7 @@ export function affectedByLockfile(previous, current, workspaces) {
 }
 
 export function runnersFor(packages) {
-  return packages.some(usesElectron)
-    ? platformRunners
-    : packages.some((pkg) => pkg.name === knowledgeName)
-      ? knowledgeRunners
-      : ["ubuntu-latest"];
+  return packages.some(usesElectron) ? platformRunners : ["ubuntu-latest"];
 }
 
 export function packageMatrix(packages, runners) {
@@ -201,6 +201,7 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
   const selected = new Set();
   let all = false;
   const reasons = [];
+  const knip = files.includes("knip.config.ts");
   const text = files.some(
     (file) =>
       /\.(md|txt)$/.test(file) ||
@@ -244,7 +245,8 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
       selected.add(docsName);
     } else if (
       textToolingInputs.has(file) ||
-      file === "scripts/lint-infra.mjs"
+      file === "scripts/lint-infra.mjs" ||
+      file === "knip.config.ts"
     ) {
       // Their dedicated checks cover these repository tools.
     } else if (
@@ -304,6 +306,7 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
   return {
     text: all || text,
     infrastructure,
+    knip,
     ci: packages.length > 0,
     build,
     docs: current.some(

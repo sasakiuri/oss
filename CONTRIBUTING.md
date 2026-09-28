@@ -118,9 +118,10 @@ and assets also count as changes. For example, a Lane change tests Lane, while a
 Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequisites.
 
 Electron changes retain build and unit tests on Linux, Windows, and macOS.
-Nilay Knowledge uses Linux and macOS for builds, unit tests, and E2E tests,
-including when shared changes also select Electron packages. Other packages use
-Linux unless selected alongside these applications. Saika Docs keeps its dedicated
+Nilay Knowledge, About, and News use Linux for builds and tests, including when
+shared changes also select Electron packages. Browser suites retain their browser
+projects and shards on Linux. Other packages use Linux unless selected alongside
+Electron applications. Saika Docs keeps its dedicated
 quality workflow. Changes to the npm v3 lockfile select consumers of the changed
 installed dependency entries, following both the previous and current dependency
 graphs, including nested versions and workspace links. Root dependencies, shared
@@ -128,6 +129,10 @@ configuration, CI scripts, and lock files that cannot be resolved confidently
 select all workspaces. Repository documentation, text and release-check tooling,
 dependency update policy, and infrastructure lint tooling skip package jobs.
 Unknown shared scripts still select all workspaces.
+
+Changes to `knip.config.ts` run the repository-wide unused-code check without
+selecting application builds or tests. When combined with application changes,
+only the affected applications and their dependents run their normal checks.
 
 Text and tooling checks run when documents, their configuration, dependencies,
 or the checked tools change. Infrastructure checks run when workflows, Actions,
