@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { checkDeployment } from './deployment-smoke.mjs';
 
-const origin = 'https://nilay-knowledge-website-test.vercel.app';
+const origin = 'https://nilay-knowledge-test-sasakiuris-projects.vercel.app';
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const fixtures = new Map([
   ['/', ['text/html', '<main><link type="application/rss+xml"><script src="/_next/static/app.js"></script></main>']],
@@ -35,6 +35,20 @@ test('checks the deployment origin even when sitemap URLs point to production', 
   });
   assert.equal(results.length, 7);
   assert.ok(results.some(({ path }) => path === '/articles/example/'));
+});
+
+test('continues to check deployments created under the previous project name', async () => {
+  const previousOrigin = 'https://nilay-knowledge-website-test-sasakiuris-projects.vercel.app';
+  const results = await checkDeployment({
+    baseUrl: previousOrigin,
+    bypassSecret: 'test-secret',
+    fetchImpl: async (url, options) => {
+      assert.equal(url.origin, previousOrigin);
+      assert.equal(options.headers['x-vercel-protection-bypass'], 'test-secret');
+      return serve(url);
+    },
+  });
+  assert.equal(results.length, 7);
 });
 
 test('fails when a deployed JavaScript bundle is missing', async () => {
@@ -78,10 +92,25 @@ test('never forwards the automation secret through a cross-origin redirect', asy
 });
 
 test('rejects non-Knowledge origins before sending the automation secret', async () => {
-  await assert.rejects(
-    checkDeployment({ baseUrl: 'https://example.com/', bypassSecret: 'test-secret' }),
-    /only be sent/,
-  );
+  for (const baseUrl of [
+    'https://example.com/',
+    'https://nilay-about-test-sasakiuris-projects.vercel.app',
+    'https://nilay-knowledge-test.vercel.app.example.com',
+  ]) {
+    let requests = 0;
+    await assert.rejects(
+      checkDeployment({
+        baseUrl,
+        bypassSecret: 'test-secret',
+        fetchImpl: async () => {
+          requests++;
+          return new Response('unexpected');
+        },
+      }),
+      /only be sent/,
+    );
+    assert.equal(requests, 0);
+  }
 });
 
 test('does not accept an HTML error as a generated image', async () => {

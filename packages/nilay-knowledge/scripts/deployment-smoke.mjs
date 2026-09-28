@@ -9,7 +9,7 @@ export async function checkDeployment({ baseUrl, bypassSecret, fetchImpl = fetch
   assert.ok(base.protocol === 'https:' || (local && base.protocol === 'http:'), 'HTTPS is required');
   if (bypassSecret) {
     assert.ok(
-      base.hostname.startsWith('nilay-knowledge-website-') && base.hostname.endsWith('.vercel.app'),
+      base.hostname.startsWith('nilay-knowledge-') && base.hostname.endsWith('.vercel.app'),
       'The automation secret may only be sent to a Knowledge deployment',
     );
   }
