@@ -80,43 +80,37 @@ test("development configuration dependencies include their consumers", () => {
   ])
     assert.ok(plan.packages.includes(name(pkg)));
   const lighthouseConfig = select(["packages/lighthouse-config/index.mjs"]);
-  assert.deepEqual(names(lighthouseConfig), [
-    "lighthouse-config",
-    "nilay-knowledge",
-  ]);
+  assert.deepEqual(names(lighthouseConfig), ["lighthouse-config"]);
+  assert.equal(lighthouseConfig.knowledge, true);
   assert.equal(lighthouseConfig.docs, true);
-  assert.equal(lighthouseConfig.build, true);
+  assert.equal(lighthouseConfig.build, false);
   assert.equal(lighthouseConfig.electron, false);
   assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest"]);
 });
 
-test("Knowledge Markdown and assets retain Linux build and tests", () => {
-  const packages = [
-    ...current.filter((pkg) => pkg.name !== name("nilay-knowledge")),
-    {
-      name: name("nilay-knowledge"),
-      directory: "packages/nilay-knowledge",
-      scripts: {
-        build: "next build",
-        test: "vitest run",
-        typecheck: "tsc",
-        lint: "eslint .",
-      },
-      devDependencies: { [name("typescript-config")]: "*" },
-    },
-  ];
-  for (const file of ["content/articles/hello.md", "public/example.png"]) {
-    const plan = select([`packages/nilay-knowledge/${file}`], packages);
-    assert.deepEqual(names(plan), ["nilay-knowledge"]);
-    assert.equal(plan.ci, true);
-    assert.equal(plan.build, true);
-    assert.equal(plan.docs, false);
-    assert.equal(plan.electron, false);
-    assert.deepEqual(plan.os, ["ubuntu-latest"]);
-    assert.deepEqual(plan.packageMatrix, [
-      { os: "ubuntu-latest", packages: [name("nilay-knowledge")] },
-    ]);
+test("site changes use their dedicated workflow without duplicate application jobs", () => {
+  for (const site of ["knowledge", "about"]) {
+    for (const file of [
+      "content/articles/hello.md",
+      "public/example.png",
+      "package.json",
+    ]) {
+      const plan = select([`packages/nilay-${site}/${file}`]);
+      assert.deepEqual(plan.packages, []);
+      assert.equal(plan[site], true);
+      assert.equal(plan[site === "knowledge" ? "about" : "knowledge"], false);
+      assert.equal(plan.ci, false);
+      assert.equal(plan.build, false);
+      assert.equal(plan.docs, false);
+      assert.equal(plan.electron, false);
+      assert.deepEqual(plan.e2eMatrix, []);
+    }
   }
+  const workflow = select([".github/workflows/web-ci.yml"]);
+  assert.equal(workflow.knowledge, true);
+  assert.equal(workflow.about, true);
+  assert.deepEqual(workflow.packages, []);
+  assert.equal(workflow.infrastructure, true);
 });
 
 test("Docs changes use the dedicated workflow without application jobs", () => {
@@ -135,7 +129,12 @@ test("Docs changes use the dedicated workflow without application jobs", () => {
 
 test("shared inputs and unknown workspace paths select all packages", () => {
   const expected = current
-    .filter((pkg) => pkg.name !== name("saika-docs"))
+    .filter(
+      (pkg) =>
+        !["saika-docs", "nilay-knowledge", "nilay-about"]
+          .map(name)
+          .includes(pkg.name),
+    )
     .map((pkg) => pkg.name)
     .sort();
   for (const file of [
@@ -152,6 +151,8 @@ test("shared inputs and unknown workspace paths select all packages", () => {
     const plan = select([file]);
     assert.deepEqual([...plan.packages].sort(), expected, file);
     assert.equal(plan.docs, true, file);
+    assert.equal(plan.knowledge, true, file);
+    assert.equal(plan.about, true, file);
   }
 });
 
@@ -213,8 +214,8 @@ test("unused-code configuration runs its own check without rebuilding applicatio
   assert.equal(select(["packages/nilay-news/src/application.ts"]).knip, false);
 });
 
-test("each Nilay web application runs builds and tests only on Linux", () => {
-  for (const app of ["nilay-knowledge", "nilay-about", "nilay-news"]) {
+test("News builds and tests remain on Linux", () => {
+  for (const app of ["nilay-news"]) {
     const plan = select([`packages/${app}/package.json`]);
     assert.deepEqual(names(plan), [app]);
     assert.deepEqual(plan.packageMatrix, [
@@ -537,34 +538,12 @@ test("shared CI keeps web apps on Linux while retaining other platform checks", 
   const knowledge = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-knowledge"),
   );
-  assert.equal(knowledge.length, 2);
+  assert.equal(knowledge.length, 0);
   const about = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-about"),
   );
-  assert.equal(about.length, 2);
+  assert.equal(about.length, 0);
   for (const os of platformRunners) {
-    assert.deepEqual(
-      knowledge
-        .filter((row) => row.os === os)
-        .map((row) => [row.shard, row.shards]),
-      os !== "ubuntu-latest"
-        ? []
-        : [
-            [1, 2],
-            [2, 2],
-          ],
-    );
-    assert.deepEqual(
-      about
-        .filter((row) => row.os === os)
-        .map((row) => [row.shard, row.shards]),
-      os !== "ubuntu-latest"
-        ? []
-        : [
-            [1, 2],
-            [2, 2],
-          ],
-    );
     const lane = plan.e2eMatrix.filter(
       (row) => row.package === name("saika-lane") && row.os === os,
     );
@@ -574,4 +553,5 @@ test("shared CI keeps web apps on Linux while retaining other platform checks", 
   }
   assert.equal(plan.e2e, true);
   assert.equal(plan.knowledge, true);
+  assert.equal(plan.about, true);
 });

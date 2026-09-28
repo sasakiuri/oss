@@ -78,10 +78,14 @@ not deploy the site. Shared dependencies and repository-wide changes can still
 trigger a deployment. In Domains, redirect the fixed production `vercel.app`
 domain to `knowledge.nilay.jp` with status 308.
 
-Under Deployment Checks, require the GitHub checks `CI Required` and
+Under Deployment Checks, require the GitHub checks `Knowledge CI Required` and
 `Knowledge deployment smoke (production)` for production. The latter is published
 by `.github/workflows/knowledge-deployment.yml` on `vercel.deployment.ready`, before
-the production domain switches. The workflow must exist on the default branch.
+the production domain switches. `Knowledge CI Required` covers only this site: its
+build, bundle sizes, types, lint, unused code, unit coverage, two browser shards,
+and Lighthouse checks. It does not wait for other applications. The shared CI
+selection includes changes to this site and its dependencies; unrelated changes
+leave its application jobs skipped. The smoke workflow must exist on the default branch.
 It uses the default branch's verification script and reports its result on the
 deployed commit, without running source code supplied by the deployment event.
 Store this project's automation bypass secret as the GitHub Actions secret

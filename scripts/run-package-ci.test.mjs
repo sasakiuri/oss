@@ -89,6 +89,57 @@ test("the workflow archive preserves build runtime files and modes without cache
   );
 });
 
+test("site archives retain generated assets, omit other applications, and tolerate absent optional outputs", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ci-site-archive-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const workflow = readFileSync(
+    new URL("../.github/workflows/web-ci.yml", import.meta.url),
+    "utf8",
+  );
+  const script = workflow.match(
+    /name: Archive build outputs[\s\S]*?run: \|\n((?:          .*\n)+)/,
+  )[1];
+  const put = (file) => {
+    mkdirSync(join(root, file, ".."), { recursive: true });
+    writeFileSync(join(root, file), "fixture");
+  };
+  for (const site of ["nilay-knowledge", "nilay-about"]) {
+    put(`packages/${site}/.next/BUILD_ID`);
+    put(`packages/${site}/.next/cache/data`);
+    put(`packages/${site}/public/checkout-asset.pdf`);
+  }
+  put("packages/nilay-knowledge/public/feed.xml");
+  put("packages/nilay-knowledge/public/content-styles/article.css");
+  for (const site of ["nilay-knowledge", "nilay-about"]) {
+    execFileSync("bash", ["-e", "-c", script], {
+      cwd: root,
+      env: { ...process.env, WEB_APPLICATION: site },
+    });
+    const files = execFileSync("tar", ["-tf", "web-build.tar"], {
+      cwd: root,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    assert.ok(files.includes(`packages/${site}/.next/BUILD_ID`));
+    assert.ok(files.every((file) => file.startsWith(`packages/${site}/`)));
+    assert.ok(
+      files.every(
+        (file) =>
+          !file.includes(".next/cache") && !file.includes("checkout-asset"),
+      ),
+    );
+    if (site === "nilay-knowledge") {
+      assert.ok(files.includes("packages/nilay-knowledge/public/feed.xml"));
+      assert.ok(
+        files.includes(
+          "packages/nilay-knowledge/public/content-styles/article.css",
+        ),
+      );
+    }
+  }
+});
+
 const packages = [
   {
     name: "app",

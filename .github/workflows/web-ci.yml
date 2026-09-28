@@ -1,0 +1,144 @@
+name: Web app CI
+
+on:
+  workflow_call:
+    inputs:
+      application:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CI_PACKAGES_JSON: ${{ format('["@sasakiuri/{0}"]', inputs.application) }}
+  WEB_APPLICATION: ${{ inputs.application }}
+
+jobs:
+  validate:
+    name: Build and checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-node
+        with:
+          ignore-install-scripts: "true"
+      - name: Build the application and check bundle sizes
+        run: |
+          npm run ci:packages -- build
+          npm run ci:packages -- size-limit
+      - name: Check types, lint, and unused code
+        run: |
+          npm run ci:packages -- typecheck
+          npm run ci:packages -- lint
+          npm run ci:packages -- knip
+      - name: Test with coverage
+        run: npm run ci:packages -- test
+      - name: Require coverage of changed code
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run coverage:diff -- --base "$BASE_SHA" --packages "$CI_PACKAGES_JSON"
+      - name: Archive build outputs with their permissions
+        run: |
+          outputs=("packages/$WEB_APPLICATION/.next")
+          for path in lib/generated public/feed.xml public/sitemap.xml public/content-styles; do
+            if [ -e "packages/$WEB_APPLICATION/$path" ]; then
+              outputs+=("packages/$WEB_APPLICATION/$path")
+            fi
+          done
+          tar -cf web-build.tar --exclude='*/.next/cache' --exclude='*/.next/standalone' --exclude='*/.next/dev' "${outputs[@]}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: web-build-${{ inputs.application }}
+          path: web-build.tar
+          compression-level: 1
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload unit reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unit-${{ inputs.application }}
+          path: |
+            packages/${{ inputs.application }}/coverage/
+            packages/${{ inputs.application }}/test-results/vitest-junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    name: E2E (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      E2E_SHARD: ${{ matrix.shard }}/2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+        with:
+          ignore-install-scripts: "true"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: web-build-${{ inputs.application }}
+      - run: tar -xf web-build.tar
+      - name: Install browser dependencies
+        run: npm run test:install --workspace="@sasakiuri/$WEB_APPLICATION"
+      - name: Run browser tests
+        run: xvfb-run -a npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+      - name: Upload browser reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-${{ inputs.application }}-${{ matrix.shard }}
+          path: |
+            packages/${{ inputs.application }}/playwright-report/
+            packages/${{ inputs.application }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse
+    if: inputs.application == 'nilay-knowledge'
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+        with:
+          ignore-install-scripts: "true"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: web-build-${{ inputs.application }}
+      - run: tar -xf web-build.tar
+      - name: Install Chromium for Lighthouse
+        run: npm exec --workspace=@sasakiuri/nilay-knowledge -- playwright install --with-deps chromium
+      - name: Lighthouse and asset regression checks
+        run: |
+          npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
+          npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
+          npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge
+          npm run test:deployment-smoke --workspace=@sasakiuri/nilay-knowledge
+          npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-knowledge-lighthouse
+          path: packages/nilay-knowledge/.lighthouse.reports/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7

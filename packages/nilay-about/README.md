@@ -8,6 +8,14 @@ The news comes from microCMS, and contact messages are sent to a Slack webhook.
 The main site (`/`, `/news`, `/contact` and the `/labs` list) has a retro design;
 each Labs tool has its own Material Design layout.
 
+## CI and deployment
+
+Build, type, lint, unused-code, unit coverage and browser checks run in this site's
+Linux workflow. Both browser shards retain every configured browser project.
+Require `About CI Required` in the Vercel project's production Deployment Checks.
+It aggregates only this site's checks and does not wait for other applications.
+The shared CI selection includes changes to this site and its dependencies.
+
 ## Language
 
 The site can be shown in Japanese or English. The switch is "言語 (Language)" in the header, and each Labs tool

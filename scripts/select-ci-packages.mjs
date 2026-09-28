@@ -237,6 +237,9 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
     } else if (file.startsWith("packages/")) {
       all = true;
       reasons.push(`Unknown workspace input: ${file}.`);
+    } else if (file === ".github/workflows/web-ci.yml") {
+      selected.add(knowledgeName);
+      selected.add(aboutName);
     } else if (
       file.startsWith(".github/workflows/docs") ||
       /^(docker\/|\.devcontainer\/|compose[^/]*\.ya?ml$)/.test(file) ||
@@ -291,8 +294,18 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
     }
   } while (changed);
 
+  const knowledge = current.some(
+    (pkg) => pkg.name === knowledgeName && selected.has(pkg.name),
+  );
+  const about = current.some(
+    (pkg) => pkg.name === aboutName && selected.has(pkg.name),
+  );
   const packages = current
-    .filter((pkg) => selected.has(pkg.name) && pkg.name !== docsName)
+    .filter(
+      (pkg) =>
+        selected.has(pkg.name) &&
+        ![docsName, knowledgeName, aboutName].includes(pkg.name),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
   const build = packages.some((pkg) =>
     ["build", "test", "test:coverage", "test:e2e", "size-limit"].some(
@@ -300,7 +313,6 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
     ),
   );
   const electron = packages.some(usesElectron);
-  const knowledge = packages.some((pkg) => pkg.name === knowledgeName);
   const os = runnersFor(packages);
   const e2e = e2eMatrix(packages, os);
   return {
@@ -314,6 +326,7 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
     ),
     electron,
     knowledge,
+    about,
     e2e: e2e.length > 0,
     e2eMatrix: e2e,
     packages: packages.map((pkg) => pkg.name),
@@ -431,7 +444,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `## CI scope\n\nPackages: ${plan.packages.join(", ") || "none"}\n\nText and tooling: ${plan.text}\n\nInfrastructure: ${plan.infrastructure}\n\nDocs: ${plan.docs}\n\nBuild runners: ${plan.build ? plan.os.join(", ") : "none"}\n\nE2E jobs: ${plan.e2eMatrix.length}\n\nSelection reasons:\n${plan.reasons.map((reason) => `- ${reason}`).join("\n") || "- Changed workspace files and their transitive consumers."}\n`,
+      `## CI scope\n\nShared packages: ${plan.packages.join(", ") || "none"}\n\nText and tooling: ${plan.text}\n\nInfrastructure: ${plan.infrastructure}\n\nDocs: ${plan.docs}\n\nKnowledge: ${plan.knowledge}\n\nAbout: ${plan.about}\n\nShared build runners: ${plan.build ? plan.os.join(", ") : "none"}\n\nShared E2E jobs: ${plan.e2eMatrix.length}\n\nSelection reasons:\n${plan.reasons.map((reason) => `- ${reason}`).join("\n") || "- Changed workspace files and their transitive consumers."}\n`,
     );
   }
 }
