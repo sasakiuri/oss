@@ -544,6 +544,39 @@ describe("durable application jobs", () => {
       );
     });
 
+    it("clears an expired deferral time when the subsequent request fails", async () => {
+      const { poll, requests, failures, sourceOf, repo } = await feeds(["one"]);
+      await poll(0);
+      expect((await sourceOf("one"))?.nextFetchAt).toBe(
+        isoSeconds(BASE + 1800),
+      );
+
+      failures.set(`${ORIGIN}/one`, new FetchError("unavailable", 503));
+      await poll(0.5);
+      expect(await sourceOf("one")).toMatchObject({
+        lastError: "unavailable",
+        lastDeferred: null,
+        nextFetchAt: null,
+      });
+      expect(await repo.getJob()).toMatchObject({ failed: 1 });
+
+      // The failure still consumes the four-hour source interval.
+      await poll(1);
+      expect(requests).toEqual([
+        ["robots.txt", 0],
+        ["one", 1800],
+      ]);
+      expect(await sourceOf("one")).toMatchObject({
+        lastError: "unavailable",
+        nextFetchAt: isoSeconds(BASE + 4.5 * HOUR),
+      });
+      await poll(4.5);
+      expect(await sourceOf("one")).toMatchObject({
+        lastError: null,
+        nextFetchAt: null,
+      });
+    });
+
     it("keeps a Retry-After of two hours for the other feed without requests", async () => {
       const { poll, feedRequests, failures, sourceOf } = await feeds(
         ["one", "two"],

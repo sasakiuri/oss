@@ -704,6 +704,7 @@ export class Application {
               ? truncate(error.message, 1000)
               : "取得形式を読み取れませんでした",
           lastDeferred: null,
+          nextFetchAt: null,
         });
         // Only a validated status code is added; never the raw message.
         const code = error instanceof FetchError ? error.status : undefined;
