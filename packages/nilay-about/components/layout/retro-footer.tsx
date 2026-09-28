@@ -57,8 +57,8 @@ export function RetroFooter() {
 
         <p className="mt-2 text-sm">
           {t('フォローする: ', 'Follow us: ')}
-          <a href={`https://twitter.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
-            Twitter
+          <a href={`https://x.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
+            X
           </a>
           {' | '}
           <a href={`https://www.facebook.com/${siteConfig.social.facebook}`} target="_blank" rel="noopener noreferrer">

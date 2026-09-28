@@ -7,8 +7,8 @@ import { siteConfig } from '@/lib/config';
 
 const socialLinks = [
   {
-    href: `https://twitter.com/${siteConfig.social.twitter}`,
-    label: 'Twitter',
+    href: `https://x.com/${siteConfig.social.twitter}`,
+    label: 'X',
     icon: Twitter,
   },
   {
