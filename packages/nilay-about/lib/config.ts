@@ -8,7 +8,7 @@ export const siteConfig = {
   siteUrl: 'https://about.nilay.jp',
   image: 'https://cdn.nilay.jp/ecommerce/res/e5b2d52de6422d7fa2a1c7c0eede2477e1b4883d.png',
   social: {
-    twitter: 'NilayJP',
+    twitter: 'NilayNews',
     facebook: 'NilaySport',
     facebookAppId: '2162823167069625',
     youtube: 'UC03yJGn_rZV2MTpr-ZrMZrA',

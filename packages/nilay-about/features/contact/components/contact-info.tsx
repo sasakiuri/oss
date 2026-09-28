@@ -23,8 +23,8 @@ export function ContactInfo() {
       <h3>SNS</h3>
       <ul>
         <li>
-          <a href={`https://twitter.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
-            Twitter (@{siteConfig.social.twitter})
+          <a href={`https://x.com/${siteConfig.social.twitter}`} target="_blank" rel="noopener noreferrer">
+            X (@{siteConfig.social.twitter})
           </a>
         </li>
         <li>

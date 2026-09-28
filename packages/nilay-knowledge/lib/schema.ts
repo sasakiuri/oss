@@ -23,7 +23,7 @@ function publisher(): Organization {
     url: `${siteConfig.siteUrl}/about/`,
     logo: { '@type': 'ImageObject', url: `${siteConfig.siteUrl}/logo.png` },
     sameAs: [
-      `https://twitter.com/${siteConfig.social.twitter}`,
+      `https://x.com/${siteConfig.social.twitter}`,
       `https://www.facebook.com/${siteConfig.social.facebook}`,
       `https://www.youtube.com/channel/${siteConfig.social.youtube}`,
       `https://www.instagram.com/${siteConfig.social.instagram}`,

@@ -12,7 +12,7 @@ export const siteConfig = {
     name: 'Nilay',
   },
   social: {
-    twitter: 'NilayJP',
+    twitter: 'NilayNews',
     facebook: 'NilaySport',
     facebookAppId: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? '',
     youtube: 'UC03yJGn_rZV2MTpr-ZrMZrA',
