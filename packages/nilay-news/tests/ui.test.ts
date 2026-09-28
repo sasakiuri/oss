@@ -9,11 +9,21 @@ interface FakeNode {
   className: string;
   textContent: string;
   hidden: boolean;
+  checked: boolean;
+  disabled: boolean;
+  indeterminate: boolean;
   dataset: Record<string, string>;
+  attributes: Record<string, string>;
+  listeners: Record<string, (event: { target: FakeNode }) => void>;
   children: FakeNode[];
   append(...nodes: FakeNode[]): void;
   replaceChildren(...nodes: FakeNode[]): void;
-  addEventListener(): void;
+  addEventListener(
+    type: string,
+    listener: (event: { target: FakeNode }) => void,
+  ): void;
+  setAttribute(name: string, value: string): void;
+  querySelectorAll(selector: string): FakeNode[];
 }
 
 function node(): FakeNode {
@@ -21,13 +31,30 @@ function node(): FakeNode {
     className: "",
     textContent: "",
     hidden: false,
+    checked: false,
+    disabled: false,
+    indeterminate: false,
     dataset: {},
+    attributes: {},
+    listeners: {},
     children: [],
     append: (...nodes) => created.children.push(...nodes),
     replaceChildren: (...nodes) => {
       created.children = nodes;
     },
-    addEventListener: () => undefined,
+    addEventListener: (type, listener) => {
+      created.listeners[type] = listener;
+    },
+    setAttribute: (name, value) => {
+      created.attributes[name] = value;
+    },
+    querySelectorAll: (selector) =>
+      created.children.flatMap((child) => [
+        ...(selector === "[data-dismiss-id]" && child.dataset.dismissId
+          ? [child]
+          : []),
+        ...child.querySelectorAll(selector),
+      ]),
   };
   return created;
 }
@@ -47,7 +74,20 @@ interface Ui {
   preflightCurrent: (report: object, settings: object) => boolean;
   dateText: (value: unknown, includeTime?: boolean) => string;
   messageText: (text: unknown) => unknown;
-  model: { state: unknown; view: string; sort: string };
+  renderArticle: (article: object) => FakeNode;
+  renderBulkActions: () => void;
+  element: (id: string) => FakeNode;
+  model: {
+    state: unknown;
+    view: string;
+    sort: string;
+    query: string;
+    topic: string;
+    visibleCount: number;
+    selectedId: string | null;
+    checkedIds: Set<string>;
+    requestPending: boolean;
+  };
 }
 
 /** Evaluate the page script without its startup render and network refresh. */
@@ -58,9 +98,14 @@ function load(): Ui {
   );
   const script = source.replace(/render\(\);\s*refresh\(\);\s*$/, "");
   if (script === source) throw new Error("app.js startup changed");
+  const elements = new Map<string, FakeNode>();
+  const element = (id: string) => {
+    if (!elements.has(id)) elements.set(id, node());
+    return elements.get(id)!;
+  };
   const context = {
     document: {
-      getElementById: node,
+      getElementById: element,
       createElement: node,
       addEventListener: () => undefined,
     },
@@ -71,10 +116,11 @@ function load(): Ui {
       "exports.visibleArticles = visibleArticles; exports.model = model;" +
       "exports.renderPreflight = renderPreflight;" +
       "exports.preflightCurrent = preflightCurrent;" +
-      "exports.dateText = dateText; exports.messageText = messageText;",
+      "exports.dateText = dateText; exports.messageText = messageText;" +
+      "exports.renderArticle = renderArticle; exports.renderBulkActions = renderBulkActions;",
     context,
   );
-  return context.exports as Ui;
+  return { ...context.exports, element } as Ui;
 }
 
 const BASE = {
@@ -86,6 +132,125 @@ const BASE = {
   publishedAt: "2026-09-01T00:00:00Z",
   freshness: "fresh",
 };
+
+describe("bulk dismissal selection", () => {
+  it("selects individual articles independently from reading their details", () => {
+    const ui = load();
+    const articles = ["a", "b"].map((id) => ({
+      ...BASE,
+      id,
+      title: `記事 ${id}`,
+    }));
+    ui.model.state = { articles, publication: { posts: [] } };
+    ui.model.selectedId = "b";
+    ui.element("article-list").append(...articles.map(ui.renderArticle));
+    const [checkbox] = ui
+      .element("article-list")
+      .querySelectorAll("[data-dismiss-id]");
+    expect(checkbox!.attributes["aria-label"]).toContain("記事 a");
+    checkbox!.checked = true;
+    checkbox!.listeners.change!({ target: checkbox! });
+    expect([...ui.model.checkedIds]).toEqual(["a"]);
+    expect(ui.model.selectedId).toBe("b");
+    expect(ui.element("select-all-articles").indeterminate).toBe(true);
+    expect(ui.element("selection-count").textContent).toBe("1 件選択中");
+    expect(ui.element("dismiss-selected").disabled).toBe(false);
+    checkbox!.checked = false;
+    checkbox!.listeners.change!({ target: checkbox! });
+    expect(ui.model.checkedIds.size).toBe(0);
+    expect(ui.element("dismiss-selected").disabled).toBe(true);
+  });
+
+  it("selects only displayed and eligible results, and supports clearing all", () => {
+    const ui = load();
+    ui.model.query = "対象";
+    ui.model.visibleCount = 2;
+    const articles = ["a", "blocked", "later"].map((id) => ({
+      ...BASE,
+      id,
+      title: "対象",
+    }));
+    ui.model.state = {
+      articles: [
+        ...articles,
+        { ...BASE, id: "other", title: "別の記事" },
+        { ...BASE, id: "posted", title: "対象", reviewStatus: "posted" },
+      ],
+      publication: { posts: [{ articleId: "blocked", status: "publishing" }] },
+    };
+    const all = ui.element("select-all-articles");
+    all.checked = true;
+    all.listeners.change!({ target: all });
+    expect([...ui.model.checkedIds]).toEqual(["a"]);
+    expect(all.checked).toBe(true);
+    ui.model.visibleCount = 50;
+    ui.renderBulkActions();
+    expect(all.indeterminate).toBe(true);
+    all.checked = true;
+    all.listeners.change!({ target: all });
+    expect([...ui.model.checkedIds]).toEqual(["a", "later"]);
+    all.checked = false;
+    all.listeners.change!({ target: all });
+    expect(ui.model.checkedIds.size).toBe(0);
+    expect(all.indeterminate).toBe(false);
+  });
+
+  it("retains visible selection across refreshes and drops hidden or blocked articles", () => {
+    const ui = load();
+    const articles = ["a", "b"].map((id) => ({
+      ...BASE,
+      id,
+      title: id,
+      topic: id,
+    }));
+    ui.model.state = { articles, publication: { posts: [] } };
+    ui.model.checkedIds = new Set(["a", "b"]);
+    ui.renderBulkActions();
+    expect([...ui.model.checkedIds]).toEqual(["a", "b"]);
+    ui.model.topic = "a";
+    ui.renderBulkActions();
+    expect([...ui.model.checkedIds]).toEqual(["a"]);
+    ui.model.topic = "";
+    ui.renderBulkActions();
+    expect([...ui.model.checkedIds]).toEqual(["a"]);
+    ui.model.state = {
+      articles,
+      publication: { posts: [{ articleId: "a", status: "submitted" }] },
+    };
+    ui.renderBulkActions();
+    expect(ui.model.checkedIds.size).toBe(0);
+  });
+
+  it("disables selection while saving and hides bulk actions for posted and dismissed lists", () => {
+    const ui = load();
+    const articles = [
+      { ...BASE, id: "a" },
+      { ...BASE, id: "posted", reviewStatus: "posted" },
+      { ...BASE, id: "dismissed", reviewStatus: "dismissed" },
+    ];
+    ui.model.state = { articles, publication: { posts: [] } };
+    ui.element("article-list").append(...articles.map(ui.renderArticle));
+    const checkboxes = ui
+      .element("article-list")
+      .querySelectorAll("[data-dismiss-id]");
+    expect(checkboxes).toHaveLength(1);
+    ui.model.checkedIds.add("a");
+    ui.model.requestPending = true;
+    ui.renderBulkActions();
+    expect(checkboxes[0]!.disabled).toBe(true);
+    expect(ui.element("select-all-articles").disabled).toBe(true);
+    expect(ui.element("dismiss-selected").disabled).toBe(true);
+    ui.model.requestPending = false;
+    ui.renderBulkActions();
+    expect(ui.element("dismiss-selected").disabled).toBe(false);
+    for (const view of ["posted", "dismissed"]) {
+      ui.model.view = view;
+      ui.renderBulkActions();
+      expect(ui.element("bulk-actions").hidden).toBe(true);
+      expect(ui.model.checkedIds.size).toBe(0);
+    }
+  });
+});
 
 describe("source-rule candidates in the inbox", () => {
   it("shows them in the inbox with a distinct badge and the Jev result apart", () => {

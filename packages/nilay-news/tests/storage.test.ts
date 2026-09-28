@@ -1247,6 +1247,121 @@ describe("settings, listing and review", () => {
   });
 });
 
+describe("bulk dismissal", () => {
+  it("dismisses only selected articles together and deduplicates IDs", async () => {
+    const first = await candidate();
+    const second = await candidate({ url: "https://example.org/b" });
+    const other = await candidate({ url: "https://example.org/c" });
+    await repo.review(second, "unread");
+    const version = await repo.stateVersion();
+    const result = await repo.dismiss([first, second, first]);
+    expect(result.map((article) => article.id)).toEqual([first, second]);
+    for (const id of [first, second]) {
+      const article = await repo.article(id);
+      expect(article.reviewStatus).toBe("dismissed");
+      expect(Date.parse(article.reviewedAt!)).toBe(now * 1000);
+    }
+    expect((await repo.article(other)).reviewStatus).toBe("saved");
+    expect(await repo.stateVersion()).toBe(version + 1);
+    expect((await repo.postCandidates()).map((article) => article.id)).toEqual([
+      other,
+    ]);
+  });
+
+  it.each([undefined, null, [], "all", [42], ["invalid"]])(
+    "rejects invalid selection %j without writing",
+    async (ids) => {
+      const version = await repo.stateVersion();
+      await expect(repo.dismiss(ids)).rejects.toBeInstanceOf(UserError);
+      expect(await repo.stateVersion()).toBe(version);
+    },
+  );
+
+  it("does not partially dismiss when an article is missing or already posted", async () => {
+    const first = await candidate();
+    const posted = await candidate({ url: "https://example.org/posted" });
+    await repo.review(posted, "posted");
+    const before = await repo.articles();
+    const version = await repo.stateVersion();
+    await expect(repo.dismiss([first, "f".repeat(24)])).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(repo.dismiss([first, posted])).rejects.toThrow("投稿済み");
+    expect(await repo.articles()).toEqual(before);
+    expect(await repo.stateVersion()).toBe(version);
+  });
+
+  it.each(["publishing", "submitted", "unknown", "failed"] as const)(
+    "leaves every selected article unchanged when one post is %s",
+    async (status) => {
+      const blocked = await ready();
+      const first = await candidate({
+        url: "https://example.org/b",
+        publishedAt: published(-7260),
+      });
+      const attempt = await claim();
+      expect(attempt.articleId).toBe(blocked);
+      if (status === "submitted")
+        await repo.submitPost(
+          blocked,
+          "buffer",
+          "channel",
+          now,
+          attempt.claimToken,
+        );
+      else if (status !== "publishing")
+        await repo.finishPost(blocked, status, {
+          timestamp: now,
+          claimToken: attempt.claimToken,
+        });
+      const before = await repo.articles();
+      const version = await repo.stateVersion();
+      await expect(repo.dismiss([first, blocked])).rejects.toThrow(
+        "投稿結果の確認",
+      );
+      expect(await repo.articles()).toEqual(before);
+      expect(await repo.stateVersion()).toBe(version);
+    },
+  );
+
+  it("rechecks publication after a concurrent claim wins", async () => {
+    const blocked = await ready();
+    const first = await candidate({
+      url: "https://example.org/b",
+      publishedAt: published(-7260),
+    });
+    const [loser, loserDriver] = connect();
+    const [paused, release] = signal();
+    const [read, reading] = signal();
+    let snapshots = 0;
+    intercept(loserDriver, async (original, statements) => {
+      const result = await original(statements);
+      if (
+        statements.some(([sql]) =>
+          sql.includes("SELECT id,data FROM news_articles WHERE"),
+        ) &&
+        ++snapshots === 1
+      ) {
+        reading();
+        await paused;
+      }
+      return result;
+    });
+    const pending = loser
+      .dismiss([first, blocked])
+      .catch((error: unknown) => error);
+    await read;
+    const attempt = await claim();
+    expect(attempt.articleId).toBe(blocked);
+    release();
+    expect(await pending).toMatchObject({
+      message: expect.stringContaining("投稿結果の確認"),
+    });
+    for (const id of [first, blocked])
+      expect((await repo.article(id)).reviewStatus).toBe("saved");
+  });
+});
+
 describe("publication", () => {
   it("applies the one hour gate to rounds and posts a round one at a time", async () => {
     const articleId = await ready();

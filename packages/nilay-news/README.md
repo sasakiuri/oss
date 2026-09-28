@@ -17,6 +17,7 @@ npm run dev
 ```
 
 Open <http://localhost:4317>. Collection, search, and manual review work without API keys.
+To dismiss several articles, tick their checkboxes or use 表示中をすべて選択, then press 選択した記事を見送る. Select-all applies to the currently displayed articles after filtering; load more articles to include them. Selection clears when switching lists and drops articles that leave the displayed results. Posted articles and articles awaiting a posting result cannot be selected. The server rechecks all selected articles and saves the dismissal together; if any article cannot be changed, the entire request fails and the selection remains for retry.
 Local development starts both Workers through Wrangler and uses a local D1 database; regional placement applies only after deployment. Optional integrations use `.dev.vars`; see [.dev.vars.example](.dev.vars.example).
 
 ## Checks

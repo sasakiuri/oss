@@ -363,6 +363,38 @@ select {
 .article-column {
   min-width: 0;
 }
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.bulk-select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 13px;
+}
+.bulk-select-label input,
+.article-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.article-check {
+  display: flex;
+  align-items: flex-start;
+  flex: 0 0 40px;
+  justify-content: center;
+  padding-top: 20px;
+  cursor: pointer;
+}
+.article-check + .article-select {
+  padding-left: 4px;
+}
 .article-list {
   border-top: 1px solid var(--line);
 }

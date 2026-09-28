@@ -4,6 +4,7 @@ const model = {
   state: null,
   view: "inbox",
   selectedId: null,
+  checkedIds: new Set(),
   query: "",
   topic: "",
   sort: "newest",
@@ -347,6 +348,7 @@ async function mutate(path, body, message) {
   }
   model.requestPending = true;
   renderHeader();
+  renderBulkActions();
   try {
     await api(path, body);
     if (message) showNotice(message);
@@ -358,6 +360,7 @@ async function mutate(path, body, message) {
   } finally {
     model.requestPending = false;
     renderHeader();
+    renderBulkActions();
   }
 }
 
@@ -392,10 +395,64 @@ async function review(article, status) {
   if (success) render();
 }
 
+function canDismiss(article) {
+  if (!["unread", "saved"].includes(article.reviewStatus)) return false;
+  const post = model.state.publication.posts.find(
+    (item) => item.articleId === article.id,
+  );
+  return !["publishing", "submitted", "unknown", "failed"].includes(
+    post?.status,
+  );
+}
+
+async function dismissSelected() {
+  renderBulkActions();
+  const articleIds = [...model.checkedIds];
+  if (!articleIds.length) return;
+  const success = await mutate(
+    "/api/articles/dismiss",
+    { articleIds },
+    `${articleIds.length} 件の記事を見送りました。`,
+  );
+  if (success) {
+    for (const id of articleIds) model.checkedIds.delete(id);
+    renderBulkActions();
+  }
+}
+
+function renderBulkActions(
+  shown = visibleArticles().slice(0, model.visibleCount),
+) {
+  const eligible = new Set(
+    shown.filter(canDismiss).map((article) => article.id),
+  );
+  for (const id of model.checkedIds) {
+    if (!eligible.has(id)) model.checkedIds.delete(id);
+  }
+  $("bulk-actions").hidden = !shown.some((article) =>
+    ["unread", "saved"].includes(article.reviewStatus),
+  );
+  const all = $("select-all-articles");
+  all.checked = eligible.size > 0 && model.checkedIds.size === eligible.size;
+  all.indeterminate = model.checkedIds.size > 0 && !all.checked;
+  all.disabled = model.requestPending || !eligible.size;
+  $("selection-count").textContent = `${model.checkedIds.size} 件選択中`;
+  $("dismiss-selected").disabled =
+    model.requestPending || !model.checkedIds.size;
+  for (const checkbox of $("article-list").querySelectorAll(
+    "[data-dismiss-id]",
+  )) {
+    checkbox.checked = model.checkedIds.has(checkbox.dataset.dismissId);
+    checkbox.disabled =
+      model.requestPending || !eligible.has(checkbox.dataset.dismissId);
+  }
+}
+
 function setView(view) {
   model.view = view;
   model.visibleCount = PAGE_SIZE;
   model.selectedId = null;
+  model.checkedIds.clear();
   model.settingsRendered = false;
   render();
 }
@@ -603,6 +660,26 @@ function renderArticle(article) {
     "article",
     `article-row${article.id === model.selectedId ? " selected" : ""}`,
   );
+  if (["unread", "saved"].includes(article.reviewStatus)) {
+    const label = el("label", "article-check");
+    const checkbox = el("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.dismissId = article.id;
+    checkbox.dataset.focus = `check-${article.id}`;
+    checkbox.checked = model.checkedIds.has(article.id);
+    checkbox.disabled = model.requestPending || !canDismiss(article);
+    checkbox.setAttribute(
+      "aria-label",
+      `${article.title || "見出しなし"} — 見送り対象に選択`,
+    );
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) model.checkedIds.add(article.id);
+      else model.checkedIds.delete(article.id);
+      renderBulkActions();
+    });
+    label.append(checkbox);
+    card.append(label);
+  }
   const select = button(
     "",
     "article-select",
@@ -753,6 +830,7 @@ function renderArticles() {
   }
   $("list-count").textContent = `${articles.length} 件`;
   const shown = articles.slice(0, model.visibleCount);
+  renderBulkActions(shown);
   $("article-list").replaceChildren(
     ...(shown.length ? shown.map(renderArticle) : [renderEmpty()]),
   );
@@ -1811,6 +1889,17 @@ function render() {
 }
 
 $("collect-button").addEventListener("click", collect);
+$("dismiss-selected").addEventListener("click", dismissSelected);
+$("select-all-articles").addEventListener("change", (event) => {
+  const articles = visibleArticles()
+    .slice(0, model.visibleCount)
+    .filter(canDismiss);
+  for (const article of articles) {
+    if (event.target.checked) model.checkedIds.add(article.id);
+    else model.checkedIds.delete(article.id);
+  }
+  renderBulkActions();
+});
 $("analyze-button").addEventListener("click", () => analyze());
 $("notice-close").addEventListener("click", hideNotice);
 $("settings-nav").addEventListener("click", () => setView("settings"));

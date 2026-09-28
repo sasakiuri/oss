@@ -389,6 +389,13 @@ function articleOf(articles: Map<string, Article>, articleId: string): Article {
   return article;
 }
 
+function assertReviewAllowed(post: Post | undefined): void {
+  if (post && BLOCKING.has(post.status))
+    throw new UserError(
+      "X の投稿処理中、または結果確認待ちです。投稿結果の確認から操作してください",
+    );
+}
+
 function column(row: SQLRow | undefined, name: string): SQLValue {
   if (!row || !(name in row)) throw new Error(`Missing column ${name}`);
   return row[name] ?? null;
@@ -920,18 +927,43 @@ export class SQLRepository implements NewsRepository {
       throw new UserError("記事の状態が不正です");
     return this.mutate(["articles", "posts"], (state) => {
       const article = articleOf(state.articles, articleId);
-      const post = state.posts.get(articleId);
-      if (post && BLOCKING.has(post.status)) {
-        throw new UserError(
-          "X の投稿処理中、または結果確認待ちです。投稿結果の確認から操作してください",
-        );
-      }
+      assertReviewAllowed(state.posts.get(articleId));
       Object.assign(article, {
         reviewStatus: status,
         reviewedAt: timestamp(this.clock()),
       });
       return publicArticle(article);
     });
+  }
+
+  async dismiss(articleIds: unknown): Promise<Article[]> {
+    if (
+      !Array.isArray(articleIds) ||
+      !articleIds.length ||
+      !articleIds.every(
+        (id): id is string =>
+          typeof id === "string" && /^[a-f0-9]{24}$/.test(id),
+      )
+    )
+      throw new UserError("見送る記事を選択してください");
+    const ids = [...new Set(articleIds)];
+    return this.mutate(
+      ["articles", "posts"],
+      (state) => {
+        const reviewedAt = timestamp(this.clock());
+        return ids.map((id) => {
+          const article = articleOf(state.articles, id);
+          assertReviewAllowed(state.posts.get(id));
+          if (article.reviewStatus === "posted")
+            throw new UserError(
+              "投稿済みの記事はまとめて見送れません。一覧を更新してください",
+            );
+          Object.assign(article, { reviewStatus: "dismissed", reviewedAt });
+          return publicArticle(article);
+        });
+      },
+      ids,
+    );
   }
 
   /**
