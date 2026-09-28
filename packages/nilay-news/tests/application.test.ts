@@ -50,7 +50,11 @@ function notices() {
 }
 async function setup(
   sources = [source],
-  options: { jev?: Jev; notifier?: ReturnType<typeof notices> } = {},
+  options: {
+    jev?: Jev;
+    notifier?: ReturnType<typeof notices>;
+    maxAnalysisItemsPerTick?: number;
+  } = {},
 ) {
   let now = 10_000;
   const storage = testRepository(sources, () => now);
@@ -77,6 +81,7 @@ async function setup(
       collector,
       crawl,
       notifier: options.notifier as unknown as Notifier | undefined,
+      maxAnalysisItemsPerTick: options.maxAnalysisItemsPerTick,
     },
   );
   return {
@@ -90,13 +95,16 @@ async function setup(
     now: () => now,
   };
 }
-async function analyzeSetup(count: number) {
+async function analyzeSetup(
+  count: number,
+  options: { maxAnalysisItemsPerTick?: number } = {},
+) {
   const jev = new Jev("test-key");
   const analyze = vi.spyOn(jev, "analyze").mockResolvedValue({
     analysisStatus: "done",
     decision: "candidate",
   });
-  const context = await setup([source], { jev });
+  const context = await setup([source], { jev, ...options });
   await context.repo.ingest(
     source,
     Array.from({ length: count }, (_, index) => ({
@@ -187,7 +195,10 @@ describe("durable application jobs", () => {
     expect((await repo.sources())[0]?.lastWarnings).toEqual(["一覧のみ"]);
   });
   it("stops a pending analysis after a rubric change without another paid call", async () => {
-    const { app, repo, analyze } = await analyzeSetup(2);
+    // The rubric changes between two scheduler invocations.
+    const { app, repo, analyze } = await analyzeSetup(2, {
+      maxAnalysisItemsPerTick: 1,
+    });
     await app.start("analyze");
     await app.scheduled();
     await app.settings({
@@ -305,14 +316,22 @@ describe("durable application jobs", () => {
 
 async function autoSetup(
   days: string[],
-  options: { notifier?: ReturnType<typeof notices>; key?: string } = {},
+  options: {
+    notifier?: ReturnType<typeof notices>;
+    key?: string;
+    maxAnalysisItemsPerTick?: number;
+  } = {},
 ) {
   const jev = new Jev(options.key ?? "test-key");
   const analyze = vi.spyOn(jev, "analyze").mockResolvedValue({
     analysisStatus: "done",
     decision: "candidate",
   });
-  const context = await setup([source], { jev, notifier: options.notifier });
+  const context = await setup([source], {
+    jev,
+    notifier: options.notifier,
+    maxAnalysisItemsPerTick: options.maxAnalysisItemsPerTick,
+  });
   const items = days.map((day, index) => ({
     ...item,
     url: `${item.url}/${index}`,
@@ -420,16 +439,22 @@ describe("automatic classification", () => {
     );
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 1440 });
     await app.scheduled();
+    expect(await repo.getJob()).toMatchObject({
+      running: true,
+      token: null,
+      total: 100,
+      progress: 10,
+    });
     expect((await repo.getJob()).articleIds).toHaveLength(100);
-    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(analyze).toHaveBeenCalledTimes(10);
   });
 
   it("runs due collection first and never replaces a running job", async () => {
-    const { app, repo, collector, analyze, advance } = await autoSetup([
-      "01",
-      "02",
-      "03",
-    ]);
+    // A running batch must span invocations, so each invocation takes one item.
+    const { app, repo, collector, analyze, advance } = await autoSetup(
+      ["01", "02", "03"],
+      { maxAnalysisItemsPerTick: 1 },
+    );
     await repo.updateSettings({
       autoCollect: true,
       autoAnalyze: true,
@@ -531,20 +556,26 @@ describe("automatic classification", () => {
   });
 
   it("stops queueing when disabled but lets a started batch finish", async () => {
-    const { app, repo, analyze } = await autoSetup(["01", "02", "03"]);
+    const { app, repo, analyze } = await autoSetup(
+      Array.from({ length: 12 }, (_, index) =>
+        String(index + 1).padStart(2, "0"),
+      ),
+    );
     await app.settings({ autoAnalyze: true });
     await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(10);
+    expect(await repo.getJob()).toMatchObject({ running: true, progress: 10 });
     await app.settings({ autoAnalyze: false });
     for (let run = 0; run < 3; run += 1) await app.scheduled();
-    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(analyze).toHaveBeenCalledTimes(12);
     expect(await repo.getJob()).toMatchObject({
       running: false,
-      progress: 3,
+      progress: 12,
       error: null,
     });
     await repo.ingest(source, [{ ...item, url: `${item.url}/new` }]);
     await app.scheduled();
-    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(analyze).toHaveBeenCalledTimes(12);
   });
 
   it("requires the Jev key to enable and does not send without it", async () => {
@@ -578,7 +609,7 @@ async function competingSetup() {
   const directory = mkdtempSync(join(tmpdir(), "nilay-application-"));
   cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
   const now = 10_000;
-  const worker = () => {
+  const worker = (maxAnalysisItemsPerTick?: number) => {
     const storage = testRepository([source], () => now, join(directory, "db"));
     cleanup.unshift(storage.close);
     const jev = new Jev("test-key");
@@ -588,11 +619,14 @@ async function competingSetup() {
     });
     const app = new Application(storage.repo, jev, new BufferClient(), {
       clock: () => now,
+      maxAnalysisItemsPerTick,
     });
     return { ...storage, app, analyze };
   };
   const a = worker();
-  const b = worker();
+  // B's invocations stand for single manual items that end before A decides,
+  // so B must not continue into automatic work within one invocation.
+  const b = worker(1);
   await a.repo.initialize();
   await b.repo.initialize();
   await a.repo.ingest(
@@ -703,7 +737,9 @@ describe("automatic classification races and replays", () => {
       expect(await repo.getJob()).toMatchObject({ running: true, progress: 0 });
       advance(601);
       await app.scheduled();
-      expect(analyze).toHaveBeenCalledTimes(1);
+      // The replayed result is not sent again. A replayed stored failure ends
+      // the invocation; a stored success lets it continue with the next item.
+      expect(analyze).toHaveBeenCalledTimes(failures ? 1 : 2);
       await app.scheduled();
       expect(analyze).toHaveBeenCalledTimes(2);
       expect(analyze.mock.calls[1]?.[0].id).toBe(ids[1]);
@@ -748,8 +784,8 @@ describe("automatic classification races and replays", () => {
       }),
     );
     await app.scheduled();
-    expect(await repo.getJob()).toMatchObject({ total: 100, progress: 1 });
-    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(await repo.getJob()).toMatchObject({ total: 100, progress: 10 });
+    expect(analyze).toHaveBeenCalledTimes(10);
   });
 });
 
@@ -774,16 +810,21 @@ describe("automatic job fairness", () => {
       autoAnalyze: true,
       pollMinutes: 15,
     });
-    const kinds: (string | null)[] = [];
+    const ticks: [number, number][] = [];
     for (let tick = 0; tick < 40; tick += 1) {
+      const before = [collector.mock.calls.length, analyze.mock.calls.length];
       await app.scheduled();
-      kinds.push((await repo.getJob()).kind);
+      ticks.push([
+        collector.mock.calls.length - before[0]!,
+        analyze.mock.calls.length - before[1]!,
+      ]);
       advance(60);
     }
-    // 16 sources, then one batch of the three pending articles, then collection.
-    expect(kinds.slice(0, 16).every((kind) => kind === "collect")).toBe(true);
-    expect(kinds.slice(16, 19)).toEqual(["analyze", "analyze", "analyze"]);
-    expect(kinds.slice(19, 35).every((kind) => kind === "collect")).toBe(true);
+    // 16 sources, then one batch of the three pending articles followed by
+    // the next due collection's first source in the same invocation.
+    expect(ticks.slice(0, 16).every(([c, a]) => c === 1 && a === 0)).toBe(true);
+    expect(ticks[16]).toEqual([1, 3]);
+    expect(ticks.slice(17).every(([c, a]) => c === 1 && a === 0)).toBe(true);
     expect(analyze).toHaveBeenCalledTimes(3);
     expect(collector.mock.calls.length).toBeGreaterThanOrEqual(32);
   });
@@ -885,5 +926,580 @@ describe("slice deadline", () => {
     await vi.advanceTimersByTimeAsync(240_000);
     expect(await outcome).toHaveProperty("message", "D1 unavailable");
     expect(await repo.getJob()).toMatchObject({ running: true, progress: 0 });
+  });
+});
+
+describe("bounded classification per invocation (production default 10 items / 45 s)", () => {
+  const days = (count: number) =>
+    Array.from({ length: count }, (_, index) =>
+      String(index + 1).padStart(2, "0"),
+    );
+  const pending = async (repo: Awaited<ReturnType<typeof setup>>["repo"]) =>
+    (await repo.articles()).filter(
+      (article) => article.analysisStatus === "pending",
+    ).length;
+
+  it("rejects an item cap outside 1 to 10", async () => {
+    const { repo } = await setup();
+    for (const maxAnalysisItemsPerTick of [0, 11, 1.5, Number.NaN])
+      expect(
+        () =>
+          new Application(repo, new Jev(), new BufferClient(), {
+            maxAnalysisItemsPerTick,
+          }),
+      ).toThrow(RangeError);
+  });
+
+  it("classifies exactly 10 of 25 pending articles per invocation, oldest first", async () => {
+    const { app, repo, analyzed } = await autoSetup(days(25));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyzed()).toEqual(days(10).map((_, index) => index));
+    expect(await repo.getJob()).toMatchObject({
+      kind: "analyze",
+      automatic: true,
+      running: true,
+      token: null,
+      leaseUntil: 0,
+      total: 25,
+      progress: 10,
+      failed: 0,
+    });
+    expect(await pending(repo)).toBe(15);
+    await app.scheduled();
+    expect(analyzed()).toHaveLength(20);
+    expect(await pending(repo)).toBe(5);
+    await app.scheduled();
+    expect(analyzed()).toEqual(days(25).map((_, index) => index));
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      progress: 25,
+      error: null,
+    });
+    expect(await pending(repo)).toBe(0);
+  });
+
+  it("finishes a manual batch of 10 in one invocation", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(days(12));
+    const job = await app.start("analyze", ids.slice(0, 10));
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(10);
+    expect(await repo.getJob()).toMatchObject({
+      id: job.id,
+      automatic: false,
+      running: false,
+      progress: 10,
+      total: 10,
+      error: null,
+    });
+    // Automatic classification is off, so the other two stay pending.
+    expect(await pending(repo)).toBe(2);
+  });
+
+  it("starts no item once 45 seconds have elapsed", async () => {
+    const { app, repo, analyze, advance } = await autoSetup(days(12));
+    // Each classification takes 15 s: items start at 0, 15 and 30 s.
+    analyze.mockImplementation(async () => {
+      advance(15);
+      return { analysisStatus: "done", decision: "candidate" };
+    });
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(await repo.getJob()).toMatchObject({
+      running: true,
+      token: null,
+      progress: 3,
+    });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(6);
+  });
+
+  it("lets a slow article finish without cancelling it at 45 seconds", async () => {
+    const { app, repo, analyze, advance, ids } = await autoSetup(days(3));
+    let aborted: boolean | undefined;
+    analyze.mockImplementationOnce(
+      async (_article, _rubric, _others, signal) => {
+        advance(100);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        // The 45-second budget never aborts the request in flight.
+        aborted = signal?.aborted;
+        return { analysisStatus: "done", decision: "candidate" };
+      },
+    );
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(aborted).toBe(false);
+    expect(await repo.article(ids[0]!)).toMatchObject({
+      analysisStatus: "done",
+    });
+    expect(await repo.getJob()).toMatchObject({
+      running: true,
+      token: null,
+      progress: 1,
+      error: null,
+    });
+  });
+
+  it("ends the invocation at the first new failure and resumes on the next", async () => {
+    const { app, repo, analyze, analyzed, ids } = await autoSetup(days(6));
+    analyze
+      .mockResolvedValueOnce({ analysisStatus: "done", decision: "candidate" })
+      .mockRejectedValueOnce(new Error("upstream"));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyzed()).toEqual([0, 1]);
+    expect(await repo.getJob()).toMatchObject({
+      running: true,
+      token: null,
+      progress: 2,
+      failed: 1,
+    });
+    // The failed article is not sent again; the batch resumes after it.
+    await app.scheduled();
+    expect(analyzed()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      failed: 1,
+      phase: "一部未完了",
+    });
+    expect((await repo.article(ids[1]!)).analysisStatus).toBe("error");
+  });
+
+  it("ends the invocation when a batch finishes with an earlier failure", async () => {
+    const { app, repo, analyze, collector } = await analyzeSetup(3);
+    analyze.mockRejectedValueOnce(new Error("upstream"));
+    await app.start("analyze");
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    await repo.updateSettings({ autoCollect: true });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(await repo.getJob()).toMatchObject({
+      kind: "analyze",
+      running: false,
+      failed: 1,
+      phase: "一部未完了",
+    });
+    // Due collection waits for the next invocation.
+    expect(collector).not.toHaveBeenCalled();
+    await app.scheduled();
+    expect(collector).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the whole batch after three failures across invocations", async () => {
+    const { app, repo, analyze, now } = await autoSetup(days(12));
+    analyze.mockRejectedValue(new Error("upstream"));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 15 });
+    for (let run = 0; run < 3; run += 1) {
+      await app.scheduled();
+      expect(analyze).toHaveBeenCalledTimes(run + 1);
+    }
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      progress: 3,
+      failed: 3,
+    });
+    expect(
+      await repo.getRecord<{ nextAt: number }>("scheduler", "analysis"),
+    ).toEqual({ nextAt: now() + 900 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(await pending(repo)).toBe(9);
+  });
+
+  it("records durable progress before every item", async () => {
+    const { app, repo, analyze } = await autoSetup(days(12));
+    const seen: [number, string | null][] = [];
+    analyze.mockImplementation(async () => {
+      const job = await repo.getJob();
+      seen.push([job.progress, job.token]);
+      return { analysisStatus: "done", decision: "candidate" };
+    });
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(seen.map(([progress]) => progress)).toEqual(
+      days(10).map((_, index) => index),
+    );
+    // Every item runs under its own fresh lease token.
+    expect(new Set(seen.map(([, token]) => token)).size).toBe(10);
+    expect(seen.every(([, token]) => token !== null)).toBe(true);
+  });
+
+  it("replays a stored result after a crash without paying again, then continues", async () => {
+    const { app, repo, analyze, advance, ids } = await autoSetup(days(12));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 15 });
+    const release = repo.releaseJob.bind(repo);
+    let releases = 0;
+    // The fourth result is stored, but its progress is lost in a crash.
+    vi.spyOn(repo, "releaseJob").mockImplementation(async (...args) => {
+      releases += 1;
+      if (releases === 4) throw new Error("crash");
+      return release(...args);
+    });
+    vi.spyOn(repo, "finishJob").mockRejectedValueOnce(new Error("crash"));
+    await expect(app.scheduled()).rejects.toThrow("crash");
+    expect(analyze).toHaveBeenCalledTimes(4);
+    expect(await repo.getJob()).toMatchObject({ running: true, progress: 3 });
+    vi.mocked(repo.releaseJob).mockRestore();
+    advance(601);
+    await app.scheduled();
+    // Item 4 is replayed from storage; the other eight follow in this invocation.
+    expect(analyze).toHaveBeenCalledTimes(12);
+    expect(
+      new Set(analyze.mock.calls.map(([article]) => article.id)).size,
+    ).toBe(12);
+    expect(
+      analyze.mock.calls.map(([article]) => ids.indexOf(article.id)),
+    ).toEqual(days(12).map((_, index) => index));
+  });
+
+  it("stops without another paid call when the rubric changes mid-invocation", async () => {
+    const { app, repo, analyze } = await autoSetup(days(5));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    analyze
+      .mockResolvedValueOnce({ analysisStatus: "done", decision: "candidate" })
+      .mockImplementationOnce(async () => {
+        await app.settings({
+          rubric: "射撃競技に関係するニュースだけを候補にする",
+        });
+        return { analysisStatus: "done", decision: "candidate" };
+      });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      token: null,
+      error: expect.stringContaining("選定基準"),
+    });
+    // The rubric change reset stored results; nothing was stored under it.
+    expect(await pending(repo)).toBe(5);
+  });
+
+  it("stops when an article changes during its classification and keeps manual review", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(days(5));
+    await repo.review(ids[0]!, "saved");
+    await repo.review(ids[2]!, "dismissed");
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    const store = repo.analyzeResult.bind(repo);
+    vi.spyOn(repo, "analyzeResult")
+      .mockImplementationOnce(store)
+      .mockResolvedValueOnce(false);
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      progress: 1,
+      error: expect.stringContaining("記事が変更された"),
+    });
+    expect((await repo.article(ids[0]!)).reviewStatus).toBe("saved");
+    expect((await repo.article(ids[2]!)).reviewStatus).toBe("dismissed");
+    expect((await repo.article(ids[0]!)).analysisStatus).toBe("done");
+    expect((await repo.article(ids[1]!)).analysisStatus).toBe("pending");
+  });
+
+  it("does not start while automatic classification is paused or disabled", async () => {
+    const { app, repo, analyze, advance, now } = await autoSetup(days(12));
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 15 });
+    await repo.putRecord("scheduler", "analysis", { nextAt: now() + 60 });
+    const version = await repo.stateVersion();
+    await app.scheduled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(await repo.stateVersion()).toBe(version);
+    await repo.updateSettings({ autoAnalyze: false });
+    advance(60);
+    await app.scheduled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(await repo.settings()).toMatchObject({
+      autoAnalyze: false,
+      pollMinutes: 15,
+    });
+  });
+
+  it("runs publication housekeeping once per invocation", async () => {
+    const jev = new Jev("test-key");
+    vi.spyOn(jev, "analyze").mockResolvedValue({
+      analysisStatus: "done",
+      decision: "candidate",
+    });
+    const context = await setup([source], { jev });
+    const { repo } = context;
+    await repo.ingest(
+      source,
+      days(12).map((day) => ({ ...item, url: `${item.url}/${day}` })),
+    );
+    const app = new Application(
+      repo,
+      jev,
+      new BufferClient("buffer-key", "channel", async () => {
+        throw new Error("Unexpected network");
+      }),
+      {
+        clock: context.now,
+        notifier: notices() as unknown as Notifier,
+      },
+    );
+    const tick = vi.spyOn(app.publisher, "tick").mockResolvedValue();
+    const recoverPosts = vi.spyOn(repo, "recoverPosts");
+    const publicationState = vi.spyOn(repo, "publicationState");
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect((await repo.getJob()).progress).toBe(10);
+    expect(tick).toHaveBeenCalledTimes(1);
+    expect(recoverPosts).toHaveBeenCalledTimes(1);
+    expect(publicationState).toHaveBeenCalledTimes(1);
+  });
+
+  it("never overlaps or pays twice with concurrent invocations", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "nilay-burst-"));
+    cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
+    const now = 10_000;
+    let active = 0;
+    let overlap = 0;
+    const paid: string[] = [];
+    const worker = () => {
+      const storage = testRepository(
+        [source],
+        () => now,
+        join(directory, "db"),
+      );
+      cleanup.unshift(storage.close);
+      const jev = new Jev("test-key");
+      vi.spyOn(jev, "analyze").mockImplementation(async (article) => {
+        active += 1;
+        overlap = Math.max(overlap, active);
+        paid.push(article.id);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        active -= 1;
+        return { analysisStatus: "done", decision: "candidate" };
+      });
+      return {
+        ...storage,
+        app: new Application(storage.repo, jev, new BufferClient(), {
+          clock: () => now,
+        }),
+      };
+    };
+    const a = worker();
+    const b = worker();
+    await a.repo.initialize();
+    await b.repo.initialize();
+    await a.repo.ingest(
+      source,
+      days(30).map((day) => ({ ...item, url: `${item.url}/${day}` })),
+    );
+    await a.repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await Promise.all([a.app.scheduled(), b.app.scheduled()]);
+    await Promise.all([a.app.scheduled(), b.app.scheduled()]);
+    expect(overlap).toBe(1);
+    expect(new Set(paid).size).toBe(paid.length);
+    // Each invocation stops at its own cap or when the other holds the job.
+    expect(paid.length).toBeGreaterThanOrEqual(20);
+    expect(paid.length).toBeLessThanOrEqual(30);
+    const job = await a.repo.getJob();
+    expect(job).toMatchObject({ token: null, progress: paid.length });
+    expect(
+      (await a.repo.articles()).filter(
+        (article) => article.analysisStatus === "done",
+      ),
+    ).toHaveLength(paid.length);
+  }, 30_000);
+});
+
+describe("invocation boundaries between classification items", () => {
+  const days = (count: number) =>
+    Array.from({ length: count }, (_, index) =>
+      String(index + 1).padStart(2, "0"),
+    );
+  /** The first item has been released; its job waits unclaimed for the next item. */
+  const released = {
+    running: true,
+    token: null,
+    leaseUntil: 0,
+    progress: 1,
+    phase: "1/12 件完了・次の処理を待機中",
+  };
+
+  it("starts the first item after slow publication housekeeping, but no additional one", async () => {
+    const jev = new Jev("test-key");
+    const analyze = vi.spyOn(jev, "analyze").mockResolvedValue({
+      analysisStatus: "done",
+      decision: "candidate",
+    });
+    const { repo, advance, now } = await setup([source], { jev });
+    await repo.ingest(
+      source,
+      days(12).map((day) => ({ ...item, url: `${item.url}/${day}` })),
+    );
+    const app = new Application(
+      repo,
+      jev,
+      new BufferClient("buffer-key", "channel", async () => {
+        throw new Error("Unexpected network");
+      }),
+      { clock: now },
+    );
+    vi.spyOn(app.publisher, "tick").mockImplementation(async () => {
+      advance(50);
+    });
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(await repo.getJob()).toMatchObject(released);
+  });
+
+  it("does not claim an additional item when queueing crosses 45 seconds", async () => {
+    const { app, repo, analyze, advance } = await autoSetup(days(12));
+    const queue = repo.queueAutomaticJob.bind(repo);
+    let calls = 0;
+    vi.spyOn(repo, "queueAutomaticJob").mockImplementation(async (...args) => {
+      calls += 1;
+      if (calls === 2) advance(45);
+      return queue(...args);
+    });
+    const claim = vi.spyOn(repo, "claimJob");
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(await repo.getJob()).toMatchObject(released);
+  });
+
+  it("releases a fresh claim unchanged when claiming crosses 45 seconds", async () => {
+    const notifier = notices();
+    const { app, repo, analyze, advance, ids } = await autoSetup(days(12), {
+      notifier,
+    });
+    const claim = repo.claimJob.bind(repo);
+    let calls = 0;
+    vi.spyOn(repo, "claimJob").mockImplementation(async (...args) => {
+      calls += 1;
+      const job = await claim(...args);
+      if (calls === 2) advance(45);
+      return job;
+    });
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(calls).toBe(2);
+    expect(analyze).toHaveBeenCalledTimes(1);
+    const job = await repo.getJob();
+    expect(job).toMatchObject({ ...released, failed: 0, error: null });
+    // The next invocation continues without a resumption notice.
+    await app.scheduled();
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(
+      ids.slice(0, 11),
+    );
+    expect(notifier.report).not.toHaveBeenCalledWith(
+      "job",
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("stops when another worker claims the job after the first release", async () => {
+    const { app, repo, analyze, now } = await autoSetup(days(12));
+    const release = repo.releaseJob.bind(repo);
+    let other: Job | null = null;
+    vi.spyOn(repo, "releaseJob").mockImplementationOnce(async (...args) => {
+      const job = await release(...args);
+      // Another invocation claims the job between the two items.
+      other = await repo.claimJob(now(), 600);
+      return job;
+    });
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(other).not.toBeNull();
+    expect(await repo.getJob()).toMatchObject({
+      running: true,
+      progress: 1,
+      token: other!.token,
+    });
+  });
+
+  it("leaves a manual job queued before the next item for the next invocation", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(days(2));
+    const finish = repo.finishJob.bind(repo);
+    let manual: Job | undefined;
+    vi.spyOn(repo, "finishJob").mockImplementationOnce(async (...args) => {
+      const job = await finish(...args);
+      manual = await app.start("analyze", [ids[0]!]);
+      return job;
+    });
+    const claim = vi.spyOn(repo, "claimJob");
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(2);
+    // The manual job is seen before claiming and is never claimed.
+    expect(claim).toHaveBeenCalledTimes(2);
+    expect(await repo.getJob()).toMatchObject({
+      id: manual!.id,
+      automatic: false,
+      running: true,
+      token: null,
+      progress: 0,
+      phase: "仕分けの準備中",
+    });
+    expect((await repo.getJob()).workIds).toBeUndefined();
+    // The manual request runs on its own invocation.
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(3);
+    expect(analyze.mock.calls[2]?.[0].id).toBe(ids[0]);
+    expect(await repo.getJob()).toMatchObject({
+      id: manual!.id,
+      running: false,
+      progress: 1,
+    });
+  });
+
+  it("releases a manual job queued after the pre-claim snapshot unchanged", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(days(2));
+    const queue = repo.queueAutomaticJob.bind(repo);
+    let calls = 0;
+    let manual: Job | undefined;
+    vi.spyOn(repo, "queueAutomaticJob").mockImplementation(async (...args) => {
+      calls += 1;
+      // The third item has read the finished automatic job already.
+      if (calls === 3) manual = await repo.queueJob("analyze", [ids[0]!]);
+      return queue(...args);
+    });
+    const claim = vi.spyOn(repo, "claimJob");
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(manual).toBeDefined();
+    expect(claim).toHaveBeenCalledTimes(3);
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(await repo.getJob()).toMatchObject({
+      id: manual!.id,
+      automatic: false,
+      running: true,
+      token: null,
+      leaseUntil: 0,
+      progress: 0,
+      total: 0,
+      phase: "仕分けの準備中",
+      error: null,
+    });
+    expect((await repo.getJob()).workIds).toBeUndefined();
+  });
+
+  it("lets a new automatic batch follow a manual batch the invocation started with", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(days(4));
+    await app.start("analyze", [ids[3]!, ids[2]!]);
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
+      ids[3],
+      ids[2],
+      ids[0],
+      ids[1],
+    ]);
+    expect(await repo.getJob()).toMatchObject({
+      automatic: true,
+      running: false,
+      error: null,
+    });
   });
 });

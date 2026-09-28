@@ -274,6 +274,68 @@ describe("real Worker, D1 and WebCrypto", () => {
     }
   });
 
+  it("classifies up to ten articles in sequence per scheduled invocation", async () => {
+    const { runtime, request } = await fixtureRuntime();
+    try {
+      const worker = await runtime.getWorker();
+      type State = {
+        articles: { analysisStatus: string; decision: string | null }[];
+        job: {
+          running: boolean;
+          kind: string;
+          progress: number;
+          total: number;
+          token: string | null;
+          error: string | null;
+        };
+        stats: { total: number; pending: number };
+      };
+      const state = async () =>
+        (await (await request("/api/state")).json()) as State;
+      const calls = async () =>
+        (await (await request("/fixture/calls")).json()) as string[];
+      await request("/fixture/classify");
+      expect(
+        (
+          await request("/api/settings", {
+            autoCollect: true,
+            autoAnalyze: true,
+          })
+        ).status,
+      ).toBe(200);
+      await worker.scheduled({ cron: "* * * * *" });
+      expect((await state()).stats).toEqual({ total: 12, pending: 12 });
+      expect(await calls()).toEqual([]);
+      await worker.scheduled({ cron: "* * * * *" });
+      const first = await state();
+      expect(first.job).toMatchObject({
+        running: true,
+        kind: "analyze",
+        progress: 10,
+        total: 12,
+        token: null,
+        error: null,
+      });
+      expect(first.stats.pending).toBe(2);
+      expect(await calls()).toEqual(Array.from({ length: 10 }, () => "jev"));
+      await worker.scheduled({ cron: "* * * * *" });
+      const final = await state();
+      expect(final.job).toMatchObject({
+        running: false,
+        kind: "analyze",
+        progress: 12,
+        error: null,
+      });
+      expect(final.stats.pending).toBe(0);
+      expect(
+        final.articles.every((article) => article.decision === "irrelevant"),
+      ).toBe(true);
+      expect(await calls()).toHaveLength(12);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("upgrades existing D1 settings with automatic classification disabled", async () => {
     const { script } = await bundle("src/local-worker.ts");
     const runtime = runtimeFor(script, { STORAGE_BACKEND: "d1" });
