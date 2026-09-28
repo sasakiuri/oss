@@ -7,8 +7,9 @@ import { test } from "node:test";
 import { requiredChecksPass as check } from "./check-required-ci.mjs";
 import {
   e2eMatrix,
-  platformRunners,
+  packageMatrix,
   readGitWorkspaces,
+  runnersFor,
   selectCiPackages,
 } from "./select-ci-packages.mjs";
 
@@ -90,10 +91,24 @@ test("workflow output names and aggregate dependencies carry real plans to the g
     );
     needs.changes.outputs = outputs;
     assert.equal(check(needs, packages), true, file);
-    const matrixOutput = workflow.match(
-      /include: \$\{\{ fromJSON\(needs\.changes\.outputs\.(\w+)\) \}\}/,
-    )[1];
-    assert.deepEqual(JSON.parse(outputs[matrixOutput]), plan.e2eMatrix);
+    for (const job of ["build", "unit", "e2e"]) {
+      const definition = workflow
+        .split(`\n  ${job}:\n`)[1]
+        .split(/\n  [\w-]+:\n/)[0];
+      const matrixOutput = definition.match(
+        /include: \$\{\{ fromJSON\(needs\.changes\.outputs\.(\w+)\) \}\}/,
+      )[1];
+      assert.deepEqual(
+        JSON.parse(outputs[matrixOutput]),
+        job === "e2e" ? plan.e2eMatrix : plan.packageMatrix,
+      );
+      if (job !== "e2e")
+        assert.ok(
+          definition.includes(
+            "CI_PACKAGES_JSON: ${{ toJSON(matrix.packages) }}",
+          ),
+        );
+    }
   }
 });
 
@@ -120,11 +135,9 @@ function needsFor({
                 ? "@sasakiuri/example"
                 : "@sasakiuri/config",
       ];
-  const os = electron || knowledge ? platformRunners : ["ubuntu-latest"];
-  const matrix = e2eMatrix(
-    workspaces.filter((pkg) => packages.includes(pkg.name)),
-    os,
-  );
+  const selected = workspaces.filter((pkg) => packages.includes(pkg.name));
+  const os = runnersFor(selected);
+  const matrix = e2eMatrix(selected, os);
   return {
     changes: {
       result: "success",
@@ -139,6 +152,7 @@ function needsFor({
         e2e: String(matrix.length > 0),
         e2eMatrix: JSON.stringify(matrix),
         packages: JSON.stringify(packages),
+        packageMatrix: JSON.stringify(packageMatrix(selected, os)),
         os: JSON.stringify(os),
       },
     },
@@ -238,6 +252,10 @@ test("inconsistent package and runner plans fail closed", () => {
     ["os", '["unknown"]'],
     ["os", "null"],
     ["os", "invalid"],
+    ["packageMatrix", undefined],
+    ["packageMatrix", "[]"],
+    ["packageMatrix", "null"],
+    ["packageMatrix", "invalid"],
   ]) {
     const needs = needsFor();
     needs.changes.outputs[key] = value;
@@ -268,6 +286,21 @@ test("the gate CLI rejects absent or malformed results", () => {
     },
   );
   assert.equal(result.status, 0);
+});
+
+test("missing or altered platform package selections fail closed", () => {
+  for (const mutate of [
+    (matrix) => matrix.slice(1),
+    (matrix) => [...matrix, matrix[0]],
+    (matrix) => matrix.map((row) => ({ ...row, packages: [] })),
+    (matrix) => matrix.map((row) => ({ ...row, os: "windows-latest" })),
+  ]) {
+    const needs = needsFor({ ci: true, build: true, knowledge: true });
+    needs.changes.outputs.packageMatrix = JSON.stringify(
+      mutate(JSON.parse(needs.changes.outputs.packageMatrix)),
+    );
+    assert.equal(requiredChecksPass(needs), false);
+  }
 });
 
 test("missing, duplicate, skipped and altered E2E shards fail closed", () => {

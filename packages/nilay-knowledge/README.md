@@ -580,7 +580,9 @@ plus page-navigation focus, keyboard navigation, search recovery, modal focus,
 200% root text sizing with increased text spacing, reduced motion, forced colors
 and print-image visibility. Axe checks
 WCAG 2.2 A/AA rules and best practices without excluded rules. CI runs this suite
-for changes affecting this package and retains failure traces and screenshots.
+on Linux and macOS for changes affecting this package and retains failure traces
+and screenshots. Builds and unit tests use the same platforms, including for
+changes shared with other applications.
 
 Automated checks do not establish WCAG conformance. Manual release checks should
 include NVDA/Firefox or VoiceOver/Safari reading order, Japanese labels and status

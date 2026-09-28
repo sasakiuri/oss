@@ -3,8 +3,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   e2eMatrix,
-  platformRunners,
+  packageMatrix,
   readGitWorkspaces,
+  runnersFor,
   usesElectron,
 } from "./select-ci-packages.mjs";
 
@@ -45,14 +46,15 @@ export function requiredChecksPass(needs, workspaces) {
       return false;
     if (knowledge !== packages.includes("@sasakiuri/nilay-knowledge"))
       return false;
-    const expected =
-      electron || knowledge ? platformRunners : ["ubuntu-latest"];
-    if (JSON.stringify(os) !== JSON.stringify(expected)) return false;
     const selected = packages.map((name) =>
       workspaces.find((pkg) => pkg.name === name),
     );
     if (selected.some((pkg) => !pkg)) return false;
     if (electron !== selected.some(usesElectron)) return false;
+    if (JSON.stringify(os) !== JSON.stringify(runnersFor(selected)))
+      return false;
+    if (outputs.packageMatrix !== JSON.stringify(packageMatrix(selected, os)))
+      return false;
     const expectedBuild = selected.some((pkg) =>
       ["build", "test", "test:coverage", "test:e2e", "size-limit"].some(
         (task) => pkg.scripts?.[task],

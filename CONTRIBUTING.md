@@ -117,8 +117,10 @@ manifests, including development, peer, and optional dependencies. Package conte
 and assets also count as changes. For example, a Lane change tests Lane, while a
 Protocol change also tests Lane, Director, and Vista. Turbo builds any prerequisites.
 
-Electron and Nilay Knowledge changes retain build and unit tests on Linux,
-Windows, and macOS; other packages use Linux. Saika Docs keeps its dedicated
+Electron changes retain build and unit tests on Linux, Windows, and macOS.
+Nilay Knowledge uses Linux and macOS for builds, unit tests, and E2E tests,
+including when shared changes also select Electron packages. Other packages use
+Linux unless selected alongside these applications. Saika Docs keeps its dedicated
 quality workflow. Changes to the npm v3 lockfile select consumers of the changed
 installed dependency entries, following both the previous and current dependency
 graphs, including nested versions and workspace links. Root dependencies, shared
