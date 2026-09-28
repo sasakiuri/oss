@@ -13,7 +13,7 @@ import {
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { RobotsPolicy } from "../src/robots.ts";
-import { loadSources } from "../src/sources/config.ts";
+import { MAFF_PRESS, loadSources } from "../src/sources/config.ts";
 import type { FetchResult, SourceConfig } from "../src/sources/types.ts";
 import type { SQLRepository } from "../src/storage/repository.ts";
 import { utf8 } from "../src/text.ts";
@@ -318,6 +318,45 @@ describe("CachedFetch", () => {
     now += 10;
     await cache.endSource(configured);
     expect(await cache.nextDue(configured)).toBe(now + 21600);
+  });
+
+  it("gates the eight ordinary news feeds at four hours", async () => {
+    const bundled = loadSources(
+      JSON.parse(
+        readFileSync(new URL("../sources.json", import.meta.url), "utf8"),
+      ),
+    );
+    const ordinary = bundled.filter(
+      (item) => !item.dailyAtJst && item.id !== "tyoujuu-blog",
+    );
+    expect(ordinary.map((item) => item.id)).toEqual([
+      "google-1",
+      "google-2",
+      "ceek-1",
+      "ceek-2",
+      "ceek-3",
+      "yahoo-domestic",
+      "yahoo-local",
+      "yahoo-science",
+    ]);
+    const cache = crawler(bundled);
+    for (const item of ordinary) {
+      expect(item.minCollectionMinutes).toBe(240);
+      await cache.beginSource(item);
+    }
+    now = START + 4 * 3600 - 1;
+    for (const item of ordinary) {
+      await expect(cache.beginSource(item)).rejects.toBeInstanceOf(
+        CrawlDeferred,
+      );
+      expect(await cache.nextDue(item)).toBe(START + 4 * 3600);
+    }
+    now += 1;
+    for (const item of ordinary) await cache.beginSource(item);
+    const google = ordinary[0]!;
+    expect(() =>
+      loadSources([{ ...google, minCollectionMinutes: 239 }]),
+    ).toThrow("robots");
   });
 
   it("collects the bundled daily sources at most once a day", async () => {
@@ -752,6 +791,212 @@ describe("CachedFetch", () => {
       expect((await hostState("kanpo.go.jp"))?.blocked_until).toBeGreaterThan(
         now + 3600,
       );
+    });
+  });
+
+  describe("MAFF robots.txt 403 treated as unavailable", () => {
+    const MAFF_ORIGIN = "https://www.maff.go.jp";
+    const MAFF_ROBOTS = `${MAFF_ORIGIN}/robots.txt`;
+    const OTHER = `${MAFF_ORIGIN}/j/press/other/260928.html`;
+    const maff = source({
+      id: "maff-press",
+      url: MAFF_PRESS,
+      kind: "html",
+      allowedPathPattern: "^/j/press/",
+      dailyAtJst: "11:00",
+      minCollectionMinutes: 1440,
+      minRequestIntervalSeconds: 3,
+      robotsUnavailableStatus: 403,
+      robotsUnavailableReason: "robots.txt が 403 のため取得不能として扱う",
+    });
+    const pages = () => calls.map(([url]) => url);
+    const maffState = () => hostState("maff.go.jp");
+    beforeEach(() => {
+      errors.set(MAFF_ROBOTS, new FetchError("forbidden", 403));
+    });
+
+    it("accepts only the exact, explained, daily MAFF press index", () => {
+      expect(() => crawler([maff])).not.toThrow();
+      expect(() => loadSources([maff])).not.toThrow();
+      for (const changes of [
+        { url: "https://www.rinya.maff.go.jp/j/press/index.html" },
+        { url: `${MAFF_ORIGIN}/j/press/` },
+        { url: `${MAFF_ORIGIN}/j/press/index.html?x=1` },
+        { url: "http://www.maff.go.jp/j/press/index.html" },
+        { robotsUnavailableStatus: 401 as 403 },
+        { robotsUnavailableStatus: undefined },
+        { robotsUnavailableReason: " " },
+        { robotsUnavailableReason: undefined },
+        { kind: "rss" as const },
+        { minCollectionMinutes: 360, dailyAtJst: undefined },
+        { dailyAtJst: undefined },
+        { minRequestIntervalSeconds: undefined },
+      ]) {
+        const invalid = { ...maff, ...changes };
+        expect(() => crawler([invalid])).toThrow("robots.txt 取得不能");
+        expect(() => crawler([{ ...invalid, enabled: false }])).toThrow(
+          "robots.txt 取得不能",
+        );
+        expect(() =>
+          loadSources([JSON.parse(JSON.stringify(invalid))]),
+        ).toThrow("農林水産省");
+      }
+      // A robots exception must not be combined with, or reused for, this policy.
+      const both = {
+        ...maff,
+        robotsException: true as const,
+        robotsExceptionReason: "理由",
+      };
+      expect(() => crawler([both])).toThrow("robots");
+      expect(() => loadSources([both])).toThrow("robots");
+    });
+
+    it("fetches only the exact index without caching an empty policy", async () => {
+      expect(text(await crawler([maff]).fetch(MAFF_PRESS))).toBe("content");
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
+      expect(spaced()).toBe(true);
+      expect(await repo.getRecord("crawl_robots", MAFF_ORIGIN)).toBeNull();
+      let state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([0, 0]);
+      // Any other MAFF URL rechecks robots.txt and stops with the usual backoff.
+      await expect(crawler([maff]).fetch(OTHER)).rejects.toThrow(
+        "robots.txt を確認できない",
+      );
+      state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS, MAFF_ROBOTS]);
+    });
+
+    it("never applies to disabled, blocked or unconfigured sources, or other origins", async () => {
+      for (const sources of [
+        [{ ...maff, enabled: false }],
+        [{ ...maff, collectionBlocked: "停止" }],
+        [],
+      ]) {
+        await expect(crawler(sources).fetch(MAFF_PRESS)).rejects.toThrow(
+          "robots.txt を確認できない",
+        );
+        now += 86401;
+      }
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_ROBOTS, MAFF_ROBOTS]);
+      expect((await maffState())?.failures).toBe(3);
+      errors.set(`${ORIGIN}/robots.txt`, new FetchError("forbidden", 403));
+      await expect(crawler([maff]).fetch(`${ORIGIN}/news`)).rejects.toThrow(
+        "robots.txt を確認できない",
+      );
+      expect((await hostState())?.failures).toBe(1);
+    });
+
+    it("still obeys a genuine robots.txt disallow", async () => {
+      errors.clear();
+      rules = "User-agent: *\nDisallow: /j/press/\n";
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toThrow("禁止");
+      expect(pages()).toEqual([MAFF_ROBOTS]);
+      expect(await repo.getRecord("crawl_robots", MAFF_ORIGIN)).toEqual({
+        rules,
+      });
+    });
+
+    it("applies a real robots crawl delay and keeps host pacing", async () => {
+      errors.clear();
+      rules = "User-agent: *\nCrawl-delay: 10\n";
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toBeInstanceOf(
+        CrawlDeferred,
+      );
+      now += 10;
+      expect(text(await crawler([maff]).fetch(MAFF_PRESS))).toBe("content");
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
+    });
+
+    it("never follows a page redirect admitted without robots rules", async () => {
+      const moved = `${MAFF_ORIGIN}/j/press/moved.html`;
+      const hop: FetchBytes = async (url, options) => {
+        const result = await transport(url, options);
+        if (url !== MAFF_PRESS) return result;
+        await options?.beforeRedirect?.(moved);
+        return transport(moved, options);
+      };
+      await expect(
+        crawler([maff], { transport: hop }).fetch(MAFF_PRESS),
+      ).rejects.toThrow("転送先を取得しません");
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
+      const state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([0, 0]);
+    });
+
+    it("does not accept a 403 reached through a robots.txt redirect", async () => {
+      const moved = `${MAFF_ORIGIN}/robots-moved.txt`;
+      errors.clear();
+      errors.set(moved, new FetchError("forbidden", 403));
+      const hop: FetchBytes = async (url, options) => {
+        if (url !== MAFF_ROBOTS) return transport(url, options);
+        calls.push([url, now]);
+        await options?.beforeRedirect?.(moved);
+        return transport(moved, options);
+      };
+      await expect(
+        crawler([maff], { transport: hop }).fetch(MAFF_PRESS),
+      ).rejects.toThrow("robots.txt を確認できない");
+      expect(pages()).toEqual([MAFF_ROBOTS, moved]);
+      const state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+    });
+
+    it("keeps the 24 hour backoff for a page 403", async () => {
+      errors.set(MAFF_PRESS, new FetchError("page forbidden", 403));
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toThrow(
+        "page forbidden",
+      );
+      const state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+    });
+
+    it.each([
+      [new FetchError("unauthorized", 401), 86400],
+      [new FetchError("limited", 429), 3600],
+      [new FetchError("unavailable", 503), 900],
+      [new FetchError("network"), 900],
+    ])("stops and backs off once for robots.txt %s", async (error, seconds) => {
+      errors.set(MAFF_ROBOTS, error);
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toThrow(
+        "robots.txt を確認できない",
+      );
+      expect(pages()).toEqual([MAFF_ROBOTS]);
+      const state = await maffState();
+      expect([state?.blocked_until, state?.failures]).toEqual([
+        now + seconds,
+        1,
+      ]);
+    });
+
+    it.each([
+      ["HTML", utf8("<html>403</html>"), "text/html"],
+      ["invalid UTF-8", new Uint8Array([0xff, 0xfe]), "text/plain"],
+    ])(
+      "stops and backs off once for a 200 %s robots.txt",
+      async (_, data, contentType) => {
+        const robots: FetchBytes = async (url, options) =>
+          url === MAFF_ROBOTS
+            ? (calls.push([url, now]), { data, url, contentType })
+            : transport(url, options);
+        await expect(
+          crawler([maff], { transport: robots }).fetch(MAFF_PRESS),
+        ).rejects.toThrow("収集停止");
+        expect(pages()).toEqual([MAFF_ROBOTS]);
+        expect((await maffState())?.failures).toBe(1);
+      },
+    );
+
+    it("leaves an existing host block in place", async () => {
+      const cache = crawler([maff]);
+      errors.set(MAFF_PRESS, new FetchError("unavailable", 503));
+      await expect(cache.fetch(MAFF_PRESS)).rejects.toThrow("unavailable");
+      errors.delete(MAFF_PRESS);
+      now += 60;
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toThrow(
+        "停止しています",
+      );
+      expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
     });
   });
 

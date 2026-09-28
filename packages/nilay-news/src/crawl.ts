@@ -17,6 +17,7 @@ import {
   KANPO_HOME,
   kanpoTocDate,
   validRobotsException,
+  validRobotsUnavailable,
 } from "./sources/config.ts";
 import type { FetchResult, SourceConfig } from "./sources/types.ts";
 import { sha256 } from "./text.ts";
@@ -43,6 +44,13 @@ interface HostState {
 }
 interface Requested {
   last_requested: number;
+}
+interface SendOptions {
+  maxBytes?: number;
+  /** Refuse any redirect with this message before requesting its target. */
+  refuseRedirect?: string;
+  /** Called before each redirect hop is requested. */
+  onRedirect?: () => void;
 }
 interface CachedResponse {
   blob: string;
@@ -116,6 +124,8 @@ export class CachedFetch {
   private readonly dailyUrls = new Map<string, string>();
   private readonly hostDelays = new Map<string, number>();
   private readonly robotsExceptions = new Set<string>();
+  /** Exact URLs of enabled sources that treat a robots.txt 403 as unavailable. */
+  private readonly robotsUnavailable = new Set<string>();
   /** An enabled gazette source with the documented exception may fetch daily TOCs. */
   private kanpoTocs = false;
 
@@ -163,6 +173,15 @@ export class CachedFetch {
           throw new UserError("robots 例外の収集設定が不正です");
         if (source.kind === "kanpo") this.kanpoTocs ||= source.enabled;
         else this.robotsExceptions.add(url);
+      }
+      if (
+        source.robotsUnavailableStatus !== undefined ||
+        source.robotsUnavailableReason !== undefined
+      ) {
+        if (!validRobotsUnavailable({ ...source }))
+          throw new UserError("robots.txt 取得不能時の収集設定が不正です");
+        if (source.enabled && !source.collectionBlocked)
+          this.robotsUnavailable.add(url);
       }
     }
   }
@@ -297,7 +316,7 @@ export class CachedFetch {
         : null;
       if (requested && requested.last_requested + interval > this.clock())
         throw new CrawlDeferred(requested.last_requested + interval);
-      await this.guard(url, host, token, state, true);
+      const unverified = await this.guard(url, host, token, state, true);
       if (interval)
         await this.put(
           "crawl_url",
@@ -306,7 +325,19 @@ export class CachedFetch {
           host,
           token,
         );
-      const result = await this.send(url, host, token, state, false);
+      const result = await this.send(
+        url,
+        host,
+        token,
+        state,
+        false,
+        unverified
+          ? {
+              refuseRedirect:
+                "robots.txt を確認できない収集元のため転送先を取得しません",
+            }
+          : {},
+      );
       const current = this.clock();
       if (interval)
         await this.put(
@@ -432,7 +463,7 @@ export class CachedFetch {
     token: string,
     state: HostState,
     robots: boolean,
-    maxBytes?: number,
+    { maxBytes, refuseRedirect, onRedirect }: SendOptions = {},
   ): Promise<FetchResult> {
     const beforeRedirect = async (target: string) => {
       if (hostOf(target) !== host)
@@ -440,6 +471,8 @@ export class CachedFetch {
       // Gazette pages are read only at their exact homepage and TOC URLs.
       if (!robots && host === GAZETTE_HOST)
         throw new CrawlStopped("官報のページは転送先を取得しません");
+      if (refuseRedirect) throw new CrawlStopped(refuseRedirect);
+      onRedirect?.();
       await this.finish(host, token, state);
       if (robots) {
         await this.pace(state);
@@ -465,7 +498,12 @@ export class CachedFetch {
       if (!robots) state.failures = 0;
       return result;
     } catch (error) {
-      if (error instanceof FetchError && !(error instanceof CrawlStopped))
+      // robots() records a robots.txt failure itself, unless it is accepted.
+      if (
+        !robots &&
+        error instanceof FetchError &&
+        !(error instanceof CrawlStopped)
+      )
         await this.backoff(host, token, state, error);
       throw error;
     } finally {
@@ -473,12 +511,18 @@ export class CachedFetch {
     }
   }
 
+  /**
+   * The origin's robots policy, or null when `unavailable` permits treating a
+   * direct robots.txt 403 as unavailable (RFC 9309 2.3.1.3). That outcome is
+   * never cached, so it cannot admit any other URL of the origin.
+   */
   private async robots(
     url: string,
     host: string,
     token: string,
     state: HostState,
-  ): Promise<RobotsPolicy> {
+    unavailable: boolean,
+  ): Promise<RobotsPolicy | null> {
     const parts = urlsplit(url);
     const origin = `${parts.scheme}://${parts.netloc}`;
     const record = await this.repository.getRecord<{ rules: string }>(
@@ -489,6 +533,7 @@ export class CachedFetch {
     await this.pace(state);
     let text: string;
     let policy: RobotsPolicy;
+    let redirected = false;
     try {
       const result = await this.send(
         `${origin}/robots.txt`,
@@ -496,7 +541,12 @@ export class CachedFetch {
         token,
         state,
         true,
-        512_000,
+        {
+          maxBytes: 512_000,
+          onRedirect: () => {
+            redirected = true;
+          },
+        },
       );
       if (result.contentType.toLowerCase().includes("html"))
         throw new FetchError("robots.txt が HTML のため収集を停止しました");
@@ -515,9 +565,10 @@ export class CachedFetch {
       if (error.status === 404 || error.status === 410) {
         text = "";
         policy = new RobotsPolicy("");
+      } else if (unavailable && error.status === 403 && !redirected) {
+        return null;
       } else {
-        if (state.blocked_until <= this.clock())
-          await this.backoff(host, token, state, error);
+        await this.backoff(host, token, state, error);
         throw new CrawlStopped(
           `robots.txt を確認できないため収集停止：${error.message}`,
           error.status,
@@ -538,7 +589,8 @@ export class CachedFetch {
 
   /**
    * The documented robots exceptions cover only the exact configured URL or an
-   * exact official daily gazette TOC URL, never a redirect target.
+   * exact official daily gazette TOC URL, never a redirect target. Returns
+   * whether the URL was admitted with robots.txt unavailable (403).
    */
   private async guard(
     url: string,
@@ -546,21 +598,27 @@ export class CachedFetch {
     token: string,
     state: HostState,
     initial: boolean,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.pace(state);
-    const policy = await this.robots(url, host, token, state);
+    const policy = await this.robots(
+      url,
+      host,
+      token,
+      state,
+      initial && this.robotsUnavailable.has(url),
+    );
     const excepted =
       initial &&
       (this.robotsExceptions.has(url) ||
         (this.kanpoTocs && kanpoTocDate(url) !== null));
-    if (!policy.allows(url) && !excepted) {
+    if (policy && !policy.allows(url) && !excepted) {
       throw new CrawlStopped(
         "robots.txt でこの URL の自動取得が禁止されているため収集を停止しました",
       );
     }
     state.crawl_delay = Math.max(
       state.crawl_delay,
-      policy.delay,
+      policy?.delay ?? 0,
       this.hostDelays.get(host) ?? 0,
     );
     if (state.last_finished) {
@@ -571,5 +629,6 @@ export class CachedFetch {
     }
     await this.save(host, token, state);
     await this.pace(state);
+    return policy === null;
   }
 }

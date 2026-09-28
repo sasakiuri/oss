@@ -69,12 +69,33 @@ export function validRobotsException(source: Record<string, unknown>): boolean {
       parts.scheme === "https" &&
       parts.netloc === "news.google.com" &&
       parts.path === "/rss/search" &&
-      atLeast(source.minCollectionMinutes, 360) &&
+      atLeast(source.minCollectionMinutes, 240) &&
       atLeast(source.minRequestIntervalSeconds, 1800)
     );
   } catch {
     return false;
   }
+}
+
+export const MAFF_PRESS = "https://www.maff.go.jp/j/press/index.html";
+
+/**
+ * Whether a source may treat a robots.txt 403 as unavailable: only the
+ * explained, daily MAFF press index, never a genuine robots.txt disallow.
+ */
+export function validRobotsUnavailable(
+  source: Record<string, unknown>,
+): boolean {
+  return (
+    source.robotsUnavailableStatus === 403 &&
+    nonEmpty(source.robotsUnavailableReason) &&
+    source.robotsException === undefined &&
+    source.kind === "html" &&
+    source.url === MAFF_PRESS &&
+    source.minCollectionMinutes === 1440 &&
+    dailyMinutes(source.dailyAtJst) !== null &&
+    atLeast(source.minRequestIntervalSeconds, 3)
+  );
 }
 
 function validate(source: Record<string, unknown>, id: string): void {
@@ -130,6 +151,15 @@ function validate(source: Record<string, unknown>, id: string): void {
   ) {
     throw new UserError(
       `${id}: robots 例外は理由と低頻度設定のある Google検索RSSと官報の日別目次だけに限定してください`,
+    );
+  }
+  if (
+    ("robotsUnavailableStatus" in source ||
+      "robotsUnavailableReason" in source) &&
+    !validRobotsUnavailable(source)
+  ) {
+    throw new UserError(
+      `${id}: robots.txt の 403 を取得不能とみなす設定は理由と1日1回の定時設定のある農林水産省の報道発表一覧だけに限定してください`,
     );
   }
   if (source.kind === "html") {
