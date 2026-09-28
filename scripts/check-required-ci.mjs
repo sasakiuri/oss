@@ -17,6 +17,7 @@ export function requiredChecksPass(needs, workspaces) {
     ![
       "text",
       "infrastructure",
+      "knip",
       "ci",
       "build",
       "docs",
@@ -74,6 +75,7 @@ export function requiredChecksPass(needs, workspaces) {
     needs.text?.result === (outputs.text === "true" ? "success" : "skipped") &&
     needs.infrastructure?.result ===
       (outputs.infrastructure === "true" ? "success" : "skipped") &&
+    needs.knip?.result === (outputs.knip === "true" ? "success" : "skipped") &&
     needs.lint?.result === (ci ? "success" : "skipped") &&
     needs.build?.result === (build ? "success" : "skipped") &&
     needs.unit?.result === (build ? "success" : "skipped") &&

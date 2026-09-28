@@ -20,6 +20,7 @@ jobs:
     outputs:
       text: ${{ steps.plan.outputs.text }}
       infrastructure: ${{ steps.plan.outputs.infrastructure }}
+      knip: ${{ steps.plan.outputs.knip }}
       ci: ${{ steps.plan.outputs.ci }}
       build: ${{ steps.plan.outputs.build }}
       docs: ${{ steps.plan.outputs.docs }}
@@ -80,6 +81,26 @@ jobs:
       - name: Lint workflows, shell scripts, Dockerfiles, and Actions security
         run: node scripts/lint-infra.mjs
 
+  knip:
+    name: Repository unused-code check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.knip == 'true'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      - run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      - run: npm ci --ignore-scripts
+      - run: npm run knip
+
   lint:
     env:
       CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
@@ -126,6 +147,7 @@ jobs:
         run: npm run cspell
 
       - name: Unused exports check
+        if: needs.changes.outputs.knip != 'true'
         run: npm run ci:packages -- knip
 
       - name: Dependency version check
@@ -349,7 +371,18 @@ jobs:
     name: CI Required
     runs-on: ubuntu-latest
     needs:
-      [changes, text, infrastructure, lint, build, unit, e2e, lighthouse, docs]
+      [
+        changes,
+        text,
+        infrastructure,
+        knip,
+        lint,
+        build,
+        unit,
+        e2e,
+        lighthouse,
+        docs,
+      ]
     if: ${{ always() }}
     permissions:
       contents: read
