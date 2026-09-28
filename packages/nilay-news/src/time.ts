@@ -291,3 +291,10 @@ export function withJstTime(
   if (hour > 23 || minute > 59) return null;
   return isoZ(dayStart + hour * 3600 + minute * 60 - JST_OFFSET);
 }
+
+/** Human-readable JST wall-clock time for messages, e.g. `2026/9/28 09:05:07 JST`. */
+export function formatJst(epochSeconds: number): string {
+  const fields = fieldsOf(Math.floor(epochSeconds) + JST_OFFSET);
+  if (!fields) throw new RangeError("Timestamp out of range");
+  return `${fields.year}/${fields.month}/${fields.day} ${pad(fields.hour)}:${pad(fields.minute)}:${pad(fields.second)} JST`;
+}

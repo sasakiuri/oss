@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 /**
  * Official gazette headlines from the daily full TOCs linked on the homepage.
- * Only the homepage and at most three TOCs are fetched; notice pages and PDFs
- * are linked, never downloaded. Announcements, personnel changes and
- * government procurement are out of scope.
+ * Only the homepage and at most three TOCs of issues dated today or yesterday
+ * (JST) are fetched; notice pages and PDFs are linked, never downloaded.
+ * Announcements, personnel changes and government procurement are out of
+ * scope.
  */
 import { errorMessage, UserError } from "../errors.ts";
+import { DATE_PRECISION, freshness } from "../freshness.ts";
 import {
   attr,
   descendants,
@@ -214,6 +216,8 @@ async function toItem(
     tocUrl,
   };
   if (subsection) metadata.subsection = subsection;
+  // An issue carries only its calendar date.
+  if (publishedAt) metadata.publicationPrecision = DATE_PRECISION;
   return [
     sourceKey,
     {
@@ -227,9 +231,11 @@ async function toItem(
   ];
 }
 
+/** Only issues dated today or yesterday (JST) are read; older TOCs are never requested. */
 export async function collectKanpo(
   source: SourceConfig,
   fetch: SourceFetch,
+  now: number,
 ): Promise<Collection> {
   const days = Math.min(source.issueDays ?? MAX_DAYS, MAX_DAYS);
   const limit = Math.min(source.maxItems ?? MAX_ITEMS, MAX_ITEMS);
@@ -251,10 +257,32 @@ export async function collectKanpo(
       "官報トップページから日別の全体目次を見つけられません。ページ構成の確認が必要です",
     );
   const result = collection();
+  // An issue is dated by its JST calendar day; a stale issue's TOC cannot
+  // contribute items, so it is not fetched.
+  const current = latest
+    .slice(0, days)
+    .map(([date, url]) => ({
+      date,
+      url,
+      publishedAt: japaneseDate(isoDate(date))[0],
+    }))
+    .filter(
+      ({ publishedAt }) =>
+        freshness(publishedAt, now, DATE_PRECISION) !== "stale",
+    );
+  const coverage = `官報は公式トップページに掲載された直近${days}発行日のうち、当日・前日（日本時間）発行の号の全体目次から、法令・告示・官庁報告の見出しと掲載ページへのリンクだけを収集します。本文・PDFは取得せず、公告・人事異動・政府調達などは対象外です。`;
+  if (!current.length) {
+    note(
+      result,
+      `官報トップページの直近の号（${latest[0]?.[0] ?? ""}）は前日より前の発行のため、全体目次を取得しませんでした`,
+    );
+    note(result, coverage);
+    return result;
+  }
   const seen = new Set<string>();
   const failures: string[] = [];
   let truncated = false;
-  for (const [date, url] of latest.slice(0, days)) {
+  for (const { date, url, publishedAt } of current) {
     let toc: Toc;
     try {
       toc = parseToc(await readHtml(url, fetch), date, url);
@@ -279,7 +307,6 @@ export async function collectKanpo(
         result,
         `官報 ${date} の全体目次には、収集対象の区分（法令・告示・官庁報告）の見出しがありませんでした`,
       );
-    const [publishedAt] = japaneseDate(isoDate(date));
     for (const notice of toc.notices) {
       const [key, item] = await toItem(notice, date, url, publishedAt);
       if (seen.has(key)) continue;
@@ -292,14 +319,11 @@ export async function collectKanpo(
     }
     if (truncated) break;
   }
-  if (failures.length === Math.min(days, latest.length))
+  if (failures.length === current.length)
     throw new UserError(
       `官報の全体目次をいずれも取得できません（${failures.join("、")}）`,
     );
-  note(
-    result,
-    `官報は直近${days}発行日の全体目次から、法令・告示・官庁報告の見出しと掲載ページへのリンクだけを収集します。本文・PDFは取得せず、公告・人事異動・政府調達などは対象外です。`,
-  );
+  note(result, coverage);
   if (truncated)
     note(result, `官報の見出しが上限の ${limit} 件に達したため打ち切りました`);
   return result;

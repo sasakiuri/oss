@@ -8,6 +8,7 @@ import { Application } from "./application.ts";
 import { withDeadline } from "./deadline.ts";
 import { DeadlineError, NotFoundError, UserError } from "./errors.ts";
 import { Jev } from "./jev.ts";
+import { createFeedTransport, type FeedService } from "./net/feed-transport.ts";
 import { FetchError, readBody } from "./net/http.ts";
 import { Notifier } from "./notifications.ts";
 import { BufferClient } from "./publishing.ts";
@@ -17,6 +18,7 @@ import { isRecord, sha256, truncate } from "./text.ts";
 
 export interface Env {
   DB: D1Database;
+  FEED_FETCHER?: FeedService;
   ASSETS: { fetch(request: Request): Promise<Response> };
   STORAGE_BACKEND: string;
   NILAY_PUBLIC_ORIGIN: string;
@@ -79,7 +81,10 @@ export async function application(env: Env): Promise<Application> {
     repository,
     new Jev(env.TYPESAFE_API_KEY ?? "", env.TYPESAFE_MODEL ?? "jev-latest"),
     new BufferClient(env.BUFFER_API_KEY ?? "", env.BUFFER_CHANNEL_ID ?? ""),
-    { notifier: new Notifier(repository, env.SLACK_WEBHOOK_URL ?? "") },
+    {
+      notifier: new Notifier(repository, env.SLACK_WEBHOOK_URL ?? ""),
+      crawlTransport: createFeedTransport(env.FEED_FETCHER),
+    },
   );
 }
 
@@ -123,7 +128,7 @@ export function createHandlers(
         const app = await appFor(env);
         if (method === "GET" && path === "/api/state") {
           // Read the revision first so a concurrent update invalidates the next request.
-          const version = await app.repository.stateVersion();
+          const version = await app.stateCacheKey();
           const configTag = (
             await sha256(
               JSON.stringify([
@@ -212,6 +217,14 @@ export function createHandlers(
               enabled: body.enabled,
             }),
           );
+        }
+        if (path === "/api/publication/preflight") {
+          // A read-only check accepts no options, so it cannot enable anything.
+          if (Object.keys(body).length)
+            throw new UserError(
+              "確認には空の JSON オブジェクトを送信してください",
+            );
+          return jsonResponse(200, await app.publicationPreflight());
         }
         if (path === "/api/settings")
           return jsonResponse(200, await app.settings(body));

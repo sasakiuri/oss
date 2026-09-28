@@ -20,16 +20,33 @@ import {
   validRobotsUnavailable,
 } from "./sources/config.ts";
 import type { FetchResult, SourceConfig } from "./sources/types.ts";
-import { sha256 } from "./text.ts";
-import { isoSeconds } from "./time.ts";
+import { randomToken, sha256 } from "./text.ts";
+import { formatJst } from "./time.ts";
 
 /** A policy refusal, rather than a new transport failure. */
 export class CrawlStopped extends FetchError {}
 
 export class CrawlDeferred extends CrawlStopped {
-  constructor(readonly until: number) {
+  constructor(
+    readonly until: number,
+    message = `取得間隔を守るため ${formatJst(until)} まで待機し、次の収集で再確認します`,
+  ) {
+    super(message);
+  }
+}
+
+/** The request budget of this invocation refused a request before sending it. */
+export class CrawlLimit extends CrawlStopped {}
+
+/**
+ * Waiting out a host cooldown recorded by an earlier failure. No request was
+ * sent, so this is not a new failure; the original one stays reported.
+ */
+export class CrawlBackoff extends CrawlDeferred {
+  constructor(until: number) {
     super(
-      `取得間隔を守るため ${isoSeconds(Math.floor(until))} まで待機し、次の収集で再確認します`,
+      until,
+      `アクセス制限・通信失敗の後のためこのサイトの取得を待機しています。${formatJst(until)} は再取得できる最も早い時刻で、その時刻に再取得するとは限りません`,
     );
   }
 }
@@ -44,6 +61,23 @@ interface HostState {
 }
 interface Requested {
   last_requested: number;
+}
+/**
+ * `crawl_source` of a rolling source. `last_requested` alone is a settled
+ * source; while an attempt holds it, `attempt` and the settled `previous` time
+ * (0 without history) are kept so that an attempt that sent no request can
+ * give its interval back. `retry_at` is the earliest retry after such an
+ * attempt. Records without these fields are settled, current data.
+ */
+interface SourceRecord extends Requested {
+  attempt?: string;
+  previous?: number;
+  retry_at?: number;
+}
+/** A claimed source; `requests` counts non-robots requests before the claim. */
+export interface SourceAttempt {
+  readonly token: string;
+  readonly requests: number;
 }
 interface SendOptions {
   maxBytes?: number;
@@ -89,8 +123,22 @@ function timer(seconds: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function stamp(epoch: number): string {
-  return isoSeconds(Math.floor(epoch));
+function finite(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/** A stored source record, refusing malformed rather than defaulting. */
+function sourceRecord(row: SourceRecord | null): SourceRecord | null {
+  if (
+    row &&
+    (!finite(row.last_requested) ||
+      (row.retry_at !== undefined && !finite(row.retry_at)) ||
+      (row.attempt === undefined
+        ? row.previous !== undefined
+        : typeof row.attempt !== "string" || !finite(row.previous)))
+  )
+    throw new UserError("収集元の取得記録が不正です");
+  return row;
 }
 
 function hostOf(url: string): string {
@@ -112,6 +160,8 @@ export class CachedFetch {
   static readonly LEASE_SECONDS = LEASE_SECONDS;
   /** Network requests made by this instance, robots.txt and redirects included. */
   requests = 0;
+  /** Requests sent for source URLs and their redirects, robots.txt excluded. */
+  private sourceRequests = 0;
   private readonly clock: Clock;
   private readonly transport: FetchBytes;
   private readonly maxRequests: number;
@@ -200,21 +250,34 @@ export class CachedFetch {
       );
       return due > this.clock() ? due : 0;
     }
-    const [started, requested] = await Promise.all([
-      this.repository.getRecord<Requested>("crawl_source", source.id),
-      this.repository.getRecord<Requested>("crawl_url", source.url),
-    ]);
+    const row = await this.repository.getRecord<SourceRecord>(
+      "crawl_source",
+      source.id,
+    );
+    return this.rollingDue(source, sourceRecord(row));
+  }
+
+  /** The source interval, its retry time and its URL interval. */
+  private async rollingDue(
+    source: SourceConfig,
+    row: SourceRecord | null,
+  ): Promise<number> {
     const interval = this.urlIntervals.get(source.url) ?? 0;
+    const requested = interval
+      ? await this.repository.getRecord<Requested>("crawl_url", source.url)
+      : null;
     return Math.max(
-      started
-        ? started.last_requested + (source.minCollectionMinutes ?? 60) * 60
-        : 0,
-      requested && interval ? requested.last_requested + interval : 0,
+      row ? row.last_requested + (source.minCollectionMinutes ?? 60) * 60 : 0,
+      row?.retry_at ?? 0,
+      requested ? requested.last_requested + interval : 0,
     );
   }
 
-  /** Claim the source interval even when its collector expands the URL. */
-  async beginSource(source: SourceConfig): Promise<void> {
+  /**
+   * Claim the source interval even when its collector expands the URL. A
+   * rolling claim is an attempt settled by `endSource`.
+   */
+  async beginSource(source: SourceConfig): Promise<SourceAttempt> {
     if (source.collectionBlocked || !source.enabled)
       throw new CrawlStopped(
         source.collectionBlocked || "この収集元は停止しています",
@@ -222,38 +285,74 @@ export class CachedFetch {
     const host = hostOf(source.url);
     const token = await this.acquire(host);
     try {
-      const row = await this.repository.getRecord<Requested>(
-        "crawl_source",
-        source.id,
+      const row = sourceRecord(
+        await this.repository.getRecord<SourceRecord>(
+          "crawl_source",
+          source.id,
+        ),
       );
       const due = source.dailyAtJst
         ? nextDailyRun(this.clock(), source.dailyAtJst, row?.last_requested)
-        : row
-          ? row.last_requested + (source.minCollectionMinutes ?? 60) * 60
-          : 0;
+        : await this.rollingDue(source, row);
       if (due > this.clock()) throw new CrawlDeferred(due);
+      const attempt = { token: randomToken(), requests: this.sourceRequests };
+      // An abandoned attempt keeps its claim time: it may have sent requests.
       await this.put(
         "crawl_source",
         source.id,
-        { last_requested: this.clock() },
+        source.dailyAtJst
+          ? { last_requested: this.clock() }
+          : {
+              last_requested: this.clock(),
+              attempt: attempt.token,
+              previous: row?.last_requested ?? 0,
+            },
         host,
         token,
       );
+      return attempt;
     } finally {
       await this.repository.releaseHost(host, token);
     }
   }
 
-  async endSource(source: SourceConfig): Promise<void> {
+  /**
+   * Settle a rolling attempt by its outcome (null on success). One that sent
+   * no source request and was only deferred or refused by the request budget
+   * gives the interval back, retrying no earlier than the deferral. Any other
+   * attempt, including a cache hit, counts from now. A record claimed by a
+   * newer attempt is left alone.
+   */
+  async endSource(
+    source: SourceConfig,
+    attempt: SourceAttempt,
+    outcome: unknown,
+  ): Promise<void> {
     // A fixed daily slot is claimed at the start, even if completion is late.
     if (source.dailyAtJst) return;
     const host = hostOf(source.url);
     const token = await this.acquire(host);
     try {
+      const row = sourceRecord(
+        await this.repository.getRecord<SourceRecord>(
+          "crawl_source",
+          source.id,
+        ),
+      );
+      if (row?.attempt !== attempt.token) return;
+      // sourceRecord() requires `previous` with an attempt.
+      const previous = row.previous as number;
+      const unsent =
+        this.sourceRequests === attempt.requests &&
+        (outcome instanceof CrawlDeferred || outcome instanceof CrawlLimit);
       await this.put(
         "crawl_source",
         source.id,
-        { last_requested: this.clock() },
+        !unsent
+          ? { last_requested: this.clock() }
+          : outcome instanceof CrawlDeferred
+            ? { last_requested: previous, retry_at: outcome.until }
+            : { last_requested: previous },
         host,
         token,
       );
@@ -317,6 +416,8 @@ export class CachedFetch {
       if (requested && requested.last_requested + interval > this.clock())
         throw new CrawlDeferred(requested.last_requested + interval);
       const unverified = await this.guard(url, host, token, state, true);
+      // A refused request must not claim the URL interval.
+      this.checkBudget();
       if (interval)
         await this.put(
           "crawl_url",
@@ -397,11 +498,8 @@ export class CachedFetch {
   }
 
   private async pace(state: HostState): Promise<void> {
-    if (state.blocked_until > this.clock()) {
-      throw new CrawlStopped(
-        `アクセス制限・通信失敗のため ${stamp(state.blocked_until)} までこのサイトの取得を停止しています`,
-      );
-    }
+    if (state.blocked_until > this.clock())
+      throw new CrawlBackoff(Math.max(state.blocked_until, state.next_request));
     let wait = state.next_request - this.clock();
     if (wait > MAX_WAIT + 0.001) throw new CrawlDeferred(state.next_request);
     while (wait > 0) {
@@ -448,13 +546,18 @@ export class CachedFetch {
     await this.save(host, token, state);
   }
 
-  private takeRequest(): void {
+  private checkBudget(): void {
     if (this.requests >= this.maxRequests) {
-      throw new CrawlStopped(
+      throw new CrawlLimit(
         `今回の収集リクエスト上限（${this.maxRequests} 回）に達しました。取得済み情報の範囲を確認してください`,
       );
     }
+  }
+
+  private takeRequest(robots: boolean): void {
+    this.checkBudget();
     this.requests += 1;
+    if (!robots) this.sourceRequests += 1;
   }
 
   private async send(
@@ -488,9 +591,9 @@ export class CachedFetch {
           throw error;
         }
       }
-      this.takeRequest();
+      this.takeRequest(robots);
     };
-    this.takeRequest();
+    this.takeRequest(robots);
     const options: FetchOptions = { beforeRedirect, signal: this.signal };
     if (maxBytes !== undefined) options.maxBytes = maxBytes;
     try {

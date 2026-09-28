@@ -6,14 +6,18 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
-import { CrawlDeferred } from "../src/crawl.ts";
+import { CachedFetch, CrawlDeferred } from "../src/crawl.ts";
 import type { Job } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
 import { Jev } from "../src/jev.ts";
+import { FetchError } from "../src/net/http.ts";
+import type { FetchBytes } from "../src/net/types.ts";
 import type { Notifier } from "../src/notifications.ts";
-import { BufferClient } from "../src/publishing.ts";
+import { draft } from "../src/posts.ts";
+import { BufferClient, PostError } from "../src/publishing.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import type { SQLStatement } from "../src/storage/repository.ts";
+import { utf8 } from "../src/text.ts";
 import { isoSeconds } from "../src/time.ts";
 
 import { testRepository } from "./helpers/storage.ts";
@@ -26,12 +30,23 @@ const source: SourceConfig = {
   kind: "rss",
   enabled: true,
 };
+/** Every setup starts at `now = 10_000` (epoch seconds). */
+const START = 10_000;
+/** A zoned publication time `seconds` after the start clock. */
+function published(seconds: number): string {
+  return new Date((START + seconds) * 1000).toISOString();
+}
 const item = {
   title: "クマの出没と対策",
   url: "https://example.org/a",
   excerpt: "市が対策を発表",
-  publishedAt: null,
+  // Fresh for the first 23 hours of a test.
+  publishedAt: published(-3600) as string | null,
 };
+/** A fresh publication time ordered like the day-of-month `day` ("01"–"31"). */
+function dayTime(day: string): string {
+  return published(-3600 + (Number(day) - 31) * 60);
+}
 const cleanup: (() => void)[] = [];
 afterEach(() => {
   vi.useRealTimers();
@@ -66,8 +81,9 @@ async function setup(
     notes: [] as string[],
   }));
   const crawl = {
-    beginSource: vi.fn(async () => {}),
+    beginSource: vi.fn(async () => ({ token: "attempt", requests: 0 })),
     endSource: vi.fn(async () => {}),
+    nextDue: vi.fn(async () => 0),
     fetch: vi.fn(async () => {
       throw new Error("Unexpected network");
     }),
@@ -107,9 +123,11 @@ async function analyzeSetup(
   const context = await setup([source], { jev, ...options });
   await context.repo.ingest(
     source,
+    // A later index is published earlier, so newest first is index order.
     Array.from({ length: count }, (_, index) => ({
       ...item,
       url: `${item.url}/${index}`,
+      publishedAt: published(-3600 - index),
     })),
   );
   return { ...context, analyze };
@@ -269,6 +287,115 @@ describe("durable application jobs", () => {
       "Sourceの収集が復旧しました",
     );
   });
+  it("reports one host failure once and waits out its cooldown for other feeds", async () => {
+    // A real epoch, as a feed without history restores its interval from 0.
+    let now = Date.UTC(2026, 8, 28) / 1000;
+    const feeds: SourceConfig[] = ["one", "two"].map((id) => ({
+      ...source,
+      id,
+      url: `https://example.org/${id}`,
+      minCollectionMinutes: 240,
+    }));
+    const storage = testRepository(feeds, () => now);
+    cleanup.push(storage.close);
+    const repo = storage.repo;
+    await repo.initialize();
+    let failing = true;
+    const transport = vi.fn<FetchBytes>(async (url) => {
+      if (url.endsWith("/robots.txt"))
+        return {
+          data: utf8("User-agent: *\n"),
+          url,
+          contentType: "text/plain",
+        };
+      if (failing) throw new FetchError("private upstream body", 503);
+      return { data: utf8("ok"), url, contentType: "application/xml" };
+    });
+    const notifier = notices();
+    const app = new Application(repo, new Jev(), new BufferClient(), {
+      clock: () => now,
+      collector: async (feed, fetch) => {
+        await fetch(feed.url);
+        return { items: [], warnings: [], notes: [] };
+      },
+      crawl: new CachedFetch(repo, feeds, {
+        clock: () => now,
+        transport,
+        sleep: async (seconds) => {
+          now += seconds;
+        },
+      }),
+      notifier: notifier as unknown as Notifier,
+    });
+    const crawlCalls = (calls: [string, ...unknown[]][], id: string) =>
+      calls.filter(([key]) => key === `crawl:${id}`);
+    const run = async () => {
+      await app.start("collect");
+      await app.scheduled();
+      await app.scheduled();
+    };
+
+    await run();
+    const failedAt = now;
+    expect(transport.mock.calls.map(([url]) => url)).toEqual([
+      "https://example.org/robots.txt",
+      "https://example.org/one",
+    ]);
+    const reports = crawlCalls(notifier.report.mock.calls, "one");
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.[2]).toContain("HTTP 503");
+    expect(JSON.stringify(notifier.report.mock.calls)).not.toContain(
+      "private upstream body",
+    );
+    expect(crawlCalls(notifier.report.mock.calls, "two")).toHaveLength(0);
+    expect(crawlCalls(notifier.recover.mock.calls, "two")).toHaveLength(0);
+    expect(await repo.getJob()).toMatchObject({ failed: 1, deferred: 1 });
+    const [first, two] = await repo.sources();
+    expect(first?.lastError).toBeTruthy();
+    expect(two).toMatchObject({
+      lastError: null,
+      nextFetchAt: isoSeconds(failedAt + 900),
+    });
+    expect(two?.lastDeferred).toContain("待機");
+
+    // Still cooling down: no request, no new report, no false recovery.
+    now = failedAt + 600;
+    await run();
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(notifier.report).toHaveBeenCalledTimes(1);
+    expect(notifier.recover).not.toHaveBeenCalledWith(
+      expect.stringMatching(/^crawl:/),
+      expect.anything(),
+    );
+    expect(await repo.getJob()).toMatchObject({ failed: 0, deferred: 2 });
+    let [one] = await repo.sources();
+    expect(one?.lastError).toBe(first?.lastError);
+
+    // After the cooldown the deferred feed is due; the failed one still
+    // waits out its own interval, which its real request consumed.
+    failing = false;
+    now = failedAt + 900;
+    await run();
+    expect(transport.mock.calls.map(([url]) => url).slice(2)).toEqual([
+      "https://example.org/two",
+    ]);
+    expect((await repo.sources())[1]?.nextFetchAt).toBeNull();
+    expect(notifier.recover).not.toHaveBeenCalledWith(
+      "crawl:one",
+      expect.anything(),
+    );
+
+    // Only a real successful fetch recovers the failed source.
+    now = failedAt + 14400;
+    await run();
+    expect(transport).toHaveBeenCalledTimes(4);
+    expect(notifier.recover).toHaveBeenCalledWith(
+      "crawl:one",
+      "Sourceの収集が復旧しました",
+    );
+    [one] = await repo.sources();
+    expect(one?.lastError).toBeNull();
+  });
   it("records deferred sources and continues with the next source", async () => {
     const { app, repo, collector, crawl, now } = await setup([
       source,
@@ -293,6 +420,191 @@ describe("durable application jobs", () => {
       running: false,
       error: null,
       warning: expect.stringContaining("延期"),
+    });
+  });
+  describe("rolling feeds on one host with the production intervals", () => {
+    const HOUR = 3600;
+    const ORIGIN = "https://example.org";
+    /** A real epoch: a claim without history restores 0, not a recent time. */
+    const BASE = Date.UTC(2026, 8, 28) / 1000;
+
+    /**
+     * Four-hour feeds with 30-minute host spacing, collected by hourly polls
+     * through the real CachedFetch. Returns feed requests as `[id, offset]`.
+     */
+    async function feeds(ids: string[], robotsSeconds?: number) {
+      let now = BASE;
+      const configs: SourceConfig[] = ids.map((id) => ({
+        ...source,
+        id,
+        name: id,
+        url: `${ORIGIN}/${id}`,
+        minCollectionMinutes: 240,
+        minRequestIntervalSeconds: 1800,
+      }));
+      const storage = testRepository(configs, () => now);
+      cleanup.push(storage.close);
+      const repo = storage.repo;
+      await repo.initialize();
+      if (robotsSeconds !== undefined)
+        await repo.putRecord(
+          "crawl_robots",
+          ORIGIN,
+          { rules: "User-agent: *\n" },
+          { expiresAt: BASE + robotsSeconds },
+        );
+      const failures = new Map<string, FetchError>();
+      const requests: [string, number][] = [];
+      const transport = vi.fn<FetchBytes>(async (url) => {
+        requests.push([url.slice(ORIGIN.length + 1), now - BASE]);
+        const failure = failures.get(url);
+        failures.delete(url);
+        if (failure) throw failure;
+        if (url.endsWith("/robots.txt"))
+          return {
+            data: utf8("User-agent: *\n"),
+            url,
+            contentType: "text/plain",
+          };
+        return { data: utf8("ok"), url, contentType: "application/xml" };
+      });
+      const app = new Application(repo, new Jev(), new BufferClient(), {
+        clock: () => now,
+        collector: async (feed, fetch) => {
+          await fetch(feed.url);
+          return { items: [], warnings: [], notes: [] };
+        },
+        crawl: new CachedFetch(repo, configs, {
+          clock: () => now,
+          transport,
+          maxRequests: 1000,
+          sleep: async (seconds) => {
+            now += seconds;
+          },
+        }),
+      });
+      /** One hourly poll at `hours` after the start, run to completion. */
+      const poll = async (hours: number) => {
+        now = BASE + hours * HOUR;
+        await app.start("collect");
+        for (const _ of ids) await app.scheduled();
+        expect((await repo.getJob()).running).toBe(false);
+      };
+      const feedRequests = () => requests.filter(([id]) => id !== "robots.txt");
+      const sourceOf = async (id: string) =>
+        (await repo.sources()).find((item) => item.id === id);
+      return { repo, poll, requests, feedRequests, failures, sourceOf };
+    }
+
+    /** No feed is requested within four hours or the host within 30 minutes. */
+    function polite(requests: [string, number][]) {
+      requests.forEach(([id, at], index) => {
+        if (index)
+          expect(at - requests[index - 1]![1]).toBeGreaterThanOrEqual(1800);
+        const previous = requests
+          .slice(0, index)
+          .filter(([other]) => other === id)
+          .at(-1);
+        if (previous && id !== "robots.txt")
+          expect(at - previous[1]).toBeGreaterThanOrEqual(4 * HOUR);
+      });
+    }
+
+    it("recovers every deferred feed at the next hourly poll after host spacing", async () => {
+      const { poll, requests, sourceOf } = await feeds(["one", "two", "three"]);
+      await poll(0);
+      // robots.txt takes the host slot: nothing is lost but 30 minutes.
+      expect(requests).toEqual([["robots.txt", 0]]);
+      expect((await sourceOf("one"))?.nextFetchAt).toBe(
+        isoSeconds(BASE + 1800),
+      );
+      await poll(1);
+      // Due when the host slot frees, collected by the next poll.
+      expect((await sourceOf("two"))?.nextFetchAt).toBe(
+        isoSeconds(BASE + HOUR + 1800),
+      );
+      await poll(2);
+      // A success clears the stale time.
+      expect((await sourceOf("two"))?.nextFetchAt).toBeNull();
+      for (let hour = 3; hour <= 9; hour += 1) await poll(hour);
+      expect(requests).toEqual([
+        ["robots.txt", 0],
+        ["one", HOUR],
+        ["two", 2 * HOUR],
+        ["three", 3 * HOUR],
+        ["one", 5 * HOUR],
+        ["two", 6 * HOUR],
+        ["three", 7 * HOUR],
+        ["one", 9 * HOUR],
+      ]);
+      polite(requests);
+      // A later deferral shows the source interval, not only the host's.
+      expect((await sourceOf("two"))?.nextFetchAt).toBe(
+        isoSeconds(BASE + 10 * HOUR),
+      );
+    });
+
+    it("keeps a Retry-After of two hours for the other feed without requests", async () => {
+      const { poll, feedRequests, failures, sourceOf } = await feeds(
+        ["one", "two"],
+        10 * 86400,
+      );
+      failures.set(`${ORIGIN}/one`, new FetchError("unavailable", 503, 7200));
+      await poll(0);
+      expect(feedRequests()).toEqual([["one", 0]]);
+      expect(await sourceOf("two")).toMatchObject({
+        lastError: null,
+        nextFetchAt: isoSeconds(BASE + 7200),
+      });
+      await poll(1);
+      expect(feedRequests()).toHaveLength(1);
+      await poll(2);
+      expect((await sourceOf("two"))?.nextFetchAt).toBeNull();
+      await poll(3);
+      // The failed request consumed its own four hours.
+      expect(feedRequests()).toEqual([
+        ["one", 0],
+        ["two", 2 * HOUR],
+      ]);
+      await poll(4);
+      expect(feedRequests().at(-1)).toEqual(["one", 4 * HOUR]);
+      expect((await sourceOf("one"))?.lastError).toBeNull();
+      polite(feedRequests());
+    });
+
+    it("fetches the feed at the next poll after refreshing an expired robots.txt", async () => {
+      const { poll, requests } = await feeds(["one"], 4 * HOUR);
+      await poll(0);
+      await poll(4);
+      await poll(5);
+      await poll(8);
+      expect(requests).toEqual([
+        ["one", 0],
+        ["robots.txt", 4 * HOUR],
+        ["one", 5 * HOUR],
+      ]);
+      await poll(9);
+      expect(requests.at(-1)).toEqual(["one", 9 * HOUR]);
+      polite(requests);
+    });
+
+    it("sends nothing during a 24-hour 403 block and then resumes one feed per poll", async () => {
+      const { poll, feedRequests, failures } = await feeds(
+        ["one", "two", "three"],
+        10 * 86400,
+      );
+      failures.set(`${ORIGIN}/one`, new FetchError("forbidden", 403));
+      await poll(0);
+      for (let hour = 1; hour < 24; hour += 1) await poll(hour);
+      expect(feedRequests()).toEqual([["one", 0]]);
+      for (let hour = 24; hour <= 26; hour += 1) await poll(hour);
+      expect(feedRequests()).toEqual([
+        ["one", 0],
+        ["one", 24 * HOUR],
+        ["two", 25 * HOUR],
+        ["three", 26 * HOUR],
+      ]);
+      polite(feedRequests());
     });
   });
   it("notifies an expired publication claim even without a Buffer key", async () => {
@@ -335,7 +647,7 @@ async function autoSetup(
   const items = days.map((day, index) => ({
     ...item,
     url: `${item.url}/${index}`,
-    publishedAt: `2026-09-${day}T00:00:00Z`,
+    publishedAt: dayTime(day),
   }));
   await context.repo.ingest(source, items);
   const byUrl = new Map(
@@ -441,7 +753,7 @@ describe("automatic classification", () => {
     expect(await repo.stateVersion()).toBe(version);
   });
 
-  it("sends only pending articles, oldest first, in bounded batches", async () => {
+  it("sends only pending articles, newest first, in bounded batches", async () => {
     const days = Array.from({ length: 28 }, (_, index) =>
       String(28 - index).padStart(2, "0"),
     );
@@ -462,13 +774,13 @@ describe("automatic classification", () => {
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 20 });
     await app.scheduled();
     const job = await repo.getJob();
-    // The oldest two were already classified or failed.
-    const expected = ids.slice(6, 26).reverse();
+    // Index 0 is the newest; the oldest two were already classified or failed.
+    const expected = ids.slice(0, 20);
     expect(job).toMatchObject({ kind: "analyze", total: 20 });
     expect(job.articleIds).toEqual(expected);
     for (let run = 0; run < 25; run += 1) await app.scheduled();
     expect(analyzed()).toEqual(
-      [...expected, ...ids.slice(0, 6).reverse()].map((id) => ids.indexOf(id)),
+      [...expected, ...ids.slice(20, 26)].map((id) => ids.indexOf(id)),
     );
     expect(analyzed()).not.toContain(26);
     expect(analyzed()).not.toContain(27);
@@ -536,8 +848,9 @@ describe("automatic classification", () => {
 
   it("pauses one interval after failures and never retries failed articles", async () => {
     const notifier = notices();
+    // Newest first, so index order.
     const { app, repo, analyze, advance, ids, analyzed, now } = await autoSetup(
-      ["01", "02", "03", "04", "05"],
+      ["05", "04", "03", "02", "01"],
       { notifier },
     );
     analyze.mockRejectedValue(new Error("upstream"));
@@ -676,7 +989,7 @@ async function competingSetup() {
     ["01", "02"].map((day, index) => ({
       ...item,
       url: `${item.url}/${index}`,
-      publishedAt: `2026-09-${day}T00:00:00Z`,
+      publishedAt: dayTime(day),
     })),
   );
   const [newer, older] = await a.repo.articles();
@@ -761,9 +1074,10 @@ describe("automatic classification races and replays", () => {
   ] as const)(
     "never pays twice after a crash following %s",
     async (_name, status, failures) => {
+      // Newest first, so index order.
       const { app, repo, analyze, advance, ids, now } = await autoSetup([
-        "01",
         "02",
+        "01",
       ]);
       if (status === "error")
         analyze.mockRejectedValueOnce(new Error("upstream"));
@@ -972,9 +1286,10 @@ describe("slice deadline", () => {
 });
 
 describe("bounded classification per invocation (production default 10 items / 45 s)", () => {
+  /** Descending days: index 0 is the newest, so classification follows index order. */
   const days = (count: number) =>
     Array.from({ length: count }, (_, index) =>
-      String(index + 1).padStart(2, "0"),
+      String(count - index).padStart(2, "0"),
     );
   const pending = async (repo: Awaited<ReturnType<typeof setup>>["repo"]) =>
     (await repo.articles()).filter(
@@ -992,7 +1307,7 @@ describe("bounded classification per invocation (production default 10 items / 4
       ).toThrow(RangeError);
   });
 
-  it("classifies exactly 10 of 25 pending articles per invocation, oldest first", async () => {
+  it("classifies exactly 10 of 25 pending articles per invocation, newest first", async () => {
     const { app, repo, analyzed } = await autoSetup(days(25));
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     await app.scheduled();
@@ -1350,9 +1665,10 @@ describe("bounded classification per invocation (production default 10 items / 4
 });
 
 describe("invocation boundaries between classification items", () => {
+  /** Descending days: index 0 is the newest, so classification follows index order. */
   const days = (count: number) =>
     Array.from({ length: count }, (_, index) =>
-      String(index + 1).padStart(2, "0"),
+      String(count - index).padStart(2, "0"),
     );
   /** The first item has been released; its job waits unclaimed for the next item. */
   const released = {
@@ -1543,5 +1859,504 @@ describe("invocation boundaries between classification items", () => {
       running: false,
       error: null,
     });
+  });
+});
+
+const CHANNEL = {
+  id: "channel-123",
+  name: "@NilayNews",
+  service: "twitter",
+  allowedActions: ["scheduleUpdates", "readUpdates"],
+  isDisconnected: false,
+  isLocked: false,
+  isQueuePaused: false,
+  linkShortening: { isEnabled: false },
+};
+
+/** An application whose Buffer transport answers every request with `reply`. */
+async function publishingSetup(
+  reply: () => unknown = () => ({
+    data: {
+      channel: CHANNEL,
+      dailyPostingLimits: [
+        { channelId: CHANNEL.id, isAtLimit: false, limit: 100, scheduled: 0 },
+      ],
+    },
+  }),
+  credentials: [string, string] = ["buffer-key", "channel-123"],
+) {
+  const context = await setup();
+  const queries: string[] = [];
+  const transport = vi.fn<FetchBytes>(async (url, options) => {
+    const body = JSON.parse(new TextDecoder().decode(options?.body)) as {
+      query: string;
+    };
+    queries.push(body.query);
+    return {
+      data: utf8(JSON.stringify(reply())),
+      url,
+      contentType: "application/json",
+    };
+  });
+  const app = new Application(
+    context.repo,
+    new Jev(),
+    new BufferClient(...credentials, transport),
+    { clock: context.now },
+  );
+  /** Stores saved articles, each published one minute before the previous. */
+  const saved = async (...titles: string[]) => {
+    await context.repo.ingest(
+      source,
+      titles.map((title, index) => ({
+        ...item,
+        title,
+        url: `https://example.org/${encodeURIComponent(title)}`,
+        publishedAt: published(-3600 - index * 60),
+      })),
+    );
+    for (const article of await context.repo.articles())
+      await context.repo.review(article.id, "saved");
+  };
+  return { ...context, app, transport, queries, saved };
+}
+
+describe("publication preflight", () => {
+  it("rejects a report whose settings and candidates span different revisions", async () => {
+    const { app, repo, saved, queries } = await publishingSetup();
+    await saved("記事");
+    const publication = repo.publicationState.bind(repo);
+    vi.spyOn(repo, "publicationState").mockImplementationOnce(async () => {
+      // Another request changes the selection after the settings were read.
+      await repo.updateSettings({ postSelection: "saved" });
+      return publication();
+    });
+    await expect(app.publicationPreflight()).rejects.toThrow(
+      "確認中に記事や設定が更新されました",
+    );
+    expect(queries).toHaveLength(1);
+    expect((await repo.settings()).autoPost).toBe(false);
+    expect((await publication()).posts).toEqual([]);
+  });
+  it("reports the next post without sending, claiming or changing anything", async () => {
+    const { app, repo, queries, saved } = await publishingSetup();
+    await saved("新しい記事", "古い記事");
+    const before = JSON.stringify(await repo.exportSnapshot());
+    const version = await repo.stateVersion();
+    const tick = vi.spyOn(app.publisher, "tick");
+    const spies = (
+      [
+        "claimPost",
+        "claimPostCheck",
+        "recoverPosts",
+        "finishPost",
+        "submitPost",
+        "updateSettings",
+        "putRecord",
+        "queueJob",
+      ] as const
+    ).map((name) => vi.spyOn(repo, name));
+    const report = await app.publicationPreflight();
+    expect(report).toMatchObject({
+      checkedAt: isoSeconds(10_000),
+      account: "NilayNews",
+      configured: true,
+      connectionVerified: true,
+      autoPost: false,
+      postSelection: "both",
+      candidates: 2,
+      blockers: [],
+      ready: true,
+    });
+    expect(report.firstCandidate?.text).toMatch(/^新しい記事\n/);
+    expect(report.notes.join("")).toContain("60分");
+    expect(report.notes.join("")).toContain("鮮度条件を満たす最も新しい");
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toMatch(/^query/);
+    expect(queries[0]).not.toContain("createPost");
+    expect(tick).not.toHaveBeenCalled();
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    expect(await repo.stateVersion()).toBe(version);
+    expect(JSON.stringify(await repo.exportSnapshot())).toBe(before);
+  });
+  it("previews the same article and text the first automatic post claims", async () => {
+    const { app, repo, saved, advance, now } = await publishingSetup();
+    await saved("三件目", "二件目", "一件目");
+    const report = await app.publicationPreflight();
+    const [next] = await repo.postCandidates();
+    expect(report.firstCandidate).toEqual({
+      articleId: next!.id,
+      text: draft(next!),
+    });
+    await app.settings({ autoPost: true });
+    advance(3601);
+    expect(await repo.claimPost(now())).toMatchObject(report.firstCandidate!);
+  });
+  it("reports missing credentials without a network request", async () => {
+    const { app, transport, saved } = await publishingSetup(undefined, [
+      "",
+      "",
+    ]);
+    await saved("記事");
+    const report = await app.publicationPreflight();
+    expect(report).toMatchObject({
+      configured: false,
+      connectionVerified: false,
+      ready: false,
+      blockers: ["Buffer の API キーとチャンネル ID を設定してください"],
+    });
+    expect(report.firstCandidate).not.toBeNull();
+    expect(transport).not.toHaveBeenCalled();
+  });
+  it("reports connection and account failures as readable blockers", async () => {
+    const { app, transport, saved } = await publishingSetup(() => ({
+      data: {
+        channel: { ...CHANNEL, linkShortening: { isEnabled: true } },
+      },
+    }));
+    await saved("記事");
+    const shortening = await app.publicationPreflight();
+    expect(shortening).toMatchObject({
+      connectionVerified: false,
+      ready: false,
+    });
+    expect(shortening.blockers).toEqual([
+      expect.stringContaining("No Shortening"),
+    ]);
+    transport.mockRejectedValueOnce(new FetchError("private detail", 401));
+    const unauthorized = await app.publicationPreflight();
+    expect(unauthorized.blockers).toEqual([
+      expect.stringContaining("HTTP 401"),
+    ]);
+    expect(JSON.stringify(unauthorized)).not.toContain("private detail");
+  });
+  it("propagates unexpected failures instead of reporting them", async () => {
+    const { app, transport } = await publishingSetup();
+    transport.mockRejectedValueOnce(new Error("private runtime"));
+    await expect(app.publicationPreflight()).rejects.toThrow("private runtime");
+  });
+  it("blocks on an unresolved post", async () => {
+    const { app, repo, saved, advance, now } = await publishingSetup();
+    await saved("一件目", "二件目");
+    await repo.updateSettings({ autoPost: true });
+    advance(3601);
+    const claim = (await repo.claimPost(now()))!;
+    await repo.finishPost(claim.articleId, "failed", {
+      error: "失敗",
+      claimToken: claim.claimToken,
+    });
+    const report = await app.publicationPreflight();
+    expect(report).toMatchObject({
+      autoPost: false,
+      connectionVerified: true,
+      candidates: 1,
+      ready: false,
+    });
+    expect(report.blockers).toEqual([
+      expect.stringContaining("確認待ち・送信中の記事が 1 件"),
+    ]);
+  });
+  it("blocks without candidates or with an invalid next draft", async () => {
+    const { app, repo, saved } = await publishingSetup();
+    const empty = await app.publicationPreflight();
+    expect(empty).toMatchObject({ candidates: 0, firstCandidate: null });
+    expect(empty.blockers).toEqual([
+      expect.stringContaining("投稿できる記事がありません"),
+    ]);
+    await repo.ingest(source, [
+      { ...item, title: "URL が不正", url: "https://localhost/a" },
+    ]);
+    await saved();
+    const invalid = await app.publicationPreflight();
+    expect(invalid).toMatchObject({
+      candidates: 1,
+      firstCandidate: null,
+      ready: false,
+    });
+    expect(invalid.blockers).toEqual([
+      expect.stringContaining(
+        "「URL が不正」の投稿文を作成できません（投稿する元記事の URL が不正です）",
+      ),
+    ]);
+  });
+  it("reports automatic posting that is already enabled", async () => {
+    const { app, repo, saved } = await publishingSetup();
+    await saved("記事");
+    await repo.updateSettings({ autoPost: true });
+    const report = await app.publicationPreflight();
+    expect(report).toMatchObject({
+      autoPost: true,
+      connectionVerified: true,
+      ready: false,
+    });
+    expect(report.blockers).toEqual([expect.stringContaining("すでに有効")]);
+  });
+});
+
+describe("enabling automatic posting", () => {
+  it("verifies the account before saving", async () => {
+    const { app, repo, queries } = await publishingSetup();
+    const update = vi.spyOn(repo, "updateSettings");
+    await app.settings({ autoPost: true });
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toMatch(/^query/);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect((await repo.settings()).autoPost).toBe(true);
+  });
+  it("leaves every setting unchanged when verification fails", async () => {
+    const { app, repo } = await publishingSetup(() => ({
+      data: { channel: { ...CHANNEL, isQueuePaused: true } },
+    }));
+    const update = vi.spyOn(repo, "updateSettings");
+    const settings = await repo.settings();
+    const { nextAt } = await repo.publicationState();
+    await expect(
+      app.settings({ autoPost: true, postSelection: "saved" }),
+    ).rejects.toBeInstanceOf(PostError);
+    expect(update).not.toHaveBeenCalled();
+    expect(await repo.settings()).toEqual(settings);
+    expect((await repo.publicationState()).nextAt).toBe(nextAt);
+  });
+  it("disables and saves other settings without contacting Buffer", async () => {
+    const { app, repo, transport } = await publishingSetup();
+    await repo.updateSettings({ autoPost: true });
+    transport.mockRejectedValue(new Error("Unexpected network"));
+    expect(
+      await app.settings({ autoPost: false, postSelection: "saved" }),
+    ).toMatchObject({ autoPost: false, postSelection: "saved" });
+    expect(transport).not.toHaveBeenCalled();
+  });
+});
+
+describe("publication freshness", () => {
+  const DAY = 86400;
+  const tail = (url: string) => url.split("/").at(-1);
+
+  it("derives each article's freshness and counts only fresh pending work", async () => {
+    const { app, repo, advance } = await setup();
+    await repo.ingest(source, [
+      { ...item, url: `${item.url}/fresh`, publishedAt: published(-60) },
+      { ...item, url: `${item.url}/unknown`, publishedAt: null },
+      { ...item, url: `${item.url}/invalid`, publishedAt: "2026-09-28" },
+      { ...item, url: `${item.url}/future`, publishedAt: published(60) },
+      { ...item, url: `${item.url}/ages`, publishedAt: published(-DAY + 10) },
+    ]);
+    const before = await app.state();
+    expect(
+      Object.fromEntries(
+        before.articles.map((article) => [
+          tail(article.url),
+          article.freshness,
+        ]),
+      ),
+    ).toEqual({
+      fresh: "fresh",
+      unknown: "unknown",
+      invalid: "invalid",
+      future: "future",
+      ages: "fresh",
+    });
+    expect(before.stats).toEqual({
+      total: 5,
+      pending: 2,
+      expired: 0,
+      dateReview: 3,
+    });
+    // Derived on every read, never stored.
+    expect((await repo.articles())[0]).not.toHaveProperty("freshness");
+    advance(11);
+    const after = await app.state();
+    expect(
+      after.articles.find((article) => article.url.endsWith("/ages"))
+        ?.freshness,
+    ).toBe("stale");
+    expect(after.stats).toEqual({
+      total: 5,
+      pending: 1,
+      expired: 1,
+      dateReview: 3,
+    });
+  });
+
+  it("skips articles that aged out in a queued automatic batch without paying", async () => {
+    const { app, repo, analyze, advance, ids } = await autoSetup([
+      "03",
+      "02",
+      "01",
+    ]);
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    expect((await repo.queueAutomaticJob(true))?.articleIds).toEqual(ids);
+    // The batch waited past the window, e.g. across a deployment or an outage.
+    advance(DAY);
+    await app.scheduled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      automatic: true,
+      progress: 3,
+      failed: 0,
+      error: null,
+    });
+    for (const id of ids)
+      expect((await repo.article(id)).analysisStatus).toBe("pending");
+    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
+    // Nothing fresh remains, so no new batch is queued either.
+    await app.scheduled();
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("skips an undated article in a batch persisted before the freshness rule", async () => {
+    const { app, repo, driver, analyze, ids } = await autoSetup(["02", "01"]);
+    await repo.ingest(source, [
+      { ...item, url: `${item.url}/undated`, publishedAt: null },
+    ]);
+    const undated = (await repo.articles()).find((article) =>
+      article.url.endsWith("/undated"),
+    )!;
+    const job = await repo.getJob();
+    driver.db.prepare("UPDATE news_state SET data=? WHERE id='job'").run(
+      JSON.stringify({
+        ...job,
+        id: "persisted",
+        running: true,
+        automatic: true,
+        kind: "analyze",
+        articleIds: [undated.id, ids[1], ids[0]],
+      }),
+    );
+    await app.scheduled();
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
+      ids[1],
+      ids[0],
+    ]);
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      progress: 3,
+      failed: 0,
+      error: null,
+    });
+    expect((await repo.article(undated.id)).analysisStatus).toBe("pending");
+  });
+
+  it("stops before the paid call when the article ages out while loading", async () => {
+    const { app, repo, analyze, advance, ids } = await autoSetup(["01"]);
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    // One second before the article leaves the window.
+    advance(DAY - (START - Date.parse(dayTime("01")) / 1000) - 1);
+    const articles = repo.articles.bind(repo);
+    let reads = 0;
+    // The first read builds the work list; the second loads related candidates.
+    vi.spyOn(repo, "articles").mockImplementation(async (...args) => {
+      if ((reads += 1) === 2) advance(2);
+      return articles(...args);
+    });
+    await app.scheduled();
+    expect(reads).toBe(2);
+    expect(analyze).not.toHaveBeenCalled();
+    expect((await repo.article(ids[0]!)).analysisStatus).toBe("pending");
+    expect((await repo.getJob()).error).toBeNull();
+  });
+
+  it("classifies everything fresh newest first, but explicit selections as requested", async () => {
+    const { app, repo, analyze, advance, ids } = await autoSetup([
+      "01",
+      "03",
+      "02",
+    ]);
+    await repo.ingest(source, [
+      { ...item, url: `${item.url}/undated`, publishedAt: null },
+    ]);
+    const undated = (await repo.articles()).find((article) =>
+      article.url.endsWith("/undated"),
+    )!;
+    await app.start("analyze");
+    await app.scheduled();
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
+      ids[1],
+      ids[2],
+      ids[0],
+    ]);
+    // A person may still classify an undated or old article deliberately.
+    advance(DAY);
+    await app.start("analyze", [ids[2]!, undated.id, ids[0]!]);
+    await app.scheduled();
+    expect(analyze.mock.calls.slice(3).map(([article]) => article.id)).toEqual([
+      ids[2],
+      undated.id,
+      ids[0],
+    ]);
+    expect((await repo.article(undated.id)).analysisStatus).toBe("done");
+    // The stored result is history only: an aged-out candidate is never posted.
+    await repo.updateSettings({ postSelection: "candidates" });
+    expect(await repo.postCandidates()).toEqual([]);
+  });
+
+  it("still offers earlier articles, not later ones, as related candidates", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(["01", "02", "03"]);
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    const calls = analyze.mock.calls.map(([article, , earlier]) => [
+      ids.indexOf(article.id),
+      earlier.map(({ id }) => ids.indexOf(id)).sort(),
+    ]);
+    // Newest first, each compared only with what was published before it.
+    expect(calls).toEqual([
+      [2, [0, 1]],
+      [1, [0]],
+      [0, []],
+    ]);
+  });
+
+  it("passes its clock to the source collector", async () => {
+    const { app, collector, advance } = await setup();
+    advance(42);
+    await app.start("collect");
+    await app.scheduled();
+    expect(collector).toHaveBeenCalledWith(
+      expect.objectContaining({ id: source.id }),
+      expect.any(Function),
+      START + 42,
+    );
+  });
+
+  it("never previews an article that has aged out", async () => {
+    const { app, saved, advance } = await publishingSetup();
+    await saved("記事");
+    expect((await app.publicationPreflight()).candidates).toBe(1);
+    advance(DAY - 3600 + 1);
+    const report = await app.publicationPreflight();
+    expect(report).toMatchObject({
+      candidates: 0,
+      firstCandidate: null,
+      ready: false,
+    });
+    expect(report.blockers).toEqual([
+      expect.stringContaining("投稿できる記事がありません"),
+    ]);
+  });
+
+  it("keeps imported historical articles for review without automating them", async () => {
+    const { app, repo } = await setup();
+    // Collected two days earlier, when the story was still fresh.
+    const earlier = testRepository([source], () => START - 2 * DAY);
+    cleanup.push(earlier.close);
+    await earlier.repo.initialize();
+    await earlier.repo.ingest(source, [
+      { ...item, publishedAt: published(-2 * DAY - 60) },
+    ]);
+    const [old] = await earlier.repo.articles();
+    await earlier.repo.review(old!.id, "saved");
+    await repo.importSnapshot(await earlier.repo.exportSnapshot());
+    await repo.updateSettings({ autoAnalyze: true });
+    const state = await app.state();
+    expect(state.articles).toHaveLength(1);
+    expect(state.articles[0]).toMatchObject({
+      id: old!.id,
+      reviewStatus: "saved",
+      freshness: "stale",
+    });
+    expect(state.stats).toMatchObject({ pending: 0, expired: 1 });
+    expect(state.publication.queued).toBe(0);
+    expect(await repo.queueAutomaticJob(true)).toBeNull();
   });
 });

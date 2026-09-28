@@ -39,3 +39,27 @@ export function nextDailyRun(
   if (now < slot) return slot;
   return (lastStarted ?? Number.NEGATIVE_INFINITY) >= slot ? slot + DAY : slot;
 }
+
+/**
+ * The first JST phase slot at or after `at` of a rolling source collected
+ * every `periodMinutes` from `offsetMinutes` after JST midnight. The period
+ * divides a day, so the slots are the same every JST day.
+ */
+export function nextPhase(
+  at: number,
+  offsetMinutes: number,
+  periodMinutes: number,
+): number {
+  const period = periodMinutes * 60;
+  if (
+    !Number.isInteger(periodMinutes) ||
+    periodMinutes < 1 ||
+    DAY % period ||
+    !Number.isInteger(offsetMinutes) ||
+    offsetMinutes < 0 ||
+    offsetMinutes >= periodMinutes
+  )
+    throw new RangeError(`invalid phase ${offsetMinutes}/${periodMinutes}`);
+  const origin = offsetMinutes * 60 - JST_OFFSET;
+  return origin + Math.ceil((at - origin) / period) * period;
+}

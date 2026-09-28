@@ -190,6 +190,7 @@ describe("real Worker, D1 and WebCrypto", () => {
       const state = (await (await request("/api/state")).json()) as {
         articles: { id: string; reviewStatus: string; postDraft: string }[];
         job: { running: boolean };
+        settings: { autoPost: boolean };
         publication: { posts: { postId: string }[] };
       };
       expect(state.articles).toHaveLength(1);
@@ -203,6 +204,30 @@ describe("real Worker, D1 and WebCrypto", () => {
           })
         ).status,
       ).toBe(200);
+      expect(
+        (
+          await request(
+            "/api/publication/preflight",
+            {},
+            { Origin: "https://other.example.test" },
+          )
+        ).status,
+      ).toBe(403);
+      const preflight = await request("/api/publication/preflight", {});
+      expect(preflight.status).toBe(200);
+      expect(await preflight.json()).toMatchObject({
+        connectionVerified: true,
+        autoPost: false,
+        candidates: 1,
+        firstCandidate: { articleId: article.id, text: article.postDraft },
+        blockers: [],
+        ready: true,
+      });
+      expect(await (await request("/fixture/calls")).json()).toEqual(["query"]);
+      const checked = (await (
+        await request("/api/state")
+      ).json()) as typeof state;
+      expect(checked.settings.autoPost).toBe(false);
       expect((await request("/api/settings", { autoPost: true })).status).toBe(
         200,
       );
@@ -214,7 +239,10 @@ describe("real Worker, D1 and WebCrypto", () => {
       ).json()) as typeof state;
       expect(final.articles[0]?.reviewStatus).toBe("posted");
       expect(final.publication.posts[0]?.postId).toBe("123");
+      // Preflight, enabling and the send each verify the account first.
       expect(await (await request("/fixture/calls")).json()).toEqual([
+        "query",
+        "query",
         "query",
         "mutation",
       ]);
@@ -304,7 +332,12 @@ describe("real Worker, D1 and WebCrypto", () => {
         ).status,
       ).toBe(200);
       await worker.scheduled({ cron: "* * * * *" });
-      expect((await state()).stats).toEqual({ total: 12, pending: 12 });
+      expect((await state()).stats).toEqual({
+        total: 12,
+        pending: 12,
+        expired: 0,
+        dateReview: 0,
+      });
       expect(await calls()).toEqual([]);
       await worker.scheduled({ cron: "* * * * *" });
       const first = await state();
@@ -331,6 +364,66 @@ describe("real Worker, D1 and WebCrypto", () => {
         final.articles.every((article) => article.decision === "irrelevant"),
       ).toBe(true);
       expect(await calls()).toHaveLength(12);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("posts a due round of accumulated articles one by one across scheduled invocations", async () => {
+    const { runtime, request } = await fixtureRuntime();
+    try {
+      const worker = await runtime.getWorker();
+      type State = {
+        articles: { id: string; reviewStatus: string; postDraft: string }[];
+        publication: {
+          posts: { articleId: string; status: string; text: string }[];
+        };
+      };
+      const state = async () =>
+        (await (await request("/api/state")).json()) as State;
+      const calls = async () =>
+        (await (await request("/fixture/calls")).json()) as string[];
+      // Twelve fresh articles, saved for automatic posting.
+      await request("/fixture/classify");
+      expect((await request("/api/collect", {})).status).toBe(202);
+      await worker.scheduled({ cron: "* * * * *" });
+      const collected = await state();
+      expect(collected.articles).toHaveLength(12);
+      for (const article of collected.articles)
+        expect(
+          (
+            await request(`/api/articles/${article.id}/review`, {
+              status: "saved",
+            })
+          ).status,
+        ).toBe(200);
+      expect((await request("/api/settings", { autoPost: true })).status).toBe(
+        200,
+      );
+      await worker.scheduled({ cron: "* * * * *" });
+      expect((await state()).publication.posts).toEqual([]);
+      await request("/fixture/advance");
+      await worker.scheduled({ cron: "* * * * *" });
+      expect((await state()).publication.posts).toHaveLength(10);
+      await worker.scheduled({ cron: "* * * * *" });
+      const final = await state();
+      expect(
+        final.articles.every((item) => item.reviewStatus === "posted"),
+      ).toBe(true);
+      const { posts } = final.publication;
+      expect(posts.every((post) => post.status === "posted")).toBe(true);
+      // Twelve separate posts, each with its own article's draft.
+      expect(new Set(posts.map((post) => post.articleId)).size).toBe(12);
+      expect(new Set(posts.map((post) => post.text)).size).toBe(12);
+      for (const article of collected.articles)
+        expect(posts.find((post) => post.articleId === article.id)?.text).toBe(
+          article.postDraft,
+        );
+      // Enabling, then an account check before each of the twelve sends.
+      expect(await calls()).toEqual([
+        "query",
+        ...Array.from({ length: 12 }, () => ["query", "mutation"]).flat(),
+      ]);
     } finally {
       await runtime.dispose();
     }

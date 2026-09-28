@@ -6,6 +6,7 @@
  * downloaded.
  */
 import { errorMessage, UserError } from "../errors.ts";
+import { DATE_PRECISION, freshness } from "../freshness.ts";
 import {
   attr,
   descendants,
@@ -28,6 +29,7 @@ import { japaneseDate } from "../time.ts";
 import {
   collection,
   note,
+  staleNote,
   type Attachment,
   type BillAgency,
   type CollectedItem,
@@ -167,6 +169,8 @@ function billItem(
       agency: AGENCIES[agency].name,
       session: `第${number}回国会`,
       contentStatus: "listing",
+      // Index tables state only a calendar date.
+      ...(published && { publicationPrecision: DATE_PRECISION }),
     },
     contentError: PDF_NOTE,
   };
@@ -295,8 +299,11 @@ async function detail(
     const date = first(
       descendants(root, undefined, "p-press-release-material__date"),
     );
-    item.publishedAt =
-      japaneseDate(date ? textOf(date) : "")[0] ?? item.publishedAt;
+    const [published] = japaneseDate(date ? textOf(date) : "");
+    if (published) {
+      item.publishedAt = published;
+      item.metadata.publicationPrecision = DATE_PRECISION;
+    }
     attachments = links(root, url, agency, true);
   } else {
     const nodes = [...descendants(root)];
@@ -371,6 +378,7 @@ function tax(root: Element, base: string, maxYears: number): Row[] {
 export async function collectBills(
   source: SourceConfig,
   fetch: SourceFetch,
+  now: number,
 ): Promise<Collection> {
   const agency = source.agency;
   if (!isAgency(agency)) throw new UserError("法案収集の省庁設定が不正です");
@@ -497,6 +505,19 @@ export async function collectBills(
     result,
     `直近 ${limits.maxSessions} ${scope}を対象に最大 ${limits.maxItems} 件を収集。全過去資料の収集ではありません。`,
   );
+  // A bill whose listed date is before yesterday (JST) takes neither the item
+  // nor the detail budget; an undated one may need its detail page for a date.
+  const stale = new Set<string>();
+  rows = rows.filter(([, item]) => {
+    if (
+      freshness(item.publishedAt, now, item.metadata.publicationPrecision) !==
+      "stale"
+    )
+      return true;
+    stale.add(item.sourceKey ?? item.url);
+    return false;
+  });
+  staleNote(result, stale.size);
   if (rows.length > limits.maxItems)
     note(
       result,

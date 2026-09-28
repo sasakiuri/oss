@@ -25,6 +25,8 @@ const server = spawn(
     "4317",
     "--config",
     config,
+    "--config",
+    "wrangler.feeds.jsonc",
   ],
   { stdio: "inherit" },
 );

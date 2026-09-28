@@ -20,6 +20,13 @@ export interface SourceConfig {
    * interval; requires `minCollectionMinutes` 1440.
    */
   readonly dailyAtJst?: string;
+  /**
+   * Rolling RSS only: automatic collection is phased to this many minutes
+   * after JST midnight modulo `minCollectionMinutes`, so feeds of one kind are
+   * spread over their period. The source minimum still counts from the end of
+   * the last real request.
+   */
+  readonly collectionOffsetMinutes?: number;
   readonly minRequestIntervalSeconds?: number;
   readonly robotsException?: true;
   readonly robotsExceptionReason?: string;
@@ -82,6 +89,8 @@ export interface FetchResult {
   data: Uint8Array;
   url: string;
   contentType: string;
+  /** The response's `RateLimit` header, present only when the server sent one. */
+  rateLimit?: string;
 }
 
 /** Fetch used by collectors; pacing, robots and caching are applied by the caller. */
@@ -95,4 +104,13 @@ export function collection(items: CollectedItem[] = []): Collection {
 export function note(result: Collection, message: string): void {
   result.warnings.push(message);
   result.notes.push(message);
+}
+
+/** Note items left out because their known publication is older than 24 hours. */
+export function staleNote(result: Collection, count: number): void {
+  if (count)
+    note(
+      result,
+      `公開日の対象期間を過ぎた ${count} 件は収集対象外のため除外しました`,
+    );
 }

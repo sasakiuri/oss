@@ -76,14 +76,23 @@ const forbidden: SourceFetch = () => {
 const alerts = (result: Collection) =>
   result.warnings.filter((warning) => !result.notes.includes(warning));
 
+/** Collector clock in epoch seconds; fixtures are dated, so tests never use the system clock. */
+const at = (iso: string) => Date.parse(iso) / 1000;
+const STALE_NOTE = (count: number) =>
+  `公開日の対象期間を過ぎた ${count} 件は収集対象外のため除外しました`;
+
 describe("RSS and Atom", () => {
+  const NOW = at("2026-09-27T12:00:00Z");
+  const feed = (body: string | Uint8Array, maxItems?: number, now = NOW) =>
+    collectSource(
+      config("rss", "https://example.com/feed", maxItems ? { maxItems } : {}),
+      replay(() => body, "application/rss+xml").fetch,
+      now,
+    );
   const collect = async (body: string | Uint8Array, maxItems?: number) =>
-    (
-      await collectSource(
-        config("rss", "https://example.com/feed", maxItems ? { maxItems } : {}),
-        replay(() => body, "application/rss+xml").fetch,
-      )
-    ).items;
+    (await feed(body, maxItems)).items;
+  const dated = (id: number, date: string) =>
+    `<item><title>記事${id}</title><link>https://example.com/${id}</link><pubDate>${date}</pubDate></item>`;
 
   test("CDATA, dates and tracking parameters", async () => {
     expect(
@@ -123,6 +132,90 @@ describe("RSS and Atom", () => {
       await collect(`<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
         <item><title>鳥獣被害の統計を公表</title><link>https://example.com/1</link><dc:date>2026-09-27T12:00:00+09:00</dc:date></item></rdf:RDF>`);
     expect(item?.publishedAt).toBe("2026-09-27T03:00:00Z");
+  });
+
+  test("an updated-only entry stays undated and is kept for review", async () => {
+    // Even an old edit time neither dates nor excludes the entry.
+    const result = await feed(`<feed xmlns="http://www.w3.org/2005/Atom">
+      <entry><title>更新だけの記事</title><link href="https://example.com/updated"/>
+      <updated>2026-09-01T00:00:00Z</updated></entry>
+      <entry><title>最近更新された記事</title><link href="https://example.com/edited"/>
+      <updated>2026-09-27T11:00:00Z</updated></entry></feed>`);
+    expect(result.items.map((item) => [item.url, item.publishedAt])).toEqual([
+      ["https://example.com/updated", null],
+      ["https://example.com/edited", null],
+    ]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test("a publication exactly 24 hours old is kept; one second older is not", async () => {
+    const result = await feed(
+      `<rss><channel>${[
+        dated(1, "2026-09-26T12:00:00Z"),
+        dated(2, "2026-09-26T11:59:59Z"),
+        dated(3, "2026-09-27T12:00:01Z"),
+        dated(4, "not a date"),
+        `<item><title>日付なし</title><link>https://example.com/5</link></item>`,
+      ].join("")}</channel></rss>`,
+    );
+    // Future, invalid and missing dates are kept; discovery time is never used.
+    expect(result.items.map((item) => [item.url, item.publishedAt])).toEqual([
+      ["https://example.com/1", "2026-09-26T12:00:00Z"],
+      ["https://example.com/3", "2026-09-27T12:00:01Z"],
+      ["https://example.com/4", null],
+      ["https://example.com/5", null],
+    ]);
+    expect(result.notes).toEqual([STALE_NOTE(1)]);
+    expect(alerts(result)).toEqual([]);
+  });
+
+  test("a timed entry at JST midnight stays on the rolling 24 hours", async () => {
+    // 21:00 JST on 09-27: yesterday's midnight is 45 hours old.
+    const result = await feed(
+      `<rss><channel>${[
+        dated(1, "Sat, 26 Sep 2026 00:00:00 +0900"),
+        dated(2, "2026-09-27T00:00:00+09:00"),
+      ].join("")}</channel></rss>`,
+    );
+    expect(result.items).toEqual([
+      {
+        title: "記事2",
+        url: "https://example.com/2",
+        excerpt: "",
+        publishedAt: "2026-09-26T15:00:00Z",
+      },
+    ]);
+    expect(result.notes).toEqual([STALE_NOTE(1)]);
+  });
+
+  test("stale entries listed first never take the item limit from recent ones", async () => {
+    const result = await feed(
+      `<rss><channel>${[
+        dated(1, "2026-09-20T00:00:00Z"),
+        dated(2, "2026-09-21T00:00:00Z"),
+        dated(3, "2026-09-27T10:00:00Z"),
+        dated(4, "2026-09-22T00:00:00Z"),
+        dated(5, "2026-09-27T09:00:00Z"),
+        dated(6, "2026-09-27T08:00:00Z"),
+      ].join("")}</channel></rss>`,
+      2,
+    );
+    expect(result.items.map((item) => item.url)).toEqual([
+      "https://example.com/3",
+      "https://example.com/5",
+    ]);
+    expect(result.notes).toEqual([STALE_NOTE(3)]);
+  });
+
+  test("a feed of only stale entries is an empty success, not a parse failure", async () => {
+    const result = await feed(
+      `<rss><channel>${dated(1, "2026-09-20T00:00:00Z")}${dated(2, "Fri, 25 Sep 2026 09:00:00 +0900")}</channel></rss>`,
+    );
+    expect(result).toEqual({
+      items: [],
+      warnings: [STALE_NOTE(2)],
+      notes: [STALE_NOTE(2)],
+    });
   });
 
   test.each(["invalid", "2026-09-27T12:00:00", "2026-99-99", ""])(
@@ -288,36 +381,89 @@ describe("XML and HTML primitives", () => {
 });
 
 describe("HTML headline pages", () => {
-  const collect = async (body: string, allowedPathPattern: string) =>
+  const collect = async (
+    body: string,
+    allowedPathPattern: string,
+    now = at("2026-09-26T15:00:00Z"),
+  ) =>
     (
       await collectSource(
         config("html", "https://example.com/feed", { allowedPathPattern }),
         replay(() => body, "text/html; charset=utf-8").fetch,
+        now,
       )
     ).items;
 
   test("navigation, duplicates, other hosts and heading dates", async () => {
-    const items = await collect(
-      `<html><nav><a href="/press/123.html">メニューにある記事リンク</a></nav>
+    const html = `<html><nav><a href="/press/123.html">メニューにある記事リンク</a></nav>
         <h2>2026年9月27日発表</h2><a href="/press/234.html?utm_source=menu">クマ出没への対策を発表しました</a>
         <a href="/press/234.html">同じ記事への重複するリンクです</a>
         <a href="https://other.example.com/press/111.html">外部のプレスリリースの記事です</a>
         <a href="/about/index.html">環境省の組織についての紹介です</a>
-        <h2>2026年9月26日発表</h2><a href="/press/235.html">鳥獣保護の計画を更新しました</a></html>`,
-      "^/press/\\d+\\.html",
-    );
+        <h2>2026年9月26日発表</h2><a href="/press/235.html">鳥獣保護の計画を更新しました</a></html>`;
+    const items = await collect(html, "^/press/\\d+\\.html");
+    const urls = async (now: number) =>
+      (await collect(html, "^/press/\\d+\\.html", now)).map((item) => item.url);
+    // A date-only heading is fresh on its JST date and the next day: the
+    // 09-26 item is kept through 23:59:59 on 09-27 and dropped at midnight.
+    expect(await urls(at("2026-09-27T14:59:59Z"))).toEqual([
+      "https://example.com/press/234.html",
+      "https://example.com/press/235.html",
+    ]);
+    expect(await urls(at("2026-09-27T15:00:00Z"))).toEqual([
+      "https://example.com/press/234.html",
+    ]);
+    // Yesterday's 09-27 heading is still collected at 11:00 JST on 09-28.
+    expect(await urls(at("2026-09-28T02:00:00Z"))).toEqual([
+      "https://example.com/press/234.html",
+    ]);
+    expect(await urls(at("2026-09-28T15:00:00Z"))).toEqual([]);
     expect(items).toEqual([
       {
         title: "クマ出没への対策を発表しました",
         url: "https://example.com/press/234.html",
         excerpt: "",
         publishedAt: "2026-09-26T15:00:00Z",
+        metadata: { publicationPrecision: "date" },
       },
       {
         title: "鳥獣保護の計画を更新しました",
         url: "https://example.com/press/235.html",
         excerpt: "",
         publishedAt: "2026-09-25T15:00:00Z",
+        metadata: { publicationPrecision: "date" },
+      },
+    ]);
+  });
+
+  test("date-only entries before yesterday take no item slot", async () => {
+    const html = `<h2>2026年9月25日</h2><a href="/press/1.html">二日前に発表された古い記事です</a>
+      <a href="/press/2.html">二日前に発表された別の古い記事</a>
+      <h2>2026年9月27日</h2><a href="/press/3.html">前日に発表された新しい記事です</a>`;
+    const result = await collectSource(
+      config("html", "https://example.com/feed", {
+        allowedPathPattern: "^/press/",
+        maxItems: 1,
+      }),
+      replay(() => html, "text/html; charset=utf-8").fetch,
+      at("2026-09-28T02:00:00Z"),
+    );
+    expect(result.items.map((item) => [item.url, item.metadata])).toEqual([
+      ["https://example.com/press/3.html", { publicationPrecision: "date" }],
+    ]);
+    expect(result.notes).toEqual([STALE_NOTE(2)]);
+    // An undated headline is kept without a precision flag.
+    const undated = await collect(
+      '<a href="/press/4.html">日付の分からない記事の見出し</a>',
+      "^/press/",
+      at("2026-09-28T02:00:00Z"),
+    );
+    expect(undated).toEqual([
+      {
+        title: "日付の分からない記事の見出し",
+        url: "https://example.com/press/4.html",
+        excerpt: "",
+        publishedAt: null,
       },
     ]);
   });
@@ -326,6 +472,7 @@ describe("HTML headline pages", () => {
     const items = await collect(
       '<h2>令和8年9月分</h2><p>9月25日</p><dl><dt>基本政策</dt><dd><a href="./rural/260925.html">鳥獣被害の防止に関する方針を発表</a></dd></dl>',
       "^/rural/",
+      at("2026-09-25T00:00:00Z"),
     );
     expect(items[0]?.publishedAt).toBe("2026-09-24T15:00:00Z");
   });
@@ -335,6 +482,7 @@ describe("HTML headline pages", () => {
       `<table><tr><td>令和８年９月２５日</td><td><a href="/laws/1.pdf">猟銃に関する新しい通達の発表</a></td></tr>
         <tr><td>日付不明</td><td><a href="/laws/2.pdf">猟銃に関する別の通達の発表</a></td></tr></table>`,
       "^/laws/",
+      at("2026-09-25T00:00:00Z"),
     );
     expect(items.map((item) => item.publishedAt)).toEqual([
       "2026-09-24T15:00:00Z",
@@ -467,10 +615,12 @@ describe("RSS roundup links", () => {
   const collect = (
     body: string | Uint8Array,
     options: Partial<SourceConfig> = {},
+    now = at("2026-09-28T00:00:00Z"),
   ) =>
     collectSource(
       config("rss", FEED, { feedContent: "links", ...options }),
       replay(() => body, "application/rss+xml").fetch,
+      now,
     );
   const rss = (description: string) =>
     `<rss version="2.0"><channel><item><title>まとめ</title>
@@ -518,6 +668,10 @@ describe("RSS roundup links", () => {
     expect(items.at(-1)?.metadata?.roundupUrl).toBe(
       "https://roundup.example.com/2026/09/2026-927.html",
     );
+    // The roundup date never dates or excludes a linked article.
+    const later = await collect(roundup, {}, at("2026-10-31T00:00:00Z"));
+    expect(later).toEqual(await collect(roundup));
+    expect(later.items).toEqual(items);
   });
 
   test("maxItems bounds individual links with a coverage note", async () => {
@@ -588,6 +742,8 @@ describe("RSS roundup links", () => {
     const { items } = await collectSource(
       config("rss", FEED),
       replay(() => roundup, "application/rss+xml").fetch,
+      // Both roundups are then at most 24 hours old.
+      at("2026-09-27T15:30:00Z"),
     );
     expect(items.map((item) => item.url)).toEqual([
       "https://roundup.example.com/2026/09/2026-928.html",
@@ -689,6 +845,26 @@ describe("source configuration", () => {
       expect(source.description).toContain("毎日11時（日本時間）");
     }
     expect(byId.get("kanpo")).not.toHaveProperty("maxPdfPages");
+    // Automatic feeds of one kind are spread over their period (JST minutes).
+    expect(
+      Object.fromEntries(
+        sources
+          .filter((source) => source.collectionOffsetMinutes !== undefined)
+          .map((source) => [
+            source.id,
+            [source.collectionOffsetMinutes, source.minCollectionMinutes],
+          ]),
+      ),
+    ).toEqual({
+      "google-1": [0, 240],
+      "google-2": [120, 240],
+      "ceek-1": [0, 240],
+      "ceek-2": [80, 240],
+      "ceek-3": [160, 240],
+      "yahoo-domestic": [0, 60],
+      "yahoo-local": [20, 60],
+      "yahoo-science": [40, 60],
+    });
     expect(
       sources.filter((source) => source.feedContent).map((source) => source.id),
     ).toEqual(["tyoujuu-blog"]);
@@ -709,6 +885,34 @@ describe("source configuration", () => {
     [[{ ...good, enabled: "yes" }]],
     [[{ ...good, maxItems: 101 }]],
     [[{ ...good, feedContent: "entries" }]],
+    // An offset needs a rolling RSS period that divides a day and exceeds it.
+    [[{ ...good, collectionOffsetMinutes: 0 }]],
+    [[{ ...good, minCollectionMinutes: 60, collectionOffsetMinutes: 60 }]],
+    [[{ ...good, minCollectionMinutes: 60, collectionOffsetMinutes: -1 }]],
+    [[{ ...good, minCollectionMinutes: 60, collectionOffsetMinutes: 1.5 }]],
+    [[{ ...good, minCollectionMinutes: 60, collectionOffsetMinutes: "20" }]],
+    [[{ ...good, minCollectionMinutes: 100, collectionOffsetMinutes: 0 }]],
+    [
+      [
+        {
+          ...good,
+          minCollectionMinutes: 1440,
+          dailyAtJst: "11:00",
+          collectionOffsetMinutes: 0,
+        },
+      ],
+    ],
+    [
+      [
+        {
+          ...good,
+          kind: "html",
+          allowedPathPattern: "^/news/",
+          minCollectionMinutes: 60,
+          collectionOffsetMinutes: 0,
+        },
+      ],
+    ],
     [[{ ...good, feedContent: true }]],
     [
       [
@@ -763,6 +967,20 @@ describe("source configuration", () => {
   ])("invalid configuration %j", (value) => {
     expect(() => loadSources(value)).toThrow(UserError);
   });
+
+  test("a collection offset within its period", () => {
+    for (const [minCollectionMinutes, collectionOffsetMinutes] of [
+      [60, 0],
+      [60, 59],
+      [240, 160],
+      [1440, 1439],
+    ])
+      expect(() =>
+        loadSources([
+          { ...good, minCollectionMinutes, collectionOffsetMinutes },
+        ]),
+      ).not.toThrow();
+  });
 });
 
 const KANPO_HOME = "https://www.kanpo.go.jp/";
@@ -783,29 +1001,41 @@ function kanpoFetch(pages: Record<string, Response> = {}) {
   return replay((url) => routes[url]);
 }
 
+/** 11:00 JST on 2026-09-25, the daily slot: that day's and the previous day's issues are fresh. */
+const KANPO_NOW = at("2026-09-25T02:00:00Z");
+/** JST midnight of 2026-09-25: the 09-25 issue is new and the 09-24 issue from yesterday. */
+const TWO_ISSUES = at("2026-09-24T15:00:00Z");
+/** Before every fixture issue; future-dated issues are kept, so all three TOCs are read. */
+const BEFORE_ISSUES = at("2026-09-01T00:00:00Z");
+
 async function kanpo(
   options: Record<string, unknown> = {},
   pages: Record<string, Response> = {},
+  now = KANPO_NOW,
 ) {
   const { fetch, calls } = kanpoFetch(pages);
-  const result = await collectSource(untyped({ ...KANPO, ...options }), fetch);
+  const result = await collectSource(
+    untyped({ ...KANPO, ...options }),
+    fetch,
+    now,
+  );
   return { ...result, calls };
 }
 
 describe("official gazette TOCs", () => {
   test("collects legal notices from the latest daily TOCs only", async () => {
     const { items, calls, warnings, notes } = await kanpo();
-    // Only the homepage and three newest TOCs; no notice pages or PDFs.
-    expect(calls).toEqual([
-      KANPO_HOME,
-      tocUrl("20260925"),
-      tocUrl("20260924"),
-      tocUrl("20260918"),
-    ]);
+    // Only the homepage and the TOCs of today's and yesterday's issues; no
+    // notice pages, PDFs or older issues.
+    expect(calls).toEqual([KANPO_HOME, tocUrl("20260925"), tocUrl("20260924")]);
     expect(alerts({ items, warnings, notes })).toEqual([]);
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain("本文・PDFは取得せず");
-    expect(items).toHaveLength(27);
+    expect(notes[0]).toContain("当日・前日（日本時間）発行の号");
+    expect(items).toHaveLength(18);
+    expect(
+      items.every((item) => item.metadata?.publicationPrecision === "date"),
+    ).toBe(true);
     const day = items.filter(
       (item) => item.metadata?.issueDate === "2026-09-25",
     );
@@ -835,11 +1065,22 @@ describe("official gazette TOCs", () => {
         section: "省令",
         page: "2",
         tocUrl: tocUrl("20260925"),
+        publicationPrecision: "date",
       },
     });
     // Distinct headlines sharing one notice page stay separate articles.
     expect(day[0]?.url).toBe(day[1]?.url);
-    expect(new Set(items.map((item) => item.sourceKey)).size).toBe(27);
+    expect(new Set(items.map((item) => item.sourceKey)).size).toBe(18);
+    // Future-dated issues are kept for review, so every listed TOC is read.
+    const all = await kanpo({}, {}, BEFORE_ISSUES);
+    expect(all.calls).toEqual([
+      KANPO_HOME,
+      tocUrl("20260925"),
+      tocUrl("20260924"),
+      tocUrl("20260918"),
+    ]);
+    expect(all.items).toHaveLength(27);
+    expect(new Set(all.items.map((item) => item.sourceKey)).size).toBe(27);
     expect(day[6]?.metadata).toMatchObject({
       section: "官庁報告",
       subsection: "労働",
@@ -880,15 +1121,51 @@ describe("official gazette TOCs", () => {
     const one = await kanpo({ issueDays: 1 });
     expect(one.calls).toEqual([KANPO_HOME, tocUrl("20260925")]);
     expect(one.items).toHaveLength(9);
-    const limited = await kanpo({ maxItems: 10 });
+    const limited = await kanpo({ maxItems: 10 }, {}, TWO_ISSUES);
     expect(limited.items).toHaveLength(10);
     expect(limited.items.at(-1)?.metadata?.issueDate).toBe("2026-09-24");
     expect(limited.calls).toHaveLength(3);
     expect(alerts(limited)).toEqual([]);
     expect(limited.notes.at(-1)).toContain("上限の 10 件");
     // A larger configured day count is still capped at three TOCs.
-    const capped = await kanpo({ issueDays: 10 });
+    const capped = await kanpo({ issueDays: 10 }, {}, BEFORE_ISSUES);
     expect(capped.calls).toHaveLength(4);
+  });
+
+  test("TOCs dated before yesterday (JST) are never requested", async () => {
+    // The 09-24 issue is read through 23:59:59 JST on 09-25.
+    const last = await kanpo({}, {}, at("2026-09-25T14:59:59Z"));
+    expect(last.calls).toEqual([
+      KANPO_HOME,
+      tocUrl("20260925"),
+      tocUrl("20260924"),
+    ]);
+    // From JST midnight of 09-26 only the 09-25 issue remains, and it is
+    // still read at the 11:00 slot that day.
+    for (const now of [
+      at("2026-09-25T15:00:00Z"),
+      at("2026-09-26T02:00:00Z"),
+    ]) {
+      const one = await kanpo(
+        {},
+        { [tocUrl("20260924")]: new Error("must not fetch") },
+        now,
+      );
+      expect(one.calls).toEqual([KANPO_HOME, tocUrl("20260925")]);
+      expect(one.items).toHaveLength(9);
+      expect(alerts(one)).toEqual([]);
+    }
+    // Two days later the newest listed issue is stale: an empty, successful
+    // run that reads nothing beyond the homepage.
+    const none = await kanpo(
+      {},
+      { [tocUrl("20260925")]: new Error("must not fetch") },
+      at("2026-09-27T02:00:00Z"),
+    );
+    expect(none.calls).toEqual([KANPO_HOME]);
+    expect(none.items).toEqual([]);
+    expect(alerts(none)).toEqual([]);
+    expect(none.notes[0]).toContain("（20260925）は前日より前の発行");
   });
 
   test("follows only exact official daily TOC links from the homepage", async () => {
@@ -907,7 +1184,7 @@ describe("official gazette TOCs", () => {
       .map((href) => `<a href="${href}">目次</a>`)
       .join("");
     const home = text(read("kanpo-home")).replace("<body>", `<body>${decoys}`);
-    const { calls } = await kanpo({}, { [KANPO_HOME]: home });
+    const { calls } = await kanpo({}, { [KANPO_HOME]: home }, BEFORE_ISSUES);
     expect(calls).toEqual([
       KANPO_HOME,
       tocUrl("20260925"),
@@ -960,6 +1237,7 @@ describe("official gazette TOCs", () => {
           contentType: "text/html",
         },
       },
+      BEFORE_ISSUES,
     );
     expect(partial.items).toHaveLength(9);
     expect(alerts(partial)).toEqual([
@@ -1062,13 +1340,20 @@ function billFetch(agency: Agency, overrides: Record<string, Response> = {}) {
   return replay((url) => pages[url]);
 }
 
+/**
+ * Before every fixture date. Future dates are kept for review, so index and
+ * detail parsing sees every row; freshness has its own tests below.
+ */
+const BEFORE_BILLS = at("2020-01-01T00:00:00Z");
+
 async function bills(
   agency: Agency,
   options: Record<string, unknown> = {},
   overrides: Record<string, Response> = {},
+  now = BEFORE_BILLS,
 ) {
   const { fetch, calls } = billFetch(agency, overrides);
-  const result = await collectSource(billSource(agency, options), fetch);
+  const result = await collectSource(billSource(agency, options), fetch, now);
   expect(calls.some((url) => url.toLowerCase().endsWith(".pdf"))).toBe(false);
   return { ...result, calls };
 }
@@ -1270,6 +1555,67 @@ describe("official bill indexes", () => {
     expect(notes.some((warning) => warning.includes("対象 2 件"))).toBe(true);
   });
 
+  test("a bill dated before yesterday (JST) takes no item or detail request", async () => {
+    const older = text(read("bills-mof-session"))
+      .replaceAll("221", "217")
+      .replaceAll("080220", "070204")
+      .replace("令和8年<br>2月20日", "令和7年<br>2月4日");
+    const overrides = {
+      "https://www.mof.go.jp/about_mof/bills/217diet/index.html": older,
+    };
+    // 11:00 JST on the 221st session bill's submission date and the next
+    // day, and 23:59:59 JST on that next day.
+    for (const now of [
+      at("2026-02-20T02:00:00Z"),
+      at("2026-02-21T02:00:00Z"),
+      at("2026-02-21T14:59:59Z"),
+    ]) {
+      const mixed = await bills("mof", { maxItems: 1 }, overrides, now);
+      expect(mixed.items.map((item) => item.sourceKey)).toEqual([
+        "bill:mof:221:60cddd18e694f54d3013",
+      ]);
+      expect(mixed.items[0]?.metadata).toMatchObject({
+        contentStatus: "detail",
+        publicationPrecision: "date",
+      });
+      expect(mixed.calls).toHaveLength(4);
+      expect(mixed.calls.join(" ")).not.toContain("st070204g.html");
+      expect(mixed.notes).toContain(STALE_NOTE(1));
+      // The stale bill does not count toward the item limit.
+      expect(mixed.notes.join(" ")).not.toMatch(/対象 \d+ 件/);
+      expect(alerts(mixed)).toEqual([]);
+    }
+    // The next JST midnight, two days after submission, drops it too.
+    const expired = await bills(
+      "mof",
+      {},
+      overrides,
+      at("2026-02-21T15:00:00Z"),
+    );
+    expect(expired.items).toEqual([]);
+    expect(expired.notes).toContain(STALE_NOTE(2));
+
+    const stale = await bills("mof", {}, overrides, at("2026-09-28T02:00:00Z"));
+    expect(stale.items).toEqual([]);
+    expect(stale.calls).toHaveLength(3);
+    expect(stale.calls.some((url) => url.endsWith("g.html"))).toBe(false);
+    expect(stale.notes).toContain(STALE_NOTE(2));
+    expect(alerts(stale)).toEqual([]);
+  });
+
+  test("an undated listing reads its detail page for the date, then drops a stale bill", async () => {
+    const { items, calls, notes, warnings } = await bills(
+      "env",
+      {},
+      {},
+      at("2026-09-28T02:00:00Z"),
+    );
+    expect(calls).toHaveLength(4);
+    expect(items).toEqual([]);
+    expect(notes).toContain(STALE_NOTE(2));
+    expect(warnings).toEqual(notes);
+  });
+
   test("official hosts, redirects and limits are checked before use", async () => {
     await expect(
       collectSource(
@@ -1362,20 +1708,35 @@ function egovFetch(
   }, "text/html; charset=UTF-8");
 }
 
+/** 11:00 JST on 2026-09-26, when the listing fixture's cases are new. */
+const EGOV_NOW = at("2026-09-26T02:00:00Z");
+/** Before every fixture date; future dates are kept, so paging sees every card. */
+const BEFORE_EGOV = at("2026-08-01T00:00:00Z");
+
 async function egov(
   options: Record<string, unknown> = {},
   pages?: Record<number, Response>,
   detail?: Response,
   mode = "0",
+  now = EGOV_NOW,
 ) {
   const { fetch, calls } = egovFetch(pages, detail);
-  return { ...(await collectSource(egovSource(mode, options), fetch)), calls };
+  return {
+    ...(await collectSource(egovSource(mode, options), fetch, now)),
+    calls,
+  };
 }
 
 const page = (url: string | undefined) => parseQs(urlsplit(url ?? "").query);
 const OLD_TITLE =
   "建築基準法施行令の一部を改正する政令の施行に伴う関係告示等の制定及び改正案に関する意見募集";
 const CARD = '<div class="egovui-link-area-cursor"';
+/** The listing with its first case (155260722) announced six days earlier. */
+const staleFirst = () =>
+  text(read("egov-list")).replace(
+    "公示日</span>2026年9月26日",
+    "公示日</span>2026年9月20日",
+  );
 
 describe("e-Gov public comments", () => {
   test("a recruitment listing and detail", async () => {
@@ -1414,6 +1775,7 @@ describe("e-Gov public comments", () => {
       { 1: read("egov-results") },
       read("egov-result-detail"),
       "1",
+      at("2026-09-25T02:00:00Z"),
     );
     expect(items[0]).toMatchObject({
       url: `${ORIGIN}/servlet/Public?CLASSNAME=PCM1040&id=410080057&Mode=1`,
@@ -1429,6 +1791,9 @@ describe("e-Gov public comments", () => {
     const { items, calls, notes } = await egov(
       { maxItems: 3, maxDetails: 0 },
       { 1: read("egov-list"), 2: read("egov-page2") },
+      undefined,
+      "0",
+      BEFORE_EGOV,
     );
     expect(items).toHaveLength(3);
     expect(new Set(items.map((item) => item.url)).size).toBe(3);
@@ -1473,6 +1838,118 @@ describe("e-Gov public comments", () => {
         (warning) => warning.includes("2 ページ目") && warning.includes("503"),
       ),
     ).toBe(true);
+  });
+
+  test("stale listing entries take neither the item nor the detail budget", async () => {
+    const { items, calls, notes } = await egov(
+      { maxItems: 1, maxDetails: 1 },
+      { 1: staleFirst() },
+      text(read("egov-detail")).replaceAll("155260722", "155260723"),
+    );
+    expect(items.map((item) => item.metadata?.caseId)).toEqual(["155260723"]);
+    expect(items[0]?.metadata?.contentStatus).toBe("detail");
+    expect(calls).toHaveLength(2);
+    expect(calls.join(" ")).not.toContain("id=155260722");
+    expect(notes).toContain(STALE_NOTE(1));
+  });
+
+  test("paging stops at a stale entry only on a page that is newest first", async () => {
+    const pages = { 1: read("egov-list"), 2: read("egov-page2") };
+    const stale = await egov(
+      { maxItems: 10, maxDetails: 0 },
+      pages,
+      undefined,
+      "0",
+      at("2026-10-10T00:00:00Z"),
+    );
+    // An empty, successful run without the older second page.
+    expect(stale).toMatchObject({
+      items: [],
+      warnings: [STALE_NOTE(2)],
+      notes: [STALE_NOTE(2)],
+      calls: [expect.stringContaining("Page=1")],
+    });
+    // A stale case above a newer one proves no order, so page 2 is read.
+    const unordered = await egov(
+      { maxItems: 10, maxDetails: 0 },
+      { ...pages, 1: staleFirst() },
+    );
+    expect(unordered.calls).toHaveLength(2);
+    expect(unordered.items.map((item) => item.metadata?.caseId)).toEqual([
+      "155260723",
+    ]);
+    expect(unordered.notes).toContain(STALE_NOTE(3));
+  });
+
+  test("a date-only listing is fresh on its JST date and the next day", async () => {
+    const listing = (now: number, pages?: Record<number, Response>) =>
+      egov({ maxDetails: 0 }, pages, undefined, "0", now);
+    // 11:00 and 23:59:59 JST on 09-27, the day after the 09-26 notice.
+    for (const now of [
+      at("2026-09-27T02:00:00Z"),
+      at("2026-09-27T14:59:59Z"),
+    ]) {
+      const kept = await listing(now);
+      expect(kept.items).toHaveLength(2);
+      expect(
+        kept.items.map((item) => item.metadata?.publicationPrecision),
+      ).toEqual(["date", "date"]);
+    }
+    const after = await listing(at("2026-09-27T15:00:00Z"));
+    expect(after.items).toEqual([]);
+    expect(after.calls).toHaveLength(1);
+    expect(after.notes).toEqual([STALE_NOTE(2)]);
+    expect(alerts(after)).toEqual([]);
+  });
+
+  test("a stated time keeps the exact publication on the rolling window", async () => {
+    const timed = text(read("egov-list")).replaceAll(
+      "公示日</span>2026年9月26日",
+      "公示日</span>2026年9月26日10時0分",
+    );
+    const at11 = await egov(
+      { maxDetails: 0 },
+      { 1: timed },
+      undefined,
+      "0",
+      at("2026-09-27T01:00:00Z"),
+    );
+    expect(
+      at11.items.map((item) => [
+        item.publishedAt,
+        item.metadata?.publicationPrecision,
+      ]),
+    ).toEqual([
+      ["2026-09-26T01:00:00Z", undefined],
+      ["2026-09-26T01:00:00Z", undefined],
+    ]);
+    // One second past 24 hours, still on the next JST day, it is stale.
+    const later = await egov(
+      { maxDetails: 0 },
+      { 1: timed },
+      undefined,
+      "0",
+      at("2026-09-27T01:00:01Z"),
+    );
+    expect(later.items).toEqual([]);
+    // A timed detail date replaces a date-only listing and clears the mark.
+    const detailed = await egov(
+      { maxItems: 1 },
+      undefined,
+      text(read("egov-detail")).replace(
+        "<td>2026年9月26日<strong",
+        "<td>2026年9月26日10時0分<strong",
+      ),
+      "0",
+      at("2026-09-26T02:00:00Z"),
+    );
+    expect(detailed.items[0]).toMatchObject({
+      publishedAt: "2026-09-26T01:00:00Z",
+      metadata: { contentStatus: "detail" },
+    });
+    expect(detailed.items[0]?.metadata).not.toHaveProperty(
+      "publicationPrecision",
+    );
   });
 
   test("a detail failure keeps the listing with a visible error", async () => {
@@ -1531,6 +2008,9 @@ describe("e-Gov public comments", () => {
         1: listing.replace("</main>", `${duplicate}</main>`),
         2: read("egov-page2"),
       },
+      undefined,
+      "0",
+      BEFORE_EGOV,
     );
     expect(items).toHaveLength(3);
     expect(new Set(items.map((item) => item.url)).size).toBe(3);
@@ -1665,6 +2145,7 @@ describe("e-Gov public comments", () => {
         url: `${source.url}&keyword=%E9%B3%A5%E7%8D%A3&keywordOr=1&Husho=195&Page=9`,
       },
       fetch,
+      EGOV_NOW,
     );
     const query = page(calls[0]);
     expect([
