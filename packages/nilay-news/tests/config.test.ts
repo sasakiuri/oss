@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
 
-import { loadConfig, validateConfig } from "../scripts/check-config.ts";
+import {
+  loadConfig,
+  validateConfig,
+  validateFeedConfig,
+} from "../scripts/check-config.ts";
 
 const template = () =>
   loadConfig("wrangler.jsonc") as {
@@ -172,4 +176,49 @@ describe("production configuration", () => {
       ).not.toEqual([]);
     },
   );
+});
+
+describe("private feed service configuration", () => {
+  const feed = () =>
+    loadConfig("wrangler.feeds.jsonc") as Record<string, unknown>;
+  it("accepts the private Tokyo service", () => {
+    expect(validateFeedConfig(feed())).toEqual([]);
+  });
+  it.each([
+    { workers_dev: true },
+    { preview_urls: true },
+    { routes: [] },
+    { route: "example.test/*" },
+    { vars: { KEY: "value" } },
+    { secrets_store_secrets: [] },
+    { d1_databases: [] },
+    { placement: { hostname: "news.google.com" } },
+    { placement: { region: "aws:eu-west-1" } },
+    { main: "src/worker.ts" },
+    { build: {} },
+    { env: {} },
+  ])(
+    "rejects public access, credentials and misplaced execution: %j",
+    (extra) => {
+      expect(
+        validateFeedConfig({ ...feed(), ...extra }).length,
+      ).toBeGreaterThan(0);
+    },
+  );
+  it.each([
+    undefined,
+    [],
+    [{ binding: "FEED_FETCHER", service: "other" }],
+    [
+      {
+        binding: "FEED_FETCHER",
+        service: "nilay-news-feeds",
+        entrypoint: "Relay",
+      },
+    ],
+  ])("requires the intended HTTP service binding: %j", (services) => {
+    expect(validateConfig({ ...template(), services }).join(" ")).toMatch(
+      /FEED_FETCHER/,
+    );
+  });
 });

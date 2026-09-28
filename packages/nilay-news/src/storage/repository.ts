@@ -23,13 +23,25 @@ import type {
   Source,
 } from "../domain.ts";
 import { NotFoundError, UserError } from "../errors.ts";
+import {
+  freshness,
+  isFreshPublication,
+  mergePublication,
+  newestFirst,
+  publicationSeconds,
+} from "../freshness.ts";
 import { draft } from "../posts.ts";
+import {
+  isPostingTime,
+  nextPostingAt,
+  POST_INTERVAL_SECONDS,
+} from "../publication-policy.ts";
 import type {
   FinishPostOptions,
   NewsRepository,
   RecordOptions,
 } from "../repository.ts";
-import { dailySlot, nextDailyRun } from "../schedule.ts";
+import { dailySlot, nextDailyRun, nextPhase } from "../schedule.ts";
 import {
   citationOnly,
   type CollectedItem,
@@ -133,11 +145,12 @@ const ROW_LIMIT = 1_800_000;
 const BLOB_LIMIT = 4_000_000;
 const BLOB_PART = 1_000_000;
 
-export const DEFAULT_RUBRIC = `日本国内を中心とする狩猟、猟銃・銃の所持、射撃競技、鳥獣被害と保護管理、ジビエ、関連する法令・行政のニュースを集める。
-ゲーム、フィクション、比喩としてのハンター・罠、対象分野と関係のない商品や芸能記事は対象外。
-動物の出没・捕獲・被害、対策や調査、競技大会、事故、制度変更は候補に含める。
+export const DEFAULT_RUBRIC = `日本国内を中心に、海外も同じ内容基準で、狩猟、猟銃・銃の所持、射撃競技、野生鳥獣の被害と保護管理、ジビエ、関連する法令・行政のニュースを集める。
+野生動物・外来種の対象は鳥類と哺乳類に限る。ヒアリ等の昆虫、ザリガニ等の甲殻類、魚類、爬虫類、両生類、植物の話題は対象外。狩猟・銃・射撃競技・ジビエは、それ自体が対象分野である。
+ゲーム、フィクション、比喩としてのハンター・罠、対象分野と関係のない商品や芸能記事は対象外。ペット・畜産のみの話題も、野生鳥獣や狩猟との具体的な関係がなければ対象外。
+野生鳥獣の出没・捕獲・被害、対策・保護・調査、競技大会、銃の事件・事故、制度変更は候補に含める。関連記事欄や、別の主題の記事で付随的に触れただけの言及は対象にしない。
 発生地域、日付、対象が異なる事件を混同しない。同じ事件でも新たな被害・捕獲・対策決定などの続報は残す。
-記事に書かれている範囲で判断し、情報不足の場合は要確認にする。`;
+取得できた見出しと記事情報で主題の関連性を判断する。本文がなくても主題が明確なら候補または対象外に決める。主題や対象分野との関係が本当に判断できない場合だけ要確認にする。`;
 
 const DEFAULT_JOB: Job = {
   running: false,
@@ -158,10 +171,25 @@ const DEFAULT_JOB: Job = {
 interface Schedule {
   next_at: number;
 }
+/**
+ * The current posting round: the automatic candidates snapshotted, newest
+ * first, when it opened and not yet posted. Empty when no round is open.
+ * Transient runtime state; never part of the portable snapshot.
+ */
+interface PublicationBatch {
+  articleIds: string[];
+  openedAt: number;
+}
+/** The fields of a `crawl_source` record the scheduler reads. */
+interface CrawlSourceRecord {
+  last_requested: number;
+  retry_at?: number;
+}
 /** Rows of news_state keyed by id; unknown ids are carried through untouched. */
 type StateRows = {
   settings?: Settings;
   schedule?: Schedule;
+  publication_batch?: PublicationBatch;
   job?: Job;
   imported?: { at: string };
 };
@@ -236,14 +264,6 @@ function publicArticle(article: Article): Article {
   return copy;
 }
 
-function chronological(a: Article, b: Article): number {
-  return (
-    byKey(a.publishedAt || a.discoveredAt, b.publishedAt || b.discoveredAt) ||
-    byKey(a.discoveredAt, b.discoveredAt) ||
-    byKey(a.id, b.id)
-  );
-}
-
 function resetAnalysis(article: Article): void {
   Object.assign(article, {
     topic: null,
@@ -263,7 +283,11 @@ function resetAnalysis(article: Article): void {
 function hasDetails(value: Partial<CollectedItem>): boolean {
   return DETAIL_KEYS.some((key) =>
     key === "metadata"
-      ? value.metadata !== undefined && !citationOnly(value.metadata)
+      ? value.metadata !== undefined &&
+        Object.keys(value.metadata).some(
+          (name) => name !== "publicationPrecision",
+        ) &&
+        !citationOnly(value.metadata)
       : value[key] !== undefined,
   );
 }
@@ -312,6 +336,21 @@ function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/** `offset/period` of a source phased by `collectionOffsetMinutes`, or null. */
+function phaseOf(config: SourceConfig): string | null {
+  return config.collectionOffsetMinutes === undefined
+    ? null
+    : `${config.collectionOffsetMinutes}/${config.minCollectionMinutes ?? 60}`;
+}
+
+/** The stored automatic time of an offset source under its current phase. */
+function autoCollectAt(source: Source, phase: string): number {
+  return source.autoCollectPhase === phase &&
+    typeof source.autoCollectAt === "string"
+    ? Date.parse(source.autoCollectAt) / 1000
+    : Number.NaN;
+}
+
 function settingsOf(state: StateRows): Settings {
   if (!state.settings) throw new Error("Repository is not initialized");
   return state.settings;
@@ -320,6 +359,22 @@ function settingsOf(state: StateRows): Settings {
 function scheduleOf(state: StateRows): Schedule {
   if (!state.schedule) throw new Error("Repository is not initialized");
   return state.schedule;
+}
+
+function batchOf(state: StateRows): PublicationBatch {
+  if (!state.publication_batch)
+    throw new Error("Repository is not initialized");
+  return state.publication_batch;
+}
+
+function closedBatch(): PublicationBatch {
+  return { articleIds: [], openedAt: 0 };
+}
+
+/** Automatic posting stops; an open round is never resumed by enabling it again. */
+function disablePosting(state: StateRows): void {
+  settingsOf(state).autoPost = false;
+  state.publication_batch = closedBatch();
 }
 
 function jobOf(state: StateRows): Job {
@@ -404,14 +459,25 @@ export class SQLRepository implements NewsRepository {
     return this.load(tables);
   }
 
-  /** Reads the revision and the requested tables in one transactionally consistent batch. */
-  private async load(tables: readonly Table[]): Promise<[number, Tables]> {
+  /**
+   * Reads the revision and the requested tables in one transactionally
+   * consistent batch. `articleIds` narrows the articles table to those rows,
+   * so a mutation neither sees nor writes any other article.
+   */
+  private async load(
+    tables: readonly Table[],
+    articleIds?: readonly string[],
+  ): Promise<[number, Tables]> {
     const results = await this.driver.batch([
       ["SELECT revision FROM news_meta WHERE id=1", []],
-      ...tables.map((table): SQLStatement => [
-        `SELECT id,data FROM news_${table}`,
-        [],
-      ]),
+      ...tables.map((table): SQLStatement =>
+        table === "articles" && articleIds
+          ? [
+              "SELECT id,data FROM news_articles WHERE id IN (SELECT value FROM json_each(?))",
+              [encode(articleIds)],
+            ]
+          : [`SELECT id,data FROM news_${table}`, []],
+      ),
     ]);
     const version = numberColumn(results[0]?.results[0], "revision");
     const snapshot: Tables = {
@@ -444,9 +510,10 @@ export class SQLRepository implements NewsRepository {
   private async mutate<K extends Table, R>(
     tables: readonly K[],
     transform: (state: Pick<Tables, K>) => R | Promise<R>,
+    articleIds?: readonly string[],
   ): Promise<R> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const [version, after] = await this.load(tables);
+      const [version, after] = await this.load(tables, articleIds);
       const before = new Map(
         tables.map((table) => [
           table,
@@ -539,6 +606,7 @@ export class SQLRepository implements NewsRepository {
         postSelection: "both",
       };
       state.state.schedule ??= { next_at: 0 };
+      state.state.publication_batch ??= closedBatch();
       state.state.job ??= structuredClone(DEFAULT_JOB);
       for (const config of this.sourceConfig) {
         const previous: Partial<Source> = state.sources.get(config.id) ?? {};
@@ -555,6 +623,13 @@ export class SQLRepository implements NewsRepository {
         for (const key of SOURCE_STATE)
           Object.assign(source, {
             [key]: key in previous ? previous[key] : defaults[key],
+          });
+        // An automatic time survives only while its offset and period stand.
+        const phase = phaseOf(config);
+        if (phase !== null && previous.autoCollectPhase === phase)
+          Object.assign(source, {
+            autoCollectAt: previous.autoCollectAt,
+            autoCollectPhase: phase,
           });
         if (source.collectionBlocked) source.enabled = false;
         state.sources.set(source.id, source);
@@ -594,6 +669,9 @@ export class SQLRepository implements NewsRepository {
       if (!SELECTIONS.has(settings.postSelection))
         throw new UserError("自動投稿の対象が不正です");
       const valid = settings as unknown as Settings;
+      // Switching automatic posting either way discards the open round.
+      if (valid.autoPost !== previous.autoPost)
+        state.state.publication_batch = closedBatch();
       if (valid.autoPost && !previous.autoPost) {
         if (
           [...state.posts.values()].some((post) => BLOCKING.has(post.status))
@@ -603,7 +681,9 @@ export class SQLRepository implements NewsRepository {
           );
         }
         const schedule = scheduleOf(state.state);
-        schedule.next_at = Math.max(schedule.next_at, this.clock() + 3600);
+        schedule.next_at = nextPostingAt(
+          Math.max(schedule.next_at, this.clock() + POST_INTERVAL_SECONDS),
+        );
       }
       if (valid.rubric !== previous.rubric)
         for (const article of state.articles.values()) resetAnalysis(article);
@@ -631,6 +711,35 @@ export class SQLRepository implements NewsRepository {
         throw new UserError(source.collectionBlocked);
       Object.assign(source, changes);
       return source;
+    });
+  }
+
+  async scheduleAutoCollection(
+    sourceId: string,
+    at: number,
+    jobToken: string,
+  ): Promise<void> {
+    if (!Number.isFinite(at)) throw new UserError("収集予定時刻が不正です");
+    await this.mutate(["state", "sources"], (state) => {
+      const job = jobOf(state.state);
+      if (
+        !jobToken ||
+        !job.running ||
+        job.token !== jobToken ||
+        job.leaseUntil <= this.clock()
+      )
+        throw new UserError("処理の有効期限または所有権が変わりました");
+      const source = state.sources.get(sourceId);
+      const config = this.sourceConfig.find((item) => item.id === sourceId);
+      if (!config || !source) throw new NotFoundError("情報源が見つかりません");
+      const phase = phaseOf(config);
+      if (phase === null) return;
+      const stored = autoCollectAt(source, phase);
+      const next = stored > this.clock() ? Math.max(stored, at) : at;
+      Object.assign(source, {
+        autoCollectAt: timestamp(Math.ceil(next)),
+        autoCollectPhase: phase,
+      });
     });
   }
 
@@ -671,6 +780,17 @@ export class SQLRepository implements NewsRepository {
           }
         }
         if (article === undefined) {
+          // Storage is the final authority: a story already older than the
+          // freshness window is never added. Undated, invalid or future
+          // times are kept for review but excluded from automation.
+          if (
+            freshness(
+              item.publishedAt,
+              this.clock(),
+              item.metadata?.publicationPrecision,
+            ) === "stale"
+          )
+            continue;
           const now = timestamp(this.clock());
           const fresh: Article = {
             id: ids.get(identity) ?? "",
@@ -718,9 +838,41 @@ export class SQLRepository implements NewsRepository {
         )
           article.excerpt = item.excerpt ?? "";
         if (sameSource) article.title = item.title;
-        if (item.publishedAt && (!article.publishedAt || sameSource))
-          article.publishedAt = item.publishedAt;
+        // Never later than a valid time already known: an update timestamp or
+        // re-listing must not revive a historical article.
+        const published = mergePublication(
+          article.publishedAt,
+          item.publishedAt,
+          sameSource,
+          article.metadata?.publicationPrecision,
+          item.metadata?.publicationPrecision,
+        );
+        const selectedTime = publicationSeconds(published);
+        const observations = [article, item].filter(
+          (observation) =>
+            selectedTime !== null &&
+            publicationSeconds(observation.publishedAt) === selectedTime,
+        );
+        const dateOnly =
+          observations.length > 0 &&
+          observations.every(
+            (observation) =>
+              observation.metadata?.publicationPrecision === "date",
+          );
+        if (published !== (article.publishedAt ?? null))
+          article.publishedAt = published;
         if (sameSource) updateContent(article, item, timestamp(this.clock()));
+        // Metadata belongs to the selected publication time, even when other
+        // content is refreshed by a later or less precise observation.
+        if (dateOnly)
+          article.metadata = {
+            ...article.metadata,
+            publicationPrecision: "date",
+          };
+        else if (article.metadata?.publicationPrecision !== undefined) {
+          article.metadata = { ...article.metadata };
+          delete article.metadata.publicationPrecision;
+        }
         if (before !== evidenceText(article)) {
           resetAnalysis(article);
           changed.add(article.id);
@@ -781,14 +933,27 @@ export class SQLRepository implements NewsRepository {
     });
   }
 
+  /**
+   * `nextAt` is the earliest time a new post may be sent: the stored start of
+   * the next round, moved to the next posting window when it, or a past due
+   * time seen now, falls outside the window. While a round is open, its
+   * remaining articles are due now, or when the posting window next opens.
+   */
   private static publication(
     state: Pick<Tables, "state" | "posts">,
+    now: number,
   ): Publication {
     const posts = [...state.posts.values()].sort((a, b) =>
       byKey(b.attempted_at, a.attempted_at),
     );
+    const due = scheduleOf(state.state).next_at;
+    const earliest = Math.max(due, now);
     return {
-      nextAt: scheduleOf(state.state).next_at,
+      nextAt: state.state.publication_batch?.articleIds.length
+        ? nextPostingAt(now)
+        : isPostingTime(earliest)
+          ? due
+          : nextPostingAt(earliest),
       posts: posts.map((row) => ({
         articleId: row.article_id,
         status: row.status,
@@ -803,36 +968,58 @@ export class SQLRepository implements NewsRepository {
 
   async publicationState(): Promise<Publication> {
     const [, state] = await this.snapshot(["state", "posts"]);
-    return SQLRepository.publication(state);
+    return SQLRepository.publication(state, this.clock());
   }
 
+  /**
+   * Whether `article` is an automatic post candidate at `now` under the
+   * current settings, ignoring its post record. Every mode, including saved
+   * and source-rule articles, requires a fresh publication time; older,
+   * undated and future articles stay only for manual review.
+   */
+  private static eligible(
+    state: Pick<Tables, "state">,
+    article: Article,
+    now: number,
+  ): boolean {
+    const selection = settingsOf(state.state).postSelection;
+    // A source-rule candidate ignores Jev entirely, including a duplicate
+    // relation; the manual review and the post record still apply.
+    const source = isSourceCandidate(article);
+    return (
+      isFreshPublication(
+        article.publishedAt,
+        now,
+        article.metadata?.publicationPrecision,
+      ) &&
+      article.reviewStatus !== "posted" &&
+      article.reviewStatus !== "dismissed" &&
+      (source || article.relation !== "duplicate") &&
+      ((selection !== "candidates" && article.reviewStatus === "saved") ||
+        (selection !== "saved" &&
+          (source ||
+            (article.analysisStatus === "done" &&
+              article.decision === "candidate"))))
+    );
+  }
+
+  /** Automatic post candidates at `now` without a post record, newest publication first. */
   private static candidates(
     state: Pick<Tables, "state" | "posts" | "articles">,
+    now: number,
   ): Article[] {
-    const selection = settingsOf(state.state).postSelection;
     return [...state.articles.values()]
-      .filter((article) => {
-        // A source-rule candidate ignores Jev entirely, including a duplicate
-        // relation; the manual review and the post record still apply.
-        const source = isSourceCandidate(article);
-        return (
+      .filter(
+        (article) =>
           !state.posts.has(article.id) &&
-          article.reviewStatus !== "posted" &&
-          article.reviewStatus !== "dismissed" &&
-          (source || article.relation !== "duplicate") &&
-          ((selection !== "candidates" && article.reviewStatus === "saved") ||
-            (selection !== "saved" &&
-              (source ||
-                (article.analysisStatus === "done" &&
-                  article.decision === "candidate"))))
-        );
-      })
-      .sort(chronological);
+          SQLRepository.eligible(state, article, now),
+      )
+      .sort(newestFirst);
   }
 
   async postCandidates(): Promise<Article[]> {
     const [, state] = await this.snapshot(["state", "posts", "articles"]);
-    return SQLRepository.candidates(state).map(publicArticle);
+    return SQLRepository.candidates(state, this.clock()).map(publicArticle);
   }
 
   private static expirePosts(
@@ -850,7 +1037,7 @@ export class SQLRepository implements NewsRepository {
         expired += 1;
       }
     }
-    if (expired) settingsOf(state.state).autoPost = false;
+    if (expired) disablePosting(state.state);
     return expired;
   }
 
@@ -869,7 +1056,9 @@ export class SQLRepository implements NewsRepository {
   }
 
   async claimPost(now: number): Promise<PostClaim | null> {
-    await this.recoverPosts(now);
+    await this.recoverPosts(Math.max(now, this.clock()));
+    // A stale tick timestamp never sends after the posting window closed.
+    if (!isPostingTime(Math.max(now, this.clock()))) return null;
     // The minute tick normally exits here, without reading any articles or
     // historical posts. The actual reservation still rechecks everything in
     // its atomic mutation, including settings and eligibility changes.
@@ -878,43 +1067,77 @@ export class SQLRepository implements NewsRepository {
         "SELECT id,data FROM news_state WHERE id IN ('settings','schedule')",
         [],
       ],
+      ["SELECT id,data FROM news_state WHERE id='publication_batch'", []],
       [
         "SELECT 1 FROM news_posts WHERE json_extract(data,'$.status') IN ('publishing','submitted','unknown','failed') LIMIT 1",
         [],
       ],
     ]);
     const current: StateRows = {};
-    for (const row of gate[0]?.results ?? []) {
+    for (const row of [
+      ...(gate[0]?.results ?? []),
+      ...(gate[1]?.results ?? []),
+    ]) {
       const id = textColumn(row, "id");
       if (id === "settings")
         current.settings = decode<Settings>(textColumn(row, "data"));
       if (id === "schedule")
         current.schedule = decode<Schedule>(textColumn(row, "data"));
+      if (id === "publication_batch")
+        current.publication_batch = decode<PublicationBatch>(
+          textColumn(row, "data"),
+        );
     }
     if (
       !settingsOf(current).autoPost ||
-      scheduleOf(current).next_at > now ||
-      gate[1]?.results.length
+      (scheduleOf(current).next_at > Math.max(now, this.clock()) &&
+        !batchOf(current).articleIds.length) ||
+      gate[2]?.results.length
     )
       return null;
     return this.mutate(["state", "articles", "posts"], (state) => {
-      SQLRepository.expirePosts(state, now);
+      const current = Math.max(now, this.clock());
+      SQLRepository.expirePosts(state, current);
       const settings = settingsOf(state.state);
       const schedule = scheduleOf(state.state);
-      if (!settings.autoPost || schedule.next_at > now) return null;
+      // Freshness and the posting window use the later clock, so a stale
+      // tick timestamp never selects an aged-out article or sends after 23:00.
+      if (!settings.autoPost || !isPostingTime(current)) return null;
+      // Posts of a round are sent one at a time: each waits until the
+      // previous one is confirmed, and an unresolved one stops the round.
       if ([...state.posts.values()].some((post) => BLOCKING.has(post.status)))
         return null;
-      schedule.next_at = now + 3600;
-      const article = SQLRepository.candidates(state)[0];
-      if (!article) return null;
+      const candidates = SQLRepository.candidates(state, current);
+      const batch = batchOf(state.state);
+      let article: Article | undefined;
+      if (batch.articleIds.length) {
+        // A round only shrinks: articles no longer eligible now, including
+        // aged-out ones after the night, leave it; new arrivals never join.
+        const eligible = new Map(candidates.map((item) => [item.id, item]));
+        batch.articleIds = batch.articleIds.filter((id) => eligible.has(id));
+        article = eligible.get(batch.articleIds[0] ?? "");
+        if (!article) state.state.publication_batch = closedBatch();
+      }
+      if (!article) {
+        // A round opens when due with every current candidate; idle ticks
+        // reserve nothing, so arriving news opens the next round when due.
+        article = candidates[0];
+        if (schedule.next_at > current || !article) return null;
+        state.state.publication_batch = {
+          articleIds: candidates.map((item) => item.id),
+          openedAt: current,
+        };
+        schedule.next_at = nextPostingAt(current + POST_INTERVAL_SECONDS);
+      }
       const claimToken = randomToken();
       const post: Post = {
         article_id: article.id,
         status: "publishing",
         text: "",
-        attempted_at: timestamp(now),
+        // A delayed tick gets a fresh lease, starting when it actually claims.
+        attempted_at: timestamp(current),
         claim_token: claimToken,
-        claim_expires_at: now + 600,
+        claim_expires_at: current + 600,
         check_count: 0,
       };
       state.posts.set(article.id, post);
@@ -923,11 +1146,71 @@ export class SQLRepository implements NewsRepository {
       } catch (error) {
         if (!(error instanceof UserError)) throw error;
         Object.assign(post, { status: "failed", error: error.message });
-        settings.autoPost = false;
+        disablePosting(state.state);
         return null;
       }
       return { articleId: article.id, text: post.text, claimToken };
     });
+  }
+
+  /**
+   * The last check before an unsent claim reaches Buffer. Only this claim's
+   * own unexpired `publishing` record may be sent, within the posting window,
+   * with automatic posting still enabled, no other post blocking, the article still a candidate
+   * under the current settings, review, analysis and freshness, and its
+   * current draft identical to the claimed text. When its own live claim is
+   * no longer eligible, only that unsent record is withdrawn, so the article
+   * is neither failed nor unknown. It stays in its round, which the next
+   * claim rechecks. The next round keeps its scheduled hourly start even
+   * if all articles in the current round become ineligible.
+   * A lost, replaced or expired claim is refused without any change, since
+   * another attempt may already be in flight or awaiting confirmation.
+   */
+  async authorizePostSend(
+    articleId: string,
+    claimToken: string,
+    now: number,
+  ): Promise<boolean> {
+    return this.mutate(
+      ["state", "articles", "posts"],
+      (state) => {
+        // Snapshot reads and CAS retries can cross the daily closing time.
+        const current = Math.max(now, this.clock());
+        const post = state.posts.get(articleId);
+        if (
+          !claimToken ||
+          post?.status !== "publishing" ||
+          post.claim_token !== claimToken ||
+          post.claim_expires_at <= current
+        )
+          return false;
+        const article = state.articles.get(articleId);
+        if (
+          isPostingTime(current) &&
+          settingsOf(state.state).autoPost &&
+          ![...state.posts.values()].some(
+            (other) => other !== post && BLOCKING.has(other.status),
+          ) &&
+          article &&
+          SQLRepository.eligible(state, article, current) &&
+          SQLRepository.sameDraft(article, post.text)
+        )
+          return true;
+        state.posts.delete(articleId);
+        return false;
+      },
+      [articleId],
+    );
+  }
+
+  /** Whether the article still drafts exactly the claimed text. */
+  private static sameDraft(article: Article, text: string): boolean {
+    try {
+      return draft(article) === text;
+    } catch (error) {
+      if (error instanceof UserError) return false;
+      throw error;
+    }
   }
 
   private static post(
@@ -964,14 +1247,18 @@ export class SQLRepository implements NewsRepository {
     );
     Object.assign(post, { status, post_id: postId, error });
     if (status === "posted") {
-      const schedule = scheduleOf(state.state);
-      schedule.next_at = Math.max(schedule.next_at, now + 3600);
+      // The round, not each post, holds the next one back: the rest of the
+      // round follows as soon as this post is confirmed.
+      const batch = batchOf(state.state);
+      batch.articleIds = batch.articleIds.filter((id) => id !== articleId);
+      if (!batch.articleIds.length)
+        state.state.publication_batch = closedBatch();
       Object.assign(articleOf(state.articles, articleId), {
         reviewStatus: "posted",
         reviewedAt: timestamp(now),
       });
     } else {
-      settingsOf(state.state).autoPost = false;
+      disablePosting(state.state);
     }
   }
 
@@ -1051,7 +1338,7 @@ export class SQLRepository implements NewsRepository {
       }
       const previous = { ...post };
       Object.assign(post, {
-        check_at: now + 3600,
+        check_at: now + 120,
         check_count: post.check_count + 1,
       });
       return previous;
@@ -1072,7 +1359,7 @@ export class SQLRepository implements NewsRepository {
       } else {
         state.posts.delete(articleId);
       }
-      return SQLRepository.publication(state);
+      return SQLRepository.publication(state, this.clock());
     });
   }
 
@@ -1087,27 +1374,35 @@ export class SQLRepository implements NewsRepository {
     result: Analysis,
     relationHash?: string | null,
   ): Promise<boolean> {
-    return this.mutate(["state", "articles"], async (state) => {
-      const article = articleOf(state.articles, articleId);
-      if (
-        (await this.evidenceHash(article)) !== evidenceHash ||
-        settingsOf(state.state).rubric !== rubric
-      )
-        return false;
-      if (
-        result.relatedArticleId &&
-        relationHash !== undefined &&
-        relationHash !== null
-      ) {
-        const target = state.articles.get(result.relatedArticleId);
-        if (!target || (await this.evidenceHash(target)) !== relationHash)
+    // Only the target and its relation are read, independent of the inbox size.
+    const selected = result.relatedArticleId
+      ? [articleId, result.relatedArticleId]
+      : [articleId];
+    return this.mutate(
+      ["state", "articles"],
+      async (state) => {
+        const article = articleOf(state.articles, articleId);
+        if (
+          (await this.evidenceHash(article)) !== evidenceHash ||
+          settingsOf(state.state).rubric !== rubric
+        )
           return false;
-      }
-      Object.assign(article, structuredClone(result), {
-        analyzedAt: timestamp(this.clock()),
-      });
-      return true;
-    });
+        if (
+          result.relatedArticleId &&
+          relationHash !== undefined &&
+          relationHash !== null
+        ) {
+          const target = state.articles.get(result.relatedArticleId);
+          if (!target || (await this.evidenceHash(target)) !== relationHash)
+            return false;
+        }
+        Object.assign(article, structuredClone(result), {
+          analyzedAt: timestamp(this.clock()),
+        });
+        return true;
+      },
+      selected,
+    );
   }
 
   async getJob(): Promise<Job> {
@@ -1162,12 +1457,17 @@ export class SQLRepository implements NewsRepository {
   /**
    * An automatic collection of the given sources, fully initialized so that
    * the slice runner neither expands it to every source nor moves the
-   * regular collection interval.
+   * regular collection interval. `slot` is the daily JST slot it serves, if
+   * any daily source is included.
    */
-  private dailyJob(state: StateRows, sourceIds: string[], slot: number): Job {
+  private scheduledJob(
+    state: StateRows,
+    sourceIds: string[],
+    slot: number,
+  ): Job {
     return Object.assign(this.newJob(state, "collect", null, true), {
-      phase: "定時収集の準備中",
-      dailyCollectionAt: slot,
+      phase: slot ? "定時収集の準備中" : "予定時刻の収集の準備中",
+      ...(slot ? { dailyCollectionAt: slot } : {}),
       workIds: sourceIds,
       total: sourceIds.length,
       progress: 0,
@@ -1180,26 +1480,82 @@ export class SQLRepository implements NewsRepository {
   }
 
   /**
+   * Offset RSS sources due now, earliest first. A source without a time
+   * under its current phase, or one overdue by a whole period (automation
+   * off, source disabled, outage), is phased to the next JST slot no earlier
+   * than the current minute and its settled crawl record; the row is written
+   * by the caller's mutation. A slot at hh:mm:00 is due for a Cron firing
+   * later in that minute.
+   */
+  private dueOffsets(
+    sources: Map<string, Source>,
+    configs: readonly SourceConfig[],
+    records: Map<string, CrawlSourceRecord>,
+    backoffs: Map<string, number>,
+    now: number,
+  ): string[] {
+    const due: [number, string][] = [];
+    for (const config of configs) {
+      const source = sources.get(config.id);
+      const phase = phaseOf(config);
+      if (!source || phase === null) continue;
+      const minutes = config.minCollectionMinutes ?? 60;
+      const period = minutes * 60;
+      let at = autoCollectAt(source, phase);
+      if (!(at > now - period)) {
+        const record = records.get(config.id);
+        // Align the phase once; never round an actual request's minimum
+        // up to another whole period. Shared host blocks resume staggered.
+        at = Math.max(
+          nextPhase(
+            Math.max(
+              Math.floor(now / 60) * 60,
+              backoffs.get(
+                new URL(config.url).hostname.replace(/^www\./, ""),
+              ) ?? 0,
+            ),
+            config.collectionOffsetMinutes ?? 0,
+            minutes,
+          ),
+          record ? record.last_requested + period : 0,
+          record?.retry_at ?? 0,
+        );
+        Object.assign(source, {
+          autoCollectAt: timestamp(at),
+          autoCollectPhase: phase,
+        });
+      }
+      if (at <= now) due.push([at, config.id]);
+    }
+    return due.sort((a, b) => a[0] - b[0]).map(([, id]) => id);
+  }
+
+  /**
    * Decides and queues at most one scheduler job in one atomic mutation.
    *
    * Scheduler records are read inside the mutation; every scheduler record
    * write increments the revision, so a concurrent job, setting, cooldown or
    * analysis result makes this decision retry from the new state.
    *
-   * Fixed daily sources due at their JST time come first, independent of the
-   * regular interval. An idle automatic job yields to them at an item
-   * boundary, and its remaining sources follow the daily ones; manual jobs
-   * and live leases are never replaced, and a queued daily batch continues.
-   * Their last start is not revision-fenced, so a source claimed meanwhile
-   * is deferred by CachedFetch.beginSource under the host lease instead.
+   * Offset RSS sources at their phased time and fixed daily sources at their
+   * JST time come first, independent of the regular interval. An idle
+   * automatic job yields to them at an item boundary: remaining sources are
+   * carried and remaining analysis stays pending for a later batch. Offset
+   * sources, each a single feed request, run before daily ones so a daily
+   * batch does not shift their phase; manual jobs and live leases are never
+   * replaced, and a queued batch that already holds every due source
+   * continues. Neither time is revision-fenced against the crawl records, so
+   * a source claimed meanwhile is deferred by CachedFetch.beginSource under
+   * the host lease instead.
    *
    * Otherwise due regular collection wins, except that one analysis batch may
    * follow a finished collection so that collection longer than its interval
-   * cannot starve classification. Only never-analyzed articles are chosen,
-   * oldest first.
+   * cannot starve classification. Only never-analyzed articles published
+   * within the freshness window are chosen, newest first; older, undated,
+   * invalid and future articles are left for manual review.
    */
   async queueAutomaticJob(canAnalyze: boolean): Promise<Job | null> {
-    return this.mutate(["state", "articles", "sources"], async (state) => {
+    return this.mutate(["state", "sources"], async (state) => {
       const previous = jobOf(state.state);
       const settings = settingsOf(state.state);
       const now = this.clock();
@@ -1207,36 +1563,75 @@ export class SQLRepository implements NewsRepository {
         const source = state.sources.get(config.id);
         return source?.enabled === true && !source.collectionBlocked;
       };
+      const candidates = settings.autoCollect
+        ? this.sourceConfig.filter(
+            (config) =>
+              (config.dailyAtJst || phaseOf(config) !== null) && active(config),
+          )
+        : [];
+      const records = await this.crawlSources(
+        candidates.map((config) => config.id),
+        now,
+      );
       const daily: string[] = [];
       let slot = 0;
-      for (const config of this.sourceConfig) {
-        if (!settings.autoCollect || !config.dailyAtJst || !active(config))
-          continue;
-        const started = await this.getRecord<{ last_requested: number }>(
-          "crawl_source",
-          config.id,
-        );
-        if (nextDailyRun(now, config.dailyAtJst, started?.last_requested) > now)
-          continue;
+      for (const config of candidates) {
+        if (!config.dailyAtJst) continue;
+        const started = records.get(config.id)?.last_requested;
+        if (nextDailyRun(now, config.dailyAtJst, started) > now) continue;
         daily.push(config.id);
         slot = Math.max(slot, dailySlot(now, config.dailyAtJst));
       }
+      const offsetHosts = [
+        ...new Set(
+          candidates
+            .filter((item) => phaseOf(item) !== null)
+            .map((item) => new URL(item.url).hostname.replace(/^www\./, "")),
+        ),
+      ];
+      const backoffs = new Map(
+        await Promise.all(
+          offsetHosts.map(async (host): Promise<[string, number]> => {
+            const record = await this.getRecord<{ blocked_until: number }>(
+              "crawl_host",
+              host,
+            );
+            if (record && !Number.isFinite(record.blocked_until))
+              throw new UserError("サイトの待機記録が不正です");
+            return [host, record?.blocked_until ?? 0];
+          }),
+        ),
+      );
+      const due = [
+        ...this.dueOffsets(state.sources, candidates, records, backoffs, now),
+        ...daily,
+      ];
       if (previous.running) {
         if (!previous.automatic || previous.leaseUntil > now) return null;
-        const remaining = previous.workIds?.slice(previous.progress) ?? [];
-        if (
-          previous.dailyCollectionAt !== undefined &&
-          daily.every((id) => remaining.includes(id))
-        )
-          return null;
-        if (!daily.length) return null;
-        const carried =
+        const remaining =
           previous.kind === "collect"
-            ? remaining.filter((id) => !daily.includes(id))
+            ? (previous.workIds?.slice(previous.progress) ?? [])
             : [];
-        return this.dailyJob(state.state, [...daily, ...carried], slot);
+        if (due.every((id) => remaining.includes(id))) return null;
+        const configs = new Map(
+          this.sourceConfig.map((config) => [config.id, config]),
+        );
+        const rank = (id: string) => {
+          const config = configs.get(id);
+          return config && phaseOf(config) !== null
+            ? 0
+            : config?.dailyAtJst
+              ? 1
+              : 2;
+        };
+        const work = [...new Set([...remaining, ...due])].sort(
+          (a, b) => rank(a) - rank(b),
+        );
+        if (remaining.some((id) => rank(id) === 1))
+          slot = Math.max(slot, previous.dailyCollectionAt ?? 0);
+        return this.scheduledJob(state.state, work, slot);
       }
-      if (daily.length) return this.dailyJob(state.state, daily, slot);
+      if (due.length) return this.scheduledJob(state.state, due, slot);
       const collection = await this.getRecord<{ nextAt: number }>(
         "scheduler",
         "collection",
@@ -1245,7 +1640,8 @@ export class SQLRepository implements NewsRepository {
         settings.autoCollect &&
         now >= (collection?.nextAt ?? 0) &&
         this.sourceConfig.some(
-          (config) => !config.dailyAtJst && active(config),
+          (config) =>
+            !config.dailyAtJst && phaseOf(config) === null && active(config),
         );
       let analyze: string[] = [];
       if (canAnalyze && settings.autoAnalyze) {
@@ -1253,10 +1649,18 @@ export class SQLRepository implements NewsRepository {
           "scheduler",
           "analysis",
         );
+        // Read after the snapshot: every article write increments the
+        // revision, so a decision on newer articles is rejected and retried.
         if (now >= (pause?.nextAt ?? 0))
-          analyze = [...state.articles.values()]
-            .filter((article) => article.analysisStatus === "pending")
-            .sort(chronological)
+          analyze = (await this.pendingArticles())
+            .filter((article) =>
+              isFreshPublication(
+                article.publishedAt,
+                now,
+                article.metadata?.publicationPrecision,
+              ),
+            )
+            .sort(newestFirst)
             .slice(0, Math.min(100, settings.pollMinutes))
             .map((article) => article.id);
       }
@@ -1266,6 +1670,45 @@ export class SQLRepository implements NewsRepository {
         return this.newJob(state.state, "analyze", analyze, true);
       return null;
     });
+  }
+
+  /** Unexpired `crawl_source` records of the given sources, in one query. */
+  private async crawlSources(
+    sourceIds: readonly string[],
+    now: number,
+  ): Promise<Map<string, CrawlSourceRecord>> {
+    if (!sourceIds.length) return new Map();
+    const result = await this.driver.batch([
+      [
+        "SELECT key,data FROM news_records WHERE namespace=? AND key IN (SELECT value FROM json_each(?)) AND (expires IS NULL OR expires>?)",
+        ["crawl_source", encode(sourceIds), now],
+      ],
+    ]);
+    // A malformed record is left to CachedFetch, which refuses it.
+    return new Map(
+      (result[0]?.results ?? []).flatMap((row) => {
+        const data = decode<Record<string, unknown>>(textColumn(row, "data"));
+        if (!finite(data.last_requested)) return [];
+        const record: CrawlSourceRecord = {
+          last_requested: data.last_requested,
+        };
+        if (finite(data.retry_at)) record.retry_at = data.retry_at;
+        return [[textColumn(row, "key"), record] as const];
+      }),
+    );
+  }
+
+  /** Never-analyzed articles, filtered in SQL so an analyzed inbox is not transferred. */
+  private async pendingArticles(): Promise<Article[]> {
+    const result = await this.driver.batch([
+      [
+        "SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus')='pending'",
+        [],
+      ],
+    ]);
+    return (result[0]?.results ?? []).map((row) =>
+      decode<Article>(textColumn(row, "data")),
+    );
   }
 
   async claimJob(now: number, leaseSeconds = 600): Promise<Job | null> {
@@ -1658,7 +2101,9 @@ export class SQLRepository implements NewsRepository {
       autoAnalyze: false,
     } as unknown as Settings;
     const importedSchedule: Schedule = {
-      next_at: Math.max(schedule.next_at, this.clock() + 3600),
+      next_at: nextPostingAt(
+        Math.max(schedule.next_at, this.clock() + POST_INTERVAL_SECONDS),
+      ),
     };
     return this.mutate(["state", "articles", "sources", "posts"], (state) => {
       if (
@@ -1681,6 +2126,8 @@ export class SQLRepository implements NewsRepository {
       Object.assign(state.state, {
         settings: importedSettings,
         schedule: importedSchedule,
+        // An open round is runtime state; imported posting starts afresh.
+        publication_batch: closedBatch(),
         job: structuredClone(DEFAULT_JOB),
         imported: { at: timestamp(this.clock()) },
       });

@@ -27,7 +27,7 @@ let classify = false;
 const feedItems = (count: number) =>
   Array.from({ length: count }, (_, index) => {
     const suffix = index ? String(index) : "";
-    return `<item><title>クマの出没と対策${suffix}</title><link>https://example.org/a${suffix}</link><description>市が対策を発表</description></item>`;
+    return `<item><title>クマの出没と対策${suffix}</title><link>https://example.org/a${suffix}</link><description>市が対策を発表</description><pubDate>${new Date((now - index) * 1000).toUTCString()}</pubDate></item>`;
   }).join("");
 const choice = (value: string, names: string[]) => ({
   type: "choice",
@@ -41,7 +41,6 @@ const choice = (value: string, names: string[]) => ({
 });
 const irrelevant = JSON.stringify({
   answers: {
-    relevance: choice("irrelevant", ["candidate", "review", "irrelevant"]),
     topic: choice("その他", [
       "狩猟・猟銃",
       "射撃競技",
@@ -50,7 +49,7 @@ const irrelevant = JSON.stringify({
       "制度・行政",
       "その他",
     ]),
-    reason: choice("unrelated", [
+    classification: choice("unrelated", [
       "relevant",
       "policy",
       "fiction",
@@ -93,10 +92,19 @@ const transport: FetchBytes = async (url, options) => {
             },
           }
         : {
+            dailyPostingLimits: [
+              {
+                channelId: "fixture-channel",
+                isAtLimit: false,
+                limit: 100,
+                scheduled: 0,
+              },
+            ],
             channel: {
               id: "fixture-channel",
               name: "NilayNews",
               service: "twitter",
+              allowedActions: ["scheduleUpdates", "readUpdates"],
               isDisconnected: false,
               isLocked: false,
               isQueuePaused: false,

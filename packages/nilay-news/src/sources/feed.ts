@@ -78,6 +78,14 @@ function entryLink(entry: XmlElement, atom: boolean): string {
   return guid ? strip(leadingText(guid)) : "";
 }
 
+/**
+ * The entry's own publication time. Atom `updated` records a later edit, so
+ * it never stands in for a missing publication date.
+ */
+function publication(entry: XmlElement): string | null {
+  return feedDate(childText(entry, ["pubDate", "published", "date"]));
+}
+
 interface Entries {
   entries: XmlElement[];
   atom: boolean;
@@ -130,9 +138,7 @@ export function parseFeed(
         childText(entry, ["description", "summary", "encoded", "content"]),
         1500,
       ),
-      publishedAt: feedDate(
-        childText(entry, ["pubDate", "published", "date", "updated"]),
-      ),
+      publishedAt: publication(entry),
     });
     if (results.length >= limit) break;
   }
@@ -296,9 +302,7 @@ export function parseFeedLinks(
       continue;
     }
     const roundupTitle = plain(childText(entry, ["title"]), 200);
-    const roundupDate = feedDate(
-      childText(entry, ["pubDate", "published", "date", "updated"]),
-    );
+    const roundupDate = publication(entry);
     const links = roundupLinks(
       childText(entry, ["encoded", "content", "description", "summary"]),
       roundupUrl,

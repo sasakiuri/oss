@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev.ts";
@@ -12,11 +12,13 @@ const cleanup: (() => void)[] = [];
 afterEach(() => {
   for (const close of cleanup.splice(0)) close();
 });
-async function setup() {
-  const storage = testRepository();
+async function setup(clock = () => 1_800_000_000) {
+  const storage = testRepository([], clock);
   cleanup.push(storage.close);
   await storage.repo.initialize();
-  const app = new Application(storage.repo, new Jev(), new BufferClient());
+  const app = new Application(storage.repo, new Jev(), new BufferClient(), {
+    clock,
+  });
   const handlers = createHandlers(
     () => ({ allowed: async () => true }),
     async () => app,
@@ -110,6 +112,50 @@ describe("HTTP contract", () => {
     );
     expect((await cached()).status).toBe(200);
   });
+  it("refreshes clock-derived freshness within 30 seconds without database writes", async () => {
+    let now = Date.parse("2026-09-28T03:00:00Z") / 1000;
+    const { repo, handlers, env } = await setup(() => now);
+    await repo.ingest(
+      {
+        id: "date-test",
+        name: "date",
+        url: "https://example.org/feed",
+        kind: "rss",
+        enabled: true,
+        description: "date",
+      },
+      [
+        {
+          title: "期限境界の記事",
+          url: "https://example.org/boundary",
+          excerpt: "",
+          publishedAt: new Date((now - 86400) * 1000).toISOString(),
+        },
+      ],
+    );
+    const version = await repo.stateVersion();
+    const first = await handlers.fetch(
+      new Request("https://news.example.test/api/state"),
+      env,
+    );
+    expect(await first.json()).toMatchObject({
+      articles: [{ freshness: "fresh" }],
+      stats: { pending: 1 },
+    });
+    now += 30;
+    const next = await handlers.fetch(
+      new Request("https://news.example.test/api/state", {
+        headers: { "If-None-Match": first.headers.get("ETag")! },
+      }),
+      env,
+    );
+    expect(next.status).toBe(200);
+    expect(await next.json()).toMatchObject({
+      articles: [{ freshness: "stale" }],
+      stats: { pending: 0, expired: 1 },
+    });
+    expect(await repo.stateVersion()).toBe(version);
+  });
   it("hides storage and runtime errors from the response", async () => {
     const { env } = await setup();
     const handlers = createHandlers(
@@ -124,6 +170,58 @@ describe("HTTP contract", () => {
     );
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain("private database credential");
+  });
+  it("serves the read-only publication preflight for an empty JSON object only", async () => {
+    const { request, repo } = await setup();
+    const settings = await repo.settings();
+    const response = await request("/api/publication/preflight", "{}");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      configured: false,
+      connectionVerified: false,
+      ready: false,
+      blockers: expect.arrayContaining([
+        "Buffer の API キーとチャンネル ID を設定してください",
+      ]),
+    });
+    for (const body of ['{"autoPost":true}', "[]", "{"])
+      expect((await request("/api/publication/preflight", body)).status).toBe(
+        400,
+      );
+    expect(
+      (await request("/api/publication/preflight", "{}", "text/plain")).status,
+    ).toBe(415);
+    expect(await repo.settings()).toEqual(settings);
+  });
+  it("protects the preflight like other POST requests and hides runtime errors", async () => {
+    const { env } = await setup();
+    const post = () =>
+      new Request("https://news.example.test/api/publication/preflight", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+    const app = vi.fn<(env: Env) => Promise<Application>>();
+    const denied = createHandlers(() => ({ allowed: async () => false }), app);
+    expect((await denied.fetch(post(), env)).status).toBe(403);
+    expect(app).not.toHaveBeenCalled();
+    const storage = testRepository();
+    cleanup.push(storage.close);
+    await storage.repo.initialize();
+    const failing = createHandlers(
+      () => ({ allowed: async () => true }),
+      async () =>
+        new Application(
+          storage.repo,
+          new Jev(),
+          new BufferClient("key", "channel", async () => {
+            throw new Error("private buffer detail");
+          }),
+        ),
+    );
+    const response = await failing.fetch(post(), env);
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain("private buffer detail");
   });
   it("does not serve arbitrary files through the assets binding", async () => {
     const { handlers, env } = await setup();

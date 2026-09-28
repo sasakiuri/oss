@@ -37,6 +37,12 @@ export type Source = {
   lastWarnings?: string[];
   lastDeferred?: string | null;
   nextFetchAt?: string | null;
+  /**
+   * Offset RSS only: when the scheduler next queues the source, and the
+   * `offset/period` it was phased with. Never a crawl claim.
+   */
+  autoCollectAt?: string | null;
+  autoCollectPhase?: string | null;
 };
 export interface Settings {
   rubric: string;

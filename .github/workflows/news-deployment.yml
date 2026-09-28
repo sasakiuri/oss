@@ -98,10 +98,16 @@ jobs:
           node scripts/check-config.ts wrangler.production.jsonc --deployment
       - name: Dry-run the production bundle
         run: npx --no-install wrangler deploy --dry-run --config wrangler.production.jsonc --outdir .local/production-dist
+      - name: Dry-run the private feed Worker
+        run: npx --no-install wrangler deploy --dry-run --config wrangler.feeds.jsonc --outdir .local/feeds-dist
       - name: Apply D1 migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx --no-install wrangler d1 migrations apply DB --remote --config wrangler.production.jsonc
+      - name: Deploy the private feed Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --no-install wrangler deploy --config wrangler.feeds.jsonc
       - name: Deploy the Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

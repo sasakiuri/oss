@@ -213,11 +213,14 @@ export function createFetchBytes(
             retryAfterSeconds(response.headers.get("retry-after") ?? ""),
           );
         }
-        return {
+        const result: FetchResult = {
           data: await readBody(response, maxBytes, controller.signal),
           url: target,
           contentType: response.headers.get("content-type") ?? "",
         };
+        const rateLimit = response.headers.get("ratelimit");
+        if (rateLimit !== null) result.rateLimit = rateLimit;
+        return result;
       }
       throw new FetchError("情報源の転送回数が多すぎます");
     };

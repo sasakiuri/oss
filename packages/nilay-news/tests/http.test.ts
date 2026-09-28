@@ -76,6 +76,21 @@ describe("fetchBytes", () => {
     expect(USER_AGENT).toContain("NilayNews");
     expect(init?.signal?.aborted).toBe(true);
     expect(state.cancelled).toBe(false);
+    expect("rateLimit" in result).toBe(false);
+  });
+
+  it("exposes a RateLimit header only when the response has one", async () => {
+    const headers = new Headers();
+    headers.append("RateLimit", '"100-in-15min"; r=99; t=900');
+    headers.append("RateLimit", '"250-in-1day"; r=244; t=70610');
+    const { fetchBytes } = runtime([
+      new Response("ok", { headers }),
+      new Response("ok", { headers: { ratelimit: "" } }),
+    ]);
+    expect((await fetchBytes("https://example.org/a")).rateLimit).toBe(
+      '"100-in-15min"; r=99; t=900, "250-in-1day"; r=244; t=70610',
+    );
+    expect((await fetchBytes("https://example.org/b")).rateLimit).toBe("");
   });
 
   it("rejects an advertised oversize body without reading it", async () => {

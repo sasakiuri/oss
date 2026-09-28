@@ -6,7 +6,7 @@ const model = {
   selectedId: null,
   query: "",
   topic: "",
-  sort: "priority",
+  sort: "newest",
   visibleCount: PAGE_SIZE,
   loading: true,
   requestPending: false,
@@ -18,6 +18,7 @@ const model = {
   lastJobError: null,
   lastPostError: null,
   settingsRendered: false,
+  preflight: null,
   expandedBodies: new Set(),
 };
 
@@ -27,6 +28,7 @@ const buckets = [
     label: "受信箱",
     match: (a) =>
       a.reviewStatus === "unread" &&
+      a.freshness === "fresh" &&
       (a.sourceCandidate || a.decision !== "irrelevant"),
   },
   {
@@ -36,11 +38,35 @@ const buckets = [
   },
   {
     id: "review",
-    label: "要確認・未判定",
+    label: "内容の要確認",
     match: (a) =>
       a.reviewStatus === "unread" &&
+      a.freshness === "fresh" &&
       !a.sourceCandidate &&
-      (a.decision === "review" || !a.decision || a.analysisStatus !== "done"),
+      a.analysisStatus === "done" &&
+      a.decision === "review",
+  },
+  {
+    id: "pending",
+    label: "未判定・仕分け失敗",
+    match: (a) =>
+      a.reviewStatus === "unread" &&
+      a.freshness === "fresh" &&
+      !a.sourceCandidate &&
+      a.analysisStatus !== "done",
+  },
+  {
+    id: "dates",
+    label: "日時未確認",
+    match: (a) =>
+      a.reviewStatus === "unread" &&
+      a.freshness !== "fresh" &&
+      a.freshness !== "stale",
+  },
+  {
+    id: "expired",
+    label: "期間を過ぎた記事",
+    match: (a) => a.reviewStatus === "unread" && a.freshness === "stale",
   },
   {
     id: "posted",
@@ -53,6 +79,7 @@ const buckets = [
     match: (a) =>
       a.reviewStatus === "dismissed" ||
       (a.reviewStatus === "unread" &&
+        a.freshness === "fresh" &&
         !a.sourceCandidate &&
         a.decision === "irrelevant"),
   },
@@ -60,7 +87,13 @@ const buckets = [
 /** Shown for articles the server made candidates by their source alone. */
 const SOURCE_CANDIDATE_LABEL = "投稿対象（情報源指定）";
 const SOURCE_CANDIDATE_REASON =
-  "日本ライフル射撃協会・日本クレー射撃協会・日本ジビエ振興協会の記事は、情報源の指定により Jev の仕分けを待たずに投稿対象になります。Jev の仕分け結果はこの指定を取り消しません。手動で見送った記事や投稿済みの記事は除きます。";
+  "日本ライフル射撃協会・日本クレー射撃協会・日本ジビエ振興協会の記事は、公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日なら Jev の仕分けを待たずに投稿対象になります。公開日時が不明・不正・未来の記事、手動で見送った記事や投稿済みの記事は除きます。Jev の仕分け結果はこの指定を取り消しません。";
+const freshnessLabels = {
+  stale: "期間外・自動対象外",
+  unknown: "公開日時不明・自動対象外",
+  invalid: "公開日時不正・自動対象外",
+  future: "公開日時が未来・自動対象外",
+};
 const decisionLabels = {
   candidate: "候補",
   review: "要確認",
@@ -86,6 +119,11 @@ const phaseLabels = {
   fetching: "収集元を確認中",
   idle: "待機中",
   done: "完了",
+};
+const postSelectionLabels = {
+  saved: "手動で保存した記事",
+  candidates: "Jev の候補と情報源指定の記事",
+  both: "手動保存、Jev の候補、情報源指定の記事",
 };
 const sourceKindLabels = {
   rss: "RSS",
@@ -130,16 +168,74 @@ function externalLink(text, url, className) {
   return node;
 }
 
+const JST_OFFSET_MS = 9 * 3600 * 1000;
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+/** Japan Standard Time (no DST) wall clock in 24-hour form, independent of the browser zone. */
+function jstClock(epochMs, includeTime, includeSeconds = false) {
+  const jst = new Date(epochMs + JST_OFFSET_MS);
+  const day = `${jst.getUTCFullYear()}/${jst.getUTCMonth() + 1}/${jst.getUTCDate()}`;
+  if (!includeTime) return day;
+  const seconds = includeSeconds ? `:${pad2(jst.getUTCSeconds())}` : "";
+  return `${day} ${pad2(jst.getUTCHours())}:${pad2(jst.getUTCMinutes())}${seconds} JST`;
+}
+
 function dateText(value, includeTime = false) {
   if (!value) return "日時不明";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "日時不明";
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    ...(includeTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-  }).format(date);
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return "日時不明";
+  return jstClock(time, includeTime);
+}
+
+// A URL is kept verbatim; otherwise an ISO date-time with an explicit zone,
+// not glued to other date, URL or identifier characters.
+const MESSAGE_TIME =
+  /(https?:\/\/\S+)|(?<![\w/.:+-])(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})(?![\w:+-]|\.\d)/g;
+
+/** Server text with stored UTC ISO timestamps rewritten as JST; anything invalid stays as is. */
+function messageText(text) {
+  if (typeof text !== "string") return text;
+  return text.replace(
+    MESSAGE_TIME,
+    (match, url, y, mo, d, h, mi, s, fraction, zone) => {
+      if (url) return match;
+      const [year, month, day, hour, minute, second] = [
+        y,
+        mo,
+        d,
+        h,
+        mi,
+        s || "0",
+      ].map(Number);
+      const [zoneHour, zoneMinute] =
+        zone === "Z" ? [0, 0] : zone.slice(1).split(":").map(Number);
+      if (
+        hour > 23 ||
+        minute > 59 ||
+        second > 59 ||
+        zoneHour > 23 ||
+        zoneMinute > 59
+      )
+        return match;
+      const local = Date.UTC(year, month - 1, day, hour, minute, second);
+      const check = new Date(local);
+      if (
+        check.getUTCFullYear() !== year ||
+        check.getUTCMonth() !== month - 1 ||
+        check.getUTCDate() !== day
+      )
+        return match;
+      const offset =
+        (zoneHour * 60 + zoneMinute) * 60000 * (zone.startsWith("-") ? -1 : 1);
+      const fractionMs = fraction
+        ? Math.floor(Number(`0${fraction}`) * 1000)
+        : 0;
+      return jstClock(local - offset + fractionMs, true, s !== undefined);
+    },
+  );
 }
 
 function shortDate(article) {
@@ -149,7 +245,7 @@ function shortDate(article) {
 }
 
 function showNotice(message, error = false) {
-  $("notice-text").textContent = message;
+  $("notice-text").textContent = messageText(message);
   $("notice").classList.toggle("error", error);
   $("notice").setAttribute("role", error ? "alert" : "status");
   $("notice").hidden = false;
@@ -354,10 +450,12 @@ function renderHeader() {
   $("analyze-button").disabled =
     busy ||
     !state?.settings.jevConfigured ||
-    !state.articles.some((a) => a.analysisStatus !== "done");
+    !state.articles.some(
+      (a) => a.freshness === "fresh" && a.analysisStatus !== "done",
+    );
   $("analyze-button").title = !state?.settings.jevConfigured
     ? "収集元と設定で Jev の API キーを設定してください。"
-    : "未判定・仕分け失敗の記事を Jev で判定します。";
+    : "鮮度条件を満たす未判定・仕分け失敗の記事を、新しい順に Jev で判定します。";
   $("inbox-view").hidden = model.view === "settings";
   $("settings-view").hidden = model.view !== "settings";
   const pageTitle =
@@ -374,7 +472,9 @@ function renderHeader() {
   );
   $("job-banner").hidden = !state?.job.running;
   $("collection-warning").hidden = !state?.job.warning;
-  $("collection-warning-text").textContent = state?.job.warning || "";
+  $("collection-warning-text").textContent = messageText(
+    state?.job.warning || "",
+  );
   if (state?.job.running) {
     const job = state.job;
     $("job-label").textContent =
@@ -448,10 +548,26 @@ function renderTopics() {
 
 function articleTags(article) {
   const result = [];
+  if (article.freshness !== "fresh")
+    result.push(
+      el(
+        "span",
+        "tag tag-review",
+        freshnessLabels[article.freshness] || freshnessLabels.unknown,
+      ),
+    );
   // The source rule is not a Jev result; its own Jev state stays labeled.
   const jev = article.sourceCandidate ? "Jev: " : "";
   if (article.sourceCandidate)
-    result.push(el("span", "tag tag-candidate", SOURCE_CANDIDATE_LABEL));
+    result.push(
+      el(
+        "span",
+        "tag tag-candidate",
+        article.freshness === "fresh"
+          ? SOURCE_CANDIDATE_LABEL
+          : "情報源指定（鮮度条件外）",
+      ),
+    );
   if (article.analysisStatus === "error")
     result.push(el("span", "tag tag-error", `${jev}仕分け失敗`));
   else if (article.analysisStatus !== "done" || !article.decision)
@@ -573,7 +689,19 @@ function renderEmpty() {
       ],
       review: [
         "確認待ちの記事はありません",
-        "未判定・要確認・仕分けに失敗した記事を表示します。",
+        "内容の関連性を自動で決めきれなかった記事を表示します。日時の確認や仕分け待ちは別の一覧にあります。",
+      ],
+      pending: [
+        "仕分け待ちの記事はありません",
+        "未判定の記事と仕分けに失敗した記事を表示します。",
+      ],
+      dates: [
+        "日時の確認が必要な記事はありません",
+        "公開日時が不明・不正・未来の記事です。内容の判定とは別に、自動投稿の対象外として保持します。",
+      ],
+      expired: [
+        "期間を過ぎた記事はありません",
+        "自動処理の対象期間を過ぎた記事を履歴として表示します。",
       ],
       posted: [
         "投稿済みの記事はありません",
@@ -698,7 +826,9 @@ function renderDetail() {
       "span",
       "",
       article.publishedAt
-        ? `公開 ${dateText(article.publishedAt, true)}`
+        ? article.metadata?.publicationPrecision === "date"
+          ? `公開日 ${dateText(article.publishedAt)}（時刻不明）`
+          : `公開 ${dateText(article.publishedAt, true)}`
         : "公開日時は取得できていません",
     ),
     el("br"),
@@ -718,10 +848,24 @@ function renderDetail() {
     ),
   );
   appendArticleContent(panel, article);
+  if (article.freshness !== "fresh")
+    panel.append(
+      el(
+        "p",
+        "form-help",
+        `${freshnessLabels[article.freshness] || freshnessLabels.unknown}。自動仕分けと自動投稿の対象にはなりません。保存してもこの条件は変わりません。個別の手動仕分けはできます。`,
+      ),
+    );
   if (article.sourceCandidate) {
     const rule = el("section", "analysis-box source-candidate");
     rule.append(
-      el("h3", "", SOURCE_CANDIDATE_LABEL),
+      el(
+        "h3",
+        "",
+        article.freshness === "fresh"
+          ? SOURCE_CANDIDATE_LABEL
+          : "情報源指定（鮮度条件外）",
+      ),
       el("p", "", SOURCE_CANDIDATE_REASON),
     );
     panel.append(rule);
@@ -750,7 +894,7 @@ function renderDetail() {
       el(
         "p",
         "analysis-error",
-        article.analysisError ||
+        messageText(article.analysisError) ||
           "仕分けできませんでした。記事はそのまま確認できます。",
       ),
     );
@@ -835,7 +979,7 @@ function renderDetail() {
     );
   if (["unknown", "failed"].includes(publication?.status)) {
     preview.append(
-      el("p", "analysis-error", publication.error),
+      el("p", "analysis-error", messageText(publication.error)),
       el(
         "p",
         "form-help",
@@ -1058,7 +1202,8 @@ function appendArticleContent(panel, article) {
   if (warnings.length) {
     const warning = el("section", "content-warning");
     warning.append(el("h3", "", "取得・抽出の注意点"));
-    for (const message of warnings) warning.append(el("p", "", message));
+    for (const message of warnings)
+      warning.append(el("p", "", messageText(message)));
     panel.append(warning);
   }
   if (article.body) {
@@ -1123,12 +1268,23 @@ function renderSourceMessages(row, source) {
     );
   row.querySelector(".source-timing")?.remove();
   if (source.minCollectionMinutes) {
-    const text = `各検索は${source.minCollectionMinutes / 60}時間ごと。同じサイトへの通信は${source.minRequestIntervalSeconds / 60}分以上空けます。`;
+    const interval =
+      source.minCollectionMinutes < 60
+        ? `${source.minCollectionMinutes}分`
+        : `${source.minCollectionMinutes / 60}時間`;
+    const text =
+      `取得は${interval}以上空けます。` +
+      (source.minRequestIntervalSeconds
+        ? `同じサイトへの通信は${source.minRequestIntervalSeconds / 60}分以上空けます。`
+        : "");
     row.append(
       el(
         "p",
         "source-timing source-description",
         text +
+          (source.autoCollectAt
+            ? ` 次回の自動収集予定：${dateText(source.autoCollectAt, true)}。`
+            : "") +
           (source.nextFetchAt
             ? ` 次回取得可能：${dateText(source.nextFetchAt, true)}`
             : ""),
@@ -1138,19 +1294,27 @@ function renderSourceMessages(row, source) {
   row.querySelector(".source-deferred")?.remove();
   if (source.lastDeferred)
     row.append(
-      el("p", "source-deferred source-description", source.lastDeferred),
+      el(
+        "p",
+        "source-deferred source-description",
+        `前回の待機：${messageText(source.lastDeferred)}`,
+      ),
     );
   row.querySelector(".source-error")?.remove();
   row.querySelector(".source-warnings")?.remove();
   if (source.lastError)
     row.append(
-      el("p", "source-error", `取得できませんでした：${source.lastError}`),
+      el(
+        "p",
+        "source-error",
+        `取得できませんでした：${messageText(source.lastError)}`,
+      ),
     );
   if (Array.isArray(source.lastWarnings) && source.lastWarnings.length) {
     const warnings = el("ul", "source-warnings");
     warnings.setAttribute("aria-label", "取得範囲と注意点");
     for (const message of source.lastWarnings)
-      warnings.append(el("li", "", message));
+      warnings.append(el("li", "", messageText(message)));
     row.append(warnings);
   }
 }
@@ -1267,7 +1431,7 @@ function renderSettings() {
     el(
       "p",
       "form-help",
-      "「未判定を仕分け」で最大 100 件の記事情報を TypeSafe に送信します。利用料金がかかります。",
+      "「未判定を仕分け」で公開時刻がある記事は24時間以内、日付だけの記事は今日・昨日の新着を最大 100 件、TypeSafe に送信します。利用料金がかかります。",
     ),
   );
   if (state.settings.autoAnalyze) {
@@ -1299,7 +1463,7 @@ function renderSettings() {
     el(
       "p",
       "form-help",
-      "1時間に最大1件、古い記事から投稿します。見送り・投稿済み・重複判定の記事は除外します。初回は有効化から60分後です。",
+      "公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日を対象に、1時間ごとに、その時点の対象記事をすべて、新しい順で1記事につき1投稿ずつ連続投稿します。10件あれば10投稿です。配信開始後に対象になった記事は次回に送信します。送信は毎日 06:00〜23:00 JST（23:00以降送信なし）で、時間外に対象になった記事は翌朝 06:00 以降に、その時点でも鮮度条件を満たせば送信します。初回は有効化から60分以上後です。Bufferの利用上限が近い場合は自動投稿を停止します。表示された待機時間の後に再確認して再開してください。公開日時が不明・不正・未来の記事は、保存済みや情報源指定でも対象外です。見送り・投稿済みの記事と、情報源指定以外で重複と判定された記事も除外します。",
     ),
   );
   const postingStatus = el("p", "form-help");
@@ -1326,17 +1490,13 @@ function renderSettings() {
   const autoPost = el("input");
   autoPost.type = "checkbox";
   autoPost.checked = state.settings.autoPost;
-  autoPost.disabled = !state.publication.configured;
-  postCheck.append(autoPost, el("span", "", "1時間ごとの自動投稿を有効にする"));
+  autoPost.disabled = !state.publication.configured && !state.settings.autoPost;
+  postCheck.append(autoPost, el("span", "", "自動投稿を有効にする"));
   const selectionLabel = el("label", "", "投稿する記事");
   selectionLabel.htmlFor = "post-selection";
   const selection = el("select");
   selection.id = "post-selection";
-  for (const [value, label] of [
-    ["saved", "手動で保存した記事"],
-    ["candidates", "Jev の候補と情報源指定の記事"],
-    ["both", "手動保存、Jev の候補、情報源指定の記事"],
-  ]) {
+  for (const [value, label] of Object.entries(postSelectionLabels)) {
     const option = el("option", "", label);
     option.value = value;
     selection.append(option);
@@ -1360,6 +1520,57 @@ function renderSettings() {
     }
   });
   posting.append(postForm);
+  // The check never saves or enables anything; its result is a snapshot of
+  // the saved settings and is hidden once they or the form change.
+  model.preflight = null;
+  const preflight = el("section", "analysis-box");
+  preflight.id = "preflight-result";
+  preflight.setAttribute("aria-live", "polite");
+  preflight.hidden = true;
+  const clearPreflight = () => {
+    model.preflight = null;
+    preflight.hidden = true;
+    preflight.replaceChildren();
+  };
+  autoPost.addEventListener("change", clearPreflight);
+  selection.addEventListener("change", clearPreflight);
+  const preflightButton = button(
+    "投稿せずに接続・候補を確認",
+    "button button-secondary",
+    async () => {
+      clearPreflight();
+      const saved = model.state.settings;
+      if (
+        autoPost.checked !== saved.autoPost ||
+        selection.value !== saved.postSelection
+      ) {
+        showNotice(
+          "保存していない投稿設定があります。保存するか元に戻してから確認してください。",
+          true,
+        );
+        return;
+      }
+      preflightButton.disabled = true;
+      try {
+        const report = await api("/api/publication/preflight", {});
+        // A change made while waiting makes this result stale.
+        if (
+          preflight.isConnected &&
+          autoPost.checked === report.autoPost &&
+          selection.value === report.postSelection
+        ) {
+          model.preflight = report;
+          renderPreflight(preflight, report);
+          refreshPublicationStatus();
+        }
+      } catch (error) {
+        showNotice(error.message, true);
+      } finally {
+        preflightButton.disabled = false;
+      }
+    },
+  );
+  posting.append(preflightButton, preflight);
   right.append(posting);
 
   const notifications = el("section", "settings-card");
@@ -1416,7 +1627,7 @@ function renderSettings() {
   const analyzeHelp = el(
     "p",
     "form-help",
-    "待機中に、まだ仕分けていない記事を古い順に、最大 100 件かつ収集間隔の分数までずつ TypeSafe に送信します。既存の未判定記事も対象で、利用料金がかかります。仕分けに失敗した記事は自動では再送せず、失敗後は収集間隔の分だけ休止します。無効にしても、開始済みの仕分けは最後まで続きます。",
+    "待機中に、公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日の未判定記事を新しい順に、最大 100 件かつ収集間隔の分数までずつ TypeSafe に送信します。日時不明・不正・未来の記事は要確認として残し、自動では送りません。利用料金がかかります。仕分けに失敗した記事は自動では再送せず、失敗後は収集間隔の分だけ休止します。無効にしても、開始済みの仕分けは最後まで続きます。",
   );
   analyzeHelp.id = "analyze-help";
   const intervalLabel = el("label", "", "収集間隔（分）");
@@ -1478,15 +1689,80 @@ function renderSettings() {
   refreshPublicationStatus();
 }
 
+/** Whether a preflight report still describes the saved posting settings. */
+function preflightCurrent(report, settings) {
+  return (
+    report.autoPost === settings.autoPost &&
+    report.postSelection === settings.postSelection
+  );
+}
+
+function renderPreflight(container, report) {
+  const checks = el("ul", "form-help");
+  checks.append(
+    el(
+      "li",
+      "",
+      `Buffer と X の @${report.account}：${report.connectionVerified ? "接続を確認しました" : report.configured ? "確認できません" : "未設定"}`,
+    ),
+    el("li", "", `自動投稿：${report.autoPost ? "すでに有効" : "停止中"}`),
+    el(
+      "li",
+      "",
+      `投稿する記事：${postSelectionLabels[report.postSelection] || report.postSelection}・投稿待ち ${report.candidates} 件`,
+    ),
+  );
+  container.replaceChildren(
+    el(
+      "h3",
+      "",
+      `確認結果（${dateText(report.checkedAt, true)} 時点のスナップショット）`,
+    ),
+    el(
+      "p",
+      report.ready ? "" : "analysis-error",
+      report.ready
+        ? "開始前の確認項目に問題はありません。投稿はまだ始まっていません。"
+        : "開始する前に次の項目を確認してください。",
+    ),
+    checks,
+  );
+  if (report.blockers.length) {
+    const blockers = el("ul", "analysis-error");
+    for (const blocker of report.blockers)
+      blockers.append(el("li", "", messageText(blocker)));
+    container.append(blockers);
+  }
+  if (report.firstCandidate)
+    container.append(
+      el("h3", "", "次に投稿する予定の文面"),
+      el("p", "post-preview", report.firstCandidate.text),
+    );
+  for (const note of report.notes)
+    container.append(el("p", "form-help", messageText(note)));
+  container.hidden = false;
+}
+
 function refreshPublicationStatus() {
   const node = $("posting-status");
   if (!node) return;
   const { publication, settings } = model.state;
+  const preflight = $("preflight-result");
+  if (
+    preflight &&
+    model.preflight &&
+    !preflightCurrent(model.preflight, settings)
+  ) {
+    model.preflight = null;
+    preflight.hidden = true;
+    preflight.replaceChildren();
+  }
   const held = publication.posts.filter((post) =>
     ["unknown", "failed", "publishing", "submitted"].includes(post.status),
   ).length;
   node.textContent = `${publication.error ? "エラーにより停止中" : settings.autoPost ? "有効" : "停止中"}・投稿待ち ${publication.queued} 件・結果確認待ち／送信中 ${held} 件`;
-  if (publication.error) node.textContent += `。${publication.error}`;
+  if (publication.error)
+    node.textContent += `。${messageText(publication.error)}`;
   if (settings.autoPost && publication.nextAt)
     node.textContent += `・次回 ${dateText(publication.nextAt * 1000, true)}`;
   if (held)

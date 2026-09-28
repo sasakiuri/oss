@@ -31,6 +31,16 @@ export interface NewsRepository {
   updateSettings(changes: Record<string, unknown>): Promise<Settings>;
   sources(): Promise<Source[]>;
   updateSource(sourceId: string, changes: Partial<Source>): Promise<Source>;
+  /**
+   * Settle when an offset RSS source is next queued automatically. A stored
+   * time still in the future only moves later. Only the current live job
+   * owner may update it.
+   */
+  scheduleAutoCollection(
+    sourceId: string,
+    at: number,
+    jobToken: string,
+  ): Promise<void>;
   ingest(source: SourceConfig, items: CollectedItem[]): Promise<number>;
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
@@ -38,6 +48,17 @@ export interface NewsRepository {
   publicationState(): Promise<Publication>;
   postCandidates(): Promise<Article[]>;
   claimPost(timestamp: number): Promise<PostClaim | null>;
+  /**
+   * Whether this unsent claim may be sent now: still an automatic candidate
+   * under the current settings, drafting exactly the claimed text. An own
+   * live claim that is no longer eligible is withdrawn; a lost or expired
+   * claim is left unchanged.
+   */
+  authorizePostSend(
+    articleId: string,
+    claimToken: string,
+    timestamp: number,
+  ): Promise<boolean>;
   finishPost(
     articleId: string,
     status: "posted" | "failed" | "unknown",

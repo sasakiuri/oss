@@ -162,6 +162,24 @@ function validate(source: Record<string, unknown>, id: string): void {
       `${id}: robots.txt の 403 を取得不能とみなす設定は理由と1日1回の定時設定のある農林水産省の報道発表一覧だけに限定してください`,
     );
   }
+  if (
+    "collectionOffsetMinutes" in source &&
+    !(
+      source.kind === "rss" &&
+      !("dailyAtJst" in source) &&
+      isInteger(source.minCollectionMinutes) &&
+      1440 % source.minCollectionMinutes === 0 &&
+      inRange(
+        source.collectionOffsetMinutes,
+        0,
+        source.minCollectionMinutes - 1,
+      )
+    )
+  ) {
+    throw new UserError(
+      `${id}: collectionOffsetMinutes は定時でない RSS だけに指定し、1440 を割り切る minCollectionMinutes 未満の 0 以上の整数にしてください`,
+    );
+  }
   if (source.kind === "html") {
     const pattern = source.allowedPathPattern;
     if (

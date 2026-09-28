@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CrawlOptions } from "../src/crawl.ts";
 import {
   CachedFetch,
+  CrawlBackoff,
   CrawlDeferred,
+  CrawlLimit,
   CrawlStopped,
   cacheTtl,
 } from "../src/crawl.ts";
@@ -163,6 +165,58 @@ describe("CachedFetch", () => {
   });
 
   it.each([
+    ["a 503 and the longer host interval", undefined, 1800],
+    ["a longer Retry-After", 7200, 7200],
+  ])(
+    "defers other URLs of a cooling host until %s without a request",
+    async (_, retryAfter, wait) => {
+      const sources = [
+        source({ id: "one", url: `${ORIGIN}/one` }),
+        source({
+          id: "two",
+          url: `${ORIGIN}/two`,
+          minRequestIntervalSeconds: 1800,
+        }),
+      ];
+      errors.set(
+        `${ORIGIN}/one`,
+        new FetchError("unavailable", 503, retryAfter),
+      );
+      // The first run only caches robots.txt, as in production.
+      await expect(crawler(sources).fetch(`${ORIGIN}/one`)).rejects.toThrow(
+        CrawlDeferred,
+      );
+      now += 1800;
+      await expect(crawler(sources).fetch(`${ORIGIN}/one`)).rejects.toThrow(
+        "unavailable",
+      );
+      const failed = now;
+      const before = await hostState();
+      expect(before?.failures).toBe(1);
+      expect(before?.blocked_until).toBe(failed + (retryAfter ?? 900));
+      expect(calls).toHaveLength(2);
+
+      now += 60;
+      const deferral = await crawler(sources)
+        .fetch(`${ORIGIN}/two`)
+        .catch((caught: unknown) => caught);
+      expect(deferral).toBeInstanceOf(CrawlBackoff);
+      expect(deferral).toBeInstanceOf(CrawlDeferred);
+      expect((deferral as CrawlBackoff).until).toBe(failed + wait);
+      expect(String(deferral)).toContain("最も早い時刻");
+      expect(calls).toHaveLength(2);
+      expect(await hostState()).toEqual(before);
+
+      now = failed + wait;
+      expect(text(await crawler(sources).fetch(`${ORIGIN}/two`))).toBe(
+        "content",
+      );
+      expect(calls.map(([url]) => url).at(-1)).toBe(`${ORIGIN}/two`);
+      expect((await hostState())?.failures).toBe(0);
+    },
+  );
+
+  it.each([
     [403, 86400],
     [503, 900],
     [undefined, 900],
@@ -314,13 +368,13 @@ describe("CachedFetch", () => {
     expect((error as CrawlDeferred).until).toBe(START + 21600);
     expect(await cache.nextDue(configured)).toBe(START + 21600);
     now = START + 21600;
-    await cache.beginSource(configured);
+    const attempt = await cache.beginSource(configured);
     now += 10;
-    await cache.endSource(configured);
+    await cache.endSource(configured, attempt, null);
     expect(await cache.nextDue(configured)).toBe(now + 21600);
   });
 
-  it("gates the eight ordinary news feeds at four hours", async () => {
+  it("gates Yahoo at one hour and Google and CEEK at four hours", async () => {
     const bundled = loadSources(
       JSON.parse(
         readFileSync(new URL("../sources.json", import.meta.url), "utf8"),
@@ -341,22 +395,45 @@ describe("CachedFetch", () => {
     ]);
     const cache = crawler(bundled);
     for (const item of ordinary) {
-      expect(item.minCollectionMinutes).toBe(240);
+      const yahoo = item.id.startsWith("yahoo-");
+      expect(item.minCollectionMinutes).toBe(yahoo ? 60 : 240);
+      // Search feeds keep their 30-minute host spacing; Yahoo adds none.
+      expect(item.minRequestIntervalSeconds).toBe(yahoo ? undefined : 1800);
       await cache.beginSource(item);
     }
-    now = START + 4 * 3600 - 1;
+    expect(
+      ordinary.filter((item) => item.robotsException).map((item) => item.id),
+    ).toEqual(["google-1", "google-2"]);
+    now = START + 3600 - 1;
     for (const item of ordinary) {
       await expect(cache.beginSource(item)).rejects.toBeInstanceOf(
         CrawlDeferred,
       );
-      expect(await cache.nextDue(item)).toBe(START + 4 * 3600);
+      expect(await cache.nextDue(item)).toBe(
+        START + (item.id.startsWith("yahoo-") ? 3600 : 4 * 3600),
+      );
     }
     now += 1;
+    for (const item of ordinary.filter((feed) => feed.id.startsWith("yahoo-")))
+      await cache.beginSource(item);
+    for (const item of ordinary.filter(
+      (feed) => !feed.id.startsWith("yahoo-"),
+    )) {
+      await expect(cache.beginSource(item)).rejects.toBeInstanceOf(
+        CrawlDeferred,
+      );
+    }
+    now = START + 4 * 3600;
     for (const item of ordinary) await cache.beginSource(item);
     const google = ordinary[0]!;
     expect(() =>
       loadSources([{ ...google, minCollectionMinutes: 239 }]),
     ).toThrow("robots");
+    // Feeds share the hourly minimum with every other source.
+    const yahoo = ordinary.at(-1)!;
+    expect(() => loadSources([{ ...yahoo, minCollectionMinutes: 59 }])).toThrow(
+      "minCollectionMinutes",
+    );
   });
 
   it("collects the bundled daily sources at most once a day", async () => {
@@ -413,16 +490,17 @@ describe("CachedFetch", () => {
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
       // Yesterday's run started late at 11:17 and finished at 11:27.
       now = ELEVEN - DAY + 17 * 60;
-      await crawler([daily]).beginSource(daily);
+      let attempt = await crawler([daily]).beginSource(daily);
       now += 600;
-      await crawler([daily]).endSource(daily);
+      await crawler([daily]).endSource(daily, attempt, null);
       now = ELEVEN - 1;
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
       now = ELEVEN;
       expect(await crawler([daily]).nextDue(daily)).toBe(0);
-      await crawler([daily]).beginSource(daily);
+      attempt = await crawler([daily]).beginSource(daily);
       now = ELEVEN + 17 * 60;
-      await crawler([daily]).endSource(daily);
+      // A deferral without requests does not give a daily slot back either.
+      await crawler([daily]).endSource(daily, attempt, new CrawlDeferred(now));
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(
         ELEVEN + DAY,
       );
@@ -439,11 +517,11 @@ describe("CachedFetch", () => {
       );
       // 23:59:59 JST the same day is still today's run.
       now = ELEVEN + 3 * DAY + 13 * 3600 - 1;
-      await crawler([daily]).beginSource(daily);
+      const attempt = await crawler([daily]).beginSource(daily);
       // Midnight JST does not make the next day's run due before 11:00.
       now += 1;
       expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN + 4 * DAY);
-      await crawler([daily]).endSource(daily);
+      await crawler([daily]).endSource(daily, attempt, null);
       expect(await repo.getRecord("crawl_source", daily.id)).toEqual({
         last_requested: ELEVEN + 3 * DAY + 13 * 3600 - 1,
       });
@@ -515,6 +593,157 @@ describe("CachedFetch", () => {
       CrawlDeferred,
     );
     expect(await crawler().nextDue(plain)).toBe(START + 3600);
+  });
+
+  describe("rolling source attempts", () => {
+    const feed = source({
+      url: `${ORIGIN}/feed`,
+      minCollectionMinutes: 240,
+      minRequestIntervalSeconds: 1800,
+    });
+    const record = () => repo.getRecord("crawl_source", feed.id);
+
+    it("gives back the interval of a deferral that sent no source request", async () => {
+      const cache = crawler([feed]);
+      let attempt = await cache.beginSource(feed);
+      expect(await record()).toEqual({
+        last_requested: START,
+        attempt: attempt.token,
+        previous: 0,
+      });
+      // robots.txt takes the host slot; the feed itself is not requested.
+      const deferred = await cache
+        .fetch(feed.url)
+        .catch((error: unknown) => error);
+      expect(deferred).toBeInstanceOf(CrawlDeferred);
+      expect(calls.map(([url]) => url)).toEqual([`${ORIGIN}/robots.txt`]);
+      await cache.endSource(feed, attempt, deferred);
+      expect(await record()).toEqual({
+        last_requested: 0,
+        retry_at: START + 1800,
+      });
+      expect(await repo.getRecord("crawl_url", feed.url)).toBeNull();
+      expect(await cache.nextDue(feed)).toBe(START + 1800);
+      await expect(cache.beginSource(feed)).rejects.toBeInstanceOf(
+        CrawlDeferred,
+      );
+      now = START + 1800;
+      attempt = await cache.beginSource(feed);
+      await cache.fetch(feed.url);
+      now += 5;
+      await cache.endSource(feed, attempt, null);
+      expect(await record()).toEqual({ last_requested: now });
+      expect(await cache.nextDue(feed)).toBe(now + 14400);
+    });
+
+    it("consumes the interval for a failed request and a cache hit", async () => {
+      errors.set(feed.url, new FetchError("unavailable", 503));
+      await repo.putRecord(
+        "crawl_robots",
+        ORIGIN,
+        { rules: "" },
+        { expiresAt: START + 10 * 86400 },
+      );
+      const cache = crawler([feed]);
+      let attempt = await cache.beginSource(feed);
+      const failure = await cache
+        .fetch(feed.url)
+        .catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(FetchError);
+      now += 5;
+      await cache.endSource(feed, attempt, failure);
+      expect(await record()).toEqual({ last_requested: START + 5 });
+      expect(await cache.nextDue(feed)).toBe(START + 5 + 14400);
+      // A later deferral in the same attempt does not undo a sent request.
+      now = START + 5 + 14400 + 7200;
+      attempt = await cache.beginSource(feed);
+      errors.clear();
+      await cache.fetch(feed.url);
+      await cache.endSource(feed, attempt, new CrawlDeferred(now + 1800));
+      expect(await record()).toEqual({ last_requested: now });
+      // A successful attempt served only from the cache keeps the cadence.
+      const detail = `${ORIGIN}/detail.pdf`;
+      now += 14400;
+      attempt = await cache.beginSource(feed);
+      await cache.fetch(detail);
+      await cache.endSource(feed, attempt, null);
+      now += 14400;
+      attempt = await cache.beginSource(feed);
+      await cache.fetch(detail);
+      await cache.endSource(feed, attempt, null);
+      expect(calls.filter(([url]) => url === detail)).toHaveLength(1);
+      expect(await record()).toEqual({ last_requested: now });
+    });
+
+    it("does not claim the URL for a request the budget refuses", async () => {
+      const plain = source({
+        url: `${ORIGIN}/plain`,
+        minCollectionMinutes: 240,
+      });
+      const cache = crawler([plain], { maxRequests: 1 });
+      const attempt = await cache.beginSource(plain);
+      const refused = await cache
+        .fetch(plain.url)
+        .catch((error: unknown) => error);
+      expect(refused).toBeInstanceOf(CrawlLimit);
+      expect(calls.map(([url]) => url)).toEqual([`${ORIGIN}/robots.txt`]);
+      expect(await repo.getRecord("crawl_url", plain.url)).toBeNull();
+      await cache.endSource(plain, attempt, refused);
+      expect(await repo.getRecord("crawl_source", plain.id)).toEqual({
+        last_requested: 0,
+      });
+      expect(await crawler([plain]).nextDue(plain)).toBeLessThanOrEqual(now);
+    });
+
+    it("never lets a stale attempt settle a newer claim", async () => {
+      const stale = await crawler([feed]).beginSource(feed);
+      // The first Worker is lost; its claim still counts as requested.
+      now = START + 14400;
+      const cache = crawler([feed]);
+      const current = await cache.beginSource(feed);
+      expect(await record()).toEqual({
+        last_requested: now,
+        attempt: current.token,
+        previous: START,
+      });
+      await crawler([feed]).endSource(feed, stale, new CrawlDeferred(now));
+      await crawler([feed]).endSource(feed, stale, null);
+      expect(await record()).toMatchObject({ attempt: current.token });
+      await cache.endSource(feed, current, new CrawlDeferred(now + 60));
+      expect(await record()).toEqual({
+        last_requested: START,
+        retry_at: now + 60,
+      });
+      // Settling twice is a no-op as well.
+      await cache.endSource(feed, current, null);
+      expect(await record()).toEqual({
+        last_requested: START,
+        retry_at: now + 60,
+      });
+    });
+
+    it("reads records without attempt fields and refuses malformed ones", async () => {
+      await repo.putRecord("crawl_source", feed.id, { last_requested: START });
+      now = START + 14400 - 1;
+      await expect(crawler([feed]).beginSource(feed)).rejects.toBeInstanceOf(
+        CrawlDeferred,
+      );
+      now += 1;
+      const attempt = await crawler([feed]).beginSource(feed);
+      expect(await record()).toMatchObject({ previous: START });
+      await crawler([feed]).endSource(feed, attempt, new CrawlDeferred(now));
+      for (const bad of [
+        { last_requested: START, attempt: "a" },
+        { last_requested: START, previous: 0 },
+        { last_requested: START, retry_at: "soon" },
+        { last_requested: "x" },
+      ]) {
+        await repo.putRecord("crawl_source", feed.id, bad);
+        await expect(crawler([feed]).nextDue(feed)).rejects.toThrow(
+          "取得記録が不正",
+        );
+      }
+    });
   });
 
   it("keeps the URL attempt interval after cache eviction", async () => {
@@ -787,7 +1016,7 @@ describe("CachedFetch", () => {
       await expect(crawler([gazette]).fetch(TOC)).rejects.toThrow("forbidden");
       await expect(
         crawler([gazette]).fetch(`${HOME}20260924/20260924.fullcontents.html`),
-      ).rejects.toThrow("停止しています");
+      ).rejects.toBeInstanceOf(CrawlBackoff);
       expect((await hostState("kanpo.go.jp"))?.blocked_until).toBeGreaterThan(
         now + 3600,
       );
@@ -993,8 +1222,8 @@ describe("CachedFetch", () => {
       await expect(cache.fetch(MAFF_PRESS)).rejects.toThrow("unavailable");
       errors.delete(MAFF_PRESS);
       now += 60;
-      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toThrow(
-        "停止しています",
+      await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toBeInstanceOf(
+        CrawlBackoff,
       );
       expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
     });
@@ -1062,7 +1291,7 @@ describe("CachedFetch", () => {
     const error = new CrawlDeferred(START + 0.9);
     expect(error.until).toBe(START + 0.9);
     expect(error.message).toBe(
-      "取得間隔を守るため 1970-01-12T13:46:40+00:00 まで待機し、次の収集で再確認します",
+      "取得間隔を守るため 1970/1/12 22:46:40 JST まで待機し、次の収集で再確認します",
     );
     expect(error).toBeInstanceOf(FetchError);
   });

@@ -20,6 +20,7 @@
       "remote": false,
     },
   ],
+  "services": [{ "binding": "FEED_FETCHER", "service": "nilay-news-feeds" }],
   "triggers": { "crons": ["* * * * *"] },
   "limits": { "cpu_ms": 30000 },
   "vars": {

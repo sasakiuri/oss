@@ -5,6 +5,7 @@
  * Attachments are linked, not downloaded, and opinion forms are never followed.
  */
 import { errorMessage, UserError } from "../errors.ts";
+import { DATE_PRECISION, freshness, publicationSeconds } from "../freshness.ts";
 import {
   attr,
   descendants,
@@ -29,6 +30,7 @@ import { japaneseDate, withJstTime } from "../time.ts";
 import {
   collection,
   note,
+  staleNote,
   type Attachment,
   type CollectedItem,
   type Collection,
@@ -146,14 +148,33 @@ async function readPage(url: string, fetch: SourceFetch): Promise<Element> {
   return parseDocument(html, HIDDEN);
 }
 
-/** A JST date with optional hours and minutes as a UTC timestamp. */
-function when(input: string): string | null {
+/**
+ * A JST date with optional hours and minutes as a UTC timestamp, and whether
+ * only the calendar date was stated.
+ */
+function stated(input: string): [string | null, boolean] {
   const value = input.normalize("NFKC");
   const [stamp] = japaneseDate(value);
   const time = /(\d{1,2})時\s*(\d{1,2})分/.exec(value);
   if (stamp && time)
-    return withJstTime(stamp, Number(time[1]), Number(time[2]));
-  return stamp;
+    return [withJstTime(stamp, Number(time[1]), Number(time[2])), false];
+  return [stamp, stamp !== null];
+}
+
+function when(input: string): string | null {
+  return stated(input)[0];
+}
+
+/**
+ * Set the item's publication from a stated date, marking a date-only value
+ * so it is judged by calendar day; an exact time clears the mark.
+ */
+function publish(item: EgovItem, input: string): void {
+  const [stamp, dateOnly] = stated(input);
+  if (!stamp) return;
+  item.publishedAt = stamp;
+  if (dateOnly) item.metadata.publicationPrecision = DATE_PRECISION;
+  else delete item.metadata.publicationPrecision;
 }
 
 /** Label/value pairs from table rows or labelled blocks, in document order. */
@@ -242,15 +263,18 @@ function parseListing(
       status ? textOf(status) : mode === "1" ? "結果公示" : "意見募集",
       category ? textOf(category) : "",
     );
-    items.push({
+    const item: EgovItem = {
       title: truncate(textOf(title), 500),
       url,
       excerpt: excerpt(data),
-      publishedAt: when(
-        values.get(mode === "1" ? "結果の公示日" : "案の公示日") ?? "",
-      ),
+      publishedAt: null,
       metadata: data,
-    });
+    };
+    publish(
+      item,
+      values.get(mode === "1" ? "結果の公示日" : "案の公示日") ?? "",
+    );
+    items.push(item);
   }
   const inputs = new Map(
     [...descendants(root, "input")].map((node) => [
@@ -285,11 +309,11 @@ function addDetail(item: EgovItem, root: Element): void {
       status ? textOf(status) : (item.metadata.status ?? ""),
     ),
   );
-  const published = when(
+  publish(
+    item,
     values.get(values.has("結果の公示日") ? "結果の公示日" : "案の公示日") ??
       "",
   );
-  if (published) item.publishedAt = published;
   item.body = truncate(
     [...values]
       .filter(([, value]) => value)
@@ -337,10 +361,25 @@ function bounded(
   return Math.min(high, Math.max(low, number));
 }
 
-/** Collect the latest entries, spending the bounded detail requests on subject keywords first. */
+/** Whether known listing dates run newest first, as the list query requests. */
+function newestFirst(items: readonly EgovItem[]): boolean {
+  const dates = items
+    .map((item) => publicationSeconds(item.publishedAt))
+    .filter((value) => value !== null);
+  return dates.every(
+    (value, index) => index === 0 || value <= dates[index - 1]!,
+  );
+}
+
+/**
+ * Collect fresh (or undated) entries, spending the
+ * bounded detail requests on subject keywords first. Stale listing entries
+ * take neither the item nor the detail budget and are never requested.
+ */
 export async function collectEgov(
   source: SourceConfig,
   fetch: SourceFetch,
+  now: number,
 ): Promise<Collection> {
   const configured = officialUrl(source.url);
   if (
@@ -377,6 +416,9 @@ export async function collectEgov(
   let pages = 1;
   let page = 0;
   let clipped = false;
+  let stale = 0;
+  /** The remaining pages are ordered after a stale entry, so only older. */
+  let older = false;
   for (let next = 1; next <= pageLimit; next += 1) {
     page = next;
     let listing: ReturnType<typeof parseListing>;
@@ -395,7 +437,7 @@ export async function collectEgov(
         break;
       }
     } catch (error) {
-      if (!output.length) throw error;
+      if (!seen.size) throw error;
       result.warnings.push(
         `e-Gov 一覧の ${page} ページ目を取得できません：${truncate(errorMessage(error), 200)}`,
       );
@@ -418,15 +460,28 @@ export async function collectEgov(
       );
       break;
     }
-    clipped = fresh.size > limit - output.length;
+    let pageStale = 0;
     for (const item of fresh.values()) {
-      if (output.length >= limit) break;
-      output.push(item);
       seen.add(item.url);
+      if (
+        freshness(item.publishedAt, now, item.metadata.publicationPrecision) ===
+        "stale"
+      )
+        pageStale += 1;
+      else if (output.length >= limit) clipped = true;
+      else output.push(item);
     }
+    stale += pageStale;
     if (output.length >= limit || page >= pages) break;
+    // Only when this page is verifiably newest first; otherwise later pages
+    // may still hold recent entries and are read within the page limit.
+    if (pageStale && newestFirst(listing.items)) {
+      older = true;
+      break;
+    }
   }
-  if (page < pages || clipped) {
+  staleNote(result, stale);
+  if ((page < pages && !older) || clipped) {
     note(
       result,
       `最新 ${output.length} 件を収集しました（最大 ${limit} 件・${pageLimit} ページまで。全過去案件の取り込みは行いません）`,

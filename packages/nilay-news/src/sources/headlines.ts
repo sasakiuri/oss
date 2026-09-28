@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Scoped article links from official index pages; pagination and PDFs are never followed. */
+import { DATE_PRECISION } from "../freshness.ts";
 import { parseHtml } from "../html/tokenizer.ts";
 import { canonicalUrl, hostname, urljoin, urlsplit } from "../net/url.ts";
 import { clean, length, strip, truncate } from "../text.ts";
@@ -76,7 +77,16 @@ export function parseHeadlines(
         );
         if (length(title) >= 8 && !seen.has(url) && items.length < limit) {
           seen.add(url);
-          items.push({ title, url, excerpt: "", publishedAt: date });
+          items.push({
+            title,
+            url,
+            excerpt: "",
+            publishedAt: date,
+            // Index pages state only a calendar date.
+            ...(date && {
+              metadata: { publicationPrecision: DATE_PRECISION },
+            }),
+          });
         }
       }
       if (HEADINGS.has(tag) && heading !== null) {

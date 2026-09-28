@@ -80,6 +80,19 @@ export function validateConfig(config: unknown, deployment = false): string[] {
   if ("route" in config || "routes" in config)
     errors.push("Serve only the workers.dev hostname, without route or routes");
   if (config.unsafe) errors.push("unsafe binding overrides are not supported");
+  if (
+    !Array.isArray(config.services) ||
+    config.services.length !== 1 ||
+    !isRecord(config.services[0]) ||
+    config.services[0].binding !== "FEED_FETCHER" ||
+    config.services[0].service !== "nilay-news-feeds" ||
+    Object.keys(config.services[0]).some(
+      (key) => !["binding", "service"].includes(key),
+    )
+  )
+    errors.push(
+      "FEED_FETCHER must bind the private nilay-news-feeds HTTP service",
+    );
   const variables = isRecord(config.vars) ? config.vars : {};
   if (!isRecord(config.vars)) errors.push("vars must be an object");
   if (variables.STORAGE_BACKEND !== "d1")
@@ -147,16 +160,63 @@ export function validateConfig(config: unknown, deployment = false): string[] {
   return errors;
 }
 
+/** The feed service has no public route, credentials or mutable storage. */
+export function validateFeedConfig(config: unknown): string[] {
+  if (!isRecord(config)) return ["Feed Worker configuration must be an object"];
+  const errors: string[] = [];
+  if (
+    config.name !== "nilay-news-feeds" ||
+    config.main !== "src/feed-worker.ts"
+  )
+    errors.push("Feed Worker must use nilay-news-feeds and src/feed-worker.ts");
+  if (config.workers_dev !== false || config.preview_urls !== false)
+    errors.push("Feed Worker public and preview URLs must be disabled");
+  if (
+    !isRecord(config.placement) ||
+    config.placement.region !== "aws:ap-northeast-1" ||
+    Object.keys(config.placement).length !== 1
+  )
+    errors.push("Feed Worker placement must be the explicit Tokyo region");
+  const allowed = new Set([
+    "$schema",
+    "name",
+    "main",
+    "compatibility_date",
+    "workers_dev",
+    "preview_urls",
+    "send_metrics",
+    "placement",
+    "limits",
+    "account_id",
+  ]);
+  if (Object.keys(config).some((key) => !allowed.has(key)))
+    errors.push(
+      "Feed Worker must not have routes, credentials, bindings or custom build overrides",
+    );
+  return errors;
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   try {
     const args = process.argv.slice(2);
-    const errors = validateConfig(
-      loadConfig(args.find((arg) => !arg.startsWith("--")) ?? "wrangler.jsonc"),
-      args.includes("--deployment"),
-    );
+    const errors = args.includes("--feeds")
+      ? validateFeedConfig(
+          loadConfig(
+            args.find((arg) => !arg.startsWith("--")) ?? "wrangler.feeds.jsonc",
+          ),
+        )
+      : [
+          ...validateConfig(
+            loadConfig(
+              args.find((arg) => !arg.startsWith("--")) ?? "wrangler.jsonc",
+            ),
+            args.includes("--deployment"),
+          ),
+          ...validateFeedConfig(loadConfig("wrangler.feeds.jsonc")),
+        ];
     if (errors.length) {
       console.error(errors.join("\n"));
       process.exitCode = 1;

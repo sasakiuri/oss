@@ -55,7 +55,7 @@ async function setup(sources: SourceConfig[], jev = new Jev()) {
           title: `${source.id} の記事 ${serial}`,
           url: `https://example.org/${source.id}/${serial}`,
           excerpt: "",
-          publishedAt: null,
+          publishedAt: new Date((ELEVEN - 4 * MINUTE) * 1000).toISOString(),
         },
       ],
       warnings: [] as string[],
@@ -212,7 +212,7 @@ describe("fixed daily collection", () => {
         title: `既存記事 ${index}`,
         url: `https://example.org/existing/${index}`,
         excerpt: "",
-        publishedAt: null,
+        publishedAt: new Date((ELEVEN - 4 * MINUTE) * 1000).toISOString(),
       })),
     );
     const reviewed = (await repo.articles()).at(-1)!;
@@ -272,7 +272,7 @@ describe("fixed daily collection", () => {
         title: `既存記事 ${index}`,
         url: `https://example.org/existing/${index}`,
         excerpt: "",
-        publishedAt: null,
+        publishedAt: new Date((ELEVEN - 4 * MINUTE) * 1000).toISOString(),
       })),
     );
     await repo.updateSettings({
