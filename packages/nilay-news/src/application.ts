@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isSourceCandidate } from "./candidates.ts";
 import { CachedFetch, CrawlDeferred } from "./crawl.ts";
 import { withDeadline } from "./deadline.ts";
 import type { Analysis, Article, Clock, Job } from "./domain.ts";
@@ -93,7 +94,12 @@ export class Application {
       } catch (error) {
         if (!(error instanceof UserError)) throw error;
       }
-      return { ...article, postDraft };
+      // Derived from the stored source IDs on every read, never stored.
+      return {
+        ...article,
+        sourceCandidate: isSourceCandidate(article),
+        postDraft,
+      };
     });
     const analysis = await this.repository.getRecord<{ nextAt: number }>(
       "scheduler",

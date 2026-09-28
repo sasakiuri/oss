@@ -25,7 +25,9 @@ const buckets = [
   {
     id: "inbox",
     label: "受信箱",
-    match: (a) => a.reviewStatus === "unread" && a.decision !== "irrelevant",
+    match: (a) =>
+      a.reviewStatus === "unread" &&
+      (a.sourceCandidate || a.decision !== "irrelevant"),
   },
   {
     id: "saved",
@@ -37,6 +39,7 @@ const buckets = [
     label: "要確認・未判定",
     match: (a) =>
       a.reviewStatus === "unread" &&
+      !a.sourceCandidate &&
       (a.decision === "review" || !a.decision || a.analysisStatus !== "done"),
   },
   {
@@ -49,9 +52,15 @@ const buckets = [
     label: "見送り・対象外",
     match: (a) =>
       a.reviewStatus === "dismissed" ||
-      (a.reviewStatus === "unread" && a.decision === "irrelevant"),
+      (a.reviewStatus === "unread" &&
+        !a.sourceCandidate &&
+        a.decision === "irrelevant"),
   },
 ];
+/** Shown for articles the server made candidates by their source alone. */
+const SOURCE_CANDIDATE_LABEL = "投稿対象（情報源指定）";
+const SOURCE_CANDIDATE_REASON =
+  "日本ライフル射撃協会・日本クレー射撃協会・日本ジビエ振興協会の記事は、情報源の指定により Jev の仕分けを待たずに投稿対象になります。Jev の仕分け結果はこの指定を取り消しません。手動で見送った記事や投稿済みの記事は除きます。";
 const decisionLabels = {
   candidate: "候補",
   review: "要確認",
@@ -322,10 +331,13 @@ function visibleArticles() {
     .sort((a, b) => {
       if (model.sort === "priority") {
         const decisionScore = { candidate: 3, review: 1, irrelevant: -1 };
-        const difference =
-          (decisionScore[b.decision] || 0) * 10 +
-          (b.priority || 0) -
-          ((decisionScore[a.decision] || 0) * 10 + (a.priority || 0));
+        const score = (article) =>
+          (article.sourceCandidate
+            ? decisionScore.candidate
+            : decisionScore[article.decision] || 0) *
+            10 +
+          (article.priority || 0);
+        const difference = score(b) - score(a);
         if (difference) return difference;
       }
       return (
@@ -436,16 +448,20 @@ function renderTopics() {
 
 function articleTags(article) {
   const result = [];
+  // The source rule is not a Jev result; its own Jev state stays labeled.
+  const jev = article.sourceCandidate ? "Jev: " : "";
+  if (article.sourceCandidate)
+    result.push(el("span", "tag tag-candidate", SOURCE_CANDIDATE_LABEL));
   if (article.analysisStatus === "error")
-    result.push(el("span", "tag tag-error", "仕分け失敗"));
+    result.push(el("span", "tag tag-error", `${jev}仕分け失敗`));
   else if (article.analysisStatus !== "done" || !article.decision)
-    result.push(el("span", "tag", "未判定"));
+    result.push(el("span", "tag", `${jev}未判定`));
   else
     result.push(
       el(
         "span",
         `tag tag-${article.decision}`,
-        decisionLabels[article.decision] || "要確認",
+        `${jev}${decisionLabels[article.decision] || "要確認"}`,
       ),
     );
   if (article.topic) result.push(el("span", "tag tag-topic", article.topic));
@@ -702,6 +718,14 @@ function renderDetail() {
     ),
   );
   appendArticleContent(panel, article);
+  if (article.sourceCandidate) {
+    const rule = el("section", "analysis-box source-candidate");
+    rule.append(
+      el("h3", "", SOURCE_CANDIDATE_LABEL),
+      el("p", "", SOURCE_CANDIDATE_REASON),
+    );
+    panel.append(rule);
+  }
   const analysis = el("section", "analysis-box");
   analysis.append(
     el(
@@ -1310,8 +1334,8 @@ function renderSettings() {
   selection.id = "post-selection";
   for (const [value, label] of [
     ["saved", "手動で保存した記事"],
-    ["candidates", "Jev で仕分け済みの候補"],
-    ["both", "手動保存、または Jev の候補"],
+    ["candidates", "Jev の候補と情報源指定の記事"],
+    ["both", "手動保存、Jev の候補、情報源指定の記事"],
   ]) {
     const option = el("option", "", label);
     option.value = value;

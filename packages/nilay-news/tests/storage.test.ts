@@ -1146,6 +1146,109 @@ describe("publication", () => {
     expect(await repo.postCandidates()).toEqual([]);
   });
 
+  it("selects the three associations' articles regardless of Jev", async () => {
+    const rifle = { ...SOURCE, id: "riflesports-news" };
+    const clay = { ...SOURCE, id: "clay-shooting-news" };
+    const add = async (
+      index: number,
+      source: SourceConfig,
+      status: string,
+      analysis?: Partial<Article>,
+      changes: Partial<CollectedItem> = {},
+    ): Promise<string> => {
+      const url = `https://example.org/article/${index}`;
+      await repo.ingest(source, [
+        {
+          ...ITEM,
+          ...changes,
+          url,
+          publishedAt: `2026-09-${String(index).padStart(2, "0")}T00:00:00+00:00`,
+        },
+      ]);
+      const { id } = await find(url);
+      await repo.review(id, status);
+      if (analysis) await analyze(id, analysis);
+      return id;
+    };
+    const pending = await add(1, rifle, "unread");
+    const failed = await add(2, clay, "unread", { analysisStatus: "error" });
+    const irrelevant = await add(3, rifle, "unread", {
+      decision: "irrelevant",
+    });
+    const duplicate = await add(4, clay, "unread", {
+      decision: "candidate",
+      relation: "duplicate",
+    });
+    // Collected first by an ordinary source, then by a federation source.
+    const shared = await add(5, SOURCE, "unread", { decision: "irrelevant" });
+    await repo.ingest(clay, [
+      { ...ITEM, url: "https://example.org/article/5" },
+    ]);
+    expect((await repo.article(shared)).sourceIds).toEqual([
+      "one",
+      "clay-shooting-news",
+    ]);
+    const saved = await add(6, rifle, "saved", {
+      decision: "review",
+      relation: "duplicate",
+    });
+    // Neither a similar ID nor a federation name elsewhere qualifies.
+    await add(7, { ...SOURCE, id: "riflesports-news-archive" }, "unread", {
+      decision: "irrelevant",
+    });
+    await add(
+      8,
+      { ...SOURCE, name: "日本クレー射撃協会" },
+      "unread",
+      { decision: "review" },
+      { title: "日本ライフル射撃協会 riflesports-news" },
+    );
+    await add(9, SOURCE, "saved", {
+      decision: "candidate",
+      relation: "duplicate",
+    });
+    await add(10, rifle, "dismissed");
+    await add(11, clay, "posted");
+    const gibier = await add(12, { ...SOURCE, id: "gibier-news" }, "unread", {
+      decision: "irrelevant",
+      relation: "duplicate",
+    });
+    await add(
+      13,
+      { ...SOURCE, id: "gibier-news-archive", name: "日本ジビエ振興協会" },
+      "unread",
+    );
+    const ruled = [
+      pending,
+      failed,
+      irrelevant,
+      duplicate,
+      shared,
+      saved,
+      gibier,
+    ];
+    for (const [selection, ids] of [
+      ["saved", [saved]],
+      ["candidates", ruled],
+      ["both", ruled],
+    ] as const) {
+      await repo.updateSettings({ postSelection: selection });
+      expect(
+        (await repo.postCandidates()).map((article) => article.id),
+      ).toEqual(ids);
+    }
+    // Jev keeps its own result: the rule neither fakes nor overwrites it.
+    expect(await repo.article(pending)).toMatchObject({
+      analysisStatus: "pending",
+      decision: null,
+    });
+    expect(await repo.article(irrelevant)).toMatchObject({
+      analysisStatus: "done",
+      decision: "irrelevant",
+    });
+    expect((await repo.settings()).autoPost).toBe(false);
+  });
+
   it("does not read articles during an idle posting tick", async () => {
     await ready();
     await repo.updateSettings({ autoPost: false });

@@ -449,6 +449,41 @@ describe("Publisher", () => {
     expect(publication.nextAt).toBeGreaterThanOrEqual(now + 3600);
   });
 
+  it.each(["riflesports-news", "clay-shooting-news", "gibier-news"])(
+    "posts a %s article once without Jev and only when enabled",
+    async (sourceId) => {
+      const calls: string[] = [];
+      const publisher = new Publisher(
+        repo,
+        new BufferClient("fixture-key", "channel-123", bufferTransport(calls)),
+        clock,
+      );
+      await repo.updateSettings({
+        postSelection: "candidates",
+        autoPost: false,
+      });
+      await repo.ingest({ ...SOURCE, id: sourceId }, [
+        { ...ITEM, url: "https://example.org/rifle" },
+      ]);
+      const rifle = (await repo.articles()).find((item) =>
+        item.url.endsWith("/rifle"),
+      );
+      expect(rifle?.analysisStatus).toBe("pending");
+      await publisher.tick();
+      expect(calls).toEqual([]);
+      await repo.updateSettings({ autoPost: true });
+      await publisher.tick();
+      now += 7200;
+      await publisher.tick();
+      expect(calls).toHaveLength(2);
+      const { posts } = await state();
+      expect(posts.map((post) => [post.articleId, post.status])).toEqual([
+        [rifle?.id, "posted"],
+      ]);
+      expect(await repo.postCandidates()).toEqual([]);
+    },
+  );
+
   it("never retries an uncertain mutation automatically", async () => {
     const calls: string[] = [];
     const ok = bufferTransport(calls);
