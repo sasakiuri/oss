@@ -218,13 +218,11 @@ describe("BufferClient", () => {
     '{"data":{"createPost":{}},"errors":[{"message":"secret"}]}',
     new Uint8Array([0xff]),
   ])("treats an unverifiable mutation response as uncertain", async (raw) => {
-    const transport = vi
-      .fn<FetchBytes>()
-      .mockResolvedValue({
-        data: typeof raw === "string" ? utf8(raw) : raw,
-        url: "",
-        contentType: "",
-      });
+    const transport = vi.fn<FetchBytes>().mockResolvedValue({
+      data: typeof raw === "string" ? utf8(raw) : raw,
+      url: "",
+      contentType: "",
+    });
     const error = await failure(
       new BufferClient("key", "channel-123", transport).post("hello"),
     );
@@ -553,6 +551,38 @@ describe("Publisher", () => {
     );
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
     expect((await state()).nextAt).toBe(started + 145 + 3600);
+  });
+
+  it("confirms a stored post with its original text after the tag rules change", async () => {
+    const client = fakeClient();
+    client.post.mockImplementation(async (text) => remotePost(text, "sending"));
+    const publisher = new Publisher(repo, client, clock);
+    const started = now;
+    await publisher.tick();
+    expect(client.post.mock.calls[0]?.[0]).toBe(
+      "北海道でクマを捕獲\nhttps://example.org/article/1\n#テスト新聞 #北海道 #クマ #鳥獣被害対策",
+    );
+    const legacy =
+      "北海道でクマを捕獲\nhttps://example.org/article/1\n#NilayNews #クマ";
+    await repo.driver.batch([
+      [
+        "UPDATE news_posts SET data=json_set(data,'$.text',?) WHERE id=?",
+        [legacy, articleId],
+      ],
+    ]);
+    now = started + 120;
+    await publisher.tick();
+    expect(client.getPost).toHaveBeenCalledWith(
+      "buffer-123",
+      legacy,
+      "channel-123",
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+    const [post] = (await state()).posts;
+    expect([post?.status, post?.text]).toEqual(["posted", legacy]);
+    now += 7200;
+    await publisher.tick();
+    expect(client.post).toHaveBeenCalledTimes(1);
   });
 
   it("allows at most two confirmation requests and never resends", async () => {
