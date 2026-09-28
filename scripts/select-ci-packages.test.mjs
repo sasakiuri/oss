@@ -87,10 +87,10 @@ test("development configuration dependencies include their consumers", () => {
   assert.equal(lighthouseConfig.docs, true);
   assert.equal(lighthouseConfig.build, true);
   assert.equal(lighthouseConfig.electron, false);
-  assert.deepEqual(lighthouseConfig.os, platformRunners);
+  assert.deepEqual(lighthouseConfig.os, ["ubuntu-latest", "macos-latest"]);
 });
 
-test("Knowledge Markdown and assets retain platform build and tests", () => {
+test("Knowledge Markdown and assets retain Linux and macOS build and tests", () => {
   const packages = [
     ...current.filter((pkg) => pkg.name !== name("nilay-knowledge")),
     {
@@ -112,7 +112,11 @@ test("Knowledge Markdown and assets retain platform build and tests", () => {
     assert.equal(plan.build, true);
     assert.equal(plan.docs, false);
     assert.equal(plan.electron, false);
-    assert.deepEqual(plan.os, platformRunners);
+    assert.deepEqual(plan.os, ["ubuntu-latest", "macos-latest"]);
+    assert.deepEqual(plan.packageMatrix, [
+      { os: "ubuntu-latest", packages: [name("nilay-knowledge")] },
+      { os: "macos-latest", packages: [name("nilay-knowledge")] },
+    ]);
   }
 });
 
@@ -487,12 +491,21 @@ test("unchanged resolved lockfile data does not rebuild workspaces", () => {
   assert.equal(plan.build, false);
 });
 
-test("E2E plans partition Knowledge and About into two shards on every platform and other suites once", () => {
+test("shared CI keeps Knowledge off Windows while retaining other platform checks", () => {
   const plan = select(["package.json"]);
+  assert.deepEqual(plan.os, platformRunners);
+  for (const row of plan.packageMatrix) {
+    assert.deepEqual(
+      row.packages,
+      plan.packages.filter(
+        (pkg) => row.os !== "windows-latest" || pkg !== name("nilay-knowledge"),
+      ),
+    );
+  }
   const knowledge = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-knowledge"),
   );
-  assert.equal(knowledge.length, 6);
+  assert.equal(knowledge.length, 4);
   const about = plan.e2eMatrix.filter(
     (row) => row.package === name("nilay-about"),
   );
@@ -502,10 +515,12 @@ test("E2E plans partition Knowledge and About into two shards on every platform 
       knowledge
         .filter((row) => row.os === os)
         .map((row) => [row.shard, row.shards]),
-      [
-        [1, 2],
-        [2, 2],
-      ],
+      os === "windows-latest"
+        ? []
+        : [
+            [1, 2],
+            [2, 2],
+          ],
     );
     assert.deepEqual(
       about

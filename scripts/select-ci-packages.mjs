@@ -12,6 +12,9 @@ export const platformRunners = [
   "windows-latest",
   "macos-latest",
 ];
+const knowledgeRunners = ["ubuntu-latest", "macos-latest"];
+const runsOn = (pkg, os) =>
+  pkg.name !== knowledgeName || knowledgeRunners.includes(os);
 const dependencyFields = [
   "dependencies",
   "devDependencies",
@@ -158,11 +161,27 @@ export function affectedByLockfile(previous, current, workspaces) {
   };
 }
 
+export function runnersFor(packages) {
+  return packages.some(usesElectron)
+    ? platformRunners
+    : packages.some((pkg) => pkg.name === knowledgeName)
+      ? knowledgeRunners
+      : ["ubuntu-latest"];
+}
+
+export function packageMatrix(packages, runners) {
+  return runners.map((os) => ({
+    os,
+    packages: packages.filter((pkg) => runsOn(pkg, os)).map((pkg) => pkg.name),
+  }));
+}
+
 export function e2eMatrix(packages, runners) {
   return packages.flatMap((pkg) =>
     !pkg.scripts?.["test:e2e"]
       ? []
       : runners.flatMap((os) => {
+          if (!runsOn(pkg, os)) return [];
           const shards = [knowledgeName, aboutName].includes(pkg.name) ? 2 : 1;
           return Array.from({ length: shards }, (_, index) => ({
             package: pkg.name,
@@ -280,7 +299,7 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
   );
   const electron = packages.some(usesElectron);
   const knowledge = packages.some((pkg) => pkg.name === knowledgeName);
-  const os = electron || knowledge ? platformRunners : ["ubuntu-latest"];
+  const os = runnersFor(packages);
   const e2e = e2eMatrix(packages, os);
   return {
     text: all || text,
@@ -295,6 +314,7 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
     e2e: e2e.length > 0,
     e2eMatrix: e2e,
     packages: packages.map((pkg) => pkg.name),
+    packageMatrix: packageMatrix(packages, os),
     os,
     reasons,
   };

@@ -28,6 +28,7 @@ jobs:
       e2e: ${{ steps.plan.outputs.e2e }}
       e2eMatrix: ${{ steps.plan.outputs.e2eMatrix }}
       packages: ${{ steps.plan.outputs.packages }}
+      packageMatrix: ${{ steps.plan.outputs.packageMatrix }}
       os: ${{ steps.plan.outputs.os }}
     steps:
       - name: Checkout code
@@ -139,11 +140,11 @@ jobs:
     permissions:
       contents: read
     env:
-      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
+      CI_PACKAGES_JSON: ${{ toJSON(matrix.packages) }}
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.changes.outputs.os) }}
+        include: ${{ fromJSON(needs.changes.outputs.packageMatrix) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -182,11 +183,11 @@ jobs:
     permissions:
       contents: read
     env:
-      CI_PACKAGES_JSON: ${{ needs.changes.outputs.packages }}
+      CI_PACKAGES_JSON: ${{ toJSON(matrix.packages) }}
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.changes.outputs.os) }}
+        include: ${{ fromJSON(needs.changes.outputs.packageMatrix) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -269,7 +270,6 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           enable-electron-cache: ${{ matrix.electron && 'true' || 'false' }}
-          prepare-windows-browser-deps: ${{ runner.os == 'Windows' && matrix.package == '@sasakiuri/nilay-knowledge' && 'true' || 'false' }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: build-${{ matrix.os }}
