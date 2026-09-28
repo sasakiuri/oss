@@ -45,6 +45,7 @@ export interface NewsRepository {
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
   review(articleId: string, status: unknown): Promise<Article>;
+  dismiss(articleIds: unknown): Promise<Article[]>;
   publicationState(): Promise<Publication>;
   postCandidates(): Promise<Article[]>;
   claimPost(timestamp: number): Promise<PostClaim | null>;

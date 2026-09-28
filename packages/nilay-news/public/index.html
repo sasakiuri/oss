@@ -107,6 +107,25 @@
           </div>
           <div class="reading-workspace" id="reading-workspace">
             <div class="article-column">
+              <div id="bulk-actions" class="bulk-actions" hidden>
+                <label class="bulk-select-label">
+                  <input id="select-all-articles" type="checkbox" />
+                  <span>表示中をすべて選択</span>
+                </label>
+                <span
+                  id="selection-count"
+                  class="count-label"
+                  role="status"
+                ></span>
+                <button
+                  id="dismiss-selected"
+                  class="button button-subtle"
+                  type="button"
+                  disabled
+                >
+                  選択した記事を見送る
+                </button>
+              </div>
               <div
                 id="article-list"
                 class="article-list"

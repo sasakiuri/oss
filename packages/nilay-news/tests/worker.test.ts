@@ -92,6 +92,59 @@ describe("HTTP contract", () => {
     ).toBe(200);
     expect((await repo.settings()).autoAnalyze).toBe(false);
   });
+  it("dismisses selected articles through the authenticated JSON API", async () => {
+    const { request, repo, env } = await setup();
+    await repo.ingest(
+      {
+        id: "test",
+        name: "test",
+        url: "https://example.org/feed",
+        kind: "rss",
+        enabled: true,
+        description: "test",
+      },
+      ["a", "b", "c"].map((id) => ({
+        title: id,
+        url: `https://example.org/${id}`,
+        excerpt: "",
+        publishedAt: null,
+      })),
+    );
+    const ids = (await repo.articles()).map((article) => article.id);
+    const body = JSON.stringify({ articleIds: ids.slice(0, 2) });
+    const app = vi.fn<(env: Env) => Promise<Application>>();
+    const denied = createHandlers(() => ({ allowed: async () => false }), app);
+    expect(
+      (
+        await denied.fetch(
+          new Request("https://news.example.test/api/articles/dismiss", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          }),
+          env,
+        )
+      ).status,
+    ).toBe(403);
+    expect(app).not.toHaveBeenCalled();
+    expect(
+      (await request("/api/articles/dismiss", body, "text/plain")).status,
+    ).toBe(415);
+    for (const invalid of ["{}", '{"articleIds":[]}', '{"articleIds":[42]}'])
+      expect((await request("/api/articles/dismiss", invalid)).status).toBe(
+        400,
+      );
+    const response = await request("/api/articles/dismiss", body);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      ids
+        .slice(0, 2)
+        .map((id) =>
+          expect.objectContaining({ id, reviewStatus: "dismissed" }),
+        ),
+    );
+    expect((await repo.article(ids[2]!)).reviewStatus).toBe("unread");
+  });
   it("invalidates the state ETag after a settings change", async () => {
     const { request, handlers, env } = await setup();
     const first = await handlers.fetch(
