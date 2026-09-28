@@ -2,7 +2,7 @@
 import { describe, expect, test } from "vitest";
 
 import { UserError } from "../src/errors.ts";
-import { ACCOUNT, draft, hashtags, textWeight } from "../src/posts.ts";
+import { ACCOUNT, draft, textWeight } from "../src/posts.ts";
 
 const ITEM = {
   title: "北海道でクマを捕獲",
@@ -11,54 +11,8 @@ const ITEM = {
   publishedAt: "2026-09-27T00:00:00+00:00",
 };
 
-describe("hashtags", () => {
-  test("relevant, unique tags", () => {
-    expect(ACCOUNT).toBe("NilayNews");
-    expect(
-      hashtags({ ...ITEM, analysisStatus: "done", topic: "鳥獣被害・管理" }),
-    ).toEqual(["#NilayNews", "#鳥獣対策", "#クマ"]);
-    for (const [title, expected] of [
-      ["狩猟免許試験", "#狩猟"],
-      ["ジビエの流通", "#ジビエ"],
-      ["クレー射撃大会", "#射撃競技"],
-      ["法案の意見募集", "#パブコメ"],
-    ] as const) {
-      expect(hashtags({ title })).toContain(expected);
-    }
-    expect(hashtags({ title: "お知らせ" })).toEqual([
-      "#NilayNews",
-      "#ニュース",
-    ]);
-  });
-
-  test("place names and firearms are not animal or sport tags", () => {
-    for (const title of [
-      "熊本県の狩猟免許試験",
-      "鹿児島県の射撃大会",
-      "猪名川町で鳥獣対策会議",
-    ]) {
-      expect(hashtags({ title })).not.toEqual(
-        expect.arrayContaining([
-          expect.stringMatching(/^#(?:クマ|シカ|イノシシ)$/),
-        ]),
-      );
-    }
-    expect(hashtags({ title: "ライフル銃を使った事件" })).not.toContain(
-      "#射撃競技",
-    );
-    expect(hashtags({ title: "熊が出没" })).toContain("#クマ");
-    expect(hashtags({ title: "鹿の捕獲" })).toContain("#シカ");
-  });
-
-  test("a stale analysis and an unrelated body do not supply tags", () => {
-    const article = {
-      title: "お知らせ",
-      body: "クマ",
-      topic: "ジビエ",
-      analysisStatus: "pending" as const,
-    };
-    expect(hashtags(article)).toEqual(["#NilayNews", "#ニュース"]);
-  });
+test("the account stays the publishing identity", () => {
+  expect(ACCOUNT).toBe("NilayNews");
 });
 
 describe("draft", () => {
@@ -79,13 +33,58 @@ describe("draft", () => {
       textWeight(headline) + 23 + 2 + textWeight(tags),
     ).toBeLessThanOrEqual(280);
     expect(headline.endsWith("…")).toBe(true);
-    expect([2, 3]).toContain(tags.split(" ").length);
+    expect(tags).toMatch(/^#\S+(?: #\S+)*$/);
+  });
+
+  test("the headline is shortened for the most and longest tags", () => {
+    const article = {
+      title: `茨城・かすみがうら市でイノシシ捕獲、獣皮を有効活用 ${"あ".repeat(300)} (${"長".repeat(16)}新聞)`,
+      url: `https://example.org/${"a".repeat(500)}`,
+      excerpt: "",
+      sourceName: "CEEK｜狩猟",
+    };
+    const [headline = "", url, tags = "", ...rest] = draft(article).split("\n");
+    expect(rest).toEqual([]);
+    expect(url).toBe(article.url);
+    expect(tags).toBe(
+      `#${"長".repeat(16)}新聞 #茨城県 #かすみがうら市 #イノシシ #野生鳥獣活用`,
+    );
+    expect(
+      textWeight(headline) + 23 + 2 + textWeight(tags),
+    ).toBeLessThanOrEqual(280);
+    expect(headline.endsWith("…")).toBe(true);
   });
 
   test("a short headline is unchanged", () => {
     expect(draft(ITEM)).toBe(
-      "北海道でクマを捕獲\nhttps://example.org/article/1\n#NilayNews #クマ",
+      "北海道でクマを捕獲\nhttps://example.org/article/1\n#北海道 #クマ #鳥獣被害対策",
     );
+  });
+
+  test("the new tags replace the fixed account and filler tags", () => {
+    expect(
+      draft({
+        title:
+          "ビニールハウスの近くで60代男性がクマに襲われケガ 和歌山・有田川町 (日本テレビ)",
+        url: "https://news.ntv.co.jp/category/society/1",
+        excerpt: "... クマに襲われました。",
+        sourceName: "CEEK｜狩猟・銃・射撃・ジビエ",
+        topic: "鳥獣被害・管理",
+        analysisStatus: "done",
+      }),
+    ).toBe(
+      "ビニールハウスの近くで60代男性がクマに襲われケガ 和歌山・有田川町 (日本テレビ)\nhttps://news.ntv.co.jp/category/society/1\n#日本テレビ #和歌山県 #有田川町 #事件事故 #クマ",
+    );
+  });
+
+  test("an article without known tags has no tag line", () => {
+    const text = draft({ ...ITEM, title: "お知らせ", excerpt: "" });
+    expect(text).toBe("お知らせ\nhttps://example.org/article/1");
+    const long = draft({ ...ITEM, title: "お".repeat(300), excerpt: "" });
+    const [headline = "", url, ...rest] = long.split("\n");
+    expect([url, rest]).toEqual([ITEM.url, []]);
+    expect(textWeight(headline) + 1 + 23).toBeLessThanOrEqual(280);
+    expect(textWeight(headline) + 1 + 23).toBeGreaterThan(276);
   });
 
   test("a title cannot add hashtags, mentions, links or control characters", () => {

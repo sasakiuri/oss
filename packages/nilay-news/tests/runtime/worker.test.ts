@@ -195,7 +195,7 @@ describe("real Worker, D1 and WebCrypto", () => {
       expect(state.articles).toHaveLength(1);
       expect(state.job.running).toBe(false);
       const article = state.articles[0]!;
-      expect(article.postDraft).toContain("#NilayNews");
+      expect(article.postDraft).toMatch(/\n#Fixture #クマ #鳥獣被害対策$/);
       expect(
         (
           await request(`/api/articles/${article.id}/review`, {
