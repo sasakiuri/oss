@@ -1,3 +1,4 @@
+// cspell:words backoffs
 // SPDX-License-Identifier: MIT
 /**
  * Portable SQL repository with optimistic, transaction-wide mutation fencing.

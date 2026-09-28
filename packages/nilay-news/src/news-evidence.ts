@@ -39,7 +39,7 @@ export function withoutSidebar(text: string): string {
 
 /**
  * The excerpt as a lead of this article, or null. Keyword-search snippets start mid-text
- * (often inside a neighbouring story) and a roundup citation's excerpt describes the
+ * (often inside a neighboring story) and a roundup citation's excerpt describes the
  * roundup post, so neither is evidence about the linked article.
  */
 export function lead(
