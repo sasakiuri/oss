@@ -26,6 +26,7 @@ jobs:
       docs: ${{ steps.plan.outputs.docs }}
       electron: ${{ steps.plan.outputs.electron }}
       knowledge: ${{ steps.plan.outputs.knowledge }}
+      about: ${{ steps.plan.outputs.about }}
       e2e: ${{ steps.plan.outputs.e2e }}
       e2eMatrix: ${{ steps.plan.outputs.e2eMatrix }}
       packages: ${{ steps.plan.outputs.packages }}
@@ -107,7 +108,7 @@ jobs:
     name: Lint & Checks
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.ci == 'true'
+    if: needs.changes.outputs.ci == 'true' || needs.changes.outputs.knowledge == 'true' || needs.changes.outputs.about == 'true'
     permissions:
       contents: read
 
@@ -321,42 +322,55 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  lighthouse:
-    name: Knowledge Lighthouse
-    runs-on: ubuntu-latest
-    needs: [changes, build]
+  knowledge:
+    needs: changes
     if: needs.changes.outputs.knowledge == 'true'
-    timeout-minutes: 30
+    uses: ./.github/workflows/web-ci.yml
+    with:
+      application: nilay-knowledge
+    permissions:
+      contents: read
+
+  about:
+    needs: changes
+    if: needs.changes.outputs.about == 'true'
+    uses: ./.github/workflows/web-ci.yml
+    with:
+      application: nilay-about
+    permissions:
+      contents: read
+
+  knowledge-required:
+    name: Knowledge CI Required
+    runs-on: ubuntu-latest
+    needs: [changes, knowledge]
+    if: ${{ always() }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-node
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Require successful Knowledge checks
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/check-required-ci.mjs knowledge
+
+  about-required:
+    name: About CI Required
+    runs-on: ubuntu-latest
+    needs: [changes, about]
+    if: ${{ always() }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          name: build-ubuntu-latest
-      - name: Restore build outputs
-        run: tar -xf build-output.tar
-      - name: Install Chromium for Lighthouse
-        run: npm exec --workspace=@sasakiuri/nilay-knowledge -- playwright install --with-deps chromium
-      - name: Lighthouse and asset regression checks
-        run: |
-          npm run test:lighthouse --workspace=@sasakiuri/nilay-knowledge
-          npm run test:content-styles --workspace=@sasakiuri/nilay-knowledge
-          npm run test:size-budget --workspace=@sasakiuri/nilay-knowledge
-          npm run test:deployment-smoke --workspace=@sasakiuri/nilay-knowledge
-          npm run lhci:run --workspace=@sasakiuri/nilay-knowledge
-      - name: Upload Lighthouse reports
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: nilay-knowledge-lighthouse
-          path: packages/nilay-knowledge/.lighthouse.reports/
-          include-hidden-files: true
-          if-no-files-found: ignore
-          retention-days: 7
+          persist-credentials: false
+      - name: Require successful About checks
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/check-required-ci.mjs about
 
   docs:
     needs: changes
@@ -380,7 +394,10 @@ jobs:
         build,
         unit,
         e2e,
-        lighthouse,
+        knowledge,
+        about,
+        knowledge-required,
+        about-required,
         docs,
       ]
     if: ${{ always() }}

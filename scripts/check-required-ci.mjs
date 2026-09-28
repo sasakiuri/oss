@@ -23,6 +23,7 @@ export function requiredChecksPass(needs, workspaces) {
       "docs",
       "electron",
       "knowledge",
+      "about",
       "e2e",
     ].every((key) => ["true", "false"].includes(outputs?.[key]))
   )
@@ -32,9 +33,9 @@ export function requiredChecksPass(needs, workspaces) {
   const docs = outputs.docs === "true";
   const electron = outputs.electron === "true";
   const knowledge = outputs.knowledge === "true";
+  const about = outputs.about === "true";
   const e2e = outputs.e2e === "true";
-  if (((electron || knowledge || e2e) && !build) || (build && !ci))
-    return false;
+  if (((electron || e2e) && !build) || (build && !ci)) return false;
   try {
     const packages = JSON.parse(outputs.packages);
     const os = JSON.parse(outputs.os);
@@ -45,7 +46,15 @@ export function requiredChecksPass(needs, workspaces) {
       ci !== packages.length > 0
     )
       return false;
-    if (knowledge !== packages.includes("@sasakiuri/nilay-knowledge"))
+    if (
+      packages.some((name) =>
+        [
+          "@sasakiuri/saika-docs",
+          "@sasakiuri/nilay-knowledge",
+          "@sasakiuri/nilay-about",
+        ].includes(name),
+      )
+    )
       return false;
     const selected = packages.map((name) =>
       workspaces.find((pkg) => pkg.name === name),
@@ -76,14 +85,27 @@ export function requiredChecksPass(needs, workspaces) {
     needs.infrastructure?.result ===
       (outputs.infrastructure === "true" ? "success" : "skipped") &&
     needs.knip?.result === (outputs.knip === "true" ? "success" : "skipped") &&
-    needs.lint?.result === (ci ? "success" : "skipped") &&
+    needs.lint?.result === (ci || knowledge || about ? "success" : "skipped") &&
     needs.build?.result === (build ? "success" : "skipped") &&
     needs.unit?.result === (build ? "success" : "skipped") &&
     needs.e2e?.result === (e2e ? "success" : "skipped") &&
-    needs.lighthouse?.result === (knowledge ? "success" : "skipped") &&
+    siteChecksPass(needs, "knowledge") &&
+    siteChecksPass(needs, "about") &&
+    needs["knowledge-required"]?.result === "success" &&
+    needs["about-required"]?.result === "success" &&
     needs.docs?.result === (docs ? "success" : "skipped")
   );
 }
+export function siteChecksPass(needs, site) {
+  if (!["knowledge", "about"].includes(site)) return false;
+  if (needs?.changes?.result !== "success") return false;
+  const enabled = needs.changes.outputs?.[site];
+  return (
+    ["true", "false"].includes(enabled) &&
+    needs[site]?.result === (enabled === "true" ? "success" : "skipped")
+  );
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let needs;
   try {
@@ -91,7 +113,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } catch {
     // Missing or invalid job results must not turn a failed detector into a pass.
   }
-  if (!requiredChecksPass(needs, readGitWorkspaces("HEAD"))) {
+  const site = process.argv[2];
+  const passed =
+    site === undefined
+      ? requiredChecksPass(needs, readGitWorkspaces("HEAD"))
+      : siteChecksPass(needs, site);
+  if (!passed) {
     console.error("A required check did not succeed.");
     process.exitCode = 1;
   } else console.log("All applicable required checks passed.");

@@ -14,6 +14,10 @@ inputs:
     description: "Enable Electron binary cache"
     required: false
     default: "false"
+  ignore-install-scripts:
+    description: "Skip dependency lifecycle scripts for browser-only checks"
+    required: false
+    default: "false"
   registry-url:
     description: "npm registry URL (for publish workflows)"
     required: false
@@ -67,6 +71,8 @@ runs:
     - name: Install dependencies
       if: inputs.prepare-windows-browser-deps != 'true'
       run: npm ci
+      env:
+        NPM_CONFIG_IGNORE_SCRIPTS: ${{ inputs.ignore-install-scripts }}
       shell: bash
 
     - name: Verify concurrent setup behavior

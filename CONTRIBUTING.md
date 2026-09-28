@@ -121,9 +121,14 @@ Electron changes retain build and unit tests on Linux, Windows, and macOS.
 Nilay Knowledge, About, and News use Linux for builds and tests, including when
 shared changes also select Electron packages. Browser suites retain their browser
 projects and shards on Linux. Other packages use Linux unless selected alongside
-Electron applications. Saika Docs keeps its dedicated
-quality workflow. Changes to the npm v3 lockfile select consumers of the changed
-installed dependency entries, following both the previous and current dependency
+Electron applications. Knowledge and About use the reusable `web-ci.yml` workflow
+with separate application jobs and production gates (`Knowledge CI Required` and
+`About CI Required`). Their checks are excluded from the shared package jobs.
+Each production gate depends only on change detection and its own application
+workflow; a failed, cancelled or unexpectedly skipped application cannot pass it.
+Saika Docs keeps its dedicated quality workflow. Changes to the npm v3 lockfile
+select consumers of the changed installed dependency entries, following both the
+previous and current dependency
 graphs, including nested versions and workspace links. Root dependencies, shared
 configuration, CI scripts, and lock files that cannot be resolved confidently
 select all workspaces. Repository documentation, text and release-check tooling,
@@ -142,15 +147,17 @@ detection, failed applicable checks, and unexpected skips. The Changes job
 summary lists the selected packages, runners, E2E shards, and reasons for a
 shared or conservative selection.
 
-Each platform builds once and passes its outputs in a tar archive to separate
-unit, E2E, and Lighthouse jobs. The archive preserves permissions and generated
-files; it excludes Next.js caches and standalone copies because browser checks
-use `next start`. Unit tests and browser checks can run concurrently. Coverage
-and core mutation checks run on Linux; other platforms run normal unit tests.
-Changed-code coverage remains required on pull requests. E2E suites run in
-separate package jobs, with Nilay Knowledge split across two Playwright shards
-per platform while preserving every configured browser project. Lighthouse runs
-independently on Linux. `CI Required` also validates the planned shard matrix.
+Shared package jobs build once per platform and pass their outputs in a tar
+archive to independent unit and E2E jobs. Knowledge and About each build and run
+types, lint, unused-code and unit coverage checks in one Linux job, then share
+their build with two E2E shards and, for Knowledge, Lighthouse. Every configured
+browser project is retained. The archives preserve permissions and generated
+files while excluding Next.js caches and standalone copies because browser checks
+use `next start`. Coverage and core mutation checks run on Linux; other platforms
+run normal unit tests. Changed-code coverage remains required on pull requests.
+`CI Required` validates the shared shard matrix and requires both application
+gates to succeed. It remains the repository merge gate; Vercel production checks
+use each site's own gate.
 
 Bundle size checks reuse the build job outputs. Test reports process existing
 CI artifacts while keeping separate platform and E2E suite reports.
