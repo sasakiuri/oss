@@ -6,7 +6,7 @@
     "kind": "rss",
     "enabled": true,
     "description": "直近7日間の検索 RSS。「ゲーム」を含む記事を除外。記事へのリンクは Google 経由。",
-    "minCollectionMinutes": 360,
+    "minCollectionMinutes": 240,
     "minRequestIntervalSeconds": 1800,
     "robotsException": true,
     "robotsExceptionReason": "Google検索RSSは robots.txt の制限対象です。利用者の指定により、登録した検索RSSのURLだけを例外として低頻度で収集します。サイトから利用許諾を得たことを示すものではありません。"
@@ -18,7 +18,7 @@
     "kind": "rss",
     "enabled": true,
     "description": "直近7日間の検索 RSS。記事へのリンクは Google 経由。",
-    "minCollectionMinutes": 360,
+    "minCollectionMinutes": 240,
     "minRequestIntervalSeconds": 1800,
     "robotsException": true,
     "robotsExceptionReason": "Google検索RSSは robots.txt の制限対象です。利用者の指定により、登録した検索RSSのURLだけを例外として低頻度で収集します。サイトから利用許諾を得たことを示すものではありません。"
@@ -30,7 +30,7 @@
     "kind": "rss",
     "enabled": true,
     "description": "狩猟・銃・射撃・ジビエなどの検索 RSS。「モンスターハンター」を除外。",
-    "minCollectionMinutes": 360,
+    "minCollectionMinutes": 240,
     "minRequestIntervalSeconds": 1800
   },
   {
@@ -40,7 +40,7 @@
     "kind": "rss",
     "enabled": true,
     "description": "鳥獣被害・クマ・シカ・イノシシ・カラス・ヒヨドリなどの検索 RSS。",
-    "minCollectionMinutes": 360,
+    "minCollectionMinutes": 240,
     "minRequestIntervalSeconds": 1800
   },
   {
@@ -50,7 +50,7 @@
     "kind": "rss",
     "enabled": true,
     "description": "「バイアスロン」「鉛弾」「ノネコ」のいずれかを含む記事の検索 RSS。",
-    "minCollectionMinutes": 360,
+    "minCollectionMinutes": 240,
     "minRequestIntervalSeconds": 1800
   },
   {
@@ -148,6 +148,9 @@
     "description": "一覧にある同省の個別記事見出しを収集。他省庁へのリンクは対象外。毎日11時（日本時間）から他の定時収集元と順番に取得。",
     "dailyAtJst": "11:00",
     "minCollectionMinutes": 1440,
+    "minRequestIntervalSeconds": 3,
+    "robotsUnavailableStatus": 403,
+    "robotsUnavailableReason": "農林水産省の robots.txt は HTTP 403 を返し、規則を読めません。RFC 9309 の「取得不能（4xx）」として、利用者の指定により登録した報道発表一覧のURLだけを1日1回、11時（日本時間）に収集します。転送先や他のURLには適用せず、robots.txt が規則を返した場合はそれに従います。サイトから利用許諾を得たことを示すものではありません。",
     "allowedPathPattern": "^/j/press/(?:[^/]+/)+\\d[^/]*\\.html$"
   },
   {
@@ -225,7 +228,8 @@
     "kind": "rss",
     "enabled": true,
     "maxItems": 50,
-    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。",
+    "minCollectionMinutes": 240
   },
   {
     "id": "yahoo-local",
@@ -234,7 +238,8 @@
     "kind": "rss",
     "enabled": true,
     "maxItems": 50,
-    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。",
+    "minCollectionMinutes": 240
   },
   {
     "id": "yahoo-science",
@@ -243,7 +248,8 @@
     "kind": "rss",
     "enabled": true,
     "maxItems": 50,
-    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。"
+    "description": "公式カテゴリRSSの最新50件の見出し・日時・抜粋を取得。分野外の記事も含み、関連性は手動またはJevで確認。本文・コメント欄は収集しない。掲載枠を超えた過去記事は対象外。",
+    "minCollectionMinutes": 240
   },
   {
     "id": "riflesports-news",

@@ -23,6 +23,12 @@ export interface SourceConfig {
   readonly minRequestIntervalSeconds?: number;
   readonly robotsException?: true;
   readonly robotsExceptionReason?: string;
+  /**
+   * Treat this HTTP status of robots.txt as "unavailable" (RFC 9309 2.3.1.3)
+   * for the exact configured URL only; limited to the MAFF press index.
+   */
+  readonly robotsUnavailableStatus?: 403;
+  readonly robotsUnavailableReason?: string;
   readonly allowedPathPattern?: string;
   /** A non-empty reason permanently disables collection of the source. */
   readonly collectionBlocked?: string;
