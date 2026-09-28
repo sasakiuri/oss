@@ -7,6 +7,7 @@
  * checks an unguessable mutation token: a failed compare cannot accidentally write
  * under a newer revision. No process lock, persistent process, or BEGIN is needed.
  */
+import { isSourceCandidate } from "../candidates.ts";
 import { clock as defaultClock } from "../domain.ts";
 import type {
   Analysis,
@@ -810,17 +811,22 @@ export class SQLRepository implements NewsRepository {
   ): Article[] {
     const selection = settingsOf(state.state).postSelection;
     return [...state.articles.values()]
-      .filter(
-        (article) =>
+      .filter((article) => {
+        // A source-rule candidate ignores Jev entirely, including a duplicate
+        // relation; the manual review and the post record still apply.
+        const source = isSourceCandidate(article);
+        return (
           !state.posts.has(article.id) &&
           article.reviewStatus !== "posted" &&
           article.reviewStatus !== "dismissed" &&
-          article.relation !== "duplicate" &&
+          (source || article.relation !== "duplicate") &&
           ((selection !== "candidates" && article.reviewStatus === "saved") ||
             (selection !== "saved" &&
-              article.analysisStatus === "done" &&
-              article.decision === "candidate")),
-      )
+              (source ||
+                (article.analysisStatus === "done" &&
+                  article.decision === "candidate"))))
+        );
+      })
       .sort(chronological);
   }
 

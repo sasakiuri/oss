@@ -347,6 +347,48 @@ async function autoSetup(
   return { ...context, analyze, ids, analyzed };
 }
 
+describe("source-rule candidates", () => {
+  it("derives the flag from stored source IDs without calling Jev", async () => {
+    const jev = new Jev("test-key");
+    const analyze = vi.spyOn(jev, "analyze");
+    const { app, repo } = await setup([source], { jev });
+    // An imported flag is ignored: only the stored source IDs count.
+    const scratch = testRepository([source], () => 10_000);
+    cleanup.push(scratch.close);
+    await scratch.repo.initialize();
+    await scratch.repo.ingest(source, [item]);
+    const snapshot = JSON.parse(
+      JSON.stringify(await scratch.repo.exportSnapshot()),
+    ) as { articles: Record<string, unknown>[] };
+    for (const article of snapshot.articles) article.sourceCandidate = true;
+    await repo.importSnapshot(snapshot);
+    expect((await repo.articles())[0]).toMatchObject({ sourceCandidate: true });
+    for (const id of ["riflesports-news", "clay-shooting-news", "gibier-news"])
+      await repo.ingest({ ...source, id }, [
+        { ...item, url: `https://example.org/${id}` },
+      ]);
+    await repo.updateSettings({ postSelection: "candidates" });
+    const state = await app.state();
+    expect(
+      state.articles
+        .map((article) => [
+          article.url,
+          article.sourceCandidate,
+          article.analysisStatus,
+        ])
+        .sort(),
+    ).toEqual([
+      ["https://example.org/a", false, "pending"],
+      ["https://example.org/clay-shooting-news", true, "pending"],
+      ["https://example.org/gibier-news", true, "pending"],
+      ["https://example.org/riflesports-news", true, "pending"],
+    ]);
+    expect(state.publication.queued).toBe(3);
+    expect(state.settings.autoPost).toBe(false);
+    expect(analyze).not.toHaveBeenCalled();
+  });
+});
+
 describe("automatic classification", () => {
   it("is disabled by default and sends nothing", async () => {
     const { app, repo, analyze } = await autoSetup(["01", "02"]);
