@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// cspell:ignore garturlres garturlreq Fbv4je rpcids batchexecute
+// cspell:ignore garturlres garturlreq Fbv4je rpcids batchexecute CBMigg
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
