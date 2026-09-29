@@ -11,7 +11,8 @@ import { Suspense, useCallback, useDeferredValue, useEffect, useId, useRef, useS
 import { SearchHighlight } from '@/components/search-highlight';
 import { focusContent } from '@/lib/focus-content';
 import { createSearchClient } from '@/lib/search-client';
-import { isSearchIndexError } from '@/lib/search-errors';
+import { isSearchIndexCompatibilityError, isSearchIndexError, normalizeSearchError } from '@/lib/search-errors';
+import { refreshSearchPage } from '@/lib/search-index-format';
 import { searchScopes, type SearchResults } from '@/lib/search-protocol';
 
 // The home button can hydrate before the header's search boundary is ready.
@@ -90,7 +91,8 @@ function SearchDialogContent() {
   const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<ReturnType<typeof createSearchClient> | null>(null);
   const initializationRef = useRef<SearchInitialization | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const incompatible = isSearchIndexCompatibilityError(error);
   const [attempt, setAttempt] = useState(0);
   const [destination, setDestination] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
@@ -108,7 +110,7 @@ function SearchDialogContent() {
         setDestination(null);
       }
       setOpen(next);
-      if (next) setError(false);
+      if (next) setError(null);
     },
     [query, scope, setSearchParams],
   );
@@ -178,7 +180,7 @@ function SearchDialogContent() {
             ? previous
             : { client, pdf, ready: false, promise: pdf ? Promise.resolve() : client.load() };
         initializationRef.current = initialization;
-        setError(false);
+        setError(null);
         await initialization.promise;
         if (current && clientRef.current === client) {
           initialization.ready = true;
@@ -190,12 +192,12 @@ function SearchDialogContent() {
           client.dispose();
           clientRef.current = null;
           setReady(false);
-          setError(true);
+          setError(normalizeSearchError(cause));
           return;
         }
         if (!current || (client && clientRef.current !== client)) return;
         setReady(false);
-        setError(true);
+        setError(normalizeSearchError(cause));
       }
     }
     void load();
@@ -221,7 +223,7 @@ function SearchDialogContent() {
     loadingMoreRef.current = false;
     setLoadingMore(false);
     setExpanded(new Set());
-    setError(false);
+    setError(null);
     setPending(true);
     void client.search(deferredQuery, scope).then(
       (results) => {
@@ -239,7 +241,7 @@ function SearchDialogContent() {
         }
         setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
         setPending(false);
-        setError(true);
+        setError(normalizeSearchError(cause));
       },
     );
     return () => {
@@ -282,7 +284,7 @@ function SearchDialogContent() {
         setReady(false);
       }
       setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
-      setError(true);
+      setError(normalizeSearchError(cause));
     } finally {
       if (version === searchVersion.current) {
         loadingMoreRef.current = false;
@@ -415,19 +417,21 @@ function SearchDialogContent() {
               </p>
             )}
             <p id={statusId} role="status" aria-atomic="true" className="my-3 text-sm text-subtle">
-              {error
-                ? '検索データを読み込めませんでした。'
-                : !ready
-                  ? '検索を準備しています…'
-                  : !query.trim()
-                    ? 'キーワードを入力してください。'
-                    : pending || query !== deferredQuery
-                      ? '検索しています…'
-                      : results.total === 0
-                        ? scope === 'pdf'
-                          ? '一致するPDF資料が見つかりません。'
-                          : '一致する記事・ニュースが見つかりません。'
-                        : `${results.total} 件の検索結果（${results.totalMatches} 箇所が一致・${results.groups.length} 件を表示）${loadingMore ? ' 追加の結果を読み込んでいます…' : ''}`}
+              {incompatible
+                ? '検索データの形式が変更されました。ページを更新してください。'
+                : error
+                  ? '検索データを読み込めませんでした。'
+                  : !ready
+                    ? '検索を準備しています…'
+                    : !query.trim()
+                      ? 'キーワードを入力してください。'
+                      : pending || query !== deferredQuery
+                        ? '検索しています…'
+                        : results.total === 0
+                          ? scope === 'pdf'
+                            ? '一致するPDF資料が見つかりません。'
+                            : '一致する記事・ニュースが見つかりません。'
+                          : `${results.total} 件の検索結果（${results.totalMatches} 箇所が一致・${results.groups.length} 件を表示）${loadingMore ? ' 追加の結果を読み込んでいます…' : ''}`}
             </p>
 
             <Command.List
@@ -574,13 +578,17 @@ function SearchDialogContent() {
             <button
               type="button"
               onClick={() => {
+                if (incompatible) {
+                  refreshSearchPage(query, scope);
+                  return;
+                }
                 inputRef.current?.focus();
-                setError(false);
+                setError(null);
                 setAttempt((current) => current + 1);
               }}
               className="self-start rounded-md border border-line-strong px-4 py-2 text-sm text-ink hover:bg-muted-strong"
             >
-              再試行
+              {incompatible ? 'ページを更新' : '再試行'}
             </button>
           )}
         </Dialog.Content>

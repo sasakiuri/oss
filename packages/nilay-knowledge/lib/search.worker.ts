@@ -1,7 +1,8 @@
 import { expose } from 'comlink';
 
 import { createSearchIndex, parseSearchDocuments, searchExcerpt } from './search';
-import { SearchIndexError } from './search-errors';
+import { SearchIndexCompatibilityError, SearchIndexError } from './search-errors';
+import { assertSearchIndexFormat, searchIndexFormatHeader } from './search-index-format';
 import { searchPageSize, type SearchGroup, type SearchScope, type SearchWorkerApi } from './search-protocol';
 
 let index: Promise<ReturnType<typeof createSearchIndex>> | undefined;
@@ -23,6 +24,13 @@ async function loadIndex(pdf = false) {
       signal: controller.signal,
     });
     if (!response.ok) throw new Error('Search index unavailable');
+    try {
+      assertSearchIndexFormat(response.headers?.get(searchIndexFormatHeader));
+    } catch (error) {
+      // Do not continue downloading a body that this reader cannot decode.
+      controller.abort();
+      throw error;
+    }
     const data: unknown = await response.json();
     // A late response from a transport that ignores abort cannot populate a cache.
     controller.signal.throwIfAborted();
@@ -40,10 +48,11 @@ async function loadIndex(pdf = false) {
 function getIndex(pdf = false) {
   const existing = pdf ? pdfIndex : index;
   if (existing) return existing;
-  const pending = loadIndex(pdf).catch(() => {
+  const pending = loadIndex(pdf).catch((error: unknown) => {
     // Clear only this failed attempt, never another target or a newer request.
     if (pdf && pdfIndex === pending) pdfIndex = undefined;
     if (!pdf && index === pending) index = undefined;
+    if (error instanceof SearchIndexCompatibilityError) throw error;
     throw new SearchIndexError(pdf ? 'PDF search unavailable' : 'Search unavailable');
   });
   if (pdf) pdfIndex = pending;
