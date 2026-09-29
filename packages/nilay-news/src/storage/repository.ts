@@ -40,6 +40,7 @@ import {
 import type {
   FinishPostOptions,
   NewsRepository,
+  PostScreening,
   RecordOptions,
 } from "../repository.ts";
 import { dailySlot, nextDailyRun, nextPhase } from "../schedule.ts";
@@ -1204,10 +1205,11 @@ export class SQLRepository implements NewsRepository {
     articleId: string,
     claimToken: string,
     now: number,
+    screening?: PostScreening,
   ): Promise<boolean> {
     return this.mutate(
       ["state", "articles", "posts"],
-      (state) => {
+      async (state) => {
         // Snapshot reads and CAS retries can cross the daily closing time.
         const current = Math.max(now, this.clock());
         const post = state.posts.get(articleId);
@@ -1227,6 +1229,9 @@ export class SQLRepository implements NewsRepository {
           ) &&
           article &&
           SQLRepository.eligible(state, article, current) &&
+          (!screening ||
+            (screening.permitted &&
+              (await this.evidenceHash(article)) === screening.evidenceHash)) &&
           SQLRepository.sameDraft(article, post.text)
         )
           return true;

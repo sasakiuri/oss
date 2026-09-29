@@ -24,6 +24,7 @@ let now = 1_801_000_000;
 const calls: string[] = [];
 /** Set by `/fixture/classify`: a feed of 12 articles and a working Jev API. */
 let classify = false;
+let duplicate = false;
 const feedItems = (count: number) =>
   Array.from({ length: count }, (_, index) => {
     const suffix = index ? String(index) : "";
@@ -138,11 +139,30 @@ const handlers = createHandlers(
       repo,
       // Unless enabled by /fixture/classify, every classification request
       // fails like an unavailable paid API.
-      new Jev("fixture-key", "jev-latest", async (url) => {
+      new Jev("fixture-key", "jev-latest", async (url, options) => {
         if (url !== ENDPOINT) throw new Error("Unexpected Jev request");
-        calls.push("jev");
+        const body: unknown = JSON.parse(
+          new TextDecoder().decode(options?.body),
+        );
+        const relation =
+          isRecord(body) &&
+          isRecord(body.questions) &&
+          isRecord(body.questions.relation);
+        calls.push(relation ? "relation" : "jev");
         if (!classify) throw new FetchError("HTTP 503", 503);
-        return { data: utf8(irrelevant), url, contentType: "application/json" };
+        const response = relation
+          ? JSON.stringify({
+              answers: {
+                relation: choice(duplicate ? "duplicate" : "different", [
+                  "duplicate",
+                  "followup",
+                  "different",
+                  "uncertain",
+                ]),
+              },
+            })
+          : irrelevant;
+        return { data: utf8(response), url, contentType: "application/json" };
       }),
       new BufferClient("fixture-key", "fixture-channel", transport),
       {
@@ -170,6 +190,11 @@ export default {
     if (path === "/fixture/calls") return Response.json(calls);
     if (path === "/fixture/classify") {
       classify = true;
+      return new Response("ok");
+    }
+    if (path === "/fixture/duplicates") {
+      classify = true;
+      duplicate = true;
       return new Response("ok");
     }
     if (path === "/fixture/encodings") {

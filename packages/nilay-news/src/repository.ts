@@ -24,6 +24,12 @@ export interface RecordOptions {
   /** Write only while this token holds the running job's unexpired lease. */
   jobToken?: string;
 }
+export interface PostScreening {
+  evidenceHash: string;
+  /** A rejected check remains binding even if another classifier edits the article. */
+  permitted: boolean;
+}
+
 export interface NewsRepository {
   initialize(): Promise<void>;
   stateVersion(): Promise<number>;
@@ -52,13 +58,14 @@ export interface NewsRepository {
   /**
    * Whether this unsent claim may be sent now: still an automatic candidate
    * under the current settings, drafting exactly the claimed text. An own
-   * live claim that is no longer eligible is withdrawn; a lost or expired
+   * live claim that is no longer eligible or fails its supplied screening is withdrawn; a lost or expired
    * claim is left unchanged.
    */
   authorizePostSend(
     articleId: string,
     claimToken: string,
     timestamp: number,
+    screening?: PostScreening,
   ): Promise<boolean>;
   finishPost(
     articleId: string,

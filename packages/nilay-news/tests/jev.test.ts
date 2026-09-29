@@ -587,7 +587,7 @@ describe("Jev decisions", () => {
     });
   });
 
-  test("a low-confidence relation is uncertain and a later match still wins", async () => {
+  test("a low-confidence relation stays uncertain even if another article is a follow-up match", async () => {
     const uncertain = await new Jev(
       "test",
       "jev-latest",
@@ -621,7 +621,40 @@ describe("Jev decisions", () => {
         "基準",
         others,
       ),
-    ).toMatchObject({ relation: "followup" });
+    ).toMatchObject({ relation: "uncertain", relatedArticleId: "previous" });
+  });
+
+  test("an uncertain posted match takes precedence over an earlier follow-up", async () => {
+    let comparisons = 0;
+    const { fetch } = transport(({ body }) => {
+      const criteria = body.questions.relation?.criteria;
+      if (!criteria) return response();
+      return {
+        answers: {
+          relation: selected(
+            ++comparisons === 1 ? "followup" : "uncertain",
+            Object.keys(criteria),
+          ),
+        },
+      };
+    });
+    const result = await new Jev("test", "jev-latest", fetch).analyze(
+      ARTICLE,
+      "基準",
+      [
+        { ...previous, title: ARTICLE.title },
+        {
+          ...previous,
+          id: "posted",
+          title: `${ARTICLE.title} 対応完了`,
+          reviewStatus: "posted",
+        },
+      ],
+    );
+    expect(result).toMatchObject({
+      relation: "uncertain",
+      relatedArticleId: "posted",
+    });
   });
 
   test("a different event leaves no relation and irrelevant articles skip matching", async () => {

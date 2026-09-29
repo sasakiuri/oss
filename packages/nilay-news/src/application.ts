@@ -122,7 +122,7 @@ export class Application {
     this.collector = options.collector ?? collectSource;
     this.crawl = options.crawl;
     this.crawlTransport = options.crawlTransport;
-    this.publisher = new Publisher(repository, buffer, this.clock);
+    this.publisher = new Publisher(repository, buffer, this.clock, jev);
     this.notifier = options.notifier ?? new Notifier(repository);
   }
 
