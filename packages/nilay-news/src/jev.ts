@@ -278,7 +278,7 @@ export function relatedCandidates<T extends RelatedArticle>(
   }
   ranked.sort((x, y) => y[0] - x[0]);
   const selected = ranked.slice(0, 3).map(([, other]) => other);
-  // Always check the closest posted match, even when unposted copies rank higher.
+  // Always check the closest posted match, even when pending copies rank higher.
   const posted = ranked.find(
     ([, other]) => other.reviewStatus === "posted",
   )?.[1];
