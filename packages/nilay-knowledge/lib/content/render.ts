@@ -16,6 +16,7 @@ import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 
+import { collectContentCapabilities } from './capabilities';
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
 import { remarkContentDirectives } from './directives';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
@@ -136,6 +137,7 @@ export async function renderContent(
   options: { imageDimensions?: ImageDimensionsResolver } = {},
 ): Promise<RenderedContent> {
   const tableOfContents: TocItem[] = [];
+  let capabilities = { mathStyles: false, highlightStyles: false, codeControls: false };
   const result = await processor()
     .use(rehypeAutolinkHeadings, {
       behavior: 'append',
@@ -300,8 +302,11 @@ export async function renderContent(
     .use(rehypeHighlight, { detect: false, ignoreMissing: true, plainText: ['mermaid', 'dot', 'graphviz'] })
     .use(rehypeKatex)
     .use(rehypeCodeBlocks)
+    .use(() => (tree: Root) => {
+      capabilities = collectContentCapabilities(tree);
+    })
     .use(rehypeStringify)
     .process({ value: source.content, path: `content/${source.type}/${source.slug}/index.md` });
 
-  return { html: String(result), tableOfContents };
+  return { html: String(result), tableOfContents, capabilities };
 }
