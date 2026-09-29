@@ -98,10 +98,12 @@ export async function serveContentAsset(request: Request, segments: readonly str
       : Date.parse(request.headers.get('if-modified-since') ?? '') >= Date.parse(modified);
     if (unmodified) return new Response(null, { status: 304, headers });
 
-    // HEAD ignores Range. A weak ETag cannot satisfy If-Range's strong comparison.
-    const ifRange = request.headers.get('if-range');
+    // HEAD ignores Range. This route has no strong validator: the ETag is weak,
+    // and a file mtime cannot prove that the representation did not change twice
+    // in the same second (RFC 9110, 8.8.2.2). Ignore Range whenever If-Range is
+    // present, including matching dates and malformed/empty values (13.1.5).
     const range =
-      request.method === 'GET' && (!ifRange || Date.parse(ifRange) >= Date.parse(modified))
+      request.method === 'GET' && !request.headers.has('if-range')
         ? byteRange(request.headers.get('range'), stats.size)
         : null;
     if (range === 'unsatisfiable') {

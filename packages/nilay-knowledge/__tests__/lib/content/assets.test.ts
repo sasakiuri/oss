@@ -1,6 +1,6 @@
 // @vitest-environment node
 import * as fs from 'node:fs/promises';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -126,18 +126,77 @@ describe('content asset route', () => {
     await changed.text();
   });
 
-  it('honors If-Range dates and sends the whole file for stale or weak validators', async () => {
+  it('does not treat matching modification dates or weak ETags as strong If-Range validators', async () => {
     const response = await get();
     await response.text();
-    for (const [validator, expected] of [
-      [response.headers.get('last-modified')!, 206],
-      ['Thu, 01 Jan 1970 00:00:00 GMT', 200],
-      [response.headers.get('etag')!, 200],
-    ] as const) {
+    for (const validator of [
+      response.headers.get('last-modified')!,
+      response.headers.get('etag')!,
+      response.headers.get('etag')!.slice(2),
+    ]) {
       const ranged = await get(undefined, { headers: { Range: 'bytes=0-1', 'If-Range': validator } });
-      expect(ranged.status).toBe(expected);
-      expect(await ranged.text()).toBe(expected === 206 ? '01' : '0123456789');
+      expect(ranged.status).toBe(200);
+      expect(ranged.headers.get('content-range')).toBeNull();
+      expect(ranged.headers.get('content-length')).toBe('10');
+      expect(await ranged.text()).toBe('0123456789');
     }
+  });
+
+  it.each([
+    'Sat, 19 Sep 2026 00:00:00 GMT',
+    'Mon, 21 Sep 2026 00:00:00 GMT',
+    'Thu, 01 Jan 2099 00:00:00 GMT',
+    '"2099"',
+    'W/"2099"',
+    '"other"',
+    '',
+    'not a date',
+    '2026-09-20T00:00:00Z',
+  ])('ignores Range for an unsupported If-Range value: %j', async (validator) => {
+    const modified = new Date('2026-09-20T00:00:00Z');
+    await utimes(path.join(contentDirectory, 'articles/example/document.pdf'), modified, modified);
+    const response = await get(undefined, { headers: { Range: 'bytes=0-1', 'If-Range': validator } });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-range')).toBeNull();
+    expect(await response.text()).toBe('0123456789');
+  });
+
+  it('does not resume a different representation modified within the same second', async () => {
+    const filename = path.join(contentDirectory, 'articles/example/document.pdf');
+    const firstTime = new Date('2026-09-20T00:00:00.100Z');
+    await utimes(filename, firstTime, firstTime);
+    const first = await get();
+    await first.text();
+    await writeFile(filename, 'abcdefghij');
+    const secondTime = new Date('2026-09-20T00:00:00.900Z');
+    await utimes(filename, secondTime, secondTime);
+    const second = await get(undefined, {
+      headers: { Range: 'bytes=0-1', 'If-Range': first.headers.get('last-modified')! },
+    });
+    expect(second.headers.get('last-modified')).toBe(first.headers.get('last-modified'));
+    expect(second.headers.get('etag')).not.toBe(first.headers.get('etag'));
+    expect(second.status).toBe(200);
+    expect(await second.text()).toBe('abcdefghij');
+  });
+
+  it('evaluates revalidation before ranges and preserves later If-Modified-Since dates', async () => {
+    const modified = new Date('2026-09-20T00:00:00Z');
+    await utimes(path.join(contentDirectory, 'articles/example/document.pdf'), modified, modified);
+    const cached = await get(undefined, {
+      headers: {
+        'If-Modified-Since': 'Mon, 21 Sep 2026 00:00:00 GMT',
+        'If-Range': '"other"',
+        Range: 'bytes=20-',
+      },
+    });
+    expect(cached.status).toBe(304);
+    expect(await cached.text()).toBe('');
+    const full = await get(undefined, {
+      headers: { 'If-Range': 'Sun, 20 Sep 2026 00:00:00 GMT', Range: 'bytes=20-' },
+    });
+    expect(full.status).toBe(200);
+    expect(full.headers.get('content-range')).toBeNull();
+    expect(await full.text()).toBe('0123456789');
   });
 
   it.each([
