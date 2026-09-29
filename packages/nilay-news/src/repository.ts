@@ -54,7 +54,11 @@ export interface NewsRepository {
   dismiss(articleIds: unknown): Promise<Article[]>;
   publicationState(): Promise<Publication>;
   postCandidates(): Promise<Article[]>;
-  claimPost(timestamp: number): Promise<PostClaim | null>;
+  /** Resolve only the selected Google link before the fenced draft reservation. */
+  claimPost(
+    timestamp: number,
+    resolveUrl?: (url: string) => Promise<string>,
+  ): Promise<PostClaim | null>;
   /**
    * Whether this unsent claim may be sent now: still an automatic candidate
    * under the current settings, drafting exactly the claimed text. An own

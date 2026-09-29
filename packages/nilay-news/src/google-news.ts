@@ -56,15 +56,20 @@ function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** One collection's budget; successful mappings and rate state survive Workers. */
-class Resolver {
+/** A wait, not a failed publication or a reason to renew an ID's cooldown. */
+export class GoogleNewsDeferred extends GoogleNewsError {
+  constructor() { super(LIMITED); }
+}
+
+/** One operation's budget; successful mappings and rate state survive Workers. */
+export class GoogleNewsResolver {
   private requests = 0;
   private readonly clock: Clock;
   private readonly transport: FetchBytes;
   private readonly started: number;
   private readonly options: GoogleNewsOptions;
 
-  constructor(private readonly store: Store, options: GoogleNewsOptions) {
+  constructor(private readonly store: Store, options: GoogleNewsOptions = {}) {
     this.options = options;
     this.clock = options.clock ?? systemClock;
     this.transport = options.transport ?? fetchBytes;
@@ -80,16 +85,16 @@ class Resolver {
     const cached = await this.store.getRecord<Cached>(CACHE, id);
     const target = publisherUrl(cached?.url);
     if (target) return target;
-    if (cached?.retryAt && cached.retryAt > this.clock()) throw new GoogleNewsError(LIMITED);
+    if (cached?.retryAt && cached.retryAt > this.clock()) throw new GoogleNewsDeferred();
     this.budget();
     const token = await this.store.acquireHost(HOST, this.clock(), 120);
-    if (!token) throw new GoogleNewsError(LIMITED);
+    if (!token) throw new GoogleNewsDeferred();
     try {
       // Another invocation may have populated the mapping while we waited.
       const again = await this.store.getRecord<Cached>(CACHE, id);
       const found = publisherUrl(again?.url);
       if (found) return found;
-      if (again?.retryAt && again.retryAt > this.clock()) throw new GoogleNewsError(LIMITED);
+      if (again?.retryAt && again.retryAt > this.clock()) throw new GoogleNewsDeferred();
       const rate = await this.store.getRecord<Rate>(RATE, HOST) ?? {
         nextAt: 0, blockedUntil: 0,
       };
@@ -106,7 +111,7 @@ class Resolver {
       const send = async (requestUrl: string, options: FetchOptions = {}) => {
         this.budget();
         if (rate.blockedUntil > this.clock() || rate.nextAt - this.clock() > INTERVAL + 0.01)
-          throw new GoogleNewsError(LIMITED);
+          throw new GoogleNewsDeferred();
         while (rate.nextAt > this.clock()) {
           await (this.options.sleep ?? sleep)(
             Math.min(rate.nextAt - this.clock(), INTERVAL) * 1000,
@@ -158,6 +163,9 @@ class Resolver {
       this.options.signal?.throwIfAborted();
       if (!(error instanceof GoogleNewsError) && !(error instanceof FetchError))
         throw error;
+      // Waiting for another operation or a host cooldown is not an ID failure.
+      // In particular, minute publication ticks must not extend the wait forever.
+      if (error instanceof GoogleNewsDeferred) throw error;
       // A failed ID must not consume every later collection's first requests.
       await this.store.putRecord(CACHE, id, { retryAt: this.clock() + 3600 }, {
         expiresAt: this.clock() + 3600,
@@ -172,7 +180,7 @@ class Resolver {
   private budget(): void {
     this.options.signal?.throwIfAborted();
     if (this.requests >= MAX_REQUESTS || this.clock() - this.started >= MAX_SECONDS)
-      throw new GoogleNewsError(LIMITED);
+      throw new GoogleNewsDeferred();
   }
 }
 
@@ -184,7 +192,7 @@ export async function resolveGoogleNewsItems(
 ): Promise<void> {
   options.signal?.throwIfAborted();
   if (!result.items.some((item) => isGoogleNewsUrl(item.url))) return;
-  const resolver = new Resolver(store, options);
+  const resolver = new GoogleNewsResolver(store, options);
   const items: Collection["items"] = [];
   const seen = new Set<string>();
   let failed = 0;
