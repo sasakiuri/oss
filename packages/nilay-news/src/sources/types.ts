@@ -54,11 +54,12 @@ export interface Attachment {
 
 export type Metadata = Record<string, string>;
 
-/** Metadata naming a roundup post that linked the article, not article details. */
+/** Attribution links, not evidence that the article's body was retrieved. */
 const CITATION_KEYS: ReadonlySet<string> = new Set([
   "roundupUrl",
   "roundupTitle",
   "roundupPublishedAt",
+  "googleNewsUrl",
 ]);
 
 export function citationOnly(metadata: Metadata): boolean {

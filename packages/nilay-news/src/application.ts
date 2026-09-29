@@ -6,6 +6,7 @@ import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { UserError } from "./errors.ts";
 import { freshness, isFreshPublication, newestFirst } from "./freshness.ts";
+import { resolveGoogleNewsItems } from "./google-news.ts";
 import { Jev } from "./jev.ts";
 import { FetchError } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
@@ -650,11 +651,17 @@ export class Application {
     try {
       attempt = await crawl.beginSource(source);
       // Source filters judge freshness by the same clock as storage.
-      const { items, warnings, notes } = await this.collector(
+      const result = await this.collector(
         source,
         (url) => crawl.fetch(url),
         this.clock(),
       );
+      await resolveGoogleNewsItems(result, this.repository, {
+        clock: this.clock,
+        signal,
+        transport: this.crawlTransport,
+      });
+      const { items, warnings, notes } = result;
       signal.throwIfAborted();
       job.created += await this.repository.ingest(source, items);
       signal.throwIfAborted();
