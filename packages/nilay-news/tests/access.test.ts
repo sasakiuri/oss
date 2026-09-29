@@ -408,7 +408,7 @@ describe("Access", () => {
     // Token checks are synchronous, so both calls reach the key lookup before the fetch settles.
     const pending = Promise.all([allowed(token), allowed(token)]);
     release();
-    expect((await pending).sort()).toEqual([false, true]);
+    expect(await pending).toEqual([true, true]);
     expect(fetches).toHaveLength(1);
   });
 
@@ -511,5 +511,185 @@ describe("Access", () => {
       true,
     );
     expect(await allowed()).toBe(true);
+  });
+
+  it("shares a cold refresh across many callers while selecting each kid independently", async () => {
+    keys.push(await publicJwk(rotated, "rotated-key"));
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = fetcher;
+    let attempts = 0;
+    fetcher = async (url, options) => {
+      attempts += 1;
+      await gate;
+      return original(url, options);
+    };
+    const tokens = await Promise.all([
+      sign(),
+      sign({}, { kid: "rotated-key" }, rotated),
+      sign({}, { kid: "missing-key" }),
+      sign({}, {}, rotated),
+    ]);
+    const pending = Promise.all(
+      Array.from({ length: 32 }, (_, index) => allowed(tokens[index % 4])),
+    );
+    expect(attempts).toBe(1);
+    release();
+    expect(await pending).toEqual(
+      Array.from({ length: 32 }, (_, index) => index % 4 < 2),
+    );
+    expect(fetches).toHaveLength(1);
+  });
+
+  it.each(["rejected", "malformed"])(
+    "clears a %s shared refresh without bypassing the retry throttle",
+    async (failure) => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const original = fetcher;
+      let attempts = 0;
+      fetcher = async (url) => {
+        attempts += 1;
+        await gate;
+        if (failure === "rejected")
+          throw new Error("private upstream response");
+        return {
+          data: encoder.encode('{"keys":[]}'),
+          url,
+          contentType: "application/json",
+        };
+      };
+      const token = await sign();
+      const pending = Promise.all([allowed(token), allowed(token)]);
+      release();
+      expect(await pending).toEqual([false, false]);
+      expect(await allowed(token)).toBe(false);
+      expect(attempts).toBe(1);
+      fetcher = original;
+      now = 1059;
+      expect(await allowed(token)).toBe(false);
+      expect(fetches).toHaveLength(0);
+      now = 1060;
+      expect(await Promise.all([allowed(token), allowed(token)])).toEqual([
+        true,
+        true,
+      ]);
+      expect(fetches).toHaveLength(1);
+    },
+  );
+
+  it("shares an expired-key refresh and never falls back to the expired cache", async () => {
+    const token = await sign({ exp: 99999 });
+    expect(await allowed(token)).toBe(true);
+    now = 4600;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = fetcher;
+    fetcher = async () => {
+      await gate;
+      throw new Error("unavailable");
+    };
+    const pending = Promise.all([allowed(token), allowed(token)]);
+    release();
+    expect(await pending).toEqual([false, false]);
+    expect(await allowed(token)).toBe(false);
+    fetcher = original;
+    now = 4660;
+    expect(await Promise.all([allowed(token), allowed(token)])).toEqual([
+      true,
+      true,
+    ]);
+    expect(fetches).toHaveLength(2);
+  });
+
+  it("keeps a valid known key usable while an unknown kid refresh is pending", async () => {
+    const known = await sign();
+    expect(await allowed(known)).toBe(true);
+    now = 1060;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = fetcher;
+    fetcher = async (url, options) => {
+      await gate;
+      return original(url, options);
+    };
+    const pending = allowed(await sign({}, { kid: "unknown" }));
+    expect(await allowed(known)).toBe(true);
+    release();
+    expect(await pending).toBe(false);
+    expect(fetches).toHaveLength(2);
+  });
+
+  it("rechecks every waiting token's expiration after the shared refresh", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = fetcher;
+    fetcher = async (url, options) => {
+      await gate;
+      return original(url, options);
+    };
+    const [valid, expiring] = await Promise.all([sign(), sign({ exp: 1001 })]);
+    const pending = Promise.all([allowed(valid), allowed(expiring)]);
+    now = 1001;
+    release();
+    expect(await pending).toEqual([true, false]);
+    expect(fetches).toHaveLength(1);
+  });
+
+  it("does not extend an older selected key's expiry when a newer refresh completes", async () => {
+    const token = await sign({ exp: 99999 });
+    expect(await allowed(token)).toBe(true);
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const verifying = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const spy = vi
+      .spyOn(crypto.subtle, "verify")
+      .mockImplementationOnce(async () => {
+        started();
+        await gate;
+        return true;
+      });
+    try {
+      const pending = allowed(token);
+      await verifying;
+      now = 4600;
+      expect(await allowed(token)).toBe(true);
+      release();
+      expect(await pending).toBe(false);
+      expect(fetches).toHaveLength(2);
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  it("rechecks not-before and issued-at after asynchronous verification", async () => {
+    const token = await sign({ nbf: 1000 });
+    const spy = vi
+      .spyOn(crypto.subtle, "verify")
+      .mockImplementationOnce(async () => {
+        now = 999;
+        return true;
+      });
+    try {
+      expect(await allowed(token)).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -32,11 +32,21 @@ export interface PostScreening {
   approvedAt?: string;
 }
 
+/** Settings and their edit token are read in the same database snapshot. */
+export interface SettingsSnapshot extends Settings {
+  revision: string;
+}
+
 export interface NewsRepository {
   initialize(): Promise<void>;
   stateVersion(): Promise<number>;
   settings(): Promise<Settings>;
-  updateSettings(changes: Record<string, unknown>): Promise<Settings>;
+  settingsSnapshot(): Promise<SettingsSnapshot>;
+  /** Public edits must supply the snapshot token; trusted internal safety writes need not. */
+  updateSettings(
+    changes: Record<string, unknown>,
+    expectedRevision?: string,
+  ): Promise<Settings>;
   sources(): Promise<Source[]>;
   updateSource(sourceId: string, changes: Partial<Source>): Promise<Source>;
   /**

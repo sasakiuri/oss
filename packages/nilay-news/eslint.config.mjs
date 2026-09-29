@@ -6,6 +6,8 @@ export default [
   {
     ignores: [
       "public/**",
+      "playwright-report/**",
+      "test-results/**",
       ".local/**",
       ".wrangler/**",
       ".venv/**",
