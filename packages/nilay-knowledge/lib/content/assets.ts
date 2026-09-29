@@ -4,6 +4,8 @@ import { open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 
+import { isPublishableContentPath } from './asset-path';
+
 const contentTypes: Record<string, string> = {
   '.avif': 'image/avif',
   '.css': 'text/css; charset=utf-8',
@@ -47,10 +49,7 @@ function byteRange(value: string | null, size: number): { start: number; end: nu
 /** Serve the sole authored tree at its existing /content URLs, including PDF range requests. */
 export async function serveContentAsset(request: Request, segments: readonly string[], contentDirectory: string) {
   // Next already decodes route parameters. Reject separators rather than decoding a second time.
-  if (
-    segments.length === 0 ||
-    segments.some((segment) => !segment || segment.startsWith('.') || /[/\\\0]/.test(segment))
-  ) {
+  if (!isPublishableContentPath(segments)) {
     return new Response(null, { status: 404 });
   }
 

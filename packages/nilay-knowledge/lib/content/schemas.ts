@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { decodeContentAssetPathname } from './asset-path';
 import { articleCategoryTitles } from './categories';
 import { contentTypes } from './types';
 
@@ -80,13 +81,7 @@ function isSearchDestination(document: { id: string; type: string }): boolean {
       url.pathname + url.hash === document.id &&
       /^\/content\/(?:(?:articles|news)\/[a-zA-Z0-9][a-zA-Z0-9_-]*\/|assets\/).+\.pdf$/i.test(url.pathname) &&
       /^#page=[1-9]\d*$/.test(url.hash) &&
-      url.pathname
-        .split('/')
-        .slice(1)
-        .every((part) => {
-          const decoded = decodeURIComponent(part);
-          return decoded !== '.' && decoded !== '..' && !/[\\/\u0000-\u001f\u007f]/.test(decoded);
-        })
+      decodeContentAssetPathname(url.pathname) !== null
     );
   } catch {
     return false;
