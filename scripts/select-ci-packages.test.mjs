@@ -209,7 +209,7 @@ test("unused-code configuration runs its own check without rebuilding applicatio
   assert.deepEqual(names(mixed), ["nilay-news"]);
   assert.equal(mixed.build, true);
   assert.equal(mixed.docs, false);
-  assert.equal(mixed.e2e, false);
+  assert.equal(mixed.e2e, true);
   assert.deepEqual(mixed.os, ["ubuntu-latest"]);
   assert.equal(select(["packages/nilay-news/src/application.ts"]).knip, false);
 });
@@ -222,7 +222,17 @@ test("News builds and tests remain on Linux", () => {
       { os: "ubuntu-latest", packages: [name(app)] },
     ]);
     assert.equal(plan.build, true);
-    assert.equal(plan.e2eMatrix.length, app === "nilay-news" ? 0 : 2);
+    assert.deepEqual(plan.e2eMatrix, [
+      {
+        os: "ubuntu-latest",
+        package: name(app),
+        directory: `packages/${app}`,
+        shard: 1,
+        shards: 1,
+        electron: false,
+        installBrowsers: true,
+      },
+    ]);
     assert.ok(plan.e2eMatrix.every((row) => row.os === "ubuntu-latest"));
   }
 });

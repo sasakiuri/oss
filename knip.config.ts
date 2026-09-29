@@ -11,6 +11,8 @@ const config: KnipConfig = {
         "scripts/*.ts",
         "tests/**/*.test.ts",
         "tests/runtime/fixture.ts",
+        "tests/browser/server.ts", // Started by Playwright via its webServer command.
+        "tests/browser/fixture.ts", // Bundled by the isolated browser server.
       ],
     },
     "packages/nilay-about": {

@@ -8,6 +8,15 @@ export class UserError extends Error {
   }
 }
 
+/** A browser edit no longer describes the current saved settings. */
+export class SettingsConflictError extends UserError {
+  constructor() {
+    super(
+      "設定が別の画面または自動停止処理で更新されました。入力内容を確認し、最新の設定を読み直してください",
+    );
+  }
+}
+
 /** A missing article or source; the HTTP boundary maps it to 404. */
 export class NotFoundError extends Error {
   constructor(message: string) {

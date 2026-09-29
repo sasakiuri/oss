@@ -12,7 +12,9 @@
     "test:runtime": "vitest run --project runtime",
     "lint": "eslint . && node scripts/check-config.ts && node --check public/app.js",
     "fix": "eslint --fix .",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test:e2e": "playwright test",
+    "test:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "htmlparser2": "^12.0.0",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260927.1",
+    "@playwright/test": "^1.63.0",
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/typescript-config": "*",
     "@types/node": "^24.0.0",
