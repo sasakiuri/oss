@@ -196,7 +196,9 @@ describe("publication of stored Google News links", () => {
     await enable();
     await new Publisher(repo, client, clock).tick();
     expect(client.post).toHaveBeenCalledTimes(2);
-    expect((await repo.publicationState()).posts.every((post) => post.text.includes(TARGET))).toBe(true);
+    expect((await repo.publicationState()).posts.map((post) =>
+      new URL(post.text.match(/https?:\/\/\S+/)?.[0] ?? "").href,
+    )).toEqual([TARGET, TARGET]);
   });
 
   it.each(["dismiss", "disable"])("rechecks a concurrent %s while resolving without stale writes", async (change) => {
