@@ -7,6 +7,8 @@ import { createContentRepository } from '../lib/content/repository';
 import { createArticleDirectory, getArticleTags } from '../lib/content/taxonomy';
 import { contentTypes, type ContentSummary } from '../lib/content/types';
 
+import { checkFrontmatterKeys } from './frontmatter-keys';
+
 export function formatTaxonomyReport(content: ContentSummary[]): string {
   const articles = createArticleDirectory(content);
   const lines = [`記事: ${articles.length}件`, '', 'カテゴリー（ID / 名前 / 件数）'];
@@ -30,8 +32,14 @@ export function formatTaxonomyReport(content: ContentSummary[]): string {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { check: { type: 'boolean' } } });
-  const repository = createContentRepository(fileURLToPath(new URL('../content/', import.meta.url)));
+  const { values } = parseArgs({
+    options: { check: { type: 'boolean' }, 'content-dir': { type: 'string' } },
+  });
+  const directory = values['content-dir'] ?? fileURLToPath(new URL('../content/', import.meta.url));
+  const repository = createContentRepository(
+    directory,
+    values.check ? { validateFrontmatter: checkFrontmatterKeys } : {},
+  );
   const content = (await Promise.all(contentTypes.map((type) => repository.list(type)))).flat();
   console.log(values.check ? `Validated metadata for ${content.length} entries.` : formatTaxonomyReport(content));
 }
