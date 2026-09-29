@@ -39,18 +39,23 @@ interface BodySource {
   readonly headers: Headers;
 }
 
-function aborted(signal: AbortSignal): Promise<never> {
-  return new Promise((_, reject) => {
-    if (signal.aborted) reject(signal.reason);
-    else
-      signal.addEventListener("abort", () => reject(signal.reason), {
-        once: true,
-      });
+async function abortable<T>(
+  promise: Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return promise;
+  let onAbort: () => void = () => undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason);
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
   });
-}
-
-function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-  return signal ? Promise.race([promise, aborted(signal)]) : promise;
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    // A successful read must not retain one listener for every previous chunk.
+    signal.removeEventListener("abort", onAbort);
+  }
 }
 
 /**
