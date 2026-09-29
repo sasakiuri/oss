@@ -11,10 +11,18 @@ import { Suspense, useCallback, useDeferredValue, useEffect, useId, useRef, useS
 import { SearchHighlight } from '@/components/search-highlight';
 import { focusContent } from '@/lib/focus-content';
 import { createSearchClient } from '@/lib/search-client';
+import { isSearchIndexError } from '@/lib/search-errors';
 import { searchScopes, type SearchResults } from '@/lib/search-protocol';
 
 // The home button can hydrate before the header's search boundary is ready.
 let searchRequested = false;
+
+type SearchInitialization = {
+  client: ReturnType<typeof createSearchClient>;
+  pdf: boolean;
+  ready: boolean;
+  promise: Promise<void>;
+};
 
 export function HomeSearchButton({ compact = false }: { compact?: boolean }) {
   return (
@@ -81,6 +89,7 @@ function SearchDialogContent() {
   const appendedResultRef = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<ReturnType<typeof createSearchClient> | null>(null);
+  const initializationRef = useRef<SearchInitialization | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [destination, setDestination] = useState<string | null>(null);
@@ -151,62 +160,83 @@ function SearchDialogContent() {
   }, [open, changeOpen]);
 
   useEffect(() => {
-    if (!open || clientRef.current) return;
-    let mounted = true;
+    const existing = initializationRef.current;
+    if (!open || (clientRef.current && existing?.client === clientRef.current && existing.ready)) return;
+    let current = true;
     async function load() {
       let client: ReturnType<typeof createSearchClient> | null = null;
+      let initialization: SearchInitialization | null = null;
       try {
-        client = createSearchClient();
+        client = clientRef.current ?? createSearchClient();
         clientRef.current = client;
-        await client.load();
-        if (clientRef.current === client) setReady(true);
-      } catch {
-        if (!client) {
-          if (mounted) setError(true);
+        const pdf = scope === 'pdf';
+        const previous = initializationRef.current;
+        // Retain an in-flight initialization across close/reopen, but never make
+        // PDF readiness depend on the article index or fetch PDF data for no query.
+        initialization =
+          previous?.client === client && previous.pdf === pdf
+            ? previous
+            : { client, pdf, ready: false, promise: pdf ? Promise.resolve() : client.load() };
+        initializationRef.current = initialization;
+        setError(false);
+        await initialization.promise;
+        if (current && clientRef.current === client) {
+          initialization.ready = true;
+          setReady(true);
+        }
+      } catch (cause) {
+        if (initializationRef.current === initialization) initializationRef.current = null;
+        if (client && clientRef.current === client && !isSearchIndexError(cause)) {
+          client.dispose();
+          clientRef.current = null;
+          setReady(false);
+          setError(true);
           return;
         }
-        if (clientRef.current !== client) return;
-        client.dispose();
-        clientRef.current = null;
+        if (!current || (client && clientRef.current !== client)) return;
         setReady(false);
         setError(true);
       }
     }
     void load();
     return () => {
-      mounted = false;
+      current = false;
     };
-  }, [open, attempt]);
+  }, [open, attempt, scope]);
 
   useEffect(() => {
     return () => {
       const client = clientRef.current;
       clientRef.current = null;
+      initializationRef.current = null;
       client?.dispose();
     };
   }, []);
 
   useEffect(() => {
     const client = clientRef.current;
-    if (!open || !ready || !client) return;
+    if (!open || !ready || !client || query !== deferredQuery) return;
     let current = true;
     searchVersion.current += 1;
     loadingMoreRef.current = false;
     setLoadingMore(false);
     setExpanded(new Set());
+    setError(false);
     setPending(true);
     void client.search(deferredQuery, scope).then(
       (results) => {
-        if (current) {
+        if (current && clientRef.current === client) {
           setResults(results);
           setPending(false);
         }
       },
-      () => {
+      (cause) => {
         if (!current || clientRef.current !== client) return;
-        client.dispose();
-        clientRef.current = null;
-        setReady(false);
+        if (!isSearchIndexError(cause)) {
+          client.dispose();
+          clientRef.current = null;
+          setReady(false);
+        }
         setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
         setPending(false);
         setError(true);
@@ -217,7 +247,7 @@ function SearchDialogContent() {
       searchVersion.current += 1;
       appendedResultRef.current = null;
     };
-  }, [open, ready, deferredQuery, scope]);
+  }, [open, ready, deferredQuery, query, scope, attempt]);
 
   useEffect(() => {
     const id = appendedResultRef.current;
@@ -244,11 +274,13 @@ function SearchDialogContent() {
       setResults((previous) => ({ ...page, groups: [...previous.groups, ...page.groups] }));
       const next = page.groups[0]?.matches[0];
       if (next) setSelectedResult(next.id);
-    } catch {
+    } catch (cause) {
       if (version !== searchVersion.current || client !== clientRef.current) return;
-      client.dispose();
-      clientRef.current = null;
-      setReady(false);
+      if (!isSearchIndexError(cause)) {
+        client.dispose();
+        clientRef.current = null;
+        setReady(false);
+      }
       setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
       setError(true);
     } finally {

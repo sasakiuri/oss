@@ -99,7 +99,7 @@ describe('search worker API', () => {
     expect(response.groups[0].matches[0].excerpt).toContain('印刷する前に');
     expect(response.groups[0].matches[0].excerpt).toMatch(/^…/);
     expect(response.groups[0]).not.toHaveProperty('text');
-    expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json');
+    expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json', { signal: expect.any(AbortSignal) });
   });
 
   it('shares one pending download between initialization and concurrent searches', async () => {
@@ -142,7 +142,7 @@ describe('search worker API', () => {
       json: async () => (url === '/pdf-search-index.json' ? [pdf] : [...documents, news]),
     }));
     await api.load();
-    expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json');
+    expect(fetchIndex).toHaveBeenCalledExactlyOnceWith('/search-index.json', { signal: expect.any(AbortSignal) });
     expect(await api.search('印刷', 'news')).toMatchObject({ total: 1, groups: [{ type: 'news' }] });
     expect(await api.search('印刷', 'articles')).toMatchObject({ total: 25 });
     expect(await api.search('印刷', 'pdf')).toMatchObject({
