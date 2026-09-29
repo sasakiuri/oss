@@ -80,7 +80,8 @@ describe('article image rendering', () => {
       )
     ).html;
     const images = [...document.querySelectorAll('img')];
-    expect(images[0]).toHaveAttribute('srcset', 'authored.jpg 2x');
+    expect(images[0]).toHaveAttribute('srcset', '/content/articles/example/authored.jpg 2x');
+    expect(document.querySelector('source')).toHaveAttribute('srcset', '/content/articles/example/wide.webp');
     expect(images[0]).toHaveAttribute('sizes', '50vw');
     expect(images[1]).not.toHaveAttribute('srcset');
     expect(images[2]).toHaveAttribute('srcset', expect.stringContaining('/_next/image'));
