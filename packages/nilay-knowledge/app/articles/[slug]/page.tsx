@@ -53,7 +53,7 @@ export default async function ArticlePage({ params }: Props) {
     notFound();
   }
 
-  const { frontmatter, html, tableOfContents } = article;
+  const { frontmatter, html, tableOfContents, capabilities } = article;
   const category = getArticleCategory(article);
   const articles = createArticleDirectory(await listContent('articles'));
   const relatedArticles = getRelatedArticles(articles, slug);
@@ -105,8 +105,13 @@ export default async function ArticlePage({ params }: Props) {
             <ContentReview review={frontmatter.review} />
           </header>
 
-          <ContentStyles html={html} />
-          <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
+          <ContentStyles capabilities={capabilities} />
+          <MarkdownContent
+            key={slug}
+            html={html}
+            capabilities={capabilities}
+            className="article-content prose max-w-none"
+          />
           <SnsShare printable title={frontmatter.title} slug={`articles/${slug}`} />
           <ArticleFeedback type="articles" slug={slug} title={frontmatter.title} />
           {relatedArticles.length > 0 && (
