@@ -7,7 +7,7 @@ on:
     branches: [1.x]
     paths:
       - .github/workflows/nilay-news-workspace-bootstrap.yml
-      - .github/nilay-news-transfer.json
+      - .github/nilay-news-transfer*
 
 permissions:
   contents: read
@@ -55,7 +55,10 @@ jobs:
               raise RuntimeError("Unexpected transfer destination")
           if not target.startswith("fix/nilay-news/") or target in ("1.x", "canary"):
               raise RuntimeError("Protected destination denied")
-          patch = gzip.decompress(base64.b64decode(data["patchGzipBase64"], validate=True))
+          if not 1 <= data["parts"] <= 32:
+              raise RuntimeError("Invalid transport part count")
+          encoded = "".join(Path(f".github/nilay-news-transfer-{i}.b64").read_text().strip() for i in range(data["parts"]))
+          patch = gzip.decompress(base64.b64decode(encoded, validate=True))
           digest = hashlib.sha256(patch).hexdigest()
           if digest != data["patchSha256"] or digest != os.environ["EXPECTED_PATCH"]:
               raise RuntimeError("Patch checksum mismatch")
