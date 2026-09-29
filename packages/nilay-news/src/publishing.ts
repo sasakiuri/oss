@@ -4,6 +4,7 @@ import { isSourceCandidate } from "./candidates.ts";
 import type { Clock } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { UserError } from "./errors.ts";
+import { GoogleNewsResolver } from "./google-news.ts";
 import type { Jev } from "./jev.ts";
 import { FetchError, fetchBytes } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
@@ -383,6 +384,7 @@ export class Publisher {
     readonly client: PublishingClient,
     private readonly clock: Clock = systemClock,
     private readonly jev?: Jev,
+    private readonly urlTransport?: FetchBytes,
   ) {}
 
   /** Recheck against confirmed posts while this claim excludes other automatic sends. */
@@ -444,6 +446,10 @@ export class Publisher {
    */
   async tick(timestamp = this.clock()): Promise<void> {
     const started = this.clock();
+    const resolver = new GoogleNewsResolver(this.repository, {
+      clock: this.clock,
+      transport: this.urlTransport,
+    });
     let at = Math.max(timestamp, started);
     for (let operation = 0; operation < TICK_OPERATIONS; operation += 1) {
       if (operation > 0) {
@@ -451,7 +457,7 @@ export class Publisher {
         if (now - started >= TICK_SECONDS) return;
         at = Math.max(at, now);
       }
-      if (!(await this.step(at))) return;
+      if (!(await this.step(at, resolver))) return;
     }
   }
 
@@ -462,7 +468,10 @@ export class Publisher {
    * retried. A claim that is withdrawn or no longer owned right before
    * sending is never sent.
    */
-  private async step(timestamp: number): Promise<boolean> {
+  private async step(
+    timestamp: number,
+    resolver: GoogleNewsResolver,
+  ): Promise<boolean> {
     const pending = await this.repository.claimPostCheck(timestamp);
     if (pending) {
       const finalCheck = pending.check_count >= 1;
@@ -494,7 +503,9 @@ export class Publisher {
         finalCheck,
       );
     }
-    const attempt = await this.repository.claimPost(timestamp);
+    const attempt = await this.repository.claimPost(timestamp, (url) =>
+      resolver.resolve(url),
+    );
     if (!attempt) return false;
     let sending = false;
     let post: BufferPost;

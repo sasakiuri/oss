@@ -6,8 +6,9 @@ import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { UserError } from "./errors.ts";
 import { freshness, isFreshPublication, newestFirst } from "./freshness.ts";
-import { resolveGoogleNewsItems } from "./google-news.ts";
+import { GoogleNewsResolver, resolveGoogleNewsItems } from "./google-news.ts";
 import { Jev } from "./jev.ts";
+import { isGoogleNewsUrl } from "./net/google-news.ts";
 import { FetchError } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
 import { hostname } from "./net/url.ts";
@@ -60,7 +61,7 @@ type ActiveJob = Job &
     >
   >;
 
-/** A read-only check of what enabling automatic posting would start with. */
+/** A check without business-state changes; URL caches and rate limits may advance. */
 export interface PublicationPreflight {
   checkedAt: string;
   account: string;
@@ -123,7 +124,9 @@ export class Application {
     this.collector = options.collector ?? collectSource;
     this.crawl = options.crawl;
     this.crawlTransport = options.crawlTransport;
-    this.publisher = new Publisher(repository, buffer, this.clock, jev);
+    this.publisher = new Publisher(
+      repository, buffer, this.clock, jev, this.crawlTransport,
+    );
     this.notifier = options.notifier ?? new Notifier(repository);
   }
 
@@ -235,8 +238,9 @@ export class Application {
 
   /**
    * Checks the Buffer account and the next post without sending, claiming or
-   * changing anything. The stored state is read after the account query, and
-   * it may still change before posting is enabled.
+   * editing business data. Resolving a Google link can populate its bounded
+   * cache and rate records. A revision check also fences the asynchronous
+   * lookup, but state may still change before posting is enabled.
    */
   async publicationPreflight(): Promise<PublicationPreflight> {
     const blockers: string[] = [];
@@ -252,10 +256,6 @@ export class Application {
     const settings = await this.repository.settings();
     const { posts } = await this.repository.publicationState();
     const candidates = await this.repository.postCandidates();
-    if ((await this.repository.stateVersion()) !== revision)
-      throw new UserError(
-        "確認中に記事や設定が更新されました。もう一度、投稿前の確認を実行してください",
-      );
     const unresolved = posts.filter((post) =>
       UNRESOLVED_POSTS.has(post.status),
     ).length;
@@ -271,7 +271,35 @@ export class Application {
       );
     } else {
       try {
-        firstCandidate = { articleId: first.id, text: draft(first) };
+        let prepared = first;
+        if (isGoogleNewsUrl(first.url)) {
+          const resolver = new GoogleNewsResolver(this.repository, {
+            clock: this.clock,
+            transport: this.crawlTransport,
+          });
+          const url = await resolver.resolve(first.url);
+          prepared = {
+            ...first, url,
+            metadata: { ...first.metadata, googleNewsUrl: first.url },
+          };
+          const attempted = new Set(posts.map((post) => post.articleId));
+          if (
+            !first.sourceKey &&
+            (await this.repository.articles()).some(
+              (other) => other.id !== first.id && !other.sourceKey &&
+                other.url === url &&
+                (other.reviewStatus === "posted" || attempted.has(other.id)),
+            )
+          )
+            throw new UserError(
+              "同じ元記事URLに投稿済みまたは投稿結果の確認待ちの記事があります",
+            );
+        }
+        if (!isFreshPublication(
+          prepared.publishedAt, this.clock(), prepared.metadata?.publicationPrecision,
+        ))
+          throw new UserError("確認中に記事の投稿対象期間が過ぎました");
+        firstCandidate = { articleId: first.id, text: draft(prepared) };
       } catch (error) {
         if (!(error instanceof UserError)) throw error;
         blockers.push(
@@ -279,6 +307,10 @@ export class Application {
         );
       }
     }
+    if ((await this.repository.stateVersion()) !== revision)
+      throw new UserError(
+        "確認中に記事や設定が更新されました。もう一度、投稿前の確認を実行してください",
+      );
     if (settings.autoPost)
       blockers.push(
         "自動投稿はすでに有効です。開始前の確認ではないため、投稿状況と Buffer・X の投稿結果を確認してください",
@@ -328,7 +360,7 @@ export class Application {
 
   /** A manual job this invocation did not start with belongs to the next one. */
   private static foreign(burst: Burst, job: Job): boolean {
-    return job.running && !job.automatic && job.id !== burst.jobId;
+    return job.running && job.automatic === false && job.id !== burst.jobId;
   }
 
   private async housekeeping(): Promise<void> {
