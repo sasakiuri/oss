@@ -1,43 +1,124 @@
 # SPDX-License-Identifier: MIT
-# Temporary diagnostic workflow; this branch is closed without merging.
-name: Nilay News regression workspace
+# Temporary patch transport only. Never merge this workflow.
+name: Nilay News verified patch transfer
 
 on:
   pull_request:
     branches: [1.x]
     paths:
       - .github/workflows/nilay-news-workspace-bootstrap.yml
+      - .github/nilay-news-transfer.json
 
 permissions:
   contents: read
 
 concurrency:
-  group: nilay-news-workspace-${{ github.ref }}
-  cancel-in-progress: true
+  group: nilay-news-transfer-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  workspace:
+  transfer:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'chore/nilay-news/regression-workspace-bootstrap'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "24.16.0"
-      - name: Install browser dependencies already pinned by the repository lockfile
+          fetch-depth: 0
+      - name: Apply the verified patch to its guarded feature branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_BASE: 7a35f6eb118fcf077f1b953e20c5d27efaa085aa
+          EXPECTED_TARGET: fix/nilay-news/settings-and-access-144
+          EXPECTED_PATCH: 9d3fe0a3293e4a362ab88d9263847bffe3fed0f27be6ff5e5ca0812cca30d9b5
+        shell: python
         run: |
-          npm install --global npm@11.13.0
-          npm ci --ignore-scripts --workspace @sasakiuri/nilay-knowledge --include-workspace-root
-      - name: Package only the browser test runner
-        run: |
-          tar -czf nilay-news-browser-dependencies.tar.gz node_modules/@playwright/test node_modules/playwright node_modules/playwright-core
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: nilay-news-browser-dependencies
-          path: nilay-news-browser-dependencies.tar.gz
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 1
+          import base64
+          import gzip
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import subprocess
+          import urllib.request
+
+          repo = "sasakiuri/oss"
+          if os.environ["GITHUB_REPOSITORY"] != repo:
+              raise RuntimeError("Unexpected repository")
+          data = json.loads(Path(".github/nilay-news-transfer.json").read_text())
+          base, target = data["base"], data["target"]
+          if base != os.environ["EXPECTED_BASE"] or target != os.environ["EXPECTED_TARGET"]:
+              raise RuntimeError("Unexpected transfer destination")
+          if not target.startswith("fix/nilay-news/") or target in ("1.x", "canary"):
+              raise RuntimeError("Protected destination denied")
+          patch = gzip.decompress(base64.b64decode(data["patchGzipBase64"], validate=True))
+          digest = hashlib.sha256(patch).hexdigest()
+          if digest != data["patchSha256"] or digest != os.environ["EXPECTED_PATCH"]:
+              raise RuntimeError("Patch checksum mismatch")
+
+          def git(*args, **options):
+              return subprocess.check_output(["git", *args], **options)
+
+          git("switch", "--detach", base)
+          git("apply", "--index", "--whitespace=error", "-", input=patch)
+          paths = git("diff", "--cached", "--name-only", "-z", base).decode().rstrip("\0").split("\0")
+          if not paths or set(paths) != set(data["files"]):
+              raise RuntimeError("Changed paths do not match the manifest")
+          blobs = {}
+          for name in paths:
+              path = PurePosixPath(name)
+              allowed = name.startswith("packages/nilay-news/") or name.startswith(".changeset/nilay-news-") or name == "package-lock.json"
+              if path.is_absolute() or ".." in path.parts or not allowed:
+                  raise RuntimeError("Out-of-scope path denied")
+              stage = git("ls-files", "--stage", "--", name).decode()
+              if not stage.startswith("100644 "):
+                  raise RuntimeError("Only regular source files may be transferred")
+              content = Path(name).read_bytes()
+              sha = hashlib.sha1(b"blob " + str(len(content)).encode() + b"\0" + content).hexdigest()
+              if sha != data["files"][name]:
+                  raise RuntimeError("Output blob checksum mismatch: " + name)
+              blobs[name] = (sha, content)
+          expected_tree = git("write-tree").decode().strip()
+
+          def api(method, endpoint, body=None):
+              payload = None if body is None else json.dumps(body).encode()
+              request = urllib.request.Request(
+                  "https://api.github.com/repos/" + repo + "/" + endpoint,
+                  data=payload,
+                  method=method,
+                  headers={
+                      "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "nilay-news-verified-patch-transfer",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  return json.load(response)
+
+          ref_path = "git/refs/heads/" + target
+          if api("GET", "git/ref/heads/" + target)["object"]["sha"] != base:
+              raise RuntimeError("Feature branch moved; refusing to overwrite it")
+          original = api("GET", "git/commits/" + base)
+          entries = []
+          for name, (expected, content) in blobs.items():
+              blob = api("POST", "git/blobs", {"encoding": "base64", "content": base64.b64encode(content).decode()})
+              if blob["sha"] != expected:
+                  raise RuntimeError("GitHub blob checksum mismatch")
+              entries.append({"path": name, "mode": "100644", "type": "blob", "sha": expected})
+          tree = api("POST", "git/trees", {"base_tree": original["tree"]["sha"], "tree": entries})
+          if tree["sha"] != expected_tree:
+              raise RuntimeError("GitHub tree differs from the locally verified tree")
+          commit = api("POST", "git/commits", {"message": data["message"], "tree": tree["sha"], "parents": [base]})
+          if api("GET", "git/ref/heads/" + target)["object"]["sha"] != base:
+              raise RuntimeError("Feature branch moved during transfer")
+          api("PATCH", ref_path, {"sha": commit["sha"], "force": False})
+          print("Transferred verified commit", commit["sha"], "to", target)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"Verified patch `{digest}` transferred to `{target}` at `{commit['sha']}`.\n\n")
+              summary.write(f"All {len(entries)} output blobs and the complete tree `{tree['sha']}` matched. No PR was merged.\n")
