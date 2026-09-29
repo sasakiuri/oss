@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// cspell:ignore batchexecute rpcids garturlreq garturlres Fbv4je XSSI wrb
+// cspell:ignore batchexecute rpcids garturlreq garturlres Fbv4je XSSI wrb ceid
 /** The narrowly scoped, undocumented Google News article-link protocol. */
 import { UserError } from "../errors.ts";
 import { parseHtml } from "../html/tokenizer.ts";
