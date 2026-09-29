@@ -1,0 +1,46 @@
+name: Nilay News isolated validation workspace
+
+on:
+  push:
+    branches: [chore/nilay-news/isolated-validation-144-148]
+    paths: [.github/workflows/nilay-news-isolated-validation.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: 06448b96f16faca79ccd1d443ecbf1d8ac8ab446
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+      - name: Install locked validation dependencies without application install hooks
+        run: npm ci --ignore-scripts --workspace @sasakiuri/nilay-news --workspace @sasakiuri/nilay-knowledge --include-workspace-root
+      - name: Package public source and installed tools, never credentials or production state
+        shell: bash
+        run: |
+          mkdir -p /tmp/nilay-news-offline
+          git archive HEAD | tar -x -C /tmp/nilay-news-offline
+          cp -a node_modules /tmp/nilay-news-offline/
+          for dir in packages/*/node_modules; do
+            if [ -d "$dir" ]; then
+              cp -a "$dir" "/tmp/nilay-news-offline/${dir%/node_modules}/"
+            fi
+          done
+          mkdir -p /tmp/nilay-news-offline/.validation-tools
+          cp "$(command -v node)" /tmp/nilay-news-offline/.validation-tools/node
+          git rev-parse HEAD > /tmp/nilay-news-offline/.validation-tools/base-sha
+          tar -C /tmp -cf /tmp/nilay-news-offline.tar nilay-news-offline
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-news-offline-validation
+          path: /tmp/nilay-news-offline.tar
+          retention-days: 1
+          compression-level: 1
+          if-no-files-found: error
