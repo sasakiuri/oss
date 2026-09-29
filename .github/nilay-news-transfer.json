@@ -1,0 +1,29 @@
+{
+  "base": "7a35f6eb118fcf077f1b953e20c5d27efaa085aa",
+  "target": "fix/nilay-news/settings-and-access-144",
+  "message": "fix(nilay-news): guard settings saves and share Access key refreshes\n\nFixes #144.",
+  "patchSha256": "9d3fe0a3293e4a362ab88d9263847bffe3fed0f27be6ff5e5ca0812cca30d9b5",
+  "files": {
+    ".changeset/nilay-news-current-settings-and-shared-keys.md": "2427045a3c48b9d5d45d3c12413412b430214f02",
+    "package-lock.json": "77dd26eef11fd596195f844c791bce5d4caae207",
+    "packages/nilay-news/docs/settings-concurrency.md": "94569a02d30db714d04c835c80b7323c63829cc9",
+    "packages/nilay-news/eslint.config.mjs": "0d348448c406402e916104ceebe95480ca2a4797",
+    "packages/nilay-news/package.json": "e4f61db953e434cd5a1f00da687708c45a0b152d",
+    "packages/nilay-news/playwright.config.ts": "6514391b557fb817bd77028f2a40a28bb905ee1d",
+    "packages/nilay-news/public/app.js": "a111d63cf13c8017333a3abb3f09143333e01e04",
+    "packages/nilay-news/src/access.ts": "caf6a947369deb2cb0e03e6c888f611b2c32f08f",
+    "packages/nilay-news/src/application.ts": "37a144c262002470816e064c5de0f05a5172be87",
+    "packages/nilay-news/src/errors.ts": "9a3cf3f1bde876ef918ac54e80b83cfc6e2badf5",
+    "packages/nilay-news/src/repository.ts": "0d29fa24057e92b8181b1909acb3ce8d52eb3a9a",
+    "packages/nilay-news/src/storage/repository.ts": "cf7a3eb5984b619607dba31abdc30217a6d2007e",
+    "packages/nilay-news/src/worker.ts": "92aa39ec5eaffd4ab3dc61876706dd436b713c32",
+    "packages/nilay-news/tests/access.test.ts": "6cc65c1df0bdc6161aea597a4e0e9e9dee63c364",
+    "packages/nilay-news/tests/browser/fixture.ts": "b687970f79e1351b4a242eb16dc8a95ead51ac0c",
+    "packages/nilay-news/tests/browser/server.ts": "91e2cfc4f4cdb95f6a3de87db328c9331749f98f",
+    "packages/nilay-news/tests/browser/settings.spec.ts": "da7333f3e908fe4bbf4b6fcb8cc9fb7903028dc5",
+    "packages/nilay-news/tests/runtime/worker.test.ts": "325f333b2235efc3fce83f3a67d4f652d0b99ab5",
+    "packages/nilay-news/tests/settings-conflict.test.ts": "fc4c9c64f8d69d087b474fb4e231fc3fd5075536",
+    "packages/nilay-news/tests/worker.test.ts": "1f3c2a87935b4a36959bbebf5e74c060a38b4277"
+  },
+  "parts": 4
+}
