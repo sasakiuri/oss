@@ -299,9 +299,13 @@ npm run lint:links:external --workspace=@sasakiuri/nilay-knowledge
 The first command checks local links, assets and article/news heading fragments
 without network access. It renders article and news bodies using the site's
 Markdown pipeline into `.cache/links/`, maps canonical site URLs to local targets,
-and uses actual public assets. Static App Router pages are registered as route
-targets; their page bodies are not scanned. This does not require a Next.js static
-export. Unsupported URL schemes fail preparation, including protocol typos that
+and uses actual public assets. Static App Router pages and eligible article category
+pages are registered as route targets; their page bodies are not scanned. Category
+eligibility uses the same editorial-introduction and article-count policy as page
+generation and the sitemap. Unknown, unclassified, and ineligible categories remain
+missing targets. These placeholders verify route existence, not fragments inside
+unrendered page bodies; authored article/news heading fragments remain checked.
+This does not require a Next.js static export. Unsupported URL schemes fail preparation, including protocol typos that
 lychee would otherwise skip. A missing lychee executable fails with installation
 instructions. Run the commands separately because each rebuilds the temporary inputs.
 

@@ -1,12 +1,14 @@
 // @vitest-environment node
 // cspell:words aticles hhttps
 import { spawnSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createSitemap } from '../../lib/content/publication';
+import { createContentRepository } from '../../lib/content/repository';
 import { prepareLinkCheck } from '../../scripts/link-check';
 
 const binary = process.env.LYCHEE_BIN || 'lychee';
@@ -50,6 +52,74 @@ it('uses rendered anchors, assets from the authored content tree and only existi
     'ENOENT',
   );
 });
+
+async function writeArticle(slug: string, category: string) {
+  const directory = path.join(packageDirectory, 'content/articles', slug);
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    path.join(directory, 'index.md'),
+    `---\ntitle: ${slug}\npublished: 2026-09-21\ntags: []\ncategory: ${category}\n---\nArticle body`,
+  );
+}
+
+async function categoryFixture() {
+  const directory = path.join(packageDirectory, 'app/articles/category/[category]');
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, 'page.tsx'), '');
+  await Promise.all([
+    writeArticle('procedure-a', 'procedures'),
+    writeArticle('procedure-b', 'procedures'),
+    writeArticle('equipment-a', 'equipment'),
+    writeArticle('unclassified-a', 'uncategorized'),
+    writeArticle('unclassified-b', 'uncategorized'),
+    writeArticle('hunting-a', 'hunting'),
+    writeArticle('hunting-b', 'hunting'),
+  ]);
+}
+
+async function sitemapCategoryPaths() {
+  const repository = createContentRepository(path.join(packageDirectory, 'content'));
+  const sitemap = createSitemap(await repository.list('articles'));
+  return [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
+    .map((match) => new URL(match[1]!).pathname)
+    .filter((url) => url.startsWith('/articles/category/'));
+}
+
+it('registers only eligible category routes and keeps their inventory in step with the sitemap', async () => {
+  await categoryFixture();
+  const { siteDirectory, inputs } = await prepare('[Category guide](/articles/category/procedures/)');
+  const categories = path.join(siteDirectory, 'articles/category');
+  expect(await readdir(categories)).toEqual(['procedures']);
+  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/procedures/']);
+  expect(await readFile(path.join(categories, 'procedures/index.html'), 'utf8')).toContain('<!doctype html>');
+  expect(await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8')).toContain(
+    'href="/articles/category/procedures/"',
+  );
+  // Placeholders are link destinations, not invented page bodies to audit.
+  expect(await readFile(inputs, 'utf8')).not.toContain(path.join(categories, 'procedures/index.html'));
+
+  await writeArticle('procedure-b', 'equipment');
+  await prepare('[Category guide](/articles/category/equipment/)');
+  expect(await readdir(categories)).toEqual(['equipment']);
+  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/equipment/']);
+  await expect(readFile(path.join(categories, 'procedures/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
+
+  await rm(path.join(packageDirectory, 'content/articles/equipment-a'), { recursive: true });
+  await prepare('No eligible category remains.');
+  expect(await sitemapCategoryPaths()).toEqual([]);
+  await expect(readFile(path.join(categories, 'equipment/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
+});
+
+it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
+  'does not invent a landing page for the ineligible category %s',
+  async (category) => {
+    await categoryFixture();
+    const { siteDirectory } = await prepare(`[Category](/articles/category/${category}/)`);
+    await expect(
+      readFile(path.join(siteDirectory, 'articles/category', category, 'index.html')),
+    ).rejects.toHaveProperty('code', 'ENOENT');
+  },
+);
 
 it('rejects malformed URL schemes that lychee otherwise excludes silently', async () => {
   await expect(prepare('[Broken](hhttps://example.com/path)')).rejects.toThrow(
@@ -109,6 +179,22 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
     );
     expect(result).toMatchObject({ status: 0 });
   });
+
+  it('accepts an authored link to an eligible generated category', async () => {
+    await categoryFixture();
+    const result = await check('[Category guide](/articles/category/procedures/)');
+    expect(result).toMatchObject({ status: 0 });
+  });
+
+  it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
+    'rejects a link to the ineligible category %s',
+    async (category) => {
+      await categoryFixture();
+      const result = await check(`[Category](/articles/category/${category}/)`);
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ errors: 1 });
+    },
+  );
 
   it.each([
     ['route', '[Missing](/articles/missing/)', 1],
