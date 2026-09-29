@@ -10,6 +10,7 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
 
+import { decodeContentAssetPathname } from './asset-path';
 import { resolveContentUrl } from './paths';
 import type { ContentSource } from './types';
 
@@ -32,6 +33,7 @@ export interface PdfSearchReport {
 
 interface PdfReference {
   url: string;
+  segments: string[];
   title: string;
   sourceTitle: string;
   tags: string[];
@@ -75,23 +77,23 @@ async function findReferences(sources: readonly ContentSource[]): Promise<PdfRef
           // Network and protocol-relative links remain ordinary article links; extraction is local only.
           if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(href)) return;
           const resolved = resolveContentUrl(href, source.type, source.slug).split(/[?#]/, 1)[0]!;
-          let pathname: string;
+          let segments: string[] | null;
           try {
-            pathname = decodeURIComponent(resolved);
+            segments = decodeContentAssetPathname(resolved);
           } catch (error) {
             throw new Error(`Invalid PDF URL in ${source.type}/${source.slug}: ${href}`, { cause: error });
           }
-          if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').includes('..')) {
-            throw new Error(`PDF path must stay within content: ${href}`);
+          if (!segments) {
+            // Other root-relative routes are links, not local extraction inputs.
+            if (!resolved.startsWith('/content/') && href.startsWith('/')) return;
+            throw new Error(
+              `PDF path must stay within content; unpublishable PDF reference in ${source.type}/${source.slug}: ${href}`,
+            );
           }
-          if (!pathname.startsWith('/content/')) {
-            if (!href.startsWith('/')) throw new Error(`PDF path must stay within content: ${href}`);
-            return;
-          }
-          const url = pathname.split('/').map(encodeURIComponent).join('/');
+          const url = `/content/${segments.map(encodeURIComponent).join('/')}`;
           const label = textContent(node).replace(/\s+/g, ' ').trim();
           // Some download tables label every link with a circle; retain an identifiable filename in that case.
-          const filename = path.posix.basename(pathname);
+          const filename = segments.at(-1)!;
           const title = /[\p{L}\p{N}]/u.test(label)
             ? label
             : tableRowLabel
@@ -103,6 +105,7 @@ async function findReferences(sources: readonly ContentSource[]): Promise<PdfRef
           } else {
             references.set(url, {
               url,
+              segments,
               title,
               sourceTitle: source.frontmatter.title,
               tags: [...source.frontmatter.tags],
@@ -136,7 +139,7 @@ export async function createPdfSearchIndex(
 
   // Sequential files/pages bound memory use independently of corpus size and make failures reproducible.
   for (const reference of references) {
-    const filename = path.resolve(directory, `.${decodeURIComponent(reference.url).slice('/content'.length)}`);
+    const filename = path.resolve(directory, `./${reference.segments.join('/')}`);
     if (!isWithin(directory, filename)) throw new Error(`PDF path must stay within content: ${reference.url}`);
     try {
       // The asset route traces content explicitly; avoid bundling dynamic asset paths as modules.
