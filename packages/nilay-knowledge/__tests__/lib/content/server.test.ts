@@ -31,15 +31,17 @@ describe('server content adapter', () => {
     expect(renderContent).not.toHaveBeenCalled();
   });
 
-  it('renders only the requested detail and preserves missing-entry semantics', async () => {
-    const summary = (await listContent('articles'))[0]!;
-    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [] });
-    const detail = await getContentDocument('articles', summary.slug);
-    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [] });
+  it.each(['articles', 'news'] as const)('passes renderer capabilities through a %s detail', async (type) => {
+    const summary = (await listContent(type))[0]!;
+    const capabilities = { mathStyles: true, highlightStyles: false, codeControls: false };
+    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [], capabilities });
+    const detail = await getContentDocument(type, summary.slug);
+    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [], capabilities });
+    expect(detail?.capabilities).toBe(capabilities);
     expect(renderContent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ slug: summary.slug }), {
       imageDimensions: expect.any(Function),
     });
-    expect(await getContentDocument('articles', 'missing-entry')).toBeNull();
+    expect(await getContentDocument(type, 'missing-entry')).toBeNull();
     expect(renderContent).toHaveBeenCalledTimes(1);
   });
 });

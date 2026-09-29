@@ -46,7 +46,7 @@ export default async function NewsDetailPage({ params }: Props) {
     notFound();
   }
 
-  const { frontmatter, html } = news;
+  const { frontmatter, html, capabilities } = news;
 
   return (
     <>
@@ -83,8 +83,8 @@ export default async function NewsDetailPage({ params }: Props) {
             </div>
           </header>
 
-          <ContentStyles html={html} />
-          <MarkdownContent key={slug} html={html} className="prose max-w-none" />
+          <ContentStyles capabilities={capabilities} />
+          <MarkdownContent key={slug} html={html} capabilities={capabilities} className="prose max-w-none" />
           <SnsShare printable title={frontmatter.title} slug={`news/${slug}`} />
           <ArticleFeedback type="news" slug={slug} title={frontmatter.title} />
           <Link
