@@ -18,7 +18,7 @@ const CONTEXT = [
   "en-US", "US", 1, [2, 3, 4, 8], 1, 0, null, 0, 0, null, 0,
 ];
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 /** Also catches malformed article paths and interstitials at publication time. */
 export function isGoogleNewsUrl(url: string): boolean {

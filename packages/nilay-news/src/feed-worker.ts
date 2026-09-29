@@ -30,7 +30,9 @@ export function createFeedHandler(
     )
       return new Response(null, { status: 403 });
     try {
-      return await withDeadline(async (signal) => {
+      return await withDeadline(async (deadline) => {
+        const signal = AbortSignal.any([deadline, request.signal]);
+        signal.throwIfAborted();
         const init: RequestInit = {
           method: request.method,
           headers: { "User-Agent": USER_AGENT },
