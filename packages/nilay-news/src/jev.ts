@@ -390,6 +390,23 @@ export class Jev {
       relation: null,
     };
     if (decision === "irrelevant") return result;
+    return {
+      ...result,
+      ...(await this.relate(article, rubric, others, signal)),
+    };
+  }
+
+  async relate(
+    article: Article,
+    rubric: string,
+    others: readonly Article[],
+    signal?: AbortSignal,
+  ): Promise<Pick<Analysis, "relatedArticleId" | "relation">> {
+    if (!this.key) throw new UserError("Jev の API キーが未設定です");
+    const result: Pick<Analysis, "relatedArticleId" | "relation"> = {
+      relatedArticleId: null,
+      relation: null,
+    };
     for (const other of relatedCandidates(article, others)) {
       const related = answersOf(
         await this.request(
@@ -418,8 +435,8 @@ export class Jev {
         break;
       }
       if (
-        (relation === "followup" && result.relation !== "followup") ||
-        (relation === "uncertain" && result.relation === null)
+        (relation === "uncertain" && result.relation !== "uncertain") ||
+        (relation === "followup" && result.relation === null)
       ) {
         result.relatedArticleId = other.id;
         result.relation = relation;

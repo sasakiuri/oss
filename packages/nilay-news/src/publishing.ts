@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 /** Buffer GraphQL publishing with durable claims and bounded confirmation. */
+import { isSourceCandidate } from "./candidates.ts";
 import type { Clock } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { UserError } from "./errors.ts";
+import type { Jev } from "./jev.ts";
 import { FetchError, fetchBytes } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
 import { ACCOUNT } from "./posts.ts";
 import { isPostingTime } from "./publication-policy.ts";
-import type { NewsRepository } from "./repository.ts";
+import type { NewsRepository, PostScreening } from "./repository.ts";
 import { isRecord, utf8 } from "./text.ts";
 
 const ENDPOINT = "https://api.buffer.com";
@@ -380,7 +382,57 @@ export class Publisher {
     private readonly repository: NewsRepository,
     readonly client: PublishingClient,
     private readonly clock: Clock = systemClock,
+    private readonly jev?: Jev,
   ) {}
+
+  /** Recheck against confirmed posts while this claim excludes other automatic sends. */
+  private async checkDuplicates(
+    articleId: string,
+  ): Promise<PostScreening | undefined> {
+    if (!this.jev?.key) return undefined;
+    const article = await this.repository.article(articleId);
+    if (isSourceCandidate(article)) return undefined;
+    const evidenceHash = await this.repository.evidenceHash(article);
+    const postedIds = new Set(
+      (await this.repository.publicationState()).posts
+        .filter((post) => post.status === "posted")
+        .map((post) => post.articleId),
+    );
+    const posted = (await this.repository.articles()).filter(
+      (other) =>
+        other.id !== articleId &&
+        (other.reviewStatus === "posted" || postedIds.has(other.id)),
+    );
+    if (!posted.length) return { evidenceHash, permitted: true };
+    const settings = await this.repository.settings();
+    try {
+      const result = await this.jev.relate(article, settings.rubric, posted);
+      if (["duplicate", "uncertain"].includes(result.relation ?? "")) {
+        const related = posted.find(
+          (other) => other.id === result.relatedArticleId,
+        );
+        if (
+          !related ||
+          !(await this.repository.analyzeResult(
+            articleId,
+            evidenceHash,
+            settings.rubric,
+            { ...result, analysisStatus: article.analysisStatus },
+            await this.repository.evidenceHash(related),
+          ))
+        )
+          throw new UserError(
+            "重複確認中に記事または選定基準が変更されました。再確認してください",
+          );
+        return { evidenceHash, permitted: false };
+      }
+    } catch (error) {
+      throw new PostError(
+        `投稿前の重複確認に失敗しました。${error instanceof UserError ? error.message : "Jev の応答を確認してください"}`,
+      );
+    }
+    return { evidenceHash, permitted: true };
+  }
 
   /**
    * Work through the open round one post at a time, within a bounded burst:
@@ -448,13 +500,15 @@ export class Publisher {
     let post: BufferPost;
     try {
       await this.client.verifyAccount();
-      // The account check may be slow: the claim, the settings, the article's
-      // eligibility and its draft text are confirmed again right before sending.
+      const screening = await this.checkDuplicates(attempt.articleId);
+      // Remote checks may be slow: recheck the claim, settings, article evidence,
+      // eligibility and draft text right before sending.
       if (
         !(await this.repository.authorizePostSend(
           attempt.articleId,
           attempt.claimToken,
           this.clock(),
+          screening,
         ))
       )
         return false;

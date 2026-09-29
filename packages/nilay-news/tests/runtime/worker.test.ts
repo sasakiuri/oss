@@ -419,11 +419,68 @@ describe("real Worker, D1 and WebCrypto", () => {
         expect(posts.find((post) => post.articleId === article.id)?.text).toBe(
           article.postDraft,
         );
-      // Enabling, then an account check before each of the twelve sends.
+      // Each send checks the account and compares with up to three earlier posts.
       expect(await calls()).toEqual([
         "query",
-        ...Array.from({ length: 12 }, () => ["query", "mutation"]).flat(),
+        ...Array.from({ length: 12 }, (_, index) => [
+          "query",
+          ...Array.from({ length: Math.min(index, 3) }, () => "relation"),
+          "mutation",
+        ]).flat(),
       ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("screens same-round duplicates through the application and D1 before Buffer receives them", async () => {
+    const { runtime, request } = await fixtureRuntime();
+    try {
+      const worker = await runtime.getWorker();
+      type State = {
+        articles: {
+          id: string;
+          reviewStatus: string;
+          relation?: string;
+          relatedArticleId?: string;
+        }[];
+        publication: { posts: { articleId: string; status: string }[] };
+      };
+      const state = async () =>
+        (await (await request("/api/state")).json()) as State;
+      await request("/fixture/duplicates");
+      await request("/api/collect", {});
+      await worker.scheduled({ cron: "* * * * *" });
+      const collected = await state();
+      expect(collected.articles).toHaveLength(12);
+      for (const article of collected.articles)
+        await request(`/api/articles/${article.id}/review`, {
+          status: "saved",
+        });
+      await request("/api/settings", { autoPost: true });
+      await request("/fixture/advance");
+      for (let tick = 0; tick < 12; tick += 1)
+        await worker.scheduled({ cron: "* * * * *" });
+      const final = await state();
+      expect(final.publication.posts).toHaveLength(1);
+      const posted = final.publication.posts[0]!;
+      expect(posted.status).toBe("posted");
+      expect(
+        final.articles.filter((article) => article.relation === "duplicate"),
+      ).toHaveLength(11);
+      for (const article of final.articles.filter(
+        (article) => article.id !== posted.articleId,
+      ))
+        expect(article).toMatchObject({
+          reviewStatus: "saved",
+          relation: "duplicate",
+          relatedArticleId: posted.articleId,
+        });
+      const calls = (await (
+        await request("/fixture/calls")
+      ).json()) as string[];
+      expect(calls.filter((call) => call === "mutation")).toHaveLength(1);
+      expect(calls.filter((call) => call === "relation")).toHaveLength(11);
     } finally {
       await runtime.dispose();
     }

@@ -3,6 +3,7 @@ import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserError } from "../src/errors.ts";
+import { Jev } from "../src/jev.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { POST_INTERVAL_SECONDS } from "../src/publication-policy.ts";
@@ -626,6 +627,199 @@ describe("Publisher", () => {
   afterEach(() => {
     close();
     vi.restoreAllMocks();
+  });
+
+  describe("duplicate screening immediately before posting", () => {
+    function reviewer(relation = "duplicate") {
+      const transport = vi.fn<FetchBytes>(async () => ({
+        data: utf8(
+          JSON.stringify({
+            answers: {
+              relation: {
+                type: "choice",
+                choice: relation,
+                probabilities: Object.fromEntries(
+                  ["duplicate", "followup", "different", "uncertain"].map(
+                    (name) => [name, name === relation ? 1 : 0],
+                  ),
+                ),
+              },
+            },
+          }),
+        ),
+        url: "",
+        contentType: "application/json",
+      }));
+      return {
+        jev: new Jev("fixture-key", "jev-latest", transport),
+        transport,
+      };
+    }
+
+    it("sends one of ten previously classified copies and compares the rest with the just-sent article", async () => {
+      const ids = [articleId];
+      for (let index = 2; index <= 10; index += 1) ids.push(await add(index));
+      for (const id of ids) {
+        await repo.review(id, "unread");
+        const article = await repo.article(id);
+        await repo.analyzeResult(
+          id,
+          await repo.evidenceHash(article),
+          (await repo.settings()).rubric,
+          { analysisStatus: "done", decision: "candidate", relation: null },
+        );
+      }
+      await repo.updateSettings({ postSelection: "candidates" });
+      const client = fakeClient();
+      const { jev, transport } = reviewer();
+      const publisher = new Publisher(repo, client, clock, jev);
+      for (let tick = 0; tick < 10; tick += 1) await publisher.tick();
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect((await state()).posts).toHaveLength(1);
+      expect((await repo.article(articleId)).reviewStatus).toBe("posted");
+      for (const id of ids.slice(1))
+        expect(await repo.article(id)).toMatchObject({
+          reviewStatus: "unread",
+          decision: "candidate",
+          relation: "duplicate",
+          relatedArticleId: articleId,
+        });
+      expect(await repo.postCandidates()).toEqual([]);
+      expect((await repo.settings()).autoPost).toBe(true);
+      expect(transport).toHaveBeenCalledTimes(9);
+      for (const [, options] of transport.mock.calls) {
+        const request = JSON.parse(new TextDecoder().decode(options?.body)) as {
+          questions: object;
+        };
+        expect(Object.keys(request.questions)).toEqual(["relation"]);
+      }
+    });
+
+    it("also checks confirmed post history after an article was returned to unread", async () => {
+      const client = fakeClient();
+      const { jev, transport } = reviewer();
+      const publisher = new Publisher(repo, client, clock, jev);
+      await publisher.tick();
+      await repo.review(articleId, "unread");
+      const next = await add(2);
+      now += POST_INTERVAL_SECONDS;
+      await publisher.tick();
+      expect(transport).toHaveBeenCalledTimes(1);
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect(await repo.article(next)).toMatchObject({
+        relation: "duplicate",
+        relatedArticleId: articleId,
+      });
+    });
+
+    it.each(["different", "followup"])(
+      "allows a confidently %s article after checking",
+      async (relation) => {
+        const previous = await add(2);
+        await repo.review(previous, "posted");
+        const client = fakeClient();
+        const { jev, transport } = reviewer(relation);
+        await new Publisher(repo, client, clock, jev).tick();
+        expect(transport).toHaveBeenCalledTimes(1);
+        expect(client.post).toHaveBeenCalledTimes(1);
+        expect((await repo.article(articleId)).reviewStatus).toBe("posted");
+      },
+    );
+
+    it("holds an uncertain match without sending or marking it as posted", async () => {
+      const previous = await add(2);
+      await repo.review(previous, "posted");
+      const client = fakeClient();
+      const { jev } = reviewer("uncertain");
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await state()).posts).toEqual([]);
+      expect(await repo.article(articleId)).toMatchObject({
+        reviewStatus: "saved",
+        relation: "uncertain",
+        relatedArticleId: previous,
+      });
+      expect((await repo.settings()).autoPost).toBe(true);
+    });
+
+    it("stops posting if the duplicate check fails", async () => {
+      await repo.review(await add(2), "posted");
+      const client = fakeClient();
+      const { jev, transport } = reviewer();
+      transport.mockRejectedValue(new UserError("Jev の利用上限です"));
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await repo.settings()).autoPost).toBe(false);
+      expect((await state()).posts[0]).toMatchObject({
+        status: "failed",
+        error: expect.stringContaining("投稿前の重複確認に失敗"),
+      });
+    });
+
+    it("withdraws a claim if its body changes during a successful duplicate check", async () => {
+      await repo.review(await add(2), "posted");
+      const client = fakeClient();
+      const { jev } = reviewer("different");
+      const relate = jev.relate.bind(jev);
+      vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
+        const result = await relate(...args);
+        await repo.driver.batch([
+          [
+            "UPDATE news_articles SET data=json_set(data,'$.body',?) WHERE id=?",
+            ["別の出来事についての本文に変更", articleId],
+          ],
+        ]);
+        return result;
+      });
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await state()).posts).toEqual([]);
+      expect((await repo.settings()).autoPost).toBe(true);
+    });
+
+    it("does not send a rejected screening even if concurrent classification clears the annotation", async () => {
+      await repo.review(await add(2), "posted");
+      const client = fakeClient();
+      const { jev } = reviewer();
+      const authorize = repo.authorizePostSend.bind(repo);
+      vi.spyOn(repo, "authorizePostSend").mockImplementation(
+        async (...args) => {
+          const article = await repo.article(articleId);
+          await repo.analyzeResult(
+            articleId,
+            await repo.evidenceHash(article),
+            (await repo.settings()).rubric,
+            {
+              analysisStatus: "done",
+              decision: "candidate",
+              relation: null,
+              relatedArticleId: null,
+            },
+          );
+          return authorize(...args);
+        },
+      );
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await state()).posts).toEqual([]);
+      expect((await repo.settings()).autoPost).toBe(true);
+    });
+
+    it("preserves source-designated posting without requiring a Jev decision", async () => {
+      await repo.ingest({ ...SOURCE, id: "riflesports-news" }, [
+        {
+          ...ITEM,
+          url: "https://example.org/article/1",
+          publishedAt: published(-3660),
+        },
+      ]);
+      await repo.review(await add(2), "posted");
+      const client = fakeClient();
+      const { jev, transport } = reviewer();
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect(transport).not.toHaveBeenCalled();
+    });
   });
 
   function bufferTransport(calls: string[]): FetchBytes {
