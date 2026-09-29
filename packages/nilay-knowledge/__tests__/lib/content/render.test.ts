@@ -38,7 +38,7 @@ describe('Markdown rendering', () => {
     expect(triggers[0]?.querySelector('img')).toHaveAttribute('srcset', expect.stringContaining('/_next/image'));
     expect(triggers[1]).toHaveAttribute('href', '/content/articles/example/picture.jpg');
     expect(triggers[1]?.querySelector('picture > img')).toHaveAttribute('alt', 'Picture');
-    expect(document.querySelector('picture > source')).toHaveAttribute('srcset', 'wide.webp');
+    expect(document.querySelector('picture > source')).toHaveAttribute('srcset', '/content/articles/example/wide.webp');
     expect(document.querySelector('picture img')).not.toHaveAttribute('srcset');
     expect(document.querySelector('a a, button a, [role="button"] a, picture a')).toBeNull();
   });
