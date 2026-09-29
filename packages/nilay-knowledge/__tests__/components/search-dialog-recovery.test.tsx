@@ -103,7 +103,7 @@ describe('target-isolated search dialog recovery', () => {
     expect(client.dispose).not.toHaveBeenCalled();
   });
 
-  it.each(['resolve', 'reject'] as const)('ignores an old article initialization %s after switching to PDF', async (completion) => {
+  it.each(['resolve', 'reject'] as const)('ignores stale article initialization: %s', async (completion) => {
     const client = mockClient();
     const pending = Promise.withResolvers<void>();
     client.load.mockReturnValueOnce(pending.promise);
@@ -120,7 +120,7 @@ describe('target-isolated search dialog recovery', () => {
     expect(client.dispose).not.toHaveBeenCalled();
   });
 
-  it('preserves a healthy target across PDF failure and retries the failed target with query and focus intact', async () => {
+  it('preserves a healthy target across PDF failure and retries with query and focus intact', async () => {
     const client = mockClient();
     let failPdf = true;
     client.search.mockImplementation(async (_query, scope) => {

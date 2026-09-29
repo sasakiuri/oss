@@ -54,10 +54,10 @@ describe('independent search index recovery', () => {
   it('serves PDF results while article initialization fails, then retries only the article index', async () => {
     const pending = Promise.withResolvers<never>();
     fetchIndex.mockReturnValueOnce(pending.promise);
-    const loadFailure = expect(api.load()).rejects.toMatchObject({ name: 'SearchIndexError' });
+    const loadFailure = api.load().catch((error: unknown) => error);
     expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
     pending.reject(new Error('Offline'));
-    await loadFailure;
+    await expect(loadFailure).resolves.toMatchObject({ name: 'SearchIndexError' });
     expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
     expect(fetchIndex).toHaveBeenCalledTimes(2);
     await api.load();
@@ -69,18 +69,19 @@ describe('independent search index recovery', () => {
     await api.load();
     const pending = Promise.withResolvers<never>();
     fetchIndex.mockReturnValueOnce(pending.promise);
-    const first = expect(api.search('印刷', 'pdf')).rejects.toMatchObject({ name: 'SearchIndexError' });
-    const second = expect(api.search('確認', 'pdf')).rejects.toMatchObject({ name: 'SearchIndexError' });
+    const first = api.search('印刷', 'pdf').catch((error: unknown) => error);
+    const second = api.search('確認', 'pdf').catch((error: unknown) => error);
     expect(fetchIndex).toHaveBeenCalledTimes(2);
     pending.reject(new Error('Offline'));
-    await Promise.all([first, second]);
+    await expect(first).resolves.toMatchObject({ name: 'SearchIndexError' });
+    await expect(second).resolves.toMatchObject({ name: 'SearchIndexError' });
     expect(await api.search('印刷', 'articles')).toMatchObject({ total: 1 });
     expect(fetchIndex).toHaveBeenCalledTimes(2);
     expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
     expect(fetchIndex).toHaveBeenCalledTimes(3);
   });
 
-  it.each(['headers', 'body'] as const)('bounds stalled %s and ignores late completion after retry', async (stage) => {
+  it.each(['headers', 'body'] as const)('bounds stalled %s and ignores late data', async (stage) => {
     vi.useFakeTimers();
     await api.load();
     const response = Promise.withResolvers<{ ok: boolean; json: () => Promise<SearchDocument[]> }>();
@@ -88,15 +89,12 @@ describe('independent search index recovery', () => {
     fetchIndex.mockReturnValueOnce(
       stage === 'headers' ? response.promise : Promise.resolve({ ok: true, json: () => body.promise }),
     );
-    const failure = expect(api.search('印刷', 'pdf')).rejects.toMatchObject({
-      name: 'SearchIndexError',
-      message: 'PDF search unavailable',
-    });
+    const failure = api.search('印刷', 'pdf').catch((error: unknown) => error);
     const signal = (fetchIndex.mock.calls[1]![1] as RequestInit).signal!;
     await vi.advanceTimersByTimeAsync(14_999);
     expect(signal.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
-    await failure;
+    await expect(failure).resolves.toMatchObject({ name: 'SearchIndexError', message: 'PDF search unavailable' });
     expect(signal.aborted).toBe(true);
     expect(await api.search('印刷', 'articles')).toMatchObject({ total: 1 });
     expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
