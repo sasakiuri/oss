@@ -97,7 +97,9 @@ describe('published content asset paths', () => {
     await writeFile(outside, svg);
     await symlink(outside, path.join(contentRoot, 'assets/escape.svg'));
     const pathname = '/content/assets/escape.svg';
-    await expect(createImageDimensionsResolver(contentRoot)(pathname)).rejects.toThrow('symlink must stay within content');
+    await expect(createImageDimensionsResolver(contentRoot)(pathname)).rejects.toThrow(
+      'symlink must stay within content',
+    );
     const response = await serveContentAsset(
       new Request(`https://example.com${pathname}`),
       ['assets', 'escape.svg'],
