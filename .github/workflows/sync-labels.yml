@@ -36,7 +36,6 @@ jobs:
           gh label edit "Cat: Documentation" --name "Cat: Documentation 📝" 2>/dev/null || true
           gh label edit "Cat: Dependencies"  --name "Cat: Dependencies 🤖"  2>/dev/null || true
           gh label edit "Package: saika-lane"    --name "Package: saika-lane 📦"    2>/dev/null || true
-          gh label edit "Package: shared-config" --name "Package: shared-config 📦" 2>/dev/null || true
 
       - name: Sync labels
         env:

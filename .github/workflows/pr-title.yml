@@ -33,11 +33,13 @@ jobs:
             saika-vista
             saika-protocol
             saika-rules
+            saika-updater
             saika-docs
             nilay-knowledge
             nilay-about
             nilay-news
             eslint-config
+            lighthouse-config
             prettier-config
             stylelint-config
             typescript-config
