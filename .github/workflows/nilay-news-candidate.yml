@@ -1,0 +1,97 @@
+name: Assemble Nilay News candidate commit
+
+on:
+  push:
+    branches: [chore/nilay-news/isolated-validation-144-148]
+    paths: [.validation/news-patch.json]
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Verify exact source hashes and assemble an unreferenced commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import urllib.request
+          from pathlib import Path, PurePosixPath
+
+          manifest = json.loads(Path('.validation/news-patch.json').read_text())
+          base = manifest['base']
+          assert re.fullmatch(r'[0-9a-f]{40}', base)
+          assert re.fullmatch(r'(fix|feat|perf|test|docs|chore)\(nilay-news\): [^\r\n]+', manifest['message'])
+          changes = manifest['changes']
+          assert 0 < len(changes) <= 50
+          subprocess.run(['git', 'fetch', '--depth=1', 'origin', base], check=True)
+
+          def blob_sha(data):
+              return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+
+          def api(method, path, data=None):
+              request = urllib.request.Request(
+                  'https://api.github.com/repos/sasakiuri/oss/' + path,
+                  data=None if data is None else json.dumps(data).encode(),
+                  method=method,
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept': 'application/vnd.github+json',
+                           'Content-Type': 'application/json',
+                           'X-GitHub-Api-Version': '2022-11-28'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          entries = []
+          seen = set()
+          for change in changes:
+              path = change['path']
+              assert path not in seen
+              seen.add(path)
+              assert not PurePosixPath(path).is_absolute()
+              assert '..' not in PurePosixPath(path).parts
+              assert path.startswith(('packages/nilay-news/', '.changeset/'))
+              assert re.fullmatch(r'[A-Za-z0-9_./-]+', path)
+              original = subprocess.run(['git', 'show', base + ':' + path], capture_output=True)
+              if change['before_sha'] is None:
+                  assert original.returncode != 0, path
+                  assert 'content' in change, path
+                  content = change['content']
+              else:
+                  assert original.returncode == 0, path
+                  assert blob_sha(original.stdout) == change['before_sha'], path
+                  content = original.stdout.decode('utf-8')
+                  if 'content' in change:
+                      content = change['content']
+                  else:
+                      for before, after in change['replacements']:
+                          assert before and content.count(before) == 1, path
+                          content = content.replace(before, after, 1)
+              encoded = content.encode('utf-8')
+              assert len(encoded) <= 1000000, path
+              assert blob_sha(encoded) == change['after_sha'], path
+              entries.append({'path': path, 'mode': '100644', 'type': 'blob', 'content': content})
+
+          original_commit = api('GET', 'git/commits/' + base)
+          assert original_commit['tree']['sha'] == manifest['base_tree']
+          tree = api('POST', 'git/trees', {'base_tree': manifest['base_tree'], 'tree': entries})
+          commit = api('POST', 'git/commits', {'message': manifest['message'], 'tree': tree['sha'], 'parents': [base]})
+          # Deliberately never create or update a branch. A separate reviewed,
+          # SHA-guarded connector action chooses whether to use this candidate.
+          print('CANDIDATE_COMMIT=' + commit['sha'])
+          print('CANDIDATE_TREE=' + tree['sha'])
+          print('CANDIDATE_PARENT=' + base)
+          print('CHANGED_PATHS=' + json.dumps(sorted(seen)))
+          PY
