@@ -38,7 +38,7 @@ describe('content styles in server HTML', () => {
       expected: [],
     },
   ])('includes only required styles for $name without client JavaScript', async ({ content, expected }) => {
-    const { html } = await renderContent({
+    const { html, capabilities } = await renderContent({
       type: 'articles',
       slug: 'example',
       frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
@@ -48,7 +48,7 @@ describe('content styles in server HTML', () => {
       <html lang="en">
         <head />
         <body>
-          <ContentStyles html={html} />
+          <ContentStyles capabilities={capabilities} />
           <main dangerouslySetInnerHTML={{ __html: html }} />
         </body>
       </html>,

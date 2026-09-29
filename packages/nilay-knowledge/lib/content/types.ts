@@ -24,9 +24,17 @@ export interface TocItem {
   level: number;
 }
 
+/** Renderer-owned facts about optional presentation features; safe to serialize. */
+export interface ContentCapabilities {
+  mathStyles: boolean;
+  highlightStyles: boolean;
+  codeControls: boolean;
+}
+
 export interface RenderedContent {
   html: string;
   tableOfContents: TocItem[];
+  capabilities: ContentCapabilities;
 }
 
 export interface ContentDocument extends ContentSource, RenderedContent {}
