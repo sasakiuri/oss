@@ -1,0 +1,47 @@
+name: Knowledge verification workspace
+
+# Temporary, isolated verification branch. This workflow is not proposed for 1.x.
+on:
+  push:
+    branches:
+      - chore/nilay-knowledge/verification-workspace
+    paths:
+      - .github/workflows/knowledge-verification-workspace.yml
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+        with:
+          ignore-install-scripts: 'true'
+      - name: Archive tracked sources, installed dependencies, and the pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/verification"
+          git archive --format=tar HEAD | gzip -1 > "$RUNNER_TEMP/verification/source.tar.gz"
+          find . -type d -name node_modules -prune -print0 \
+            | tar --null -T - -I 'gzip -1' -cf "$RUNNER_TEMP/verification/dependencies.tar.gz"
+          runtime="$(dirname "$(dirname "$(command -v node)")")"
+          tar -C "$runtime" -I 'gzip -1' -cf "$RUNNER_TEMP/verification/runtime.tar.gz" bin/node bin/npm bin/npx lib/node_modules/npm
+          node --version > "$RUNNER_TEMP/verification/versions.txt"
+          npm --version >> "$RUNNER_TEMP/verification/versions.txt"
+          git rev-parse HEAD >> "$RUNNER_TEMP/verification/versions.txt"
+          du -h "$RUNNER_TEMP/verification/"*
+          cd "$RUNNER_TEMP/verification"
+          sha256sum *.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: knowledge-verification-workspace
+          path: ${{ runner.temp }}/verification/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
