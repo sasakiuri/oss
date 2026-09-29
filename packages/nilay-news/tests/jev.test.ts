@@ -521,6 +521,72 @@ describe("Jev decisions", () => {
     expect(result).not.toHaveProperty("reviewStatus");
   });
 
+  test("checks for duplicates even after finding a follow-up relation", async () => {
+    let comparisons = 0;
+    const { fetch, requests } = transport(({ body }) => {
+      const criteria = body.questions.relation?.criteria;
+      if (!criteria) return response();
+      comparisons += 1;
+      return {
+        answers: {
+          relation: selected(
+            comparisons === 1 ? "followup" : "duplicate",
+            Object.keys(criteria),
+          ),
+        },
+      };
+    });
+    const result = await new Jev("test", "jev-latest", fetch).analyze(
+      ARTICLE,
+      "基準",
+      [
+        { ...previous, title: ARTICLE.title },
+        {
+          ...previous,
+          id: "covered",
+          title: `${ARTICLE.title} 対応完了`,
+          reviewStatus: "posted",
+        },
+      ],
+    );
+    expect(result).toMatchObject({
+      relation: "duplicate",
+      relatedArticleId: "covered",
+    });
+    expect(comparisons).toBe(2);
+    expect(requests).toHaveLength(3);
+  });
+
+  test("keeps a genuine follow-up after checking other matches", async () => {
+    let comparisons = 0;
+    const { fetch } = transport(({ body }) => {
+      const criteria = body.questions.relation?.criteria;
+      if (!criteria) return response();
+      comparisons += 1;
+      return {
+        answers: {
+          relation: selected(
+            comparisons === 1 ? "followup" : "different",
+            Object.keys(criteria),
+          ),
+        },
+      };
+    });
+    const result = await new Jev("test", "jev-latest", fetch).analyze(
+      ARTICLE,
+      "基準",
+      [
+        { ...previous, title: ARTICLE.title },
+        { ...previous, id: "other", title: `${ARTICLE.title} 注意喚起` },
+      ],
+    );
+    expect(comparisons).toBe(2);
+    expect(result).toMatchObject({
+      relation: "followup",
+      relatedArticleId: "previous",
+    });
+  });
+
   test("a low-confidence relation is uncertain and a later match still wins", async () => {
     const uncertain = await new Jev(
       "test",
@@ -756,5 +822,83 @@ describe("related candidates", () => {
         { id: "y", title: "BEAR SPOTTED" },
       ]),
     ).toHaveLength(1);
+  });
+
+  test("finds differently worded coverage of the same event", () => {
+    const article = {
+      id: "new",
+      title: "清川市でクマに初の『緊急銃猟』 けが人なし",
+    };
+    const other = {
+      id: "other",
+      title:
+        "清川の畑にツキノワグマ、県内初の緊急銃猟…イノシシやシカ用のくくりわなで錯誤捕獲",
+    };
+    expect(relatedCandidates(article, [other])).toEqual([other]);
+  });
+
+  test("uses sanitized leads when the headlines share too little wording", () => {
+    const article = {
+      id: "new",
+      title: "畑のわなに野生動物",
+      excerpt:
+        "清川市の畑でツキノワグマがくくりわなにかかった。市は緊急銃猟を行った。",
+    };
+    const other = {
+      id: "other",
+      title: "県内で初めての緊急銃猟",
+      excerpt:
+        "清川市の畑でツキノワグマがくくりわなにかかり、市は緊急銃猟を実施した。",
+    };
+    expect(
+      relatedCandidates({ ...article, excerpt: "" }, [
+        { ...other, excerpt: "" },
+      ]),
+    ).toEqual([]);
+    expect(relatedCandidates(article, [other])).toEqual([other]);
+    expect(
+      relatedCandidates({ ...article, excerpt: "", body: article.excerpt }, [
+        other,
+      ]),
+    ).toEqual([other]);
+    expect(
+      relatedCandidates(
+        { ...article, excerpt: "", body: article.excerpt, bodyStale: true },
+        [other],
+      ),
+    ).toEqual([]);
+    expect(
+      relatedCandidates({ ...article, excerpt: `…${article.excerpt}` }, [
+        other,
+      ]),
+    ).toEqual([]);
+    expect(
+      relatedCandidates(
+        { ...article, excerpt: `関連記事：${article.excerpt}` },
+        [other],
+      ),
+    ).toEqual([]);
+  });
+
+  test("reserves a comparison for a posted match even with many unposted copies", () => {
+    const copies = Array.from({ length: 4 }, (_, index) => ({
+      ...ARTICLE,
+      id: `copy-${index}`,
+    }));
+    const posted = {
+      ...ARTICLE,
+      id: "posted",
+      title: "北海道でクマ捕獲完了",
+      reviewStatus: "posted" as const,
+    };
+    const result = relatedCandidates(ARTICLE, [...copies, posted]);
+    expect(result).toHaveLength(3);
+    expect(result).toContain(posted);
+    expect(result.slice(0, 2)).toEqual(copies.slice(0, 2));
+    expect(
+      relatedCandidates(ARTICLE, [
+        { ...posted, title: "東京の美術展", excerpt: "美術館で展示会を開催" },
+      ]),
+    ).toEqual([]);
   });
 });

@@ -45,7 +45,7 @@ const buckets = [
       a.freshness === "fresh" &&
       !a.sourceCandidate &&
       a.analysisStatus === "done" &&
-      a.decision === "review",
+      (a.decision === "review" || a.relation === "uncertain"),
   },
   {
     id: "pending",
@@ -644,6 +644,8 @@ function articleTags(article) {
     result.push(el("span", "tag tag-followup", "続報の可能性"));
   if (article.relation === "duplicate")
     result.push(el("span", "tag", "重複の可能性"));
+  if (article.relation === "uncertain")
+    result.push(el("span", "tag tag-review", "重複を要確認"));
   if (article.reviewStatus !== "unread")
     result.push(
       el(
@@ -766,7 +768,7 @@ function renderEmpty() {
       ],
       review: [
         "確認待ちの記事はありません",
-        "内容の関連性を自動で決めきれなかった記事を表示します。日時の確認や仕分け待ちは別の一覧にあります。",
+        "内容の関連性や、他の記事との重複を自動で決めきれなかった記事を表示します。日時の確認や仕分け待ちは別の一覧にあります。",
       ],
       pending: [
         "仕分け待ちの記事はありません",
@@ -986,10 +988,19 @@ function renderDetail() {
     analysis.append(
       el("p", "", relationLabels[article.relation] || "関連する記事"),
     );
+    if (!article.sourceCandidate && article.relation === "uncertain")
+      analysis.append(
+        el(
+          "p",
+          "form-help",
+          "重複かどうか判断できないため、自動投稿の対象から外しています。関連記事を確認し、必要なら仕分けをやり直してください。保存しても自動投稿されません。",
+        ),
+      );
     if (related)
       analysis.append(
         button(`↗ ${related.title}`, "relation-link", () => {
           const targetBucket = buckets.find((bucket) => bucket.match(related));
+          model.checkedIds.clear();
           model.view = targetBucket?.id || "inbox";
           model.query = "";
           model.topic = "";
@@ -1541,7 +1552,7 @@ function renderSettings() {
     el(
       "p",
       "form-help",
-      "公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日を対象に、1時間ごとに、その時点の対象記事をすべて、新しい順で1記事につき1投稿ずつ連続投稿します。10件あれば10投稿です。配信開始後に対象になった記事は次回に送信します。送信は毎日 06:00〜23:00 JST（23:00以降送信なし）で、時間外に対象になった記事は翌朝 06:00 以降に、その時点でも鮮度条件を満たせば送信します。初回は有効化から60分以上後です。Bufferの利用上限が近い場合は自動投稿を停止します。表示された待機時間の後に再確認して再開してください。公開日時が不明・不正・未来の記事は、保存済みや情報源指定でも対象外です。見送り・投稿済みの記事と、情報源指定以外で重複と判定された記事も除外します。",
+      "公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日を対象に、1時間ごとに、その時点の対象記事をすべて、新しい順で1記事につき1投稿ずつ連続投稿します。10件あれば10投稿です。配信開始後に対象になった記事は次回に送信します。送信は毎日 06:00〜23:00 JST（23:00以降送信なし）で、時間外に対象になった記事は翌朝 06:00 以降に、その時点でも鮮度条件を満たせば送信します。初回は有効化から60分以上後です。Bufferの利用上限が近い場合は自動投稿を停止します。表示された待機時間の後に再確認して再開してください。公開日時が不明・不正・未来の記事は、保存済みや情報源指定でも対象外です。見送り・投稿済みの記事と、情報源指定以外で重複と判定された記事や、重複かどうか要確認の記事も除外します。",
     ),
   );
   const postingStatus = el("p", "form-help");
