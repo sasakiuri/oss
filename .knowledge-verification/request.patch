@@ -1,210 +1,409 @@
-{"branch":"fix/nilay-knowledge/category-links-159","base":"7a35f6eb118fcf077f1b953e20c5d27efaa085aa","message":"fix(nilay-knowledge): include generated category link targets"}
-diff --git a/.changeset/knowledge-category-link-targets.md b/.changeset/knowledge-category-link-targets.md
+{"branch":"fix/nilay-knowledge/content-capabilities-162","base":"70c254d4a7b6e90ed8ae2ce2c3920950531207ab","message":"refactor(nilay-knowledge): return typed rendering capabilities"}
+diff --git a/.changeset/knowledge-content-capabilities.md b/.changeset/knowledge-content-capabilities.md
 new file mode 100644
-index 0000000..1da6354
+index 00000000..88600812
 --- /dev/null
-+++ b/.changeset/knowledge-category-link-targets.md
++++ b/.changeset/knowledge-content-capabilities.md
 @@ -0,0 +1,5 @@
 +---
 +'@sasakiuri/nilay-knowledge': patch
 +---
 +
-+Recognize eligible generated article category pages during local content link checking. Reuse the publication eligibility policy without accepting unknown or ineligible routes, and refresh targets when article classification or counts change.
-diff --git a/packages/nilay-knowledge/README.md b/packages/nilay-knowledge/README.md
-index abcad5b..78ab1d2 100644
---- a/packages/nilay-knowledge/README.md
-+++ b/packages/nilay-knowledge/README.md
-@@ -299,9 +299,13 @@ npm run lint:links:external --workspace=@sasakiuri/nilay-knowledge
- The first command checks local links, assets and article/news heading fragments
- without network access. It renders article and news bodies using the site's
- Markdown pipeline into `.cache/links/`, maps canonical site URLs to local targets,
--and uses actual public assets. Static App Router pages are registered as route
--targets; their page bodies are not scanned. This does not require a Next.js static
--export. Unsupported URL schemes fail preparation, including protocol typos that
-+and uses actual public assets. Static App Router pages and eligible article category
-+pages are registered as route targets; their page bodies are not scanned. Category
-+eligibility uses the same editorial-introduction and article-count policy as page
-+generation and the sitemap. Unknown, unclassified, and ineligible categories remain
-+missing targets. These placeholders verify route existence, not fragments inside
-+unrendered page bodies; authored article/news heading fragments remain checked.
-+This does not require a Next.js static export. Unsupported URL schemes fail preparation, including protocol typos that
- lychee would otherwise skip. A missing lychee executable fails with installation
- instructions. Run the commands separately because each rebuilds the temporary inputs.
- 
-diff --git a/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts b/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
-index aefca1a..404e077 100644
---- a/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
-+++ b/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
-@@ -1,12 +1,14 @@
- // @vitest-environment node
- // cspell:words aticles hhttps
- import { spawnSync } from 'node:child_process';
--import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-+import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
- import os from 'node:os';
- import path from 'node:path';
- 
- import { afterEach, beforeEach, describe, expect, it } from 'vitest';
- 
-+import { createSitemap } from '../../lib/content/publication';
-+import { createContentRepository } from '../../lib/content/repository';
- import { prepareLinkCheck } from '../../scripts/link-check';
- 
- const binary = process.env.LYCHEE_BIN || 'lychee';
-@@ -51,6 +53,74 @@ it('uses rendered anchors, assets from the authored content tree and only existi
-   );
++Return explicit renderer capabilities for optional styles and code controls. Preserve server-rendered styles and existing enhancements without inferring features from serialized HTML or literal marker text.
+diff --git a/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx b/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
+index 608d1977..3eda8658 100644
+--- a/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
++++ b/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
+@@ -40,3 +40,3 @@ describe('content styles in server HTML', () => {
+   ])('includes only required styles for $name without client JavaScript', async ({ content, expected }) => {
+-    const { html } = await renderContent({
++    const { html, capabilities } = await renderContent({
+       type: 'articles',
+@@ -50,3 +50,3 @@ describe('content styles in server HTML', () => {
+         <body>
+-          <ContentStyles html={html} />
++          <ContentStyles capabilities={capabilities} />
+           <main dangerouslySetInnerHTML={{ __html: html }} />
+diff --git a/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx b/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
+index 04c43bd9..c2c506fa 100644
+--- a/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
++++ b/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
+@@ -15,10 +15,8 @@ beforeEach(() => {
+ async function markdown(content: string) {
+-  return (
+-    await renderContent({
+-      type: 'articles',
+-      slug: 'example',
+-      frontmatter: { title: 'Example', published: '2026-01-01', tags: [] },
+-      content,
+-    })
+-  ).html;
++  return renderContent({
++    type: 'articles',
++    slug: 'example',
++    frontmatter: { title: 'Example', published: '2026-01-01', tags: [] },
++    content,
++  });
+ }
+@@ -30,3 +28,3 @@ it('copies exact source rather than highlighted markup and rebinds controls when
+   const html = await markdown(`\`\`\`ts:example.ts\n${source}\`\`\``);
+-  const { rerender } = render(<MarkdownContent html={html} className="prose" />);
++  const { rerender } = render(<MarkdownContent {...html} className="prose" />);
+   fireEvent.click(screen.getByRole('button', { name: 'example.tsのコードをコピー' }));
+@@ -36,3 +34,3 @@ it('copies exact source rather than highlighted markup and rebinds controls when
+   const nextHtml = await markdown('```text:second.txt\nsecond\n```');
+-  rerender(<MarkdownContent html={nextHtml} className="prose" />);
++  rerender(<MarkdownContent {...nextHtml} className="prose" />);
+   fireEvent.click(screen.getByRole('button', { name: 'second.txtのコードをコピー' }));
+@@ -48,3 +46,3 @@ it('reports clipboard rejection and leaves code available to select manually', a
+   });
+-  render(<MarkdownContent html={await markdown('```text\noriginal source\n```')} className="prose" />);
++  render(<MarkdownContent {...await markdown('```text\noriginal source\n```')} className="prose" />);
+   fireEvent.click(screen.getByRole('button', { name: 'textのコードをコピー' }));
+@@ -56,3 +54,3 @@ it('preserves source in server HTML and displays diagram failures explicitly', a
+   const html = await markdown('```mermaid\ninvalid syntax\n```');
+-  const serverHtml = renderToStaticMarkup(<MarkdownContent html={html} className="prose" />);
++  const serverHtml = renderToStaticMarkup(<MarkdownContent {...html} className="prose" />);
+   const document = new DOMParser().parseFromString(serverHtml, 'text/html');
+@@ -62,3 +60,3 @@ it('preserves source in server HTML and displays diagram failures explicitly', a
+   vi.mocked(renderDiagram).mockRejectedValue(new Error('図を表示できませんでした。'));
+-  render(<MarkdownContent html={html} className="prose" />);
++  render(<MarkdownContent {...html} className="prose" />);
+   expect(await screen.findByRole('alert')).toHaveTextContent('図のソースを確認してください');
+@@ -69,3 +67,3 @@ it('renders plain Markdown as static readable markup without enhancement control
+   const html = await markdown('本文だけの記事です。');
+-  const { container } = render(<MarkdownContent html={html} className="prose" />);
++  const { container } = render(<MarkdownContent {...html} className="prose" />);
+   expect(container.firstElementChild).toHaveClass('prose');
+@@ -75 +73,26 @@ it('renders plain Markdown as static readable markup without enhancement control
  });
- 
-+async function writeArticle(slug: string, category: string) {
-+  const directory = path.join(packageDirectory, 'content/articles', slug);
-+  await mkdir(directory, { recursive: true });
-+  await writeFile(
-+    path.join(directory, 'index.md'),
-+    `---\ntitle: ${slug}\npublished: 2026-09-21\ntags: []\ncategory: ${category}\n---\nArticle body`,
-+  );
-+}
 +
-+async function categoryFixture() {
-+  const directory = path.join(packageDirectory, 'app/articles/category/[category]');
-+  await mkdir(directory, { recursive: true });
-+  await writeFile(path.join(directory, 'page.tsx'), '');
-+  await Promise.all([
-+    writeArticle('procedure-a', 'procedures'),
-+    writeArticle('procedure-b', 'procedures'),
-+    writeArticle('equipment-a', 'equipment'),
-+    writeArticle('unclassified-a', 'uncategorized'),
-+    writeArticle('unclassified-b', 'uncategorized'),
-+    writeArticle('hunting-a', 'hunting'),
-+    writeArticle('hunting-b', 'hunting'),
-+  ]);
-+}
-+
-+async function sitemapCategoryPaths() {
-+  const repository = createContentRepository(path.join(packageDirectory, 'content'));
-+  const sitemap = createSitemap(await repository.list('articles'));
-+  return [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
-+    .map((match) => new URL(match[1]!).pathname)
-+    .filter((url) => url.startsWith('/articles/category/'));
-+}
-+
-+it('registers only eligible category routes and keeps their inventory in step with the sitemap', async () => {
-+  await categoryFixture();
-+  const { siteDirectory, inputs } = await prepare('[Category guide](/articles/category/procedures/)');
-+  const categories = path.join(siteDirectory, 'articles/category');
-+  expect(await readdir(categories)).toEqual(['procedures']);
-+  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/procedures/']);
-+  expect(await readFile(path.join(categories, 'procedures/index.html'), 'utf8')).toContain('<!doctype html>');
-+  expect(await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8')).toContain(
-+    'href="/articles/category/procedures/"',
-+  );
-+  // Placeholders are link destinations, not invented page bodies to audit.
-+  expect(await readFile(inputs, 'utf8')).not.toContain(path.join(categories, 'procedures/index.html'));
-+
-+  await writeArticle('procedure-b', 'equipment');
-+  await prepare('[Category guide](/articles/category/equipment/)');
-+  expect(await readdir(categories)).toEqual(['equipment']);
-+  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/equipment/']);
-+  await expect(readFile(path.join(categories, 'procedures/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
-+
-+  await rm(path.join(packageDirectory, 'content/articles/equipment-a'), { recursive: true });
-+  await prepare('No eligible category remains.');
-+  expect(await sitemapCategoryPaths()).toEqual([]);
-+  await expect(readFile(path.join(categories, 'equipment/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
++it('uses the explicit capability instead of literal marker text to select the client boundary', async () => {
++  const content = await markdown('Implementation notes mention `data-code-block` and `data-code-controls`.');
++  expect(content.html).toContain('data-code-block');
++  expect(content.capabilities.codeControls).toBe(false);
++  const output = MarkdownContent({ ...content, className: 'prose' });
++  expect(output.type).toBe('div');
++  render(output);
++  expect(screen.getByText('data-code-block')).toBeVisible();
++  expect(renderDiagram).not.toHaveBeenCalled();
 +});
 +
-+it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
-+  'does not invent a landing page for the ineligible category %s',
-+  async (category) => {
-+    await categoryFixture();
-+    const { siteDirectory } = await prepare(`[Category](/articles/category/${category}/)`);
-+    await expect(
-+      readFile(path.join(siteDirectory, 'articles/category', category, 'index.html')),
-+    ).rejects.toHaveProperty('code', 'ENOENT');
-+  },
-+);
++it('hydrates authored enhancement slots without changing the local selector contract', async () => {
++  const writeText = vi.fn().mockResolvedValue(undefined);
++  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
++  const content = await markdown(
++    '<figure data-code-block="authored" data-code-language="text"><figcaption><span>Authored</span><span data-code-controls></span></figcaption><pre><code>Original source</code></pre></figure>',
++  );
++  expect(content.capabilities.codeControls).toBe(true);
++  const { container } = render(<MarkdownContent {...content} className="prose" />);
++  expect(container.querySelectorAll('[data-code-block]')).toHaveLength(1);
++  fireEvent.click(screen.getByRole('button', { name: 'Authoredのコードをコピー' }));
++  await waitFor(() => expect(writeText).toHaveBeenCalledWith('Original source'));
++  expect(renderDiagram).not.toHaveBeenCalled();
++});
+diff --git a/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts b/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts
+new file mode 100644
+index 00000000..45aa6ed5
+--- /dev/null
++++ b/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts
+@@ -0,0 +1,87 @@
++import type { Root } from 'hast';
++import { describe, expect, it } from 'vitest';
 +
- it('rejects malformed URL schemes that lychee otherwise excludes silently', async () => {
-   await expect(prepare('[Broken](hhttps://example.com/path)')).rejects.toThrow(
-     'Unsupported URL scheme in content/articles/example/index.md',
-@@ -110,6 +180,22 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
-     expect(result).toMatchObject({ status: 0 });
-   });
- 
-+  it('accepts an authored link to an eligible generated category', async () => {
-+    await categoryFixture();
-+    const result = await check('[Category guide](/articles/category/procedures/)');
-+    expect(result).toMatchObject({ status: 0 });
++import { collectContentCapabilities } from '@/lib/content/capabilities';
++import { renderContent } from '@/lib/content/render';
++
++const empty = { mathStyles: false, highlightStyles: false, codeControls: false };
++
++async function markdown(content: string) {
++  return renderContent({
++    type: 'articles',
++    slug: 'example',
++    frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
++    content,
++  });
++}
++
++describe('rendered content capabilities', () => {
++  it.each([
++    ['ordinary prose', 'Plain text with `inline code`.', empty],
++    ['literal marker', '`data-code-block` and `data-code-controls`.', empty],
++    ['escaped classes', '`<span class="katex hljs">`.', empty],
++    ['comment', '<!-- <span class="katex hljs" data-code-block> -->', empty],
++    ['unrelated attribute', '<p title="katex hljs data-code-block" data-example="data-code-block">Text</p>', empty],
++    ['class substrings', '<p class="katex-example hljs-keyword">Text</p>', empty],
++    ['authored math', '<p class="example katex">Text</p>', { ...empty, mathStyles: true }],
++    ['authored highlighting', '<p class="hljs example">Text</p>', { ...empty, highlightStyles: true }],
++    ['authored empty marker', '<div data-code-block></div>', { ...empty, codeControls: true }],
++    ['inline math', '$x^2$', { ...empty, mathStyles: true }],
++    ['display math', '$$\nx^2\n$$', { ...empty, mathStyles: true }],
++    ['plain fence', '```\nsource\n```', { ...empty, codeControls: true }],
++    ['highlighted fence', '```js\nconst x = 1;\n```', { ...empty, highlightStyles: true, codeControls: true }],
++    ['diagram fence', '```mermaid\ngraph TD; A-->B;\n```', { ...empty, codeControls: true }],
++    ['DOT fence', '```dot\ndigraph { a -> b }\n```', { ...empty, codeControls: true }],
++  ])('reports final emitted features for %s', async (_name, content, expected) => {
++    const result = await markdown(String(content));
++    expect(result.capabilities).toEqual(expected);
++    document.body.innerHTML = result.html;
++    expect(result.capabilities).toEqual({
++      mathStyles: document.querySelector('.katex') !== null,
++      highlightStyles: document.querySelector('.hljs') !== null,
++      codeControls: document.querySelector('[data-code-block]') !== null,
++    });
++    expect(JSON.parse(JSON.stringify(result.capabilities))).toEqual(expected);
 +  });
 +
-+  it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
-+    'rejects a link to the ineligible category %s',
-+    async (category) => {
-+      await categoryFixture();
-+      const result = await check(`[Category](/articles/category/${category}/)`);
-+      expect(result.status).not.toBe(0);
-+      expect(JSON.parse(result.stdout)).toMatchObject({ errors: 1 });
-+    },
-+  );
++  it('collects string or token-array classes and attribute presence without leaking state', () => {
++    const tree: Root = {
++      type: 'root',
++      children: [
++        { type: 'element', tagName: 'p', properties: { className: 'example\tkatex' }, children: [] },
++        {
++          type: 'element',
++          tagName: 'div',
++          properties: { className: ['hljs', 'example'], dataCodeBlock: '' },
++          children: [],
++        },
++      ],
++    };
++    expect(collectContentCapabilities(tree)).toEqual({ mathStyles: true, highlightStyles: true, codeControls: true });
++    expect(collectContentCapabilities({ type: 'root', children: [] })).toEqual(empty);
++  });
 +
-   it.each([
-     ['route', '[Missing](/articles/missing/)', 1],
-     ['typo', '[Missing](/aticles/example/)', 1],
-diff --git a/packages/nilay-knowledge/scripts/link-check.ts b/packages/nilay-knowledge/scripts/link-check.ts
-index 426c716..94fd9fb 100644
---- a/packages/nilay-knowledge/scripts/link-check.ts
-+++ b/packages/nilay-knowledge/scripts/link-check.ts
-@@ -9,8 +9,10 @@ import { unified } from 'unified';
- import { visit } from 'unist-util-visit';
- 
- import { siteConfig } from '../lib/config';
-+import { getArticleCategoryPages } from '../lib/content/category-pages';
- import { renderContent } from '../lib/content/render';
- import { createContentRepository } from '../lib/content/repository';
-+import { createArticleDirectory } from '../lib/content/taxonomy';
- import { contentTypes } from '../lib/content/types';
- 
- /** Build link-check inputs using the site's renderer and actual published asset paths. */
-@@ -31,17 +33,22 @@ export async function prepareLinkCheck(packageDirectory: string) {
-   // The /content route reads the authored tree directly; expose the same files to lychee.
-   await symlink(path.join(packageDirectory, 'content'), path.join(siteDirectory, 'content'), 'junction');
- 
--  // Only actual static App Router pages become targets. Dynamic article/news pages
--  // are populated below from the repository, so a misspelled route stays missing.
-+  // These placeholders verify route existence, not fragments in unrendered page bodies.
-+  async function addPageTarget(segments: string[]): Promise<void> {
-+    const target = path.join(siteDirectory, ...segments);
-+    await mkdir(target, { recursive: true });
-+    await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
-+  }
-+
-+  // Static App Router pages become targets here. Supported generated routes are
-+  // populated below from the repository, so a misspelled route stays missing.
-   async function addPageTargets(directory: string, segments: string[] = []): Promise<void> {
-     for (const entry of await readdir(directory, { withFileTypes: true })) {
-       if (entry.isDirectory() && !entry.name.startsWith('[') && !entry.name.startsWith('_')) {
-         const next = /^\(.*\)$/.test(entry.name) ? segments : [...segments, entry.name];
-         await addPageTargets(path.join(directory, entry.name), next);
-       } else if (entry.name === 'page.tsx') {
--        const target = path.join(siteDirectory, ...segments);
--        await mkdir(target, { recursive: true });
--        await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
-+        await addPageTarget(segments);
-       }
-     }
-   }
-@@ -50,7 +57,14 @@ export async function prepareLinkCheck(packageDirectory: string) {
-   const repository = createContentRepository(path.join(packageDirectory, 'content'));
-   const files: string[] = [];
-   for (const type of contentTypes) {
--    for (const source of await repository.listSources(type)) {
-+    const sources = await repository.listSources(type);
-+    if (type === 'articles') {
-+      // Use the same editorial eligibility policy as page generation and the sitemap.
-+      for (const category of getArticleCategoryPages(createArticleDirectory(sources))) {
-+        await addPageTarget(category.path.split('/').filter(Boolean));
-+      }
++  it('keeps the generated client portal selectors consistent with code and diagram capabilities', async () => {
++    const result = await markdown('```ts:example.ts\nconst x = 1;\n```\n\n```mermaid\ngraph TD; A-->B;\n```');
++    document.body.innerHTML = result.html;
++    expect(result.capabilities).toEqual({ mathStyles: false, highlightStyles: true, codeControls: true });
++    const blocks = [...document.querySelectorAll('[data-code-block]')];
++    expect(blocks).toHaveLength(2);
++    for (const block of blocks) {
++      expect(block.querySelectorAll('[data-code-controls]')).toHaveLength(1);
++      expect(block.querySelectorAll('pre > code')).toHaveLength(1);
++      expect(block.querySelector('figcaption > span')?.textContent).not.toBe('');
 +    }
-+    for (const source of sources) {
-       const directory = path.join(siteDirectory, type, source.slug);
-       await mkdir(directory, { recursive: true });
-       const filename = path.join(directory, 'index.html');
++    const diagram = blocks[1]!;
++    expect(diagram).toHaveAttribute('data-code-language', 'mermaid');
++    expect(diagram.querySelectorAll('[data-diagram-target]')).toHaveLength(1);
++    expect(diagram.querySelector('[data-diagram-source]')).toHaveAttribute('open');
++  });
++
++  it('creates independent metadata for concurrent renders', async () => {
++    const [math, plain, code] = await Promise.all([markdown('$x$'), markdown('Plain'), markdown('```\nx\n```')]);
++    expect(math.capabilities).toEqual({ ...empty, mathStyles: true });
++    expect(plain.capabilities).toEqual(empty);
++    expect(code.capabilities).toEqual({ ...empty, codeControls: true });
++  });
++});
+diff --git a/packages/nilay-knowledge/__tests__/lib/content/server.test.ts b/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
+index 7e09671a..19856c33 100644
+--- a/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
++++ b/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
+@@ -33,7 +33,9 @@ describe('server content adapter', () => {
+ 
+-  it('renders only the requested detail and preserves missing-entry semantics', async () => {
+-    const summary = (await listContent('articles'))[0]!;
+-    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [] });
+-    const detail = await getContentDocument('articles', summary.slug);
+-    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [] });
++  it.each(['articles', 'news'] as const)('passes renderer capabilities through a %s detail', async (type) => {
++    const summary = (await listContent(type))[0]!;
++    const capabilities = { mathStyles: true, highlightStyles: false, codeControls: false };
++    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [], capabilities });
++    const detail = await getContentDocument(type, summary.slug);
++    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [], capabilities });
++    expect(detail?.capabilities).toBe(capabilities);
+     expect(renderContent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ slug: summary.slug }), {
+@@ -41,3 +43,3 @@ describe('server content adapter', () => {
+     });
+-    expect(await getContentDocument('articles', 'missing-entry')).toBeNull();
++    expect(await getContentDocument(type, 'missing-entry')).toBeNull();
+     expect(renderContent).toHaveBeenCalledTimes(1);
+diff --git a/packages/nilay-knowledge/app/articles/[slug]/page.tsx b/packages/nilay-knowledge/app/articles/[slug]/page.tsx
+index 376fc67c..e2de9f7c 100644
+--- a/packages/nilay-knowledge/app/articles/[slug]/page.tsx
++++ b/packages/nilay-knowledge/app/articles/[slug]/page.tsx
+@@ -55,3 +55,3 @@ export default async function ArticlePage({ params }: Props) {
+ 
+-  const { frontmatter, html, tableOfContents } = article;
++  const { frontmatter, html, tableOfContents, capabilities } = article;
+   const category = getArticleCategory(article);
+@@ -107,4 +107,9 @@ export default async function ArticlePage({ params }: Props) {
+ 
+-          <ContentStyles html={html} />
+-          <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
++          <ContentStyles capabilities={capabilities} />
++          <MarkdownContent
++            key={slug}
++            html={html}
++            capabilities={capabilities}
++            className="article-content prose max-w-none"
++          />
+           <SnsShare printable title={frontmatter.title} slug={`articles/${slug}`} />
+diff --git a/packages/nilay-knowledge/app/news/[slug]/page.tsx b/packages/nilay-knowledge/app/news/[slug]/page.tsx
+index 1ed97279..a22b854a 100644
+--- a/packages/nilay-knowledge/app/news/[slug]/page.tsx
++++ b/packages/nilay-knowledge/app/news/[slug]/page.tsx
+@@ -48,3 +48,3 @@ export default async function NewsDetailPage({ params }: Props) {
+ 
+-  const { frontmatter, html } = news;
++  const { frontmatter, html, capabilities } = news;
+ 
+@@ -85,4 +85,4 @@ export default async function NewsDetailPage({ params }: Props) {
+ 
+-          <ContentStyles html={html} />
+-          <MarkdownContent key={slug} html={html} className="prose max-w-none" />
++          <ContentStyles capabilities={capabilities} />
++          <MarkdownContent key={slug} html={html} capabilities={capabilities} className="prose max-w-none" />
+           <SnsShare printable title={frontmatter.title} slug={`news/${slug}`} />
+diff --git a/packages/nilay-knowledge/components/content-styles.tsx b/packages/nilay-knowledge/components/content-styles.tsx
+index 2dcf3eb4..a61c25e1 100644
+--- a/packages/nilay-knowledge/components/content-styles.tsx
++++ b/packages/nilay-knowledge/components/content-styles.tsx
+@@ -2,21 +2,12 @@
+ /* eslint-disable @next/next/no-css-tags */
++import type { ContentCapabilities } from '@/lib/content/types';
+ 
+ /** Load optional styles in server HTML, including when JavaScript is disabled. */
+-export function ContentStyles({ html }: { html: string }) {
+-  const classes = new Set<string>();
+-  // Match whole tags and quoted attribute values; escaped code examples are plain text.
+-  for (const [tag] of html.matchAll(/<!--[\s\S]*?-->|<[a-z][\w:-]*(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
+-    if (tag.startsWith('<!--')) continue;
+-    // The Markdown renderer serializes attribute values with double quotes.
+-    for (const attribute of tag.matchAll(/\s([^\s"'<>/=]+)(?:="([^"]*)")?/g)) {
+-      if (attribute[1] === 'class') {
+-        for (const name of (attribute[2] ?? '').split(/\s+/)) classes.add(name);
+-      }
+-    }
+-  }
+-
++export function ContentStyles({ capabilities }: { capabilities: ContentCapabilities }) {
+   return (
+     <>
+-      {classes.has('katex') && <link rel="stylesheet" href="/content-styles/katex.min.css" precedence="content" />}
+-      {classes.has('hljs') && <link rel="stylesheet" href="/content-styles/github-dark.css" precedence="content" />}
++      {capabilities.mathStyles && <link rel="stylesheet" href="/content-styles/katex.min.css" precedence="content" />}
++      {capabilities.highlightStyles && (
++        <link rel="stylesheet" href="/content-styles/github-dark.css" precedence="content" />
++      )}
+     </>
+diff --git a/packages/nilay-knowledge/components/markdown-content.tsx b/packages/nilay-knowledge/components/markdown-content.tsx
+index 35aaf321..1ae177b3 100644
+--- a/packages/nilay-knowledge/components/markdown-content.tsx
++++ b/packages/nilay-knowledge/components/markdown-content.tsx
+@@ -1 +1,3 @@
++import type { RenderedContent } from '@/lib/content/types';
++
+ import { EnhancedMarkdownContent } from './markdown-enhancements';
+@@ -3,4 +5,8 @@ import { EnhancedMarkdownContent } from './markdown-enhancements';
+ /** Plain articles can render without the client Markdown enhancement component. */
+-export function MarkdownContent({ html, className }: { html: string; className: string }) {
+-  if (!html.includes('data-code-block')) {
++export function MarkdownContent({
++  html,
++  capabilities,
++  className,
++}: Pick<RenderedContent, 'html' | 'capabilities'> & { className: string }) {
++  if (!capabilities.codeControls) {
+     return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
+diff --git a/packages/nilay-knowledge/docs/content-capabilities.md b/packages/nilay-knowledge/docs/content-capabilities.md
+new file mode 100644
+index 00000000..f3bad959
+--- /dev/null
++++ b/packages/nilay-knowledge/docs/content-capabilities.md
+@@ -0,0 +1,29 @@
++# Renderer capabilities
++
++`RenderedContent.capabilities` is the renderer-owned, serializable description
++of optional presentation features. The server adapter passes it through to both
++article and news pages, together with the HTML and table of contents.
++
++- `mathStyles` requests the KaTeX stylesheet when an element has the `katex` class.
++- `highlightStyles` requests the highlight stylesheet for the `hljs` class.
++- `codeControls` selects the Markdown client boundary when an element has the
++  `data-code-block` attribute.
++
++The collector inspects the final transformed HAST, after highlighting, math, and
++code-block transforms and before serialization. Trusted authored HTML participates
++in the same contract. Comments, escaped examples, partial class names, and marker
++text in unrelated attributes do not request features. Each render has independent
++capability state; no HTML reparsing or shared mutable result is involved.
++
++`ContentStyles` still emits server-rendered stylesheet links with React precedence,
++so optional styles work without JavaScript. Plain prose, including prose describing
++`data-code-block`, does not select the Markdown client enhancement component.
++This does not claim a measured bundle-size or hydration-time improvement.
++
++The metadata does not replace the client's local DOM contract. The enhancement
++boundary still finds `[data-code-block]`, `[data-code-controls]`, `pre > code`, and
++its diagram slots. Authored markers select the boundary, but incomplete authored
++controls are still handled by the existing client checks. Copy controls, deferred
++diagram loading, source-code fallback, original HTML, and accessible names remain
++unchanged. Tests exercise real generated and authored slots in addition to feature
++flags and server-rendered stylesheet links.
+diff --git a/packages/nilay-knowledge/lib/content/capabilities.ts b/packages/nilay-knowledge/lib/content/capabilities.ts
+new file mode 100644
+index 00000000..6374ca69
+--- /dev/null
++++ b/packages/nilay-knowledge/lib/content/capabilities.ts
+@@ -0,0 +1,18 @@
++import type { Root } from 'hast';
++import { visit } from 'unist-util-visit';
++
++import type { ContentCapabilities } from './types';
++
++/** Inspect the final HAST, including trusted authored HTML, without parsing serialized output again. */
++export function collectContentCapabilities(tree: Root): ContentCapabilities {
++  const capabilities = { mathStyles: false, highlightStyles: false, codeControls: false };
++  visit(tree, 'element', (node) => {
++    const value = node.properties.className;
++    const classes = Array.isArray(value) ? value.map(String) : String(value ?? '').split(/\s+/);
++    capabilities.mathStyles ||= classes.includes('katex');
++    capabilities.highlightStyles ||= classes.includes('hljs');
++    // Match the client boundary's attribute-presence selector, including authored empty values.
++    capabilities.codeControls ||= Object.hasOwn(node.properties, 'dataCodeBlock');
++  });
++  return capabilities;
++}
+diff --git a/packages/nilay-knowledge/lib/content/render.ts b/packages/nilay-knowledge/lib/content/render.ts
+index d255af72..663657ff 100644
+--- a/packages/nilay-knowledge/lib/content/render.ts
++++ b/packages/nilay-knowledge/lib/content/render.ts
+@@ -18,2 +18,3 @@ import { visit } from 'unist-util-visit';
+ 
++import { collectContentCapabilities } from './capabilities';
+ import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
+@@ -138,2 +139,3 @@ export async function renderContent(
+   const tableOfContents: TocItem[] = [];
++  let capabilities = { mathStyles: false, highlightStyles: false, codeControls: false };
+   const result = await processor()
+@@ -302,2 +304,5 @@ export async function renderContent(
+     .use(rehypeCodeBlocks)
++    .use(() => (tree: Root) => {
++      capabilities = collectContentCapabilities(tree);
++    })
+     .use(rehypeStringify)
+@@ -305,3 +310,3 @@ export async function renderContent(
+ 
+-  return { html: String(result), tableOfContents };
++  return { html: String(result), tableOfContents, capabilities };
+ }
+diff --git a/packages/nilay-knowledge/lib/content/types.ts b/packages/nilay-knowledge/lib/content/types.ts
+index 0b6765b0..cc8d10d0 100644
+--- a/packages/nilay-knowledge/lib/content/types.ts
++++ b/packages/nilay-knowledge/lib/content/types.ts
+@@ -26,2 +26,9 @@ export interface TocItem {
+ 
++/** Renderer-owned facts about optional presentation features; safe to serialize. */
++export interface ContentCapabilities {
++  mathStyles: boolean;
++  highlightStyles: boolean;
++  codeControls: boolean;
++}
++
+ export interface RenderedContent {
+@@ -29,2 +36,3 @@ export interface RenderedContent {
+   tableOfContents: TocItem[];
++  capabilities: ContentCapabilities;
+ }
