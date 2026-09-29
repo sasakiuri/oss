@@ -1,7 +1,8 @@
+import { createSearchIndexResponse } from '@/lib/content/search-index-response';
 import { getSearchDocuments } from '@/lib/content/server';
 
 export const dynamic = 'force-static';
 
 export async function GET() {
-  return Response.json(await getSearchDocuments());
+  return createSearchIndexResponse(await getSearchDocuments());
 }
