@@ -1362,6 +1362,133 @@ describe("bulk dismissal", () => {
   });
 });
 
+describe("failed draft recovery", () => {
+  async function failedDraft(): Promise<string> {
+    const id = await candidate({
+      url: "https://news.google.com/rss/articles/old",
+    });
+    await repo.updateSettings({ autoPost: true });
+    now += 3600;
+    expect(await repo.claimPost(now)).toBeNull();
+    expect((await repo.publicationState()).posts).toMatchObject([
+      { articleId: id, status: "failed", text: "", failedBeforeSend: true },
+    ]);
+    return id;
+  }
+
+  it.each(["individual", "bulk"])(
+    "dismisses an unsent draft through %s review and releases the posting block",
+    async (mode) => {
+      const id = await failedDraft();
+      const next = await candidate({ url: "https://example.org/next" });
+      const version = await repo.stateVersion();
+      if (mode === "individual") await repo.review(id, "dismissed");
+      else await repo.dismiss([id]);
+      expect(await repo.stateVersion()).toBe(version + 1);
+      expect((await repo.article(id)).reviewStatus).toBe("dismissed");
+      expect((await repo.publicationState()).posts).toEqual([]);
+      expect((await repo.settings()).autoPost).toBe(false);
+      expect(await repo.claimPost(now)).toBeNull();
+      await repo.updateSettings({ autoPost: true });
+      expect(await repo.claimPost(now)).toBeNull();
+      now += 3600;
+      expect((await claim()).articleId).toBe(next);
+    },
+  );
+
+  it("rolls back both the review and failed record when another selection is invalid", async () => {
+    const id = await failedDraft();
+    const posted = await candidate({ url: "https://example.org/posted" });
+    await repo.review(posted, "posted");
+    const before = await repo.exportSnapshot();
+    await expect(repo.dismiss([id, posted])).rejects.toThrow("投稿済み");
+    expect(await repo.exportSnapshot()).toEqual(before);
+    await expect(repo.review(id, "saved")).rejects.toThrow("投稿結果の確認");
+  });
+
+  it("clears a draft failure for retry without changing its review or enabling posting", async () => {
+    const id = await failedDraft();
+    const before = await repo.article(id);
+    expect((await repo.resolvePost(id, "retry")).posts).toEqual([]);
+    expect(await repo.article(id)).toEqual(before);
+    expect((await repo.settings()).autoPost).toBe(false);
+  });
+
+  it.each(["individual", "bulk", "retry"])(
+    "refuses stale %s recovery when another attempt becomes uncertain",
+    async (mode) => {
+      const id = await failedDraft();
+      const [loser, loserDriver] = connect();
+      const [paused, release] = signal();
+      const [read, reading] = signal();
+      let snapshots = 0;
+      intercept(loserDriver, async (original, statements) => {
+        const result = await original(statements);
+        if (
+          statements.some(([sql]) =>
+            sql.includes("SELECT id,data FROM news_posts"),
+          ) &&
+          ++snapshots === 1
+        ) {
+          reading();
+          await paused;
+        }
+        return result;
+      });
+      const pending = (
+        mode === "individual"
+          ? loser.review(id, "dismissed")
+          : mode === "bulk"
+            ? loser.dismiss([id])
+            : loser.resolvePost(id, "retry")
+      ).catch((error: unknown) => error);
+      await read;
+      await repo.resolvePost(id, "retry");
+      await repo.updateSettings({ autoPost: true });
+      now += 3600;
+      const attempt = await repo.claimPost(
+        now,
+        async () => "https://example.org/repaired",
+      );
+      expect(attempt).not.toBeNull();
+      await repo.finishPost(id, "unknown", { claimToken: attempt!.claimToken });
+      const before = await repo.exportSnapshot();
+      release();
+      expect(await pending).toBeInstanceOf(UserError);
+      expect(await repo.exportSnapshot()).toEqual(before);
+    },
+  );
+
+  it.each([
+    { status: "unknown" },
+    { status: "publishing" },
+    { status: "submitted" },
+    { text: "A prepared post" },
+    { buffer_id: "buffer" },
+    { channel_id: "channel" },
+    { post_id: "123" },
+  ])(
+    "requires reconciliation when the record does not prove a draft failure: %j",
+    async (change) => {
+      const id = await failedDraft();
+      const post = stored(driver.db, "posts").get(id);
+      driver.db
+        .prepare("UPDATE news_posts SET data=? WHERE id=?")
+        .run(JSON.stringify({ ...post, ...change }), id);
+      expect((await repo.publicationState()).posts[0]?.failedBeforeSend).toBe(
+        false,
+      );
+      const before = await repo.exportSnapshot();
+      await expect(repo.review(id, "dismissed")).rejects.toThrow(
+        "投稿結果の確認",
+      );
+      await expect(repo.dismiss([id])).rejects.toThrow("投稿結果の確認");
+      await expect(repo.resolvePost(id, "retry")).rejects.toThrow();
+      expect(await repo.exportSnapshot()).toEqual(before);
+    },
+  );
+});
+
 describe("publication", () => {
   it("applies the one hour gate to rounds and posts a round one at a time", async () => {
     const articleId = await ready();

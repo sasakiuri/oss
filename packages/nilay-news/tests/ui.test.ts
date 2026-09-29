@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 /** Just enough of an element for the list helpers under test. */
 interface FakeNode {
+  classList: { toggle(name: string, force: boolean): void };
   className: string;
   textContent: string;
   hidden: boolean;
@@ -28,6 +29,7 @@ interface FakeNode {
 
 function node(): FakeNode {
   const created: FakeNode = {
+    classList: { toggle: () => undefined },
     className: "",
     textContent: "",
     hidden: false,
@@ -75,6 +77,7 @@ interface Ui {
   dateText: (value: unknown, includeTime?: boolean) => string;
   messageText: (text: unknown) => unknown;
   renderArticle: (article: object) => FakeNode;
+  renderDetail: () => void;
   renderBulkActions: () => void;
   element: (id: string) => FakeNode;
   model: {
@@ -104,6 +107,7 @@ function load(): Ui {
     return elements.get(id)!;
   };
   const context = {
+    URL,
     document: {
       getElementById: element,
       createElement: node,
@@ -117,7 +121,8 @@ function load(): Ui {
       "exports.renderPreflight = renderPreflight;" +
       "exports.preflightCurrent = preflightCurrent;" +
       "exports.dateText = dateText; exports.messageText = messageText;" +
-      "exports.renderArticle = renderArticle; exports.renderBulkActions = renderBulkActions;",
+      "exports.renderArticle = renderArticle; exports.renderBulkActions = renderBulkActions;" +
+      "exports.renderDetail = renderDetail;",
     context,
   );
   return { ...context.exports, element } as Ui;
@@ -134,6 +139,53 @@ const BASE = {
 };
 
 describe("bulk dismissal selection", () => {
+  it.each([true, false, undefined])(
+    "only offers direct recovery for a proven unsent failure (%s)",
+    (failedBeforeSend) => {
+      const ui = load();
+      const article = {
+        ...BASE,
+        id: "failed",
+        title: "旧記事",
+        url: "https://news.google.com/rss/articles/old",
+      };
+      ui.model.state = {
+        articles: [article],
+        settings: { jevConfigured: false },
+        publication: {
+          posts: [
+            {
+              articleId: article.id,
+              status: "failed",
+              text: "",
+              error: "投稿失敗",
+              failedBeforeSend,
+            },
+          ],
+        },
+      };
+      const [checkbox] = ui
+        .renderArticle(article)
+        .querySelectorAll("[data-dismiss-id]");
+      expect(checkbox!.disabled).toBe(failedBeforeSend !== true);
+      ui.model.selectedId = article.id;
+      ui.renderDetail();
+      const labels = texts(ui.element("detail-panel"));
+      expect(labels.includes("この記事を見送る")).toBe(
+        failedBeforeSend === true,
+      );
+      expect(labels.includes("投稿エラーを解除")).toBe(
+        failedBeforeSend === true,
+      );
+      expect(labels.includes("Buffer の予約なし・X の未投稿を確認した")).toBe(
+        failedBeforeSend !== true,
+      );
+      expect(labels.includes("X で投稿済みを確認した")).toBe(
+        failedBeforeSend !== true,
+      );
+    },
+  );
+
   it("selects individual articles independently from reading their details", () => {
     const ui = load();
     const articles = ["a", "b"].map((id) => ({
