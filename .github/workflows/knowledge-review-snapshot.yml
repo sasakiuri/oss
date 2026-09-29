@@ -1,0 +1,45 @@
+name: Knowledge review source snapshot
+
+# Temporary review transport on an unmerged workspace branch only.
+on:
+  push:
+    branches:
+      - chore/nilay-knowledge/verification-workspace
+    paths:
+      - .github/workflows/knowledge-review-snapshot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: 70c254d4a7b6e90ed8ae2ce2c3920950531207ab
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export tracked Git objects without credentials or runner files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git bundle create "$RUNNER_TEMP/knowledge-review.bundle" \
+            refs/remotes/origin/1.x \
+            refs/remotes/origin/fix/nilay-knowledge/authored-srcset-153 \
+            refs/remotes/origin/fix/nilay-knowledge/published-asset-paths-160
+          git bundle verify "$RUNNER_TEMP/knowledge-review.bundle"
+          git bundle list-heads "$RUNNER_TEMP/knowledge-review.bundle" > "$RUNNER_TEMP/knowledge-review-refs.txt"
+          cd "$RUNNER_TEMP"
+          sha256sum knowledge-review.bundle > knowledge-review-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: knowledge-review-source
+          path: |
+            ${{ runner.temp }}/knowledge-review.bundle
+            ${{ runner.temp }}/knowledge-review-refs.txt
+            ${{ runner.temp }}/knowledge-review-sha256.txt
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
