@@ -1,0 +1,210 @@
+{"branch":"fix/nilay-knowledge/category-links-159","base":"7a35f6eb118fcf077f1b953e20c5d27efaa085aa","message":"fix(nilay-knowledge): include generated category link targets"}
+diff --git a/.changeset/knowledge-category-link-targets.md b/.changeset/knowledge-category-link-targets.md
+new file mode 100644
+index 0000000..1da6354
+--- /dev/null
++++ b/.changeset/knowledge-category-link-targets.md
+@@ -0,0 +1,5 @@
++---
++'@sasakiuri/nilay-knowledge': patch
++---
++
++Recognize eligible generated article category pages during local content link checking. Reuse the publication eligibility policy without accepting unknown or ineligible routes, and refresh targets when article classification or counts change.
+diff --git a/packages/nilay-knowledge/README.md b/packages/nilay-knowledge/README.md
+index abcad5b..78ab1d2 100644
+--- a/packages/nilay-knowledge/README.md
++++ b/packages/nilay-knowledge/README.md
+@@ -299,9 +299,13 @@ npm run lint:links:external --workspace=@sasakiuri/nilay-knowledge
+ The first command checks local links, assets and article/news heading fragments
+ without network access. It renders article and news bodies using the site's
+ Markdown pipeline into `.cache/links/`, maps canonical site URLs to local targets,
+-and uses actual public assets. Static App Router pages are registered as route
+-targets; their page bodies are not scanned. This does not require a Next.js static
+-export. Unsupported URL schemes fail preparation, including protocol typos that
++and uses actual public assets. Static App Router pages and eligible article category
++pages are registered as route targets; their page bodies are not scanned. Category
++eligibility uses the same editorial-introduction and article-count policy as page
++generation and the sitemap. Unknown, unclassified, and ineligible categories remain
++missing targets. These placeholders verify route existence, not fragments inside
++unrendered page bodies; authored article/news heading fragments remain checked.
++This does not require a Next.js static export. Unsupported URL schemes fail preparation, including protocol typos that
+ lychee would otherwise skip. A missing lychee executable fails with installation
+ instructions. Run the commands separately because each rebuilds the temporary inputs.
+ 
+diff --git a/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts b/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
+index aefca1a..404e077 100644
+--- a/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
++++ b/packages/nilay-knowledge/__tests__/scripts/link-check.test.ts
+@@ -1,12 +1,14 @@
+ // @vitest-environment node
+ // cspell:words aticles hhttps
+ import { spawnSync } from 'node:child_process';
+-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
++import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+ import os from 'node:os';
+ import path from 'node:path';
+ 
+ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+ 
++import { createSitemap } from '../../lib/content/publication';
++import { createContentRepository } from '../../lib/content/repository';
+ import { prepareLinkCheck } from '../../scripts/link-check';
+ 
+ const binary = process.env.LYCHEE_BIN || 'lychee';
+@@ -51,6 +53,74 @@ it('uses rendered anchors, assets from the authored content tree and only existi
+   );
+ });
+ 
++async function writeArticle(slug: string, category: string) {
++  const directory = path.join(packageDirectory, 'content/articles', slug);
++  await mkdir(directory, { recursive: true });
++  await writeFile(
++    path.join(directory, 'index.md'),
++    `---\ntitle: ${slug}\npublished: 2026-09-21\ntags: []\ncategory: ${category}\n---\nArticle body`,
++  );
++}
++
++async function categoryFixture() {
++  const directory = path.join(packageDirectory, 'app/articles/category/[category]');
++  await mkdir(directory, { recursive: true });
++  await writeFile(path.join(directory, 'page.tsx'), '');
++  await Promise.all([
++    writeArticle('procedure-a', 'procedures'),
++    writeArticle('procedure-b', 'procedures'),
++    writeArticle('equipment-a', 'equipment'),
++    writeArticle('unclassified-a', 'uncategorized'),
++    writeArticle('unclassified-b', 'uncategorized'),
++    writeArticle('hunting-a', 'hunting'),
++    writeArticle('hunting-b', 'hunting'),
++  ]);
++}
++
++async function sitemapCategoryPaths() {
++  const repository = createContentRepository(path.join(packageDirectory, 'content'));
++  const sitemap = createSitemap(await repository.list('articles'));
++  return [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
++    .map((match) => new URL(match[1]!).pathname)
++    .filter((url) => url.startsWith('/articles/category/'));
++}
++
++it('registers only eligible category routes and keeps their inventory in step with the sitemap', async () => {
++  await categoryFixture();
++  const { siteDirectory, inputs } = await prepare('[Category guide](/articles/category/procedures/)');
++  const categories = path.join(siteDirectory, 'articles/category');
++  expect(await readdir(categories)).toEqual(['procedures']);
++  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/procedures/']);
++  expect(await readFile(path.join(categories, 'procedures/index.html'), 'utf8')).toContain('<!doctype html>');
++  expect(await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8')).toContain(
++    'href="/articles/category/procedures/"',
++  );
++  // Placeholders are link destinations, not invented page bodies to audit.
++  expect(await readFile(inputs, 'utf8')).not.toContain(path.join(categories, 'procedures/index.html'));
++
++  await writeArticle('procedure-b', 'equipment');
++  await prepare('[Category guide](/articles/category/equipment/)');
++  expect(await readdir(categories)).toEqual(['equipment']);
++  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/equipment/']);
++  await expect(readFile(path.join(categories, 'procedures/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
++
++  await rm(path.join(packageDirectory, 'content/articles/equipment-a'), { recursive: true });
++  await prepare('No eligible category remains.');
++  expect(await sitemapCategoryPaths()).toEqual([]);
++  await expect(readFile(path.join(categories, 'equipment/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
++});
++
++it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
++  'does not invent a landing page for the ineligible category %s',
++  async (category) => {
++    await categoryFixture();
++    const { siteDirectory } = await prepare(`[Category](/articles/category/${category}/)`);
++    await expect(
++      readFile(path.join(siteDirectory, 'articles/category', category, 'index.html')),
++    ).rejects.toHaveProperty('code', 'ENOENT');
++  },
++);
++
+ it('rejects malformed URL schemes that lychee otherwise excludes silently', async () => {
+   await expect(prepare('[Broken](hhttps://example.com/path)')).rejects.toThrow(
+     'Unsupported URL scheme in content/articles/example/index.md',
+@@ -110,6 +180,22 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
+     expect(result).toMatchObject({ status: 0 });
+   });
+ 
++  it('accepts an authored link to an eligible generated category', async () => {
++    await categoryFixture();
++    const result = await check('[Category guide](/articles/category/procedures/)');
++    expect(result).toMatchObject({ status: 0 });
++  });
++
++  it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
++    'rejects a link to the ineligible category %s',
++    async (category) => {
++      await categoryFixture();
++      const result = await check(`[Category](/articles/category/${category}/)`);
++      expect(result.status).not.toBe(0);
++      expect(JSON.parse(result.stdout)).toMatchObject({ errors: 1 });
++    },
++  );
++
+   it.each([
+     ['route', '[Missing](/articles/missing/)', 1],
+     ['typo', '[Missing](/aticles/example/)', 1],
+diff --git a/packages/nilay-knowledge/scripts/link-check.ts b/packages/nilay-knowledge/scripts/link-check.ts
+index 426c716..94fd9fb 100644
+--- a/packages/nilay-knowledge/scripts/link-check.ts
++++ b/packages/nilay-knowledge/scripts/link-check.ts
+@@ -9,8 +9,10 @@ import { unified } from 'unified';
+ import { visit } from 'unist-util-visit';
+ 
+ import { siteConfig } from '../lib/config';
++import { getArticleCategoryPages } from '../lib/content/category-pages';
+ import { renderContent } from '../lib/content/render';
+ import { createContentRepository } from '../lib/content/repository';
++import { createArticleDirectory } from '../lib/content/taxonomy';
+ import { contentTypes } from '../lib/content/types';
+ 
+ /** Build link-check inputs using the site's renderer and actual published asset paths. */
+@@ -31,17 +33,22 @@ export async function prepareLinkCheck(packageDirectory: string) {
+   // The /content route reads the authored tree directly; expose the same files to lychee.
+   await symlink(path.join(packageDirectory, 'content'), path.join(siteDirectory, 'content'), 'junction');
+ 
+-  // Only actual static App Router pages become targets. Dynamic article/news pages
+-  // are populated below from the repository, so a misspelled route stays missing.
++  // These placeholders verify route existence, not fragments in unrendered page bodies.
++  async function addPageTarget(segments: string[]): Promise<void> {
++    const target = path.join(siteDirectory, ...segments);
++    await mkdir(target, { recursive: true });
++    await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
++  }
++
++  // Static App Router pages become targets here. Supported generated routes are
++  // populated below from the repository, so a misspelled route stays missing.
+   async function addPageTargets(directory: string, segments: string[] = []): Promise<void> {
+     for (const entry of await readdir(directory, { withFileTypes: true })) {
+       if (entry.isDirectory() && !entry.name.startsWith('[') && !entry.name.startsWith('_')) {
+         const next = /^\(.*\)$/.test(entry.name) ? segments : [...segments, entry.name];
+         await addPageTargets(path.join(directory, entry.name), next);
+       } else if (entry.name === 'page.tsx') {
+-        const target = path.join(siteDirectory, ...segments);
+-        await mkdir(target, { recursive: true });
+-        await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
++        await addPageTarget(segments);
+       }
+     }
+   }
+@@ -50,7 +57,14 @@ export async function prepareLinkCheck(packageDirectory: string) {
+   const repository = createContentRepository(path.join(packageDirectory, 'content'));
+   const files: string[] = [];
+   for (const type of contentTypes) {
+-    for (const source of await repository.listSources(type)) {
++    const sources = await repository.listSources(type);
++    if (type === 'articles') {
++      // Use the same editorial eligibility policy as page generation and the sitemap.
++      for (const category of getArticleCategoryPages(createArticleDirectory(sources))) {
++        await addPageTarget(category.path.split('/').filter(Boolean));
++      }
++    }
++    for (const source of sources) {
+       const directory = path.join(siteDirectory, type, source.slug);
+       await mkdir(directory, { recursive: true });
+       const filename = path.join(directory, 'index.html');
