@@ -36,42 +36,39 @@ describe('authored srcset URLs', () => {
     expect(resolveContentSrcSet(expected, 'articles', 'example')).toBe(expected);
   });
 
-  it.each(['articles', 'news'] as const)(
-    'uses the %s asset directory for img and picture candidates',
-    async (type) => {
-      const { html } = await renderContent(
-        {
-          type,
-          slug: 'example',
-          frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
-          content: [
-            '<img alt="Density" src="fallback.png" srcset="small.png 1x, large.png 2x" sizes="50vw">',
-            '<picture><source srcset="wide.webp?size=1#crop 400w, wider.webp 800w"',
-            ' sizes="100vw" media="(min-width: 1px)" type="image/webp">',
-            '<img alt="Picture" src="picture.png"></picture>',
-            '<div data-example="small.png 1x, large.png 2x">Example</div>',
-            '',
-            '`<img srcset="code.png 1x">`',
-          ].join('\n'),
-        },
-        { imageDimensions: async () => ({ width: 800, height: 600 }) },
-      );
-      document.body.innerHTML = html;
-      const base = `/content/${type}/example/`;
-      expect(document.querySelector('img')).toHaveAttribute('srcset', `${base}small.png 1x, ${base}large.png 2x`);
-      expect(document.querySelector('img')).toHaveAttribute('sizes', '50vw');
-      expect(document.querySelector('source')).toHaveAttribute(
-        'srcset',
-        `${base}wide.webp?size=1#crop 400w, ${base}wider.webp 800w`,
-      );
-      expect(document.querySelector('source')).toHaveAttribute('sizes', '100vw');
-      expect(document.querySelector('source')).toHaveAttribute('media', '(min-width: 1px)');
-      expect(document.querySelector('source')).toHaveAttribute('type', 'image/webp');
-      expect(document.querySelector('picture img')).not.toHaveAttribute('srcset');
-      expect(document.querySelector('picture img')).toHaveAttribute('src', `${base}picture.png`);
-      expect(document.querySelector('[data-image-zoom]')).toHaveAttribute('href', `${base}fallback.png`);
-      expect(document.querySelector('[data-example]')).toHaveAttribute('data-example', 'small.png 1x, large.png 2x');
-      expect(document.querySelector('code')).toHaveTextContent('<img srcset="code.png 1x">');
-    },
-  );
+  it.each(['articles', 'news'] as const)('uses the %s asset directory for img and picture candidates', async (type) => {
+    const { html } = await renderContent(
+      {
+        type,
+        slug: 'example',
+        frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
+        content: [
+          '<img alt="Density" src="fallback.png" srcset="small.png 1x, large.png 2x" sizes="50vw">',
+          '<picture><source srcset="wide.webp?size=1#crop 400w, wider.webp 800w"',
+          ' sizes="100vw" media="(min-width: 1px)" type="image/webp">',
+          '<img alt="Picture" src="picture.png"></picture>',
+          '<div data-example="small.png 1x, large.png 2x">Example</div>',
+          '',
+          '`<img srcset="code.png 1x">`',
+        ].join('\n'),
+      },
+      { imageDimensions: async () => ({ width: 800, height: 600 }) },
+    );
+    document.body.innerHTML = html;
+    const base = `/content/${type}/example/`;
+    expect(document.querySelector('img')).toHaveAttribute('srcset', `${base}small.png 1x, ${base}large.png 2x`);
+    expect(document.querySelector('img')).toHaveAttribute('sizes', '50vw');
+    expect(document.querySelector('source')).toHaveAttribute(
+      'srcset',
+      `${base}wide.webp?size=1#crop 400w, ${base}wider.webp 800w`,
+    );
+    expect(document.querySelector('source')).toHaveAttribute('sizes', '100vw');
+    expect(document.querySelector('source')).toHaveAttribute('media', '(min-width: 1px)');
+    expect(document.querySelector('source')).toHaveAttribute('type', 'image/webp');
+    expect(document.querySelector('picture img')).not.toHaveAttribute('srcset');
+    expect(document.querySelector('picture img')).toHaveAttribute('src', `${base}picture.png`);
+    expect(document.querySelector('[data-image-zoom]')).toHaveAttribute('href', `${base}fallback.png`);
+    expect(document.querySelector('[data-example]')).toHaveAttribute('data-example', 'small.png 1x, large.png 2x');
+    expect(document.querySelector('code')).toHaveTextContent('<img srcset="code.png 1x">');
+  });
 });
