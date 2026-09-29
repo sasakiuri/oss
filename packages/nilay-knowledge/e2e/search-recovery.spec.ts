@@ -32,7 +32,7 @@ test('PDF-only search does not request an unavailable article index', async ({ p
   expect(articleRequests).toBe(0);
 });
 
-test('a PDF failure preserves the worker and article cache, and explicit retry preserves focus', async ({ page, context }) => {
+test('PDF recovery preserves the worker, cache and focus', async ({ page, context }) => {
   let articleRequests = 0;
   let pdfRequests = 0;
   let failPdf = true;
