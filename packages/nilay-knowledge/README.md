@@ -202,6 +202,10 @@ unclassified article. Invalid categories or blank tags fail before creating file
 The `taxonomy` report lists category IDs, tag names and usage counts, and identifies
 unclassified or untagged articles by slug and title. `lint:metadata` validates all
 article/news frontmatter without rendering the bodies and runs as part of `lint`.
+It also rejects unknown top-level keys with the source filename and exact key.
+Intentional custom fields use the `x-` namespace and are ignored at runtime;
+see [the authoring key policy and compatibility inventory](docs/frontmatter-keys.md).
+The runtime parser retains its existing unknown-field stripping behavior.
 
 Zod schemas define both runtime validation and the corresponding TypeScript data
 types. Search validation also checks collection-specific destinations and unique

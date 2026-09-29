@@ -22,6 +22,7 @@ import { remarkContentDirectives } from './directives';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import { responsiveImageAttributes } from './responsive-images';
+import { resolveContentSrcSet } from './srcset';
 import type { ContentSource, RenderedContent, SearchDocument, TocItem } from './types';
 
 function headingText(node: RootContent): string {
@@ -237,6 +238,9 @@ export async function renderContent(
           const value = node.properties[attribute];
           if (typeof value === 'string')
             node.properties[attribute] = resolveContentUrl(value, source.type, source.slug);
+        }
+        if ((node.tagName === 'img' || node.tagName === 'source') && typeof node.properties.srcSet === 'string') {
+          node.properties.srcSet = resolveContentSrcSet(node.properties.srcSet, source.type, source.slug);
         }
         if (node.tagName === 'img') {
           node.properties.loading ??= imageCount === 0 ? 'eager' : 'lazy';

@@ -27,7 +27,10 @@ export function comparePublished(a: ContentSummary, b: ContentSummary): number {
 }
 
 /** Filesystem access and validation only; independent of React and Markdown rendering. */
-export function createContentRepository(contentDirectory: string) {
+export function createContentRepository(
+  contentDirectory: string,
+  options: { validateFrontmatter?: (input: unknown, source: string) => void } = {},
+) {
   async function listSlugs(type: ContentType): Promise<string[]> {
     const directory = path.join(contentDirectory, type);
     const entries = await readdir(directory, { withFileTypes: true });
@@ -64,6 +67,8 @@ export function createContentRepository(contentDirectory: string) {
       const { data, content } = matter(source, {
         engines: { yaml: (value) => load(value, { schema: JSON_SCHEMA }) as Record<string, unknown> },
       });
+      // Authoring checks see the original keys before the runtime parser strips unknown fields.
+      options.validateFrontmatter?.(data, filename);
       return { type, slug, frontmatter: parseFrontmatter(data, filename), content };
     } catch (error) {
       throw new Error(`Unable to parse content: ${filename}: ${String(error)}`, { cause: error });

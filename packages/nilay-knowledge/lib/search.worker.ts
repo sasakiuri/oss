@@ -1,6 +1,7 @@
 import { expose } from 'comlink';
 
 import { createSearchIndex, parseSearchDocuments, searchExcerpt } from './search';
+import { SearchIndexError } from './search-errors';
 import { searchPageSize, type SearchGroup, type SearchScope, type SearchWorkerApi } from './search-protocol';
 
 let index: Promise<ReturnType<typeof createSearchIndex>> | undefined;
@@ -8,31 +9,46 @@ let pdfIndex: Promise<ReturnType<typeof createSearchIndex>> | undefined;
 let lastSearch: { query: string; scope: SearchScope; groups: SearchGroup[]; totalMatches: number } | undefined;
 
 async function loadIndex(pdf = false) {
-  const response = await fetch(pdf ? '/pdf-search-index.json' : '/search-index.json');
-  if (!response.ok) throw new Error('Search index unavailable');
-  const documents = parseSearchDocuments(await response.json());
-  if (documents.some((document) => (document.type === 'pdf') !== pdf)) throw new Error('Unexpected index type');
-  return createSearchIndex(documents);
-}
-
-async function getIndex() {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // One deadline covers both response headers and the complete JSON body.
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('Search index download deadline exceeded'));
+    }, 15_000);
+  });
+  const download = async () => {
+    const response = await fetch(pdf ? '/pdf-search-index.json' : '/search-index.json', {
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error('Search index unavailable');
+    const data: unknown = await response.json();
+    // A late response from a transport that ignores abort cannot populate a cache.
+    controller.signal.throwIfAborted();
+    const documents = parseSearchDocuments(data);
+    if (documents.some((document) => (document.type === 'pdf') !== pdf)) throw new Error('Unexpected index type');
+    return createSearchIndex(documents);
+  };
   try {
-    index ??= loadIndex();
-    return await index;
-  } catch {
-    index = undefined;
-    throw new Error('Search unavailable');
+    return await Promise.race([download(), deadline]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-async function getPdfIndex() {
-  try {
-    pdfIndex ??= loadIndex(true);
-    return await pdfIndex;
-  } catch {
-    pdfIndex = undefined;
-    throw new Error('PDF search unavailable');
-  }
+function getIndex(pdf = false) {
+  const existing = pdf ? pdfIndex : index;
+  if (existing) return existing;
+  const pending = loadIndex(pdf).catch(() => {
+    // Clear only this failed attempt, never another target or a newer request.
+    if (pdf && pdfIndex === pending) pdfIndex = undefined;
+    if (!pdf && index === pending) index = undefined;
+    throw new SearchIndexError(pdf ? 'PDF search unavailable' : 'Search unavailable');
+  });
+  if (pdf) pdfIndex = pending;
+  else index = pending;
+  return pending;
 }
 
 expose({
@@ -43,7 +59,7 @@ expose({
     query = query.trim();
     if (!query) return { total: 0, totalMatches: 0, groups: [], nextOffset: null };
     if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid search offset');
-    const loaded = await (scope === 'pdf' ? getPdfIndex() : getIndex());
+    const loaded = await getIndex(scope === 'pdf');
     if (lastSearch?.query !== query || lastSearch.scope !== scope) {
       const results = loaded.search(query, {
         filter: (result) => scope === 'all' || result.type === scope,

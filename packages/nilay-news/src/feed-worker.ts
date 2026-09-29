@@ -2,6 +2,11 @@
 /** Private HTTP service, placed near Tokyo. It never follows redirects. */
 import { withDeadline } from "./deadline.ts";
 import { isRegionalFeedUrl } from "./net/feed-transport.ts";
+import {
+  GOOGLE_NEWS_RPC,
+  isGoogleNewsPage,
+  validGoogleNewsRequest,
+} from "./net/google-news.ts";
 import { readBody, USER_AGENT, type Fetcher } from "./net/http.ts";
 
 const RESPONSE_HEADERS = [
@@ -15,17 +20,36 @@ export function createFeedHandler(
   fetcher: Fetcher = (url, init) => fetch(url, init),
 ) {
   return async (request: Request): Promise<Response> => {
-    if (request.method !== "GET") return new Response(null, { status: 405 });
-    if (!isRegionalFeedUrl(request.url))
+    const rpc = request.url === GOOGLE_NEWS_RPC;
+    if (request.method !== "GET" && !(rpc && request.method === "POST"))
+      return new Response(null, { status: 405 });
+    if (
+      request.method === "GET" &&
+      !isRegionalFeedUrl(request.url) &&
+      !isGoogleNewsPage(request.url)
+    )
       return new Response(null, { status: 403 });
     try {
-      return await withDeadline(async (signal) => {
-        const upstream = await fetcher(request.url, {
-          method: "GET",
+      return await withDeadline(async (deadline) => {
+        const signal = AbortSignal.any([deadline, request.signal]);
+        signal.throwIfAborted();
+        const init: RequestInit = {
+          method: request.method,
           headers: { "User-Agent": USER_AGENT },
           redirect: "manual",
           signal,
-        });
+        };
+        if (rpc) {
+          const body = await readBody(request, 16_384, signal);
+          if (!validGoogleNewsRequest(body))
+            return new Response(null, { status: 400 });
+          init.body = body;
+          init.headers = {
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          };
+        }
+        const upstream = await fetcher(request.url, init);
         const headers = new Headers({ "Cache-Control": "no-store" });
         for (const name of RESPONSE_HEADERS) {
           const value = upstream.headers.get(name);
@@ -37,7 +61,8 @@ export function createFeedHandler(
           void upstream.body?.cancel().catch(() => undefined);
           return new Response(null, { status: upstream.status, headers });
         }
-        const data = await readBody(upstream, 4_000_000, signal);
+        const maxBytes = rpc ? 100_000 : isGoogleNewsPage(request.url) ? 1_000_000 : 4_000_000;
+        const data = await readBody(upstream, maxBytes, signal);
         return new Response(
           [204, 205].includes(upstream.status) ? null : data,
           {

@@ -31,6 +31,13 @@ import {
   newestFirst,
   publicationSeconds,
 } from "../freshness.ts";
+import { GoogleNewsDeferred } from "../google-news.ts";
+import {
+  GoogleNewsError,
+  isGoogleNewsUrl,
+  publisherUrl,
+} from "../net/google-news.ts";
+import { FetchError } from "../net/http.ts";
 import { draft } from "../posts.ts";
 import {
   isPostingTime,
@@ -1043,10 +1050,23 @@ export class SQLRepository implements NewsRepository {
     state: Pick<Tables, "state" | "posts" | "articles">,
     now: number,
   ): Article[] {
+    // A repaired legacy ID and a recollected publisher ID may coexist. Do not
+    // merge their reviews/history, but never post the same URL twice for articles without source keys.
+    // Explicit source keys can represent distinct notices on a shared page.
+    const usedUrls = new Set(
+      [...state.articles.values()]
+        .filter(
+          (article) =>
+            !article.sourceKey &&
+            (state.posts.has(article.id) || article.reviewStatus === "posted"),
+        )
+        .map((article) => article.url),
+    );
     return [...state.articles.values()]
       .filter(
         (article) =>
           !state.posts.has(article.id) &&
+          (Boolean(article.sourceKey) || !usedUrls.has(article.url)) &&
           SQLRepository.eligible(state, article, now),
       )
       .sort(newestFirst);
@@ -1090,7 +1110,13 @@ export class SQLRepository implements NewsRepository {
     );
   }
 
-  async claimPost(now: number): Promise<PostClaim | null> {
+  async claimPost(
+    now: number,
+    resolveUrl?: (url: string) => Promise<string>,
+  ): Promise<PostClaim | null> {
+    // CAS retries re-read the selection; a successful lookup of the same URL
+    // is reused, while each new URL still shares the caller's request budget.
+    const resolved = new Map<string, string>();
     await this.recoverPosts(Math.max(now, this.clock()));
     // A stale tick timestamp never sends after the posting window closed.
     if (!isPostingTime(Math.max(now, this.clock()))) return null;
@@ -1130,8 +1156,8 @@ export class SQLRepository implements NewsRepository {
       gate[2]?.results.length
     )
       return null;
-    return this.mutate(["state", "articles", "posts"], (state) => {
-      const current = Math.max(now, this.clock());
+    return this.mutate(["state", "articles", "posts"], async (state) => {
+      let current = Math.max(now, this.clock());
       SQLRepository.expirePosts(state, current);
       const settings = settingsOf(state.state);
       const schedule = scheduleOf(state.state);
@@ -1164,6 +1190,60 @@ export class SQLRepository implements NewsRepository {
         };
         schedule.next_at = nextPostingAt(current + POST_INTERVAL_SECONDS);
       }
+      const selectedId = article.id;
+      let failure: string | undefined;
+      if (resolveUrl && isGoogleNewsUrl(article.url)) {
+        const original = article.url;
+        try {
+          let url = resolved.get(original);
+          if (!url) {
+            const target = publisherUrl(await resolveUrl(original));
+            if (!target)
+              throw new GoogleNewsError(
+                "Google News から有効な元記事URLを取得できませんでした",
+              );
+            resolved.set(original, target);
+            url = target;
+          }
+          article.url = url;
+          article.metadata = { ...article.metadata, googleNewsUrl: original };
+          // Keep the row ID and manual/analysis decisions. Adopt the publisher
+          // identity only when it is not already owned by another article.
+          if (
+            article._identity === original &&
+            ![...state.articles.values()].some(
+              (other) => other !== article && other._identity === url,
+            )
+          )
+            article._identity = url;
+        } catch (error) {
+          if (error instanceof GoogleNewsDeferred) return null;
+          if (
+            !(error instanceof GoogleNewsError) &&
+            !(error instanceof FetchError)
+          )
+            throw error;
+          failure = error instanceof GoogleNewsError
+            ? error.message
+            : "Google News の元記事URLを取得できませんでした。時間をおいて投稿前の確認をやり直してください";
+        }
+        // Resolution may cross a time boundary. Changed reviews/settings and
+        // competing claims cause the whole mutation to retry from fresh state.
+        current = Math.max(now, this.clock());
+        if (
+          !isPostingTime(current) ||
+          !SQLRepository.eligible(state, article, current)
+        )
+          return null;
+        if (!SQLRepository.candidates(state, current).some(
+          (item) => item.id === selectedId,
+        )) {
+          const batch = batchOf(state.state);
+          batch.articleIds = batch.articleIds.filter((id) => id !== selectedId);
+          if (!batch.articleIds.length) state.state.publication_batch = closedBatch();
+          return null;
+        }
+      }
       const claimToken = randomToken();
       const post: Post = {
         article_id: article.id,
@@ -1177,6 +1257,7 @@ export class SQLRepository implements NewsRepository {
       };
       state.posts.set(article.id, post);
       try {
+        if (failure) throw new UserError(failure);
         post.text = draft(article);
       } catch (error) {
         if (!(error instanceof UserError)) throw error;
@@ -1229,6 +1310,7 @@ export class SQLRepository implements NewsRepository {
           ) &&
           article &&
           SQLRepository.eligible(state, article, current) &&
+          !(await this.hasPostedUrl(article)) &&
           (!screening ||
             (screening.permitted &&
               (await this.evidenceHash(article)) === screening.evidenceHash)) &&
@@ -1240,6 +1322,21 @@ export class SQLRepository implements NewsRepository {
       },
       [articleId],
     );
+  }
+
+  /** A bounded check also catches an alias reviewed as posted during remote checks. */
+  private async hasPostedUrl(article: Article): Promise<boolean> {
+    if (article.sourceKey) return false;
+    const result = await this.driver.batch([
+      [
+        "SELECT 1 FROM news_articles a WHERE a.id<>? AND json_extract(a.data,'$.url')=? " +
+          "AND COALESCE(json_extract(a.data,'$.sourceKey'),'')='' " +
+          "AND (json_extract(a.data,'$.reviewStatus')='posted' OR EXISTS " +
+          "(SELECT 1 FROM news_posts p WHERE p.id=a.id)) LIMIT 1",
+        [article.id, article.url],
+      ],
+    ]);
+    return Boolean(result[0]?.results.length);
   }
 
   /** Whether the article still drafts exactly the claimed text. */

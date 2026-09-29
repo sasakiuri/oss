@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import sharp from 'sharp';
 
+import { decodeContentAssetPathname } from './asset-path';
+
 export interface ImageDimensions {
   width: number;
   height: number;
@@ -53,16 +55,16 @@ export function createImageDimensionsResolver(contentDirectory: string): ImageDi
 
   return async (src) => {
     if (!src.startsWith('/content/')) return null;
-    let pathname: string;
+    let segments: string[] | null;
     try {
-      pathname = decodeURIComponent(src.split(/[?#]/, 1)[0]!);
+      segments = decodeContentAssetPathname(src.split(/[?#]/, 1)[0]!);
     } catch (error) {
       throw new Error(`Invalid content image URL: ${src}`, { cause: error });
     }
-    if (pathname.includes('\\') || pathname.includes('\0') || pathname.split('/').includes('..')) {
-      throw new Error(`Content image path must stay within content: ${src}`);
+    if (!segments) {
+      throw new Error(`Content image path must stay within content and use publishable segments: ${src}`);
     }
-    const filename = path.resolve(directory, `.${pathname.slice('/content'.length)}`);
+    const filename = path.resolve(directory, `./${segments.join('/')}`);
     if (!isWithin(directory, filename)) {
       throw new Error(`Content image path must stay within content: ${src}`);
     }

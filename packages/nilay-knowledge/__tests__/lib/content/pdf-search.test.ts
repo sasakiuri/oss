@@ -5,7 +5,9 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { serveContentAsset } from '@/lib/content/assets';
 import { createPdfSearchIndex } from '@/lib/content/pdf-search';
+import { searchDocumentsSchema } from '@/lib/content/schemas';
 import type { ContentSource } from '@/lib/content/types';
 
 /** A small, valid two-page PDF: a searchable text page and a blank page without a text layer. */
@@ -86,6 +88,43 @@ describe('PDF search extraction', () => {
     });
   });
 
+  it.each(['ordinary.pdf', '添付 資料.pdf', 'literal%2Fname.pdf', '100%.pdf'])(
+    'serves the exact PDF bytes addressed by an extracted and validated search destination: %s',
+    { timeout: 15_000 },
+    async (name) => {
+      const bytes = pdfFixture();
+      await writeFile(path.join(contentDirectory, name), bytes);
+      const { documents } = await createPdfSearchIndex(
+        [source(`[Attachment](./${encodeURIComponent(name)})`)],
+        contentRoot,
+      );
+      expect(documents).toHaveLength(1);
+      expect(documents[0]?.id).toBe(`/content/articles/example/${encodeURIComponent(name)}#page=1`);
+      expect(searchDocumentsSchema.parse(documents)).toEqual(documents);
+      const destination = new URL(documents[0]!.id, 'https://example.com');
+      // Emulate Next's single route-parameter decode, independently of the shared adapter.
+      const segments = destination.pathname.slice('/content/'.length).split('/').map(decodeURIComponent);
+      expect(segments).toEqual(['articles', 'example', name]);
+      const response = await serveContentAsset(new Request(destination), segments, contentRoot);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('application/pdf');
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
+    },
+  );
+
+  it.each(['.hidden.pdf', '.private/document.pdf'])(
+    'diagnoses an existing but unpublished PDF before extraction: %s',
+    async (name) => {
+      const filename = path.join(contentDirectory, name);
+      await mkdir(path.dirname(filename), { recursive: true });
+      await writeFile(filename, pdfFixture());
+      const href = `./${name.split('/').map(encodeURIComponent).join('/')}`;
+      await expect(createPdfSearchIndex([source(`[Attachment](${href})`)], contentRoot)).rejects.toThrow(
+        `unpublishable PDF reference in articles/example: ${href}`,
+      );
+    },
+  );
+
   it('finds Markdown reference and HTML links, deduplicates files, and merges tags', async () => {
     const { documents, report } = await createPdfSearchIndex(
       [
@@ -159,6 +198,9 @@ describe('PDF search extraction', () => {
     '/content/%2e%2e/outside.pdf',
     '/content/articles/example/..%2F..%2F..%2Foutside.pdf',
     '/content/articles/example/evil%5Coutside.pdf',
+    './a%2Fb.pdf',
+    './%00bad.pdf',
+    './%2Ehidden.pdf',
   ])('rejects PDF references outside the content directory: %s', async (href) => {
     await expect(createPdfSearchIndex([source(`[Invalid](${href})`)], contentRoot)).rejects.toThrow(
       'must stay within content',
@@ -172,6 +214,12 @@ describe('PDF search extraction', () => {
     await expect(createPdfSearchIndex([source('[Private](./escape.pdf)')], contentRoot)).rejects.toThrow(
       'PDF symlink must stay within content',
     );
+    const response = await serveContentAsset(
+      new Request('https://example.com/content/articles/example/escape.pdf'),
+      ['articles', 'example', 'escape.pdf'],
+      contentRoot,
+    );
+    expect(response.status).toBe(404);
   });
 
   it('fails explicitly for missing and malformed PDFs', async () => {
