@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { createPdfSearchIndex } from '@/lib/content/pdf-search';
 import { createContentRepository } from '@/lib/content/repository';
+import { createSearchIndexResponse } from '@/lib/content/search-index-response';
 import { contentTypes } from '@/lib/content/types';
 
 export const dynamic = 'force-static';
@@ -17,5 +18,5 @@ export async function GET() {
       report.pagesWithoutText,
     );
   }
-  return Response.json(documents);
+  return createSearchIndexResponse(documents);
 }
