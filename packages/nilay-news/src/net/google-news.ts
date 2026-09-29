@@ -20,7 +20,7 @@ const CONTEXT = [
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
-/** Also catches malformed article paths and interstitials at publication time. */
+/** Also catches malformed article paths and intermediate pages at publication time. */
 export function isGoogleNewsUrl(url: string): boolean {
   return hostname(url).replace(/\.$/, "").replace(/^www\./, "") ===
     "news.google.com";
