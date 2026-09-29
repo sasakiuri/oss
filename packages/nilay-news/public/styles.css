@@ -322,11 +322,12 @@ h1 {
 }
 .filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .search-field {
-  flex: 1;
+  flex: 1 1 280px;
   max-width: 460px;
   min-width: 0;
 }
@@ -376,6 +377,10 @@ select {
   gap: 8px;
   min-height: 40px;
   font-size: 13px;
+}
+.bulk-help {
+  flex-basis: 100%;
+  margin: 0;
 }
 .bulk-select-label input,
 .article-check input {
@@ -1099,7 +1104,7 @@ select {
     order: -1;
   }
   .filters select {
-    flex: 1;
+    flex: 1 1 140px;
     min-width: 0;
     max-width: none;
   }

@@ -52,7 +52,7 @@ function node(): FakeNode {
     },
     querySelectorAll: (selector) =>
       created.children.flatMap((child) => [
-        ...(selector === "[data-dismiss-id]" && child.dataset.dismissId
+        ...(selector === "[data-select-id]" && child.dataset.selectId
           ? [child]
           : []),
         ...child.querySelectorAll(selector),
@@ -86,6 +86,9 @@ interface Ui {
     sort: string;
     query: string;
     topic: string;
+    analysis: string;
+    relation: string;
+    bulkStatus: string;
     visibleCount: number;
     selectedId: string | null;
     checkedIds: Set<string>;
@@ -166,7 +169,7 @@ describe("bulk dismissal selection", () => {
       };
       const [checkbox] = ui
         .renderArticle(article)
-        .querySelectorAll("[data-dismiss-id]");
+        .querySelectorAll("[data-select-id]");
       expect(checkbox!.disabled).toBe(failedBeforeSend !== true);
       ui.model.selectedId = article.id;
       ui.renderDetail();
@@ -198,7 +201,7 @@ describe("bulk dismissal selection", () => {
     ui.element("article-list").append(...articles.map(ui.renderArticle));
     const [checkbox] = ui
       .element("article-list")
-      .querySelectorAll("[data-dismiss-id]");
+      .querySelectorAll("[data-select-id]");
     expect(checkbox!.attributes["aria-label"]).toContain("記事 a");
     checkbox!.checked = true;
     checkbox!.listeners.change!({ target: checkbox! });
@@ -206,11 +209,11 @@ describe("bulk dismissal selection", () => {
     expect(ui.model.selectedId).toBe("b");
     expect(ui.element("select-all-articles").indeterminate).toBe(true);
     expect(ui.element("selection-count").textContent).toBe("1 件選択中");
-    expect(ui.element("dismiss-selected").disabled).toBe(false);
+    expect(ui.element("apply-selected").disabled).toBe(false);
     checkbox!.checked = false;
     checkbox!.listeners.change!({ target: checkbox! });
     expect(ui.model.checkedIds.size).toBe(0);
-    expect(ui.element("dismiss-selected").disabled).toBe(true);
+    expect(ui.element("apply-selected").disabled).toBe(true);
   });
 
   it("selects only displayed and eligible results, and supports clearing all", () => {
@@ -273,7 +276,7 @@ describe("bulk dismissal selection", () => {
     expect(ui.model.checkedIds.size).toBe(0);
   });
 
-  it("disables selection while saving and hides bulk actions for posted and dismissed lists", () => {
+  it("disables selection while saving and allows restoring dismissed articles but protects posted lists", () => {
     const ui = load();
     const articles = [
       { ...BASE, id: "a" },
@@ -284,23 +287,168 @@ describe("bulk dismissal selection", () => {
     ui.element("article-list").append(...articles.map(ui.renderArticle));
     const checkboxes = ui
       .element("article-list")
-      .querySelectorAll("[data-dismiss-id]");
-    expect(checkboxes).toHaveLength(1);
+      .querySelectorAll("[data-select-id]");
+    expect(checkboxes).toHaveLength(2);
     ui.model.checkedIds.add("a");
     ui.model.requestPending = true;
     ui.renderBulkActions();
     expect(checkboxes[0]!.disabled).toBe(true);
     expect(ui.element("select-all-articles").disabled).toBe(true);
-    expect(ui.element("dismiss-selected").disabled).toBe(true);
+    expect(ui.element("apply-selected").disabled).toBe(true);
     ui.model.requestPending = false;
     ui.renderBulkActions();
-    expect(ui.element("dismiss-selected").disabled).toBe(false);
+    expect(ui.element("apply-selected").disabled).toBe(false);
     for (const view of ["posted", "dismissed"]) {
       ui.model.view = view;
       ui.renderBulkActions();
-      expect(ui.element("bulk-actions").hidden).toBe(true);
+      expect(ui.element("bulk-actions").hidden).toBe(view === "posted");
       expect(ui.model.checkedIds.size).toBe(0);
     }
+  });
+});
+
+describe("classification filters and bulk operations", () => {
+  it("combines topic, text, classification and relation filters without selecting hidden articles", () => {
+    const ui = load();
+    const articles = [
+      {
+        ...BASE,
+        id: "match",
+        title: "北海道のクマ",
+        topic: "鳥獣",
+        analysisStatus: "done",
+        decision: "review",
+        relation: "duplicate",
+      },
+      {
+        ...BASE,
+        id: "uncertain",
+        title: "北海道のクマ",
+        topic: "鳥獣",
+        analysisStatus: "done",
+        decision: "review",
+        relation: "uncertain",
+      },
+      {
+        ...BASE,
+        id: "candidate",
+        title: "北海道のクマ",
+        topic: "鳥獣",
+        analysisStatus: "done",
+        decision: "candidate",
+        relation: "duplicate",
+      },
+      {
+        ...BASE,
+        id: "other",
+        title: "射撃大会",
+        topic: "射撃",
+        analysisStatus: "done",
+        decision: "review",
+        relation: "duplicate",
+      },
+    ];
+    ui.model.state = { articles, publication: { posts: [] } };
+    ui.model.checkedIds = new Set(articles.map((article) => article.id));
+    ui.model.query = "クマ";
+    ui.model.topic = "鳥獣";
+    ui.model.analysis = "review";
+    ui.model.relation = "duplicate";
+    ui.renderBulkActions();
+    expect(ui.visibleArticles().map((article) => article.id)).toEqual([
+      "match",
+    ]);
+    expect([...ui.model.checkedIds]).toEqual(["match"]);
+    ui.model.relation = "uncertain";
+    ui.renderBulkActions();
+    expect(ui.model.checkedIds.size).toBe(0);
+    const all = ui.element("select-all-articles");
+    all.checked = true;
+    all.listeners.change!({ target: all });
+    expect([...ui.model.checkedIds]).toEqual(["uncertain"]);
+  });
+
+  it.each(["candidate", "review", "irrelevant", "pending", "error"])(
+    "filters %s by the current analysis rather than stale decisions",
+    (analysis) => {
+      const ui = load();
+      const articles = [
+        "candidate",
+        "review",
+        "irrelevant",
+        "pending",
+        "error",
+      ].map((id) => ({
+        ...BASE,
+        id,
+        sourceCandidate: true,
+        analysisStatus: ["pending", "error"].includes(id) ? id : "done",
+        decision: ["pending", "error"].includes(id) ? "candidate" : id,
+      }));
+      ui.model.state = { articles, publication: { posts: [] } };
+      ui.model.analysis = analysis;
+      expect(ui.visibleArticles().map((article) => article.id)).toEqual([
+        analysis,
+      ]);
+    },
+  );
+
+  it("keeps selection when changing actions and disables incompatible actions for failed drafts", () => {
+    const ui = load();
+    const articles = [{ ...BASE, id: "failed" }];
+    ui.model.state = {
+      articles,
+      publication: {
+        posts: [
+          { articleId: "failed", status: "failed", failedBeforeSend: true },
+        ],
+      },
+    };
+    ui.model.checkedIds.add("failed");
+    ui.model.bulkStatus = "saved";
+    ui.renderBulkActions();
+    expect(ui.element("apply-selected").disabled).toBe(true);
+    expect(ui.element("bulk-help").textContent).toContain("送信前エラー");
+    ui.model.bulkStatus = "approved";
+    ui.renderBulkActions();
+    expect([...ui.model.checkedIds]).toEqual(["failed"]);
+    expect(ui.element("apply-selected").disabled).toBe(false);
+    expect(ui.element("apply-selected").textContent).toContain("投稿を承認");
+    expect(ui.element("bulk-help").textContent).toContain("内容と重複を確認");
+  });
+
+  it("shows manual approval separately from the retained Jev judgment and offers revocation", () => {
+    const ui = load();
+    const article = {
+      ...BASE,
+      id: "approved",
+      reviewStatus: "approved",
+      reviewedAt: BASE.discoveredAt,
+      analysisStatus: "done",
+      decision: "review",
+      relation: "duplicate",
+      url: "https://example.org/news",
+    };
+    ui.model.state = {
+      articles: [article],
+      publication: { posts: [] },
+      settings: { jevConfigured: false },
+    };
+    expect(
+      ui.buckets
+        .filter((bucket) => bucket.match(article))
+        .map((bucket) => bucket.id),
+    ).toEqual(["approved"]);
+    expect(ui.articleTags(article).map((tag) => tag.textContent)).toEqual([
+      "Jev: 要確認",
+      "重複の可能性",
+      "投稿承認済み",
+    ]);
+    ui.model.selectedId = article.id;
+    ui.renderDetail();
+    expect(texts(ui.element("detail-panel"))).toContain(
+      "投稿承認を解除して未読に戻す",
+    );
   });
 });
 

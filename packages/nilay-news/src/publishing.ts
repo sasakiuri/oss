@@ -391,8 +391,14 @@ export class Publisher {
   private async checkDuplicates(
     articleId: string,
   ): Promise<PostScreening | undefined> {
-    if (!this.jev?.key) return undefined;
     const article = await this.repository.article(articleId);
+    if (article.reviewStatus === "approved" && article.reviewedAt)
+      return {
+        evidenceHash: await this.repository.evidenceHash(article),
+        permitted: true,
+        approvedAt: article.reviewedAt,
+      };
+    if (!this.jev?.key) return undefined;
     if (isSourceCandidate(article)) return undefined;
     const evidenceHash = await this.repository.evidenceHash(article);
     const postedIds = new Set(

@@ -28,6 +28,8 @@ export interface PostScreening {
   evidenceHash: string;
   /** A rejected check remains binding even if another classifier edits the article. */
   permitted: boolean;
+  /** A manual approval must still be the same at the final send check. */
+  approvedAt?: string;
 }
 
 export interface NewsRepository {
@@ -51,6 +53,7 @@ export interface NewsRepository {
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
   review(articleId: string, status: unknown): Promise<Article>;
+  reviewMany(articleIds: unknown, status: unknown): Promise<Article[]>;
   dismiss(articleIds: unknown): Promise<Article[]>;
   publicationState(): Promise<Publication>;
   postCandidates(): Promise<Article[]>;

@@ -98,6 +98,24 @@
               ><label class="sr-only" for="topic-filter">テーマで絞り込む</label
               ><select id="topic-filter">
                 <option value="">すべてのテーマ</option></select
+              ><label class="sr-only" for="analysis-filter"
+                >仕分け結果で絞り込む</label
+              ><select id="analysis-filter">
+                <option value="">すべての仕分け結果</option>
+                <option value="candidate">候補</option>
+                <option value="review">要確認</option>
+                <option value="irrelevant">対象外</option>
+                <option value="pending">未判定</option>
+                <option value="error">仕分け失敗</option></select
+              ><label class="sr-only" for="relation-filter"
+                >重複・関連性で絞り込む</label
+              ><select id="relation-filter">
+                <option value="">すべての重複・関連性</option>
+                <option value="duplicate">重複の可能性</option>
+                <option value="uncertain">関連性を確認</option>
+                <option value="followup">続報の可能性</option>
+                <option value="different">別の出来事</option>
+                <option value="none">比較なし</option></select
               ><label class="sr-only" for="sort-filter">並び順</label
               ><select id="sort-filter">
                 <option value="priority">仕分け順</option>
@@ -117,14 +135,24 @@
                   class="count-label"
                   role="status"
                 ></span>
+                <label class="sr-only" for="bulk-operation"
+                  >選択した記事の操作</label
+                >
+                <select id="bulk-operation">
+                  <option value="dismissed">見送り</option>
+                  <option value="approved">投稿を承認</option>
+                  <option value="saved">保存</option>
+                  <option value="unread">未読に戻す・承認を解除</option>
+                </select>
                 <button
-                  id="dismiss-selected"
+                  id="apply-selected"
                   class="button button-subtle"
                   type="button"
                   disabled
                 >
                   選択した記事を見送る
                 </button>
+                <p id="bulk-help" class="form-help bulk-help"></p>
               </div>
               <div
                 id="article-list"
