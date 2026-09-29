@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: MIT
+# Temporary diagnostic workflow; this branch is closed without merging.
+name: Nilay News regression workspace
+
+on:
+  pull_request:
+    branches: [1.x]
+    paths:
+      - .github/workflows/nilay-news-workspace-bootstrap.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nilay-news-workspace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workspace:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'chore/nilay-news/regression-workspace-bootstrap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+      - name: Install the pinned package manager and test dependencies
+        run: |
+          npm install --global npm@11.13.0
+          npm ci --ignore-scripts --workspace @sasakiuri/nilay-news --include-workspace-root
+      - name: Package tracked sources and an offline test toolchain
+        shell: bash
+        run: |
+          mkdir -p regression-workspace/repo regression-workspace/toolchain/bin
+          git archive HEAD | tar -x -C regression-workspace/repo
+          cp -a node_modules regression-workspace/repo/node_modules
+          while IFS= read -r -d '' directory; do
+            mkdir -p "regression-workspace/repo/$(dirname "$directory")"
+            cp -a "$directory" "regression-workspace/repo/$directory"
+          done < <(find packages -mindepth 2 -maxdepth 2 -type d -name node_modules -print0)
+          install -m 755 "$(command -v node)" regression-workspace/toolchain/bin/node
+          cp -a "$(npm root --global)/npm" regression-workspace/toolchain/npm
+          git rev-parse HEAD > regression-workspace/source-commit.txt
+          node --version > regression-workspace/node-version.txt
+          npm --version > regression-workspace/npm-version.txt
+          tar -czf nilay-news-regression-workspace.tar.gz regression-workspace
+      - name: Share the credential-free diagnostic workspace
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-news-regression-workspace
+          path: nilay-news-regression-workspace.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
