@@ -36,11 +36,21 @@ jobs:
           mkdir -p /tmp/nilay-news-offline/.validation-tools
           cp "$(command -v node)" /tmp/nilay-news-offline/.validation-tools/node
           git rev-parse HEAD > /tmp/nilay-news-offline/.validation-tools/base-sha
-          tar -C /tmp -cf /tmp/nilay-news-offline.tar nilay-news-offline
+          tar -C /tmp -cf - nilay-news-offline | gzip -1 > /tmp/nilay-news-offline.tar.gz
+          split -b 400M -d /tmp/nilay-news-offline.tar.gz /tmp/nilay-news-offline-part-
+          test ! -e /tmp/nilay-news-offline-part-02
+          sha256sum /tmp/nilay-news-offline.tar.gz
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: nilay-news-offline-validation
-          path: /tmp/nilay-news-offline.tar
+          name: nilay-news-offline-part-00
+          path: /tmp/nilay-news-offline-part-00
           retention-days: 1
-          compression-level: 1
+          compression-level: 0
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nilay-news-offline-part-01
+          path: /tmp/nilay-news-offline-part-01
+          retention-days: 1
+          compression-level: 0
           if-no-files-found: error
