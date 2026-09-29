@@ -145,6 +145,63 @@ describe("HTTP contract", () => {
     );
     expect((await repo.article(ids[2]!)).reviewStatus).toBe("unread");
   });
+  it.each(["individual", "bulk", "retry"])(
+    "recovers a failed Google draft through the %s API",
+    async (mode) => {
+      let now = 10_000;
+      const { request, repo, app } = await setup(() => now);
+      await repo.ingest(
+        {
+          id: "test",
+          name: "test",
+          url: "https://example.org/feed",
+          kind: "rss",
+          enabled: true,
+          description: "test",
+        },
+        [
+          {
+            title: "記事",
+            url: "https://news.google.com/rss/articles/old",
+            excerpt: "",
+            publishedAt: new Date(now * 1000).toISOString(),
+          },
+        ],
+      );
+      const id = (await repo.articles())[0]!.id;
+      await repo.review(id, "saved");
+      await repo.updateSettings({ autoPost: true });
+      now += 3600;
+      expect(await repo.claimPost(now)).toBeNull();
+      expect((await app.state()).publication.posts[0]?.failedBeforeSend).toBe(
+        true,
+      );
+      const response =
+        mode === "bulk"
+          ? await request(
+              "/api/articles/dismiss",
+              JSON.stringify({ articleIds: [id] }),
+            )
+          : mode === "individual"
+            ? await request(
+                `/api/articles/${id}/review`,
+                JSON.stringify({ status: "dismissed" }),
+              )
+            : await request(
+                `/api/articles/${id}/publication`,
+                JSON.stringify({ outcome: "retry" }),
+              );
+      expect(response.status).toBe(200);
+      const state = await app.state();
+      expect(state.publication.posts).toEqual([]);
+      expect(state.publication.error).toBeNull();
+      expect(state.settings.autoPost).toBe(false);
+      expect((await repo.article(id)).reviewStatus).toBe(
+        mode === "retry" ? "saved" : "dismissed",
+      );
+    },
+  );
+
   it("invalidates the state ETag after a settings change", async () => {
     const { request, handlers, env } = await setup();
     const first = await handlers.fetch(

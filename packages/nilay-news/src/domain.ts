@@ -109,5 +109,6 @@ export interface Publication {
     postId: string | null;
     bufferId: string | null;
     error: string | null;
+    failedBeforeSend: boolean;
   }[];
 }

@@ -400,8 +400,9 @@ function canDismiss(article) {
   const post = model.state.publication.posts.find(
     (item) => item.articleId === article.id,
   );
-  return !["publishing", "submitted", "unknown", "failed"].includes(
-    post?.status,
+  return (
+    post?.failedBeforeSend === true ||
+    !["publishing", "submitted", "unknown", "failed"].includes(post?.status)
   );
 }
 
@@ -1067,41 +1068,57 @@ function renderDetail() {
       el("p", "form-help", `Buffer 投稿 ID: ${publication.bufferId}`),
     );
   if (["unknown", "failed"].includes(publication?.status)) {
-    preview.append(
-      el("p", "analysis-error", messageText(publication.error)),
-      el(
-        "p",
-        "form-help",
-        "未投稿に戻す前に、Buffer の予約・再試行対象を削除し、X にも投稿がないことを確認してください。",
-      ),
-      externalLink(
-        "Buffer を開く ↗",
-        "https://publish.buffer.com",
-        "text-button",
-      ),
-      externalLink(
-        "@NilayNews で投稿結果を確認 ↗",
-        "https://x.com/NilayNews",
-        "text-button",
-      ),
-      button("X で投稿済みを確認した", "button button-secondary", () =>
-        mutate(
-          `/api/articles/${article.id}/publication`,
-          { outcome: "posted" },
-          "投稿済みとして記録しました。",
+    preview.append(el("p", "analysis-error", messageText(publication.error)));
+    if (publication.failedBeforeSend) {
+      preview.append(
+        el(
+          "p",
+          "form-help",
+          "Buffer への送信前に停止しました。この記事を見送るか、投稿エラーを解除してから設定で自動投稿を再開してください。",
         ),
-      ),
-      button(
-        "Buffer の予約なし・X の未投稿を確認した",
-        "button button-secondary",
-        () =>
+        button("投稿エラーを解除", "button button-secondary", () =>
           mutate(
             `/api/articles/${article.id}/publication`,
-            { outcome: "not_posted" },
-            "確認待ちを解除しました。設定から自動投稿を再開できます。",
+            { outcome: "retry" },
+            "投稿エラーを解除しました。設定の「投稿せずに接続・候補を確認」で確認し、自動投稿を再開してください。",
           ),
-      ),
-    );
+        ),
+      );
+    } else
+      preview.append(
+        el(
+          "p",
+          "form-help",
+          "未投稿に戻す前に、Buffer の予約・再試行対象を削除し、X にも投稿がないことを確認してください。",
+        ),
+        externalLink(
+          "Buffer を開く ↗",
+          "https://publish.buffer.com",
+          "text-button",
+        ),
+        externalLink(
+          "@NilayNews で投稿結果を確認 ↗",
+          "https://x.com/NilayNews",
+          "text-button",
+        ),
+        button("X で投稿済みを確認した", "button button-secondary", () =>
+          mutate(
+            `/api/articles/${article.id}/publication`,
+            { outcome: "posted" },
+            "投稿済みとして記録しました。",
+          ),
+        ),
+        button(
+          "Buffer の予約なし・X の未投稿を確認した",
+          "button button-secondary",
+          () =>
+            mutate(
+              `/api/articles/${article.id}/publication`,
+              { outcome: "not_posted" },
+              "確認待ちを解除しました。設定から自動投稿を再開できます。",
+            ),
+        ),
+      );
   }
   panel.append(preview);
   const actions = el("div", "detail-actions");
@@ -1159,7 +1176,7 @@ function renderDetail() {
         "detail-unread",
       ),
     );
-  else if (!postingBlocked)
+  else if (canDismiss(article))
     secondary.append(
       button(
         "この記事を見送る",
@@ -1846,16 +1863,25 @@ function refreshPublicationStatus() {
     preflight.hidden = true;
     preflight.replaceChildren();
   }
-  const held = publication.posts.filter((post) =>
-    ["unknown", "failed", "publishing", "submitted"].includes(post.status),
+  const unsent = publication.posts.filter(
+    (post) => post.failedBeforeSend,
+  ).length;
+  const held = publication.posts.filter(
+    (post) =>
+      !post.failedBeforeSend &&
+      ["unknown", "failed", "publishing", "submitted"].includes(post.status),
   ).length;
   node.textContent = `${publication.error ? "エラーにより停止中" : settings.autoPost ? "有効" : "停止中"}・投稿待ち ${publication.queued} 件・結果確認待ち／送信中 ${held} 件`;
+  if (unsent) node.textContent += `・送信前エラー ${unsent} 件`;
   if (publication.error)
     node.textContent += `。${messageText(publication.error)}`;
   if (settings.autoPost && publication.nextAt)
     node.textContent += `・次回 ${dateText(publication.nextAt * 1000, true)}`;
   if (held)
     node.textContent += "。対象記事の詳細で投稿結果を確認してください。";
+  if (unsent)
+    node.textContent +=
+      "。対象記事の詳細で見送りまたは投稿エラーの解除を行い、設定から自動投稿を再開してください。";
 }
 
 function refreshSourceStatus() {

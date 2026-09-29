@@ -397,7 +397,20 @@ function articleOf(articles: Map<string, Article>, articleId: string): Article {
   return article;
 }
 
-function assertReviewAllowed(post: Post | undefined): void {
+/** Empty failed drafts never reached Buffer, including records from older versions. */
+function failedBeforeSend(post: Post | undefined): boolean {
+  return (
+    !!post &&
+    post.status === "failed" &&
+    post.text === "" &&
+    !post.buffer_id &&
+    !post.channel_id &&
+    !post.post_id
+  );
+}
+
+function assertReviewAllowed(post: Post | undefined, dismiss = false): void {
+  if (dismiss && failedBeforeSend(post)) return;
   if (post && BLOCKING.has(post.status))
     throw new UserError(
       "X の投稿処理中、または結果確認待ちです。投稿結果の確認から操作してください",
@@ -935,7 +948,10 @@ export class SQLRepository implements NewsRepository {
       throw new UserError("記事の状態が不正です");
     return this.mutate(["articles", "posts"], (state) => {
       const article = articleOf(state.articles, articleId);
-      assertReviewAllowed(state.posts.get(articleId));
+      const post = state.posts.get(articleId);
+      assertReviewAllowed(post, status === "dismissed");
+      if (status === "dismissed" && failedBeforeSend(post))
+        state.posts.delete(articleId);
       Object.assign(article, {
         reviewStatus: status,
         reviewedAt: timestamp(this.clock()),
@@ -961,11 +977,13 @@ export class SQLRepository implements NewsRepository {
         const reviewedAt = timestamp(this.clock());
         return ids.map((id) => {
           const article = articleOf(state.articles, id);
-          assertReviewAllowed(state.posts.get(id));
+          const post = state.posts.get(id);
+          assertReviewAllowed(post, true);
           if (article.reviewStatus === "posted")
             throw new UserError(
               "投稿済みの記事はまとめて見送れません。一覧を更新してください",
             );
+          if (failedBeforeSend(post)) state.posts.delete(id);
           Object.assign(article, { reviewStatus: "dismissed", reviewedAt });
           return publicArticle(article);
         });
@@ -1003,6 +1021,7 @@ export class SQLRepository implements NewsRepository {
         postId: row.post_id ?? null,
         bufferId: row.buffer_id ?? null,
         error: row.error ?? null,
+        failedBeforeSend: failedBeforeSend(row),
       })),
     };
   }
@@ -1223,9 +1242,10 @@ export class SQLRepository implements NewsRepository {
             !(error instanceof FetchError)
           )
             throw error;
-          failure = error instanceof GoogleNewsError
-            ? error.message
-            : "Google News の元記事URLを取得できませんでした。時間をおいて投稿前の確認をやり直してください";
+          failure =
+            error instanceof GoogleNewsError
+              ? error.message
+              : "Google News の元記事URLを取得できませんでした。時間をおいて投稿前の確認をやり直してください";
         }
         // Resolution may cross a time boundary. Changed reviews/settings and
         // competing claims cause the whole mutation to retry from fresh state.
@@ -1235,12 +1255,15 @@ export class SQLRepository implements NewsRepository {
           !SQLRepository.eligible(state, article, current)
         )
           return null;
-        if (!SQLRepository.candidates(state, current).some(
-          (item) => item.id === selectedId,
-        )) {
+        if (
+          !SQLRepository.candidates(state, current).some(
+            (item) => item.id === selectedId,
+          )
+        ) {
           const batch = batchOf(state.state);
           batch.articleIds = batch.articleIds.filter((id) => id !== selectedId);
-          if (!batch.articleIds.length) state.state.publication_batch = closedBatch();
+          if (!batch.articleIds.length)
+            state.state.publication_batch = closedBatch();
           return null;
         }
       }
@@ -1482,10 +1505,14 @@ export class SQLRepository implements NewsRepository {
   }
 
   async resolvePost(articleId: string, outcome: unknown): Promise<Publication> {
-    if (outcome !== "posted" && outcome !== "not_posted")
+    if (outcome !== "posted" && outcome !== "not_posted" && outcome !== "retry")
       throw new UserError("X で確認した投稿結果を指定してください");
     return this.mutate(["state", "articles", "posts"], (state) => {
       const post = SQLRepository.post(state, articleId, ["unknown", "failed"]);
+      if (outcome === "retry" && !failedBeforeSend(post))
+        throw new UserError(
+          "送信前の失敗ではありません。投稿結果を確認してください",
+        );
       if (outcome === "posted") {
         Object.assign(post, { status: "posted", error: null });
         Object.assign(articleOf(state.articles, articleId), {

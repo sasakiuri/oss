@@ -69,14 +69,21 @@ Explicit source-key notices on a shared page remain distinct.
 A temporary decoding wait leaves automatic posting enabled and creates no
 failed post; a later tick retries under the same limits. An actual decoding
 failure retains the existing fail-closed publication behavior: no send, a
-visible failed record, and automatic posting disabled. Fix the cause and use
-the existing posting-result reconciliation before enabling publication again.
+visible failed record, and automatic posting disabled. A failure before a draft
+is prepared can be dismissed directly, individually or in bulk. Dismissal clears
+the failed record in the same transaction. Alternatively, use 投稿エラーを解除
+to keep the article for another attempt, then check the connection and candidate
+in settings before enabling publication again. Clearing the error rechecks that
+the record still proves a failure before sending; it cannot clear an uncertain
+or submitted post. Neither dismissal nor clearing an error enables posting.
 
 Already submitted, unknown, failed, or published post records are not rewritten
 or automatically retried. In particular, posts already sent to Buffer or X keep
 their exact text and confirmation history. When the previous release has already
-created a failed draft record, confirm that it was not posted using the existing
-posting-result controls, then enable publication again. This allows URL
+created a failed draft record with empty text and no remote posting identifiers,
+the same dismissal and error-clearing controls are available without checking
+Buffer or X. Records with prepared text or remote identifiers still require
+posting-result reconciliation. Explicitly enabling publication again allows URL
 resolution on the next attempt without deleting or recollecting the article.
 Old historical Google links whose destination has never been resolved are not
 silently rewritten; check their posting history before approving a newly
