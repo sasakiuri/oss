@@ -9,8 +9,10 @@ import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 
 import { siteConfig } from '../lib/config';
+import { getArticleCategoryPages } from '../lib/content/category-pages';
 import { renderContent } from '../lib/content/render';
 import { createContentRepository } from '../lib/content/repository';
+import { createArticleDirectory } from '../lib/content/taxonomy';
 import { contentTypes } from '../lib/content/types';
 
 /** Build link-check inputs using the site's renderer and actual published asset paths. */
@@ -31,17 +33,22 @@ export async function prepareLinkCheck(packageDirectory: string) {
   // The /content route reads the authored tree directly; expose the same files to lychee.
   await symlink(path.join(packageDirectory, 'content'), path.join(siteDirectory, 'content'), 'junction');
 
-  // Only actual static App Router pages become targets. Dynamic article/news pages
-  // are populated below from the repository, so a misspelled route stays missing.
+  // These placeholders verify route existence, not fragments in unrendered page bodies.
+  async function addPageTarget(segments: string[]): Promise<void> {
+    const target = path.join(siteDirectory, ...segments);
+    await mkdir(target, { recursive: true });
+    await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
+  }
+
+  // Static App Router pages become targets here. Supported generated routes are
+  // populated below from the repository, so a misspelled route stays missing.
   async function addPageTargets(directory: string, segments: string[] = []): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (entry.isDirectory() && !entry.name.startsWith('[') && !entry.name.startsWith('_')) {
         const next = /^\(.*\)$/.test(entry.name) ? segments : [...segments, entry.name];
         await addPageTargets(path.join(directory, entry.name), next);
       } else if (entry.name === 'page.tsx') {
-        const target = path.join(siteDirectory, ...segments);
-        await mkdir(target, { recursive: true });
-        await writeFile(path.join(target, 'index.html'), '<!doctype html><html><body></body></html>');
+        await addPageTarget(segments);
       }
     }
   }
@@ -50,7 +57,14 @@ export async function prepareLinkCheck(packageDirectory: string) {
   const repository = createContentRepository(path.join(packageDirectory, 'content'));
   const files: string[] = [];
   for (const type of contentTypes) {
-    for (const source of await repository.listSources(type)) {
+    const sources = await repository.listSources(type);
+    if (type === 'articles') {
+      // Use the same editorial eligibility policy as page generation and the sitemap.
+      for (const category of getArticleCategoryPages(createArticleDirectory(sources))) {
+        await addPageTarget(category.path.split('/').filter(Boolean));
+      }
+    }
+    for (const source of sources) {
       const directory = path.join(siteDirectory, type, source.slug);
       await mkdir(directory, { recursive: true });
       const filename = path.join(directory, 'index.html');
