@@ -3,6 +3,7 @@
 import type { Article } from "./domain.ts";
 import { UserError } from "./errors.ts";
 import { hashtags } from "./hashtags.ts";
+import { isGoogleNewsUrl } from "./net/google-news.ts";
 import { hostnameOf, urlsplit, userinfo, type SplitUrl } from "./net/url.ts";
 import { SPACE, words } from "./text.ts";
 
@@ -65,6 +66,10 @@ export function draft(
 ): string {
   const url = article.url;
   if (!validUrl(url)) throw new UserError("投稿する元記事の URL が不正です");
+  if (isGoogleNewsUrl(url))
+    throw new UserError(
+      "Google News の中継URLは投稿できません。元記事URLで再収集するか、旧記事を見送りにしてください",
+    );
   // Headlines are data, not additional links, mentions, hashtags or cashtags.
   const cleaned = article.title
     .normalize("NFC")
