@@ -1,68 +1,79 @@
 name: Knowledge verification workspace
 
-# Temporary, isolated verification branch. This workflow is not proposed for 1.x.
+# Temporary transport helper; never proposed for 1.x. The app creates and reviews
+# PRs separately, so ordinary required CI checks remain mandatory before merging.
 on:
   push:
     branches:
       - chore/nilay-knowledge/verification-workspace
     paths:
-      - .github/workflows/knowledge-verification-workspace.yml
+      - .knowledge-verification/request.patch
 
 permissions:
-  contents: read
-  actions: read
+  contents: write
+
+concurrency:
+  group: knowledge-verification-patch
+  cancel-in-progress: false
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          name: knowledge-verification-workspace
-          run-id: 36553252984
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/verification
-      - name: Split only the dependency archive below the connector size limit
+          persist-credentials: false
+          path: request
+      - name: Validate the patch request
+        id: request
         shell: bash
         run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          data = pathlib.Path('request/.knowledge-verification/request.patch').read_text()
+          header, patch = data.split('\n', 1)
+          request = json.loads(header)
+          assert re.fullmatch(r'(?:fix|feature)/nilay-knowledge/[a-z0-9-]+', request['branch'])
+          assert re.fullmatch(r'[0-9a-f]{40}', request['base'])
+          assert re.fullmatch(r'(?:fix|feat|refactor|test|docs)\(nilay-knowledge\): [^\r\n]+', request['message'])
+          assert patch.startswith('diff --git ')
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'change.patch').write_text(patch)
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'message.txt').write_text(request['message'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"branch={request['branch']}\nbase={request['base']}\n")
+          PY
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ steps.request.outputs.base }}
+          path: work
+      - name: Apply the reviewed diff and publish an unmerged branch
+        working-directory: work
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ steps.request.outputs.branch }}
+        run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP/verification"
-          sha256sum --check SHA256SUMS
-          split -b 400M dependencies.tar.gz dependencies.part-
-          test -f dependencies.part-aa
-          test -f dependencies.part-ab
-          test -f dependencies.part-ac
-          test ! -f dependencies.part-ad
+          git apply --check --index --whitespace=error "$RUNNER_TEMP/change.patch"
+          git apply --index --whitespace=error "$RUNNER_TEMP/change.patch"
+          python3 - <<'PY'
+          import subprocess
+          paths = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).decode().split('\0')
+          assert any(paths), 'Empty patch'
+          for path in filter(None, paths):
+              assert path.startswith(('packages/nilay-knowledge/', '.changeset/')), path
+          PY
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -F "$RUNNER_TEMP/message.txt"
+          # A non-fast-forward update fails; no force push or default-branch write.
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          git rev-parse HEAD | tee "$RUNNER_TEMP/commit.txt"
+          printf 'Published `%s` at `%s`. Required PR validation is not performed by this transport helper.\n' "$TARGET_BRANCH" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: knowledge-verification-source-runtime
-          path: |
-            ${{ runner.temp }}/verification/source.tar.gz
-            ${{ runner.temp }}/verification/runtime.tar.gz
-            ${{ runner.temp }}/verification/versions.txt
-            ${{ runner.temp }}/verification/SHA256SUMS
+          name: knowledge-patch-commit
+          path: ${{ runner.temp }}/commit.txt
           retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: knowledge-verification-deps-aa
-          path: ${{ runner.temp }}/verification/dependencies.part-aa
-          retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: knowledge-verification-deps-ab
-          path: ${{ runner.temp }}/verification/dependencies.part-ab
-          retention-days: 1
-          compression-level: 0
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: knowledge-verification-deps-ac
-          path: ${{ runner.temp }}/verification/dependencies.part-ac
-          retention-days: 1
-          compression-level: 0
           if-no-files-found: error
