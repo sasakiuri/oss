@@ -656,6 +656,55 @@ describe("Publisher", () => {
       };
     }
 
+    it.each(["duplicate", "uncertain"])(
+      "publishes an explicitly approved %s without another Jev decision",
+      async (relation) => {
+        const previous = await add(2);
+        await repo.review(previous, "posted");
+        const article = await repo.article(articleId);
+        await repo.analyzeResult(
+          articleId,
+          await repo.evidenceHash(article),
+          (await repo.settings()).rubric,
+          {
+            analysisStatus: "done",
+            decision: "review",
+            relation,
+            relatedArticleId: previous,
+          },
+        );
+        await repo.reviewMany([articleId], "approved");
+        const client = fakeClient();
+        const { jev, transport } = reviewer(relation);
+        await new Publisher(repo, client, clock, jev).tick();
+        expect(transport).not.toHaveBeenCalled();
+        expect(client.post).toHaveBeenCalledTimes(1);
+        expect((await repo.article(articleId)).reviewStatus).toBe("posted");
+      },
+    );
+
+    it("withdraws a manually approved claim if its approval changes before authorization", async () => {
+      await repo.review(articleId, "approved");
+      const client = fakeClient();
+      const { jev, transport } = reviewer();
+      const authorize = repo.authorizePostSend.bind(repo);
+      vi.spyOn(repo, "authorizePostSend").mockImplementation(
+        async (...args) => {
+          await repo.driver.batch([
+            [
+              "UPDATE news_articles SET data=json_set(data,'$.reviewStatus','saved') WHERE id=?",
+              [articleId],
+            ],
+          ]);
+          return authorize(...args);
+        },
+      );
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(transport).not.toHaveBeenCalled();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await state()).posts).toEqual([]);
+    });
+
     it("sends one of ten previously classified copies and compares the rest with the just-sent article", async () => {
       const ids = [articleId];
       for (let index = 2; index <= 10; index += 1) ids.push(await add(index));

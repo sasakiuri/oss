@@ -82,6 +82,7 @@ export interface SqlDriver {
 const REVIEW_STATUSES: ReadonlySet<unknown> = new Set<ReviewStatus>([
   "unread",
   "saved",
+  "approved",
   "dismissed",
   "posted",
 ]);
@@ -409,12 +410,35 @@ function failedBeforeSend(post: Post | undefined): boolean {
   );
 }
 
-function assertReviewAllowed(post: Post | undefined, dismiss = false): void {
-  if (dismiss && failedBeforeSend(post)) return;
+function assertReviewAllowed(
+  post: Post | undefined,
+  discardUnsent = false,
+): void {
+  if (discardUnsent && failedBeforeSend(post)) return;
   if (post && BLOCKING.has(post.status))
     throw new UserError(
       "X の投稿処理中、または結果確認待ちです。投稿結果の確認から操作してください",
     );
+}
+
+function reviewArticle(
+  state: Pick<Tables, "articles" | "posts">,
+  articleId: string,
+  status: string,
+  reviewedAt: string,
+): Article {
+  const article = articleOf(state.articles, articleId);
+  const post = state.posts.get(articleId);
+  const discardUnsent = status === "dismissed" || status === "approved";
+  assertReviewAllowed(post, discardUnsent);
+  if (
+    status === "approved" &&
+    (article.reviewStatus === "posted" || post?.status === "posted")
+  )
+    throw new UserError("投稿済みの記事は承認できません");
+  if (discardUnsent && failedBeforeSend(post)) state.posts.delete(articleId);
+  Object.assign(article, { reviewStatus: status, reviewedAt });
+  return publicArticle(article);
 }
 
 function column(row: SQLRow | undefined, name: string): SQLValue {
@@ -903,6 +927,10 @@ export class SQLRepository implements NewsRepository {
           delete article.metadata.publicationPrecision;
         }
         if (before !== evidenceText(article)) {
+          if (article.reviewStatus === "approved") {
+            article.reviewStatus = "unread";
+            delete article.reviewedAt;
+          }
           resetAnalysis(article);
           changed.add(article.id);
         }
@@ -946,21 +974,21 @@ export class SQLRepository implements NewsRepository {
   async review(articleId: string, status: unknown): Promise<Article> {
     if (typeof status !== "string" || !REVIEW_STATUSES.has(status))
       throw new UserError("記事の状態が不正です");
-    return this.mutate(["articles", "posts"], (state) => {
-      const article = articleOf(state.articles, articleId);
-      const post = state.posts.get(articleId);
-      assertReviewAllowed(post, status === "dismissed");
-      if (status === "dismissed" && failedBeforeSend(post))
-        state.posts.delete(articleId);
-      Object.assign(article, {
-        reviewStatus: status,
-        reviewedAt: timestamp(this.clock()),
-      });
-      return publicArticle(article);
-    });
+    return this.mutate(["articles", "posts"], (state) =>
+      reviewArticle(state, articleId, status, timestamp(this.clock())),
+    );
   }
 
   async dismiss(articleIds: unknown): Promise<Article[]> {
+    return this.reviewMany(articleIds, "dismissed");
+  }
+
+  async reviewMany(articleIds: unknown, status: unknown): Promise<Article[]> {
+    if (
+      typeof status !== "string" ||
+      !["unread", "saved", "approved", "dismissed"].includes(status)
+    )
+      throw new UserError("一括操作の種類が不正です");
     if (
       !Array.isArray(articleIds) ||
       !articleIds.length ||
@@ -969,7 +997,7 @@ export class SQLRepository implements NewsRepository {
           typeof id === "string" && /^[a-f0-9]{24}$/.test(id),
       )
     )
-      throw new UserError("見送る記事を選択してください");
+      throw new UserError("操作する記事を選択してください");
     const ids = [...new Set(articleIds)];
     return this.mutate(
       ["articles", "posts"],
@@ -977,15 +1005,14 @@ export class SQLRepository implements NewsRepository {
         const reviewedAt = timestamp(this.clock());
         return ids.map((id) => {
           const article = articleOf(state.articles, id);
-          const post = state.posts.get(id);
-          assertReviewAllowed(post, true);
-          if (article.reviewStatus === "posted")
+          if (
+            article.reviewStatus === "posted" ||
+            state.posts.get(id)?.status === "posted"
+          )
             throw new UserError(
-              "投稿済みの記事はまとめて見送れません。一覧を更新してください",
+              "投稿済みの記事はまとめて変更できません。一覧を更新してください",
             );
-          if (failedBeforeSend(post)) state.posts.delete(id);
-          Object.assign(article, { reviewStatus: "dismissed", reviewedAt });
-          return publicArticle(article);
+          return reviewArticle(state, id, status, reviewedAt);
         });
       },
       ids,
@@ -1046,6 +1073,7 @@ export class SQLRepository implements NewsRepository {
     // A source-rule candidate ignores Jev entirely, including a duplicate
     // relation; the manual review and the post record still apply.
     const source = isSourceCandidate(article);
+    const approved = article.reviewStatus === "approved";
     return (
       isFreshPublication(
         article.publishedAt,
@@ -1054,9 +1082,11 @@ export class SQLRepository implements NewsRepository {
       ) &&
       article.reviewStatus !== "posted" &&
       article.reviewStatus !== "dismissed" &&
-      (source ||
+      (approved ||
+        source ||
         !["duplicate", "uncertain"].includes(article.relation ?? "")) &&
-      ((selection !== "candidates" && article.reviewStatus === "saved") ||
+      (approved ||
+        (selection !== "candidates" && article.reviewStatus === "saved") ||
         (selection !== "saved" &&
           (source ||
             (article.analysisStatus === "done" &&
@@ -1336,6 +1366,9 @@ export class SQLRepository implements NewsRepository {
           !(await this.hasPostedUrl(article)) &&
           (!screening ||
             (screening.permitted &&
+              (!screening.approvedAt ||
+                (article.reviewStatus === "approved" &&
+                  article.reviewedAt === screening.approvedAt)) &&
               (await this.evidenceHash(article)) === screening.evidenceHash)) &&
           SQLRepository.sameDraft(article, post.text)
         )
@@ -2199,6 +2232,9 @@ export class SQLRepository implements NewsRepository {
         length(identity) > 16384 ||
         identities.has(identity) ||
         !REVIEW_STATUSES.has(article.reviewStatus) ||
+        (article.reviewStatus === "approved" &&
+          (typeof article.reviewedAt !== "string" ||
+            !Number.isFinite(Date.parse(article.reviewedAt)))) ||
         !ANALYSIS_STATUSES.has(article.analysisStatus) ||
         !Array.isArray(article.sourceIds) ||
         !article.sourceIds.length ||

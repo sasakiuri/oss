@@ -71,7 +71,8 @@ failed post; a later tick retries under the same limits. An actual decoding
 failure retains the existing fail-closed publication behavior: no send, a
 visible failed record, and automatic posting disabled. A failure before a draft
 is prepared can be dismissed directly, individually or in bulk. Dismissal clears
-the failed record in the same transaction. Alternatively, use 投稿エラーを解除
+the failed record in the same transaction. Explicit manual publication approval can also clear such an unsent failure.
+Alternatively, use 投稿エラーを解除
 to keep the article for another attempt, then check the connection and candidate
 in settings before enabling publication again. Clearing the error rechecks that
 the record still proves a failure before sending; it cannot clear an uncertain

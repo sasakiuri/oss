@@ -202,6 +202,46 @@ describe("HTTP contract", () => {
     },
   );
 
+  it("supports bulk review and approval through the authenticated API", async () => {
+    const { request, repo } = await setup();
+    await repo.ingest(
+      {
+        id: "test",
+        name: "test",
+        url: "https://example.org/feed",
+        kind: "rss",
+        enabled: true,
+        description: "test",
+      },
+      ["a", "b"].map((id) => ({
+        title: id,
+        url: `https://example.org/${id}`,
+        excerpt: "",
+        publishedAt: null,
+      })),
+    );
+    const articleIds = (await repo.articles()).map((article) => article.id);
+    for (const status of ["approved", "unread", "saved", "dismissed"]) {
+      const response = await request(
+        "/api/articles/review",
+        JSON.stringify({ articleIds, status }),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(
+        articleIds.map((id) =>
+          expect.objectContaining({ id, reviewStatus: status }),
+        ),
+      );
+    }
+    for (const body of [
+      "{}",
+      JSON.stringify({ articleIds, status: "posted" }),
+      JSON.stringify({ articleIds: [], status: "approved" }),
+    ])
+      expect((await request("/api/articles/review", body)).status).toBe(400);
+    expect((await repo.settings()).autoPost).toBe(false);
+  });
+
   it("invalidates the state ETag after a settings change", async () => {
     const { request, handlers, env } = await setup();
     const first = await handlers.fetch(

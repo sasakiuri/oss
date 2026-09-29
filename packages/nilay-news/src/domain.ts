@@ -3,7 +3,8 @@ import type { CollectedItem, SourceConfig } from "./sources/types.ts";
 
 export type Clock = () => number;
 export const clock: Clock = () => Date.now() / 1000;
-export type ReviewStatus = "unread" | "saved" | "dismissed" | "posted";
+export type ReviewStatus =
+  "unread" | "saved" | "approved" | "dismissed" | "posted";
 export interface Analysis {
   analysisStatus: "pending" | "done" | "error";
   analysisError?: string | null;

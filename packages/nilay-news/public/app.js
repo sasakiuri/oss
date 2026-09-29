@@ -7,6 +7,9 @@ const model = {
   checkedIds: new Set(),
   query: "",
   topic: "",
+  analysis: "",
+  relation: "",
+  bulkStatus: "dismissed",
   sort: "newest",
   visibleCount: PAGE_SIZE,
   loading: true,
@@ -36,6 +39,11 @@ const buckets = [
     id: "saved",
     label: "保存済み",
     match: (a) => a.reviewStatus === "saved",
+  },
+  {
+    id: "approved",
+    label: "投稿承認済み",
+    match: (a) => a.reviewStatus === "approved",
   },
   {
     id: "review",
@@ -103,11 +111,12 @@ const decisionLabels = {
 const statusLabels = {
   unread: "未読",
   saved: "保存済み",
+  approved: "投稿承認済み",
   dismissed: "見送り",
   posted: "投稿済み",
 };
 const relationLabels = {
-  duplicate: "同じ内容の可能性",
+  duplicate: "重複の可能性",
   followup: "続報の可能性",
   uncertain: "関連性を確認",
   different: "別の出来事",
@@ -386,34 +395,65 @@ async function review(article, status) {
     { status },
     status === "posted"
       ? "投稿済みとして記録しました。"
-      : status === "saved"
-        ? "保存しました。"
-        : status === "dismissed"
-          ? "この記事を見送りました。"
-          : "未読に戻しました。",
+      : status === "approved"
+        ? "投稿を承認しました。自動投稿が有効なら配信対象になります。"
+        : status === "saved"
+          ? "保存しました。"
+          : status === "dismissed"
+            ? "この記事を見送りました。"
+            : "未読に戻しました。",
   );
   if (success) render();
 }
 
 function canDismiss(article) {
-  if (!["unread", "saved"].includes(article.reviewStatus)) return false;
+  return (
+    article.reviewStatus !== "dismissed" && canReview(article, "dismissed")
+  );
+}
+
+function canReview(article, status) {
+  if (article.reviewStatus === "posted") return false;
   const post = model.state.publication.posts.find(
     (item) => item.articleId === article.id,
   );
   return (
-    post?.failedBeforeSend === true ||
-    !["publishing", "submitted", "unknown", "failed"].includes(post?.status)
+    post?.status !== "posted" &&
+    ((post?.failedBeforeSend === true &&
+      ["dismissed", "approved"].includes(status)) ||
+      !["publishing", "submitted", "unknown", "failed"].includes(post?.status))
   );
 }
 
-async function dismissSelected() {
+const bulkLabels = {
+  dismissed: "選択した記事を見送る",
+  approved: "選択した記事の投稿を承認",
+  saved: "選択した記事を保存",
+  unread: "選択した記事を未読に戻す",
+};
+const bulkMessages = {
+  dismissed: "記事を見送りました。",
+  approved: "記事の投稿を承認しました。自動投稿が有効なら配信対象になります。",
+  saved: "記事を保存しました。",
+  unread: "記事を未読に戻し、投稿承認を解除しました。",
+};
+
+async function reviewSelected() {
   renderBulkActions();
   const articleIds = [...model.checkedIds];
   if (!articleIds.length) return;
+  const status = model.bulkStatus;
+  if (
+    model.state.articles.some(
+      (article) =>
+        model.checkedIds.has(article.id) && !canReview(article, status),
+    )
+  )
+    return;
   const success = await mutate(
-    "/api/articles/dismiss",
-    { articleIds },
-    `${articleIds.length} 件の記事を見送りました。`,
+    "/api/articles/review",
+    { articleIds, status },
+    `${articleIds.length} 件の${bulkMessages[status]}`,
   );
   if (success) {
     for (const id of articleIds) model.checkedIds.delete(id);
@@ -425,27 +465,44 @@ function renderBulkActions(
   shown = visibleArticles().slice(0, model.visibleCount),
 ) {
   const eligible = new Set(
-    shown.filter(canDismiss).map((article) => article.id),
+    shown
+      .filter((article) => canReview(article, "dismissed"))
+      .map((article) => article.id),
   );
   for (const id of model.checkedIds) {
     if (!eligible.has(id)) model.checkedIds.delete(id);
   }
-  $("bulk-actions").hidden = !shown.some((article) =>
-    ["unread", "saved"].includes(article.reviewStatus),
+  $("bulk-actions").hidden = !shown.some(
+    (article) => article.reviewStatus !== "posted",
   );
   const all = $("select-all-articles");
   all.checked = eligible.size > 0 && model.checkedIds.size === eligible.size;
   all.indeterminate = model.checkedIds.size > 0 && !all.checked;
   all.disabled = model.requestPending || !eligible.size;
   $("selection-count").textContent = `${model.checkedIds.size} 件選択中`;
-  $("dismiss-selected").disabled =
-    model.requestPending || !model.checkedIds.size;
+  const blocked = shown.some(
+    (article) =>
+      model.checkedIds.has(article.id) && !canReview(article, model.bulkStatus),
+  );
+  $("bulk-operation").disabled = model.requestPending;
+  $("apply-selected").textContent = bulkLabels[model.bulkStatus];
+  $("apply-selected").disabled =
+    model.requestPending || !model.checkedIds.size || blocked;
+  $("bulk-help").textContent = blocked
+    ? "送信前エラーの記事は、投稿承認または見送りを選んでください。"
+    : model.bulkStatus === "approved"
+      ? "内容と重複を確認した記事を承認します。Jev の判定にかかわらず、自動投稿が有効なら配信対象になります。公開日時・送信時間の条件は適用されます。"
+      : model.bulkStatus === "unread"
+        ? "投稿承認も解除し、元の仕分け結果で投稿対象を判定します。"
+        : model.bulkStatus === "saved"
+          ? "保存だけでは重複判定は解除されません。投稿承認済みの記事を保存に変更すると、承認は解除されます。"
+          : "表示中の記事を対象にします。検索や絞り込みで表示から外れた記事の選択は解除されます。";
   for (const checkbox of $("article-list").querySelectorAll(
-    "[data-dismiss-id]",
+    "[data-select-id]",
   )) {
-    checkbox.checked = model.checkedIds.has(checkbox.dataset.dismissId);
+    checkbox.checked = model.checkedIds.has(checkbox.dataset.selectId);
     checkbox.disabled =
-      model.requestPending || !eligible.has(checkbox.dataset.dismissId);
+      model.requestPending || !eligible.has(checkbox.dataset.selectId);
   }
 }
 
@@ -479,7 +536,16 @@ function visibleArticles() {
         .toLocaleLowerCase();
       return (
         (!query || searchable.includes(query)) &&
-        (!model.topic || article.topic === model.topic)
+        (!model.topic || article.topic === model.topic) &&
+        (!model.analysis ||
+          (["pending", "error"].includes(model.analysis)
+            ? (article.analysisStatus || "pending") === model.analysis
+            : article.analysisStatus === "done" &&
+              article.decision === model.analysis)) &&
+        (!model.relation ||
+          (model.relation === "none"
+            ? !article.relation
+            : article.relation === model.relation))
       );
     })
     .sort((a, b) => {
@@ -615,7 +681,10 @@ function articleTags(article) {
       ),
     );
   // The source rule is not a Jev result; its own Jev state stays labeled.
-  const jev = article.sourceCandidate ? "Jev: " : "";
+  const jev =
+    article.sourceCandidate || article.reviewStatus === "approved"
+      ? "Jev: "
+      : "";
   if (article.sourceCandidate)
     result.push(
       el(
@@ -663,17 +732,18 @@ function renderArticle(article) {
     "article",
     `article-row${article.id === model.selectedId ? " selected" : ""}`,
   );
-  if (["unread", "saved"].includes(article.reviewStatus)) {
+  if (article.reviewStatus !== "posted") {
     const label = el("label", "article-check");
     const checkbox = el("input");
     checkbox.type = "checkbox";
-    checkbox.dataset.dismissId = article.id;
+    checkbox.dataset.selectId = article.id;
     checkbox.dataset.focus = `check-${article.id}`;
     checkbox.checked = model.checkedIds.has(article.id);
-    checkbox.disabled = model.requestPending || !canDismiss(article);
+    checkbox.disabled =
+      model.requestPending || !canReview(article, "dismissed");
     checkbox.setAttribute(
       "aria-label",
-      `${article.title || "見出しなし"} — 見送り対象に選択`,
+      `${article.title || "見出しなし"} — 一括操作の対象に選択`,
     );
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) model.checkedIds.add(article.id);
@@ -751,7 +821,7 @@ function renderEmpty() {
   } else if (model.loadError && !model.state) {
     title = "受信箱に接続できません";
     description = model.loadError;
-  } else if (model.query || model.topic) {
+  } else if (model.query || model.topic || model.analysis || model.relation) {
     title = "条件に合う記事はありません";
     description = "検索語やテーマを変更してください。";
   } else if (!model.state?.articles.length) {
@@ -766,6 +836,10 @@ function renderEmpty() {
       saved: [
         "保存した記事はありません",
         "記事の「保存」を押すと、ここに表示されます。",
+      ],
+      approved: [
+        "投稿を承認した記事はありません",
+        "内容を確認した記事を選び、「投稿を承認」で自動投稿候補にできます。",
       ],
       review: [
         "確認待ちの記事はありません",
@@ -799,14 +873,21 @@ function renderEmpty() {
     empty.append(
       button("もう一度読み込む", "button button-secondary", refresh),
     );
-  else if ((model.query || model.topic) && model.state)
+  else if (
+    (model.query || model.topic || model.analysis || model.relation) &&
+    model.state
+  )
     empty.append(
       button("絞り込みを解除", "button button-secondary", () => {
         model.query = "";
         model.topic = "";
+        model.analysis = "";
+        model.relation = "";
         model.visibleCount = PAGE_SIZE;
         $("search").value = "";
         $("topic-filter").value = "";
+        $("analysis-filter").value = "";
+        $("relation-filter").value = "";
         renderArticles();
       }),
     );
@@ -929,6 +1010,14 @@ function renderDetail() {
     ),
   );
   appendArticleContent(panel, article);
+  if (article.reviewStatus === "approved")
+    panel.append(
+      el(
+        "p",
+        "analysis-box",
+        `投稿承認済み（${dateText(article.reviewedAt, true)}）。Jev の要確認・重複判定より手動承認を優先します。公開日時・送信時間の条件は適用されます。記事の内容が更新された場合は承認を解除します。`,
+      ),
+    );
   if (article.freshness !== "fresh")
     panel.append(
       el(
@@ -989,12 +1078,16 @@ function renderDetail() {
     analysis.append(
       el("p", "", relationLabels[article.relation] || "関連する記事"),
     );
-    if (!article.sourceCandidate && article.relation === "uncertain")
+    if (
+      !article.sourceCandidate &&
+      article.reviewStatus !== "approved" &&
+      article.relation === "uncertain"
+    )
       analysis.append(
         el(
           "p",
           "form-help",
-          "重複かどうか判断できないため、自動投稿の対象から外しています。関連記事を確認し、必要なら仕分けをやり直してください。保存しても自動投稿されません。",
+          "重複かどうか判断できないため、自動投稿の対象から外しています。関連記事を確認し、投稿してよい場合は「投稿を承認」を選んでください。保存だけでは解除されません。",
         ),
       );
     if (related)
@@ -1005,8 +1098,12 @@ function renderDetail() {
           model.view = targetBucket?.id || "inbox";
           model.query = "";
           model.topic = "";
+          model.analysis = "";
+          model.relation = "";
           $("search").value = "";
           $("topic-filter").value = "";
+          $("analysis-filter").value = "";
+          $("relation-filter").value = "";
           model.selectedId = related.id;
           const relatedIndex = visibleArticles().findIndex(
             (item) => item.id === related.id,
@@ -1134,6 +1231,15 @@ function renderDetail() {
   save.setAttribute("aria-pressed", String(saved));
   save.disabled = postingBlocked;
   actions.append(save);
+  if (article.reviewStatus !== "approved" && canReview(article, "approved"))
+    actions.append(
+      button(
+        "内容・重複を確認して投稿を承認",
+        "button button-primary",
+        () => review(article, "approved"),
+        "detail-approve",
+      ),
+    );
   if (article.postDraft && !postingBlocked) {
     const intent = new URL("https://x.com/intent/tweet");
     intent.searchParams.set("text", article.postDraft);
@@ -1166,11 +1272,13 @@ function renderDetail() {
     );
   if (
     !postingBlocked &&
-    (article.reviewStatus === "dismissed" || article.reviewStatus === "posted")
+    ["dismissed", "posted", "approved"].includes(article.reviewStatus)
   )
     secondary.append(
       button(
-        "未読に戻す",
+        article.reviewStatus === "approved"
+          ? "投稿承認を解除して未読に戻す"
+          : "未読に戻す",
         "text-button",
         () => review(article, "unread"),
         "detail-unread",
@@ -1569,7 +1677,7 @@ function renderSettings() {
     el(
       "p",
       "form-help",
-      "公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日を対象に、1時間ごとに、その時点の対象記事をすべて、新しい順で1記事につき1投稿ずつ連続投稿します。10件あれば10投稿です。配信開始後に対象になった記事は次回に送信します。送信は毎日 06:00〜23:00 JST（23:00以降送信なし）で、時間外に対象になった記事は翌朝 06:00 以降に、その時点でも鮮度条件を満たせば送信します。初回は有効化から60分以上後です。Bufferの利用上限が近い場合は自動投稿を停止します。表示された待機時間の後に再確認して再開してください。公開日時が不明・不正・未来の記事は、保存済みや情報源指定でも対象外です。見送り・投稿済みの記事と、情報源指定以外で重複と判定された記事や、重複かどうか要確認の記事も除外します。Jev が設定されている場合は、情報源指定以外の記事を投稿直前にも投稿済み記事と照合します。追加の Jev 利用料がかかり、確認に失敗した場合は自動投稿を停止します。",
+      "公開時刻がある記事は24時間以内、日付だけの記事は日本時間の今日・昨日を対象に、1時間ごとに、その時点の対象記事をすべて、新しい順で1記事につき1投稿ずつ連続投稿します。10件あれば10投稿です。配信開始後に対象になった記事は次回に送信します。送信は毎日 06:00〜23:00 JST（23:00以降送信なし）で、時間外に対象になった記事は翌朝 06:00 以降に、その時点でも鮮度条件を満たせば送信します。初回は有効化から60分以上後です。Bufferの利用上限が近い場合は自動投稿を停止します。表示された待機時間の後に再確認して再開してください。公開日時が不明・不正・未来の記事は、保存済み・手動承認・情報源指定でも対象外です。見送り・投稿済みの記事と、手動承認・情報源指定以外で重複と判定された記事や、重複かどうか要確認の記事も除外します。Jev が設定されている場合は、手動承認・情報源指定以外の記事を投稿直前にも投稿済み記事と照合します。追加の Jev 利用料がかかり、確認に失敗した場合は自動投稿を停止します。",
     ),
   );
   const postingStatus = el("p", "form-help");
@@ -1610,7 +1718,17 @@ function renderSettings() {
   selection.value = state.settings.postSelection;
   const postSubmit = el("button", "button button-primary", "投稿設定を保存");
   postSubmit.type = "submit";
-  postForm.append(postCheck, selectionLabel, selection, postSubmit);
+  postForm.append(
+    postCheck,
+    selectionLabel,
+    selection,
+    el(
+      "p",
+      "form-help",
+      "手動で投稿を承認した記事は、上の選択にかかわらず投稿候補に含まれます。承認だけでは自動投稿は有効になりません。",
+    ),
+    postSubmit,
+  );
   postForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     postSubmit.disabled = true;
@@ -1926,11 +2044,15 @@ function render() {
 }
 
 $("collect-button").addEventListener("click", collect);
-$("dismiss-selected").addEventListener("click", dismissSelected);
+$("apply-selected").addEventListener("click", reviewSelected);
+$("bulk-operation").addEventListener("change", (event) => {
+  model.bulkStatus = event.target.value;
+  renderBulkActions();
+});
 $("select-all-articles").addEventListener("change", (event) => {
   const articles = visibleArticles()
     .slice(0, model.visibleCount)
-    .filter(canDismiss);
+    .filter((article) => canReview(article, "dismissed"));
   for (const article of articles) {
     if (event.target.checked) model.checkedIds.add(article.id);
     else model.checkedIds.delete(article.id);
@@ -1953,6 +2075,13 @@ $("topic-filter").addEventListener("change", (event) => {
   model.visibleCount = PAGE_SIZE;
   renderArticles();
 });
+for (const key of ["analysis", "relation"]) {
+  $(`${key}-filter`).addEventListener("change", (event) => {
+    model[key] = event.target.value;
+    model.visibleCount = PAGE_SIZE;
+    renderArticles();
+  });
+}
 $("sort-filter").addEventListener("change", (event) => {
   model.sort = event.target.value;
   model.visibleCount = PAGE_SIZE;

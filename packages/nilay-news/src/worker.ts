@@ -196,6 +196,11 @@ export function createHandlers(
             200,
             await app.repository.dismiss(body.articleIds),
           );
+        if (path === "/api/articles/review")
+          return jsonResponse(
+            200,
+            await app.repository.reviewMany(body.articleIds, body.status),
+          );
         const review = /^\/api\/articles\/([a-f0-9]{24})\/review$/.exec(path);
         if (review?.[1])
           return jsonResponse(

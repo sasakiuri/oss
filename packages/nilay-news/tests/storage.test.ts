@@ -1362,6 +1362,143 @@ describe("bulk dismissal", () => {
   });
 });
 
+describe("bulk review and manual publication approval", () => {
+  it.each(["saved", "unread", "dismissed", "approved"])(
+    "applies %s atomically to selected articles only",
+    async (status) => {
+      const first = await candidate();
+      const second = await candidate({ url: "https://example.org/second" });
+      const other = await candidate({ url: "https://example.org/other" });
+      const before = await repo.stateVersion();
+      now += 1;
+      const result = await repo.reviewMany([first, second, first], status);
+      expect(result).toHaveLength(2);
+      expect(
+        result.every(
+          (article) =>
+            article.reviewStatus === status &&
+            Date.parse(article.reviewedAt!) === now * 1000,
+        ),
+      ).toBe(true);
+      expect((await repo.article(other)).reviewStatus).toBe("saved");
+      expect(await repo.stateVersion()).toBe(before + 1);
+      expect((await repo.settings()).autoPost).toBe(false);
+    },
+  );
+
+  it.each(["posted", "deleted", null, 42])(
+    "rejects unsupported bulk action %j",
+    async (status) => {
+      const id = await candidate();
+      const before = await repo.exportSnapshot();
+      await expect(repo.reviewMany([id], status)).rejects.toBeInstanceOf(
+        UserError,
+      );
+      expect(await repo.exportSnapshot()).toEqual(before);
+    },
+  );
+
+  it.each(["saved", "unread", "approved", "dismissed"])(
+    "does not partially apply %s when any article is posted or awaiting confirmation",
+    async (status) => {
+      const blocked = await ready();
+      const first = await candidate({
+        url: "https://example.org/first",
+        publishedAt: published(-7260),
+      });
+      const attempt = await claim();
+      expect(attempt.articleId).toBe(blocked);
+      await repo.finishPost(blocked, "unknown", {
+        claimToken: attempt.claimToken,
+      });
+      const before = await repo.exportSnapshot();
+      await expect(
+        repo.reviewMany([first, blocked], status),
+      ).rejects.toBeInstanceOf(UserError);
+      expect(await repo.exportSnapshot()).toEqual(before);
+      await repo.resolvePost(blocked, "posted");
+      await repo.review(blocked, "unread");
+      const posted = await repo.exportSnapshot();
+      await expect(repo.reviewMany([first, blocked], status)).rejects.toThrow(
+        "投稿済み",
+      );
+      await expect(repo.review(blocked, "approved")).rejects.toThrow(
+        "投稿済み",
+      );
+      expect(await repo.exportSnapshot()).toEqual(posted);
+    },
+  );
+
+  it.each(["saved", "candidates", "both"])(
+    "makes manually approved review/duplicate articles eligible in %s mode, and revokes them on unread",
+    async (postSelection) => {
+      const id = await candidate();
+      await analyze(id, { decision: "review", relation: "duplicate" });
+      await repo.updateSettings({ postSelection });
+      expect(await repo.postCandidates()).toEqual([]);
+      await repo.reviewMany([id], "approved");
+      expect(await repo.article(id)).toMatchObject({
+        reviewStatus: "approved",
+        decision: "review",
+        relation: "duplicate",
+        reviewedAt: expect.any(String),
+      });
+      expect(
+        (await repo.postCandidates()).map((article) => article.id),
+      ).toEqual([id]);
+      await repo.reviewMany([id], "unread");
+      expect(await repo.postCandidates()).toEqual([]);
+    },
+  );
+
+  it.each(["unknown", "stale", "future"])(
+    "keeps publication date restrictions after approval: %s",
+    async (kind) => {
+      const id = await candidate({
+        publishedAt:
+          kind === "unknown" ? null : published(kind === "future" ? 60 : 0),
+      });
+      if (kind === "stale") now += 86_401;
+      await repo.reviewMany([id], "approved");
+      expect(await repo.postCandidates()).toEqual([]);
+    },
+  );
+
+  it("preserves manual approval during classification but revokes it when article evidence changes", async () => {
+    const id = await candidate();
+    await repo.review(id, "approved");
+    await analyze(id, { decision: "irrelevant", relation: "uncertain" });
+    expect((await repo.postCandidates()).map((article) => article.id)).toEqual([
+      id,
+    ]);
+    await repo.ingest(SOURCE, [ITEM]);
+    expect((await repo.article(id)).reviewStatus).toBe("approved");
+    await repo.ingest(SOURCE, [{ ...ITEM, title: "見出しが変更された記事" }]);
+    expect(await repo.article(id)).toMatchObject({
+      reviewStatus: "unread",
+      analysisStatus: "pending",
+    });
+    expect((await repo.article(id)).reviewedAt).toBeUndefined();
+    expect(await repo.postCandidates()).toEqual([]);
+  });
+
+  it("keeps approvals and their timestamp in a snapshot without enabling automatic posting", async () => {
+    const id = await candidate();
+    await repo.review(id, "approved");
+    const restored = open([SOURCE], join(directory, "approved.sqlite3"));
+    await restored.initialize();
+    await restored.importSnapshot(await repo.exportSnapshot());
+    expect(await restored.article(id)).toMatchObject({
+      reviewStatus: "approved",
+      reviewedAt: expect.any(String),
+    });
+    expect(Date.parse((await restored.article(id)).reviewedAt!)).toBe(
+      now * 1000,
+    );
+    expect((await restored.settings()).autoPost).toBe(false);
+  });
+});
+
 describe("failed draft recovery", () => {
   async function failedDraft(): Promise<string> {
     const id = await candidate({
@@ -1411,6 +1548,14 @@ describe("failed draft recovery", () => {
     const before = await repo.article(id);
     expect((await repo.resolvePost(id, "retry")).posts).toEqual([]);
     expect(await repo.article(id)).toEqual(before);
+    expect((await repo.settings()).autoPost).toBe(false);
+  });
+
+  it("clears only the unsent failure when explicitly approving an article", async () => {
+    const id = await failedDraft();
+    await repo.reviewMany([id], "approved");
+    expect((await repo.article(id)).reviewStatus).toBe("approved");
+    expect((await repo.publicationState()).posts).toEqual([]);
     expect((await repo.settings()).autoPost).toBe(false);
   });
 
