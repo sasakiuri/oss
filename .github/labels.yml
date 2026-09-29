@@ -24,17 +24,66 @@
   description: "Breaking changes"
 
 # ── Package ─────────────────────────────────────────────────────────
-- name: "Package: saika-lane 📦"
+# Package labels map to package.json-backed workspaces under packages/.
+- name: "Package: eslint-config 📦"
   color: "c5def5"
-  description: "saika-lane package"
+  description: "eslint-config package"
+
+- name: "Package: lighthouse-config 📦"
+  color: "c5def5"
+  description: "lighthouse-config package"
+
+- name: "Package: nilay-about 📦"
+  color: "c5def5"
+  description: "nilay-about package"
+
+- name: "Package: nilay-knowledge 📦"
+  color: "c5def5"
+  description: "nilay-knowledge package"
+
+- name: "Package: nilay-news 📦"
+  color: "c5def5"
+  description: "nilay-news package"
+
+- name: "Package: prettier-config 📦"
+  color: "c5def5"
+  description: "prettier-config package"
 
 - name: "Package: saika-director 📦"
   color: "c5def5"
   description: "saika-director package"
 
-- name: "Package: shared-config 📦"
+- name: "Package: saika-docs 📦"
   color: "c5def5"
-  description: "Shared config packages"
+  description: "saika-docs package"
+
+- name: "Package: saika-lane 📦"
+  color: "c5def5"
+  description: "saika-lane package"
+
+- name: "Package: saika-protocol 📦"
+  color: "c5def5"
+  description: "saika-protocol package"
+
+- name: "Package: saika-rules 📦"
+  color: "c5def5"
+  description: "saika-rules package"
+
+- name: "Package: saika-updater 📦"
+  color: "c5def5"
+  description: "saika-updater package"
+
+- name: "Package: saika-vista 📦"
+  color: "c5def5"
+  description: "saika-vista package"
+
+- name: "Package: stylelint-config 📦"
+  color: "c5def5"
+  description: "stylelint-config package"
+
+- name: "Package: typescript-config 📦"
+  color: "c5def5"
+  description: "typescript-config package"
 
 # ── Status ──────────────────────────────────────────────────────────
 - name: "Status: Needs Triage 💡"

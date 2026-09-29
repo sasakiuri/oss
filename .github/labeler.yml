@@ -1,19 +1,76 @@
-"Package: saika-lane 📦":
+"Package: eslint-config 📦":
   - changed-files:
       - any-glob-to-any-file:
-          - packages/saika-lane/**
+          - packages/eslint-config/**
+
+"Package: lighthouse-config 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/lighthouse-config/**
+
+"Package: nilay-about 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/nilay-about/**
+
+"Package: nilay-knowledge 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/nilay-knowledge/**
+
+"Package: nilay-news 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/nilay-news/**
+
+"Package: prettier-config 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/prettier-config/**
 
 "Package: saika-director 📦":
   - changed-files:
       - any-glob-to-any-file:
           - packages/saika-director/**
 
-"Package: shared-config 📦":
+"Package: saika-docs 📦":
   - changed-files:
       - any-glob-to-any-file:
-          - packages/eslint-config/**
-          - packages/prettier-config/**
+          - packages/saika-docs/**
+
+"Package: saika-lane 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-lane/**
+
+"Package: saika-protocol 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-protocol/**
+
+"Package: saika-rules 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-rules/**
+
+"Package: saika-updater 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-updater/**
+
+"Package: saika-vista 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-vista/**
+
+"Package: stylelint-config 📦":
+  - changed-files:
+      - any-glob-to-any-file:
           - packages/stylelint-config/**
+
+"Package: typescript-config 📦":
+  - changed-files:
+      - any-glob-to-any-file:
           - packages/typescript-config/**
 
 "Cat: CI/CD ⚙️":
