@@ -363,6 +363,28 @@ describe("fresh news and retained history", () => {
 });
 
 describe("actionable content review", () => {
+  it("shows uncertain duplicates in content review while retaining the topic decision", () => {
+    const ui = load();
+    const article = {
+      ...BASE,
+      decision: "candidate",
+      analysisStatus: "done",
+      relation: "uncertain",
+    };
+    expect(
+      ui.buckets.filter((bucket) => bucket.match(article)).map(({ id }) => id),
+    ).toEqual(["inbox", "review"]);
+    expect(ui.articleTags(article).map((tag) => tag.textContent)).toEqual([
+      "候補",
+      "重複を要確認",
+    ]);
+    expect(
+      ui.buckets
+        .find((bucket) => bucket.id === "review")!
+        .match({ ...article, sourceCandidate: true }),
+    ).toBe(false);
+  });
+
   it("separates editorial decisions from pending work and missing dates", () => {
     const ui = load();
     const groups = (patch: object) =>

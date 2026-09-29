@@ -814,8 +814,10 @@ export class Application {
       )
     )
       return;
-    const earlier = (await repository.articles()).filter(
-      (item) => chronological(item, article) < 0,
+    const relatedArticles = (await repository.articles()).filter(
+      (item) =>
+        item.id !== article.id &&
+        (item.reviewStatus === "posted" || chronological(item, article) < 0),
     );
     let result: Analysis;
     try {
@@ -829,7 +831,12 @@ export class Application {
         )
       )
         return;
-      result = await this.jev.analyze(article, job.rubric, earlier, signal);
+      result = await this.jev.analyze(
+        article,
+        job.rubric,
+        relatedArticles,
+        signal,
+      );
       signal.throwIfAborted();
       await this.notifier.recover("jev", "Jev による仕分けが復旧しました");
     } catch (error) {
@@ -856,7 +863,9 @@ export class Application {
       };
     }
     signal.throwIfAborted();
-    const related = earlier.find((item) => item.id === result.relatedArticleId);
+    const related = relatedArticles.find(
+      (item) => item.id === result.relatedArticleId,
+    );
     const relationHash = related
       ? await repository.evidenceHash(related)
       : null;

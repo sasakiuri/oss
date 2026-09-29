@@ -1027,7 +1027,8 @@ export class SQLRepository implements NewsRepository {
       ) &&
       article.reviewStatus !== "posted" &&
       article.reviewStatus !== "dismissed" &&
-      (source || article.relation !== "duplicate") &&
+      (source ||
+        !["duplicate", "uncertain"].includes(article.relation ?? "")) &&
       ((selection !== "candidates" && article.reviewStatus === "saved") ||
         (selection !== "saved" &&
           (source ||

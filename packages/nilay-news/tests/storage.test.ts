@@ -1730,6 +1730,8 @@ describe("publication", () => {
     await add(7, "unread", { decision: "review" });
     await add(8, "saved", { decision: "candidate", relation: "duplicate" });
     await add(9, "unread", { decision: "irrelevant" });
+    await add(10, "unread", { decision: "candidate", relation: "uncertain" });
+    await add(0, "saved", { decision: "candidate", relation: "uncertain" });
     for (const [selection, ids] of [
       ["saved", [saved]],
       ["candidates", [chosen]],
@@ -2174,17 +2176,20 @@ describe("publication freshness", () => {
       ).toBe(true);
     });
 
-    it("after it becomes a duplicate", async () => {
-      await repo.updateSettings({ postSelection: "candidates" });
-      await repo.ingest(SOURCE, [ITEM]);
-      const articleId = (await find(ITEM.url)).id;
-      expect(await analyze(articleId, { decision: "candidate" })).toBe(true);
-      await repo.updateSettings({ autoPost: true });
-      now += POST_INTERVAL_SECONDS;
-      const attempt = await claim();
-      edit(articleId, "relation", "duplicate");
-      await expectWithdrawn(articleId, attempt.claimToken);
-    });
+    it.each(["duplicate", "uncertain"])(
+      "after its relation becomes %s",
+      async (relation) => {
+        await repo.updateSettings({ postSelection: "candidates" });
+        await repo.ingest(SOURCE, [ITEM]);
+        const articleId = (await find(ITEM.url)).id;
+        expect(await analyze(articleId, { decision: "candidate" })).toBe(true);
+        await repo.updateSettings({ autoPost: true });
+        now += POST_INTERVAL_SECONDS;
+        const attempt = await claim();
+        edit(articleId, "relation", relation);
+        await expectWithdrawn(articleId, attempt.claimToken);
+      },
+    );
 
     it("while another post blocks, keeping that record unchanged", async () => {
       const articleId = await ready();

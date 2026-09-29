@@ -54,8 +54,10 @@ const PRIORITY = {
   "3": "対象分野の期限が迫った意見募集や重大な制度変更、緊急性のある情報",
 };
 const RELATIONS = {
-  duplicate: "同じ日時・場所・出来事で、新しい事実がなく内容が重複",
-  followup: "同じ出来事に関する記事だが、今回の記事には新しい事実がある",
+  duplicate:
+    "同じ出来事の報道で、今回の記事に重要な新事実がない。別媒体の報道、転載、言い換え、既知の事実の詳述も含む",
+  followup:
+    "同じ出来事に関する続報で、被害の拡大、捕獲・解決、方針変更など、前の記事になかった重要な進展が今回の記事に明記されている",
   different: "日時・場所・対象が異なる別の出来事",
   uncertain: "与えられた情報だけでは関係を判定できない",
 };
@@ -230,34 +232,59 @@ function similarity(a: string[], b: string[]): number {
   return (2 * matches) / (a.length + b.length);
 }
 
+type RelatedArticle = Pick<Article, "id" | "title"> & Partial<Article>;
+
 /** Lexical shortlist only; Jev makes the actual duplicate/follow-up judgment. */
-export function relatedCandidates<T extends Pick<Article, "id" | "title">>(
-  article: Pick<Article, "id" | "title">,
+export function relatedCandidates<T extends RelatedArticle>(
+  article: RelatedArticle,
   others: readonly T[],
 ): T[] {
   const normalized = (title: string) => [
-    ...title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ""),
+    ...title
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ""),
   ];
   const bigrams = (chars: string[]) =>
     new Set(
       chars.slice(1).map((char, index) => `${chars[index] ?? ""}${char}`),
     );
-  const title = normalized(article.title);
-  const grams = bigrams(title);
+  const signature = (item: RelatedArticle) => {
+    const content = evidence(item);
+    const title = normalized(item.title);
+    // Search snippets and stale bodies are already excluded from model evidence.
+    const lead = (content.excerpt || content.body || "").slice(0, 600);
+    return {
+      title,
+      grams: bigrams(title),
+      context: bigrams(normalized(`${item.title} ${lead}`)),
+    };
+  };
+  const overlap = (left: Set<string>, right: Set<string>) => {
+    const shared = [...left].filter((gram) => right.has(gram)).length;
+    return (2 * shared) / Math.max(1, left.size + right.size);
+  };
+  const target = signature(article);
   const ranked: [number, T][] = [];
   for (const other of others) {
     if (other.id === article.id) continue;
-    const candidate = normalized(other.title);
-    const otherGrams = bigrams(candidate);
-    const shared = [...grams].filter((gram) => otherGrams.has(gram)).length;
-    const score = shared / Math.max(1, grams.size + otherGrams.size - shared);
-    if (score >= 0.18)
-      ranked.push([score + similarity(title, candidate), other]);
+    const candidate = signature(other);
+    const score = Math.max(
+      overlap(target.grams, candidate.grams),
+      overlap(target.context, candidate.context),
+    );
+    if (score >= 0.2)
+      ranked.push([score + similarity(target.title, candidate.title), other]);
   }
-  return ranked
-    .sort((x, y) => y[0] - x[0])
-    .slice(0, 3)
-    .map(([, other]) => other);
+  ranked.sort((x, y) => y[0] - x[0]);
+  const selected = ranked.slice(0, 3).map(([, other]) => other);
+  // Always check the closest posted match, even when unposted copies rank higher.
+  const posted = ranked.find(
+    ([, other]) => other.reviewStatus === "posted",
+  )?.[1];
+  if (posted && !selected.includes(posted))
+    selected[selected.length - 1] = posted;
+  return selected;
 }
 
 function answersOf(raw: unknown, message: string): Record<string, unknown> {
@@ -374,7 +401,7 @@ export class Jev {
           {
             relation: {
               type: "choice",
-              instructions: `${PREFACE} new_article は previous_article に対してどの関係ですか？同じ動物や似た見出しだけでは同一事件とみなさないでください。`,
+              instructions: `${PREFACE} new_article は previous_article に対してどの関係ですか？同じ動物や同じ市町村だけでは同一事件とみなさず、出来事の日時・場所・経過を照合してください。見出しの言い換え、媒体や配信時刻の違い、同じ事実の詳述だけでは続報にしないでください。publishedAt は記事の公開日時であり出来事の発生日時とは限りません。new_article が先に公開されていても、同じ出来事について重要な新事実がなければ重複です。続報には new_article に明記された重要な進展が必要です。`,
               criteria: RELATIONS,
             },
           },
@@ -384,13 +411,16 @@ export class Jev {
       );
       const [chosen, p] = choice(related, "relation", Object.keys(RELATIONS));
       const relation = p < 0.9 ? "uncertain" : chosen;
-      if (relation === "duplicate" || relation === "followup") {
+      if (relation === "duplicate") {
         // Duplicate detection is an annotation; every article is kept.
         result.relatedArticleId = other.id;
         result.relation = relation;
         break;
       }
-      if (relation === "uncertain" && result.relation === null) {
+      if (
+        (relation === "followup" && result.relation !== "followup") ||
+        (relation === "uncertain" && result.relation === null)
+      ) {
         result.relatedArticleId = other.id;
         result.relation = relation;
       }

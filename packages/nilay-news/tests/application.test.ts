@@ -2340,6 +2340,36 @@ describe("publication freshness", () => {
     ]);
   });
 
+  it("compares late-arriving older coverage with a newer article already posted", async () => {
+    const { app, repo, analyze, ids } = await autoSetup(["03"]);
+    const posted = ids[0]!;
+    await repo.review(posted, "posted");
+    await repo.ingest(source, [
+      { ...item, url: `${item.url}/late`, publishedAt: dayTime("01") },
+    ]);
+    const late = (await repo.articles()).find((article) =>
+      article.url.endsWith("/late"),
+    )!;
+    analyze.mockImplementation(async (_article, _rubric, others) => ({
+      analysisStatus: "done",
+      decision: "candidate",
+      ...(others.some(({ id }) => id === posted)
+        ? { relation: "duplicate", relatedArticleId: posted }
+        : {}),
+    }));
+    await app.start("analyze", [late.id]);
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(analyze.mock.calls[0]?.[2].map(({ id }) => id)).toContain(posted);
+    expect(await repo.article(late.id)).toMatchObject({
+      relation: "duplicate",
+      relatedArticleId: posted,
+    });
+    await repo.updateSettings({ postSelection: "candidates" });
+    expect(await repo.postCandidates()).toEqual([]);
+    expect((await repo.article(posted)).reviewStatus).toBe("posted");
+  });
+
   it("passes its clock to the source collector", async () => {
     const { app, collector, advance } = await setup();
     advance(42);
