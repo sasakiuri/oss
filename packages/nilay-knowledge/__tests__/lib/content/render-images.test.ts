@@ -113,7 +113,7 @@ describe('article image rendering', () => {
     expect(images.every((image) => image.width > 0 && image.height > 0)).toBe(true);
     expect(images[0]?.getAttribute('loading')).toBe('eager');
     expect(images.slice(1).every((image) => image.getAttribute('loading') === 'lazy')).toBe(true);
-    expect(images.every((image) => image.getAttribute('decoding')) === 'async').toBe(false);
+    expect(images.every((image) => image.getAttribute('decoding') === 'async')).toBe(true);
     expect(images.map((image) => image.getAttribute('src'))).toEqual(
       [...plainDocument.querySelectorAll('img')].map((image) => image.getAttribute('src')),
     );
