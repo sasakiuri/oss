@@ -1,409 +1,302 @@
-{"branch":"fix/nilay-knowledge/content-capabilities-162","base":"70c254d4a7b6e90ed8ae2ce2c3920950531207ab","message":"refactor(nilay-knowledge): return typed rendering capabilities"}
-diff --git a/.changeset/knowledge-content-capabilities.md b/.changeset/knowledge-content-capabilities.md
+{"branch":"fix/nilay-knowledge/frontmatter-keys-154","base":"6f1d07b5e8e7a110e1adbe5201b99e4c7c48a8a7","message":"feat(nilay-knowledge): diagnose unknown authoring metadata keys"}
+diff --git a/.changeset/knowledge-frontmatter-key-diagnostics.md b/.changeset/knowledge-frontmatter-key-diagnostics.md
 new file mode 100644
-index 00000000..88600812
+index 00000000..7dd7c295
 --- /dev/null
-+++ b/.changeset/knowledge-content-capabilities.md
++++ b/.changeset/knowledge-frontmatter-key-diagnostics.md
 @@ -0,0 +1,5 @@
 +---
 +'@sasakiuri/nilay-knowledge': patch
 +---
 +
-+Return explicit renderer capabilities for optional styles and code controls. Preserve server-rendered styles and existing enhancements without inferring features from serialized HTML or literal marker text.
-diff --git a/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx b/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
-index 608d1977..3eda8658 100644
---- a/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
-+++ b/packages/nilay-knowledge/__tests__/components/content-styles.test.tsx
-@@ -40,3 +40,3 @@ describe('content styles in server HTML', () => {
-   ])('includes only required styles for $name without client JavaScript', async ({ content, expected }) => {
--    const { html } = await renderContent({
-+    const { html, capabilities } = await renderContent({
-       type: 'articles',
-@@ -50,3 +50,3 @@ describe('content styles in server HTML', () => {
-         <body>
--          <ContentStyles html={html} />
-+          <ContentStyles capabilities={capabilities} />
-           <main dangerouslySetInnerHTML={{ __html: html }} />
-diff --git a/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx b/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
-index 04c43bd9..c2c506fa 100644
---- a/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
-+++ b/packages/nilay-knowledge/__tests__/components/markdown-content.test.tsx
-@@ -15,10 +15,8 @@ beforeEach(() => {
- async function markdown(content: string) {
--  return (
--    await renderContent({
--      type: 'articles',
--      slug: 'example',
--      frontmatter: { title: 'Example', published: '2026-01-01', tags: [] },
--      content,
--    })
--  ).html;
-+  return renderContent({
-+    type: 'articles',
-+    slug: 'example',
-+    frontmatter: { title: 'Example', published: '2026-01-01', tags: [] },
-+    content,
-+  });
- }
-@@ -30,3 +28,3 @@ it('copies exact source rather than highlighted markup and rebinds controls when
-   const html = await markdown(`\`\`\`ts:example.ts\n${source}\`\`\``);
--  const { rerender } = render(<MarkdownContent html={html} className="prose" />);
-+  const { rerender } = render(<MarkdownContent {...html} className="prose" />);
-   fireEvent.click(screen.getByRole('button', { name: 'example.tsのコードをコピー' }));
-@@ -36,3 +34,3 @@ it('copies exact source rather than highlighted markup and rebinds controls when
-   const nextHtml = await markdown('```text:second.txt\nsecond\n```');
--  rerender(<MarkdownContent html={nextHtml} className="prose" />);
-+  rerender(<MarkdownContent {...nextHtml} className="prose" />);
-   fireEvent.click(screen.getByRole('button', { name: 'second.txtのコードをコピー' }));
-@@ -48,3 +46,3 @@ it('reports clipboard rejection and leaves code available to select manually', a
-   });
--  render(<MarkdownContent html={await markdown('```text\noriginal source\n```')} className="prose" />);
-+  render(<MarkdownContent {...await markdown('```text\noriginal source\n```')} className="prose" />);
-   fireEvent.click(screen.getByRole('button', { name: 'textのコードをコピー' }));
-@@ -56,3 +54,3 @@ it('preserves source in server HTML and displays diagram failures explicitly', a
-   const html = await markdown('```mermaid\ninvalid syntax\n```');
--  const serverHtml = renderToStaticMarkup(<MarkdownContent html={html} className="prose" />);
-+  const serverHtml = renderToStaticMarkup(<MarkdownContent {...html} className="prose" />);
-   const document = new DOMParser().parseFromString(serverHtml, 'text/html');
-@@ -62,3 +60,3 @@ it('preserves source in server HTML and displays diagram failures explicitly', a
-   vi.mocked(renderDiagram).mockRejectedValue(new Error('図を表示できませんでした。'));
--  render(<MarkdownContent html={html} className="prose" />);
-+  render(<MarkdownContent {...html} className="prose" />);
-   expect(await screen.findByRole('alert')).toHaveTextContent('図のソースを確認してください');
-@@ -69,3 +67,3 @@ it('renders plain Markdown as static readable markup without enhancement control
-   const html = await markdown('本文だけの記事です。');
--  const { container } = render(<MarkdownContent html={html} className="prose" />);
-+  const { container } = render(<MarkdownContent {...html} className="prose" />);
-   expect(container.firstElementChild).toHaveClass('prose');
-@@ -75 +73,26 @@ it('renders plain Markdown as static readable markup without enhancement control
- });
++Report unknown frontmatter keys during authoring lint without changing runtime metadata stripping. Document the existing corpus inventory and a namespaced custom-field policy, and support checking a separate content directory.
+diff --git a/packages/nilay-knowledge/README.md b/packages/nilay-knowledge/README.md
+index 78ab1d2a..84fa208d 100644
+--- a/packages/nilay-knowledge/README.md
++++ b/packages/nilay-knowledge/README.md
+@@ -204,2 +204,6 @@ unclassified or untagged articles by slug and title. `lint:metadata` validates a
+ article/news frontmatter without rendering the bodies and runs as part of `lint`.
++It also rejects unknown top-level keys with the source filename and exact key.
++Intentional custom fields use the `x-` namespace and are ignored at runtime;
++see [the authoring key policy and compatibility inventory](docs/frontmatter-keys.md).
++The runtime parser retains its existing unknown-field stripping behavior.
+ 
+diff --git a/packages/nilay-knowledge/__tests__/scripts/frontmatter-keys.test.ts b/packages/nilay-knowledge/__tests__/scripts/frontmatter-keys.test.ts
+new file mode 100644
+index 00000000..c4314da7
+--- /dev/null
++++ b/packages/nilay-knowledge/__tests__/scripts/frontmatter-keys.test.ts
+@@ -0,0 +1,138 @@
++// @vitest-environment node
++// cspell:ignore udpated descripton catagory rewiew
++import { spawnSync } from 'node:child_process';
++import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import path from 'node:path';
 +
-+it('uses the explicit capability instead of literal marker text to select the client boundary', async () => {
-+  const content = await markdown('Implementation notes mention `data-code-block` and `data-code-controls`.');
-+  expect(content.html).toContain('data-code-block');
-+  expect(content.capabilities.codeControls).toBe(false);
-+  const output = MarkdownContent({ ...content, className: 'prose' });
-+  expect(output.type).toBe('div');
-+  render(output);
-+  expect(screen.getByText('data-code-block')).toBeVisible();
-+  expect(renderDiagram).not.toHaveBeenCalled();
++import { afterEach, beforeEach, describe, expect, it } from 'vitest';
++
++import { parseFrontmatter } from '@/lib/content/frontmatter';
++import { createContentRepository } from '@/lib/content/repository';
++import { checkFrontmatterKeys } from '@/scripts/frontmatter-keys';
++
++const metadata = { title: 'Example', published: '2026-01-01', tags: [] };
++const source = 'content/articles/example/index.md';
++let directory: string;
++let filename: string;
++
++beforeEach(async () => {
++  directory = await mkdtemp(path.join(tmpdir(), 'knowledge-frontmatter-'));
++  filename = path.join(directory, 'articles/example/index.md');
++  await mkdir(path.dirname(filename), { recursive: true });
++  await mkdir(path.join(directory, 'news'));
 +});
 +
-+it('hydrates authored enhancement slots without changing the local selector contract', async () => {
-+  const writeText = vi.fn().mockResolvedValue(undefined);
-+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-+  const content = await markdown(
-+    '<figure data-code-block="authored" data-code-language="text"><figcaption><span>Authored</span><span data-code-controls></span></figcaption><pre><code>Original source</code></pre></figure>',
++afterEach(async () => {
++  await rm(directory, { recursive: true, force: true });
++});
++
++function fixture(extra = ''): string {
++  return `---\ntitle: Example\npublished: '2026-01-01'\ntags: []\n${extra}---\nBody\n`;
++}
++
++function checkDirectory() {
++  return spawnSync(
++    process.execPath,
++    ['--import', 'tsx', 'scripts/article-taxonomy.ts', '--check', '--content-dir', directory],
++    { cwd: process.cwd(), encoding: 'utf8', timeout: 10_000 },
 +  );
-+  expect(content.capabilities.codeControls).toBe(true);
-+  const { container } = render(<MarkdownContent {...content} className="prose" />);
-+  expect(container.querySelectorAll('[data-code-block]')).toHaveLength(1);
-+  fireEvent.click(screen.getByRole('button', { name: 'Authoredのコードをコピー' }));
-+  await waitFor(() => expect(writeText).toHaveBeenCalledWith('Original source'));
-+  expect(renderDiagram).not.toHaveBeenCalled();
-+});
-diff --git a/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts b/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts
-new file mode 100644
-index 00000000..45aa6ed5
---- /dev/null
-+++ b/packages/nilay-knowledge/__tests__/lib/content/capabilities.test.ts
-@@ -0,0 +1,87 @@
-+import type { Root } from 'hast';
-+import { describe, expect, it } from 'vitest';
-+
-+import { collectContentCapabilities } from '@/lib/content/capabilities';
-+import { renderContent } from '@/lib/content/render';
-+
-+const empty = { mathStyles: false, highlightStyles: false, codeControls: false };
-+
-+async function markdown(content: string) {
-+  return renderContent({
-+    type: 'articles',
-+    slug: 'example',
-+    frontmatter: { title: 'Example', published: '2024-01-01', tags: [] },
-+    content,
-+  });
 +}
 +
-+describe('rendered content capabilities', () => {
-+  it.each([
-+    ['ordinary prose', 'Plain text with `inline code`.', empty],
-+    ['literal marker', '`data-code-block` and `data-code-controls`.', empty],
-+    ['escaped classes', '`<span class="katex hljs">`.', empty],
-+    ['comment', '<!-- <span class="katex hljs" data-code-block> -->', empty],
-+    ['unrelated attribute', '<p title="katex hljs data-code-block" data-example="data-code-block">Text</p>', empty],
-+    ['class substrings', '<p class="katex-example hljs-keyword">Text</p>', empty],
-+    ['authored math', '<p class="example katex">Text</p>', { ...empty, mathStyles: true }],
-+    ['authored highlighting', '<p class="hljs example">Text</p>', { ...empty, highlightStyles: true }],
-+    ['authored empty marker', '<div data-code-block></div>', { ...empty, codeControls: true }],
-+    ['inline math', '$x^2$', { ...empty, mathStyles: true }],
-+    ['display math', '$$\nx^2\n$$', { ...empty, mathStyles: true }],
-+    ['plain fence', '```\nsource\n```', { ...empty, codeControls: true }],
-+    ['highlighted fence', '```js\nconst x = 1;\n```', { ...empty, highlightStyles: true, codeControls: true }],
-+    ['diagram fence', '```mermaid\ngraph TD; A-->B;\n```', { ...empty, codeControls: true }],
-+    ['DOT fence', '```dot\ndigraph { a -> b }\n```', { ...empty, codeControls: true }],
-+  ])('reports final emitted features for %s', async (_name, content, expected) => {
-+    const result = await markdown(String(content));
-+    expect(result.capabilities).toEqual(expected);
-+    document.body.innerHTML = result.html;
-+    expect(result.capabilities).toEqual({
-+      mathStyles: document.querySelector('.katex') !== null,
-+      highlightStyles: document.querySelector('.hljs') !== null,
-+      codeControls: document.querySelector('[data-code-block]') !== null,
-+    });
-+    expect(JSON.parse(JSON.stringify(result.capabilities))).toEqual(expected);
++describe('frontmatter authoring key policy', () => {
++  it.each(['udpated', 'descripton', 'catagory', 'rewiew', 'extra', 'x-', 'X-owner', 'x_owner'])(
++    'reports the exact filename and unknown key %s without changing runtime stripping',
++    (key) => {
++      const input = { ...metadata, [key]: '2026-09-29' };
++      expect(() => checkFrontmatterKeys(input, source)).toThrow(`${source}: unknown frontmatter key "${key}"`);
++      expect(parseFrontmatter(input, source)).toEqual(metadata);
++      expect(input[key]).toBe('2026-09-29');
++    },
++  );
++
++  it('lists all unknown keys deterministically and quotes unusual keys safely', () => {
++    expect(() => checkFrontmatterKeys({ zzz: true, 'a"b': true, ...metadata }, source)).toThrow(
++      `${source}: unknown frontmatter key "a\\"b"; use a documented field or an x- extension\n${source}: unknown frontmatter key "zzz"; use a documented field or an x- extension`,
++    );
 +  });
 +
-+  it('collects string or token-array classes and attribute presence without leaking state', () => {
-+    const tree: Root = {
-+      type: 'root',
-+      children: [
-+        { type: 'element', tagName: 'p', properties: { className: 'example\tkatex' }, children: [] },
-+        {
-+          type: 'element',
-+          tagName: 'div',
-+          properties: { className: ['hljs', 'example'], dataCodeBlock: '' },
-+          children: [],
-+        },
-+      ],
++  it('accepts all supported fields and explicitly namespaced custom metadata without exposing it at runtime', () => {
++    const input = {
++      ...metadata,
++      description: 'Description',
++      category: 'procedures',
++      updated: '2026-02-01',
++      image: 'image.png',
++      review: {
++        checked: '2026-02-01',
++        region: 'Example region',
++        scope: 'Example scope',
++        sources: [{ title: 'Evidence', url: 'https://example.com/source' }],
++      },
++      'x-editorial-owner': 'Example',
++      'x-build-data': { private: true },
 +    };
-+    expect(collectContentCapabilities(tree)).toEqual({ mathStyles: true, highlightStyles: true, codeControls: true });
-+    expect(collectContentCapabilities({ type: 'root', children: [] })).toEqual(empty);
++    expect(() => checkFrontmatterKeys(input, source)).not.toThrow();
++    const parsed = parseFrontmatter(input, source);
++    expect(parsed.updated).toBe(input.updated);
++    expect(parsed.review).toEqual(input.review);
++    expect(parsed).not.toHaveProperty('x-editorial-owner');
++    expect(parsed).not.toHaveProperty('x-build-data');
 +  });
 +
-+  it('keeps the generated client portal selectors consistent with code and diagram capabilities', async () => {
-+    const result = await markdown('```ts:example.ts\nconst x = 1;\n```\n\n```mermaid\ngraph TD; A-->B;\n```');
-+    document.body.innerHTML = result.html;
-+    expect(result.capabilities).toEqual({ mathStyles: false, highlightStyles: true, codeControls: true });
-+    const blocks = [...document.querySelectorAll('[data-code-block]')];
-+    expect(blocks).toHaveLength(2);
-+    for (const block of blocks) {
-+      expect(block.querySelectorAll('[data-code-controls]')).toHaveLength(1);
-+      expect(block.querySelectorAll('pre > code')).toHaveLength(1);
-+      expect(block.querySelector('figcaption > span')?.textContent).not.toBe('');
-+    }
-+    const diagram = blocks[1]!;
-+    expect(diagram).toHaveAttribute('data-code-language', 'mermaid');
-+    expect(diagram.querySelectorAll('[data-diagram-target]')).toHaveLength(1);
-+    expect(diagram.querySelector('[data-diagram-source]')).toHaveAttribute('open');
++  it.each([null, [], 'text', 42])('leaves non-mapping validation to the existing schema: %j', (input) => {
++    expect(() => checkFrontmatterKeys(input, source)).not.toThrow();
++    expect(() => parseFrontmatter(input, source)).toThrow('a mapping');
 +  });
 +
-+  it('creates independent metadata for concurrent renders', async () => {
-+    const [math, plain, code] = await Promise.all([markdown('$x$'), markdown('Plain'), markdown('```\nx\n```')]);
-+    expect(math.capabilities).toEqual({ ...empty, mathStyles: true });
-+    expect(plain.capabilities).toEqual(empty);
-+    expect(code.capabilities).toEqual({ ...empty, codeControls: true });
++  it.each([
++    { published: '2026-02-30' },
++    { tags: [''] },
++    { category: 'unknown-category' },
++    { updated: '2025-01-01' },
++    { review: { checked: '2026-01-01', unknown: true } },
++  ])('does not weaken supported-field validation: %j', (invalid) => {
++    const input = { ...metadata, ...invalid };
++    expect(() => checkFrontmatterKeys(input, source)).not.toThrow();
++    expect(() => parseFrontmatter(input, source)).toThrow();
++  });
++
++  it('checks original YAML keys at the repository authoring boundary while ordinary reads stay compatible', async () => {
++    await writeFile(filename, fixture("udpated: '2026-09-29'\n"));
++    const runtime = createContentRepository(directory);
++    expect((await runtime.read('articles', 'example'))?.frontmatter).toEqual(metadata);
++    const authoring = createContentRepository(directory, { validateFrontmatter: checkFrontmatterKeys });
++    await expect(authoring.read('articles', 'example')).rejects.toThrow(
++      `${filename}: unknown frontmatter key "udpated"`,
++    );
++  });
++
++  it('accepts empty collections without inventing entries', () => {
++    const result = checkDirectory();
++    expect(result.error).toBeUndefined();
++    expect(result.status).toBe(0);
++    expect(result.stdout).toContain('Validated metadata for 0 entries.');
++  });
++
++  it('fails the CLI for a misspelled optional key and preserves the exact authored file', async () => {
++    const bytes = fixture("udpated: '2026-09-29'\n");
++    await writeFile(filename, bytes);
++    const result = checkDirectory();
++    expect(result.error).toBeUndefined();
++    expect(result.status).toBe(1);
++    expect(result.stderr).toContain(`${filename}: unknown frontmatter key "udpated"`);
++    expect(result.stdout).not.toContain('Validated metadata');
++    expect(await readFile(filename, 'utf8')).toBe(bytes);
++  });
++
++  it('passes the CLI for supported fields and namespaced extensions in articles and news', async () => {
++    await writeFile(filename, fixture("updated: '2026-02-01'\nx-editorial-owner: Example\n"));
++    const news = path.join(directory, 'news/example/index.md');
++    await mkdir(path.dirname(news), { recursive: true });
++    await writeFile(news, fixture('x-build-data:\n  status: draft\n'));
++    const result = checkDirectory();
++    expect(result.error).toBeUndefined();
++    expect(result.status).toBe(0);
++    expect(result.stdout).toContain('Validated metadata for 2 entries.');
 +  });
 +});
-diff --git a/packages/nilay-knowledge/__tests__/lib/content/server.test.ts b/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
-index 7e09671a..19856c33 100644
---- a/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
-+++ b/packages/nilay-knowledge/__tests__/lib/content/server.test.ts
-@@ -33,7 +33,9 @@ describe('server content adapter', () => {
- 
--  it('renders only the requested detail and preserves missing-entry semantics', async () => {
--    const summary = (await listContent('articles'))[0]!;
--    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [] });
--    const detail = await getContentDocument('articles', summary.slug);
--    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [] });
-+  it.each(['articles', 'news'] as const)('passes renderer capabilities through a %s detail', async (type) => {
-+    const summary = (await listContent(type))[0]!;
-+    const capabilities = { mathStyles: true, highlightStyles: false, codeControls: false };
-+    vi.mocked(renderContent).mockResolvedValue({ html: '<p>Rendered</p>', tableOfContents: [], capabilities });
-+    const detail = await getContentDocument(type, summary.slug);
-+    expect(detail).toMatchObject({ slug: summary.slug, html: '<p>Rendered</p>', tableOfContents: [], capabilities });
-+    expect(detail?.capabilities).toBe(capabilities);
-     expect(renderContent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ slug: summary.slug }), {
-@@ -41,3 +43,3 @@ describe('server content adapter', () => {
-     });
--    expect(await getContentDocument('articles', 'missing-entry')).toBeNull();
-+    expect(await getContentDocument(type, 'missing-entry')).toBeNull();
-     expect(renderContent).toHaveBeenCalledTimes(1);
-diff --git a/packages/nilay-knowledge/app/articles/[slug]/page.tsx b/packages/nilay-knowledge/app/articles/[slug]/page.tsx
-index 376fc67c..e2de9f7c 100644
---- a/packages/nilay-knowledge/app/articles/[slug]/page.tsx
-+++ b/packages/nilay-knowledge/app/articles/[slug]/page.tsx
-@@ -55,3 +55,3 @@ export default async function ArticlePage({ params }: Props) {
- 
--  const { frontmatter, html, tableOfContents } = article;
-+  const { frontmatter, html, tableOfContents, capabilities } = article;
-   const category = getArticleCategory(article);
-@@ -107,4 +107,9 @@ export default async function ArticlePage({ params }: Props) {
- 
--          <ContentStyles html={html} />
--          <MarkdownContent key={slug} html={html} className="article-content prose max-w-none" />
-+          <ContentStyles capabilities={capabilities} />
-+          <MarkdownContent
-+            key={slug}
-+            html={html}
-+            capabilities={capabilities}
-+            className="article-content prose max-w-none"
-+          />
-           <SnsShare printable title={frontmatter.title} slug={`articles/${slug}`} />
-diff --git a/packages/nilay-knowledge/app/news/[slug]/page.tsx b/packages/nilay-knowledge/app/news/[slug]/page.tsx
-index 1ed97279..a22b854a 100644
---- a/packages/nilay-knowledge/app/news/[slug]/page.tsx
-+++ b/packages/nilay-knowledge/app/news/[slug]/page.tsx
-@@ -48,3 +48,3 @@ export default async function NewsDetailPage({ params }: Props) {
- 
--  const { frontmatter, html } = news;
-+  const { frontmatter, html, capabilities } = news;
- 
-@@ -85,4 +85,4 @@ export default async function NewsDetailPage({ params }: Props) {
- 
--          <ContentStyles html={html} />
--          <MarkdownContent key={slug} html={html} className="prose max-w-none" />
-+          <ContentStyles capabilities={capabilities} />
-+          <MarkdownContent key={slug} html={html} capabilities={capabilities} className="prose max-w-none" />
-           <SnsShare printable title={frontmatter.title} slug={`news/${slug}`} />
-diff --git a/packages/nilay-knowledge/components/content-styles.tsx b/packages/nilay-knowledge/components/content-styles.tsx
-index 2dcf3eb4..a61c25e1 100644
---- a/packages/nilay-knowledge/components/content-styles.tsx
-+++ b/packages/nilay-knowledge/components/content-styles.tsx
-@@ -2,21 +2,12 @@
- /* eslint-disable @next/next/no-css-tags */
-+import type { ContentCapabilities } from '@/lib/content/types';
- 
- /** Load optional styles in server HTML, including when JavaScript is disabled. */
--export function ContentStyles({ html }: { html: string }) {
--  const classes = new Set<string>();
--  // Match whole tags and quoted attribute values; escaped code examples are plain text.
--  for (const [tag] of html.matchAll(/<!--[\s\S]*?-->|<[a-z][\w:-]*(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
--    if (tag.startsWith('<!--')) continue;
--    // The Markdown renderer serializes attribute values with double quotes.
--    for (const attribute of tag.matchAll(/\s([^\s"'<>/=]+)(?:="([^"]*)")?/g)) {
--      if (attribute[1] === 'class') {
--        for (const name of (attribute[2] ?? '').split(/\s+/)) classes.add(name);
--      }
--    }
--  }
--
-+export function ContentStyles({ capabilities }: { capabilities: ContentCapabilities }) {
-   return (
-     <>
--      {classes.has('katex') && <link rel="stylesheet" href="/content-styles/katex.min.css" precedence="content" />}
--      {classes.has('hljs') && <link rel="stylesheet" href="/content-styles/github-dark.css" precedence="content" />}
-+      {capabilities.mathStyles && <link rel="stylesheet" href="/content-styles/katex.min.css" precedence="content" />}
-+      {capabilities.highlightStyles && (
-+        <link rel="stylesheet" href="/content-styles/github-dark.css" precedence="content" />
-+      )}
-     </>
-diff --git a/packages/nilay-knowledge/components/markdown-content.tsx b/packages/nilay-knowledge/components/markdown-content.tsx
-index 35aaf321..1ae177b3 100644
---- a/packages/nilay-knowledge/components/markdown-content.tsx
-+++ b/packages/nilay-knowledge/components/markdown-content.tsx
-@@ -1 +1,3 @@
-+import type { RenderedContent } from '@/lib/content/types';
-+
- import { EnhancedMarkdownContent } from './markdown-enhancements';
-@@ -3,4 +5,8 @@ import { EnhancedMarkdownContent } from './markdown-enhancements';
- /** Plain articles can render without the client Markdown enhancement component. */
--export function MarkdownContent({ html, className }: { html: string; className: string }) {
--  if (!html.includes('data-code-block')) {
-+export function MarkdownContent({
-+  html,
-+  capabilities,
-+  className,
-+}: Pick<RenderedContent, 'html' | 'capabilities'> & { className: string }) {
-+  if (!capabilities.codeControls) {
-     return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
-diff --git a/packages/nilay-knowledge/docs/content-capabilities.md b/packages/nilay-knowledge/docs/content-capabilities.md
+diff --git a/packages/nilay-knowledge/docs/frontmatter-keys.md b/packages/nilay-knowledge/docs/frontmatter-keys.md
 new file mode 100644
-index 00000000..f3bad959
+index 00000000..64a20c4d
 --- /dev/null
-+++ b/packages/nilay-knowledge/docs/content-capabilities.md
-@@ -0,0 +1,29 @@
-+# Renderer capabilities
++++ b/packages/nilay-knowledge/docs/frontmatter-keys.md
+@@ -0,0 +1,62 @@
++# Frontmatter authoring keys
 +
-+`RenderedContent.capabilities` is the renderer-owned, serializable description
-+of optional presentation features. The server adapter passes it through to both
-+article and news pages, together with the HTML and table of contents.
++<!-- cspell:ignore udpated -->
 +
-+- `mathStyles` requests the KaTeX stylesheet when an element has the `katex` class.
-+- `highlightStyles` requests the highlight stylesheet for the `hljs` class.
-+- `codeControls` selects the Markdown client boundary when an element has the
-+  `data-code-block` attribute.
++`npm run lint:metadata --workspace=@sasakiuri/nilay-knowledge` runs the normal
++metadata validation plus a top-level key check. Unknown keys are errors: the CLI
++prints the source filename and exact quoted key and exits with status 1. Several
++unknown keys in the same file are reported in sorted order. Validation may stop
++at the first failing file; the output is not a complete corpus-wide error report.
++The command never rewrites a key, date, value, or review record.
 +
-+The collector inspects the final transformed HAST, after highlighting, math, and
-+code-block transforms and before serialization. Trusted authored HTML participates
-+in the same contract. Comments, escaped examples, partial class names, and marker
-+text in unrelated attributes do not request features. Each render has independent
-+capability state; no HTML reparsing or shared mutable result is involved.
++The supported keys are derived from the same Zod schema as runtime validation:
++`title`, `description`, `published`, `tags`, `category`, `updated`, `image`, and
++`review`. Optional-field spelling mistakes such as `udpated` fail authoring lint.
++Existing type, date, tag, category, and nested review/source rules still apply.
 +
-+`ContentStyles` still emits server-rendered stylesheet links with React precedence,
-+so optional styles work without JavaScript. Plain prose, including prose describing
-+`data-code-block`, does not select the Markdown client enhancement component.
-+This does not claim a measured bundle-size or hydration-time improvement.
++## Compatibility and extensions
 +
-+The metadata does not replace the client's local DOM contract. The enhancement
-+boundary still finds `[data-code-block]`, `[data-code-controls]`, `pre > code`, and
-+its diagram slots. Authored markers select the boundary, but incomplete authored
-+controls are still handled by the existing client checks. Copy controls, deferred
-+diagram loading, source-code fallback, original HTML, and accessible names remain
-+unchanged. Tests exercise real generated and authored slots in addition to feature
-+flags and server-rendered stylesheet links.
-diff --git a/packages/nilay-knowledge/lib/content/capabilities.ts b/packages/nilay-knowledge/lib/content/capabilities.ts
-new file mode 100644
-index 00000000..6374ca69
---- /dev/null
-+++ b/packages/nilay-knowledge/lib/content/capabilities.ts
-@@ -0,0 +1,18 @@
-+import type { Root } from 'hast';
-+import { visit } from 'unist-util-visit';
++Runtime parsing intentionally continues to strip unknown top-level fields.
++The repository's optional `validateFrontmatter` callback lets authoring tools
++inspect the original YAML mapping before that stripping, without duplicating
++filesystem enumeration or YAML parsing. Ordinary page/source reads do not enable
++this authoring policy. The taxonomy report also retains its existing read behavior.
 +
-+import type { ContentCapabilities } from './types';
++Intentional custom fields must use a lowercase namespaced name matching
++`x-[a-z][a-z0-9-]*`, such as `x-editorial-owner` or `x-build-data`. These values are
++accepted by authoring lint but remain outside the runtime content contract and
++are stripped from returned frontmatter. Renaming a legacy custom field into this
++namespace is an explicit author edit; the tool does not migrate it automatically.
++A field intended to affect pages must instead be added to the schema and its
++consumers, with appropriate tests and documentation. The namespace is not a way
++to bypass validation of supported fields or nested review/source records.
 +
-+/** Inspect the final HAST, including trusted authored HTML, without parsing serialized output again. */
-+export function collectContentCapabilities(tree: Root): ContentCapabilities {
-+  const capabilities = { mathStyles: false, highlightStyles: false, codeControls: false };
-+  visit(tree, 'element', (node) => {
-+    const value = node.properties.className;
-+    const classes = Array.isArray(value) ? value.map(String) : String(value ?? '').split(/\s+/);
-+    capabilities.mathStyles ||= classes.includes('katex');
-+    capabilities.highlightStyles ||= classes.includes('hljs');
-+    // Match the client boundary's attribute-presence selector, including authored empty values.
-+    capabilities.codeControls ||= Object.hasOwn(node.properties, 'dataCodeBlock');
++## Pre-enforcement inventory
++
++The committed corpus at `70c254d4a7b6e90ed8ae2ce2c3920950531207ab` was inspected
++using the repository's gray-matter/YAML JSON schema configuration before enabling
++lint failures. All 175 entries used only supported top-level keys; no existing
++extension, misspelled key, or metadata migration was found.
++
++| Key         | Articles (18 files) | News (157 files) |
++| ----------- | ------------------: | ---------------: |
++| title       |                  18 |              157 |
++| description |                  18 |               57 |
++| published   |                  18 |              157 |
++| tags        |                  18 |              157 |
++| category    |                  18 |                0 |
++| updated     |                  10 |                4 |
++| image       |                   2 |                0 |
++| review      |                   2 |               57 |
++
++These counts document that baseline, not a quota for future content. To check a
++separate authoring tree without editing the committed files, pass its directory:
++
++```bash
++npm run lint:metadata --workspace=@sasakiuri/nilay-knowledge -- --content-dir /path/to/content
++```
++
++The directory has the usual `articles` and `news` collections. An omitted option
++uses the package's own content directory, independent of the caller's directory.
++Both helper tests and real CLI subprocess tests cover failures, allowed extensions,
++ordinary metadata, exact input preservation, and runtime compatibility.
+diff --git a/packages/nilay-knowledge/lib/content/repository.ts b/packages/nilay-knowledge/lib/content/repository.ts
+index 8b95dabd..ebbce6e7 100644
+--- a/packages/nilay-knowledge/lib/content/repository.ts
++++ b/packages/nilay-knowledge/lib/content/repository.ts
+@@ -29,3 +29,6 @@ export function comparePublished(a: ContentSummary, b: ContentSummary): number {
+ /** Filesystem access and validation only; independent of React and Markdown rendering. */
+-export function createContentRepository(contentDirectory: string) {
++export function createContentRepository(
++  contentDirectory: string,
++  options: { validateFrontmatter?: (input: unknown, source: string) => void } = {},
++) {
+   async function listSlugs(type: ContentType): Promise<string[]> {
+@@ -66,2 +69,4 @@ export function createContentRepository(contentDirectory: string) {
+       });
++      // Authoring checks see the original keys before the runtime parser strips unknown fields.
++      options.validateFrontmatter?.(data, filename);
+       return { type, slug, frontmatter: parseFrontmatter(data, filename), content };
+diff --git a/packages/nilay-knowledge/scripts/article-taxonomy.ts b/packages/nilay-knowledge/scripts/article-taxonomy.ts
+index 45acc229..58a813c1 100644
+--- a/packages/nilay-knowledge/scripts/article-taxonomy.ts
++++ b/packages/nilay-knowledge/scripts/article-taxonomy.ts
+@@ -9,2 +9,4 @@ import { contentTypes, type ContentSummary } from '../lib/content/types';
+ 
++import { checkFrontmatterKeys } from './frontmatter-keys';
++
+ export function formatTaxonomyReport(content: ContentSummary[]): string {
+@@ -32,4 +34,10 @@ export function formatTaxonomyReport(content: ContentSummary[]): string {
+ async function main() {
+-  const { values } = parseArgs({ options: { check: { type: 'boolean' } } });
+-  const repository = createContentRepository(fileURLToPath(new URL('../content/', import.meta.url)));
++  const { values } = parseArgs({
++    options: { check: { type: 'boolean' }, 'content-dir': { type: 'string' } },
 +  });
-+  return capabilities;
-+}
-diff --git a/packages/nilay-knowledge/lib/content/render.ts b/packages/nilay-knowledge/lib/content/render.ts
-index d255af72..663657ff 100644
---- a/packages/nilay-knowledge/lib/content/render.ts
-+++ b/packages/nilay-knowledge/lib/content/render.ts
-@@ -18,2 +18,3 @@ import { visit } from 'unist-util-visit';
- 
-+import { collectContentCapabilities } from './capabilities';
- import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
-@@ -138,2 +139,3 @@ export async function renderContent(
-   const tableOfContents: TocItem[] = [];
-+  let capabilities = { mathStyles: false, highlightStyles: false, codeControls: false };
-   const result = await processor()
-@@ -302,2 +304,5 @@ export async function renderContent(
-     .use(rehypeCodeBlocks)
-+    .use(() => (tree: Root) => {
-+      capabilities = collectContentCapabilities(tree);
-+    })
-     .use(rehypeStringify)
-@@ -305,3 +310,3 @@ export async function renderContent(
- 
--  return { html: String(result), tableOfContents };
-+  return { html: String(result), tableOfContents, capabilities };
- }
-diff --git a/packages/nilay-knowledge/lib/content/types.ts b/packages/nilay-knowledge/lib/content/types.ts
-index 0b6765b0..cc8d10d0 100644
---- a/packages/nilay-knowledge/lib/content/types.ts
-+++ b/packages/nilay-knowledge/lib/content/types.ts
-@@ -26,2 +26,9 @@ export interface TocItem {
- 
-+/** Renderer-owned facts about optional presentation features; safe to serialize. */
-+export interface ContentCapabilities {
-+  mathStyles: boolean;
-+  highlightStyles: boolean;
-+  codeControls: boolean;
-+}
++  const directory = values['content-dir'] ?? fileURLToPath(new URL('../content/', import.meta.url));
++  const repository = createContentRepository(
++    directory,
++    values.check ? { validateFrontmatter: checkFrontmatterKeys } : {},
++  );
+   const content = (await Promise.all(contentTypes.map((type) => repository.list(type)))).flat();
+diff --git a/packages/nilay-knowledge/scripts/frontmatter-keys.ts b/packages/nilay-knowledge/scripts/frontmatter-keys.ts
+new file mode 100644
+index 00000000..858249c1
+--- /dev/null
++++ b/packages/nilay-knowledge/scripts/frontmatter-keys.ts
+@@ -0,0 +1,22 @@
++import { frontmatterSchema } from '../lib/content/schemas';
 +
- export interface RenderedContent {
-@@ -29,2 +36,3 @@ export interface RenderedContent {
-   tableOfContents: TocItem[];
-+  capabilities: ContentCapabilities;
- }
++const knownKeys = new Set<string>(frontmatterSchema.keyof().options);
++
++/** Authoring policy only; namespaced custom values remain outside the runtime content contract. */
++export function checkFrontmatterKeys(input: unknown, source: string): void {
++  // Leave non-mapping and known-field validation to the existing runtime schema.
++  if (typeof input !== 'object' || input === null || Array.isArray(input)) return;
++  const unknown = Object.keys(input)
++    .filter((key) => !knownKeys.has(key) && !/^x-[a-z][a-z0-9-]*$/.test(key))
++    .sort();
++  if (unknown.length > 0) {
++    throw new Error(
++      unknown
++        .map(
++          (key) =>
++            `${source}: unknown frontmatter key ${JSON.stringify(key)}; use a documented field or an x- extension`,
++        )
++        .join('\n'),
++    );
++  }
++}
