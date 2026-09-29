@@ -23,7 +23,7 @@ import type {
   Settings,
   Source,
 } from "../domain.ts";
-import { NotFoundError, UserError } from "../errors.ts";
+import { NotFoundError, SettingsConflictError, UserError } from "../errors.ts";
 import {
   freshness,
   isFreshPublication,
@@ -42,6 +42,7 @@ import type {
   NewsRepository,
   PostScreening,
   RecordOptions,
+  SettingsSnapshot,
 } from "../repository.ts";
 import { dailySlot, nextDailyRun, nextPhase } from "../schedule.ts";
 import {
@@ -190,6 +191,7 @@ interface CrawlSourceRecord {
 /** Rows of news_state keyed by id; unknown ids are carried through untouched. */
 type StateRows = {
   settings?: Settings;
+  settings_revision?: { value: string };
   schedule?: Schedule;
   publication_batch?: PublicationBatch;
   job?: Job;
@@ -523,7 +525,7 @@ export class SQLRepository implements NewsRepository {
   ): Promise<R> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
       const [version, after] = await this.load(tables, articleIds);
-      const before = new Map(
+      const before = new Map<Table, Map<string, string>>(
         tables.map((table) => [
           table,
           new Map(
@@ -535,6 +537,15 @@ export class SQLRepository implements NewsRepository {
         ]),
       );
       const result = await transform(after);
+      // All settings changes, including automatic posting stops and imports,
+      // invalidate browser snapshots in the same fenced transaction. Unrelated
+      // article, source, job and scheduler writes do not change this token.
+      if (
+        tables.some((table) => table === "state") &&
+        after.state.settings &&
+        before.get("state")?.get("settings") !== canonical(after.state.settings)
+      )
+        after.state.settings_revision = { value: randomToken() };
       const writes: SQLStatement[] = [];
       const token = randomToken();
       const guard = "(SELECT token FROM news_meta WHERE id=1)=?";
@@ -614,6 +625,7 @@ export class SQLRepository implements NewsRepository {
         autoPost: false,
         postSelection: "both",
       };
+      state.state.settings_revision ??= { value: randomToken() };
       state.state.schedule ??= { next_at: 0 };
       state.state.publication_batch ??= closedBatch();
       state.state.job ??= structuredClone(DEFAULT_JOB);
@@ -658,10 +670,26 @@ export class SQLRepository implements NewsRepository {
     return settingsOf(state.state);
   }
 
-  async updateSettings(changes: Record<string, unknown>): Promise<Settings> {
+  async settingsSnapshot(): Promise<SettingsSnapshot> {
+    const [, snapshot] = await this.snapshot(["state"]);
+    const revision = snapshot.state.settings_revision?.value;
+    if (!revision) throw new Error("Repository is not initialized");
+    return { ...settingsOf(snapshot.state), revision };
+  }
+
+  async updateSettings(
+    changes: Record<string, unknown>,
+    expectedRevision?: string,
+  ): Promise<Settings> {
     if (Object.keys(changes).some((key) => !SETTING_KEYS.has(key)))
       throw new UserError("未対応の設定項目です");
     return this.mutate(["state", "posts", "articles"], (state) => {
+      // Compare on every retry, before rubric resets, scheduling or any writes.
+      if (
+        expectedRevision !== undefined &&
+        expectedRevision !== state.state.settings_revision?.value
+      )
+        throw new SettingsConflictError();
       const previous = settingsOf(state.state);
       const settings: Record<string, unknown> = { ...previous, ...changes };
       if (!validRubric(settings.rubric))
@@ -697,6 +725,10 @@ export class SQLRepository implements NewsRepository {
       if (valid.rubric !== previous.rubric)
         for (const article of state.articles.values()) resetAnalysis(article);
       state.state.settings = valid;
+      // Even a no-op public edit must commit its compare atomically rather
+      // than returning before the mutation fence has run.
+      if (expectedRevision !== undefined)
+        state.state.settings_revision = { value: randomToken() };
       return valid;
     });
   }
@@ -2164,6 +2196,7 @@ export class SQLRepository implements NewsRepository {
       for (const [id, source] of restoredSources) state.sources.set(id, source);
       Object.assign(state.state, {
         settings: importedSettings,
+        settings_revision: { value: randomToken() },
         schedule: importedSchedule,
         // An open round is runtime state; imported posting starts afresh.
         publication_batch: closedBatch(),

@@ -6,7 +6,12 @@ import sourceConfig from "../sources.json" with { type: "json" };
 import { Access, CONFIG_NAMES } from "./access.ts";
 import { Application } from "./application.ts";
 import { withDeadline } from "./deadline.ts";
-import { DeadlineError, NotFoundError, UserError } from "./errors.ts";
+import {
+  DeadlineError,
+  NotFoundError,
+  SettingsConflictError,
+  UserError,
+} from "./errors.ts";
 import { Jev } from "./jev.ts";
 import { createFeedTransport, type FeedService } from "./net/feed-transport.ts";
 import { FetchError, readBody } from "./net/http.ts";
@@ -231,10 +236,23 @@ export function createHandlers(
             );
           return jsonResponse(200, await app.publicationPreflight());
         }
-        if (path === "/api/settings")
-          return jsonResponse(200, await app.settings(body));
+        if (path === "/api/settings") {
+          const { revision, ...changes } = body;
+          if (
+            typeof revision !== "string" ||
+            !revision ||
+            revision.length > 256
+          )
+            throw new SettingsConflictError();
+          return jsonResponse(200, await app.settings(changes, revision));
+        }
         return jsonResponse(404, { error: "見つかりません" });
       } catch (error) {
+        if (error instanceof SettingsConflictError)
+          return jsonResponse(409, {
+            code: "settings_conflict",
+            error: error.message,
+          });
         if (error instanceof NotFoundError)
           return jsonResponse(404, {
             error: "対象の記事・情報源が見つかりません",

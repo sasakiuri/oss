@@ -277,8 +277,14 @@ async function api(path, body) {
   } catch {
     throw new Error("サーバーからの応答を読み取れませんでした。");
   }
-  if (!response.ok)
-    throw new Error(data.error || `処理に失敗しました（${response.status}）。`);
+  if (!response.ok) {
+    const error = new Error(
+      data.error || `処理に失敗しました（${response.status}）。`,
+    );
+    error.code = data.code;
+    error.status = response.status;
+    throw error;
+  }
   if (path === "/api/state") {
     model.receivedStateEtag = response.headers.get("ETag");
   }
@@ -356,12 +362,38 @@ async function mutate(path, body, message) {
     return true;
   } catch (error) {
     showNotice(error.message, true);
+    if (error.code === "settings_conflict") {
+      const conflict = $("settings-conflict");
+      if (conflict) conflict.hidden = false;
+      // Refresh status, but never replace the form's inputs or edit token.
+      await refresh(true);
+    }
     return false;
   } finally {
     model.requestPending = false;
     renderHeader();
     renderBulkActions();
   }
+}
+
+/** Only deliberate field edits are sent; an unchanged enabled toggle is not new intent. */
+function settingsChanges(baseline, values) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([key, value]) => value !== baseline[key]),
+  );
+}
+
+async function saveSettings(baseline, values, message) {
+  const changes = settingsChanges(baseline, values);
+  if (!Object.keys(changes).length) {
+    showNotice("変更はありません。最新の状態は設定の読み直しで確認できます。");
+    return false;
+  }
+  return mutate(
+    "/api/settings",
+    { ...changes, revision: baseline.revision },
+    message,
+  );
 }
 
 function collect() {
@@ -1419,6 +1451,26 @@ function renderSettings() {
   const state = model.state;
   const left = el("div");
   const right = el("div");
+  const conflict = el("section", "settings-card");
+  conflict.id = "settings-conflict";
+  conflict.hidden = true;
+  conflict.setAttribute("role", "alert");
+  conflict.append(
+    el("h2", "", "設定が更新されています"),
+    el(
+      "p",
+      "form-help",
+      "入力内容はまだ保存されていません。入力を確認・控えたうえで最新の設定を読み直してください。自動投稿の再開は、最新の停止状態を確認してから改めて選択してください。",
+    ),
+    button("最新の設定を読み直す（未保存の変更を破棄）", "button", async () => {
+      await refresh(true);
+      if (model.loadError) return;
+      model.settingsRendered = false;
+      renderSettings();
+      $("post-selection")?.focus();
+    }),
+  );
+  left.append(conflict);
   const sources = el("section", "settings-card");
   const sourceHeading = el("h2", "", "収集元");
   sourceHeading.append(
@@ -1597,8 +1649,8 @@ function renderSettings() {
   postForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     postSubmit.disabled = true;
-    const success = await mutate(
-      "/api/settings",
+    const success = await saveSettings(
+      state.settings,
       { autoPost: autoPost.checked, postSelection: selection.value },
       "投稿設定を保存しました。",
     );
@@ -1756,8 +1808,8 @@ function renderSettings() {
     event.preventDefault();
     if (!form.reportValidity()) return;
     submit.disabled = true;
-    const success = await mutate(
-      "/api/settings",
+    const success = await saveSettings(
+      state.settings,
       {
         rubric: rubric.value.trim(),
         autoCollect: autoCollect.checked,

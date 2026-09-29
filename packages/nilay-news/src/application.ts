@@ -4,7 +4,7 @@ import { CachedFetch, CrawlDeferred, type SourceAttempt } from "./crawl.ts";
 import { withDeadline } from "./deadline.ts";
 import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
-import { UserError } from "./errors.ts";
+import { SettingsConflictError, UserError } from "./errors.ts";
 import { freshness, isFreshPublication, newestFirst } from "./freshness.ts";
 import { Jev } from "./jev.ts";
 import { FetchError } from "./net/http.ts";
@@ -174,7 +174,7 @@ export class Application {
         error: null,
       },
       settings: {
-        ...(await this.repository.settings()),
+        ...(await this.repository.settingsSnapshot()),
         jevConfigured: Boolean(this.jev.key),
         model: this.jev.model,
         slackConfigured: this.notifier.configured,
@@ -218,7 +218,14 @@ export class Application {
     return this.repository.queueJob(kind);
   }
 
-  async settings(changes: Record<string, unknown>) {
+  async settings(changes: Record<string, unknown>, expectedRevision?: string) {
+    // Avoid paid account checks for an already stale edit. The repository
+    // compares again atomically after any asynchronous verification below.
+    if (
+      expectedRevision !== undefined &&
+      expectedRevision !== (await this.repository.settingsSnapshot()).revision
+    )
+      throw new SettingsConflictError();
     if (changes.autoAnalyze === true && !this.jev.key)
       throw new UserError("自動仕分けには Jev の API キーを設定してください");
     if (changes.autoPost === true) {
@@ -229,7 +236,7 @@ export class Application {
       // Enabling is refused unless the account checks out right now.
       await this.buffer.verifyAccount();
     }
-    return this.repository.updateSettings(changes);
+    return this.repository.updateSettings(changes, expectedRevision);
   }
 
   /**

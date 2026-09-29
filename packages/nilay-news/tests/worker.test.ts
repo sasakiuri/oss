@@ -79,16 +79,30 @@ describe("HTTP contract", () => {
   });
   it("validates automatic classification settings", async () => {
     const { request, repo } = await setup();
-    const missingKey = await request("/api/settings", '{"autoAnalyze":true}');
+    const revision = (await repo.settingsSnapshot()).revision;
+    const missingKey = await request(
+      "/api/settings",
+      JSON.stringify({ revision, autoAnalyze: true }),
+    );
     expect(missingKey.status).toBe(400);
     expect(await missingKey.json()).toEqual({
       error: "自動仕分けには Jev の API キーを設定してください",
     });
     expect(
-      (await request("/api/settings", '{"autoAnalyze":"yes"}')).status,
+      (
+        await request(
+          "/api/settings",
+          JSON.stringify({ revision, autoAnalyze: "yes" }),
+        )
+      ).status,
     ).toBe(400);
     expect(
-      (await request("/api/settings", '{"autoAnalyze":false}')).status,
+      (
+        await request(
+          "/api/settings",
+          JSON.stringify({ revision, autoAnalyze: false }),
+        )
+      ).status,
     ).toBe(200);
     expect((await repo.settings()).autoAnalyze).toBe(false);
   });
@@ -146,7 +160,7 @@ describe("HTTP contract", () => {
     expect((await repo.article(ids[2]!)).reviewStatus).toBe("unread");
   });
   it("invalidates the state ETag after a settings change", async () => {
-    const { request, handlers, env } = await setup();
+    const { request, handlers, env, repo } = await setup();
     const first = await handlers.fetch(
       new Request("https://news.example.test/api/state"),
       env,
@@ -160,9 +174,17 @@ describe("HTTP contract", () => {
         env,
       );
     expect((await cached()).status).toBe(304);
-    expect((await request("/api/settings", '{"pollMinutes":30}')).status).toBe(
-      200,
-    );
+    expect(
+      (
+        await request(
+          "/api/settings",
+          JSON.stringify({
+            revision: (await repo.settingsSnapshot()).revision,
+            pollMinutes: 30,
+          }),
+        )
+      ).status,
+    ).toBe(200);
     expect((await cached()).status).toBe(200);
   });
   it("refreshes clock-derived freshness within 30 seconds without database writes", async () => {
