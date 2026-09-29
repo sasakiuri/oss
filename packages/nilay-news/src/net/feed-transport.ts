@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** The regional transport only accepts the bundled public RSS endpoints. */
+/** The regional transport accepts bundled feeds and narrow Google link requests. */
 import sources from "../../sources.json" with { type: "json" };
 
+import {
+  GOOGLE_NEWS_RPC,
+  isGoogleNewsPage,
+  validGoogleNewsRequest,
+} from "./google-news.ts";
 import { createFetchBytes, FetchError } from "./http.ts";
 import type { FetchBytes } from "./types.ts";
 
@@ -24,12 +29,19 @@ export function isRegionalFeedUrl(url: string): boolean {
   return URLS.has(url);
 }
 
-/** Redirects, robots, caching and all request budgets remain in CachedFetch. */
+/** RSS policy stays in CachedFetch; Google link resolution has its own budget. */
 export function createFeedTransport(service?: FeedService): FetchBytes {
   return createFetchBytes(async (url, init) => {
     if (!HOSTS.has(new URL(url).hostname.replace(/^www\./, "")))
       return fetch(url, init);
-    if (!isRegionalFeedUrl(url))
+    const allowed =
+      (init.method === "GET" &&
+        (isRegionalFeedUrl(url) || isGoogleNewsPage(url))) ||
+      (init.method === "POST" &&
+        url === GOOGLE_NEWS_RPC &&
+        init.body instanceof Uint8Array &&
+        validGoogleNewsRequest(init.body));
+    if (!allowed)
       throw new FetchError("地域別のRSS取得で許可していないURLです");
     if (!service) throw new FetchError("RSS取得用Workerの接続設定がありません");
     return service.fetch(new Request(url, init));
