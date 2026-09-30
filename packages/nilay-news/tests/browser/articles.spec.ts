@@ -309,6 +309,7 @@ test("unchanged detail recovery removes obsolete retry controls and preserves re
   await (await repeated).finished();
   await page.clock.runFor(100);
   await expect(retry).toHaveCount(1);
+  await expect(retry).toBeFocused();
   fail = false;
   await retry.click();
   await expect(retry).toHaveCount(0);
