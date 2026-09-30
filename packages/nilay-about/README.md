@@ -46,6 +46,7 @@ Each tool page ends with links to the other tools in its category.
 The server renders every tool with its default values, so the page HTML already contains the tool.
 Until the browser has read what was saved, the tool is held inert and `aria-busy`; it then shows the saved values.
 If an initial framework JavaScript asset fails to load, an inline bootstrap reloads the same URL once per tab.
+Before reloading it refreshes framework script preloads to clear cached failures; this refresh is bounded to five seconds.
 It runs without the framework and keeps the saved-state readiness contract. Repeated failure, or unavailable
 session storage, shows a reload button and a link to the Labs list instead of cycling. After hydration and saved-state
 readiness, the bootstrap retires; ordinary application errors do not trigger it. Its session marker is tab-local
