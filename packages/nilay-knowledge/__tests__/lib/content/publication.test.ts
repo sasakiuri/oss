@@ -49,11 +49,15 @@ describe('publication artifacts', () => {
       `${siteConfig.siteUrl}/articles/`,
       `${siteConfig.siteUrl}/news/`,
       `${siteConfig.siteUrl}/about/`,
+      `${siteConfig.siteUrl}/articles/category/getting-started/`,
+      `${siteConfig.siteUrl}/articles/category/procedures/`,
+      `${siteConfig.siteUrl}/articles/category/equipment/`,
+      `${siteConfig.siteUrl}/articles/category/resources/`,
       `${siteConfig.siteUrl}/news/newer/`,
       `${siteConfig.siteUrl}/articles/older/`,
     ]);
-    expect(entries.slice(0, 4).every((entry) => !entry.querySelector('lastmod'))).toBe(true);
-    expect(entries.slice(4).map((entry) => entry.querySelector('lastmod')?.textContent)).toEqual([
+    expect(entries.slice(0, 8).every((entry) => !entry.querySelector('lastmod'))).toBe(true);
+    expect(entries.slice(8).map((entry) => entry.querySelector('lastmod')?.textContent)).toEqual([
       '2024-02-02',
       '2024-03-01',
     ]);
