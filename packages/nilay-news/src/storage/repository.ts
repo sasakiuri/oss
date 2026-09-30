@@ -24,7 +24,12 @@ import type {
   Settings,
   Source,
 } from "../domain.ts";
-import { NotFoundError, SettingsConflictError, UserError } from "../errors.ts";
+import {
+  ArticlePageConflictError,
+  NotFoundError,
+  SettingsConflictError,
+  UserError,
+} from "../errors.ts";
 import {
   freshness,
   publicationWindow,
@@ -50,6 +55,9 @@ import {
   confirmationDelay,
 } from "../publication-policy.ts";
 import type {
+  ArticleQuery,
+  ArticlePage,
+  ArticleCounts,
   FinishPostOptions,
   NewsRepository,
   PostScreening,
@@ -72,6 +80,13 @@ import {
   utf8,
 } from "../text.ts";
 import { isoSeconds } from "../time.ts";
+
+import {
+  bucketsSQL,
+  statsSQL,
+  eligibleSQL,
+  querySQL,
+} from "./article-query.ts";
 
 export type SQLValue = string | number | null;
 export type SQLStatement = readonly [string, readonly SQLValue[]];
@@ -277,7 +292,10 @@ function timestamp(value: number): string {
 /** Index projections use exactly the publication parser and calendar policy. */
 function indexArticle(article: Article): void {
   Object.assign(article, {
-    _publicationIndex: 1,
+    _publicationIndex: 2,
+    _sourceCandidate: isSourceCandidate(article),
+    _listOrder:
+      (Date.parse(article.publishedAt || article.discoveredAt) || 0) / 1000,
     _publicationSeconds: publicationSeconds(article.publishedAt),
     _publicationUntil:
       publicationWindow(
@@ -546,13 +564,15 @@ export class SQLRepository implements NewsRepository {
   private async load(
     tables: readonly Table[],
     articleIds?: readonly string[],
+    scopedPosts = false,
   ): Promise<[number, Tables]> {
     const results = await this.driver.batch([
       ["SELECT revision FROM news_meta WHERE id=1", []],
       ...tables.map((table): SQLStatement =>
-        table === "articles" && articleIds
+        (table === "articles" || (table === "posts" && scopedPosts)) &&
+        articleIds
           ? [
-              "SELECT id,data FROM news_articles WHERE id IN (SELECT value FROM json_each(?))",
+              `SELECT id,data FROM news_${table} WHERE id IN (SELECT value FROM json_each(?))`,
               [encode(articleIds)],
             ]
           : [`SELECT id,data FROM news_${table}`, []],
@@ -590,9 +610,10 @@ export class SQLRepository implements NewsRepository {
     tables: readonly K[],
     transform: (state: Pick<Tables, K>) => R | Promise<R>,
     articleIds?: readonly string[],
+    scopedPosts = false,
   ): Promise<R> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const [version, after] = await this.load(tables, articleIds);
+      const [version, after] = await this.load(tables, articleIds, scopedPosts);
       const before = new Map<Table, Map<string, string>>(
         tables.map((table) => [
           table,
@@ -683,7 +704,7 @@ export class SQLRepository implements NewsRepository {
     for (;;) {
       const result = await this.driver.batch([
         [
-          "SELECT id FROM news_articles WHERE json_extract(data,'$._publicationIndex') IS NULL ORDER BY id LIMIT 100",
+          "SELECT id FROM news_articles WHERE json_extract(data,'$._publicationIndex') IS NULL OR json_extract(data,'$._publicationIndex')<2 ORDER BY id LIMIT 100",
           [],
         ],
       ]);
@@ -1044,11 +1065,100 @@ export class SQLRepository implements NewsRepository {
     return publicArticle(decode<Article>(textColumn(row, "data")));
   }
 
+  async articlePage(query: ArticleQuery, now: number): Promise<ArticlePage> {
+    const { where, order, values, limit, offset } = querySQL(query);
+    const snapshotClock = query.snapshot
+      ? Number(query.snapshot.split(":")[1])
+      : now;
+    if (
+      !Number.isFinite(snapshotClock) ||
+      snapshotClock > now ||
+      now - snapshotClock >= 30
+    )
+      throw new ArticlePageConflictError();
+    const result = await this.driver.batch([
+      ["SELECT revision FROM news_meta WHERE id=1", []],
+      [
+        `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total FROM news_articles a,clock WHERE ${where}`,
+        [snapshotClock, ...values],
+      ],
+      [
+        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        [snapshotClock, ...values, limit, offset],
+      ],
+    ]);
+    const snapshot = `${numberColumn(result[0]?.results[0], "revision")}:${snapshotClock}`;
+    if (query.snapshot && query.snapshot !== snapshot)
+      throw new ArticlePageConflictError();
+    return {
+      articles: (result[2]?.results ?? []).map((row) => {
+        const article = publicArticle(decode<Article>(textColumn(row, "data")));
+        if (row.precision)
+          article.metadata = { publicationPrecision: String(row.precision) };
+        return article;
+      }),
+      total: numberColumn(result[1]?.results[0], "total"),
+      offset,
+      limit,
+      snapshot,
+    };
+  }
+
+  async articleCounts(now: number): Promise<ArticleCounts> {
+    const settings = await this.settings();
+    const predicates = {
+      ...statsSQL,
+      queued: eligibleSQL(settings.postSelection),
+      ...Object.fromEntries(
+        Object.entries(bucketsSQL).map(([key, value]) => [
+          `bucket_${key}`,
+          value,
+        ]),
+      ),
+    };
+    const result = await this.driver.batch([
+      [
+        `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total,${Object.entries(
+          predicates,
+        )
+          .map(
+            ([key, value]) =>
+              `COALESCE(sum(CASE WHEN (${value}) THEN 1 ELSE 0 END),0) AS ${key}`,
+          )
+          .join(",")} FROM news_articles a,clock`,
+        [now],
+      ],
+      [
+        "SELECT DISTINCT json_extract(data,'$.topic') AS topic FROM news_articles WHERE json_extract(data,'$.topic') IS NOT NULL AND json_extract(data,'$.topic')<>'' ORDER BY topic LIMIT 100",
+        [],
+      ],
+    ]);
+    const row = result[0]?.results[0];
+    return {
+      total: numberColumn(row, "total"),
+      pending: numberColumn(row, "pending"),
+      expired: numberColumn(row, "expired"),
+      dateReview: numberColumn(row, "dateReview"),
+      queued: numberColumn(row, "queued"),
+      topics: (result[1]?.results ?? []).map((row) => textColumn(row, "topic")),
+      buckets: Object.fromEntries(
+        Object.keys(bucketsSQL).map((key) => [
+          key,
+          numberColumn(row, `bucket_${key}`),
+        ]),
+      ),
+    };
+  }
+
   async review(articleId: string, status: unknown): Promise<Article> {
     if (typeof status !== "string" || !REVIEW_STATUSES.has(status))
       throw new UserError("記事の状態が不正です");
-    return this.mutate(["articles", "posts"], (state) =>
-      reviewArticle(state, articleId, status, timestamp(this.clock())),
+    return this.mutate(
+      ["articles", "posts"],
+      (state) =>
+        reviewArticle(state, articleId, status, timestamp(this.clock())),
+      [articleId],
+      true,
     );
   }
 
@@ -1089,6 +1199,7 @@ export class SQLRepository implements NewsRepository {
         });
       },
       ids,
+      true,
     );
   }
 
@@ -1129,8 +1240,27 @@ export class SQLRepository implements NewsRepository {
     };
   }
 
-  async publicationState(): Promise<Publication> {
-    const [, state] = await this.snapshot(["state", "posts"]);
+  async publicationState(articleIds?: readonly string[]): Promise<Publication> {
+    if (articleIds === undefined) {
+      const [, state] = await this.snapshot(["state", "posts"]);
+      return {
+        ...SQLRepository.publication(state, this.clock()),
+        quota: await this.getRecord<BufferQuota>("buffer", "quota"),
+      };
+    }
+    const [, state] = await this.load(["state"]);
+    const result = await this.driver.batch([
+      [
+        "SELECT id,data FROM news_posts WHERE json_extract(data,'$.status')<>'posted' OR id IN (SELECT value FROM json_each(?)) ORDER BY (id IN (SELECT value FROM json_each(?))) DESC,json_extract(data,'$.attempted_at') DESC,id ASC LIMIT 100",
+        [encode(articleIds), encode(articleIds)],
+      ],
+    ]);
+    state.posts = new Map(
+      (result[0]?.results ?? []).map((row) => [
+        textColumn(row, "id"),
+        decode<Post>(textColumn(row, "data")),
+      ]),
+    );
     return {
       ...SQLRepository.publication(state, this.clock()),
       quota: await this.getRecord<BufferQuota>("buffer", "quota"),
@@ -1554,6 +1684,7 @@ export class SQLRepository implements NewsRepository {
           options.claimToken,
         ),
       [articleId],
+      true,
     );
   }
 
@@ -1564,75 +1695,87 @@ export class SQLRepository implements NewsRepository {
     now: number,
     claimToken?: string,
   ): Promise<void> {
-    await this.mutate(["posts"], (state) => {
-      const post = SQLRepository.post(
-        state,
-        articleId,
-        ["publishing"],
-        claimToken,
-      );
-      Object.assign(post, {
-        status: "submitted",
-        buffer_id: bufferId,
-        channel_id: channelId,
-        check_at: now + 120,
-        check_count: 0,
-        confirmation_deadline: now + CONFIRMATION_TIMEOUT_SECONDS,
-      });
-    });
+    await this.mutate(
+      ["posts"],
+      (state) => {
+        const post = SQLRepository.post(
+          state,
+          articleId,
+          ["publishing"],
+          claimToken,
+        );
+        Object.assign(post, {
+          status: "submitted",
+          buffer_id: bufferId,
+          channel_id: channelId,
+          check_at: now + 120,
+          check_count: 0,
+          confirmation_deadline: now + CONFIRMATION_TIMEOUT_SECONDS,
+        });
+      },
+      [articleId],
+      true,
+    );
   }
 
   async claimPostCheck(now: number): Promise<Post | null> {
     const found = await this.driver.batch([
       [
-        "SELECT 1 FROM news_posts WHERE json_extract(data,'$.status')='submitted' AND json_extract(data,'$.check_at')<=? LIMIT 1",
+        "SELECT id FROM news_posts WHERE json_extract(data,'$.status')='submitted' AND json_extract(data,'$.check_at')<=? ORDER BY json_extract(data,'$.check_at'),id ASC LIMIT 1",
         [now],
       ],
     ]);
-    if (!found[0]?.results.length) return null;
+    const selected = found[0]?.results[0];
+    if (!selected) return null;
+    const articleId = textColumn(selected, "id");
     // Claiming a check consumes the durable confirmation budget before any network request.
-    return this.mutate(["state", "articles", "posts"], (state) => {
-      const pending = [...state.posts.values()]
-        .filter(
-          (post) =>
-            post.status === "submitted" && (post.check_at ?? Infinity) <= now,
-        )
-        .sort((a, b) => (a.check_at ?? 0) - (b.check_at ?? 0));
-      const post = pending[0];
-      if (!post) return null;
-      const deadline =
-        post.confirmation_deadline ??
-        Date.parse(post.attempted_at) / 1000 + CONFIRMATION_TIMEOUT_SECONDS;
-      if (post.check_count >= CONFIRMATION_MAX_CHECKS || now >= deadline) {
-        SQLRepository.finish(
-          state,
-          post.article_id,
-          "unknown",
-          null,
-          post.error
-            ? `Buffer の確認期限または確認回数の上限に達しました。${post.error}`
-            : "Buffer の投稿完了を確認できません。Buffer と X を確認してください",
-          now,
-        );
-        return null;
-      }
-      const token = randomToken();
-      const claimed = {
-        ...post,
-        claim_token: token,
-        confirmation_deadline: deadline,
-      };
-      Object.assign(post, {
-        claim_token: token,
-        confirmation_deadline: deadline,
-        check_at: Math.min(
-          deadline,
-          now + confirmationDelay(post.check_count + 1),
-        ),
-        check_count: post.check_count + 1,
-      });
-      return claimed;
-    });
+    return this.mutate(
+      ["state", "articles", "posts"],
+      (state) => {
+        const pending = [...state.posts.values()]
+          .filter(
+            (post) =>
+              post.status === "submitted" && (post.check_at ?? Infinity) <= now,
+          )
+          .sort((a, b) => (a.check_at ?? 0) - (b.check_at ?? 0));
+        const post = pending[0];
+        if (!post) return null;
+        const deadline =
+          post.confirmation_deadline ??
+          Date.parse(post.attempted_at) / 1000 + CONFIRMATION_TIMEOUT_SECONDS;
+        if (post.check_count >= CONFIRMATION_MAX_CHECKS || now >= deadline) {
+          SQLRepository.finish(
+            state,
+            post.article_id,
+            "unknown",
+            null,
+            post.error
+              ? `Buffer の確認期限または確認回数の上限に達しました。${post.error}`
+              : "Buffer の投稿完了を確認できません。Buffer と X を確認してください",
+            now,
+          );
+          return null;
+        }
+        const token = randomToken();
+        const claimed = {
+          ...post,
+          claim_token: token,
+          confirmation_deadline: deadline,
+        };
+        Object.assign(post, {
+          claim_token: token,
+          confirmation_deadline: deadline,
+          check_at: Math.min(
+            deadline,
+            now + confirmationDelay(post.check_count + 1),
+          ),
+          check_count: post.check_count + 1,
+        });
+        return claimed;
+      },
+      [articleId],
+      true,
+    );
   }
 
   async deferPostCheck(
@@ -1645,25 +1788,30 @@ export class SQLRepository implements NewsRepository {
       nextAt?: number;
     },
   ): Promise<void> {
-    await this.mutate(["posts"], (state) => {
-      const post = SQLRepository.post(
-        state,
-        articleId,
-        ["submitted"],
-        claimToken,
-      );
-      if (observation.remoteStatus !== undefined) {
-        post.remote_status = observation.remoteStatus;
-        post.observed_at = observation.timestamp;
-      }
-      post.error = observation.error ?? null;
-      if (observation.nextAt !== undefined) {
-        post.check_at = Math.min(
-          post.confirmation_deadline ?? Infinity,
-          Math.max(post.check_at ?? 0, observation.nextAt),
+    await this.mutate(
+      ["posts"],
+      (state) => {
+        const post = SQLRepository.post(
+          state,
+          articleId,
+          ["submitted"],
+          claimToken,
         );
-      }
-    });
+        if (observation.remoteStatus !== undefined) {
+          post.remote_status = observation.remoteStatus;
+          post.observed_at = observation.timestamp;
+        }
+        post.error = observation.error ?? null;
+        if (observation.nextAt !== undefined) {
+          post.check_at = Math.min(
+            post.confirmation_deadline ?? Infinity,
+            Math.max(post.check_at ?? 0, observation.nextAt),
+          );
+        }
+      },
+      [articleId],
+      true,
+    );
   }
 
   /** Quota observations do not change business or settings revisions. Older requests cannot replace newer observations. */
@@ -1725,23 +1873,31 @@ export class SQLRepository implements NewsRepository {
   async resolvePost(articleId: string, outcome: unknown): Promise<Publication> {
     if (outcome !== "posted" && outcome !== "not_posted" && outcome !== "retry")
       throw new UserError("X で確認した投稿結果を指定してください");
-    return this.mutate(["state", "articles", "posts"], (state) => {
-      const post = SQLRepository.post(state, articleId, ["unknown", "failed"]);
-      if (outcome === "retry" && !failedBeforeSend(post))
-        throw new UserError(
-          "送信前の失敗ではありません。投稿結果を確認してください",
-        );
-      if (outcome === "posted") {
-        Object.assign(post, { status: "posted", error: null });
-        Object.assign(articleOf(state.articles, articleId), {
-          reviewStatus: "posted",
-          reviewedAt: timestamp(this.clock()),
-        });
-      } else {
-        state.posts.delete(articleId);
-      }
-      return SQLRepository.publication(state, this.clock());
-    });
+    return this.mutate(
+      ["state", "articles", "posts"],
+      (state) => {
+        const post = SQLRepository.post(state, articleId, [
+          "unknown",
+          "failed",
+        ]);
+        if (outcome === "retry" && !failedBeforeSend(post))
+          throw new UserError(
+            "送信前の失敗ではありません。投稿結果を確認してください",
+          );
+        if (outcome === "posted") {
+          Object.assign(post, { status: "posted", error: null });
+          Object.assign(articleOf(state.articles, articleId), {
+            reviewStatus: "posted",
+            reviewedAt: timestamp(this.clock()),
+          });
+        } else {
+          state.posts.delete(articleId);
+        }
+        return SQLRepository.publication(state, this.clock());
+      },
+      [articleId],
+      true,
+    );
   }
 
   async evidenceHash(article: Article): Promise<string> {

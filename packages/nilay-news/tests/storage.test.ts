@@ -781,6 +781,7 @@ describe("automatic classification setting", () => {
       "0002_auto_analyze.sql",
       "0003_automatic_jobs.sql",
       "0004_article_publication_index.sql",
+      "0005_article_list_index.sql",
     ]);
     const partial = new SQLiteDriver(join(directory, "legacy.sqlite3"), [
       "0001_news.sql",
@@ -2696,8 +2697,8 @@ describe("races", () => {
     intercept(loserDriver, async (original, statements) => {
       const results = await original(statements);
       if (
-        statements.some(
-          ([sql]) => sql === "SELECT id,data FROM news_articles",
+        statements.some(([sql]) =>
+          sql.startsWith("SELECT id,data FROM news_articles WHERE"),
         ) &&
         (snapshots += 1) === 1
       ) {

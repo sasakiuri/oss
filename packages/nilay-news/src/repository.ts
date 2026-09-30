@@ -12,6 +12,35 @@ import type {
 } from "./domain.ts";
 import type { CollectedItem, SourceConfig } from "./sources/types.ts";
 
+export interface ArticleQuery {
+  bucket?: string;
+  query?: string;
+  topic?: string;
+  analysis?: string;
+  relation?: string;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+  /** Revision and clock window from the preceding page. */
+  snapshot?: string;
+}
+export interface ArticlePage {
+  articles: Article[];
+  total: number;
+  offset: number;
+  limit: number;
+  snapshot: string;
+}
+export interface ArticleCounts {
+  total: number;
+  pending: number;
+  expired: number;
+  dateReview: number;
+  queued: number;
+  buckets: Record<string, number>;
+  topics: string[];
+}
+
 export interface FinishPostOptions {
   postId?: string | null;
   error?: string | null;
@@ -63,10 +92,12 @@ export interface NewsRepository {
   ingest(source: SourceConfig, items: CollectedItem[]): Promise<number>;
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
+  articlePage(query: ArticleQuery, timestamp: number): Promise<ArticlePage>;
+  articleCounts(timestamp: number): Promise<ArticleCounts>;
   review(articleId: string, status: unknown): Promise<Article>;
   reviewMany(articleIds: unknown, status: unknown): Promise<Article[]>;
   dismiss(articleIds: unknown): Promise<Article[]>;
-  publicationState(): Promise<Publication>;
+  publicationState(articleIds?: readonly string[]): Promise<Publication>;
   postCandidates(): Promise<Article[]>;
   /** Resolve only the selected Google link before the fenced draft reservation. */
   claimPost(

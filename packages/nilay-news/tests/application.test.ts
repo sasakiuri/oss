@@ -713,7 +713,10 @@ describe("source-rule candidates", () => {
         { ...item, url: `https://example.org/${id}` },
       ]);
     await repo.updateSettings({ postSelection: "candidates" });
-    const state = await app.state();
+    const state = {
+      ...(await app.state()),
+      articles: (await app.articles({ bucket: "all" })).articles,
+    };
     expect(
       state.articles
         .map((article) => [
@@ -2174,7 +2177,10 @@ describe("publication freshness", () => {
       { ...item, url: `${item.url}/future`, publishedAt: published(60) },
       { ...item, url: `${item.url}/ages`, publishedAt: published(-DAY + 10) },
     ]);
-    const before = await app.state();
+    const before = {
+      ...(await app.state()),
+      articles: (await app.articles({ bucket: "all" })).articles,
+    };
     expect(
       Object.fromEntries(
         before.articles.map((article) => [
@@ -2189,7 +2195,7 @@ describe("publication freshness", () => {
       future: "future",
       ages: "fresh",
     });
-    expect(before.stats).toEqual({
+    expect(before.stats).toMatchObject({
       total: 5,
       pending: 2,
       expired: 0,
@@ -2198,12 +2204,15 @@ describe("publication freshness", () => {
     // Derived on every read, never stored.
     expect((await repo.articles())[0]).not.toHaveProperty("freshness");
     advance(11);
-    const after = await app.state();
+    const after = {
+      ...(await app.state()),
+      articles: (await app.articles({ bucket: "all" })).articles,
+    };
     expect(
       after.articles.find((article) => article.url.endsWith("/ages"))
         ?.freshness,
     ).toBe("stale");
-    expect(after.stats).toEqual({
+    expect(after.stats).toMatchObject({
       total: 5,
       pending: 1,
       expired: 1,
@@ -2411,7 +2420,10 @@ describe("publication freshness", () => {
     await earlier.repo.review(old!.id, "saved");
     await repo.importSnapshot(await earlier.repo.exportSnapshot());
     await repo.updateSettings({ autoAnalyze: true });
-    const state = await app.state();
+    const state = {
+      ...(await app.state()),
+      articles: (await app.articles({ bucket: "all" })).articles,
+    };
     expect(state.articles).toHaveLength(1);
     expect(state.articles[0]).toMatchObject({
       id: old!.id,

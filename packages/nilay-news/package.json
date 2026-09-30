@@ -10,6 +10,7 @@
     "build": "node scripts/check-config.ts && wrangler deploy --dry-run --config wrangler.feeds.jsonc --outdir .local/feeds-dist && wrangler deploy --dry-run --outdir .local/dist",
     "test": "vitest run",
     "test:runtime": "vitest run --project runtime",
+    "benchmark:articles": "node --experimental-transform-types scripts/benchmark-articles.ts",
     "lint": "eslint . && node scripts/check-config.ts && node --check public/app.js",
     "fix": "eslint --fix .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",

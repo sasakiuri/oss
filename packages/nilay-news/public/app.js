@@ -12,6 +12,9 @@ const model = {
   bulkStatus: "dismissed",
   sort: "newest",
   visibleCount: PAGE_SIZE,
+  articlePage: null,
+  listRequest: 0,
+  detail: null,
   loading: true,
   requestPending: false,
   pollTimer: null,
@@ -317,16 +320,12 @@ async function loadState() {
   clearTimeout(model.pollTimer);
   try {
     const state = await api("/api/state");
-    if (
-      !Array.isArray(state.articles) ||
-      !Array.isArray(state.sources) ||
-      !state.settings ||
-      !state.job
-    ) {
+    if (!Array.isArray(state.sources) || !state.settings || !state.job) {
       throw new Error("受信箱のデータ形式を確認できませんでした。");
     }
     const changed = JSON.stringify(state) !== JSON.stringify(model.state);
-    model.state = state;
+    model.state = { ...state, articles: model.state?.articles || [] };
+    await loadArticles(model.articlePage?.offset || 0, false);
     model.stateEtag = model.receivedStateEtag;
     model.loading = false;
     model.loadError = null;
@@ -411,6 +410,70 @@ function collect() {
     {},
     "記事の収集を受け付けました。順次処理します。",
   );
+}
+
+async function loadArticles(offset = 0, shouldRender = true) {
+  if (!model.state || model.view === "settings") return;
+  const request = ++model.listRequest;
+  const parameters = new URLSearchParams({
+    bucket: model.view,
+    query: model.query,
+    topic: model.topic,
+    analysis: model.analysis,
+    relation: model.relation,
+    sort: model.sort,
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+  });
+  if (offset && model.articlePage?.snapshot)
+    parameters.set("snapshot", model.articlePage.snapshot);
+  try {
+    const page = await api(`/api/articles?${parameters}`);
+    if (request !== model.listRequest) return;
+    model.articlePage = page;
+    model.state.articles = page.articles;
+    model.state.publication = {
+      ...model.state.publication,
+      ...page.publication,
+    };
+    if (
+      model.selectedId &&
+      !page.articles.some((article) => article.id === model.selectedId)
+    ) {
+      model.selectedId = null;
+      model.detail = null;
+    }
+    if (model.selectedId) await loadDetail(model.selectedId, false);
+    if (shouldRender) render();
+  } catch (error) {
+    if (request !== model.listRequest) return;
+    if (error.code === "article_page_conflict" && offset) {
+      model.checkedIds.clear();
+      showNotice(error.message);
+      return loadArticles(0, shouldRender);
+    }
+    showNotice(`一覧を読み込めませんでした。${error.message}`, true);
+  }
+}
+
+async function loadDetail(id, shouldRender = true) {
+  try {
+    const article = await api(`/api/articles/${encodeURIComponent(id)}`);
+    if (model.selectedId !== id) return;
+    model.detail = article;
+    model.state.publication = {
+      ...model.state.publication,
+      ...article.publication,
+    };
+    if (shouldRender) renderDetail();
+  } catch (error) {
+    if (model.selectedId !== id) return;
+    showNotice(`記事を読み込めませんでした。${error.message}`, true);
+    const retry = button("記事の読み込みを再試行", "button", () =>
+      loadDetail(id),
+    );
+    $("detail-panel").append(retry);
+  }
 }
 
 function analyze(articleId) {
@@ -545,58 +608,11 @@ function setView(view) {
   model.checkedIds.clear();
   model.settingsRendered = false;
   render();
+  loadArticles();
 }
 
 function visibleArticles() {
-  if (!model.state) return [];
-  const bucket = buckets.find((item) => item.id === model.view) || buckets[0];
-  const query = model.query.toLocaleLowerCase();
-  return model.state.articles
-    .filter(bucket.match)
-    .filter((article) => {
-      const searchable = [
-        article.title,
-        article.sourceName,
-        article.excerpt,
-        article.topic,
-        article.body,
-        JSON.stringify(article.metadata || {}),
-        ...(article.attachments || []).map((attachment) => attachment.title),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase();
-      return (
-        (!query || searchable.includes(query)) &&
-        (!model.topic || article.topic === model.topic) &&
-        (!model.analysis ||
-          (["pending", "error"].includes(model.analysis)
-            ? (article.analysisStatus || "pending") === model.analysis
-            : article.analysisStatus === "done" &&
-              article.decision === model.analysis)) &&
-        (!model.relation ||
-          (model.relation === "none"
-            ? !article.relation
-            : article.relation === model.relation))
-      );
-    })
-    .sort((a, b) => {
-      if (model.sort === "priority") {
-        const decisionScore = { candidate: 3, review: 1, irrelevant: -1 };
-        const score = (article) =>
-          (article.sourceCandidate
-            ? decisionScore.candidate
-            : decisionScore[article.decision] || 0) *
-            10 +
-          (article.priority || 0);
-        const difference = score(b) - score(a);
-        if (difference) return difference;
-      }
-      return (
-        (Date.parse(b.publishedAt || b.discoveredAt) || 0) -
-        (Date.parse(a.publishedAt || a.discoveredAt) || 0)
-      );
-    });
+  return model.state?.articles || [];
 }
 
 function renderHeader() {
@@ -604,11 +620,7 @@ function renderHeader() {
   const busy = !!state?.job.running || model.requestPending || !state;
   $("collect-button").disabled = busy;
   $("analyze-button").disabled =
-    busy ||
-    !state?.settings.jevConfigured ||
-    !state.articles.some(
-      (a) => a.freshness === "fresh" && a.analysisStatus !== "done",
-    );
+    busy || !state?.settings.jevConfigured || !state.stats.pending;
   $("analyze-button").title = !state?.settings.jevConfigured
     ? "収集元と設定で Jev の API キーを設定してください。"
     : "鮮度条件を満たす未判定・仕分け失敗の記事を、新しい順に Jev で判定します。";
@@ -668,7 +680,7 @@ function renderNavigation() {
       );
       node.append(
         el("span", "", bucket.label),
-        el("span", "nav-count", articles.filter(bucket.match).length),
+        el("span", "nav-count", model.state?.stats.buckets[bucket.id] || 0),
       );
       if (bucket.id === model.view) node.setAttribute("aria-current", "page");
       return node;
@@ -677,13 +689,7 @@ function renderNavigation() {
 }
 
 function renderTopics() {
-  const topics = [
-    ...new Set(
-      (model.state?.articles || [])
-        .map((article) => article.topic)
-        .filter(Boolean),
-    ),
-  ].sort();
+  const topics = model.state?.stats.topics || [];
   const select = $("topic-filter");
   if (JSON.stringify(topics) !== select.dataset.topics) {
     const empty = el("option", "", "すべてのテーマ");
@@ -790,6 +796,8 @@ function renderArticle(article) {
     "article-select",
     () => {
       model.selectedId = article.id;
+      model.detail = null;
+      loadDetail(article.id);
       renderArticles();
       renderDetail();
       if (window.matchMedia("(max-width: 960px)").matches) {
@@ -944,42 +952,53 @@ function renderArticles() {
     model.selectedId = null;
     renderDetail();
   }
-  $("list-count").textContent = `${articles.length} 件`;
-  const shown = articles.slice(0, model.visibleCount);
-  renderBulkActions(shown);
+  const total = model.articlePage?.total || 0;
+  const offset = model.articlePage?.offset || 0;
+  $("list-count").textContent = `${total} 件`;
+  renderBulkActions(articles);
   $("article-list").replaceChildren(
-    ...(shown.length ? shown.map(renderArticle) : [renderEmpty()]),
+    ...(articles.length ? articles.map(renderArticle) : [renderEmpty()]),
   );
   $("list-footnote").textContent =
-    `${articles.length} 件中 ${shown.length} 件を表示`;
-  $("list-footnote").hidden = shown.length >= articles.length;
+    `${total} 件中 ${total ? offset + 1 : 0}–${offset + articles.length} 件を表示`;
+  $("list-footnote").hidden = total <= PAGE_SIZE;
   $("list-pagination").replaceChildren();
-  if (shown.length < articles.length) {
-    const more = button(
-      `さらに ${Math.min(PAGE_SIZE, articles.length - shown.length)} 件を表示`,
-      "button button-subtle button-full",
-      () => {
-        const firstNewId = articles[shown.length]?.id;
-        model.visibleCount += PAGE_SIZE;
-        renderArticles();
-        [...document.querySelectorAll("[data-focus]")]
-          .find((node) => node.dataset.focus === `article-${firstNewId}`)
-          ?.focus({ preventScroll: true });
-      },
-      "load-more",
+  if (offset)
+    $("list-pagination").append(
+      button(
+        "前のページ",
+        "button button-subtle button-full",
+        async () => {
+          model.checkedIds.clear();
+          await loadArticles(Math.max(0, offset - PAGE_SIZE));
+          $("article-list").querySelector("button")?.focus();
+        },
+        "previous-page",
+      ),
     );
-    more.setAttribute("aria-controls", "article-list");
-    $("list-pagination").append(more);
-  }
+  if (offset + articles.length < total)
+    $("list-pagination").append(
+      button(
+        "次のページ",
+        "button button-subtle button-full",
+        async () => {
+          model.checkedIds.clear();
+          await loadArticles(offset + PAGE_SIZE);
+          $("article-list").querySelector("button")?.focus();
+        },
+        "next-page",
+      ),
+    );
 }
 
 function renderDetail() {
   const panel = $("detail-panel");
   panel.tabIndex = -1;
   panel.replaceChildren();
-  const article = model.state?.articles.find(
-    (item) => item.id === model.selectedId,
-  );
+  const article =
+    model.detail?.id === model.selectedId
+      ? model.detail
+      : model.state?.articles.find((item) => item.id === model.selectedId);
   $("reading-workspace").classList.toggle("has-selection", !!article);
   if (!article) {
     const empty = el("div", "detail-empty");
@@ -1103,9 +1122,9 @@ function renderDetail() {
   } else {
     analysis.append(el("p", "", "未判定"));
   }
-  const related = model.state.articles.find(
-    (item) => item.id === article.relatedArticleId,
-  );
+  const related =
+    article.related ||
+    model.state.articles.find((item) => item.id === article.relatedArticleId);
   if (article.relation && article.relation !== "different") {
     analysis.append(
       el("p", "", relationLabels[article.relation] || "関連する記事"),
@@ -1137,11 +1156,13 @@ function renderDetail() {
           $("analysis-filter").value = "";
           $("relation-filter").value = "";
           model.selectedId = related.id;
-          const relatedIndex = visibleArticles().findIndex(
-            (item) => item.id === related.id,
-          );
-          model.visibleCount =
-            Math.max(1, Math.ceil((relatedIndex + 1) / PAGE_SIZE)) * PAGE_SIZE;
+          model.detail = null;
+          model.query = related.title;
+          $("search").value = related.title;
+          loadArticles().then(() => {
+            model.selectedId = related.id;
+            return loadDetail(related.id);
+          });
           render();
         }),
       );
@@ -2175,24 +2196,28 @@ $("collection-warning-details").addEventListener("click", () =>
 $("search").addEventListener("input", (event) => {
   model.query = event.target.value.trim();
   model.visibleCount = PAGE_SIZE;
-  renderArticles();
+  model.checkedIds.clear();
+  loadArticles();
 });
 $("topic-filter").addEventListener("change", (event) => {
   model.topic = event.target.value;
   model.visibleCount = PAGE_SIZE;
-  renderArticles();
+  model.checkedIds.clear();
+  loadArticles();
 });
 for (const key of ["analysis", "relation"]) {
   $(`${key}-filter`).addEventListener("change", (event) => {
     model[key] = event.target.value;
     model.visibleCount = PAGE_SIZE;
-    renderArticles();
+    model.checkedIds.clear();
+    loadArticles();
   });
 }
 $("sort-filter").addEventListener("change", (event) => {
   model.sort = event.target.value;
   model.visibleCount = PAGE_SIZE;
-  renderArticles();
+  model.checkedIds.clear();
+  loadArticles();
 });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh();

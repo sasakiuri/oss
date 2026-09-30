@@ -4,7 +4,7 @@ import { CachedFetch, CrawlDeferred, type SourceAttempt } from "./crawl.ts";
 import { withDeadline } from "./deadline.ts";
 import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
-import { SettingsConflictError, UserError } from "./errors.ts";
+import { NotFoundError, SettingsConflictError, UserError } from "./errors.ts";
 import { freshness, isFreshPublication, newestFirst } from "./freshness.ts";
 import { GoogleNewsResolver, resolveGoogleNewsItems } from "./google-news.ts";
 import { Jev } from "./jev.ts";
@@ -19,7 +19,7 @@ import {
   POST_WINDOW_LABEL,
 } from "./publication-policy.ts";
 import { BufferClient, Publisher } from "./publishing.ts";
-import type { NewsRepository } from "./repository.ts";
+import type { ArticleQuery, NewsRepository } from "./repository.ts";
 import { nextPhase } from "./schedule.ts";
 import { collectSource } from "./sources/index.ts";
 import type { SourceConfig } from "./sources/types.ts";
@@ -125,7 +125,11 @@ export class Application {
     this.crawl = options.crawl;
     this.crawlTransport = options.crawlTransport;
     this.publisher = new Publisher(
-      repository, buffer, this.clock, jev, this.crawlTransport,
+      repository,
+      buffer,
+      this.clock,
+      jev,
+      this.crawlTransport,
     );
     this.notifier = options.notifier ?? new Notifier(repository);
   }
@@ -138,43 +142,25 @@ export class Application {
 
   async state() {
     const now = this.clock();
-    const articles = (await this.repository.articles()).map((article) => {
-      let postDraft: string | null = null;
-      try {
-        postDraft = draft(article);
-      } catch (error) {
-        if (!(error instanceof UserError)) throw error;
-      }
-      // Derived from the stored source IDs on every read, never stored.
-      return {
-        ...article,
-        sourceCandidate: isSourceCandidate(article),
-        freshness: freshness(
-          article.publishedAt,
-          now,
-          article.metadata?.publicationPrecision,
-        ),
-        postDraft,
-      };
-    });
-    // Unclassified articles by whether automation may classify them.
-    const unclassified = articles.filter(
-      (article) => article.analysisStatus !== "done",
-    );
+    const stats = await this.repository.articleCounts(now);
     const analysis = await this.repository.getRecord<{ nextAt: number }>(
       "scheduler",
       "analysis",
     );
     return {
-      articles,
       sources: await this.repository.sources(),
-      job: await this.repository.getJob(),
+      job: {
+        ...(await this.repository.getJob()),
+        workIds: undefined,
+        articleIds: undefined,
+        rubric: undefined,
+      },
       publication: {
-        ...(await this.repository.publicationState()),
+        ...(await this.repository.publicationState([])),
         configured: this.buffer.configured,
         account: ACCOUNT,
         provider: "Buffer",
-        queued: (await this.repository.postCandidates()).length,
+        queued: stats.queued,
         error: null,
       },
       settings: {
@@ -185,19 +171,56 @@ export class Application {
         autoAnalyzePausedUntil:
           analysis && analysis.nextAt > this.clock() ? analysis.nextAt : null,
       },
-      stats: {
-        total: articles.length,
-        pending: unclassified.filter((article) => article.freshness === "fresh")
-          .length,
-        /** Published more than 24 hours ago; manual review only. */
-        expired: unclassified.filter((article) => article.freshness === "stale")
-          .length,
-        /** Undated, invalid or future publication time; manual review only. */
-        dateReview: unclassified.filter(
-          (article) =>
-            article.freshness !== "fresh" && article.freshness !== "stale",
-        ).length,
-      },
+      stats,
+    };
+  }
+
+  private decorateArticle(article: Article, now = this.clock()) {
+    return {
+      ...article,
+      sourceCandidate: isSourceCandidate(article),
+      freshness: freshness(
+        article.publishedAt,
+        now,
+        article.metadata?.publicationPrecision,
+      ),
+    };
+  }
+
+  async articles(query: ArticleQuery) {
+    const page = await this.repository.articlePage(query, this.clock());
+    return {
+      ...page,
+      articles: page.articles.map((article) =>
+        this.decorateArticle(article, Number(page.snapshot.split(":")[1])),
+      ),
+      publication: await this.repository.publicationState(
+        page.articles.map((article) => article.id),
+      ),
+    };
+  }
+
+  async article(id: string) {
+    const article = await this.repository.article(id);
+    let postDraft: string | null = null;
+    try {
+      postDraft = draft(article);
+    } catch (error) {
+      if (!(error instanceof UserError)) throw error;
+    }
+    const related = article.relatedArticleId
+      ? await this.repository
+          .article(article.relatedArticleId)
+          .catch((error: unknown) => {
+            if (error instanceof NotFoundError) return null;
+            throw error;
+          })
+      : null;
+    return {
+      ...this.decorateArticle(article),
+      postDraft,
+      related: related ? this.decorateArticle(related) : null,
+      publication: await this.repository.publicationState([id]),
     };
   }
 
@@ -286,14 +309,17 @@ export class Application {
           });
           const url = await resolver.resolve(first.url);
           prepared = {
-            ...first, url,
+            ...first,
+            url,
             metadata: { ...first.metadata, googleNewsUrl: first.url },
           };
           const attempted = new Set(posts.map((post) => post.articleId));
           if (
             !first.sourceKey &&
             (await this.repository.articles()).some(
-              (other) => other.id !== first.id && !other.sourceKey &&
+              (other) =>
+                other.id !== first.id &&
+                !other.sourceKey &&
                 other.url === url &&
                 (other.reviewStatus === "posted" || attempted.has(other.id)),
             )
@@ -302,9 +328,13 @@ export class Application {
               "同じ元記事URLに投稿済みまたは投稿結果の確認待ちの記事があります",
             );
         }
-        if (!isFreshPublication(
-          prepared.publishedAt, this.clock(), prepared.metadata?.publicationPrecision,
-        ))
+        if (
+          !isFreshPublication(
+            prepared.publishedAt,
+            this.clock(),
+            prepared.metadata?.publicationPrecision,
+          )
+        )
           throw new UserError("確認中に記事の投稿対象期間が過ぎました");
         firstCandidate = { articleId: first.id, text: draft(prepared) };
       } catch (error) {

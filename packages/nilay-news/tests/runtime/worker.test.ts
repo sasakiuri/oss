@@ -158,6 +158,29 @@ async function fixtureRuntime() {
   return { runtime, request };
 }
 
+/** Join the lightweight status, bounded list and on-demand detail APIs for workflow assertions. */
+async function readInbox(
+  request: (path: string) => Promise<{ json(): Promise<unknown> }>,
+) {
+  const status = (await (await request("/api/state")).json()) as {
+    publication: object;
+  };
+  const page = (await (
+    await request("/api/articles?bucket=all&limit=100")
+  ).json()) as { articles: { id: string }[]; publication: object };
+  const articles = await Promise.all(
+    page.articles.map(
+      async (article) =>
+        await (await request(`/api/articles/${article.id}`)).json(),
+    ),
+  );
+  return {
+    ...status,
+    articles,
+    publication: { ...status.publication, ...page.publication },
+  };
+}
+
 describe("real Worker, D1 and WebCrypto", () => {
   it("authenticates, collects durably, reviews and posts once through mocked APIs", async () => {
     const { runtime, request } = await fixtureRuntime();
@@ -197,7 +220,7 @@ describe("real Worker, D1 and WebCrypto", () => {
       expect((await request("/api/collect", {})).status).toBe(202);
       const worker = await runtime.getWorker();
       await worker.scheduled({ cron: "* * * * *" });
-      const state = (await (await request("/api/state")).json()) as {
+      const state = (await readInbox(request)) as {
         articles: { id: string; reviewStatus: string; postDraft: string }[];
         job: { running: boolean };
         settings: { autoPost: boolean };
@@ -234,9 +257,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         ready: true,
       });
       expect(await (await request("/fixture/calls")).json()).toEqual(["query"]);
-      const checked = (await (
-        await request("/api/state")
-      ).json()) as typeof state;
+      const checked = (await readInbox(request)) as typeof state;
       expect(checked.settings.autoPost).toBe(false);
       expect((await request("/api/settings", { autoPost: true })).status).toBe(
         200,
@@ -244,9 +265,7 @@ describe("real Worker, D1 and WebCrypto", () => {
       await request("/fixture/advance");
       await worker.scheduled({ cron: "* * * * *" });
       await worker.scheduled({ cron: "* * * * *" });
-      const final = (await (
-        await request("/api/state")
-      ).json()) as typeof state;
+      const final = (await readInbox(request)) as typeof state;
       expect(final.articles[0]?.reviewStatus).toBe("posted");
       expect(final.publication.posts[0]?.postId).toBe("123");
       // Preflight, enabling and the send each verify the account first.
@@ -270,8 +289,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         job: { running: boolean; kind: string; failed: number };
         settings: { autoAnalyze: boolean; autoAnalyzePausedUntil: number };
       };
-      const state = async () =>
-        (await (await request("/api/state")).json()) as State;
+      const state = async () => (await readInbox(request)) as unknown as State;
       expect((await state()).settings.autoAnalyze).toBe(false);
       expect(
         (
@@ -328,8 +346,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         };
         stats: { total: number; pending: number };
       };
-      const state = async () =>
-        (await (await request("/api/state")).json()) as State;
+      const state = async () => (await readInbox(request)) as unknown as State;
       const calls = async () =>
         (await (await request("/fixture/calls")).json()) as string[];
       await request("/fixture/classify");
@@ -342,7 +359,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         ).status,
       ).toBe(200);
       await worker.scheduled({ cron: "* * * * *" });
-      expect((await state()).stats).toEqual({
+      expect((await state()).stats).toMatchObject({
         total: 12,
         pending: 12,
         expired: 0,
@@ -389,8 +406,7 @@ describe("real Worker, D1 and WebCrypto", () => {
           posts: { articleId: string; status: string; text: string }[];
         };
       };
-      const state = async () =>
-        (await (await request("/api/state")).json()) as State;
+      const state = async () => (await readInbox(request)) as unknown as State;
       const calls = async () =>
         (await (await request("/fixture/calls")).json()) as string[];
       // Twelve fresh articles, saved for automatic posting.
@@ -456,8 +472,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         }[];
         publication: { posts: { articleId: string; status: string }[] };
       };
-      const state = async () =>
-        (await (await request("/api/state")).json()) as State;
+      const state = async () => (await readInbox(request)) as unknown as State;
       await request("/fixture/duplicates");
       await request("/api/collect", {});
       await worker.scheduled({ cron: "* * * * *" });
