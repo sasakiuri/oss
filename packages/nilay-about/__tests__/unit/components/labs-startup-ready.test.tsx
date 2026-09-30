@@ -41,6 +41,7 @@ it('retires startup recovery after hydration and saved-state readiness without c
     script.src = '/_next/static/chunks/late.js';
     shell.append(script);
     script.dispatchEvent(new Event('error'));
+    expect(sessionStorage.getItem(retryKey)).toBeNull();
     expect(reload).not.toHaveBeenCalled();
     expect(shell.querySelector<HTMLElement>('[data-labs-startup-failure]')?.hidden).toBe(true);
     expect(localStorage.getItem(savedKey)).toBe('{"unit":"m","value":12}');
