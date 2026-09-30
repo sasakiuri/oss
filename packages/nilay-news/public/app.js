@@ -1122,6 +1122,53 @@ function renderDetail() {
   } else {
     analysis.append(el("p", "", "未判定"));
   }
+  if (article.analysisStatus === "done" || article.relationProvenance?.length) {
+    const record = el("details", "analysis-provenance");
+    record.append(el("summary", "", "判定の構成と記録"));
+    const describe = (provenance) => {
+      record.append(
+        el(
+          "p",
+          "",
+          `要求モデル: ${provenance.requestedModel} / 応答モデル: ${provenance.resolvedModel || "不明（応答に記録なし）"}`,
+        ),
+      );
+      record.append(
+        el(
+          "p",
+          "",
+          `判定時刻: ${dateText(provenance.analyzedAt, true)} / 質問版: ${provenance.promptVersion} / 分類基準版: ${provenance.criteriaVersion} / 振り分け方針版: ${provenance.routingPolicyVersion}`,
+        ),
+      );
+      for (const [label, value] of [
+        ["質問と分類基準", provenance.criteriaHash],
+        ["振り分け方針", provenance.routingPolicyHash],
+        ["選定基準", provenance.rubricHash],
+        ["送信入力", provenance.modelInputHash],
+      ])
+        record.append(el("p", "", `${label} SHA-256: ${value}`));
+    };
+    if (article.provenance) describe(article.provenance);
+    else
+      record.append(
+        el(
+          "p",
+          "",
+          "話題の分類の構成記録は不明です。旧データや手動記録からモデルや質問の版は推測しません。",
+        ),
+      );
+    for (const provenance of article.relationProvenance || []) {
+      record.append(
+        el(
+          "p",
+          "",
+          `比較記事 ${provenance.comparisonArticleId} / 比較入力 SHA-256: ${provenance.comparisonInputHash}`,
+        ),
+      );
+      describe(provenance);
+    }
+    analysis.append(record);
+  }
   const related =
     article.related ||
     model.state.articles.find((item) => item.id === article.relatedArticleId);

@@ -45,6 +45,7 @@ import {
   publisherUrl,
 } from "../net/google-news.ts";
 import { FetchError } from "../net/http.ts";
+import { modelEvidence } from "../news-evidence.ts";
 import { draft } from "../posts.ts";
 import {
   isPostingTime,
@@ -332,6 +333,8 @@ function publicArticle(article: Article): Article {
 
 function resetAnalysis(article: Article): void {
   Object.assign(article, {
+    provenance: null,
+    relationProvenance: null,
     topic: null,
     decision: null,
     priority: null,
@@ -1923,10 +1926,18 @@ export class SQLRepository implements NewsRepository {
     result: Analysis,
     relationHash?: string | null,
   ): Promise<boolean> {
-    // Only the target and its relation are read, independent of the inbox size.
-    const selected = result.relatedArticleId
-      ? [articleId, result.relatedArticleId]
-      : [articleId];
+    // The target and at most the configured comparison limit are read.
+    const selected = [
+      ...new Set([
+        articleId,
+        ...(result.relatedArticleId ? [result.relatedArticleId] : []),
+        ...(result.relationProvenance ?? []).flatMap((provenance) =>
+          provenance.comparisonArticleId
+            ? [provenance.comparisonArticleId]
+            : [],
+        ),
+      ]),
+    ];
     return this.mutate(
       ["state", "articles"],
       async (state) => {
@@ -1936,6 +1947,17 @@ export class SQLRepository implements NewsRepository {
           settingsOf(state.state).rubric !== rubric
         )
           return false;
+        for (const provenance of result.relationProvenance ?? []) {
+          const other = provenance.comparisonArticleId
+            ? state.articles.get(provenance.comparisonArticleId)
+            : undefined;
+          if (
+            !other ||
+            (await sha256(JSON.stringify(modelEvidence(other)))) !==
+              provenance.comparisonInputHash
+          )
+            return false;
+        }
         if (
           result.relatedArticleId &&
           relationHash !== undefined &&

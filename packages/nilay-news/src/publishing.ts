@@ -582,25 +582,25 @@ export class Publisher {
     const settings = await this.repository.settings();
     try {
       const result = await this.jev.relate(article, settings.rubric, posted);
-      if (["duplicate", "uncertain"].includes(result.relation ?? "")) {
+      const blocking = ["duplicate", "uncertain"].includes(
+        result.relation ?? "",
+      );
+      if (blocking || result.relationProvenance?.length) {
         const related = posted.find(
           (other) => other.id === result.relatedArticleId,
         );
-        if (
-          !related ||
-          !(await this.repository.analyzeResult(
-            articleId,
-            evidenceHash,
-            settings.rubric,
-            { ...result, analysisStatus: article.analysisStatus },
-            await this.repository.evidenceHash(related),
-          ))
-        )
-          throw new UserError(
-            "重複確認中に記事または選定基準が変更されました。再確認してください",
-          );
-        return { evidenceHash, permitted: false };
+        if (result.relatedArticleId && !related)
+          throw new UserError("比較記事が変更されました。再確認してください");
+        const saved = await this.repository.analyzeResult(
+          articleId,
+          evidenceHash,
+          settings.rubric,
+          { ...result, analysisStatus: article.analysisStatus },
+          related ? await this.repository.evidenceHash(related) : undefined,
+        );
+        if (!saved) return { evidenceHash, permitted: false };
       }
+      if (blocking) return { evidenceHash, permitted: false };
     } catch (error) {
       throw new PostError(
         `投稿前の重複確認に失敗しました。${error instanceof UserError ? error.message : "Jev の応答を確認してください"}`,

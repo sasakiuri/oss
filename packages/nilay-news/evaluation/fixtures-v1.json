@@ -1,0 +1,496 @@
+{
+  "fixtureVersion": 1,
+  "synthetic": true,
+  "curation": "Agent-authored proposed labels; no human review has been recorded.",
+  "rubric": "狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作や対象外の生物の記事を除く。",
+  "cases": [
+    {
+      "id": "bear",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "具体的な野生哺乳類の管理ニュース。",
+      "article": {
+        "id": "bear",
+        "title": "北海道の町でクマを捕獲",
+        "excerpt": "町は住宅付近に出没したクマを捕獲した。",
+        "url": "https://example.org/bear",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "shooting",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "見出しだけで対象競技が明確。",
+      "article": {
+        "id": "shooting",
+        "title": "県選手権のライフル射撃で大会記録",
+        "excerpt": "",
+        "url": "https://example.org/shooting",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "fiction",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "実際の狩猟ではなく創作の話題。",
+      "article": {
+        "id": "fiction",
+        "title": "ゲームのハンター新装備を発表",
+        "excerpt": "",
+        "url": "https://example.org/fiction",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "fiction",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "insects",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "鳥類・哺乳類ではない対象。",
+      "article": {
+        "id": "insects",
+        "title": "外来アリの防除計画を公表",
+        "excerpt": "",
+        "url": "https://example.org/insects",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "unrelated",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "ambiguous",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "対象分野との関係が不明。",
+      "article": {
+        "id": "ambiguous",
+        "title": "地域の新しい取組を発表",
+        "excerpt": "",
+        "url": "https://example.org/ambiguous",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "review",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "insufficient",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "split",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "Mock の分布が分類の自動処理基準に達しないケース。",
+      "article": {
+        "id": "split",
+        "title": "クマとの共生を題材にした作品展",
+        "excerpt": "",
+        "url": "https://example.org/split",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "review",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.6,
+        "relations": {}
+      }
+    },
+    {
+      "id": "policy",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "対象分野を明示する行政情報。",
+      "article": {
+        "id": "policy",
+        "title": "鳥獣保護管理法の意見募集を開始",
+        "excerpt": "",
+        "url": "https://example.org/policy",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "policy",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "duplicate",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "同じ出来事の再報道で新しい進展なし。",
+      "article": {
+        "id": "duplicate",
+        "title": "北海道の町でクマを捕獲 別媒体報道",
+        "excerpt": "町は住宅付近に出没したクマを捕獲した。",
+        "url": "https://example.org/duplicate",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [
+        {
+          "id": "original",
+          "title": "北海道の町でクマを捕獲",
+          "excerpt": "町は住宅付近に出没したクマを捕獲した。",
+          "url": "https://example.org/original",
+          "publishedAt": "2026-09-30T00:00:00Z",
+          "discoveredAt": "2026-09-30T00:00:00Z",
+          "sourceName": "Synthetic fixture",
+          "sourceIds": [
+            "fixture"
+          ],
+          "reviewStatus": "posted",
+          "analysisStatus": "pending"
+        }
+      ],
+      "expected": {
+        "decision": "candidate",
+        "relation": "duplicate",
+        "comparisonArticleId": "original",
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {
+          "original": "duplicate"
+        }
+      }
+    },
+    {
+      "id": "followup",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "同じ出来事について捕獲と避難解除という進展あり。",
+      "article": {
+        "id": "followup",
+        "title": "北海道の町でクマを捕獲 避難指示を解除",
+        "excerpt": "クマの捕獲後、町は避難指示を解除した。",
+        "url": "https://example.org/followup",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [
+        {
+          "id": "alert",
+          "title": "北海道の町でクマを目撃 避難指示",
+          "excerpt": "町はクマの目撃を受けて避難を指示した。",
+          "url": "https://example.org/alert",
+          "publishedAt": "2026-09-30T00:00:00Z",
+          "discoveredAt": "2026-09-30T00:00:00Z",
+          "sourceName": "Synthetic fixture",
+          "sourceIds": [
+            "fixture"
+          ],
+          "reviewStatus": "posted",
+          "analysisStatus": "pending"
+        }
+      ],
+      "expected": {
+        "decision": "candidate",
+        "relation": "followup",
+        "comparisonArticleId": "alert",
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {
+          "alert": "followup"
+        }
+      }
+    },
+    {
+      "id": "distinct",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "似た見出しでも日時と場所が異なる。",
+      "article": {
+        "id": "distinct",
+        "title": "クマが住宅地に出没",
+        "excerpt": "秋田市で30日にクマが出没した。",
+        "url": "https://example.org/distinct",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [
+        {
+          "id": "another",
+          "title": "クマが住宅地に出没",
+          "excerpt": "札幌市で29日にクマが出没した。",
+          "url": "https://example.org/another",
+          "publishedAt": "2026-09-30T00:00:00Z",
+          "discoveredAt": "2026-09-30T00:00:00Z",
+          "sourceName": "Synthetic fixture",
+          "sourceIds": [
+            "fixture"
+          ],
+          "reviewStatus": "posted",
+          "analysisStatus": "pending"
+        }
+      ],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": "another",
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {
+          "another": "different"
+        }
+      }
+    },
+    {
+      "id": "retrieval-miss",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "語彙の違いで比較候補に含まれない失敗を分類の誤りと分離。",
+      "article": {
+        "id": "retrieval-miss",
+        "title": "ライフル射撃選手権 決勝の成績",
+        "excerpt": "射撃選手権の決勝結果を掲載。",
+        "url": "https://example.org/retrieval-miss",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "fixture"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [
+        {
+          "id": "hard-match",
+          "title": "歴史的快挙",
+          "excerpt": "この大会について重要な情報を報じた。",
+          "url": "https://example.org/hard-match",
+          "publishedAt": "2026-09-30T00:00:00Z",
+          "discoveredAt": "2026-09-30T00:00:00Z",
+          "sourceName": "Synthetic fixture",
+          "sourceIds": [
+            "fixture"
+          ],
+          "reviewStatus": "posted",
+          "analysisStatus": "pending"
+        }
+      ],
+      "expected": {
+        "decision": "candidate",
+        "relation": "followup",
+        "comparisonArticleId": "hard-match",
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {
+          "hard-match": "followup"
+        }
+      }
+    },
+    {
+      "id": "source-rule",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "情報源指定と Jev の分類を別々に記録する。",
+      "article": {
+        "id": "source-rule",
+        "title": "協会のお知らせ",
+        "excerpt": "",
+        "url": "https://example.org/source-rule",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": [
+          "clay-shooting-news"
+        ],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": true
+      },
+      "mock": {
+        "classification": "unrelated",
+        "probability": 0.95,
+        "relations": {}
+      }
+    }
+  ]
+}

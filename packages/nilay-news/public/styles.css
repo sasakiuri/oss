@@ -1151,3 +1151,7 @@ select {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.analysis-provenance {
+  overflow-wrap: anywhere;
+}

@@ -1,10 +1,26 @@
 // SPDX-License-Identifier: MIT
-import type { Analysis, Article } from "./domain.ts";
+import { clock as defaultClock } from "./domain.ts";
+import type { Analysis, Article, Clock, DecisionProvenance } from "./domain.ts";
 import { UserError } from "./errors.ts";
 import { fetchBytes, FetchError } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
 import { modelEvidence, type ModelEvidence } from "./news-evidence.ts";
-import { isRecord, utf8 } from "./text.ts";
+import { isRecord, sha256, utf8 } from "./text.ts";
+import { isoSeconds } from "./time.ts";
+
+export const DECISION_VERSIONS = {
+  classificationPrompt: "1",
+  relationshipPrompt: "1",
+  criteria: "1",
+  routing: "1",
+} as const;
+export const ROUTING_POLICY = {
+  classificationThreshold: 0.85,
+  relationThreshold: 0.9,
+  comparisonLimit: 3,
+  comparisonOverlap: 0.2,
+  retrievalVersion: "1",
+} as const;
 
 export const ENDPOINT = "https://api.typesafe.ai/v1/systemone";
 export const TOPICS = {
@@ -44,7 +60,7 @@ const GROUPS = {
   irrelevant: ["fiction", "unrelated"],
 } as const;
 /** A conservative routing threshold on the grouped probability, not a measured accuracy. */
-const THRESHOLD = 0.85;
+const THRESHOLD = ROUTING_POLICY.classificationThreshold;
 const CLASSIFY =
   "選定基準に照らして、この記事の話題が対象分野かどうかを分類してください。問うのは話題の関連性だけで、事実の真偽、要約の完全さ、日付・場所の記載の有無や新しさは問いません。見出しだけで対象または対象外が明らかならそれで判断し、本文や抜粋がないことだけを理由に判断材料不足としないでください。本文未取得などの取得状況、配信元名、日付は話題の根拠になりません。記事の主題ではなく、関連記事欄・他の記事の見出し・引用の中に語句があるだけなら対象外です。野生動物・外来種の記事では、対象が鳥類か哺乳類だと取得情報から分かる場合だけ候補にしてください。「野生生物」などの総称だけで対象動物や議題が分からないときは、鳥類・哺乳類の話題と推測せず判断材料不足にしてください。鳥獣保護管理法など対象分野を明示する制度名は判断の根拠になります。";
 const PRIORITY = {
@@ -273,11 +289,13 @@ export function relatedCandidates<T extends RelatedArticle>(
       overlap(target.grams, candidate.grams),
       overlap(target.context, candidate.context),
     );
-    if (score >= 0.2)
+    if (score >= ROUTING_POLICY.comparisonOverlap)
       ranked.push([score + similarity(target.title, candidate.title), other]);
   }
   ranked.sort((x, y) => y[0] - x[0]);
-  const selected = ranked.slice(0, 3).map(([, other]) => other);
+  const selected = ranked
+    .slice(0, ROUTING_POLICY.comparisonLimit)
+    .map(([, other]) => other);
   // Always check the closest posted match, even when pending copies rank higher.
   const posted = ranked.find(
     ([, other]) => other.reviewStatus === "posted",
@@ -297,18 +315,21 @@ export class Jev {
     readonly key = "",
     readonly model = "jev-latest",
     private readonly transport: FetchBytes = fetchBytes,
+    private readonly clock: Clock = defaultClock,
   ) {}
 
   private async request(
     state: object,
     questions: Record<string, Question>,
     signal?: AbortSignal,
-  ): Promise<unknown> {
+    comparisonArticleId?: string,
+  ): Promise<{ raw: unknown; provenance: DecisionProvenance }> {
     signal?.throwIfAborted();
+    const input = JSON.stringify({ model: this.model, state, questions });
     let data: Uint8Array;
     try {
       ({ data } = await this.transport(ENDPOINT, {
-        body: utf8(JSON.stringify({ model: this.model, state, questions })),
+        body: utf8(input),
         headers: {
           Authorization: `Bearer ${this.key}`,
           "Content-Type": "application/json",
@@ -327,11 +348,46 @@ export class Jev {
     }
     signal?.throwIfAborted();
     try {
-      return JSON.parse(
+      const raw: unknown = JSON.parse(
         new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
           data,
         ),
       );
+      const rubric =
+        isRecord(state) && typeof state.selection_criteria === "string"
+          ? state.selection_criteria
+          : "";
+      const resolvedModel =
+        isRecord(raw) &&
+        typeof raw.model === "string" &&
+        raw.model.length > 0 &&
+        raw.model.length <= 120 &&
+        !/[\u0000-\u001f\u007f]/u.test(raw.model)
+          ? raw.model
+          : null;
+      const provenance: DecisionProvenance = {
+        requestedModel: this.model,
+        resolvedModel,
+        promptVersion: questions.relation
+          ? DECISION_VERSIONS.relationshipPrompt
+          : DECISION_VERSIONS.classificationPrompt,
+        criteriaVersion: DECISION_VERSIONS.criteria,
+        routingPolicyVersion: DECISION_VERSIONS.routing,
+        routingPolicyHash: await sha256(
+          JSON.stringify({ ...ROUTING_POLICY, groups: GROUPS }),
+        ),
+        criteriaHash: await sha256(JSON.stringify(questions)),
+        rubricHash: await sha256(rubric),
+        modelInputHash: await sha256(input),
+        analyzedAt: isoSeconds(this.clock()),
+      };
+      if (comparisonArticleId && isRecord(state)) {
+        provenance.comparisonArticleId = comparisonArticleId;
+        provenance.comparisonInputHash = await sha256(
+          JSON.stringify(state.previous_article),
+        );
+      }
+      return { raw, provenance };
     } catch {
       throw new UserError("Jev が不正な JSON を返しました");
     }
@@ -344,30 +400,31 @@ export class Jev {
     signal?: AbortSignal,
   ): Promise<Analysis> {
     if (!this.key) throw new UserError("Jev の API キーが未設定です");
-    const answers = answersOf(
-      await this.request(
-        { selection_criteria: rubric, article: evidence(article) },
-        {
-          // Questions are answered independently, so relevance and its reason are one
-          // exclusive classification rather than two answers that could disagree.
-          classification: {
-            type: "choice",
-            instructions: `${PREFACE} ${CLASSIFY}`,
-            criteria: CLASSIFICATION,
-          },
-          topic: {
-            type: "choice",
-            instructions: `${PREFACE} この記事の主な話題を選んでください。`,
-            criteria: TOPICS,
-          },
-          priority: {
-            type: "choice",
-            instructions: `${PREFACE} 選定基準に従い、読む優先度を選んでください。人気・拡散性を推測せず、対象読者への具体的影響を基準にしてください。`,
-            criteria: PRIORITY,
-          },
+    const observation = await this.request(
+      { selection_criteria: rubric, article: evidence(article) },
+      {
+        // Questions are answered independently, so relevance and its reason are one
+        // exclusive classification rather than two answers that could disagree.
+        classification: {
+          type: "choice",
+          instructions: `${PREFACE} ${CLASSIFY}`,
+          criteria: CLASSIFICATION,
         },
-        signal,
-      ),
+        topic: {
+          type: "choice",
+          instructions: `${PREFACE} この記事の主な話題を選んでください。`,
+          criteria: TOPICS,
+        },
+        priority: {
+          type: "choice",
+          instructions: `${PREFACE} 選定基準に従い、読む優先度を選んでください。人気・拡散性を推測せず、対象読者への具体的影響を基準にしてください。`,
+          criteria: PRIORITY,
+        },
+      },
+      signal,
+    );
+    const answers = answersOf(
+      observation.raw,
       "Jev の応答に判定結果がありません",
     );
     const [, probabilities] = distribution(
@@ -388,6 +445,8 @@ export class Jev {
       analysisError: null,
       relatedArticleId: null,
       relation: null,
+      provenance: observation.provenance,
+      relationProvenance: [],
     };
     if (decision === "irrelevant") return result;
     return {
@@ -401,33 +460,40 @@ export class Jev {
     rubric: string,
     others: readonly Article[],
     signal?: AbortSignal,
-  ): Promise<Pick<Analysis, "relatedArticleId" | "relation">> {
+  ): Promise<
+    Pick<Analysis, "relatedArticleId" | "relation" | "relationProvenance">
+  > {
     if (!this.key) throw new UserError("Jev の API キーが未設定です");
-    const result: Pick<Analysis, "relatedArticleId" | "relation"> = {
+    const result: Pick<
+      Analysis,
+      "relatedArticleId" | "relation" | "relationProvenance"
+    > = {
       relatedArticleId: null,
       relation: null,
+      relationProvenance: [],
     };
     for (const other of relatedCandidates(article, others)) {
-      const related = answersOf(
-        await this.request(
-          {
-            selection_criteria: rubric,
-            new_article: evidence(article),
-            previous_article: evidence(other),
+      const observation = await this.request(
+        {
+          selection_criteria: rubric,
+          new_article: evidence(article),
+          previous_article: evidence(other),
+        },
+        {
+          relation: {
+            type: "choice",
+            instructions: `${PREFACE} new_article は previous_article に対してどの関係ですか？同じ動物や同じ市町村だけでは同一事件とみなさず、出来事の日時・場所・経過を照合してください。見出しの言い換え、媒体や配信時刻の違い、同じ事実の詳述だけでは続報にしないでください。publishedAt は記事の公開日時であり出来事の発生日時とは限りません。new_article が先に公開されていても、同じ出来事について重要な新事実がなければ重複です。続報には new_article に明記された重要な進展が必要です。`,
+            criteria: RELATIONS,
           },
-          {
-            relation: {
-              type: "choice",
-              instructions: `${PREFACE} new_article は previous_article に対してどの関係ですか？同じ動物や同じ市町村だけでは同一事件とみなさず、出来事の日時・場所・経過を照合してください。見出しの言い換え、媒体や配信時刻の違い、同じ事実の詳述だけでは続報にしないでください。publishedAt は記事の公開日時であり出来事の発生日時とは限りません。new_article が先に公開されていても、同じ出来事について重要な新事実がなければ重複です。続報には new_article に明記された重要な進展が必要です。`,
-              criteria: RELATIONS,
-            },
-          },
-          signal,
-        ),
-        "Jev の照合結果が不正です",
+        },
+        signal,
+        other.id,
       );
+      const related = answersOf(observation.raw, "Jev の照合結果が不正です");
+      result.relationProvenance!.push(observation.provenance);
       const [chosen, p] = choice(related, "relation", Object.keys(RELATIONS));
-      const relation = p < 0.9 ? "uncertain" : chosen;
+      const relation =
+        p < ROUTING_POLICY.relationThreshold ? "uncertain" : chosen;
       if (relation === "duplicate") {
         // Duplicate detection is an annotation; every article is kept.
         result.relatedArticleId = other.id;

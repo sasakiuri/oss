@@ -5,6 +5,23 @@ export type Clock = () => number;
 export const clock: Clock = () => Date.now() / 1000;
 export type ReviewStatus =
   "unread" | "saved" | "approved" | "dismissed" | "posted";
+export interface DecisionProvenance {
+  requestedModel: string;
+  /** Provider-reported model only; null means the response did not identify it. */
+  resolvedModel: string | null;
+  promptVersion: string;
+  criteriaVersion: string;
+  routingPolicyVersion: string;
+  routingPolicyHash: string;
+  criteriaHash: string;
+  rubricHash: string;
+  /** SHA-256 of the exact UTF-8 request body, including model/state/questions. */
+  modelInputHash: string;
+  analyzedAt: string;
+  comparisonArticleId?: string;
+  comparisonInputHash?: string;
+}
+
 export interface Analysis {
   analysisStatus: "pending" | "done" | "error";
   analysisError?: string | null;
@@ -15,6 +32,8 @@ export interface Analysis {
   probability?: number | null;
   relatedArticleId?: string | null;
   relation?: string | null;
+  provenance?: DecisionProvenance | null;
+  relationProvenance?: DecisionProvenance[] | null;
 }
 export interface Article extends CollectedItem, Analysis {
   id: string;

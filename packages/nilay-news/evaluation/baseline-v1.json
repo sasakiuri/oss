@@ -1,0 +1,591 @@
+{
+  "reportVersion": 1,
+  "fixtureVersion": 1,
+  "fixtureHash": "c8e0887a1bd07dfc34c6ec953bb2417cc05acdffcdacab99920301d7e5a1c355",
+  "mode": "mocked-regression",
+  "comparisonLimit": 3,
+  "humanReviewedCases": 0,
+  "pendingReviewCases": 12,
+  "metrics": {
+    "cases": 0,
+    "candidatePrecision": null,
+    "candidateRecall": null,
+    "manualReviewRate": null,
+    "comparisonRecall": null,
+    "classificationFailures": [],
+    "sourceRuleFailures": [],
+    "retrievalFailures": [],
+    "relationshipFailuresAfterRetrieval": [],
+    "duplicateFollowupConfusion": {}
+  },
+  "provisionalMetrics": {
+    "cases": 12,
+    "candidatePrecision": 1,
+    "candidateRecall": 1,
+    "manualReviewRate": 0.16666666666666666,
+    "comparisonRecall": 0.75,
+    "classificationFailures": [],
+    "sourceRuleFailures": [],
+    "retrievalFailures": [
+      "retrieval-miss"
+    ],
+    "relationshipFailuresAfterRetrieval": [],
+    "duplicateFollowupConfusion": {
+      "duplicate": {
+        "duplicate": 1
+      },
+      "followup": {
+        "followup": 1,
+        "different": 1
+      },
+      "different": {
+        "different": 1
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "bear",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "ad42e707bffd5172a021d4161e9d40f4bc87aca1fea41ebbf19241bce5b6e6a3",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "shooting",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "dafbff3aacf30a1738df0ec4b124e973cb0bdd47922e63957d600fe1b4baa960",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "fiction",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "irrelevant",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "ゲーム・フィクションの話題",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "ca921d30d3322402b361a29b58e43fcf48f5819165110ebe389327c4d97e0082",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "insects",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "irrelevant",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野と関係のない話題",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "656f0bbe21946276d2637227867e78f024ed99770f394dda81bcfea315ab93dc",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "ambiguous",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "review",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "review",
+        "probability": 0.95,
+        "topic": "鳥獣被害・管理",
+        "reason": "取得できた情報では判断材料が不足",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "573dbca10404aeb6c36c3c196a2f542044a6f3607da6e5c4122c5a49904a2628",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "split",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "review",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "review",
+        "probability": 0.7,
+        "topic": "鳥獣被害・管理",
+        "reason": "判定が割れたため確認：「対象分野の具体的なニュース」が最有力だが分類確率が基準未満",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "4907e4d9a2a02575f05bf7f2b0239be8e70ef63e653990ea94e07f9bf2ac4633",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "policy",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の制度・行政情報",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "aa29df5e305758265d63737714606e814cd6e1820302e7a9f619fc14bd048092",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "duplicate",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": "duplicate",
+        "comparisonArticleId": "original",
+        "sourceCandidate": false
+      },
+      "comparisonIds": [
+        "original"
+      ],
+      "retrievalHit": true,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": "original",
+        "relation": "duplicate",
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "213eead746bcdb35e59a2732d5abaf249ffea6b57a18fd01278cb91329cbb090",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": [
+          {
+            "requestedModel": "jev-evaluation-fixture",
+            "resolvedModel": "jev-fixture-v1",
+            "promptVersion": "1",
+            "criteriaVersion": "1",
+            "routingPolicyVersion": "1",
+            "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+            "criteriaHash": "84625fbd4c377f834a7cd6f95292e0418c68f35416e42bc8c9bdaffd3f350c98",
+            "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+            "modelInputHash": "4ade65c34737446805a1bdcb05f1198aa6bfce406290aa03956f44c578baf692",
+            "analyzedAt": "2026-09-30T00:00:00+00:00",
+            "comparisonArticleId": "original",
+            "comparisonInputHash": "ba5ae386edc0a4714b695056a2660cbbd73db2df1101329bc2bddfc6d66faf07"
+          }
+        ]
+      }
+    },
+    {
+      "id": "followup",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": "followup",
+        "comparisonArticleId": "alert",
+        "sourceCandidate": false
+      },
+      "comparisonIds": [
+        "alert"
+      ],
+      "retrievalHit": true,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": "alert",
+        "relation": "followup",
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "23e979ae6fdf721b63670683f78520fd16c621a9d1458bf3bc2bbc339a6b5d35",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": [
+          {
+            "requestedModel": "jev-evaluation-fixture",
+            "resolvedModel": "jev-fixture-v1",
+            "promptVersion": "1",
+            "criteriaVersion": "1",
+            "routingPolicyVersion": "1",
+            "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+            "criteriaHash": "84625fbd4c377f834a7cd6f95292e0418c68f35416e42bc8c9bdaffd3f350c98",
+            "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+            "modelInputHash": "2963838d065378514973ddf56dae1450948e946af046881c3c176854c67b0545",
+            "analyzedAt": "2026-09-30T00:00:00+00:00",
+            "comparisonArticleId": "alert",
+            "comparisonInputHash": "3271ed956fb94d413e74bc9fd543d3f5e71a482e6f954561e8a5dba717cdeefc"
+          }
+        ]
+      }
+    },
+    {
+      "id": "distinct",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": "another",
+        "sourceCandidate": false
+      },
+      "comparisonIds": [
+        "another"
+      ],
+      "retrievalHit": true,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "5dcae7e4410a730ed2cb569fcf8c6d79626bc5dea5f9563ff69070325688d9d4",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": [
+          {
+            "requestedModel": "jev-evaluation-fixture",
+            "resolvedModel": "jev-fixture-v1",
+            "promptVersion": "1",
+            "criteriaVersion": "1",
+            "routingPolicyVersion": "1",
+            "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+            "criteriaHash": "84625fbd4c377f834a7cd6f95292e0418c68f35416e42bc8c9bdaffd3f350c98",
+            "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+            "modelInputHash": "ec83a91bda0726e29f304c5b04353ef5118871fb70b953fc1791f31d0cab5484",
+            "analyzedAt": "2026-09-30T00:00:00+00:00",
+            "comparisonArticleId": "another",
+            "comparisonInputHash": "34034925153fc2fb20567c1a9220e2272a9016a9e0701f1834d85abae8dcbb61"
+          }
+        ]
+      }
+    },
+    {
+      "id": "retrieval-miss",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "candidate",
+        "relation": "followup",
+        "comparisonArticleId": "hard-match",
+        "sourceCandidate": false
+      },
+      "comparisonIds": [],
+      "retrievalHit": false,
+      "retrievalFailure": true,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": false,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "candidate",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野の具体的なニュース",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "8c7baa2ed589811b60a4cf9bd457579756422f6a4168b3809f698587be80f7e1",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    },
+    {
+      "id": "source-rule",
+      "reviewStatus": "pending",
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": true
+      },
+      "comparisonIds": [],
+      "retrievalHit": null,
+      "retrievalFailure": false,
+      "classificationFailure": false,
+      "relationshipFailure": false,
+      "sourceCandidate": true,
+      "sourceRuleFailure": false,
+      "decision": {
+        "decision": "irrelevant",
+        "probability": 0.9625,
+        "topic": "鳥獣被害・管理",
+        "reason": "対象分野と関係のない話題",
+        "priority": 1,
+        "analysisStatus": "done",
+        "analysisError": null,
+        "relatedArticleId": null,
+        "relation": null,
+        "provenance": {
+          "requestedModel": "jev-evaluation-fixture",
+          "resolvedModel": "jev-fixture-v1",
+          "promptVersion": "1",
+          "criteriaVersion": "1",
+          "routingPolicyVersion": "1",
+          "routingPolicyHash": "18de601bbae2ed2046ce88c1a260d1797748977bc6d3bf7d4ed5edb97a4c4bb8",
+          "criteriaHash": "6661f0d30fa720ebd4274cee345c09e04abb76588a9e90ac2bddd5dc35fa13f8",
+          "rubricHash": "30fc56df62ea641adce6b25b6831e144ca49c4d795299b8f45acfce9550feb1f",
+          "modelInputHash": "2be3a5b8452e1e883ef4c36bc626082f209f92d393fdfdf0833c0e6980d840f7",
+          "analyzedAt": "2026-09-30T00:00:00+00:00"
+        },
+        "relationProvenance": []
+      }
+    }
+  ]
+}
