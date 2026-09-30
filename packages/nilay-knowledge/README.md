@@ -620,6 +620,34 @@ information needed to understand the article. Downloaded PDFs and third-party
 pages need their own accessibility review. See the [WAI dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
 and [reflow guidance](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html).
 
+## Published heading permalinks
+
+Heading IDs and authored HTML anchor IDs in articles/news are published URL
+contracts. UI controls and generated footnote identifiers are excluded.
+`npm run lint:permalinks --workspace=@sasakiuri/nilay-knowledge` compares the
+proposed render against `content/published-fragments.json`; lint and prebuild run
+this check. It reports removals with public fragments and source filenames.
+Repeated heading titles additionally retain their section text, so adding or
+reordering generated suffixes cannot silently retarget established links.
+
+When renaming or moving a section, retain its ID with an authored heading such as
+`<h2 id="installation">Setup</h2>`. For repeated headings, assign each section its
+existing ID before editing its order. Prefer this stable heading method, which
+supports native navigation without JavaScript. If a new canonical fragment is
+needed, place an empty
+`<span id="installation" data-fragment-alias-for="setup"></span>` before the
+`setup` heading. Rendering validates ID uniqueness and the canonical heading
+and places the alias inside that heading. Enhanced navigation reveals closed
+details and focuses the canonical section; aliases add no visible/search heading.
+
+Checks never update their own baseline. After preserving old destinations, or
+approving an intentional section removal/migration, run
+`npm exec --workspace=@sasakiuri/nilay-knowledge -- tsx scripts/check-permalinks.ts --write-baseline`
+separately and review the baseline diff alongside the content. Record intentional
+removals and their replacement destinations in the reviewed change. Do not approve
+a baseline regeneration merely because checks fail; repeated-section text changes
+also require checking that each old fragment still reaches its intended section.
+
 ## Markdown authoring blocks
 
 `remark-directive` supplies two validated container blocks. Use `details` for a

@@ -6,10 +6,10 @@
   "scripts": {
     "predev": "node scripts/prepare-content-styles.mjs",
     "dev": "next dev --turbopack",
-    "prebuild": "node scripts/prepare-content-styles.mjs && tsx scripts/generate-feed.ts && tsx scripts/generate-sitemap.ts",
+    "prebuild": "node scripts/prepare-content-styles.mjs && tsx scripts/check-permalinks.ts && tsx scripts/generate-feed.ts && tsx scripts/generate-sitemap.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "npm run lint:eslint && npm run lint:prettier && npm run lint:text && npm run lint:markdown && npm run lint:metadata",
+    "lint": "npm run lint:eslint && npm run lint:prettier && npm run lint:text && npm run lint:markdown && npm run lint:permalinks && npm run lint:metadata",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:run": "vitest run",
@@ -39,6 +39,7 @@
     "test:install": "playwright install --with-deps chromium firefox",
     "lint:text": "textlint --config .textlintrc.json --ignore-path .textlintignore \"content/**/*.md\"",
     "lint:markdown": "tsx scripts/lint-markdown.ts",
+    "lint:permalinks": "tsx scripts/check-permalinks.ts",
     "lint:links": "tsx scripts/check-links.ts",
     "lint:links:external": "tsx scripts/check-links.ts --external",
     "lint:links:prepare": "tsx scripts/check-links.ts --prepare"

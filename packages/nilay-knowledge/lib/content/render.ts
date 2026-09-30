@@ -19,6 +19,7 @@ import { visit } from 'unist-util-visit';
 import { collectContentCapabilities } from './capabilities';
 import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
 import { remarkContentDirectives } from './directives';
+import { rehypeMarkAuthoredIds, rehypePublishedFragments } from './fragments';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import { responsiveImageAttributes } from './responsive-images';
@@ -86,7 +87,15 @@ const processor = unified()
       }
     });
   })
-  .use(rehypeSlug);
+  .use(rehypeMarkAuthoredIds)
+  .use(rehypeSlug)
+  .use(rehypePublishedFragments);
+
+/** Each invocation owns its AST; projections must never share mutated trees. */
+export function parseContentTree(source: ContentSource) {
+  const file = { value: source.content, path: `content/${source.type}/${source.slug}/index.md` };
+  return processor.runSync(processor.parse(file), file);
+}
 
 /** Index visible text and sections using the same Markdown parsing and heading IDs as pages. */
 export async function renderSearchDocuments(source: ContentSource): Promise<SearchDocument[]> {
