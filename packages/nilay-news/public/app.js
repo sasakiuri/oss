@@ -923,12 +923,12 @@ function renderEmpty() {
         model.topic = "";
         model.analysis = "";
         model.relation = "";
-        model.visibleCount = PAGE_SIZE;
+        model.checkedIds.clear();
         $("search").value = "";
         $("topic-filter").value = "";
         $("analysis-filter").value = "";
         $("relation-filter").value = "";
-        renderArticles();
+        loadArticles(0);
       }),
     );
   else if (!model.state?.articles.length && model.state) {

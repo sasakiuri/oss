@@ -55,19 +55,7 @@ export function querySQL(query: ArticleQuery): {
   const values: SQLValue[] = [];
   if (query.query) {
     if (query.query.length > 500) throw new UserError("検索条件が長すぎます");
-    const searchable = [
-      "title",
-      "sourceName",
-      "excerpt",
-      "topic",
-      "body",
-      "metadata",
-    ]
-      .map((key) => `COALESCE(${field(key)},'')`)
-      .join(" || ' ' || ");
-    filters.push(
-      `instr(lower(${searchable} || ' ' || COALESCE((SELECT group_concat(json_extract(value,'$.title'),' ') FROM json_each(${field("attachments")})),'')),?)>0`,
-    );
+    filters.push(`instr(COALESCE(${field("_listSearch")},''),?)>0`);
     values.push(query.query.toLocaleLowerCase());
   }
   if (query.topic) {

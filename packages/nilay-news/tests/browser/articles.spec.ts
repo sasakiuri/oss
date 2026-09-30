@@ -40,6 +40,32 @@ test("bounded pages, search, on-demand details and keyboard focus work on wide a
   ).toBeFocused();
   expect(lists.some((url) => url.includes("offset=50"))).toBe(true);
 });
+test("clearing a no-match filter retrieves the first page immediately", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#article-list > article")).toHaveCount(50);
+  await page.locator("#select-all-articles").check();
+  await page.locator("#search").fill("no-matching-fixture");
+  await expect(page.locator("#article-list > article")).toHaveCount(0);
+  const recovered = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/articles" &&
+      url.searchParams.get("query") === "" &&
+      url.searchParams.get("offset") === "0" &&
+      response.ok()
+    );
+  });
+  await page
+    .getByRole("button", { name: "絞り込みを解除", exact: true })
+    .click();
+  await recovered;
+  await expect(page.locator("#article-list > article")).toHaveCount(50);
+  await expect(page.locator("#list-count")).toHaveText("151 件");
+  await expect(page.locator("#search")).toHaveValue("");
+  await expect(page.locator("#selection-count")).toHaveText("0 件選択中");
+});
 test("bulk selection applies to the displayed page and resets on filtering", async ({
   page,
 }) => {
