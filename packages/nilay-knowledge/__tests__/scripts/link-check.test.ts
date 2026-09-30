@@ -85,12 +85,17 @@ async function sitemapCategoryPaths() {
     .filter((url) => url.startsWith('/articles/category/'));
 }
 
-it('registers only eligible category routes and keeps their inventory in step with the sitemap', async () => {
+it('retains published category routes and keeps their inventory in step with the sitemap', async () => {
   await categoryFixture();
   const { siteDirectory, inputs } = await prepare('[Category guide](/articles/category/procedures/)');
   const categories = path.join(siteDirectory, 'articles/category');
-  expect(await readdir(categories)).toEqual(['procedures']);
-  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/procedures/']);
+  expect(await readdir(categories)).toEqual(['equipment', 'getting-started', 'procedures', 'resources']);
+  expect(await sitemapCategoryPaths()).toEqual([
+    '/articles/category/getting-started/',
+    '/articles/category/procedures/',
+    '/articles/category/equipment/',
+    '/articles/category/resources/',
+  ]);
   expect(await readFile(path.join(categories, 'procedures/index.html'), 'utf8')).toContain('<!doctype html>');
   expect(await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8')).toContain(
     'href="/articles/category/procedures/"',
@@ -100,17 +105,17 @@ it('registers only eligible category routes and keeps their inventory in step wi
 
   await writeArticle('procedure-b', 'equipment');
   await prepare('[Category guide](/articles/category/equipment/)');
-  expect(await readdir(categories)).toEqual(['equipment']);
-  expect(await sitemapCategoryPaths()).toEqual(['/articles/category/equipment/']);
-  await expect(readFile(path.join(categories, 'procedures/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
+  expect(await readdir(categories)).toEqual(['equipment', 'getting-started', 'procedures', 'resources']);
+  expect(await sitemapCategoryPaths()).toContain('/articles/category/procedures/');
+  await expect(readFile(path.join(categories, 'procedures/index.html'), 'utf8')).resolves.toContain('<!doctype html>');
 
   await rm(path.join(packageDirectory, 'content/articles/equipment-a'), { recursive: true });
   await prepare('No eligible category remains.');
-  expect(await sitemapCategoryPaths()).toEqual([]);
-  await expect(readFile(path.join(categories, 'equipment/index.html'))).rejects.toHaveProperty('code', 'ENOENT');
+  expect(await sitemapCategoryPaths()).toContain('/articles/category/equipment/');
+  await expect(readFile(path.join(categories, 'equipment/index.html'), 'utf8')).resolves.toContain('<!doctype html>');
 });
 
-it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
+it.each(['unknown', 'uncategorized', 'shooting', 'hunting'])(
   'does not invent a landing page for the ineligible category %s',
   async (category) => {
     await categoryFixture();
@@ -186,7 +191,7 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
     expect(result).toMatchObject({ status: 0 });
   });
 
-  it.each(['unknown', 'uncategorized', 'equipment', 'hunting'])(
+  it.each(['unknown', 'uncategorized', 'shooting', 'hunting'])(
     'rejects a link to the ineligible category %s',
     async (category) => {
       await categoryFixture();
