@@ -33,7 +33,12 @@ test('recovers one initial chunk failure before exposing saved inputs', async ({
     if (navigations < 2 && (failedUrl === undefined || route.request().url() === failedUrl)) {
       failedUrl = route.request().url();
       failures += 1;
-      return route.abort('failed');
+      return route.fulfill({
+        status: 503,
+        contentType: 'application/javascript',
+        headers: { 'cache-control': 'no-store' },
+        body: '',
+      });
     }
     return route.continue();
   });
@@ -53,7 +58,14 @@ test('persistent chunk failures stop after one automatic reload and offer a manu
   page.on('request', (request) => {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigations += 1;
   });
-  await page.route('**/_next/static/chunks/*.js', (route) => route.abort('failed'));
+  await page.route('**/_next/static/chunks/*.js', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/javascript',
+      headers: { 'cache-control': 'no-store' },
+      body: '',
+    }),
+  );
   await page.goto('/labs/unit-converter?startup=broken');
   const notice = page.locator('[data-labs-startup-failure]');
   await expect(notice).toBeVisible();
