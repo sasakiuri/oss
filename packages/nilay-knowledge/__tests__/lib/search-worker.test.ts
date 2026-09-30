@@ -165,4 +165,39 @@ describe('search worker API', () => {
     expect(await api.search('印刷', 'pdf')).toMatchObject({ total: 1 });
     expect(fetchIndex).toHaveBeenCalledTimes(3);
   });
+  it('shares one PDF record with results from any matching page', async () => {
+    const metadata = {
+      status: 'unverified' as const,
+      references: [
+        { title: 'First article', url: '/articles/first/' },
+        { title: 'Second article', url: '/articles/second/' },
+      ],
+    };
+    fetchIndex.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        {
+          ...documents[0]!,
+          id: '/content/assets/shared.pdf#page=1',
+          type: 'pdf',
+          text: 'unrelated',
+          title: 'PDF',
+          section: '1',
+          tags: [],
+          pdf: metadata,
+        },
+        {
+          ...documents[0]!,
+          id: '/content/assets/shared.pdf#page=2',
+          type: 'pdf',
+          title: 'PDF',
+          section: '2',
+          tags: [],
+        },
+      ],
+    });
+    const response = await api.search('印刷', 'pdf');
+    expect(response.groups[0]?.pdf).toEqual(metadata);
+    expect(response.groups[0]?.matches[0]?.id).toBe('/content/assets/shared.pdf#page=2');
+  });
 });

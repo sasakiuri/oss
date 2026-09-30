@@ -4,6 +4,7 @@ import { decodeContentAssetPathname } from './asset-path';
 import { articleCategoryTitles } from './categories';
 import { isMetadataImage } from './metadata-image';
 import { contentTypes } from './types';
+import { pdfSearchMetadataSchema } from './pdf-metadata';
 
 const nonEmptyText = z
   .string({ error: 'a non-empty string' })
@@ -99,20 +100,38 @@ export const searchDocumentSchema = z
     section: z.string(),
     tags: z.array(z.string()),
     text: z.string(),
+    pdf: pdfSearchMetadataSchema.optional(),
   })
   .refine(isSearchDestination, {
     path: ['id'],
     error: 'Invalid search destination',
+  })
+  .refine((document) => document.pdf === undefined || document.type === 'pdf', {
+    path: ['pdf'],
+    error: 'PDF metadata belongs to PDF documents',
   });
 
 export const searchDocumentsSchema = z
   .array(searchDocumentSchema.catchall(z.unknown()))
   .superRefine((documents, ctx) => {
     const ids = new Set<string>();
+    const metadata = new Set<string>();
     for (const [index, document] of documents.entries()) {
       if (ids.has(document.id)) {
         ctx.addIssue({ code: 'custom', path: [index, 'id'], message: 'Duplicate search destination' });
       }
       ids.add(document.id);
+      if (document.pdf) {
+        const url = document.id.split('#')[0]!;
+        if (metadata.has(url))
+          ctx.addIssue({ code: 'custom', path: [index, 'pdf'], message: 'Duplicate PDF metadata' });
+        if (document.pdf.successor === url)
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'pdf', 'successor'],
+            message: 'PDF successor must not refer to itself',
+          });
+        metadata.add(url);
+      }
     }
   });

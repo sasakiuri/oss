@@ -8,6 +8,7 @@ import type { Root, RootContent } from 'hast';
 import { decodeContentAssetPathname } from './asset-path';
 import { createContentProjectionProcessor } from './grammar';
 import { resolveContentUrl } from './paths';
+import { pdfRegistrySchema, type PdfSearchMetadata } from './pdf-metadata';
 import type { ContentSource } from './types';
 
 export interface PdfSearchDocument {
@@ -17,6 +18,8 @@ export interface PdfSearchDocument {
   section: string;
   tags: string[];
   text: string;
+  /** Stored once per PDF, on its first indexed page. */
+  pdf?: PdfSearchMetadata;
 }
 
 export interface PdfSearchReport {
@@ -33,6 +36,7 @@ interface PdfReference {
   title: string;
   sourceTitle: string;
   tags: string[];
+  references: { title: string; url: string }[];
 }
 
 const processor = createContentProjectionProcessor();
@@ -93,8 +97,11 @@ export async function findReferences(sources: readonly ContentSource[]): Promise
               ? `${tableRowLabel} (${filename})`
               : filename;
           const existing = references.get(url);
+          const article = { title: source.frontmatter.title, url: `/${source.type}/${source.slug}/` };
           if (existing) {
             existing.tags = [...new Set([...existing.tags, ...source.frontmatter.tags])];
+            if (!existing.references.some((reference) => reference.url === article.url))
+              existing.references.push(article);
           } else {
             references.set(url, {
               url,
@@ -102,6 +109,7 @@ export async function findReferences(sources: readonly ContentSource[]): Promise
               title,
               sourceTitle: source.frontmatter.title,
               tags: [...source.frontmatter.tags],
+              references: [article],
             });
           }
         }
@@ -120,9 +128,24 @@ export async function createPdfSearchIndex(
 ): Promise<{ documents: PdfSearchDocument[]; report: PdfSearchReport }> {
   const references = await findReferences(sources);
   const report: PdfSearchReport = { files: references.length, pages: 0, indexedPages: 0, pagesWithoutText: [] };
-  if (references.length === 0) return { documents: [], report };
-
   const directory = await realpath(contentDirectory);
+  let registry = pdfRegistrySchema.parse({});
+  try {
+    registry = pdfRegistrySchema.parse(JSON.parse(await readFile(path.join(directory, 'pdf-metadata.json'), 'utf8')));
+  } catch (error) {
+    if (!(typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')) throw error;
+  }
+  // Validate records and successor assets even if no article currently links that revision.
+  for (const url of new Set([
+    ...Object.keys(registry),
+    ...Object.values(registry).flatMap((record) => (record.successor ? [record.successor] : [])),
+  ])) {
+    const segments = decodeContentAssetPathname(url)!;
+    const filename = await realpath(path.join(directory, ...segments));
+    if (!isWithin(directory, filename) || !(await stat(filename)).isFile())
+      throw new Error(`Invalid PDF metadata destination: ${url}`);
+  }
+  if (references.length === 0) return { documents: [], report };
   const require = createRequire(path.join(process.cwd(), 'package.json'));
   // Keep native Node resolution: a bundled require.resolve() returns a module ID, not a filesystem path.
   // https://nextjs.org/docs/app/guides/lazy-loading#magic-comments
@@ -132,6 +155,11 @@ export async function createPdfSearchIndex(
 
   // Sequential files/pages bound memory use independently of corpus size and make failures reproducible.
   for (const reference of references) {
+    const metadata: PdfSearchMetadata = {
+      ...(registry[reference.url] ?? { status: 'unverified' as const }),
+      references: reference.references.sort((a, b) => a.url.localeCompare(b.url)),
+    };
+    let metadataStored = false;
     const filename = path.resolve(directory, `./${reference.segments.join('/')}`);
     if (!isWithin(directory, filename)) throw new Error(`PDF path must stay within content: ${reference.url}`);
     try {
@@ -177,7 +205,9 @@ export async function createPdfSearchIndex(
               section: `${reference.sourceTitle} · ${pageNumber}ページ`,
               tags: reference.tags,
               text,
+              ...(!metadataStored ? { pdf: metadata } : {}),
             });
+            metadataStored = true;
           } finally {
             page.cleanup();
           }

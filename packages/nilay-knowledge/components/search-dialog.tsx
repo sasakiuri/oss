@@ -501,6 +501,55 @@ function SearchDialogContent() {
                           </ResultLink>
                         </Command.Item>
                       ))}
+                      {group.pdf && (
+                        <div className="px-3 pb-3 text-xs leading-6 text-subtle" aria-label="PDF資料の確認記録">
+                          <p>
+                            {
+                              (
+                                {
+                                  unverified: '確認状態不明',
+                                  current: '確認済み（記録された範囲）',
+                                  historical: '過去の資料',
+                                  superseded: '後継資料あり',
+                                } as const
+                              )[group.pdf.status]
+                            }
+                          </p>
+                          {(group.pdf.region || group.pdf.scope) && (
+                            <p>{[group.pdf.region, group.pdf.scope].filter(Boolean).join(' · ')}</p>
+                          )}
+                          {group.pdf.checked && (
+                            <p>
+                              確認日: <time dateTime={group.pdf.checked}>{group.pdf.checked}</time>
+                            </p>
+                          )}
+                          {group.pdf.successor && (
+                            <p>
+                              <a className="text-brand underline" href={group.pdf.successor}>
+                                後継PDF資料を開く
+                              </a>
+                            </p>
+                          )}
+                          {group.pdf.sources?.map((source) => (
+                            <p key={source.url}>
+                              出典:{' '}
+                              <a className="text-brand underline" href={source.url}>
+                                {source.title}
+                              </a>
+                            </p>
+                          ))}
+                          <p>紹介記事:</p>
+                          <ul>
+                            {group.pdf.references.map((reference) => (
+                              <li key={reference.url}>
+                                <Link className="text-brand underline" href={reference.url} prefetch={false}>
+                                  {reference.title}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       {group.matches.length > 1 && (
                         <Command.Item
                           value={`expand:${group.id}`}
