@@ -6,6 +6,7 @@ import { performance } from "node:perf_hooks";
 import { Miniflare } from "miniflare";
 
 import { Application } from "../src/application.ts";
+import { isSourceCandidate } from "../src/candidates.ts";
 import { freshness, publicationWindow } from "../src/freshness.ts";
 import { Jev } from "../src/jev.ts";
 import { ACCOUNT, draft } from "../src/posts.ts";
