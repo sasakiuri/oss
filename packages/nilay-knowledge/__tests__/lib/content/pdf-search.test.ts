@@ -78,9 +78,10 @@ describe('PDF search extraction', () => {
         section: '資料の案内 · 1ページ',
         tags: ['資料'],
         text: 'Searchable PDF attachment',
+        pdf: { status: 'unverified', references: [{ title: '資料の案内', url: '/articles/example/' }] },
       },
     ]);
-    expect(report).toEqual({
+    expect(report).toMatchObject({
       files: 1,
       pages: 2,
       indexedPages: 1,
@@ -131,6 +132,8 @@ describe('PDF search extraction', () => {
         source('[添付資料][download]\n\n[download]: ./document.pdf?download=1'),
         {
           ...source('<a href="/content/articles/example/document.pdf#page=1">重複した資料</a>'),
+          type: 'news',
+          slug: 'other',
           frontmatter: { title: '別の記事', published: '2024-01-02', tags: ['別の記事'] },
         },
       ],
@@ -139,6 +142,10 @@ describe('PDF search extraction', () => {
     expect(report.files).toBe(1);
     expect(documents[0]?.tags).toEqual(['資料', '別の記事']);
     expect(documents[0]?.title).toBe('添付資料');
+    expect(documents[0]?.pdf?.references).toEqual([
+      { title: '資料の案内', url: '/articles/example/' },
+      { title: '別の記事', url: '/news/other/' },
+    ]);
   });
 
   it('excludes unlinked assets, external URLs, hidden anchors and code samples', async () => {
@@ -230,5 +237,46 @@ describe('PDF search extraction', () => {
     await expect(createPdfSearchIndex([source('[Malformed](./malformed.pdf)')], contentRoot)).rejects.toThrow(
       'Unable to index PDF /content/articles/example/malformed.pdf',
     );
+  });
+  it('keeps explicit evidence and successor metadata separate from stable PDF page destinations', async () => {
+    await copyFile(path.join(contentDirectory, 'document.pdf'), path.join(contentDirectory, 'successor.pdf'));
+    const registry = {
+      '/content/articles/example/document.pdf': {
+        status: 'superseded',
+        successor: '/content/articles/example/successor.pdf',
+      },
+      '/content/articles/example/successor.pdf': {
+        status: 'current',
+        region: '試験地域',
+        scope: '合成テスト資料',
+        checked: '2026-09-30',
+        sources: [{ title: 'Synthetic source', url: 'https://example.com/evidence' }],
+      },
+    };
+    await writeFile(path.join(contentRoot, 'pdf-metadata.json'), JSON.stringify(registry));
+    const { documents } = await createPdfSearchIndex(
+      [source('[旧資料](./document.pdf) [新資料](./successor.pdf)')],
+      contentRoot,
+    );
+    expect(documents.map((document) => document.id)).toEqual([
+      '/content/articles/example/document.pdf#page=1',
+      '/content/articles/example/successor.pdf#page=1',
+    ]);
+    expect(documents[0]?.pdf).toMatchObject(registry['/content/articles/example/document.pdf']);
+    expect(documents[1]?.pdf).toMatchObject(registry['/content/articles/example/successor.pdf']);
+    expect(searchDocumentsSchema.parse(documents)).toEqual(documents);
+  });
+
+  it('fails for nonexistent successor assets rather than publishing broken navigation', async () => {
+    await writeFile(
+      path.join(contentRoot, 'pdf-metadata.json'),
+      JSON.stringify({
+        '/content/articles/example/document.pdf': {
+          status: 'historical',
+          successor: '/content/articles/example/missing.pdf',
+        },
+      }),
+    );
+    await expect(createPdfSearchIndex([source('[資料](./document.pdf)')], contentRoot)).rejects.toThrow();
   });
 });

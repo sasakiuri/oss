@@ -522,6 +522,32 @@ have text; 282 blank or image-only pages are excluded. The extra index is about
 1.22 MB gzip, separate from the normal article/news download. PDF parsing code and
 fonts stay on the server.
 
+Editors may add `content/pdf-metadata.json`, keyed by canonical encoded `/content/...pdf`
+URLs. This optional registry is separate from extracted text; absent records display
+「確認状態不明」 and never acquire a review date automatically. For example (synthetic URLs):
+
+```json
+{
+  "/content/assets/example.pdf": {
+    "status": "current",
+    "region": "確認した地域",
+    "scope": "確認した手続き・適用範囲",
+    "checked": "2026-09-30",
+    "sources": [{ "title": "確認に用いた出典", "url": "https://example.com/evidence" }]
+  }
+}
+```
+
+Use `unverified`, `current`, `historical`, or `superseded` explicitly. `current`
+requires a real editorial check, date, region, scope and at least one HTTP(S) source;
+record only the evidence actually checked. Other fields may remain absent. A known
+`successor` is another canonical published PDF URL; missing destinations, self-links
+and revision cycles fail validation. Update evidence and status when the recorded
+scope changes; elapsed time or a successful build does not establish validity.
+Search displays the record and every referring article/news link, deduplicated by
+URL. Metadata is stored once per PDF, while original `#page=N` links are unchanged.
+All statuses remain searchable; there is no status filter or automatic expiry.
+
 Search and Graphviz workers expose typed APIs through Comlink. The shared worker
 client rejects pending and future calls when a worker fails or is disposed, and
 releases its proxy and listeners. Search initialization can retry a failed index

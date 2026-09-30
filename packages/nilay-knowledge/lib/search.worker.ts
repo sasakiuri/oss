@@ -5,8 +5,12 @@ import { SearchIndexCompatibilityError, SearchIndexError } from './search-errors
 import { assertSearchIndexFormat, searchIndexFormatHeader } from './search-index-format';
 import { searchPageSize, type SearchGroup, type SearchScope, type SearchWorkerApi } from './search-protocol';
 
-let index: Promise<ReturnType<typeof createSearchIndex>> | undefined;
-let pdfIndex: Promise<ReturnType<typeof createSearchIndex>> | undefined;
+type LoadedIndex = {
+  index: ReturnType<typeof createSearchIndex>;
+  metadata: Map<string, NonNullable<import('./content/types').SearchDocument['pdf']>>;
+};
+let index: Promise<LoadedIndex> | undefined;
+let pdfIndex: Promise<LoadedIndex> | undefined;
 let lastSearch: { query: string; scope: SearchScope; groups: SearchGroup[]; totalMatches: number } | undefined;
 
 async function loadIndex(pdf = false) {
@@ -36,7 +40,12 @@ async function loadIndex(pdf = false) {
     controller.signal.throwIfAborted();
     const documents = parseSearchDocuments(data);
     if (documents.some((document) => (document.type === 'pdf') !== pdf)) throw new Error('Unexpected index type');
-    return createSearchIndex(documents);
+    return {
+      index: createSearchIndex(documents),
+      metadata: new Map(
+        documents.flatMap((document) => (document.pdf ? [[document.id.split('#')[0]!, document.pdf] as const] : [])),
+      ),
+    };
   };
   try {
     return await Promise.race([download(), deadline]);
@@ -70,7 +79,7 @@ expose({
     if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid search offset');
     const loaded = await getIndex(scope === 'pdf');
     if (lastSearch?.query !== query || lastSearch.scope !== scope) {
-      const results = loaded.search(query, {
+      const results = loaded.index.search(query, {
         filter: (result) => scope === 'all' || result.type === scope,
       });
       const groups = new Map<string, SearchGroup>();
@@ -80,6 +89,8 @@ expose({
         let group = groups.get(page);
         if (!group) {
           group = { id: page, type: result.type, title: String(result.title), matches: [] };
+          const metadata = loaded.metadata.get(page);
+          if (metadata) group.pdf = metadata;
           groups.set(page, group);
         }
         group.matches.push({

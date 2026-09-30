@@ -434,4 +434,36 @@ describe('site search dialog', () => {
     expect(client.dispose).toHaveBeenCalledOnce();
     expect(client.search).toHaveBeenCalledTimes(state === 'initializing' ? 0 : 1);
   });
+  it('shows unknown PDF status, evidence, a successor and all referring articles accessibly', async () => {
+    const pdf = {
+      ...results.groups[0]!,
+      id: '/content/assets/example.pdf',
+      type: 'pdf' as const,
+      pdf: {
+        status: 'unverified' as const,
+        successor: '/content/assets/next.pdf',
+        checked: '2026-09-30',
+        sources: [{ title: 'Synthetic evidence', url: 'https://example.com/evidence' }],
+        references: [
+          { title: 'First article', url: '/articles/first/' },
+          { title: 'Second article', url: '/articles/second/' },
+        ],
+      },
+      matches: [{ id: '/content/assets/example.pdf#page=2', section: '2ページ', excerpt: '印刷' }],
+    };
+    mockClient({ ...results, groups: [pdf] });
+    render(<SearchDialog />, '?q=印刷&type=pdf');
+    expect(await screen.findByText('確認状態不明')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '後継PDF資料を開く' })).toHaveAttribute('href', '/content/assets/next.pdf');
+    expect(screen.getByRole('link', { name: 'Synthetic evidence' })).toHaveAttribute(
+      'href',
+      'https://example.com/evidence',
+    );
+    expect(screen.getByRole('link', { name: 'First article' })).toHaveAttribute('href', '/articles/first/');
+    expect(screen.getByRole('link', { name: 'Second article' })).toHaveAttribute('href', '/articles/second/');
+    expect(screen.getByRole('option', { name: /2ページ/ })).toHaveAttribute(
+      'href',
+      '/content/assets/example.pdf#page=2',
+    );
+  });
 });

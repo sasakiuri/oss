@@ -1,4 +1,5 @@
 import type { ContentType } from './content/types';
+import type { PdfSearchMetadata } from './content/pdf-metadata';
 
 export interface SearchHit {
   id: string;
@@ -13,6 +14,7 @@ export interface SearchGroup {
   title: string;
   /** All matching sections/pages, in relevance order. */
   matches: SearchHit[];
+  pdf?: PdfSearchMetadata;
 }
 
 export interface SearchResults {
