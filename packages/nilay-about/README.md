@@ -48,7 +48,8 @@ Until the browser has read what was saved, the tool is held inert and `aria-busy
 If an initial framework JavaScript asset fails to load, an inline bootstrap reloads the same URL once per tab.
 It runs without the framework and keeps the saved-state readiness contract. Repeated failure, or unavailable
 session storage, shows a reload button and a link to the Labs list instead of cycling. After hydration and saved-state
-readiness, the bootstrap retires; ordinary application errors do not trigger it. This covers transient initial asset
+readiness, the bootstrap retires; ordinary application errors do not trigger it. Its session marker is tab-local
+startup bookkeeping, outside the tools' saved-data and backup storage. This covers transient initial asset
 failure. The cause of the previously observed Windows `ERR_NO_BUFFER_SPACE` is still unconfirmed.
 The Playwright specs import `test` from `__tests__/e2e/fixtures.ts`, which waits for that after each `goto` and `reload`.
 

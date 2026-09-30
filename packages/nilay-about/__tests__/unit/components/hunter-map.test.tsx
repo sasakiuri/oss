@@ -581,7 +581,10 @@ describe('hunter map', () => {
     render(<HunterMapClient />);
     expect(await loaded(() => screen.findByText('Web メルカトルでは緯度 ±90 度を扱えません。'))).toBeInTheDocument();
     expect(screen.getAllByLabelText('緯度（北緯）')[0]).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Web メルカトルでは緯度 ±90 度（極）を扱えません/)).toBeInTheDocument();
+    // The delayed live announcement repeats this warning; inspect the visible alignment message.
+    expect(
+      screen.getByText(/Web メルカトルでは緯度 ±90 度（極）を扱えません/, { selector: 'p:not([role="status"])' }),
+    ).toBeVisible();
   });
 
   it('keeps several maps and switches between them', async () => {
