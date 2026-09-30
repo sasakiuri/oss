@@ -4,7 +4,10 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { JSON_SCHEMA, load } from 'js-yaml';
 
+import { decodeContentAssetPathname } from './asset-path';
+import { serveContentAsset } from './assets';
 import { parseFrontmatter } from './frontmatter';
+import { resolveMetadataImage } from './metadata-image';
 import { isContentSlug } from './paths';
 import type { ContentSource, ContentSummary, ContentType } from './types';
 
@@ -69,7 +72,22 @@ export function createContentRepository(
       });
       // Authoring checks see the original keys before the runtime parser strips unknown fields.
       options.validateFrontmatter?.(data, filename);
-      return { type, slug, frontmatter: parseFrontmatter(data, filename), content };
+      const frontmatter = parseFrontmatter(data, filename);
+      if (frontmatter.image) {
+        const image = resolveMetadataImage(frontmatter.image, type, slug);
+        if (image.startsWith('/content/')) {
+          const segments = decodeContentAssetPathname(image.split(/[?#]/, 1)[0]!)!;
+          const response = await serveContentAsset(
+            new Request(`https://content.invalid${image}`, { method: 'HEAD' }),
+            segments,
+            contentDirectory,
+          );
+          if (response.status !== 200) {
+            throw new Error(`${filename}: image ${JSON.stringify(frontmatter.image)} is not a published regular file`);
+          }
+        }
+      }
+      return { type, slug, frontmatter, content };
     } catch (error) {
       throw new Error(`Unable to parse content: ${filename}: ${String(error)}`, { cause: error });
     }

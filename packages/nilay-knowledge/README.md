@@ -431,6 +431,13 @@ and [robots directives](https://developers.google.com/search/docs/crawling-index
 Sitemap publication and post-release verification follow the
 [sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
 
+Representative `image` metadata accepts content-relative paths, root-relative
+`/content/...` assets, and HTTP(S) URLs without credentials. Local images must be
+regular files served by the content route; repository validation rejects missing,
+hidden or escaping assets with the source filename. Metadata-only images are also
+included in local and scheduled external link checks. Omitted images retain the
+generated `/api/og/` fallback. Body image rendering follows its existing policy.
+
 ## Reading, search and printing
 
 The home page retains its photographic banner, with separate sections for

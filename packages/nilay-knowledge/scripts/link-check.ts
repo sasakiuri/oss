@@ -10,6 +10,7 @@ import { visit } from 'unist-util-visit';
 
 import { siteConfig } from '../lib/config';
 import { getArticleCategoryPages } from '../lib/content/category-pages';
+import { resolveMetadataImage } from '../lib/content/metadata-image';
 import { renderContent } from '../lib/content/render';
 import { createContentRepository } from '../lib/content/repository';
 import { createArticleDirectory } from '../lib/content/taxonomy';
@@ -77,6 +78,17 @@ export async function prepareLinkCheck(packageDirectory: string) {
           tagName: 'a',
           properties: { href: reference.url },
           children: [{ type: 'text', value: reference.title }],
+        });
+      }
+      if (source.frontmatter.image) {
+        tree.children.push({
+          type: 'element',
+          tagName: 'img',
+          properties: {
+            src: resolveMetadataImage(source.frontmatter.image, type, source.slug),
+            alt: source.frontmatter.title,
+          },
+          children: [],
         });
       }
       // Check real attributes; code examples and data attributes are not links.

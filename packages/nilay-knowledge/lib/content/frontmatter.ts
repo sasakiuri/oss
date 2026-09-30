@@ -7,7 +7,11 @@ export function parseFrontmatter(input: unknown, source: string): ContentFrontma
     const issue = result.error.issues[0]!;
     const field = issue.path[0] ?? 'frontmatter';
     const expected = field === 'tags' ? 'an array of non-empty strings' : issue.message;
-    throw new Error(`${source}: ${String(field)} must be ${expected}`);
+    const imageValue =
+      field === 'image' && typeof input === 'object' && input !== null && 'image' in input
+        ? ` (${JSON.stringify(input.image)})`
+        : '';
+    throw new Error(`${source}: ${String(field)} must be ${expected}${imageValue}`);
   }
 
   const { updated, image, category, description, ...required } = result.data;
