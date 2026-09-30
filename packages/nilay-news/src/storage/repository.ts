@@ -13,6 +13,7 @@ import { clock as defaultClock } from "../domain.ts";
 import type {
   Analysis,
   Article,
+  BufferQuota,
   Clock,
   Job,
   Post,
@@ -44,6 +45,9 @@ import {
   isPostingTime,
   nextPostingAt,
   POST_INTERVAL_SECONDS,
+  CONFIRMATION_MAX_CHECKS,
+  CONFIRMATION_TIMEOUT_SECONDS,
+  confirmationDelay,
 } from "../publication-policy.ts";
 import type {
   FinishPostOptions,
@@ -1118,13 +1122,19 @@ export class SQLRepository implements NewsRepository {
         bufferId: row.buffer_id ?? null,
         error: row.error ?? null,
         failedBeforeSend: failedBeforeSend(row),
+        nextCheckAt: row.status === "submitted" ? (row.check_at ?? null) : null,
+        lastObservedAt: row.observed_at ?? null,
+        remoteStatus: row.remote_status ?? null,
       })),
     };
   }
 
   async publicationState(): Promise<Publication> {
     const [, state] = await this.snapshot(["state", "posts"]);
-    return SQLRepository.publication(state, this.clock());
+    return {
+      ...SQLRepository.publication(state, this.clock()),
+      quota: await this.getRecord<BufferQuota>("buffer", "quota"),
+    };
   }
 
   /**
@@ -1531,16 +1541,19 @@ export class SQLRepository implements NewsRepository {
     if (!["posted", "failed", "unknown"].includes(status))
       throw new UserError("投稿結果が不正です");
     const now = options.timestamp ?? this.clock();
-    await this.mutate(["state", "articles", "posts"], (state) =>
-      SQLRepository.finish(
-        state,
-        articleId,
-        status,
-        options.postId ?? null,
-        options.error ?? null,
-        now,
-        options.claimToken,
-      ),
+    await this.mutate(
+      ["state", "articles", "posts"],
+      (state) =>
+        SQLRepository.finish(
+          state,
+          articleId,
+          status,
+          options.postId ?? null,
+          options.error ?? null,
+          now,
+          options.claimToken,
+        ),
+      [articleId],
     );
   }
 
@@ -1564,6 +1577,7 @@ export class SQLRepository implements NewsRepository {
         channel_id: channelId,
         check_at: now + 120,
         check_count: 0,
+        confirmation_deadline: now + CONFIRMATION_TIMEOUT_SECONDS,
       });
     });
   }
@@ -1586,24 +1600,126 @@ export class SQLRepository implements NewsRepository {
         .sort((a, b) => (a.check_at ?? 0) - (b.check_at ?? 0));
       const post = pending[0];
       if (!post) return null;
-      if (post.check_count >= 2) {
+      const deadline =
+        post.confirmation_deadline ??
+        Date.parse(post.attempted_at) / 1000 + CONFIRMATION_TIMEOUT_SECONDS;
+      if (post.check_count >= CONFIRMATION_MAX_CHECKS || now >= deadline) {
         SQLRepository.finish(
           state,
           post.article_id,
           "unknown",
           null,
-          "Buffer の投稿完了を確認できません。Buffer と X を確認してください",
+          post.error
+            ? `Buffer の確認期限または確認回数の上限に達しました。${post.error}`
+            : "Buffer の投稿完了を確認できません。Buffer と X を確認してください",
           now,
         );
         return null;
       }
-      const previous = { ...post };
+      const token = randomToken();
+      const claimed = {
+        ...post,
+        claim_token: token,
+        confirmation_deadline: deadline,
+      };
       Object.assign(post, {
-        check_at: now + 120,
+        claim_token: token,
+        confirmation_deadline: deadline,
+        check_at: Math.min(
+          deadline,
+          now + confirmationDelay(post.check_count + 1),
+        ),
         check_count: post.check_count + 1,
       });
-      return previous;
+      return claimed;
     });
+  }
+
+  async deferPostCheck(
+    articleId: string,
+    claimToken: string,
+    observation: {
+      timestamp: number;
+      remoteStatus?: string;
+      error?: string | null;
+      nextAt?: number;
+    },
+  ): Promise<void> {
+    await this.mutate(["posts"], (state) => {
+      const post = SQLRepository.post(
+        state,
+        articleId,
+        ["submitted"],
+        claimToken,
+      );
+      if (observation.remoteStatus !== undefined) {
+        post.remote_status = observation.remoteStatus;
+        post.observed_at = observation.timestamp;
+      }
+      post.error = observation.error ?? null;
+      if (observation.nextAt !== undefined) {
+        post.check_at = Math.min(
+          post.confirmation_deadline ?? Infinity,
+          Math.max(post.check_at ?? 0, observation.nextAt),
+        );
+      }
+    });
+  }
+
+  /** Quota observations do not change business or settings revisions. Older requests cannot replace newer observations. */
+  async recordBufferQuota(observation: BufferQuota): Promise<void> {
+    const api = {
+      observedAt: observation.observedAt,
+      requestOrder: observation.requestOrder,
+      api: observation.api,
+    };
+    const writes: SQLStatement[] = [
+      [
+        "INSERT INTO news_records(namespace,key,data,expires) VALUES ('buffer','quota',?,NULL) " +
+          "ON CONFLICT(namespace,key) DO UPDATE SET data=CASE " +
+          "WHEN json_type(excluded.data,'$.channel') IS NULL AND json_type(news_records.data,'$.channel')='object' " +
+          "THEN json_set(excluded.data,'$.channel',json_extract(news_records.data,'$.channel')) ELSE excluded.data END " +
+          "WHERE (json_type(excluded.data,'$.requestOrder')='integer' " +
+          "AND COALESCE(json_extract(news_records.data,'$.requestOrder'),0)<=json_extract(excluded.data,'$.requestOrder')) " +
+          "OR (json_type(excluded.data,'$.requestOrder') IS NULL AND json_type(news_records.data,'$.requestOrder') IS NULL " +
+          "AND json_extract(news_records.data,'$.observedAt')<=?)",
+        [encode(api), observation.observedAt],
+      ],
+    ];
+    if (observation.channel) {
+      const channel = {
+        ...observation.channel,
+        requestOrder:
+          observation.channel.requestOrder ?? observation.requestOrder,
+      };
+      writes.push([
+        "UPDATE news_records SET data=json_set(data,'$.channel',json(?)) WHERE namespace='buffer' AND key='quota' " +
+          "AND ((? IS NOT NULL AND COALESCE(json_extract(data,'$.channel.requestOrder'),0)<=?) " +
+          "OR (? IS NULL AND json_type(data,'$.channel.requestOrder') IS NULL " +
+          "AND COALESCE(json_extract(data,'$.channel.observedAt'),0)<=?))",
+        [
+          encode(channel),
+          channel.requestOrder ?? null,
+          channel.requestOrder ?? null,
+          channel.requestOrder ?? null,
+          channel.observedAt,
+        ],
+      ]);
+    }
+    const [result] = await this.driver.batch(writes);
+    if (!result) throw new UserError("Buffer の利用回数を記録できません");
+  }
+
+  async reserveBufferRequest(): Promise<number> {
+    const [result] = await this.driver.batch([
+      [
+        "INSERT INTO news_records(namespace,key,data,expires) VALUES ('buffer','request-order','{\"value\":1}',NULL) " +
+          "ON CONFLICT(namespace,key) DO UPDATE SET data=json_set(news_records.data,'$.value',json_extract(news_records.data,'$.value')+1) " +
+          "RETURNING json_extract(data,'$.value') AS sequence",
+        [],
+      ],
+    ]);
+    return numberColumn(result?.results[0], "sequence");
   }
 
   async resolvePost(articleId: string, outcome: unknown): Promise<Publication> {
@@ -2323,7 +2439,22 @@ export class SQLRepository implements NewsRepository {
         ) ||
         !isInteger(post.check_count) ||
         post.check_count < 0 ||
-        post.check_count > 2
+        post.check_count > CONFIRMATION_MAX_CHECKS ||
+        !Number.isFinite(Date.parse(String(post.attempted_at))) ||
+        (post.confirmation_deadline !== undefined &&
+          (!finite(post.confirmation_deadline) ||
+            post.confirmation_deadline < 0)) ||
+        (post.observed_at !== undefined &&
+          (!finite(post.observed_at) || post.observed_at < 0)) ||
+        (post.remote_status !== undefined &&
+          ![
+            "draft",
+            "error",
+            "needs_approval",
+            "scheduled",
+            "sending",
+            "sent",
+          ].includes(String(post.remote_status)))
       ) {
         throw new UserError("移行データの投稿履歴が不正です");
       }

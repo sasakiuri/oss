@@ -90,10 +90,37 @@ export interface Post {
   claim_expires_at: number;
   check_count: number;
   check_at?: number;
+  confirmation_deadline?: number;
+  observed_at?: number;
+  remote_status?: string;
   post_id?: string | null;
   buffer_id?: string;
   channel_id?: string;
   error?: string | null;
+}
+export interface BufferQuota {
+  observedAt: number;
+  requestOrder?: number;
+  api: {
+    state: "known" | "missing" | "malformed" | "limited";
+    windows: {
+      name: string;
+      remaining: number;
+      resetAt: number;
+      seconds?: number;
+      limit?: number;
+    }[];
+    retryAt?: number;
+  };
+  channel?: {
+    observedAt: number;
+    requestOrder?: number;
+    channelId: string;
+    limit: number | null;
+    scheduled: number;
+    sent?: number;
+    atLimit: boolean;
+  };
 }
 export interface PostClaim {
   articleId: string;
@@ -102,6 +129,7 @@ export interface PostClaim {
 }
 export interface Publication {
   nextAt: number;
+  quota?: BufferQuota | null;
   posts: {
     articleId: string;
     status: PostStatus;
@@ -111,5 +139,8 @@ export interface Publication {
     bufferId: string | null;
     error: string | null;
     failedBeforeSend: boolean;
+    nextCheckAt?: number | null;
+    lastObservedAt?: number | null;
+    remoteStatus?: string | null;
   }[];
 }

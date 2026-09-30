@@ -46,3 +46,8 @@ export function nextPostingAt(at: number): number {
   if (second < POST_WINDOW_END_SECONDS) return at;
   return at + DAY_SECONDS - second + POST_WINDOW_START_SECONDS;
 }
+/** At most six read-only checks over one hour for an accepted Buffer identity. */
+export const CONFIRMATION_MAX_CHECKS = 6;
+export const CONFIRMATION_TIMEOUT_SECONDS = 3600;
+export const confirmationDelay = (completed: number): number =>
+  Math.min(120 * 2 ** completed, 900);

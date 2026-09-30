@@ -1981,12 +1981,14 @@ describe("publication", () => {
     const other = open();
     expect(await other.claimPostCheck(now + 121)).toBeNull();
     expect(await other.claimPostCheck(now + 239)).toBeNull();
-    expect((await other.claimPostCheck(now + 240))?.check_count).toBe(1);
+    expect(await other.claimPostCheck(now + 240)).toBeNull();
+    expect((await other.claimPostCheck(now + 360))?.check_count).toBe(1);
     await expect(
       other.resolvePost(articleId, "not_posted"),
     ).rejects.toBeInstanceOf(UserError);
-    expect(await other.claimPostCheck(now + 359)).toBeNull();
-    expect(await other.claimPostCheck(now + 360)).toBeNull();
+    expect(await other.claimPostCheck(now + 839)).toBeNull();
+    expect((await other.claimPostCheck(now + 840))?.check_count).toBe(2);
+    expect(await other.claimPostCheck(now + 3600)).toBeNull();
     expect((await other.publicationState()).posts[0]).toMatchObject({
       status: "unknown",
       error:
@@ -2012,11 +2014,12 @@ describe("publication", () => {
       article_id: articleId,
       buffer_id: "buffer",
       channel_id: "channel",
-      claim_token: attempt.claimToken,
     });
+    expect(check?.claim_token).not.toBe(attempt.claimToken);
     await repo.finishPost(articleId, "posted", {
       postId: "1",
       timestamp: now + 125,
+      claimToken: check?.claim_token,
     });
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
     expect((await repo.settings()).autoPost).toBe(false);
@@ -2613,12 +2616,10 @@ describe("publication freshness", () => {
     expect(
       await repo.authorizePostSend(articleId, attempt.claimToken, now),
     ).toBe(false);
-    // Aging out never cancels a post already handed to Buffer.
-    expect((await repo.claimPostCheck(now))?.article_id).toBe(articleId);
-    await repo.finishPost(articleId, "posted", {
-      postId: "1",
-      claimToken: attempt.claimToken,
-    });
+    // The bounded check expires locally; it neither cancels nor resends the remote post.
+    expect(await repo.claimPostCheck(now)).toBeNull();
+    expect((await repo.publicationState()).posts[0]?.status).toBe("unknown");
+    await repo.resolvePost(articleId, "posted");
     expect((await repo.publicationState()).posts[0]?.status).toBe("posted");
   });
 });
@@ -3195,7 +3196,7 @@ describe("snapshots", () => {
       article_id: articleId,
       status: "submitted",
       text: "t",
-      attempted_at: "a",
+      attempted_at: new Date(now * 1000).toISOString(),
       claim_token: "c",
       check_count: 0,
     };
@@ -3220,7 +3221,7 @@ describe("snapshots", () => {
     await expect(
       target.importSnapshot({
         ...snapshot,
-        posts: [{ ...post, check_count: 3 }],
+        posts: [{ ...post, check_count: 7 }],
       }),
     ).rejects.toThrow("移行データの投稿履歴が不正です");
     await expect(

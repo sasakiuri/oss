@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Buffer GraphQL publishing with durable claims and bounded confirmation. */
 import { isSourceCandidate } from "./candidates.ts";
-import type { Clock } from "./domain.ts";
+import type { BufferQuota, Clock } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { UserError } from "./errors.ts";
 import { GoogleNewsResolver } from "./google-news.ts";
@@ -9,7 +9,10 @@ import type { Jev } from "./jev.ts";
 import { FetchError, fetchBytes } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
 import { ACCOUNT } from "./posts.ts";
-import { isPostingTime } from "./publication-policy.ts";
+import {
+  CONFIRMATION_MAX_CHECKS,
+  isPostingTime,
+} from "./publication-policy.ts";
 import type { NewsRepository, PostScreening } from "./repository.ts";
 import { isRecord, utf8 } from "./text.ts";
 
@@ -33,9 +36,10 @@ const INCOMPLETE =
   "Buffer の投稿が完了していません。Buffer と X を確認してください";
 /**
  * API requests every rate window must still allow before a post is sent: the
- * post itself, up to two confirmations, and one spare.
+ * post itself, up to six confirmations, and one spare. The verification
+ * request has already consumed its quota when it returns these observations.
  */
-export const REQUEST_RESERVE = 4;
+export const REQUEST_RESERVE = CONFIRMATION_MAX_CHECKS + 2;
 /** Operations, each a confirmation or a claimed send, one tick may perform. */
 export const TICK_OPERATIONS = 10;
 /** A tick starts no further operation this many seconds after it started. */
@@ -56,7 +60,9 @@ export interface RateWindow {
  * Every quota window of a `RateLimit` header (`"name"; r=99; t=900, ...`),
  * or null when the header is malformed or a window lacks `r` or `t`.
  */
-export function rateWindows(header: string): RateWindow[] | null {
+function rateItems(
+  header: string,
+): { name: string; params: Map<string, string> }[] | null {
   const items: string[] = [];
   let quoted = false;
   let start = 0;
@@ -69,7 +75,7 @@ export function rateWindows(header: string): RateWindow[] | null {
   }
   if (quoted) return null;
   items.push(header.slice(start));
-  const windows: RateWindow[] = [];
+  const parsed: { name: string; params: Map<string, string> }[] = [];
   for (const item of items) {
     const match = RATE_ITEM.exec(item.trim());
     if (!match) return null;
@@ -80,6 +86,23 @@ export function rateWindows(header: string): RateWindow[] | null {
       if (params.has(name)) return null;
       params.set(name, value);
     }
+    parsed.push({
+      name: item
+        .trim()
+        .slice(0, item.trim().length - (match[1]?.length ?? 0))
+        .trim()
+        .replace(/^"|"$/g, ""),
+      params,
+    });
+  }
+  return parsed;
+}
+
+export function rateWindows(header: string): RateWindow[] | null {
+  const items = rateItems(header);
+  if (!items) return null;
+  const windows: RateWindow[] = [];
+  for (const { params } of items) {
     const remaining = params.get("r") ?? "";
     const reset = params.get("t") ?? "";
     if (!/^[0-9]{1,15}$/.test(remaining) || !/^[0-9]{1,15}$/.test(reset))
@@ -87,6 +110,66 @@ export function rateWindows(header: string): RateWindow[] | null {
     windows.push({ remaining: Number(remaining), reset: Number(reset) });
   }
   return windows;
+}
+
+function quotaObservation(
+  header: string | undefined,
+  policy: string | undefined,
+  now: number,
+  limited = false,
+  retryAfter?: number,
+): BufferQuota {
+  const windows = header === undefined ? null : rateWindows(header);
+  const items = header === undefined ? null : rateItems(header);
+  const policies = new Map(
+    (policy === undefined ? [] : (rateItems(policy) ?? [])).map((item) => [
+      item.name,
+      item.params,
+    ]),
+  );
+  return {
+    observedAt: now,
+    api: {
+      state: limited
+        ? "limited"
+        : header === undefined
+          ? "missing"
+          : windows
+            ? "known"
+            : "malformed",
+      windows: (windows ?? []).map((window, index) => {
+        const fields = policies.get(items?.[index]?.name ?? "");
+        const numeric = (name: string): number | undefined => {
+          const value = fields?.get(name) ?? "";
+          return /^[0-9]{1,15}$/.test(value) ? Number(value) : undefined;
+        };
+        return {
+          name: `window-${index + 1}`,
+          remaining: window.remaining,
+          resetAt: now + window.reset,
+          seconds: numeric("w"),
+          limit: numeric("q"),
+        };
+      }),
+      ...(Number.isFinite(retryAfter) && (retryAfter ?? -1) >= 0
+        ? { retryAt: now + (retryAfter ?? 0) }
+        : {}),
+    },
+  };
+}
+
+/** Only an unexpired observation blocks requests; a reset never enables posting. */
+function quotaPause(
+  quota: BufferQuota | null | undefined,
+  now: number,
+): number | null {
+  const resetTimes =
+    quota?.api.windows
+      .filter((window) => window.remaining < 1 && window.resetAt > now)
+      .map((window) => window.resetAt) ?? [];
+  if (quota?.api.retryAt !== undefined && quota.api.retryAt > now)
+    resetTimes.push(quota.api.retryAt);
+  return resetTimes.length ? Math.max(...resetTimes) : null;
 }
 
 /** An approximate Japanese wait such as `約15分`, `約3時間` or `約2日`. */
@@ -109,13 +192,15 @@ export class PostError extends UserError {
 
 /** A local, sanitized message; never contains the remote response body. */
 class PostRateLimitError extends PostError {
-  constructor(retryAfter?: number) {
+  constructor(retryAfter?: number, http429 = true) {
     super(
       retryAfter !== undefined && Number.isFinite(retryAfter) && retryAfter >= 0
-        ? `Buffer API の利用上限に達しました（HTTP 429）。${approximately(retryAfter)}後に Buffer と X を確認してから再度有効にしてください`
-        : "Buffer API の利用上限に達しました（HTTP 429）。しばらく待ってから Buffer と X を確認し、再度有効にしてください",
+        ? `Buffer API の利用上限に達しました${http429 ? "（HTTP 429）" : "（残り利用回数の観測）"}。${approximately(retryAfter)}後に接続と Buffer・X の投稿結果を確認してください`
+        : "Buffer API の利用上限に達しました（HTTP 429）。しばらく待ってから接続と Buffer・X の投稿結果を確認してください",
     );
+    this.retryAfter = retryAfter;
   }
+  readonly retryAfter?: number;
 }
 
 export interface BufferPost {
@@ -172,14 +257,46 @@ export function xPostId(post: BufferPost): string | null {
 }
 
 export class BufferClient {
-  /** The `RateLimit` header of the latest successful HTTP response, if any. */
-  private rateLimit: string | undefined;
+  /** Latest API and channel observations, ordered independently. */
+  private quota?: BufferQuota;
+  private sequence = 0;
 
   constructor(
     private readonly key = "",
     readonly channel = "",
     private readonly transport: FetchBytes = fetchBytes,
+    private readonly options: {
+      clock?: Clock;
+      observeQuota?: (quota: BufferQuota) => Promise<void>;
+      readQuota?: () => Promise<BufferQuota | null>;
+      nextRequestOrder?: () => Promise<number>;
+    } = {},
   ) {}
+
+  private async observe(quota: BufferQuota): Promise<void> {
+    if ((quota.requestOrder ?? 0) >= (this.quota?.requestOrder ?? 0)) {
+      this.quota = { ...quota, channel: this.quota?.channel };
+    }
+    if (
+      quota.channel &&
+      (quota.channel.requestOrder ?? 0) >=
+        (this.quota?.channel?.requestOrder ?? 0)
+    ) {
+      this.quota = { ...this.quota!, channel: quota.channel };
+    }
+    await this.options.observeQuota?.(quota);
+  }
+
+  private async checkRequestBudget(): Promise<void> {
+    const now = (this.options.clock ?? systemClock)();
+    const quota = (await this.options.readQuota?.()) ?? this.quota;
+    const retryAt = quotaPause(quota, now);
+    if (retryAt !== null)
+      throw new PostRateLimitError(
+        retryAt - now,
+        quota?.api.state === "limited",
+      );
+  }
 
   get configured(): boolean {
     return Boolean(this.key && this.channel);
@@ -189,14 +306,18 @@ export class BufferClient {
     query: string,
     variables: object,
     mutation = false,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<{ data: Record<string, unknown>; quota: BufferQuota }> {
     if (!this.configured)
       throw new PostError(
         "Buffer の API キーとチャンネル ID を設定してください",
       );
+    await this.checkRequestBudget();
     let data: Uint8Array;
+    let quota: BufferQuota;
+    const requestOrder =
+      (await this.options.nextRequestOrder?.()) ?? ++this.sequence;
     try {
-      ({ data, rateLimit: this.rateLimit } = await this.transport(ENDPOINT, {
+      const response = await this.transport(ENDPOINT, {
         body: utf8(JSON.stringify({ query, variables })),
         headers: {
           Authorization: `Bearer ${this.key}`,
@@ -207,10 +328,30 @@ export class BufferClient {
         beforeRedirect: () => {
           throw new FetchError("Buffer API の転送には対応していません");
         },
-      }));
+      });
+      data = response.data;
+      quota = {
+        ...quotaObservation(
+          response.rateLimit,
+          response.rateLimitPolicy,
+          (this.options.clock ?? systemClock)(),
+        ),
+        requestOrder,
+      };
+      await this.observe(quota);
     } catch (error) {
       if (!(error instanceof FetchError)) throw error;
       const { status, retryAfter } = error;
+      await this.observe({
+        ...quotaObservation(
+          error.rateLimit,
+          error.rateLimitPolicy,
+          (this.options.clock ?? systemClock)(),
+          status === 429,
+          retryAfter,
+        ),
+        requestOrder,
+      });
       const uncertain =
         mutation && (status === undefined || status >= 500 || status === 408);
       if (uncertain)
@@ -230,7 +371,7 @@ export class BufferClient {
         ),
       );
       if (isRecord(value) && !truthy(value.errors) && isRecord(value.data))
-        return value.data;
+        return { data: value.data, quota };
     } catch {
       // Treated as an unverifiable response below.
     }
@@ -246,11 +387,13 @@ export class BufferClient {
    * it, the remaining API request budget; all in one request.
    */
   async verifyAccount(): Promise<void> {
-    const { channel, dailyPostingLimits } = await this.request(
-      "query($input: ChannelInput!, $limits: DailyPostingLimitsInput!) { channel(input: $input) { id name service allowedActions isDisconnected isLocked isQueuePaused linkShortening { isEnabled } } dailyPostingLimits(input: $limits) { channelId isAtLimit limit scheduled } }",
+    const {
+      data: { channel, dailyPostingLimits },
+      quota,
+    } = await this.request(
+      "query($input: ChannelInput!, $limits: DailyPostingLimitsInput!) { channel(input: $input) { id name service allowedActions isDisconnected isLocked isQueuePaused linkShortening { isEnabled } } dailyPostingLimits(input: $limits) { channelId isAtLimit limit scheduled sent } }",
       { input: { id: this.channel }, limits: { channelIds: [this.channel] } },
     );
-    const rateLimit = this.rateLimit;
     if (
       !isRecord(channel) ||
       channel.id !== this.channel ||
@@ -286,12 +429,19 @@ export class BufferClient {
         "Buffer の Link Shortening を No Shortening に設定してください",
       );
     }
-    this.checkDailyLimit(dailyPostingLimits);
-    if (rateLimit !== undefined) BufferClient.checkBudget(rateLimit);
+    await this.checkDailyLimit(dailyPostingLimits, quota);
+    if (quota.api.state === "malformed")
+      throw new PostError(
+        "Buffer API の残り利用回数を確認できません。Buffer を確認してください",
+      );
+    BufferClient.checkBudget(quota);
   }
 
   /** Buffer's current-day count for this channel must leave room for one post. */
-  private checkDailyLimit(limits: unknown): void {
+  private async checkDailyLimit(
+    limits: unknown,
+    quota: BufferQuota,
+  ): Promise<void> {
     const count = (value: unknown): value is number =>
       Number.isSafeInteger(value) && (value as number) >= 0;
     const [limit] = Array.isArray(limits) ? limits : [];
@@ -301,14 +451,30 @@ export class BufferClient {
       !isRecord(limit) ||
       limit.channelId !== this.channel ||
       typeof limit.isAtLimit !== "boolean" ||
-      !count(limit.limit) ||
-      !count(limit.scheduled)
+      (limit.limit !== null && !count(limit.limit)) ||
+      !count(limit.scheduled) ||
+      (limit.sent !== undefined && !count(limit.sent))
     ) {
       throw new PostError(
         "Buffer のチャンネルの1日の投稿上限を確認できません。Buffer を確認してください",
       );
     }
-    if (limit.isAtLimit || limit.scheduled >= limit.limit) {
+    await this.observe({
+      ...quota,
+      channel: {
+        observedAt: quota.observedAt,
+        requestOrder: quota.requestOrder,
+        channelId: this.channel,
+        limit: limit.limit as number | null,
+        scheduled: limit.scheduled,
+        ...(limit.sent !== undefined ? { sent: limit.sent as number } : {}),
+        atLimit: limit.isAtLimit,
+      },
+    });
+    if (
+      limit.isAtLimit ||
+      (typeof limit.limit === "number" && limit.scheduled >= limit.limit)
+    ) {
       throw new PostError(
         `Buffer のチャンネルが1日の投稿上限に達しています（${limit.scheduled}/${limit.limit} 件）。Buffer の上限がリセットされてから再度有効にしてください`,
       );
@@ -319,17 +485,14 @@ export class BufferClient {
    * Every reported rate window must still allow the post, its confirmations
    * and a spare request; a malformed header is refused.
    */
-  private static checkBudget(header: string): void {
-    const windows = rateWindows(header);
-    if (!windows) {
-      throw new PostError(
-        "Buffer API の残り利用回数を確認できません。Buffer を確認してください",
-      );
-    }
+  private static checkBudget(quota: BufferQuota): void {
+    const windows = quota.api.windows;
     const low = windows.filter(({ remaining }) => remaining < REQUEST_RESERVE);
     if (low.length) {
       const remaining = Math.min(...low.map((window) => window.remaining));
-      const wait = Math.max(...low.map((window) => window.reset));
+      const wait = Math.max(
+        ...low.map((window) => window.resetAt - quota.observedAt),
+      );
       throw new PostError(
         `Buffer API の残り利用回数が不足しています（残り ${remaining} 回）。${approximately(wait)}後に再度有効にしてください`,
       );
@@ -337,7 +500,9 @@ export class BufferClient {
   }
 
   async post(text: string): Promise<BufferPost> {
-    const { createPost: result } = await this.request(
+    const {
+      data: { createPost: result },
+    } = await this.request(
       `mutation($input: CreatePostInput!) { createPost(input: $input) { __typename ... on PostActionSuccess { post { ${POST_FIELDS} } } } }`,
       {
         input: {
@@ -365,7 +530,9 @@ export class BufferClient {
     text: string,
     channelId = this.channel,
   ): Promise<BufferPost> {
-    const { post } = await this.request(
+    const {
+      data: { post },
+    } = await this.request(
       `query($input: PostInput!) { post(input: $input) { ${POST_FIELDS} } }`,
       { input: { id } },
     );
@@ -480,18 +647,28 @@ export class Publisher {
   ): Promise<boolean> {
     const pending = await this.repository.claimPostCheck(timestamp);
     if (pending) {
-      const finalCheck = pending.check_count >= 1;
+      const finalCheck = pending.check_count + 1 >= CONFIRMATION_MAX_CHECKS;
       let result: BufferPost;
       try {
         if (!pending.buffer_id || !pending.channel_id)
           throw new PostError(INCOMPLETE, true);
+        const quota = await this.repository.getRecord<BufferQuota>(
+          "buffer",
+          "quota",
+        );
+        const retryAt = quotaPause(quota, this.clock());
+        if (retryAt !== null)
+          throw new PostRateLimitError(
+            retryAt - this.clock(),
+            quota?.api.state === "limited",
+          );
         result = await this.client.getPost(
           pending.buffer_id,
           pending.text,
           pending.channel_id,
         );
       } catch (error) {
-        if (finalCheck || error instanceof PostRateLimitError) {
+        if (finalCheck || (error instanceof PostError && error.uncertain)) {
           await this.repository.finishPost(pending.article_id, "unknown", {
             error:
               error instanceof PostRateLimitError
@@ -499,6 +676,22 @@ export class Publisher {
                 : "Buffer の投稿結果を取得できません。Buffer と X を確認してください",
             claimToken: pending.claim_token,
           });
+        } else {
+          await this.repository.deferPostCheck(
+            pending.article_id,
+            pending.claim_token,
+            {
+              timestamp: this.clock(),
+              error:
+                error instanceof PostRateLimitError
+                  ? error.message
+                  : "Buffer の投稿結果を取得できません。次の確認まで新しい投稿を保留します",
+              ...(error instanceof PostRateLimitError &&
+              error.retryAfter !== undefined
+                ? { nextAt: this.clock() + Math.max(120, error.retryAfter) }
+                : {}),
+            },
+          );
         }
         return false;
       }
@@ -573,6 +766,10 @@ export class Publisher {
     claimToken: string,
     finalCheck: boolean,
   ): Promise<boolean> {
+    await this.repository.deferPostCheck(articleId, claimToken, {
+      timestamp: this.clock(),
+      remoteStatus: post.status,
+    });
     if (post.status === "sent") {
       await this.repository.finishPost(articleId, "posted", {
         postId: xPostId(post),

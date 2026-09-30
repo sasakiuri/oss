@@ -92,6 +92,7 @@ export interface FetchResult {
   contentType: string;
   /** The response's `RateLimit` header, present only when the server sent one. */
   rateLimit?: string;
+  rateLimitPolicy?: string;
 }
 
 /** Fetch used by collectors; pacing, robots and caching are applied by the caller. */
