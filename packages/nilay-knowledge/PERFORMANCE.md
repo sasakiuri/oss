@@ -163,6 +163,53 @@ from 218,328 to 224,815 bytes. The image savings exceed these increases; a blank
 JavaScript-size reduction is not claimed. Browser tests preserve original-resolution
 zoom/printing. Lighthouse median CLS remained unchanged for all seven pages.
 
+## PDF extraction and bounded search responses
+
+The PDF pipeline can be measured independently from Next.js using
+`npm run benchmark:pdf --workspace=@sasakiuri/nilay-knowledge -- <report.json>`.
+Repeat with the same cache for a warm rebuild; add `--no-cache` to bypass it.
+On Node.js 24.16.0 / Linux x64 / Intel Core i7-1370P, 284 linked PDFs / 3,202
+pages took 22.54 s cold (20.89 s extraction) and 1.03 s warm (284 hits, no
+extraction). Process peak RSS was 869,416 / 389,496 KiB; disposable records used
+6,160 KiB on disk. These are pipeline measurements, not total build-time or
+production CI guarantees. Cache persistence must be configured explicitly.
+
+`benchmark:search -- <report.json>` compares the previous eager response shape
+with bounded responses using the same MiniSearch engine and corpus. It records
+query-to-response time, excerpt calls, serialized JSON bytes and independently
+authored relevance fixtures. `benchmark:search:browser -- <base-url> <report.json> 3`
+measures a running production build with fresh Chromium contexts, including
+worker preparation/download and the actual DOM after one expansion. JSON byte
+counts describe serialized worker messages, not network traffic or the browser's
+structured-clone representation. Browser reports identify corpus digests and environment.
+
+A comparison on Chromium 153.0.8010.12, Node.js 24.16.0, the same host and
+390×844 viewport used 482 article/news sections and 2,920 PDF pages with identical
+core index digests before/after. Each query ran three times, without throttling or
+concurrent test/build work. Representative results were:
+
+| Query / target                  | Initial JSON before / after | Initial returned excerpts before / after | DOM elements after one expansion before / after |
+| ------------------------------- | --------------------------: | ---------------------------------------: | ----------------------------------------------: |
+| `所持許可` / all                |           38,344 / 14,226 B |                                  71 / 20 |                                       139 / 140 |
+| `ＰＤＦ` / all                  |            25,871 / 3,561 B |                                   57 / 6 |                                       368 / 191 |
+| `申請` / PDF                    |           24,868 / 18,631 B |                                  37 / 20 |                                         26 / 33 |
+| `申請` / synthetic 500-page PDF |             221,431 / 640 B |                                  500 / 1 |                                     8,006 / 345 |
+
+For the synthetic case, excerpt generation fell from 500 calls to one on the
+initial response; the first expansion shows 21 links, and further batches reach
+all 500 pages. Initial MiniSearch querying and worker indexing remain necessary.
+Median browser first-result times were 808 / 803 ms for the synthetic case and
+4,810 / 4,828 ms for `申請` on the real PDF corpus: this does not establish a
+uniform latency improvement. The retained benefit is bounded excerpt preparation,
+message size and first-expansion DOM, with exact ranking/totals and full reachability.
+PDF provenance adds a small amount of visible context to some groups.
+
+Four editorial relevance examples (renewal, hunting licence, shooting ranges,
+and a named application PDF) achieved hit@K 4/4 and mean reciprocal rank 1.0 on
+the unchanged engine baseline. They are examples, not a general relevance claim
+or a new ranking threshold. Worker tests cover ordering/parity and continuations;
+Chromium, Firefox and 320px browser tests traverse every page of the synthetic PDF.
+
 ## Browser benchmark
 
 Run a production build and start the server, then measure from a second terminal:

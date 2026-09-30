@@ -1,0 +1,16 @@
+[
+  { "query": "所持許可 更新", "scope": "articles", "acceptable": ["/articles/1403250921/"], "topK": 5 },
+  {
+    "query": "狩猟免許 取得",
+    "scope": "articles",
+    "acceptable": ["/articles/1403944258/", "/articles/1415891983/"],
+    "topK": 5
+  },
+  { "query": "関東 射撃場", "scope": "articles", "acceptable": ["/articles/1413972696/"], "topK": 5 },
+  {
+    "query": "銃砲所持許可申請書",
+    "scope": "pdf",
+    "acceptable": ["/content/articles/1597956932/docs/juto06.pdf"],
+    "topK": 10
+  }
+]

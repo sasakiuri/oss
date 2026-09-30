@@ -1,11 +1,16 @@
 // @vitest-environment node
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { pdfExtractionKey, readPdfExtraction, writePdfExtraction } from '@/lib/content/pdf-extraction-cache';
+import {
+  pdfExtractionKey,
+  readPdfExtraction,
+  resolvePdfCacheDirectory,
+  writePdfExtraction,
+} from '@/lib/content/pdf-extraction-cache';
 
 let directory: string;
 beforeEach(async () => {
@@ -43,5 +48,15 @@ describe('content-addressed extraction records', () => {
       await writeFile(path.join(directory, `${key}.json`), JSON.stringify(record));
       expect(await readPdfExtraction(directory, key)).toBeUndefined();
     }
+  });
+  it('disables a cache directory whose existing ancestor symlink resolves inside published content', async () => {
+    const content = path.join(directory, 'content');
+    await mkdir(content);
+    const cache = path.join(directory, 'cache-link');
+    await symlink(content, cache);
+    expect(await resolvePdfCacheDirectory(path.join(cache, 'nested-cache'), content)).toBe(false);
+    expect(await resolvePdfCacheDirectory(path.join(directory, 'external-cache'), content)).toBe(
+      path.join(directory, 'external-cache'),
+    );
   });
 });

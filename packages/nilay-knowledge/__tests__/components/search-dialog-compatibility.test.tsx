@@ -21,6 +21,7 @@ vi.mock('next/link', () => ({
 }));
 
 const results: SearchResults = {
+  generation: 1,
   total: 1,
   totalMatches: 1,
   nextOffset: null,
@@ -29,6 +30,8 @@ const results: SearchResults = {
       id: '/articles/example/',
       type: 'articles',
       title: '文書ガイド',
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/articles/example/#print', section: '印刷の準備', excerpt: '印刷します。' }],
     },
   ],
@@ -43,6 +46,7 @@ function client() {
   const value = {
     load: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(async (_query: string, _scope?: SearchScope, _offset?: number) => results),
+    matches: vi.fn(async () => ({ generation: 1, id: '/articles/example/', total: 1, matches: [], nextOffset: null })),
     dispose: vi.fn(),
   };
   vi.mocked(createSearchClient).mockReturnValue(value);
