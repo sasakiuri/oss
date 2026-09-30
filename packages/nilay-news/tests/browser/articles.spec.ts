@@ -184,17 +184,18 @@ test("Jev provenance can be inspected with keyboard on wide and narrow screens",
   await page.locator("#article-list .article-select").click();
   const summary = page.locator(".analysis-provenance summary");
   await expect(summary).toHaveText("判定の構成と記録");
+  await expect(page.locator(".analysis-provenance")).toContainText(
+    detail.provenance.modelInputHash,
+  );
   await summary.focus();
   await page.keyboard.press("Enter");
+  await expect(summary).toBeFocused();
   await expect(page.locator(".analysis-provenance")).toHaveAttribute(
     "open",
     "",
   );
   await expect(page.locator(".analysis-provenance")).toContainText(
     "応答モデル: 不明（応答に記録なし）",
-  );
-  await expect(page.locator(".analysis-provenance")).toContainText(
-    detail.provenance.modelInputHash,
   );
   for (const force200 of [true, false]) {
     forceFullStatus = force200;
