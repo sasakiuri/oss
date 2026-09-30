@@ -9,8 +9,14 @@ import type { Root, RootContent } from 'hast';
 import { decodeContentAssetPathname } from './asset-path';
 import { createContentProjectionProcessor } from './grammar';
 import { resolveContentUrl } from './paths';
+import {
+  pdfExtractionKey,
+  readPdfExtraction,
+  resolvePdfCacheDirectory,
+  writePdfExtraction,
+  type PdfExtraction,
+} from './pdf-extraction-cache';
 import { pdfRegistrySchema, type PdfSearchMetadata } from './pdf-metadata';
-import { pdfExtractionKey, readPdfExtraction, writePdfExtraction, type PdfExtraction } from './pdf-extraction-cache';
 import type { ContentSource } from './types';
 
 export interface PdfSearchDocument {
@@ -206,12 +212,18 @@ export async function createPdfSearchIndex(
   // https://nextjs.org/docs/app/guides/lazy-loading#magic-comments
   const pdfDirectory = path.dirname(require.resolve(/* webpackIgnore: true */ 'pdfjs-dist/package.json'));
   const pdfjsVersion = JSON.parse(await readFile(path.join(pdfDirectory, 'package.json'), 'utf8')).version as string;
-  const cacheDirectory =
+  const requestedCacheDirectory =
     options.cacheDirectory === false
       ? false
       : path.resolve(options.cacheDirectory ?? path.join(directory, '..', '.cache/pdf-search'));
-  if (cacheDirectory && (cacheDirectory === directory || isWithin(directory, cacheDirectory)))
+  if (
+    requestedCacheDirectory &&
+    (requestedCacheDirectory === directory || isWithin(directory, requestedCacheDirectory))
+  )
     throw new Error('PDF extraction cache must stay outside published content');
+  const cacheDirectory = requestedCacheDirectory
+    ? await resolvePdfCacheDirectory(requestedCacheDirectory, directory)
+    : false;
   const documents: PdfSearchDocument[] = [];
 
   // Sequential files/pages bound memory use independently of corpus size and make failures reproducible.

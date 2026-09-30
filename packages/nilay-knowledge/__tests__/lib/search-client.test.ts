@@ -8,10 +8,14 @@ import { TestWorker } from '../support/worker';
 
 let worker: TestWorker;
 let api: SearchWorkerApi;
-const results: SearchResults = { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+const results: SearchResults = { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
 
 beforeEach(() => {
-  api = { load: vi.fn(async () => {}), search: vi.fn(async () => results) };
+  api = {
+    matches: vi.fn(async (generation, id) => ({ generation, id, total: 0, matches: [], nextOffset: null })),
+    load: vi.fn(async () => {}),
+    search: vi.fn(async () => results),
+  };
   worker = new TestWorker(api);
   vi.stubGlobal(
     'Worker',
@@ -101,5 +105,17 @@ describe('search worker client with real Comlink transport', () => {
       }),
     );
     expect(createSearchClient).toThrow('Worker blocked');
+  });
+  it('correlates concurrent document-local requests over real Comlink transport', async () => {
+    const client = createSearchClient();
+    const [first, second] = await Promise.all([
+      client.matches(3, '/articles/first/', 1),
+      client.matches(3, '/articles/second/', 21),
+    ]);
+    expect(first.id).toBe('/articles/first/');
+    expect(second.id).toBe('/articles/second/');
+    expect(api.matches).toHaveBeenNthCalledWith(1, 3, '/articles/first/', 1);
+    expect(api.matches).toHaveBeenNthCalledWith(2, 3, '/articles/second/', 21);
+    client.dispose();
   });
 });

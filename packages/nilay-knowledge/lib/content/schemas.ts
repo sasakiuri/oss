@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { decodeContentAssetPathname } from './asset-path';
 import { articleCategoryTitles } from './categories';
 import { isMetadataImage } from './metadata-image';
+import { pdfRegistrySchema, pdfSearchMetadataSchema } from './pdf-metadata';
 import { contentTypes } from './types';
-import { pdfSearchMetadataSchema } from './pdf-metadata';
 
 const nonEmptyText = z
   .string({ error: 'a non-empty string' })
@@ -116,6 +116,7 @@ export const searchDocumentsSchema = z
   .superRefine((documents, ctx) => {
     const ids = new Set<string>();
     const metadata = new Set<string>();
+    const revisions: Record<string, unknown> = {};
     for (const [index, document] of documents.entries()) {
       if (ids.has(document.id)) {
         ctx.addIssue({ code: 'custom', path: [index, 'id'], message: 'Duplicate search destination' });
@@ -132,6 +133,10 @@ export const searchDocumentsSchema = z
             message: 'PDF successor must not refer to itself',
           });
         metadata.add(url);
+        revisions[url] = Object.fromEntries(Object.entries(document.pdf).filter(([field]) => field !== 'references'));
       }
+    }
+    if (!pdfRegistrySchema.safeParse(revisions).success) {
+      ctx.addIssue({ code: 'custom', message: 'Invalid PDF revision relationships' });
     }
   });

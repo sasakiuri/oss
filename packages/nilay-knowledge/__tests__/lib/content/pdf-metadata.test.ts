@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { pdfRegistrySchema } from '@/lib/content/pdf-metadata';
+import { searchDocumentsSchema } from '@/lib/content/schemas';
 
 const old = '/content/assets/old.pdf';
 const successor = '/content/assets/current.pdf';
@@ -46,5 +47,15 @@ describe('editor-maintained PDF records', () => {
       { [old]: { status: 'historical', sources: [{ title: 'Evidence', url: 'javascript:alert(1)' }] } },
     ])
       expect(pdfRegistrySchema.safeParse(records).success).toBe(false);
+  });
+  it('rejects cycles in fetched search metadata as well as authored registry records', () => {
+    const base = { type: 'pdf', title: 'Synthetic PDF', section: '1', tags: [], text: 'sample' };
+    const references = [{ title: 'Article', url: '/articles/example/' }];
+    expect(
+      searchDocumentsSchema.safeParse([
+        { ...base, id: `${old}#page=1`, pdf: { status: 'superseded', successor, references } },
+        { ...base, id: `${successor}#page=1`, pdf: { status: 'superseded', successor: old, references } },
+      ]).success,
+    ).toBe(false);
   });
 });

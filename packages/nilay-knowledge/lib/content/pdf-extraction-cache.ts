@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { z } from 'zod';
@@ -32,6 +32,27 @@ export function pdfExtractionKey(
     .update('\0')
     .update(bytes)
     .digest('hex');
+}
+
+/** Resolve existing ancestors so cache symlinks cannot publish extraction records as content assets. */
+export async function resolvePdfCacheDirectory(requested: string, contentDirectory: string): Promise<string | false> {
+  let existing = path.resolve(requested);
+  const suffix: string[] = [];
+  while (true) {
+    try {
+      const resolved = path.join(await realpath(existing), ...suffix);
+      const relative = path.relative(contentDirectory, resolved);
+      if (relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)))
+        return false;
+      return resolved;
+    } catch (error) {
+      if (!(typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')) return false;
+      const parent = path.dirname(existing);
+      if (parent === existing) return false;
+      suffix.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
 }
 
 export async function readPdfExtraction(directory: string | false, key: string): Promise<PdfExtraction | undefined> {

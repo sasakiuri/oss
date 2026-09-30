@@ -11,16 +11,17 @@ import { searchDocumentsSchema } from '@/lib/content/schemas';
 import type { ContentSource } from '@/lib/content/types';
 
 /** A small, valid two-page PDF: a searchable text page and a blank page without a text layer. */
-function pdfFixture(): Buffer {
+function pdfFixture(secondPageText = ''): Buffer {
   const stream = 'BT /F1 12 Tf 72 720 Td (Searchable PDF attachment) Tj ET';
+  const secondStream = secondPageText ? `BT /F1 12 Tf 72 720 Td (${secondPageText}) Tj ET` : '';
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 6 0 R >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 7 0 R >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-    '<< /Length 0 >>\nstream\n\nendstream',
+    `<< /Length ${secondStream.length} >>\nstream\n${secondStream}\nendstream`,
   ];
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
@@ -356,5 +357,13 @@ describe('PDF search extraction', () => {
     await writeFile(outside, pdfFixture());
     await symlink(outside, path.join(contentDirectory, 'document.pdf'));
     await expect(createPdfSearchIndex(sources, contentRoot)).rejects.toThrow('PDF symlink must stay within content');
+  });
+  it('stores a shared PDF record only once even when multiple text pages are indexed', async () => {
+    await writeFile(path.join(contentDirectory, 'two.pdf'), pdfFixture('Second searchable page'));
+    const { documents } = await createPdfSearchIndex([source('[Two pages](./two.pdf)')], contentRoot);
+    expect(documents).toHaveLength(2);
+    expect(documents[0]?.pdf?.status).toBe('unverified');
+    expect(documents[1]?.pdf).toBeUndefined();
+    expect(searchDocumentsSchema.parse(documents)).toEqual(documents);
   });
 });

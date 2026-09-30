@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeSearchButton, SearchDialog } from '@/components/search-dialog';
 import { SnsShare } from '@/components/sns-share';
 import { createSearchClient } from '@/lib/search-client';
-import type { SearchResults } from '@/lib/search-protocol';
+import type { SearchMatches, SearchResults } from '@/lib/search-protocol';
 
 function render(ui: ReactElement, searchParams = '') {
   return testingRender(ui, { wrapper: withNuqsTestingAdapter({ searchParams, hasMemory: true }) });
@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => route.pathname }));
 vi.mock('@/lib/search-client', () => ({ createSearchClient: vi.fn() }));
 
 vi.mock('next/link', () => ({
-  default: ({ href, children, onClick, ...props }: ComponentProps<'a'>) => (
+  default: ({ href, children, onClick, prefetch: _prefetch, ...props }: ComponentProps<'a'>) => (
     <a
       {...props}
       href={href}
@@ -32,6 +32,7 @@ vi.mock('next/link', () => ({
 }));
 
 const results: SearchResults = {
+  generation: 1,
   total: 1,
   totalMatches: 1,
   nextOffset: null,
@@ -40,6 +41,8 @@ const results: SearchResults = {
       id: '/articles/example/',
       type: 'articles',
       title: '文書ガイド',
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/articles/example/#print', section: '印刷の準備', excerpt: '印刷する前に設定を確認します。' }],
     },
   ],
@@ -56,8 +59,9 @@ function mockClient(value = results) {
   const client = {
     load: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(async (query: string) =>
-      query.includes('印刷') ? value : { total: 0, totalMatches: 0, groups: [], nextOffset: null },
+      query.includes('印刷') ? value : { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null },
     ),
+    matches: vi.fn(async () => ({ generation: 1, id: '/articles/example/', total: 1, matches: [], nextOffset: null })),
     dispose: vi.fn(),
   };
   vi.mocked(createSearchClient).mockReturnValue(client);
@@ -82,6 +86,8 @@ describe('site search dialog', () => {
       groups: [
         {
           ...results.groups[0]!,
+          totalMatches: 2,
+          nextMatchOffset: null,
           matches: [
             ...results.groups[0]!.matches,
             { id: '/articles/example/#paper', section: '用紙の選び方', excerpt: '印刷用紙を選びます。' },
@@ -98,7 +104,9 @@ describe('site search dialog', () => {
       '/articles/example/#paper',
     );
     expect(screen.getAllByText('文書ガイド')).toHaveLength(1);
-    expect(screen.getByRole('status')).toHaveTextContent('1 件の検索結果（2 箇所が一致・1 件を表示）');
+    expect(screen.getByRole('status', { name: '検索状況' })).toHaveTextContent(
+      '1 件の検索結果（2 箇所が一致・1 件を表示）',
+    );
     fireEvent.click(screen.getByRole('option', { name: '「文書ガイド」のほか 1 件の一致箇所を閉じる' }));
     expect(screen.queryByRole('option', { name: /用紙の選び方/ })).not.toBeInTheDocument();
   });
@@ -109,13 +117,15 @@ describe('site search dialog', () => {
       ...results.groups[0]!,
       id: '/articles/next/',
       title: '追加ガイド',
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/articles/next/#print', section: '印刷の手順', excerpt: '次の手順です。' }],
     };
     const client = mockClient(firstPage);
     const nextPage = deferred<SearchResults>();
     client.search.mockImplementation(async (query: string, _scope?: unknown, offset?: number) => {
       if (offset) return nextPage.promise;
-      return query === '印刷' ? firstPage : { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+      return query === '印刷' ? firstPage : { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
     });
     render(<SearchDialog />, '?q=印刷');
     fireEvent.click(await screen.findByRole('button', { name: 'もっと見る' }));
@@ -139,7 +149,9 @@ describe('site search dialog', () => {
       const nextPage = deferred<SearchResults>();
       client.search.mockImplementation(async (query: string, _scope?: unknown, offset?: number) => {
         if (offset) return nextPage.promise;
-        return query === '印刷' ? firstPage : { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+        return query === '印刷'
+          ? firstPage
+          : { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
       });
       render(<SearchDialog />, '?q=印刷');
       fireEvent.click(await screen.findByRole('button', { name: 'もっと見る' }));
@@ -378,7 +390,7 @@ describe('site search dialog', () => {
     client.search.mockImplementation(async (query) => {
       if (query === '古い検索') return oldResponse.promise;
       if (query === '失敗する検索') return oldFailure.promise;
-      return query === '印刷' ? results : { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+      return query === '印刷' ? results : { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
     });
     render(<SearchDialog />);
     fireEvent.click(screen.getByRole('button', { name: /記事・ニュースを検索/ }));
@@ -391,7 +403,7 @@ describe('site search dialog', () => {
     fireEvent.change(input, { target: { value: '印刷' } });
     expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
     await act(async () => {
-      oldResponse.resolve({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+      oldResponse.resolve({ generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null });
       oldFailure.reject(new Error('Old request failed'));
     });
     expect(screen.getByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
@@ -403,7 +415,7 @@ describe('site search dialog', () => {
     const failed = mockClient();
     failed.search.mockImplementation(async (query) => {
       if (query) throw new Error('Worker stopped');
-      return { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+      return { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
     });
     const recovered = mockClient();
     vi.mocked(createSearchClient).mockReturnValueOnce(failed);
@@ -449,6 +461,8 @@ describe('site search dialog', () => {
           { title: 'Second article', url: '/articles/second/' },
         ],
       },
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/content/assets/example.pdf#page=2', section: '2ページ', excerpt: '印刷' }],
     };
     mockClient({ ...results, groups: [pdf] });
@@ -465,5 +479,126 @@ describe('site search dialog', () => {
       'href',
       '/content/assets/example.pdf#page=2',
     );
+    fireEvent.click(screen.getByRole('link', { name: 'First article' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+  it('loads bounded document-local batches, preserves them during global pagination, and retries locally', async () => {
+    const group = { ...results.groups[0]!, totalMatches: 42, nextMatchOffset: 1 };
+    const client = mockClient({ ...results, total: 2, totalMatches: 43, groups: [group], nextOffset: 1 });
+    const page = deferred<SearchMatches>();
+    client.matches.mockReturnValueOnce(page.promise);
+    render(<SearchDialog />, '?q=印刷');
+    fireEvent.click(await screen.findByRole('option', { name: '「文書ガイド」のほか 41 件の一致箇所を表示' }));
+    expect(client.matches).toHaveBeenCalledExactlyOnceWith(1, group.id, 1);
+    expect(screen.getByRole('combobox', { name: '検索キーワード' })).toHaveFocus();
+    const more = await screen.findByRole('option', { name: '「文書ガイド」の一致箇所をさらに表示' });
+    expect(more).toBeDisabled();
+    fireEvent.click(more);
+    expect(client.matches).toHaveBeenCalledOnce();
+    const matches = Array.from({ length: 20 }, (_, i) => ({
+      id: `/articles/example/#section-${i}`,
+      section: `追加箇所 ${i}`,
+      excerpt: '印刷',
+    }));
+    await act(async () => page.resolve({ generation: 1, id: group.id, total: 42, matches, nextOffset: 21 }));
+    expect(screen.getAllByRole('option').filter((option) => option.tagName === 'A')).toHaveLength(21);
+    client.matches.mockRejectedValueOnce(new Error('Temporary failure'));
+    fireEvent.click(screen.getByRole('option', { name: '「文書ガイド」の一致箇所をさらに表示' }));
+    const retry = await screen.findByRole('option', { name: '「文書ガイド」の一致箇所を再試行' });
+    expect(screen.getByRole('option', { name: /追加箇所 0/ })).toBeInTheDocument();
+    client.matches.mockResolvedValueOnce({
+      generation: 1,
+      id: group.id,
+      total: 42,
+      matches: [{ id: '/articles/example/#last', section: '最後の箇所', excerpt: '印刷' }],
+      nextOffset: null,
+    });
+    fireEvent.click(retry);
+    expect(await screen.findByRole('option', { name: /最後の箇所/ })).toBeInTheDocument();
+    expect(client.dispose).not.toHaveBeenCalled();
+    const next = {
+      ...results.groups[0]!,
+      id: '/articles/second/',
+      title: '追加記事',
+      matches: [{ id: '/articles/second/', section: '本文', excerpt: '印刷' }],
+    };
+    client.search.mockResolvedValueOnce({ ...results, total: 2, totalMatches: 43, nextOffset: null, groups: [next] });
+    fireEvent.click(screen.getByRole('button', { name: 'もっと見る' }));
+    expect(await screen.findByRole('option', { name: /追加記事/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /最後の箇所/ })).toBeInTheDocument();
+  });
+
+  it.each(['query', 'scope'] as const)('discards stale document-local matches after changing %s', async (change) => {
+    const group = { ...results.groups[0]!, totalMatches: 2, nextMatchOffset: 1 };
+    const client = mockClient({ ...results, groups: [group] });
+    const page = deferred<SearchMatches>();
+    client.matches.mockReturnValueOnce(page.promise);
+    render(<SearchDialog />, '?q=印刷');
+    fireEvent.click(await screen.findByRole('option', { name: '「文書ガイド」のほか 1 件の一致箇所を表示' }));
+    if (change === 'query')
+      fireEvent.change(screen.getByRole('combobox', { name: '検索キーワード' }), { target: { value: '別の語' } });
+    else fireEvent.change(screen.getByRole('combobox', { name: '検索対象' }), { target: { value: 'news' } });
+    await waitFor(() => expect(client.search).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      page.resolve({
+        generation: 1,
+        id: group.id,
+        total: 2,
+        matches: [{ id: '/articles/example/#stale', section: '古い一致箇所', excerpt: '印刷' }],
+        nextOffset: null,
+      }),
+    );
+    expect(screen.queryByRole('option', { name: /古い一致箇所/ })).not.toBeInTheDocument();
+  });
+  it('keeps concurrent document expansions independent when responses arrive out of order', async () => {
+    const first = { ...results.groups[0]!, totalMatches: 2, nextMatchOffset: 1 };
+    const second = {
+      ...first,
+      id: '/articles/second/',
+      title: '別の記事',
+      matches: [{ id: '/articles/second/#first', section: '本文', excerpt: '印刷' }],
+    };
+    const client = mockClient({ ...results, total: 2, totalMatches: 4, groups: [first, second] });
+    const firstPage = deferred<SearchMatches>();
+    const secondPage = deferred<SearchMatches>();
+    client.matches.mockImplementation((_generation, id) => (id === first.id ? firstPage.promise : secondPage.promise));
+    render(<SearchDialog />, '?q=印刷');
+    fireEvent.click(await screen.findByRole('option', { name: '「文書ガイド」のほか 1 件の一致箇所を表示' }));
+    fireEvent.click(screen.getByRole('option', { name: '「別の記事」のほか 1 件の一致箇所を表示' }));
+    await act(async () =>
+      secondPage.resolve({
+        generation: 1,
+        id: second.id,
+        total: 2,
+        matches: [{ id: '/articles/second/#extra', section: '別記事の追加箇所', excerpt: '印刷' }],
+        nextOffset: null,
+      }),
+    );
+    expect(await screen.findByRole('option', { name: /別記事の追加箇所/ })).toBeInTheDocument();
+    await act(async () =>
+      firstPage.resolve({
+        generation: 1,
+        id: first.id,
+        total: 2,
+        matches: [{ id: '/articles/example/#extra', section: '最初の記事の追加箇所', excerpt: '印刷' }],
+        nextOffset: null,
+      }),
+    );
+    expect(await screen.findByRole('option', { name: /最初の記事の追加箇所/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /別記事の追加箇所/ })).toBeInTheDocument();
+    expect(client.matches).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers existing worker recovery when continuation transport stops', async () => {
+    const client = mockClient({ ...results, groups: [{ ...results.groups[0]!, totalMatches: 2, nextMatchOffset: 1 }] });
+    client.matches.mockRejectedValueOnce(new Error('Search worker stopped'));
+    render(<SearchDialog />, '?q=印刷');
+    fireEvent.click(await screen.findByRole('option', { name: '「文書ガイド」のほか 1 件の一致箇所を表示' }));
+    expect(await screen.findByRole('button', { name: '再試行' })).toBeInTheDocument();
+    expect(client.dispose).toHaveBeenCalledOnce();
+    const fresh = mockClient();
+    fireEvent.click(screen.getByRole('button', { name: '再試行' }));
+    expect(await screen.findByRole('option', { name: /文書ガイド/ })).toBeInTheDocument();
+    expect(fresh.search).toHaveBeenCalledWith('印刷', 'all');
   });
 });

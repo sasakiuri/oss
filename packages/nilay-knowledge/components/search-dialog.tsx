@@ -6,14 +6,14 @@ import { ArrowRight, ArrowUpRight, ChevronDown, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs';
-import { Suspense, useCallback, useDeferredValue, useEffect, useId, useRef, useState } from 'react';
+import { Suspense, useCallback, useDeferredValue, useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 
 import { SearchHighlight } from '@/components/search-highlight';
 import { focusContent } from '@/lib/focus-content';
 import { createSearchClient } from '@/lib/search-client';
 import { isSearchIndexCompatibilityError, isSearchIndexError, normalizeSearchError } from '@/lib/search-errors';
 import { refreshSearchPage } from '@/lib/search-index-format';
-import { searchScopes, type SearchResults } from '@/lib/search-protocol';
+import { searchScopes, type SearchGroup, type SearchResults } from '@/lib/search-protocol';
 
 // The home button can hydrate before the header's search boundary is ready.
 let searchRequested = false;
@@ -82,8 +82,17 @@ function SearchDialogContent() {
   const [pending, setPending] = useState(false);
   const [selectedResult, setSelectedResult] = useState('');
   const [ready, setReady] = useState(false);
-  const [results, setResults] = useState<SearchResults>({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+  const [results, setResults] = useState<SearchResults>({
+    generation: 0,
+    total: 0,
+    totalMatches: 0,
+    groups: [],
+    nextOffset: null,
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [loadingMatches, setLoadingMatches] = useState<Set<string>>(new Set());
+  const [matchErrors, setMatchErrors] = useState<Set<string>>(new Set());
+  const loadingMatchesRef = useRef(new Set<string>());
   const [loadingMore, setLoadingMore] = useState(false);
   const searchVersion = useRef(0);
   const loadingMoreRef = useRef(false);
@@ -223,6 +232,9 @@ function SearchDialogContent() {
     loadingMoreRef.current = false;
     setLoadingMore(false);
     setExpanded(new Set());
+    setLoadingMatches(new Set());
+    setMatchErrors(new Set());
+    loadingMatchesRef.current.clear();
     setError(null);
     setPending(true);
     void client.search(deferredQuery, scope).then(
@@ -239,7 +251,7 @@ function SearchDialogContent() {
           clientRef.current = null;
           setReady(false);
         }
-        setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+        setResults({ generation: 0, total: 0, totalMatches: 0, groups: [], nextOffset: null });
         setPending(false);
         setError(normalizeSearchError(cause));
       },
@@ -283,7 +295,7 @@ function SearchDialogContent() {
         clientRef.current = null;
         setReady(false);
       }
-      setResults({ total: 0, totalMatches: 0, groups: [], nextOffset: null });
+      setResults({ generation: 0, total: 0, totalMatches: 0, groups: [], nextOffset: null });
       setError(normalizeSearchError(cause));
     } finally {
       if (version === searchVersion.current) {
@@ -291,6 +303,72 @@ function SearchDialogContent() {
         setLoadingMore(false);
       }
     }
+  }
+
+  async function loadMatches(group: SearchGroup) {
+    const client = clientRef.current;
+    if (!client || group.nextMatchOffset === null || loadingMatchesRef.current.has(group.id)) return;
+    const version = searchVersion.current;
+    const generation = results.generation;
+    loadingMatchesRef.current.add(group.id);
+    setLoadingMatches(new Set(loadingMatchesRef.current));
+    setMatchErrors((previous) => {
+      const next = new Set(previous);
+      next.delete(group.id);
+      return next;
+    });
+    inputRef.current?.focus({ preventScroll: true });
+    try {
+      const page = await client.matches(generation, group.id, group.nextMatchOffset);
+      if (version !== searchVersion.current || client !== clientRef.current || page.generation !== generation) return;
+      appendedResultRef.current = page.matches[0]?.id ?? null;
+      setResults((previous) =>
+        previous.generation !== generation
+          ? previous
+          : {
+              ...previous,
+              groups: previous.groups.map((existing) =>
+                existing.id === group.id
+                  ? { ...existing, matches: [...existing.matches, ...page.matches], nextMatchOffset: page.nextOffset }
+                  : existing,
+              ),
+            },
+      );
+      if (page.matches[0]) setSelectedResult(page.matches[0].id);
+    } catch (cause) {
+      if (version !== searchVersion.current || client !== clientRef.current) return;
+      if (cause instanceof Error && cause.message === 'Search worker stopped') {
+        client.dispose();
+        clientRef.current = null;
+        setReady(false);
+        setError(cause);
+      }
+      setMatchErrors((previous) => new Set(previous).add(group.id));
+    } finally {
+      if (version === searchVersion.current) {
+        loadingMatchesRef.current.delete(group.id);
+        setLoadingMatches(new Set(loadingMatchesRef.current));
+      }
+    }
+  }
+
+  function followDestination(event: MouseEvent<HTMLAnchorElement>, url: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    restoreOpenerRef.current = false;
+    setDestination(url);
+    changeOpen(false);
+  }
+
+  function toggleMatches(group: SearchGroup) {
+    const wasExpanded = expanded.has(group.id);
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(group.id)) next.delete(group.id);
+      else next.add(group.id);
+      return next;
+    });
+    if (wasExpanded) inputRef.current?.focus({ preventScroll: true });
+    else if (group.matches.length === 1 && group.nextMatchOffset !== null) void loadMatches(group);
   }
 
   return (
@@ -416,7 +494,13 @@ function SearchDialogContent() {
                 PDF内の文字を検索します。画像として保存された文字は対象外です。
               </p>
             )}
-            <p id={statusId} role="status" aria-atomic="true" className="my-3 text-sm text-subtle">
+            <p
+              id={statusId}
+              aria-label="検索状況"
+              role="status"
+              aria-atomic="true"
+              className="my-3 text-sm text-subtle"
+            >
               {incompatible
                 ? '検索データの形式が変更されました。ページを更新してください。'
                 : error
@@ -451,6 +535,8 @@ function SearchDialogContent() {
                       key={group.id}
                       value={group.id}
                       data-search-group={group.id}
+                      id={`${statusId}-${encodeURIComponent(group.id)}`}
+                      aria-busy={loadingMatches.has(group.id)}
                       className="border-b border-line"
                     >
                       {group.matches.slice(0, isExpanded ? undefined : 1).map((result, index) => (
@@ -462,19 +548,7 @@ function SearchDialogContent() {
                             }}
                             href={String(result.id)}
                             {...(group.type === 'pdf' ? {} : { prefetch: false })}
-                            onClick={(event) => {
-                              if (
-                                event.button !== 0 ||
-                                event.metaKey ||
-                                event.ctrlKey ||
-                                event.shiftKey ||
-                                event.altKey
-                              )
-                                return;
-                              restoreOpenerRef.current = false;
-                              setDestination(String(result.id));
-                              changeOpen(false);
-                            }}
+                            onClick={(event) => followDestination(event, result.id)}
                             className={`flex items-start gap-3 border-l-2 border-transparent px-3 py-4 hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand ${index > 0 ? 'ml-4 border-t border-t-line' : ''}`}
                           >
                             <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
@@ -501,6 +575,9 @@ function SearchDialogContent() {
                           </ResultLink>
                         </Command.Item>
                       ))}
+                      {group.type === 'pdf' && !group.pdf && (
+                        <p className="px-3 pb-3 text-xs text-subtle">確認状態不明</p>
+                      )}
                       {group.pdf && (
                         <div className="px-3 pb-3 text-xs leading-6 text-subtle" aria-label="PDF資料の確認記録">
                           <p>
@@ -542,7 +619,12 @@ function SearchDialogContent() {
                           <ul>
                             {group.pdf.references.map((reference) => (
                               <li key={reference.url}>
-                                <Link className="text-brand underline" href={reference.url} prefetch={false}>
+                                <Link
+                                  className="text-brand underline"
+                                  href={reference.url}
+                                  prefetch={false}
+                                  onClick={(event) => followDestination(event, reference.url)}
+                                >
                                   {reference.title}
                                 </Link>
                               </li>
@@ -550,22 +632,13 @@ function SearchDialogContent() {
                           </ul>
                         </div>
                       )}
-                      {group.matches.length > 1 && (
-                        <Command.Item
-                          value={`expand:${group.id}`}
-                          onSelect={() =>
-                            setExpanded((previous) => {
-                              const next = new Set(previous);
-                              if (next.has(group.id)) next.delete(group.id);
-                              else next.add(group.id);
-                              return next;
-                            })
-                          }
-                          asChild
-                        >
+                      {group.totalMatches > 1 && (
+                        <Command.Item value={`expand:${group.id}`} onSelect={() => toggleMatches(group)} asChild>
                           <button
                             type="button"
-                            aria-label={`「${group.title}」のほか ${group.matches.length - 1} 件の一致箇所を${isExpanded ? '閉じる' : '表示'}`}
+                            aria-expanded={isExpanded}
+                            aria-controls={`${statusId}-${encodeURIComponent(group.id)}`}
+                            aria-label={`「${group.title}」のほか ${group.totalMatches - 1} 件の一致箇所を${isExpanded ? '閉じる' : '表示'}`}
                             onFocus={() => setSelectedResult(`expand:${group.id}`)}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
@@ -576,9 +649,47 @@ function SearchDialogContent() {
                               aria-hidden="true"
                               className={`size-4 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
                             />
-                            {isExpanded ? '一致箇所を閉じる' : `ほか ${group.matches.length - 1} 件の一致箇所を表示`}
+                            {isExpanded ? '一致箇所を閉じる' : `ほか ${group.totalMatches - 1} 件の一致箇所を表示`}
                           </button>
                         </Command.Item>
+                      )}
+                      {isExpanded && (group.nextMatchOffset !== null || matchErrors.has(group.id)) && (
+                        <Command.Item
+                          value={`matches:${group.id}`}
+                          disabled={loadingMatches.has(group.id)}
+                          onSelect={() => void loadMatches(group)}
+                          asChild
+                        >
+                          <button
+                            type="button"
+                            disabled={loadingMatches.has(group.id)}
+                            onFocus={() => setSelectedResult(`matches:${group.id}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+                            }}
+                            aria-label={`「${group.title}」の一致箇所を${matchErrors.has(group.id) ? '再試行' : 'さらに表示'}`}
+                            className="min-h-11 w-full px-3 py-2 text-left text-xs text-brand hover:bg-muted focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60"
+                          >
+                            {loadingMatches.has(group.id)
+                              ? '一致箇所を読み込んでいます…'
+                              : matchErrors.has(group.id)
+                                ? '一致箇所の読み込みに失敗しました。再試行'
+                                : `さらに一致箇所を表示（${group.matches.length} / ${group.totalMatches} 箇所）`}
+                          </button>
+                        </Command.Item>
+                      )}
+                      {isExpanded && (
+                        <p
+                          role="status"
+                          aria-label={`「${group.title}」の一致箇所の状況`}
+                          className="px-3 pb-2 text-xs text-subtle"
+                        >
+                          {loadingMatches.has(group.id)
+                            ? '一致箇所を読み込んでいます…'
+                            : matchErrors.has(group.id)
+                              ? '一致箇所の読み込みに失敗しました。表示済みの結果は利用できます。'
+                              : `${group.matches.length} / ${group.totalMatches} 箇所を表示`}
+                        </p>
                       )}
                     </Command.Group>
                   );

@@ -1,9 +1,10 @@
 import { expose } from 'comlink';
 
-import { createSearchIndex, parseSearchDocuments, searchExcerpt } from './search';
+import { createSearchIndex, parseSearchDocuments } from './search';
 import { SearchIndexCompatibilityError, SearchIndexError } from './search-errors';
 import { assertSearchIndexFormat, searchIndexFormatHeader } from './search-index-format';
-import { searchPageSize, type SearchGroup, type SearchScope, type SearchWorkerApi } from './search-protocol';
+import { type SearchScope, type SearchWorkerApi } from './search-protocol';
+import { createSearchSession } from './search-results';
 
 type LoadedIndex = {
   index: ReturnType<typeof createSearchIndex>;
@@ -11,7 +12,11 @@ type LoadedIndex = {
 };
 let index: Promise<LoadedIndex> | undefined;
 let pdfIndex: Promise<LoadedIndex> | undefined;
-let lastSearch: { query: string; scope: SearchScope; groups: SearchGroup[]; totalMatches: number } | undefined;
+let generation = 0;
+let requestedSearch: { query: string; scope: SearchScope; generation: number } | undefined;
+let lastSearch:
+  | { query: string; scope: SearchScope; session: ReturnType<typeof createSearchSession>; generation: number }
+  | undefined;
 
 async function loadIndex(pdf = false) {
   const controller = new AbortController();
@@ -75,39 +80,34 @@ expose({
   },
   async search(query: string, scope: SearchScope = 'all', offset = 0) {
     query = query.trim();
-    if (!query) return { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+    if (!query) {
+      requestedSearch = undefined;
+      lastSearch = undefined;
+      return { generation: ++generation, total: 0, totalMatches: 0, groups: [], nextOffset: null };
+    }
     if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid search offset');
+    if (requestedSearch?.query !== query || requestedSearch.scope !== scope)
+      requestedSearch = { query, scope, generation: ++generation };
+    const request = requestedSearch;
     const loaded = await getIndex(scope === 'pdf');
-    if (lastSearch?.query !== query || lastSearch.scope !== scope) {
+    if (requestedSearch !== request) throw new Error('Stale search request');
+    if (lastSearch?.query !== query || lastSearch.scope !== scope || lastSearch.generation !== request.generation) {
       const results = loaded.index.search(query, {
         filter: (result) => scope === 'all' || result.type === scope,
       });
-      const groups = new Map<string, SearchGroup>();
-      for (const result of results) {
-        const id = String(result.id);
-        const page = id.split('#')[0]!;
-        let group = groups.get(page);
-        if (!group) {
-          group = { id: page, type: result.type, title: String(result.title), matches: [] };
-          const metadata = loaded.metadata.get(page);
-          if (metadata) group.pdf = metadata;
-          groups.set(page, group);
-        }
-        group.matches.push({
-          id,
-          section: String(result.section),
-          excerpt: searchExcerpt(String(result.text), query),
-        });
-      }
-      // Map insertion order ranks each page by its most relevant matching section.
-      lastSearch = { query, scope, groups: [...groups.values()], totalMatches: results.length };
+      const current = request.generation;
+      lastSearch = {
+        query,
+        scope,
+        generation: current,
+        session: createSearchSession(results, query, current, loaded.metadata),
+      };
     }
-    const total = lastSearch.groups.length;
-    return {
-      total,
-      totalMatches: lastSearch.totalMatches,
-      groups: lastSearch.groups.slice(offset, offset + searchPageSize),
-      nextOffset: offset + searchPageSize < total ? offset + searchPageSize : null,
-    };
+    return lastSearch.session.page(offset);
+  },
+  async matches(requestGeneration: number, id: string, offset: number) {
+    if (!lastSearch || requestGeneration !== lastSearch.generation || requestGeneration !== requestedSearch?.generation)
+      throw new Error('Stale search continuation');
+    return lastSearch.session.matches(id, offset);
   },
 } satisfies SearchWorkerApi);

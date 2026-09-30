@@ -19,6 +19,7 @@ vi.mock('next/link', () => ({
 }));
 
 const articles: SearchResults = {
+  generation: 1,
   total: 1,
   totalMatches: 1,
   nextOffset: null,
@@ -27,6 +28,8 @@ const articles: SearchResults = {
       id: '/articles/example/',
       type: 'articles',
       title: '文書ガイド',
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/articles/example/#print', section: '印刷の準備', excerpt: '印刷します。' }],
     },
   ],
@@ -38,6 +41,8 @@ const pdf: SearchResults = {
       id: '/content/articles/example/file.pdf',
       type: 'pdf',
       title: 'PDF資料ガイド',
+      totalMatches: 1,
+      nextMatchOffset: null,
       matches: [{ id: '/content/articles/example/file.pdf#page=2', section: '2 ページ', excerpt: '印刷します。' }],
     },
   ],
@@ -49,9 +54,10 @@ function mockClient() {
   const client = {
     load: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(async (query: string, scope?: SearchScope, _offset?: number): Promise<SearchResults> => {
-      if (!query.trim()) return { total: 0, totalMatches: 0, groups: [], nextOffset: null };
+      if (!query.trim()) return { generation: 1, total: 0, totalMatches: 0, groups: [], nextOffset: null };
       return scope === 'pdf' ? pdf : articles;
     }),
+    matches: vi.fn(async () => ({ generation: 1, id: '/articles/example/', total: 1, matches: [], nextOffset: null })),
     dispose: vi.fn(),
   };
   vi.mocked(createSearchClient).mockReturnValue(client);

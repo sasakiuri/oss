@@ -504,8 +504,13 @@ markup, scripts and hidden text. The dialog downloads the index on first open,
 reuses it until the page is reloaded, and offers a retry on download or validation
 failure. A worker downloads, validates and indexes the data, then performs searches
 and groups matches by article/news URL (or by file for PDF search). Results show
-one matching section per group; readers can expand the other matching sections
-and use “もっと見る” to load subsequent groups. The worker returns 20 groups at
+one matching section per group; expansion fetches up to 20 further matching
+sections at a time, and “さらに一致箇所を表示” reaches every remaining section.
+“もっと見る” loads subsequent document groups independently and preserves
+already loaded matches. Document and within-document ranking and exact totals
+are retained; no matches are permanently truncated. Continuations carry a search
+generation, so query/target changes cannot mix old matches into new results.
+Loading/errors are announced per document, and retries retain displayed results. The worker returns 20 groups at
 a time, with separate document and matching-section counts. The search engine and its
 index are loaded only when search first opens; indexing does not block typing or
 dialog controls. Rebuild after changing content to update both pages and the search index.

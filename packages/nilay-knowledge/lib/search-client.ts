@@ -18,6 +18,8 @@ export function createSearchClient() {
             ? api.search(query)
             : api.search(query, scope),
       ),
+    matches: (generation: number, id: string, offset: number) =>
+      client.call((api) => api.matches(generation, id, offset)),
     dispose: () => client.dispose(),
   };
 }

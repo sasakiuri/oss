@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { searchIndexFormat, searchIndexFormatHeader, searchIndexRevisionHeader } from '../search-index-format';
+
 import { searchDocumentsSchema } from './schemas';
 import type { SearchDocument } from './types';
 
