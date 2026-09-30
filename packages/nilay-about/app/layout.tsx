@@ -5,6 +5,7 @@ import { LanguageBoundary } from '@/components/language-boundary';
 import { MainRegion, RetroHeader, RetroFooter } from '@/components/layout';
 import { Providers } from '@/components/providers';
 import { siteConfig } from '@/lib/config';
+import { labsStartupRecoveryScript } from '@/lib/labs-startup-recovery';
 import { siteJsonLd } from '@/lib/seo';
 import './globals.css';
 
@@ -51,6 +52,9 @@ export default function RootLayout({
     // The server has no way to know the reader's language, so the document opens in Japanese and
     // LanguageBoundary moves this attribute with the text once the page has loaded.
     <html lang="ja">
+      <head>
+        <script id="labs-startup-recovery" dangerouslySetInnerHTML={{ __html: labsStartupRecoveryScript }} />
+      </head>
       <body className="min-h-screen">
         <JsonLd data={siteJsonLd()} />
         <Providers>
