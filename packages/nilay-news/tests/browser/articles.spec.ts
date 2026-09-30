@@ -265,3 +265,54 @@ test("background refresh and review keep the current page and its visible select
     page.getByRole("button", { name: /Article 0050.*詳細を読む/ }),
   ).toHaveCount(0);
 });
+
+test("unchanged detail recovery removes obsolete retry controls and preserves reading focus", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/");
+  await expect(page.locator("#article-list > article")).toHaveCount(50);
+  const id = await page
+    .locator("#article-list [data-select-id]")
+    .first()
+    .getAttribute("data-select-id");
+  await page.locator("#article-list .article-select").first().click();
+  await expect(page.locator("#detail-panel")).toContainText("Fixture body 0");
+  let fail = true;
+  await page.route(`**/api/articles/${id}`, async (route) => {
+    if (fail)
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Temporary detail failure" }),
+      });
+    else await route.continue();
+  });
+  const failed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === `/api/articles/${id}` &&
+      response.status() === 503,
+  );
+  await page.clock.fastForward(30_001);
+  await (await failed).finished();
+  const retry = page.getByRole("button", {
+    name: "記事の読み込みを再試行",
+    exact: true,
+  });
+  await expect(retry).toBeVisible();
+  const repeated = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === `/api/articles/${id}` &&
+      response.status() === 503,
+  );
+  await retry.click();
+  await (await repeated).finished();
+  await page.clock.runFor(100);
+  await expect(retry).toHaveCount(1);
+  fail = false;
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  await expect(page.locator("#notice")).toBeHidden();
+  await expect(page.locator("#detail-panel")).toContainText("Fixture body 0");
+  await expect(page.locator("#detail-panel")).toBeFocused();
+});

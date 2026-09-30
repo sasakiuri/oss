@@ -17,6 +17,8 @@ interface FakeNode {
   attributes: Record<string, string>;
   listeners: Record<string, (event: { target: FakeNode }) => void>;
   children: FakeNode[];
+  parent: FakeNode | null;
+  remove(): void;
   append(...nodes: FakeNode[]): void;
   replaceChildren(...nodes: FakeNode[]): void;
   addEventListener(
@@ -40,9 +42,24 @@ function node(): FakeNode {
     attributes: {},
     listeners: {},
     children: [],
-    append: (...nodes) => created.children.push(...nodes),
+    parent: null,
+    remove: () => {
+      if (created.parent)
+        created.parent.children = created.parent.children.filter(
+          (child) => child !== created,
+        );
+      created.parent = null;
+    },
+    append: (...nodes) => {
+      for (const child of nodes) {
+        child.remove();
+        child.parent = created;
+        created.children.push(child);
+      }
+    },
     replaceChildren: (...nodes) => {
-      created.children = nodes;
+      for (const child of [...created.children]) child.remove();
+      created.append(...nodes);
     },
     addEventListener: (type, listener) => {
       created.listeners[type] = listener;
@@ -741,6 +758,26 @@ describe("detail request lifetime", () => {
     expect(ui.model.detail).toMatchObject({ reviewStatus: "approved" });
     expect(ui.element("notice-text").textContent).toBe("");
     expect(ui.element("detail-panel").children).toHaveLength(0);
+  });
+
+  it("clears repeated detail failures after an unchanged successful response", async () => {
+    const { ui, pending, respond } = requests();
+    ui.model.selectedId = "a";
+    const initial = ui.loadDetail("a", false);
+    respond(0, "a", "approved");
+    await initial;
+    for (const index of [1, 2]) {
+      const failed = ui.loadDetail("a", false);
+      pending[index]!.reject(new Error("Temporary network failure"));
+      await failed;
+      expect(ui.element("detail-panel").children).toHaveLength(1);
+    }
+    const recovered = ui.loadDetail("a", false);
+    respond(3, "a", "approved");
+    await recovered;
+    expect(ui.element("detail-panel").children).toHaveLength(0);
+    expect(ui.element("notice").hidden).toBe(true);
+    expect(ui.model.detail).toMatchObject({ reviewStatus: "approved" });
   });
 });
 
