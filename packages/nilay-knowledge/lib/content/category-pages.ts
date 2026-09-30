@@ -1,8 +1,8 @@
-import type { ArticleCategoryId } from './categories';
-import { articleDirectoryHref, getDirectoryCategories, type DirectoryArticle } from './taxonomy';
+import { articleCategoryDefinitions, type ArticleCategoryId } from './categories';
+import publishedCategoryPages from './published-category-pages.json';
+import { articleDirectoryHref, type DirectoryArticle } from './taxonomy';
 
-// Only subjects with an editorial introduction and multiple articles get a landing page.
-// Single-article subjects continue to use the existing directory filter.
+// The initial editorial threshold applies only before a route joins the published inventory.
 const introductions = {
   'getting-started': {
     title: '猟銃・空気銃の所持許可と狩猟免許の取得ガイド',
@@ -34,15 +34,27 @@ const introductions = {
   },
 } satisfies Partial<Record<ArticleCategoryId, { title: string; description: string; introduction: string }>>;
 
-export function getArticleCategoryPages(articles: DirectoryArticle[]) {
-  return getDirectoryCategories(articles).flatMap((category) => {
-    if (!Object.hasOwn(introductions, category.id)) return [];
+export function getArticleCategoryPages(
+  articles: DirectoryArticle[],
+  policy: {
+    published?: readonly string[];
+    introductions?: Partial<Record<ArticleCategoryId, { title: string; description: string; introduction: string }>>;
+  } = {},
+) {
+  const published = policy.published ?? publishedCategoryPages;
+  const editorial: NonNullable<typeof policy.introductions> = policy.introductions ?? introductions;
+  return articleCategoryDefinitions.flatMap((category) => {
+    const introduction = editorial[category.id];
     const matches = articles.filter((article) => article.category.id === category.id);
-    if (matches.length < 2) return [];
+    if (!published.includes(category.id) && (!introduction || matches.length < 2)) return [];
     return [
       {
         ...category,
-        ...introductions[category.id as keyof typeof introductions],
+        ...(introduction ?? {
+          title: `${category.title}の記事`,
+          description: `${category.title}に関する記事をご案内します。記事の整理に伴い掲載内容が変わることがあります。`,
+          introduction: '関連する記事は以下の一覧、またはすべての記事からお探しください。',
+        }),
         path: `/articles/category/${category.id}/`,
         articles: matches,
       },

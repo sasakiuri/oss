@@ -61,6 +61,11 @@ export default async function ArticleCategoryPage({ params }: Props) {
           <h2 id="category-articles" className="section-title">
             この分野の記事（{category.articles.length}件）
           </h2>
+          {category.articles.length === 0 && (
+            <p className="mt-4 text-sm leading-7 text-subtle">
+              現在、この分野に掲載されている記事はありません。記事の整理により移動した情報は、すべての記事からお探しください。
+            </p>
+          )}
           <ul className="mt-4 divide-y divide-line">
             {category.articles.map((article) => (
               <li key={article.slug} className="py-5">
