@@ -1,25 +1,13 @@
-// cspell:words rereference
 import type { Element, Root, RootContent } from 'hast';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
-import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
-import remarkBreaks from 'remark-breaks';
-import remarkDirective from 'remark-directive';
-import remarkGfm from 'remark-gfm';
-import remarkGithubAlerts from 'remark-github-alerts';
-import remarkMath from 'remark-math';
-import remarkParse from 'remark-parse';
-import remarkRehype from 'remark-rehype';
-import { unified } from 'unified';
 import { visit } from 'unist-util-visit';
 
 import { collectContentCapabilities } from './capabilities';
-import { rehypeCodeBlocks, remarkCodeMeta } from './code-blocks';
-import { remarkContentDirectives } from './directives';
-import { rehypeMarkAuthoredIds, rehypePublishedFragments } from './fragments';
+import { rehypeCodeBlocks } from './code-blocks';
+import { createContentHeadingProcessor } from './grammar';
 import type { ImageDimensions, ImageDimensionsResolver } from './images';
 import { resolveContentUrl } from './paths';
 import { responsiveImageAttributes } from './responsive-images';
@@ -55,47 +43,9 @@ const headingAnchorIcon: Element = {
   ].map((d) => ({ type: 'element', tagName: 'path', properties: { d }, children: [] })),
 };
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkDirective)
-  .use(remarkContentDirectives)
-  .use(remarkCodeMeta)
-  .use(remarkGithubAlerts, {
-    titles: { note: '補足', tip: 'ヒント', important: '重要', warning: '警告', caution: '注意' },
-  })
-  .use(remarkBreaks)
-  .use(remarkMath)
-  .use(remarkRehype, {
-    allowDangerousHtml: true,
-    footnoteLabel: '脚注',
-    footnoteLabelTagName: 'h2',
-    footnoteBackLabel: (referenceIndex, rereferenceIndex) =>
-      `脚注 ${referenceIndex + 1} の参照元${rereferenceIndex > 1 ? `（${rereferenceIndex} か所目）` : ''}に戻る`,
-  })
-  .use(rehypeRaw)
-  .use(() => (tree: Root) => {
-    // The page already supplies its h1. Keep legacy Markdown's relative hierarchy.
-    let hasTopLevelHeading = false;
-    visit(tree, 'element', (node) => {
-      if (node.tagName === 'h1') hasTopLevelHeading = true;
-    });
-    if (!hasTopLevelHeading) return;
-    visit(tree, 'element', (node) => {
-      if (/^h[1-6]$/.test(node.tagName) && node.properties.id !== 'footnote-label') {
-        node.tagName = `h${Math.min(Number(node.tagName[1]) + 1, 6)}`;
-      }
-    });
-  })
-  .use(rehypeMarkAuthoredIds)
-  .use(rehypeSlug)
-  .use(rehypePublishedFragments);
+const processor = createContentHeadingProcessor();
 
-/** Each invocation owns its AST; projections must never share mutated trees. */
-export function parseContentTree(source: ContentSource) {
-  const file = { value: source.content, path: `content/${source.type}/${source.slug}/index.md` };
-  return processor.runSync(processor.parse(file), file);
-}
+export { parseContentTree } from './grammar';
 
 /** Index visible text and sections using the same Markdown parsing and heading IDs as pages. */
 export async function renderSearchDocuments(source: ContentSource): Promise<SearchDocument[]> {

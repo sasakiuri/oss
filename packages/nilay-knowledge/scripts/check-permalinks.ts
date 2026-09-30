@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { collectPublishedFragments, comparePublishedFragments, type FragmentBaseline } from '../lib/content/fragments';
+import { parseContentTree } from '../lib/content/grammar';
 import { contentPath } from '../lib/content/paths';
-import { parseContentTree } from '../lib/content/render';
 
 import { readPublicationContent } from './publication-content';
 

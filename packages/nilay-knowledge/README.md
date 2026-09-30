@@ -648,6 +648,21 @@ removals and their replacement destinations in the reviewed change. Do not appro
 a baseline regeneration merely because checks fail; repeated-section text changes
 also require checking that each old fragment still reaches its intended section.
 
+The supported dialect is configured once in `lib/content/grammar.ts`: GFM,
+directives, math, GitHub alerts, line breaks, footnotes and trusted repository HTML.
+Structural projections stay synchronous and preserve source positions. Lint adds
+frontmatter and authoring diagnostics to the grammar; output-only image sizing,
+KaTeX, highlighting and enhancement controls stay in page rendering. Each parse
+owns its AST, including when documents are processed concurrently.
+
+Page rendering and article search share canonical headings. Search includes
+collapsed details, image/caption alternatives, diagram sources and code. Summary
+fallback selects the first readable paragraph, including collapsed details and
+alert bodies, but excludes figures, code and block math. PDF discovery traverses
+real Markdown/reference/HTML links, including details and footnotes; code examples
+are excluded. Summary, search and PDF discovery exclude hidden, script, style,
+template and decorative SVG content. External PDFs remain ordinary links.
+
 ## Markdown authoring blocks
 
 `remark-directive` supplies two validated container blocks. Use `details` for a

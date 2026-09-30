@@ -1,24 +1,17 @@
 import type { Root, RootContent } from 'hast';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
-import remarkParse from 'remark-parse';
-import remarkRehype from 'remark-rehype';
-import { unified } from 'unified';
 
+import { createContentProjectionProcessor } from './grammar';
 import type { ContentSource } from './types';
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeRaw);
+const processor = createContentProjectionProcessor();
 
 function isHidden(node: Root | RootContent): boolean {
   return (
     node.type === 'element' &&
     (['script', 'style', 'template', 'svg', 'pre', 'figure'].includes(node.tagName) ||
       Boolean(node.properties.hidden) ||
-      node.properties.ariaHidden === 'true')
+      node.properties.ariaHidden === 'true' ||
+      (Array.isArray(node.properties.className) && node.properties.className.includes('markdown-alert-title')))
   );
 }
 
@@ -45,7 +38,13 @@ function firstParagraph(node: Root | RootContent): string {
 export function contentDescription(source: ContentSource): string {
   const description =
     source.frontmatter.description ??
-    (firstParagraph(processor.runSync(processor.parse(source.content))) || source.frontmatter.title);
+    (firstParagraph(
+      processor.runSync(
+        processor.parse({ value: source.content, path: `content/${source.type}/${source.slug}/index.md` }),
+        { value: source.content, path: `content/${source.type}/${source.slug}/index.md` },
+      ),
+    ) ||
+      source.frontmatter.title);
   const text = description.replace(/\s+/g, ' ').trim();
   const characters = Array.from(text);
   return characters.length > 160 ? `${characters.slice(0, 159).join('')}…` : text;
