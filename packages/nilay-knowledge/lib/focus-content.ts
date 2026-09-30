@@ -10,6 +10,8 @@ export function focusContent(hash = '') {
   }
   target ??= document.querySelector<HTMLElement>('#main-content h1') ?? document.getElementById('main-content');
   if (!target) return;
+  const aliasTarget = target.dataset.fragmentAliasFor;
+  if (aliasTarget) target = document.getElementById(aliasTarget) ?? target;
   for (let parent = target.parentElement; parent; parent = parent.parentElement) {
     if (parent instanceof HTMLDetailsElement) parent.open = true;
   }
