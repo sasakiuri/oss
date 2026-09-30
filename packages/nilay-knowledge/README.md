@@ -548,6 +548,26 @@ Search displays the record and every referring article/news link, deduplicated b
 URL. Metadata is stored once per PDF, while original `#page=N` links are unchanged.
 All statuses remain searchable; there is no status filter or automatic expiry.
 
+PDF text extraction uses a disposable per-content cache in `.cache/pdf-search/`
+(relative to the package root), outside the published content tree. Set
+`PDF_SEARCH_CACHE_DIRECTORY` to an external directory to share/persist it deliberately.
+CI/deployment platforms must explicitly restore/save that directory; persistence is
+not assumed. Delete the directory to clean stale entries or force a cold extraction.
+The key combines SHA-256 PDF bytes, the installed PDF.js version and
+`pdfExtractionVersion`; bump that version when normalization, extraction settings,
+or the shipped CMap/font inputs change. Records contain page text and no-text
+page diagnostics only. Titles, tags, referring articles and review records always
+come from current content. Every build checks real paths, regular-file status and
+current bytes before using a hit. Invalid records and unavailable cache storage
+fall back to extraction; concurrent writers publish complete records atomically.
+
+The build emits a machine-readable `PDF_SEARCH_REPORT` JSON line with file/page
+counts, hits/misses, extraction milliseconds and pages without text. Reproduce the
+pipeline measurement independently of Next.js with `npm run benchmark:pdf --workspace=@sasakiuri/nilay-knowledge -- <report.json>`;
+repeat for a warm rebuild, or add `--no-cache` for uncached extraction. Reports
+include the Node/CPU environment and peak process RSS. Cache files are ignored,
+never committed, and never served as content. OCR is not performed.
+
 Search and Graphviz workers expose typed APIs through Comlink. The shared worker
 client rejects pending and future calls when a worker fails or is disposed, and
 releases its proxy and listeners. Search initialization can retry a failed index
