@@ -794,14 +794,14 @@ describe("Publisher", () => {
       },
     );
 
-    it("preserves an unposted follow-up and classification time while recording permitted screening separately", async () => {
-      const unposted = await add(2);
+    it("preserves an unpublished follow-up and classification time while recording permitted screening separately", async () => {
+      const originalComparison = await add(2);
       const posted = await add(3);
       await repo.review(posted, "posted");
       const article = await repo.article(articleId);
       const rubric = (await repo.settings()).rubric;
       const original = await reviewer("followup").jev.relate(article, rubric, [
-        await repo.article(unposted),
+        await repo.article(originalComparison),
       ]);
       await repo.analyzeResult(
         articleId,
@@ -813,7 +813,7 @@ describe("Publisher", () => {
           ...original,
         },
       );
-      await repo.review(unposted, "dismissed");
+      await repo.review(originalComparison, "dismissed");
       const before = await repo.article(articleId);
       now += 1;
       const client = fakeClient();
@@ -825,7 +825,7 @@ describe("Publisher", () => {
         await repo.driver.batch([
           [
             "UPDATE news_articles SET data=json_set(data,'$.body',?) WHERE id=?",
-            ["Changed unposted evidence", unposted],
+            ["Changed originalComparison evidence", originalComparison],
           ],
         ]);
         return result;
@@ -835,7 +835,7 @@ describe("Publisher", () => {
       const after = await repo.article(articleId);
       expect(after).toMatchObject({
         relation: "followup",
-        relatedArticleId: unposted,
+        relatedArticleId: originalComparison,
         analyzedAt: before.analyzedAt,
       });
       expect(after.relationProvenance).toEqual(before.relationProvenance);

@@ -16,6 +16,7 @@ const model = {
   listRequest: 0,
   detailRequest: 0,
   detail: null,
+  detailFailure: null,
   serverState: null,
   loading: true,
   requestPending: false,
@@ -485,6 +486,14 @@ async function loadDetail(id, shouldRender = true) {
   try {
     const article = await api(`/api/articles/${encodeURIComponent(id)}`);
     if (request !== model.detailRequest || model.selectedId !== id) return;
+    if (model.detailFailure) {
+      const { retry, notice } = model.detailFailure;
+      if (document.activeElement === retry)
+        $("detail-panel").focus({ preventScroll: true });
+      retry.remove();
+      if ($("notice-text").textContent === notice) hideNotice();
+      model.detailFailure = null;
+    }
     const changed = JSON.stringify(article) !== JSON.stringify(model.detail);
     model.detail = article;
     model.state.publication = {
@@ -495,10 +504,16 @@ async function loadDetail(id, shouldRender = true) {
     return changed;
   } catch (error) {
     if (request !== model.detailRequest || model.selectedId !== id) return;
+    model.detailFailure?.retry.remove();
     showNotice(`記事を読み込めませんでした。${error.message}`, true);
     const retry = button("記事の読み込みを再試行", "button", () =>
       loadDetail(id),
     );
+    model.detailFailure = {
+      articleId: id,
+      retry,
+      notice: $("notice-text").textContent,
+    };
     $("detail-panel").append(retry);
   }
 }
@@ -1022,6 +1037,8 @@ function renderDetail() {
   const panel = $("detail-panel");
   panel.tabIndex = -1;
   panel.replaceChildren();
+  if (model.detailFailure?.articleId === model.selectedId)
+    panel.append(model.detailFailure.retry);
   const article =
     model.detail?.id === model.selectedId
       ? model.detail
