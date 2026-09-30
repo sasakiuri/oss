@@ -86,7 +86,7 @@
     "@vitest/coverage-istanbul": "4.1.11",
     "autoprefixer": "10.4.27",
     "dependency-cruiser": "17.4.3",
-    "electron": "43.4.1",
+    "electron": "43.5.0",
     "electron-builder": "26.15.3",
     "jsdom": "25.0.1",
     "postcss": "8.5.26",
