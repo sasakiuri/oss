@@ -122,7 +122,7 @@ export class Access {
   private keys = new Map<string, RsaKey>();
   private expires = 0;
   private lastAttempt = Number.NEGATIVE_INFINITY;
-  private refreshing = false;
+  private refreshing: Promise<void> | null = null;
 
   constructor(
     config: Record<string, string>,
@@ -237,14 +237,24 @@ export class Access {
       ) {
         return false;
       }
-      const key = await this.key(kid);
-      return (
-        key !== null &&
-        (await verifyRsa(
-          key,
+      const selected = await this.key(kid);
+      if (
+        !selected ||
+        !(await verifyRsa(
+          selected.key,
           new TextEncoder().encode(`${head}.${payload}`),
           decode64(signature),
         ))
+      )
+        return false;
+      // Waiting for a shared refresh or Web Crypto must not extend validity.
+      // Capture the selected key's expiry, not a later refresh's expiry.
+      const verifiedAt = this.clock();
+      return (
+        iat <= verifiedAt &&
+        verifiedAt < exp &&
+        (!("nbf" in claims) || (integer(nbf) && nbf <= verifiedAt)) &&
+        verifiedAt < selected.expires
       );
     } catch {
       // Never echo credentials, claims or remote error bodies.
@@ -252,65 +262,80 @@ export class Access {
     }
   }
 
-  /** Signing keys are cached for an hour; an unknown kid refreshes at most once a minute. */
-  private async key(kid: string): Promise<RsaKey | null> {
-    const now = this.clock();
-    if (now < this.expires && this.keys.has(kid))
-      return this.keys.get(kid) ?? null;
-    if (this.refreshing || now - this.lastAttempt < 60) return null;
-    this.lastAttempt = now;
-    this.refreshing = true;
-    try {
-      const url = `${this.issuer}/cdn-cgi/access/certs`;
-      const result = await this.fetcher(url, {
-        timeout: 5,
-        maxBytes: MAX_JWKS,
-        beforeRedirect: () => {
-          throw new Error("Access key redirects are not allowed");
-        },
+  private cachedKey(kid: string): { key: RsaKey; expires: number } | null {
+    const key = this.keys.get(kid);
+    return key && this.clock() < this.expires
+      ? { key, expires: this.expires }
+      : null;
+  }
+
+  /** Signing keys are cached for an hour; cache misses share one throttled refresh. */
+  private async key(
+    kid: string,
+  ): Promise<{ key: RsaKey; expires: number } | null> {
+    const cached = this.cachedKey(kid);
+    if (cached) return cached;
+    if (!this.refreshing) {
+      const now = this.clock();
+      if (now - this.lastAttempt < 60) return null;
+      this.lastAttempt = now;
+      // One owner clears the promise on both success and failure. Waiters
+      // must join before the throttle check and independently resolve their kid.
+      this.refreshing = this.refreshKeys().finally(() => {
+        this.refreshing = null;
       });
-      if (result.url !== url || result.data.byteLength > MAX_JWKS) return null;
-      const entries = jsonObject(result.data)?.keys;
-      if (!Array.isArray(entries) || entries.length < 1 || entries.length > 32)
-        return null;
-      const keys = new Map<string, RsaKey>();
-      for (const entry of entries) {
-        if (!isRecord(entry)) return null;
-        if (
-          entry.kty !== "RSA" ||
-          ("alg" in entry && entry.alg !== "RS256") ||
-          ("use" in entry && entry.use !== "sig")
-        )
-          continue;
-        const { kid: name, n, e } = entry;
-        const ops = entry.key_ops;
-        if (
-          typeof name !== "string" ||
-          name.length < 1 ||
-          name.length > 256 ||
-          keys.has(name) ||
-          "d" in entry ||
-          typeof n !== "string" ||
-          n.length < 1 ||
-          n.length > 2048 ||
-          typeof e !== "string" ||
-          e.length < 1 ||
-          e.length > 16 ||
-          ("key_ops" in entry &&
-            !(Array.isArray(ops) && ops.length === 1 && ops[0] === "verify"))
-        ) {
-          return null;
-        }
-        const bits = bitLength(decode64(n));
-        if (bits < 2048 || bits > 8192) return null;
-        keys.set(name, { kty: "RSA", n, e });
-      }
-      if (!keys.size) return null;
-      this.keys = keys;
-      this.expires = this.clock() + 3600;
-      return keys.get(kid) ?? null;
-    } finally {
-      this.refreshing = false;
     }
+    await this.refreshing;
+    return this.cachedKey(kid);
+  }
+
+  private async refreshKeys(): Promise<void> {
+    const url = `${this.issuer}/cdn-cgi/access/certs`;
+    const result = await this.fetcher(url, {
+      timeout: 5,
+      maxBytes: MAX_JWKS,
+      beforeRedirect: () => {
+        throw new Error("Access key redirects are not allowed");
+      },
+    });
+    if (result.url !== url || result.data.byteLength > MAX_JWKS) return;
+    const entries = jsonObject(result.data)?.keys;
+    if (!Array.isArray(entries) || entries.length < 1 || entries.length > 32)
+      return;
+    const keys = new Map<string, RsaKey>();
+    for (const entry of entries) {
+      if (!isRecord(entry)) return;
+      if (
+        entry.kty !== "RSA" ||
+        ("alg" in entry && entry.alg !== "RS256") ||
+        ("use" in entry && entry.use !== "sig")
+      )
+        continue;
+      const { kid: name, n, e } = entry;
+      const ops = entry.key_ops;
+      if (
+        typeof name !== "string" ||
+        name.length < 1 ||
+        name.length > 256 ||
+        keys.has(name) ||
+        "d" in entry ||
+        typeof n !== "string" ||
+        n.length < 1 ||
+        n.length > 2048 ||
+        typeof e !== "string" ||
+        e.length < 1 ||
+        e.length > 16 ||
+        ("key_ops" in entry &&
+          !(Array.isArray(ops) && ops.length === 1 && ops[0] === "verify"))
+      ) {
+        return;
+      }
+      const bits = bitLength(decode64(n));
+      if (bits < 2048 || bits > 8192) return;
+      keys.set(name, { kty: "RSA", n, e });
+    }
+    if (!keys.size) return;
+    this.keys = keys;
+    this.expires = this.clock() + 3600;
   }
 }

@@ -131,12 +131,21 @@ async function fixtureRuntime() {
       .filter(Boolean)
       .map((sql) => db.prepare(sql)),
   );
-  const request = (
+  const request = async (
     path: string,
     body?: object,
     headers: Record<string, string> = {},
-  ) =>
-    runtime.dispatchFetch(origin + path, {
+  ) => {
+    if (path === "/api/settings" && body) {
+      const response = await runtime.dispatchFetch(origin + "/api/state", {
+        headers: { "cf-access-jwt-assertion": token },
+      });
+      const snapshot = (await response.json()) as {
+        settings: { revision: string };
+      };
+      body = { revision: snapshot.settings.revision, ...body };
+    }
+    return runtime.dispatchFetch(origin + path, {
       method: body ? "POST" : "GET",
       headers: {
         "cf-access-jwt-assertion": token,
@@ -145,6 +154,7 @@ async function fixtureRuntime() {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
+  };
   return { runtime, request };
 }
 
@@ -546,7 +556,10 @@ describe("real Worker, D1 and WebCrypto", () => {
         await db.batch(statements(file.sql).map((sql) => db.prepare(sql)));
       const state = await runtime.dispatchFetch(base + "/api/state");
       expect(state.status).toBe(200);
-      expect(await state.json()).toMatchObject({
+      const snapshot = (await state.json()) as {
+        settings: { revision: string };
+      };
+      expect(snapshot).toMatchObject({
         settings: {
           rubric: "既存の運用で使っている選定基準です",
           autoCollect: true,
@@ -569,7 +582,10 @@ describe("real Worker, D1 and WebCrypto", () => {
       const enable = await runtime.dispatchFetch(base + "/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Origin: base },
-        body: JSON.stringify({ autoAnalyze: true }),
+        body: JSON.stringify({
+          revision: snapshot.settings.revision,
+          autoAnalyze: true,
+        }),
       });
       expect(enable.status).toBe(400);
     } finally {
