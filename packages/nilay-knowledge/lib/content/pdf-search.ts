@@ -4,13 +4,9 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import type { Root, RootContent } from 'hast';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
-import remarkParse from 'remark-parse';
-import remarkRehype from 'remark-rehype';
-import { unified } from 'unified';
 
 import { decodeContentAssetPathname } from './asset-path';
+import { createContentProjectionProcessor } from './grammar';
 import { resolveContentUrl } from './paths';
 import type { ContentSource } from './types';
 
@@ -39,11 +35,7 @@ interface PdfReference {
   tags: string[];
 }
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeRaw);
+const processor = createContentProjectionProcessor();
 
 function textContent(node: Root | RootContent): string {
   if (node.type === 'text') return node.value;
@@ -57,10 +49,11 @@ function isWithin(directory: string, filename: string): boolean {
 }
 
 /** Use authored links, including reference links and HTML anchors, never a directory-wide asset scan. */
-async function findReferences(sources: readonly ContentSource[]): Promise<PdfReference[]> {
+export async function findReferences(sources: readonly ContentSource[]): Promise<PdfReference[]> {
   const references = new Map<string, PdfReference>();
   for (const source of sources) {
-    const tree = await processor.run(processor.parse(source.content));
+    const file = { value: source.content, path: `content/${source.type}/${source.slug}/index.md` };
+    const tree = await processor.run(processor.parse(file), file);
     function collect(node: Root | RootContent, tableRowLabel = ''): void {
       if (node.type === 'element') {
         if (['script', 'style', 'template', 'svg'].includes(node.tagName) || node.properties.hidden) return;

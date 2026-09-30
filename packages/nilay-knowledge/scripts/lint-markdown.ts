@@ -2,25 +2,17 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import remarkDirective from 'remark-directive';
 import remarkFrontmatter from 'remark-frontmatter';
-import remarkGfm from 'remark-gfm';
 import remarkLint from 'remark-lint';
 import remarkLintNoDuplicateDefinitions from 'remark-lint-no-duplicate-definitions';
 import remarkLintNoUndefinedReferences from 'remark-lint-no-undefined-references';
-import remarkMath from 'remark-math';
-import remarkParse from 'remark-parse';
-import { unified } from 'unified';
 import { VFile } from 'vfile';
 
 import { remarkContentDirectives } from '../lib/content/directives';
+import { createMarkdownGrammar } from '../lib/content/grammar';
 
-const processor = unified()
-  .use(remarkParse)
+const processor = createMarkdownGrammar()
   .use(remarkFrontmatter)
-  .use(remarkGfm)
-  .use(remarkDirective)
-  .use(remarkMath)
   .use(remarkLint)
   .use(remarkLintNoUndefinedReferences, {
     // These markers are consumed by the site's GitHub alert renderer.
