@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Test-only controls around the same authenticated Worker used by runtime regressions. */
+import { Jev } from "../../src/jev.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";
-import { isRecord } from "../../src/text.ts";
+import { isRecord, utf8 } from "../../src/text.ts";
 import type { Env } from "../../src/worker.ts";
 import runtime from "../runtime/fixture.ts";
 
@@ -27,6 +28,64 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === "/fixture/advance") return advance(request, env);
+    if (path === "/fixture/post-screening" && request.method === "POST") {
+      const input: unknown = await request.json();
+      if (!isRecord(input) || typeof input.articleId !== "string")
+        return Response.json(
+          { error: "Invalid screening article" },
+          { status: 400 },
+        );
+      const repo = await createD1Repository(env.DB, [source], () => now);
+      const article = await repo.article(input.articleId);
+      const other = (await repo.articles()).find(
+        (item) => item.id !== article.id,
+      );
+      if (!other) throw new Error("Seed a comparison article first");
+      await repo.review(other.id, "posted");
+      const jev = new Jev(
+        "fixture-key",
+        "fixture-screening-model",
+        async (url) => ({
+          data: utf8(
+            JSON.stringify({
+              answers: {
+                relation: {
+                  type: "choice",
+                  choice: "different",
+                  probabilities: {
+                    duplicate: 0,
+                    followup: 0,
+                    different: 1,
+                    uncertain: 0,
+                  },
+                },
+              },
+            }),
+          ),
+          url,
+          contentType: "application/json",
+        }),
+        () => now,
+      );
+      const rubric = (await repo.settings()).rubric;
+      const result = await jev.relate(article, rubric, [other]);
+      const saved = await repo.analyzeResult(
+        article.id,
+        await repo.evidenceHash(article),
+        rubric,
+        {
+          ...result,
+          analysisStatus: article.analysisStatus,
+        },
+        undefined,
+        "post-screening",
+      );
+      if (!saved || !result.relationProvenance?.length)
+        throw new Error(
+          "Fixture screening did not produce a saved model decision",
+        );
+      return Response.json({ saved });
+    }
     if (path === "/fixture/seed") {
       const input: unknown = await request.json();
       if (

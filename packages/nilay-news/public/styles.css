@@ -1152,6 +1152,7 @@ select {
   overflow-wrap: anywhere;
 }
 
-.analysis-provenance {
+.analysis-provenance,
+.post-screening-provenance {
   overflow-wrap: anywhere;
 }

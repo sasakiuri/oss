@@ -882,6 +882,42 @@ describe("automatic classification", () => {
     });
   });
 
+  it("clears the previous decision provenance when an explicit re-analysis fails", async () => {
+    const { app, repo, analyze } = await analyzeSetup(1);
+    const article = (await repo.articles())[0]!;
+    const provenance = {
+      requestedModel: "previous-model",
+      resolvedModel: null,
+      promptVersion: "1",
+      criteriaVersion: "1",
+      routingPolicyVersion: "1",
+      routingPolicyHash: "routing",
+      criteriaHash: "criteria",
+      rubricHash: "rubric",
+      modelInputHash: "input",
+      analyzedAt: "1970-01-01T00:00:00Z",
+    };
+    await repo.analyzeResult(
+      article.id,
+      await repo.evidenceHash(article),
+      (await repo.settings()).rubric,
+      {
+        analysisStatus: "done",
+        decision: "candidate",
+        provenance,
+      },
+    );
+    analyze.mockRejectedValue(new UserError("Fixture re-analysis failure"));
+    await app.start("analyze", [article.id]);
+    await app.scheduled();
+    expect(await app.article(article.id)).toMatchObject({
+      analysisStatus: "error",
+      decision: null,
+      provenance: null,
+      relationProvenance: null,
+    });
+  });
+
   it("pauses one interval after failures and never retries failed articles", async () => {
     const notifier = notices();
     // Newest first, so index order.

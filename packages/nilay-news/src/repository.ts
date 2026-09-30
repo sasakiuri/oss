@@ -150,6 +150,7 @@ export interface NewsRepository {
     rubric: string,
     result: Analysis,
     relationHash?: string | null,
+    purpose?: "analysis" | "post-screening",
   ): Promise<boolean>;
   queueJob(kind: string, articleIds?: string[] | null): Promise<Job>;
   queueAutomaticJob(canAnalyze: boolean): Promise<Job | null>;

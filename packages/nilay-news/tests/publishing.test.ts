@@ -780,7 +780,9 @@ describe("Publisher", () => {
         expect(transport).toHaveBeenCalledTimes(1);
         expect(client.post).toHaveBeenCalledTimes(1);
         expect((await repo.article(articleId)).reviewStatus).toBe("posted");
-        expect((await repo.article(articleId)).relationProvenance).toEqual([
+        expect(
+          (await repo.article(articleId)).postScreening?.relationProvenance,
+        ).toEqual([
           expect.objectContaining({
             comparisonArticleId: previous,
             requestedModel: "jev-latest",
@@ -791,6 +793,69 @@ describe("Publisher", () => {
         ]);
       },
     );
+
+    it("preserves an unposted follow-up and classification time while recording permitted screening separately", async () => {
+      const unposted = await add(2);
+      const posted = await add(3);
+      await repo.review(posted, "posted");
+      const article = await repo.article(articleId);
+      const rubric = (await repo.settings()).rubric;
+      const original = await reviewer("followup").jev.relate(article, rubric, [
+        await repo.article(unposted),
+      ]);
+      await repo.analyzeResult(
+        articleId,
+        await repo.evidenceHash(article),
+        rubric,
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          ...original,
+        },
+      );
+      await repo.review(unposted, "dismissed");
+      const before = await repo.article(articleId);
+      now += 1;
+      const client = fakeClient();
+      const { jev } = reviewer("different");
+      const relate = jev.relate.bind(jev);
+      vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
+        const result = await relate(...args);
+        // The older classification comparison is outside this posted-article check.
+        await repo.driver.batch([
+          [
+            "UPDATE news_articles SET data=json_set(data,'$.body',?) WHERE id=?",
+            ["Changed unposted evidence", unposted],
+          ],
+        ]);
+        return result;
+      });
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).toHaveBeenCalledTimes(1);
+      const after = await repo.article(articleId);
+      expect(after).toMatchObject({
+        relation: "followup",
+        relatedArticleId: unposted,
+        analyzedAt: before.analyzedAt,
+      });
+      expect(after.relationProvenance).toEqual(before.relationProvenance);
+      expect(after.postScreening).toMatchObject({
+        relation: null,
+        relatedArticleId: null,
+        relationProvenance: [
+          expect.objectContaining({ comparisonArticleId: posted }),
+        ],
+      });
+      expect(after.postScreening?.checkedAt).not.toBe(before.analyzedAt);
+      const page = await repo.articlePage({ bucket: "posted" }, now);
+      expect(
+        page.articles.find((item) => item.id === articleId),
+      ).not.toHaveProperty("postScreening");
+      await repo.ingest(SOURCE, [
+        { ...ITEM, title: "Updated article", publishedAt: published(-3660) },
+      ]);
+      expect((await repo.article(articleId)).postScreening).toBeNull();
+    });
 
     it("holds an uncertain match without sending or marking it as posted", async () => {
       const previous = await add(2);
@@ -864,6 +929,7 @@ describe("Publisher", () => {
       expect((await state()).posts).toEqual([]);
       expect((await repo.settings()).autoPost).toBe(true);
       expect((await repo.article(articleId)).relationProvenance).toBeFalsy();
+      expect((await repo.article(articleId)).postScreening).toBeFalsy();
     });
 
     it("does not send a rejected screening even if concurrent classification clears the annotation", async () => {

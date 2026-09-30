@@ -160,9 +160,24 @@ test("Jev provenance can be inspected with keyboard on wide and narrow screens",
     ).status(),
   ).toBe(202);
   expect((await page.request.post("/__test/tick")).status()).toBe(200);
+  expect(
+    (
+      await page.request.post("/fixture/post-screening", {
+        data: { articleId: id },
+      })
+    ).ok(),
+  ).toBe(true);
   const detail = await (await page.request.get(`/api/articles/${id}`)).json();
   expect(detail.provenance.modelInputHash).toMatch(/^[a-f0-9]{64}$/);
   expect(detail.provenance.resolvedModel).toBeNull();
+  await page.clock.install();
+  let forceFullStatus = true;
+  await page.route("**/api/state", async (route) => {
+    if (!forceFullStatus) return route.continue();
+    const headers = { ...route.request().headers() };
+    delete headers["if-none-match"];
+    await route.fulfill({ response: await route.fetch({ headers }) });
+  });
   await page.goto("/");
   await page.getByRole("button", { name: /^見送り・対象外 1$/ }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(1);
@@ -181,8 +196,72 @@ test("Jev provenance can be inspected with keyboard on wide and narrow screens",
   await expect(page.locator(".analysis-provenance")).toContainText(
     detail.provenance.modelInputHash,
   );
+  for (const force200 of [true, false]) {
+    forceFullStatus = force200;
+    const refreshed = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === `/api/articles/${id}`,
+    );
+    await page.clock.fastForward(30_001);
+    await (await refreshed).finished();
+    await page.clock.runFor(100);
+    await expect(summary).toBeFocused();
+    await expect(page.locator(".analysis-provenance")).toHaveAttribute(
+      "open",
+      "",
+    );
+  }
+  const screeningSummary = page.locator(".post-screening-provenance summary");
+  await screeningSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".post-screening-provenance")).toHaveAttribute(
+    "open",
+    "",
+  );
+  await expect(page.locator(".post-screening-provenance")).toContainText(
+    detail.postScreening.relationProvenance[0].modelInputHash,
+  );
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test("background refresh and review keep the current page and its visible selection", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/");
+  await expect(page.locator("#article-list > article")).toHaveCount(50);
+  await page.getByRole("button", { name: "次のページ", exact: true }).click();
+  await expect(page.locator("#list-footnote")).toContainText("51–100");
+  const checks = page.locator("#article-list [data-select-id]");
+  const selected = await checks.nth(2).getAttribute("data-select-id");
+  await checks.nth(2).check();
+  expect((await page.request.get("/fixture/advance")).ok()).toBe(true);
+  const refreshed = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/articles" &&
+      url.searchParams.get("offset") === "50"
+    );
+  });
+  await page.clock.fastForward(30_001);
+  const response = await refreshed;
+  expect(response.ok()).toBe(true);
+  expect(new URL(response.url()).searchParams.has("snapshot")).toBe(false);
+  await response.finished();
+  await page.clock.runFor(100);
+  await expect(page.locator("#list-footnote")).toContainText("51–100");
+  await expect(page.locator(`[data-select-id="${selected}"]`)).toBeChecked();
+  await page.locator("#article-list .article-select").first().click();
+  await expect(page.locator("#detail-panel")).toContainText("Fixture body 50");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.locator("#notice-text")).toHaveText("保存しました。");
+  await expect(page.locator("#list-count")).toHaveText("150 件");
+  await expect(page.locator("#list-footnote")).toContainText("51–100");
+  await expect(page.locator(`[data-select-id="${selected}"]`)).toBeChecked();
+  await expect(page.locator("#selection-count")).toHaveText("1 件選択中");
+  await expect(
+    page.getByRole("button", { name: /Article 0050.*詳細を読む/ }),
+  ).toHaveCount(0);
 });

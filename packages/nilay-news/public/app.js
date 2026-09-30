@@ -14,7 +14,9 @@ const model = {
   visibleCount: PAGE_SIZE,
   articlePage: null,
   listRequest: 0,
+  detailRequest: 0,
   detail: null,
+  serverState: null,
   loading: true,
   requestPending: false,
   pollTimer: null,
@@ -279,9 +281,9 @@ async function api(path, body) {
     options.body = JSON.stringify(body);
   }
   const response = await fetch(path, options);
-  if (path === "/api/state" && response.status === 304 && model.state) {
+  if (path === "/api/state" && response.status === 304 && model.serverState) {
     model.receivedStateEtag = model.stateEtag;
-    return model.state;
+    return model.serverState;
   }
   let data;
   try {
@@ -323,9 +325,14 @@ async function loadState() {
     if (!Array.isArray(state.sources) || !state.settings || !state.job) {
       throw new Error("受信箱のデータ形式を確認できませんでした。");
     }
-    const changed = JSON.stringify(state) !== JSON.stringify(model.state);
+    const changed = JSON.stringify(state) !== JSON.stringify(model.serverState);
+    model.serverState = state;
     model.state = { ...state, articles: model.state?.articles || [] };
-    await loadArticles(model.articlePage?.offset || 0, false);
+    const articlesChanged = await loadArticles(
+      model.articlePage?.offset || 0,
+      false,
+      true,
+    );
     model.stateEtag = model.receivedStateEtag;
     model.loading = false;
     model.loadError = null;
@@ -338,7 +345,7 @@ async function loadState() {
     if (postError && postError !== model.lastPostError)
       showNotice(postError, true);
     model.lastPostError = postError || null;
-    if (changed) render();
+    if (changed || articlesChanged) render();
   } catch (error) {
     model.loading = false;
     const firstFailure = !model.loadError;
@@ -412,7 +419,11 @@ function collect() {
   );
 }
 
-async function loadArticles(offset = 0, shouldRender = true) {
+async function loadArticles(
+  offset = 0,
+  shouldRender = true,
+  renewSnapshot = false,
+) {
   if (!model.state || model.view === "settings") return;
   const request = ++model.listRequest;
   const parameters = new URLSearchParams({
@@ -425,11 +436,20 @@ async function loadArticles(offset = 0, shouldRender = true) {
     limit: String(PAGE_SIZE),
     offset: String(offset),
   });
-  if (offset && model.articlePage?.snapshot)
+  if (offset && model.articlePage?.snapshot && !renewSnapshot)
     parameters.set("snapshot", model.articlePage.snapshot);
   try {
     const page = await api(`/api/articles?${parameters}`);
     if (request !== model.listRequest) return;
+    if (offset && offset >= page.total)
+      return loadArticles(
+        Math.floor(Math.max(0, page.total - 1) / PAGE_SIZE) * PAGE_SIZE,
+        shouldRender,
+        true,
+      );
+    const changed =
+      JSON.stringify({ ...page, snapshot: undefined }) !==
+      JSON.stringify({ ...model.articlePage, snapshot: undefined });
     model.articlePage = page;
     model.state.articles = page.articles;
     model.state.publication = {
@@ -443,8 +463,12 @@ async function loadArticles(offset = 0, shouldRender = true) {
       model.selectedId = null;
       model.detail = null;
     }
-    if (model.selectedId) await loadDetail(model.selectedId, false);
+    const detailChanged = model.selectedId
+      ? await loadDetail(model.selectedId, false)
+      : false;
+    if (request !== model.listRequest) return;
     if (shouldRender) render();
+    return changed || detailChanged;
   } catch (error) {
     if (request !== model.listRequest) return;
     if (error.code === "article_page_conflict" && offset) {
@@ -457,17 +481,20 @@ async function loadArticles(offset = 0, shouldRender = true) {
 }
 
 async function loadDetail(id, shouldRender = true) {
+  const request = ++model.detailRequest;
   try {
     const article = await api(`/api/articles/${encodeURIComponent(id)}`);
-    if (model.selectedId !== id) return;
+    if (request !== model.detailRequest || model.selectedId !== id) return;
+    const changed = JSON.stringify(article) !== JSON.stringify(model.detail);
     model.detail = article;
     model.state.publication = {
       ...model.state.publication,
       ...article.publication,
     };
-    if (shouldRender) renderDetail();
+    if (shouldRender && changed) renderDetail();
+    return changed;
   } catch (error) {
-    if (model.selectedId !== id) return;
+    if (request !== model.detailRequest || model.selectedId !== id) return;
     showNotice(`記事を読み込めませんでした。${error.message}`, true);
     const retry = button("記事の読み込みを再試行", "button", () =>
       loadDetail(id),
@@ -1122,33 +1149,33 @@ function renderDetail() {
   } else {
     analysis.append(el("p", "", "未判定"));
   }
+  const describe = (record, provenance) => {
+    record.append(
+      el(
+        "p",
+        "",
+        `要求モデル: ${provenance.requestedModel} / 応答モデル: ${provenance.resolvedModel || "不明（応答に記録なし）"}`,
+      ),
+    );
+    record.append(
+      el(
+        "p",
+        "",
+        `判定時刻: ${dateText(provenance.analyzedAt, true)} / 質問版: ${provenance.promptVersion} / 分類基準版: ${provenance.criteriaVersion} / 振り分け方針版: ${provenance.routingPolicyVersion}`,
+      ),
+    );
+    for (const [label, value] of [
+      ["質問と分類基準", provenance.criteriaHash],
+      ["振り分け方針", provenance.routingPolicyHash],
+      ["選定基準", provenance.rubricHash],
+      ["送信入力", provenance.modelInputHash],
+    ])
+      record.append(el("p", "", `${label} SHA-256: ${value}`));
+  };
   if (article.analysisStatus === "done" || article.relationProvenance?.length) {
     const record = el("details", "analysis-provenance");
     record.append(el("summary", "", "判定の構成と記録"));
-    const describe = (provenance) => {
-      record.append(
-        el(
-          "p",
-          "",
-          `要求モデル: ${provenance.requestedModel} / 応答モデル: ${provenance.resolvedModel || "不明（応答に記録なし）"}`,
-        ),
-      );
-      record.append(
-        el(
-          "p",
-          "",
-          `判定時刻: ${dateText(provenance.analyzedAt, true)} / 質問版: ${provenance.promptVersion} / 分類基準版: ${provenance.criteriaVersion} / 振り分け方針版: ${provenance.routingPolicyVersion}`,
-        ),
-      );
-      for (const [label, value] of [
-        ["質問と分類基準", provenance.criteriaHash],
-        ["振り分け方針", provenance.routingPolicyHash],
-        ["選定基準", provenance.rubricHash],
-        ["送信入力", provenance.modelInputHash],
-      ])
-        record.append(el("p", "", `${label} SHA-256: ${value}`));
-    };
-    if (article.provenance) describe(article.provenance);
+    if (article.provenance) describe(record, article.provenance);
     else
       record.append(
         el(
@@ -1165,7 +1192,30 @@ function renderDetail() {
           `比較記事 ${provenance.comparisonArticleId} / 比較入力 SHA-256: ${provenance.comparisonInputHash}`,
         ),
       );
-      describe(provenance);
+      describe(record, provenance);
+    }
+    analysis.append(record);
+  }
+  if (article.postScreening) {
+    const screening = article.postScreening;
+    const record = el("details", "post-screening-provenance");
+    record.append(el("summary", "", "投稿前の照合記録"));
+    record.append(
+      el(
+        "p",
+        "",
+        `照合時刻: ${dateText(screening.checkedAt, true)} / 結果: ${relationLabels[screening.relation] || "一致する記事なし"}`,
+      ),
+    );
+    for (const provenance of screening.relationProvenance) {
+      record.append(
+        el(
+          "p",
+          "",
+          `比較記事 ${provenance.comparisonArticleId} / 比較入力 SHA-256: ${provenance.comparisonInputHash}`,
+        ),
+      );
+      describe(record, provenance);
     }
     analysis.append(record);
   }

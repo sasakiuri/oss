@@ -597,6 +597,7 @@ export class Publisher {
           settings.rubric,
           { ...result, analysisStatus: article.analysisStatus },
           related ? await this.repository.evidenceHash(related) : undefined,
+          "post-screening",
         );
         if (!saved) return { evidenceHash, permitted: false };
       }
