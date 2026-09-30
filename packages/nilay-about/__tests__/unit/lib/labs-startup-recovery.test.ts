@@ -175,4 +175,52 @@ describe('pre-hydration Labs asset recovery', () => {
     await Promise.resolve();
     expect(reload).toHaveBeenCalledTimes(1);
   });
+
+  it('cancels pending recovery when hydration and saved-state readiness finish', async () => {
+    const { window, fetchAsset, fail, tasks, key, reload } = setup({
+      preloads: ['/_next/static/chunks/app.js'],
+    });
+    fetchAsset.mockImplementation(() => new Promise(() => {}));
+    fail();
+    tasks[0]?.();
+    const signal = fetchAsset.mock.calls[0]?.[1]?.signal;
+    expect(window.sessionStorage.getItem(key)).toBe('1');
+    window.dispatchEvent(new window.Event('nilay-labs-startup-ready'));
+    expect(signal?.aborted).toBe(false);
+    window.document.querySelector('[aria-busy]')?.setAttribute('aria-busy', 'false');
+    await Promise.resolve();
+    expect(signal?.aborted).toBe(true);
+    expect(window.sessionStorage.getItem(key)).toBeNull();
+    tasks[1]?.();
+    expect(reload).not.toHaveBeenCalled();
+    expect(window.document.querySelector('input')?.value).toBe('saved');
+  });
+
+  it('restores a completed tool if readiness follows an already visible startup failure', async () => {
+    const { window, fail, key, reload } = setup({ tried: true });
+    fail();
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-failure]')?.hidden).toBe(false);
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-content]')?.hidden).toBe(true);
+    window.dispatchEvent(new window.Event('nilay-labs-startup-ready'));
+    window.document.querySelector('[aria-busy]')?.setAttribute('aria-busy', 'false');
+    await Promise.resolve();
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-failure]')?.hidden).toBe(true);
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-content]')?.hidden).toBe(false);
+    expect(window.sessionStorage.getItem(key)).toBeNull();
+    expect(window.document.querySelector('input')?.value).toBe('saved');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('does not reveal a deferred failure notice after the tool becomes ready', () => {
+    const { window, fail, reload } = setup({ tried: true });
+    Object.defineProperty(window.document, 'readyState', { configurable: true, value: 'loading' });
+    fail();
+    window.dispatchEvent(new window.Event('nilay-labs-startup-ready'));
+    window.document.querySelector('[aria-busy]')?.setAttribute('aria-busy', 'false');
+    Object.defineProperty(window.document, 'readyState', { configurable: true, value: 'complete' });
+    window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-failure]')?.hidden).toBe(true);
+    expect(window.document.querySelector<HTMLElement>('[data-labs-startup-content]')?.hidden).toBe(false);
+    expect(reload).not.toHaveBeenCalled();
+  });
 });
