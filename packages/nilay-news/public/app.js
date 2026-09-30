@@ -504,17 +504,25 @@ async function loadDetail(id, shouldRender = true) {
     return changed;
   } catch (error) {
     if (request !== model.detailRequest || model.selectedId !== id) return;
-    model.detailFailure?.retry.remove();
     showNotice(`記事を読み込めませんでした。${error.message}`, true);
-    const retry = button("記事の読み込みを再試行", "button", () =>
-      loadDetail(id),
-    );
+    const retry =
+      model.detailFailure?.articleId === id
+        ? model.detailFailure.retry
+        : button(
+            "記事の読み込みを再試行",
+            "button",
+            () => loadDetail(id),
+            "detail-retry",
+          );
+    if (retry !== model.detailFailure?.retry)
+      model.detailFailure?.retry.remove();
     model.detailFailure = {
       articleId: id,
       retry,
       notice: $("notice-text").textContent,
     };
-    $("detail-panel").append(retry);
+    if (retry.parentElement !== $("detail-panel"))
+      $("detail-panel").append(retry);
   }
 }
 

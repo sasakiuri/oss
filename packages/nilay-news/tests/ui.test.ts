@@ -17,7 +17,7 @@ interface FakeNode {
   attributes: Record<string, string>;
   listeners: Record<string, (event: { target: FakeNode }) => void>;
   children: FakeNode[];
-  parent: FakeNode | null;
+  parentElement: FakeNode | null;
   remove(): void;
   append(...nodes: FakeNode[]): void;
   replaceChildren(...nodes: FakeNode[]): void;
@@ -42,18 +42,18 @@ function node(): FakeNode {
     attributes: {},
     listeners: {},
     children: [],
-    parent: null,
+    parentElement: null,
     remove: () => {
-      if (created.parent)
-        created.parent.children = created.parent.children.filter(
+      if (created.parentElement)
+        created.parentElement.children = created.parentElement.children.filter(
           (child) => child !== created,
         );
-      created.parent = null;
+      created.parentElement = null;
     },
     append: (...nodes) => {
       for (const child of nodes) {
         child.remove();
-        child.parent = created;
+        child.parentElement = created;
         created.children.push(child);
       }
     },
