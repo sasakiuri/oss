@@ -521,7 +521,7 @@ function SearchDialogContent() {
             <Command.List
               ref={listRef}
               label="検索結果"
-              aria-busy={(!ready || pending || loadingMore) && !error}
+              aria-busy={(!ready || pending || loadingMore || loadingMatches.size > 0) && !error}
               className="border-t border-line"
             >
               {!error &&
@@ -530,13 +530,29 @@ function SearchDialogContent() {
                 results.groups.map((group) => {
                   const ResultLink = group.type === 'pdf' ? 'a' : Link;
                   const isExpanded = expanded.has(group.id);
+                  const related = group.pdf
+                    ? [
+                        ...(group.pdf.successor
+                          ? [{ url: group.pdf.successor, label: '後継PDF資料を開く', article: false }]
+                          : []),
+                        ...(group.pdf.sources ?? []).map((source) => ({
+                          url: source.url,
+                          label: `出典: ${source.title}`,
+                          article: false,
+                        })),
+                        ...group.pdf.references.map((reference) => ({
+                          url: reference.url,
+                          label: `紹介記事: ${reference.title}`,
+                          article: true,
+                        })),
+                      ]
+                    : [];
                   return (
                     <Command.Group
                       key={group.id}
                       value={group.id}
                       data-search-group={group.id}
                       id={`${statusId}-${encodeURIComponent(group.id)}`}
-                      aria-busy={loadingMatches.has(group.id)}
                       className="border-b border-line"
                     >
                       {group.matches.slice(0, isExpanded ? undefined : 1).map((result, index) => (
@@ -546,6 +562,7 @@ function SearchDialogContent() {
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') event.stopPropagation();
                             }}
+                            data-search-match=""
                             href={String(result.id)}
                             {...(group.type === 'pdf' ? {} : { prefetch: false })}
                             onClick={(event) => followDestination(event, result.id)}
@@ -570,73 +587,60 @@ function SearchDialogContent() {
                               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-subtle">
                                 <SearchHighlight text={result.excerpt} query={query} />
                               </p>
+                              {index === 0 && group.type === 'pdf' && (
+                                <div className="mt-2 text-xs leading-6 text-subtle">
+                                  <p>
+                                    {
+                                      (
+                                        {
+                                          unverified: '確認状態不明',
+                                          current: '確認済み（記録された範囲）',
+                                          historical: '過去の資料',
+                                          superseded: '後継資料あり',
+                                        } as const
+                                      )[group.pdf?.status ?? 'unverified']
+                                    }
+                                  </p>
+                                  {(group.pdf?.region || group.pdf?.scope) && (
+                                    <p>{[group.pdf?.region, group.pdf?.scope].filter(Boolean).join(' · ')}</p>
+                                  )}
+                                  {group.pdf?.checked && (
+                                    <p>
+                                      確認日: <time dateTime={group.pdf.checked}>{group.pdf.checked}</time>
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
                           </ResultLink>
                         </Command.Item>
                       ))}
-                      {group.type === 'pdf' && !group.pdf && (
-                        <p className="px-3 pb-3 text-xs text-subtle">確認状態不明</p>
-                      )}
-                      {group.pdf && (
-                        <div className="px-3 pb-3 text-xs leading-6 text-subtle" aria-label="PDF資料の確認記録">
-                          <p>
-                            {
-                              (
-                                {
-                                  unverified: '確認状態不明',
-                                  current: '確認済み（記録された範囲）',
-                                  historical: '過去の資料',
-                                  superseded: '後継資料あり',
-                                } as const
-                              )[group.pdf.status]
-                            }
-                          </p>
-                          {(group.pdf.region || group.pdf.scope) && (
-                            <p>{[group.pdf.region, group.pdf.scope].filter(Boolean).join(' · ')}</p>
-                          )}
-                          {group.pdf.checked && (
-                            <p>
-                              確認日: <time dateTime={group.pdf.checked}>{group.pdf.checked}</time>
-                            </p>
-                          )}
-                          {group.pdf.successor && (
-                            <p>
-                              <a className="text-brand underline" href={group.pdf.successor}>
-                                後継PDF資料を開く
-                              </a>
-                            </p>
-                          )}
-                          {group.pdf.sources?.map((source) => (
-                            <p key={source.url}>
-                              出典:{' '}
-                              <a className="text-brand underline" href={source.url}>
-                                {source.title}
-                              </a>
-                            </p>
-                          ))}
-                          <p>紹介記事:</p>
-                          <ul>
-                            {group.pdf.references.map((reference) => (
-                              <li key={reference.url}>
-                                <Link
-                                  className="text-brand underline"
-                                  href={reference.url}
-                                  prefetch={false}
-                                  onClick={(event) => followDestination(event, reference.url)}
-                                >
-                                  {reference.title}
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {related.map((link) => {
+                        const RelatedLink = link.article ? Link : 'a';
+                        const value = `related:${group.id}:${link.url}`;
+                        return (
+                          <Command.Item key={value} value={value} asChild>
+                            <RelatedLink
+                              href={link.url}
+                              {...(link.article ? { prefetch: false } : {})}
+                              data-search-related=""
+                              onFocus={() => setSelectedResult(value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') event.stopPropagation();
+                              }}
+                              onClick={(event) => followDestination(event, link.url)}
+                              className="block border-l-2 border-transparent px-3 py-2 text-xs text-brand hover:bg-muted data-[selected=true]:border-l-brand data-[selected=true]:bg-selected focus-visible:outline-2 focus-visible:outline-brand"
+                            >
+                              {link.label}
+                            </RelatedLink>
+                          </Command.Item>
+                        );
+                      })}
                       {group.totalMatches > 1 && (
                         <Command.Item value={`expand:${group.id}`} onSelect={() => toggleMatches(group)} asChild>
                           <button
                             type="button"
-                            aria-expanded={isExpanded}
                             aria-controls={`${statusId}-${encodeURIComponent(group.id)}`}
                             aria-label={`「${group.title}」のほか ${group.totalMatches - 1} 件の一致箇所を${isExpanded ? '閉じる' : '表示'}`}
                             onFocus={() => setSelectedResult(`expand:${group.id}`)}
@@ -678,23 +682,24 @@ function SearchDialogContent() {
                           </button>
                         </Command.Item>
                       )}
-                      {isExpanded && (
-                        <p
-                          role="status"
-                          aria-label={`「${group.title}」の一致箇所の状況`}
-                          className="px-3 pb-2 text-xs text-subtle"
-                        >
-                          {loadingMatches.has(group.id)
-                            ? '一致箇所を読み込んでいます…'
-                            : matchErrors.has(group.id)
-                              ? '一致箇所の読み込みに失敗しました。表示済みの結果は利用できます。'
-                              : `${group.matches.length} / ${group.totalMatches} 箇所を表示`}
-                        </p>
-                      )}
                     </Command.Group>
                   );
                 })}
             </Command.List>
+            {!error &&
+              results.groups.map((group) => (
+                <div key={group.id}>
+                  {expanded.has(group.id) && (
+                    <p role="status" aria-label={`「${group.title}」の一致箇所の状況`} className="sr-only">
+                      {loadingMatches.has(group.id)
+                        ? '一致箇所を読み込んでいます…'
+                        : matchErrors.has(group.id)
+                          ? '一致箇所の読み込みに失敗しました。表示済みの結果は利用できます。'
+                          : `${group.matches.length} / ${group.totalMatches} 箇所を表示`}
+                    </p>
+                  )}
+                </div>
+              ))}
           </Command>
           {!error && ready && query.trim() && !pending && query === deferredQuery && results.nextOffset !== null && (
             <button

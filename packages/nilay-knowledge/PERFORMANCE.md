@@ -185,14 +185,14 @@ structured-clone representation. Browser reports identify corpus digests and env
 
 A comparison on Chromium 153.0.8010.12, Node.js 24.16.0, the same host and
 390×844 viewport used 482 article/news sections and 2,920 PDF pages with identical
-core index digests before/after. Each query ran three times, without throttling or
-concurrent test/build work. Representative results were:
+core index digests before/after. Timing queries ran three times, without throttling or
+concurrent test/build work; final DOM counts were checked separately in the same viewport. Representative results were:
 
 | Query / target                  | Initial JSON before / after | Initial returned excerpts before / after | DOM elements after one expansion before / after |
 | ------------------------------- | --------------------------: | ---------------------------------------: | ----------------------------------------------: |
-| `所持許可` / all                |           38,344 / 14,226 B |                                  71 / 20 |                                       139 / 140 |
-| `ＰＤＦ` / all                  |            25,871 / 3,561 B |                                   57 / 6 |                                       368 / 191 |
-| `申請` / PDF                    |           24,868 / 18,631 B |                                  37 / 20 |                                         26 / 33 |
+| `所持許可` / all                |           38,344 / 14,226 B |                                  71 / 20 |                                       139 / 139 |
+| `ＰＤＦ` / all                  |            25,871 / 3,561 B |                                   57 / 6 |                                       368 / 190 |
+| `申請` / PDF                    |           24,868 / 18,631 B |                                  37 / 20 |                                         26 / 29 |
 | `申請` / synthetic 500-page PDF |             221,431 / 640 B |                                  500 / 1 |                                     8,006 / 345 |
 
 For the synthetic case, excerpt generation fell from 500 calls to one on the

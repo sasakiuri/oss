@@ -59,7 +59,7 @@ test('PDF search downloads a separate index only when requested and links to the
   });
   await page.goto('/?q=銃砲所持許可申請書');
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('status')).toContainText('件の検索結果');
+  await expect(dialog.getByRole('status', { name: '検索状況' })).toContainText('件の検索結果');
   expect(downloads).toHaveLength(0);
   await dialog.getByRole('combobox', { name: '検索対象' }).selectOption('pdf');
   const result = dialog.getByRole('listbox').getByRole('option').first();
@@ -158,12 +158,16 @@ test('groups matching sections, expands them by keyboard, and loads every remain
   const input = dialog.getByRole('combobox', { name: '検索キーワード' });
   const groups = dialog.locator('[data-search-group]');
   await expect(groups).toHaveCount(20);
-  await expect(dialog.getByRole('status')).toContainText('25 件の検索結果（55 箇所が一致・20 件を表示）');
+  await expect(dialog.getByRole('status', { name: '検索状況' })).toContainText(
+    '25 件の検索結果（55 箇所が一致・20 件を表示）',
+  );
   const firstGroup = dialog.locator('[data-search-group="/articles/example-0/"]');
-  const toggle = firstGroup.locator('button[cmdk-item]');
+  const toggle = firstGroup.getByRole('option', { name: /ほか 30 件の一致箇所を/ });
   await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(1);
   await toggle.focus();
   await toggle.press('Enter');
+  await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(21);
+  await firstGroup.getByRole('option', { name: /一致箇所をさらに表示/ }).press('Enter');
   await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(31);
   await expect(firstGroup.getByText('資料ガイド 0', { exact: true })).toHaveCount(1);
   const audit = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
@@ -180,7 +184,7 @@ test('groups matching sections, expands them by keyboard, and loads every remain
   await expect(firstGroup.locator('a[cmdk-item]')).toHaveCount(31);
   await dialog.getByRole('button', { name: 'もっと見る' }).press('Enter');
   await expect(groups).toHaveCount(25);
-  await expect(dialog.getByRole('status')).toContainText('25 件を表示');
+  await expect(dialog.getByRole('status', { name: '検索状況' })).toContainText('25 件を表示');
   await expect(input).toBeFocused();
   await expect(groups.nth(20).locator('a[cmdk-item]')).toHaveAttribute('aria-selected', 'true');
   await expect(groups.nth(20).locator('a[cmdk-item]')).toBeInViewport();
@@ -198,7 +202,7 @@ test('groups matching sections, expands them by keyboard, and loads every remain
 test('search helper controls preserve Tab focus cycling and the search shortcut', async ({ page }) => {
   await page.goto('/?q=zzzznonmatchingkeyword');
   const dialog = page.getByRole('dialog', { name: '記事・ニュースを検索' });
-  await expect(dialog.getByRole('status')).toContainText('見つかりません');
+  await expect(dialog.getByRole('status', { name: '検索状況' })).toContainText('見つかりません');
   const scope = dialog.getByRole('combobox', { name: '検索対象' });
   await scope.focus();
   await page.keyboard.press('Tab');
