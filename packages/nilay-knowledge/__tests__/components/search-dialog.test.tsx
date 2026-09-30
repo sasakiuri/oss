@@ -468,18 +468,24 @@ describe('site search dialog', () => {
     mockClient({ ...results, groups: [pdf] });
     render(<SearchDialog />, '?q=印刷&type=pdf');
     expect(await screen.findByText('確認状態不明')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '後継PDF資料を開く' })).toHaveAttribute('href', '/content/assets/next.pdf');
-    expect(screen.getByRole('link', { name: 'Synthetic evidence' })).toHaveAttribute(
+    expect(screen.getByRole('option', { name: '後継PDF資料を開く' })).toHaveAttribute(
+      'href',
+      '/content/assets/next.pdf',
+    );
+    expect(screen.getByRole('option', { name: '出典: Synthetic evidence' })).toHaveAttribute(
       'href',
       'https://example.com/evidence',
     );
-    expect(screen.getByRole('link', { name: 'First article' })).toHaveAttribute('href', '/articles/first/');
-    expect(screen.getByRole('link', { name: 'Second article' })).toHaveAttribute('href', '/articles/second/');
+    expect(screen.getByRole('option', { name: '紹介記事: First article' })).toHaveAttribute('href', '/articles/first/');
+    expect(screen.getByRole('option', { name: '紹介記事: Second article' })).toHaveAttribute(
+      'href',
+      '/articles/second/',
+    );
     expect(screen.getByRole('option', { name: /2ページ/ })).toHaveAttribute(
       'href',
       '/content/assets/example.pdf#page=2',
     );
-    fireEvent.click(screen.getByRole('link', { name: 'First article' }));
+    fireEvent.click(screen.getByRole('option', { name: '紹介記事: First article' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
   it('loads bounded document-local batches, preserves them during global pagination, and retries locally', async () => {

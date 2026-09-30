@@ -70,7 +70,16 @@ try {
       await page.waitForFunction(() => !document.querySelector('[role="status"]')?.textContent.includes('検索を準備'));
       const startedMs = await page.evaluate(() => performance.now());
       await page.getByRole('combobox', { name: '検索キーワード' }).fill(query);
-      await page.locator('[data-search-group] a[cmdk-item]').first().waitFor({ timeout: 30000 });
+      await page
+        .locator('[data-search-group] a[cmdk-item]')
+        .first()
+        .waitFor({ timeout: 30000 })
+        .catch(async (cause) => {
+          throw new Error(
+            `Search benchmark failed for ${JSON.stringify({ query, scope, synthetic })}: ${await page.locator('[role="status"]').allTextContents()}`,
+            { cause },
+          );
+        });
       const firstResultMs = await page.evaluate((start) => performance.now() - start, startedMs);
       const messages = await page.evaluate(() => window.searchMeasurements);
       const group = page.locator('[data-search-group]').first();
@@ -81,10 +90,10 @@ try {
       if (await toggle.count()) {
         await toggle.click();
         // The bounded UI announces progress. The previous UI expands synchronously.
-        await page.waitForFunction(() => !document.querySelector('[data-search-group][aria-busy="true"]'));
+        await page.waitForFunction(() => !document.querySelector('[cmdk-list][aria-busy="true"]'));
       }
       const expandedDomElements = await group.locator('*').count();
-      const expandedMatches = await group.locator('a[cmdk-item]').count();
+      const expandedMatches = await group.locator('a[cmdk-item]:not([data-search-related])').count();
       samples.push({
         query,
         scope,
