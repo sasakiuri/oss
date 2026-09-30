@@ -208,3 +208,16 @@ describe.skipIf(!hasLychee)('lychee integration', () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ errors });
   });
 });
+
+it.each(['photo.png', 'https://example.com/cover.webp'])(
+  'includes the metadata image %s in link-check inputs',
+  async (image) => {
+    await writeFile(
+      path.join(packageDirectory, 'content/articles/example/index.md'),
+      `---\ntitle: Test\npublished: 2026-09-21\ntags: []\nimage: ${image}\n---\nNo body images.`,
+    );
+    const { siteDirectory } = await prepareLinkCheck(packageDirectory);
+    const html = await readFile(path.join(siteDirectory, 'articles/example/index.html'), 'utf8');
+    expect(html).toContain(`src="${image === 'photo.png' ? '/content/articles/example/photo.png' : image}"`);
+  },
+);

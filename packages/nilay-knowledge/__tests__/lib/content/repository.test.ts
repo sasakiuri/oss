@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -50,6 +50,7 @@ describe('content repository', () => {
       'dated',
       'title: Test\npublished: 2024-01-01\nupdated: "2024-02-01T12:00:00+09:00"\ntags: []\nimage: cover.png',
     );
+    await writeFile(path.join(directory, 'articles', 'dated', 'cover.png'), 'image');
     expect((await repository.read('articles', 'dated'))?.frontmatter).toEqual({
       title: 'Test',
       published: '2024-01-01',
@@ -91,5 +92,42 @@ describe('content repository', () => {
     const diagnostic = `${path.join(directory, 'articles', 'invalid', 'index.md')}: ${field}`;
     await expect(repository.read('articles', 'invalid')).rejects.toThrow(diagnostic);
     await expect(repository.list('articles')).rejects.toThrow(diagnostic);
+  });
+});
+
+describe('metadata image publication dependencies', () => {
+  it.each(['cover.webp', '/content/assets/cover.webp', 'https://example.com/cover.webp'])(
+    'accepts %s',
+    async (image) => {
+      await entry('image', `title: Test\npublished: 2024-01-01\ntags: []\nimage: ${image}`);
+      await mkdir(path.join(directory, 'assets'));
+      await writeFile(path.join(directory, 'assets', 'cover.webp'), 'image');
+      await writeFile(path.join(directory, 'articles', 'image', 'cover.webp'), 'image');
+      await expect(repository.read('articles', 'image')).resolves.toMatchObject({ frontmatter: { image } });
+    },
+  );
+
+  it.each([
+    'missing.webp',
+    '/content/assets/missing.webp',
+    '.hidden.webp',
+    'javascript:alert(1)',
+    '/image.webp',
+    'data:image/png;base64,abc',
+    '//example.com/image.webp',
+    'bad%ZZ.webp',
+    'https://user:pass@example.com/image.webp',
+  ])('rejects %s with source context', async (image) => {
+    await entry('image', `title: Test\npublished: 2024-01-01\ntags: []\nimage: ${image}`);
+    await expect(repository.read('articles', 'image')).rejects.toThrow(/articles[/\\]image[/\\]index.md: image/);
+  });
+
+  it('rejects directories and assets escaping content through symlinks', async () => {
+    await entry('image', 'title: Test\npublished: 2024-01-01\ntags: []\nimage: folder');
+    await mkdir(path.join(directory, 'articles', 'image', 'folder'));
+    await expect(repository.read('articles', 'image')).rejects.toThrow('not a published regular file');
+    await rm(path.join(directory, 'articles', 'image', 'folder'), { recursive: true });
+    await symlink(tmpdir(), path.join(directory, 'articles', 'image', 'folder'), 'junction');
+    await expect(repository.read('articles', 'image')).rejects.toThrow('not a published regular file');
   });
 });

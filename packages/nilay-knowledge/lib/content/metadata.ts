@@ -3,12 +3,13 @@ import type { Metadata } from 'next';
 import { siteConfig } from '../config';
 
 import { contentDescription } from './description';
-import { contentPath, resolveContentUrl } from './paths';
+import { resolveMetadataImage } from './metadata-image';
+import { contentPath } from './paths';
 import type { ContentSource, ContentSummary } from './types';
 
 export function contentImageUrl({ type, slug, frontmatter }: ContentSummary): string {
   return frontmatter.image
-    ? new URL(resolveContentUrl(frontmatter.image, type, slug), siteConfig.siteUrl).href
+    ? new URL(resolveMetadataImage(frontmatter.image, type, slug), siteConfig.siteUrl).href
     : `${siteConfig.siteUrl}/api/og/?title=${encodeURIComponent(frontmatter.title)}`;
 }
 

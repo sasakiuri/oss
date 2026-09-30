@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { decodeContentAssetPathname } from './asset-path';
 import { articleCategoryTitles } from './categories';
+import { isMetadataImage } from './metadata-image';
 import { contentTypes } from './types';
 
 const nonEmptyText = z
@@ -35,7 +36,9 @@ export const frontmatterSchema = z
       tags: z.array(nonEmptyText).transform((tags) => [...new Set(tags.map((tag) => tag.trim()))]),
       category: z.enum(Object.keys(articleCategoryTitles) as (keyof typeof articleCategoryTitles)[]).optional(),
       updated: publicationDate.optional(),
-      image: nonEmptyText.optional(),
+      image: nonEmptyText
+        .refine(isMetadataImage, { error: 'a published content image path or HTTP(S) URL' })
+        .optional(),
       review: z
         .object({
           checked: publicationDate,
