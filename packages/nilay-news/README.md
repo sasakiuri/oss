@@ -88,3 +88,5 @@ Configure the `nilay-news-production` GitHub environment and restrict it to `1.x
 Set optional integrations as Worker secrets with `wrangler secret put --config wrangler.production.jsonc`: `TYPESAFE_API_KEY`, `BUFFER_API_KEY`, `SLACK_WEBHOOK_URL`, and `BUFFER_CHANNEL_ID`. Deployment does not enable automatic collection, classification, or posting.
 
 After deployment, a smoke check confirms that unauthenticated requests to `/`, `/app.js`, and `/api/state` redirect to this application's Access login. It does not sign in or request any other host, so it does not verify the Worker, D1, or disabled preview URLs. After the first deployment, sign in and confirm that the inbox and `/api/state` load.
+
+自動仕分けの候補は公開日時・日付精度の索引から新しい順（公開日時、発見日時、記事 ID）に最大 `min(100, pollMinutes)` 件を読み込みます。移行 `0004_article_publication_index.sql` を適用し、既存記事の索引は初回の起動時に 100 件ずつ補完します。日付解析と有効期間は収集時と同じ公開日時規則を使用し、補完も記事更新と同じ同時更新保護を受けます。

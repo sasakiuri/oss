@@ -780,6 +780,7 @@ describe("automatic classification setting", () => {
       "0001_news.sql",
       "0002_auto_analyze.sql",
       "0003_automatic_jobs.sql",
+      "0004_article_publication_index.sql",
     ]);
     const partial = new SQLiteDriver(join(directory, "legacy.sqlite3"), [
       "0001_news.sql",
@@ -854,6 +855,98 @@ describe("automatic classification setting", () => {
     await expect(
       repo.updateJob(token, { automatic: false } as Partial<Job>),
     ).rejects.toThrow("処理の所有権は変更できません");
+  });
+
+  it("bounds pending reads across a large historical archive and uses the publication index", async () => {
+    now = Date.UTC(2026, 8, 30, 14) / 1000;
+    const date = (seconds: number) => new Date(seconds * 1000).toISOString();
+    const items: CollectedItem[] = Array.from({ length: 2000 }, (_, index) => ({
+      ...ITEM,
+      url: `https://example.org/archive/${index}`,
+      publishedAt: date(now - 10 * 86400 - index),
+    }));
+    items.push(
+      ...Array.from({ length: 150 }, (_, index) => ({
+        ...ITEM,
+        url: `https://example.org/fresh/${index}`,
+        publishedAt: date(now - index),
+      })),
+    );
+    items.push(
+      ...[null, "bad", date(now + 1), "2026-09-30", "2026-02-30T00:00:00Z"].map(
+        (publishedAt, index) => ({
+          ...ITEM,
+          url: `https://example.org/manual/${index}`,
+          publishedAt,
+        }),
+      ),
+    );
+    await repo.ingest(SOURCE, items);
+    await repo.ingest(SOURCE, [
+      {
+        ...ITEM,
+        url: "https://example.org/date",
+        publishedAt: "2026-09-29T00:00:00+09:00",
+        metadata: { publicationPrecision: "date" },
+      },
+    ]);
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 100 });
+    const expected = (await repo.articles())
+      .filter((article) => article.url.includes("/fresh/"))
+      .sort((a, b) => Date.parse(b.publishedAt!) - Date.parse(a.publishedAt!))
+      .slice(0, 100)
+      .map((article) => article.id);
+    const seen = trace(driver);
+    expect((await repo.queueAutomaticJob(true))?.articleIds).toEqual(expected);
+    expect(articleRows(seen)).toBe(100);
+    const query = seen.find(
+      ({ sql }) => sql.includes("analysisStatus") && sql.startsWith("SELECT"),
+    )!.sql;
+    const plan = driver.db
+      .prepare(`EXPLAIN QUERY PLAN ${query}`)
+      .all(now - 2 * 86400, now, now, now, 100);
+    expect(JSON.stringify(plan)).toContain("news_article_pending_publication");
+    expect(JSON.stringify(plan)).not.toContain("USE TEMP B-TREE");
+  });
+
+  it("backfills legacy publication projections in bounded chunks with the same date rules", async () => {
+    now = Date.UTC(2026, 8, 30, 14) / 1000;
+    const values = [
+      "2026-09-29T00:00:00+09:00",
+      "2026-09-29T00:00:00+09:00",
+      "2026-09-30T23:00:01+09:00",
+      "bad",
+    ];
+    await repo.ingest(
+      SOURCE,
+      values.map((publishedAt, index) => ({
+        ...ITEM,
+        url: `https://example.org/legacy/${index}`,
+        publishedAt,
+        metadata: { publicationPrecision: index === 0 ? "date" : "time" },
+      })),
+    );
+    driver.db.exec(
+      "UPDATE news_articles SET data=json_remove(data,'$._publicationIndex','$._publicationSeconds','$._publicationUntil','$._publicationDate')",
+    );
+    const seen = trace(driver);
+    await open().initialize();
+    expect(
+      seen.every(
+        ({ sql, rows }) =>
+          !sql.startsWith("SELECT id FROM news_articles") || rows <= 100,
+      ),
+    ).toBe(true);
+    await repo.updateSettings({ autoAnalyze: true });
+    expect((await repo.queueAutomaticJob(true))?.articleIds).toEqual([
+      (await find("https://example.org/legacy/0")).id,
+    ]);
+    const token = (await repo.claimJob(now))!.token!;
+    await repo.finishJob(token);
+    now = Date.UTC(2026, 8, 30, 15) / 1000;
+    expect((await repo.queueAutomaticJob(true))?.articleIds).not.toContain(
+      (await find("https://example.org/legacy/0")).id,
+    );
   });
 
   it("waits for the analysis pause and needs an enabled source to collect", async () => {

@@ -26,6 +26,7 @@ import type {
 import { NotFoundError, SettingsConflictError, UserError } from "../errors.ts";
 import {
   freshness,
+  publicationWindow,
   isFreshPublication,
   mergePublication,
   newestFirst,
@@ -267,6 +268,25 @@ function evidenceText(article: Article): string {
 
 function timestamp(value: number): string {
   return isoSeconds(value);
+}
+
+/** Index projections use exactly the publication parser and calendar policy. */
+function indexArticle(article: Article): void {
+  Object.assign(article, {
+    _publicationIndex: 1,
+    _publicationSeconds: publicationSeconds(article.publishedAt),
+    _publicationUntil:
+      publicationWindow(
+        article.publishedAt,
+        article.metadata?.publicationPrecision,
+      )?.until ?? null,
+    _publicationDate:
+      article.metadata?.publicationPrecision === "date" &&
+      publicationWindow(
+        article.publishedAt,
+        article.metadata?.publicationPrecision,
+      )?.date === true,
+  });
 }
 
 function publicArticle(article: Article): Article {
@@ -581,6 +601,8 @@ export class SQLRepository implements NewsRepository {
         ]),
       );
       const result = await transform(after);
+      if (tables.some((table) => table === "articles"))
+        for (const article of after.articles.values()) indexArticle(article);
       // All settings changes, including automatic posting stops and imports,
       // invalidate browser snapshots in the same fenced transaction. Unrelated
       // article, source, job and scheduler writes do not change this token.
@@ -652,6 +674,21 @@ export class SQLRepository implements NewsRepository {
   }
 
   async initialize(): Promise<void> {
+    // Backfill existing rows once, in bounded, revision-fenced chunks. No date
+    // parsing in SQL: imported/RFC dates obey the same policy as fresh writes.
+    for (;;) {
+      const result = await this.driver.batch([
+        [
+          "SELECT id FROM news_articles WHERE json_extract(data,'$._publicationIndex') IS NULL ORDER BY id LIMIT 100",
+          [],
+        ],
+      ]);
+      const ids = (result[0]?.results ?? []).map((row) =>
+        textColumn(row, "id"),
+      );
+      if (!ids.length) break;
+      await this.mutate(["articles"], () => undefined, ids);
+    }
     await this.mutate(["state", "sources"], (state) => {
       const stored = state.state.settings;
       if (stored && typeof stored.autoAnalyze !== "boolean")
@@ -1880,17 +1917,9 @@ export class SQLRepository implements NewsRepository {
         // Read after the snapshot: every article write increments the
         // revision, so a decision on newer articles is rejected and retried.
         if (now >= (pause?.nextAt ?? 0))
-          analyze = (await this.pendingArticles())
-            .filter((article) =>
-              isFreshPublication(
-                article.publishedAt,
-                now,
-                article.metadata?.publicationPrecision,
-              ),
-            )
-            .sort(newestFirst)
-            .slice(0, Math.min(100, settings.pollMinutes))
-            .map((article) => article.id);
+          analyze = (
+            await this.pendingArticles(now, Math.min(100, settings.pollMinutes))
+          ).map((article) => article.id);
       }
       if (collect && !(analyze.length && previous.kind === "collect"))
         return this.newJob(state.state, "collect", null, true);
@@ -1926,12 +1955,21 @@ export class SQLRepository implements NewsRepository {
     );
   }
 
-  /** Never-analyzed articles, filtered in SQL so an analyzed inbox is not transferred. */
-  private async pendingArticles(): Promise<Article[]> {
+  /** Reads at most the batch limit; historical and invalid rows never transfer. */
+  private async pendingArticles(
+    now: number,
+    limit: number,
+  ): Promise<Article[]> {
+    const yesterday =
+      Math.floor((now + 9 * 3600) / 86400) * 86400 - 9 * 3600 - 86400;
     const result = await this.driver.batch([
       [
-        "SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus')='pending'",
-        [],
+        "SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus')='pending' " +
+          "AND json_extract(data,'$._publicationSeconds') BETWEEN ? AND ? " +
+          "AND (json_extract(data,'$._publicationUntil')>? OR " +
+          "(json_extract(data,'$._publicationDate')=0 AND json_extract(data,'$._publicationUntil')=?)) " +
+          "ORDER BY json_extract(data,'$._publicationSeconds') DESC,json_extract(data,'$.discoveredAt') DESC,id ASC LIMIT ?",
+        [yesterday, now, now, now, limit],
       ],
     ]);
     return (result[0]?.results ?? []).map((row) =>

@@ -35,6 +35,24 @@ export function publicationSeconds(
   return normalized === null ? null : Date.parse(normalized) / 1000;
 }
 
+/** Stored index boundaries; date windows exclude the following JST midnight. */
+export function publicationWindow(
+  value: string | null | undefined,
+  precision?: string,
+): { seconds: number; until: number; date: boolean } | null {
+  const seconds = publicationSeconds(value);
+  if (seconds === null) return null;
+  const date =
+    precision === DATE_PRECISION &&
+    Number.isInteger(seconds) &&
+    (seconds + JST_OFFSET) % DAY === 0;
+  return {
+    seconds,
+    until: seconds + (date ? 2 * DAY : FRESHNESS_SECONDS),
+    date,
+  };
+}
+
 /**
  * Freshness of a publication at `now` (epoch seconds). `precision` is the
  * item's `metadata.publicationPrecision`; only `"date"` on a time that is
