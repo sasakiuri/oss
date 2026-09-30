@@ -5,6 +5,8 @@ export const labsStartupRecoveryScript = String.raw`(() => {
   let failed = false;
   let hydrated = false;
   let reloading = false;
+  let complete = false;
+  let cancelReload;
   let observer;
 
   function frameworkAsset(url) {
@@ -12,7 +14,7 @@ export const labsStartupRecoveryScript = String.raw`(() => {
   }
 
   function reload() {
-    if (reloading) return;
+    if (complete || reloading) return;
     reloading = true;
     const preloads = Array.from(document.querySelectorAll('link[rel="preload"][as="script"]'))
       .map(link => new URL(link.href, location.href)).filter(frameworkAsset);
@@ -21,12 +23,15 @@ export const labsStartupRecoveryScript = String.raw`(() => {
     let finished = false;
     const finish = () => {
       if (finished) return;
+      cancelReload();
+      if (!complete) location.reload();
+    };
+    const timer = setTimeout(finish, 5000);
+    cancelReload = () => {
       finished = true;
       clearTimeout(timer);
       controller.abort();
-      location.reload();
     };
-    const timer = setTimeout(finish, 5000);
     Promise.allSettled(preloads.map(url => fetch(url.href, {
       cache: 'reload', signal: controller.signal,
     }).then(response => response.arrayBuffer()))).then(finish);
@@ -34,6 +39,14 @@ export const labsStartupRecoveryScript = String.raw`(() => {
 
   function ready() {
     if (!hydrated || document.readyState === 'loading' || document.querySelector('[aria-busy="true"]')) return;
+    complete = true;
+    if (cancelReload) cancelReload();
+    if (failed) {
+      const notice = document.querySelector('[data-labs-startup-failure]');
+      const content = document.querySelector('[data-labs-startup-content]');
+      if (notice) notice.hidden = true;
+      if (content) content.hidden = false;
+    }
     window.removeEventListener('error', onError, true);
     window.removeEventListener('nilay-labs-startup-ready', onHydrated);
     if (observer) observer.disconnect();
@@ -41,6 +54,7 @@ export const labsStartupRecoveryScript = String.raw`(() => {
   }
 
   function showFailure() {
+    if (complete) return;
     const notice = document.querySelector('[data-labs-startup-failure]');
     const content = document.querySelector('[data-labs-startup-content]');
     if (!notice) return;
