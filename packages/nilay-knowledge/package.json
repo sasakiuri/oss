@@ -42,7 +42,8 @@
     "lint:permalinks": "tsx scripts/check-permalinks.ts",
     "lint:links": "tsx scripts/check-links.ts",
     "lint:links:external": "tsx scripts/check-links.ts --external",
-    "lint:links:prepare": "tsx scripts/check-links.ts --prepare"
+    "lint:links:prepare": "tsx scripts/check-links.ts --prepare",
+    "benchmark:pdf": "tsx scripts/benchmark-pdf-search.ts"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

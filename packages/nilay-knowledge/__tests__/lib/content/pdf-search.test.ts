@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { copyFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -278,5 +278,83 @@ describe('PDF search extraction', () => {
       }),
     );
     await expect(createPdfSearchIndex([source('[資料](./document.pdf)')], contentRoot)).rejects.toThrow();
+  });
+  it('reuses unchanged text while recomposing current title, tags, sources and editorial records', async () => {
+    const cold = await createPdfSearchIndex([source('[Old label](./document.pdf)')], contentRoot);
+    expect(cold.report).toMatchObject({ cacheHits: 0, cacheMisses: 1 });
+    const warm = await createPdfSearchIndex([source('[Old label](./document.pdf)')], contentRoot);
+    expect(warm.documents).toEqual(cold.documents);
+    expect(warm.report).toMatchObject({
+      cacheHits: 1,
+      cacheMisses: 0,
+      extractionMs: 0,
+      pagesWithoutText: cold.report.pagesWithoutText,
+    });
+    await writeFile(
+      path.join(contentRoot, 'pdf-metadata.json'),
+      JSON.stringify({ '/content/articles/example/document.pdf': { status: 'historical' } }),
+    );
+    const changed = {
+      ...source('[New label](./document.pdf)'),
+      frontmatter: { title: 'New article title', published: '2024-01-01', tags: ['new tag'] },
+    };
+    const metadataOnly = await createPdfSearchIndex([changed], contentRoot);
+    expect(metadataOnly.report).toMatchObject({ cacheHits: 1, cacheMisses: 0 });
+    expect(metadataOnly.documents[0]).toMatchObject({
+      title: 'New label',
+      tags: ['new tag'],
+      section: 'New article title · 1ページ',
+      pdf: { status: 'historical', references: [{ title: 'New article title', url: '/articles/example/' }] },
+    });
+  });
+
+  it('re-extracts only changed PDF bytes and invalidates extraction-version upgrades', async () => {
+    await copyFile(path.join(contentDirectory, 'document.pdf'), path.join(contentDirectory, 'second.pdf'));
+    const sources = [source('[One](./document.pdf) [Two](./second.pdf)')];
+    await createPdfSearchIndex(sources, contentRoot);
+    // A harmless trailing comment changes bytes without changing extracted pages.
+    await writeFile(
+      path.join(contentDirectory, 'second.pdf'),
+      Buffer.concat([pdfFixture(), Buffer.from('\n% changed\n')]),
+    );
+    const changed = await createPdfSearchIndex(sources, contentRoot);
+    expect(changed.report).toMatchObject({ cacheHits: 1, cacheMisses: 1 });
+    const upgraded = await createPdfSearchIndex(sources, contentRoot, { extractionVersion: 'synthetic-upgrade' });
+    expect(upgraded.report).toMatchObject({ cacheHits: 0, cacheMisses: 2 });
+    expect(upgraded.documents).toEqual(changed.documents);
+  });
+
+  it('treats corrupt or unavailable cache records as misses and keeps correct output', async () => {
+    const sources = [source('[PDF](./document.pdf)')];
+    const cold = await createPdfSearchIndex(sources, contentRoot);
+    const cacheDirectory = path.join(directory, '.cache/pdf-search');
+    for (const file of await readdir(cacheDirectory)) await writeFile(path.join(cacheDirectory, file), '{invalid');
+    const corrupt = await createPdfSearchIndex(sources, contentRoot);
+    expect(corrupt.report.cacheMisses).toBe(1);
+    expect(corrupt.documents).toEqual(cold.documents);
+    const blocked = path.join(directory, 'not-a-directory');
+    await writeFile(blocked, 'blocked');
+    const unavailable = await createPdfSearchIndex(sources, contentRoot, {
+      cacheDirectory: path.join(blocked, 'cache'),
+    });
+    expect(unavailable.documents).toEqual(cold.documents);
+    expect(unavailable.report.cacheMisses).toBe(1);
+    await expect(createPdfSearchIndex(sources, contentRoot, { cacheDirectory: contentRoot })).rejects.toThrow(
+      'outside published content',
+    );
+  });
+
+  it('checks missing, corrupt and unsafe current files before considering a warm cache', async () => {
+    const sources = [source('[PDF](./document.pdf)')];
+    await createPdfSearchIndex(sources, contentRoot);
+    await rm(path.join(contentDirectory, 'document.pdf'));
+    await expect(createPdfSearchIndex(sources, contentRoot)).rejects.toThrow('Unable to index PDF');
+    await writeFile(path.join(contentDirectory, 'document.pdf'), 'broken PDF');
+    await expect(createPdfSearchIndex(sources, contentRoot)).rejects.toThrow('Unable to index PDF');
+    await rm(path.join(contentDirectory, 'document.pdf'));
+    const outside = path.join(directory, 'outside.pdf');
+    await writeFile(outside, pdfFixture());
+    await symlink(outside, path.join(contentDirectory, 'document.pdf'));
+    await expect(createPdfSearchIndex(sources, contentRoot)).rejects.toThrow('PDF symlink must stay within content');
   });
 });

@@ -2,6 +2,7 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 
 import type { Root, RootContent } from 'hast';
 
@@ -9,6 +10,7 @@ import { decodeContentAssetPathname } from './asset-path';
 import { createContentProjectionProcessor } from './grammar';
 import { resolveContentUrl } from './paths';
 import { pdfRegistrySchema, type PdfSearchMetadata } from './pdf-metadata';
+import { pdfExtractionKey, readPdfExtraction, writePdfExtraction, type PdfExtraction } from './pdf-extraction-cache';
 import type { ContentSource } from './types';
 
 export interface PdfSearchDocument {
@@ -24,6 +26,9 @@ export interface PdfSearchDocument {
 
 export interface PdfSearchReport {
   files: number;
+  cacheHits: number;
+  cacheMisses: number;
+  extractionMs: number;
   pages: number;
   indexedPages: number;
   /** These pages have no extractable text. Image-only pages require OCR, which is not performed. */
@@ -121,13 +126,63 @@ export async function findReferences(sources: readonly ContentSource[]): Promise
   return [...references.values()].sort((a, b) => a.url.localeCompare(b.url));
 }
 
+async function extractPdfText(data: Uint8Array, pdfDirectory: string): Promise<PdfExtraction> {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pages: string[] = [];
+  const pagesWithoutText: number[] = [];
+  const task = getDocument({
+    data,
+    // PDF.js requires a forward slash suffix even for native Windows paths.
+    cMapUrl: `${path.join(pdfDirectory, 'cmaps')}/`,
+    cMapPacked: true,
+    standardFontDataUrl: `${path.join(pdfDirectory, 'standard_fonts')}/`,
+    useSystemFonts: false,
+    stopAtErrors: true,
+  });
+  try {
+    const pdf = await task.promise;
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      try {
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((item) => ('str' in item ? `${item.str}${item.hasEOL ? '\n' : ''}` : ''))
+          .join(' ')
+          // Japanese forms often position every character separately; preserve compound search terms.
+          .replace(
+            /(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu,
+            '',
+          )
+          .replace(/\s+/g, ' ')
+          .trim();
+        pages.push(text);
+        if (text.length === 0) pagesWithoutText.push(pageNumber);
+      } finally {
+        page.cleanup();
+      }
+    }
+  } finally {
+    await task.destroy();
+  }
+  return { pages, pagesWithoutText };
+}
+
 /** Build-time extraction; pdfjs-dist and its fonts/CMaps never enter the browser bundle. */
 export async function createPdfSearchIndex(
   sources: readonly ContentSource[],
   contentDirectory: string,
+  options: { cacheDirectory?: string | false; extractionVersion?: string } = {},
 ): Promise<{ documents: PdfSearchDocument[]; report: PdfSearchReport }> {
   const references = await findReferences(sources);
-  const report: PdfSearchReport = { files: references.length, pages: 0, indexedPages: 0, pagesWithoutText: [] };
+  const report: PdfSearchReport = {
+    files: references.length,
+    pages: 0,
+    indexedPages: 0,
+    pagesWithoutText: [],
+    cacheHits: 0,
+    cacheMisses: 0,
+    extractionMs: 0,
+  };
   const directory = await realpath(contentDirectory);
   let registry = pdfRegistrySchema.parse({});
   try {
@@ -150,7 +205,13 @@ export async function createPdfSearchIndex(
   // Keep native Node resolution: a bundled require.resolve() returns a module ID, not a filesystem path.
   // https://nextjs.org/docs/app/guides/lazy-loading#magic-comments
   const pdfDirectory = path.dirname(require.resolve(/* webpackIgnore: true */ 'pdfjs-dist/package.json'));
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjsVersion = JSON.parse(await readFile(path.join(pdfDirectory, 'package.json'), 'utf8')).version as string;
+  const cacheDirectory =
+    options.cacheDirectory === false
+      ? false
+      : path.resolve(options.cacheDirectory ?? path.join(directory, '..', '.cache/pdf-search'));
+  if (cacheDirectory && (cacheDirectory === directory || isWithin(directory, cacheDirectory)))
+    throw new Error('PDF extraction cache must stay outside published content');
   const documents: PdfSearchDocument[] = [];
 
   // Sequential files/pages bound memory use independently of corpus size and make failures reproducible.
@@ -167,53 +228,33 @@ export async function createPdfSearchIndex(
       const realFilename = await realpath(/* turbopackIgnore: true */ filename);
       if (!isWithin(directory, realFilename)) throw new Error('PDF symlink must stay within content');
       if (!(await stat(realFilename)).isFile()) throw new Error('PDF must be a regular file');
-      const task = getDocument({
-        data: new Uint8Array(await readFile(realFilename)),
-        // PDF.js requires a forward slash suffix even for native Windows paths.
-        cMapUrl: `${path.join(pdfDirectory, 'cmaps')}/`,
-        cMapPacked: true,
-        standardFontDataUrl: `${path.join(pdfDirectory, 'standard_fonts')}/`,
-        useSystemFonts: false,
-        stopAtErrors: true,
-      });
-      try {
-        const pdf = await task.promise;
-        report.pages += pdf.numPages;
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          const page = await pdf.getPage(pageNumber);
-          try {
-            const content = await page.getTextContent();
-            const text = content.items
-              .map((item) => ('str' in item ? `${item.str}${item.hasEOL ? '\n' : ''}` : ''))
-              .join(' ')
-              // Japanese forms often position every character separately; preserve compound search terms.
-              .replace(
-                /(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])\s+(?=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/gu,
-                '',
-              )
-              .replace(/\s+/g, ' ')
-              .trim();
-            const id = `${reference.url}#page=${pageNumber}`;
-            if (text.length === 0) {
-              report.pagesWithoutText.push(id);
-              continue;
-            }
-            documents.push({
-              id,
-              type: 'pdf',
-              title: reference.title,
-              section: `${reference.sourceTitle} · ${pageNumber}ページ`,
-              tags: reference.tags,
-              text,
-              ...(!metadataStored ? { pdf: metadata } : {}),
-            });
-            metadataStored = true;
-          } finally {
-            page.cleanup();
-          }
-        }
-      } finally {
-        await task.destroy();
+      // Even a hit validates and reads the current file before content-addressed reuse.
+      const bytes = new Uint8Array(await readFile(realFilename));
+      const key = pdfExtractionKey(bytes, pdfjsVersion, options.extractionVersion);
+      let extraction = await readPdfExtraction(cacheDirectory, key);
+      if (extraction) report.cacheHits += 1;
+      else {
+        report.cacheMisses += 1;
+        const started = performance.now();
+        extraction = await extractPdfText(bytes, pdfDirectory);
+        report.extractionMs += performance.now() - started;
+        await writePdfExtraction(cacheDirectory, key, extraction);
+      }
+      report.pages += extraction.pages.length;
+      report.pagesWithoutText.push(...extraction.pagesWithoutText.map((number) => `${reference.url}#page=${number}`));
+      for (const [index, text] of extraction.pages.entries()) {
+        if (!text) continue;
+        const pageNumber = index + 1;
+        documents.push({
+          id: `${reference.url}#page=${pageNumber}`,
+          type: 'pdf',
+          title: reference.title,
+          section: `${reference.sourceTitle} · ${pageNumber}ページ`,
+          tags: reference.tags,
+          text,
+          ...(!metadataStored ? { pdf: metadata } : {}),
+        });
+        metadataStored = true;
       }
     } catch (error) {
       throw new Error(`Unable to index PDF ${reference.url}: ${String(error)}`, { cause: error });
