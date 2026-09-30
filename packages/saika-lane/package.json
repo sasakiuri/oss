@@ -94,7 +94,7 @@
     "autoprefixer": "10.4.27",
     "cross-env": "^7.0.3",
     "dependency-cruiser": "17.4.3",
-    "electron": "43.4.1",
+    "electron": "43.5.0",
     "electron-builder": "26.15.3",
     "electron-playwright-helpers": "^2.1.0",
     "jsdom": "25.0.1",
