@@ -335,6 +335,7 @@ function resetAnalysis(article: Article): void {
   Object.assign(article, {
     provenance: null,
     relationProvenance: null,
+    postScreening: null,
     topic: null,
     decision: null,
     priority: null,
@@ -1098,7 +1099,7 @@ export class SQLRepository implements NewsRepository {
         [snapshotClock, ...values],
       ],
       [
-        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance','$._listSearch') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance','$.postScreening','$._listSearch') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
         [snapshotClock, ...values, limit, offset],
       ],
     ]);
@@ -1925,6 +1926,7 @@ export class SQLRepository implements NewsRepository {
     rubric: string,
     result: Analysis,
     relationHash?: string | null,
+    purpose: "analysis" | "post-screening" = "analysis",
   ): Promise<boolean> {
     // The target and at most the configured comparison limit are read.
     const selected = [
@@ -1967,9 +1969,28 @@ export class SQLRepository implements NewsRepository {
           if (!target || (await this.evidenceHash(target)) !== relationHash)
             return false;
         }
-        Object.assign(article, structuredClone(result), {
-          analyzedAt: timestamp(this.clock()),
-        });
+        if (purpose === "post-screening") {
+          article.postScreening = {
+            relatedArticleId: result.relatedArticleId ?? null,
+            relation: result.relation ?? null,
+            relationProvenance: structuredClone(
+              result.relationProvenance ?? [],
+            ),
+            checkedAt: timestamp(this.clock()),
+          };
+          if (["duplicate", "uncertain"].includes(result.relation ?? ""))
+            Object.assign(article, {
+              relatedArticleId: result.relatedArticleId,
+              relation: result.relation,
+              relationProvenance: structuredClone(
+                result.relationProvenance ?? [],
+              ),
+            });
+        } else {
+          Object.assign(article, structuredClone(result), {
+            analyzedAt: timestamp(this.clock()),
+          });
+        }
         return true;
       },
       selected,

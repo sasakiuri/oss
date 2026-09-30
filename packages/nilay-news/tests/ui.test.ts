@@ -78,10 +78,15 @@ interface Ui {
   messageText: (text: unknown) => unknown;
   renderArticle: (article: object) => FakeNode;
   renderDetail: () => void;
+  loadDetail: (
+    id: string,
+    shouldRender?: boolean,
+  ) => Promise<boolean | undefined>;
   renderBulkActions: () => void;
   element: (id: string) => FakeNode;
   model: {
     state: unknown;
+    detail: unknown;
     view: string;
     sort: string;
     query: string;
@@ -97,7 +102,7 @@ interface Ui {
 }
 
 /** Evaluate the page script without its startup render and network refresh. */
-function load(): Ui {
+function load(fetcher?: typeof fetch): Ui {
   const source = readFileSync(
     new URL("../public/app.js", import.meta.url),
     "utf8",
@@ -111,6 +116,7 @@ function load(): Ui {
   };
   const context = {
     URL,
+    fetch: fetcher,
     document: {
       getElementById: element,
       createElement: node,
@@ -125,7 +131,7 @@ function load(): Ui {
       "exports.preflightCurrent = preflightCurrent;" +
       "exports.dateText = dateText; exports.messageText = messageText;" +
       "exports.renderArticle = renderArticle; exports.renderBulkActions = renderBulkActions;" +
-      "exports.renderDetail = renderDetail;",
+      "exports.renderDetail = renderDetail; exports.loadDetail = loadDetail;",
     context,
   );
   return { ...context.exports, element } as Ui;
@@ -666,4 +672,127 @@ describe("times shown in Japan Standard Time", () => {
       expect(ui.messageText(saved)).toBe(shown);
     expect(ui.messageText(null)).toBe(null);
   });
+});
+
+describe("detail request lifetime", () => {
+  function requests() {
+    const pending: {
+      resolve: (response: Response) => void;
+      reject: (error: Error) => void;
+    }[] = [];
+    const ui = load(
+      () =>
+        new Promise<Response>((resolve, reject) =>
+          pending.push({ resolve, reject }),
+        ),
+    );
+    ui.model.state = { publication: { posts: [] } };
+    const respond = (index: number, id: string, status: string) =>
+      pending[index]!.resolve(
+        Response.json({
+          id,
+          reviewStatus: status,
+          publication: { posts: [{ articleId: id, status }] },
+        }),
+      );
+    return { ui, pending, respond };
+  }
+
+  it.each([false, true])(
+    "keeps the newest same-article response after returning to another article: %s",
+    async (navigateAway) => {
+      const { ui, respond } = requests();
+      ui.model.selectedId = "a";
+      const older = ui.loadDetail("a", false);
+      let away: Promise<boolean | undefined> | undefined;
+      if (navigateAway) {
+        ui.model.selectedId = "b";
+        away = ui.loadDetail("b", false);
+        ui.model.selectedId = "a";
+      }
+      const newer = ui.loadDetail("a", false);
+      respond(navigateAway ? 2 : 1, "a", "approved");
+      await newer;
+      respond(0, "a", "unread");
+      await older;
+      if (away) {
+        respond(1, "b", "saved");
+        await away;
+      }
+      expect(ui.model.detail).toMatchObject({
+        id: "a",
+        reviewStatus: "approved",
+      });
+      expect(ui.model.state).toMatchObject({
+        publication: { posts: [{ articleId: "a", status: "approved" }] },
+      });
+    },
+  );
+
+  it("ignores an obsolete failure after the replacement request succeeds", async () => {
+    const { ui, pending, respond } = requests();
+    ui.model.selectedId = "a";
+    const older = ui.loadDetail("a", false);
+    const newer = ui.loadDetail("a", false);
+    respond(1, "a", "approved");
+    await newer;
+    pending[0]!.reject(new Error("Outdated failure"));
+    await older;
+    expect(ui.model.detail).toMatchObject({ reviewStatus: "approved" });
+    expect(ui.element("notice-text").textContent).toBe("");
+    expect(ui.element("detail-panel").children).toHaveLength(0);
+  });
+});
+
+it("shows publication screening separately from the original classification record", () => {
+  const ui = load();
+  const provenance = {
+    requestedModel: "classification-model",
+    resolvedModel: null,
+    promptVersion: "1",
+    criteriaVersion: "1",
+    routingPolicyVersion: "1",
+    criteriaHash: "class-criteria",
+    routingPolicyHash: "routing",
+    rubricHash: "rubric",
+    modelInputHash: "classification-input",
+    analyzedAt: BASE.discoveredAt,
+  };
+  const article = {
+    ...BASE,
+    id: "record",
+    analysisStatus: "done",
+    decision: "candidate",
+    url: "https://example.org/news",
+    provenance,
+    postScreening: {
+      relation: null,
+      relatedArticleId: null,
+      checkedAt: BASE.discoveredAt,
+      relationProvenance: [
+        {
+          ...provenance,
+          requestedModel: "screening-model",
+          comparisonArticleId: "posted",
+          comparisonInputHash: "comparison-input",
+          modelInputHash: "screening-input",
+        },
+      ],
+    },
+  };
+  ui.model.state = {
+    articles: [article],
+    settings: { jevConfigured: false },
+    publication: { posts: [] },
+  };
+  ui.model.selectedId = article.id;
+  ui.renderDetail();
+  const labels = texts(ui.element("detail-panel"));
+  expect(labels).toContain("判定の構成と記録");
+  expect(labels).toContain("投稿前の照合記録");
+  expect(labels).toContain("送信入力 SHA-256: classification-input");
+  expect(labels).toContain("送信入力 SHA-256: screening-input");
+  expect(labels).toContain(
+    "比較記事 posted / 比較入力 SHA-256: comparison-input",
+  );
 });

@@ -47,6 +47,12 @@ export interface Article extends CollectedItem, Analysis {
   bodyFetchedAt?: string;
   contentSourceId?: string;
   _identity?: string;
+  postScreening?: {
+    relatedArticleId: string | null;
+    relation: string | null;
+    relationProvenance: DecisionProvenance[];
+    checkedAt: string;
+  } | null;
 }
 export type Source = {
   -readonly [K in keyof SourceConfig]: SourceConfig[K];

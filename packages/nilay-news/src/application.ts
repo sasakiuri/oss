@@ -220,6 +220,7 @@ export class Application {
       ...this.decorateArticle(article),
       provenance: article.provenance ?? null,
       relationProvenance: article.relationProvenance ?? null,
+      postScreening: article.postScreening ?? null,
       postDraft,
       related: related ? this.decorateArticle(related) : null,
       publication: await this.repository.publicationState([id]),
@@ -938,6 +939,8 @@ export class Application {
         reason: null,
         relatedArticleId: null,
         relation: null,
+        provenance: null,
+        relationProvenance: null,
       };
     }
     signal.throwIfAborted();
