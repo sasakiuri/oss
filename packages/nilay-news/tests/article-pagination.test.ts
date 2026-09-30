@@ -125,6 +125,34 @@ describe("bounded article APIs", () => {
       buckets: { inbox: 0, saved: 1, expired: 151 },
     });
   });
+  it("preserves Unicode case matching and backfills older search projections", async () => {
+    const { repo, driver, app, now } = await world(0);
+    await repo.ingest(source, [
+      {
+        title: "ÄLTER ＡＢＣ",
+        url: "https://example.org/unicode",
+        excerpt: "",
+        publishedAt: new Date(now() * 1000).toISOString(),
+        metadata: { documentTitle: "ÉDITION" },
+        attachments: [
+          { title: "ÖFFENTLICH", url: "https://example.org/document" },
+        ],
+      },
+    ]);
+    for (const query of ["älter", "ａｂｃ", "édition", "öffentlich"])
+      expect(await app.articles({ query })).toMatchObject({ total: 1 });
+    await driver.batch([
+      [
+        "UPDATE news_articles SET data=json_remove(json_set(data,'$._publicationIndex',2),'$._listSearch')",
+        [],
+      ],
+    ]);
+    await repo.initialize();
+    expect(await app.articles({ query: "älter" })).toMatchObject({ total: 1 });
+    expect(
+      (await repo.articlePage({ query: "älter" }, now())).articles[0],
+    ).not.toHaveProperty("_listSearch");
+  });
   it("reads only the review target and its publication, and keeps atomic bulk checks", async () => {
     const { repo, driver } = await world(1000);
     const first = (await repo.articlePage({}, Date.UTC(2026, 8, 30, 2) / 1000))

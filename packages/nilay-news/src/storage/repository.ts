@@ -289,10 +289,22 @@ function timestamp(value: number): string {
   return isoSeconds(value);
 }
 
-/** Index projections use exactly the publication parser and calendar policy. */
+/** Index projections share the publication policy and JavaScript Unicode search normalization. */
 function indexArticle(article: Article): void {
   Object.assign(article, {
-    _publicationIndex: 2,
+    _publicationIndex: 3,
+    _listSearch: [
+      article.title,
+      article.sourceName,
+      article.excerpt,
+      article.topic,
+      article.body,
+      JSON.stringify(article.metadata || {}),
+      ...(article.attachments || []).map((attachment) => attachment.title),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase(),
     _sourceCandidate: isSourceCandidate(article),
     _listOrder:
       (Date.parse(article.publishedAt || article.discoveredAt) || 0) / 1000,
@@ -704,7 +716,7 @@ export class SQLRepository implements NewsRepository {
     for (;;) {
       const result = await this.driver.batch([
         [
-          "SELECT id FROM news_articles WHERE json_extract(data,'$._publicationIndex') IS NULL OR json_extract(data,'$._publicationIndex')<2 ORDER BY id LIMIT 100",
+          "SELECT id FROM news_articles WHERE json_extract(data,'$._publicationIndex') IS NULL OR json_extract(data,'$._publicationIndex')<3 ORDER BY id LIMIT 100",
           [],
         ],
       ]);
@@ -1083,7 +1095,7 @@ export class SQLRepository implements NewsRepository {
         [snapshotClock, ...values],
       ],
       [
-        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance','$._listSearch') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
         [snapshotClock, ...values, limit, offset],
       ],
     ]);
