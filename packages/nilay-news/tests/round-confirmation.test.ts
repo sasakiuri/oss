@@ -31,7 +31,7 @@ describe("bounded confirmation within an hourly round", () => {
     },
     {
       mode: "rate-limit",
-      checks: 1,
+      checks: 4,
       sent: 1,
       autoPost: false,
       status: "unknown",
@@ -39,7 +39,7 @@ describe("bounded confirmation within an hourly round", () => {
     },
     {
       mode: "transient-then-pending",
-      checks: 2,
+      checks: 6,
       sent: 1,
       autoPost: false,
       status: "unknown",
@@ -139,7 +139,12 @@ describe("bounded confirmation within an hourly round", () => {
         };
         const publisher = new Publisher(
           repo,
-          new BufferClient("fixture-key", "channel", transport),
+          new BufferClient("fixture-key", "channel", transport, {
+            clock: () => now,
+            observeQuota: (quota) => repo.recordBufferQuota(quota),
+            readQuota: () => repo.getRecord("buffer", "quota"),
+            nextRequestOrder: () => repo.reserveBufferRequest(),
+          }),
           () => now,
         );
         now += 3600;
@@ -152,12 +157,20 @@ describe("bounded confirmation within an hourly round", () => {
         now += 1;
         await publisher.tick();
         expect(checks).toBe(1);
-        expect((await repo.settings()).autoPost).toBe(mode !== "rate-limit");
+        expect((await repo.settings()).autoPost).toBe(true);
+        expect((await repo.publicationState()).posts[0]).toMatchObject({
+          status: "submitted",
+          nextCheckAt: opened + (mode === "rate-limit" ? 1020 : 360),
+        });
         now += 119;
         await publisher.tick();
         expect(checks).toBe(1);
-        now += 1;
-        await publisher.tick();
+        for (const offset of [
+          360, 840, 1020, 1740, 1920, 2640, 2820, 3540, 3600,
+        ]) {
+          now = opened + offset;
+          await publisher.tick();
+        }
         expect(checks).toBe(expected.checks);
         expect(sent).toHaveLength(expected.sent);
         const publication = await repo.publicationState();
