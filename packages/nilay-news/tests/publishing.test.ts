@@ -780,6 +780,15 @@ describe("Publisher", () => {
         expect(transport).toHaveBeenCalledTimes(1);
         expect(client.post).toHaveBeenCalledTimes(1);
         expect((await repo.article(articleId)).reviewStatus).toBe("posted");
+        expect((await repo.article(articleId)).relationProvenance).toEqual([
+          expect.objectContaining({
+            comparisonArticleId: previous,
+            requestedModel: "jev-latest",
+            resolvedModel: null,
+            comparisonInputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            modelInputHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          }),
+        ]);
       },
     );
 
@@ -832,6 +841,29 @@ describe("Publisher", () => {
       expect(client.post).not.toHaveBeenCalled();
       expect((await state()).posts).toEqual([]);
       expect((await repo.settings()).autoPost).toBe(true);
+    });
+
+    it("withdraws a claim when compared evidence changes after a non-blocking Jev answer", async () => {
+      const previous = await add(2);
+      await repo.review(previous, "posted");
+      const client = fakeClient();
+      const { jev } = reviewer("different");
+      const relate = jev.relate.bind(jev);
+      vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
+        const result = await relate(...args);
+        await repo.driver.batch([
+          [
+            "UPDATE news_articles SET data=json_set(data,'$.body',?) WHERE id=?",
+            ["A changed account of the event", previous],
+          ],
+        ]);
+        return result;
+      });
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(client.post).not.toHaveBeenCalled();
+      expect((await state()).posts).toEqual([]);
+      expect((await repo.settings()).autoPost).toBe(true);
+      expect((await repo.article(articleId)).relationProvenance).toBeFalsy();
     });
 
     it("does not send a rejected screening even if concurrent classification clears the annotation", async () => {

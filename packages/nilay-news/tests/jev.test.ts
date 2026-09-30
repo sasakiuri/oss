@@ -229,7 +229,7 @@ describe("Jev decisions", () => {
   });
 
   test("a confident classification is routed with its label", async () => {
-    expect(await analyzed(response())).toEqual({
+    expect(await analyzed(response())).toMatchObject({
       decision: "candidate",
       // 0.95 relevant plus the 0.0125 policy share of the remainder.
       probability: 0.9625,

@@ -218,6 +218,8 @@ export class Application {
       : null;
     return {
       ...this.decorateArticle(article),
+      provenance: article.provenance ?? null,
+      relationProvenance: article.relationProvenance ?? null,
       postDraft,
       related: related ? this.decorateArticle(related) : null,
       publication: await this.repository.publicationState([id]),

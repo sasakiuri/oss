@@ -145,3 +145,44 @@ test("manual publication resolution requires an explicit operator action and kee
   expect(state.publication.posts).toHaveLength(0);
   expect(state.settings.autoPost).toBe(false);
 });
+
+test("Jev provenance can be inspected with keyboard on wide and narrow screens", async ({
+  page,
+}) => {
+  expect((await page.request.get("/fixture/classify")).status()).toBe(200);
+  const articles = await (
+    await page.request.get("/api/articles?limit=1")
+  ).json();
+  const id = articles.articles[0].id;
+  expect(
+    (
+      await page.request.post("/api/analyze", { data: { articleIds: [id] } })
+    ).status(),
+  ).toBe(202);
+  expect((await page.request.post("/__test/tick")).status()).toBe(200);
+  const detail = await (await page.request.get(`/api/articles/${id}`)).json();
+  expect(detail.provenance.modelInputHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(detail.provenance.resolvedModel).toBeNull();
+  await page.goto("/");
+  await page.getByRole("button", { name: /^見送り・対象外 1$/ }).click();
+  await expect(page.locator("#article-list > article")).toHaveCount(1);
+  await page.locator("#article-list .article-select").click();
+  const summary = page.locator(".analysis-provenance summary");
+  await expect(summary).toHaveText("判定の構成と記録");
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".analysis-provenance")).toHaveAttribute(
+    "open",
+    "",
+  );
+  await expect(page.locator(".analysis-provenance")).toContainText(
+    "応答モデル: 不明（応答に記録なし）",
+  );
+  await expect(page.locator(".analysis-provenance")).toContainText(
+    detail.provenance.modelInputHash,
+  );
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+});
