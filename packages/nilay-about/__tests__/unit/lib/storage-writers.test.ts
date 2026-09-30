@@ -4,6 +4,8 @@ import { join, relative, sep } from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
+import { labsStartupRecoveryScript } from '@/lib/labs-startup-recovery';
+
 /**
  * Browser storage is reached only through the shared modules, which keep a backup restore apart from
  * the tools, keep the tools read-only while a cut-short restore waits, and are what the backup reads:
@@ -17,6 +19,8 @@ const ALLOWED = [
   'lib/indexed-db.ts',
   'lib/hunter-map-storage.ts',
   'lib/labs-restore-journal.ts',
+  // The initial HTML needs its tab-local retry guard before framework/storage modules can load.
+  'lib/labs-startup-recovery.ts',
   'app/(standalone)/labs/data/backup.ts',
   // The site's language setting, which is not Labs data.
   'store/language-store.ts',
@@ -44,6 +48,10 @@ const MENTION =
 const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 describe('browser storage', () => {
+  it('limits the pre-hydration retry guard to tab storage, outside saved Labs data', () => {
+    expect(labsStartupRecoveryScript).toMatch(/\bsessionStorage\b/);
+    expect(labsStartupRecoveryScript).not.toMatch(/\b(?:localStorage|indexedDB)\b/);
+  });
   it('is not mentioned in code outside the shared storage modules', () => {
     const found: string[] = [];
     for (const directory of ['app', 'lib', 'components', 'store', 'features'])
