@@ -1192,6 +1192,26 @@ function renderDetail() {
         "Buffer が受け付けました。X への投稿完了を確認中です。自動投稿を停止しても、この投稿は取り消されません。",
       ),
     );
+  if (publication?.status === "submitted") {
+    if (publication.remoteStatus)
+      preview.append(
+        el(
+          "p",
+          "form-help",
+          `最終確認: ${publication.remoteStatus}・${dateText(publication.lastObservedAt * 1000, true)}`,
+        ),
+      );
+    if (publication.nextCheckAt)
+      preview.append(
+        el(
+          "p",
+          "form-help",
+          `次の読み取り確認: ${dateText(publication.nextCheckAt * 1000, true)}。新しい投稿は確認完了まで保留します。`,
+        ),
+      );
+    if (publication.error)
+      preview.append(el("p", "form-help", messageText(publication.error)));
+  }
   if (publication?.bufferId)
     preview.append(
       el("p", "form-help", `Buffer 投稿 ID: ${publication.bufferId}`),
@@ -2047,11 +2067,46 @@ function refreshPublicationStatus() {
     node.textContent += `。${messageText(publication.error)}`;
   if (settings.autoPost && publication.nextAt)
     node.textContent += `・次回 ${dateText(publication.nextAt * 1000, true)}`;
-  if (held)
+  const pending = publication.posts.filter(
+    (post) => post.status === "submitted",
+  );
+  if (pending.length) {
+    const next = Math.min(
+      ...pending.map((post) => post.nextCheckAt ?? Infinity),
+    );
+    node.textContent += `・受け付け済み投稿を読み取り確認中${Number.isFinite(next) ? `（次回 ${dateText(next * 1000, true)}）` : ""}。確認完了まで新しい投稿を保留します。`;
+  }
+  if (held > pending.length)
     node.textContent += "。対象記事の詳細で投稿結果を確認してください。";
   if (unsent)
     node.textContent +=
       "。対象記事の詳細で見送りまたは投稿エラーの解除を行い、設定から自動投稿を再開してください。";
+  const quota = publication.quota;
+  if (!quota) {
+    node.textContent += "・Buffer API 利用回数は未観測";
+  } else {
+    const now = Date.now() / 1000;
+    const age = now - quota.observedAt;
+    node.textContent += `・API 最終観測 ${dateText(quota.observedAt * 1000, true)}${age > 300 ? "（古い観測）" : ""}`;
+    if (quota.api.state === "missing")
+      node.textContent += "・API 利用回数は不明（応答に情報なし）";
+    if (quota.api.state === "malformed")
+      node.textContent += "・API 利用回数は不明（情報を検証できません）";
+    if (quota.api.state === "limited")
+      node.textContent += "・API 利用制限を観測";
+    for (const window of quota.api.windows) {
+      const label =
+        { 900: "15分", 86400: "24時間", 2592000: "30日" }[window.seconds] ??
+        "期間不明の枠";
+      node.textContent += `・${label}: 観測時の残り ${window.remaining}${window.limit === undefined ? "" : `/${window.limit}`} 回、リセット見込み ${dateText(window.resetAt * 1000, true)}${window.resetAt <= now ? "（経過・再確認が必要）" : ""}`;
+    }
+    if (quota.api.retryAt)
+      node.textContent += `・API 再確認は ${dateText(quota.api.retryAt * 1000, true)} 以降`;
+    if (quota.channel)
+      node.textContent += `・チャンネル投稿枠（API 回数とは別）: 予約 ${quota.channel.scheduled} 件${quota.channel.sent === undefined ? "" : `、送信 ${quota.channel.sent} 件`}、上限 ${quota.channel.limit === null ? "なし" : quota.channel.limit}（${dateText(quota.channel.observedAt * 1000, true)} の観測${now - quota.channel.observedAt > 300 ? "・古い観測" : ""}）`;
+    node.textContent +=
+      "。リセット見込みは投稿再開の保証ではありません。停止した自動投稿は接続と投稿結果を確認してから手動で有効にしてください。";
+  }
 }
 
 function refreshSourceStatus() {

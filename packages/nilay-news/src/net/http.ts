@@ -14,11 +14,21 @@ const TOO_LARGE = "取得サイズの上限を超えました";
 export class FetchError extends UserError {
   readonly status?: number;
   readonly retryAfter?: number;
+  readonly rateLimit?: string;
+  readonly rateLimitPolicy?: string;
 
-  constructor(message: string, status?: number, retryAfter?: number) {
+  constructor(
+    message: string,
+    status?: number,
+    retryAfter?: number,
+    rateLimit?: string,
+    rateLimitPolicy?: string,
+  ) {
     super(message);
     this.status = status;
     this.retryAfter = retryAfter;
+    this.rateLimit = rateLimit;
+    this.rateLimitPolicy = rateLimitPolicy;
   }
 }
 
@@ -216,6 +226,8 @@ export function createFetchBytes(
             `情報源から HTTP ${status} が返りました`,
             status,
             retryAfterSeconds(response.headers.get("retry-after") ?? ""),
+            response.headers.get("ratelimit") ?? undefined,
+            response.headers.get("ratelimit-policy") ?? undefined,
           );
         }
         const result: FetchResult = {
@@ -225,6 +237,8 @@ export function createFetchBytes(
         };
         const rateLimit = response.headers.get("ratelimit");
         if (rateLimit !== null) result.rateLimit = rateLimit;
+        const rateLimitPolicy = response.headers.get("ratelimit-policy");
+        if (rateLimitPolicy !== null) result.rateLimitPolicy = rateLimitPolicy;
         return result;
       }
       throw new FetchError("情報源の転送回数が多すぎます");

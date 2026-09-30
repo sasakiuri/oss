@@ -85,7 +85,16 @@ export async function application(env: Env): Promise<Application> {
   return new Application(
     repository,
     new Jev(env.TYPESAFE_API_KEY ?? "", env.TYPESAFE_MODEL ?? "jev-latest"),
-    new BufferClient(env.BUFFER_API_KEY ?? "", env.BUFFER_CHANNEL_ID ?? ""),
+    new BufferClient(
+      env.BUFFER_API_KEY ?? "",
+      env.BUFFER_CHANNEL_ID ?? "",
+      undefined,
+      {
+        observeQuota: (quota) => repository.recordBufferQuota(quota),
+        readQuota: () => repository.getRecord("buffer", "quota"),
+        nextRequestOrder: () => repository.reserveBufferRequest(),
+      },
+    ),
     {
       notifier: new Notifier(repository, env.SLACK_WEBHOOK_URL ?? ""),
       crawlTransport: createFeedTransport(env.FEED_FETCHER),

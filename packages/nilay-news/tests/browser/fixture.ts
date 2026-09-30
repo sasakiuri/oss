@@ -70,6 +70,58 @@ export default {
       await repo.recoverPosts(now);
       return Response.json(await repo.settingsSnapshot());
     }
+    if (path === "/fixture/pending-post") {
+      const repo = await createD1Repository(env.DB, [source], () => now);
+      const first = (await repo.articles())[0];
+      if (!first)
+        return Response.json(
+          { error: "Seed an article first" },
+          { status: 400 },
+        );
+      await repo.review(first.id, "saved");
+      await repo.updateSettings({ autoPost: true });
+      await advance(request, env);
+      const claim = await repo.claimPost(now);
+      if (!claim) throw new Error("Fixture could not claim a post");
+      // A synthetic accepted identity; no remote create or confirmation is sent.
+      await repo.submitPost(
+        first.id,
+        "fixture-buffer-id",
+        "fixture-channel",
+        now,
+        claim.claimToken,
+      );
+      await repo.deferPostCheck(first.id, claim.claimToken, {
+        timestamp: now,
+        remoteStatus: "sending",
+      });
+      await repo.updateSettings({ autoPost: false });
+      const observedAt = Date.now() / 1000 - 600;
+      await repo.recordBufferQuota({
+        observedAt,
+        api: {
+          state: "known",
+          windows: [
+            {
+              name: "window-1",
+              seconds: 900,
+              limit: 100,
+              remaining: 25,
+              resetAt: observedAt + 900,
+            },
+          ],
+        },
+        channel: {
+          observedAt,
+          channelId: "fixture-channel",
+          limit: 100,
+          scheduled: 10,
+          sent: 3,
+          atLimit: false,
+        },
+      });
+      return Response.json({ articleId: first.id });
+    }
     return runtime.fetch(request, env);
   },
 };

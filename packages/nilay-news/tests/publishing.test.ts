@@ -134,7 +134,7 @@ describe("BufferClient", () => {
     expect(sent(transport).request.query).toContain("allowedActions");
     // The daily posting limit is read in the same single request.
     expect(sent(transport).request.query).toContain(
-      "dailyPostingLimits(input: $limits) { channelId isAtLimit limit scheduled }",
+      "dailyPostingLimits(input: $limits) { channelId isAtLimit limit scheduled sent }",
     );
     expect(sent(transport).request.variables).toEqual({
       input: { id: "channel-123" },
@@ -367,7 +367,7 @@ describe("BufferClient", () => {
     ["fractional", [{ ...LIMIT, scheduled: 1.5 }]],
     ["negative", [{ ...LIMIT, scheduled: -1 }]],
     ["text count", [{ ...LIMIT, limit: "100" }]],
-    ["infinite", [{ ...LIMIT, limit: 1e400 }]],
+    ["negative limit", [{ ...LIMIT, limit: -1 }]],
   ])("refuses a daily posting limit that is %s", async (_, limits) => {
     const transport = replying(
       limits === undefined
@@ -410,9 +410,9 @@ describe("BufferClient", () => {
 
   it.each([
     BUFFER_RATE,
-    '"100-in-15min";r=4;t=900',
-    '  "a" ;  r=4 ; t=1 ,"b";r=250;t=2;pk=:c2VjcmV0:  ',
-    'window; r=10; t=5, "day"; r=4; t=0',
+    '"100-in-15min";r=8;t=900',
+    '  "a" ;  r=8 ; t=1 ,"b";r=250;t=2;pk=:c2VjcmV0:  ',
+    'window; r=10; t=5, "day"; r=8; t=0',
   ])("accepts the rate budget %s", async (header) => {
     await new BufferClient(
       "key",
@@ -498,8 +498,16 @@ describe("BufferClient", () => {
       },
       { data: { post: remotePost() } },
     );
-    const client = new BufferClient("key", "channel-123", transport);
+    let at = 10000;
+    const client = new BufferClient("key", "channel-123", transport, {
+      clock: () => at,
+    });
     expect((await client.post("本文")).id).toBe("buffer-123");
+    await expect(client.getPost("buffer-123", "本文")).rejects.toThrow(
+      "残り利用回数の観測",
+    );
+    expect(transport).toHaveBeenCalledTimes(1);
+    at += 900;
     expect((await client.getPost("buffer-123", "本文")).status).toBe("sent");
   });
 
@@ -1092,7 +1100,7 @@ describe("Publisher", () => {
     expect(client.post).toHaveBeenCalledTimes(1);
   });
 
-  it("allows at most two confirmation requests and never resends", async () => {
+  it("allows at most six confirmation requests within one hour and never resends", async () => {
     await add(2);
     const client = fakeClient();
     client.post.mockImplementation(async (text) =>
@@ -1103,11 +1111,11 @@ describe("Publisher", () => {
     );
     const publisher = new Publisher(repo, client, clock);
     const started = now;
-    for (const offset of [0, 120, 3600, 3720, 4400, 5400, 999999]) {
+    for (const offset of [0, 120, 360, 840, 1740, 2640, 3540, 3600, 999999]) {
       now = started + offset;
       await publisher.tick();
     }
-    expect(client.getPost).toHaveBeenCalledTimes(2);
+    expect(client.getPost).toHaveBeenCalledTimes(6);
     expect(client.post).toHaveBeenCalledTimes(1);
     expect(
       (await state()).posts.find((post) => post.articleId === articleId)
@@ -1130,7 +1138,7 @@ describe("Publisher", () => {
     },
   );
 
-  it("pauses after two failed confirmation requests without storing remote text", async () => {
+  it("pauses at the confirmation deadline without storing remote text", async () => {
     const client = fakeClient();
     client.post.mockImplementation(async (text) => remotePost(text, "sending"));
     client.getPost.mockRejectedValue(new PostError("private response"));
@@ -1140,7 +1148,7 @@ describe("Publisher", () => {
       now = started + offset;
       await publisher.tick();
     }
-    expect(client.getPost).toHaveBeenCalledTimes(2);
+    expect(client.getPost).toHaveBeenCalledTimes(1);
     expect((await repo.settings()).autoPost).toBe(false);
     expect(JSON.stringify(await state())).not.toContain("private");
   });
@@ -1213,7 +1221,7 @@ describe("Publisher", () => {
     await expect(new Publisher(repo, client, clock).tick()).rejects.toThrow(
       "disk full",
     );
-    now += 999999;
+    now += 120;
     await new Publisher(repo, client, clock).tick();
     // The submission was stored first, so it is confirmed rather than recreated.
     expect(client.post).toHaveBeenCalledTimes(1);

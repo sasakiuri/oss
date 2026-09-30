@@ -2,6 +2,7 @@
 import type {
   Analysis,
   Article,
+  BufferQuota,
   Job,
   Post,
   PostClaim,
@@ -97,6 +98,18 @@ export interface NewsRepository {
     claimToken?: string,
   ): Promise<void>;
   claimPostCheck(timestamp: number): Promise<Post | null>;
+  deferPostCheck(
+    articleId: string,
+    claimToken: string,
+    observation: {
+      timestamp: number;
+      remoteStatus?: string;
+      error?: string | null;
+      nextAt?: number;
+    },
+  ): Promise<void>;
+  recordBufferQuota(observation: BufferQuota): Promise<void>;
+  reserveBufferRequest(): Promise<number>;
   recoverPosts(timestamp?: number): Promise<number>;
   resolvePost(articleId: string, outcome: unknown): Promise<Publication>;
   evidenceHash(article: Article): Promise<string>;
