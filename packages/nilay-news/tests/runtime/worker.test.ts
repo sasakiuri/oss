@@ -591,8 +591,13 @@ describe("real Worker, D1 and WebCrypto", () => {
           kind: "collect",
           progress: 1,
           total: 23,
-          workIds: ["fixture"],
         },
+      });
+      const preservedJob = await db
+        .prepare("SELECT data FROM news_state WHERE id='job'")
+        .first<{ data: string }>();
+      expect(JSON.parse(preservedJob?.data ?? "{}") as unknown).toMatchObject({
+        workIds: ["fixture"],
       });
       const enable = await runtime.dispatchFetch(base + "/api/settings", {
         method: "POST",

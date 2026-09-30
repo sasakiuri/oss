@@ -148,6 +148,64 @@ describe("bounded article APIs", () => {
       "投稿済み",
     );
   });
+  it("confirms and resolves one post without hydrating unrelated article or post history", async () => {
+    const { repo, driver, now, advance } = await world(101);
+    const articles = await repo.articles();
+    const target = articles[0]!;
+    await repo.review(target.id, "saved");
+    await repo.updateSettings({ autoPost: true });
+    advance(3601);
+    const claim = await repo.claimPost(now());
+    expect(claim?.articleId).toBe(target.id);
+    await driver.batch(
+      articles.slice(1).map((article): SQLStatement => [
+        "INSERT INTO news_posts(id,data) VALUES (?,?)",
+        [
+          article.id,
+          JSON.stringify({
+            article_id: article.id,
+            status: "posted",
+            text: "unrelated history",
+            attempted_at: new Date(now() * 1000).toISOString(),
+            claim_token: "history",
+            check_count: 0,
+          }),
+        ],
+      ]),
+    );
+    const original = driver.batch.bind(driver);
+    const rows: number[] = [];
+    driver.batch = async (statements) => {
+      const result = await original(statements);
+      statements.forEach(([sql], index) => {
+        if (sql.startsWith("SELECT") && /news_(?:articles|posts)/.test(sql))
+          rows.push(result[index]!.results.length);
+      });
+      return result;
+    };
+    await repo.submitPost(
+      target.id,
+      "buffer-id",
+      "channel",
+      now(),
+      claim!.claimToken,
+    );
+    await repo.deferPostCheck(target.id, claim!.claimToken, {
+      timestamp: now(),
+      remoteStatus: "sending",
+    });
+    advance(120);
+    const checked = await repo.claimPostCheck(now());
+    await repo.finishPost(target.id, "unknown", {
+      claimToken: checked!.claim_token,
+    });
+    await repo.resolvePost(target.id, "posted");
+    expect(rows.length).toBeGreaterThan(5);
+    expect(Math.max(...rows)).toBe(1);
+    driver.batch = original;
+    expect((await repo.article(target.id)).reviewStatus).toBe("posted");
+    expect((await repo.publicationState()).posts).toHaveLength(101);
+  });
   it.each(["candidate", "review", "irrelevant", "pending", "error"])(
     "filters %s by current analysis rather than stale decisions",
     async (analysis) => {
