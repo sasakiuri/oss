@@ -311,7 +311,6 @@ describe("HTTP contract", () => {
       env,
     );
     expect(await first.json()).toMatchObject({
-      articles: [{ freshness: "fresh" }],
       stats: { pending: 1 },
     });
     now += 30;
@@ -323,7 +322,6 @@ describe("HTTP contract", () => {
     );
     expect(next.status).toBe(200);
     expect(await next.json()).toMatchObject({
-      articles: [{ freshness: "stale" }],
       stats: { pending: 0, expired: 1 },
     });
     expect(await repo.stateVersion()).toBe(version);

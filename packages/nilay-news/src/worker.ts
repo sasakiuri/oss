@@ -9,6 +9,7 @@ import { withDeadline } from "./deadline.ts";
 import {
   DeadlineError,
   NotFoundError,
+  ArticlePageConflictError,
   SettingsConflictError,
   UserError,
 } from "./errors.ts";
@@ -161,6 +162,30 @@ export function createHandlers(
             });
           return jsonResponse(200, await app.state(), { ETag: tag });
         }
+        if (method === "GET" && path === "/api/articles") {
+          const parameters = new URL(request.url).searchParams;
+          return jsonResponse(
+            200,
+            await app.articles({
+              bucket: parameters.get("bucket") ?? undefined,
+              query: parameters.get("query") ?? undefined,
+              topic: parameters.get("topic") ?? undefined,
+              analysis: parameters.get("analysis") ?? undefined,
+              relation: parameters.get("relation") ?? undefined,
+              sort: parameters.get("sort") ?? undefined,
+              limit: parameters.has("limit")
+                ? Number(parameters.get("limit"))
+                : undefined,
+              offset: parameters.has("offset")
+                ? Number(parameters.get("offset"))
+                : undefined,
+              snapshot: parameters.get("snapshot") ?? undefined,
+            }),
+          );
+        }
+        const detail = /^\/api\/articles\/([a-f0-9]{24})$/.exec(path);
+        if (method === "GET" && detail)
+          return jsonResponse(200, await app.article(detail[1]!));
         if (method !== "POST")
           return jsonResponse(404, { error: "見つかりません" });
         if (
@@ -262,6 +287,11 @@ export function createHandlers(
         }
         return jsonResponse(404, { error: "見つかりません" });
       } catch (error) {
+        if (error instanceof ArticlePageConflictError)
+          return jsonResponse(409, {
+            code: "article_page_conflict",
+            error: error.message,
+          });
         if (error instanceof SettingsConflictError)
           return jsonResponse(409, {
             code: "settings_conflict",

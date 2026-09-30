@@ -91,3 +91,9 @@ Set optional integrations as Worker secrets with `wrangler secret put --config w
 After deployment, a smoke check confirms that unauthenticated requests to `/`, `/app.js`, and `/api/state` redirect to this application's Access login. It does not sign in or request any other host, so it does not verify the Worker, D1, or disabled preview URLs. After the first deployment, sign in and confirm that the inbox and `/api/state` load.
 
 自動仕分けの候補は公開日時・日付精度の索引から新しい順（公開日時、発見日時、記事 ID）に最大 `min(100, pollMinutes)` 件を読み込みます。移行 `0004_article_publication_index.sql` を適用し、既存記事の索引は初回の起動時に 100 件ずつ補完します。日付解析と有効期間は収集時と同じ公開日時規則を使用し、補完も記事更新と同じ同時更新保護を受けます。
+
+記事 API は `GET /api/state` が設定・処理状況・集計のみ、`GET /api/articles` が一覧、`GET /api/articles/:id` が本文・添付・投稿文・判定詳細を返します。一覧は `bucket`（`inbox` / `saved` / `approved` / `review` / `pending` / `dates` / `expired` / `posted` / `dismissed` / `all`）、`query`、`topic`、`analysis`、`relation`、`sort`（`newest` / `priority`）、`limit`（1〜100、既定 50）、`offset` を受け付けます。検索は本文・メタデータ・添付のタイトルも対象とし、一覧へ本文を返す必要はありません。
+
+同順位の記事は発見日時、記事 ID で順序を固定します。次ページは応答の `snapshot` を渡し、記事の同時更新や 30 秒の有効期限により `409 article_page_conflict` となったら先頭へ戻ります。有効なページ間では最初のページの時計を用い、公開日時の境界をまたいでも重複や欠落を防ぎます。画面は 50 件単位で移動し、一括選択は表示中のページを対象にします。移動・絞り込み時に選択を解除します。本文は選択時に取得し、関連記事も別途取得します。
+
+`npm run benchmark:articles -w @sasakiuri/nilay-news` は隔離されたローカル D1 へ 1,000 / 10,000 件の同じ構成の fixture を用意し、従来の全記事応答相当と新しい状態＋先頭 50 件について、3 回の時間・応答 bytes・D1 `rows_read`・転送記事行数を JSON で報告します。集計や検索には SQL 内の走査が残るため、応答の上限とデータベースの読取量は区別してください。実環境のレイテンシはこの測定から推定しません。

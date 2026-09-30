@@ -63,7 +63,7 @@ describe("calendar publication across automatic processing", () => {
       article!.id,
     ]);
     const app = new Application(repo, new Jev(), new BufferClient(), { clock });
-    expect((await app.state()).articles[0]).toMatchObject({
+    expect((await app.articles({ bucket: "all" })).articles[0]).toMatchObject({
       freshness: "fresh",
     });
   });
@@ -84,7 +84,7 @@ describe("calendar publication across automatic processing", () => {
     ]);
     at(Date.parse("2026-09-29T00:00:00+09:00") / 1000);
     expect(await repo.postCandidates()).toEqual([]);
-    expect((await app.state()).articles[0]).toMatchObject({
+    expect((await app.articles({ bucket: "all" })).articles[0]).toMatchObject({
       freshness: "stale",
     });
   });

@@ -17,6 +17,13 @@ export class SettingsConflictError extends UserError {
   }
 }
 
+/** A page belongs to an older article or clock snapshot. */
+export class ArticlePageConflictError extends UserError {
+  constructor() {
+    super("一覧が更新されました。最初のページから読み直してください");
+  }
+}
+
 /** A missing article or source; the HTTP boundary maps it to 404. */
 export class NotFoundError extends Error {
   constructor(message: string) {

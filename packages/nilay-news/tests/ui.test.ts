@@ -226,11 +226,8 @@ describe("bulk dismissal selection", () => {
       title: "対象",
     }));
     ui.model.state = {
-      articles: [
-        ...articles,
-        { ...BASE, id: "other", title: "別の記事" },
-        { ...BASE, id: "posted", title: "対象", reviewStatus: "posted" },
-      ],
+      // The server page already applies the requested search and inbox bucket.
+      articles,
       publication: { posts: [{ articleId: "blocked", status: "publishing" }] },
     };
     const all = ui.element("select-all-articles");
@@ -263,9 +260,11 @@ describe("bulk dismissal selection", () => {
     ui.renderBulkActions();
     expect([...ui.model.checkedIds]).toEqual(["a", "b"]);
     ui.model.topic = "a";
+    ui.model.state = { articles: [articles[0]], publication: { posts: [] } };
     ui.renderBulkActions();
     expect([...ui.model.checkedIds]).toEqual(["a"]);
     ui.model.topic = "";
+    ui.model.state = { articles, publication: { posts: [] } };
     ui.renderBulkActions();
     expect([...ui.model.checkedIds]).toEqual(["a"]);
     ui.model.state = {
@@ -300,6 +299,10 @@ describe("bulk dismissal selection", () => {
     expect(ui.element("apply-selected").disabled).toBe(false);
     for (const view of ["posted", "dismissed"]) {
       ui.model.view = view;
+      ui.model.state = {
+        articles: articles.filter((article) => article.reviewStatus === view),
+        publication: { posts: [] },
+      };
       ui.renderBulkActions();
       expect(ui.element("bulk-actions").hidden).toBe(view === "posted");
       expect(ui.model.checkedIds.size).toBe(0);
@@ -348,7 +351,7 @@ describe("classification filters and bulk operations", () => {
         relation: "duplicate",
       },
     ];
-    ui.model.state = { articles, publication: { posts: [] } };
+    ui.model.state = { articles: [articles[0]], publication: { posts: [] } };
     ui.model.checkedIds = new Set(articles.map((article) => article.id));
     ui.model.query = "クマ";
     ui.model.topic = "鳥獣";
@@ -360,6 +363,7 @@ describe("classification filters and bulk operations", () => {
     ]);
     expect([...ui.model.checkedIds]).toEqual(["match"]);
     ui.model.relation = "uncertain";
+    ui.model.state = { articles: [articles[1]], publication: { posts: [] } };
     ui.renderBulkActions();
     expect(ui.model.checkedIds.size).toBe(0);
     const all = ui.element("select-all-articles");
@@ -367,31 +371,6 @@ describe("classification filters and bulk operations", () => {
     all.listeners.change!({ target: all });
     expect([...ui.model.checkedIds]).toEqual(["uncertain"]);
   });
-
-  it.each(["candidate", "review", "irrelevant", "pending", "error"])(
-    "filters %s by the current analysis rather than stale decisions",
-    (analysis) => {
-      const ui = load();
-      const articles = [
-        "candidate",
-        "review",
-        "irrelevant",
-        "pending",
-        "error",
-      ].map((id) => ({
-        ...BASE,
-        id,
-        sourceCandidate: true,
-        analysisStatus: ["pending", "error"].includes(id) ? id : "done",
-        decision: ["pending", "error"].includes(id) ? "candidate" : id,
-      }));
-      ui.model.state = { articles, publication: { posts: [] } };
-      ui.model.analysis = analysis;
-      expect(ui.visibleArticles().map((article) => article.id)).toEqual([
-        analysis,
-      ]);
-    },
-  );
 
   it("keeps selection when changing actions and disables incompatible actions for failed drafts", () => {
     const ui = load();
@@ -488,30 +467,6 @@ describe("source-rule candidates in the inbox", () => {
       "対象外",
     ]);
   });
-
-  it("sorts them with Jev candidates by priority", () => {
-    const ui = load();
-    ui.model.sort = "priority";
-    ui.model.view = "inbox";
-    ui.model.state = {
-      articles: [
-        { ...BASE, id: "review", analysisStatus: "done", decision: "review" },
-        { ...BASE, id: "ruled", sourceCandidate: true, priority: 2 },
-        {
-          ...BASE,
-          id: "jev",
-          analysisStatus: "done",
-          decision: "candidate",
-          priority: 1,
-        },
-      ],
-    };
-    expect(ui.visibleArticles().map((article) => article.id)).toEqual([
-      "ruled",
-      "jev",
-      "review",
-    ]);
-  });
 });
 
 describe("fresh news and retained history", () => {
@@ -540,25 +495,6 @@ describe("fresh news and retained history", () => {
     }
     expect(bucketsFor("stale", "saved")).toEqual(["saved"]);
     expect(bucketsFor("stale", "posted")).toEqual(["posted"]);
-  });
-
-  it("defaults to publication date descending even across different priorities", () => {
-    const ui = load();
-    ui.model.state = {
-      articles: [
-        { ...BASE, id: "older", decision: "candidate", priority: 3 },
-        {
-          ...BASE,
-          id: "newer",
-          publishedAt: "2026-09-01T00:01:00Z",
-          priority: 0,
-        },
-      ],
-    };
-    expect(ui.visibleArticles().map((article) => article.id)).toEqual([
-      "newer",
-      "older",
-    ]);
   });
 });
 
