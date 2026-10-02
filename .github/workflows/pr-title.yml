@@ -1,51 +1,35 @@
 name: PR Title
 
 on:
-  # Metadata-only validation: no checkout or execution of pull request code.
+  # Only trusted base code validates untrusted title text passed through env.
   pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, edited, synchronize]
 
 permissions:
-  pull-requests: read
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5.5.3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          types: |
-            feat
-            fix
-            docs
-            style
-            refactor
-            perf
-            test
-            chore
-            ci
-            revert
-          scopes: |
-            saika-lane
-            saika-director
-            saika-vista
-            saika-protocol
-            saika-rules
-            saika-updater
-            saika-docs
-            nilay-knowledge
-            nilay-about
-            nilay-news
-            eslint-config
-            lighthouse-config
-            prettier-config
-            stylelint-config
-            typescript-config
-            repo
-            root
-            monorepo
-          requireScope: true
-          subjectPattern: ^.+$
-          subjectPatternError: "PR title subject must not be empty"
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Read upstream npm version
+        id: runtime
+        run: echo "npm=$(node -p 'require("./package.json").volta.npm')" >> "$GITHUB_OUTPUT"
+      - name: Install upstream package manager
+        env:
+          NPM_VERSION: ${{ steps.runtime.outputs.npm }}
+        run: npm install --global "npm@$NPM_VERSION" # zizmor: ignore[adhoc-packages]
+      - run: npm ci --ignore-scripts
+      - name: Validate title with shared commitlint policy
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npm exec --no -- commitlint --verbose

@@ -8,20 +8,6 @@ import { fileURLToPath } from "node:url";
 
 import { getProjectLicenses } from "generate-license-file";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const appDirectories = [
-  join(repositoryRoot, "packages", "saika-lane"),
-  join(repositoryRoot, "packages", "saika-director"),
-  join(repositoryRoot, "packages", "saika-vista"),
-  join(repositoryRoot, "packages", "saika-docs"),
-  join(repositoryRoot, "packages", "nilay-knowledge"),
-  join(repositoryRoot, "packages", "nilay-about"),
-];
-const checkOnly = process.argv.includes("--check");
-const selectedWorkspace = process.argv
-  .find((argument) => argument.startsWith("--workspace="))
-  ?.slice("--workspace=".length);
-
 const normalizeText = (value) =>
   value
     .replace(/\r\n/g, "\n")
@@ -36,9 +22,10 @@ const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
  * The `invalid:` problems in an `npm ls --json --long` tree whose every
  * complaint comes from an optional peer range, keyed as npm prints them.
  */
-const invalidOnlyAsOptionalPeer = async (tree) => {
+const invalidOnlyAsOptionalPeer = async (repositoryRoot, tree) => {
   const invalidNodes = [];
   const visit = (node, name) => {
+    if (!node || node.extraneous === true) return;
     if (typeof node?.invalid === "string" && node.path) {
       invalidNodes.push({ name, node });
     }
@@ -85,7 +72,7 @@ const invalidOnlyAsOptionalPeer = async (tree) => {
   return optionalOnly;
 };
 
-const loadProductionDependencyIds = async (appPackage) => {
+const loadProductionDependencyIds = async (repositoryRoot, appPackage) => {
   const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
   const result = spawnSync(
     npmCommand,
@@ -106,6 +93,7 @@ const loadProductionDependencyIds = async (appPackage) => {
     },
   );
 
+  if (result.error) throw result.error;
   if (!result.stdout.trim()) {
     throw new Error(
       `npm ls did not return a dependency tree.\n${result.stderr.trim()}`,
@@ -119,28 +107,48 @@ const loadProductionDependencyIds = async (appPackage) => {
     throw new Error(`Could not parse npm ls output: ${error.message}`);
   }
 
-  // npm reports unrelated, stale root modules as "extraneous" even when a
-  // workspace is selected. They are outside the app subtree and cannot be
-  // packaged by electron-builder, so only other tree problems are fatal.
-  // npm 11 does not install optional peers, yet still reports a package that
-  // another dependency brought in as "invalid" when its version is outside an
-  // optional peer range. That package is not the peer, so only an invalid
-  // package that some dependant actually requires is fatal.
-  const optionalPeerOnly = await invalidOnlyAsOptionalPeer(tree);
-  const fatalProblems = (tree.problems ?? []).filter(
-    (problem) =>
-      !problem.startsWith("extraneous:") && !optionalPeerOnly.has(problem),
-  );
-  if (fatalProblems.length > 0) {
-    throw new Error(
-      `npm reported an invalid production dependency tree:\n${fatalProblems.join("\n")}`,
-    );
-  }
-
   const workspaceNode = tree.dependencies?.[appPackage.name];
   if (!workspaceNode) {
     throw new Error(
       `npm ls did not return the ${appPackage.name} workspace subtree.`,
+    );
+  }
+
+  // npm includes unrelated root modules and their dependency problems even
+  // when a workspace is selected. Validate the actual production subtree,
+  // including missing nodes, rather than npm's aggregate root problem list.
+  const workspaceProblems = new Set();
+  const collectProblems = (node, name, parent) => {
+    if (!node || node.extraneous === true) return;
+    for (const problem of node.problems ?? []) {
+      if (!problem.startsWith("extraneous:")) workspaceProblems.add(problem);
+    }
+    if (node.missing === true && !node.problems?.length) {
+      workspaceProblems.add(`missing: ${name}, required by ${parent}`);
+    }
+    if (node.invalid && !node.problems?.length) {
+      workspaceProblems.add(`invalid: ${name}@${node.version} ${node.path}`);
+    }
+    for (const [childName, child] of Object.entries(node.dependencies ?? {})) {
+      collectProblems(child, childName, `${name}@${node.version}`);
+    }
+  };
+  collectProblems(workspaceNode, appPackage.name, tree.name);
+
+  // npm 11 does not install optional peers, yet still reports a package that
+  // another dependency brought in as "invalid" when its version is outside an
+  // optional peer range. That package is not the peer, so only an invalid
+  // package that some dependant actually requires is fatal.
+  const optionalPeerOnly = await invalidOnlyAsOptionalPeer(
+    repositoryRoot,
+    workspaceNode,
+  );
+  const fatalProblems = [...workspaceProblems].filter(
+    (problem) => !optionalPeerOnly.has(problem),
+  );
+  if (fatalProblems.length > 0) {
+    throw new Error(
+      `npm reported an invalid production dependency tree:\n${fatalProblems.join("\n")}`,
     );
   }
 
@@ -181,11 +189,18 @@ const loadProductionDependencyIds = async (appPackage) => {
 };
 
 const loadLicenseRecords = async (
+  repositoryRoot,
   dependencyIds,
   dependencyPaths,
   appPackageJsonPath,
 ) => {
+  const productionIds = [...dependencyIds].map((id) =>
+    id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  );
   const options = {
+    // Skip unrelated workspaces and linked development tools before the
+    // scanner reads their license texts or traverses their dependencies.
+    exclude: [`/^(?!(?:${productionIds.join("|")})$).+/`],
     replace: {
       doctrine: join(repositoryRoot, "node_modules", "doctrine", "LICENSE"),
       rc: join(repositoryRoot, "node_modules", "rc", "LICENSE.MIT"),
@@ -346,13 +361,20 @@ const formatReport = (records, appPackageName) => {
   return `${lines.join("\n").trimEnd()}\n`;
 };
 
-const generateForApplication = async (appDirectory) => {
+const generateForApplication = async (
+  repositoryRoot,
+  appDirectory,
+  checkOnly,
+) => {
   const appPackageJsonPath = join(appDirectory, "package.json");
   const reportPath = join(appDirectory, "THIRD-PARTY-LICENSES.txt");
   const appPackage = await readJson(appPackageJsonPath);
-  const { dependencyIds, dependencyPaths } =
-    await loadProductionDependencyIds(appPackage);
+  const { dependencyIds, dependencyPaths } = await loadProductionDependencyIds(
+    repositoryRoot,
+    appPackage,
+  );
   const records = await loadLicenseRecords(
+    repositoryRoot,
     dependencyIds,
     dependencyPaths,
     appPackageJsonPath,
@@ -385,29 +407,76 @@ const generateForApplication = async (appDirectory) => {
   );
 };
 
-const main = async () => {
-  const applications = await Promise.all(
-    appDirectories.map(async (appDirectory) => ({
-      appDirectory,
-      appPackage: await readJson(join(appDirectory, "package.json")),
-    })),
-  );
-  const selectedApplications = selectedWorkspace
-    ? applications.filter(
-        ({ appPackage }) => appPackage.name === selectedWorkspace,
-      )
-    : applications;
-
-  if (selectedApplications.length === 0) {
-    throw new Error(`Unknown application workspace: ${selectedWorkspace}`);
+export async function generateLicenseReport({
+  repositoryRoot,
+  appDirectories,
+  checkOnly = false,
+  selectedWorkspace,
+}) {
+  if (typeof repositoryRoot !== "string" || !repositoryRoot) {
+    throw new TypeError(
+      "generateLicenseReport requires an explicit repository root.",
+    );
   }
-
-  for (const { appDirectory } of selectedApplications) {
-    await generateForApplication(appDirectory);
+  if (
+    !Array.isArray(appDirectories) ||
+    appDirectories.some(
+      (directory) => typeof directory !== "string" || !directory,
+    )
+  ) {
+    throw new TypeError(
+      "generateLicenseReport requires application directories.",
+    );
   }
-};
+  repositoryRoot = resolve(repositoryRoot);
+  try {
+    const applications = await Promise.all(
+      appDirectories.map(async (directory) => {
+        const appDirectory = resolve(repositoryRoot, directory);
+        return {
+          appDirectory,
+          appPackage: await readJson(join(appDirectory, "package.json")),
+        };
+      }),
+    );
+    const selectedApplications = selectedWorkspace
+      ? applications.filter(
+          ({ appPackage }) => appPackage.name === selectedWorkspace,
+        )
+      : applications;
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+    if (selectedApplications.length === 0) {
+      throw new Error(`Unknown application workspace: ${selectedWorkspace}`);
+    }
+
+    for (const { appDirectory } of selectedApplications) {
+      await generateForApplication(repositoryRoot, appDirectory, checkOnly);
+    }
+    return 0;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    return 1;
+  }
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  process.exitCode = await generateLicenseReport({
+    repositoryRoot,
+    appDirectories: [
+      join(repositoryRoot, "packages", "saika-lane"),
+      join(repositoryRoot, "packages", "saika-director"),
+      join(repositoryRoot, "packages", "saika-vista"),
+      join(repositoryRoot, "packages", "saika-docs"),
+      join(repositoryRoot, "packages", "nilay-knowledge"),
+      join(repositoryRoot, "packages", "nilay-about"),
+    ],
+    checkOnly: process.argv.includes("--check"),
+    selectedWorkspace: process.argv
+      .find((argument) => argument.startsWith("--workspace="))
+      ?.slice("--workspace=".length),
+  });
+}

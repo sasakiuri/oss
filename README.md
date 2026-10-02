@@ -11,19 +11,20 @@ on venue monitors, with local and remote screens managed from one operator PC.
 
 ## Packages
 
-| Package                                                 | Description                                                      |
-| ------------------------------------------------------- | ---------------------------------------------------------------- |
-| [`@sasakiuri/saika-lane`](packages/saika-lane/)         | Electronic target display system (Electron + React + TypeScript) |
-| [`@sasakiuri/saika-director`](packages/saika-director/) | MQTT competition controller (Electron + React + TypeScript)      |
-| [`@sasakiuri/saika-vista`](packages/saika-vista/)       | Offline spectator screens and multi-PC display management        |
-| [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Japanese manuals and documentation site                          |
-| [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders           |
-| [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation            |
-| [`@sasakiuri/saika-updater`](packages/saika-updater/)   | Shared application update state and installer coordination       |
-| `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                      |
-| `@sasakiuri/prettier-config`                            | Shared Prettier configuration                                    |
-| `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                   |
-| `@sasakiuri/typescript-config`                          | Shared TypeScript configuration                                  |
+| Package                                                 | Description                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`@sasakiuri/saika-lane`](packages/saika-lane/)         | Electronic target display system (Electron + React + TypeScript)                     |
+| [`@sasakiuri/saika-director`](packages/saika-director/) | MQTT competition controller (Electron + React + TypeScript)                          |
+| [`@sasakiuri/saika-vista`](packages/saika-vista/)       | Offline spectator screens and multi-PC display management                            |
+| [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Japanese manuals and documentation site                                              |
+| [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders                               |
+| [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation                                |
+| [`@sasakiuri/saika-updater`](packages/saika-updater/)   | Shared application update state and installer coordination                           |
+| `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                                          |
+| `@sasakiuri/prettier-config`                            | Shared Prettier configuration                                                        |
+| `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                                       |
+| [`@sasakiuri/repo-tooling`](packages/repo-tooling/)     | Checkout tooling and quality policies for companion repositories (private workspace) |
+| `@sasakiuri/typescript-config`                          | Shared TypeScript configuration                                                      |
 
 Lane, Director, Vista, and Docs share a version. A single `v<version>` tag builds the
 three desktop applications, and one GitHub Release contains their installers and

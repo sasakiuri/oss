@@ -33,7 +33,7 @@
   "scripts": {
     "ci:install": "node scripts/install-ci-dependencies.mjs",
     "ci:packages": "node scripts/run-package-ci.mjs",
-    "check": "npm run typecheck && npm run lint && npm run depcruise && npm run contracts:check && npm run cspell && npm run knip && npm run syncpack && npm run license-check && npm run license-report:check",
+    "check": "npm run boundaries && npm run typecheck && npm run lint && npm run depcruise && npm run contracts:check && npm run cspell && npm run knip && npm run syncpack && npm run license-check && npm run license-report:check",
     "qa": "npm run check && npm run build && npm rebuild better-sqlite3 && npm run test:coverage && npm run test:tooling && npm run size-limit && npm audit --audit-level=high",
     "contracts:check": "npm run api:check --workspaces --if-present && npm run env:check --workspaces --if-present",
     "depcruise": "turbo depcruise",
@@ -49,7 +49,7 @@
     "test:pre-release": "node --test scripts/pre-release-check.test.mjs",
     "test": "turbo test",
     "test:coverage": "node scripts/run-package-ci.mjs test --all",
-    "test:tooling": "node --test scripts/*.test.mjs && npm run test:artifacts --workspace=@sasakiuri/saika-docs",
+    "test:tooling": "node --test scripts/*.test.mjs packages/repo-tooling/tests/*.test.mjs && npm run test:artifacts --workspace=@sasakiuri/saika-docs",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
@@ -64,7 +64,8 @@
     "prepare": "node .husky/install.mjs",
     "postinstall": "electron-rebuild -f -w @serialport/bindings-cpp,better-sqlite3 --module-dir=.",
     "lint:infra": "node scripts/lint-infra.mjs",
-    "coverage:diff": "node scripts/coverage-diff-check.mjs"
+    "coverage:diff": "node scripts/coverage-diff-check.mjs",
+    "boundaries": "node packages/repo-tooling/cli.mjs boundaries"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
