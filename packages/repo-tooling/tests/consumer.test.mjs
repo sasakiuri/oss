@@ -10,6 +10,7 @@ import {
   readFileSync,
   readlinkSync,
   realpathSync,
+  lstatSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, isAbsolute, dirname, parse } from "node:path";
@@ -21,6 +22,7 @@ import {
   createLintStagedConfig,
   consumerMetadata,
   createSyncpackConfig,
+  createKnipConfig,
 } from "../config.mjs";
 import {
   upstreamRoot,
@@ -68,6 +70,16 @@ test("bundler root includes both checkout trees without changing the public root
   assert.equal(isInside(common, upstreamRoot), true);
   assert.equal(isInside(dirname(common), common), true);
   assert.equal(toolingWorkspaceRoot(upstreamRoot), upstreamRoot);
+});
+
+test("shared Knip configuration loads through the native ESM loader on every platform", async (t) => {
+  const { root } = fixture(t);
+  const configuration = await createKnipConfig(root);
+  assert.deepEqual(Object.keys(configuration.workspaces).sort(), [
+    ".",
+    "packages/private.app",
+  ]);
+  assert.deepEqual(configuration.ignoreIssues, {});
 });
 
 test("consumer Turbo cache bypass preserves forwarded application arguments", (t) => {
@@ -326,6 +338,18 @@ test("prepare repairs stale module links and derives local peer-dependent tool v
   if (process.platform === "win32")
     assert.equal(realpathSync(moduleLink), resolvePackage("typescript", app));
   else assert.equal(isAbsolute(readlinkSync(moduleLink)), false);
+  const linkModificationTime = lstatSync(moduleLink).mtimeMs;
+  const repeated = spawnSync(
+    process.execPath,
+    [resolve(upstreamRoot, "packages/repo-tooling/cli.mjs"), "prepare"],
+    {
+      cwd: root,
+      env: { ...process.env, CI: "true", HUSKY: "0" },
+      encoding: "utf8",
+    },
+  );
+  assert.equal(repeated.status, 0, repeated.stderr);
+  assert.equal(lstatSync(moduleLink).mtimeMs, linkModificationTime);
   const updated = JSON.parse(readFileSync(resolve(app, "package.json")));
   const source = JSON.parse(
     readFileSync(

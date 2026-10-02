@@ -2,6 +2,7 @@
 import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
 import { resolve, relative, sep } from "node:path";
 import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import {
   readJson,
   upstreamRoot,
@@ -125,7 +126,7 @@ export function createLintStagedConfig(root) {
 
 export async function createKnipConfig(root) {
   const { default: source } = await import(
-    resolve(upstreamRoot, "knip.config.ts")
+    pathToFileURL(resolve(upstreamRoot, "knip.config.ts")).href
   );
   return {
     ...source,

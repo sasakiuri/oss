@@ -49,6 +49,8 @@ same QA entrypoint. Consumers retain deployment and language-specific checks.
 Imported module links are relative on POSIX so sibling checkouts remain portable
 across host and container paths. Windows uses directory junctions; regenerate
 them with `prepare` after relocating checkouts. Both trees must share a drive.
+When host and container platforms differ, install upstream dependencies for the
+container platform instead of mounting host-native binaries into the container.
 Static boundary checks cover manifests, lockfiles,
 symlinks, relative imports, and TypeScript paths; computed runtime references
 remain part of code review.
@@ -56,8 +58,8 @@ remain part of code review.
 Consumers may set `repoTooling.dockerCompose` to a local Compose file and run
 `repo-tooling docker ...`. The wrapper supplies checkout roots and the current
 upstream Node.js/npm versions as environment variables. The shared Dockerfile
-accepts those versions as build arguments. Install upstream dependencies on
-the host before mounting that checkout read-only into a consumer container.
+accepts those versions as build arguments. Install upstream dependencies for
+the container platform before mounting that checkout read-only into the container.
 
 Consumer Turbo tasks always run with `--force`: files from the external tooling
 checkout are not included in a consumer-only cache key. Bundlers can use the

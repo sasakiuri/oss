@@ -122,7 +122,8 @@ function linkToolDependencies() {
           try {
             if (
               realpathSync(link) === target &&
-              readlinkSync(link) === relativeTarget
+              (process.platform === "win32" ||
+                readlinkSync(link) === relativeTarget)
             )
               continue;
           } catch (error) {
