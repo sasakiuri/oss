@@ -1,0 +1,21 @@
+{
+  "name": "@sasakiuri/repo-tooling",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Live repository tooling for companion checkouts",
+  "bin": {
+    "repo-tooling": "./cli.mjs"
+  },
+  "exports": {
+    "./config": "./config.mjs",
+    "./vitest": "./vitest.mjs",
+    "./runtime": "./runtime.mjs"
+  },
+  "scripts": {
+    "lint": "prettier --check .",
+    "fix": "prettier --write .",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

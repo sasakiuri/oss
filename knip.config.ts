@@ -3,6 +3,10 @@ import type { KnipConfig } from "knip";
 
 const config: KnipConfig = {
   workspaces: {
+    "packages/repo-tooling": {
+      // The Vitest adapter resolves this plugin from the selected upstream profile.
+      ignoreDependencies: ["@vitejs/plugin-react"],
+    },
     "packages/nilay-news": {
       entry: [
         "src/local-worker.ts",

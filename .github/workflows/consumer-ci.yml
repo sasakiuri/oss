@@ -1,0 +1,67 @@
+name: Companion repository quality
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout consumer
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          path: consumer
+          fetch-depth: 0
+      - name: Checkout shared tooling
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          repository: sasakiuri/oss
+          ref: 1.x
+          path: oss
+      - name: Read upstream runtime
+        id: runtime
+        working-directory: oss
+        run: |
+          echo "node=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+          echo "npm=$(node -p 'require("./package.json").volta.npm')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+          cache: npm
+          cache-dependency-path: |
+            oss/package-lock.json
+            consumer/package-lock.json
+      - name: Install upstream package manager
+        env:
+          NPM_VERSION: ${{ steps.runtime.outputs.npm }}
+        run: npm install --global "npm@$NPM_VERSION" # zizmor: ignore[adhoc-packages]
+      - name: Install upstream tools
+        working-directory: oss
+        run: npm ci --ignore-scripts
+      - name: Install consumer dependencies
+        working-directory: consumer
+        run: node ../oss/packages/repo-tooling/cli.mjs install --ci
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        working-directory: consumer
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npm exec -- repo-tooling run commitlint --verbose
+      - name: Infrastructure lint
+        working-directory: consumer
+        run: npm run lint:infra
+      - name: Quality assurance
+        working-directory: consumer
+        run: npm run qa
+      - name: Changed executable line coverage
+        if: github.event_name == 'pull_request'
+        working-directory: consumer
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: npm run coverage:diff -- --base "$BASE_SHA"
