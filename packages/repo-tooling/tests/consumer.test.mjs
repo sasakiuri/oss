@@ -9,9 +9,10 @@ import {
   symlinkSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, isAbsolute, dirname } from "node:path";
+import { resolve, isAbsolute, dirname, parse } from "node:path";
 import { test } from "node:test";
 import lintStaged from "lint-staged";
 import { checkBoundaries } from "../boundaries.mjs";
@@ -58,6 +59,10 @@ function fixture(t) {
 
 test("bundler root includes both checkout trees without changing the public root", (t) => {
   const { root } = fixture(t);
+  if (parse(root).root !== parse(upstreamRoot).root) {
+    assert.throws(() => toolingWorkspaceRoot(root), /share a filesystem root/);
+    return;
+  }
   const common = toolingWorkspaceRoot(root);
   assert.equal(isInside(common, root), true);
   assert.equal(isInside(common, upstreamRoot), true);
@@ -317,10 +322,10 @@ test("prepare repairs stale module links and derives local peer-dependent tool v
     },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(
-    isAbsolute(readlinkSync(resolve(app, "node_modules/typescript"))),
-    false,
-  );
+  const moduleLink = resolve(app, "node_modules/typescript");
+  if (process.platform === "win32")
+    assert.equal(realpathSync(moduleLink), resolvePackage("typescript", app));
+  else assert.equal(isAbsolute(readlinkSync(moduleLink)), false);
   const updated = JSON.parse(readFileSync(resolve(app, "package.json")));
   const source = JSON.parse(
     readFileSync(

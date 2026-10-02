@@ -3,7 +3,7 @@ THIRD-PARTY SOFTWARE NOTICES
 This file is generated from the installed production dependency closure of
 @sasakiuri/nilay-knowledge. Do not edit it manually.
 
-Package/version entries: 435
+Package/version entries: 434
 
 The following npm packages may be included in this product:
 
@@ -1009,9 +1009,8 @@ The following npm packages may be included in this product:
 
  - @napi-rs/canvas-linux-x64-gnu@1.0.9
  - @napi-rs/canvas-linux-x64-musl@1.0.9
- - @next/env@16.3.4
- - @next/swc-linux-x64-gnu@16.3.4
- - @next/swc-linux-x64-musl@16.3.4
+ - @next/env@16.3.8
+ - @next/swc-linux-x64-gnu@16.3.8
  - @viz-js/viz@3.30.0
  - babel-plugin-react-compiler@1.0.0
  - client-only@0.0.1
@@ -6797,7 +6796,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The following npm package may be included in this product:
 
- - next@16.3.4
+ - next@16.3.8
 
 This package contains the following license:
 

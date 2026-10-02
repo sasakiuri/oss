@@ -18,6 +18,15 @@ const normalizeText = (value) =>
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 
+// npm ls strips a leading v from package versions; Arborist's scanner retains it.
+const normalizeDependencyId = (value) => {
+  const separator = value.lastIndexOf("@");
+  return (
+    value.slice(0, separator + 1) +
+    value.slice(separator + 1).replace(/^v(?=\d)/, "")
+  );
+};
+
 /**
  * The `invalid:` problems in an `npm ls --json --long` tree whose every
  * complaint comes from an optional peer range, keyed as npm prints them.
@@ -161,7 +170,7 @@ const loadProductionDependencyIds = async (repositoryRoot, appPackage) => {
 
     const name = node.name ?? fallbackName;
     if (name && node.version && name !== appPackage.name) {
-      const id = `${name}@${node.version}`;
+      const id = normalizeDependencyId(`${name}@${node.version}`);
       dependencyIds.add(id);
       if (node.path) {
         const paths = dependencyPaths.get(id) ?? new Set();
@@ -194,9 +203,11 @@ const loadLicenseRecords = async (
   dependencyPaths,
   appPackageJsonPath,
 ) => {
-  const productionIds = [...dependencyIds].map((id) =>
-    id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-  );
+  const productionIds = [...dependencyIds].map((id) => {
+    const separator = id.lastIndexOf("@");
+    const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return `${escape(id.slice(0, separator))}@v?${escape(id.slice(separator + 1))}`;
+  });
   const options = {
     // Skip unrelated workspaces and linked development tools before the
     // scanner reads their license texts or traverses their dependencies.
@@ -230,7 +241,8 @@ const loadLicenseRecords = async (
     const notices = license.notices.map(normalizeText).filter(Boolean);
     const recordKey = JSON.stringify([content, notices]);
 
-    for (const dependencyId of license.dependencies) {
+    for (const scannedId of license.dependencies) {
+      const dependencyId = normalizeDependencyId(scannedId);
       if (!dependencyIds.has(dependencyId)) {
         continue;
       }

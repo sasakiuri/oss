@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -22,7 +23,9 @@ const sourcePolicy = fileURLToPath(
 );
 
 function fixture(t) {
-  const directory = mkdtempSync(resolve(tmpdir(), "consumer-license-check-"));
+  const directory = realpathSync(
+    mkdtempSync(resolve(tmpdir(), "consumer-license-check-")),
+  );
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const root = resolve(directory, "consumer");
   mkdirSync(root);

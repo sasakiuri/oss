@@ -409,6 +409,77 @@ test("license generation and checking use the consumer dependency tree and selec
   assert.equal(readFileSync(reportPath, "utf8"), "Stale report.\n");
 });
 
+test("license scanning matches npm's normalized version without accepting another version", (t) => {
+  const options = licenseFixture(t);
+  const manifestPath = "node_modules/fixture-dependency/package.json";
+  rmSync(join(options.root, "node_modules/fixture-dependency/LICENSE"));
+  for (const [version, expectedStatus] of [
+    ["v1.0.0", 0],
+    ["v2.0.0", 1],
+  ]) {
+    write(options.root, manifestPath, {
+      name: "fixture-dependency",
+      version,
+      license: "MIT",
+    });
+    const result = runTool(
+      "generate-third-party-licenses",
+      `
+      assert.equal(await tool.generateLicenseReport({
+        repositoryRoot: options.root,
+        appDirectories: [options.appDirectory]
+      }), ${expectedStatus});
+      `,
+      options,
+    );
+    if (expectedStatus === 0) {
+      const report = readFileSync(
+        join(options.root, options.appDirectory, "THIRD-PARTY-LICENSES.txt"),
+        "utf8",
+      );
+      assert.match(report, /fixture-dependency@1\.0\.0/);
+      assert.match(report, /MIT/);
+      assert.doesNotMatch(report, /fixture-dependency@v1\.0\.0/);
+    } else {
+      assert.match(result.stderr, /Could not resolve license text/);
+    }
+  }
+});
+
+test("license version normalization preserves digit-prefixed scopes", (t) => {
+  const options = licenseFixture(t);
+  const name = "@v1/tools";
+  for (const path of ["package.json", `${options.appDirectory}/package.json`]) {
+    const manifest = JSON.parse(readFileSync(join(options.root, path), "utf8"));
+    manifest.dependencies[name] = "1.0.0";
+    write(options.root, path, manifest);
+  }
+  write(options.root, `node_modules/${name}/package.json`, {
+    name,
+    version: "v1.0.0",
+    license: "MIT",
+  });
+  options.tree.dependencies["@example/consumer-app"].dependencies[name] = {
+    name,
+    version: "1.0.0",
+    path: join(options.root, "node_modules", name),
+  };
+  runTool(
+    "generate-third-party-licenses",
+    `assert.equal(await tool.generateLicenseReport({
+      repositoryRoot: options.root,
+      appDirectories: [options.appDirectory]
+    }), 0);`,
+    options,
+  );
+  const report = readFileSync(
+    join(options.root, options.appDirectory, "THIRD-PARTY-LICENSES.txt"),
+    "utf8",
+  );
+  assert.match(report, /@v1\/tools@1\.0\.0/);
+  assert.doesNotMatch(report, /@1\/tools/);
+});
+
 test("unrelated linked tooling problems do not invalidate the workspace production closure", (t) => {
   const options = licenseFixture(t);
   const toolingRoot = fixture(t);

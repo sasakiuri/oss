@@ -36,7 +36,14 @@ export function isInside(root, filename) {
 
 export function toolingWorkspaceRoot(cwd = process.cwd()) {
   let common = repositoryRoot(cwd);
-  while (!isInside(common, upstreamRoot)) common = dirname(common);
+  while (!isInside(common, upstreamRoot)) {
+    const parent = dirname(common);
+    if (parent === common)
+      throw new Error(
+        "Tooling and consumer checkouts must share a filesystem root",
+      );
+    common = parent;
+  }
   return common;
 }
 
