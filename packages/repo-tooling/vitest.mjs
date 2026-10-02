@@ -3,11 +3,13 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { toolRequire } from "./runtime.mjs";
 
-export async function createWebsiteVitestConfig(root) {
-  const require = toolRequire(root, { defaultProfile: "nilay-knowledge" });
-  const { default: react } = await import(
-    pathToFileURL(require.resolve("@vitejs/plugin-react")).href
-  );
+export async function createWebsiteVitestConfig(root, { react } = {}) {
+  if (!react) {
+    const require = toolRequire(root, { defaultProfile: "nilay-knowledge" });
+    ({ default: react } = await import(
+      pathToFileURL(require.resolve("@vitejs/plugin-react")).href
+    ));
+  }
   return {
     plugins: [react()],
     test: {

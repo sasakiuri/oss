@@ -46,8 +46,10 @@ checkouts. Running it in the public checkout permits no external repository.
 The reusable `consumer-ci.yml` workflow installs sibling checkouts and runs the
 same QA entrypoint. Consumers retain deployment and language-specific checks.
 
-Imported module links are relative so sibling checkouts remain portable across
-host and container paths. Static boundary checks cover manifests, lockfiles,
+Imported module links are relative on POSIX so sibling checkouts remain portable
+across host and container paths. Windows uses directory junctions; regenerate
+them with `prepare` after relocating checkouts. Both trees must share a drive.
+Static boundary checks cover manifests, lockfiles,
 symlinks, relative imports, and TypeScript paths; computed runtime references
 remain part of code review.
 
