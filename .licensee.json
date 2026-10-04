@@ -26,7 +26,8 @@
     "structured-source": "3.0.2",
     "tiny-segmenter": "0.2.0",
     "zlibjs": "0.2.0",
-    "elkjs": "0.11.1"
+    "elkjs": "0.11.1",
+    "png-js": "1.0.0"
   },
   "corrections": true,
   "ignore": [
