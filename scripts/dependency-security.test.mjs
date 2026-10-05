@@ -93,3 +93,10 @@ test("invalid length options cannot bypass the input size limit", () => {
     message: /maxLength/,
   });
 });
+
+test("numeric expansion keeps the existing range size guard", () => {
+  assert.throws(() => braces.expand("{1..1000000000}"), {
+    name: "RangeError",
+    message: /range limit/,
+  });
+});

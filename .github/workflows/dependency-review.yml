@@ -17,8 +17,32 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      - run: npm install --global npm@11.20.0 # zizmor: ignore[adhoc-packages]
+      - run: npm ci --ignore-scripts
+      - name: Audit actual package identities and test security guards
+        run: |
+          npm audit --audit-level=high
+          node --test scripts/dependency-security.test.mjs scripts/dependency-review-aliases.test.mjs
+
+      - name: Verify exact artifacts behind GitHub alias findings
+        id: aliases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p .local
+          gh api "repos/$GH_REPO/dependency-graph/compare/$BASE_SHA...$HEAD_SHA" > .local/dependency-review.json
+          node scripts/dependency-review-aliases.mjs .local/dependency-review.json
+
       - name: Dependency Review
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: high
           deny-licenses: AGPL-3.0, GPL-3.0
+          allow-ghsas: ${{ steps.aliases.outputs.allow-ghsas }}
