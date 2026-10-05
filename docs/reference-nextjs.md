@@ -2,7 +2,7 @@
 
 Saika Docs serves the Markdown manuals in `packages/saika-docs` through Next.js. The `/reference/` pages demonstrate the site’s UI components, data fetching, and validation.
 
-Use Node.js 24.16.0 and npm 11.13.0.
+Use Node.js 24.16.0 and npm 11.20.0.
 
 Docs-only setup uses `make setup` without running application install hooks. For
 desktop development as well, run `npm ci` from the repository root; its install

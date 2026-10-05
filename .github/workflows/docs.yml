@@ -30,7 +30,7 @@ jobs:
           node-version: "24.16.0"
           cache: npm
       # Bootstrap the exact package manager before installing the lockfile.
-      - run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      - run: npm install --global npm@11.20.0 # zizmor: ignore[adhoc-packages]
       - run: npm ci --ignore-scripts
       - name: Audit dependencies
         run: npm audit --audit-level=high

@@ -7,7 +7,7 @@ Development setup, code conventions, checks, and contribution workflow for the S
 ### Prerequisites
 
 - **Node.js** 24.16.0 ([Volta](https://volta.sh/) recommended)
-- **npm** 11.13.0
+- **npm** 11.20.0
 - For `saika-lane`: Visual Studio Build Tools with "Desktop development with C++" workload (required for native modules like `serialport`)
 - Shell scripts in `scripts/` require **Bash** (Linux / macOS / WSL)
 
@@ -169,6 +169,13 @@ updates run weekly with a seven-day cooldown; security updates bypass cooldown.
 Production dependencies and major updates require review. Only minor and patch
 updates in the development-dependency and Actions groups are eligible for
 automatic rebase merging after required checks pass.
+
+The root `braces` override pins a reviewed MIT-licensed depth-guard derivative
+for the [braces recursion advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
+It preserves ordinary glob expansion and rejects nesting beyond 100 levels.
+CI tests the installed transitive dependency's compatibility and depth guards.
+Replace this temporary override when an upstream fix passes the same tests;
+keep dependency auditing enabled.
 
 ### Changing Application Code
 
