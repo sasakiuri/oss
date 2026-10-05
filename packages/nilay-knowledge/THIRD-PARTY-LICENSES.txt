@@ -4704,7 +4704,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 The following npm package may be included in this product:
 
- - dompurify@3.4.15
+ - dompurify@3.4.16
 
 This package contains the following license:
 

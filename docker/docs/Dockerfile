@@ -1,7 +1,7 @@
 FROM node:24.16.0-bookworm-slim AS dependencies
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 HUSKY=0
-RUN npm install --global npm@11.13.0
+RUN npm install --global npm@11.20.0
 COPY package.json package-lock.json .npmrc ./
 # Workspace directories must retain their names for npm's lockfile resolution.
 COPY packages/ ./packages/

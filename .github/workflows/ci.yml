@@ -98,7 +98,7 @@ jobs:
         with:
           node-version: "24.16.0"
           cache: npm
-      - run: npm install --global npm@11.13.0 # zizmor: ignore[adhoc-packages]
+      - run: npm install --global npm@11.20.0 # zizmor: ignore[adhoc-packages]
       - run: npm ci --ignore-scripts
       - run: npm run knip
 
@@ -128,6 +128,9 @@ jobs:
 
       - name: Test changed-code coverage gate
         run: node --test scripts/coverage-diff-check.test.mjs
+
+      - name: Test dependency security regressions
+        run: node --test scripts/dependency-security.test.mjs
 
       - name: Lint
         run: npm run ci:packages -- lint

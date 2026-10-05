@@ -856,7 +856,7 @@ cron routes require `CRON_SECRET`, and logs replace hook tokens and room and pag
 
 ## Development
 
-Use Node.js 24.x (24.16.0) and npm 11.13.0, and run from the repository root.
+Use Node.js 24.x (24.16.0) and npm 11.20.0, and run from the repository root.
 
 ```bash
 npm ci

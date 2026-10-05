@@ -35,7 +35,7 @@ versioned documentation source. Shared configuration packages are versioned sepa
 ### Prerequisites
 
 - **Node.js** 24.16.0 ([Volta](https://volta.sh/) recommended)
-- **npm** 11.13.0
+- **npm** 11.20.0
 
 ### Setup
 
