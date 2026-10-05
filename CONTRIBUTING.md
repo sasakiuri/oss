@@ -174,6 +174,10 @@ The root `braces` override pins a reviewed MIT-licensed depth-guard derivative
 for the [braces recursion advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
 It preserves ordinary glob expansion and rejects nesting beyond 100 levels.
 CI tests the installed transitive dependency's compatibility and depth guards.
+GitHub currently reports this npm alias under the original package identity.
+The dependency-review job corrects only the two known findings after matching
+every alias to the reviewed name, version, archive URL, and integrity hash.
+It also audits the installed package identities and runs the guard tests.
 Replace this temporary override when an upstream fix passes the same tests;
 keep dependency auditing enabled.
 
