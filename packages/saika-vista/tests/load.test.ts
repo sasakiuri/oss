@@ -135,7 +135,8 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
   const started = performance.now();
   const initialMemory = process.memoryUsage();
   const lanes = Array.from({ length: LANES }, (_, index) => createLane(index));
-  const directory = await mkdtemp(join(tmpdir(), 'vista-100-lanes-'));
+  // Use the runner's scratch disk for durable I/O instead of the Windows system temp volume.
+  const directory = await mkdtemp(join(process.env.RUNNER_TEMP || tmpdir(), 'vista-100-lanes-'));
   const screens: ScreenConfig[] = [];
   const opened = new Set<string>();
   const desktop: DesktopPort = {
@@ -354,6 +355,8 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
     console.info(
       'VISTA_100_LANE_LOAD',
       JSON.stringify({
+        platform: process.platform,
+        storageDirectory: directory,
         sources: LANES,
         screens: LANES,
         historyPerLane: HISTORY,
