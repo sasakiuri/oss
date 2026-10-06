@@ -32,6 +32,11 @@ import {
   createSyncpackConfig,
 } from "./config.mjs";
 import { checkBoundaries } from "./boundaries.mjs";
+import {
+  createGitHubTemplates,
+  unmanagedTemplates,
+  syncLabels,
+} from "./github.mjs";
 
 const root = repositoryRoot();
 const [command = "help", ...args] = process.argv.slice(2);
@@ -74,6 +79,16 @@ function refreshMetadata({ checkOnly = false } = {}) {
     readFileSync(attributesPath, "utf8") !== attributes
   )
     changes.push([attributesPath, attributes]);
+  const unmanaged = unmanagedTemplates(root);
+  if (unmanaged.length)
+    throw new Error(
+      `Issue templates are shared from the upstream checkout. Remove or upstream: ${unmanaged.join(", ")}`,
+    );
+  for (const [filename, contents] of createGitHubTemplates(root)) {
+    const path = resolve(root, filename);
+    if (!existsSync(path) || readFileSync(path, "utf8") !== contents)
+      changes.push([path, contents]);
+  }
   for (const directory of [".", ...workspaceDirectories(root)]) {
     const cwd = resolve(root, directory);
     const filename = resolve(cwd, "package.json");
@@ -94,9 +109,12 @@ function refreshMetadata({ checkOnly = false } = {}) {
   }
   if (checkOnly && changes.length)
     throw new Error(
-      `Derived upstream metadata is outdated: ${changes.map(([filename]) => filename).join(", ")}. Run repo-tooling install and commit the generated dependency metadata.`,
+      `Derived upstream metadata is outdated: ${changes.map(([filename]) => filename).join(", ")}. Run repo-tooling install and commit the generated metadata.`,
     );
-  for (const [filename, contents] of changes) writeFileSync(filename, contents);
+  for (const [filename, contents] of changes) {
+    mkdirSync(dirname(filename), { recursive: true });
+    writeFileSync(filename, contents);
+  }
 }
 
 function linkToolDependencies() {
@@ -266,6 +284,13 @@ async function execute(script, arguments_) {
       selectedWorkspace: arguments_[0],
     });
   }
+  if (script === "labels:sync") {
+    const unknown = arguments_.filter((argument) => argument !== "--dry-run");
+    if (unknown.length)
+      throw new Error(`Unknown labels:sync option: ${unknown.join(" ")}`);
+    syncLabels(root, { dryRun: arguments_.includes("--dry-run") });
+    return 0;
+  }
   if (script === "contracts:check") {
     for (const task of ["api:check", "env:check"]) {
       const status = npm(["run", task, "--workspaces", "--if-present"]);
@@ -344,7 +369,7 @@ async function execute(script, arguments_) {
     return execute("run", ["licensee", "--errors-only", ...arguments_]);
   if (script === "help") {
     console.log(
-      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries",
+      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries | labels:sync [--dry-run]",
     );
     return 0;
   }

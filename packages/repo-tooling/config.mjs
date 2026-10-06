@@ -32,8 +32,8 @@ export function workspaceDirectories(root) {
   });
 }
 
-export function createCommitlintConfig(root) {
-  const packageScopes = execFileSync(
+export function packageScopes(root) {
+  const scopes = execFileSync(
     "git",
     [
       "ls-files",
@@ -51,6 +51,10 @@ export function createCommitlintConfig(root) {
     .map((filename) => filename.split("/")[1])
     .filter((name) => name && !name.startsWith("."))
     .map((name) => name.replaceAll(".", "-"));
+  return [...new Set(scopes)].sort();
+}
+
+export function createCommitlintConfig(root) {
   return {
     extends: [
       resolve(
@@ -62,7 +66,7 @@ export function createCommitlintConfig(root) {
       "scope-enum": [
         2,
         "always",
-        [...new Set(packageScopes), "repo", "root", "monorepo"],
+        [...packageScopes(root), "repo", "root", "monorepo"],
       ],
       "scope-empty": [2, "never"],
       "scope-case": [2, "always", "kebab-case"],

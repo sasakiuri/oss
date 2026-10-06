@@ -4,7 +4,7 @@
 # https://github.com/repository-settings/app
 #
 # Changes to this file on the default branch will be synced to GitHub automatically.
-# Do NOT add a `labels` section — labels are managed by sync-labels.yml + labels.yml.
+# Do NOT add a `labels` section — labels are managed by sync-labels.yml + labels.json.
 
 repository:
   name: oss

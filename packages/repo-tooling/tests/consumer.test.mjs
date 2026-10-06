@@ -272,8 +272,11 @@ test("CI bootstrap rejects derived metadata drift without changing tracked input
   const manifestPath = resolve(root, "package.json");
   const attributesPath = resolve(root, ".gitattributes");
   const lockPath = resolve(root, "package-lock.json");
-  const files = [manifestPath, attributesPath, lockPath];
+  const templatePath = resolve(root, ".github/PULL_REQUEST_TEMPLATE.md");
+  const files = [manifestPath, attributesPath, lockPath, templatePath];
   writeFileSync(attributesPath, "stale attributes\n");
+  mkdirSync(dirname(templatePath));
+  writeFileSync(templatePath, "stale template\n");
   writeFileSync(
     lockPath,
     JSON.stringify({
