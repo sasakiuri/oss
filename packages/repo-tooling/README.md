@@ -46,6 +46,16 @@ checkouts. Running it in the public checkout permits no external repository.
 The reusable `consumer-ci.yml` workflow installs sibling checkouts and runs the
 same QA entrypoint. Consumers retain deployment and language-specific checks.
 
+Issue and pull request templates come from this checkout's `.github` directory.
+`install` and `prepare` write them into the consumer, listing the consumer's
+commit scopes as package choices; CI rejects drift and installation rejects
+unmanaged issue templates. Contact links stay with the public checkout, and the
+changeset reminder applies only where `.changeset/config.json` exists.
+`repo-tooling labels:sync [--dry-run]` applies `.github/labels.json` and one
+`Package:` label per commit scope through `gh`, then deletes other `Cat:`,
+`Package:` and `Status:` labels, which also removes them from issues and pull
+requests.
+
 Imported module links are relative on POSIX so sibling checkouts remain portable
 across host and container paths. Windows uses directory junctions; regenerate
 them with `prepare` after relocating checkouts. Both trees must share a drive.

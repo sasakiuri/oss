@@ -16,9 +16,12 @@ body:
         - nilay-knowledge
         - nilay-news
         - prettier-config
+        - repo-tooling
+        - saika-coach
         - saika-director
         - saika-docs
         - saika-lane
+        - saika-live
         - saika-protocol
         - saika-rules
         - saika-updater
