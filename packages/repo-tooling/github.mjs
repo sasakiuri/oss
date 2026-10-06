@@ -110,11 +110,11 @@ export function syncLabels(root, { dryRun = false, gh = runGh } = {}) {
         "--json",
         "name,color,description",
       ]),
-    ).map((label) => [label.name, label]),
+    ).map((label) => [label.name.toLowerCase(), label]),
   );
   const operations = [];
   for (const { name, color, description } of desired) {
-    const existing = current.get(name);
+    const existing = current.get(name.toLowerCase());
     if (!existing)
       operations.push([
         "create",
@@ -130,20 +130,32 @@ export function syncLabels(root, { dryRun = false, gh = runGh } = {}) {
         ],
       ]);
     else if (
+      existing.name !== name ||
       existing.color.toLowerCase() !== color.toLowerCase() ||
       existing.description !== description
     )
       operations.push([
         "update",
         name,
-        ["label", "edit", name, "--color", color, "--description", description],
+        [
+          "label",
+          "edit",
+          existing.name,
+          ...(existing.name !== name ? ["--name", name] : []),
+          "--color",
+          color,
+          "--description",
+          description,
+        ],
       ]);
   }
-  const defined = new Set(desired.map((label) => label.name));
-  for (const name of current.keys())
+  const defined = new Set(desired.map((label) => label.name.toLowerCase()));
+  for (const { name } of current.values())
     if (
-      managedLabelPrefixes.some((prefix) => name.startsWith(prefix)) &&
-      !defined.has(name)
+      managedLabelPrefixes.some((prefix) =>
+        name.toLowerCase().startsWith(prefix.toLowerCase()),
+      ) &&
+      !defined.has(name.toLowerCase())
     )
       operations.push(["delete", name, ["label", "delete", name, "--yes"]]);
   for (const [action, name, arguments_] of operations) {

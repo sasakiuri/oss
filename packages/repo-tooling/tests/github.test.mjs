@@ -179,3 +179,49 @@ test("label sync changes only managed labels and supports dry runs", (t) => {
   assert.deepEqual(planned.operations, applied.operations);
   assert.deepEqual(planned.calls, []);
 });
+
+test("label sync renames case variants without recreating their assignments", (t) => {
+  const root = fixture(t);
+  const desired = createLabels(root);
+  const packageLabel = desired.find((label) =>
+    label.name.startsWith("Package:"),
+  );
+  const existingName = packageLabel.name.toUpperCase();
+  const current = desired.map((label) =>
+    label === packageLabel ? { ...label, name: existingName } : label,
+  );
+  current.push({
+    name: "PACKAGE: retired 📦",
+    color: "ffffff",
+    description: "",
+  });
+  current.push({ name: "Custom", color: "ffffff", description: "" });
+  const calls = [];
+  const gh = (cwd, arguments_) => {
+    assert.equal(cwd, root);
+    calls.push(arguments_);
+    return arguments_[1] === "list" ? JSON.stringify(current) : "";
+  };
+  t.mock.method(console, "log", () => {});
+  assert.deepEqual(syncLabels(root, { gh }), [
+    ["update", packageLabel.name],
+    ["delete", "PACKAGE: retired 📦"],
+  ]);
+  assert.deepEqual(calls.slice(1), [
+    [
+      "label",
+      "edit",
+      existingName,
+      "--name",
+      packageLabel.name,
+      "--color",
+      packageLabel.color,
+      "--description",
+      packageLabel.description,
+    ],
+    ["label", "delete", "PACKAGE: retired 📦", "--yes"],
+  ]);
+  calls.length = 0;
+  syncLabels(root, { dryRun: true, gh });
+  assert.equal(calls.length, 1);
+});
