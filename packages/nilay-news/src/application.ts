@@ -46,6 +46,8 @@ const ANALYSIS_ITEMS_PER_TICK = 10;
  * collection.
  */
 const ANALYSIS_SECONDS_PER_TICK = 45;
+/** A failure the next attempt clears is not sent to Slack. */
+const REPEATED = 2;
 /** Post states that keep automatic posting from starting. */
 const UNRESOLVED_POSTS = new Set([
   "publishing",
@@ -476,8 +478,9 @@ export class Application {
       await this.notifier.report(
         "job",
         "中断された処理を再開します",
-        "前回の実行が完了しませんでした。保存された進捗から収集・仕分けを再開します。",
+        "処理の中断が続いています。保存された進捗から収集・仕分けを再開します。管理画面で処理状況を確認してください。",
         "warning",
+        REPEATED,
       );
     }
     if (additional && this.late(burst)) {
@@ -752,6 +755,7 @@ export class Application {
           "記事の取得に未完了の項目があります",
           `${source.name}：取得範囲・本文の注意事項を管理画面で確認してください。`,
           "warning",
+          REPEATED,
         );
       } else
         await this.notifier.recover(
@@ -798,6 +802,8 @@ export class Application {
           `crawl:${sourceId}`,
           "ニュースのクロールに失敗しました",
           `${source.name}：${status}通信・取得制限または解析エラーです。管理画面の収集元と設定で理由を確認してください。`,
+          "error",
+          REPEATED,
         );
       }
     } finally {
@@ -925,6 +931,8 @@ export class Application {
         "jev",
         "Jev による仕分けに失敗しました",
         "API の設定・利用上限・応答を管理画面で確認してください。記事と手動の選別状態は保持しています。",
+        "error",
+        REPEATED,
       );
       result = {
         analysisStatus: "error",
