@@ -2,9 +2,12 @@
 /**
  * Bounded Slack operational notices; callers supply curated, nonsecret text.
  *
- * Delivery failures never replace the caller's result. A durable hourly
- * claim suppresses uncertain sends as well as successful ones. Without a
- * working repository, suppression is best effort within one isolate.
+ * Delivery failures never replace the caller's result. An ongoing incident is
+ * repeated at most once a day, or after an hour when its delivery failed; a
+ * durable claim suppresses uncertain sends as well as successful ones. A report may require consecutive occurrences, so a
+ * failure the next success clears sends nothing. Without a working repository,
+ * suppression is best effort within one isolate and occurrences are not
+ * counted.
  *
  * A throttle claim must be referenced by a durable record so recovery can
  * release it. If that record cannot be written the claim is released at once;
@@ -24,7 +27,8 @@ import { dropEnd, length, sha256, strip, utf8 } from "./text.ts";
 
 type NoticeLevel = "error" | "warning" | "info" | "recovery";
 
-const HOUR = 3600;
+const REMINDER = 24 * 3600;
+const REDELIVERY = 3600;
 const LOCAL_LIMIT = 256;
 const FAILURE = "NilayNews operational notification could not be completed";
 const LONE_SURROGATE =
@@ -47,6 +51,8 @@ interface NoticeRecord {
   claimToken?: string;
   delivered?: boolean;
   recoveredAt?: number;
+  /** Occurrences counted since the last recovery while not yet notified. */
+  pending?: number;
 }
 
 // Isolate-wide state shared by every Notifier, as a Worker isolate is.
@@ -172,14 +178,16 @@ export class Notifier {
   }
 
   /**
-   * Attempt one notice per stable event per hour; resolve to delivery success.
-   * `title` and `detail` must be application-authored summaries.
+   * Attempt one notice per stable event per day; resolve to delivery success.
+   * The first notice waits for `occurrences` reports without a recovery in
+   * between. `title` and `detail` must be application-authored summaries.
    */
   async report(
     key: string,
     title: string,
     detail = "",
     level: NoticeLevel = "error",
+    occurrences = 1,
   ): Promise<boolean> {
     const identity = this.configured ? await this.identity(key) : null;
     if (!identity) return false;
@@ -210,15 +218,32 @@ export class Notifier {
         signal.throwIfAborted();
         if (
           previous.active &&
-          (previous.lastAttemptAt ?? 0) + HOUR > this.clock()
+          (previous.lastAttemptAt ?? 0) +
+            (previous.delivered === false ? REDELIVERY : REMINDER) >
+            this.clock()
         )
           return false;
+        const lease = { leaseHost: operation, leaseToken: held.token };
+        const pending = (previous.pending ?? 0) + 1;
+        if (!previous.active && pending < occurrences) {
+          await repository.putRecord(
+            "notifications",
+            digest,
+            { ...previous, pending },
+            lease,
+          );
+          return false;
+        }
         // Retry the claim release of a recovered or expired incident.
         if (previous.claimToken)
           await repository.releaseHost(throttle, previous.claimToken);
         // The claim is kept until its TTL, including uncertain network results;
         // recovery releases it under the operation lock.
-        held.claim = await repository.acquireHost(throttle, this.clock(), HOUR);
+        held.claim = await repository.acquireHost(
+          throttle,
+          this.clock(),
+          REMINDER,
+        );
         if (held.claim === null) return false;
         signal.throwIfAborted();
         const record: NoticeRecord = {
@@ -228,11 +253,10 @@ export class Notifier {
           claimToken: held.claim,
           delivered: false,
         };
-        const lease = { leaseHost: operation, leaseToken: held.token };
         await repository.putRecord("notifications", digest, record, lease);
         held.persisted = true;
         const seen = local.get(localKey);
-        if (seen?.active && seen.at + HOUR > this.clock()) return false;
+        if (seen?.active && seen.at + REMINDER > this.clock()) return false;
         signal.throwIfAborted();
         this.remember(localKey, true);
         held.attempted = true;
@@ -291,6 +315,13 @@ export class Notifier {
           return this.fallback(localKey, title, "", "recovery", true);
         }
         if (!record.active) {
+          if (record.pending) {
+            delete record.pending;
+            await repository.putRecord("notifications", digest, record, {
+              leaseHost: operation,
+              leaseToken: held.token,
+            });
+          }
           this.remember(localKey, false);
           return false;
         }
@@ -426,7 +457,7 @@ export class Notifier {
       if (!previous?.active) return Promise.resolve(false);
       this.remember(localKey, false);
     } else {
-      if (previous?.active && previous.at + HOUR > this.clock())
+      if (previous?.active && previous.at + REMINDER > this.clock())
         return Promise.resolve(false);
       this.remember(localKey, true);
     }

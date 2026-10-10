@@ -17,6 +17,7 @@ import { testRepository } from "./helpers/storage.ts";
 // Deliberately synthetic format-only fixture, never a configured endpoint.
 const WEBHOOK = "https://hooks.slack.com/services/TESTONLY/NOTREAL/PLACEHOLDER";
 const SECRET = "database credential must not leak";
+const DAY = 24 * 3600;
 
 let now: number;
 let repo: SQLRepository;
@@ -175,7 +176,7 @@ describe("Notifier", () => {
     );
   });
 
-  it("claims one hourly notice across concurrent instances", async () => {
+  it("claims one daily notice across concurrent instances", async () => {
     const other = new Notifier(repo, WEBHOOK, transport, clock);
     const results = await Promise.all([
       notifier.report("crawl:one", "取得失敗"),
@@ -186,7 +187,9 @@ describe("Notifier", () => {
     // A fresh isolate still observes the durable claim, even with a changed detail.
     resetNoticeState();
     expect(await other.report("crawl:one", "取得失敗", "別の詳細")).toBe(false);
-    now += 3600;
+    now += DAY - 1;
+    expect(await other.report("crawl:one", "取得失敗")).toBe(false);
+    now += 1;
     expect(await other.report("crawl:one", "取得失敗")).toBe(true);
     expect(transport).toHaveBeenCalledTimes(2);
   });
@@ -214,6 +217,17 @@ describe("Notifier", () => {
       active: true,
       delivered: false,
     });
+    // An undelivered incident is retried after an hour, not a day.
+    now += 3599;
+    expect(await notifier.report("one", "処理失敗")).toBe(false);
+    now += 1;
+    transport.mockResolvedValue({
+      data: utf8("ok"),
+      url: WEBHOOK,
+      contentType: "text/plain",
+    });
+    expect(await notifier.report("one", "処理失敗")).toBe(true);
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 
   it("bounds a transport that never settles", async () => {
@@ -245,6 +259,32 @@ describe("Notifier", () => {
       new TextDecoder().decode(request(1)[1].body),
     ) as { text: string };
     expect(payload.text).toBe("NilayNews｜復旧｜収集復旧");
+  });
+
+  it("sends a repeated occurrence only after the next success did not clear it", async () => {
+    const fail = (other = notifier) =>
+      other.report("crawl:one", "取得失敗", "", "error", 2);
+    expect(await fail()).toBe(false);
+    // A success clears the unsent occurrence without a recovery notice.
+    expect(await notifier.recover("crawl:one", "収集復旧")).toBe(false);
+    expect(await noticeRecord("crawl:one")).not.toHaveProperty("pending");
+    expect(await fail()).toBe(false);
+    expect(transport).not.toHaveBeenCalled();
+    // The count is durable, so another isolate sends the repeated failure.
+    resetNoticeState();
+    expect(await fail(new Notifier(repo, WEBHOOK, transport, clock))).toBe(
+      true,
+    );
+    expect(await noticeRecord("crawl:one")).toMatchObject({
+      active: true,
+      delivered: true,
+    });
+    expect(await noticeRecord("crawl:one")).not.toHaveProperty("pending");
+    // An ongoing incident is not counted again and recovers once.
+    expect(await fail()).toBe(false);
+    expect(await notifier.recover("crawl:one", "収集復旧")).toBe(true);
+    expect(await fail()).toBe(false);
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 
   it("uses a bounded isolate fallback while the database is unavailable", async () => {
@@ -317,6 +357,8 @@ describe("Notifier", () => {
     expect(await first.report("scheduled", "定期実行失敗")).toBe(true);
     expect(await second.report("scheduled", "定期実行失敗")).toBe(false);
     now += 3600;
+    expect(await second.report("scheduled", "定期実行失敗")).toBe(false);
+    now += DAY - 3600;
     expect(await second.report("scheduled", "定期実行失敗")).toBe(true);
     expect(await first.recover("scheduled", "定期実行復旧")).toBe(true);
     expect(await second.recover("scheduled", "定期実行復旧")).toBe(false);

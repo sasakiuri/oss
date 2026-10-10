@@ -55,9 +55,15 @@ afterEach(() => {
 function notices() {
   return {
     configured: true,
-    report: vi.fn<(key: string, ...text: string[]) => Promise<boolean>>(
-      async () => true,
-    ),
+    report: vi.fn<
+      (
+        key: string,
+        title: string,
+        detail?: string,
+        level?: string,
+        occurrences?: number,
+      ) => Promise<boolean>
+    >(async () => true),
     recover: vi.fn<(key: string, title: string) => Promise<boolean>>(
       async () => true,
     ),
@@ -151,6 +157,31 @@ describe("durable application jobs", () => {
     expect(collector).toHaveBeenCalledTimes(2);
     expect(await repo.getJob()).toMatchObject({ running: false, progress: 2 });
     expect((await repo.articles())[0]?.analysisStatus).toBe("pending");
+  });
+  it("counts an interrupted job toward a repeated interruption notice", async () => {
+    const notifier = notices();
+    const { app, repo, collector, advance } = await setup(
+      [source, { ...source, id: "two" }],
+      { notifier },
+    );
+    await app.start("collect");
+    // An invocation that ends without releasing its claim.
+    expect(await repo.claimJob(10_000, 600)).not.toBeNull();
+    advance(601);
+    await app.scheduled();
+    expect(notifier.report).toHaveBeenCalledWith(
+      "job",
+      "中断された処理を再開します",
+      expect.stringContaining("中断が続いています"),
+      "warning",
+      2,
+    );
+    expect(collector).toHaveBeenCalledTimes(1);
+    await app.scheduled();
+    expect(notifier.recover).toHaveBeenCalledWith(
+      "job",
+      "収集・仕分け処理が正常に完了しました",
+    );
   });
   it("rejects concurrent manual jobs without overwriting progress", async () => {
     const { app, repo } = await setup();
@@ -275,6 +306,8 @@ describe("durable application jobs", () => {
       ([key]) => key === "crawl:one",
     );
     expect(crawlReports).toHaveLength(1);
+    // A failure the next collection clears is not sent.
+    expect(crawlReports[0]?.slice(3)).toEqual(["error", 2]);
     expect(JSON.stringify(crawlReports)).not.toContain("private upstream body");
     expect(notifier.recover).not.toHaveBeenCalledWith(
       "crawl:one",
@@ -282,6 +315,36 @@ describe("durable application jobs", () => {
     );
     await app.start("collect");
     await app.scheduled();
+    expect(notifier.recover).toHaveBeenCalledWith(
+      "crawl:one",
+      "Sourceの収集が復旧しました",
+    );
+  });
+  it("reports partial collection only when warnings are not expected notes", async () => {
+    const notifier = notices();
+    const { app, collector } = await setup([source], { notifier });
+    collector.mockResolvedValueOnce({
+      items: [item],
+      warnings: ["本文を取得できませんでした", "対象外の 1 件を除外しました"],
+      notes: ["対象外の 1 件を除外しました"],
+    });
+    await app.start("collect");
+    await app.scheduled();
+    expect(notifier.report).toHaveBeenCalledWith(
+      "crawl:one",
+      "記事の取得に未完了の項目があります",
+      expect.stringContaining("Source"),
+      "warning",
+      2,
+    );
+    collector.mockResolvedValueOnce({
+      items: [item],
+      warnings: ["対象外の 1 件を除外しました"],
+      notes: ["対象外の 1 件を除外しました"],
+    });
+    await app.start("collect");
+    await app.scheduled();
+    expect(notifier.report).toHaveBeenCalledTimes(1);
     expect(notifier.recover).toHaveBeenCalledWith(
       "crawl:one",
       "Sourceの収集が復旧しました",
@@ -963,6 +1026,8 @@ describe("automatic classification", () => {
       "jev",
       expect.any(String),
       expect.any(String),
+      "error",
+      2,
     );
   });
 
@@ -1820,12 +1885,7 @@ describe("invocation boundaries between classification items", () => {
     expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(
       ids.slice(0, 11),
     );
-    expect(notifier.report).not.toHaveBeenCalledWith(
-      "job",
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
-    );
+    expect(notifier.report.mock.calls.map(([key]) => key)).not.toContain("job");
   });
 
   it("stops when another worker claims the job after the first release", async () => {
