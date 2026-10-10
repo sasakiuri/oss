@@ -20,9 +20,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -55,9 +53,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -90,9 +86,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -125,9 +119,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -160,9 +152,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -195,9 +185,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -230,9 +218,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -265,9 +251,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -280,9 +264,7 @@
           "publishedAt": "2026-09-30T00:00:00Z",
           "discoveredAt": "2026-09-30T00:00:00Z",
           "sourceName": "Synthetic fixture",
-          "sourceIds": [
-            "fixture"
-          ],
+          "sourceIds": ["fixture"],
           "reviewStatus": "posted",
           "analysisStatus": "pending"
         }
@@ -317,9 +299,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -332,9 +312,7 @@
           "publishedAt": "2026-09-30T00:00:00Z",
           "discoveredAt": "2026-09-30T00:00:00Z",
           "sourceName": "Synthetic fixture",
-          "sourceIds": [
-            "fixture"
-          ],
+          "sourceIds": ["fixture"],
           "reviewStatus": "posted",
           "analysisStatus": "pending"
         }
@@ -369,9 +347,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -384,9 +360,7 @@
           "publishedAt": "2026-09-30T00:00:00Z",
           "discoveredAt": "2026-09-30T00:00:00Z",
           "sourceName": "Synthetic fixture",
-          "sourceIds": [
-            "fixture"
-          ],
+          "sourceIds": ["fixture"],
           "reviewStatus": "posted",
           "analysisStatus": "pending"
         }
@@ -421,9 +395,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "fixture"
-        ],
+        "sourceIds": ["fixture"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },
@@ -436,9 +408,7 @@
           "publishedAt": "2026-09-30T00:00:00Z",
           "discoveredAt": "2026-09-30T00:00:00Z",
           "sourceName": "Synthetic fixture",
-          "sourceIds": [
-            "fixture"
-          ],
+          "sourceIds": ["fixture"],
           "reviewStatus": "posted",
           "analysisStatus": "pending"
         }
@@ -473,9 +443,7 @@
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",
-        "sourceIds": [
-          "clay-shooting-news"
-        ],
+        "sourceIds": ["clay-shooting-news"],
         "reviewStatus": "unread",
         "analysisStatus": "pending"
       },

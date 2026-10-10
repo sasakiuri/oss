@@ -26,12 +26,21 @@ const INTERVAL = 3;
 const CACHE_SECONDS = 7 * 86400;
 const MAX_REQUESTS = 40;
 const MAX_SECONDS = 90;
-const LIMITED = "Google News の記事URL解決は取得上限・待機時間のため次回に延期しました";
+const LIMITED =
+  "Google News の記事URL解決は取得上限・待機時間のため次回に延期しました";
 
-interface Rate { nextAt: number; blockedUntil: number }
-interface Cached { url?: string; retryAt?: number }
-type Store = Pick<NewsRepository,
-  "getRecord" | "putRecord" | "acquireHost" | "releaseHost">;
+interface Rate {
+  nextAt: number;
+  blockedUntil: number;
+}
+interface Cached {
+  url?: string;
+  retryAt?: number;
+}
+type Store = Pick<
+  NewsRepository,
+  "getRecord" | "putRecord" | "acquireHost" | "releaseHost"
+>;
 
 interface GoogleNewsOptions {
   transport?: FetchBytes;
@@ -58,7 +67,9 @@ function sleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
 
 /** A wait, not a failed publication or a reason to renew an ID's cooldown. */
 export class GoogleNewsDeferred extends GoogleNewsError {
-  constructor() { super(LIMITED); }
+  constructor() {
+    super(LIMITED);
+  }
 }
 
 /** One operation's budget; successful mappings and rate state survive Workers. */
@@ -69,7 +80,10 @@ export class GoogleNewsResolver {
   private readonly started: number;
   private readonly options: GoogleNewsOptions;
 
-  constructor(private readonly store: Store, options: GoogleNewsOptions = {}) {
+  constructor(
+    private readonly store: Store,
+    options: GoogleNewsOptions = {},
+  ) {
     this.options = options;
     this.clock = options.clock ?? systemClock;
     this.transport = options.transport ?? fetchBytes;
@@ -79,13 +93,15 @@ export class GoogleNewsResolver {
   async resolve(url: string): Promise<string> {
     this.options.signal?.throwIfAborted();
     const id = googleNewsId(url);
-    if (!id) throw new GoogleNewsError("Google News の記事リンク形式が不正です");
+    if (!id)
+      throw new GoogleNewsError("Google News の記事リンク形式が不正です");
     const legacy = legacyGoogleNewsUrl(id);
     if (legacy) return legacy;
     const cached = await this.store.getRecord<Cached>(CACHE, id);
     const target = publisherUrl(cached?.url);
     if (target) return target;
-    if (cached?.retryAt && cached.retryAt > this.clock()) throw new GoogleNewsDeferred();
+    if (cached?.retryAt && cached.retryAt > this.clock())
+      throw new GoogleNewsDeferred();
     this.budget();
     const token = await this.store.acquireHost(HOST, this.clock(), 120);
     if (!token) throw new GoogleNewsDeferred();
@@ -94,14 +110,19 @@ export class GoogleNewsResolver {
       const again = await this.store.getRecord<Cached>(CACHE, id);
       const found = publisherUrl(again?.url);
       if (found) return found;
-      if (again?.retryAt && again.retryAt > this.clock()) throw new GoogleNewsDeferred();
-      const rate = await this.store.getRecord<Rate>(RATE, HOST) ?? {
-        nextAt: 0, blockedUntil: 0,
+      if (again?.retryAt && again.retryAt > this.clock())
+        throw new GoogleNewsDeferred();
+      const rate = (await this.store.getRecord<Rate>(RATE, HOST)) ?? {
+        nextAt: 0,
+        blockedUntil: 0,
       };
       if (!Number.isFinite(rate.nextAt) || !Number.isFinite(rate.blockedUntil))
-        throw new GoogleNewsError("Google News の記事URL取得制限の記録が不正です");
+        throw new GoogleNewsError(
+          "Google News の記事URL取得制限の記録が不正です",
+        );
       const crawlHost = await this.store.getRecord<{ blocked_until?: number }>(
-        "crawl_host", "news.google.com",
+        "crawl_host",
+        "news.google.com",
       );
       // A refusal while polling feeds also pauses the decoding endpoint.
       const blocked = crawlHost?.blocked_until ?? 0;
@@ -110,7 +131,10 @@ export class GoogleNewsResolver {
       rate.blockedUntil = Math.max(rate.blockedUntil, blocked);
       const send = async (requestUrl: string, options: FetchOptions = {}) => {
         this.budget();
-        if (rate.blockedUntil > this.clock() || rate.nextAt - this.clock() > INTERVAL + 0.01)
+        if (
+          rate.blockedUntil > this.clock() ||
+          rate.nextAt - this.clock() > INTERVAL + 0.01
+        )
           throw new GoogleNewsDeferred();
         while (rate.nextAt > this.clock()) {
           await (this.options.sleep ?? sleep)(
@@ -132,32 +156,57 @@ export class GoogleNewsResolver {
         } catch (error) {
           if (error instanceof FetchError) {
             const status = error.status;
-            if (status === undefined || status === 401 || status === 403 || status === 429 || status >= 500) {
-              const delay = status === 401 || status === 403 ? 86400 : status === 429 ? 3600 : 900;
-              rate.blockedUntil = this.clock() + Math.max(delay, error.retryAfter ?? 0);
+            if (
+              status === undefined ||
+              status === 401 ||
+              status === 403 ||
+              status === 429 ||
+              status >= 500
+            ) {
+              const delay =
+                status === 401 || status === 403
+                  ? 86400
+                  : status === 429
+                    ? 3600
+                    : 900;
+              rate.blockedUntil =
+                this.clock() + Math.max(delay, error.retryAfter ?? 0);
             }
           }
           throw error;
         } finally {
           rate.nextAt = this.clock() + INTERVAL;
           await this.store.putRecord(RATE, HOST, rate, {
-            leaseHost: HOST, leaseToken: token,
+            leaseHost: HOST,
+            leaseToken: token,
           });
         }
       };
-      const page = await send(`https://news.google.com/rss/articles/${id}${GOOGLE_NEWS_LOCALE}`);
+      const page = await send(
+        `https://news.google.com/rss/articles/${id}${GOOGLE_NEWS_LOCALE}`,
+      );
       if (page.contentType && !page.contentType.toLowerCase().includes("html"))
-        throw new GoogleNewsError("Google News の記事URL解決ページの形式が不正です");
+        throw new GoogleNewsError(
+          "Google News の記事URL解決ページの形式が不正です",
+        );
       const response = await send(GOOGLE_NEWS_RPC, {
         body: googleNewsRequest(id, googleNewsParameters(page.data)),
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        },
         maxBytes: 100_000,
       });
       const resolved = googleNewsResponse(response.data);
-      await this.store.putRecord(CACHE, id, { url: resolved }, {
-        expiresAt: this.clock() + CACHE_SECONDS,
-        leaseHost: HOST, leaseToken: token,
-      });
+      await this.store.putRecord(
+        CACHE,
+        id,
+        { url: resolved },
+        {
+          expiresAt: this.clock() + CACHE_SECONDS,
+          leaseHost: HOST,
+          leaseToken: token,
+        },
+      );
       return resolved;
     } catch (error) {
       this.options.signal?.throwIfAborted();
@@ -167,10 +216,16 @@ export class GoogleNewsResolver {
       // In particular, minute publication ticks must not extend the wait forever.
       if (error instanceof GoogleNewsDeferred) throw error;
       // A failed ID must not consume every later collection's first requests.
-      await this.store.putRecord(CACHE, id, { retryAt: this.clock() + 3600 }, {
-        expiresAt: this.clock() + 3600,
-        leaseHost: HOST, leaseToken: token,
-      });
+      await this.store.putRecord(
+        CACHE,
+        id,
+        { retryAt: this.clock() + 3600 },
+        {
+          expiresAt: this.clock() + 3600,
+          leaseHost: HOST,
+          leaseToken: token,
+        },
+      );
       throw error;
     } finally {
       await this.store.releaseHost(HOST, token);
@@ -179,7 +234,10 @@ export class GoogleNewsResolver {
 
   private budget(): void {
     this.options.signal?.throwIfAborted();
-    if (this.requests >= MAX_REQUESTS || this.clock() - this.started >= MAX_SECONDS)
+    if (
+      this.requests >= MAX_REQUESTS ||
+      this.clock() - this.started >= MAX_SECONDS
+    )
       throw new GoogleNewsDeferred();
   }
 }
@@ -202,24 +260,35 @@ export async function resolveGoogleNewsItems(
     if (isGoogleNewsUrl(item.url)) {
       try {
         const url = await resolver.resolve(item.url);
-        resolved = { ...item, url, metadata: {
-          ...item.metadata, googleNewsUrl: item.url,
-        } };
+        resolved = {
+          ...item,
+          url,
+          metadata: {
+            ...item.metadata,
+            googleNewsUrl: item.url,
+          },
+        };
       } catch (error) {
         options.signal?.throwIfAborted();
-        if (!(error instanceof GoogleNewsError) && !(error instanceof FetchError))
+        if (
+          !(error instanceof GoogleNewsError) &&
+          !(error instanceof FetchError)
+        )
           throw error;
         failed += 1;
         continue;
       }
     }
-    const identity = resolved.sourceKey ? `source:${resolved.sourceKey}` : `url:${resolved.url}`;
+    const identity = resolved.sourceKey
+      ? `source:${resolved.sourceKey}`
+      : `url:${resolved.url}`;
     if (seen.has(identity)) continue;
     seen.add(identity);
     items.push(resolved);
   }
   result.items = items;
-  if (failed) result.warnings.push(
-    `Google News の ${failed} 件は元記事URLを解決できないか取得制限のため除外しました。中継URLでは投稿せず、次回の収集で再確認します`,
-  );
+  if (failed)
+    result.warnings.push(
+      `Google News の ${failed} 件は元記事URLを解決できないか取得制限のため除外しました。中継URLでは投稿せず、次回の収集で再確認します`,
+    );
 }

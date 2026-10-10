@@ -13,40 +13,79 @@ export const GOOGLE_NEWS_RPC =
 export const GOOGLE_NEWS_LOCALE = "?hl=ja&gl=JP&ceid=JP%3Aja";
 const ID = /^[A-Za-z0-9_-]{1,4096}={0,2}$/;
 const CONTEXT = [
-  ["en-US", "US", ["FINANCE_TOP_INDICES", "WEB_TEST_1_0_0"], null, null, 1, 1,
-    "US:en", null, 1, null, null, null, null, null, 0, 1],
-  "en-US", "US", 1, [2, 3, 4, 8], 1, 0, null, 0, 0, null, 0,
+  [
+    "en-US",
+    "US",
+    ["FINANCE_TOP_INDICES", "WEB_TEST_1_0_0"],
+    null,
+    null,
+    1,
+    1,
+    "US:en",
+    null,
+    1,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    1,
+  ],
+  "en-US",
+  "US",
+  1,
+  [2, 3, 4, 8],
+  1,
+  0,
+  null,
+  0,
+  0,
+  null,
+  0,
 ];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 /** Also catches malformed article paths and intermediate pages at publication time. */
 export function isGoogleNewsUrl(url: string): boolean {
-  return hostname(url).replace(/\.$/, "").replace(/^www\./, "") ===
-    "news.google.com";
+  return (
+    hostname(url)
+      .replace(/\.$/, "")
+      .replace(/^www\./, "") === "news.google.com"
+  );
 }
 
 export function googleNewsId(url: string): string | null {
   if (!canonicalUrl(url)) return null;
   const parts = urlsplit(url);
-  if (parts.scheme !== "https" || parts.netloc.toLowerCase() !== "news.google.com")
+  if (
+    parts.scheme !== "https" ||
+    parts.netloc.toLowerCase() !== "news.google.com"
+  )
     return null;
-  const id = /^\/(?:rss\/articles|articles|read)\/([^/]+)$/.exec(parts.path)?.[1];
+  const id = /^\/(?:rss\/articles|articles|read)\/([^/]+)$/.exec(
+    parts.path,
+  )?.[1];
   return id && ID.test(id) ? id : null;
 }
 
 /** Only generated metadata-page requests, never arbitrary Google paths/queries. */
 export function isGoogleNewsPage(url: string): boolean {
   const id = googleNewsId(url);
-  return id !== null && url === `https://news.google.com/rss/articles/${id}${GOOGLE_NEWS_LOCALE}`;
+  return (
+    id !== null &&
+    url === `https://news.google.com/rss/articles/${id}${GOOGLE_NEWS_LOCALE}`
+  );
 }
 
 export function publisherUrl(value: unknown): string | null {
   const url = canonicalUrl(value);
   if (!url) return null;
-  const host = hostname(url).replace(/\.$/, "").replace(/^www\./, "");
-  return host === "google.com" || host.endsWith(".google.com")
-    ? null : url;
+  const host = hostname(url)
+    .replace(/\.$/, "")
+    .replace(/^www\./, "");
+  return host === "google.com" || host.endsWith(".google.com") ? null : url;
 }
 
 /** Legacy protobuf field 4 contains a URL; modern IDs contain an opaque token. */
@@ -69,7 +108,9 @@ export function legacyGoogleNewsUrl(id: string): string | null {
     if (byte & 128) continue;
     if (length > bytes.length - offset) return null;
     try {
-      return publisherUrl(decoder.decode(bytes.subarray(offset, offset + length)));
+      return publisherUrl(
+        decoder.decode(bytes.subarray(offset, offset + length)),
+      );
     } catch {
       return null;
     }
@@ -81,7 +122,9 @@ function decode(data: Uint8Array): string {
   try {
     return decoder.decode(data);
   } catch {
-    throw new GoogleNewsError("Google News の記事URL解決応答を読み取れませんでした");
+    throw new GoogleNewsError(
+      "Google News の記事URL解決応答を読み取れませんでした",
+    );
   }
 }
 
@@ -91,8 +134,13 @@ interface Parameters {
 }
 
 function validParameters(timestamp: unknown, signature: unknown): boolean {
-  return typeof timestamp === "number" && Number.isSafeInteger(timestamp) && timestamp > 0 &&
-    typeof signature === "string" && /^[A-Za-z0-9_+\/-]{1,512}={0,2}$/.test(signature);
+  return (
+    typeof timestamp === "number" &&
+    Number.isSafeInteger(timestamp) &&
+    timestamp > 0 &&
+    typeof signature === "string" &&
+    /^[A-Za-z0-9_+\/-]{1,512}={0,2}$/.test(signature)
+  );
 }
 
 export function googleNewsParameters(data: Uint8Array): Parameters {
@@ -104,24 +152,40 @@ export function googleNewsParameters(data: Uint8Array): Parameters {
       const signature = attrs.get("data-n-a-sg") ?? "";
       if (!/^\d{1,16}$/.test(raw)) return;
       const timestamp = Number(raw);
-      if (validParameters(timestamp, signature)) result = { timestamp, signature };
+      if (validParameters(timestamp, signature))
+        result = { timestamp, signature };
     },
     close: () => undefined,
     text: () => undefined,
   });
-  if (!result) throw new GoogleNewsError("Google News の記事URL解決情報を取得できませんでした");
+  if (!result)
+    throw new GoogleNewsError(
+      "Google News の記事URL解決情報を取得できませんでした",
+    );
   return result;
 }
 
-export function googleNewsRequest(id: string, parameters: Parameters): Uint8Array {
-  if (!ID.test(id) || !validParameters(parameters.timestamp, parameters.signature))
+export function googleNewsRequest(
+  id: string,
+  parameters: Parameters,
+): Uint8Array {
+  if (
+    !ID.test(id) ||
+    !validParameters(parameters.timestamp, parameters.signature)
+  )
     throw new GoogleNewsError("Google News の記事URL解決リクエストが不正です");
   const request = JSON.stringify([
-    "garturlreq", CONTEXT, id, parameters.timestamp, parameters.signature,
+    "garturlreq",
+    CONTEXT,
+    id,
+    parameters.timestamp,
+    parameters.signature,
   ]);
-  return encoder.encode(new URLSearchParams({
-    "f.req": JSON.stringify([[["Fbv4je", request, null, "generic"]]]),
-  }).toString());
+  return encoder.encode(
+    new URLSearchParams({
+      "f.req": JSON.stringify([[["Fbv4je", request, null, "generic"]]]),
+    }).toString(),
+  );
 }
 
 /** The private service accepts only the exact single-article request we build. */
@@ -131,14 +195,29 @@ export function validGoogleNewsRequest(body: Uint8Array): boolean {
     const text = decoder.decode(body);
     const form = new URLSearchParams(text);
     const value: unknown = JSON.parse(form.get("f.req") ?? "");
-    if (!Array.isArray(value) || !Array.isArray(value[0]) || !Array.isArray(value[0][0]))
+    if (
+      !Array.isArray(value) ||
+      !Array.isArray(value[0]) ||
+      !Array.isArray(value[0][0])
+    )
       return false;
     const inner: unknown = JSON.parse(String(value[0][0][1]));
-    if (!Array.isArray(inner) || typeof inner[2] !== "string" ||
-      typeof inner[3] !== "number" || typeof inner[4] !== "string") return false;
-    return text === decoder.decode(googleNewsRequest(inner[2], {
-      timestamp: inner[3], signature: inner[4],
-    }));
+    if (
+      !Array.isArray(inner) ||
+      typeof inner[2] !== "string" ||
+      typeof inner[3] !== "number" ||
+      typeof inner[4] !== "string"
+    )
+      return false;
+    return (
+      text ===
+      decoder.decode(
+        googleNewsRequest(inner[2], {
+          timestamp: inner[3],
+          signature: inner[4],
+        }),
+      )
+    );
   } catch {
     return false;
   }
@@ -149,18 +228,31 @@ export function googleNewsResponse(data: Uint8Array): string {
   for (const line of decode(data).split("\n")) {
     if (!line.trimStart().startsWith("[")) continue;
     let rows: unknown;
-    try { rows = JSON.parse(line); } catch { continue; }
+    try {
+      rows = JSON.parse(line);
+    } catch {
+      continue;
+    }
     if (!Array.isArray(rows)) continue;
     for (const row of rows) {
-      if (!Array.isArray(row) || row[0] !== "wrb.fr" || row[1] !== "Fbv4je" ||
-        typeof row[2] !== "string") continue;
+      if (
+        !Array.isArray(row) ||
+        row[0] !== "wrb.fr" ||
+        row[1] !== "Fbv4je" ||
+        typeof row[2] !== "string"
+      )
+        continue;
       try {
         const result: unknown = JSON.parse(row[2]);
         if (!Array.isArray(result) || result[0] !== "garturlres") continue;
         const url = publisherUrl(result[1]);
         if (url) return url;
-      } catch { /* Refuse malformed embedded JSON. */ }
+      } catch {
+        /* Refuse malformed embedded JSON. */
+      }
     }
   }
-  throw new GoogleNewsError("Google News から有効な元記事URLを取得できませんでした");
+  throw new GoogleNewsError(
+    "Google News から有効な元記事URLを取得できませんでした",
+  );
 }

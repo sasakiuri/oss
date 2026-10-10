@@ -26,9 +26,7 @@
     "comparisonRecall": 0.75,
     "classificationFailures": [],
     "sourceRuleFailures": [],
-    "retrievalFailures": [
-      "retrieval-miss"
-    ],
+    "retrievalFailures": ["retrieval-miss"],
     "relationshipFailuresAfterRetrieval": [],
     "duplicateFollowupConfusion": {
       "duplicate": {
@@ -340,9 +338,7 @@
         "comparisonArticleId": "original",
         "sourceCandidate": false
       },
-      "comparisonIds": [
-        "original"
-      ],
+      "comparisonIds": ["original"],
       "retrievalHit": true,
       "retrievalFailure": false,
       "classificationFailure": false,
@@ -398,9 +394,7 @@
         "comparisonArticleId": "alert",
         "sourceCandidate": false
       },
-      "comparisonIds": [
-        "alert"
-      ],
+      "comparisonIds": ["alert"],
       "retrievalHit": true,
       "retrievalFailure": false,
       "classificationFailure": false,
@@ -456,9 +450,7 @@
         "comparisonArticleId": "another",
         "sourceCandidate": false
       },
-      "comparisonIds": [
-        "another"
-      ],
+      "comparisonIds": ["another"],
       "retrievalHit": true,
       "retrievalFailure": false,
       "classificationFailure": false,
