@@ -62,16 +62,24 @@ describe("Google News cancellation", () => {
       const result = collection([
         { title: "News", url, excerpt: "", publishedAt: null },
       ]);
-      await expect(resolveGoogleNewsItems(result, storage.repo, {
-        transport,
-        clock: () => 10_000,
-        signal: controller.signal,
-      })).rejects.toBe(reason);
+      await expect(
+        resolveGoogleNewsItems(result, storage.repo, {
+          transport,
+          clock: () => 10_000,
+          signal: controller.signal,
+        }),
+      ).rejects.toBe(reason);
       expect(transport).toHaveBeenCalledTimes(1);
-      expect(await storage.repo.getRecord("google_news_url", "opaque")).toBeNull();
-      expect(await storage.repo.acquireHost(
-        "google-news-url:news.google.com", 10_000, 120,
-      )).not.toBeNull();
+      expect(
+        await storage.repo.getRecord("google_news_url", "opaque"),
+      ).toBeNull();
+      expect(
+        await storage.repo.acquireHost(
+          "google-news-url:news.google.com",
+          10_000,
+          120,
+        ),
+      ).not.toBeNull();
       expect(result.warnings).toEqual([]);
     } finally {
       storage.close();

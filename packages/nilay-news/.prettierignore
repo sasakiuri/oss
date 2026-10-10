@@ -1,0 +1,5 @@
+playwright-report/
+test-results/
+
+# Captured HTML responses used as parser inputs
+tests/fixtures/*.html

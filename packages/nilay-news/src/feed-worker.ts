@@ -61,7 +61,11 @@ export function createFeedHandler(
           void upstream.body?.cancel().catch(() => undefined);
           return new Response(null, { status: upstream.status, headers });
         }
-        const maxBytes = rpc ? 100_000 : isGoogleNewsPage(request.url) ? 1_000_000 : 4_000_000;
+        const maxBytes = rpc
+          ? 100_000
+          : isGoogleNewsPage(request.url)
+            ? 1_000_000
+            : 4_000_000;
         const data = await readBody(upstream, maxBytes, signal);
         return new Response(
           [204, 205].includes(upstream.status) ? null : data,
