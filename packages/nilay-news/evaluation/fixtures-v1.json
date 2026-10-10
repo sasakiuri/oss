@@ -1,8 +1,8 @@
 {
-  "fixtureVersion": 1,
+  "fixtureVersion": 2,
   "synthetic": true,
   "curation": "Agent-authored proposed labels; no human review has been recorded.",
-  "rubric": "狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作や対象外の生物の記事を除く。",
+  "rubric": "日本国内の狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作、対象外の生物、日本国外の出来事、特別な事情のないクマの出没・目撃の記事を除く。",
   "cases": [
     {
       "id": "bear",
@@ -341,8 +341,8 @@
       "rationale": "似た見出しでも日時と場所が異なる。",
       "article": {
         "id": "distinct",
-        "title": "クマが住宅地に出没",
-        "excerpt": "秋田市で30日にクマが出没した。",
+        "title": "クマが住宅に侵入",
+        "excerpt": "秋田市で30日にクマが住宅に侵入した。",
         "url": "https://example.org/distinct",
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
@@ -354,8 +354,8 @@
       "others": [
         {
           "id": "another",
-          "title": "クマが住宅地に出没",
-          "excerpt": "札幌市で29日にクマが出没した。",
+          "title": "クマが住宅に侵入",
+          "excerpt": "札幌市で29日にクマが住宅に侵入した。",
           "url": "https://example.org/another",
           "publishedAt": "2026-09-30T00:00:00Z",
           "discoveredAt": "2026-09-30T00:00:00Z",
@@ -456,6 +456,138 @@
       },
       "mock": {
         "classification": "unrelated",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "overseas",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "対象分野の話題でも日本国外の出来事。",
+      "article": {
+        "id": "overseas",
+        "title": "米国の国立公園でクマに襲われ男性けが",
+        "excerpt": "米モンタナ州の国立公園で29日、ハイカーがクマに襲われた。",
+        "url": "https://example.org/overseas",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": ["fixture"],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "overseas",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "national-team",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "海外大会でも日本代表が当事者のため国内の話題。",
+      "article": {
+        "id": "national-team",
+        "title": "射撃W杯で日本代表が銀メダル",
+        "excerpt": "カイロで開かれたワールドカップで日本代表が2位に入った。",
+        "url": "https://example.org/national-team",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": ["fixture"],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "sighting",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "けが人がなく注意の呼びかけにとどまるクマの目撃。",
+      "article": {
+        "id": "sighting",
+        "title": "盛岡市の住宅街でクマ目撃 けが人なし",
+        "excerpt": "警察が付近の住民に注意を呼びかけている。",
+        "url": "https://example.org/sighting",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": ["fixture"],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "irrelevant",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "sighting",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "rare-region",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "クマがまれな地域での目撃は特別な事情。",
+      "article": {
+        "id": "rare-region",
+        "title": "福岡県でクマの目撃情報 九州では異例",
+        "excerpt": "県は専門家と現地を調査する。",
+        "url": "https://example.org/rare-region",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": ["fixture"],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
         "probability": 0.95,
         "relations": {}
       }

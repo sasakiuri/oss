@@ -2,7 +2,7 @@
 import { Access, CONFIG_NAMES } from "../../src/access.ts";
 import { Application } from "../../src/application.ts";
 import { CachedFetch } from "../../src/crawl.ts";
-import { ENDPOINT, Jev } from "../../src/jev.ts";
+import { ENDPOINT, Jev, REASONS } from "../../src/jev.ts";
 import { FetchError } from "../../src/net/http.ts";
 import type { FetchBytes } from "../../src/net/types.ts";
 import { BufferClient } from "../../src/publishing.ts";
@@ -50,13 +50,7 @@ const irrelevant = JSON.stringify({
       "制度・行政",
       "その他",
     ]),
-    classification: choice("unrelated", [
-      "relevant",
-      "policy",
-      "fiction",
-      "unrelated",
-      "insufficient",
-    ]),
+    classification: choice("unrelated", Object.keys(REASONS)),
     priority: choice("0", ["0", "1", "2", "3"]),
   },
 });
