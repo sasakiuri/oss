@@ -47,7 +47,7 @@ function selected(value: string, options: Iterable<string>, probability = 1) {
 
 const LABELS = Object.keys(REASONS);
 
-/** A classification answer with an explicit distribution over all five labels. */
+/** A classification answer with an explicit distribution over all labels. */
 function classified(
   probabilities: Partial<Record<string, number>>,
   value = Object.entries(probabilities).sort(
@@ -208,6 +208,13 @@ describe("Jev decisions", () => {
     expect(instructions).not.toMatch(/要確認/);
     expect(instructions).toContain("総称だけで対象動物や議題が分からないとき");
     expect(instructions).toContain("鳥類・哺乳類の話題と推測せず");
+    expect(instructions).toContain(
+      "日本の選手・団体・行政機関が当事者である場合を除き",
+    );
+    expect(instructions).toContain("場所が書かれていない記事は国内の話題");
+    expect(instructions).toContain(
+      "クマの出没・目撃は特別な事情がある場合だけ候補",
+    );
     expect(questions.classification?.criteria.insufficient).toContain(
       "対象動物や議題が分からず",
     );
@@ -218,7 +225,17 @@ describe("Jev decisions", () => {
       "外来の鳥類・哺乳類",
     );
     expect(questions.classification?.criteria.relevant).toContain(
-      "海外の記事も同じ基準",
+      "日本国内の対象分野",
+    );
+    expect(questions.classification?.criteria.relevant).not.toContain("海外");
+    expect(questions.classification?.criteria.overseas).toContain(
+      "日本の選手・団体・行政機関が当事者である場合",
+    );
+    expect(questions.classification?.criteria.sighting).toContain(
+      "けが人がなく",
+    );
+    expect(questions.classification?.criteria.sighting).toContain(
+      "通常クマがいない・まれな地域",
     );
     expect(questions.classification?.criteria.unrelated).toContain(
       "昆虫・甲殻類・魚類・爬虫類・両生類・植物は対象外",
@@ -231,8 +248,8 @@ describe("Jev decisions", () => {
   test("a confident classification is routed with its label", async () => {
     expect(await analyzed(response())).toMatchObject({
       decision: "candidate",
-      // 0.95 relevant plus the 0.0125 policy share of the remainder.
-      probability: 0.9625,
+      // 0.95 relevant plus the 0.05 / 6 policy share of the remainder.
+      probability: 0.958333,
       topic: "鳥獣被害・管理",
       reason: REASONS.relevant,
       priority: 1,
@@ -262,6 +279,39 @@ describe("Jev decisions", () => {
     expect(await analyzed(response("unrelated", 0.97))).toMatchObject({
       decision: "irrelevant",
       reason: REASONS.unrelated,
+    });
+  });
+
+  test.each(["overseas", "sighting"])(
+    "a confident %s exclusion is irrelevant and skips relation checks",
+    async (label) => {
+      const jev = transport(() => response(label, 0.9));
+      const result = await new Jev("test", "jev-latest", jev.fetch).analyze(
+        ARTICLE,
+        "基準",
+        [{ ...ARTICLE, id: "other" }],
+      );
+      expect(result).toMatchObject({
+        decision: "irrelevant",
+        reason: REASONS[label],
+        relatedArticleId: null,
+        relation: null,
+      });
+      expect(jev.requests).toHaveLength(1);
+    },
+  );
+
+  test("exclusions are grouped with other irrelevant labels", async () => {
+    expect(
+      await analyzed(
+        withClassification(
+          classified({ overseas: 0.5, sighting: 0.4, relevant: 0.1 }),
+        ),
+      ),
+    ).toMatchObject({
+      decision: "irrelevant",
+      probability: 0.9,
+      reason: REASONS.overseas,
     });
   });
 
