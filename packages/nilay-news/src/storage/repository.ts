@@ -235,6 +235,15 @@ interface Tables {
   state: StateRows;
 }
 type Table = keyof Tables;
+/**
+ * The article rows a load reads: listed IDs, or the `id,data` rows a query
+ * selects in the same consistent batch.
+ */
+type ArticleScope = readonly string[] | { query: SQLStatement };
+/** Days of earlier coverage compared with a new article. */
+const RELATION_WINDOW_DAYS = 7;
+/** Most comparison candidates read for one article, posted ones first. */
+const RELATION_POOL_LIMIT = 2000;
 
 function encode(value: unknown): string {
   return JSON.stringify(value);
@@ -333,23 +342,36 @@ function publicArticle(article: Article): Article {
   return copy;
 }
 
+const ANALYSIS_RESET = {
+  provenance: null,
+  relationProvenance: null,
+  postScreening: null,
+  topic: null,
+  decision: null,
+  priority: null,
+  reason: null,
+  probability: null,
+  analysisStatus: "pending",
+  analysisError: null,
+  relatedArticleId: null,
+  relation: null,
+  analyzedAt: null,
+} as const;
+
 function resetAnalysis(article: Article): void {
-  Object.assign(article, {
-    provenance: null,
-    relationProvenance: null,
-    postScreening: null,
-    topic: null,
-    decision: null,
-    priority: null,
-    reason: null,
-    probability: null,
-    analysisStatus: "pending",
-    analysisError: null,
-    relatedArticleId: null,
-    relation: null,
-    analyzedAt: null,
-  });
+  Object.assign(article, ANALYSIS_RESET);
 }
+
+/**
+ * `resetAnalysis` of every article in the database, without loading them.
+ * Search text keeps a former topic until the article is next written.
+ */
+const RESET_ALL_ANALYSES: SQLStatement = [
+  `UPDATE news_articles SET data=json_set(data,${Object.keys(ANALYSIS_RESET)
+    .map((key) => `'$.${key}',json(?)`)
+    .join(",")}) WHERE 1`,
+  Object.values(ANALYSIS_RESET).map((value) => JSON.stringify(value)),
+];
 
 /** Details make a source the content owner; a roundup citation alone does not. */
 function hasDetails(value: Partial<CollectedItem>): boolean {
@@ -570,31 +592,36 @@ export class SQLRepository implements NewsRepository {
 
   private async snapshot<K extends Table>(
     tables: readonly K[],
+    scope?: ArticleScope,
   ): Promise<[number, Pick<Tables, K>]> {
-    return this.load(tables);
+    return this.load(tables, scope);
   }
 
   /**
    * Reads the revision and the requested tables in one transactionally
-   * consistent batch. `articleIds` narrows the articles table to those rows,
-   * so a mutation neither sees nor writes any other article.
+   * consistent batch. `scope` narrows the articles table to those rows, so a
+   * mutation neither sees nor writes any other article; listed IDs can also
+   * narrow posts.
    */
   private async load(
     tables: readonly Table[],
-    articleIds?: readonly string[],
+    scope?: ArticleScope,
     scopedPosts = false,
   ): Promise<[number, Tables]> {
+    const ids = scope && !("query" in scope) ? scope : undefined;
     const results = await this.driver.batch([
       ["SELECT revision FROM news_meta WHERE id=1", []],
-      ...tables.map((table): SQLStatement =>
-        (table === "articles" || (table === "posts" && scopedPosts)) &&
-        articleIds
+      ...tables.map((table): SQLStatement => {
+        if (table === "articles" && scope && "query" in scope)
+          return scope.query;
+        return (table === "articles" || (table === "posts" && scopedPosts)) &&
+          ids
           ? [
               `SELECT id,data FROM news_${table} WHERE id IN (SELECT value FROM json_each(?))`,
-              [encode(articleIds)],
+              [encode(ids)],
             ]
-          : [`SELECT id,data FROM news_${table}`, []],
-      ),
+          : [`SELECT id,data FROM news_${table}`, []];
+      }),
     ]);
     const version = numberColumn(results[0]?.results[0], "revision");
     const snapshot: Tables = {
@@ -624,14 +651,22 @@ export class SQLRepository implements NewsRepository {
     return [version, snapshot];
   }
 
+  /**
+   * Transforms a consistent snapshot and commits its changed rows only if
+   * nothing else committed meanwhile, retrying otherwise. A transform may add
+   * statements ending in a WHERE clause; they run in the same fenced batch.
+   */
   private async mutate<K extends Table, R>(
     tables: readonly K[],
-    transform: (state: Pick<Tables, K>) => R | Promise<R>,
-    articleIds?: readonly string[],
+    transform: (
+      state: Pick<Tables, K>,
+      statements: SQLStatement[],
+    ) => R | Promise<R>,
+    scope?: ArticleScope,
     scopedPosts = false,
   ): Promise<R> {
     for (let attempt = 0; attempt < 12; attempt += 1) {
-      const [version, after] = await this.load(tables, articleIds, scopedPosts);
+      const [version, after] = await this.load(tables, scope, scopedPosts);
       const before = new Map<Table, Map<string, string>>(
         tables.map((table) => [
           table,
@@ -643,7 +678,8 @@ export class SQLRepository implements NewsRepository {
           ),
         ]),
       );
-      const result = await transform(after);
+      const statements: SQLStatement[] = [];
+      const result = await transform(after, statements);
       if (tables.some((table) => table === "articles"))
         for (const article of after.articles.values()) indexArticle(article);
       // All settings changes, including automatic posting stops and imports,
@@ -701,6 +737,8 @@ export class SQLRepository implements NewsRepository {
           ]);
         }
       }
+      for (const [sql, values] of statements)
+        writes.push([`${sql} AND ${guard}`, [...values, token]]);
       if (!writes.length) return result;
       const results = await this.driver.batch([
         [
@@ -807,7 +845,7 @@ export class SQLRepository implements NewsRepository {
   ): Promise<Settings> {
     if (Object.keys(changes).some((key) => !SETTING_KEYS.has(key)))
       throw new UserError("未対応の設定項目です");
-    return this.mutate(["state", "posts", "articles"], (state) => {
+    return this.mutate(["state", "posts"], (state, statements) => {
       // Compare on every retry, before rubric resets, scheduling or any writes.
       if (
         expectedRevision !== undefined &&
@@ -846,8 +884,7 @@ export class SQLRepository implements NewsRepository {
           Math.max(schedule.next_at, this.clock() + POST_INTERVAL_SECONDS),
         );
       }
-      if (valid.rubric !== previous.rubric)
-        for (const article of state.articles.values()) resetAnalysis(article);
+      if (valid.rubric !== previous.rubric) statements.push(RESET_ALL_ANALYSES);
       state.state.settings = valid;
       // Even a no-op public edit must commit its compare atomically rather
       // than returning before the mutation fence has run.
@@ -922,137 +959,163 @@ export class SQLRepository implements NewsRepository {
         ),
       ),
     );
-    return this.mutate(["articles"], (state) => {
-      const articles = state.articles;
-      const identities = new Map(
-        [...articles.values()].map((article) => [article._identity, article]),
-      );
-      const changed = new Set<string>();
-      let created = 0;
-      for (const item of items) {
-        const identity = identityOf(item);
-        let article = identities.get(identity);
-        if (
-          article === undefined &&
-          identity === item.url &&
-          YAHOO_ARTICLE.test(identity)
-        ) {
-          article = identities.get(`${identity}?source=rss`);
-          identities.delete(`${identity}?source=rss`);
-          if (article) {
-            article._identity = identity;
-            identities.set(identity, article);
-          }
-        }
-        if (article === undefined) {
-          // Storage is the final authority: a story already older than the
-          // freshness window is never added. Undated, invalid or future
-          // times are kept for review but excluded from automation.
+    // Only these items' articles, their former Yahoo identities, rows with
+    // their new IDs, and articles related to them are read and written.
+    const known = [...ids.keys()].flatMap((identity) =>
+      YAHOO_ARTICLE.test(identity)
+        ? [identity, `${identity}?source=rss`]
+        : [identity],
+    );
+    const matched =
+      "json_extract(data,'$._identity') IN (SELECT value FROM json_each(?))";
+    const scope = {
+      query: [
+        `SELECT id,data FROM news_articles WHERE ${matched} OR id IN (SELECT value FROM json_each(?)) ` +
+          `OR json_extract(data,'$.relatedArticleId') IN (SELECT id FROM news_articles WHERE ${matched}) ` +
+          "OR json_extract(data,'$.relatedArticleId') IN (SELECT value FROM json_each(?))",
+        [
+          encode(known),
+          encode([...ids.values()]),
+          encode(known),
+          encode([...ids.values()]),
+        ],
+      ] as const,
+    };
+    return this.mutate(
+      ["articles"],
+      (state) => {
+        const articles = state.articles;
+        const identities = new Map(
+          [...articles.values()].map((article) => [article._identity, article]),
+        );
+        const changed = new Set<string>();
+        let created = 0;
+        for (const item of items) {
+          const identity = identityOf(item);
+          let article = identities.get(identity);
           if (
-            freshness(
-              item.publishedAt,
-              this.clock(),
-              item.metadata?.publicationPrecision,
-            ) === "stale"
-          )
-            continue;
-          const now = timestamp(this.clock());
-          const fresh: Article = {
-            id: ids.get(identity) ?? "",
-            _identity: identity,
-            url: item.url,
-            title: item.title,
-            excerpt: item.excerpt ?? "",
-            sourceName: source.name,
-            sourceIds: [source.id],
-            publishedAt: item.publishedAt ?? null,
-            discoveredAt: now,
-            reviewStatus: "unread",
-            analysisStatus: "pending",
-          };
-          updateContent(fresh, item, timestamp(this.clock()));
-          if (hasDetails(item)) fresh.contentSourceId = source.id;
-          resetAnalysis(fresh);
-          articles.set(fresh.id, fresh);
-          identities.set(identity, fresh);
-          created += 1;
-          continue;
-        }
-        const before = evidenceText(article);
-        article.url = item.url;
-        if (!article.sourceIds.includes(source.id))
-          article.sourceIds.push(source.id);
-        const details = hasDetails(item);
-        let owner = article.contentSourceId;
-        if (!owner && hasDetails(article)) owner = article.sourceIds[0];
-        // A publisher feed outranks an attribution-only roundup even without
-        // a full body. Persist that ownership so later citations cannot undo it.
-        // A pinned plain feed still allows actual rich details to enrich it.
-        const promote =
-          (details && (!owner || !hasDetails(article))) ||
-          (!owner && isCitation(article) && !isCitation(item));
-        const sameSource =
-          promote || source.id === (owner || article.sourceIds[0]);
-        if ((details || promote) && sameSource)
-          article.contentSourceId = source.id;
-        if (promote) article.sourceName = source.name;
-        if (
-          sameSource ||
-          (!isCitation(item) &&
-            length(item.excerpt ?? "") > length(article.excerpt))
-        )
-          article.excerpt = item.excerpt ?? "";
-        if (sameSource) article.title = item.title;
-        // Never later than a valid time already known: an update timestamp or
-        // re-listing must not revive a historical article.
-        const published = mergePublication(
-          article.publishedAt,
-          item.publishedAt,
-          sameSource,
-          article.metadata?.publicationPrecision,
-          item.metadata?.publicationPrecision,
-        );
-        const selectedTime = publicationSeconds(published);
-        const observations = [article, item].filter(
-          (observation) =>
-            selectedTime !== null &&
-            publicationSeconds(observation.publishedAt) === selectedTime,
-        );
-        const dateOnly =
-          observations.length > 0 &&
-          observations.every(
-            (observation) =>
-              observation.metadata?.publicationPrecision === "date",
-          );
-        if (published !== (article.publishedAt ?? null))
-          article.publishedAt = published;
-        if (sameSource) updateContent(article, item, timestamp(this.clock()));
-        // Metadata belongs to the selected publication time, even when other
-        // content is refreshed by a later or less precise observation.
-        if (dateOnly)
-          article.metadata = {
-            ...article.metadata,
-            publicationPrecision: "date",
-          };
-        else if (article.metadata?.publicationPrecision !== undefined) {
-          article.metadata = { ...article.metadata };
-          delete article.metadata.publicationPrecision;
-        }
-        if (before !== evidenceText(article)) {
-          if (article.reviewStatus === "approved") {
-            article.reviewStatus = "unread";
-            delete article.reviewedAt;
+            article === undefined &&
+            identity === item.url &&
+            YAHOO_ARTICLE.test(identity)
+          ) {
+            article = identities.get(`${identity}?source=rss`);
+            identities.delete(`${identity}?source=rss`);
+            if (article) {
+              article._identity = identity;
+              identities.set(identity, article);
+            }
           }
-          resetAnalysis(article);
-          changed.add(article.id);
+          if (article === undefined) {
+            // Storage is the final authority: a story already older than the
+            // freshness window is never added. Undated, invalid or future
+            // times are kept for review but excluded from automation.
+            if (
+              freshness(
+                item.publishedAt,
+                this.clock(),
+                item.metadata?.publicationPrecision,
+              ) === "stale"
+            )
+              continue;
+            const now = timestamp(this.clock());
+            const fresh: Article = {
+              id: ids.get(identity) ?? "",
+              _identity: identity,
+              url: item.url,
+              title: item.title,
+              excerpt: item.excerpt ?? "",
+              sourceName: source.name,
+              sourceIds: [source.id],
+              publishedAt: item.publishedAt ?? null,
+              discoveredAt: now,
+              reviewStatus: "unread",
+              analysisStatus: "pending",
+            };
+            updateContent(fresh, item, timestamp(this.clock()));
+            if (hasDetails(item)) fresh.contentSourceId = source.id;
+            resetAnalysis(fresh);
+            articles.set(fresh.id, fresh);
+            identities.set(identity, fresh);
+            created += 1;
+            continue;
+          }
+          const before = evidenceText(article);
+          article.url = item.url;
+          if (!article.sourceIds.includes(source.id))
+            article.sourceIds.push(source.id);
+          const details = hasDetails(item);
+          let owner = article.contentSourceId;
+          if (!owner && hasDetails(article)) owner = article.sourceIds[0];
+          // A publisher feed outranks an attribution-only roundup even without
+          // a full body. Persist that ownership so later citations cannot undo it.
+          // A pinned plain feed still allows actual rich details to enrich it.
+          const promote =
+            (details && (!owner || !hasDetails(article))) ||
+            (!owner && isCitation(article) && !isCitation(item));
+          const sameSource =
+            promote || source.id === (owner || article.sourceIds[0]);
+          if ((details || promote) && sameSource)
+            article.contentSourceId = source.id;
+          if (promote) article.sourceName = source.name;
+          if (
+            sameSource ||
+            (!isCitation(item) &&
+              length(item.excerpt ?? "") > length(article.excerpt))
+          )
+            article.excerpt = item.excerpt ?? "";
+          if (sameSource) article.title = item.title;
+          // Never later than a valid time already known: an update timestamp or
+          // re-listing must not revive a historical article.
+          const published = mergePublication(
+            article.publishedAt,
+            item.publishedAt,
+            sameSource,
+            article.metadata?.publicationPrecision,
+            item.metadata?.publicationPrecision,
+          );
+          const selectedTime = publicationSeconds(published);
+          const observations = [article, item].filter(
+            (observation) =>
+              selectedTime !== null &&
+              publicationSeconds(observation.publishedAt) === selectedTime,
+          );
+          const dateOnly =
+            observations.length > 0 &&
+            observations.every(
+              (observation) =>
+                observation.metadata?.publicationPrecision === "date",
+            );
+          if (published !== (article.publishedAt ?? null))
+            article.publishedAt = published;
+          if (sameSource) updateContent(article, item, timestamp(this.clock()));
+          // Metadata belongs to the selected publication time, even when other
+          // content is refreshed by a later or less precise observation.
+          if (dateOnly)
+            article.metadata = {
+              ...article.metadata,
+              publicationPrecision: "date",
+            };
+          else if (article.metadata?.publicationPrecision !== undefined) {
+            article.metadata = { ...article.metadata };
+            delete article.metadata.publicationPrecision;
+          }
+          if (before !== evidenceText(article)) {
+            if (article.reviewStatus === "approved") {
+              article.reviewStatus = "unread";
+              delete article.reviewedAt;
+            }
+            resetAnalysis(article);
+            changed.add(article.id);
+          }
         }
-      }
-      for (const article of articles.values()) {
-        if (article.relatedArticleId && changed.has(article.relatedArticleId))
-          resetAnalysis(article);
-      }
-      return created;
-    });
+        for (const article of articles.values()) {
+          if (article.relatedArticleId && changed.has(article.relatedArticleId))
+            resetAnalysis(article);
+        }
+        return created;
+      },
+      scope,
+    );
   }
 
   async articles(limit?: number, offset = 0): Promise<Article[]> {
@@ -1348,9 +1411,30 @@ export class SQLRepository implements NewsRepository {
       .sort(newestFirst);
   }
 
+  /**
+   * Articles that may be post candidates at `now`: those whose publication
+   * window ends no earlier than an hour before, a margin for a later clock,
+   * plus every article sharing their URL so a posted alias still blocks a
+   * repeat. The candidate rules themselves apply afterwards.
+   */
+  private static candidateScope(now: number): ArticleScope {
+    const open = "json_extract(data,'$._publicationUntil')>=?";
+    return {
+      query: [
+        `SELECT id,data FROM news_articles WHERE ${open} OR (COALESCE(json_extract(data,'$.sourceKey'),'')='' ` +
+          `AND json_extract(data,'$.url') IN (SELECT json_extract(data,'$.url') FROM news_articles WHERE ${open}))`,
+        [now - 3600, now - 3600],
+      ],
+    };
+  }
+
   async postCandidates(): Promise<Article[]> {
-    const [, state] = await this.snapshot(["state", "posts", "articles"]);
-    return SQLRepository.candidates(state, this.clock()).map(publicArticle);
+    const now = this.clock();
+    const [, state] = await this.snapshot(
+      ["state", "posts", "articles"],
+      SQLRepository.candidateScope(now),
+    );
+    return SQLRepository.candidates(state, now).map(publicArticle);
   }
 
   private static expirePosts(
@@ -1432,121 +1516,130 @@ export class SQLRepository implements NewsRepository {
       gate[2]?.results.length
     )
       return null;
-    return this.mutate(["state", "articles", "posts"], async (state) => {
-      let current = Math.max(now, this.clock());
-      SQLRepository.expirePosts(state, current);
-      const settings = settingsOf(state.state);
-      const schedule = scheduleOf(state.state);
-      // Freshness and the posting window use the later clock, so a stale
-      // tick timestamp never selects an aged-out article or sends after 23:00.
-      if (!settings.autoPost || !isPostingTime(current)) return null;
-      // Posts of a round are sent one at a time: each waits until the
-      // previous one is confirmed, and an unresolved one stops the round.
-      if ([...state.posts.values()].some((post) => BLOCKING.has(post.status)))
-        return null;
-      const candidates = SQLRepository.candidates(state, current);
-      const batch = batchOf(state.state);
-      let article: Article | undefined;
-      if (batch.articleIds.length) {
-        // A round only shrinks: articles no longer eligible now, including
-        // aged-out ones after the night, leave it; new arrivals never join.
-        const eligible = new Map(candidates.map((item) => [item.id, item]));
-        batch.articleIds = batch.articleIds.filter((id) => eligible.has(id));
-        article = eligible.get(batch.articleIds[0] ?? "");
-        if (!article) state.state.publication_batch = closedBatch();
-      }
-      if (!article) {
-        // A round opens when due with every current candidate; idle ticks
-        // reserve nothing, so arriving news opens the next round when due.
-        article = candidates[0];
-        if (schedule.next_at > current || !article) return null;
-        state.state.publication_batch = {
-          articleIds: candidates.map((item) => item.id),
-          openedAt: current,
-        };
-        schedule.next_at = nextPostingAt(current + POST_INTERVAL_SECONDS);
-      }
-      const selectedId = article.id;
-      let failure: string | undefined;
-      if (resolveUrl && isGoogleNewsUrl(article.url)) {
-        const original = article.url;
-        try {
-          let url = resolved.get(original);
-          if (!url) {
-            const target = publisherUrl(await resolveUrl(original));
-            if (!target)
-              throw new GoogleNewsError(
-                "Google News から有効な元記事URLを取得できませんでした",
-              );
-            resolved.set(original, target);
-            url = target;
-          }
-          article.url = url;
-          article.metadata = { ...article.metadata, googleNewsUrl: original };
-          // Keep the row ID and manual/analysis decisions. Adopt the publisher
-          // identity only when it is not already owned by another article.
-          if (
-            article._identity === original &&
-            ![...state.articles.values()].some(
-              (other) => other !== article && other._identity === url,
+    const scope = SQLRepository.candidateScope(Math.max(now, this.clock()));
+    return this.mutate(
+      ["state", "articles", "posts"],
+      async (state) => {
+        let current = Math.max(now, this.clock());
+        SQLRepository.expirePosts(state, current);
+        const settings = settingsOf(state.state);
+        const schedule = scheduleOf(state.state);
+        // Freshness and the posting window use the later clock, so a stale
+        // tick timestamp never selects an aged-out article or sends after 23:00.
+        if (!settings.autoPost || !isPostingTime(current)) return null;
+        // Posts of a round are sent one at a time: each waits until the
+        // previous one is confirmed, and an unresolved one stops the round.
+        if ([...state.posts.values()].some((post) => BLOCKING.has(post.status)))
+          return null;
+        const candidates = SQLRepository.candidates(state, current);
+        const batch = batchOf(state.state);
+        let article: Article | undefined;
+        if (batch.articleIds.length) {
+          // A round only shrinks: articles no longer eligible now, including
+          // aged-out ones after the night, leave it; new arrivals never join.
+          const eligible = new Map(candidates.map((item) => [item.id, item]));
+          batch.articleIds = batch.articleIds.filter((id) => eligible.has(id));
+          article = eligible.get(batch.articleIds[0] ?? "");
+          if (!article) state.state.publication_batch = closedBatch();
+        }
+        if (!article) {
+          // A round opens when due with every current candidate; idle ticks
+          // reserve nothing, so arriving news opens the next round when due.
+          article = candidates[0];
+          if (schedule.next_at > current || !article) return null;
+          state.state.publication_batch = {
+            articleIds: candidates.map((item) => item.id),
+            openedAt: current,
+          };
+          schedule.next_at = nextPostingAt(current + POST_INTERVAL_SECONDS);
+        }
+        const selectedId = article.id;
+        let failure: string | undefined;
+        if (resolveUrl && isGoogleNewsUrl(article.url)) {
+          const original = article.url;
+          try {
+            let url = resolved.get(original);
+            if (!url) {
+              const target = publisherUrl(await resolveUrl(original));
+              if (!target)
+                throw new GoogleNewsError(
+                  "Google News から有効な元記事URLを取得できませんでした",
+                );
+              resolved.set(original, target);
+              url = target;
+            }
+            article.url = url;
+            article.metadata = { ...article.metadata, googleNewsUrl: original };
+            // Keep the row ID and manual/analysis decisions. Adopt the publisher
+            // identity only when it is not already owned by another article.
+            if (
+              article._identity === original &&
+              !(await this.identityOwned(url, article.id))
             )
-          )
-            article._identity = url;
-        } catch (error) {
-          if (error instanceof GoogleNewsDeferred) return null;
+              article._identity = url;
+          } catch (error) {
+            if (error instanceof GoogleNewsDeferred) return null;
+            if (
+              !(error instanceof GoogleNewsError) &&
+              !(error instanceof FetchError)
+            )
+              throw error;
+            failure =
+              error instanceof GoogleNewsError
+                ? error.message
+                : "Google News の元記事URLを取得できませんでした。時間をおいて投稿前の確認をやり直してください";
+          }
+          // Resolution may cross a time boundary. Changed reviews/settings and
+          // competing claims cause the whole mutation to retry from fresh state.
+          current = Math.max(now, this.clock());
           if (
-            !(error instanceof GoogleNewsError) &&
-            !(error instanceof FetchError)
+            !isPostingTime(current) ||
+            !SQLRepository.eligible(state, article, current)
           )
-            throw error;
-          failure =
-            error instanceof GoogleNewsError
-              ? error.message
-              : "Google News の元記事URLを取得できませんでした。時間をおいて投稿前の確認をやり直してください";
+            return null;
+          if (
+            !SQLRepository.candidates(state, current).some(
+              (item) => item.id === selectedId,
+            ) ||
+            // A posted alias of the publisher URL may lie outside the scope.
+            (!failure &&
+              !article.sourceKey &&
+              (await this.postedUrl(article.id, article.url)))
+          ) {
+            const batch = batchOf(state.state);
+            batch.articleIds = batch.articleIds.filter(
+              (id) => id !== selectedId,
+            );
+            if (!batch.articleIds.length)
+              state.state.publication_batch = closedBatch();
+            return null;
+          }
         }
-        // Resolution may cross a time boundary. Changed reviews/settings and
-        // competing claims cause the whole mutation to retry from fresh state.
-        current = Math.max(now, this.clock());
-        if (
-          !isPostingTime(current) ||
-          !SQLRepository.eligible(state, article, current)
-        )
-          return null;
-        if (
-          !SQLRepository.candidates(state, current).some(
-            (item) => item.id === selectedId,
-          )
-        ) {
-          const batch = batchOf(state.state);
-          batch.articleIds = batch.articleIds.filter((id) => id !== selectedId);
-          if (!batch.articleIds.length)
-            state.state.publication_batch = closedBatch();
+        const claimToken = randomToken();
+        const post: Post = {
+          article_id: article.id,
+          status: "publishing",
+          text: "",
+          // A delayed tick gets a fresh lease, starting when it actually claims.
+          attempted_at: timestamp(current),
+          claim_token: claimToken,
+          claim_expires_at: current + 600,
+          check_count: 0,
+        };
+        state.posts.set(article.id, post);
+        try {
+          if (failure) throw new UserError(failure);
+          post.text = draft(article);
+        } catch (error) {
+          if (!(error instanceof UserError)) throw error;
+          Object.assign(post, { status: "failed", error: error.message });
+          disablePosting(state.state);
           return null;
         }
-      }
-      const claimToken = randomToken();
-      const post: Post = {
-        article_id: article.id,
-        status: "publishing",
-        text: "",
-        // A delayed tick gets a fresh lease, starting when it actually claims.
-        attempted_at: timestamp(current),
-        claim_token: claimToken,
-        claim_expires_at: current + 600,
-        check_count: 0,
-      };
-      state.posts.set(article.id, post);
-      try {
-        if (failure) throw new UserError(failure);
-        post.text = draft(article);
-      } catch (error) {
-        if (!(error instanceof UserError)) throw error;
-        Object.assign(post, { status: "failed", error: error.message });
-        disablePosting(state.state);
-        return null;
-      }
-      return { articleId: article.id, text: post.text, claimToken };
-    });
+        return { articleId: article.id, text: post.text, claimToken };
+      },
+      scope,
+    );
   }
 
   /**
@@ -1609,17 +1702,107 @@ export class SQLRepository implements NewsRepository {
 
   /** A bounded check also catches an alias reviewed as posted during remote checks. */
   private async hasPostedUrl(article: Article): Promise<boolean> {
-    if (article.sourceKey) return false;
+    return !article.sourceKey && this.postedUrl(article.id, article.url);
+  }
+
+  async postedUrl(articleId: string, url: string): Promise<boolean> {
     const result = await this.driver.batch([
       [
         "SELECT 1 FROM news_articles a WHERE a.id<>? AND json_extract(a.data,'$.url')=? " +
           "AND COALESCE(json_extract(a.data,'$.sourceKey'),'')='' " +
           "AND (json_extract(a.data,'$.reviewStatus')='posted' OR EXISTS " +
           "(SELECT 1 FROM news_posts p WHERE p.id=a.id)) LIMIT 1",
-        [article.id, article.url],
+        [articleId, url],
       ],
     ]);
     return Boolean(result[0]?.results.length);
+  }
+
+  /**
+   * Whether another article owns an identity. Read inside a mutation, a
+   * concurrent change still fails its revision check and is retried.
+   */
+  private async identityOwned(
+    identity: string,
+    articleId: string,
+  ): Promise<boolean> {
+    const result = await this.driver.batch([
+      [
+        "SELECT 1 FROM news_articles WHERE json_extract(data,'$._identity')=? AND id<>? LIMIT 1",
+        [identity, articleId],
+      ],
+    ]);
+    return Boolean(result[0]?.results.length);
+  }
+
+  /**
+   * Comparison pool of a classification: other articles listed within the
+   * preceding week of this one, or posted since, leaving out articles settled
+   * as unrelated unless saved, approved or posted. Callers apply the
+   * chronological rule.
+   */
+  async relationPool(article: Article): Promise<Article[]> {
+    return this.recentArticles(
+      article,
+      "NOT (json_extract(a.data,'$.analysisStatus')='done' AND json_extract(a.data,'$.decision')='irrelevant' " +
+        "AND json_extract(a.data,'$.reviewStatus') NOT IN ('posted','saved','approved'))",
+    );
+  }
+
+  /** Posted articles, by review or post record, listed within the preceding week of this one or later. */
+  async postedArticles(article: Article): Promise<Article[]> {
+    return this.recentArticles(
+      article,
+      "(json_extract(a.data,'$.reviewStatus')='posted' OR EXISTS " +
+        "(SELECT 1 FROM news_posts p WHERE p.id=a.id AND json_extract(p.data,'$.status')='posted'))",
+    );
+  }
+
+  /**
+   * Bounded by time and count: posted articles, then earlier ones, newest
+   * first; a day of margin covers the string-ordered chronological rule. Fields comparisons
+   * never read are left out.
+   */
+  private async recentArticles(
+    article: Article,
+    condition: string,
+  ): Promise<Article[]> {
+    const listed =
+      (Date.parse(article.publishedAt || article.discoveredAt) || 0) / 1000;
+    const posted = "json_extract(a.data,'$.reviewStatus')='posted'";
+    const order = "json_extract(a.data,'$._listOrder')";
+    const result = await this.driver.batch([
+      [
+        "SELECT json_remove(a.data,'$._listSearch','$.provenance','$.relationProvenance','$.postScreening') AS data " +
+          `FROM news_articles a WHERE a.id<>? AND ${order}>=? AND (${order}<=? OR ${posted}) AND ${condition} ` +
+          `ORDER BY ${posted} DESC,${order}<=? DESC,${order} DESC,a.id LIMIT ?`,
+        [
+          article.id,
+          listed - RELATION_WINDOW_DAYS * 86400,
+          listed + 86400,
+          listed,
+          RELATION_POOL_LIMIT,
+        ],
+      ],
+    ]);
+    return (result[0]?.results ?? []).map((row) =>
+      publicArticle(decode<Article>(textColumn(row, "data"))),
+    );
+  }
+
+  /** The listed IDs that still exist. */
+  async existingArticleIds(
+    articleIds: readonly string[],
+  ): Promise<Set<string>> {
+    const result = await this.driver.batch([
+      [
+        "SELECT id FROM news_articles WHERE id IN (SELECT value FROM json_each(?))",
+        [encode(articleIds)],
+      ],
+    ]);
+    return new Set(
+      (result[0]?.results ?? []).map((row) => textColumn(row, "id")),
+    );
   }
 
   /** Whether the article still drafts exactly the claimed text. */
@@ -2284,16 +2467,21 @@ export class SQLRepository implements NewsRepository {
     );
   }
 
-  /** Reads at most the batch limit; historical and invalid rows never transfer. */
-  private async pendingArticles(
+  /**
+   * Fresh articles never classified, or not classified successfully when
+   * `failed`, newest publication first. Reads at most the limit; historical
+   * and invalid rows never transfer.
+   */
+  async pendingArticles(
     now: number,
     limit: number,
+    failed = false,
   ): Promise<Article[]> {
     const yesterday =
       Math.floor((now + 9 * 3600) / 86400) * 86400 - 9 * 3600 - 86400;
     const result = await this.driver.batch([
       [
-        "SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus')='pending' " +
+        `SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus') IN ${failed ? "('pending','error')" : "('pending')"} ` +
           "AND json_extract(data,'$._publicationSeconds') BETWEEN ? AND ? " +
           "AND (json_extract(data,'$._publicationUntil')>? OR " +
           "(json_extract(data,'$._publicationDate')=0 AND json_extract(data,'$._publicationUntil')=?)) " +
@@ -2302,7 +2490,7 @@ export class SQLRepository implements NewsRepository {
       ],
     ]);
     return (result[0]?.results ?? []).map((row) =>
-      decode<Article>(textColumn(row, "data")),
+      publicArticle(decode<Article>(textColumn(row, "data"))),
     );
   }
 

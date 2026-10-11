@@ -568,16 +568,7 @@ export class Publisher {
     if (!this.jev?.key) return undefined;
     if (isSourceCandidate(article)) return undefined;
     const evidenceHash = await this.repository.evidenceHash(article);
-    const postedIds = new Set(
-      (await this.repository.publicationState()).posts
-        .filter((post) => post.status === "posted")
-        .map((post) => post.articleId),
-    );
-    const posted = (await this.repository.articles()).filter(
-      (other) =>
-        other.id !== articleId &&
-        (other.reviewStatus === "posted" || postedIds.has(other.id)),
-    );
+    const posted = await this.repository.postedArticles(article);
     if (!posted.length) return { evidenceHash, permitted: true };
     const settings = await this.repository.settings();
     try {

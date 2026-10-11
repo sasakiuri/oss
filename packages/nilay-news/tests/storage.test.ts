@@ -1269,6 +1269,132 @@ describe("database round trips", () => {
       expect((await repo.article(target.id)).analysisStatus).toBe("pending");
     },
   );
+
+  /** Articles published `days` before the start, ingested while still fresh. */
+  async function ingestEarlier(days: number, urls: string[]): Promise<void> {
+    const current = now;
+    now = START - days * 86400;
+    await repo.ingest(
+      SOURCE,
+      urls.map((url) => ({
+        ...ITEM,
+        url,
+        publishedAt: published(-days * 86400 - 600),
+      })),
+    );
+    now = current;
+  }
+
+  const unscoped = (seen: Traced[]) =>
+    seen.filter(({ sql }) => sql === "SELECT id,data FROM news_articles");
+
+  it("ingests and claims without reading unrelated history", async () => {
+    await ingestEarlier(
+      3,
+      Array.from(
+        { length: 30 },
+        (_, index) => `https://example.org/old/${index}`,
+      ),
+    );
+    const articleId = await ready();
+    const seen = trace(driver);
+    await repo.ingest(SOURCE, [
+      { ...ITEM, excerpt: "更新された説明" },
+      { ...ITEM, url: "https://example.org/new" },
+    ]);
+    expect(unscoped(seen)).toEqual([]);
+    // Only the existing article of the collected items.
+    expect(articleRows(seen)).toBe(1);
+    expect((await repo.articles()).length).toBe(32);
+    seen.length = 0;
+    expect((await claim()).articleId).toBe(articleId);
+    expect(unscoped(seen)).toEqual([]);
+    // The two fresh articles, not the 30 historical ones.
+    expect(articleRows(seen)).toBeLessThanOrEqual(2 + 2);
+  });
+
+  it("still blocks a URL posted by an older alias outside the window", async () => {
+    await ingestEarlier(3, [ITEM.url]);
+    // A legacy alias of the same publisher URL, posted days ago.
+    driver.db
+      .prepare(
+        "UPDATE news_articles SET id='legacy',data=json_set(data,'$.id','legacy','$._identity','legacy:a','$.reviewStatus','posted')",
+      )
+      .run();
+    await ready();
+    expect(await repo.claimPost(now)).toBeNull();
+  });
+
+  it("saves settings and resets every classification without reading articles", async () => {
+    await ingestEarlier(3, ["https://example.org/history"]);
+    const articleId = await candidate();
+    const history = await find("https://example.org/history");
+    for (const id of [articleId, history.id])
+      await analyze(id, {
+        decision: "candidate",
+        topic: "ジビエ",
+        priority: 2,
+      });
+    const seen = trace(driver);
+    await repo.updateSettings({ pollMinutes: 120 });
+    expect((await repo.article(articleId)).decision).toBe("candidate");
+    await repo.updateSettings({ rubric: NEW_RUBRIC });
+    expect(
+      seen.filter(({ sql }) => /^SELECT [^;]* FROM news_articles/.test(sql)),
+    ).toEqual([
+      expect.objectContaining({ sql: expect.stringContaining("WHERE id=?") }),
+    ]);
+    for (const id of [articleId, history.id])
+      expect(await repo.article(id)).toMatchObject({
+        analysisStatus: "pending",
+        decision: null,
+        topic: null,
+        priority: null,
+        provenance: null,
+      });
+    expect((await repo.article(articleId)).reviewStatus).toBe("saved");
+  });
+
+  it("compares a classification with a week of coverage that may be posted", async () => {
+    await ingestEarlier(8, ["https://example.org/stale"]);
+    await repo.ingest(
+      SOURCE,
+      [
+        ["target", -3600],
+        ["candidate", -7200],
+        ["unrelated", -5400],
+        ["saved", -5000],
+        ["posted", -1800],
+        // Listed two days later, so never earlier coverage.
+        ["later", 2 * 86400],
+      ].map(([name, seconds]) => ({
+        ...ITEM,
+        url: `https://example.org/${name}`,
+        publishedAt: published(Number(seconds)),
+      })),
+    );
+    const byName = async (name: string) => find(`https://example.org/${name}`);
+    await analyze((await byName("candidate")).id, { decision: "candidate" });
+    await analyze((await byName("later")).id, { decision: "candidate" });
+    await analyze((await byName("stale")).id, { decision: "candidate" });
+    await analyze((await byName("unrelated")).id, { decision: "irrelevant" });
+    await repo.review((await byName("saved")).id, "saved");
+    await analyze((await byName("saved")).id, { decision: "irrelevant" });
+    driver.db
+      .prepare(
+        "UPDATE news_articles SET data=json_set(data,'$.reviewStatus','posted') WHERE json_extract(data,'$.url')=?",
+      )
+      .run("https://example.org/posted");
+    const target = await byName("target");
+    const names = (articles: Article[]) =>
+      articles.map((article) => article.url.split("/").at(-1)).sort();
+    expect(names(await repo.relationPool(target))).toEqual([
+      "candidate",
+      "posted",
+      "saved",
+    ]);
+    expect(names(await repo.postedArticles(target))).toEqual(["posted"]);
+  });
 });
 
 describe("settings, listing and review", () => {
@@ -2750,8 +2876,11 @@ describe("races", () => {
     const [read, reading] = signal();
     intercept(driver, async (original, statements) => {
       const results = await original(statements);
+      // The claim's candidate snapshot.
       if (
-        statements.some(([sql]) => sql === "SELECT id,data FROM news_articles")
+        statements.some(([sql]) =>
+          sql.includes("json_extract(data,'$._publicationUntil')>=?"),
+        )
       ) {
         reading();
         await proceed;

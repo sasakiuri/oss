@@ -92,6 +92,27 @@ export interface NewsRepository {
   ingest(source: SourceConfig, items: CollectedItem[]): Promise<number>;
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
+  /** The listed IDs that still exist. */
+  existingArticleIds(articleIds: readonly string[]): Promise<Set<string>>;
+  /**
+   * Fresh articles never classified, or not classified successfully when
+   * `failed`, newest publication first.
+   */
+  pendingArticles(
+    timestamp: number,
+    limit: number,
+    failed?: boolean,
+  ): Promise<Article[]>;
+  /**
+   * Comparison pool of a classification: other articles listed within the
+   * preceding week of this one or later, leaving out articles settled as
+   * unrelated unless saved, approved or posted.
+   */
+  relationPool(article: Article): Promise<Article[]>;
+  /** Posted articles listed within the preceding week of this one or later. */
+  postedArticles(article: Article): Promise<Article[]>;
+  /** Whether another article without a source key has this URL and was posted or attempted. */
+  postedUrl(articleId: string, url: string): Promise<boolean>;
   articlePage(query: ArticleQuery, timestamp: number): Promise<ArticlePage>;
   articleCounts(timestamp: number): Promise<ArticleCounts>;
   review(articleId: string, status: unknown): Promise<Article>;

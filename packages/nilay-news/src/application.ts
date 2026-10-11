@@ -5,7 +5,7 @@ import { withDeadline } from "./deadline.ts";
 import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { NotFoundError, SettingsConflictError, UserError } from "./errors.ts";
-import { freshness, isFreshPublication, newestFirst } from "./freshness.ts";
+import { freshness, isFreshPublication } from "./freshness.ts";
 import { GoogleNewsResolver, resolveGoogleNewsItems } from "./google-news.ts";
 import { Jev } from "./jev.ts";
 import { isGoogleNewsUrl } from "./net/google-news.ts";
@@ -318,16 +318,9 @@ export class Application {
             url,
             metadata: { ...first.metadata, googleNewsUrl: first.url },
           };
-          const attempted = new Set(posts.map((post) => post.articleId));
           if (
             !first.sourceKey &&
-            (await this.repository.articles()).some(
-              (other) =>
-                other.id !== first.id &&
-                !other.sourceKey &&
-                other.url === url &&
-                (other.reviewStatus === "posted" || attempted.has(other.id)),
-            )
+            (await this.repository.postedUrl(first.id, url))
           )
             throw new UserError(
               "同じ元記事URLに投稿済みまたは投稿結果の確認待ちの記事があります",
@@ -593,33 +586,18 @@ export class Application {
           { nextAt: this.clock() + settings.pollMinutes * 60 },
           { jobToken: token },
         );
+      } else if (job.articleIds === null) {
+        // Classifying everything follows the automatic policy: fresh
+        // articles only, newest publication first.
+        work = (await repository.pendingArticles(this.clock(), 100, true)).map(
+          (article) => article.id,
+        );
       } else {
-        const articles = await repository.articles();
-        if (job.articleIds === null) {
-          // Classifying everything follows the automatic policy: fresh
-          // articles only, newest publication first.
-          const now = this.clock();
-          work = articles
-            .filter(
-              (article) =>
-                article.analysisStatus !== "done" &&
-                isFreshPublication(
-                  article.publishedAt,
-                  now,
-                  article.metadata?.publicationPrecision,
-                ),
-            )
-            .sort(newestFirst)
-            .slice(0, 100)
-            .map((article) => article.id);
-        } else {
-          // Requested order is kept: manual selections as chosen, automatic
-          // batches newest first.
-          const existing = new Set(articles.map((article) => article.id));
-          work = [...new Set(job.articleIds)]
-            .filter((id) => existing.has(id))
-            .slice(0, 100);
-        }
+        // Requested order is kept: manual selections as chosen, automatic
+        // batches newest first.
+        const requested = [...new Set(job.articleIds)];
+        const existing = await repository.existingArticleIds(requested);
+        work = requested.filter((id) => existing.has(id)).slice(0, 100);
       }
       signal.throwIfAborted();
       const changes = {
@@ -899,10 +877,9 @@ export class Application {
       )
     )
       return;
-    const relatedArticles = (await repository.articles()).filter(
+    const relatedArticles = (await repository.relationPool(article)).filter(
       (item) =>
-        item.id !== article.id &&
-        (item.reviewStatus === "posted" || chronological(item, article) < 0),
+        item.reviewStatus === "posted" || chronological(item, article) < 0,
     );
     let result: Analysis;
     try {
