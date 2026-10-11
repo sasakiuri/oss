@@ -207,12 +207,15 @@ describe("Jev decisions", () => {
     expect(instructions).toContain("本文や抜粋がないことだけを理由に");
     expect(instructions).not.toMatch(/要確認/);
     expect(instructions).toContain("総称だけで対象動物や議題が分からないとき");
-    expect(instructions).toContain("鳥類・哺乳類の話題と推測せず");
-    // Policy conditions such as regions belong to the editable criteria.
+    expect(instructions).toContain("範囲内の生物と推測せず");
+    expect(instructions).toContain(
+      "日付や場所が書かれていないことだけを理由に判断材料不足としない",
+    );
+    // Policy conditions such as regions and species belong to the editable criteria.
     expect(instructions).toContain(
       "選定基準が対象外とする条件に当たる記事は候補にしない",
     );
-    expect(instructions).not.toMatch(/国内|国外|クマ/);
+    expect(instructions).not.toMatch(/国内|国外|クマ|鳥類|哺乳類/);
     expect(questions.classification?.criteria.insufficient).toContain(
       "対象動物や議題が分からず",
     );
@@ -220,7 +223,7 @@ describe("Jev decisions", () => {
       "省庁名や行政文書であることだけでは該当しない",
     );
     expect(questions.classification?.criteria.relevant).toContain(
-      "外来の鳥類・哺乳類",
+      "対象とする生物の範囲は選定基準に従い",
     );
     for (const label of ["relevant", "policy"])
       expect(questions.classification?.criteria[label]).toContain(
@@ -230,10 +233,10 @@ describe("Jev decisions", () => {
       "選定基準が対象外とする",
     );
     expect(JSON.stringify(questions.classification?.criteria)).not.toMatch(
-      /国内|国外|海外/,
+      /国内|国外|海外|鳥類|哺乳類|昆虫|爬虫類/,
     );
     expect(questions.classification?.criteria.unrelated).toContain(
-      "昆虫・甲殻類・魚類・爬虫類・両生類・植物は対象外",
+      "選定基準が対象とする範囲外の生物の話題",
     );
     expect(questions.classification?.criteria.unrelated).toContain(
       "ペット・畜産だけの話題",
