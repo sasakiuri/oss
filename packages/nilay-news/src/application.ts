@@ -48,6 +48,8 @@ const ANALYSIS_ITEMS_PER_TICK = 10;
 const ANALYSIS_SECONDS_PER_TICK = 45;
 /** A failure the next attempt clears is not sent to Slack. */
 const REPEATED = 2;
+/** New selection criteria supersede a classification batch; not a failure. */
+class RubricChanged extends Error {}
 /** Post states that keep automatic posting from starting. */
 const UNRESOLVED_POSTS = new Set([
   "publishing",
@@ -636,7 +638,20 @@ export class Application {
     const failedBefore = active.failed;
     if (job.kind === "collect")
       await this.collect(active, token, itemId, signal);
-    else await this.analyze(active, token, itemId, signal);
+    else {
+      try {
+        await this.analyze(active, token, itemId, signal);
+      } catch (error) {
+        if (!(error instanceof RubricChanged)) throw error;
+        // The next run queues the remaining articles under the new criteria,
+        // so automation neither pauses nor reports this as a failure.
+        await repository.finishJob(token, {
+          phase: "選定基準の変更により終了",
+          lastFinishedAt: isoSeconds(this.clock()),
+        });
+        return "stop";
+      }
+    }
     signal.throwIfAborted();
     active.progress += 1;
     const { progress, failed, created, limited, deferred } = active;
@@ -849,9 +864,7 @@ export class Application {
   ): Promise<void> {
     const repository = this.repository;
     if ((await repository.settings()).rubric !== job.rubric)
-      throw new UserError(
-        "選定基準が変更されたため仕分けを停止しました。新しい基準で再実行してください",
-      );
+      throw new RubricChanged();
     const article = await repository.article(articleId);
     await repository.updateJob(token, {
       phase: `Jev で仕分け中 ${job.progress + 1}/${job.total}`,
@@ -944,8 +957,10 @@ export class Application {
         relationHash,
       ))
     ) {
+      if ((await repository.settings()).rubric !== job.rubric)
+        throw new RubricChanged();
       throw new UserError(
-        "選定基準または記事が変更されたため仕分けを停止しました。未判定の記事を再実行してください",
+        "記事が変更されたため仕分けを停止しました。未判定の記事を再実行してください",
       );
     }
   }
