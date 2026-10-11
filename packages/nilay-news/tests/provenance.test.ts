@@ -43,9 +43,9 @@ describe("decision provenance", () => {
     expect(result.provenance).toMatchObject({
       requestedModel: "jev-requested",
       resolvedModel: "jev-fixture-v1",
-      promptVersion: "2",
-      criteriaVersion: "2",
-      routingPolicyVersion: "2",
+      promptVersion: "3",
+      criteriaVersion: "3",
+      routingPolicyVersion: "3",
       modelInputHash: await sha256(exact),
       rubricHash: await sha256(fixtures.rubric),
       analyzedAt: "1970-01-01T00:16:40+00:00",
