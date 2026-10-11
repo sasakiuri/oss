@@ -1,5 +1,5 @@
 {
-  "fixtureVersion": 2,
+  "fixtureVersion": 3,
   "synthetic": true,
   "curation": "Agent-authored proposed labels; no human review has been recorded.",
   "rubric": "日本国内の狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作、対象外の生物、日本国外の出来事、特別な事情のないクマの出没・目撃の記事を除く。",
@@ -467,7 +467,7 @@
         "reviewer": null,
         "reviewedAt": null
       },
-      "rationale": "対象分野の話題でも日本国外の出来事。",
+      "rationale": "対象分野の話題でも日本国外の出来事。選定基準の条件で対象外。",
       "article": {
         "id": "overseas",
         "title": "米国の国立公園でクマに襲われ男性けが",
@@ -488,7 +488,7 @@
         "sourceCandidate": false
       },
       "mock": {
-        "classification": "overseas",
+        "classification": "excluded",
         "probability": 0.95,
         "relations": {}
       }
@@ -533,7 +533,7 @@
         "reviewer": null,
         "reviewedAt": null
       },
-      "rationale": "けが人がなく注意の呼びかけにとどまるクマの目撃。",
+      "rationale": "けが人がなく注意の呼びかけにとどまるクマの目撃。選定基準の条件で対象外。",
       "article": {
         "id": "sighting",
         "title": "盛岡市の住宅街でクマ目撃 けが人なし",
@@ -554,7 +554,7 @@
         "sourceCandidate": false
       },
       "mock": {
-        "classification": "sighting",
+        "classification": "excluded",
         "probability": 0.95,
         "relations": {}
       }
