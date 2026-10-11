@@ -2381,15 +2381,16 @@ describe("publication freshness", () => {
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     // One second before the article leaves the window.
     advance(DAY - (START - Date.parse(dayTime("01")) / 1000) - 1);
-    const articles = repo.articles.bind(repo);
+    const pool = repo.relationPool.bind(repo);
     let reads = 0;
-    // The first read builds the work list; the second loads related candidates.
-    vi.spyOn(repo, "articles").mockImplementation(async (...args) => {
-      if ((reads += 1) === 2) advance(2);
-      return articles(...args);
+    // The article ages out while its comparison candidates load.
+    vi.spyOn(repo, "relationPool").mockImplementation(async (...args) => {
+      reads += 1;
+      advance(2);
+      return pool(...args);
     });
     await app.scheduled();
-    expect(reads).toBe(2);
+    expect(reads).toBe(1);
     expect(analyze).not.toHaveBeenCalled();
     expect((await repo.article(ids[0]!)).analysisStatus).toBe("pending");
     expect((await repo.getJob()).error).toBeNull();

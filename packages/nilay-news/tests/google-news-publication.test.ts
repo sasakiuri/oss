@@ -356,6 +356,22 @@ describe("publication of stored Google News links", () => {
     expect((await repo.settings()).autoPost).toBe(true);
   });
 
+  it("does not claim a link whose publisher URL an undated alias already posted", async () => {
+    const { repo, enable } = await setup(WRAPPER);
+    // Outside the claim's publication-window scope, found only by its URL.
+    await repo.ingest(SOURCE, [
+      { title: "別ID", excerpt: "", publishedAt: null, url: TARGET },
+    ]);
+    const alias = (await repo.articles()).find(
+      (article) => article.url === TARGET,
+    );
+    if (!alias) throw new Error("Missing alias");
+    await repo.review(alias.id, "posted");
+    await enable();
+    expect(await repo.claimPost(13_600, async () => TARGET)).toBeNull();
+    expect((await repo.publicationState()).posts).toEqual([]);
+  });
+
   it.each([
     "http://127.0.0.1/private",
     WRAPPER,
