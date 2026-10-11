@@ -163,6 +163,11 @@ export interface NewsRepository {
   recordBufferQuota(observation: BufferQuota): Promise<void>;
   reserveBufferRequest(): Promise<number>;
   recoverPosts(timestamp?: number): Promise<number>;
+  /**
+   * Deletes a bounded number of articles no classification, relation check
+   * or posting can reach any more, with their post records.
+   */
+  pruneArticles(timestamp?: number): Promise<number>;
   resolvePost(articleId: string, outcome: unknown): Promise<Publication>;
   evidenceHash(article: Article): Promise<string>;
   analyzeResult(

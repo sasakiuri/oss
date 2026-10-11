@@ -65,6 +65,10 @@ posted is excluded from new automatic publication. This also covers a repaired
 legacy ID and a separately recollected publisher ID. The final send check
 rechecks known URL aliases, eligibility, claim ownership, and exact text.
 Explicit source-key notices on a shared page remain distinct.
+Only stored articles count: articles and their post records are deleted ten
+days after listing. The IDs kept for a deleted article stop the same links from
+being collected again, but another link that resolves to that publisher URL is
+no longer recognized as posted.
 
 A temporary decoding wait leaves automatic posting enabled and creates no
 failed post; a later tick retries under the same limits. An actual decoding
@@ -80,7 +84,7 @@ or submitted post. Neither dismissal nor clearing an error enables posting.
 
 Already submitted, unknown, failed, or published post records are not rewritten
 or automatically retried. In particular, posts already sent to Buffer or X keep
-their exact text and confirmation history. When the previous release has already
+their exact text and confirmation history until the article is deleted. When the previous release has already
 created a failed draft record with empty text and no remote posting identifiers,
 the same dismissal and error-clearing controls are available without checking
 Buffer or X. Records with prepared text or remote identifiers still require
