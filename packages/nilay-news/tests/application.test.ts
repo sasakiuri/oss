@@ -1501,6 +1501,42 @@ describe("bounded classification per invocation (production default 10 items / 4
     expect(await pending(repo)).toBe(2);
   });
 
+  it("reports a failed deletion of old articles and still classifies", async () => {
+    const notifier = notices();
+    const { app, repo, analyze } = await autoSetup(days(2), { notifier });
+    vi.spyOn(repo, "pruneArticles").mockRejectedValue(new Error("D1"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    await app.scheduled();
+    expect(log).toHaveBeenCalledWith("NilayNews could not delete old articles");
+    expect(analyze).toHaveBeenCalledTimes(2);
+    expect(notifier.report).toHaveBeenCalledWith(
+      "retention",
+      "古い記事を削除できませんでした",
+      expect.any(String),
+      "warning",
+      2,
+    );
+    log.mockRestore();
+  });
+
+  it("skips a selected article deleted after the batch started", async () => {
+    const { app, repo, driver, analyze, ids } = await autoSetup(days(2), {
+      maxAnalysisItemsPerTick: 1,
+    });
+    await app.start("analyze", ids);
+    await app.scheduled();
+    driver.db.prepare("DELETE FROM news_articles WHERE id=?").run(ids[1]!);
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(await repo.getJob()).toMatchObject({
+      running: false,
+      progress: 2,
+      total: 2,
+      error: null,
+    });
+  });
+
   it("starts no item once 45 seconds have elapsed", async () => {
     const { app, repo, analyze, advance } = await autoSetup(days(12));
     // Each classification takes 15 s: items start at 0, 15 and 30 s.
@@ -1756,12 +1792,14 @@ describe("bounded classification per invocation (production default 10 items / 4
     );
     const tick = vi.spyOn(app.publisher, "tick").mockResolvedValue();
     const recoverPosts = vi.spyOn(repo, "recoverPosts");
+    const pruneArticles = vi.spyOn(repo, "pruneArticles");
     const publicationState = vi.spyOn(repo, "publicationState");
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     await app.scheduled();
     expect((await repo.getJob()).progress).toBe(10);
     expect(tick).toHaveBeenCalledTimes(1);
     expect(recoverPosts).toHaveBeenCalledTimes(1);
+    expect(pruneArticles).toHaveBeenCalledTimes(1);
     expect(publicationState).toHaveBeenCalledTimes(1);
   });
 

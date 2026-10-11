@@ -403,6 +403,24 @@ export class Application {
   private async housekeeping(): Promise<void> {
     const repository = this.repository;
     await repository.recoverPosts(this.clock());
+    // Deleting old articles can wait, so a failure never holds up other work.
+    const pruned = await repository.pruneArticles(this.clock()).then(
+      () => true,
+      () => false,
+    );
+    if (pruned)
+      await this.notifier.recover("retention", "古い記事の削除を再開しました");
+    else {
+      // Like notices, the log never includes the exception.
+      console.error("NilayNews could not delete old articles");
+      await this.notifier.report(
+        "retention",
+        "古い記事を削除できませんでした",
+        "収集・仕分け・投稿は続けています。データベースの状態を確認してください。",
+        "warning",
+        REPEATED,
+      );
+    }
     if (this.buffer.configured) {
       try {
         await this.publisher.tick();
@@ -869,7 +887,15 @@ export class Application {
     const repository = this.repository;
     if ((await repository.settings()).rubric !== job.rubric)
       throw new RubricChanged();
-    const article = await repository.article(articleId);
+    let article: Article;
+    try {
+      article = await repository.article(articleId);
+    } catch (error) {
+      // Like an article missing when the batch started, one deleted since is
+      // skipped, here or when its result is stored.
+      if (error instanceof NotFoundError) return;
+      throw error;
+    }
     await repository.updateJob(token, {
       phase: `Jev で仕分け中 ${job.progress + 1}/${job.total}`,
     });
@@ -952,15 +978,20 @@ export class Application {
     const relationHash = related
       ? await repository.evidenceHash(related)
       : null;
-    if (
-      !(await repository.analyzeResult(
+    let stored: boolean;
+    try {
+      stored = await repository.analyzeResult(
         articleId,
         await repository.evidenceHash(article),
         job.rubric,
         result,
         relationHash,
-      ))
-    ) {
+      );
+    } catch (error) {
+      if (error instanceof NotFoundError) return;
+      throw error;
+    }
+    if (!stored) {
       if ((await repository.settings()).rubric !== job.rubric)
         throw new RubricChanged();
       throw new UserError(

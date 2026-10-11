@@ -244,9 +244,31 @@ type ArticleScope = readonly string[] | { query: SQLStatement };
 const RELATION_WINDOW_DAYS = 7;
 /** Most comparison candidates read for one article, posted ones first. */
 const RELATION_POOL_LIMIT = 2000;
+/**
+ * Days an article with a known publication stays stored. Classification and
+ * posting reach publications from yesterday in JST at the earliest and compare
+ * them with the preceding week; a day of margin covers work in flight.
+ */
+const RETENTION_DAYS = RELATION_WINDOW_DAYS + 3;
+/** Most articles one pass deletes, keeping each scheduler write short. */
+const PRUNE_LIMIT = 200;
+/** Deleted-article keys per imported statement, well within D1's value size. */
+const IMPORT_KEYS = 10000;
 
 function encode(value: unknown): string {
   return JSON.stringify(value);
+}
+
+/** The article ID an identity derives. */
+async function identityKey(identity: string): Promise<string> {
+  return (await sha256(identity)).slice(0, 24);
+}
+
+/** Identities an item may be stored under: Yahoo articles also had an RSS form. */
+function identityForms(identity: string): string[] {
+  return YAHOO_ARTICLE.test(identity)
+    ? [identity, `${identity}?source=rss`]
+    : [identity];
 }
 
 function byKey(a: string, b: string): number {
@@ -948,23 +970,15 @@ export class SQLRepository implements NewsRepository {
   async ingest(source: SourceConfig, items: CollectedItem[]): Promise<number> {
     const identityOf = (item: CollectedItem): string =>
       item.sourceKey ? `${source.id}:${item.sourceKey}` : item.url;
-    const ids = new Map(
-      await Promise.all(
-        items.map(
-          async (item) =>
-            [
-              identityOf(item),
-              (await sha256(identityOf(item))).slice(0, 24),
-            ] as const,
-        ),
-      ),
-    );
     // Only these items' articles, their former Yahoo identities, rows with
     // their new IDs, and articles related to them are read and written.
-    const known = [...ids.keys()].flatMap((identity) =>
-      YAHOO_ARTICLE.test(identity)
-        ? [identity, `${identity}?source=rss`]
-        : [identity],
+    const known = items.flatMap((item) => identityForms(identityOf(item)));
+    const ids = new Map(
+      await Promise.all(
+        known.map(
+          async (identity) => [identity, await identityKey(identity)] as const,
+        ),
+      ),
     );
     const matched =
       "json_extract(data,'$._identity') IN (SELECT value FROM json_each(?))";
@@ -983,7 +997,9 @@ export class SQLRepository implements NewsRepository {
     };
     return this.mutate(
       ["articles"],
-      (state) => {
+      async (state) => {
+        // Read after the fenced load: a concurrent deletion forces a retry.
+        const removed = await this.removedKeys([...ids.values()]);
         const articles = state.articles;
         const identities = new Map(
           [...articles.values()].map((article) => [article._identity, article]),
@@ -1006,6 +1022,13 @@ export class SQLRepository implements NewsRepository {
             }
           }
           if (article === undefined) {
+            // A deleted story never returns, even with a later date.
+            if (
+              identityForms(identity).some((form) =>
+                removed.has(ids.get(form) ?? ""),
+              )
+            )
+              continue;
             // Storage is the final authority: a story already older than the
             // freshness window is never added. Undated, invalid or future
             // times are kept for review but excluded from automation.
@@ -1467,6 +1490,60 @@ export class SQLRepository implements NewsRepository {
     if (!found[0]?.results.length) return 0;
     return this.mutate(["state", "posts"], (state) =>
       SQLRepository.expirePosts(state, now),
+    );
+  }
+
+  /**
+   * Deletes, oldest first, up to `PRUNE_LIMIT` articles listed before the
+   * retention period together with their post records, and keeps the keys
+   * their identities derive so collection never adds them again. Articles
+   * with an unknown, malformed or future publication stay for review, and an
+   * article awaiting a posting result still needs its record.
+   */
+  async pruneArticles(at?: number): Promise<number> {
+    const cutoff = (at ?? this.clock()) - RETENTION_DAYS * 86400;
+    return this.mutate([], async (_state, statements) => {
+      const result = await this.driver.batch([
+        [
+          "SELECT a.id,json_extract(a.data,'$._identity') AS identity FROM news_articles a " +
+            "WHERE json_extract(a.data,'$._listOrder')<? " +
+            "AND json_extract(a.data,'$._publicationSeconds')<? AND NOT EXISTS " +
+            "(SELECT 1 FROM news_posts p WHERE p.id=a.id AND json_extract(p.data,'$.status')<>'posted') " +
+            "ORDER BY json_extract(a.data,'$._listOrder') LIMIT ?",
+          [cutoff, cutoff, PRUNE_LIMIT],
+        ],
+      ]);
+      const rows = result[0]?.results ?? [];
+      if (!rows.length) return 0;
+      const ids = rows.map((row) => textColumn(row, "id"));
+      // A row ID can predate its identity: an adopted publisher URL or Yahoo form.
+      const keys = new Set(ids);
+      for (const row of rows)
+        keys.add(await identityKey(textColumn(row, "identity")));
+      statements.push(
+        [
+          "INSERT OR IGNORE INTO news_removed_articles(id) SELECT value FROM json_each(?) WHERE 1",
+          [encode([...keys])],
+        ],
+        ...["posts", "articles"].map((table): SQLStatement => [
+          `DELETE FROM news_${table} WHERE id IN (SELECT value FROM json_each(?))`,
+          [encode(ids)],
+        ]),
+      );
+      return ids.length;
+    });
+  }
+
+  /** The listed keys of deleted articles. */
+  private async removedKeys(keys: readonly string[]): Promise<Set<string>> {
+    const result = await this.driver.batch([
+      [
+        "SELECT id FROM news_removed_articles WHERE id IN (SELECT value FROM json_each(?))",
+        [encode(keys)],
+      ],
+    ]);
+    return new Set(
+      (result[0]?.results ?? []).map((row) => textColumn(row, "id")),
     );
   }
 
@@ -2713,23 +2790,38 @@ export class SQLRepository implements NewsRepository {
    * This format belongs to NewsRepository, not to an underlying SQL schema.
    */
   async exportSnapshot(): Promise<object> {
-    const [revision, state] = await this.snapshot([
-      "state",
-      "articles",
-      "sources",
-      "posts",
-    ]);
-    return {
-      format: "nilay-news",
-      version: 2,
-      revision,
-      exportedAt: timestamp(this.clock()),
-      settings: settingsOf(state.state),
-      schedule: scheduleOf(state.state),
-      articles: [...state.articles.values()],
-      sources: [...state.sources.values()],
-      posts: [...state.posts.values()],
-    };
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const [revision, state] = await this.snapshot([
+        "state",
+        "articles",
+        "sources",
+        "posts",
+      ]);
+      // Deletions commit with a new revision, so an unchanged one is consistent.
+      const removed = await this.driver.batch([
+        ["SELECT revision FROM news_meta WHERE id=1", []],
+        ["SELECT id FROM news_removed_articles ORDER BY id", []],
+      ]);
+      if (numberColumn(removed[0]?.results[0], "revision") !== revision)
+        continue;
+      return {
+        format: "nilay-news",
+        version: 3,
+        revision,
+        exportedAt: timestamp(this.clock()),
+        settings: settingsOf(state.state),
+        schedule: scheduleOf(state.state),
+        articles: [...state.articles.values()],
+        sources: [...state.sources.values()],
+        posts: [...state.posts.values()],
+        removedArticles: (removed[1]?.results ?? []).map((row) =>
+          textColumn(row, "id"),
+        ),
+      };
+    }
+    throw new UserError(
+      "同時更新が続いています。時間をおいて再実行してください",
+    );
   }
 
   /**
@@ -2745,7 +2837,7 @@ export class SQLRepository implements NewsRepository {
     if (
       !isRecord(snapshot) ||
       snapshot.format !== "nilay-news" ||
-      snapshot.version !== 2
+      snapshot.version !== 3
     ) {
       throw new UserError("対応していない移行データ形式です");
     }
@@ -2801,6 +2893,18 @@ export class SQLRepository implements NewsRepository {
       tables.get("posts") ?? new Map<string, Record<string, unknown>>();
     const sources =
       tables.get("sources") ?? new Map<string, Record<string, unknown>>();
+    const removed = snapshot.removedArticles;
+    if (
+      !Array.isArray(removed) ||
+      removed.some(
+        (key) =>
+          typeof key !== "string" ||
+          !/^[a-f0-9]{24}$/.test(key) ||
+          articles.has(key),
+      ) ||
+      new Set(removed).size !== removed.length
+    )
+      throw new UserError("移行データの削除済み記事が不正です");
     const identities = new Set<string>();
     for (const [articleId, article] of articles) {
       const identity = article._identity;
@@ -2906,38 +3010,52 @@ export class SQLRepository implements NewsRepository {
         Math.max(schedule.next_at, this.clock() + POST_INTERVAL_SECONDS),
       ),
     };
-    return this.mutate(["state", "articles", "sources", "posts"], (state) => {
-      if (
-        state.articles.size ||
-        state.posts.size ||
-        jobOf(state.state).running ||
-        state.state.imported !== undefined
-      ) {
-        throw new UserError("移行先は空のデータベースにしてください");
-      }
-      const current = settingsOf(state.state);
-      if (current.autoPost || current.autoCollect || current.autoAnalyze)
-        throw new UserError("移行先の自動実行を停止してください");
-      // The validated portable documents become repository rows unchanged.
-      for (const [id, article] of articles)
-        state.articles.set(id, article as unknown as Article);
-      for (const [id, post] of posts)
-        state.posts.set(id, post as unknown as Post);
-      for (const [id, source] of restoredSources) state.sources.set(id, source);
-      Object.assign(state.state, {
-        settings: importedSettings,
-        settings_revision: { value: randomToken() },
-        schedule: importedSchedule,
-        // An open round is runtime state; imported posting starts afresh.
-        publication_batch: closedBatch(),
-        job: structuredClone(DEFAULT_JOB),
-        imported: { at: timestamp(this.clock()) },
-      });
-      return {
-        articles: articles.size,
-        posts: posts.size,
-        automationDisabled: true,
-      };
-    });
+    return this.mutate(
+      ["state", "articles", "sources", "posts"],
+      async (state, statements) => {
+        if (
+          state.articles.size ||
+          state.posts.size ||
+          (
+            await this.driver.batch([
+              ["SELECT 1 FROM news_removed_articles LIMIT 1", []],
+            ])
+          )[0]?.results.length ||
+          jobOf(state.state).running ||
+          state.state.imported !== undefined
+        ) {
+          throw new UserError("移行先は空のデータベースにしてください");
+        }
+        const current = settingsOf(state.state);
+        if (current.autoPost || current.autoCollect || current.autoAnalyze)
+          throw new UserError("移行先の自動実行を停止してください");
+        // The validated portable documents become repository rows unchanged.
+        for (const [id, article] of articles)
+          state.articles.set(id, article as unknown as Article);
+        for (const [id, post] of posts)
+          state.posts.set(id, post as unknown as Post);
+        for (const [id, source] of restoredSources)
+          state.sources.set(id, source);
+        for (let start = 0; start < removed.length; start += IMPORT_KEYS)
+          statements.push([
+            "INSERT INTO news_removed_articles(id) SELECT value FROM json_each(?) WHERE 1",
+            [encode(removed.slice(start, start + IMPORT_KEYS))],
+          ]);
+        Object.assign(state.state, {
+          settings: importedSettings,
+          settings_revision: { value: randomToken() },
+          schedule: importedSchedule,
+          // An open round is runtime state; imported posting starts afresh.
+          publication_batch: closedBatch(),
+          job: structuredClone(DEFAULT_JOB),
+          imported: { at: timestamp(this.clock()) },
+        });
+        return {
+          articles: articles.size,
+          posts: posts.size,
+          automationDisabled: true,
+        };
+      },
+    );
   }
 }

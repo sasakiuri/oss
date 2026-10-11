@@ -782,6 +782,7 @@ describe("automatic classification setting", () => {
       "0003_automatic_jobs.sql",
       "0004_article_publication_index.sql",
       "0005_article_list_index.sql",
+      "0006_removed_articles.sql",
     ]);
     const partial = new SQLiteDriver(join(directory, "legacy.sqlite3"), [
       "0001_news.sql",
@@ -1394,6 +1395,178 @@ describe("database round trips", () => {
       "saved",
     ]);
     expect(names(await repo.postedArticles(target))).toEqual(["posted"]);
+  });
+});
+
+describe("retention", () => {
+  /** Collect `url` as if `days` ago, published ten minutes before that. */
+  async function collectedAgo(
+    days: number,
+    url: string,
+    changes: Partial<CollectedItem> = {},
+  ): Promise<string> {
+    const current = now;
+    now = START - days * 86400;
+    await repo.ingest(SOURCE, [
+      { ...ITEM, url, publishedAt: published(-days * 86400 - 600), ...changes },
+    ]);
+    now = current;
+    return (await find(url)).id;
+  }
+
+  function post(articleId: string, status: string): void {
+    driver.db.prepare("INSERT INTO news_posts(id,data) VALUES (?,?)").run(
+      articleId,
+      JSON.stringify({
+        article_id: articleId,
+        status,
+        text: "text",
+        attempted_at: "2026-01-01T00:00:00+00:00",
+        claim_token: "token",
+        claim_expires_at: 0,
+        check_count: 0,
+      }),
+    );
+  }
+
+  it("deletes articles listed over ten days ago with their post records", async () => {
+    const old = await collectedAgo(10, "https://example.org/old");
+    const posted = await collectedAgo(10, "https://example.org/posted");
+    post(posted, "posted");
+    const unresolved = await collectedAgo(10, "https://example.org/unresolved");
+    post(unresolved, "unknown");
+    const recent = await collectedAgo(9, "https://example.org/recent");
+    const undated = await collectedAgo(11, "https://example.org/undated", {
+      publishedAt: undefined,
+    });
+    const future = await collectedAgo(11, "https://example.org/future", {
+      publishedAt: published(86400),
+    });
+    // Listed exactly ten days ago, at the cutoff.
+    const boundary = await collectedAgo(10, "https://example.org/boundary", {
+      publishedAt: published(-10 * 86400),
+    });
+    const before = revision(driver.db);
+    expect(await repo.pruneArticles()).toBe(2);
+    expect([...stored(driver.db, "articles").keys()].sort()).toEqual(
+      [unresolved, recent, undated, future, boundary].sort(),
+    );
+    expect([...stored(driver.db, "posts").keys()]).toEqual([unresolved]);
+    expect(revision(driver.db)).toBe(before + 1);
+    expect(await repo.pruneArticles()).toBe(0);
+    expect(revision(driver.db)).toBe(before + 1);
+    // A deleted story never returns, even when relisted with a new date.
+    for (const url of ["https://example.org/old", "https://example.org/posted"])
+      expect(await repo.ingest(SOURCE, [{ ...ITEM, url }])).toBe(0);
+    expect(await repo.existingArticleIds([old, posted])).toEqual(new Set());
+    expect(await repo.ingest(SOURCE, [{ ...ITEM, url: ITEM.url }])).toBe(1);
+  });
+
+  it("keeps the key of an identity adopted after the article was stored", async () => {
+    const articleId = await collectedAgo(10, "https://news.google.com/a");
+    driver.db
+      .prepare(
+        "UPDATE news_articles SET data=json_set(data,'$._identity','https://publisher.example/a') WHERE id=?",
+      )
+      .run(articleId);
+    expect(await repo.pruneArticles()).toBe(1);
+    for (const url of [
+      "https://news.google.com/a",
+      "https://publisher.example/a",
+    ])
+      expect(await repo.ingest(SOURCE, [{ ...ITEM, url }])).toBe(0);
+  });
+
+  it("never restores an article deleted while it is collected again", async () => {
+    const articleId = await collectedAgo(10, "https://example.org/old");
+    let pruned: number | undefined;
+    intercept(driver, async (original, statements) => {
+      if (
+        pruned === undefined &&
+        statements[0]?.[0].startsWith("SELECT id FROM news_removed_articles")
+      )
+        pruned = await repo.pruneArticles();
+      return original(statements);
+    });
+    expect(
+      await repo.ingest(SOURCE, [{ ...ITEM, url: "https://example.org/old" }]),
+    ).toBe(0);
+    expect(pruned).toBe(1);
+    expect(await repo.existingArticleIds([articleId])).toEqual(new Set());
+  });
+
+  it("exports deleted-article keys consistent with the articles", async () => {
+    await collectedAgo(10, "https://example.org/old");
+    let raced = false;
+    intercept(driver, async (original, statements) => {
+      if (
+        !raced &&
+        statements[1]?.[0].startsWith("SELECT id FROM news_removed_articles")
+      ) {
+        raced = true;
+        await repo.pruneArticles();
+      }
+      return original(statements);
+    });
+    const snapshot = await exported(repo);
+    expect(raced).toBe(true);
+    expect(snapshot.articles).toEqual([]);
+    expect(snapshot.removedArticles).toHaveLength(1);
+  });
+
+  it("carries deleted-article keys through a snapshot", async () => {
+    await collectedAgo(10, "https://example.org/old");
+    expect(await repo.pruneArticles()).toBe(1);
+    const snapshot = await exported(repo);
+    expect(snapshot.removedArticles).toHaveLength(1);
+    const other = open([SOURCE], join(directory, "restored.sqlite3"));
+    await other.initialize();
+    await other.importSnapshot(snapshot);
+    expect(
+      await other.ingest(SOURCE, [{ ...ITEM, url: "https://example.org/old" }]),
+    ).toBe(0);
+    // A target that has deleted articles is not empty.
+    const used = open([SOURCE], join(directory, "used.sqlite3"));
+    await used.initialize();
+    await used.importSnapshot(snapshot);
+    await expect(
+      used.importSnapshot({ ...snapshot, removedArticles: [] }),
+    ).rejects.toThrow("移行先は空のデータベースにしてください");
+  });
+
+  it("deletes in bounded passes, oldest first", async () => {
+    now = START - 11 * 86400;
+    await repo.ingest(
+      SOURCE,
+      Array.from({ length: 201 }, (_, index) => ({
+        ...ITEM,
+        url: `https://example.org/old/${index}`,
+        publishedAt: published(-11 * 86400 - index),
+      })),
+    );
+    now = START;
+    expect(await repo.pruneArticles()).toBe(200);
+    expect(
+      [...stored(driver.db, "articles").values()].map(({ url }) => url),
+    ).toEqual(["https://example.org/old/0"]);
+    expect(await repo.pruneArticles()).toBe(1);
+  });
+
+  it("keeps an article that awaits a posting result committed during the pass", async () => {
+    const articleId = await collectedAgo(10, "https://example.org/old");
+    let raced = false;
+    intercept(driver, async (original, statements) => {
+      const results = await original(statements);
+      if (!raced && statements[0]?.[0].startsWith("SELECT a.id,")) {
+        raced = true;
+        post(articleId, "unknown");
+        driver.db.exec("UPDATE news_meta SET revision=revision+1 WHERE id=1");
+      }
+      return results;
+    });
+    expect(await repo.pruneArticles()).toBe(0);
+    expect(raced).toBe(true);
+    expect(stored(driver.db, "articles").has(articleId)).toBe(true);
   });
 });
 
@@ -3140,8 +3313,9 @@ describe("snapshots", () => {
     const attempt = await claim();
     const snapshot = await repo.exportSnapshot();
     expect(snapshot).toMatchObject({
-      version: 2,
+      version: 3,
       settings: { autoAnalyze: true },
+      removedArticles: [],
     });
     expect(snapshot).not.toHaveProperty("job");
     expect(JSON.stringify(snapshot)).toContain('"_identity"');
@@ -3275,6 +3449,16 @@ describe("snapshots", () => {
       "version before automatic classification",
       { version: 1 },
       "対応していない移行データ形式です",
+    ],
+    [
+      "version before article deletion",
+      { version: 2 },
+      "対応していない移行データ形式です",
+    ],
+    [
+      "deleted-article key",
+      { removedArticles: ["bad"] },
+      "移行データの削除済み記事が不正です",
     ],
     [
       "settings keys",
