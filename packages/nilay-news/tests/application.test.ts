@@ -119,7 +119,10 @@ async function setup(
 }
 async function analyzeSetup(
   count: number,
-  options: { maxAnalysisItemsPerTick?: number } = {},
+  options: {
+    maxAnalysisItemsPerTick?: number;
+    notifier?: ReturnType<typeof notices>;
+  } = {},
 ) {
   const jev = new Jev("test-key");
   const analyze = vi.spyOn(jev, "analyze").mockResolvedValue({
@@ -243,10 +246,12 @@ describe("durable application jobs", () => {
     expect(await repo.getJob()).toMatchObject({ error: null, limited: 1 });
     expect((await repo.sources())[0]?.lastWarnings).toEqual(["一覧のみ"]);
   });
-  it("stops a pending analysis after a rubric change without another paid call", async () => {
+  it("ends a pending analysis after a rubric change without a paid call, pause or notice", async () => {
     // The rubric changes between two scheduler invocations.
+    const notifier = notices();
     const { app, repo, analyze } = await analyzeSetup(2, {
       maxAnalysisItemsPerTick: 1,
+      notifier,
     });
     await app.start("analyze");
     await app.scheduled();
@@ -258,8 +263,12 @@ describe("durable application jobs", () => {
     expect(await repo.getJob()).toMatchObject({
       running: false,
       progress: 1,
-      error: expect.stringContaining("選定基準"),
+      error: null,
+      phase: "選定基準の変更により終了",
     });
+    // Not a failure: automatic classification continues on the next run.
+    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
+    expect(notifier.report).not.toHaveBeenCalled();
     expect(
       (await repo.articles()).every(
         (article) => article.analysisStatus === "pending",
@@ -1665,10 +1674,17 @@ describe("bounded classification per invocation (production default 10 items / 4
     expect(await repo.getJob()).toMatchObject({
       running: false,
       token: null,
-      error: expect.stringContaining("選定基準"),
+      error: null,
+      phase: "選定基準の変更により終了",
     });
     // The rubric change reset stored results; nothing was stored under it.
     expect(await pending(repo)).toBe(5);
+    // The next run starts a batch under the new criteria at once.
+    await app.scheduled();
+    expect(analyze).toHaveBeenCalledTimes(7);
+    expect(analyze.mock.calls.at(-1)?.[1]).toBe(
+      "射撃競技に関係するニュースだけを候補にする",
+    );
   });
 
   it("stops when an article changes during its classification and keeps manual review", async () => {
