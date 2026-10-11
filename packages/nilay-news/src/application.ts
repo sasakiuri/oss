@@ -645,8 +645,12 @@ export class Application {
         if (!(error instanceof RubricChanged)) throw error;
         // The next run queues the remaining articles under the new criteria,
         // so automation neither pauses nor reports this as a failure.
+        // A manual selection is not requeued, so it asks for a rerun.
         await repository.finishJob(token, {
           phase: "選定基準の変更により終了",
+          warning: job.automatic
+            ? null
+            : "選定基準が変更されたため、選択した記事を新しい基準で再実行してください",
           lastFinishedAt: isoSeconds(this.clock()),
         });
         return "stop";
