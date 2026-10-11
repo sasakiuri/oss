@@ -269,6 +269,8 @@ describe("durable application jobs", () => {
     // Not a failure: automatic classification continues on the next run.
     expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
     expect(notifier.report).not.toHaveBeenCalled();
+    // A manual selection is not requeued, so it asks for a rerun.
+    expect((await repo.getJob()).warning).toContain("再実行");
     expect(
       (await repo.articles()).every(
         (article) => article.analysisStatus === "pending",
@@ -1675,10 +1677,12 @@ describe("bounded classification per invocation (production default 10 items / 4
       running: false,
       token: null,
       error: null,
+      warning: null,
       phase: "選定基準の変更により終了",
     });
     // The rubric change reset stored results; nothing was stored under it.
     expect(await pending(repo)).toBe(5);
+    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
     // The next run starts a batch under the new criteria at once.
     await app.scheduled();
     expect(analyze).toHaveBeenCalledTimes(7);
