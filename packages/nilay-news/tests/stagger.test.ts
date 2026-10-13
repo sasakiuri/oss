@@ -126,8 +126,8 @@ async function world(
       new CachedFetch(repository, sources, {
         clock,
         transport,
-        sleep: async (seconds) => {
-          now += seconds;
+        sleep: async (milliseconds) => {
+          now += milliseconds / 1000;
         },
       });
     let current = fresh();

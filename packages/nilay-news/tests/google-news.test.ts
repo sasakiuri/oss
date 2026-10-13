@@ -206,6 +206,29 @@ describe("bounded Google News resolution", () => {
     expect(options.clock()).toBe(10_003);
   });
 
+  it("ends the request interval on a clock that moves only by whole timer milliseconds", async () => {
+    const { repo, options, calls } = await setup();
+    // The previous request ended 0.5 ms ago; as in Workers, time stands still
+    // between I/O and a timer drops a fractional millisecond.
+    await repo.putRecord(
+      "google_news_url_rate",
+      "google-news-url:news.google.com",
+      { nextAt: options.clock() + 2.9995, blockedUntil: 0 },
+    );
+    let timers = 0;
+    const result = collection([item(article("opaque"))]);
+    await resolveGoogleNewsItems(result, repo, {
+      ...options,
+      sleep: async (milliseconds) => {
+        timers += 1;
+        if (timers > 10) throw new Error("the request interval never ends");
+        await options.sleep(Math.trunc(milliseconds));
+      },
+    });
+    expect(result.items[0]?.url).toBe(publisher);
+    expect(calls).toEqual([pageUrl("opaque"), GOOGLE_NEWS_RPC]);
+  });
+
   it("preserves distinct source keys and leaves non-Google collections unchanged", async () => {
     const { repo, options } = await setup();
     const first = { ...item(publisher), sourceKey: "one" };

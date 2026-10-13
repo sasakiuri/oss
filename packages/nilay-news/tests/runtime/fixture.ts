@@ -164,8 +164,8 @@ const handlers = createHandlers(
         crawl: new CachedFetch(repo, [source], {
           clock: () => now,
           transport,
-          sleep: async (seconds) => {
-            now += seconds;
+          sleep: async (milliseconds) => {
+            now += milliseconds / 1000;
           },
         }),
       },

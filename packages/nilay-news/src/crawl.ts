@@ -97,8 +97,8 @@ export interface CrawlOptions {
   transport?: FetchBytes;
   maxRequests?: number;
   signal?: AbortSignal;
-  /** Test hook; defaults to an abortable timer. */
-  sleep?: (seconds: number, signal?: AbortSignal) => Promise<void>;
+  /** Test hook in whole milliseconds; defaults to an abortable timer. */
+  sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 }
 
 const LEASE_SECONDS = 120;
@@ -107,14 +107,14 @@ const MAX_WAIT = 3;
 const MAX_BYTES = 4_000_000;
 const GAZETTE_HOST = hostOf(KANPO_HOME);
 
-function timer(seconds: number, signal?: AbortSignal): Promise<void> {
+function timer(milliseconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     signal?.throwIfAborted();
     const done = () => {
       signal?.removeEventListener("abort", cancel);
       resolve();
     };
-    const id = setTimeout(done, seconds * 1000);
+    const id = setTimeout(done, milliseconds);
     const cancel = () => {
       clearTimeout(id);
       reject(signal?.reason);
@@ -167,7 +167,7 @@ export class CachedFetch {
   private readonly maxRequests: number;
   private readonly signal?: AbortSignal;
   private readonly sleep: (
-    seconds: number,
+    milliseconds: number,
     signal?: AbortSignal,
   ) => Promise<void>;
   private readonly urlIntervals = new Map<string, number>();
@@ -503,7 +503,10 @@ export class CachedFetch {
     let wait = state.next_request - this.clock();
     if (wait > MAX_WAIT + 0.001) throw new CrawlDeferred(state.next_request);
     while (wait > 0) {
-      await this.sleep(Math.min(wait, 2.9), this.signal);
+      // The Workers clock stands still between I/O and a timer drops a
+      // fractional millisecond, so a sub-millisecond remainder would wait on
+      // 0 ms timers forever. Whole milliseconds, rounded up, reach the time.
+      await this.sleep(Math.ceil(Math.min(wait, 2.9) * 1000), this.signal);
       wait = state.next_request - this.clock();
     }
   }
