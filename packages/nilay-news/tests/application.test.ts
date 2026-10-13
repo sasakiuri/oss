@@ -395,8 +395,8 @@ describe("durable application jobs", () => {
       crawl: new CachedFetch(repo, feeds, {
         clock: () => now,
         transport,
-        sleep: async (seconds) => {
-          now += seconds;
+        sleep: async (milliseconds) => {
+          now += milliseconds / 1000;
         },
       }),
       notifier: notifier as unknown as Notifier,
@@ -552,8 +552,8 @@ describe("durable application jobs", () => {
           clock: () => now,
           transport,
           maxRequests: 1000,
-          sleep: async (seconds) => {
-            now += seconds;
+          sleep: async (milliseconds) => {
+            now += milliseconds / 1000;
           },
         }),
       });

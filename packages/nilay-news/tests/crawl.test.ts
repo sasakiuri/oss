@@ -54,9 +54,10 @@ let calls: [string, number][];
 let errors: Map<string, FetchError>;
 let rules: string;
 const clock = () => now;
-const sleep = async (seconds: number) => {
-  expect(seconds).toBeLessThan(3);
-  now += seconds;
+const sleep = async (milliseconds: number) => {
+  expect(Number.isInteger(milliseconds)).toBe(true);
+  expect(milliseconds).toBeLessThan(3000);
+  now += milliseconds / 1000;
   await Promise.resolve();
 };
 const transport: FetchBytes = async (url) => {
@@ -119,6 +120,26 @@ describe("CachedFetch", () => {
   it("stops at a robots denial without requesting the source", async () => {
     await expect(crawler().fetch(`${ORIGIN}/denied`)).rejects.toThrow("禁止");
     expect(calls.map(([url]) => url)).toEqual([`${ORIGIN}/robots.txt`]);
+  });
+
+  it("ends a host wait on a clock that moves only by whole timer milliseconds", async () => {
+    // As in Workers: time stands still between I/O and a timer drops a
+    // fractional millisecond, so a sub-millisecond remainder must still end.
+    let timers = 0;
+    const workers = crawler([], {
+      sleep: async (milliseconds) => {
+        timers += 1;
+        if (timers > 10) throw new Error("the host wait never ends");
+        now += Math.trunc(milliseconds) / 1000;
+        await Promise.resolve();
+      },
+    });
+    await workers.fetch(`${ORIGIN}/one`);
+    expect(calls.map(([url]) => url)).toEqual([
+      `${ORIGIN}/robots.txt`,
+      `${ORIGIN}/one`,
+    ]);
+    expect(spaced()).toBe(true);
   });
 
   it("shares host spacing and cached responses across Worker instances", async () => {

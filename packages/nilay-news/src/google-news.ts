@@ -137,8 +137,9 @@ export class GoogleNewsResolver {
         )
           throw new GoogleNewsDeferred();
         while (rate.nextAt > this.clock()) {
+          // Whole milliseconds, rounded up, as in CachedFetch's pacing.
           await (this.options.sleep ?? sleep)(
-            Math.min(rate.nextAt - this.clock(), INTERVAL) * 1000,
+            Math.ceil(Math.min(rate.nextAt - this.clock(), INTERVAL) * 1000),
             this.options.signal,
           );
           this.budget();
