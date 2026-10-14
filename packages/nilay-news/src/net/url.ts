@@ -169,6 +169,14 @@ export function hostname(url: string): string {
   }
 }
 
+/** The host without a leading `www.`, so both forms share pacing and backoff. */
+export function siteHost(url: string | URL): string {
+  return (typeof url === "string" ? hostname(url) : url.hostname).replace(
+    /^www\./,
+    "",
+  );
+}
+
 function unsplit(
   scheme: string | null,
   netloc: string | null,

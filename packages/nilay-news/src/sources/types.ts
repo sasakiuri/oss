@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { FetchResult } from "../net/types.ts";
+
 /** Source configuration and collected item contracts. */
 
 export type SourceKind = "rss" | "html" | "kanpo" | "egov" | "bills";
@@ -84,15 +86,6 @@ export interface Collection {
   items: CollectedItem[];
   warnings: string[];
   notes: string[];
-}
-
-export interface FetchResult {
-  data: Uint8Array;
-  url: string;
-  contentType: string;
-  /** The response's `RateLimit` header, present only when the server sent one. */
-  rateLimit?: string;
-  rateLimitPolicy?: string;
 }
 
 /** Fetch used by collectors; pacing, robots and caching are applied by the caller. */

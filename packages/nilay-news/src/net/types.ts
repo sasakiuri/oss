@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: MIT
-import type { FetchResult } from "../sources/types.ts";
+
+export interface FetchResult {
+  data: Uint8Array;
+  url: string;
+  contentType: string;
+  /** The response's `RateLimit` header, present only when the server sent one. */
+  rateLimit?: string;
+  rateLimitPolicy?: string;
+}
 
 export interface FetchOptions {
   body?: Uint8Array;

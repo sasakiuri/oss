@@ -10,10 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Article, Job, Post } from "../src/domain.ts";
 import { NotFoundError, UserError } from "../src/errors.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
-import type { SQLResult, SQLStatement } from "../src/storage/sql-repository.ts";
+import type { SQLResult, SQLStatement } from "../src/storage/sql.ts";
 import { isRecord } from "../src/text.ts";
 
 import {
@@ -197,7 +198,7 @@ async function analyze(
   const rubric = (await repo.settings()).rubric;
   return repo.analyzeResult(
     articleId,
-    await repo.evidenceHash(article),
+    await evidenceHash(article),
     rubric,
     { analysisStatus: "done", ...result },
     relationHash,
@@ -280,10 +281,10 @@ describe("ingest and evidence", () => {
       contentError: "",
     };
     // References computed by storage/model.py evidence_hash (json.dumps sort_keys, code point order).
-    expect(await repo.evidenceHash(evidence)).toBe(
+    expect(await evidenceHash(evidence)).toBe(
       "b5ab8216a89dca49a7053b5977804b10baff402aadf7324752c22e114fb914e0",
     );
-    expect(await repo.evidenceHash({ ...ARTICLE, title: "t" })).toBe(
+    expect(await evidenceHash({ ...ARTICLE, title: "t" })).toBe(
       "887bfc69e45d8e255a0c2bf0afc834868afc64fed5c7e0f1a6b15dbd69e82073",
     );
   });
@@ -303,7 +304,7 @@ describe("ingest and evidence", () => {
       await analyze(
         secondId,
         { relatedArticleId: articleId, relation: "duplicate" },
-        await repo.evidenceHash(first),
+        await evidenceHash(first),
       ),
     ).toBe(true);
     await repo.ingest({ ...SOURCE, id: "aggregator", name: "Aggregator" }, [
@@ -340,8 +341,8 @@ describe("ingest and evidence", () => {
     ]);
     const first = await find(ITEM.url);
     const second = await find("https://example.org/second");
-    const firstHash = await repo.evidenceHash(first);
-    const secondHash = await repo.evidenceHash(second);
+    const firstHash = await evidenceHash(first);
+    const secondHash = await evidenceHash(second);
     const rubric = (await repo.settings()).rubric;
     const relation = {
       analysisStatus: "done",
@@ -379,12 +380,10 @@ describe("ingest and evidence", () => {
     });
     await repo.updateSettings({ rubric: NEW_RUBRIC });
     expect(
-      await repo.analyzeResult(
-        articleId,
-        await repo.evidenceHash(article),
-        rubric,
-        { analysisStatus: "done", decision: "candidate" },
-      ),
+      await repo.analyzeResult(articleId, await evidenceHash(article), rubric, {
+        analysisStatus: "done",
+        decision: "candidate",
+      }),
     ).toBe(false);
     expect(await repo.article(articleId)).toMatchObject({
       reviewStatus: "saved",
@@ -463,7 +462,7 @@ describe("ingest and evidence", () => {
     await store.ingest(SOURCE, [ITEM]);
     const [article] = await store.articles();
     if (!article) throw new Error("missing article");
-    const hash = await store.evidenceHash(article);
+    const hash = await evidenceHash(article);
     const rubric = (await store.settings()).rubric;
     expect(
       await store.analyzeResult(article.id, hash, rubric, {
@@ -486,7 +485,7 @@ describe("ingest and evidence", () => {
     });
     expect(current.metadata).toBeUndefined();
     expect(current.contentSourceId).toBeUndefined();
-    expect(await store.evidenceHash(current)).toBe(hash);
+    expect(await evidenceHash(current)).toBe(hash);
 
     // A cited article is still promoted by a source with real details.
     const rich: SourceConfig = { ...SOURCE, id: "bills", name: "法案" };
@@ -540,7 +539,7 @@ describe("ingest and evidence", () => {
       sourceIds: [roundup.id, SOURCE.id],
     });
     await store.review(article.id, "saved");
-    const hash = await store.evidenceHash(article);
+    const hash = await evidenceHash(article);
     const rubric = (await store.settings()).rubric;
     expect(
       await store.analyzeResult(article.id, hash, rubric, {
@@ -564,7 +563,7 @@ describe("ingest and evidence", () => {
       analysisStatus: "done",
       reviewStatus: "saved",
     });
-    expect(await store.evidenceHash(retained)).toBe(hash);
+    expect(await evidenceHash(retained)).toBe(hash);
     await store.ingest(SOURCE, [{ ...ITEM, title: "配信元の更新見出し" }]);
     expect((await store.article(article.id)).title).toBe("配信元の更新見出し");
     expect(await store.articles()).toHaveLength(1);
@@ -638,7 +637,7 @@ describe("ingest and evidence", () => {
     };
     await repo.ingest(SOURCE, [original]);
     const article = await find(ITEM.url);
-    const oldHash = await repo.evidenceHash(article);
+    const oldHash = await evidenceHash(article);
     await repo.review(article.id, "posted");
     expect(await analyze(article.id, {})).toBe(true);
     await repo.ingest(SOURCE, [{ ...ITEM, contentError: "本文未取得" }]);
@@ -1136,7 +1135,7 @@ describe("database round trips", () => {
         const target = await other.article(first!.id);
         await other.analyzeResult(
           target.id,
-          await other.evidenceHash(target),
+          await evidenceHash(target),
           rubric,
           { analysisStatus: "done" },
         );
@@ -1183,7 +1182,7 @@ describe("database round trips", () => {
       await analyze(
         target!.id,
         { relatedArticleId: related!.id, relation: "duplicate" },
-        await repo.evidenceHash(related!),
+        await evidenceHash(related!),
       ),
     ).toBe(true);
     const saves = seen.filter(({ sql }) => sql.startsWith(SCOPED));
@@ -1226,8 +1225,8 @@ describe("database round trips", () => {
       const target = await find(ITEM.url);
       const related = await find("https://example.org/b");
       const rubric = (await repo.settings()).rubric;
-      const hash = await repo.evidenceHash(target);
-      const relationHash = await repo.evidenceHash(related);
+      const hash = await evidenceHash(target);
+      const relationHash = await evidenceHash(related);
       const other = open();
       let loads = 0;
       intercept(driver, async (original, statements) => {

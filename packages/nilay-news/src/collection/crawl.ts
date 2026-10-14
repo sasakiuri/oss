@@ -8,8 +8,8 @@ import type { Clock } from "../domain.ts";
 import { clock as systemClock } from "../domain.ts";
 import { UserError } from "../errors.ts";
 import { FetchError, fetchBytes } from "../net/http.ts";
-import type { FetchBytes, FetchOptions } from "../net/types.ts";
-import { hostname, queryValue, urlsplit } from "../net/url.ts";
+import type { FetchResult, FetchBytes, FetchOptions } from "../net/types.ts";
+import { queryValue, siteHost, urlsplit } from "../net/url.ts";
 import type { NewsRepository } from "../repository.ts";
 import { dailySlot, nextDailyRun } from "../schedule.ts";
 import {
@@ -18,10 +18,22 @@ import {
   validRobotsException,
   validRobotsUnavailable,
 } from "../sources/config.ts";
-import type { FetchResult, SourceConfig } from "../sources/types.ts";
+import type { SourceConfig } from "../sources/types.ts";
 import { randomToken, sha256 } from "../text.ts";
 import { formatJst } from "../time.ts";
 
+import {
+  CRAWL_HOST,
+  CRAWL_SOURCE,
+  CRAWL_URL,
+  CRAWL_RESPONSE,
+  CRAWL_ROBOTS,
+  type HostState,
+  type Requested,
+  type SourceRecord,
+  type CachedResponse,
+  type RobotsRecord,
+} from "./crawl-state.ts";
 import { RobotsPolicy } from "./robots.ts";
 
 /** A policy refusal, rather than a new transport failure. */
@@ -52,29 +64,6 @@ export class CrawlBackoff extends CrawlDeferred {
   }
 }
 
-// Record fields keep the names already persisted in D1 by the previous runtime.
-interface HostState {
-  next_request: number;
-  blocked_until: number;
-  failures: number;
-  crawl_delay: number;
-  last_finished: number;
-}
-interface Requested {
-  last_requested: number;
-}
-/**
- * `crawl_source` of a rolling source. `last_requested` alone is a settled
- * source; while an attempt holds it, `attempt` and the settled `previous` time
- * (0 without history) are kept so that an attempt that sent no request can
- * give its interval back. `retry_at` is the earliest retry after such an
- * attempt. Records without these fields are settled, current data.
- */
-interface SourceRecord extends Requested {
-  attempt?: string;
-  previous?: number;
-  retry_at?: number;
-}
 /** A claimed source; `requests` counts non-robots requests before the claim. */
 export interface SourceAttempt {
   readonly token: string;
@@ -87,12 +76,6 @@ interface SendOptions {
   /** Called before each redirect hop is requested. */
   onRedirect?: () => void;
 }
-interface CachedResponse {
-  blob: string;
-  final_url: string;
-  content_type: string;
-}
-
 export interface CrawlOptions {
   clock?: Clock;
   transport?: FetchBytes;
@@ -106,7 +89,7 @@ const LEASE_SECONDS = 120;
 const MIN_INTERVAL = 3;
 const MAX_WAIT = 3;
 const MAX_BYTES = 4_000_000;
-const GAZETTE_HOST = hostOf(KANPO_HOME);
+const GAZETTE_HOST = siteHost(KANPO_HOME);
 
 function timer(milliseconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -140,10 +123,6 @@ function sourceRecord(row: SourceRecord | null): SourceRecord | null {
   )
     throw new UserError("収集元の取得記録が不正です");
   return row;
-}
-
-function hostOf(url: string): string {
-  return hostname(url).replace(/^www\./, "");
 }
 
 /** Cache lifetime by URL shape: PDFs a day, e-Gov details six hours. */
@@ -211,7 +190,7 @@ export class CachedFetch {
           source.dailyAtJst ? 0 : (source.minCollectionMinutes ?? 0) * 60,
         ),
       );
-      const host = hostOf(url);
+      const host = siteHost(url);
       this.hostDelays.set(
         host,
         Math.max(
@@ -241,7 +220,7 @@ export class CachedFetch {
   async nextDue(source: SourceConfig): Promise<number> {
     if (source.dailyAtJst) {
       const started = await this.repository.getRecord<Requested>(
-        "crawl_source",
+        CRAWL_SOURCE,
         source.id,
       );
       const due = nextDailyRun(
@@ -252,7 +231,7 @@ export class CachedFetch {
       return due > this.clock() ? due : 0;
     }
     const row = await this.repository.getRecord<SourceRecord>(
-      "crawl_source",
+      CRAWL_SOURCE,
       source.id,
     );
     return this.rollingDue(source, sourceRecord(row));
@@ -265,7 +244,7 @@ export class CachedFetch {
   ): Promise<number> {
     const interval = this.urlIntervals.get(source.url) ?? 0;
     const requested = interval
-      ? await this.repository.getRecord<Requested>("crawl_url", source.url)
+      ? await this.repository.getRecord<Requested>(CRAWL_URL, source.url)
       : null;
     return Math.max(
       row ? row.last_requested + (source.minCollectionMinutes ?? 60) * 60 : 0,
@@ -283,14 +262,11 @@ export class CachedFetch {
       throw new CrawlStopped(
         source.collectionBlocked || "この収集元は停止しています",
       );
-    const host = hostOf(source.url);
+    const host = siteHost(source.url);
     const token = await this.acquire(host);
     try {
       const row = sourceRecord(
-        await this.repository.getRecord<SourceRecord>(
-          "crawl_source",
-          source.id,
-        ),
+        await this.repository.getRecord<SourceRecord>(CRAWL_SOURCE, source.id),
       );
       const due = source.dailyAtJst
         ? nextDailyRun(this.clock(), source.dailyAtJst, row?.last_requested)
@@ -299,7 +275,7 @@ export class CachedFetch {
       const attempt = { token: randomToken(), requests: this.sourceRequests };
       // An abandoned attempt keeps its claim time: it may have sent requests.
       await this.put(
-        "crawl_source",
+        CRAWL_SOURCE,
         source.id,
         source.dailyAtJst
           ? { last_requested: this.clock() }
@@ -331,14 +307,11 @@ export class CachedFetch {
   ): Promise<void> {
     // A fixed daily slot is claimed at the start, even if completion is late.
     if (source.dailyAtJst) return;
-    const host = hostOf(source.url);
+    const host = siteHost(source.url);
     const token = await this.acquire(host);
     try {
       const row = sourceRecord(
-        await this.repository.getRecord<SourceRecord>(
-          "crawl_source",
-          source.id,
-        ),
+        await this.repository.getRecord<SourceRecord>(CRAWL_SOURCE, source.id),
       );
       if (row?.attempt !== attempt.token) return;
       // sourceRecord() requires `previous` with an attempt.
@@ -347,7 +320,7 @@ export class CachedFetch {
         this.sourceRequests === attempt.requests &&
         (outcome instanceof CrawlDeferred || outcome instanceof CrawlLimit);
       await this.put(
-        "crawl_source",
+        CRAWL_SOURCE,
         source.id,
         !unsent
           ? { last_requested: this.clock() }
@@ -372,7 +345,7 @@ export class CachedFetch {
       ? `daily:${dailySlot(this.clock(), dailyAt)}:${url}`
       : url;
     const cached = await this.repository.getRecord<CachedResponse>(
-      "crawl_response",
+      CRAWL_RESPONSE,
       responseKey,
     );
     if (cached) {
@@ -387,11 +360,11 @@ export class CachedFetch {
         };
       }
     }
-    const host = hostOf(url);
+    const host = siteHost(url);
     const token = await this.acquire(host);
     try {
       const state = (await this.repository.getRecord<HostState>(
-        "crawl_host",
+        CRAWL_HOST,
         host,
       )) ?? {
         next_request: 0,
@@ -412,7 +385,7 @@ export class CachedFetch {
       }
       const interval = this.urlIntervals.get(url) ?? 0;
       const requested = interval
-        ? await this.repository.getRecord<Requested>("crawl_url", url)
+        ? await this.repository.getRecord<Requested>(CRAWL_URL, url)
         : null;
       if (requested && requested.last_requested + interval > this.clock())
         throw new CrawlDeferred(requested.last_requested + interval);
@@ -421,7 +394,7 @@ export class CachedFetch {
       this.checkBudget();
       if (interval)
         await this.put(
-          "crawl_url",
+          CRAWL_URL,
           url,
           { last_requested: this.clock() },
           host,
@@ -443,7 +416,7 @@ export class CachedFetch {
       const current = this.clock();
       if (interval)
         await this.put(
-          "crawl_url",
+          CRAWL_URL,
           url,
           { last_requested: current },
           host,
@@ -456,7 +429,7 @@ export class CachedFetch {
       const blob = `crawl:${await sha256(`${url}\0${token}`)}`;
       await this.repository.putBlob(blob, result.data, expiry);
       await this.put(
-        "crawl_response",
+        CRAWL_RESPONSE,
         responseKey,
         { blob, final_url: result.url, content_type: result.contentType },
         host,
@@ -495,7 +468,7 @@ export class CachedFetch {
   }
 
   private save(host: string, token: string, state: HostState): Promise<void> {
-    return this.put("crawl_host", host, state, host, token);
+    return this.put(CRAWL_HOST, host, state, host, token);
   }
 
   private async pace(state: HostState): Promise<void> {
@@ -573,7 +546,7 @@ export class CachedFetch {
     { maxBytes, refuseRedirect, onRedirect }: SendOptions = {},
   ): Promise<FetchResult> {
     const beforeRedirect = async (target: string) => {
-      if (hostOf(target) !== host)
+      if (siteHost(target) !== host)
         throw new CrawlStopped("許可していない転送先です");
       // Gazette pages are read only at their exact homepage and TOC URLs.
       if (!robots && host === GAZETTE_HOST)
@@ -632,8 +605,8 @@ export class CachedFetch {
   ): Promise<RobotsPolicy | null> {
     const parts = urlsplit(url);
     const origin = `${parts.scheme}://${parts.netloc}`;
-    const record = await this.repository.getRecord<{ rules: string }>(
-      "crawl_robots",
+    const record = await this.repository.getRecord<RobotsRecord>(
+      CRAWL_ROBOTS,
       origin,
     );
     if (record) return new RobotsPolicy(record.rules);
@@ -684,7 +657,7 @@ export class CachedFetch {
       }
     }
     await this.put(
-      "crawl_robots",
+      CRAWL_ROBOTS,
       origin,
       { rules: text },
       host,

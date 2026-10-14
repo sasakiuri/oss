@@ -6,12 +6,7 @@ import type { Clock } from "../domain.ts";
 import type { SourceConfig } from "../sources/types.ts";
 
 import { SQLRepository } from "./sql-repository.ts";
-import type {
-  SQLResult,
-  SQLRow,
-  SQLStatement,
-  SqlDriver,
-} from "./sql-repository.ts";
+import type { SQLResult, SQLRow, SQLStatement, SqlDriver } from "./sql.ts";
 
 export class D1Driver implements SqlDriver {
   constructor(private readonly binding: D1Database) {}

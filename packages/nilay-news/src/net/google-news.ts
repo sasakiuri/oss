@@ -4,7 +4,7 @@
 import { UserError } from "../errors.ts";
 import { parseHtml } from "../markup/tokenizer.ts";
 
-import { canonicalUrl, hostname, urlsplit } from "./url.ts";
+import { canonicalUrl, siteHost, urlsplit } from "./url.ts";
 
 export class GoogleNewsError extends UserError {}
 
@@ -49,11 +49,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 /** Also catches malformed article paths and intermediate pages at publication time. */
 export function isGoogleNewsUrl(url: string): boolean {
-  return (
-    hostname(url)
-      .replace(/\.$/, "")
-      .replace(/^www\./, "") === "news.google.com"
-  );
+  return siteHost(url).replace(/\.$/, "") === "news.google.com";
 }
 
 export function googleNewsId(url: string): string | null {
@@ -82,9 +78,7 @@ export function isGoogleNewsPage(url: string): boolean {
 export function publisherUrl(value: unknown): string | null {
   const url = canonicalUrl(value);
   if (!url) return null;
-  const host = hostname(url)
-    .replace(/\.$/, "")
-    .replace(/^www\./, "");
+  const host = siteHost(url).replace(/\.$/, "");
   return host === "google.com" || host.endsWith(".google.com") ? null : url;
 }
 

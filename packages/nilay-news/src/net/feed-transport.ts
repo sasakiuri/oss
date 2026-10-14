@@ -9,6 +9,7 @@ import {
 } from "./google-news.ts";
 import { createFetchBytes, FetchError } from "./http.ts";
 import type { FetchBytes } from "./types.ts";
+import { siteHost } from "./url.ts";
 
 const HOSTS = new Set(["news.google.com", "news.yahoo.co.jp"]);
 const URLS = new Set(
@@ -32,8 +33,7 @@ export function isRegionalFeedUrl(url: string): boolean {
 /** RSS policy stays in CachedFetch; Google link resolution has its own budget. */
 export function createFeedTransport(service?: FeedService): FetchBytes {
   return createFetchBytes(async (url, init) => {
-    if (!HOSTS.has(new URL(url).hostname.replace(/^www\./, "")))
-      return fetch(url, init);
+    if (!HOSTS.has(siteHost(new URL(url)))) return fetch(url, init);
     const allowed =
       (init.method === "GET" &&
         (isRegionalFeedUrl(url) || isGoogleNewsPage(url))) ||

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Article } from "../domain.ts";
 import { citationOnly, type Metadata } from "../sources/types.ts";
-import { truncate } from "../text.ts";
+import { isRecord, sha256, truncate } from "../text.ts";
 
 export const BODY_LIMIT = 12000;
 const BODY_NOTE =
@@ -89,4 +89,61 @@ export function modelEvidence(article: Partial<Article>): ModelEvidence {
     result.bodyNote = isGazette(article) ? GAZETTE_NOTE : BODY_NOTE;
   }
   return result;
+}
+
+const EVIDENCE_KEYS = [
+  "title",
+  "excerpt",
+  "publishedAt",
+  "body",
+  "bodyStale",
+  "metadata",
+  "contentError",
+] as const;
+
+function compareCodePoints(a: string, b: string): number {
+  const left = [...a];
+  const right = [...b];
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const diff =
+      (left[index]?.codePointAt(0) ?? 0) - (right[index]?.codePointAt(0) ?? 0);
+    if (diff) return diff;
+  }
+  return left.length - right.length;
+}
+
+/** Stable JSON with sorted keys, Unicode characters, and spaces after separators for evidence hashes. */
+function pythonJson(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "string" || typeof value === "boolean")
+    return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) return JSON.stringify(value);
+    return Number.isNaN(value) ? "NaN" : value > 0 ? "Infinity" : "-Infinity";
+  }
+  if (Array.isArray(value))
+    return `[${value.map((item: unknown) => pythonJson(item)).join(", ")}]`;
+  if (isRecord(value)) {
+    const keys = Object.keys(value)
+      .filter((key) => value[key] !== undefined)
+      .sort(compareCodePoints);
+    return `{${keys.map((key) => `${JSON.stringify(key)}: ${pythonJson(value[key])}`).join(", ")}}`;
+  }
+  throw new TypeError("Unsupported evidence value");
+}
+
+export function evidenceText(article: Article): string {
+  return pythonJson(EVIDENCE_KEYS.map((key) => article[key] ?? null));
+}
+
+/** Hash of the stored evidence used to fence edits. */
+export async function evidenceHash(article: Article): Promise<string> {
+  return sha256(evidenceText(article));
+}
+
+/** Hash of the sanitized comparison article sent to Jev. */
+export async function comparisonInputHash(
+  article: Partial<Article>,
+): Promise<string> {
+  return sha256(JSON.stringify(modelEvidence(article)));
 }

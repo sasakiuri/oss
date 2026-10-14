@@ -4,8 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Application } from "../src/application.ts";
 import { ArticlePageConflictError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
-import type { SQLStatement } from "../src/storage/sql-repository.ts";
+import type { SQLStatement } from "../src/storage/sql.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
 import { testRepository } from "./helpers/storage.ts";
@@ -251,7 +252,7 @@ describe("bounded article APIs", () => {
         const article = (await repo.articles()).find((a) => a.title === label)!;
         await repo.analyzeResult(
           article.id,
-          await repo.evidenceHash(article),
+          await evidenceHash(article),
           (await repo.settings()).rubric,
           {
             analysisStatus: ["pending", "error"].includes(label)
@@ -315,7 +316,7 @@ describe("bounded article APIs", () => {
       )!;
       await repo.analyzeResult(
         article.id,
-        await repo.evidenceHash(article),
+        await evidenceHash(article),
         (await repo.settings()).rubric,
         { ...result, analysisStatus: "done" },
       );
@@ -351,7 +352,7 @@ describe("bounded article APIs", () => {
     const ruled = (await repo.articles()).find((a) => a.title === "ruled")!;
     await repo.analyzeResult(
       ruled.id,
-      await repo.evidenceHash(ruled),
+      await evidenceHash(ruled),
       (await repo.settings()).rubric,
       { analysisStatus: "done", decision: "irrelevant", priority: 2 },
     );

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../src/application.ts";
 import { SettingsConflictError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
@@ -157,12 +158,10 @@ describe("settings-specific mutation fencing", () => {
     const old = await repo.settingsSnapshot();
     const rubric = "A newer carefully reviewed selection rubric";
     await other.updateSettings({ rubric });
-    await repo.analyzeResult(
-      article.id,
-      await repo.evidenceHash(article),
-      rubric,
-      { analysisStatus: "done", decision: "candidate" },
-    );
+    await repo.analyzeResult(article.id, await evidenceHash(article), rubric, {
+      analysisStatus: "done",
+      decision: "candidate",
+    });
     await expect(
       repo.updateSettings(
         { rubric: old.rubric, pollMinutes: 30 },
@@ -192,7 +191,7 @@ describe("settings-specific mutation fencing", () => {
       const old = await repo.settingsSnapshot();
       await repo.analyzeResult(
         article.id,
-        await repo.evidenceHash(article),
+        await evidenceHash(article),
         old.rubric,
         { analysisStatus: "done", decision: "candidate" },
       );

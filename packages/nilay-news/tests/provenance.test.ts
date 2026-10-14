@@ -12,6 +12,7 @@ import {
   mockedEvaluationTransport,
   validateFixtures,
 } from "../src/jev/evaluation.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
 import { sha256 } from "../src/text.ts";
 
@@ -152,7 +153,7 @@ describe("decision provenance", () => {
       expect(
         await storage.repo.analyzeResult(
           article.id,
-          await storage.repo.evidenceHash(article),
+          await evidenceHash(article),
           settings.rubric,
           actual,
         ),
@@ -207,7 +208,7 @@ describe("decision provenance", () => {
       expect(
         await storage.repo.analyzeResult(
           article.id,
-          await storage.repo.evidenceHash(article),
+          await evidenceHash(article),
           rubric,
           result,
         ),
@@ -224,7 +225,7 @@ describe("decision provenance", () => {
       expect(
         await storage.repo.analyzeResult(
           article.id,
-          await storage.repo.evidenceHash(article),
+          await evidenceHash(article),
           rubric,
           result,
         ),

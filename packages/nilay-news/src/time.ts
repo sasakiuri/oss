@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** Timestamp formats stored in D1 and shown by the UI, plus bounded date parsers. */
 
-const JST_OFFSET = 9 * 3600;
+export const JST_OFFSET = 9 * 3600;
+export const DAY_SECONDS = 86400;
+
+/** Days since the epoch in JST. */
+export function jstDay(seconds: number): number {
+  return Math.floor((seconds + JST_OFFSET) / DAY_SECONDS);
+}
 
 function pad(value: number, width = 2): string {
   return String(value).padStart(width, "0");

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { isSourceCandidate } from "./candidates.ts";
+import { CRAWL_HOST, type HostState } from "./collection/crawl-state.ts";
 import {
   CachedFetch,
   CrawlDeferred,
@@ -15,13 +15,16 @@ import { clock as systemClock } from "./domain.ts";
 import { NotFoundError, SettingsConflictError, UserError } from "./errors.ts";
 import { freshness, isFreshPublication } from "./freshness.ts";
 import { Jev } from "./jev/client.ts";
+import { evidenceHash } from "./jev/evidence.ts";
 import { isGoogleNewsUrl } from "./net/google-news.ts";
 import { FetchError } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
-import { hostname } from "./net/url.ts";
+import { siteHost } from "./net/url.ts";
 import { Notifier } from "./notifications.ts";
 import { ACCOUNT, draft } from "./publishing/draft.ts";
 import {
+  isSourceCandidate,
+  UNRESOLVED_POST_STATUSES,
   POST_INTERVAL_SECONDS,
   POST_WINDOW_LABEL,
 } from "./publishing/policy.ts";
@@ -57,13 +60,6 @@ const ANALYSIS_SECONDS_PER_TICK = 45;
 const REPEATED = 2;
 /** New selection criteria supersede a classification batch; not a failure. */
 class RubricChanged extends Error {}
-/** Post states that keep automatic posting from starting. */
-const UNRESOLVED_POSTS = new Set([
-  "publishing",
-  "submitted",
-  "unknown",
-  "failed",
-]);
 type ActiveJob = Job &
   Required<
     Pick<
@@ -301,7 +297,7 @@ export class Application {
     const { posts } = await this.repository.publicationState();
     const candidates = await this.repository.postCandidates();
     const unresolved = posts.filter((post) =>
-      UNRESOLVED_POSTS.has(post.status),
+      UNRESOLVED_POST_STATUSES.has(post.status),
     ).length;
     if (unresolved)
       blockers.push(
@@ -452,13 +448,7 @@ export class Application {
           "投稿の失敗、または結果不明の記事があります。管理画面と Buffer・X を確認し、投稿結果を確定してください。",
         );
       }
-      if (
-        !posts.some((post) =>
-          ["publishing", "submitted", "unknown", "failed"].includes(
-            post.status,
-          ),
-        )
-      ) {
+      if (!posts.some((post) => UNRESOLVED_POST_STATUSES.has(post.status))) {
         await this.notifier.recover(
           "publication",
           "投稿結果の確認が完了しました",
@@ -847,9 +837,9 @@ export class Application {
     source: SourceConfig,
     token: string,
   ): Promise<void> {
-    const host = await this.repository.getRecord<{ blocked_until?: unknown }>(
-      "crawl_host",
-      hostname(source.url).replace(/^www\./, ""),
+    const host = await this.repository.getRecord<Partial<HostState>>(
+      CRAWL_HOST,
+      siteHost(source.url),
     );
     const blocked = host?.blocked_until;
     await this.repository.scheduleAutoCollection(
@@ -982,14 +972,12 @@ export class Application {
     const related = relatedArticles.find(
       (item) => item.id === result.relatedArticleId,
     );
-    const relationHash = related
-      ? await repository.evidenceHash(related)
-      : null;
+    const relationHash = related ? await evidenceHash(related) : null;
     let stored: boolean;
     try {
       stored = await repository.analyzeResult(
         articleId,
-        await repository.evidenceHash(article),
+        await evidenceHash(article),
         job.rubric,
         result,
         relationHash,
