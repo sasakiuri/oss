@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Test-only controls around the same authenticated Worker used by runtime regressions. */
-import { Jev } from "../../src/jev.ts";
+import { Jev } from "../../src/jev/client.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";
 import { isRecord, utf8 } from "../../src/text.ts";

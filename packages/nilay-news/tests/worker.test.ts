@@ -2,8 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
-import { Jev } from "../src/jev.ts";
-import { BufferClient } from "../src/publishing.ts";
+import { Jev } from "../src/jev/client.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
 import { testRepository } from "./helpers/storage.ts";

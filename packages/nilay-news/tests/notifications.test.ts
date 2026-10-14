@@ -9,7 +9,7 @@ import {
   orphanClaims,
   resetNoticeState,
 } from "../src/notifications.ts";
-import type { SQLRepository } from "../src/storage/repository.ts";
+import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { sha256, utf8 } from "../src/text.ts";
 
 import { testRepository } from "./helpers/storage.ts";

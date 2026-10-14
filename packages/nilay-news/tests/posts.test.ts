@@ -2,7 +2,7 @@
 import { describe, expect, test } from "vitest";
 
 import { UserError } from "../src/errors.ts";
-import { ACCOUNT, draft, textWeight } from "../src/posts.ts";
+import { ACCOUNT, draft, textWeight } from "../src/publishing/draft.ts";
 
 const ITEM = {
   title: "北海道でクマを捕獲",

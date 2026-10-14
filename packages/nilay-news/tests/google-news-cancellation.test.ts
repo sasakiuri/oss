@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it, vi } from "vitest";
 
+import { resolveGoogleNewsItems } from "../src/collection/google-news-resolver.ts";
 import { createFeedHandler } from "../src/feed-worker.ts";
-import { resolveGoogleNewsItems } from "../src/google-news.ts";
 import { GOOGLE_NEWS_LOCALE } from "../src/net/google-news.ts";
 import type { Fetcher } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";

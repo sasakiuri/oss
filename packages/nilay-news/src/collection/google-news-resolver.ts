@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Bounded publisher-link resolution, separate from low-frequency RSS polling. */
-import type { Clock } from "./domain.ts";
-import { clock as systemClock } from "./domain.ts";
+import type { Clock } from "../domain.ts";
+import { clock as systemClock } from "../domain.ts";
 import {
   GOOGLE_NEWS_LOCALE,
   GOOGLE_NEWS_RPC,
@@ -13,11 +13,11 @@ import {
   isGoogleNewsUrl,
   legacyGoogleNewsUrl,
   publisherUrl,
-} from "./net/google-news.ts";
-import { FetchError, fetchBytes } from "./net/http.ts";
-import type { FetchBytes, FetchOptions } from "./net/types.ts";
-import type { NewsRepository } from "./repository.ts";
-import type { Collection } from "./sources/types.ts";
+} from "../net/google-news.ts";
+import { FetchError, fetchBytes } from "../net/http.ts";
+import type { FetchBytes, FetchOptions } from "../net/types.ts";
+import type { NewsRepository } from "../repository.ts";
+import type { Collection } from "../sources/types.ts";
 
 const HOST = "google-news-url:news.google.com";
 const CACHE = "google_news_url";

@@ -4,17 +4,17 @@
  * the individual links listed in roundup entries when a source opts in.
  */
 import { UserError } from "../errors.ts";
-import { parseHtml } from "../html/tokenizer.ts";
-import { canonicalUrl, hostname, urljoin } from "../net/url.ts";
-import { clean, strip, truncate } from "../text.ts";
-import { feedDate } from "../time.ts";
+import { parseHtml } from "../markup/tokenizer.ts";
 import {
   allText,
   childElements,
   leadingText,
   parseXml,
   type XmlElement,
-} from "../xml.ts";
+} from "../markup/xml.ts";
+import { canonicalUrl, hostname, urljoin } from "../net/url.ts";
+import { clean, strip, truncate } from "../text.ts";
+import { feedDate } from "../time.ts";
 
 import {
   collection,

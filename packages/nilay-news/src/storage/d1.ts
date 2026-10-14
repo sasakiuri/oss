@@ -5,13 +5,13 @@ import type { D1Database } from "@cloudflare/workers-types";
 import type { Clock } from "../domain.ts";
 import type { SourceConfig } from "../sources/types.ts";
 
-import { SQLRepository } from "./repository.ts";
+import { SQLRepository } from "./sql-repository.ts";
 import type {
   SQLResult,
   SQLRow,
   SQLStatement,
   SqlDriver,
-} from "./repository.ts";
+} from "./sql-repository.ts";
 
 export class D1Driver implements SqlDriver {
   constructor(private readonly binding: D1Database) {}

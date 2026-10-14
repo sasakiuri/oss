@@ -4,15 +4,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
+import { Jev } from "../src/jev/client.ts";
 import {
   budgetedEvaluationTransport,
   evaluate,
   evaluationDiff,
   mockedEvaluationTransport,
   validateFixtures,
-} from "../src/evaluation.ts";
-import { Jev } from "../src/jev.ts";
-import { BufferClient } from "../src/publishing.ts";
+} from "../src/jev/evaluation.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
 import { sha256 } from "../src/text.ts";
 
 import { testRepository } from "./helpers/storage.ts";

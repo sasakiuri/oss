@@ -9,6 +9,7 @@
  * under a newer revision. No process lock, persistent process, or BEGIN is needed.
  */
 import { isSourceCandidate } from "../candidates.ts";
+import { GoogleNewsDeferred } from "../collection/google-news-resolver.ts";
 import { clock as defaultClock } from "../domain.ts";
 import type {
   Analysis,
@@ -38,15 +39,14 @@ import {
   newestFirst,
   publicationSeconds,
 } from "../freshness.ts";
-import { GoogleNewsDeferred } from "../google-news.ts";
+import { modelEvidence } from "../jev/evidence.ts";
 import {
   GoogleNewsError,
   isGoogleNewsUrl,
   publisherUrl,
 } from "../net/google-news.ts";
 import { FetchError } from "../net/http.ts";
-import { modelEvidence } from "../news-evidence.ts";
-import { draft } from "../posts.ts";
+import { draft } from "../publishing/draft.ts";
 import {
   isPostingTime,
   nextPostingAt,
@@ -54,7 +54,7 @@ import {
   CONFIRMATION_MAX_CHECKS,
   CONFIRMATION_TIMEOUT_SECONDS,
   confirmationDelay,
-} from "../publication-policy.ts";
+} from "../publishing/policy.ts";
 import type {
   ArticleQuery,
   ArticlePage,

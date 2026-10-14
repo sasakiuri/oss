@@ -9,7 +9,7 @@ import {
   evaluationDiff,
   validateFixtures,
   type EvaluationReport,
-} from "../src/evaluation.ts";
+} from "../src/jev/evaluation.ts";
 import { fetchBytes } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
 import { isRecord } from "../src/text.ts";

@@ -5,7 +5,7 @@ import {
   isPostingTime,
   nextPostingAt,
   POST_WINDOW_LABEL,
-} from "../src/publication-policy.ts";
+} from "../src/publishing/policy.ts";
 
 /** Epoch seconds of a Japan wall-clock time, written independently of the policy. */
 function jst(text: string): number {

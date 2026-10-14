@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Robots rules for our honest NilayNews product token (no UA impersonation). */
-import { FetchError } from "./net/http.ts";
-import { quote, urlsplit } from "./net/url.ts";
-import { strip } from "./text.ts";
+import { FetchError } from "../net/http.ts";
+import { quote, urlsplit } from "../net/url.ts";
+import { strip } from "../text.ts";
 
 /** Preserve encoded reserved characters; decode only RFC 3986 unreserved bytes. */
 function normalizedPath(value: string): string {

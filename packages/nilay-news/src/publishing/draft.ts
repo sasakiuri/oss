@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** Deterministic news headlines, links and hashtags for X. */
-import type { Article } from "./domain.ts";
-import { UserError } from "./errors.ts";
+import type { Article } from "../domain.ts";
+import { UserError } from "../errors.ts";
+import { isGoogleNewsUrl } from "../net/google-news.ts";
+import { hostnameOf, urlsplit, userinfo, type SplitUrl } from "../net/url.ts";
+import { SPACE, words } from "../text.ts";
+
 import { hashtags } from "./hashtags.ts";
-import { isGoogleNewsUrl } from "./net/google-news.ts";
-import { hostnameOf, urlsplit, userinfo, type SplitUrl } from "./net/url.ts";
-import { SPACE, words } from "./text.ts";
 
 export const ACCOUNT = "NilayNews";
 const UNSAFE_URL = new RegExp(`[${SPACE}<>"\\x00-\\x1f]`);

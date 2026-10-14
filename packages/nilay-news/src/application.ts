@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: MIT
 import { isSourceCandidate } from "./candidates.ts";
-import { CachedFetch, CrawlDeferred, type SourceAttempt } from "./crawl.ts";
+import {
+  CachedFetch,
+  CrawlDeferred,
+  type SourceAttempt,
+} from "./collection/crawl.ts";
+import {
+  GoogleNewsResolver,
+  resolveGoogleNewsItems,
+} from "./collection/google-news-resolver.ts";
 import { withDeadline } from "./deadline.ts";
 import type { Analysis, Article, Clock, Job, Settings } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
 import { NotFoundError, SettingsConflictError, UserError } from "./errors.ts";
 import { freshness, isFreshPublication } from "./freshness.ts";
-import { GoogleNewsResolver, resolveGoogleNewsItems } from "./google-news.ts";
-import { Jev } from "./jev.ts";
+import { Jev } from "./jev/client.ts";
 import { isGoogleNewsUrl } from "./net/google-news.ts";
 import { FetchError } from "./net/http.ts";
 import type { FetchBytes } from "./net/types.ts";
 import { hostname } from "./net/url.ts";
 import { Notifier } from "./notifications.ts";
-import { ACCOUNT, draft } from "./posts.ts";
+import { ACCOUNT, draft } from "./publishing/draft.ts";
 import {
   POST_INTERVAL_SECONDS,
   POST_WINDOW_LABEL,
-} from "./publication-policy.ts";
-import { BufferClient, Publisher } from "./publishing.ts";
+} from "./publishing/policy.ts";
+import { BufferClient, Publisher } from "./publishing/publisher.ts";
 import type { ArticleQuery, NewsRepository } from "./repository.ts";
 import { nextPhase } from "./schedule.ts";
 import { collectSource } from "./sources/index.ts";
