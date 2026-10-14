@@ -2,7 +2,7 @@
 import { describe, expect, test } from "vitest";
 
 import sources from "../sources.json" with { type: "json" };
-import { hashtags } from "../src/hashtags.ts";
+import { hashtags } from "../src/publishing/hashtags.ts";
 
 const CEEK = "CEEK｜狩猟・銃・射撃・ジビエ";
 const YAHOO = "Yahoo!ニュース｜地域";

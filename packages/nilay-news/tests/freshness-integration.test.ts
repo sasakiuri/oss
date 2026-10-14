@@ -3,9 +3,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
-import { Jev } from "../src/jev.ts";
-import { POST_INTERVAL_SECONDS } from "../src/publication-policy.ts";
-import { BufferClient, Publisher } from "../src/publishing.ts";
+import { Jev } from "../src/jev/client.ts";
+import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
+import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 
 import { testRepository } from "./helpers/storage.ts";

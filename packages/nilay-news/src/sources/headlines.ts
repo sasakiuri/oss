@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Scoped article links from official index pages; pagination and PDFs are never followed. */
 import { DATE_PRECISION } from "../freshness.ts";
-import { parseHtml } from "../html/tokenizer.ts";
+import { parseHtml } from "../markup/tokenizer.ts";
 import { canonicalUrl, hostname, urljoin, urlsplit } from "../net/url.ts";
 import { clean, length, strip, truncate } from "../text.ts";
 import { japaneseDate } from "../time.ts";

@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { ArticlePageConflictError } from "../src/errors.ts";
-import { Jev } from "../src/jev.ts";
-import { BufferClient } from "../src/publishing.ts";
-import type { SQLStatement } from "../src/storage/repository.ts";
+import { Jev } from "../src/jev/client.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
+import type { SQLStatement } from "../src/storage/sql-repository.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
 import { testRepository } from "./helpers/storage.ts";

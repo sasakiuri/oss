@@ -3,14 +3,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
-import { GoogleNewsDeferred, GoogleNewsResolver } from "../src/google-news.ts";
-import { Jev } from "../src/jev.ts";
+import {
+  GoogleNewsDeferred,
+  GoogleNewsResolver,
+} from "../src/collection/google-news-resolver.ts";
+import { Jev } from "../src/jev/client.ts";
 import { GOOGLE_NEWS_LOCALE, GOOGLE_NEWS_RPC } from "../src/net/google-news.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import { draft } from "../src/posts.ts";
-import { BufferClient, Publisher } from "../src/publishing.ts";
-import type { BufferPost, PublishingClient } from "../src/publishing.ts";
+import { draft } from "../src/publishing/draft.ts";
+import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
+import type {
+  BufferPost,
+  PublishingClient,
+} from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 
 import { testRepository } from "./helpers/storage.ts";

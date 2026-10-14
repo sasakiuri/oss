@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { SettingsConflictError } from "../src/errors.ts";
-import { Jev } from "../src/jev.ts";
-import { BufferClient } from "../src/publishing.ts";
+import { Jev } from "../src/jev/client.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
-import { SQLRepository } from "../src/storage/repository.ts";
+import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
 import { testRepository } from "./helpers/storage.ts";

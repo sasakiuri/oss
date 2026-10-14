@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { Access, CONFIG_NAMES } from "../../src/access.ts";
 import { Application } from "../../src/application.ts";
-import { CachedFetch } from "../../src/crawl.ts";
-import { ENDPOINT, Jev, REASONS } from "../../src/jev.ts";
+import { CachedFetch } from "../../src/collection/crawl.ts";
+import { ENDPOINT, Jev, REASONS } from "../../src/jev/client.ts";
 import { FetchError } from "../../src/net/http.ts";
 import type { FetchBytes } from "../../src/net/types.ts";
-import { BufferClient } from "../../src/publishing.ts";
+import { BufferClient } from "../../src/publishing/publisher.ts";
 import { collectSource } from "../../src/sources/index.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";

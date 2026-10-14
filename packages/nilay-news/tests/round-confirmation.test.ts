@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import { BufferClient, Publisher } from "../src/publishing.ts";
+import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 

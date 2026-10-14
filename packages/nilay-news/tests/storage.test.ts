@@ -10,10 +10,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Article, Job, Post } from "../src/domain.ts";
 import { NotFoundError, UserError } from "../src/errors.ts";
-import { POST_INTERVAL_SECONDS } from "../src/publication-policy.ts";
+import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
-import { SQLRepository } from "../src/storage/repository.ts";
-import type { SQLResult, SQLStatement } from "../src/storage/repository.ts";
+import { SQLRepository } from "../src/storage/sql-repository.ts";
+import type { SQLResult, SQLStatement } from "../src/storage/sql-repository.ts";
 import { isRecord } from "../src/text.ts";
 
 import {

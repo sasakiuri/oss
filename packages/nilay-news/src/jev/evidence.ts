@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import type { Article } from "./domain.ts";
-import { citationOnly, type Metadata } from "./sources/types.ts";
-import { truncate } from "./text.ts";
+import type { Article } from "../domain.ts";
+import { citationOnly, type Metadata } from "../sources/types.ts";
+import { truncate } from "../text.ts";
 
 export const BODY_LIMIT = 12000;
 const BODY_NOTE =

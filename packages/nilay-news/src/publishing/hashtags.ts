@@ -5,10 +5,11 @@
  * publisher, where it happened, then what it is about. Anything the stored
  * evidence does not state is omitted rather than guessed.
  */
-import dictionary from "./data/municipalities.json" with { type: "json" };
-import type { Article } from "./domain.ts";
-import { hostname } from "./net/url.ts";
-import { citationOnly } from "./sources/types.ts";
+import type { Article } from "../domain.ts";
+import { hostname } from "../net/url.ts";
+import { citationOnly } from "../sources/types.ts";
+
+import dictionary from "./municipalities.json" with { type: "json" };
 
 type Tagged = Partial<
   Pick<

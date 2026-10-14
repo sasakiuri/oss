@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** Buffer GraphQL publishing with durable claims and bounded confirmation. */
-import { isSourceCandidate } from "./candidates.ts";
-import type { BufferQuota, Clock } from "./domain.ts";
-import { clock as systemClock } from "./domain.ts";
-import { UserError } from "./errors.ts";
-import { GoogleNewsResolver } from "./google-news.ts";
-import type { Jev } from "./jev.ts";
-import { FetchError, fetchBytes } from "./net/http.ts";
-import type { FetchBytes } from "./net/types.ts";
-import { ACCOUNT } from "./posts.ts";
-import {
-  CONFIRMATION_MAX_CHECKS,
-  isPostingTime,
-} from "./publication-policy.ts";
-import type { NewsRepository, PostScreening } from "./repository.ts";
-import { isRecord, utf8 } from "./text.ts";
+import { isSourceCandidate } from "../candidates.ts";
+import { GoogleNewsResolver } from "../collection/google-news-resolver.ts";
+import type { BufferQuota, Clock } from "../domain.ts";
+import { clock as systemClock } from "../domain.ts";
+import { UserError } from "../errors.ts";
+import type { Jev } from "../jev/client.ts";
+import { FetchError, fetchBytes } from "../net/http.ts";
+import type { FetchBytes } from "../net/types.ts";
+import type { NewsRepository, PostScreening } from "../repository.ts";
+import { isRecord, utf8 } from "../text.ts";
+
+import { ACCOUNT } from "./draft.ts";
+import { CONFIRMATION_MAX_CHECKS, isPostingTime } from "./policy.ts";
 
 const ENDPOINT = "https://api.buffer.com";
 const POST_FIELDS = "id channelId channelService text status externalLink";

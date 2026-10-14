@@ -14,7 +14,7 @@ import {
   parseDocument,
   textOf,
   type Element,
-} from "../html/tree.ts";
+} from "../markup/tree.ts";
 import {
   canonicalUrl,
   hostname,

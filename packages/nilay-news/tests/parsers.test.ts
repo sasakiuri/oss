@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 import { UserError } from "../src/errors.ts";
-import { parseDocument, textOf } from "../src/html/tree.ts";
+import { parseDocument, textOf } from "../src/markup/tree.ts";
+import { allText, parseXml, XmlError } from "../src/markup/xml.ts";
 import { parseQs, urlsplit } from "../src/net/url.ts";
 import { PDF_NOTE } from "../src/sources/bills.ts";
 import { loadSources } from "../src/sources/config.ts";
@@ -18,7 +19,6 @@ import type {
   SourceFetch,
 } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
-import { allText, parseXml, XmlError } from "../src/xml.ts";
 
 const FIXTURES = new URL("fixtures/", import.meta.url);
 const read = (name: string) =>

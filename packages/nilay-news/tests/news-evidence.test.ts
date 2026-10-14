@@ -7,7 +7,7 @@ import {
   lead,
   modelEvidence,
   withoutSidebar,
-} from "../src/news-evidence.ts";
+} from "../src/jev/evidence.ts";
 
 const CEEK = {
   sourceName: "CEEK｜鳥獣被害・クマ・シカ",

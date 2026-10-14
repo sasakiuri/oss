@@ -13,11 +13,11 @@ import {
   SettingsConflictError,
   UserError,
 } from "./errors.ts";
-import { Jev } from "./jev.ts";
+import { Jev } from "./jev/client.ts";
 import { createFeedTransport, type FeedService } from "./net/feed-transport.ts";
 import { FetchError, readBody } from "./net/http.ts";
 import { Notifier } from "./notifications.ts";
-import { BufferClient } from "./publishing.ts";
+import { BufferClient } from "./publishing/publisher.ts";
 import { loadSources } from "./sources/config.ts";
 import { createD1Repository } from "./storage/d1.ts";
 import { isRecord, sha256, truncate } from "./text.ts";

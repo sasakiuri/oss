@@ -3,10 +3,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
+import { resolveGoogleNewsItems } from "../src/collection/google-news-resolver.ts";
 import { UserError } from "../src/errors.ts";
 import { createFeedHandler } from "../src/feed-worker.ts";
-import { resolveGoogleNewsItems } from "../src/google-news.ts";
-import { Jev } from "../src/jev.ts";
+import { Jev } from "../src/jev/client.ts";
 import { createFeedTransport } from "../src/net/feed-transport.ts";
 import {
   GOOGLE_NEWS_LOCALE,
@@ -22,8 +22,8 @@ import {
 } from "../src/net/google-news.ts";
 import { FetchError, type Fetcher } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import { draft } from "../src/posts.ts";
-import { BufferClient } from "../src/publishing.ts";
+import { draft } from "../src/publishing/draft.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
 import {
   citationOnly,
   collection,

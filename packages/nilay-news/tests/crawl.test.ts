@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CrawlOptions } from "../src/crawl.ts";
+import type { CrawlOptions } from "../src/collection/crawl.ts";
 import {
   CachedFetch,
   CrawlBackoff,
@@ -11,13 +11,13 @@ import {
   CrawlLimit,
   CrawlStopped,
   cacheTtl,
-} from "../src/crawl.ts";
+} from "../src/collection/crawl.ts";
+import { RobotsPolicy } from "../src/collection/robots.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
-import { RobotsPolicy } from "../src/robots.ts";
 import { MAFF_PRESS, loadSources } from "../src/sources/config.ts";
 import type { FetchResult, SourceConfig } from "../src/sources/types.ts";
-import type { SQLRepository } from "../src/storage/repository.ts";
+import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
 import { testRepository } from "./helpers/storage.ts";

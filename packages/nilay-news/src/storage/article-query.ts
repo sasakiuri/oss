@@ -3,7 +3,7 @@
 import { UserError } from "../errors.ts";
 import type { ArticleQuery } from "../repository.ts";
 
-import type { SQLValue } from "./repository.ts";
+import type { SQLValue } from "./sql-repository.ts";
 
 const field = (key: string) => `json_extract(a.data,'$.${key}')`;
 export const freshSQL = `${field("_publicationSeconds")} <= clock.now AND (${field("_publicationUntil")} > clock.now OR (${field("_publicationDate")}=0 AND ${field("_publicationUntil")}=clock.now))`;

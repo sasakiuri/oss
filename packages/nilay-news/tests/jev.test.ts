@@ -11,10 +11,10 @@ import {
   REASONS,
   relatedCandidates,
   TOPICS,
-} from "../src/jev.ts";
+} from "../src/jev/client.ts";
+import { modelEvidence } from "../src/jev/evidence.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
-import { modelEvidence } from "../src/news-evidence.ts";
 import { utf8 } from "../src/text.ts";
 
 const ARTICLE: Article = {

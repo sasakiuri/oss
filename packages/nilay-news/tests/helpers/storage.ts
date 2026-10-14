@@ -6,14 +6,14 @@ import type { SQLOutputValue } from "node:sqlite";
 
 import type { Clock } from "../../src/domain.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
-import { SQLRepository } from "../../src/storage/repository.ts";
+import { SQLRepository } from "../../src/storage/sql-repository.ts";
 import type {
   SQLResult,
   SQLRow,
   SQLStatement,
   SQLValue,
   SqlDriver,
-} from "../../src/storage/repository.ts";
+} from "../../src/storage/sql-repository.ts";
 
 const MIGRATIONS = new URL("../../migrations/", import.meta.url);
 /** Every D1 migration in the order Wrangler applies them. */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
 
-import { CrawlStopped } from "../src/crawl.ts";
+import { CrawlStopped } from "../src/collection/crawl.ts";
 import type { Fetcher } from "../src/net/http.ts";
 import {
   FetchError,

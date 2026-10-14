@@ -16,7 +16,7 @@ import {
   parseDocument,
   textOf,
   type Element,
-} from "../html/tree.ts";
+} from "../markup/tree.ts";
 import { urljoin } from "../net/url.ts";
 import { clean, sha256 } from "../text.ts";
 import { japaneseDate } from "../time.ts";

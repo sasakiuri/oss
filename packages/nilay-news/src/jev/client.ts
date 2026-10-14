@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
-import { clock as defaultClock } from "./domain.ts";
-import type { Analysis, Article, Clock, DecisionProvenance } from "./domain.ts";
-import { UserError } from "./errors.ts";
-import { fetchBytes, FetchError } from "./net/http.ts";
-import type { FetchBytes } from "./net/types.ts";
-import { modelEvidence, type ModelEvidence } from "./news-evidence.ts";
-import { isRecord, sha256, utf8 } from "./text.ts";
-import { isoSeconds } from "./time.ts";
+import { clock as defaultClock } from "../domain.ts";
+import type {
+  Analysis,
+  Article,
+  Clock,
+  DecisionProvenance,
+} from "../domain.ts";
+import { UserError } from "../errors.ts";
+import { fetchBytes, FetchError } from "../net/http.ts";
+import type { FetchBytes } from "../net/types.ts";
+import { isRecord, sha256, utf8 } from "../text.ts";
+import { isoSeconds } from "../time.ts";
+
+import { modelEvidence, type ModelEvidence } from "./evidence.ts";
 
 export const DECISION_VERSIONS = {
   classificationPrompt: "3",

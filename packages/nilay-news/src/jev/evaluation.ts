@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** Isolated evaluation: fixtures and a Jev transport only, never production storage or posting. */
-import { isSourceCandidate } from "./candidates.ts";
-import type { Article, Analysis } from "./domain.ts";
+import { isSourceCandidate } from "../candidates.ts";
+import type { Article, Analysis } from "../domain.ts";
+import type { FetchBytes } from "../net/types.ts";
+import { isRecord, sha256, utf8 } from "../text.ts";
+
 import {
   Jev,
   relatedCandidates,
   ROUTING_POLICY,
   TOPICS,
   REASONS,
-} from "./jev.ts";
-import type { FetchBytes } from "./net/types.ts";
-import { modelEvidence } from "./news-evidence.ts";
-import { isRecord, sha256, utf8 } from "./text.ts";
+} from "./client.ts";
+import { modelEvidence } from "./evidence.ts";
 
 export interface EvaluationCase {
   id: string;

@@ -3,19 +3,22 @@ import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserError } from "../src/errors.ts";
-import { Jev } from "../src/jev.ts";
+import { Jev } from "../src/jev/client.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
-import { POST_INTERVAL_SECONDS } from "../src/publication-policy.ts";
-import type { BufferPost, PublishingClient } from "../src/publishing.ts";
+import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
+import type {
+  BufferPost,
+  PublishingClient,
+} from "../src/publishing/publisher.ts";
 import {
   BufferClient,
   PostError,
   Publisher,
   xPostId,
-} from "../src/publishing.ts";
+} from "../src/publishing/publisher.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
-import type { SQLRepository } from "../src/storage/repository.ts";
+import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
 import { testRepository } from "./helpers/storage.ts";

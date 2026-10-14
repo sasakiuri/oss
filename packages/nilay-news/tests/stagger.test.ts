@@ -8,15 +8,15 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
-import { CachedFetch } from "../src/crawl.ts";
-import { Jev } from "../src/jev.ts";
+import { CachedFetch } from "../src/collection/crawl.ts";
+import { Jev } from "../src/jev/client.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import { BufferClient } from "../src/publishing.ts";
+import { BufferClient } from "../src/publishing/publisher.ts";
 import { nextPhase } from "../src/schedule.ts";
 import { loadSources } from "../src/sources/config.ts";
 import { collection, type SourceConfig } from "../src/sources/types.ts";
-import { SQLRepository } from "../src/storage/repository.ts";
+import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
 import { testRepository } from "./helpers/storage.ts";

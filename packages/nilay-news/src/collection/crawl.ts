@@ -4,24 +4,25 @@
  * Record writes under a host lease are fenced by its token; no in-memory lock
  * is relied on between Workers. Storage expires and prunes blobs itself.
  */
-import type { Clock } from "./domain.ts";
-import { clock as systemClock } from "./domain.ts";
-import { UserError } from "./errors.ts";
-import { FetchError, fetchBytes } from "./net/http.ts";
-import type { FetchBytes, FetchOptions } from "./net/types.ts";
-import { hostname, queryValue, urlsplit } from "./net/url.ts";
-import type { NewsRepository } from "./repository.ts";
-import { RobotsPolicy } from "./robots.ts";
-import { dailySlot, nextDailyRun } from "./schedule.ts";
+import type { Clock } from "../domain.ts";
+import { clock as systemClock } from "../domain.ts";
+import { UserError } from "../errors.ts";
+import { FetchError, fetchBytes } from "../net/http.ts";
+import type { FetchBytes, FetchOptions } from "../net/types.ts";
+import { hostname, queryValue, urlsplit } from "../net/url.ts";
+import type { NewsRepository } from "../repository.ts";
+import { dailySlot, nextDailyRun } from "../schedule.ts";
 import {
   KANPO_HOME,
   kanpoTocDate,
   validRobotsException,
   validRobotsUnavailable,
-} from "./sources/config.ts";
-import type { FetchResult, SourceConfig } from "./sources/types.ts";
-import { randomToken, sha256 } from "./text.ts";
-import { formatJst } from "./time.ts";
+} from "../sources/config.ts";
+import type { FetchResult, SourceConfig } from "../sources/types.ts";
+import { randomToken, sha256 } from "../text.ts";
+import { formatJst } from "../time.ts";
+
+import { RobotsPolicy } from "./robots.ts";
 
 /** A policy refusal, rather than a new transport failure. */
 export class CrawlStopped extends FetchError {}
