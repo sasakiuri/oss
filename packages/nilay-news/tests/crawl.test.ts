@@ -14,9 +14,13 @@ import {
 } from "../src/collection/crawl.ts";
 import { RobotsPolicy } from "../src/collection/robots.ts";
 import { FetchError } from "../src/net/http.ts";
-import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
+import type {
+  FetchResult,
+  FetchBytes,
+  FetchOptions,
+} from "../src/net/types.ts";
 import { MAFF_PRESS, loadSources } from "../src/sources/config.ts";
-import type { FetchResult, SourceConfig } from "../src/sources/types.ts";
+import type { SourceConfig } from "../src/sources/types.ts";
 import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 

@@ -19,6 +19,8 @@ import type { FetchBytes, FetchOptions } from "../net/types.ts";
 import type { NewsRepository } from "../repository.ts";
 import type { Collection } from "../sources/types.ts";
 
+import { CRAWL_HOST, type HostState } from "./crawl-state.ts";
+
 const HOST = "google-news-url:news.google.com";
 const CACHE = "google_news_url";
 const RATE = "google_news_url_rate";
@@ -120,11 +122,11 @@ export class GoogleNewsResolver {
         throw new GoogleNewsError(
           "Google News の記事URL取得制限の記録が不正です",
         );
-      const crawlHost = await this.store.getRecord<{ blocked_until?: number }>(
-        "crawl_host",
+      // A refusal while polling feeds also pauses the decoding endpoint.
+      const crawlHost = await this.store.getRecord<Partial<HostState>>(
+        CRAWL_HOST,
         "news.google.com",
       );
-      // A refusal while polling feeds also pauses the decoding endpoint.
       const blocked = crawlHost?.blocked_until ?? 0;
       if (!Number.isFinite(blocked))
         throw new GoogleNewsError("Google News の取得待機記録が不正です");

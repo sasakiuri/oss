@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** Test-only controls around the same authenticated Worker used by runtime regressions. */
 import { Jev } from "../../src/jev/client.ts";
+import { evidenceHash } from "../../src/jev/evidence.ts";
+/** Test-only controls around the same authenticated Worker used by runtime regressions. */
 import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";
 import { isRecord, utf8 } from "../../src/text.ts";
@@ -71,7 +72,7 @@ export default {
       const result = await jev.relate(article, rubric, [other]);
       const saved = await repo.analyzeResult(
         article.id,
-        await repo.evidenceHash(article),
+        await evidenceHash(article),
         rubric,
         {
           ...result,

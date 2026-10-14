@@ -13,6 +13,7 @@ import {
   SettingsConflictError,
   UserError,
 } from "./errors.ts";
+import { STATIC_ASSET_PATHS } from "./http/assets.ts";
 import { Jev } from "./jev/client.ts";
 import { createFeedTransport, type FeedService } from "./net/feed-transport.ts";
 import { FetchError, readBody } from "./net/http.ts";
@@ -20,7 +21,7 @@ import { Notifier } from "./notifications.ts";
 import { BufferClient } from "./publishing/publisher.ts";
 import { loadSources } from "./sources/config.ts";
 import { createD1Repository } from "./storage/d1.ts";
-import { isRecord, sha256, truncate } from "./text.ts";
+import { parseUtf8Json, isRecord, sha256, truncate } from "./text.ts";
 
 export interface Env {
   DB: D1Database;
@@ -127,10 +128,7 @@ export function createHandlers(
       try {
         const { pathname: path } = new URL(request.url);
         const method = request.method;
-        if (
-          ["GET", "HEAD"].includes(method) &&
-          ["/", "/app.js", "/styles.css"].includes(path)
-        ) {
+        if (["GET", "HEAD"].includes(method) && STATIC_ASSET_PATHS.has(path)) {
           const response = await env.ASSETS.fetch(request);
           const headers = new Headers(response.headers);
           for (const [name, value] of Object.entries(SECURITY_HEADERS))
@@ -203,11 +201,7 @@ export function createHandlers(
         );
         let body: unknown;
         try {
-          body = JSON.parse(
-            new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
-              raw,
-            ),
-          );
+          body = parseUtf8Json(raw);
         } catch {
           return jsonResponse(400, {
             error: "JSON オブジェクトを送信してください",

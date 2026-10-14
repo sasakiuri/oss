@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Bounded fetch with one deadline covering every redirect hop and the body. */
 import { UserError } from "../errors.ts";
-import type { FetchResult } from "../sources/types.ts";
 import { feedDate } from "../time.ts";
 
-import type { FetchBytes, FetchOptions } from "./types.ts";
+import type { FetchResult, FetchBytes, FetchOptions } from "./types.ts";
 import { canonicalUrl, hostnameOf, unquote, urljoin, urlsplit } from "./url.ts";
 
 export const USER_AGENT = "NilayNews/0.1 (+local news and RSS reader)";

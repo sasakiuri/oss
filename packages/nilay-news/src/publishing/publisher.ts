@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT
 /** Buffer GraphQL publishing with durable claims and bounded confirmation. */
-import { isSourceCandidate } from "../candidates.ts";
+
 import { GoogleNewsResolver } from "../collection/google-news-resolver.ts";
 import type { BufferQuota, Clock } from "../domain.ts";
 import { clock as systemClock } from "../domain.ts";
 import { UserError } from "../errors.ts";
 import type { Jev } from "../jev/client.ts";
+import { evidenceHash } from "../jev/evidence.ts";
 import { FetchError, fetchBytes } from "../net/http.ts";
 import type { FetchBytes } from "../net/types.ts";
 import type { NewsRepository, PostScreening } from "../repository.ts";
-import { isRecord, utf8 } from "../text.ts";
+import { parseUtf8Json, isRecord, utf8 } from "../text.ts";
 
 import { ACCOUNT } from "./draft.ts";
-import { CONFIRMATION_MAX_CHECKS, isPostingTime } from "./policy.ts";
+import {
+  isBlockingRelation,
+  confirmationDelay,
+  isSourceCandidate,
+  CONFIRMATION_MAX_CHECKS,
+  isPostingTime,
+} from "./policy.ts";
 
 const ENDPOINT = "https://api.buffer.com";
 const POST_FIELDS = "id channelId channelService text status externalLink";
@@ -363,11 +370,7 @@ export class BufferClient {
       );
     }
     try {
-      const value: unknown = JSON.parse(
-        new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
-          data,
-        ),
-      );
+      const value: unknown = parseUtf8Json(data);
       if (isRecord(value) && !truthy(value.errors) && isRecord(value.data))
         return { data: value.data, quota };
     } catch {
@@ -559,21 +562,20 @@ export class Publisher {
     const article = await this.repository.article(articleId);
     if (article.reviewStatus === "approved" && article.reviewedAt)
       return {
-        evidenceHash: await this.repository.evidenceHash(article),
+        evidenceHash: await evidenceHash(article),
         permitted: true,
         approvedAt: article.reviewedAt,
       };
     if (!this.jev?.key) return undefined;
     if (isSourceCandidate(article)) return undefined;
-    const evidenceHash = await this.repository.evidenceHash(article);
+    const expectedEvidenceHash = await evidenceHash(article);
     const posted = await this.repository.postedArticles(article);
-    if (!posted.length) return { evidenceHash, permitted: true };
+    if (!posted.length)
+      return { evidenceHash: expectedEvidenceHash, permitted: true };
     const settings = await this.repository.settings();
     try {
       const result = await this.jev.relate(article, settings.rubric, posted);
-      const blocking = ["duplicate", "uncertain"].includes(
-        result.relation ?? "",
-      );
+      const blocking = isBlockingRelation(result.relation);
       if (blocking || result.relationProvenance?.length) {
         const related = posted.find(
           (other) => other.id === result.relatedArticleId,
@@ -582,21 +584,23 @@ export class Publisher {
           throw new UserError("比較記事が変更されました。再確認してください");
         const saved = await this.repository.analyzeResult(
           articleId,
-          evidenceHash,
+          expectedEvidenceHash,
           settings.rubric,
           { ...result, analysisStatus: article.analysisStatus },
-          related ? await this.repository.evidenceHash(related) : undefined,
+          related ? await evidenceHash(related) : undefined,
           "post-screening",
         );
-        if (!saved) return { evidenceHash, permitted: false };
+        if (!saved)
+          return { evidenceHash: expectedEvidenceHash, permitted: false };
       }
-      if (blocking) return { evidenceHash, permitted: false };
+      if (blocking)
+        return { evidenceHash: expectedEvidenceHash, permitted: false };
     } catch (error) {
       throw new PostError(
         `投稿前の重複確認に失敗しました。${error instanceof UserError ? error.message : "Jev の応答を確認してください"}`,
       );
     }
-    return { evidenceHash, permitted: true };
+    return { evidenceHash: expectedEvidenceHash, permitted: true };
   }
 
   /**
@@ -678,7 +682,11 @@ export class Publisher {
                   : "Buffer の投稿結果を取得できません。次の確認まで新しい投稿を保留します",
               ...(error instanceof PostRateLimitError &&
               error.retryAfter !== undefined
-                ? { nextAt: this.clock() + Math.max(120, error.retryAfter) }
+                ? {
+                    nextAt:
+                      this.clock() +
+                      Math.max(confirmationDelay(0), error.retryAfter),
+                  }
                 : {}),
             },
           );

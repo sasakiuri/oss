@@ -8,8 +8,14 @@
  * checks an unguessable mutation token: a failed compare cannot accidentally write
  * under a newer revision. No process lock, persistent process, or BEGIN is needed.
  */
-import { isSourceCandidate } from "../candidates.ts";
+import {
+  CRAWL_SOURCE,
+  CRAWL_HOST,
+  type HostState,
+  type SourceRecord,
+} from "../collection/crawl-state.ts";
 import { GoogleNewsDeferred } from "../collection/google-news-resolver.ts";
+import { DEFAULT_RUBRIC } from "../criteria.ts";
 import { clock as defaultClock } from "../domain.ts";
 import type {
   Analysis,
@@ -39,15 +45,24 @@ import {
   newestFirst,
   publicationSeconds,
 } from "../freshness.ts";
-import { modelEvidence } from "../jev/evidence.ts";
+import {
+  comparisonInputHash,
+  evidenceHash,
+  evidenceText,
+} from "../jev/evidence.ts";
 import {
   GoogleNewsError,
   isGoogleNewsUrl,
   publisherUrl,
 } from "../net/google-news.ts";
 import { FetchError } from "../net/http.ts";
+import { siteHost } from "../net/url.ts";
 import { draft } from "../publishing/draft.ts";
 import {
+  isSourceCandidate,
+  isBlockingRelation,
+  UNRESOLVED_POST_STATUSES,
+  POST_CLAIM_LEASE_SECONDS,
   isPostingTime,
   nextPostingAt,
   POST_INTERVAL_SECONDS,
@@ -80,7 +95,7 @@ import {
   strip,
   utf8,
 } from "../text.ts";
-import { isoSeconds } from "../time.ts";
+import { isoSeconds, jstDay, JST_OFFSET, DAY_SECONDS } from "../time.ts";
 
 import {
   bucketsSQL,
@@ -88,18 +103,7 @@ import {
   eligibleSQL,
   querySQL,
 } from "./article-query.ts";
-
-export type SQLValue = string | number | null;
-export type SQLStatement = readonly [string, readonly SQLValue[]];
-export type SQLRow = Record<string, SQLValue>;
-export interface SQLResult {
-  results: SQLRow[];
-  meta: { changes: number };
-}
-/** Executes all statements sequentially in one transaction, rolling back every statement on failure. */
-export interface SqlDriver {
-  batch(statements: SQLStatement[]): Promise<SQLResult[]>;
-}
+import type { SQLValue, SQLStatement, SQLRow, SqlDriver } from "./sql.ts";
 
 const REVIEW_STATUSES: ReadonlySet<unknown> = new Set<ReviewStatus>([
   "unread",
@@ -113,14 +117,8 @@ const ANALYSIS_STATUSES: ReadonlySet<unknown> = new Set([
   "done",
   "error",
 ]);
-const BLOCKING: ReadonlySet<PostStatus> = new Set<PostStatus>([
-  "publishing",
-  "submitted",
-  "unknown",
-  "failed",
-]);
 const POST_STATUSES: ReadonlySet<unknown> = new Set<PostStatus>([
-  ...BLOCKING,
+  ...UNRESOLVED_POST_STATUSES,
   "posted",
 ]);
 const SETTING_KEYS = new Set([
@@ -152,15 +150,6 @@ const DETAIL_KEYS = [
   "attachments",
   "contentError",
 ] as const;
-const EVIDENCE_KEYS = [
-  "title",
-  "excerpt",
-  "publishedAt",
-  "body",
-  "bodyStale",
-  "metadata",
-  "contentError",
-] as const;
 const SOURCE_STATE = [
   "enabled",
   "lastFetchedAt",
@@ -176,15 +165,6 @@ const YAHOO_ARTICLE = /^https:\/\/news\.yahoo\.co\.jp\/articles\/[a-f0-9]{40}$/;
 const ROW_LIMIT = 1_800_000;
 const BLOB_LIMIT = 4_000_000;
 const BLOB_PART = 1_000_000;
-
-export const DEFAULT_RUBRIC = `日本国内の狩猟、猟銃・銃の所持、射撃競技、野生鳥獣の被害と保護管理、ジビエ、関連する法令・行政のニュースを集める。
-日本国外で起きた出来事や外国の制度は、対象分野の話題でも対象外。日本の選手・団体・行政機関が当事者である場合（日本代表の海外大会出場など）と、場所が書かれていない記事は国内の話題として扱う。
-野生動物・外来種の対象は鳥類と哺乳類に限る。ヒアリ等の昆虫、ザリガニ等の甲殻類、魚類、爬虫類、両生類、植物の話題は対象外。狩猟・銃・射撃競技・ジビエは、それ自体が対象分野である。
-ゲーム、フィクション、比喩としてのハンター・罠、対象分野と関係のない商品や芸能記事は対象外。ペット・畜産のみの話題も、野生鳥獣や狩猟との具体的な関係がなければ対象外。
-野生鳥獣の出没・捕獲・被害、対策・保護・調査、競技大会、銃の事件・事故、制度変更は候補に含める。関連記事欄や、別の主題の記事で付随的に触れただけの言及は対象にしない。
-クマの出没・目撃を伝えるだけの記事（けが人がなく、注意の呼びかけや見回り程度の対応にとどまるもの）は対象外。人身被害、住宅・店舗・学校などへの侵入、市街地中心部での出没、休校・運休・避難など生活への大きな影響、捕獲・駆除、対策の決定、出没件数の統計や注意報・警報、九州・四国・千葉県・離島など通常クマがいない・まれな地域での出没といった特別な事情があれば候補に含める。
-発生地域、日付、対象が異なる事件を混同しない。同じ事件でも新たな被害・捕獲・対策決定などの続報は残す。
-取得できた見出しと記事情報で主題の関連性を判断する。本文がなくても主題が明確なら候補または対象外に決める。主題や対象分野との関係が本当に判断できない場合だけ要確認にする。`;
 
 const DEFAULT_JOB: Job = {
   running: false,
@@ -213,11 +193,6 @@ interface Schedule {
 interface PublicationBatch {
   articleIds: string[];
   openedAt: number;
-}
-/** The fields of a `crawl_source` record the scheduler reads. */
-interface CrawlSourceRecord {
-  last_requested: number;
-  retry_at?: number;
 }
 /** Rows of news_state keyed by id; unknown ids are carried through untouched. */
 type StateRows = {
@@ -282,41 +257,6 @@ function canonical(value: unknown): string {
       ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => byKey(a, b)))
       : item,
   );
-}
-
-function compareCodePoints(a: string, b: string): number {
-  const left = [...a];
-  const right = [...b];
-  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
-    const diff =
-      (left[index]?.codePointAt(0) ?? 0) - (right[index]?.codePointAt(0) ?? 0);
-    if (diff) return diff;
-  }
-  return left.length - right.length;
-}
-
-/** Stable JSON with sorted keys, Unicode characters, and spaces after separators for evidence hashes. */
-function pythonJson(value: unknown): string {
-  if (value === null || value === undefined) return "null";
-  if (typeof value === "string" || typeof value === "boolean")
-    return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (Number.isFinite(value)) return JSON.stringify(value);
-    return Number.isNaN(value) ? "NaN" : value > 0 ? "Infinity" : "-Infinity";
-  }
-  if (Array.isArray(value))
-    return `[${value.map((item: unknown) => pythonJson(item)).join(", ")}]`;
-  if (isRecord(value)) {
-    const keys = Object.keys(value)
-      .filter((key) => value[key] !== undefined)
-      .sort(compareCodePoints);
-    return `{${keys.map((key) => `${JSON.stringify(key)}: ${pythonJson(value[key])}`).join(", ")}}`;
-  }
-  throw new TypeError("Unsupported evidence value");
-}
-
-function evidenceText(article: Article): string {
-  return pythonJson(EVIDENCE_KEYS.map((key) => article[key] ?? null));
 }
 
 function timestamp(value: number): string {
@@ -521,7 +461,7 @@ function assertReviewAllowed(
   discardUnsent = false,
 ): void {
   if (discardUnsent && failedBeforeSend(post)) return;
-  if (post && BLOCKING.has(post.status))
+  if (post && UNRESOLVED_POST_STATUSES.has(post.status))
     throw new UserError(
       "X の投稿処理中、または結果確認待ちです。投稿結果の確認から操作してください",
     );
@@ -895,7 +835,9 @@ export class SQLRepository implements NewsRepository {
         state.state.publication_batch = closedBatch();
       if (valid.autoPost && !previous.autoPost) {
         if (
-          [...state.posts.values()].some((post) => BLOCKING.has(post.status))
+          [...state.posts.values()].some((post) =>
+            UNRESOLVED_POST_STATUSES.has(post.status),
+          )
         ) {
           throw new UserError(
             "投稿結果を確認し、保留中の記事を解決してから有効にしてください",
@@ -1395,9 +1337,7 @@ export class SQLRepository implements NewsRepository {
       ) &&
       article.reviewStatus !== "posted" &&
       article.reviewStatus !== "dismissed" &&
-      (approved ||
-        source ||
-        !["duplicate", "uncertain"].includes(article.relation ?? "")) &&
+      (approved || source || !isBlockingRelation(article.relation)) &&
       (approved ||
         (selection !== "candidates" && article.reviewStatus === "saved") ||
         (selection !== "saved" &&
@@ -1606,7 +1546,11 @@ export class SQLRepository implements NewsRepository {
         if (!settings.autoPost || !isPostingTime(current)) return null;
         // Posts of a round are sent one at a time: each waits until the
         // previous one is confirmed, and an unresolved one stops the round.
-        if ([...state.posts.values()].some((post) => BLOCKING.has(post.status)))
+        if (
+          [...state.posts.values()].some((post) =>
+            UNRESOLVED_POST_STATUSES.has(post.status),
+          )
+        )
           return null;
         const candidates = SQLRepository.candidates(state, current);
         const batch = batchOf(state.state);
@@ -1700,7 +1644,7 @@ export class SQLRepository implements NewsRepository {
           // A delayed tick gets a fresh lease, starting when it actually claims.
           attempted_at: timestamp(current),
           claim_token: claimToken,
-          claim_expires_at: current + 600,
+          claim_expires_at: current + POST_CLAIM_LEASE_SECONDS,
           check_count: 0,
         };
         state.posts.set(article.id, post);
@@ -1756,7 +1700,8 @@ export class SQLRepository implements NewsRepository {
           isPostingTime(current) &&
           settingsOf(state.state).autoPost &&
           ![...state.posts.values()].some(
-            (other) => other !== post && BLOCKING.has(other.status),
+            (other) =>
+              other !== post && UNRESOLVED_POST_STATUSES.has(other.status),
           ) &&
           article &&
           SQLRepository.eligible(state, article, current) &&
@@ -1766,7 +1711,7 @@ export class SQLRepository implements NewsRepository {
               (!screening.approvedAt ||
                 (article.reviewStatus === "approved" &&
                   article.reviewedAt === screening.approvedAt)) &&
-              (await this.evidenceHash(article)) === screening.evidenceHash)) &&
+              (await evidenceHash(article)) === screening.evidenceHash)) &&
           SQLRepository.sameDraft(article, post.text)
         )
           return true;
@@ -1986,7 +1931,7 @@ export class SQLRepository implements NewsRepository {
           status: "submitted",
           buffer_id: bufferId,
           channel_id: channelId,
-          check_at: now + 120,
+          check_at: now + confirmationDelay(0),
           check_count: 0,
           confirmation_deadline: now + CONFIRMATION_TIMEOUT_SECONDS,
         });
@@ -2178,13 +2123,9 @@ export class SQLRepository implements NewsRepository {
     );
   }
 
-  async evidenceHash(article: Article): Promise<string> {
-    return sha256(evidenceText(article));
-  }
-
   async analyzeResult(
     articleId: string,
-    evidenceHash: string,
+    expectedEvidenceHash: string,
     rubric: string,
     result: Analysis,
     relationHash?: string | null,
@@ -2207,7 +2148,7 @@ export class SQLRepository implements NewsRepository {
       async (state) => {
         const article = articleOf(state.articles, articleId);
         if (
-          (await this.evidenceHash(article)) !== evidenceHash ||
+          (await evidenceHash(article)) !== expectedEvidenceHash ||
           settingsOf(state.state).rubric !== rubric
         )
           return false;
@@ -2217,7 +2158,7 @@ export class SQLRepository implements NewsRepository {
             : undefined;
           if (
             !other ||
-            (await sha256(JSON.stringify(modelEvidence(other)))) !==
+            (await comparisonInputHash(other)) !==
               provenance.comparisonInputHash
           )
             return false;
@@ -2228,7 +2169,7 @@ export class SQLRepository implements NewsRepository {
           relationHash !== null
         ) {
           const target = state.articles.get(result.relatedArticleId);
-          if (!target || (await this.evidenceHash(target)) !== relationHash)
+          if (!target || (await evidenceHash(target)) !== relationHash)
             return false;
         }
         if (purpose === "post-screening") {
@@ -2240,7 +2181,7 @@ export class SQLRepository implements NewsRepository {
             ),
             checkedAt: timestamp(this.clock()),
           };
-          if (["duplicate", "uncertain"].includes(result.relation ?? ""))
+          if (isBlockingRelation(result.relation))
             Object.assign(article, {
               relatedArticleId: result.relatedArticleId,
               relation: result.relation,
@@ -2344,7 +2285,7 @@ export class SQLRepository implements NewsRepository {
   private dueOffsets(
     sources: Map<string, Source>,
     configs: readonly SourceConfig[],
-    records: Map<string, CrawlSourceRecord>,
+    records: Map<string, SourceRecord>,
     backoffs: Map<string, number>,
     now: number,
   ): string[] {
@@ -2364,9 +2305,7 @@ export class SQLRepository implements NewsRepository {
           nextPhase(
             Math.max(
               Math.floor(now / 60) * 60,
-              backoffs.get(
-                new URL(config.url).hostname.replace(/^www\./, ""),
-              ) ?? 0,
+              backoffs.get(siteHost(new URL(config.url))) ?? 0,
             ),
             config.collectionOffsetMinutes ?? 0,
             minutes,
@@ -2440,14 +2379,14 @@ export class SQLRepository implements NewsRepository {
         ...new Set(
           candidates
             .filter((item) => phaseOf(item) !== null)
-            .map((item) => new URL(item.url).hostname.replace(/^www\./, "")),
+            .map((item) => siteHost(new URL(item.url))),
         ),
       ];
       const backoffs = new Map(
         await Promise.all(
           offsetHosts.map(async (host): Promise<[string, number]> => {
-            const record = await this.getRecord<{ blocked_until: number }>(
-              "crawl_host",
+            const record = await this.getRecord<Partial<HostState>>(
+              CRAWL_HOST,
               host,
             );
             if (record && !Number.isFinite(record.blocked_until))
@@ -2522,12 +2461,12 @@ export class SQLRepository implements NewsRepository {
   private async crawlSources(
     sourceIds: readonly string[],
     now: number,
-  ): Promise<Map<string, CrawlSourceRecord>> {
+  ): Promise<Map<string, SourceRecord>> {
     if (!sourceIds.length) return new Map();
     const result = await this.driver.batch([
       [
         "SELECT key,data FROM news_records WHERE namespace=? AND key IN (SELECT value FROM json_each(?)) AND (expires IS NULL OR expires>?)",
-        ["crawl_source", encode(sourceIds), now],
+        [CRAWL_SOURCE, encode(sourceIds), now],
       ],
     ]);
     // A malformed record is left to CachedFetch, which refuses it.
@@ -2535,7 +2474,7 @@ export class SQLRepository implements NewsRepository {
       (result[0]?.results ?? []).flatMap((row) => {
         const data = decode<Record<string, unknown>>(textColumn(row, "data"));
         if (!finite(data.last_requested)) return [];
-        const record: CrawlSourceRecord = {
+        const record: SourceRecord = {
           last_requested: data.last_requested,
         };
         if (finite(data.retry_at)) record.retry_at = data.retry_at;
@@ -2554,8 +2493,7 @@ export class SQLRepository implements NewsRepository {
     limit: number,
     failed = false,
   ): Promise<Article[]> {
-    const yesterday =
-      Math.floor((now + 9 * 3600) / 86400) * 86400 - 9 * 3600 - 86400;
+    const yesterday = jstDay(now) * DAY_SECONDS - JST_OFFSET - DAY_SECONDS;
     const result = await this.driver.batch([
       [
         `SELECT data FROM news_articles WHERE json_extract(data,'$.analysisStatus') IN ${failed ? "('pending','error')" : "('pending')"} ` +

@@ -6,16 +6,13 @@ import { performance } from "node:perf_hooks";
 import { Miniflare } from "miniflare";
 
 import { Application } from "../src/application.ts";
-import { isSourceCandidate } from "../src/candidates.ts";
 import { freshness, publicationWindow } from "../src/freshness.ts";
 import { Jev } from "../src/jev/client.ts";
 import { ACCOUNT, draft } from "../src/publishing/draft.ts";
+import { isSourceCandidate } from "../src/publishing/policy.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
-import {
-  SQLRepository,
-  type SQLStatement,
-  type SQLRow,
-} from "../src/storage/sql-repository.ts";
+import { SQLRepository } from "../src/storage/sql-repository.ts";
+import { type SQLStatement, type SQLRow } from "../src/storage/sql.ts";
 
 const now = Date.UTC(2026, 8, 30, 2) / 1000;
 const source = {

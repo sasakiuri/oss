@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
@@ -675,7 +676,7 @@ describe("Publisher", () => {
         const article = await repo.article(articleId);
         await repo.analyzeResult(
           articleId,
-          await repo.evidenceHash(article),
+          await evidenceHash(article),
           (await repo.settings()).rubric,
           {
             analysisStatus: "done",
@@ -724,7 +725,7 @@ describe("Publisher", () => {
         const article = await repo.article(id);
         await repo.analyzeResult(
           id,
-          await repo.evidenceHash(article),
+          await evidenceHash(article),
           (await repo.settings()).rubric,
           { analysisStatus: "done", decision: "candidate", relation: null },
         );
@@ -806,16 +807,11 @@ describe("Publisher", () => {
       const original = await reviewer("followup").jev.relate(article, rubric, [
         await repo.article(originalComparison),
       ]);
-      await repo.analyzeResult(
-        articleId,
-        await repo.evidenceHash(article),
-        rubric,
-        {
-          analysisStatus: "done",
-          decision: "candidate",
-          ...original,
-        },
-      );
+      await repo.analyzeResult(articleId, await evidenceHash(article), rubric, {
+        analysisStatus: "done",
+        decision: "candidate",
+        ...original,
+      });
       await repo.review(originalComparison, "dismissed");
       const before = await repo.article(articleId);
       now += 1;
@@ -945,7 +941,7 @@ describe("Publisher", () => {
           const article = await repo.article(articleId);
           await repo.analyzeResult(
             articleId,
-            await repo.evidenceHash(article),
+            await evidenceHash(article),
             (await repo.settings()).rubric,
             {
               analysisStatus: "done",
@@ -1473,7 +1469,7 @@ describe("Publisher", () => {
       const article = await repo.article(articleId);
       await repo.analyzeResult(
         articleId,
-        await repo.evidenceHash(article),
+        await evidenceHash(article),
         (await repo.settings()).rubric,
         { analysisStatus: "done", decision: "candidate" },
       );

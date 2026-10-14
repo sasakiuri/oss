@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Isolated evaluation: fixtures and a Jev transport only, never production storage or posting. */
-import { isSourceCandidate } from "../candidates.ts";
+
 import type { Article, Analysis } from "../domain.ts";
 import type { FetchBytes } from "../net/types.ts";
+import { isSourceCandidate } from "../publishing/policy.ts";
 import { isRecord, sha256, utf8 } from "../text.ts";
 
 import {

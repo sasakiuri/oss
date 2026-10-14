@@ -11,21 +11,13 @@
  * publication, so a timed feed entry at 00:00 stays on the rolling window.
  */
 import type { Article } from "./domain.ts";
-import { feedDate } from "./time.ts";
+import { JST_OFFSET, DAY_SECONDS, jstDay, feedDate } from "./time.ts";
 
 /** Rolling window, inclusive: exactly 24 hours old is still fresh. */
-export const FRESHNESS_SECONDS = 24 * 3600;
+export const FRESHNESS_SECONDS = DAY_SECONDS;
 /** `metadata.publicationPrecision` of an item whose source states only a JST date. */
 export const DATE_PRECISION = "date";
 export type Freshness = "fresh" | "stale" | "unknown" | "invalid" | "future";
-
-const JST_OFFSET = 9 * 3600;
-const DAY = 86400;
-
-/** Days since the epoch in JST. */
-function jstDay(seconds: number): number {
-  return Math.floor((seconds + JST_OFFSET) / DAY);
-}
 
 /** Epoch seconds of a zoned publication time, or null when missing or invalid. */
 export function publicationSeconds(
@@ -45,10 +37,10 @@ export function publicationWindow(
   const date =
     precision === DATE_PRECISION &&
     Number.isInteger(seconds) &&
-    (seconds + JST_OFFSET) % DAY === 0;
+    (seconds + JST_OFFSET) % DAY_SECONDS === 0;
   return {
     seconds,
-    until: seconds + (date ? 2 * DAY : FRESHNESS_SECONDS),
+    until: seconds + (date ? 2 * DAY_SECONDS : FRESHNESS_SECONDS),
     date,
   };
 }
@@ -72,7 +64,7 @@ export function freshness(
   if (
     precision === DATE_PRECISION &&
     Number.isInteger(published) &&
-    (published + JST_OFFSET) % DAY === 0
+    (published + JST_OFFSET) % DAY_SECONDS === 0
   ) {
     const age = jstDay(now) - jstDay(published);
     if (age < 0) return "future";
@@ -118,9 +110,10 @@ export function mergePublication(
   if (jstDay(next) === jstDay(previous)) {
     const previousDate =
       existingPrecision === DATE_PRECISION &&
-      (previous + JST_OFFSET) % DAY === 0;
+      (previous + JST_OFFSET) % DAY_SECONDS === 0;
     const nextDate =
-      incomingPrecision === DATE_PRECISION && (next + JST_OFFSET) % DAY === 0;
+      incomingPrecision === DATE_PRECISION &&
+      (next + JST_OFFSET) % DAY_SECONDS === 0;
     if (previousDate && !nextDate) return incoming;
     if (!previousDate && nextDate) return current;
   }

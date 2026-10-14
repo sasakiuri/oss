@@ -169,7 +169,6 @@ export interface NewsRepository {
    */
   pruneArticles(timestamp?: number): Promise<number>;
   resolvePost(articleId: string, outcome: unknown): Promise<Publication>;
-  evidenceHash(article: Article): Promise<string>;
   analyzeResult(
     articleId: string,
     evidenceHash: string,

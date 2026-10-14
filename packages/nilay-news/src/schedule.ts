@@ -7,8 +7,8 @@
  * after it, an unclaimed run for the current day is due immediately. The next
  * run is always the following day's slot, never 24 hours after a late start.
  */
-const JST_OFFSET = 9 * 3600;
-const DAY = 86400;
+import { JST_OFFSET, DAY_SECONDS } from "./time.ts";
+
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /** Minutes after JST midnight for a valid `HH:MM`, or null. */
@@ -22,7 +22,8 @@ export function dailySlot(now: number, at: string): number {
   const minutes = dailyMinutes(at);
   if (minutes === null) throw new RangeError(`invalid daily time ${at}`);
   const local = Math.floor(now) + JST_OFFSET;
-  const midnight = local - (((local % DAY) + DAY) % DAY) - JST_OFFSET;
+  const midnight =
+    local - (((local % DAY_SECONDS) + DAY_SECONDS) % DAY_SECONDS) - JST_OFFSET;
   return midnight + minutes * 60;
 }
 
@@ -37,7 +38,9 @@ export function nextDailyRun(
 ): number {
   const slot = dailySlot(now, at);
   if (now < slot) return slot;
-  return (lastStarted ?? Number.NEGATIVE_INFINITY) >= slot ? slot + DAY : slot;
+  return (lastStarted ?? Number.NEGATIVE_INFINITY) >= slot
+    ? slot + DAY_SECONDS
+    : slot;
 }
 
 /**
@@ -54,7 +57,7 @@ export function nextPhase(
   if (
     !Number.isInteger(periodMinutes) ||
     periodMinutes < 1 ||
-    DAY % period ||
+    DAY_SECONDS % period ||
     !Number.isInteger(offsetMinutes) ||
     offsetMinutes < 0 ||
     offsetMinutes >= periodMinutes

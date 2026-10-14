@@ -10,13 +10,14 @@ import { CachedFetch, CrawlDeferred } from "../src/collection/crawl.ts";
 import type { Job } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
+import { evidenceHash } from "../src/jev/evidence.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
 import type { Notifier } from "../src/notifications.ts";
 import { draft } from "../src/publishing/draft.ts";
 import { BufferClient, PostError } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
-import type { SQLStatement } from "../src/storage/sql-repository.ts";
+import type { SQLStatement } from "../src/storage/sql.ts";
 import { utf8 } from "../src/text.ts";
 import { isoSeconds } from "../src/time.ts";
 
@@ -876,7 +877,7 @@ describe("automatic classification", () => {
       const article = await repo.article(ids[index]!);
       await repo.analyzeResult(
         article.id,
-        await repo.evidenceHash(article),
+        await evidenceHash(article),
         rubric,
         { analysisStatus },
       );
@@ -973,7 +974,7 @@ describe("automatic classification", () => {
     };
     await repo.analyzeResult(
       article.id,
-      await repo.evidenceHash(article),
+      await evidenceHash(article),
       (await repo.settings()).rubric,
       {
         analysisStatus: "done",

@@ -9,10 +9,14 @@ import type {
 import { UserError } from "../errors.ts";
 import { fetchBytes, FetchError } from "../net/http.ts";
 import type { FetchBytes } from "../net/types.ts";
-import { isRecord, sha256, utf8 } from "../text.ts";
+import { parseUtf8Json, isRecord, sha256, utf8 } from "../text.ts";
 import { isoSeconds } from "../time.ts";
 
-import { modelEvidence, type ModelEvidence } from "./evidence.ts";
+import {
+  comparisonInputHash,
+  modelEvidence,
+  type ModelEvidence,
+} from "./evidence.ts";
 
 export const DECISION_VERSIONS = {
   classificationPrompt: "3",
@@ -331,7 +335,7 @@ export class Jev {
     state: object,
     questions: Record<string, Question>,
     signal?: AbortSignal,
-    comparisonArticleId?: string,
+    comparison?: Article,
   ): Promise<{ raw: unknown; provenance: DecisionProvenance }> {
     signal?.throwIfAborted();
     const input = JSON.stringify({ model: this.model, state, questions });
@@ -357,11 +361,7 @@ export class Jev {
     }
     signal?.throwIfAborted();
     try {
-      const raw: unknown = JSON.parse(
-        new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
-          data,
-        ),
-      );
+      const raw: unknown = parseUtf8Json(data);
       const rubric =
         isRecord(state) && typeof state.selection_criteria === "string"
           ? state.selection_criteria
@@ -390,11 +390,9 @@ export class Jev {
         modelInputHash: await sha256(input),
         analyzedAt: isoSeconds(this.clock()),
       };
-      if (comparisonArticleId && isRecord(state)) {
-        provenance.comparisonArticleId = comparisonArticleId;
-        provenance.comparisonInputHash = await sha256(
-          JSON.stringify(state.previous_article),
-        );
+      if (comparison?.id && isRecord(state)) {
+        provenance.comparisonArticleId = comparison.id;
+        provenance.comparisonInputHash = await comparisonInputHash(comparison);
       }
       return { raw, provenance };
     } catch {
@@ -496,7 +494,7 @@ export class Jev {
           },
         },
         signal,
-        other.id,
+        structuredClone(other),
       );
       const related = answersOf(observation.raw, "Jev の照合結果が不正です");
       result.relationProvenance!.push(observation.provenance);

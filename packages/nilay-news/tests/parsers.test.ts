@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 import { UserError } from "../src/errors.ts";
 import { parseDocument, textOf } from "../src/markup/tree.ts";
 import { allText, parseXml, XmlError } from "../src/markup/xml.ts";
+import type { FetchResult } from "../src/net/types.ts";
 import { parseQs, urlsplit } from "../src/net/url.ts";
 import { PDF_NOTE } from "../src/sources/bills.ts";
 import { loadSources } from "../src/sources/config.ts";
@@ -14,7 +15,6 @@ import { plain } from "../src/sources/feed.ts";
 import { collectSource } from "../src/sources/index.ts";
 import type {
   Collection,
-  FetchResult,
   SourceConfig,
   SourceFetch,
 } from "../src/sources/types.ts";

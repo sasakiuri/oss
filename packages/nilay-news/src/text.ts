@@ -74,3 +74,10 @@ export async function sha256(value: string): Promise<string> {
 export function randomToken(): string {
   return crypto.randomUUID().replaceAll("-", "");
 }
+
+/** Decode strict UTF-8 and parse JSON; callers map parsing errors. */
+export function parseUtf8Json(bytes: Uint8Array): unknown {
+  return JSON.parse(
+    new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes),
+  );
+}

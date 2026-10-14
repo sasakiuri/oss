@@ -13,7 +13,7 @@ import type {
   SQLStatement,
   SQLValue,
   SqlDriver,
-} from "../../src/storage/sql-repository.ts";
+} from "../../src/storage/sql.ts";
 
 const MIGRATIONS = new URL("../../migrations/", import.meta.url);
 /** Every D1 migration in the order Wrangler applies them. */
