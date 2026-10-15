@@ -4,7 +4,7 @@ import type { Mock, vi } from "vitest";
 import type {
   BufferPost,
   PublishingClient,
-} from "../../src/publishing/publisher.ts";
+} from "../../src/publishing/types.ts";
 
 export function channel(changes: Record<string, unknown> = {}) {
   return {

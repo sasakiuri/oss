@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev/client.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
-import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
+import { Publisher } from "../src/publishing/publisher.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 
 import { postFixture, fakePublishingClient } from "./helpers/buffer.ts";

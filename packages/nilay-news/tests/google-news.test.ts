@@ -22,8 +22,8 @@ import {
 } from "../src/net/google-news.ts";
 import { FetchError, type Fetcher } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { draft } from "../src/publishing/draft.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
 import {
   citationOnly,
   collection,

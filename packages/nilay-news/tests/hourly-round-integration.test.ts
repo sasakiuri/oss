@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { FetchBytes } from "../src/net/types.ts";
-import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
+import { Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 

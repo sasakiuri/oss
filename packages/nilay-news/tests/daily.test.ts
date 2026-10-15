@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Application } from "../src/application.ts";
 import { CachedFetch } from "../src/collection/crawl.ts";
 import { Jev } from "../src/jev/client.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { dailySlot, nextDailyRun } from "../src/schedule.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 

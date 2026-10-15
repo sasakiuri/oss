@@ -5,12 +5,10 @@ import type { BufferQuota } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import {
-  BufferClient,
-  PostError,
-  Publisher,
-} from "../src/publishing/publisher.ts";
-import type { BufferPost } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
+import { PostError } from "../src/publishing/errors.ts";
+import { Publisher } from "../src/publishing/publisher.ts";
+import type { BufferPost } from "../src/publishing/types.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";

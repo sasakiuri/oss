@@ -12,7 +12,7 @@ import { CachedFetch } from "../src/collection/crawl.ts";
 import { Jev } from "../src/jev/client.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { nextPhase } from "../src/schedule.ts";
 import { loadSources } from "../src/sources/config.ts";
 import { collection, type SourceConfig } from "../src/sources/types.ts";

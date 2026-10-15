@@ -2,10 +2,12 @@
 import { Access, CONFIG_NAMES } from "../../src/access.ts";
 import { Application } from "../../src/application.ts";
 import { CachedFetch } from "../../src/collection/crawl.ts";
-import { ENDPOINT, Jev, REASONS } from "../../src/jev/client.ts";
+import { Jev } from "../../src/jev/client.ts";
+import { REASONS } from "../../src/jev/questions.ts";
+import { ENDPOINT } from "../../src/jev/transport.ts";
 import { FetchError } from "../../src/net/http.ts";
 import type { FetchBytes } from "../../src/net/types.ts";
-import { BufferClient } from "../../src/publishing/publisher.ts";
+import { BufferClient } from "../../src/publishing/buffer-client.ts";
 import { collectSource } from "../../src/sources/index.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";

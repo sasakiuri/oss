@@ -22,6 +22,17 @@ Local development starts both Workers through Wrangler and uses a local D1 datab
 
 If an article fails before a post draft is prepared, it can be dismissed individually or in bulk; dismissal also clears its failed posting record. To keep the article for another attempt, use 投稿エラーを解除 in its details, then 投稿せずに接続・候補を確認 in settings and enable automatic posting again. Manual approval can also clear such an unsent failure. These actions leave posting disabled until explicitly enabled. Submitted posts and uncertain outcomes still require checking Buffer and X before reconciliation.
 
+## Code organization
+
+- `src/worker.ts` composes the production services and enforces Access before serving any request. `src/http/` owns API dispatch, response headers, error mapping, and the explicit static asset allowlist.
+- `src/application.ts` exposes the application use cases. `src/jobs/runner.ts` owns job leases, deadlines, and progress; collection and classification run in separate tasks. Maintenance runs once before the job burst, and its elapsed time counts toward the same invocation budget.
+- `src/storage/sql-repository.ts` implements `NewsRepository` by composing configuration, publication, job, and record stores with `article-reader.ts` for bounded queries and `article-store.ts` for article mutations. Every store shares `transaction-store.ts`, which reads consistent snapshots and fences all writes with the same revision and mutation token. Keep cross-table changes in one mutation. Posting stays outside retry callbacks; Google News URL resolution runs before reserving a draft and caches successful resolutions across retries, then rechecks eligibility against fresh state.
+- `src/jev/client.ts` orchestrates classification and relationship checks. `questions.ts` owns the versioned questions, `decisions.ts` validates responses and applies routing thresholds, `related.ts` retrieves comparison candidates, and `transport.ts` records provenance from the exact request and captured comparison evidence. Moving code must preserve question text, serialization order, thresholds, and provenance hashes.
+- `src/publishing/` separates Buffer account/post operations, authenticated GraphQL transport, quota observations, post validation, duplicate screening, and confirmation. `publisher.ts` owns the send sequence: claim, verify, screen, authorize, submit, and confirm. Preflight previews a candidate without claiming or sending it.
+- `public/app.js` starts native browser modules in `public/ui/`. Data and action modules update the shared model and notify views synchronously; renderers subscribe at startup. Importing a module does not mount a view or start polling. Keep imports acyclic and add every new public script to the static asset allowlist.
+
+The browser needs no bundling step or runtime framework. UI unit tests bundle modules only for their DOM test harness; browser tests load the actual ES modules through the authenticated Worker.
+
 ## Checks
 
 Run these commands from the package directory:

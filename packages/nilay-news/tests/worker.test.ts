@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev/client.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
 import { fakeClock } from "./helpers/clock.ts";
@@ -369,6 +369,9 @@ describe("HTTP contract", () => {
       "/.env",
       "/sources.json",
       "/src/worker.ts",
+      "/ui/missing.js",
+      "/ui/model.js.map",
+      "/ui/.env",
     ]) {
       expect(
         (
