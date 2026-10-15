@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createServer } from "node:http";
+import type { Socket } from "node:net";
 
 import { describe, expect, it } from "vitest";
 
@@ -214,4 +217,128 @@ describe("production runtime health", () => {
       ),
     ).rejects.toThrow("HTTP 500");
   });
+  it.each(["ok", "exception", "cleanup-failure"])(
+    "exits after awaited tail deletion even if the server ignores WebSocket CLOSE (%s)",
+    async (outcome) => {
+      const { calls, fetchImpl } = fixture();
+      const sockets = new Set<Socket>();
+      const server = createServer((request, response) => {
+        void (async () => {
+          const result = await fetchImpl(`https://example.com${request.url}`, {
+            method: request.method,
+          });
+          response.writeHead(
+            outcome === "cleanup-failure" && request.method === "DELETE"
+              ? 500
+              : result.status,
+            { "Content-Type": "application/json" },
+          );
+          response.end(await result.text());
+        })();
+      });
+      server.on("connection", (socket) => {
+        sockets.add(socket);
+        socket.on("close", () => sockets.delete(socket));
+      });
+      server.on("upgrade", (request, socket) => {
+        const accept = createHash("sha1")
+          .update(
+            `${request.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`,
+          )
+          .digest("base64");
+        socket.write(
+          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: trace-v1\r\n\r\n`,
+        );
+        // Send a real trace after the client's debug message, then ignore CLOSE.
+        socket.once("data", () => {
+          const payload = Buffer.from(
+            JSON.stringify({
+              scriptVersion: { id: version },
+              event: { cron: "* * * * *", scheduledTime: Date.now() },
+              outcome: outcome === "exception" ? "exception" : "ok",
+              truncated: false,
+              exceptions: [],
+              logs: [],
+            }),
+          );
+          const header = Buffer.alloc(4);
+          header[0] = 0x81;
+          header[1] = 126;
+          header.writeUInt16BE(payload.length, 2);
+          socket.write(Buffer.concat([header, payload]));
+        });
+      });
+      await new Promise<void>((accept) =>
+        server.listen(0, "127.0.0.1", accept),
+      );
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw new Error("Local test server did not start");
+      const origin = `http://127.0.0.1:${address.port}`;
+      const preload = `
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = (url, init) => originalFetch(
+          '${origin}' + new URL(url).pathname, init
+        );
+        const NativeWebSocket = globalThis.WebSocket;
+        globalThis.WebSocket = class extends NativeWebSocket {
+          constructor(_url, protocols) { super('${origin.replace("http:", "ws:")}', protocols); }
+        };
+      `;
+      try {
+        const child = spawn(
+          process.execPath,
+          [
+            "--import",
+            `data:text/javascript,${encodeURIComponent(preload)}`,
+            "scripts/production-health.ts",
+          ],
+          {
+            env: {
+              PATH: process.env.PATH,
+              CLOUDFLARE_ACCOUNT_ID: settings.account,
+              NILAY_NEWS_D1_DATABASE_ID: settings.database,
+              CLOUDFLARE_API_TOKEN: settings.token,
+              GITHUB_SHA: settings.commit,
+            },
+            timeout: 2_500,
+            killSignal: "SIGKILL",
+          },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (data) => (stdout += String(data)));
+        child.stderr.on("data", (data) => (stderr += String(data)));
+        const result = await new Promise<{
+          code: number | null;
+          signal: string | null;
+        }>((accept, reject) => {
+          child.on("error", reject);
+          child.on("close", (code, signal) => accept({ code, signal }));
+        });
+        expect(result).toEqual({
+          code: outcome === "ok" ? 0 : 1,
+          signal: null,
+        });
+        expect(calls.at(-1)?.init.method).toBe("DELETE");
+        expect(calls.at(-1)?.url).toMatch(/\/tails\/tail-id$/);
+        expect(stdout).toMatch(
+          outcome === "ok" ? /^PASS production runtime \{.*\}\n$/ : /^$/,
+        );
+        expect(stderr).toBe(
+          outcome === "ok"
+            ? ""
+            : outcome === "exception"
+              ? "The deployed production cron did not complete cleanly\n"
+              : "Cloudflare production health returned HTTP 500\n",
+        );
+        expect(stdout + stderr).not.toContain(settings.token);
+      } finally {
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((accept, reject) =>
+          server.close((error) => (error ? reject(error) : accept())),
+        );
+      }
+    },
+  );
 });
