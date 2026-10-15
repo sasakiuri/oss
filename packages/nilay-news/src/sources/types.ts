@@ -3,7 +3,7 @@ import type { FetchResult } from "../net/types.ts";
 
 /** Source configuration and collected item contracts. */
 
-export type SourceKind = "rss" | "html" | "kanpo" | "egov" | "bills";
+type SourceKind = "rss" | "html" | "kanpo" | "egov" | "bills";
 export type BillAgency = "npa" | "env" | "mof" | "mof-tax";
 
 export interface SourceConfig {

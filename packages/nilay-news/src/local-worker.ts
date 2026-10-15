@@ -2,7 +2,7 @@
 // This entrypoint is only referenced by wrangler.local.jsonc.
 import { createHandlers, type Env } from "./worker.ts";
 
-export const localAccess = {
+const localAccess = {
   async allowed(
     url: string,
     method: string,

@@ -35,10 +35,14 @@ export class SQLiteDriver implements SqlDriver {
   readonly db: DatabaseSync;
 
   /** A file path lets several drivers act as independent connections to one database. */
+  readonly path: string;
+
   constructor(
-    readonly path = ":memory:",
+    path = ":memory:",
     migrations: readonly string[] = MIGRATION_FILES,
   ) {
+    this.path = path;
+
     this.db = new DatabaseSync(path, { timeout: 10_000 });
     this.db.exec("PRAGMA foreign_keys=ON");
     // Like `wrangler d1 migrations apply`, each migration runs once per database.

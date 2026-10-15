@@ -82,10 +82,11 @@ export class GoogleNewsResolver {
   private readonly started: number;
   private readonly options: GoogleNewsOptions;
 
-  constructor(
-    private readonly store: Store,
-    options: GoogleNewsOptions = {},
-  ) {
+  private readonly store: Store;
+
+  constructor(store: Store, options: GoogleNewsOptions = {}) {
+    this.store = store;
+
     this.options = options;
     this.clock = options.clock ?? systemClock;
     this.transport = options.transport ?? fetchBytes;

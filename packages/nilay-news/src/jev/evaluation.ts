@@ -15,7 +15,7 @@ import {
 } from "./client.ts";
 import { modelEvidence } from "./evidence.ts";
 
-export interface EvaluationCase {
+interface EvaluationCase {
   id: string;
   humanReview: {
     status: "pending" | "reviewed";
@@ -37,7 +37,7 @@ export interface EvaluationCase {
     relations: Record<string, string>;
   };
 }
-export interface EvaluationFixtures {
+interface EvaluationFixtures {
   fixtureVersion: number;
   synthetic: boolean;
   curation: string;
@@ -221,7 +221,7 @@ export function budgetedEvaluationTransport(
     }) satisfies FetchBytes,
   };
 }
-export interface EvaluationRow {
+interface EvaluationRow {
   id: string;
   reviewStatus: "pending" | "reviewed";
   expected: EvaluationCase["expected"];

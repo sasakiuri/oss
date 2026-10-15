@@ -90,6 +90,7 @@ if (
 )
   throw new Error("Invalid versioned evaluation baseline");
 const baseline = baselineValue as unknown as EvaluationReport;
+const diff = evaluationDiff(baseline, report);
 const day = new Date().toISOString().slice(0, 10);
 const defaultOutput = new URL(
   `../../../.local/${day}-nilay-news-evaluation/report.json`,
@@ -103,7 +104,7 @@ writeFileSync(
     {
       report,
       requestCalls: requestCalls(),
-      diff: evaluationDiff(baseline, report),
+      diff,
     },
     null,
     2,
@@ -116,6 +117,6 @@ process.stdout.write(
     requestCalls: requestCalls(),
     humanReviewedCases: report.humanReviewedCases,
     pendingReviewCases: report.pendingReviewCases,
-    changedCases: evaluationDiff(baseline, report).changed.map((row) => row.id),
+    changedCases: diff.changed.map((row) => row.id),
   }) + "\n",
 );

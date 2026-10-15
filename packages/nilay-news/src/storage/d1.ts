@@ -8,8 +8,12 @@ import type { SourceConfig } from "../sources/types.ts";
 import { SQLRepository } from "./sql-repository.ts";
 import type { SQLResult, SQLRow, SQLStatement, SqlDriver } from "./sql.ts";
 
-export class D1Driver implements SqlDriver {
-  constructor(private readonly binding: D1Database) {}
+class D1Driver implements SqlDriver {
+  private readonly binding: D1Database;
+
+  constructor(binding: D1Database) {
+    this.binding = binding;
+  }
 
   async batch(statements: SQLStatement[]): Promise<SQLResult[]> {
     const prepared = statements.map(([sql, parameters]) => {

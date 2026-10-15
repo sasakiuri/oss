@@ -543,11 +543,17 @@ export class SQLRepository implements NewsRepository {
   private readonly sourceConfig: readonly SourceConfig[];
   private readonly sourceIds: ReadonlySet<string>;
 
+  readonly driver: SqlDriver;
+  private readonly clock: Clock;
+
   constructor(
-    readonly driver: SqlDriver,
+    driver: SqlDriver,
     sources: readonly SourceConfig[],
-    private readonly clock: Clock = defaultClock,
+    clock: Clock = defaultClock,
   ) {
+    this.driver = driver;
+    this.clock = clock;
+
     this.sourceConfig = structuredClone(sources);
     this.sourceIds = new Set(sources.map((source) => source.id));
   }

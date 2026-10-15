@@ -162,12 +162,20 @@ export class Notifier {
   private readonly webhook: string;
   private readonly scope: Promise<string>;
 
+  private readonly repository: NewsRepository | null;
+  private readonly transport: FetchBytes;
+  private readonly clock: Clock;
+
   constructor(
-    private readonly repository: NewsRepository | null,
+    repository: NewsRepository | null,
     webhook = "",
-    private readonly transport: FetchBytes = fetchBytes,
-    private readonly clock: Clock = systemClock,
+    transport: FetchBytes = fetchBytes,
+    clock: Clock = systemClock,
   ) {
+    this.repository = repository;
+    this.transport = transport;
+    this.clock = clock;
+
     this.webhook = validWebhook(webhook) ? webhook : "";
     this.configured = Boolean(this.webhook);
     this.scope = this.webhook ? sha256(this.webhook) : Promise.resolve("");

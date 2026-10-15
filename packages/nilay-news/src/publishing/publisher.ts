@@ -44,17 +44,17 @@ const INCOMPLETE =
  * post itself, up to six confirmations, and one spare. The verification
  * request has already consumed its quota when it returns these observations.
  */
-export const REQUEST_RESERVE = CONFIRMATION_MAX_CHECKS + 2;
+const REQUEST_RESERVE = CONFIRMATION_MAX_CHECKS + 2;
 /** Operations, each a confirmation or a claimed send, one tick may perform. */
-export const TICK_OPERATIONS = 10;
+const TICK_OPERATIONS = 10;
 /** A tick starts no further operation this many seconds after it started. */
-export const TICK_SECONDS = 45;
+const TICK_SECONDS = 45;
 const RATE_ITEM =
   /^(?:"[^"\\]*"|[A-Za-z*][\w\-.:%*/]*)((?:\s*;\s*[a-z*][a-z0-9_\-.*]*(?:\s*=\s*(?:"[^"\\]*"|[^\s;,"]+))?)*)$/;
 const RATE_PARAM =
   /;\s*([a-z*][a-z0-9_\-.*]*)(?:\s*=\s*("[^"\\]*"|[^\s;,"]+))?/g;
 
-export interface RateWindow {
+interface RateWindow {
   /** Requests left in the window. */
   remaining: number;
   /** Seconds until the window resets. */
@@ -103,7 +103,7 @@ function rateItems(
   return parsed;
 }
 
-export function rateWindows(header: string): RateWindow[] | null {
+function rateWindows(header: string): RateWindow[] | null {
   const items = rateItems(header);
   if (!items) return null;
   const windows: RateWindow[] = [];
@@ -186,12 +186,15 @@ function approximately(seconds: number): string {
 }
 
 export class PostError extends UserError {
+  readonly uncertain: boolean;
+
   constructor(
     message: string,
     /** The post may have reached Buffer; never retry it automatically. */
-    readonly uncertain = false,
+    uncertain = false,
   ) {
     super(message);
+    this.uncertain = uncertain;
   }
 }
 
@@ -266,17 +269,32 @@ export class BufferClient {
   private quota?: BufferQuota;
   private sequence = 0;
 
+  private readonly key: string;
+  readonly channel: string;
+  private readonly transport: FetchBytes;
+  private readonly options: {
+    clock?: Clock;
+    observeQuota?: (quota: BufferQuota) => Promise<void>;
+    readQuota?: () => Promise<BufferQuota | null>;
+    nextRequestOrder?: () => Promise<number>;
+  };
+
   constructor(
-    private readonly key = "",
-    readonly channel = "",
-    private readonly transport: FetchBytes = fetchBytes,
-    private readonly options: {
+    key = "",
+    channel = "",
+    transport: FetchBytes = fetchBytes,
+    options: {
       clock?: Clock;
       observeQuota?: (quota: BufferQuota) => Promise<void>;
       readQuota?: () => Promise<BufferQuota | null>;
       nextRequestOrder?: () => Promise<number>;
     } = {},
-  ) {}
+  ) {
+    this.key = key;
+    this.channel = channel;
+    this.transport = transport;
+    this.options = options;
+  }
 
   private async observe(quota: BufferQuota): Promise<void> {
     if ((quota.requestOrder ?? 0) >= (this.quota?.requestOrder ?? 0)) {
@@ -330,9 +348,6 @@ export class BufferClient {
         },
         timeout: 25,
         maxBytes: 100_000,
-        beforeRedirect: () => {
-          throw new FetchError("Buffer API の転送には対応していません");
-        },
       });
       data = response.data;
       quota = {
@@ -547,13 +562,25 @@ export type PublishingClient = Pick<
 >;
 
 export class Publisher {
+  private readonly repository: NewsRepository;
+  readonly client: PublishingClient;
+  private readonly clock: Clock;
+  private readonly jev?: Jev;
+  private readonly urlTransport?: FetchBytes;
+
   constructor(
-    private readonly repository: NewsRepository,
-    readonly client: PublishingClient,
-    private readonly clock: Clock = systemClock,
-    private readonly jev?: Jev,
-    private readonly urlTransport?: FetchBytes,
-  ) {}
+    repository: NewsRepository,
+    client: PublishingClient,
+    clock: Clock = systemClock,
+    jev?: Jev,
+    urlTransport?: FetchBytes,
+  ) {
+    this.repository = repository;
+    this.client = client;
+    this.clock = clock;
+    this.jev = jev;
+    this.urlTransport = urlTransport;
+  }
 
   /** Recheck against confirmed posts while this claim excludes other automatic sends. */
   private async checkDuplicates(

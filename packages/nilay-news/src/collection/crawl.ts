@@ -40,11 +40,14 @@ import { RobotsPolicy } from "./robots.ts";
 export class CrawlStopped extends FetchError {}
 
 export class CrawlDeferred extends CrawlStopped {
+  readonly until: number;
+
   constructor(
-    readonly until: number,
+    until: number,
     message = `取得間隔を守るため ${formatJst(until)} まで待機し、次の収集で再確認します`,
   ) {
     super(message);
+    this.until = until;
   }
 }
 
@@ -159,11 +162,15 @@ export class CachedFetch {
   /** An enabled gazette source with the documented exception may fetch daily TOCs. */
   private kanpoTocs = false;
 
+  private readonly repository: NewsRepository;
+
   constructor(
-    private readonly repository: NewsRepository,
+    repository: NewsRepository,
     sources: readonly SourceConfig[],
     options: CrawlOptions = {},
   ) {
+    this.repository = repository;
+
     const {
       clock = systemClock,
       transport = fetchBytes,

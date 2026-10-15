@@ -6,7 +6,7 @@ import type { ArticleQuery } from "../repository.ts";
 import type { SQLValue } from "./sql.ts";
 
 const field = (key: string) => `json_extract(a.data,'$.${key}')`;
-export const freshSQL = `${field("_publicationSeconds")} <= clock.now AND (${field("_publicationUntil")} > clock.now OR (${field("_publicationDate")}=0 AND ${field("_publicationUntil")}=clock.now))`;
+const freshSQL = `${field("_publicationSeconds")} <= clock.now AND (${field("_publicationUntil")} > clock.now OR (${field("_publicationDate")}=0 AND ${field("_publicationUntil")}=clock.now))`;
 const stale = `${field("_publicationSeconds")} <= clock.now AND NOT (${freshSQL})`;
 const source = `${field("_sourceCandidate")}=1`;
 const unread = `${field("reviewStatus")}='unread'`;
