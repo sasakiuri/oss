@@ -17,10 +17,18 @@ import type { Notifier } from "../src/notifications.ts";
 import { draft } from "../src/publishing/draft.ts";
 import { BufferClient, PostError } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
-import type { SQLStatement } from "../src/storage/sql.ts";
 import { utf8 } from "../src/text.ts";
 import { isoSeconds } from "../src/time.ts";
 
+import { channel, limit, account } from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import {
+  START,
+  published,
+  rssSource,
+  collectedItem,
+} from "./helpers/fixtures.ts";
+import { beforeCommit } from "./helpers/races.ts";
 import {
   testRepository,
   storedState,
@@ -28,27 +36,8 @@ import {
   seedArticles,
 } from "./helpers/storage.ts";
 
-const source: SourceConfig = {
-  id: "one",
-  name: "Source",
-  description: "Fixture",
-  url: "https://example.org/feed",
-  kind: "rss",
-  enabled: true,
-};
-/** Every setup starts at `now = 10_000` (epoch seconds). */
-const START = 10_000;
-/** A zoned publication time `seconds` after the start clock. */
-function published(seconds: number): string {
-  return new Date((START + seconds) * 1000).toISOString();
-}
-const item = {
-  title: "クマの出没と対策",
-  url: "https://example.org/a",
-  excerpt: "市が対策を発表",
-  // Fresh for the first 23 hours of a test.
-  publishedAt: published(-3600) as string | null,
-};
+const source: SourceConfig = rssSource();
+const item = collectedItem({ publishedAt: published(-3600) as string | null });
 /** A fresh publication time ordered like the day-of-month `day` ("01"–"31"). */
 function dayTime(day: string): string {
   return published(-3600 + (Number(day) - 31) * 60);
@@ -83,9 +72,8 @@ async function setup(
     maxAnalysisItemsPerTick?: number;
   } = {},
 ) {
-  let now = 10_000;
-  const storage = testRepository(sources, () => now);
-  cleanup.push(storage.close);
+  const testClock = fakeClock(10_000);
+  const storage = testRepository(sources, () => testClock.now());
   await storage.repo.initialize();
   const collector = vi.fn(async () => ({
     items: [item],
@@ -105,7 +93,7 @@ async function setup(
     options.jev ?? new Jev(),
     new BufferClient(),
     {
-      clock: () => now,
+      clock: testClock.now,
       collector,
       crawl,
       notifier: options.notifier as unknown as Notifier | undefined,
@@ -117,10 +105,8 @@ async function setup(
     app,
     collector,
     crawl,
-    advance: (seconds: number) => {
-      now += seconds;
-    },
-    now: () => now,
+    advance: testClock.advance,
+    now: testClock.now,
   };
 }
 async function analyzeSetup(
@@ -369,15 +355,14 @@ describe("durable application jobs", () => {
   });
   it("reports one host failure once and waits out its cooldown for other feeds", async () => {
     // A real epoch, as a feed without history restores its interval from 0.
-    let now = Date.UTC(2026, 8, 28) / 1000;
+    const testClock = fakeClock(Date.UTC(2026, 8, 28) / 1000);
     const feeds: SourceConfig[] = ["one", "two"].map((id) => ({
       ...source,
       id,
       url: `https://example.org/${id}`,
       minCollectionMinutes: 240,
     }));
-    const storage = testRepository(feeds, () => now);
-    cleanup.push(storage.close);
+    const storage = testRepository(feeds, () => testClock.now());
     const repo = storage.repo;
     await repo.initialize();
     let failing = true;
@@ -393,17 +378,15 @@ describe("durable application jobs", () => {
     });
     const notifier = notices();
     const app = new Application(repo, new Jev(), new BufferClient(), {
-      clock: () => now,
+      clock: testClock.now,
       collector: async (feed, fetch) => {
         await fetch(feed.url);
         return { items: [], warnings: [], notes: [] };
       },
       crawl: new CachedFetch(repo, feeds, {
-        clock: () => now,
+        clock: testClock.now,
         transport,
-        sleep: async (milliseconds) => {
-          now += milliseconds / 1000;
-        },
+        sleep: testClock.sleep,
       }),
       notifier: notifier as unknown as Notifier,
     });
@@ -416,7 +399,7 @@ describe("durable application jobs", () => {
     };
 
     await run();
-    const failedAt = now;
+    const failedAt = testClock.now();
     expect(transport.mock.calls.map(([url]) => url)).toEqual([
       "https://example.org/robots.txt",
       "https://example.org/one",
@@ -439,7 +422,7 @@ describe("durable application jobs", () => {
     expect(two?.lastDeferred).toContain("待機");
 
     // Still cooling down: no request, no new report, no false recovery.
-    now = failedAt + 600;
+    testClock.set(failedAt + 600);
     await run();
     expect(transport).toHaveBeenCalledTimes(2);
     expect(notifier.report).toHaveBeenCalledTimes(1);
@@ -454,7 +437,7 @@ describe("durable application jobs", () => {
     // After the cooldown the deferred feed is due; the failed one still
     // waits out its own interval, which its real request consumed.
     failing = false;
-    now = failedAt + 900;
+    testClock.set(failedAt + 900);
     await run();
     expect(transport.mock.calls.map(([url]) => url).slice(2)).toEqual([
       "https://example.org/two",
@@ -466,7 +449,7 @@ describe("durable application jobs", () => {
     );
 
     // Only a real successful fetch recovers the failed source.
-    now = failedAt + 14400;
+    testClock.set(failedAt + 14400);
     await run();
     expect(transport).toHaveBeenCalledTimes(4);
     expect(notifier.recover).toHaveBeenCalledWith(
@@ -513,7 +496,7 @@ describe("durable application jobs", () => {
      * through the real CachedFetch. Returns feed requests as `[id, offset]`.
      */
     async function feeds(ids: string[], robotsSeconds?: number) {
-      let now = BASE;
+      const testClock = fakeClock(BASE);
       const configs: SourceConfig[] = ids.map((id) => ({
         ...source,
         id,
@@ -522,8 +505,7 @@ describe("durable application jobs", () => {
         minCollectionMinutes: 240,
         minRequestIntervalSeconds: 1800,
       }));
-      const storage = testRepository(configs, () => now);
-      cleanup.push(storage.close);
+      const storage = testRepository(configs, () => testClock.now());
       const repo = storage.repo;
       await repo.initialize();
       if (robotsSeconds !== undefined)
@@ -536,7 +518,7 @@ describe("durable application jobs", () => {
       const failures = new Map<string, FetchError>();
       const requests: [string, number][] = [];
       const transport = vi.fn<FetchBytes>(async (url) => {
-        requests.push([url.slice(ORIGIN.length + 1), now - BASE]);
+        requests.push([url.slice(ORIGIN.length + 1), testClock.now() - BASE]);
         const failure = failures.get(url);
         failures.delete(url);
         if (failure) throw failure;
@@ -549,23 +531,21 @@ describe("durable application jobs", () => {
         return { data: utf8("ok"), url, contentType: "application/xml" };
       });
       const app = new Application(repo, new Jev(), new BufferClient(), {
-        clock: () => now,
+        clock: testClock.now,
         collector: async (feed, fetch) => {
           await fetch(feed.url);
           return { items: [], warnings: [], notes: [] };
         },
         crawl: new CachedFetch(repo, configs, {
-          clock: () => now,
+          clock: testClock.now,
           transport,
           maxRequests: 1000,
-          sleep: async (milliseconds) => {
-            now += milliseconds / 1000;
-          },
+          sleep: testClock.sleep,
         }),
       });
       /** One hourly poll at `hours` after the start, run to completion. */
       const poll = async (hours: number) => {
-        now = BASE + hours * HOUR;
+        testClock.set(BASE + hours * HOUR);
         await app.start("collect");
         for (const _ of ids) await app.scheduled();
         expect((await repo.getJob()).running).toBe(false);
@@ -779,7 +759,6 @@ describe("source-rule candidates", () => {
     const { app, repo } = await setup([source], { jev });
     // A stored flag is ignored: only the stored source IDs count.
     const scratch = testRepository([source], () => 10_000);
-    cleanup.push(scratch.close);
     await scratch.repo.initialize();
     await scratch.repo.ingest(source, [item]);
     const articles = await storedRows(scratch.repo, "articles");
@@ -1115,9 +1094,13 @@ describe("automatic classification", () => {
 async function competingSetup() {
   const directory = mkdtempSync(join(tmpdir(), "nilay-application-"));
   cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
-  const now = 10_000;
+  const testClock = fakeClock(10_000);
   const worker = (maxAnalysisItemsPerTick?: number) => {
-    const storage = testRepository([source], () => now, join(directory, "db"));
+    const storage = testRepository(
+      [source],
+      () => testClock.now(),
+      join(directory, "db"),
+    );
     cleanup.unshift(storage.close);
     const jev = new Jev("test-key");
     const analyze = vi.spyOn(jev, "analyze").mockResolvedValue({
@@ -1125,7 +1108,7 @@ async function competingSetup() {
       decision: "candidate",
     });
     const app = new Application(storage.repo, jev, new BufferClient(), {
-      clock: () => now,
+      clock: testClock.now,
       maxAnalysisItemsPerTick,
     });
     return { ...storage, app, analyze };
@@ -1198,19 +1181,17 @@ describe("automatic classification races and replays", () => {
         await b.app.scheduled();
       }
       const paid = b.analyze.mock.calls.length;
-      const original = a.driver.batch.bind(a.driver);
       let decided = false;
-      a.driver.batch = async (statements: SQLStatement[]) => {
+      const restore = beforeCommit(a.driver, async () => {
         // A has read its snapshot and computed its job; B commits first.
-        if (!decided && statements[0]?.[0].startsWith("UPDATE news_meta")) {
+        if (!decided) {
           decided = true;
           await interleave(context);
         }
-        return original(statements);
-      };
+      });
       expect(await a.repo.queueAutomaticJob(true)).toBeNull();
       expect(decided).toBe(true);
-      a.driver.batch = original;
+      restore();
       for (let run = 0; run < 3; run += 1) await a.app.scheduled();
       expect(a.analyze).not.toHaveBeenCalled();
       expect(b.analyze.mock.calls.length).toBe(paid + calls);
@@ -1810,14 +1791,14 @@ describe("bounded classification per invocation (production default 10 items / 4
   it("never overlaps or pays twice with concurrent invocations", async () => {
     const directory = mkdtempSync(join(tmpdir(), "nilay-burst-"));
     cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
-    const now = 10_000;
+    const testClock = fakeClock(10_000);
     let active = 0;
     let overlap = 0;
     const paid: string[] = [];
     const worker = () => {
       const storage = testRepository(
         [source],
-        () => now,
+        () => testClock.now(),
         join(directory, "db"),
       );
       cleanup.unshift(storage.close);
@@ -1833,7 +1814,7 @@ describe("bounded classification per invocation (production default 10 items / 4
       return {
         ...storage,
         app: new Application(storage.repo, jev, new BufferClient(), {
-          clock: () => now,
+          clock: testClock.now,
         }),
       };
     };
@@ -2056,27 +2037,11 @@ describe("invocation boundaries between classification items", () => {
   });
 });
 
-const CHANNEL = {
-  id: "channel-123",
-  name: "@NilayNews",
-  service: "twitter",
-  allowedActions: ["scheduleUpdates", "readUpdates"],
-  isDisconnected: false,
-  isLocked: false,
-  isQueuePaused: false,
-  linkShortening: { isEnabled: false },
-};
+const CHANNEL = channel();
 
 /** An application whose Buffer transport answers every request with `reply`. */
 async function publishingSetup(
-  reply: () => unknown = () => ({
-    data: {
-      channel: CHANNEL,
-      dailyPostingLimits: [
-        { channelId: CHANNEL.id, isAtLimit: false, limit: 100, scheduled: 0 },
-      ],
-    },
-  }),
+  reply: () => unknown = () => account({}, [limit({ scheduled: 0 })]),
   credentials: [string, string] = ["buffer-key", "channel-123"],
 ) {
   const context = await setup();
@@ -2570,7 +2535,6 @@ describe("publication freshness", () => {
     const { app, repo } = await setup();
     // Collected two days earlier, when the story was still fresh.
     const earlier = testRepository([source], () => START - 2 * DAY);
-    cleanup.push(earlier.close);
     await earlier.repo.initialize();
     await earlier.repo.ingest(source, [
       { ...item, publishedAt: published(-2 * DAY - 60) },

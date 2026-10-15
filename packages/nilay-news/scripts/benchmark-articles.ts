@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** Reproducible local D1 measurements; no remote credentials or outbound APIs. */
-import { readFileSync, readdirSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 
 import { Miniflare } from "miniflare";
@@ -13,6 +12,11 @@ import { isSourceCandidate } from "../src/publishing/policy.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { type SQLStatement, type SQLRow } from "../src/storage/sql.ts";
+import {
+  MIGRATION_FILES,
+  migration,
+  migrationStatements,
+} from "../tests/harness/migrations.ts";
 
 const now = Date.UTC(2026, 8, 30, 2) / 1000;
 const source = {
@@ -47,14 +51,8 @@ const runtime = new Miniflare({
 });
 try {
   const db = await runtime.getD1Database("DB");
-  const directory = new URL("../migrations/", import.meta.url);
-  for (const name of readdirSync(directory)
-    .filter((name) => name.endsWith(".sql"))
-    .sort())
-    for (const sql of readFileSync(new URL(name, directory), "utf8")
-      .split(";")
-      .map((sql) => sql.trim())
-      .filter(Boolean))
+  for (const name of MIGRATION_FILES)
+    for (const sql of migrationStatements(migration(name)))
       await db.prepare(sql).run();
   let rowsRead = 0,
     rowsReturned = 0,

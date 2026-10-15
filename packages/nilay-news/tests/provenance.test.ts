@@ -16,6 +16,7 @@ import { evidenceHash } from "../src/jev/evidence.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
 import { sha256 } from "../src/text.ts";
 
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 const fixtures = validateFixtures(
@@ -116,14 +117,11 @@ describe("decision provenance", () => {
   });
   it("persists new provenance and presents absent legacy provenance explicitly in details", async () => {
     const fixture = fixtures.cases[0]!;
-    const source = {
+    const source = rssSource({
       id: "fixture",
       name: "Fixture",
-      description: "Fixture",
-      enabled: true,
       kind: "rss" as const,
-      url: "https://example.org/feed",
-    };
+    });
     const storage = testRepository(
       [source],
       () => Date.UTC(2026, 8, 30) / 1000,
@@ -174,14 +172,11 @@ describe("decision provenance", () => {
   });
   it("rejects a result when a compared article changes, including a non-blocking comparison", async () => {
     const fixture = fixtures.cases.find((row) => row.id === "duplicate")!;
-    const source = {
+    const source = rssSource({
       id: "fixture",
       name: "Fixture",
-      description: "Fixture",
-      enabled: true,
       kind: "rss" as const,
-      url: "https://example.org/feed",
-    };
+    });
     const storage = testRepository(
       [source],
       () => Date.UTC(2026, 8, 30) / 1000,

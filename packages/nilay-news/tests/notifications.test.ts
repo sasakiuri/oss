@@ -12,6 +12,7 @@ import {
 import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { sha256, utf8 } from "../src/text.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 // Deliberately synthetic format-only fixture, never a configured endpoint.
@@ -19,13 +20,13 @@ const WEBHOOK = "https://hooks.slack.com/services/TESTONLY/NOTREAL/PLACEHOLDER";
 const SECRET = "database credential must not leak";
 const DAY = 24 * 3600;
 
-let now: number;
+const testClock = fakeClock();
 let repo: SQLRepository;
 let close: () => void;
 let transport: Mock<FetchBytes>;
 let notifier: Notifier;
 let log: Mock<(...data: unknown[]) => void>;
-const clock = () => now;
+const clock = testClock.now;
 
 function logged(): string {
   return JSON.stringify(log.mock.calls);
@@ -44,7 +45,7 @@ async function noticeRecord(
 
 beforeEach(async () => {
   resetNoticeState();
-  now = 10000;
+  testClock.set(10000);
   ({ repo, close } = testRepository([], clock));
   await repo.initialize();
   transport = vi.fn<FetchBytes>(async () => ({
@@ -187,16 +188,20 @@ describe("Notifier", () => {
     // A fresh isolate still observes the durable claim, even with a changed detail.
     resetNoticeState();
     expect(await other.report("crawl:one", "取得失敗", "別の詳細")).toBe(false);
-    now += DAY - 1;
+    testClock.advance(DAY - 1);
     expect(await other.report("crawl:one", "取得失敗")).toBe(false);
-    now += 1;
+    testClock.advance(1);
     expect(await other.report("crawl:one", "取得失敗")).toBe(true);
     expect(transport).toHaveBeenCalledTimes(2);
   });
 
   it("does not report while another operation holds the notice lock", async () => {
     const digest = await sha256("crawl:one");
-    const token = await repo.acquireHost(`notice-op:${digest}`, now, 30);
+    const token = await repo.acquireHost(
+      `notice-op:${digest}`,
+      testClock.now(),
+      30,
+    );
     expect(await notifier.report("crawl:one", "取得失敗")).toBe(false);
     expect(await notifier.recover("crawl:one", "復旧")).toBe(false);
     expect(transport).not.toHaveBeenCalled();
@@ -218,9 +223,9 @@ describe("Notifier", () => {
       delivered: false,
     });
     // An undelivered incident is retried after an hour, not a day.
-    now += 3599;
+    testClock.advance(3599);
     expect(await notifier.report("one", "処理失敗")).toBe(false);
-    now += 1;
+    testClock.advance(1);
     transport.mockResolvedValue({
       data: utf8("ok"),
       url: WEBHOOK,
@@ -346,7 +351,7 @@ describe("Notifier", () => {
 
   it("suppresses a report whose throttle claim is held elsewhere", async () => {
     const digest = await sha256("crawl:one");
-    await repo.acquireHost(`notice:${digest}`, now, 3600);
+    await repo.acquireHost(`notice:${digest}`, testClock.now(), 3600);
     expect(await notifier.report("crawl:one", "取得失敗")).toBe(false);
     expect(transport).not.toHaveBeenCalled();
   });
@@ -356,9 +361,9 @@ describe("Notifier", () => {
     const second = new Notifier(null, WEBHOOK, transport, clock);
     expect(await first.report("scheduled", "定期実行失敗")).toBe(true);
     expect(await second.report("scheduled", "定期実行失敗")).toBe(false);
-    now += 3600;
+    testClock.advance(3600);
     expect(await second.report("scheduled", "定期実行失敗")).toBe(false);
-    now += DAY - 3600;
+    testClock.advance(DAY - 3600);
     expect(await second.report("scheduled", "定期実行失敗")).toBe(true);
     expect(await first.recover("scheduled", "定期実行復旧")).toBe(true);
     expect(await second.recover("scheduled", "定期実行復旧")).toBe(false);
@@ -367,7 +372,7 @@ describe("Notifier", () => {
   it("bounds isolate-local state", async () => {
     const standalone = new Notifier(null, WEBHOOK, transport, clock);
     for (let index = 0; index < 257; index += 1) {
-      now += 1;
+      testClock.advance(1);
       await standalone.report(`key-${index}`, "失敗");
     }
     // The oldest entry was evicted, so its incident is no longer suppressed.

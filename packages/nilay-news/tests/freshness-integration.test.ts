@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Calendar precision survives storage and gates every automatic path. */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev/client.ts";
@@ -8,38 +8,34 @@ import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
 import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 
+import { postFixture, fakePublishingClient } from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource, collectedItem } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 const NOON = Date.parse("2026-09-28T12:00:00+09:00") / 1000;
-const source: SourceConfig = {
+const source: SourceConfig = rssSource({
   id: "fixture",
   name: "日付検証",
   description: "日付検証",
-  url: "https://example.org/feed",
-  kind: "rss",
-  enabled: true,
-};
-const dateOnly: CollectedItem = {
+});
+const dateOnly: CollectedItem = collectedItem({
   title: "昨日の鳥獣対策を発表",
   url: "https://example.org/yesterday",
   excerpt: "",
   publishedAt: "2026-09-26T15:00:00Z",
   metadata: { publicationPrecision: "date" },
-};
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0)) close();
 });
+
 async function setup() {
-  let now = NOON;
-  const store = testRepository([source], () => now);
-  cleanup.push(store.close);
+  const testClock = fakeClock(NOON);
+  const store = testRepository([source], () => testClock.now());
   await store.repo.initialize();
   return {
     ...store,
-    clock: () => now,
+    clock: testClock.now,
     at: (t: number) => {
-      now = t;
+      testClock.set(t);
     },
   };
 }
@@ -96,12 +92,7 @@ describe("calendar publication across automatic processing", () => {
     await repo.updateSettings({ autoPost: true });
     const midnight = Date.parse("2026-09-29T00:00:00+09:00") / 1000;
     at(midnight - 1);
-    const client = {
-      channel: "test",
-      verifyAccount: vi.fn(),
-      post: vi.fn(),
-      getPost: vi.fn(),
-    };
+    const client = fakePublishingClient(vi.fn, "test", null);
     expect(await repo.postCandidates()).toHaveLength(1);
     const publisher = new Publisher(repo, client, clock);
     await publisher.tick();
@@ -129,24 +120,12 @@ describe("calendar publication across automatic processing", () => {
     for (const article of await repo.articles())
       await repo.review(article.id, "saved");
     await repo.updateSettings({ autoPost: true });
-    const client = {
-      channel: "test",
-      verifyAccount: vi.fn(async () => undefined),
-      post: vi.fn(async (text: string) => ({
-        id: "buffer-1",
-        channelId: "test",
-        channelService: "twitter" as const,
-        text,
-        status: "sending" as const,
-      })),
-      getPost: vi.fn(async (_id: string, text: string) => ({
-        id: "buffer-1",
-        channelId: "test",
-        channelService: "twitter" as const,
-        text,
-        status: "sent" as const,
-      })),
-    };
+    const post = postFixture(
+      { id: "buffer-1", channelId: "test", channelService: "twitter" },
+      "sending",
+    );
+    const client = fakePublishingClient(vi.fn, "test", post);
+    client.getPost.mockImplementation(async (_id, text) => post(text, "sent"));
     const publisher = new Publisher(repo, client, clock);
     at(Date.parse("2026-09-28T22:59:00+09:00") / 1000);
     expect(await repo.postCandidates()).toHaveLength(2);

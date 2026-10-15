@@ -90,7 +90,6 @@ if (
 )
   throw new Error("Invalid versioned evaluation baseline");
 const baseline = baselineValue as unknown as EvaluationReport;
-const diff = evaluationDiff(baseline, report);
 const day = new Date().toISOString().slice(0, 10);
 const defaultOutput = new URL(
   `../../../.local/${day}-nilay-news-evaluation/report.json`,
@@ -98,6 +97,7 @@ const defaultOutput = new URL(
 ).pathname;
 const output = resolve(parameters.get("--output") ?? defaultOutput);
 mkdirSync(dirname(output), { recursive: true });
+const diff = evaluationDiff(baseline, report);
 writeFileSync(
   output,
   JSON.stringify(

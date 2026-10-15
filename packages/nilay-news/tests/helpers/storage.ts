@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Test-only SQLite driver running the exact D1 migrations with D1's batch transaction semantics. */
-import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLOutputValue } from "node:sqlite";
+
+import { onTestFinished } from "vitest";
 
 import type { Clock } from "../../src/domain.ts";
 import type { SourceConfig } from "../../src/sources/types.ts";
@@ -14,15 +15,7 @@ import type {
   SQLValue,
   SqlDriver,
 } from "../../src/storage/sql.ts";
-
-const MIGRATIONS = new URL("../../migrations/", import.meta.url);
-/** Every D1 migration in the order Wrangler applies them. */
-export const MIGRATION_FILES = readdirSync(MIGRATIONS)
-  .filter((name) => name.endsWith(".sql"))
-  .sort();
-export function migration(name: string): string {
-  return readFileSync(new URL(name, MIGRATIONS), "utf8");
-}
+import { MIGRATION_FILES, migration } from "../harness/migrations.ts";
 
 function value(item: SQLOutputValue): SQLValue {
   if (typeof item === "bigint") return Number(item);
@@ -44,6 +37,7 @@ export class SQLiteDriver implements SqlDriver {
     this.path = path;
 
     this.db = new DatabaseSync(path, { timeout: 10_000 });
+    onTestFinished(() => this.close());
     this.db.exec("PRAGMA foreign_keys=ON");
     // Like `wrangler d1 migrations apply`, each migration runs once per database.
     this.db.exec(

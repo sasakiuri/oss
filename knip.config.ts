@@ -9,7 +9,6 @@ const config: KnipConfig = {
     },
     "packages/nilay-news": {
       entry: [
-        "src/worker.ts",
         "src/local-worker.ts",
         "src/feed-worker.ts",
         "public/app.js",

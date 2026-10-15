@@ -136,7 +136,11 @@ export function validateFixtures(value: unknown): EvaluationFixtures {
   }
   return value as unknown as EvaluationFixtures;
 }
-const choice = (selected: string, options: string[], probability: number) => ({
+export const choiceAnswer = (
+  selected: string,
+  options: string[],
+  probability: number,
+) => ({
   type: "choice",
   choice: selected,
   probabilities: Object.fromEntries(
@@ -168,7 +172,7 @@ export function mockedEvaluationTransport(fixture: EvaluationCase): FetchBytes {
       const relation =
         (other && fixture.mock.relations[other.id]) || "different";
       answers = {
-        relation: choice(
+        relation: choiceAnswer(
           relation,
           ["duplicate", "followup", "different", "uncertain"],
           0.98,
@@ -176,13 +180,13 @@ export function mockedEvaluationTransport(fixture: EvaluationCase): FetchBytes {
       };
     } else
       answers = {
-        classification: choice(
+        classification: choiceAnswer(
           fixture.mock.classification,
           Object.keys(REASONS),
           fixture.mock.probability,
         ),
-        topic: choice("鳥獣被害・管理", Object.keys(TOPICS), 0.98),
-        priority: choice("1", ["0", "1", "2", "3"], 0.98),
+        topic: choiceAnswer("鳥獣被害・管理", Object.keys(TOPICS), 0.98),
+        priority: choiceAnswer("1", ["0", "1", "2", "3"], 0.98),
       };
     return {
       data: utf8(JSON.stringify({ model: "jev-fixture-v1", answers })),

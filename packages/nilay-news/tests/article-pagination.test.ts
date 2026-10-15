@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { ArticlePageConflictError } from "../src/errors.ts";
@@ -9,24 +9,19 @@ import { BufferClient } from "../src/publishing/publisher.ts";
 import type { SQLStatement } from "../src/storage/sql.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const source = {
+const source = rssSource({
   id: "fixture",
   name: "Fixture",
-  description: "Fixture",
   kind: "rss" as const,
-  enabled: true,
-  url: "https://example.org/feed",
-};
-const clean: (() => void)[] = [];
-afterEach(() => {
-  for (const close of clean.splice(0)) close();
 });
+
 async function world(count = 151) {
-  let now = Date.UTC(2026, 8, 30, 2) / 1000;
-  const storage = testRepository([source], () => now);
-  clean.push(storage.close);
+  const testClock = fakeClock(Date.UTC(2026, 8, 30, 2) / 1000);
+  const storage = testRepository([source], () => testClock.now());
   await storage.repo.initialize();
   await storage.repo.ingest(
     source,
@@ -35,7 +30,7 @@ async function world(count = 151) {
       url: `https://example.org/${i}`,
       excerpt: "Evidence",
       body: `Body-only needle-${i} ${"Evidence ".repeat(1000)}`,
-      publishedAt: new Date(now * 1000).toISOString(),
+      publishedAt: new Date(testClock.now() * 1000).toISOString(),
       attachments: [
         { title: `Attachment ${i}`, url: `https://example.org/document-${i}` },
       ],
@@ -43,15 +38,13 @@ async function world(count = 151) {
     })),
   );
   const app = new Application(storage.repo, new Jev(), new BufferClient(), {
-    clock: () => now,
+    clock: testClock.now,
   });
   return {
     ...storage,
     app,
-    now: () => now,
-    advance: (seconds: number) => {
-      now += seconds;
-    },
+    now: testClock.now,
+    advance: testClock.advance,
   };
 }
 describe("bounded article APIs", () => {

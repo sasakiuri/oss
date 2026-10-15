@@ -16,7 +16,10 @@ import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { utf8 } from "../src/text.ts";
 
-const ARTICLE: Article = {
+import { articleFixture } from "./helpers/fixtures.ts";
+import { selected } from "./helpers/jev.ts";
+
+const ARTICLE: Article = articleFixture({
   id: "new",
   title: "北海道でクマを捕獲",
   url: "https://example.org/article/1",
@@ -25,24 +28,7 @@ const ARTICLE: Article = {
   sourceName: "新聞",
   sourceIds: ["test"],
   discoveredAt: "2026-09-27T00:00:00+00:00",
-  reviewStatus: "unread",
-  analysisStatus: "pending",
-};
-
-function selected(value: string, options: Iterable<string>, probability = 1) {
-  const names = [...options];
-  return {
-    type: "choice",
-    choice: value,
-    probabilities: Object.fromEntries(
-      names.map((name) => [
-        name,
-        name === value ? probability : (1 - probability) / (names.length - 1),
-      ]),
-    ),
-    confidence: 0.5,
-  };
-}
+});
 
 const LABELS = Object.keys(REASONS);
 

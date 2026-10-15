@@ -16,47 +16,29 @@ import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import type { SQLResult, SQLStatement } from "../src/storage/sql.ts";
 
+import { MIGRATION_FILES } from "./harness/migrations.ts";
+import { fakeClock } from "./helpers/clock.ts";
 import {
-  MIGRATION_FILES,
+  START,
+  published,
+  rssSource,
+  collectedItem,
+  articleFixture,
+} from "./helpers/fixtures.ts";
+import { beforeCommit } from "./helpers/races.ts";
+import {
   SQLiteDriver,
   testRepository,
   storedState,
 } from "./helpers/storage.ts";
 
-const SOURCE: SourceConfig = {
-  id: "one",
-  name: "Source",
-  description: "テスト",
-  url: "https://example.org/feed",
-  enabled: true,
-  kind: "rss",
-};
-/** Every test starts at `now = 10000` (epoch seconds). */
-const START = 10000;
-/** A zoned publication time `seconds` after the start clock. */
-function published(seconds: number): string {
-  return new Date((START + seconds) * 1000).toISOString();
-}
-const ITEM: CollectedItem = {
-  title: "クマの出没と対策",
-  url: "https://example.org/a",
+const SOURCE: SourceConfig = rssSource({ description: "テスト" });
+const ITEM: CollectedItem = collectedItem({
   excerpt: "記事の説明",
-  // Fresh for the first 22 hours of a test, well past the post gates.
   publishedAt: published(-7200),
-};
+});
 const NEW_RUBRIC = "変更された具体的なニュースの選定基準です";
-const ARTICLE: Article = {
-  id: "x",
-  url: "",
-  title: "",
-  excerpt: "",
-  publishedAt: null,
-  sourceName: "",
-  sourceIds: [],
-  discoveredAt: "",
-  reviewStatus: "unread",
-  analysisStatus: "pending",
-};
+const ARTICLE: Article = articleFixture();
 
 /** Stored JSON is decoded for assertions only here, at the database boundary. */
 function stored(
@@ -115,13 +97,13 @@ function intercept(
 
 let directory: string;
 let path: string;
-let now: number;
+const testClock = fakeClock();
 let repo: SQLRepository;
 let driver: SQLiteDriver;
 let drivers: SQLiteDriver[];
 
 function open(sources: SourceConfig[] = [SOURCE], file = path): SQLRepository {
-  const opened = testRepository(sources, () => now, file);
+  const opened = testRepository(sources, () => testClock.now(), file);
   drivers.push(opened.driver);
   return opened.repo;
 }
@@ -129,15 +111,18 @@ function open(sources: SourceConfig[] = [SOURCE], file = path): SQLRepository {
 function connect(): [SQLRepository, SQLiteDriver] {
   const connection = new YieldDriver(path);
   drivers.push(connection);
-  return [new SQLRepository(connection, [SOURCE], () => now), connection];
+  return [
+    new SQLRepository(connection, [SOURCE], () => testClock.now()),
+    connection,
+  ];
 }
 
 beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "nilay-storage-"));
   path = join(directory, "news.sqlite3");
-  now = START;
+  testClock.set(START);
   drivers = [];
-  const opened = testRepository([SOURCE], () => now, path);
+  const opened = testRepository([SOURCE], () => testClock.now(), path);
   ({ repo, driver } = opened);
   drivers.push(driver);
   await repo.initialize();
@@ -169,12 +154,12 @@ async function candidate(
 async function ready(): Promise<string> {
   const articleId = await candidate();
   await repo.updateSettings({ autoPost: true });
-  now += 3600;
+  testClock.advance(3600);
   return articleId;
 }
 
 async function claim(
-  at = now,
+  at = testClock.now(),
 ): Promise<{ articleId: string; text: string; claimToken: string }> {
   const attempt = await repo.claimPost(at);
   if (!attempt) throw new Error("expected a claim");
@@ -670,10 +655,8 @@ describe("ingest and evidence", () => {
 
   it("writes large ingests in bounded chunks of one atomic batch", async () => {
     const writes: SQLStatement[][] = [];
-    intercept(driver, (original, statements) => {
-      if (statements[0]?.[0].startsWith("UPDATE news_meta"))
-        writes.push(statements);
-      return original(statements);
+    beforeCommit(driver, (statements) => {
+      writes.push(statements);
     });
     const items = Array.from({ length: 60 }, (_, index) => ({
       ...ITEM,
@@ -747,7 +730,7 @@ describe("automatic classification setting", () => {
       warning: null,
       lastFinishedAt: "2026-09-27T00:00:00+00:00",
       token: "old-token",
-      leaseUntil: now + 300,
+      leaseUntil: testClock.now() + 300,
       queuedAt: "2026-09-27T01:00:00+00:00",
       workIds: ["one"],
       rubric: settings.rubric,
@@ -762,7 +745,7 @@ describe("automatic classification setting", () => {
     insert.run("settings", JSON.stringify(settings));
     insert.run("job", JSON.stringify(job));
     const before = revision(legacy.db);
-    const upgraded = new SQLRepository(legacy, [SOURCE], () => now);
+    const upgraded = new SQLRepository(legacy, [SOURCE], () => testClock.now());
     await expect(upgraded.initialize()).rejects.toThrow(
       "0002_auto_analyze has not been applied",
     );
@@ -795,7 +778,7 @@ describe("automatic classification setting", () => {
       autoAnalyze: false,
     });
     // The old lease still owns the job and keeps its progress.
-    expect(await upgraded.claimJob(now)).toBeNull();
+    expect(await upgraded.claimJob(testClock.now())).toBeNull();
     await upgraded.releaseJob("old-token", { progress: 2 });
     expect(await upgraded.getJob()).toMatchObject({
       id: "old-job",
@@ -810,7 +793,7 @@ describe("automatic classification setting", () => {
     drivers.push(fresh);
     expect(stored(fresh.db, "state").size).toBe(0);
     expect(revision(fresh.db)).toBe(0);
-    const created = new SQLRepository(fresh, [SOURCE], () => now);
+    const created = new SQLRepository(fresh, [SOURCE], () => testClock.now());
     await created.initialize();
     expect((await created.settings()).autoAnalyze).toBe(false);
     expect((await created.getJob()).automatic).toBe(false);
@@ -844,35 +827,39 @@ describe("automatic classification setting", () => {
     expect(await repo.queueAutomaticJob(true)).toBeNull();
     expect((await repo.getJob()).id).toBe(job?.id);
     expect((await repo.article(ids[0]!)).reviewStatus).toBe("dismissed");
-    const token = (await repo.claimJob(now))!.token!;
+    const token = (await repo.claimJob(testClock.now()))!.token!;
     await expect(
       repo.updateJob(token, { automatic: false } as Partial<Job>),
     ).rejects.toThrow("処理の所有権は変更できません");
   });
 
   it("bounds pending reads across a large historical archive and uses the publication index", async () => {
-    now = Date.UTC(2026, 8, 30, 14) / 1000;
+    testClock.set(Date.UTC(2026, 8, 30, 14) / 1000);
     const date = (seconds: number) => new Date(seconds * 1000).toISOString();
     const items: CollectedItem[] = Array.from({ length: 2000 }, (_, index) => ({
       ...ITEM,
       url: `https://example.org/archive/${index}`,
-      publishedAt: date(now - 10 * 86400 - index),
+      publishedAt: date(testClock.now() - 10 * 86400 - index),
     }));
     items.push(
       ...Array.from({ length: 150 }, (_, index) => ({
         ...ITEM,
         url: `https://example.org/fresh/${index}`,
-        publishedAt: date(now - index),
+        publishedAt: date(testClock.now() - index),
       })),
     );
     items.push(
-      ...[null, "bad", date(now + 1), "2026-09-30", "2026-02-30T00:00:00Z"].map(
-        (publishedAt, index) => ({
-          ...ITEM,
-          url: `https://example.org/manual/${index}`,
-          publishedAt,
-        }),
-      ),
+      ...[
+        null,
+        "bad",
+        date(testClock.now() + 1),
+        "2026-09-30",
+        "2026-02-30T00:00:00Z",
+      ].map((publishedAt, index) => ({
+        ...ITEM,
+        url: `https://example.org/manual/${index}`,
+        publishedAt,
+      })),
     );
     await repo.ingest(SOURCE, items);
     await repo.ingest(SOURCE, [
@@ -897,13 +884,19 @@ describe("automatic classification setting", () => {
     )!.sql;
     const plan = driver.db
       .prepare(`EXPLAIN QUERY PLAN ${query}`)
-      .all(now - 2 * 86400, now, now, now, 100);
+      .all(
+        testClock.now() - 2 * 86400,
+        testClock.now(),
+        testClock.now(),
+        testClock.now(),
+        100,
+      );
     expect(JSON.stringify(plan)).toContain("news_article_pending_publication");
     expect(JSON.stringify(plan)).not.toContain("USE TEMP B-TREE");
   });
 
   it("backfills legacy publication projections in bounded chunks with the same date rules", async () => {
-    now = Date.UTC(2026, 8, 30, 14) / 1000;
+    testClock.set(Date.UTC(2026, 8, 30, 14) / 1000);
     const values = [
       "2026-09-29T00:00:00+09:00",
       "2026-09-29T00:00:00+09:00",
@@ -934,9 +927,9 @@ describe("automatic classification setting", () => {
     expect((await repo.queueAutomaticJob(true))?.articleIds).toEqual([
       (await find("https://example.org/legacy/0")).id,
     ]);
-    const token = (await repo.claimJob(now))!.token!;
+    const token = (await repo.claimJob(testClock.now()))!.token!;
     await repo.finishJob(token);
-    now = Date.UTC(2026, 8, 30, 15) / 1000;
+    testClock.set(Date.UTC(2026, 8, 30, 15) / 1000);
     expect((await repo.queueAutomaticJob(true))?.articleIds).not.toContain(
       (await find("https://example.org/legacy/0")).id,
     );
@@ -945,16 +938,18 @@ describe("automatic classification setting", () => {
   it("waits for the analysis pause and needs an enabled source to collect", async () => {
     await repo.ingest(SOURCE, [ITEM]);
     await repo.updateSettings({ autoAnalyze: true, autoCollect: true });
-    await repo.putRecord("scheduler", "analysis", { nextAt: now + 60 });
+    await repo.putRecord("scheduler", "analysis", {
+      nextAt: testClock.now() + 60,
+    });
     expect(await repo.queueAutomaticJob(true)).toMatchObject({
       kind: "collect",
       automatic: true,
     });
-    const token = (await repo.claimJob(now))!.token!;
+    const token = (await repo.claimJob(testClock.now()))!.token!;
     await repo.finishJob(token);
     await repo.updateSource("one", { enabled: false });
     expect(await repo.queueAutomaticJob(true)).toBeNull();
-    now += 60;
+    testClock.advance(60);
     expect(await repo.queueAutomaticJob(true)).toMatchObject({
       kind: "analyze",
     });
@@ -1018,7 +1013,7 @@ describe("database round trips", () => {
     );
     await store.updateSettings({ autoCollect: true, autoAnalyze: true });
     await store.updateSource("daily-3", { enabled: false });
-    now = ELEVEN + 60;
+    testClock.set(ELEVEN + 60);
     // Started today: not due. Expired or started yesterday: due again.
     for (const index of [0, 5, 19])
       await store.putRecord("crawl_source", `daily-${index}`, {
@@ -1028,12 +1023,12 @@ describe("database round trips", () => {
       "crawl_source",
       "daily-7",
       { last_requested: ELEVEN },
-      { expiresAt: now + 60 },
+      { expiresAt: testClock.now() + 60 },
     );
     await store.putRecord("crawl_source", "daily-8", {
       last_requested: ELEVEN - 86400,
     });
-    now += 60;
+    testClock.advance(60);
     // Keep the expired row on disk so the batched read must filter it out.
     expect(
       storeDriver.db
@@ -1080,7 +1075,9 @@ describe("database round trips", () => {
     );
     for (const article of articles.slice(3)) await analyze(article.id, {});
     await repo.updateSettings({ autoCollect: true, autoAnalyze: true });
-    await repo.putRecord("scheduler", "collection", { nextAt: now + 60 });
+    await repo.putRecord("scheduler", "collection", {
+      nextAt: testClock.now() + 60,
+    });
     const seen = trace(driver);
     const job = await repo.queueAutomaticJob(true);
     expect(job?.articleIds).toEqual(
@@ -1102,7 +1099,9 @@ describe("database round trips", () => {
   it("does not read articles while a job runs or analysis is paused", async () => {
     await repo.ingest(SOURCE, [ITEM]);
     await repo.updateSettings({ autoAnalyze: true });
-    await repo.putRecord("scheduler", "analysis", { nextAt: now + 60 });
+    await repo.putRecord("scheduler", "analysis", {
+      nextAt: testClock.now() + 60,
+    });
     const seen = trace(driver);
     expect(await repo.queueAutomaticJob(true)).toBeNull();
     await repo.queueJob("collect");
@@ -1264,8 +1263,8 @@ describe("database round trips", () => {
 
   /** Articles published `days` before the start, ingested while still fresh. */
   async function ingestEarlier(days: number, urls: string[]): Promise<void> {
-    const current = now;
-    now = START - days * 86400;
+    const current = testClock.now();
+    testClock.set(START - days * 86400);
     await repo.ingest(
       SOURCE,
       urls.map((url) => ({
@@ -1274,7 +1273,7 @@ describe("database round trips", () => {
         publishedAt: published(-days * 86400 - 600),
       })),
     );
-    now = current;
+    testClock.set(current);
   }
 
   const unscoped = (seen: Traced[]) =>
@@ -1314,7 +1313,7 @@ describe("database round trips", () => {
       )
       .run();
     await ready();
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
   });
 
   it("saves settings and resets every classification without reading articles", async () => {
@@ -1396,12 +1395,12 @@ describe("retention", () => {
     url: string,
     changes: Partial<CollectedItem> = {},
   ): Promise<string> {
-    const current = now;
-    now = START - days * 86400;
+    const current = testClock.now();
+    testClock.set(START - days * 86400);
     await repo.ingest(SOURCE, [
       { ...ITEM, url, publishedAt: published(-days * 86400 - 600), ...changes },
     ]);
-    now = current;
+    testClock.set(current);
     return (await find(url)).id;
   }
 
@@ -1487,7 +1486,7 @@ describe("retention", () => {
   });
 
   it("deletes in bounded passes, oldest first", async () => {
-    now = START - 11 * 86400;
+    testClock.set(START - 11 * 86400);
     await repo.ingest(
       SOURCE,
       Array.from({ length: 201 }, (_, index) => ({
@@ -1496,7 +1495,7 @@ describe("retention", () => {
         publishedAt: published(-11 * 86400 - index),
       })),
     );
-    now = START;
+    testClock.set(START);
     expect(await repo.pruneArticles()).toBe(200);
     expect(
       [...stored(driver.db, "articles").values()].map(({ url }) => url),
@@ -1557,16 +1556,16 @@ describe("settings, listing and review", () => {
   it("delays the first automatic post by an hour after enabling", async () => {
     expect(POST_INTERVAL_SECONDS).toBe(3600);
     await repo.updateSettings({ autoPost: true });
-    expect((await repo.publicationState()).nextAt).toBe(now + 3600);
+    expect((await repo.publicationState()).nextAt).toBe(testClock.now() + 3600);
     await repo.updateSettings({ autoPost: false });
-    now += 100;
+    testClock.advance(100);
     await repo.updateSettings({ autoPost: true });
-    expect((await repo.publicationState()).nextAt).toBe(now + 3600);
+    expect((await repo.publicationState()).nextAt).toBe(testClock.now() + 3600);
   });
 
   it("makes bounded listing explicit", async () => {
     await candidate();
-    now += 1;
+    testClock.advance(1);
     await candidate({ url: "https://example.org/b" });
     expect((await repo.articles()).map((article) => article.url)).toEqual([
       "https://example.org/b",
@@ -1604,7 +1603,7 @@ describe("bulk dismissal", () => {
     for (const id of [first, second]) {
       const article = await repo.article(id);
       expect(article.reviewStatus).toBe("dismissed");
-      expect(Date.parse(article.reviewedAt!)).toBe(now * 1000);
+      expect(Date.parse(article.reviewedAt!)).toBe(testClock.now() * 1000);
     }
     expect((await repo.article(other)).reviewStatus).toBe("saved");
     expect(await repo.stateVersion()).toBe(version + 1);
@@ -1651,12 +1650,12 @@ describe("bulk dismissal", () => {
           blocked,
           "buffer",
           "channel",
-          now,
+          testClock.now(),
           attempt.claimToken,
         );
       else if (status !== "publishing")
         await repo.finishPost(blocked, status, {
-          timestamp: now,
+          timestamp: testClock.now(),
           claimToken: attempt.claimToken,
         });
       const before = await repo.articles();
@@ -1715,14 +1714,14 @@ describe("bulk review and manual publication approval", () => {
       const second = await candidate({ url: "https://example.org/second" });
       const other = await candidate({ url: "https://example.org/other" });
       const before = await repo.stateVersion();
-      now += 1;
+      testClock.advance(1);
       const result = await repo.reviewMany([first, second, first], status);
       expect(result).toHaveLength(2);
       expect(
         result.every(
           (article) =>
             article.reviewStatus === status &&
-            Date.parse(article.reviewedAt!) === now * 1000,
+            Date.parse(article.reviewedAt!) === testClock.now() * 1000,
         ),
       ).toBe(true);
       expect((await repo.article(other)).reviewStatus).toBe("saved");
@@ -1803,7 +1802,7 @@ describe("bulk review and manual publication approval", () => {
         publishedAt:
           kind === "unknown" ? null : published(kind === "future" ? 60 : 0),
       });
-      if (kind === "stale") now += 86_401;
+      if (kind === "stale") testClock.advance(86_401);
       await repo.reviewMany([id], "approved");
       expect(await repo.postCandidates()).toEqual([]);
     },
@@ -1834,8 +1833,8 @@ describe("failed draft recovery", () => {
       url: "https://news.google.com/rss/articles/old",
     });
     await repo.updateSettings({ autoPost: true });
-    now += 3600;
-    expect(await repo.claimPost(now)).toBeNull();
+    testClock.advance(3600);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.publicationState()).posts).toMatchObject([
       { articleId: id, status: "failed", text: "", failedBeforeSend: true },
     ]);
@@ -1854,10 +1853,10 @@ describe("failed draft recovery", () => {
       expect((await repo.article(id)).reviewStatus).toBe("dismissed");
       expect((await repo.publicationState()).posts).toEqual([]);
       expect((await repo.settings()).autoPost).toBe(false);
-      expect(await repo.claimPost(now)).toBeNull();
+      expect(await repo.claimPost(testClock.now())).toBeNull();
       await repo.updateSettings({ autoPost: true });
-      expect(await repo.claimPost(now)).toBeNull();
-      now += 3600;
+      expect(await repo.claimPost(testClock.now())).toBeNull();
+      testClock.advance(3600);
       expect((await claim()).articleId).toBe(next);
     },
   );
@@ -1919,9 +1918,9 @@ describe("failed draft recovery", () => {
       await read;
       await repo.resolvePost(id, "retry");
       await repo.updateSettings({ autoPost: true });
-      now += 3600;
+      testClock.advance(3600);
       const attempt = await repo.claimPost(
-        now,
+        testClock.now(),
         async () => "https://example.org/repaired",
       );
       expect(attempt).not.toBeNull();
@@ -1970,12 +1969,12 @@ describe("publication", () => {
       url: "https://example.org/b",
       publishedAt: published(-7260),
     });
-    const opened = now;
+    const opened = testClock.now();
     const attempt = await claim();
     expect(attempt.articleId).toBe(articleId);
     expect(attempt.text).toContain(ITEM.url);
     // The next post of the round waits for this one to be confirmed.
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     await expect(repo.review(articleId, "dismissed")).rejects.toBeInstanceOf(
       UserError,
     );
@@ -1986,14 +1985,14 @@ describe("publication", () => {
       articleId,
       "buffer",
       "channel",
-      now,
+      testClock.now(),
       attempt.claimToken,
     );
-    expect(await repo.claimPost(now)).toBeNull();
-    now += 120;
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.advance(120);
     await repo.finishPost(articleId, "posted", {
       postId: "123",
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: attempt.claimToken,
     });
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
@@ -2003,11 +2002,11 @@ describe("publication", () => {
       bufferId: "buffer",
     });
     // The rest of the round is due at once, not an hour after each post.
-    expect((await repo.publicationState()).nextAt).toBe(now);
+    expect((await repo.publicationState()).nextAt).toBe(testClock.now());
     const second = await claim();
     expect(second.articleId).toBe(secondId);
     await repo.finishPost(secondId, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: second.claimToken,
     });
     // News arriving during the round waits for the next one.
@@ -2027,18 +2026,18 @@ describe("publication", () => {
       url: "https://example.org/c",
       publishedAt: published(-7320),
     });
-    const opened = now;
+    const opened = testClock.now();
     const attempt = await claim();
     expect(stored(driver.db, "state").get("publication_batch")).toEqual({
       articleIds: [first, second, third],
       openedAt: opened,
     });
     await repo.finishPost(first, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: attempt.claimToken,
     });
     await repo.review(second, "dismissed");
-    now += 60;
+    testClock.advance(60);
     const next = await claim();
     expect(next.articleId).toBe(third);
     expect(stored(driver.db, "state").get("publication_batch")).toEqual({
@@ -2046,7 +2045,7 @@ describe("publication", () => {
       openedAt: opened,
     });
     await repo.finishPost(third, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: next.claimToken,
     });
     expect(stored(driver.db, "state").get("publication_batch")).toEqual({
@@ -2055,14 +2054,14 @@ describe("publication", () => {
     });
     // An exhausted round still holds the next one back until it is due.
     const fourth = await candidate({ url: "https://example.org/d" });
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect(await repo.claimPost(opened + 3599)).toBeNull();
     expect((await claim(opened + 3600)).articleId).toBe(fourth);
   });
 
   it("preserves the next hourly start even if every original article is withdrawn", async () => {
     const first = await ready();
-    const opened = now;
+    const opened = testClock.now();
     const attempt = await claim();
     // Dismissed during the account check, before the send was authorized.
     driver.db
@@ -2070,36 +2069,40 @@ describe("publication", () => {
         "UPDATE news_articles SET data=json_set(data,'$.reviewStatus','dismissed') WHERE id=?",
       )
       .run(first);
-    expect(await repo.authorizePostSend(first, attempt.claimToken, now)).toBe(
-      false,
-    );
+    expect(
+      await repo.authorizePostSend(first, attempt.claimToken, testClock.now()),
+    ).toBe(false);
     expect((await repo.publicationState()).posts).toEqual([]);
     const second = await candidate({ url: "https://example.org/b" });
-    now += 60;
-    expect(await repo.claimPost(now)).toBeNull();
+    testClock.advance(60);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect(stored(driver.db, "state").get("schedule")).toEqual({
       next_at: opened + POST_INTERVAL_SECONDS,
     });
-    now = opened + POST_INTERVAL_SECONDS;
+    testClock.set(opened + POST_INTERVAL_SECONDS);
     expect((await claim()).articleId).toBe(second);
   });
 
   it("anchors the round and its full claim lease to the actual clock of a delayed tick", async () => {
     const articleId = await ready();
-    const stale = now;
-    now += 601;
+    const stale = testClock.now();
+    testClock.advance(601);
     const attempt = await claim(stale);
     const post = stored(driver.db, "posts").get(articleId);
-    expect(post?.claim_expires_at).toBe(now + 600);
-    expect(Date.parse(String(post?.attempted_at)) / 1000).toBe(now);
+    expect(post?.claim_expires_at).toBe(testClock.now() + 600);
+    expect(Date.parse(String(post?.attempted_at)) / 1000).toBe(testClock.now());
     expect(stored(driver.db, "state").get("publication_batch")?.openedAt).toBe(
-      now,
+      testClock.now(),
     );
     expect(stored(driver.db, "state").get("schedule")?.next_at).toBe(
-      now + POST_INTERVAL_SECONDS,
+      testClock.now() + POST_INTERVAL_SECONDS,
     );
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now),
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now(),
+      ),
     ).toBe(true);
   });
 
@@ -2113,7 +2116,7 @@ describe("publication", () => {
       url: "https://example.org/c",
       publishedAt: published(-7320),
     });
-    const opened = now;
+    const opened = testClock.now();
     const dismiss = (articleId: string) =>
       driver.db
         .prepare(
@@ -2122,20 +2125,24 @@ describe("publication", () => {
         .run(articleId);
     const withdrawn = await claim();
     dismiss(first);
-    expect(await repo.authorizePostSend(first, withdrawn.claimToken, now)).toBe(
-      false,
-    );
-    now += 60;
+    expect(
+      await repo.authorizePostSend(
+        first,
+        withdrawn.claimToken,
+        testClock.now(),
+      ),
+    ).toBe(false);
+    testClock.advance(60);
     // A tick that started before the round opened claims its next article.
     const attempt = await claim(opened - 30);
     expect(attempt.articleId).toBe(second);
     await repo.finishPost(second, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: attempt.claimToken,
     });
     await repo.review(third, "dismissed");
     await candidate({ url: "https://example.org/d" });
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect(stored(driver.db, "state").get("schedule")).toEqual({
       next_at: opened + POST_INTERVAL_SECONDS,
     });
@@ -2149,7 +2156,7 @@ describe("publication", () => {
     });
     const attempt = await claim();
     await repo.finishPost(first, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: attempt.claimToken,
     });
     await repo.updateSettings({ autoPost: false });
@@ -2158,29 +2165,35 @@ describe("publication", () => {
       openedAt: 0,
     });
     await repo.updateSettings({ autoPost: true });
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.publicationState()).nextAt).toBe(
-      now + POST_INTERVAL_SECONDS,
+      testClock.now() + POST_INTERVAL_SECONDS,
     );
   });
 
   it("expires only stale claims and fences a late sender", async () => {
     const articleId = await ready();
     const attempt = await claim();
-    expect(await repo.recoverPosts(now + 599)).toBe(0);
-    expect(await repo.recoverPosts(now + 600)).toBe(1);
+    expect(await repo.recoverPosts(testClock.now() + 599)).toBe(0);
+    expect(await repo.recoverPosts(testClock.now() + 600)).toBe(1);
     expect((await repo.settings()).autoPost).toBe(false);
     await expect(repo.updateSettings({ autoPost: true })).rejects.toThrow(
       "投稿結果を確認し、保留中の記事を解決してから有効にしてください",
     );
     await repo.resolvePost(articleId, "not_posted");
-    now += 3600;
+    testClock.advance(3600);
     await repo.updateSettings({ autoPost: true });
-    now += 3600;
+    testClock.advance(3600);
     const newer = await claim();
     expect(newer.claimToken).not.toBe(attempt.claimToken);
     await expect(
-      repo.submitPost(articleId, "old", "channel", now, attempt.claimToken),
+      repo.submitPost(
+        articleId,
+        "old",
+        "channel",
+        testClock.now(),
+        attempt.claimToken,
+      ),
     ).rejects.toBeInstanceOf(UserError);
     await expect(
       repo.finishPost(articleId, "posted", { claimToken: attempt.claimToken }),
@@ -2192,7 +2205,7 @@ describe("publication", () => {
     const articleId = await ready();
     await claim();
     const other = open();
-    now += 600;
+    testClock.advance(600);
     expect(await other.recoverPosts()).toBe(1);
     expect((await other.settings()).autoPost).toBe(false);
     expect((await other.publicationState()).posts[0]?.status).toBe("unknown");
@@ -2207,31 +2220,37 @@ describe("publication", () => {
       articleId,
       "buffer",
       "channel",
-      now,
+      testClock.now(),
       attempt.claimToken,
     );
     // Recovery only expires sending claims; a submitted Buffer post keeps its identity.
-    expect(await repo.recoverPosts(now + 100000)).toBe(0);
-    expect(await repo.claimPostCheck(now + 119)).toBeNull();
-    expect((await repo.claimPostCheck(now + 120))?.check_count).toBe(0);
+    expect(await repo.recoverPosts(testClock.now() + 100000)).toBe(0);
+    expect(await repo.claimPostCheck(testClock.now() + 119)).toBeNull();
+    expect(
+      (await repo.claimPostCheck(testClock.now() + 120))?.check_count,
+    ).toBe(0);
     const other = open();
-    expect(await other.claimPostCheck(now + 121)).toBeNull();
-    expect(await other.claimPostCheck(now + 239)).toBeNull();
-    expect(await other.claimPostCheck(now + 240)).toBeNull();
-    expect((await other.claimPostCheck(now + 360))?.check_count).toBe(1);
+    expect(await other.claimPostCheck(testClock.now() + 121)).toBeNull();
+    expect(await other.claimPostCheck(testClock.now() + 239)).toBeNull();
+    expect(await other.claimPostCheck(testClock.now() + 240)).toBeNull();
+    expect(
+      (await other.claimPostCheck(testClock.now() + 360))?.check_count,
+    ).toBe(1);
     await expect(
       other.resolvePost(articleId, "not_posted"),
     ).rejects.toBeInstanceOf(UserError);
-    expect(await other.claimPostCheck(now + 839)).toBeNull();
-    expect((await other.claimPostCheck(now + 840))?.check_count).toBe(2);
-    expect(await other.claimPostCheck(now + 3600)).toBeNull();
+    expect(await other.claimPostCheck(testClock.now() + 839)).toBeNull();
+    expect(
+      (await other.claimPostCheck(testClock.now() + 840))?.check_count,
+    ).toBe(2);
+    expect(await other.claimPostCheck(testClock.now() + 3600)).toBeNull();
     expect((await other.publicationState()).posts[0]).toMatchObject({
       status: "unknown",
       error:
         "Buffer の投稿完了を確認できません。Buffer と X を確認してください",
     });
     expect((await other.settings()).autoPost).toBe(false);
-    expect(await other.claimPostCheck(now + 100000)).toBeNull();
+    expect(await other.claimPostCheck(testClock.now() + 100000)).toBeNull();
   });
 
   it("confirms a submitted post while automation is disabled", async () => {
@@ -2241,11 +2260,11 @@ describe("publication", () => {
       articleId,
       "buffer",
       "channel",
-      now,
+      testClock.now(),
       attempt.claimToken,
     );
     await repo.updateSettings({ autoPost: false });
-    const check: Post | null = await repo.claimPostCheck(now + 120);
+    const check: Post | null = await repo.claimPostCheck(testClock.now() + 120);
     expect(check).toMatchObject({
       article_id: articleId,
       buffer_id: "buffer",
@@ -2254,7 +2273,7 @@ describe("publication", () => {
     expect(check?.claim_token).not.toBe(attempt.claimToken);
     await repo.finishPost(articleId, "posted", {
       postId: "1",
-      timestamp: now + 125,
+      timestamp: testClock.now() + 125,
       claimToken: check?.claim_token,
     });
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
@@ -2298,8 +2317,8 @@ describe("publication", () => {
   it("makes an invalid draft visible and pauses", async () => {
     await candidate({ url: "https://localhost/a" });
     await repo.updateSettings({ autoPost: true });
-    now += 3600;
-    expect(await repo.claimPost(now)).toBeNull();
+    testClock.advance(3600);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.settings()).autoPost).toBe(false);
     const [post] = (await repo.publicationState()).posts;
     expect(post?.status).toBe("failed");
@@ -2462,9 +2481,9 @@ describe("publication", () => {
       queries.push(...statements.map(([sql]) => sql));
       return original(statements);
     });
-    expect(await repo.claimPost(now)).toBeNull();
-    expect(await repo.claimPostCheck(now)).toBeNull();
-    expect(await repo.recoverPosts(now)).toBe(0);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    expect(await repo.claimPostCheck(testClock.now())).toBeNull();
+    expect(await repo.recoverPosts(testClock.now())).toBe(0);
     expect(queries.length).toBeGreaterThan(0);
     expect(queries.some((sql) => sql.includes("news_articles"))).toBe(false);
   });
@@ -2567,7 +2586,7 @@ describe("publication freshness", () => {
     expect((await repo.postCandidates()).map(({ id }) => id).sort()).toEqual(
       [saved, ruled].sort(),
     );
-    now = START + DAY;
+    testClock.set(START + DAY);
     expect(await repo.postCandidates()).toEqual([]);
     expect(await repo.queueAutomaticJob(true)).toBeNull();
     // A re-listing with a new timestamp is neither a new nor a fresh story.
@@ -2615,31 +2634,31 @@ describe("publication freshness", () => {
     expect(await repo.articles()).toHaveLength(6);
     expect(await repo.postCandidates()).toEqual([]);
     await repo.updateSettings({ autoPost: true });
-    now += POST_INTERVAL_SECONDS;
-    expect(await repo.claimPost(now)).toBeNull();
+    testClock.advance(POST_INTERVAL_SECONDS);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
   });
 
   it("reserves no cadence while idle and posts arriving news when due", async () => {
     await repo.updateSettings({ autoPost: true });
-    now += 3600;
+    testClock.advance(3600);
     const due = (await repo.publicationState()).nextAt;
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.publicationState()).nextAt).toBe(due);
     const articleId = await candidate({ publishedAt: published(3000) });
     expect((await claim()).articleId).toBe(articleId);
     // The claim opened a round: its own article is due now, the next round
     // an hour later.
-    expect((await repo.publicationState()).nextAt).toBe(now);
+    expect((await repo.publicationState()).nextAt).toBe(testClock.now());
     expect(stored(driver.db, "state").get("schedule")).toEqual({
-      next_at: now + POST_INTERVAL_SECONDS,
+      next_at: testClock.now() + POST_INTERVAL_SECONDS,
     });
   });
 
   it("does not claim an article that aged out since it was listed", async () => {
     const articleId = await ready();
     expect((await repo.postCandidates())[0]?.id).toBe(articleId);
-    now = START + DAY;
-    expect(await repo.claimPost(now)).toBeNull();
+    testClock.set(START + DAY);
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     // A stale tick timestamp does not bring it back either.
     expect(await repo.claimPost(START + 3600)).toBeNull();
     expect((await repo.publicationState()).posts).toEqual([]);
@@ -2650,11 +2669,19 @@ describe("publication freshness", () => {
     const attempt = await claim();
     const version = await repo.stateVersion();
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now),
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now(),
+      ),
     ).toBe(true);
     expect(await repo.stateVersion()).toBe(version);
-    expect(await repo.authorizePostSend(articleId, "other", now)).toBe(false);
-    expect(await repo.authorizePostSend("missing", "", now)).toBe(false);
+    expect(
+      await repo.authorizePostSend(articleId, "other", testClock.now()),
+    ).toBe(false);
+    expect(await repo.authorizePostSend("missing", "", testClock.now())).toBe(
+      false,
+    );
     expect((await repo.publicationState()).posts[0]).toMatchObject({
       status: "publishing",
       text: attempt.text,
@@ -2665,29 +2692,35 @@ describe("publication freshness", () => {
     // A previous post stays in the history.
     const first = await ready();
     const sent = await claim();
-    await repo.submitPost(first, "buffer-1", "channel", now, sent.claimToken);
+    await repo.submitPost(
+      first,
+      "buffer-1",
+      "channel",
+      testClock.now(),
+      sent.claimToken,
+    );
     await repo.finishPost(first, "posted", {
       postId: "1",
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: sent.claimToken,
     });
     const second = await candidate({
       url: "https://example.org/b",
       publishedAt: published(3600 + POST_INTERVAL_SECONDS - DAY + 300),
     });
-    now += POST_INTERVAL_SECONDS;
+    testClock.advance(POST_INTERVAL_SECONDS);
     const attempt = await claim();
     expect(attempt.articleId).toBe(second);
-    now += 301;
-    expect(await repo.authorizePostSend(second, attempt.claimToken, now)).toBe(
-      false,
-    );
+    testClock.advance(301);
+    expect(
+      await repo.authorizePostSend(second, attempt.claimToken, testClock.now()),
+    ).toBe(false);
     const publication = await repo.publicationState();
     expect(publication.posts.map(({ articleId }) => articleId)).toEqual([
       first,
     ]);
     expect(publication.posts[0]?.status).toBe("posted");
-    expect(publication.nextAt).toBeLessThanOrEqual(now);
+    expect(publication.nextAt).toBeLessThanOrEqual(testClock.now());
     expect(await repo.article(second)).toMatchObject({ reviewStatus: "saved" });
     expect((await repo.settings()).autoPost).toBe(true);
   });
@@ -2697,7 +2730,11 @@ describe("publication freshness", () => {
     const attempt = await claim();
     await repo.updateSettings({ autoPost: false });
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now),
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now(),
+      ),
     ).toBe(false);
     expect((await repo.publicationState()).posts).toEqual([]);
     expect((await repo.article(articleId)).reviewStatus).toBe("saved");
@@ -2715,12 +2752,12 @@ describe("publication freshness", () => {
       articleId: string,
       claimToken: string,
     ): Promise<void> {
-      expect(await repo.authorizePostSend(articleId, claimToken, now)).toBe(
-        false,
-      );
+      expect(
+        await repo.authorizePostSend(articleId, claimToken, testClock.now()),
+      ).toBe(false);
       const publication = await repo.publicationState();
       expect(publication.posts).toEqual([]);
-      expect(publication.nextAt).toBeLessThanOrEqual(now);
+      expect(publication.nextAt).toBeLessThanOrEqual(testClock.now());
       expect((await repo.settings()).autoPost).toBe(true);
     }
 
@@ -2758,7 +2795,7 @@ describe("publication freshness", () => {
       const articleId = (await find(ITEM.url)).id;
       expect(await analyze(articleId, { decision: "candidate" })).toBe(true);
       await repo.updateSettings({ autoPost: true });
-      now += POST_INTERVAL_SECONDS;
+      testClock.advance(POST_INTERVAL_SECONDS);
       const attempt = await claim();
       expect(attempt.articleId).toBe(articleId);
       await repo.updateSettings({ rubric: NEW_RUBRIC });
@@ -2776,7 +2813,11 @@ describe("publication freshness", () => {
       expect(next.text).toContain("シカの出没と対策");
       expect(next.text).not.toBe(attempt.text);
       expect(
-        await repo.authorizePostSend(articleId, next.claimToken, now),
+        await repo.authorizePostSend(
+          articleId,
+          next.claimToken,
+          testClock.now(),
+        ),
       ).toBe(true);
     });
 
@@ -2788,7 +2829,7 @@ describe("publication freshness", () => {
         const articleId = (await find(ITEM.url)).id;
         expect(await analyze(articleId, { decision: "candidate" })).toBe(true);
         await repo.updateSettings({ autoPost: true });
-        now += POST_INTERVAL_SECONDS;
+        testClock.advance(POST_INTERVAL_SECONDS);
         const attempt = await claim();
         edit(articleId, "relation", relation);
         await expectWithdrawn(articleId, attempt.claimToken);
@@ -2812,7 +2853,11 @@ describe("publication freshness", () => {
         .prepare("INSERT INTO news_posts(id,data) VALUES (?,?)")
         .run(otherId, JSON.stringify(other));
       expect(
-        await repo.authorizePostSend(articleId, attempt.claimToken, now),
+        await repo.authorizePostSend(
+          articleId,
+          attempt.claimToken,
+          testClock.now(),
+        ),
       ).toBe(false);
       expect(stored(driver.db, "posts")).toEqual(new Map([[otherId, other]]));
     });
@@ -2824,11 +2869,15 @@ describe("publication freshness", () => {
     await repo.updateSettings({ postSelection: "candidates" });
     const before = stored(driver.db, "posts");
     const version = await repo.stateVersion();
-    expect(await repo.authorizePostSend(articleId, "replaced", now)).toBe(
-      false,
-    );
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now + 600),
+      await repo.authorizePostSend(articleId, "replaced", testClock.now()),
+    ).toBe(false);
+    expect(
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now() + 600,
+      ),
     ).toBe(false);
     expect(stored(driver.db, "posts")).toEqual(before);
     expect(await repo.stateVersion()).toBe(version);
@@ -2838,22 +2887,30 @@ describe("publication freshness", () => {
     const articleId = await ready();
     const attempt = await claim();
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now + 600),
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now() + 600,
+      ),
     ).toBe(false);
     expect((await repo.publicationState()).posts[0]?.status).toBe("publishing");
     await repo.submitPost(
       articleId,
       "buffer",
       "channel",
-      now,
+      testClock.now(),
       attempt.claimToken,
     );
-    now = START + DAY;
+    testClock.set(START + DAY);
     expect(
-      await repo.authorizePostSend(articleId, attempt.claimToken, now),
+      await repo.authorizePostSend(
+        articleId,
+        attempt.claimToken,
+        testClock.now(),
+      ),
     ).toBe(false);
     // The bounded check expires locally; it neither cancels nor resends the remote post.
-    expect(await repo.claimPostCheck(now)).toBeNull();
+    expect(await repo.claimPostCheck(testClock.now())).toBeNull();
     expect((await repo.publicationState()).posts[0]?.status).toBe("unknown");
     await repo.resolvePost(articleId, "posted");
     expect((await repo.publicationState()).posts[0]?.status).toBe("posted");
@@ -2867,8 +2924,8 @@ describe("races", () => {
     const [first] = connect();
     const [second] = connect();
     const attempts = await Promise.all([
-      first.claimPost(now),
-      second.claimPost(now),
+      first.claimPost(testClock.now()),
+      second.claimPost(testClock.now()),
     ]);
     expect(attempts.filter((attempt) => attempt !== null)).toHaveLength(1);
     expect((await repo.publicationState()).posts).toHaveLength(1);
@@ -2882,9 +2939,12 @@ describe("races", () => {
     });
     const [one] = connect();
     const [two] = connect();
-    const opened = now;
+    const opened = testClock.now();
     const attempts = (
-      await Promise.all([one.claimPost(now), two.claimPost(now)])
+      await Promise.all([
+        one.claimPost(testClock.now()),
+        two.claimPost(testClock.now()),
+      ])
     ).filter((attempt) => attempt !== null);
     expect(attempts.map((attempt) => attempt.articleId)).toEqual([first]);
     expect(stored(driver.db, "state").get("publication_batch")).toEqual({
@@ -2892,15 +2952,21 @@ describe("races", () => {
       openedAt: opened,
     });
     // Neither connection claims the rest while the first is unconfirmed.
-    expect(await Promise.all([one.claimPost(now), two.claimPost(now)])).toEqual(
-      [null, null],
-    );
+    expect(
+      await Promise.all([
+        one.claimPost(testClock.now()),
+        two.claimPost(testClock.now()),
+      ]),
+    ).toEqual([null, null]);
     await repo.finishPost(first, "posted", {
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: attempts[0]?.claimToken,
     });
     const next = (
-      await Promise.all([one.claimPost(now), two.claimPost(now)])
+      await Promise.all([
+        one.claimPost(testClock.now()),
+        two.claimPost(testClock.now()),
+      ])
     ).filter((attempt) => attempt !== null);
     expect(next.map((attempt) => attempt.articleId)).toEqual([second]);
     expect(stored(driver.db, "state").get("schedule")).toEqual({
@@ -2961,14 +3027,11 @@ describe("races", () => {
   it("gives up after sustained contention without partial writes", async () => {
     const articleId = await candidate();
     let attempts = 0;
-    intercept(driver, (original, statements) => {
-      if (statements[0]?.[0].startsWith("UPDATE news_meta")) {
-        attempts += 1;
-        driver.db.exec(
-          "UPDATE news_meta SET revision=revision+1,token='other' WHERE id=1",
-        );
-      }
-      return original(statements);
+    beforeCommit(driver, () => {
+      attempts += 1;
+      driver.db.exec(
+        "UPDATE news_meta SET revision=revision+1,token='other' WHERE id=1",
+      );
     });
     await expect(repo.review(articleId, "dismissed")).rejects.toThrow(
       "同時更新が続いています。時間をおいて再実行してください",
@@ -2996,7 +3059,7 @@ describe("races", () => {
       }
       return results;
     });
-    const task = repo.claimPost(now);
+    const task = repo.claimPost(testClock.now());
     await read;
     const other = open();
     try {
@@ -3029,18 +3092,18 @@ describe("jobs", () => {
     await expect(repo.queueJob("analyze")).rejects.toThrow(
       "処理中です。完了してから再実行してください",
     );
-    const job = await repo.claimJob(now, 10);
+    const job = await repo.claimJob(testClock.now(), 10);
     if (!job?.token) throw new Error("expected a job");
-    expect(await repo.claimJob(now + 1)).toBeNull();
+    expect(await repo.claimJob(testClock.now() + 1)).toBeNull();
     await repo.updateJob(job.token, { cursor: 1, workIds: ["one", "two"] });
     await expect(
       repo.updateJob(job.token, { token: "stolen" }),
     ).rejects.toThrow("処理の所有権は変更できません");
-    now += 10;
+    testClock.advance(10);
     await expect(repo.finishJob(job.token)).rejects.toThrow(
       "処理の有効期限または所有権が変わりました",
     );
-    const next = await repo.claimJob(now);
+    const next = await repo.claimJob(testClock.now());
     if (!next?.token) throw new Error("expected a job");
     expect(next.cursor).toBe(1);
     expect(next.token).not.toBe(job.token);
@@ -3048,7 +3111,7 @@ describe("jobs", () => {
       repo.updateJob(job.token, { cursor: 99 }),
     ).rejects.toBeInstanceOf(UserError);
     await repo.releaseJob(next.token, { cursor: 2 });
-    const final = await repo.claimJob(now);
+    const final = await repo.claimJob(testClock.now());
     if (!final?.token) throw new Error("expected a job");
     expect(final.cursor).toBe(2);
     await repo.finishJob(final.token, { phase: "完了" });
@@ -3075,8 +3138,10 @@ describe("jobs", () => {
         Array.from({ length: 101 }, (_, index) => String(index)),
       ),
     ).rejects.toThrow("記事は100件以内で指定してください");
-    await expect(repo.claimJob(now, 0)).rejects.toThrow("処理の期限が不正です");
-    expect(await repo.claimJob(now)).toBeNull();
+    await expect(repo.claimJob(testClock.now(), 0)).rejects.toThrow(
+      "処理の期限が不正です",
+    );
+    expect(await repo.claimJob(testClock.now())).toBeNull();
     const job = await repo.queueJob("analyze", ["a"]);
     expect(job).toMatchObject({
       kind: "analyze",
@@ -3089,17 +3154,19 @@ describe("jobs", () => {
 
 describe("records, host leases and blobs", () => {
   it("fences host pacing and expires records", async () => {
-    const token = await repo.acquireHost("example.org", now, 10);
+    const token = await repo.acquireHost("example.org", testClock.now(), 10);
     if (!token) throw new Error("expected a lease");
-    expect(await repo.acquireHost("example.org", now, 10)).toBeNull();
+    expect(
+      await repo.acquireHost("example.org", testClock.now(), 10),
+    ).toBeNull();
     await repo.putRecord(
       "host",
       "example.org",
-      { nextRequest: now + 3 },
+      { nextRequest: testClock.now() + 3 },
       { leaseHost: "example.org", leaseToken: token },
     );
-    now += 10;
-    const newer = await repo.acquireHost("example.org", now, 10);
+    testClock.advance(10);
+    const newer = await repo.acquireHost("example.org", testClock.now(), 10);
     if (!newer) throw new Error("expected a lease");
     expect(await repo.releaseHost("example.org", token)).toBe(false);
     await expect(
@@ -3113,9 +3180,14 @@ describe("records, host leases and blobs", () => {
     expect(
       await repo.getRecord<{ nextRequest: number }>("host", "example.org"),
     ).toEqual({ nextRequest: 10003 });
-    await repo.putRecord("cache", "one", { body: "a" }, { expiresAt: now + 1 });
+    await repo.putRecord(
+      "cache",
+      "one",
+      { body: "a" },
+      { expiresAt: testClock.now() + 1 },
+    );
     expect(await repo.getRecord("cache", "one")).toEqual({ body: "a" });
-    now += 1;
+    testClock.advance(1);
     expect(await repo.getRecord("cache", "one")).toBeNull();
     await repo.putRecord("cache", "two", { body: "b" });
     expect(
@@ -3131,7 +3203,7 @@ describe("records, host leases and blobs", () => {
     await expect(
       repo.putRecord("host", "a", {}, { leaseHost: "a" }),
     ).rejects.toThrow("取得処理の所有権が不正です");
-    await expect(repo.acquireHost("a", now, 0)).rejects.toThrow(
+    await expect(repo.acquireHost("a", testClock.now(), 0)).rejects.toThrow(
       "取得処理の期限が不正です",
     );
     await repo.putRecord("scheduler", "collection", { nextAt: 1 });
@@ -3158,7 +3230,7 @@ describe("records, host leases and blobs", () => {
       repo.putRecord("scheduler", "analysis", {}, { jobToken: "" }),
     ).rejects.toThrow("処理の所有権が不正です");
     await repo.queueJob("analyze", []);
-    const token = (await repo.claimJob(now, 60))!.token!;
+    const token = (await repo.claimJob(testClock.now(), 60))!.token!;
     version = revision(driver.db);
     await repo.putRecord(
       "scheduler",
@@ -3167,7 +3239,7 @@ describe("records, host leases and blobs", () => {
       { jobToken: token },
     );
     expect(revision(driver.db)).toBe(++version);
-    now += 60;
+    testClock.advance(60);
     await expect(
       repo.putRecord(
         "scheduler",
@@ -3176,7 +3248,7 @@ describe("records, host leases and blobs", () => {
         { jobToken: token },
       ),
     ).rejects.toThrow(denied);
-    const newer = (await repo.claimJob(now))!.token!;
+    const newer = (await repo.claimJob(testClock.now()))!.token!;
     await expect(
       repo.putRecord(
         "scheduler",
@@ -3204,7 +3276,7 @@ describe("records, host leases and blobs", () => {
 
   it("chunks, replaces and expires blobs", async () => {
     const value = new Uint8Array(3_600_000).map((_, index) => index % 251);
-    await repo.putBlob("one", value, now + 5);
+    await repo.putBlob("one", value, testClock.now() + 5);
     expect(sameBytes(await repo.getBlob("one"), value)).toBe(true);
     const sizes = driver.db
       .prepare("SELECT length(data) AS size FROM news_blobs")
@@ -3212,13 +3284,17 @@ describe("records, host leases and blobs", () => {
       .map((row) => Number(row.size));
     expect(sizes).toHaveLength(4);
     expect(sizes.every((size) => size < 2_000_000)).toBe(true);
-    await repo.putBlob("one", new TextEncoder().encode("small"), now + 5);
+    await repo.putBlob(
+      "one",
+      new TextEncoder().encode("small"),
+      testClock.now() + 5,
+    );
     expect(
       new TextDecoder().decode((await repo.getBlob("one")) ?? new Uint8Array()),
     ).toBe("small");
     await repo.putBlob("empty", new Uint8Array());
     expect(await repo.getBlob("empty")).toEqual(new Uint8Array());
-    now += 5;
+    testClock.advance(5);
     expect(await repo.getBlob("one")).toBeNull();
     await expect(
       repo.putBlob("big", new Uint8Array(4_000_001)),
@@ -3228,7 +3304,7 @@ describe("records, host leases and blobs", () => {
   it("evicts the oldest complete blobs beyond the storage budget", async () => {
     const value = new Uint8Array(4_000_000);
     for (let index = 0; index < 12; index += 1) {
-      now += 1;
+      testClock.advance(1);
       await repo.putBlob(`blob${index}`, value);
     }
     expect(await repo.getBlob("blob0")).toBeNull();
@@ -3257,88 +3333,94 @@ describe("posting window", () => {
   });
 
   it("moves the first post after enabling late in the evening to the next 06:00", async () => {
-    now = jst(22, 30);
+    testClock.set(jst(22, 30));
     const articleId = await candidate();
     await repo.updateSettings({ autoPost: true });
     // Not 23:30, which is outside the window.
     expect((await repo.publicationState()).nextAt).toBe(jst(6, 0, 0, 1));
-    now = jst(23, 30);
-    expect(await repo.claimPost(now)).toBeNull();
-    now = jst(5, 59, 59, 1);
-    expect(await repo.claimPost(now)).toBeNull();
-    now = jst(6, 0, 0, 1);
+    testClock.set(jst(23, 30));
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.set(jst(5, 59, 59, 1));
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.set(jst(6, 0, 0, 1));
     expect((await claim()).articleId).toBe(articleId);
   });
 
   it("keeps the hour spacing between rounds near the close and pauses a round for the night", async () => {
-    now = jst(20, 59, 59);
+    testClock.set(jst(20, 59, 59));
     const first = await candidate();
     await repo.updateSettings({ autoPost: true });
-    now = jst(21, 59, 59);
+    testClock.set(jst(21, 59, 59));
     const sent = await claim();
     expect(sent.articleId).toBe(first);
-    await repo.submitPost(first, "buffer-1", "channel", now, sent.claimToken);
+    await repo.submitPost(
+      first,
+      "buffer-1",
+      "channel",
+      testClock.now(),
+      sent.claimToken,
+    );
     await repo.finishPost(first, "posted", {
       postId: "1",
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: sent.claimToken,
     });
     expect((await repo.publicationState()).nextAt).toBe(jst(22, 59, 59));
     const second = await candidate({ url: "https://example.org/b" });
     const third = await candidate({ url: "https://example.org/c" });
     expect(await repo.claimPost(jst(22, 59, 58))).toBeNull();
-    now = jst(22, 59, 59);
+    testClock.set(jst(22, 59, 59));
     const late = await claim();
     expect([second, third]).toContain(late.articleId);
     await repo.submitPost(
       late.articleId,
       "buffer-2",
       "channel",
-      now,
+      testClock.now(),
       late.claimToken,
     );
     await repo.finishPost(late.articleId, "posted", {
       postId: "2",
-      timestamp: now,
+      timestamp: testClock.now(),
       claimToken: late.claimToken,
     });
     // The rest of the round is due at once, but 23:00 pauses it until 06:00.
     expect((await repo.publicationState()).nextAt).toBe(jst(22, 59, 59));
-    now = jst(23, 0);
+    testClock.set(jst(23, 0));
     expect((await repo.publicationState()).nextAt).toBe(jst(6, 0, 0, 1));
-    now = jst(23, 59, 59);
-    expect(await repo.claimPost(now)).toBeNull();
-    now = jst(6, 0, 0, 1);
+    testClock.set(jst(23, 59, 59));
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.set(jst(6, 0, 0, 1));
     expect((await claim()).articleId).not.toBe(late.articleId);
   });
 
   it("never claims with a tick timestamp from before the close", async () => {
-    now = jst(21, 0);
+    testClock.set(jst(21, 0));
     const articleId = await candidate();
     await repo.updateSettings({ autoPost: true });
     const version = await repo.stateVersion();
     // The tick read its timestamp at 22:30, but the clock has reached 23:00.
-    now = jst(23, 0);
+    testClock.set(jst(23, 0));
     expect(await repo.claimPost(jst(22, 30))).toBeNull();
     expect(await repo.stateVersion()).toBe(version);
     expect((await repo.publicationState()).posts).toEqual([]);
     expect((await repo.settings()).autoPost).toBe(true);
-    now = jst(6, 0, 0, 1);
+    testClock.set(jst(6, 0, 0, 1));
     expect((await claim()).articleId).toBe(articleId);
   });
 
   it("rechecks the window in the atomic claim after the early gate", async () => {
-    now = jst(21, 0);
+    testClock.set(jst(21, 0));
     await candidate();
     await repo.updateSettings({ autoPost: true });
-    now = jst(22, 59, 59);
+    testClock.set(jst(22, 59, 59));
     intercept(driver, async (original, statements) => {
       const results = await original(statements);
       // The clock passes 23:00 right after the early settings read.
       if (
         statements.some(([sql]) => sql.includes("IN ('settings','schedule')"))
       )
-        now = jst(23, 0);
+        testClock.set(jst(23, 0));
       return results;
     });
     expect(await repo.claimPost(jst(22, 59, 59))).toBeNull();
@@ -3347,12 +3429,12 @@ describe("posting window", () => {
   });
 
   it("withdraws its own unsent claim when sending would start after 23:00", async () => {
-    now = jst(21, 0);
+    testClock.set(jst(21, 0));
     const articleId = await candidate();
     await repo.updateSettings({ autoPost: true });
-    now = jst(22, 59, 50);
+    testClock.set(jst(22, 59, 50));
     const attempt = await claim();
-    now = jst(23, 0);
+    testClock.set(jst(23, 0));
     expect(
       await repo.authorizePostSend(
         articleId,
@@ -3367,42 +3449,46 @@ describe("posting window", () => {
       reviewStatus: "saved",
     });
     expect((await repo.settings()).autoPost).toBe(true);
-    now = jst(23, 30);
-    expect(await repo.claimPost(now)).toBeNull();
-    now = jst(6, 0, 0, 1);
+    testClock.set(jst(23, 30));
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.set(jst(6, 0, 0, 1));
     const retry = await claim();
     expect(retry.articleId).toBe(articleId);
-    expect(await repo.authorizePostSend(articleId, retry.claimToken, now)).toBe(
-      true,
-    );
+    expect(
+      await repo.authorizePostSend(
+        articleId,
+        retry.claimToken,
+        testClock.now(),
+      ),
+    ).toBe(true);
   });
 
   it("shows the earliest allowed time while idle outside the window", async () => {
-    now = jst(12, 0);
+    testClock.set(jst(12, 0));
     await repo.updateSettings({ autoPost: true });
     const due = jst(13, 0);
     expect((await repo.publicationState()).nextAt).toBe(due);
     // Past due inside the window keeps the stored time: posting is due now.
-    now = jst(18, 0);
+    testClock.set(jst(18, 0));
     expect((await repo.publicationState()).nextAt).toBe(due);
     // Idle ticks reserve nothing, even overnight.
-    expect(await repo.claimPost(now)).toBeNull();
-    now = jst(23, 30);
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
+    testClock.set(jst(23, 30));
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.publicationState()).nextAt).toBe(jst(6, 0, 0, 1));
-    now = jst(5, 0, 0, 1);
+    testClock.set(jst(5, 0, 0, 1));
     expect((await repo.publicationState()).nextAt).toBe(jst(6, 0, 0, 1));
     expect((await repo.settings()).autoPost).toBe(true);
   });
 
   it("never claims an article already marked as posted", async () => {
-    now = jst(12, 0);
+    testClock.set(jst(12, 0));
     const articleId = await candidate();
     await repo.review(articleId, "posted");
     await repo.updateSettings({ autoPost: true });
-    now = jst(13, 0);
+    testClock.set(jst(13, 0));
     expect(await repo.postCandidates()).toEqual([]);
-    expect(await repo.claimPost(now)).toBeNull();
+    expect(await repo.claimPost(testClock.now())).toBeNull();
     expect((await repo.publicationState()).posts).toEqual([]);
   });
 });

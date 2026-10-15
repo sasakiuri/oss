@@ -1,108 +1,38 @@
 // SPDX-License-Identifier: MIT
 /** Loopback-only test proxy. It signs fixture JWTs; no production auth bypass is bundled. */
-import { generateKeyPairSync, sign } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
 
-import { build } from "esbuild";
-import { Miniflare, Response as MiniflareResponse } from "miniflare";
+import {
+  accessBindings,
+  workerOrigin,
+  accessToken,
+  bundle,
+  runtimeFor,
+  migrateRuntime,
+} from "../harness/miniflare.ts";
 
 const port = Number(process.env.NILAY_BROWSER_PORT ?? 4179);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Invalid fixture port");
 const localOrigin = `http://127.0.0.1:${port}`;
-const workerOrigin = "https://news.example.test";
-const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-  modulusLength: 2048,
-});
-const jwk = {
-  ...publicKey.export({ format: "jwk" }),
-  kid: "browser",
-  alg: "RS256",
-  use: "sig",
-};
-const encode = (value: object) =>
-  Buffer.from(JSON.stringify(value)).toString("base64url");
-const content = `${encode({ alg: "RS256", kid: "browser" })}.${encode({
-  iss: "https://fixture.cloudflareaccess.com",
-  aud: ["fixture-audience"],
-  sub: "reader",
-  email: "reader@example.test",
-  iat: 1_800_999_900,
-  exp: 1_802_000_000,
-})}`;
-const token = `${content}.${sign("RSA-SHA256", Buffer.from(content), privateKey).toString("base64url")}`;
-const result = await build({
-  entryPoints: ["tests/browser/fixture.ts"],
-  bundle: true,
-  write: false,
-  format: "esm",
-  platform: "browser",
-  target: "es2022",
-});
-const script = result.outputFiles[0]!.text;
-const directory = new URL("../../migrations/", import.meta.url);
-const migrations = readdirSync(directory)
-  .filter((name) => name.endsWith(".sql"))
-  .sort()
-  .flatMap((name) =>
-    readFileSync(new URL(name, directory), "utf8")
-      .split(";")
-      .map((sql) => sql.trim())
-      .filter(Boolean),
-  );
+const { token, jwks } = accessToken("browser", 1_802_000_000);
+const { script } = await bundle("tests/browser/fixture.ts");
 
 async function createRuntime() {
-  const runtime = new Miniflare({
-    cf: false,
-    workers: [
-      {
-        config: {
-          name: "nilay-news-browser-test",
-          compatibilityDate: "2026-09-27",
-          manifest: {
-            mainModule: "worker.js",
-            modules: { "worker.js": { type: "esm", contents: script } },
-          },
-          env: {
-            NILAY_PUBLIC_ORIGIN: { type: "text", value: workerOrigin },
-            CF_ACCESS_TEAM_DOMAIN: {
-              type: "text",
-              value: "fixture.cloudflareaccess.com",
-            },
-            CF_ACCESS_AUD: { type: "text", value: "fixture-audience" },
-            CF_ACCESS_ALLOWED_EMAILS: {
-              type: "text",
-              value: "reader@example.test",
-            },
-            TEST_JWKS: { type: "text", value: JSON.stringify({ keys: [jwk] }) },
-            DB: { type: "d1", id: "isolated-browser-test" },
-            ASSETS: { type: "assets" },
-          },
-          assets: {
-            directory: "./public",
-            runWorkerFirst: true,
-            hasUserWorker: true,
-          },
-        },
-        dev: {
-          outboundService: {
-            type: "fetcher",
-            handler: () =>
-              new MiniflareResponse("Unexpected external request", {
-                status: 503,
-              }),
-          },
-        },
-      },
-    ],
-  });
-  const db = await runtime.getD1Database("DB");
-  await db.batch(migrations.map((sql) => db.prepare(sql)));
+  const runtime = runtimeFor(
+    script,
+    { ...accessBindings, TEST_JWKS: jwks },
+    true,
+    {
+      name: "nilay-news-browser-test",
+      databaseId: "isolated-browser-test",
+    },
+  );
+  await migrateRuntime(runtime);
   return runtime;
 }
 let runtime = await createRuntime();

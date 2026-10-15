@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Fixed 11:00 JST collection through the real scheduler, repository and crawl gate. */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { CachedFetch } from "../src/collection/crawl.ts";
@@ -9,6 +9,8 @@ import { BufferClient } from "../src/publishing/publisher.ts";
 import { dailySlot, nextDailyRun } from "../src/schedule.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { namedRssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 // 2026-09-28 11:00 JST is 02:00 UTC.
@@ -16,32 +18,15 @@ const ELEVEN = Date.UTC(2026, 8, 28, 2) / 1000;
 const DAY = 86400;
 const MINUTE = 60;
 
-function feed(id: string, changes: Partial<SourceConfig> = {}): SourceConfig {
-  return {
-    id,
-    name: id,
-    description: id,
-    url: `https://example.org/${id}`,
-    kind: "rss",
-    enabled: true,
-    ...changes,
-  };
-}
 const daily = (id: string) =>
-  feed(id, { dailyAtJst: "11:00", minCollectionMinutes: 1440 });
+  namedRssSource(id, { dailyAtJst: "11:00", minCollectionMinutes: 1440 });
 /** Like the 鳥獣ニュース roundup: a rolling 24-hour source. */
-const rolling = feed("roundup", { minCollectionMinutes: 1440 });
-
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0)) close();
-});
+const rolling = namedRssSource("roundup", { minCollectionMinutes: 1440 });
 
 async function setup(sources: SourceConfig[], jev = new Jev()) {
-  let now = ELEVEN - DAY;
-  const clock = () => now;
+  const testClock = fakeClock(ELEVEN - DAY);
+  const clock = testClock.now;
   const storage = testRepository(sources, clock);
-  cleanup.push(storage.close);
   const repo = storage.repo;
   await repo.initialize();
   const collected: string[] = [];
@@ -75,13 +60,13 @@ async function setup(sources: SourceConfig[], jev = new Jev()) {
     repo,
     app,
     collected,
-    now: () => now,
+    now: testClock.now,
     at: (epoch: number) => {
-      now = epoch;
+      testClock.set(epoch);
     },
     /** Run one scheduler tick at `epoch`. */
     tick: async (epoch: number) => {
-      now = epoch;
+      testClock.set(epoch);
       await app.scheduled();
     },
   };
@@ -112,7 +97,7 @@ describe("fixed daily collection", () => {
     const { repo, collected, tick } = await setup([
       daily("kanpo"),
       daily("env"),
-      feed("rss"),
+      namedRssSource("rss"),
       rolling,
     ]);
     await repo.updateSettings({ autoCollect: true, pollMinutes: 60 });
@@ -163,7 +148,7 @@ describe("fixed daily collection", () => {
   it("keeps 11:00 after a late run and catches up only the current day", async () => {
     const { repo, collected, tick } = await setup([
       daily("kanpo"),
-      feed("rss"),
+      namedRssSource("rss"),
     ]);
     await repo.updateSettings({ autoCollect: true, pollMinutes: 1440 });
     // The first run after deployment starts late at 11:17.
@@ -202,10 +187,10 @@ describe("fixed daily collection", () => {
       return { analysisStatus: "done", decision: "candidate" };
     });
     const { repo, collected, tick } = await setup(
-      [daily("kanpo"), feed("rss")],
+      [daily("kanpo"), namedRssSource("rss")],
       jev,
     );
-    const source = feed("rss");
+    const source = namedRssSource("rss");
     await repo.ingest(
       source,
       Array.from({ length: 60 }, (_, index) => ({
@@ -256,7 +241,7 @@ describe("fixed daily collection", () => {
     const jev = new Jev("test-key");
     const analyzed: string[] = [];
     const context = await setup(
-      [daily("kanpo"), daily("env"), feed("rss")],
+      [daily("kanpo"), daily("env"), namedRssSource("rss")],
       jev,
     );
     const { repo, collected, tick, now, at } = context;
@@ -267,7 +252,7 @@ describe("fixed daily collection", () => {
       return { analysisStatus: "done", decision: "candidate" };
     });
     await repo.ingest(
-      feed("rss"),
+      namedRssSource("rss"),
       Array.from({ length: 30 }, (_, index) => ({
         title: `既存記事 ${index}`,
         url: `https://example.org/existing/${index}`,
@@ -311,7 +296,7 @@ describe("fixed daily collection", () => {
     const { app, repo, collected, tick } = await setup([
       daily("kanpo"),
       daily("env"),
-      feed("rss"),
+      namedRssSource("rss"),
     ]);
     await repo.updateSettings({ autoCollect: true, pollMinutes: 1440 });
     await tick(ELEVEN - 2 * MINUTE);
@@ -341,8 +326,8 @@ describe("fixed daily collection", () => {
   it("waits for a live lease and fences the replaced job's stale owner", async () => {
     const { repo, at } = await setup([
       daily("kanpo"),
-      feed("rss"),
-      feed("atom"),
+      namedRssSource("rss"),
+      namedRssSource("atom"),
     ]);
     await repo.updateSettings({ autoCollect: true, pollMinutes: 60 });
     at(ELEVEN - MINUTE);

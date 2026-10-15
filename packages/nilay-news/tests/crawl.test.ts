@@ -24,6 +24,8 @@ import type { SourceConfig } from "../src/sources/types.ts";
 import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 interface HostState {
@@ -40,32 +42,29 @@ const GOOGLE = "https://news.google.com/rss/search?q=%E7%8B%A9%E7%8C%9F";
 const text = (result: FetchResult) => new TextDecoder().decode(result.data);
 
 function source(changes: Partial<SourceConfig> = {}): SourceConfig {
-  return {
+  return rssSource({
     id: "source",
     name: "テスト",
     description: "テスト",
     url: `${ORIGIN}/configured`,
-    kind: "rss",
-    enabled: true,
     ...changes,
-  };
+  });
 }
 
-let now: number;
+const testClock = fakeClock();
 let repo: SQLRepository;
-let close: () => void;
 let calls: [string, number][];
 let errors: Map<string, FetchError>;
 let rules: string;
-const clock = () => now;
+const clock = testClock.now;
 const sleep = async (milliseconds: number) => {
   expect(Number.isInteger(milliseconds)).toBe(true);
   expect(milliseconds).toBeLessThan(3000);
-  now += milliseconds / 1000;
+  testClock.advance(milliseconds / 1000);
   await Promise.resolve();
 };
 const transport: FetchBytes = async (url) => {
-  calls.push([url, now]);
+  calls.push([url, testClock.now()]);
   await Promise.resolve();
   const error = errors.get(url);
   if (error) throw error;
@@ -107,8 +106,8 @@ function redirecting(target: string): FetchBytes {
 }
 
 beforeEach(async () => {
-  now = START;
-  ({ repo, close } = testRepository([], clock));
+  testClock.set(START);
+  ({ repo } = testRepository([], clock));
   await repo.initialize();
   calls = [];
   errors = new Map();
@@ -116,7 +115,6 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  close();
   vi.restoreAllMocks();
 });
 
@@ -134,7 +132,7 @@ describe("CachedFetch", () => {
       sleep: async (milliseconds) => {
         timers += 1;
         if (timers > 10) throw new Error("the host wait never ends");
-        now += Math.trunc(milliseconds) / 1000;
+        testClock.advance(Math.trunc(milliseconds) / 1000);
         await Promise.resolve();
       },
     });
@@ -168,7 +166,7 @@ describe("CachedFetch", () => {
     );
     expect(deferred).toHaveLength(1);
     expect(calls).toHaveLength(2);
-    const token = await repo.acquireHost("example.org", now, 1);
+    const token = await repo.acquireHost("example.org", testClock.now(), 1);
     expect(token).not.toBeNull();
   });
 
@@ -177,16 +175,22 @@ describe("CachedFetch", () => {
     errors.set(url, new FetchError("limited", 429, 7200));
     await expect(crawler().fetch(url)).rejects.toThrow("limited");
     let state = await hostState();
-    expect([state?.blocked_until, state?.failures]).toEqual([now + 7200, 1]);
+    expect([state?.blocked_until, state?.failures]).toEqual([
+      testClock.now() + 7200,
+      1,
+    ]);
     await expect(crawler().fetch(`${ORIGIN}/two`)).rejects.toBeInstanceOf(
       CrawlStopped,
     );
     expect(calls).toHaveLength(2);
-    now = (state?.blocked_until ?? 0) + 1;
+    testClock.set((state?.blocked_until ?? 0) + 1);
     errors.set(url, new FetchError("limited", 429));
     await expect(crawler().fetch(url)).rejects.toThrow("limited");
     state = await hostState();
-    expect([state?.blocked_until, state?.failures]).toEqual([now + 7200, 2]);
+    expect([state?.blocked_until, state?.failures]).toEqual([
+      testClock.now() + 7200,
+      2,
+    ]);
   });
 
   it.each([
@@ -211,17 +215,17 @@ describe("CachedFetch", () => {
       await expect(crawler(sources).fetch(`${ORIGIN}/one`)).rejects.toThrow(
         CrawlDeferred,
       );
-      now += 1800;
+      testClock.advance(1800);
       await expect(crawler(sources).fetch(`${ORIGIN}/one`)).rejects.toThrow(
         "unavailable",
       );
-      const failed = now;
+      const failed = testClock.now();
       const before = await hostState();
       expect(before?.failures).toBe(1);
       expect(before?.blocked_until).toBe(failed + (retryAfter ?? 900));
       expect(calls).toHaveLength(2);
 
-      now += 60;
+      testClock.advance(60);
       const deferral = await crawler(sources)
         .fetch(`${ORIGIN}/two`)
         .catch((caught: unknown) => caught);
@@ -232,7 +236,7 @@ describe("CachedFetch", () => {
       expect(calls).toHaveLength(2);
       expect(await hostState()).toEqual(before);
 
-      now = failed + wait;
+      testClock.set(failed + wait);
       expect(text(await crawler(sources).fetch(`${ORIGIN}/two`))).toBe(
         "content",
       );
@@ -250,7 +254,7 @@ describe("CachedFetch", () => {
     errors.set(`${origin}/one`, new FetchError("failed", status));
     await expect(crawler().fetch(`${origin}/one`)).rejects.toThrow("failed");
     expect((await hostState(`host-${status}.example.org`))?.blocked_until).toBe(
-      now + seconds,
+      testClock.now() + seconds,
     );
   });
 
@@ -293,12 +297,13 @@ describe("CachedFetch", () => {
   ])("fails closed and backs off on %s", async (_, body, contentType) => {
     const robots: FetchBytes = async (url, options) =>
       url.endsWith("/robots.txt")
-        ? (calls.push([url, now]), { data: utf8(body), url, contentType })
+        ? (calls.push([url, testClock.now()]),
+          { data: utf8(body), url, contentType })
         : transport(url, options);
     await expect(
       crawler([], { transport: robots }).fetch(`${ORIGIN}/new`),
     ).rejects.toBeInstanceOf(CrawlStopped);
-    expect((await hostState())?.blocked_until).toBeGreaterThan(now);
+    expect((await hostState())?.blocked_until).toBeGreaterThan(testClock.now());
     expect(calls).toHaveLength(1);
   });
 
@@ -319,11 +324,11 @@ describe("CachedFetch", () => {
       .fetch(`${ORIGIN}/one`)
       .catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(CrawlDeferred);
-    expect((error as CrawlDeferred).until).toBe(now + 600);
+    expect((error as CrawlDeferred).until).toBe(testClock.now() + 600);
     expect(calls).toHaveLength(1);
     const state = await hostState();
     expect([state?.blocked_until, state?.failures]).toEqual([0, 0]);
-    now += 600;
+    testClock.advance(600);
     await crawler().fetch(`${ORIGIN}/one`);
     expect(calls).toHaveLength(2);
   });
@@ -355,7 +360,7 @@ describe("CachedFetch", () => {
     await expect(crawler().fetch(`${ORIGIN}/start`)).rejects.toBeInstanceOf(
       CrawlDeferred,
     );
-    now += 10;
+    testClock.advance(10);
     const error = await crawler([], {
       transport: redirecting(`${ORIGIN}/final`),
     })
@@ -377,7 +382,10 @@ describe("CachedFetch", () => {
       }).fetch(`${ORIGIN}/start`),
     ).rejects.toBeInstanceOf(CrawlStopped);
     const state = await hostState();
-    expect([state?.failures, state?.blocked_until]).toEqual([1, now + 172800]);
+    expect([state?.failures, state?.blocked_until]).toEqual([
+      1,
+      testClock.now() + 172800,
+    ]);
   });
 
   it("keeps the source interval across errors and expanded request URLs", async () => {
@@ -392,11 +400,11 @@ describe("CachedFetch", () => {
     expect(error).toBeInstanceOf(CrawlDeferred);
     expect((error as CrawlDeferred).until).toBe(START + 21600);
     expect(await cache.nextDue(configured)).toBe(START + 21600);
-    now = START + 21600;
+    testClock.set(START + 21600);
     const attempt = await cache.beginSource(configured);
-    now += 10;
+    testClock.advance(10);
     await cache.endSource(configured, attempt, null);
-    expect(await cache.nextDue(configured)).toBe(now + 21600);
+    expect(await cache.nextDue(configured)).toBe(testClock.now() + 21600);
   });
 
   it("gates Yahoo at one hour and Google and CEEK at four hours", async () => {
@@ -429,7 +437,7 @@ describe("CachedFetch", () => {
     expect(
       ordinary.filter((item) => item.robotsException).map((item) => item.id),
     ).toEqual(["google-1", "google-2"]);
-    now = START + 3600 - 1;
+    testClock.set(START + 3600 - 1);
     for (const item of ordinary) {
       await expect(cache.beginSource(item)).rejects.toBeInstanceOf(
         CrawlDeferred,
@@ -438,7 +446,7 @@ describe("CachedFetch", () => {
         START + (item.id.startsWith("yahoo-") ? 3600 : 4 * 3600),
       );
     }
-    now += 1;
+    testClock.advance(1);
     for (const item of ordinary.filter((feed) => feed.id.startsWith("yahoo-")))
       await cache.beginSource(item);
     for (const item of ordinary.filter(
@@ -448,7 +456,7 @@ describe("CachedFetch", () => {
         CrawlDeferred,
       );
     }
-    now = START + 4 * 3600;
+    testClock.set(START + 4 * 3600);
     for (const item of ordinary) await cache.beginSource(item);
     const google = ordinary[0]!;
     expect(() =>
@@ -470,13 +478,13 @@ describe("CachedFetch", () => {
     const byId = new Map(bundled.map((item) => [item.id, item]));
     const daily = byId.get("tyoujuu-blog")!;
     await crawler(bundled).beginSource(daily);
-    now = START + 86399;
+    testClock.set(START + 86399);
     const error = await crawler(bundled)
       .beginSource(daily)
       .catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(CrawlDeferred);
     expect((error as CrawlDeferred).until).toBe(START + 86400);
-    now = START + 86400;
+    testClock.set(START + 86400);
     await crawler(bundled).beginSource(daily);
     // Fixed daily sources wait for the next 11:00 JST, not 24 hours.
     const gazette = byId.get("kanpo")!;
@@ -488,7 +496,7 @@ describe("CachedFetch", () => {
     expect(later).toBeInstanceOf(CrawlDeferred);
     const until = (later as CrawlDeferred).until;
     expect(new Date(until * 1000).toISOString()).toMatch(/T02:00:00\.000Z$/);
-    expect(until - now).toBeLessThan(86400);
+    expect(until - testClock.now()).toBeLessThan(86400);
   });
 
   describe("fixed daily JST sources", () => {
@@ -510,22 +518,26 @@ describe("CachedFetch", () => {
       );
 
     it("starts at 11:00 JST and never drifts after a late run", async () => {
-      now = ELEVEN - 1;
+      testClock.set(ELEVEN - 1);
       expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN);
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
       // Yesterday's run started late at 11:17 and finished at 11:27.
-      now = ELEVEN - DAY + 17 * 60;
+      testClock.set(ELEVEN - DAY + 17 * 60);
       let attempt = await crawler([daily]).beginSource(daily);
-      now += 600;
+      testClock.advance(600);
       await crawler([daily]).endSource(daily, attempt, null);
-      now = ELEVEN - 1;
+      testClock.set(ELEVEN - 1);
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(ELEVEN);
-      now = ELEVEN;
+      testClock.set(ELEVEN);
       expect(await crawler([daily]).nextDue(daily)).toBe(0);
       attempt = await crawler([daily]).beginSource(daily);
-      now = ELEVEN + 17 * 60;
+      testClock.set(ELEVEN + 17 * 60);
       // A deferral without requests does not give a daily slot back either.
-      await crawler([daily]).endSource(daily, attempt, new CrawlDeferred(now));
+      await crawler([daily]).endSource(
+        daily,
+        attempt,
+        new CrawlDeferred(testClock.now()),
+      );
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(
         ELEVEN + DAY,
       );
@@ -534,17 +546,17 @@ describe("CachedFetch", () => {
     });
 
     it("catches up only the current JST day after missed days", async () => {
-      now = ELEVEN - DAY;
+      testClock.set(ELEVEN - DAY);
       await crawler([daily]).beginSource(daily);
-      now = ELEVEN + 3 * DAY - 3600;
+      testClock.set(ELEVEN + 3 * DAY - 3600);
       expect(await deferral(crawler([daily]).beginSource(daily))).toBe(
         ELEVEN + 3 * DAY,
       );
       // 23:59:59 JST the same day is still today's run.
-      now = ELEVEN + 3 * DAY + 13 * 3600 - 1;
+      testClock.set(ELEVEN + 3 * DAY + 13 * 3600 - 1);
       const attempt = await crawler([daily]).beginSource(daily);
       // Midnight JST does not make the next day's run due before 11:00.
-      now += 1;
+      testClock.advance(1);
       expect(await crawler([daily]).nextDue(daily)).toBe(ELEVEN + 4 * DAY);
       await crawler([daily]).endSource(daily, attempt, null);
       expect(await repo.getRecord("crawl_source", daily.id)).toEqual({
@@ -553,7 +565,7 @@ describe("CachedFetch", () => {
     });
 
     it("claims each slot once under concurrent starts and stays blocked when stopped", async () => {
-      now = ELEVEN + 60;
+      testClock.set(ELEVEN + 60);
       const results = await Promise.allSettled([
         crawler([daily]).beginSource(daily),
         crawler([daily]).beginSource(daily),
@@ -573,13 +585,13 @@ describe("CachedFetch", () => {
     });
 
     it("reuses a response within one run but never the previous day's", async () => {
-      now = ELEVEN;
+      testClock.set(ELEVEN);
       const url = daily.url;
       await crawler([daily]).fetch(url);
-      now += 1800;
+      testClock.advance(1800);
       await crawler([daily]).fetch(url);
       expect(calls.filter(([called]) => called === url)).toHaveLength(1);
-      now = ELEVEN + DAY;
+      testClock.set(ELEVEN + DAY);
       await crawler([daily]).fetch(url);
       expect(calls.filter(([called]) => called === url)).toHaveLength(2);
       // The rolling 24-hour source keeps its cache and URL interval.
@@ -589,7 +601,7 @@ describe("CachedFetch", () => {
         minCollectionMinutes: 1440,
       });
       await crawler([rolling]).fetch(rolling.url);
-      now += DAY - 1;
+      testClock.advance(DAY - 1);
       await crawler([rolling]).fetch(rolling.url);
       expect(calls.filter(([called]) => called === rolling.url)).toHaveLength(
         1,
@@ -598,14 +610,14 @@ describe("CachedFetch", () => {
 
     it("refreshes the root after upgrading from a rolling 24-hour cache", async () => {
       const rolling = source({ url: daily.url, minCollectionMinutes: 1440 });
-      now = ELEVEN - DAY + 17 * 60;
+      testClock.set(ELEVEN - DAY + 17 * 60);
       await crawler([rolling]).fetch(daily.url);
       // The old unscoped response is still valid until today's 11:17.
-      now = ELEVEN;
+      testClock.set(ELEVEN);
       await crawler([daily]).beginSource(daily);
       await crawler([daily]).fetch(daily.url);
       expect(calls.filter(([url]) => url === daily.url)).toHaveLength(2);
-      now += 60;
+      testClock.advance(60);
       await crawler([daily]).fetch(daily.url);
       expect(calls.filter(([url]) => url === daily.url)).toHaveLength(2);
     });
@@ -652,13 +664,13 @@ describe("CachedFetch", () => {
       await expect(cache.beginSource(feed)).rejects.toBeInstanceOf(
         CrawlDeferred,
       );
-      now = START + 1800;
+      testClock.set(START + 1800);
       attempt = await cache.beginSource(feed);
       await cache.fetch(feed.url);
-      now += 5;
+      testClock.advance(5);
       await cache.endSource(feed, attempt, null);
-      expect(await record()).toEqual({ last_requested: now });
-      expect(await cache.nextDue(feed)).toBe(now + 14400);
+      expect(await record()).toEqual({ last_requested: testClock.now() });
+      expect(await cache.nextDue(feed)).toBe(testClock.now() + 14400);
     });
 
     it("consumes the interval for a failed request and a cache hit", async () => {
@@ -675,29 +687,33 @@ describe("CachedFetch", () => {
         .fetch(feed.url)
         .catch((error: unknown) => error);
       expect(failure).toBeInstanceOf(FetchError);
-      now += 5;
+      testClock.advance(5);
       await cache.endSource(feed, attempt, failure);
       expect(await record()).toEqual({ last_requested: START + 5 });
       expect(await cache.nextDue(feed)).toBe(START + 5 + 14400);
       // A later deferral in the same attempt does not undo a sent request.
-      now = START + 5 + 14400 + 7200;
+      testClock.set(START + 5 + 14400 + 7200);
       attempt = await cache.beginSource(feed);
       errors.clear();
       await cache.fetch(feed.url);
-      await cache.endSource(feed, attempt, new CrawlDeferred(now + 1800));
-      expect(await record()).toEqual({ last_requested: now });
+      await cache.endSource(
+        feed,
+        attempt,
+        new CrawlDeferred(testClock.now() + 1800),
+      );
+      expect(await record()).toEqual({ last_requested: testClock.now() });
       // A successful attempt served only from the cache keeps the cadence.
       const detail = `${ORIGIN}/detail.pdf`;
-      now += 14400;
+      testClock.advance(14400);
       attempt = await cache.beginSource(feed);
       await cache.fetch(detail);
       await cache.endSource(feed, attempt, null);
-      now += 14400;
+      testClock.advance(14400);
       attempt = await cache.beginSource(feed);
       await cache.fetch(detail);
       await cache.endSource(feed, attempt, null);
       expect(calls.filter(([url]) => url === detail)).toHaveLength(1);
-      expect(await record()).toEqual({ last_requested: now });
+      expect(await record()).toEqual({ last_requested: testClock.now() });
     });
 
     it("does not claim the URL for a request the budget refuses", async () => {
@@ -717,46 +733,60 @@ describe("CachedFetch", () => {
       expect(await repo.getRecord("crawl_source", plain.id)).toEqual({
         last_requested: 0,
       });
-      expect(await crawler([plain]).nextDue(plain)).toBeLessThanOrEqual(now);
+      expect(await crawler([plain]).nextDue(plain)).toBeLessThanOrEqual(
+        testClock.now(),
+      );
     });
 
     it("never lets a stale attempt settle a newer claim", async () => {
       const stale = await crawler([feed]).beginSource(feed);
       // The first Worker is lost; its claim still counts as requested.
-      now = START + 14400;
+      testClock.set(START + 14400);
       const cache = crawler([feed]);
       const current = await cache.beginSource(feed);
       expect(await record()).toEqual({
-        last_requested: now,
+        last_requested: testClock.now(),
         attempt: current.token,
         previous: START,
       });
-      await crawler([feed]).endSource(feed, stale, new CrawlDeferred(now));
+      await crawler([feed]).endSource(
+        feed,
+        stale,
+        new CrawlDeferred(testClock.now()),
+      );
       await crawler([feed]).endSource(feed, stale, null);
       expect(await record()).toMatchObject({ attempt: current.token });
-      await cache.endSource(feed, current, new CrawlDeferred(now + 60));
+      await cache.endSource(
+        feed,
+        current,
+        new CrawlDeferred(testClock.now() + 60),
+      );
       expect(await record()).toEqual({
         last_requested: START,
-        retry_at: now + 60,
+        retry_at: testClock.now() + 60,
       });
       // Settling twice is a no-op as well.
       await cache.endSource(feed, current, null);
       expect(await record()).toEqual({
         last_requested: START,
-        retry_at: now + 60,
+        retry_at: testClock.now() + 60,
       });
     });
 
     it("reads records without attempt fields and refuses malformed ones", async () => {
       await repo.putRecord("crawl_source", feed.id, { last_requested: START });
-      now = START + 14400 - 1;
+      testClock.set(START + 14400 - 1);
       await expect(crawler([feed]).beginSource(feed)).rejects.toBeInstanceOf(
         CrawlDeferred,
       );
-      now += 1;
+      testClock.advance(1);
       const attempt = await crawler([feed]).beginSource(feed);
       expect(await record()).toMatchObject({ previous: START });
-      await crawler([feed]).endSource(feed, attempt, new CrawlDeferred(now));
+      await crawler([feed]).endSource(
+        feed,
+        attempt,
+        new CrawlDeferred(testClock.now()),
+      );
       for (const bad of [
         { last_requested: START, attempt: "a" },
         { last_requested: START, previous: 0 },
@@ -787,7 +817,7 @@ describe("CachedFetch", () => {
 
   it("observes a new robots prohibition after the robots cache expires", async () => {
     await crawler().fetch(`${ORIGIN}/news`);
-    now += 86401;
+    testClock.advance(86401);
     rules = "User-agent: *\nDisallow: /";
     await expect(crawler().fetch(`${ORIGIN}/news`)).rejects.toBeInstanceOf(
       CrawlStopped,
@@ -799,7 +829,7 @@ describe("CachedFetch", () => {
     const putBlob = vi.spyOn(repo, "putBlob");
     const slow: FetchBytes = async (url, options) => {
       const result = await transport(url, options);
-      now += CachedFetch.LEASE_SECONDS + 1;
+      testClock.advance(CachedFetch.LEASE_SECONDS + 1);
       return result;
     };
     await expect(
@@ -830,7 +860,7 @@ describe("CachedFetch", () => {
     const respond =
       (body: string): FetchBytes =>
       async (target) => {
-        calls.push([target, now]);
+        calls.push([target, testClock.now()]);
         return target.endsWith("/robots.txt")
           ? { data: utf8(rules), url: target, contentType: "text/plain" }
           : { data: utf8(body), url: target, contentType: "text/html" };
@@ -840,7 +870,7 @@ describe("CachedFetch", () => {
     );
     const outcome = expired.catch((caught: unknown) => caught);
     await reached;
-    now += CachedFetch.LEASE_SECONDS + 1;
+    testClock.advance(CachedFetch.LEASE_SECONDS + 1);
     const fresh = crawler([], { transport: respond("new generation") });
     expect(text(await fresh.fetch(url))).toBe("new generation");
     const published = await repo.getRecord<{ blob: string }>(
@@ -855,8 +885,8 @@ describe("CachedFetch", () => {
     expect(keys[1]).toBe(published?.blob);
     expect(await repo.getBlob(keys[0] ?? "")).not.toBeNull();
     // The abandoned generation is removed by ordinary TTL pruning.
-    now += cacheTtl(url) + 1;
-    await repo.putBlob("sweep", utf8("next"), now + 60);
+    testClock.advance(cacheTtl(url) + 1);
+    await repo.putBlob("sweep", utf8("next"), testClock.now() + 60);
     expect(await repo.getBlob(keys[0] ?? "")).toBeNull();
   });
 
@@ -890,15 +920,15 @@ describe("CachedFetch", () => {
     await expect(crawler([google]).fetch(GOOGLE)).rejects.toBeInstanceOf(
       CrawlDeferred,
     );
-    now += 1800;
+    testClock.advance(1800);
     expect(text(await crawler([google]).fetch(GOOGLE))).toBe("content");
-    now += 1800;
+    testClock.advance(1800);
     await expect(
       crawler([google]).fetch("https://news.google.com/rss/search?q=other"),
     ).rejects.toThrow("禁止");
-    now += 1800;
+    testClock.advance(1800);
     const loop: FetchBytes = async (url, options) => {
-      calls.push([url, now]);
+      calls.push([url, testClock.now()]);
       if (url.endsWith("/robots.txt"))
         return { data: utf8(rules), url, contentType: "text/plain" };
       await options?.beforeRedirect?.(GOOGLE);
@@ -971,7 +1001,7 @@ describe("CachedFetch", () => {
 
     it("never applies to redirects, disabled sources or other sources", async () => {
       const hop: FetchBytes = async (url, options) => {
-        calls.push([url, now]);
+        calls.push([url, testClock.now()]);
         if (url.endsWith("/robots.txt"))
           return { data: utf8(rules), url, contentType: "text/plain" };
         await options?.beforeRedirect?.(
@@ -982,7 +1012,7 @@ describe("CachedFetch", () => {
       await expect(
         crawler([gazette], { transport: hop }).fetch(TOC),
       ).rejects.toThrow("転送先を取得しません");
-      now += 60;
+      testClock.advance(60);
       await expect(
         crawler([{ ...gazette, enabled: false }]).fetch(TOC),
       ).rejects.toThrow("禁止");
@@ -1012,12 +1042,12 @@ describe("CachedFetch", () => {
         await expect(
           crawler([gazette], { transport: hop(from) }).fetch(from),
         ).rejects.toThrow("転送先を取得しません");
-        now += 60;
+        testClock.advance(60);
       }
       expect(calls.map(([url]) => url)).not.toContain(login);
       // robots.txt allows /login and a direct TOC request still works.
       expect(new RobotsPolicy(rules).allows(login)).toBe(true);
-      now += 86400;
+      testClock.advance(86400);
       expect(text(await crawler([gazette]).fetch(TOC))).toBe("content");
       // Other hosts keep following robots-allowed same-host redirects.
       expect(
@@ -1036,14 +1066,14 @@ describe("CachedFetch", () => {
       );
       expect(calls.map(([url]) => url)).toEqual([`${HOME}robots.txt`]);
       errors.clear();
-      now += 86400;
+      testClock.advance(86400);
       errors.set(TOC, new FetchError("forbidden", 403));
       await expect(crawler([gazette]).fetch(TOC)).rejects.toThrow("forbidden");
       await expect(
         crawler([gazette]).fetch(`${HOME}20260924/20260924.fullcontents.html`),
       ).rejects.toBeInstanceOf(CrawlBackoff);
       expect((await hostState("kanpo.go.jp"))?.blocked_until).toBeGreaterThan(
-        now + 3600,
+        testClock.now() + 3600,
       );
     });
   });
@@ -1117,7 +1147,10 @@ describe("CachedFetch", () => {
         "robots.txt を確認できない",
       );
       state = await maffState();
-      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+      expect([state?.blocked_until, state?.failures]).toEqual([
+        testClock.now() + 86400,
+        1,
+      ]);
       expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS, MAFF_ROBOTS]);
     });
 
@@ -1130,7 +1163,7 @@ describe("CachedFetch", () => {
         await expect(crawler(sources).fetch(MAFF_PRESS)).rejects.toThrow(
           "robots.txt を確認できない",
         );
-        now += 86401;
+        testClock.advance(86401);
       }
       expect(pages()).toEqual([MAFF_ROBOTS, MAFF_ROBOTS, MAFF_ROBOTS]);
       expect((await maffState())?.failures).toBe(3);
@@ -1157,7 +1190,7 @@ describe("CachedFetch", () => {
       await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toBeInstanceOf(
         CrawlDeferred,
       );
-      now += 10;
+      testClock.advance(10);
       expect(text(await crawler([maff]).fetch(MAFF_PRESS))).toBe("content");
       expect(pages()).toEqual([MAFF_ROBOTS, MAFF_PRESS]);
     });
@@ -1184,7 +1217,7 @@ describe("CachedFetch", () => {
       errors.set(moved, new FetchError("forbidden", 403));
       const hop: FetchBytes = async (url, options) => {
         if (url !== MAFF_ROBOTS) return transport(url, options);
-        calls.push([url, now]);
+        calls.push([url, testClock.now()]);
         await options?.beforeRedirect?.(moved);
         return transport(moved, options);
       };
@@ -1193,7 +1226,10 @@ describe("CachedFetch", () => {
       ).rejects.toThrow("robots.txt を確認できない");
       expect(pages()).toEqual([MAFF_ROBOTS, moved]);
       const state = await maffState();
-      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+      expect([state?.blocked_until, state?.failures]).toEqual([
+        testClock.now() + 86400,
+        1,
+      ]);
     });
 
     it("keeps the 24 hour backoff for a page 403", async () => {
@@ -1202,7 +1238,10 @@ describe("CachedFetch", () => {
         "page forbidden",
       );
       const state = await maffState();
-      expect([state?.blocked_until, state?.failures]).toEqual([now + 86400, 1]);
+      expect([state?.blocked_until, state?.failures]).toEqual([
+        testClock.now() + 86400,
+        1,
+      ]);
     });
 
     it.each([
@@ -1218,7 +1257,7 @@ describe("CachedFetch", () => {
       expect(pages()).toEqual([MAFF_ROBOTS]);
       const state = await maffState();
       expect([state?.blocked_until, state?.failures]).toEqual([
-        now + seconds,
+        testClock.now() + seconds,
         1,
       ]);
     });
@@ -1231,7 +1270,7 @@ describe("CachedFetch", () => {
       async (_, data, contentType) => {
         const robots: FetchBytes = async (url, options) =>
           url === MAFF_ROBOTS
-            ? (calls.push([url, now]), { data, url, contentType })
+            ? (calls.push([url, testClock.now()]), { data, url, contentType })
             : transport(url, options);
         await expect(
           crawler([maff], { transport: robots }).fetch(MAFF_PRESS),
@@ -1246,7 +1285,7 @@ describe("CachedFetch", () => {
       errors.set(MAFF_PRESS, new FetchError("unavailable", 503));
       await expect(cache.fetch(MAFF_PRESS)).rejects.toThrow("unavailable");
       errors.delete(MAFF_PRESS);
-      now += 60;
+      testClock.advance(60);
       await expect(crawler([maff]).fetch(MAFF_PRESS)).rejects.toBeInstanceOf(
         CrawlBackoff,
       );
@@ -1279,10 +1318,10 @@ describe("CachedFetch", () => {
   it("defaults to a budget of 40 requests and validates it", async () => {
     const cache = crawler();
     for (let index = 0; index < 39; index += 1) {
-      now += 10;
+      testClock.advance(10);
       await cache.fetch(`${ORIGIN}/page-${index}`);
     }
-    now += 10;
+    testClock.advance(10);
     await expect(cache.fetch(`${ORIGIN}/page-last`)).rejects.toThrow("40 回");
     expect(cache.requests).toBe(40);
     for (const maxRequests of [0, 1.5, Number.NaN])
@@ -1299,7 +1338,7 @@ describe("CachedFetch", () => {
     expect(calls).toEqual([]);
     const live = new AbortController();
     const aborting: FetchBytes = async (url, options) => {
-      calls.push([url, now]);
+      calls.push([url, testClock.now()]);
       live.abort(reason);
       options?.signal?.throwIfAborted();
       return transport(url, options);

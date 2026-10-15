@@ -10,28 +10,25 @@ import type { SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
+import { beforeCommit } from "./helpers/races.ts";
 import { testRepository, storedState } from "./helpers/storage.ts";
 
-const source: SourceConfig = {
+const source: SourceConfig = rssSource({
   id: "fixture",
   name: "Fixture",
   description: "Test",
-  kind: "rss",
-  enabled: true,
-  url: "https://example.org/feed",
-};
-const cleanup: (() => void)[] = [];
+});
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const close of cleanup.splice(0)) close();
 });
 async function setup() {
-  let now = Date.parse("2026-09-28T03:00:00Z") / 1000;
-  const storage = testRepository([source], () => now);
-  cleanup.push(storage.close);
+  const testClock = fakeClock(Date.parse("2026-09-28T03:00:00Z") / 1000);
+  const storage = testRepository([source], () => testClock.now());
   const { repo, driver } = storage;
   await repo.initialize();
-  const other = new SQLRepository(driver, [source], () => now);
+  const other = new SQLRepository(driver, [source], () => testClock.now());
   const buffer = new BufferClient(
     "fixture-key",
     "fixture-channel",
@@ -39,7 +36,9 @@ async function setup() {
       throw new Error("Unexpected external request");
     },
   );
-  const app = new Application(repo, new Jev(), buffer, { clock: () => now });
+  const app = new Application(repo, new Jev(), buffer, {
+    clock: testClock.now,
+  });
   const handlers = createHandlers(
     () => ({ allowed: async () => true }),
     async () => app,
@@ -60,7 +59,7 @@ async function setup() {
         title: `クマの出没と対策 ${suffix}`,
         url: `https://example.org/${suffix}`,
         excerpt: "市が対策を発表",
-        publishedAt: new Date(now * 1000).toISOString(),
+        publishedAt: new Date(testClock.now() * 1000).toISOString(),
       },
     ]);
     return (await repo.articles()).find((article) =>
@@ -76,10 +75,8 @@ async function setup() {
     env,
     request,
     ingest,
-    advance: (seconds: number) => {
-      now += seconds;
-    },
-    clock: () => now,
+    advance: testClock.advance,
+    clock: testClock.now,
   };
 }
 
@@ -195,14 +192,12 @@ describe("settings-specific mutation fencing", () => {
         old.rubric,
         { analysisStatus: "done", decision: "candidate" },
       );
-      const batch = driver.batch.bind(driver);
       let raced = false;
-      vi.spyOn(driver, "batch").mockImplementation(async (statements) => {
+      beforeCommit(driver, async (statements) => {
         if (!raced && statements[0]?.[0].startsWith("UPDATE news_meta SET")) {
           raced = true;
           await other.updateSettings({ pollMinutes: 45 });
         }
-        return batch(statements);
       });
       await expect(
         repo.updateSettings(
@@ -224,14 +219,12 @@ describe("settings-specific mutation fencing", () => {
   it("retries an unrelated article race without manufacturing a settings conflict", async () => {
     const { repo, driver, ingest } = await setup();
     const old = await repo.settingsSnapshot();
-    const batch = driver.batch.bind(driver);
     let raced = false;
-    vi.spyOn(driver, "batch").mockImplementation(async (statements) => {
+    beforeCommit(driver, async (statements) => {
       if (!raced && statements[0]?.[0].startsWith("UPDATE news_meta SET")) {
         raced = true;
         await ingest("concurrent");
       }
-      return batch(statements);
     });
     await expect(
       repo.updateSettings({ pollMinutes: 30 }, old.revision),
