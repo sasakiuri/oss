@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 
 const origin = "https://news.example.test";
 const config = {
-  STORAGE_BACKEND: "d1",
   NILAY_PUBLIC_ORIGIN: origin,
   CF_ACCESS_TEAM_DOMAIN: "fixture.cloudflareaccess.com",
   CF_ACCESS_AUD: "fixture-audience",
@@ -513,7 +512,7 @@ describe("real Worker, D1 and WebCrypto", () => {
 
   it("upgrades existing D1 settings with automatic classification disabled", async () => {
     const { script } = await bundle("src/local-worker.ts");
-    const runtime = runtimeFor(script, { STORAGE_BACKEND: "d1" });
+    const runtime = runtimeFor(script, {});
     const statements = (sql: string) =>
       sql
         .split(";")
@@ -620,7 +619,7 @@ describe("real Worker, D1 and WebCrypto", () => {
         /local-worker|tests\/|\.py$|\.env|\.dev\.vars/.test(path),
       ),
     ).toBe(false);
-    const runtime = runtimeFor(script, { STORAGE_BACKEND: "d1" }, false);
+    const runtime = runtimeFor(script, {}, false);
     try {
       expect(
         (await runtime.dispatchFetch("http://localhost/api/state")).status,
@@ -637,7 +636,7 @@ describe("real Worker, D1 and WebCrypto", () => {
 
   it("serves the local application while rejecting foreign hosts and origins", async () => {
     const { script } = await bundle("src/local-worker.ts");
-    const runtime = runtimeFor(script, { STORAGE_BACKEND: "d1" });
+    const runtime = runtimeFor(script, {});
     try {
       const db = await runtime.getD1Database("DB");
       await db.batch(

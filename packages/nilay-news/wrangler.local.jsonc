@@ -22,5 +22,5 @@
     },
   ],
   "services": [{ "binding": "FEED_FETCHER", "service": "nilay-news-feeds" }],
-  "vars": { "STORAGE_BACKEND": "d1" },
+  "vars": {},
 }

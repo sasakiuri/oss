@@ -38,7 +38,6 @@ describe("production config", () => {
         { binding: "DB", database_id: ENV.NILAY_NEWS_D1_DATABASE_ID },
       ],
       vars: {
-        STORAGE_BACKEND: "d1",
         NILAY_PUBLIC_ORIGIN: ENV.NILAY_PUBLIC_ORIGIN,
         CF_ACCESS_AUD: ENV.CF_ACCESS_AUD,
       },

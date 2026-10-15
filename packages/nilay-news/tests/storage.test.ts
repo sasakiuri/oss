@@ -15,12 +15,12 @@ import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
 import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import type { SQLResult, SQLStatement } from "../src/storage/sql.ts";
-import { isRecord } from "../src/text.ts";
 
 import {
   MIGRATION_FILES,
   SQLiteDriver,
   testRepository,
+  storedState,
 } from "./helpers/storage.ts";
 
 const SOURCE: SourceConfig = {
@@ -70,14 +70,6 @@ function stored(
       JSON.parse(String(row.data)) as Record<string, unknown>,
     ]),
   );
-}
-
-/** The portable snapshot is JSON-shaped; tests edit it as plain records. */
-async function exported(from: SQLRepository): Promise<Record<string, unknown>> {
-  return JSON.parse(JSON.stringify(await from.exportSnapshot())) as Record<
-    string,
-    unknown
-  >;
 }
 
 function sameBytes(actual: Uint8Array | null, expected: Uint8Array): boolean {
@@ -1494,45 +1486,6 @@ describe("retention", () => {
     expect(await repo.existingArticleIds([articleId])).toEqual(new Set());
   });
 
-  it("exports deleted-article keys consistent with the articles", async () => {
-    await collectedAgo(10, "https://example.org/old");
-    let raced = false;
-    intercept(driver, async (original, statements) => {
-      if (
-        !raced &&
-        statements[1]?.[0].startsWith("SELECT id FROM news_removed_articles")
-      ) {
-        raced = true;
-        await repo.pruneArticles();
-      }
-      return original(statements);
-    });
-    const snapshot = await exported(repo);
-    expect(raced).toBe(true);
-    expect(snapshot.articles).toEqual([]);
-    expect(snapshot.removedArticles).toHaveLength(1);
-  });
-
-  it("carries deleted-article keys through a snapshot", async () => {
-    await collectedAgo(10, "https://example.org/old");
-    expect(await repo.pruneArticles()).toBe(1);
-    const snapshot = await exported(repo);
-    expect(snapshot.removedArticles).toHaveLength(1);
-    const other = open([SOURCE], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    await other.importSnapshot(snapshot);
-    expect(
-      await other.ingest(SOURCE, [{ ...ITEM, url: "https://example.org/old" }]),
-    ).toBe(0);
-    // A target that has deleted articles is not empty.
-    const used = open([SOURCE], join(directory, "used.sqlite3"));
-    await used.initialize();
-    await used.importSnapshot(snapshot);
-    await expect(
-      used.importSnapshot({ ...snapshot, removedArticles: [] }),
-    ).rejects.toThrow("移行先は空のデータベースにしてください");
-  });
-
   it("deletes in bounded passes, oldest first", async () => {
     now = START - 11 * 86400;
     await repo.ingest(
@@ -1782,11 +1735,11 @@ describe("bulk review and manual publication approval", () => {
     "rejects unsupported bulk action %j",
     async (status) => {
       const id = await candidate();
-      const before = await repo.exportSnapshot();
+      const before = await storedState(repo);
       await expect(repo.reviewMany([id], status)).rejects.toBeInstanceOf(
         UserError,
       );
-      expect(await repo.exportSnapshot()).toEqual(before);
+      expect(await storedState(repo)).toEqual(before);
     },
   );
 
@@ -1803,21 +1756,21 @@ describe("bulk review and manual publication approval", () => {
       await repo.finishPost(blocked, "unknown", {
         claimToken: attempt.claimToken,
       });
-      const before = await repo.exportSnapshot();
+      const before = await storedState(repo);
       await expect(
         repo.reviewMany([first, blocked], status),
       ).rejects.toBeInstanceOf(UserError);
-      expect(await repo.exportSnapshot()).toEqual(before);
+      expect(await storedState(repo)).toEqual(before);
       await repo.resolvePost(blocked, "posted");
       await repo.review(blocked, "unread");
-      const posted = await repo.exportSnapshot();
+      const posted = await storedState(repo);
       await expect(repo.reviewMany([first, blocked], status)).rejects.toThrow(
         "投稿済み",
       );
       await expect(repo.review(blocked, "approved")).rejects.toThrow(
         "投稿済み",
       );
-      expect(await repo.exportSnapshot()).toEqual(posted);
+      expect(await storedState(repo)).toEqual(posted);
     },
   );
 
@@ -1873,22 +1826,6 @@ describe("bulk review and manual publication approval", () => {
     expect((await repo.article(id)).reviewedAt).toBeUndefined();
     expect(await repo.postCandidates()).toEqual([]);
   });
-
-  it("keeps approvals and their timestamp in a snapshot without enabling automatic posting", async () => {
-    const id = await candidate();
-    await repo.review(id, "approved");
-    const restored = open([SOURCE], join(directory, "approved.sqlite3"));
-    await restored.initialize();
-    await restored.importSnapshot(await repo.exportSnapshot());
-    expect(await restored.article(id)).toMatchObject({
-      reviewStatus: "approved",
-      reviewedAt: expect.any(String),
-    });
-    expect(Date.parse((await restored.article(id)).reviewedAt!)).toBe(
-      now * 1000,
-    );
-    expect((await restored.settings()).autoPost).toBe(false);
-  });
 });
 
 describe("failed draft recovery", () => {
@@ -1929,9 +1866,9 @@ describe("failed draft recovery", () => {
     const id = await failedDraft();
     const posted = await candidate({ url: "https://example.org/posted" });
     await repo.review(posted, "posted");
-    const before = await repo.exportSnapshot();
+    const before = await storedState(repo);
     await expect(repo.dismiss([id, posted])).rejects.toThrow("投稿済み");
-    expect(await repo.exportSnapshot()).toEqual(before);
+    expect(await storedState(repo)).toEqual(before);
     await expect(repo.review(id, "saved")).rejects.toThrow("投稿結果の確認");
   });
 
@@ -1989,10 +1926,10 @@ describe("failed draft recovery", () => {
       );
       expect(attempt).not.toBeNull();
       await repo.finishPost(id, "unknown", { claimToken: attempt!.claimToken });
-      const before = await repo.exportSnapshot();
+      const before = await storedState(repo);
       release();
       expect(await pending).toBeInstanceOf(UserError);
-      expect(await repo.exportSnapshot()).toEqual(before);
+      expect(await storedState(repo)).toEqual(before);
     },
   );
 
@@ -2015,13 +1952,13 @@ describe("failed draft recovery", () => {
       expect((await repo.publicationState()).posts[0]?.failedBeforeSend).toBe(
         false,
       );
-      const before = await repo.exportSnapshot();
+      const before = await storedState(repo);
       await expect(repo.review(id, "dismissed")).rejects.toThrow(
         "投稿結果の確認",
       );
       await expect(repo.dismiss([id])).rejects.toThrow("投稿結果の確認");
       await expect(repo.resolvePost(id, "retry")).rejects.toThrow();
-      expect(await repo.exportSnapshot()).toEqual(before);
+      expect(await storedState(repo)).toEqual(before);
     },
   );
 });
@@ -3303,251 +3240,6 @@ describe("records, host leases and blobs", () => {
         .get()?.parts,
     ).toBe(0);
   }, 30_000); // Writes 48 MB to a real SQLite file, including chunking and eviction.
-});
-
-describe("snapshots", () => {
-  it("round-trips while disabling automation and preserving unknown sends", async () => {
-    const articleId = await ready();
-    await repo.updateSettings({ autoCollect: true, autoAnalyze: true });
-    const attempt = await claim();
-    const snapshot = await repo.exportSnapshot();
-    expect(snapshot).toMatchObject({
-      version: 3,
-      settings: { autoAnalyze: true },
-      removedArticles: [],
-    });
-    expect(snapshot).not.toHaveProperty("job");
-    expect(JSON.stringify(snapshot)).toContain('"_identity"');
-    const other = open([SOURCE], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    expect(await other.importSnapshot(snapshot)).toEqual({
-      articles: 1,
-      posts: 1,
-      automationDisabled: true,
-    });
-    expect(await other.settings()).toMatchObject({
-      autoCollect: false,
-      autoAnalyze: false,
-      autoPost: false,
-    });
-    expect((await other.publicationState()).nextAt).toBe(
-      now + POST_INTERVAL_SECONDS,
-    );
-    expect((await other.getJob()).running).toBe(false);
-    expect((await other.article(articleId)).reviewStatus).toBe("saved");
-    expect((await other.publicationState()).posts[0]?.status).toBe("unknown");
-    await expect(
-      other.finishPost(articleId, "posted", { claimToken: attempt.claimToken }),
-    ).rejects.toBeInstanceOf(UserError);
-    expect(await other.ingest(SOURCE, [ITEM])).toBe(0);
-    await expect(other.importSnapshot(snapshot)).rejects.toThrow(
-      "移行先は空のデータベースにしてください",
-    );
-  });
-
-  it("leaves an open round behind while its pending post stays reconcilable", async () => {
-    const first = await ready();
-    const second = await candidate({
-      url: "https://example.org/b",
-      publishedAt: published(-7260),
-    });
-    const attempt = await claim();
-    await repo.submitPost(first, "buffer", "channel", now, attempt.claimToken);
-    const snapshot = await exported(repo);
-    expect(snapshot).not.toHaveProperty("publication_batch");
-    expect(snapshot.schedule).toEqual({ next_at: now + POST_INTERVAL_SECONDS });
-    const other = open([SOURCE], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    await other.importSnapshot(snapshot);
-    expect(
-      stored(drivers.at(-1)?.db ?? driver.db, "state").get("publication_batch"),
-    ).toEqual({ articleIds: [], openedAt: 0 });
-    const pending = await other.claimPostCheck(now + 120);
-    expect(pending).toMatchObject({ article_id: first, buffer_id: "buffer" });
-    await other.finishPost(first, "posted", {
-      timestamp: now + 120,
-      claimToken: pending?.claim_token,
-    });
-    now += 120;
-    await other.updateSettings({ autoPost: true });
-    expect(await other.claimPost(now)).toBeNull();
-    expect(await other.claimPost(now + POST_INTERVAL_SECONDS - 1)).toBeNull();
-    expect(
-      (await other.claimPost(now + POST_INTERVAL_SECONDS))?.articleId,
-    ).toBe(second);
-  });
-
-  it("keeps a submitted Buffer identity and its confirmation budget", async () => {
-    const articleId = await ready();
-    const attempt = await claim();
-    await repo.submitPost(
-      articleId,
-      "buffer",
-      "channel",
-      now,
-      attempt.claimToken,
-    );
-    await repo.claimPostCheck(now + 120);
-    const other = open([SOURCE], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    await other.importSnapshot(await repo.exportSnapshot());
-    const post = stored(drivers.at(-1)?.db ?? driver.db, "posts").get(
-      articleId,
-    );
-    expect(post).toMatchObject({
-      status: "submitted",
-      buffer_id: "buffer",
-      channel_id: "channel",
-      check_count: 1,
-    });
-    expect(post?.claim_token).not.toBe(attempt.claimToken);
-  });
-
-  it("restores only configured sources and never unblocks one", async () => {
-    const snapshot = await exported(repo);
-    snapshot.sources = [
-      {
-        ...SOURCE,
-        url: "https://evil.example/feed",
-        enabled: true,
-        lastError: "前回の失敗",
-      },
-      { ...SOURCE, id: "retired", enabled: true },
-    ];
-    const blocked: SourceConfig = { ...SOURCE, collectionBlocked: "停止中" };
-    const other = open([blocked], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    await other.importSnapshot(snapshot);
-    const sources = stored(drivers.at(-1)?.db ?? driver.db, "sources");
-    expect([...sources.keys()]).toEqual(["one"]);
-    expect(sources.get("one")).toMatchObject({
-      url: SOURCE.url,
-      enabled: false,
-      lastError: "前回の失敗",
-      collectionBlocked: "停止中",
-    });
-  });
-
-  it("refuses a target with automation enabled", async () => {
-    const snapshot = await repo.exportSnapshot();
-    const other = open([SOURCE], join(directory, "restored.sqlite3"));
-    await other.initialize();
-    await other.updateSettings({ autoCollect: true });
-    await expect(other.importSnapshot(snapshot)).rejects.toThrow(
-      "移行先の自動実行を停止してください",
-    );
-    await other.updateSettings({ autoCollect: false, autoAnalyze: true });
-    await expect(other.importSnapshot(snapshot)).rejects.toThrow(
-      "移行先の自動実行を停止してください",
-    );
-  });
-
-  it.each([
-    ["format", { format: "other" }, "対応していない移行データ形式です"],
-    [
-      "version before automatic classification",
-      { version: 1 },
-      "対応していない移行データ形式です",
-    ],
-    [
-      "version before article deletion",
-      { version: 2 },
-      "対応していない移行データ形式です",
-    ],
-    [
-      "deleted-article key",
-      { removedArticles: ["bad"] },
-      "移行データの削除済み記事が不正です",
-    ],
-    [
-      "settings keys",
-      { settings: { rubric: "x" } },
-      "移行データの設定が不正です",
-    ],
-    [
-      "schedule",
-      { schedule: { next_at: -1 } },
-      "移行データの投稿時刻が不正です",
-    ],
-    [
-      "article shape",
-      { articles: [{ id: "bad" }] },
-      "移行データの記事が不正です",
-    ],
-    ["rows", { posts: [{}] }, "移行データの記事・情報源・投稿履歴が不正です"],
-  ])(
-    "leaves the target empty for an invalid %s",
-    async (_name, change, message) => {
-      const snapshot = { ...(await exported(repo)), ...change };
-      const before = await repo.stateVersion();
-      await expect(repo.importSnapshot(snapshot)).rejects.toThrow(message);
-      expect(await repo.stateVersion()).toBe(before);
-      expect(await repo.articles()).toEqual([]);
-    },
-  );
-
-  it("requires a boolean automatic classification setting", async () => {
-    const snapshot = await exported(repo);
-    const settings = snapshot.settings as Record<string, unknown>;
-    const { autoAnalyze: _omitted, ...missing } = settings;
-    for (const invalid of [missing, { ...settings, autoAnalyze: "false" }]) {
-      await expect(
-        repo.importSnapshot({ ...snapshot, settings: invalid }),
-      ).rejects.toThrow("移行データの設定が不正です");
-    }
-    expect(await repo.articles()).toEqual([]);
-  });
-
-  it("rejects duplicate ids, orphan posts and incomplete Buffer records", async () => {
-    const articleId = await candidate();
-    const snapshot = await exported(repo);
-    const article: unknown = Array.isArray(snapshot.articles)
-      ? snapshot.articles[0]
-      : null;
-    if (!isRecord(article)) throw new Error("missing exported article");
-    const post = {
-      article_id: articleId,
-      status: "submitted",
-      text: "t",
-      attempted_at: new Date(now * 1000).toISOString(),
-      claim_token: "c",
-      check_count: 0,
-    };
-    const target = open([SOURCE], join(directory, "restored.sqlite3"));
-    await target.initialize();
-    const version = await target.stateVersion();
-    await expect(
-      target.importSnapshot({ ...snapshot, articles: [article, article] }),
-    ).rejects.toThrow("移行データに重複した ID があります");
-    await expect(
-      target.importSnapshot({
-        ...snapshot,
-        articles: [article, { ...article, id: "c".repeat(24) }],
-      }),
-    ).rejects.toThrow("移行データの記事が不正です");
-    await expect(
-      target.importSnapshot({
-        ...snapshot,
-        posts: [{ ...post, article_id: "d".repeat(24) }],
-      }),
-    ).rejects.toThrow("移行データの投稿履歴が不正です");
-    await expect(
-      target.importSnapshot({
-        ...snapshot,
-        posts: [{ ...post, check_count: 7 }],
-      }),
-    ).rejects.toThrow("移行データの投稿履歴が不正です");
-    await expect(
-      target.importSnapshot({ ...snapshot, posts: [post] }),
-    ).rejects.toThrow("移行データの Buffer 登録情報が不正です");
-    await expect(
-      target.importSnapshot({
-        ...snapshot,
-        sources: [{ ...SOURCE, enabled: "yes" }],
-      }),
-    ).rejects.toThrow("移行データの情報源設定が不正です");
-    expect(await target.stateVersion()).toBe(version);
-  });
 });
 
 describe("posting window", () => {

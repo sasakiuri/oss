@@ -112,15 +112,6 @@ const REVIEW_STATUSES: ReadonlySet<unknown> = new Set<ReviewStatus>([
   "dismissed",
   "posted",
 ]);
-const ANALYSIS_STATUSES: ReadonlySet<unknown> = new Set([
-  "pending",
-  "done",
-  "error",
-]);
-const POST_STATUSES: ReadonlySet<unknown> = new Set<PostStatus>([
-  ...UNRESOLVED_POST_STATUSES,
-  "posted",
-]);
 const SETTING_KEYS = new Set([
   "rubric",
   "pollMinutes",
@@ -188,7 +179,7 @@ interface Schedule {
 /**
  * The current posting round: the automatic candidates snapshotted, newest
  * first, when it opened and not yet posted. Empty when no round is open.
- * Transient runtime state; never part of the portable snapshot.
+ * Transient runtime state.
  */
 interface PublicationBatch {
   articleIds: string[];
@@ -201,7 +192,6 @@ type StateRows = {
   schedule?: Schedule;
   publication_batch?: PublicationBatch;
   job?: Job;
-  imported?: { at: string };
 };
 interface Tables {
   articles: Map<string, Article>;
@@ -227,8 +217,6 @@ const RELATION_POOL_LIMIT = 2000;
 const RETENTION_DAYS = RELATION_WINDOW_DAYS + 3;
 /** Most articles one pass deletes, keeping each scheduler write short. */
 const PRUNE_LIMIT = 200;
-/** Deleted-article keys per imported statement, well within D1's value size. */
-const IMPORT_KEYS = 10000;
 
 function encode(value: unknown): string {
   return JSON.stringify(value);
@@ -650,7 +638,7 @@ export class SQLRepository implements NewsRepository {
       const result = await transform(after, statements);
       if (tables.some((table) => table === "articles"))
         for (const article of after.articles.values()) indexArticle(article);
-      // All settings changes, including automatic posting stops and imports,
+      // All settings changes, including automatic posting stops,
       // invalidate browser snapshots in the same fenced transaction. Unrelated
       // article, source, job and scheduler writes do not change this token.
       if (
@@ -724,7 +712,7 @@ export class SQLRepository implements NewsRepository {
 
   async initialize(): Promise<void> {
     // Backfill existing rows once, in bounded, revision-fenced chunks. No date
-    // parsing in SQL: imported/RFC dates obey the same policy as fresh writes.
+    // parsing in SQL: stored/RFC dates obey the same policy as fresh writes.
     for (;;) {
       const result = await this.driver.batch([
         [
@@ -2725,281 +2713,5 @@ export class SQLRepository implements NewsRepository {
       [],
     ]);
     await this.driver.batch(writes);
-  }
-
-  /**
-   * Portable business data; runtime secrets, jobs and response cache excluded.
-   *
-   * _identity is intentionally retained for faithful article deduplication.
-   * This format belongs to NewsRepository, not to an underlying SQL schema.
-   */
-  async exportSnapshot(): Promise<object> {
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const [revision, state] = await this.snapshot([
-        "state",
-        "articles",
-        "sources",
-        "posts",
-      ]);
-      // Deletions commit with a new revision, so an unchanged one is consistent.
-      const removed = await this.driver.batch([
-        ["SELECT revision FROM news_meta WHERE id=1", []],
-        ["SELECT id FROM news_removed_articles ORDER BY id", []],
-      ]);
-      if (numberColumn(removed[0]?.results[0], "revision") !== revision)
-        continue;
-      return {
-        format: "nilay-news",
-        version: 3,
-        revision,
-        exportedAt: timestamp(this.clock()),
-        settings: settingsOf(state.state),
-        schedule: scheduleOf(state.state),
-        articles: [...state.articles.values()],
-        sources: [...state.sources.values()],
-        posts: [...state.posts.values()],
-        removedArticles: (removed[1]?.results ?? []).map((row) =>
-          textColumn(row, "id"),
-        ),
-      };
-    }
-    throw new UserError(
-      "同時更新が続いています。時間をおいて再実行してください",
-    );
-  }
-
-  /**
-   * Import once into an empty repository, with automation always disabled.
-   *
-   * The caller supplies the parsed portable format, never an arbitrary SQL
-   * dump. Pending sending claims become unknown; submitted Buffer identities
-   * retain their confirmation budget. Reconciliation is required before any
-   * unresolved publication can be enabled again.
-   */
-  async importSnapshot(input: unknown): Promise<object> {
-    const snapshot: unknown = structuredClone(input);
-    if (
-      !isRecord(snapshot) ||
-      snapshot.format !== "nilay-news" ||
-      snapshot.version !== 3
-    ) {
-      throw new UserError("対応していない移行データ形式です");
-    }
-    const { settings, schedule } = snapshot;
-    if (
-      !isRecord(settings) ||
-      Object.keys(settings).length !== SETTING_KEYS.size ||
-      Object.keys(settings).some((key) => !SETTING_KEYS.has(key))
-    ) {
-      throw new UserError("移行データの設定が不正です");
-    }
-    if (
-      !validRubric(settings.rubric) ||
-      !validPollMinutes(settings.pollMinutes) ||
-      !SELECTIONS.has(settings.postSelection) ||
-      typeof settings.autoCollect !== "boolean" ||
-      typeof settings.autoAnalyze !== "boolean" ||
-      typeof settings.autoPost !== "boolean"
-    ) {
-      throw new UserError("移行データの設定が不正です");
-    }
-    if (
-      !isRecord(schedule) ||
-      Object.keys(schedule).join() !== "next_at" ||
-      !finite(schedule.next_at) ||
-      schedule.next_at < 0
-    ) {
-      throw new UserError("移行データの投稿時刻が不正です");
-    }
-    const tables = new Map<string, Map<string, Record<string, unknown>>>();
-    for (const [name, key] of [
-      ["articles", "id"],
-      ["sources", "id"],
-      ["posts", "article_id"],
-    ] as const) {
-      const rows = snapshot[name];
-      if (
-        !Array.isArray(rows) ||
-        rows.some((row) => !isRecord(row) || typeof row[key] !== "string")
-      ) {
-        throw new UserError("移行データの記事・情報源・投稿履歴が不正です");
-      }
-      const table = new Map(
-        rows.filter(isRecord).map((row) => [String(row[key]), row]),
-      );
-      if (table.size !== rows.length)
-        throw new UserError("移行データに重複した ID があります");
-      tables.set(name, table);
-    }
-    const articles =
-      tables.get("articles") ?? new Map<string, Record<string, unknown>>();
-    const posts =
-      tables.get("posts") ?? new Map<string, Record<string, unknown>>();
-    const sources =
-      tables.get("sources") ?? new Map<string, Record<string, unknown>>();
-    const removed = snapshot.removedArticles;
-    if (
-      !Array.isArray(removed) ||
-      removed.some(
-        (key) =>
-          typeof key !== "string" ||
-          !/^[a-f0-9]{24}$/.test(key) ||
-          articles.has(key),
-      ) ||
-      new Set(removed).size !== removed.length
-    )
-      throw new UserError("移行データの削除済み記事が不正です");
-    const identities = new Set<string>();
-    for (const [articleId, article] of articles) {
-      const identity = article._identity;
-      if (
-        !/^[a-f0-9]{24}$/.test(articleId) ||
-        [
-          "_identity",
-          "url",
-          "title",
-          "excerpt",
-          "sourceName",
-          "discoveredAt",
-        ].some((key) => typeof article[key] !== "string") ||
-        typeof identity !== "string" ||
-        !identity ||
-        length(identity) > 16384 ||
-        identities.has(identity) ||
-        !REVIEW_STATUSES.has(article.reviewStatus) ||
-        (article.reviewStatus === "approved" &&
-          (typeof article.reviewedAt !== "string" ||
-            !Number.isFinite(Date.parse(article.reviewedAt)))) ||
-        !ANALYSIS_STATUSES.has(article.analysisStatus) ||
-        !Array.isArray(article.sourceIds) ||
-        !article.sourceIds.length ||
-        article.sourceIds.some((value) => typeof value !== "string")
-      ) {
-        throw new UserError("移行データの記事が不正です");
-      }
-      identities.add(identity);
-    }
-    for (const [articleId, post] of posts) {
-      if (
-        !articles.has(articleId) ||
-        !POST_STATUSES.has(post.status) ||
-        ["text", "attempted_at", "claim_token"].some(
-          (key) => typeof post[key] !== "string",
-        ) ||
-        !isInteger(post.check_count) ||
-        post.check_count < 0 ||
-        post.check_count > CONFIRMATION_MAX_CHECKS ||
-        !Number.isFinite(Date.parse(String(post.attempted_at))) ||
-        (post.confirmation_deadline !== undefined &&
-          (!finite(post.confirmation_deadline) ||
-            post.confirmation_deadline < 0)) ||
-        (post.observed_at !== undefined &&
-          (!finite(post.observed_at) || post.observed_at < 0)) ||
-        (post.remote_status !== undefined &&
-          ![
-            "draft",
-            "error",
-            "needs_approval",
-            "scheduled",
-            "sending",
-            "sent",
-          ].includes(String(post.remote_status)))
-      ) {
-        throw new UserError("移行データの投稿履歴が不正です");
-      }
-      if (
-        post.status === "submitted" &&
-        (["buffer_id", "channel_id"].some(
-          (key) => typeof post[key] !== "string" || !post[key],
-        ) ||
-          !finite(post.check_at))
-      ) {
-        throw new UserError("移行データの Buffer 登録情報が不正です");
-      }
-      if (post.status === "publishing")
-        Object.assign(post, {
-          status: "unknown",
-          error: "移行前の送信結果を Buffer と X で確認してください",
-        });
-      // A stale process on the old database must never own the new record.
-      post.claim_token = randomToken();
-    }
-    const configs = new Map(
-      this.sourceConfig.map((source) => [source.id, source]),
-    );
-    const restoredSources = new Map<string, Source>();
-    for (const [sourceId, source] of sources) {
-      const config = configs.get(sourceId);
-      if (!config) continue; // Historical article provenance remains in sourceIds.
-      const allowed = Object.fromEntries(
-        SOURCE_STATE.filter((key) => key in source).map((key) => [
-          key,
-          source[key],
-        ]),
-      );
-      if ("enabled" in allowed && typeof allowed.enabled !== "boolean")
-        throw new UserError("移行データの情報源設定が不正です");
-      const restored: Source = { ...structuredClone(config), ...allowed };
-      if (restored.collectionBlocked) restored.enabled = false;
-      restoredSources.set(sourceId, restored);
-    }
-    const importedSettings = {
-      ...settings,
-      autoPost: false,
-      autoCollect: false,
-      autoAnalyze: false,
-    } as unknown as Settings;
-    const importedSchedule: Schedule = {
-      next_at: nextPostingAt(
-        Math.max(schedule.next_at, this.clock() + POST_INTERVAL_SECONDS),
-      ),
-    };
-    return this.mutate(
-      ["state", "articles", "sources", "posts"],
-      async (state, statements) => {
-        if (
-          state.articles.size ||
-          state.posts.size ||
-          (
-            await this.driver.batch([
-              ["SELECT 1 FROM news_removed_articles LIMIT 1", []],
-            ])
-          )[0]?.results.length ||
-          jobOf(state.state).running ||
-          state.state.imported !== undefined
-        ) {
-          throw new UserError("移行先は空のデータベースにしてください");
-        }
-        const current = settingsOf(state.state);
-        if (current.autoPost || current.autoCollect || current.autoAnalyze)
-          throw new UserError("移行先の自動実行を停止してください");
-        // The validated portable documents become repository rows unchanged.
-        for (const [id, article] of articles)
-          state.articles.set(id, article as unknown as Article);
-        for (const [id, post] of posts)
-          state.posts.set(id, post as unknown as Post);
-        for (const [id, source] of restoredSources)
-          state.sources.set(id, source);
-        for (let start = 0; start < removed.length; start += IMPORT_KEYS)
-          statements.push([
-            "INSERT INTO news_removed_articles(id) SELECT value FROM json_each(?) WHERE 1",
-            [encode(removed.slice(start, start + IMPORT_KEYS))],
-          ]);
-        Object.assign(state.state, {
-          settings: importedSettings,
-          settings_revision: { value: randomToken() },
-          schedule: importedSchedule,
-          // An open round is runtime state; imported posting starts afresh.
-          publication_batch: closedBatch(),
-          job: structuredClone(DEFAULT_JOB),
-          imported: { at: timestamp(this.clock()) },
-        });
-        return {
-          articles: articles.size,
-          posts: posts.size,
-          automationDisabled: true,
-        };
-      },
-    );
   }
 }
