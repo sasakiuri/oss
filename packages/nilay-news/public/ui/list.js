@@ -5,8 +5,9 @@ import { shortDate } from "./time.js";
 import { canReview, visibleArticles } from "./articles.js";
 import { articleTags } from "./article-tags.js";
 import { renderBulkActions } from "./selection.js";
-import { review, collect } from "./actions.js";
-import { refresh, loadArticles, loadDetail } from "./inbox.js";
+import { review, collect, clearFilters, selectArticle } from "./actions.js";
+import { renderFilters } from "./header.js";
+import { refresh, loadArticles } from "./inbox.js";
 import { notifyView } from "./updates.js";
 
 export function renderArticle(article) {
@@ -38,24 +39,7 @@ export function renderArticle(article) {
   const select = button(
     "",
     "article-select",
-    () => {
-      model.selectedId = article.id;
-      model.detail = null;
-      loadDetail(article.id);
-      renderArticles();
-      notifyView("detail");
-      if (window.matchMedia("(max-width: 960px)").matches) {
-        $("detail-panel").scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-        $("detail-panel").focus({ preventScroll: true });
-      } else {
-        [...document.querySelectorAll("[data-focus]")]
-          .find((node) => node.dataset.focus === `article-${article.id}`)
-          ?.focus({ preventScroll: true });
-      }
-    },
+    () => selectArticle(article.id),
     `article-${article.id}`,
   );
   select.setAttribute("aria-label", `${article.title} — 詳細を読む`);
@@ -90,6 +74,7 @@ export function renderArticle(article) {
     );
     save.setAttribute("aria-pressed", String(saved));
     save.title = saved ? "保存を解除" : "記事を保存";
+    save.disabled = model.requestPending || !canReview(article, "saved");
     card.append(save);
   }
   return card;
@@ -99,16 +84,22 @@ function renderEmpty() {
   const empty = el("div", "empty-state");
   let title;
   let description;
-  if (model.loading) {
+  if (model.loading || model.listLoading) {
     title = "読み込み中…";
     description = "記事と収集元を読み込んでいます。";
   } else if (model.loadError && !model.state) {
     title = "受信箱に接続できません";
     description = model.loadError;
+  } else if (model.listError) {
+    title = "記事を読み込めませんでした";
+    description = model.listError;
   } else if (model.query || model.topic || model.analysis || model.relation) {
     title = "条件に合う記事はありません";
     description = "検索語やテーマを変更してください。";
-  } else if (!model.state?.articles.length) {
+  } else if (
+    !model.state ||
+    !Object.values(model.state.stats?.buckets || {}).some(Boolean)
+  ) {
     title = "記事はまだありません";
     description = "「記事を集める」で、登録した収集元から記事を取得します。";
   } else {
@@ -153,29 +144,25 @@ function renderEmpty() {
     [title, description] = messages[model.view] || messages.inbox;
   }
   empty.append(el("h3", "", title), el("p", "", description));
+  if (model.loading || model.listLoading) return empty;
   if (model.loadError && !model.state)
     empty.append(
       button("もう一度読み込む", "button button-secondary", refresh),
+    );
+  else if (model.listError)
+    empty.append(
+      button("もう一度読み込む", "button button-secondary", () =>
+        loadArticles(),
+      ),
     );
   else if (
     (model.query || model.topic || model.analysis || model.relation) &&
     model.state
   )
     empty.append(
-      button("絞り込みを解除", "button button-secondary", () => {
-        model.query = "";
-        model.topic = "";
-        model.analysis = "";
-        model.relation = "";
-        model.checkedIds.clear();
-        $("search").value = "";
-        $("topic-filter").value = "";
-        $("analysis-filter").value = "";
-        $("relation-filter").value = "";
-        loadArticles(0);
-      }),
+      button("絞り込みを解除", "button button-secondary", () => clearFilters()),
     );
-  else if (!model.state?.articles.length && model.state) {
+  else if (model.view === "inbox" && model.state) {
     const collectButton = button(
       "記事を集める",
       "button button-primary",
@@ -188,6 +175,7 @@ function renderEmpty() {
 }
 
 export function renderArticles() {
+  renderFilters();
   const articles = visibleArticles();
   const selectedVisible = articles.some(
     (article) => article.id === model.selectedId,
@@ -199,6 +187,13 @@ export function renderArticles() {
   const total = model.articlePage?.total || 0;
   const offset = model.articlePage?.offset || 0;
   $("list-count").textContent = `${total} 件`;
+  $("list-range").textContent = model.listLoading
+    ? "読み込み中…"
+    : `${total ? offset + 1 : 0}–${offset + articles.length} / ${total} 件`;
+  $("article-list").setAttribute(
+    "aria-busy",
+    String(model.loading || model.listLoading),
+  );
   renderBulkActions(articles);
   $("article-list").replaceChildren(
     ...(articles.length ? articles.map(renderArticle) : [renderEmpty()]),
@@ -207,6 +202,7 @@ export function renderArticles() {
     `${total} 件中 ${total ? offset + 1 : 0}–${offset + articles.length} 件を表示`;
   $("list-footnote").hidden = total <= PAGE_SIZE;
   $("list-pagination").replaceChildren();
+  if (model.listLoading) return;
   if (offset)
     $("list-pagination").append(
       button(

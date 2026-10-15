@@ -5,6 +5,36 @@ import { dateText, messageText } from "./time.js";
 import { canReview, canDismiss } from "./articles.js";
 import { mutate, review, analyze } from "./actions.js";
 
+export function appendArticleReviewActions(panel, article) {
+  const actions = el("div", "detail-review-actions");
+  const saved = article.reviewStatus === "saved";
+  if (article.reviewStatus !== "posted") {
+    const save = button(
+      saved ? "保存を解除" : "保存",
+      "button button-secondary",
+      () => review(article, saved ? "unread" : "saved"),
+      "detail-save",
+    );
+    save.setAttribute("aria-pressed", String(saved));
+    save.disabled =
+      model.requestPending || !canReview(article, saved ? "unread" : "saved");
+    actions.append(save);
+    if (canDismiss(article)) {
+      const dismiss = button(
+        "この記事を見送る",
+        "button button-subtle",
+        () => review(article, "dismissed"),
+        "detail-dismiss",
+      );
+      dismiss.disabled = model.requestPending;
+      actions.append(dismiss);
+    }
+  }
+  const url = safeUrl(article.url);
+  if (url) actions.append(externalLink("元の記事を開く ↗", url, "text-button"));
+  panel.append(actions);
+}
+
 export function appendArticlePublication(panel, article) {
   const publication = model.state.publication.posts.find(
     (post) => post.articleId === article.id,
@@ -130,27 +160,16 @@ export function appendArticlePublication(panel, article) {
   }
   panel.append(preview);
   const actions = el("div", "detail-actions");
-  const url = safeUrl(article.url);
-  if (url) actions.append(externalLink("元の記事を開く ↗", url, "button"));
-  const saved = article.reviewStatus === "saved";
-  const save = button(
-    saved ? "保存を解除" : "保存",
-    "button button-secondary",
-    () => review(article, saved ? "unread" : "saved"),
-    "detail-save",
-  );
-  save.setAttribute("aria-pressed", String(saved));
-  save.disabled = postingBlocked;
-  actions.append(save);
-  if (article.reviewStatus !== "approved" && canReview(article, "approved"))
-    actions.append(
-      button(
-        "内容・重複を確認して投稿を承認",
-        "button button-primary",
-        () => review(article, "approved"),
-        "detail-approve",
-      ),
+  if (article.reviewStatus !== "approved" && canReview(article, "approved")) {
+    const approve = button(
+      "内容・重複を確認して投稿を承認",
+      "button button-primary",
+      () => review(article, "approved"),
+      "detail-approve",
     );
+    approve.disabled = model.requestPending;
+    actions.append(approve);
+  }
   if (article.postDraft && !postingBlocked) {
     const intent = new URL("https://x.com/intent/tweet");
     intent.searchParams.set("text", article.postDraft);
@@ -158,7 +177,7 @@ export function appendArticlePublication(panel, article) {
       externalLink(
         "X の投稿画面を開く ↗",
         intent.href,
-        "button button-primary",
+        "button button-secondary",
       ),
     );
   }
@@ -193,15 +212,6 @@ export function appendArticlePublication(panel, article) {
         "text-button",
         () => review(article, "unread"),
         "detail-unread",
-      ),
-    );
-  else if (canDismiss(article))
-    secondary.append(
-      button(
-        "この記事を見送る",
-        "text-button",
-        () => review(article, "dismissed"),
-        "detail-dismiss",
       ),
     );
   if (model.state.settings.jevConfigured) {

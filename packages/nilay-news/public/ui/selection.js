@@ -23,6 +23,9 @@ export function renderBulkActions(
   all.indeterminate = model.checkedIds.size > 0 && !all.checked;
   all.disabled = model.requestPending || !eligible.size;
   $("selection-count").textContent = `${model.checkedIds.size} 件選択中`;
+  $("selection-tools").hidden = !model.checkedIds.size;
+  $("bulk-help").hidden = !model.checkedIds.size;
+  $("bulk-actions").classList.toggle("has-checked", !!model.checkedIds.size);
   const blocked = shown.some(
     (article) =>
       model.checkedIds.has(article.id) && !canReview(article, model.bulkStatus),
