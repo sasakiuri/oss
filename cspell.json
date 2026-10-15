@@ -205,61 +205,25 @@
   ],
   "overrides": [
     {
-      "filename": "packages/nilay-news/**",
+      "filename": "packages/nilay-news/{README.md,scripts/**/*.ts,tests/**/*.ts}",
       "words": [
-        "Abema",
         "CEEK",
-        "chotatsu",
         "cloudflareaccess",
-        "cooldowns",
-        "describedby",
         "dspcnt",
         "egov",
         "egovui",
         "fullcontents",
         "gibier",
-        "hoan",
         "husho",
-        "Iken",
-        "ikennyuryoku",
-        "Kaku",
-        "kanbo",
         "kanpo",
         "maff",
-        "MATIMES",
-        "Miniflare",
-        "neighbouring",
-        "nilaynews",
-        "noopener",
-        "noreferrer",
-        "PCMIKENINPUT",
         "pcmmstdetail",
         "pcmmstlist",
-        "resends",
         "riflesports",
         "rinya",
-        "seian",
-        "TATARA",
-        "TBSNEWSDIG",
         "tyoujuu",
         "typesafe",
-        "unposted",
-        "urlencode",
-        "urljoin",
-        "urlsplit",
-        "viewports",
-        "älter",
-        "édition",
-        "öffentlich"
-      ]
-    },
-    {
-      "filename": "packages/nilay-news/tests/**/*.ts",
-      "ignoreRegExpList": [
-        "/\\bc2VjcmV0\\b/g",
-        "/\\bc2lnbmF0dXJl\\b/g",
-        "/https:\\/\\/exa mple\\.com\\//g",
-        "/\\bpre-empts\\b/g"
+        "urlsplit"
       ]
     },
     {
