@@ -251,6 +251,8 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
+  let output: string;
+  let failed = false;
   try {
     const health = await checkProductionHealth({
       account: process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
@@ -258,14 +260,20 @@ if (
       token: process.env.CLOUDFLARE_API_TOKEN ?? "",
       commit: process.env.GITHUB_SHA ?? "",
     });
-    console.log(`PASS production runtime ${JSON.stringify(health)}`);
+    output = `PASS production runtime ${JSON.stringify(health)}`;
   } catch (error) {
     // No remote error text or raw log event reaches the public deployment log.
-    console.error(
+    failed = true;
+    output =
       error instanceof HealthError
         ? error.message
-        : "Production health verification failed",
-    );
-    process.exitCode = 1;
+        : "Production health verification failed";
   }
+  await new Promise<void>((accept, reject) => {
+    (failed ? process.stderr : process.stdout).write(`${output}\n`, (error) =>
+      error ? reject(error) : accept(),
+    );
+  });
+  // Tail deletion has completed; an unanswered WebSocket close may retain a socket.
+  process.exit(failed ? 1 : 0);
 }
