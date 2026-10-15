@@ -203,6 +203,4 @@ export interface NewsRepository {
   releaseHost(host: string, token: string): Promise<boolean>;
   getBlob(key: string): Promise<Uint8Array | null>;
   putBlob(key: string, value: Uint8Array, expiresAt?: number): Promise<void>;
-  exportSnapshot(): Promise<object>;
-  importSnapshot(snapshot: unknown): Promise<object>;
 }

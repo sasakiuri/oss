@@ -10,7 +10,7 @@ import type { SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
-import { testRepository } from "./helpers/storage.ts";
+import { testRepository, storedState } from "./helpers/storage.ts";
 
 const source: SourceConfig = {
   id: "fixture",
@@ -84,7 +84,7 @@ async function setup() {
 }
 
 describe("settings-specific mutation fencing", () => {
-  it("reads settings and the edit token atomically without changing the portable snapshot", async () => {
+  it("reads settings and the edit token atomically without changing stored settings", async () => {
     const { repo, driver } = await setup();
     const batch = vi.spyOn(driver, "batch");
     const snapshot = await repo.settingsSnapshot();
@@ -94,11 +94,11 @@ describe("settings-specific mutation fencing", () => {
       ["SELECT revision FROM news_meta WHERE id=1", []],
       ["SELECT id,data FROM news_state", []],
     ]);
-    expect(await repo.exportSnapshot()).toMatchObject({
+    expect(await storedState(repo)).toMatchObject({
       settings: await repo.settings(),
     });
     expect(await repo.settings()).not.toHaveProperty("revision");
-    const portable = (await repo.exportSnapshot()) as { settings: object };
+    const portable = (await storedState(repo)) as { settings: object };
     expect(portable.settings).not.toHaveProperty("revision");
   });
 
@@ -239,18 +239,13 @@ describe("settings-specific mutation fencing", () => {
     expect((await repo.articles()).length).toBe(1);
   });
 
-  it("initializes a legacy token once and changes it on a portable import", async () => {
+  it("initializes a legacy token once", async () => {
     const { repo, driver } = await setup();
-    const portable = await repo.exportSnapshot();
     driver.db.exec("DELETE FROM news_state WHERE id='settings_revision'");
     await repo.initialize();
     const initialized = await repo.settingsSnapshot();
     await repo.initialize();
     expect((await repo.settingsSnapshot()).revision).toBe(initialized.revision);
-    await repo.importSnapshot(portable);
-    expect((await repo.settingsSnapshot()).revision).not.toBe(
-      initialized.revision,
-    );
   });
 });
 

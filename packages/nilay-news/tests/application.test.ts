@@ -21,7 +21,12 @@ import type { SQLStatement } from "../src/storage/sql.ts";
 import { utf8 } from "../src/text.ts";
 import { isoSeconds } from "../src/time.ts";
 
-import { testRepository } from "./helpers/storage.ts";
+import {
+  testRepository,
+  storedState,
+  storedRows,
+  seedArticles,
+} from "./helpers/storage.ts";
 
 const source: SourceConfig = {
   id: "one",
@@ -772,16 +777,14 @@ describe("source-rule candidates", () => {
     const jev = new Jev("test-key");
     const analyze = vi.spyOn(jev, "analyze");
     const { app, repo } = await setup([source], { jev });
-    // An imported flag is ignored: only the stored source IDs count.
+    // A stored flag is ignored: only the stored source IDs count.
     const scratch = testRepository([source], () => 10_000);
     cleanup.push(scratch.close);
     await scratch.repo.initialize();
     await scratch.repo.ingest(source, [item]);
-    const snapshot = JSON.parse(
-      JSON.stringify(await scratch.repo.exportSnapshot()),
-    ) as { articles: Record<string, unknown>[] };
-    for (const article of snapshot.articles) article.sourceCandidate = true;
-    await repo.importSnapshot(snapshot);
+    const articles = await storedRows(scratch.repo, "articles");
+    for (const article of articles) article.sourceCandidate = true;
+    await seedArticles(repo, articles);
     expect((await repo.articles())[0]).toMatchObject({ sourceCandidate: true });
     for (const id of ["riflesports-news", "clay-shooting-news", "gibier-news"])
       await repo.ingest({ ...source, id }, [
@@ -2132,7 +2135,7 @@ describe("publication preflight", () => {
   it("reports the next post without sending, claiming or changing anything", async () => {
     const { app, repo, queries, saved } = await publishingSetup();
     await saved("新しい記事", "古い記事");
-    const before = JSON.stringify(await repo.exportSnapshot());
+    const before = JSON.stringify(await storedState(repo));
     const version = await repo.stateVersion();
     const tick = vi.spyOn(app.publisher, "tick");
     const spies = (
@@ -2168,7 +2171,7 @@ describe("publication preflight", () => {
     expect(tick).not.toHaveBeenCalled();
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
     expect(await repo.stateVersion()).toBe(version);
-    expect(JSON.stringify(await repo.exportSnapshot())).toBe(before);
+    expect(JSON.stringify(await storedState(repo))).toBe(before);
   });
   it("previews the same article and text the first automatic post claims", async () => {
     const { app, repo, saved, advance, now } = await publishingSetup();
@@ -2563,7 +2566,7 @@ describe("publication freshness", () => {
     ]);
   });
 
-  it("keeps imported historical articles for review without automating them", async () => {
+  it("keeps historical articles for review without automating them", async () => {
     const { app, repo } = await setup();
     // Collected two days earlier, when the story was still fresh.
     const earlier = testRepository([source], () => START - 2 * DAY);
@@ -2574,7 +2577,7 @@ describe("publication freshness", () => {
     ]);
     const [old] = await earlier.repo.articles();
     await earlier.repo.review(old!.id, "saved");
-    await repo.importSnapshot(await earlier.repo.exportSnapshot());
+    await seedArticles(repo, await storedRows(earlier.repo, "articles"));
     await repo.updateSettings({ autoAnalyze: true });
     const state = {
       ...(await app.state()),

@@ -24,7 +24,6 @@
   "triggers": { "crons": ["* * * * *"] },
   "limits": { "cpu_ms": 30000 },
   "vars": {
-    "STORAGE_BACKEND": "d1",
     "NILAY_PUBLIC_ORIGIN": "",
     "CF_ACCESS_TEAM_DOMAIN": "",
     "CF_ACCESS_AUD": "",

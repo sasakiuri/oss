@@ -95,8 +95,6 @@ export function validateConfig(config: unknown, deployment = false): string[] {
     );
   const variables = isRecord(config.vars) ? config.vars : {};
   if (!isRecord(config.vars)) errors.push("vars must be an object");
-  if (variables.STORAGE_BACKEND !== "d1")
-    errors.push("STORAGE_BACKEND must be d1");
   if (SECRETS.some((name) => name in variables))
     errors.push("API credentials must use Worker secrets, not vars");
   for (const name of ACCESS) {

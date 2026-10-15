@@ -27,7 +27,6 @@ export interface Env {
   DB: D1Database;
   FEED_FETCHER?: FeedService;
   ASSETS: { fetch(request: Request): Promise<Response> };
-  STORAGE_BACKEND: string;
   NILAY_PUBLIC_ORIGIN: string;
   CF_ACCESS_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
@@ -78,8 +77,6 @@ function access(env: Env): Access {
 }
 
 async function application(env: Env): Promise<Application> {
-  if (env.STORAGE_BACKEND !== "d1")
-    throw new UserError("STORAGE_BACKEND に対応する保存アダプターがありません");
   const repository = await createD1Repository(
     env.DB,
     loadSources(sourceConfig),

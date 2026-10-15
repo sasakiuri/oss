@@ -121,3 +121,57 @@ export function testRepository(
   const repo = new SQLRepository(driver, sources, clock);
   return { repo, driver, close: () => driver.close() };
 }
+
+/** Stored documents for assertions; these readers expose the actual test database rows. */
+export async function storedRows(
+  repo: SQLRepository,
+  table: "articles" | "sources" | "posts",
+): Promise<Record<string, unknown>[]> {
+  const [result] = await repo.driver.batch([
+    [`SELECT data FROM news_${table} ORDER BY id`, []],
+  ]);
+  return (result?.results ?? []).map(
+    (row) => JSON.parse(String(row.data)) as Record<string, unknown>,
+  );
+}
+
+/** Business rows and state documents, including runtime state, for no-mutation assertions. */
+export async function storedState(
+  repo: SQLRepository,
+): Promise<Record<string, unknown>> {
+  const [meta, state, removed] = await repo.driver.batch([
+    ["SELECT revision FROM news_meta WHERE id=1", []],
+    ["SELECT id,data FROM news_state ORDER BY id", []],
+    ["SELECT id FROM news_removed_articles ORDER BY id", []],
+  ]);
+  return {
+    revision: meta?.results[0]?.revision,
+    removedArticles: (removed?.results ?? []).map((row) => String(row.id)),
+    ...Object.fromEntries(
+      (state?.results ?? []).map((row) => [
+        String(row.id),
+        JSON.parse(String(row.data)) as unknown,
+      ]),
+    ),
+    articles: await storedRows(repo, "articles"),
+    sources: await storedRows(repo, "sources"),
+    posts: await storedRows(repo, "posts"),
+  };
+}
+
+/** Seed historical/legacy article documents, then use the production projection backfill. */
+export async function seedArticles(
+  repo: SQLRepository,
+  articles: readonly Record<string, unknown>[],
+): Promise<void> {
+  await repo.driver.batch(
+    articles.map((article) => [
+      "INSERT INTO news_articles(id,data) VALUES (?,?)",
+      [
+        String(article.id),
+        JSON.stringify({ ...article, _publicationIndex: 0 }),
+      ],
+    ]),
+  );
+  await repo.initialize();
+}

@@ -19,7 +19,7 @@ import type {
 } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 
-import { testRepository } from "./helpers/storage.ts";
+import { testRepository, storedState, storedRows } from "./helpers/storage.ts";
 
 const SOURCE: SourceConfig = {
   id: "test",
@@ -143,12 +143,12 @@ describe("publication of stored Google News links", () => {
       clock,
       crawlTransport: transport,
     });
-    const before = await repo.exportSnapshot();
+    const before = await storedState(repo);
     const check = await app.publicationPreflight();
     expect(check.ready).toBe(true);
     expect(check.firstCandidate?.text).toContain(TARGET);
     expect(check.firstCandidate?.text).not.toContain("news.google.com");
-    expect(await repo.exportSnapshot()).toEqual(before);
+    expect(await storedState(repo)).toEqual(before);
     expect(client.post).not.toHaveBeenCalled();
     await enable();
     await app.publisher.tick();
@@ -244,12 +244,8 @@ describe("publication of stored Google News links", () => {
       reviewStatus: "saved",
     });
     expect(await repo.postCandidates()).toEqual([]);
-    const exported = (await repo.exportSnapshot()) as {
-      articles: { _identity: string }[];
-    };
-    expect(
-      new Set(exported.articles.map((article) => article._identity)).size,
-    ).toBe(2);
+    const articles = await storedRows(repo, "articles");
+    expect(new Set(articles.map((article) => article._identity)).size).toBe(2);
   });
 
   it("skips a resolved alias that was already posted, retaining the original post and review", async () => {

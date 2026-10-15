@@ -69,7 +69,6 @@ async function createRuntime() {
             modules: { "worker.js": { type: "esm", contents: script } },
           },
           env: {
-            STORAGE_BACKEND: { type: "text", value: "d1" },
             NILAY_PUBLIC_ORIGIN: { type: "text", value: workerOrigin },
             CF_ACCESS_TEAM_DOMAIN: {
               type: "text",
