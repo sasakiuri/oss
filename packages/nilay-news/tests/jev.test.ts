@@ -6,7 +6,6 @@ import { UserError } from "../src/errors.ts";
 import {
   choice,
   ENDPOINT,
-  evidence,
   Jev,
   REASONS,
   relatedCandidates,
@@ -871,11 +870,10 @@ describe("evidence", () => {
     await new Jev("test", "jev-latest", fetch).analyze(article, "基準", []);
     expect(requests[0]?.body.state).toEqual({
       selection_criteria: "基準",
-      article: evidence(article),
+      article: modelEvidence(article),
     });
-    expect(evidence(article)).toEqual(modelEvidence(article));
-    expect(evidence(article).body).toHaveLength(12000);
-    expect(evidence(article)).not.toHaveProperty("contentError");
+    expect(modelEvidence(article).body).toHaveLength(12000);
+    expect(modelEvidence(article)).not.toHaveProperty("contentError");
   });
 });
 

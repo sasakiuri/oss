@@ -12,13 +12,9 @@ import type { FetchBytes } from "../net/types.ts";
 import { parseUtf8Json, isRecord, sha256, utf8 } from "../text.ts";
 import { isoSeconds } from "../time.ts";
 
-import {
-  comparisonInputHash,
-  modelEvidence,
-  type ModelEvidence,
-} from "./evidence.ts";
+import { comparisonInputHash, modelEvidence } from "./evidence.ts";
 
-export const DECISION_VERSIONS = {
+const DECISION_VERSIONS = {
   classificationPrompt: "3",
   relationshipPrompt: "1",
   criteria: "3",
@@ -115,7 +111,7 @@ export function choice(
 }
 
 /** Validate one choice answer; returns the choice and its full, validated distribution. */
-export function distribution(
+function distribution(
   answers: Record<string, unknown>,
   key: string,
   options: Iterable<string>,
@@ -174,7 +170,7 @@ function strongest(
  * action needs its group at or above the threshold; anything else is reviewed with the
  * most probable group's explanation.
  */
-export function route(distribution: Record<string, number>): {
+function route(distribution: Record<string, number>): {
   decision: keyof typeof GROUPS;
   probability: number;
   reason: string;
@@ -200,11 +196,6 @@ export function route(distribution: Record<string, number>): {
         ? (REASONS[label] ?? label)
         : `判定が割れたため確認：「${REASONS[label] ?? label}」が最有力だが分類確率が基準未満`,
   };
-}
-
-/** Article fields sent to Jev; see `modelEvidence` for what is left out and why. */
-export function evidence(article: Partial<Article>): ModelEvidence {
-  return modelEvidence(article);
 }
 
 /** `difflib.SequenceMatcher(None, a, b).ratio()`, including its automatic junk heuristic. */
@@ -279,7 +270,7 @@ export function relatedCandidates<T extends RelatedArticle>(
       chars.slice(1).map((char, index) => `${chars[index] ?? ""}${char}`),
     );
   const signature = (item: RelatedArticle) => {
-    const content = evidence(item);
+    const content = modelEvidence(item);
     const title = normalized(item.title);
     // Search snippets and stale bodies are already excluded from model evidence.
     const lead = (content.excerpt || content.body || "").slice(0, 600);
@@ -324,12 +315,22 @@ function answersOf(raw: unknown, message: string): Record<string, unknown> {
 }
 
 export class Jev {
+  readonly key: string;
+  readonly model: string;
+  private readonly transport: FetchBytes;
+  private readonly clock: Clock;
+
   constructor(
-    readonly key = "",
-    readonly model = "jev-latest",
-    private readonly transport: FetchBytes = fetchBytes,
-    private readonly clock: Clock = defaultClock,
-  ) {}
+    key = "",
+    model = "jev-latest",
+    transport: FetchBytes = fetchBytes,
+    clock: Clock = defaultClock,
+  ) {
+    this.key = key;
+    this.model = model;
+    this.transport = transport;
+    this.clock = clock;
+  }
 
   private async request(
     state: object,
@@ -408,7 +409,7 @@ export class Jev {
   ): Promise<Analysis> {
     if (!this.key) throw new UserError("Jev の API キーが未設定です");
     const observation = await this.request(
-      { selection_criteria: rubric, article: evidence(article) },
+      { selection_criteria: rubric, article: modelEvidence(article) },
       {
         // Questions are answered independently, so relevance and its reason are one
         // exclusive classification rather than two answers that could disagree.
@@ -483,8 +484,8 @@ export class Jev {
       const observation = await this.request(
         {
           selection_criteria: rubric,
-          new_article: evidence(article),
-          previous_article: evidence(other),
+          new_article: modelEvidence(article),
+          previous_article: modelEvidence(other),
         },
         {
           relation: {

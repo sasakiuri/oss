@@ -10,11 +10,17 @@ export default [
       "test-results/**",
       ".local/**",
       ".wrangler/**",
-      ".venv/**",
-      ".venv-workers/**",
-      "python_modules/**",
     ],
   },
   ...eslintConfig,
   vitest,
+  {
+    files: ["**/*.ts"],
+    rules: {
+      "@typescript-eslint/parameter-properties": [
+        "error",
+        { prefer: "class-property" },
+      ],
+    },
+  },
 ];

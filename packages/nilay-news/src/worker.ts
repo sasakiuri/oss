@@ -62,7 +62,7 @@ function jsonResponse(
   });
 }
 
-export interface RequestAccess {
+interface RequestAccess {
   allowed(url: string, method: string, headers: Headers): Promise<boolean>;
 }
 
@@ -77,7 +77,7 @@ function access(env: Env): Access {
   return cachedAccess.control;
 }
 
-export async function application(env: Env): Promise<Application> {
+async function application(env: Env): Promise<Application> {
   if (env.STORAGE_BACKEND !== "d1")
     throw new UserError("STORAGE_BACKEND に対応する保存アダプターがありません");
   const repository = await createD1Repository(

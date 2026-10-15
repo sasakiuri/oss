@@ -13,9 +13,9 @@ import { JST_OFFSET, DAY_SECONDS } from "../time.ts";
 export const POST_INTERVAL_SECONDS = 60 * 60;
 
 /** The daily window in which a new automatic post may be sent, 06:00 inclusive. */
-export const POST_WINDOW_START_SECONDS = 6 * 60 * 60;
+const POST_WINDOW_START_SECONDS = 6 * 60 * 60;
 /** The end of the daily window, 23:00 exclusive. */
-export const POST_WINDOW_END_SECONDS = 23 * 60 * 60;
+const POST_WINDOW_END_SECONDS = 23 * 60 * 60;
 /** How the posting window is shown to people. */
 export const POST_WINDOW_LABEL = "06:00〜23:00 JST（23:00以降送信なし）";
 

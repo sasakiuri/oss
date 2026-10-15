@@ -69,7 +69,7 @@ type ActiveJob = Job &
   >;
 
 /** A check without business-state changes; URL caches and rate limits may advance. */
-export interface PublicationPreflight {
+interface PublicationPreflight {
   checkedAt: string;
   account: string;
   provider: "Buffer";
@@ -106,10 +106,14 @@ export class Application {
   private readonly crawlTransport?: FetchBytes;
   private readonly maxAnalysisItemsPerTick: number;
 
+  readonly repository: NewsRepository;
+  readonly jev: Jev;
+  readonly buffer: BufferClient;
+
   constructor(
-    readonly repository: NewsRepository,
-    readonly jev: Jev,
-    readonly buffer: BufferClient,
+    repository: NewsRepository,
+    jev: Jev,
+    buffer: BufferClient,
     options: {
       clock?: Clock;
       collector?: typeof collectSource;
@@ -119,6 +123,10 @@ export class Application {
       maxAnalysisItemsPerTick?: number;
     } = {},
   ) {
+    this.repository = repository;
+    this.jev = jev;
+    this.buffer = buffer;
+
     const items = options.maxAnalysisItemsPerTick ?? ANALYSIS_ITEMS_PER_TICK;
     if (
       !Number.isInteger(items) ||

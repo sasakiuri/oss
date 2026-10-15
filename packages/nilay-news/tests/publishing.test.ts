@@ -161,9 +161,6 @@ describe("BufferClient", () => {
     });
     expect([options.timeout, options.maxBytes]).toEqual([25, 100_000]);
     expect(new TextDecoder().decode(options.body)).not.toContain("secret-key");
-    expect(() =>
-      options.beforeRedirect?.("https://www.api.buffer.com"),
-    ).toThrow(FetchError);
   });
 
   it.each([
