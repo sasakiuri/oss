@@ -13,7 +13,7 @@ import {
   validateFixtures,
 } from "../src/jev/evaluation.ts";
 import { evidenceHash } from "../src/jev/evidence.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { sha256 } from "../src/text.ts";
 
 import { rssSource } from "./helpers/fixtures.ts";
@@ -113,6 +113,40 @@ describe("decision provenance", () => {
     ).analyze(fixture.article, fixtures.rubric, fixture.others);
     expect(changedModel.provenance?.modelInputHash).not.toBe(
       original.provenance?.modelInputHash,
+    );
+  });
+  it("hashes the exact sanitized comparison sent before the article changes", async () => {
+    const fixture = structuredClone(
+      fixtures.cases.find((row) => row.id === "duplicate")!,
+    );
+    const other = fixture.others[0]!;
+    other.sourceKey = "kanpo:comparison";
+    other.body = "告示本文。\n関連記事\n別の告示";
+    const metadata = { agency: "環境省", contentStatus: "listing" };
+    other.metadata = metadata;
+    let comparisonInput = "";
+    const mock = mockedEvaluationTransport(fixture);
+    const jev = new Jev("key", "jev-requested", async (url, options) => {
+      const body = JSON.parse(new TextDecoder().decode(options?.body));
+      const response = await mock(url, options);
+      if (body.state.previous_article) {
+        comparisonInput = JSON.stringify(body.state.previous_article);
+        other.body = "更新された本文";
+        metadata.agency = "更新された省庁";
+      }
+      return response;
+    });
+    const result = await jev.analyze(
+      fixture.article,
+      fixtures.rubric,
+      fixture.others,
+    );
+    expect(comparisonInput).toContain("官報");
+    expect(comparisonInput).not.toContain("contentStatus");
+    expect(comparisonInput).not.toContain("関連記事");
+    expect(result.relationProvenance).toHaveLength(1);
+    expect(result.relationProvenance![0]?.comparisonInputHash).toBe(
+      await sha256(comparisonInput),
     );
   });
   it("persists new provenance and presents absent legacy provenance explicitly in details", async () => {

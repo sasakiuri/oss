@@ -6,14 +6,11 @@ import type { FetchBytes } from "../net/types.ts";
 import { isSourceCandidate } from "../publishing/policy.ts";
 import { isRecord, sha256, utf8 } from "../text.ts";
 
-import {
-  Jev,
-  relatedCandidates,
-  ROUTING_POLICY,
-  TOPICS,
-  REASONS,
-} from "./client.ts";
+import { Jev } from "./client.ts";
+import { ROUTING_POLICY } from "./decisions.ts";
 import { modelEvidence } from "./evidence.ts";
+import { TOPICS, REASONS } from "./questions.ts";
+import { relatedCandidates } from "./related.ts";
 
 interface EvaluationCase {
   id: string;

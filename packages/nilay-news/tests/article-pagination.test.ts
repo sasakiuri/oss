@@ -5,7 +5,7 @@ import { Application } from "../src/application.ts";
 import { ArticlePageConflictError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
 import { evidenceHash } from "../src/jev/evidence.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import type { SQLStatement } from "../src/storage/sql.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 

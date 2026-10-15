@@ -12,7 +12,7 @@
     "test:runtime": "vitest run --project runtime",
     "evaluate": "node scripts/evaluate.ts",
     "benchmark:articles": "node scripts/benchmark-articles.ts",
-    "lint": "eslint . && node scripts/check-config.ts && node --check public/app.js",
+    "lint": "eslint . && node scripts/check-config.ts && node scripts/check-ui.ts",
     "fix": "eslint --fix .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "test:e2e": "playwright test",

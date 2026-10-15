@@ -21,7 +21,7 @@ const STATUS_KEYS: ReadonlySet<string> = new Set([
 const SIDEBAR =
   /(?<=^|\n|[。　 ])\s*(?:[【［[■▼▽◆◇●○★☆>＞]\s*)?(?:関連記事|関連ニュース|関連リンク|関連ワード|あわせて読みたい|合わせて読みたい|こちらもおすすめ|おすすめ記事|人気記事|アクセスランキング)\s*(?:[】］\]：:>＞]|\s|$)/u;
 
-interface ModelEvidence {
+export interface ModelEvidence {
   title: string | null;
   excerpt: string | null;
   sourceName: string | null;
@@ -143,7 +143,7 @@ export async function evidenceHash(article: Article): Promise<string> {
 
 /** Hash of the sanitized comparison article sent to Jev. */
 export async function comparisonInputHash(
-  article: Partial<Article>,
+  evidence: ModelEvidence,
 ): Promise<string> {
-  return sha256(JSON.stringify(modelEvidence(article)));
+  return sha256(JSON.stringify(evidence));
 }

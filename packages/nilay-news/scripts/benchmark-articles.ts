@@ -7,9 +7,9 @@ import { Miniflare } from "miniflare";
 import { Application } from "../src/application.ts";
 import { freshness, publicationWindow } from "../src/freshness.ts";
 import { Jev } from "../src/jev/client.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { ACCOUNT, draft } from "../src/publishing/draft.ts";
 import { isSourceCandidate } from "../src/publishing/policy.ts";
-import { BufferClient } from "../src/publishing/publisher.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { type SQLStatement, type SQLRow } from "../src/storage/sql.ts";
 import {

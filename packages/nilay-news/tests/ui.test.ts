@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 
+import { buildSync } from "esbuild";
 import { describe, expect, it } from "vitest";
+
+import { STATIC_ASSET_PATHS } from "../src/http/assets.ts";
 
 /** Just enough of an element for the list helpers under test. */
 interface FakeNode {
@@ -118,14 +122,36 @@ interface Ui {
   };
 }
 
-/** Evaluate the page script without its startup render and network refresh. */
+/** Exercise the real module graph with a fresh model and DOM for every test.
+ * Only the browser entry point starts rendering and polling.
+ */
+const script = buildSync({
+  stdin: {
+    contents: `
+      import { bindControls } from "./ui/controls.js";
+      import { connectViews } from "./ui/render.js";
+      export { model } from "./ui/model.js";
+      export { buckets } from "./ui/labels.js";
+      export { articleTags } from "./ui/article-tags.js";
+      export { visibleArticles } from "./ui/articles.js";
+      export { renderPreflight, preflightCurrent } from "./ui/publication-settings.js";
+      export { dateText, messageText } from "./ui/time.js";
+      export { renderArticle } from "./ui/list.js";
+      export { renderBulkActions } from "./ui/selection.js";
+      export { renderDetail } from "./ui/detail.js";
+      export { loadDetail } from "./ui/inbox.js";
+      connectViews();
+      bindControls();
+    `,
+    resolveDir: fileURLToPath(new URL("../public/", import.meta.url)),
+  },
+  bundle: true,
+  write: false,
+  format: "iife",
+  globalName: "ui",
+}).outputFiles[0]!.text;
+
 function load(fetcher?: typeof fetch): Ui {
-  const source = readFileSync(
-    new URL("../public/app.js", import.meta.url),
-    "utf8",
-  );
-  const script = source.replace(/render\(\);\s*refresh\(\);\s*$/, "");
-  if (script === source) throw new Error("app.js startup changed");
   const elements = new Map<string, FakeNode>();
   const element = (id: string) => {
     if (!elements.has(id)) elements.set(id, node());
@@ -139,19 +165,10 @@ function load(fetcher?: typeof fetch): Ui {
       createElement: node,
       addEventListener: () => undefined,
     },
-    exports: {} as Partial<Ui>,
+    ui: {} as Partial<Ui>,
   };
-  runInNewContext(
-    `${script}\nexports.buckets = buckets; exports.articleTags = articleTags;` +
-      "exports.visibleArticles = visibleArticles; exports.model = model;" +
-      "exports.renderPreflight = renderPreflight;" +
-      "exports.preflightCurrent = preflightCurrent;" +
-      "exports.dateText = dateText; exports.messageText = messageText;" +
-      "exports.renderArticle = renderArticle; exports.renderBulkActions = renderBulkActions;" +
-      "exports.renderDetail = renderDetail; exports.loadDetail = loadDetail;",
-    context,
-  );
-  return { ...context.exports, element } as Ui;
+  runInNewContext(script, context);
+  return { ...context.ui, element } as Ui;
 }
 
 const BASE = {
@@ -614,9 +631,12 @@ describe("publication preflight in settings", () => {
     expect(shown).toContain(
       "投稿する記事：手動保存、Jev の候補、情報源指定の記事・投稿待ち 2 件",
     );
-    expect(
-      readFileSync(new URL("../public/app.js", import.meta.url), "utf8"),
-    ).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
+    for (const path of STATIC_ASSET_PATHS) {
+      if (!path.endsWith(".js")) continue;
+      expect(
+        readFileSync(new URL(`../public${path}`, import.meta.url), "utf8"),
+      ).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
+    }
     expect(
       ui.preflightCurrent(report, { autoPost: false, postSelection: "both" }),
     ).toBe(true);

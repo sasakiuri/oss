@@ -3,15 +3,12 @@ import { describe, expect, test } from "vitest";
 
 import type { Article } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
-import {
-  choice,
-  ENDPOINT,
-  Jev,
-  REASONS,
-  relatedCandidates,
-  TOPICS,
-} from "../src/jev/client.ts";
+import { Jev } from "../src/jev/client.ts";
+import { choice } from "../src/jev/decisions.ts";
 import { modelEvidence } from "../src/jev/evidence.ts";
+import { REASONS, TOPICS } from "../src/jev/questions.ts";
+import { relatedCandidates } from "../src/jev/related.ts";
+import { ENDPOINT } from "../src/jev/transport.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { utf8 } from "../src/text.ts";

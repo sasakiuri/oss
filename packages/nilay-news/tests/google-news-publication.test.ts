@@ -11,8 +11,9 @@ import { Jev } from "../src/jev/client.ts";
 import { GOOGLE_NEWS_LOCALE, GOOGLE_NEWS_RPC } from "../src/net/google-news.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
+import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { draft } from "../src/publishing/draft.ts";
-import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
+import { Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 
 import { fakePublishingClient } from "./helpers/buffer.ts";
