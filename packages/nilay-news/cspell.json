@@ -1,0 +1,61 @@
+{
+  "version": "0.2",
+  "import": ["../../cspell.json"],
+  "words": [
+    "Abema",
+    "CEEK",
+    "chotatsu",
+    "cloudflareaccess",
+    "cooldowns",
+    "describedby",
+    "dspcnt",
+    "egov",
+    "egovui",
+    "fullcontents",
+    "gibier",
+    "hoan",
+    "husho",
+    "Iken",
+    "ikennyuryoku",
+    "Kaku",
+    "kanbo",
+    "kanpo",
+    "maff",
+    "MATIMES",
+    "Miniflare",
+    "neighbouring",
+    "nilaynews",
+    "noopener",
+    "noreferrer",
+    "PCMIKENINPUT",
+    "pcmmstdetail",
+    "pcmmstlist",
+    "resends",
+    "riflesports",
+    "rinya",
+    "seian",
+    "TATARA",
+    "TBSNEWSDIG",
+    "tyoujuu",
+    "typesafe",
+    "unposted",
+    "urlencode",
+    "urljoin",
+    "urlsplit",
+    "viewports",
+    "älter",
+    "édition",
+    "öffentlich"
+  ],
+  "overrides": [
+    {
+      "filename": "tests/**/*.ts",
+      "ignoreRegExpList": [
+        "/\\bc2VjcmV0\\b/g",
+        "/\\bc2lnbmF0dXJl\\b/g",
+        "/https:\\/\\/exa mple\\.com\\//g",
+        "/\\bpre-empts\\b/g"
+      ]
+    }
+  ]
+}
