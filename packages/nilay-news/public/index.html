@@ -18,21 +18,33 @@
     <div class="app-shell">
       <aside class="sidebar" aria-label="メインナビゲーション">
         <a class="brand" href="/" aria-label="Nilay News ホーム">
-          <strong>Nilay News</strong>
-          <span>狩猟・鳥獣・射撃</span>
+          <span class="brand-copy"
+            ><strong>Nilay News</strong><span>狩猟・鳥獣・射撃</span></span
+          >
         </a>
         <nav id="navigation" aria-label="記事の一覧"></nav>
         <div class="sidebar-bottom">
+          <div class="publication-status">
+            <span class="status-dot" aria-hidden="true"></span
+            ><span>X 自動投稿</span
+            ><strong id="sidebar-posting-status">確認中</strong>
+          </div>
           <button class="nav-item settings-nav" id="settings-nav" type="button">
-            収集元と設定
+            <span class="ui-icon icon-settings" aria-hidden="true"></span
+            >収集元と設定
           </button>
         </div>
       </aside>
       <main id="main" class="main" tabindex="-1">
         <header class="page-header">
-          <div class="page-heading">
-            <h1 id="page-title">受信箱</h1>
-            <span id="list-count" class="count-label"></span>
+          <div>
+            <div class="page-heading">
+              <h1 id="page-title" tabindex="-1">受信箱</h1>
+              <span id="list-count" class="count-label"></span>
+            </div>
+            <p id="page-description" class="page-description">
+              新着記事を確認します。
+            </p>
           </div>
           <div class="header-actions">
             <button
@@ -46,7 +58,8 @@
               id="collect-button"
               type="button"
             >
-              記事を集める
+              <span class="ui-icon icon-refresh" aria-hidden="true"></span
+              ><span id="collect-label">記事を集める</span>
             </button>
           </div>
         </header>
@@ -87,44 +100,83 @@
         </section>
         <section id="inbox-view">
           <div class="inbox-toolbar">
-            <div class="filters">
+            <div class="search-toolbar">
               <label class="search-field"
+                ><span class="ui-icon icon-search" aria-hidden="true"></span
                 ><span class="sr-only">記事を検索</span
                 ><input
                   id="search"
                   type="search"
                   placeholder="見出し・本文などを検索"
-                  autocomplete="off" /></label
-              ><label class="sr-only" for="topic-filter">テーマで絞り込む</label
-              ><select id="topic-filter">
-                <option value="">すべてのテーマ</option></select
-              ><label class="sr-only" for="analysis-filter"
-                >仕分け結果で絞り込む</label
-              ><select id="analysis-filter">
-                <option value="">すべての仕分け結果</option>
-                <option value="candidate">候補</option>
-                <option value="review">要確認</option>
-                <option value="irrelevant">対象外</option>
-                <option value="pending">未判定</option>
-                <option value="error">仕分け失敗</option></select
-              ><label class="sr-only" for="relation-filter"
-                >重複・関連性で絞り込む</label
-              ><select id="relation-filter">
-                <option value="">すべての重複・関連性</option>
-                <option value="duplicate">重複の可能性</option>
-                <option value="uncertain">関連性を確認</option>
-                <option value="followup">続報の可能性</option>
-                <option value="different">別の出来事</option>
-                <option value="none">比較なし</option></select
-              ><label class="sr-only" for="sort-filter">並び順</label
+                  autocomplete="off"
+                  aria-controls="article-list"
+                /><kbd aria-hidden="true">/</kbd></label
+              >
+              <button
+                id="filter-toggle"
+                class="button filter-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="filter-panel"
+              >
+                <span class="ui-icon icon-filter" aria-hidden="true"></span
+                >絞り込み<span
+                  id="filter-count"
+                  class="filter-count"
+                  hidden
+                ></span>
+              </button>
+              <label class="sr-only" for="sort-filter">並び順</label
               ><select id="sort-filter">
                 <option value="priority">仕分け順</option>
                 <option value="newest" selected>新しい順</option>
               </select>
             </div>
+            <div id="filter-panel" class="filters" hidden>
+              <label class="filter-field"
+                ><span>テーマ</span
+                ><select id="topic-filter">
+                  <option value="">すべてのテーマ</option>
+                </select></label
+              ><label class="filter-field"
+                ><span>仕分け結果</span
+                ><select id="analysis-filter">
+                  <option value="">すべての仕分け結果</option>
+                  <option value="candidate">候補</option>
+                  <option value="review">要確認</option>
+                  <option value="irrelevant">対象外</option>
+                  <option value="pending">未判定</option>
+                  <option value="error">仕分け失敗</option>
+                </select></label
+              ><label class="filter-field"
+                ><span>重複・関連性</span
+                ><select id="relation-filter">
+                  <option value="">すべての重複・関連性</option>
+                  <option value="duplicate">重複の可能性</option>
+                  <option value="uncertain">関連性を確認</option>
+                  <option value="followup">続報の可能性</option>
+                  <option value="different">別の出来事</option>
+                  <option value="none">比較なし</option>
+                </select></label
+              >
+            </div>
+            <div
+              id="active-filters"
+              class="active-filters"
+              aria-label="適用中の検索条件"
+              hidden
+            ></div>
           </div>
           <div class="reading-workspace" id="reading-workspace">
             <div class="article-column">
+              <div class="list-heading">
+                <h2>ニュース一覧</h2>
+                <span
+                  id="list-range"
+                  class="count-label"
+                  aria-live="polite"
+                ></span>
+              </div>
               <div id="bulk-actions" class="bulk-actions" hidden>
                 <label class="bulk-select-label">
                   <input id="select-all-articles" type="checkbox" />
@@ -135,29 +187,39 @@
                   class="count-label"
                   role="status"
                 ></span>
-                <label class="sr-only" for="bulk-operation"
-                  >選択した記事の操作</label
-                >
-                <select id="bulk-operation">
-                  <option value="dismissed">見送り</option>
-                  <option value="approved">投稿を承認</option>
-                  <option value="saved">保存</option>
-                  <option value="unread">未読に戻す・承認を解除</option>
-                </select>
-                <button
-                  id="apply-selected"
-                  class="button button-subtle"
-                  type="button"
-                  disabled
-                >
-                  選択した記事を見送る
-                </button>
-                <p id="bulk-help" class="form-help bulk-help"></p>
+                <div id="selection-tools" class="selection-tools" hidden>
+                  <button
+                    id="clear-selection"
+                    class="text-button"
+                    type="button"
+                  >
+                    選択を解除
+                  </button>
+                  <label class="sr-only" for="bulk-operation"
+                    >選択した記事の操作</label
+                  >
+                  <select id="bulk-operation">
+                    <option value="dismissed">見送り</option>
+                    <option value="approved">投稿を承認</option>
+                    <option value="saved">保存</option>
+                    <option value="unread">未読に戻す・承認を解除</option>
+                  </select>
+                  <button
+                    id="apply-selected"
+                    class="button button-subtle"
+                    type="button"
+                    disabled
+                  >
+                    選択した記事を見送る
+                  </button>
+                </div>
+                <p id="bulk-help" class="form-help bulk-help" hidden></p>
               </div>
               <div
                 id="article-list"
                 class="article-list"
                 aria-label="ニュース記事"
+                aria-busy="true"
               ></div>
               <div id="list-pagination" class="list-pagination"></div>
               <p class="list-footnote" id="list-footnote" hidden></p>
@@ -177,9 +239,7 @@
         ></section>
         <footer class="page-footer">
           <span id="last-updated">読み込み中…</span>
-          <p class="time-zone-note">
-            日時はすべて日本時間（JST・24時間表記）で表示しています。
-          </p>
+          <p class="time-zone-note">日本時間（JST）・24時間表記</p>
         </footer>
       </main>
     </div>

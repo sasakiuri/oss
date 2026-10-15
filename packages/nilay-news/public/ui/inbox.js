@@ -68,6 +68,13 @@ export async function loadArticles(
 ) {
   if (!model.state || model.view === "settings") return;
   const request = ++model.listRequest;
+  // A background request can replace a visible request, even with unchanged
+  // data. It must still finish the loading state shown by that request.
+  const needsListRender =
+    shouldRender || model.listLoading || !!model.listError;
+  model.listLoading = needsListRender;
+  model.listError = null;
+  if (shouldRender) notifyView("articles");
   const parameters = new URLSearchParams({
     bucket: model.view,
     query: model.query,
@@ -109,7 +116,13 @@ export async function loadArticles(
       ? await loadDetail(model.selectedId, false)
       : false;
     if (request !== model.listRequest) return;
-    if (shouldRender) notifyView("all");
+    model.listLoading = false;
+    if (model.listFailureNotice) {
+      if ($("notice-text").textContent === model.listFailureNotice)
+        hideNotice();
+      model.listFailureNotice = null;
+    }
+    if (needsListRender) notifyView("all");
     return changed || detailChanged;
   } catch (error) {
     if (request !== model.listRequest) return;
@@ -119,6 +132,10 @@ export async function loadArticles(
       return loadArticles(0, shouldRender);
     }
     showNotice(`一覧を読み込めませんでした。${error.message}`, true);
+    model.listFailureNotice = $("notice-text").textContent;
+    model.listError = error.message;
+    model.listLoading = false;
+    if (needsListRender) notifyView("articles");
   }
 }
 
