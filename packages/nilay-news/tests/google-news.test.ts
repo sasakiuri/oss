@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // cspell:ignore garturlres garturlreq Fbv4je rpcids batchexecute CBMigg wrb
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { resolveGoogleNewsItems } from "../src/collection/google-news-resolver.ts";
@@ -30,14 +30,13 @@ import {
   type SourceConfig,
 } from "../src/sources/types.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
+import { page, rpc, legacy, article } from "./helpers/google-news.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 const encode = (value: string) => new TextEncoder().encode(value);
 const parameters = { timestamp: 1_700_000_000, signature: "test-signature" };
-const page = encode(
-  '<div data-n-a-ts="1700000000" data-n-a-sg="test-signature"></div>',
-);
-const article = (id: string) => `https://news.google.com/rss/articles/${id}`;
 const pageUrl = (id: string) => `${article(id)}${GOOGLE_NEWS_LOCALE}`;
 const publisher = "https://example.org/story";
 const item = (url: string) => ({
@@ -46,33 +45,9 @@ const item = (url: string) => ({
   excerpt: "概要",
   publishedAt: null,
 });
-const rpc = (url = publisher) =>
-  encode(
-    ")]}'\n\n123\n" +
-      JSON.stringify([
-        ["wrb.fr", "Fbv4je", JSON.stringify(["garturlres", url])],
-      ]) +
-      "\n",
-  );
-function legacy(url: string): string {
-  const bytes = encode(url);
-  const prefix = [8, 19, 34];
-  let size = bytes.length;
-  while (size >= 128) {
-    prefix.push((size & 127) | 128);
-    size = Math.floor(size / 128);
-  }
-  prefix.push(size);
-  return Buffer.from([...prefix, ...bytes, 0xd2, 1, 0]).toString("base64url");
-}
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0)) close();
-});
 async function setup() {
-  let now = 10_000;
-  const storage = testRepository([], () => now);
-  cleanup.push(storage.close);
+  const testClock = fakeClock(10_000);
+  const storage = testRepository([], () => testClock.now());
   await storage.repo.initialize();
   const calls: string[] = [];
   const transport: FetchBytes = vi.fn(async (url) => {
@@ -86,15 +61,11 @@ async function setup() {
   return {
     repo: storage.repo,
     calls,
-    advance: (seconds: number) => {
-      now += seconds;
-    },
+    advance: testClock.advance,
     options: {
-      clock: () => now,
+      clock: testClock.now,
       transport,
-      sleep: async (milliseconds: number) => {
-        now += milliseconds / 1000;
-      },
+      sleep: testClock.sleep,
     },
   };
 }
@@ -430,16 +401,9 @@ describe("regional decoding service and publication", () => {
   });
 
   it("resolves actual collected RSS before storage identity and draft generation", async () => {
-    const source: SourceConfig = {
-      id: "fixture",
-      name: "Fixture",
-      description: "Fixture",
-      kind: "rss",
-      enabled: true,
-      url: "https://example.org/feed",
-    };
+    const source: SourceConfig = rssSource({ id: "fixture", name: "Fixture" });
     const storage = testRepository([source], () => 10_000);
-    cleanup.push(storage.close);
+
     await storage.repo.initialize();
     const data = encode(
       `<rss><channel><item><title>News</title><link>${article(legacy(publisher))}</link></item></channel></rss>`,

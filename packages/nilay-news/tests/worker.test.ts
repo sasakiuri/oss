@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev/client.ts";
 import { BufferClient } from "../src/publishing/publisher.ts";
 import { createHandlers, type Env } from "../src/worker.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0)) close();
-});
 async function setup(clock = () => 1_800_000_000) {
   const storage = testRepository([], clock);
-  cleanup.push(storage.close);
   await storage.repo.initialize();
   const app = new Application(storage.repo, new Jev(), new BufferClient(), {
     clock,
@@ -109,14 +106,7 @@ describe("HTTP contract", () => {
   it("dismisses selected articles through the authenticated JSON API", async () => {
     const { request, repo, env } = await setup();
     await repo.ingest(
-      {
-        id: "test",
-        name: "test",
-        url: "https://example.org/feed",
-        kind: "rss",
-        enabled: true,
-        description: "test",
-      },
+      rssSource({ id: "test", name: "test", description: "test" }),
       ["a", "b", "c"].map((id) => ({
         title: id,
         url: `https://example.org/${id}`,
@@ -162,31 +152,24 @@ describe("HTTP contract", () => {
   it.each(["individual", "bulk", "retry"])(
     "recovers a failed Google draft through the %s API",
     async (mode) => {
-      let now = 10_000;
-      const { request, repo, app } = await setup(() => now);
+      const testClock = fakeClock(10_000);
+      const { request, repo, app } = await setup(() => testClock.now());
       await repo.ingest(
-        {
-          id: "test",
-          name: "test",
-          url: "https://example.org/feed",
-          kind: "rss",
-          enabled: true,
-          description: "test",
-        },
+        rssSource({ id: "test", name: "test", description: "test" }),
         [
           {
             title: "記事",
             url: "https://news.google.com/rss/articles/old",
             excerpt: "",
-            publishedAt: new Date(now * 1000).toISOString(),
+            publishedAt: new Date(testClock.now() * 1000).toISOString(),
           },
         ],
       );
       const id = (await repo.articles())[0]!.id;
       await repo.review(id, "saved");
       await repo.updateSettings({ autoPost: true });
-      now += 3600;
-      expect(await repo.claimPost(now)).toBeNull();
+      testClock.advance(3600);
+      expect(await repo.claimPost(testClock.now())).toBeNull();
       expect((await app.state()).publication.posts[0]?.failedBeforeSend).toBe(
         true,
       );
@@ -219,14 +202,7 @@ describe("HTTP contract", () => {
   it("supports bulk review and approval through the authenticated API", async () => {
     const { request, repo } = await setup();
     await repo.ingest(
-      {
-        id: "test",
-        name: "test",
-        url: "https://example.org/feed",
-        kind: "rss",
-        enabled: true,
-        description: "test",
-      },
+      rssSource({ id: "test", name: "test", description: "test" }),
       ["a", "b"].map((id) => ({
         title: id,
         url: `https://example.org/${id}`,
@@ -285,23 +261,16 @@ describe("HTTP contract", () => {
     expect((await cached()).status).toBe(200);
   });
   it("refreshes clock-derived freshness within 30 seconds without database writes", async () => {
-    let now = Date.parse("2026-09-28T03:00:00Z") / 1000;
-    const { repo, handlers, env } = await setup(() => now);
+    const testClock = fakeClock(Date.parse("2026-09-28T03:00:00Z") / 1000);
+    const { repo, handlers, env } = await setup(() => testClock.now());
     await repo.ingest(
-      {
-        id: "date-test",
-        name: "date",
-        url: "https://example.org/feed",
-        kind: "rss",
-        enabled: true,
-        description: "date",
-      },
+      rssSource({ id: "date-test", name: "date", description: "date" }),
       [
         {
           title: "期限境界の記事",
           url: "https://example.org/boundary",
           excerpt: "",
-          publishedAt: new Date((now - 86400) * 1000).toISOString(),
+          publishedAt: new Date((testClock.now() - 86400) * 1000).toISOString(),
         },
       ],
     );
@@ -313,7 +282,7 @@ describe("HTTP contract", () => {
     expect(await first.json()).toMatchObject({
       stats: { pending: 1 },
     });
-    now += 30;
+    testClock.advance(30);
     const next = await handlers.fetch(
       new Request("https://news.example.test/api/state", {
         headers: { "If-None-Match": first.headers.get("ETag")! },
@@ -376,7 +345,7 @@ describe("HTTP contract", () => {
     expect((await denied.fetch(post(), env)).status).toBe(403);
     expect(app).not.toHaveBeenCalled();
     const storage = testRepository();
-    cleanup.push(storage.close);
+
     await storage.repo.initialize();
     const failing = createHandlers(
       () => ({ allowed: async () => true }),

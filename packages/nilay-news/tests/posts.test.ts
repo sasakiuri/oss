@@ -4,12 +4,14 @@ import { describe, expect, test } from "vitest";
 import { UserError } from "../src/errors.ts";
 import { ACCOUNT, draft, textWeight } from "../src/publishing/draft.ts";
 
-const ITEM = {
+import { collectedItem } from "./helpers/fixtures.ts";
+
+const ITEM = collectedItem({
   title: "北海道でクマを捕獲",
   url: "https://example.org/article/1",
   excerpt: "北海道の町でクマを捕獲した。",
   publishedAt: "2026-09-27T00:00:00+00:00",
-};
+});
 
 test("the account stays the publishing identity", () => {
   expect(ACCOUNT).toBe("NilayNews");

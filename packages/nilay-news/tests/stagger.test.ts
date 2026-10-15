@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { CachedFetch } from "../src/collection/crawl.ts";
@@ -19,6 +19,8 @@ import { collection, type SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { namedRssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 // 2026-09-28 00:00 JST is 2026-09-27 15:00 UTC.
@@ -44,24 +46,8 @@ const YAHOO = ["yahoo-domestic", "yahoo-local", "yahoo-science"];
 const GOOGLE = ["google-1", "google-2"];
 const CEEK = ["ceek-1", "ceek-2", "ceek-3"];
 
-function fake(id: string, changes: Partial<SourceConfig> = {}): SourceConfig {
-  return {
-    id,
-    name: id,
-    description: id,
-    url: `https://example.org/${id}`,
-    kind: "rss",
-    enabled: true,
-    ...changes,
-  };
-}
 const daily = (id: string) =>
-  fake(id, { dailyAtJst: "11:00", minCollectionMinutes: 1440 });
-
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0)) close();
-});
+  namedRssSource(id, { dailyAtJst: "11:00", minCollectionMinutes: 1440 });
 
 interface Request {
   url: string;
@@ -76,10 +62,9 @@ async function world(
   sources: SourceConfig[],
   { start = MIDNIGHT, robots = true } = {},
 ) {
-  let now = start;
-  const clock = () => now;
+  const testClock = fakeClock(start);
+  const clock = testClock.now;
   const storage = testRepository(sources, clock);
-  cleanup.push(storage.close);
   let repo = storage.repo;
   await repo.initialize();
   // Steady state: robots.txt already cached, so pacing starts with the feed.
@@ -101,8 +86,8 @@ async function world(
     maxInflight = Math.max(maxInflight, inflight);
     try {
       await Promise.resolve();
-      const at = now;
-      now += REQUEST;
+      const at = testClock.now();
+      testClock.advance(REQUEST);
       if (url.endsWith("/robots.txt"))
         return {
           data: utf8("User-agent: *\nAllow: /\n"),
@@ -126,9 +111,7 @@ async function world(
       new CachedFetch(repository, sources, {
         clock,
         transport,
-        sleep: async (milliseconds) => {
-          now += milliseconds / 1000;
-        },
+        sleep: testClock.sleep,
       });
     let current = fresh();
     return {
@@ -164,7 +147,7 @@ async function world(
     requests,
     failures,
     maxInflight: () => maxInflight,
-    now: () => now,
+    now: testClock.now,
     appOf,
     /** Request times of a source. */
     times: (id: string) =>
@@ -180,7 +163,7 @@ async function world(
     /** Minute Cron ticks from `from` (inclusive) to `to` (exclusive). */
     run: async (from: number, to: number, each?: (at: number) => unknown) => {
       for (let at = from; at < to; at += MINUTE) {
-        now = Math.max(now, at);
+        testClock.set(Math.max(testClock.now(), at));
         await each?.(at);
         await app.scheduled();
       }
@@ -515,14 +498,16 @@ describe("offset queueing in the repository", () => {
   const yahoo = byId("yahoo-domestic");
 
   async function repository() {
-    let now = MIDNIGHT;
-    const storage = testRepository([yahoo, fake("rolling")], () => now);
-    cleanup.push(storage.close);
+    const testClock = fakeClock(MIDNIGHT);
+    const storage = testRepository([yahoo, namedRssSource("rolling")], () =>
+      testClock.now(),
+    );
+
     await storage.repo.initialize();
     return {
       repo: storage.repo,
       at: (epoch: number) => {
-        now = epoch;
+        testClock.set(epoch);
       },
     };
   }
@@ -530,7 +515,7 @@ describe("offset queueing in the repository", () => {
   it("pre-empts an idle automatic analysis and leaves its articles pending", async () => {
     const { repo, at } = await repository();
     await repo.updateSettings({ autoCollect: false, autoAnalyze: true });
-    await repo.ingest(fake("rolling"), [
+    await repo.ingest(namedRssSource("rolling"), [
       {
         title: "記事",
         url: "https://example.org/a",

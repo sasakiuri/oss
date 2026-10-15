@@ -13,74 +13,29 @@ import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
 import { draft } from "../src/publishing/draft.ts";
 import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
-import type {
-  BufferPost,
-  PublishingClient,
-} from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 
+import { fakePublishingClient } from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
+import { page, rpc, legacy, article } from "./helpers/google-news.ts";
 import { testRepository, storedState, storedRows } from "./helpers/storage.ts";
 
-const SOURCE: SourceConfig = {
+const SOURCE: SourceConfig = rssSource({
   id: "test",
   name: "テスト新聞",
   description: "テスト",
-  kind: "rss",
-  enabled: true,
-  url: "https://example.org/feed",
-};
+});
 const TARGET = "https://example.org/news/story";
 const WRAPPER = "https://news.google.com/rss/articles/opaque";
 const HOST = "google-news-url:news.google.com";
-const encode = (value: string) => new TextEncoder().encode(value);
-const page = encode(
-  '<div data-n-a-ts="1700000000" data-n-a-sg="test-signature"></div>',
-);
-const response = (url = TARGET) =>
-  encode(
-    ")]}'\n\n123\n" +
-      JSON.stringify([
-        ["wrb.fr", "Fbv4je", JSON.stringify(["garturlres", url])],
-      ]) +
-      "\n",
-  );
-function legacy(url = TARGET): string {
-  const bytes = encode(url);
-  const prefix = [8, 19, 34];
-  let size = bytes.length;
-  while (size >= 128) {
-    prefix.push((size & 127) | 128);
-    size = Math.floor(size / 128);
-  }
-  prefix.push(size);
-  return (
-    "https://news.google.com/rss/articles/" +
-    Buffer.from([...prefix, ...bytes, 0xd2, 1, 0]).toString("base64url")
-  );
-}
-function remote(
-  text: string,
-  status: BufferPost["status"] = "sent",
-): BufferPost {
-  return {
-    id: "buffer-123",
-    channelId: "channel-123",
-    channelService: "twitter",
-    status,
-    text,
-    externalLink: "https://x.com/NilayNews/status/123",
-  };
-}
-const cleanup: (() => void)[] = [];
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
-  for (const close of cleanup.splice(0)) close();
 });
-async function setup(url = legacy()) {
-  let now = 10_000;
-  const storage = testRepository([SOURCE], () => now);
-  cleanup.push(storage.close);
+async function setup(url = article(legacy(TARGET))) {
+  const testClock = fakeClock(10_000);
+  const storage = testRepository([SOURCE], () => testClock.now());
   const { repo } = storage;
   await repo.initialize();
   await repo.ingest(SOURCE, [
@@ -88,26 +43,21 @@ async function setup(url = legacy()) {
       title: "北海道でクマを捕獲",
       excerpt: "町内で捕獲",
       url,
-      publishedAt: new Date((now - 60) * 1000).toISOString(),
+      publishedAt: new Date((testClock.now() - 60) * 1000).toISOString(),
       metadata: { publisher: "テスト新聞" },
     },
   ]);
   const first = (await repo.articles())[0];
   if (!first) throw new Error("Missing fixture");
   await repo.review(first.id, "saved");
-  const client: PublishingClient = {
-    channel: "channel-123",
-    verifyAccount: vi.fn(async () => undefined),
-    post: vi.fn(async (text: string) => remote(text)),
-    getPost: vi.fn(async (_id: string, text: string) => remote(text)),
-  };
+  const client = fakePublishingClient(vi.fn);
   const buffer = new BufferClient("test-key", client.channel);
   vi.spyOn(buffer, "verifyAccount").mockImplementation(client.verifyAccount);
   vi.spyOn(buffer, "post").mockImplementation(client.post);
   vi.spyOn(buffer, "getPost").mockImplementation(client.getPost);
   const transport = vi.fn<FetchBytes>(async (url) => ({
     url,
-    data: url === GOOGLE_NEWS_RPC ? response() : page,
+    data: url === GOOGLE_NEWS_RPC ? rpc(TARGET) : page,
     contentType: "text/html",
   }));
   return {
@@ -116,21 +66,17 @@ async function setup(url = legacy()) {
     client,
     buffer,
     transport,
-    clock: () => now,
-    advance: (seconds: number) => {
-      now += seconds;
-    },
+    clock: testClock.now,
+    advance: testClock.advance,
     enable: async () => {
       await repo.updateSettings({ autoPost: true });
-      now += 3600;
+      testClock.advance(3600);
     },
     resolver: () =>
       new GoogleNewsResolver(repo, {
-        clock: () => now,
+        clock: testClock.now,
         transport,
-        sleep: async (milliseconds) => {
-          now += milliseconds / 1000;
-        },
+        sleep: testClock.sleep,
       }),
   };
 }
@@ -161,7 +107,10 @@ describe("publication of stored Google News links", () => {
       url: TARGET,
       reviewStatus: "posted",
       analysisStatus: "pending",
-      metadata: { googleNewsUrl: legacy(), publisher: "テスト新聞" },
+      metadata: {
+        googleNewsUrl: article(legacy(TARGET)),
+        publisher: "テスト新聞",
+      },
     });
     expect((await repo.publicationState()).posts).toMatchObject([
       { articleId: id, status: "posted", text: check.firstCandidate?.text },
@@ -281,7 +230,7 @@ describe("publication of stored Google News links", () => {
       ["one", "two"].map((sourceKey) => ({
         title: `記事 ${sourceKey}`,
         excerpt: "",
-        url: legacy(),
+        url: article(legacy(TARGET)),
         sourceKey,
         publishedAt: new Date(9_000_000).toISOString(),
       })),

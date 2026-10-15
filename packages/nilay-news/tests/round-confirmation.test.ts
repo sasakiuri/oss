@@ -8,16 +8,16 @@ import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 
+import { channel, limit, remotePost } from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const source: SourceConfig = {
+const source: SourceConfig = rssSource({
   id: "confirmation-fixture",
   name: "Fixture",
   description: "確認期限",
-  url: "https://example.org/feed",
-  enabled: true,
-  kind: "rss",
-};
+});
 
 describe("bounded confirmation within an hourly round", () => {
   it.each([
@@ -49,8 +49,10 @@ describe("bounded confirmation within an hourly round", () => {
     "handles $mode without another hourly item delay or blind retry",
     async (expected) => {
       const { mode } = expected;
-      let now = Date.parse("2026-09-28T12:00:00+09:00") / 1000;
-      const { repo, close } = testRepository([source], () => now);
+      const testClock = fakeClock(
+        Date.parse("2026-09-28T12:00:00+09:00") / 1000,
+      );
+      const { repo, close } = testRepository([source], () => testClock.now());
       try {
         await repo.initialize();
         await repo.ingest(
@@ -59,7 +61,9 @@ describe("bounded confirmation within an hourly round", () => {
             title: `鳥獣被害への対策 ${index}`,
             url: `https://example.org/${index}`,
             excerpt: "市の発表",
-            publishedAt: new Date((now - index) * 1000).toISOString(),
+            publishedAt: new Date(
+              (testClock.now() - index) * 1000,
+            ).toISOString(),
           })),
         );
         for (const article of await repo.articles())
@@ -67,14 +71,6 @@ describe("bounded confirmation within an hourly round", () => {
         await repo.updateSettings({ autoPost: true });
         const sent: string[] = [];
         let checks = 0;
-        const result = (text: string, id: string, status: string) => ({
-          id,
-          channelId: "channel",
-          channelService: "twitter",
-          text,
-          status,
-          externalLink: "https://x.com/NilayNews/status/123",
-        });
         const transport: FetchBytes = async (_url, options) => {
           const request = JSON.parse(
             new TextDecoder().decode(options?.body),
@@ -87,11 +83,10 @@ describe("bounded confirmation within an hourly round", () => {
             data = {
               createPost: {
                 __typename: "PostActionSuccess",
-                post: result(
-                  text,
-                  `buffer-${sent.length}`,
-                  sent.length === 1 ? "sending" : "sent",
-                ),
+                post: remotePost(text, sent.length === 1 ? "sending" : "sent", {
+                  id: `buffer-${sent.length}`,
+                  channelId: "channel",
+                }),
               },
             };
           } else if (request.query.includes("post(input:")) {
@@ -101,33 +96,19 @@ describe("bounded confirmation within an hourly round", () => {
             if (mode === "transient-then-pending" && checks === 1)
               throw new FetchError("private response", 500);
             data = {
-              post: result(
+              post: remotePost(
                 sent[0]!,
-                "buffer-1",
                 mode === "pending-then-sent" && checks === 2
                   ? "sent"
                   : "sending",
+                { id: "buffer-1", channelId: "channel" },
               ),
             };
           } else {
             data = {
-              channel: {
-                id: "channel",
-                name: "NilayNews",
-                service: "twitter",
-                allowedActions: ["scheduleUpdates", "readUpdates"],
-                isDisconnected: false,
-                isLocked: false,
-                isQueuePaused: false,
-                linkShortening: { isEnabled: false },
-              },
+              channel: channel({ id: "channel", name: "NilayNews" }),
               dailyPostingLimits: [
-                {
-                  channelId: "channel",
-                  isAtLimit: false,
-                  limit: 100,
-                  scheduled: sent.length,
-                },
+                limit({ channelId: "channel", scheduled: sent.length }),
               ],
             };
           }
@@ -140,21 +121,21 @@ describe("bounded confirmation within an hourly round", () => {
         const publisher = new Publisher(
           repo,
           new BufferClient("fixture-key", "channel", transport, {
-            clock: () => now,
+            clock: testClock.now,
             observeQuota: (quota) => repo.recordBufferQuota(quota),
             readQuota: () => repo.getRecord("buffer", "quota"),
             nextRequestOrder: () => repo.reserveBufferRequest(),
           }),
-          () => now,
+          () => testClock.now(),
         );
-        now += 3600;
-        const opened = now;
+        testClock.advance(3600);
+        const opened = testClock.now();
         await publisher.tick();
         expect(sent).toHaveLength(1);
-        now += 119;
+        testClock.advance(119);
         await publisher.tick();
         expect(checks).toBe(0);
-        now += 1;
+        testClock.advance(1);
         await publisher.tick();
         expect(checks).toBe(1);
         expect((await repo.settings()).autoPost).toBe(true);
@@ -162,13 +143,13 @@ describe("bounded confirmation within an hourly round", () => {
           status: "submitted",
           nextCheckAt: opened + (mode === "rate-limit" ? 1020 : 360),
         });
-        now += 119;
+        testClock.advance(119);
         await publisher.tick();
         expect(checks).toBe(1);
         for (const offset of [
           360, 840, 1020, 1740, 1920, 2640, 2820, 3540, 3600,
         ]) {
-          now = opened + offset;
+          testClock.set(opened + offset);
           await publisher.tick();
         }
         expect(checks).toBe(expected.checks);
@@ -184,7 +165,7 @@ describe("bounded confirmation within an hourly round", () => {
         expect(JSON.stringify(publication)).not.toContain("private response");
         expect(publication.nextAt).toBe(opened + 3600);
         expect((await repo.settings()).autoPost).toBe(expected.autoPost);
-        now += 10000;
+        testClock.advance(10000);
         await publisher.tick();
         expect(checks).toBe(expected.checks);
         expect(sent).toHaveLength(expected.sent);

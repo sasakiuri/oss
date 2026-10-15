@@ -1,29 +1,24 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { SourceConfig } from "../src/sources/types.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+import { namedRssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
 const START = Date.parse("2026-09-28T00:00:00+09:00") / 1000;
-const close: (() => void)[] = [];
-afterEach(() => close.splice(0).forEach((fn) => fn()));
-const source = (id: string, period = 240, offset = 0): SourceConfig => ({
-  id,
-  name: id,
-  description: id,
-  kind: "rss",
-  enabled: true,
-  url: `https://example.org/${id}`,
-  minCollectionMinutes: period,
-  collectionOffsetMinutes: offset,
-});
+const source = (id: string, period = 240, offset = 0): SourceConfig =>
+  namedRssSource(id, {
+    minCollectionMinutes: period,
+    collectionOffsetMinutes: offset,
+  });
 
 describe("staggered scheduler recovery safety", () => {
   it("does not round a completed request a second time into an eight-hour gap", async () => {
     const feed = source("feed");
     const storage = testRepository([feed], () => START + 600);
-    close.push(storage.close);
+
     await storage.repo.initialize();
     await storage.repo.putRecord("crawl_source", feed.id, {
       last_requested: START + 10,
@@ -35,22 +30,22 @@ describe("staggered scheduler recovery safety", () => {
     ).toBe(START + 4 * 3600 + 10);
   });
   it("rejects expired and replaced job owners before they move a source's next run", async () => {
-    let now = START;
+    const testClock = fakeClock(START);
     const feed = source("feed");
-    const storage = testRepository([feed], () => now);
-    close.push(storage.close);
+    const storage = testRepository([feed], () => testClock.now());
+
     const repo = storage.repo;
     await repo.initialize();
     await repo.queueJob("collect");
-    const first = await repo.claimJob(now, 60);
+    const first = await repo.claimJob(testClock.now(), 60);
     await repo.scheduleAutoCollection(feed.id, START + 1000, first!.token!);
     const before = (await repo.sources())[0]!.autoCollectAt;
-    now += 61;
+    testClock.advance(61);
     await expect(
       repo.scheduleAutoCollection(feed.id, START + 20000, first!.token!),
     ).rejects.toThrow(/所有権|有効期限/);
     expect((await repo.sources())[0]!.autoCollectAt).toBe(before);
-    const next = await repo.claimJob(now, 60);
+    const next = await repo.claimJob(testClock.now(), 60);
     await repo.scheduleAutoCollection(feed.id, START + 1500, next!.token!);
     await expect(
       repo.scheduleAutoCollection(feed.id, START + 30000, first!.token!),
@@ -66,7 +61,7 @@ describe("staggered scheduler recovery safety", () => {
       source("c", 60, 40),
     ];
     const storage = testRepository(feeds, () => START);
-    close.push(storage.close);
+
     const repo = storage.repo;
     await repo.initialize();
     await repo.putRecord("crawl_host", "example.org", {

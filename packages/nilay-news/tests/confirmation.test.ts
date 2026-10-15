@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BufferQuota } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
@@ -10,92 +10,63 @@ import {
   PostError,
   Publisher,
 } from "../src/publishing/publisher.ts";
-import type {
-  BufferPost,
-  PublishingClient,
-} from "../src/publishing/publisher.ts";
+import type { BufferPost } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
+import {
+  postFixture,
+  channel,
+  limit,
+  account,
+  fakePublishingClient,
+} from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const SOURCE: SourceConfig = {
+const SOURCE: SourceConfig = rssSource({
   id: "test",
   name: "テスト",
   url: "https://example.org/rss",
-  kind: "rss",
-  enabled: true,
   description: "",
-};
-function post(
-  text: string,
-  status: BufferPost["status"] = "sending",
-): BufferPost {
-  return {
-    id: "buffer-id",
-    channelId: "channel",
-    channelService: "twitter",
-    text,
-    status,
-  };
-}
-const CHANNEL = {
-  id: "channel",
-  name: "@NilayNews",
-  service: "twitter",
-  allowedActions: ["scheduleUpdates", "readUpdates"],
-  isDisconnected: false,
-  isLocked: false,
-  isQueuePaused: false,
-  linkShortening: { isEnabled: false },
-};
-const LIMIT = {
-  channelId: "channel",
-  limit: 100,
-  scheduled: 10,
-  sent: 3,
-  isAtLimit: false,
-};
-const ACCOUNT = { data: { channel: CHANNEL, dailyPostingLimits: [LIMIT] } };
+});
+const post = postFixture(
+  { id: "buffer-id", channelId: "channel", channelService: "twitter" },
+  "sending",
+);
+const CHANNEL = channel({ id: "channel" });
+const LIMIT = limit({ channelId: "channel", scheduled: 10, sent: 3 });
+const ACCOUNT = account({ id: "channel" }, [LIMIT]);
 const RATE = '"plan-window"; r=25; t=900';
 const POLICY = '"plan-window"; q=100; w=900; pk=:c2VjcmV0:';
 
 describe("durable accepted-post confirmation", () => {
   let repo: SQLRepository;
-  let close: () => void;
-  let now: number;
+  const testClock = fakeClock();
   let id: string;
-  const clock = () => now;
-  function client() {
-    return {
-      channel: "channel",
-      verifyAccount: vi.fn(async () => undefined),
-      post: vi.fn(async (text: string) => post(text)),
-      getPost: vi.fn(async (_id: string, text: string) => post(text)),
-    } satisfies PublishingClient;
-  }
+  const clock = testClock.now;
   beforeEach(async () => {
-    now = 10_000;
-    ({ repo, close } = testRepository([SOURCE], clock));
+    testClock.set(10_000);
+    ({ repo } = testRepository([SOURCE], clock));
     await repo.initialize();
     await repo.ingest(SOURCE, [
       {
         title: "クマの対策",
         url: "https://example.org/article",
         excerpt: "クマの対策です",
-        publishedAt: new Date(now * 1000).toISOString(),
+        publishedAt: new Date(testClock.now() * 1000).toISOString(),
       },
     ]);
     id = (await repo.articles())[0]?.id ?? "";
     await repo.review(id, "saved");
     await repo.updateSettings({ autoPost: true });
-    now += 3601;
+    testClock.advance(3601);
   });
-  afterEach(() => close());
 
   it("finishes a delayed known identity after three checks across new application instances", async () => {
-    const remote = client();
+    const remote = fakePublishingClient(vi.fn, "channel", post);
     remote.getPost.mockImplementationOnce(async (_id, text) =>
       post(text, "scheduled"),
     );
@@ -105,11 +76,11 @@ describe("durable accepted-post confirmation", () => {
     remote.getPost.mockImplementationOnce(async (_id, text) =>
       post(text, "sent"),
     );
-    const started = now;
+    const started = testClock.now();
     await new Publisher(repo, remote, clock).tick();
     await repo.updateSettings({ autoPost: false });
     for (const offset of [120, 360, 840]) {
-      now = started + offset;
+      testClock.set(started + offset);
       const restarted = new SQLRepository(repo.driver, [SOURCE], clock);
       await new Publisher(restarted, remote, clock).tick();
     }
@@ -119,26 +90,26 @@ describe("durable accepted-post confirmation", () => {
     expect((await repo.publicationState()).posts[0]).toMatchObject({
       status: "posted",
       remoteStatus: "sent",
-      lastObservedAt: now,
+      lastObservedAt: testClock.now(),
     });
     expect((await repo.settings()).autoPost).toBe(false);
   });
 
   it("serializes concurrent checks and fences a slow older response", async () => {
-    const remote = client();
-    const started = now;
+    const remote = fakePublishingClient(vi.fn, "channel", post);
+    const started = testClock.now();
     await new Publisher(repo, remote, clock).tick();
     let finish: (value: BufferPost) => void = () => undefined;
     const slow = new Promise<BufferPost>((resolve) => {
       finish = resolve;
     });
     remote.getPost.mockImplementationOnce(() => slow);
-    now = started + 120;
+    testClock.set(started + 120);
     const older = new Publisher(repo, remote, clock).tick();
     await vi.waitFor(() => expect(remote.getPost).toHaveBeenCalledTimes(1));
     await new Publisher(repo, remote, clock).tick();
     expect(remote.getPost).toHaveBeenCalledTimes(1);
-    now = started + 360;
+    testClock.set(started + 360);
     remote.getPost.mockImplementationOnce(async (_id, text) =>
       post(text, "sent"),
     );
@@ -151,10 +122,10 @@ describe("durable accepted-post confirmation", () => {
   });
 
   it("does not retry an ambiguous create without a trusted identity", async () => {
-    const remote = client();
+    const remote = fakePublishingClient(vi.fn, "channel", post);
     remote.post.mockRejectedValue(new PostError("確認してください", true));
     await new Publisher(repo, remote, clock).tick();
-    now += 100_000;
+    testClock.advance(100_000);
     await new Publisher(repo, remote, clock).tick();
     expect(remote.post).toHaveBeenCalledTimes(1);
     expect(remote.getPost).not.toHaveBeenCalled();
@@ -203,7 +174,7 @@ describe("durable accepted-post confirmation", () => {
     expect(JSON.stringify(await repo.publicationState())).not.toContain(
       "private",
     );
-    now += 100_000;
+    testClock.advance(100_000);
     const restarted = new SQLRepository(repo.driver, [SOURCE], clock);
     await new Publisher(restarted, buffer, clock).tick();
     expect(creates).toBe(1);
@@ -211,26 +182,28 @@ describe("durable accepted-post confirmation", () => {
   });
 
   it("honors persisted quota exhaustion without remote polling and ends at the deadline", async () => {
-    const remote = client();
-    const started = now;
+    const remote = fakePublishingClient(vi.fn, "channel", post);
+    const started = testClock.now();
     await new Publisher(repo, remote, clock).tick();
     await repo.recordBufferQuota({
-      observedAt: now,
+      observedAt: testClock.now(),
       api: {
         state: "known",
-        windows: [{ name: "window-1", remaining: 0, resetAt: now + 86400 }],
+        windows: [
+          { name: "window-1", remaining: 0, resetAt: testClock.now() + 86400 },
+        ],
       },
     });
-    now = started + 120;
+    testClock.set(started + 120);
     await new Publisher(repo, remote, clock).tick();
     expect((await repo.publicationState()).posts[0]).toMatchObject({
       status: "submitted",
       nextCheckAt: started + 3600,
     });
-    now = started + 3599;
+    testClock.set(started + 3599);
     await new Publisher(repo, remote, clock).tick();
     expect(remote.getPost).not.toHaveBeenCalled();
-    now += 1;
+    testClock.advance(1);
     await new Publisher(repo, remote, clock).tick();
     expect((await repo.publicationState()).posts[0]?.status).toBe("unknown");
     expect((await repo.settings()).autoPost).toBe(false);
@@ -238,8 +211,8 @@ describe("durable accepted-post confirmation", () => {
   });
 
   it("backs off a read-only HTTP 429 and later confirms without another create", async () => {
-    const remote = client();
-    const started = now;
+    const remote = fakePublishingClient(vi.fn, "channel", post);
+    const started = testClock.now();
     await new Publisher(repo, remote, clock).tick();
     const transport = vi.fn<FetchBytes>();
     transport.mockRejectedValueOnce(
@@ -259,16 +232,16 @@ describe("durable accepted-post confirmation", () => {
       observeQuota: (quota) => repo.recordBufferQuota(quota),
       readQuota: () => repo.getRecord("buffer", "quota"),
     });
-    now = started + 120;
+    testClock.set(started + 120);
     await new Publisher(repo, buffer, clock).tick();
     expect((await repo.publicationState()).posts[0]).toMatchObject({
       status: "submitted",
       nextCheckAt: started + 720,
     });
-    now = started + 719;
+    testClock.set(started + 719);
     await new Publisher(repo, buffer, clock).tick();
     expect(transport).toHaveBeenCalledTimes(1);
-    now += 1;
+    testClock.advance(1);
     await new Publisher(repo, buffer, clock).tick();
     expect((await repo.publicationState()).posts[0]?.status).toBe("posted");
     expect(transport).toHaveBeenCalledTimes(2);
@@ -281,12 +254,10 @@ describe("durable accepted-post confirmation", () => {
 
 describe("quota observations", () => {
   let repo: SQLRepository;
-  let close: () => void;
   beforeEach(async () => {
-    ({ repo, close } = testRepository([]));
+    ({ repo } = testRepository([]));
     await repo.initialize();
   });
-  afterEach(() => close());
   function buffer(body: unknown, rateLimit?: string, rateLimitPolicy?: string) {
     const transport = vi.fn<FetchBytes>(async () => ({
       data: utf8(JSON.stringify(body)),
@@ -436,13 +407,13 @@ describe("quota observations", () => {
   });
 
   it("starts Retry-After at the response time even when the request took 25 seconds", async () => {
-    let now = 10000;
+    const testClock = fakeClock(10000);
     const transport = vi.fn<FetchBytes>(async () => {
-      now += 25;
+      testClock.advance(25);
       throw new FetchError("private", 429, 600, '"window";r=0;t=600');
     });
     const client = new BufferClient("secret", "channel", transport, {
-      clock: () => now,
+      clock: testClock.now,
       observeQuota: (quota) => repo.recordBufferQuota(quota),
       nextRequestOrder: () => repo.reserveBufferRequest(),
     });
@@ -451,7 +422,7 @@ describe("quota observations", () => {
     expect(quota?.observedAt).toBe(10025);
     expect(quota?.api.retryAt).toBe(10625);
     expect(quota?.api.windows[0]?.resetAt).toBe(10625);
-    now = 10624;
+    testClock.set(10624);
     await expect(client.verifyAccount()).rejects.toThrow("利用上限");
     expect(transport).toHaveBeenCalledTimes(1);
   });

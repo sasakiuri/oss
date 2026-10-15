@@ -5,6 +5,8 @@ import { Access, CONFIG_NAMES } from "../src/access.ts";
 import { UserError } from "../src/errors.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 
+import { fakeClock } from "./helpers/clock.ts";
+
 const CONFIG = {
   NILAY_PUBLIC_ORIGIN: "https://news.example.com",
   CF_ACCESS_TEAM_DOMAIN: "test.cloudflareaccess.com",
@@ -61,7 +63,7 @@ beforeAll(async () => {
   ]);
 });
 
-let now: number;
+const testClock = fakeClock();
 let keys: Record<string, unknown>[];
 let fetches: [string, FetchOptions | undefined][];
 let fetcher: FetchBytes;
@@ -109,7 +111,7 @@ async function allowed(
 }
 
 beforeEach(async () => {
-  now = 1000;
+  testClock.set(1000);
   keys = [await publicJwk(primary, "fixture-key")];
   fetches = [];
   fetcher = async (url, options) => {
@@ -122,7 +124,7 @@ beforeEach(async () => {
   };
   access = new Access(CONFIG, {
     fetcher: (url, options) => fetcher(url, options),
-    clock: () => now,
+    clock: testClock.now,
   });
 });
 
@@ -372,7 +374,7 @@ describe("Access", () => {
 
   it("never uses an expired key set when JWKS refresh fails", async () => {
     expect(await allowed()).toBe(true);
-    now = 5000;
+    testClock.set(5000);
     fetcher = () => Promise.reject(new Error("private upstream response"));
     const token = await sign({ iat: 4900, exp: 5100 });
     expect(await allowed(token)).toBe(false);
@@ -383,13 +385,13 @@ describe("Access", () => {
     expect(await allowed()).toBe(true);
     keys = [await publicJwk(rotated, "rotated-key")];
     const token = await sign({ exp: 99999 }, { kid: "rotated-key" }, rotated);
-    now = 1030;
+    testClock.set(1030);
     expect(await allowed(token)).toBe(false);
     expect(fetches).toHaveLength(1);
-    now = 1060;
+    testClock.set(1060);
     expect(await allowed(token)).toBe(true);
     expect(fetches).toHaveLength(2);
-    now = 1060 + 3599;
+    testClock.set(1060 + 3599);
     expect(await allowed(token)).toBe(true);
     expect(fetches).toHaveLength(2);
     // The old key left the set with the rotation.
@@ -505,7 +507,7 @@ describe("Access", () => {
         ...CONFIG,
         CF_ACCESS_ALLOWED_EMAILS: "Admin@Example.com, editor@example.com",
       },
-      { fetcher, clock: () => now },
+      { fetcher, clock: testClock.now },
     );
     expect(await allowed(await sign({ email: "editor@example.com" }))).toBe(
       true,
@@ -570,10 +572,10 @@ describe("Access", () => {
       expect(await allowed(token)).toBe(false);
       expect(attempts).toBe(1);
       fetcher = original;
-      now = 1059;
+      testClock.set(1059);
       expect(await allowed(token)).toBe(false);
       expect(fetches).toHaveLength(0);
-      now = 1060;
+      testClock.set(1060);
       expect(await Promise.all([allowed(token), allowed(token)])).toEqual([
         true,
         true,
@@ -585,7 +587,7 @@ describe("Access", () => {
   it("shares an expired-key refresh and never falls back to the expired cache", async () => {
     const token = await sign({ exp: 99999 });
     expect(await allowed(token)).toBe(true);
-    now = 4600;
+    testClock.set(4600);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -600,7 +602,7 @@ describe("Access", () => {
     expect(await pending).toEqual([false, false]);
     expect(await allowed(token)).toBe(false);
     fetcher = original;
-    now = 4660;
+    testClock.set(4660);
     expect(await Promise.all([allowed(token), allowed(token)])).toEqual([
       true,
       true,
@@ -611,7 +613,7 @@ describe("Access", () => {
   it("keeps a valid known key usable while an unknown kid refresh is pending", async () => {
     const known = await sign();
     expect(await allowed(known)).toBe(true);
-    now = 1060;
+    testClock.set(1060);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -640,7 +642,7 @@ describe("Access", () => {
     };
     const [valid, expiring] = await Promise.all([sign(), sign({ exp: 1001 })]);
     const pending = Promise.all([allowed(valid), allowed(expiring)]);
-    now = 1001;
+    testClock.set(1001);
     release();
     expect(await pending).toEqual([true, false]);
     expect(fetches).toHaveLength(1);
@@ -667,7 +669,7 @@ describe("Access", () => {
     try {
       const pending = allowed(token);
       await verifying;
-      now = 4600;
+      testClock.set(4600);
       expect(await allowed(token)).toBe(true);
       release();
       expect(await pending).toBe(false);
@@ -683,7 +685,7 @@ describe("Access", () => {
     const spy = vi
       .spyOn(crypto.subtle, "verify")
       .mockImplementationOnce(async () => {
-        now = 999;
+        testClock.set(999);
         return true;
       });
     try {

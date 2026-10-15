@@ -20,6 +20,8 @@ import type {
 } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 
+import { rssSource } from "./helpers/fixtures.ts";
+
 const FIXTURES = new URL("fixtures/", import.meta.url);
 const read = (name: string) =>
   new Uint8Array(readFileSync(new URL(`${name}.html`, FIXTURES)));
@@ -768,14 +770,12 @@ const KANPO = {
 };
 
 describe("source configuration", () => {
-  const good = {
+  const good = rssSource({
     id: "test",
     name: "Test",
     description: "Test feed",
     url: "https://example.com/feed",
-    kind: "rss",
-    enabled: true,
-  };
+  });
 
   test("the bundled configuration", async () => {
     const sources = loadSources(

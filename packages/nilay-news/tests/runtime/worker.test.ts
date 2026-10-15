@@ -1,135 +1,30 @@
 // SPDX-License-Identifier: MIT
-import { generateKeyPairSync, sign } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
-
-import { build } from "esbuild";
-import { Miniflare, Response as MiniflareResponse } from "miniflare";
 import { describe, expect, it } from "vitest";
 
-const origin = "https://news.example.test";
-const config = {
-  NILAY_PUBLIC_ORIGIN: origin,
-  CF_ACCESS_TEAM_DOMAIN: "fixture.cloudflareaccess.com",
-  CF_ACCESS_AUD: "fixture-audience",
-  CF_ACCESS_ALLOWED_EMAILS: "reader@example.test",
-};
-const migrations = new URL("../../migrations/", import.meta.url);
-/** Statements of every D1 migration in the order Wrangler applies them. */
-const migrationFiles = readdirSync(migrations)
-  .filter((name) => name.endsWith(".sql"))
-  .sort()
-  .map((name) => ({
-    name,
-    sql: readFileSync(new URL(name, migrations), "utf8"),
-  }));
+import {
+  MIGRATION_FILES,
+  migration as readMigration,
+} from "../harness/migrations.ts";
+import {
+  accessBindings as config,
+  workerOrigin as origin,
+  bundle,
+  runtimeFor,
+  accessToken,
+  migrateRuntime,
+} from "../harness/miniflare.ts";
+
+const migrationFiles = MIGRATION_FILES.map((name) => ({
+  name,
+  sql: readMigration(name),
+}));
 const migration = migrationFiles.map((file) => file.sql).join(";\n");
-async function bundle(entry: string) {
-  const result = await build({
-    entryPoints: [entry],
-    bundle: true,
-    write: false,
-    format: "esm",
-    platform: "browser",
-    target: "es2022",
-    metafile: true,
-  });
-  return {
-    script: result.outputFiles[0]!.text,
-    inputs: Object.keys(result.metafile.inputs),
-  };
-}
-
-function runtimeFor(
-  script: string,
-  bindings: Record<string, string>,
-  storage = true,
-) {
-  return new Miniflare({
-    cf: false,
-    workers: [
-      {
-        config: {
-          name: "nilay-news-test",
-          compatibilityDate: "2026-09-27",
-          manifest: {
-            mainModule: "worker.js",
-            modules: { "worker.js": { type: "esm", contents: script } },
-          },
-          env: {
-            ...Object.fromEntries(
-              Object.entries(bindings).map(([name, value]) => [
-                name,
-                { type: "text" as const, value },
-              ]),
-            ),
-            ...(storage
-              ? {
-                  DB: { type: "d1" as const, id: "test" },
-                  ASSETS: { type: "assets" as const },
-                }
-              : {}),
-          },
-          ...(storage
-            ? {
-                assets: {
-                  directory: "./public",
-                  runWorkerFirst: true,
-                  hasUserWorker: true,
-                },
-              }
-            : {}),
-        },
-        dev: {
-          outboundService: {
-            type: "fetcher",
-            handler: () =>
-              new MiniflareResponse("Unexpected external request", {
-                status: 503,
-              }),
-          },
-        },
-      },
-    ],
-  });
-}
-
-function accessToken() {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-  });
-  const jwk = {
-    ...publicKey.export({ format: "jwk" }),
-    kid: "runtime",
-    alg: "RS256",
-    use: "sig",
-  };
-  const encode = (value: object) =>
-    Buffer.from(JSON.stringify(value)).toString("base64url");
-  const content = `${encode({ alg: "RS256", kid: "runtime" })}.${encode({
-    iss: "https://fixture.cloudflareaccess.com",
-    aud: ["fixture-audience"],
-    sub: "reader",
-    email: "reader@example.test",
-    iat: 1_800_999_900,
-    exp: 1_801_010_000,
-  })}`;
-  const token = `${content}.${sign("RSA-SHA256", Buffer.from(content), privateKey).toString("base64url")}`;
-  return { token, jwks: JSON.stringify({ keys: [jwk] }) };
-}
-
 /** The authenticated fixture Worker over a freshly migrated D1 database. */
 async function fixtureRuntime() {
   const { token, jwks } = accessToken();
   const { script } = await bundle("tests/runtime/fixture.ts");
   const runtime = runtimeFor(script, { ...config, TEST_JWKS: jwks });
-  const db = await runtime.getD1Database("DB");
-  await db.batch(
-    migration
-      .split(";")
-      .map((sql) => sql.trim())
-      .filter(Boolean)
-      .map((sql) => db.prepare(sql)),
-  );
+  await migrateRuntime(runtime);
   const request = async (
     path: string,
     body?: object,

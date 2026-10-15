@@ -4,14 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
+import { choiceAnswer } from "../src/jev/evaluation.ts";
 import { evidenceHash } from "../src/jev/evidence.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes, FetchOptions } from "../src/net/types.ts";
 import { POST_INTERVAL_SECONDS } from "../src/publishing/policy.ts";
-import type {
-  BufferPost,
-  PublishingClient,
-} from "../src/publishing/publisher.ts";
 import {
   BufferClient,
   PostError,
@@ -22,71 +19,38 @@ import type { CollectedItem, SourceConfig } from "../src/sources/types.ts";
 import type { SQLRepository } from "../src/storage/sql-repository.ts";
 import { utf8 } from "../src/text.ts";
 
+import {
+  channel,
+  limit,
+  account,
+  remotePost,
+  fakePublishingClient,
+  type FakePublishingClient,
+} from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import {
+  START,
+  published,
+  rssSource,
+  collectedItem,
+} from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const SOURCE: SourceConfig = {
+const SOURCE: SourceConfig = rssSource({
   id: "test",
   name: "テスト新聞",
   url: "https://example.org/rss",
-  kind: "rss",
-  enabled: true,
   description: "テスト",
-};
-/** The Publisher tests start at `now = 10000` (epoch seconds). */
-const START = 10000;
-/** A zoned publication time `seconds` after the start clock. */
-function published(seconds: number): string {
-  return new Date((START + seconds) * 1000).toISOString();
-}
-const ITEM: CollectedItem = {
+});
+const ITEM: CollectedItem = collectedItem({
   title: "北海道でクマを捕獲",
   url: "https://example.org/article/1",
   excerpt: "北海道の町でクマを捕獲した。",
-  publishedAt: published(-3600),
-};
-const CHANNEL = {
-  id: "channel-123",
-  name: "@NilayNews",
-  service: "twitter",
-  allowedActions: ["scheduleUpdates", "readUpdates"],
-  isDisconnected: false,
-  isLocked: false,
-  isQueuePaused: false,
-  linkShortening: { isEnabled: false },
-};
-const LIMIT = {
-  channelId: "channel-123",
-  isAtLimit: false,
-  limit: 100,
-  scheduled: 99,
-};
-/** A verified account with room for one more post today. */
-function account(
-  channel: Record<string, unknown> = {},
-  limits: unknown = [LIMIT],
-): { data: Record<string, unknown> } {
-  return {
-    data: { channel: { ...CHANNEL, ...channel }, dailyPostingLimits: limits },
-  };
-}
+});
+const CHANNEL = channel();
+const LIMIT = limit();
 const BUFFER_RATE =
   '"100-in-15min"; r=99; t=900, "250-in-1day"; r=244; t=70610, "3000-in-30days"; r=2994; t=2576210';
-
-function remotePost(
-  text = "本文",
-  status: BufferPost["status"] = "sent",
-  changes: Record<string, unknown> = {},
-): BufferPost {
-  return {
-    id: "buffer-123",
-    channelId: "channel-123",
-    channelService: "twitter",
-    text,
-    status,
-    externalLink: "https://x.com/NilayNews/status/123",
-    ...changes,
-  } as BufferPost;
-}
 
 function replying(...bodies: unknown[]): Mock<FetchBytes> {
   const transport = vi.fn<FetchBytes>();
@@ -578,31 +542,10 @@ describe("BufferClient", () => {
 });
 
 describe("Publisher", () => {
-  let now: number;
+  const testClock = fakeClock();
   let repo: SQLRepository;
-  let close: () => void;
   let articleId: string;
-  const clock = () => now;
-
-  interface FakeClient extends PublishingClient {
-    channel: string;
-    verifyAccount: Mock<PublishingClient["verifyAccount"]>;
-    post: Mock<PublishingClient["post"]>;
-    getPost: Mock<PublishingClient["getPost"]>;
-  }
-
-  function fakeClient(): FakeClient {
-    return {
-      channel: "channel-123",
-      verifyAccount: vi.fn<PublishingClient["verifyAccount"]>(
-        async () => undefined,
-      ),
-      post: vi.fn<PublishingClient["post"]>(async (text) => remotePost(text)),
-      getPost: vi.fn<PublishingClient["getPost"]>(async (_id, text) =>
-        remotePost(text),
-      ),
-    };
-  }
+  const clock = testClock.now;
 
   /** A saved article; a later index is published earlier. */
   async function add(index: number): Promise<string> {
@@ -625,16 +568,15 @@ describe("Publisher", () => {
   }
 
   beforeEach(async () => {
-    now = START;
-    ({ repo, close } = testRepository([SOURCE], clock));
+    testClock.set(START);
+    ({ repo } = testRepository([SOURCE], clock));
     await repo.initialize();
     articleId = await add(1);
     await repo.updateSettings({ autoPost: true });
-    now += 3601;
+    testClock.advance(3601);
   });
 
   afterEach(() => {
-    close();
     vi.restoreAllMocks();
   });
 
@@ -644,15 +586,11 @@ describe("Publisher", () => {
         data: utf8(
           JSON.stringify({
             answers: {
-              relation: {
-                type: "choice",
-                choice: relation,
-                probabilities: Object.fromEntries(
-                  ["duplicate", "followup", "different", "uncertain"].map(
-                    (name) => [name, name === relation ? 1 : 0],
-                  ),
-                ),
-              },
+              relation: choiceAnswer(
+                relation,
+                ["duplicate", "followup", "different", "uncertain"],
+                1,
+              ),
             },
           }),
         ),
@@ -683,7 +621,7 @@ describe("Publisher", () => {
           },
         );
         await repo.reviewMany([articleId], "approved");
-        const client = fakeClient();
+        const client = fakePublishingClient(vi.fn);
         const { jev, transport } = reviewer(relation);
         await new Publisher(repo, client, clock, jev).tick();
         expect(transport).not.toHaveBeenCalled();
@@ -694,7 +632,7 @@ describe("Publisher", () => {
 
     it("withdraws a manually approved claim if its approval changes before authorization", async () => {
       await repo.review(articleId, "approved");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev, transport } = reviewer();
       const authorize = repo.authorizePostSend.bind(repo);
       vi.spyOn(repo, "authorizePostSend").mockImplementation(
@@ -728,7 +666,7 @@ describe("Publisher", () => {
         );
       }
       await repo.updateSettings({ postSelection: "candidates" });
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev, transport } = reviewer();
       const publisher = new Publisher(repo, client, clock, jev);
       for (let tick = 0; tick < 10; tick += 1) await publisher.tick();
@@ -754,13 +692,13 @@ describe("Publisher", () => {
     });
 
     it("also checks confirmed post history after an article was returned to unread", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev, transport } = reviewer();
       const publisher = new Publisher(repo, client, clock, jev);
       await publisher.tick();
       await repo.review(articleId, "unread");
       const next = await add(2);
-      now += POST_INTERVAL_SECONDS;
+      testClock.advance(POST_INTERVAL_SECONDS);
       await publisher.tick();
       expect(transport).toHaveBeenCalledTimes(1);
       expect(client.post).toHaveBeenCalledTimes(1);
@@ -775,7 +713,7 @@ describe("Publisher", () => {
       async (relation) => {
         const previous = await add(2);
         await repo.review(previous, "posted");
-        const client = fakeClient();
+        const client = fakePublishingClient(vi.fn);
         const { jev, transport } = reviewer(relation);
         await new Publisher(repo, client, clock, jev).tick();
         expect(transport).toHaveBeenCalledTimes(1);
@@ -811,8 +749,8 @@ describe("Publisher", () => {
       });
       await repo.review(originalComparison, "dismissed");
       const before = await repo.article(articleId);
-      now += 1;
-      const client = fakeClient();
+      testClock.advance(1);
+      const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer("different");
       const relate = jev.relate.bind(jev);
       vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
@@ -843,7 +781,10 @@ describe("Publisher", () => {
         ],
       });
       expect(after.postScreening?.checkedAt).not.toBe(before.analyzedAt);
-      const page = await repo.articlePage({ bucket: "posted" }, now);
+      const page = await repo.articlePage(
+        { bucket: "posted" },
+        testClock.now(),
+      );
       expect(
         page.articles.find((item) => item.id === articleId),
       ).not.toHaveProperty("postScreening");
@@ -856,7 +797,7 @@ describe("Publisher", () => {
     it("holds an uncertain match without sending or marking it as posted", async () => {
       const previous = await add(2);
       await repo.review(previous, "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer("uncertain");
       await new Publisher(repo, client, clock, jev).tick();
       expect(client.post).not.toHaveBeenCalled();
@@ -871,7 +812,7 @@ describe("Publisher", () => {
 
     it("stops posting if the duplicate check fails", async () => {
       await repo.review(await add(2), "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev, transport } = reviewer();
       transport.mockRejectedValue(new UserError("Jev の利用上限です"));
       await new Publisher(repo, client, clock, jev).tick();
@@ -885,7 +826,7 @@ describe("Publisher", () => {
 
     it("withdraws a claim if its body changes during a successful duplicate check", async () => {
       await repo.review(await add(2), "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer("different");
       const relate = jev.relate.bind(jev);
       vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
@@ -907,7 +848,7 @@ describe("Publisher", () => {
     it("withdraws a claim when compared evidence changes after a non-blocking Jev answer", async () => {
       const previous = await add(2);
       await repo.review(previous, "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer("different");
       const relate = jev.relate.bind(jev);
       vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
@@ -930,7 +871,7 @@ describe("Publisher", () => {
 
     it("does not send a rejected screening even if concurrent classification clears the annotation", async () => {
       await repo.review(await add(2), "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer();
       const authorize = repo.authorizePostSend.bind(repo);
       vi.spyOn(repo, "authorizePostSend").mockImplementation(
@@ -965,7 +906,7 @@ describe("Publisher", () => {
         },
       ]);
       await repo.review(await add(2), "posted");
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const { jev, transport } = reviewer();
       await new Publisher(repo, client, clock, jev).tick();
       expect(client.post).toHaveBeenCalledTimes(1);
@@ -1013,7 +954,7 @@ describe("Publisher", () => {
     ]).toEqual(["posted", "123"]);
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
     expect(publication.nextAt).toBeGreaterThanOrEqual(
-      now + POST_INTERVAL_SECONDS,
+      testClock.now() + POST_INTERVAL_SECONDS,
     );
   });
 
@@ -1041,7 +982,7 @@ describe("Publisher", () => {
       expect(calls).toEqual([]);
       await repo.updateSettings({ autoPost: true });
       await publisher.tick();
-      now += 7200;
+      testClock.advance(7200);
       await publisher.tick();
       expect(calls).toHaveLength(2);
       const { posts } = await state();
@@ -1067,7 +1008,7 @@ describe("Publisher", () => {
       clock,
     );
     await publisher.tick();
-    now += 7200;
+    testClock.advance(7200);
     await publisher.tick();
     expect((await state()).posts[0]?.status).toBe("unknown");
     expect((await repo.settings()).autoPost).toBe(false);
@@ -1099,7 +1040,7 @@ describe("Publisher", () => {
   });
 
   it("does nothing when publishing is disabled or nothing is due", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     await repo.updateSettings({ autoPost: false });
     await new Publisher(repo, client, clock).tick();
     expect(client.verifyAccount).not.toHaveBeenCalled();
@@ -1109,46 +1050,46 @@ describe("Publisher", () => {
   it("spaces rounds an hour from their opening, despite network latency", async () => {
     expect(POST_INTERVAL_SECONDS).toBe(3600);
     const secondId = await add(2);
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.verifyAccount.mockImplementation(async () => {
-      now += 20;
+      testClock.advance(20);
     });
     client.post.mockImplementation(async (text) => {
-      now += 20;
+      testClock.advance(20);
       return remotePost(text);
     });
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     await publisher.tick();
     // Both articles of the round are posted, one after the other.
     expect(client.post).toHaveBeenCalledTimes(2);
     expect((await repo.article(secondId)).reviewStatus).toBe("posted");
     expect((await state()).nextAt).toBe(started + 3600);
     await add(3);
-    now = started + 3599;
-    await publisher.tick(now);
+    testClock.set(started + 3599);
+    await publisher.tick(testClock.now());
     expect(client.post).toHaveBeenCalledTimes(2);
-    now += 1;
-    await publisher.tick(now);
+    testClock.advance(1);
+    await publisher.tick(testClock.now());
     expect(client.post).toHaveBeenCalledTimes(3);
   });
 
   it("confirms a submitted post later against its stored channel, then completes it", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) => remotePost(text, "sending"));
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     await publisher.tick();
     expect((await state()).posts[0]?.status).toBe("submitted");
     expect((await repo.article(articleId)).reviewStatus).toBe("saved");
     client.channel = "changed-channel";
     await repo.updateSettings({ autoPost: false });
-    now = started + 119;
+    testClock.set(started + 119);
     await publisher.tick();
     expect(client.getPost).not.toHaveBeenCalled();
-    now = started + 120;
+    testClock.set(started + 120);
     client.getPost.mockImplementation(async () => {
-      now += 25;
+      testClock.advance(25);
       return remotePost(client.post.mock.calls[0]?.[0]);
     });
     await publisher.tick();
@@ -1163,10 +1104,10 @@ describe("Publisher", () => {
   });
 
   it("confirms a stored post with its original text after the tag rules change", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) => remotePost(text, "sending"));
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     await publisher.tick();
     expect(client.post.mock.calls[0]?.[0]).toBe(
       "北海道でクマを捕獲\nhttps://example.org/article/1\n#テスト新聞 #北海道 #クマ #鳥獣被害対策",
@@ -1179,7 +1120,7 @@ describe("Publisher", () => {
         [legacy, articleId],
       ],
     ]);
-    now = started + 120;
+    testClock.set(started + 120);
     await publisher.tick();
     expect(client.getPost).toHaveBeenCalledWith(
       "buffer-123",
@@ -1189,14 +1130,14 @@ describe("Publisher", () => {
     expect(client.post).toHaveBeenCalledTimes(1);
     const [post] = (await state()).posts;
     expect([post?.status, post?.text]).toEqual(["posted", legacy]);
-    now += 7200;
+    testClock.advance(7200);
     await publisher.tick();
     expect(client.post).toHaveBeenCalledTimes(1);
   });
 
   it("allows at most six confirmation requests within one hour and never resends", async () => {
     await add(2);
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) =>
       remotePost(text, "scheduled"),
     );
@@ -1204,9 +1145,9 @@ describe("Publisher", () => {
       remotePost(text, "sending"),
     );
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     for (const offset of [0, 120, 360, 840, 1740, 2640, 3540, 3600, 999999]) {
-      now = started + offset;
+      testClock.set(started + offset);
       await publisher.tick();
     }
     expect(client.getPost).toHaveBeenCalledTimes(6);
@@ -1221,7 +1162,7 @@ describe("Publisher", () => {
   it.each(["error", "draft", "needs_approval"] as const)(
     "treats a %s result as incomplete at once",
     async (status) => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.post.mockImplementation(async (text) => remotePost(text, status));
       await new Publisher(repo, client, clock).tick();
       const post = (await state()).posts[0];
@@ -1233,13 +1174,13 @@ describe("Publisher", () => {
   );
 
   it("pauses at the confirmation deadline without storing remote text", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) => remotePost(text, "sending"));
     client.getPost.mockRejectedValue(new PostError("private response"));
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     for (const offset of [0, 120, 3720]) {
-      now = started + offset;
+      testClock.set(started + offset);
       await publisher.tick();
     }
     expect(client.getPost).toHaveBeenCalledTimes(1);
@@ -1248,16 +1189,16 @@ describe("Publisher", () => {
   });
 
   it("preserves the sanitized Retry-After on final confirmation rate limits", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) => remotePost(text, "sending"));
     const limited = new BufferClient("fixture-key", "channel-123", async () => {
       throw new FetchError("private remote body", 429, 7200);
     });
     client.getPost.mockImplementation((...args) => limited.getPost(...args));
     const publisher = new Publisher(repo, client, clock);
-    const started = now;
+    const started = testClock.now();
     for (const offset of [0, 120, 3720]) {
-      now = started + offset;
+      testClock.set(started + offset);
       await publisher.tick();
     }
     const recorded = (await state()).posts[0];
@@ -1292,7 +1233,7 @@ describe("Publisher", () => {
       "Buffer 投稿処理に失敗しました。Buffer と X を確認してください",
     ],
   ])("records %s durably", async (_, error, duringVerify, status, message) => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     if (duringVerify) client.verifyAccount.mockRejectedValue(error());
     else client.post.mockRejectedValue(error());
     await new Publisher(repo, client, clock).tick();
@@ -1302,7 +1243,7 @@ describe("Publisher", () => {
   });
 
   it("records an unexpected failure after sending began as unknown", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockRejectedValue(new TypeError("secret"));
     await new Publisher(repo, client, clock).tick();
     expect((await state()).posts[0]?.status).toBe("unknown");
@@ -1310,12 +1251,12 @@ describe("Publisher", () => {
   });
 
   it("does not resend when recording the completion fails", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     vi.spyOn(repo, "finishPost").mockRejectedValueOnce(new Error("disk full"));
     await expect(new Publisher(repo, client, clock).tick()).rejects.toThrow(
       "disk full",
     );
-    now += 120;
+    testClock.advance(120);
     await new Publisher(repo, client, clock).tick();
     // The submission was stored first, so it is confirmed rather than recreated.
     expect(client.post).toHaveBeenCalledTimes(1);
@@ -1324,22 +1265,22 @@ describe("Publisher", () => {
   });
 
   it("does not resend when the process stops before the submission is stored", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     vi.spyOn(repo, "submitPost").mockRejectedValueOnce(new Error("disk full"));
     await expect(new Publisher(repo, client, clock).tick()).rejects.toThrow(
       "disk full",
     );
-    now += 999999;
+    testClock.advance(999999);
     await new Publisher(repo, client, clock).tick();
     expect(client.post).toHaveBeenCalledTimes(1);
     expect((await state()).posts[0]?.status).toBe("unknown");
   });
 
   it("propagates claim fencing when another invocation took over an expired claim", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.post.mockImplementation(async (text) => {
-      now += 601;
-      await repo.recoverPosts(now);
+      testClock.advance(601);
+      await repo.recoverPosts(testClock.now());
       return remotePost(text);
     });
     const error = await new Publisher(repo, client, clock)
@@ -1365,18 +1306,18 @@ describe("Publisher", () => {
       item.url.endsWith("/latest"),
     );
     await repo.review(latest?.id ?? "", "saved");
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     await new Publisher(repo, client, clock).tick();
     expect(client.post.mock.calls[0]?.[0]).toContain("/article/latest");
     expect((await repo.article(latest?.id ?? "")).reviewStatus).toBe("posted");
   });
 
   it("never sends an article that aged out during the account check", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     // One second before the article leaves the 24 hour window.
-    now = START - 3660 + 86400 - 1;
+    testClock.set(START - 3660 + 86400 - 1);
     client.verifyAccount.mockImplementation(async () => {
-      now += 2;
+      testClock.advance(2);
     });
     await new Publisher(repo, client, clock).tick();
     expect(client.verifyAccount).toHaveBeenCalledTimes(1);
@@ -1390,7 +1331,7 @@ describe("Publisher", () => {
   });
 
   it("never sends after posting is switched off during the account check", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.verifyAccount.mockImplementation(async () => {
       await repo.updateSettings({ autoPost: false });
     });
@@ -1401,10 +1342,10 @@ describe("Publisher", () => {
   });
 
   it("never sends with a claim that expired during the account check", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.verifyAccount.mockImplementation(async () => {
-      now += 601;
-      await repo.recoverPosts(now);
+      testClock.advance(601);
+      await repo.recoverPosts(testClock.now());
     });
     await new Publisher(repo, client, clock).tick();
     expect(client.post).not.toHaveBeenCalled();
@@ -1414,9 +1355,9 @@ describe("Publisher", () => {
   });
 
   it("never sends with a claim whose lease ran out, even before recovery", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     client.verifyAccount.mockImplementation(async () => {
-      now += 600;
+      testClock.advance(600);
     });
     await new Publisher(repo, client, clock).tick();
     expect(client.post).not.toHaveBeenCalled();
@@ -1448,7 +1389,7 @@ describe("Publisher", () => {
       ],
       ["a changed draft", () => edit("title", "シカを捕獲")],
     ])("after %s", async (_, change) => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
         await change();
       });
@@ -1470,7 +1411,7 @@ describe("Publisher", () => {
         (await repo.settings()).rubric,
         { analysisStatus: "done", decision: "candidate" },
       );
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
         await repo.updateSettings({
           rubric: "変更された具体的なニュースの選定基準です",
@@ -1483,7 +1424,7 @@ describe("Publisher", () => {
     });
 
     it("and sends the current draft on the next due tick, never the stale one", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementationOnce(async () => {
         await edit("title", "シカを捕獲");
       });
@@ -1510,7 +1451,7 @@ describe("Publisher", () => {
       clock,
     );
     await publisher.tick();
-    now += 7200;
+    testClock.advance(7200);
     await publisher.tick();
     // One account check and no mutation or further request.
     expect(calls).toHaveLength(1);
@@ -1545,7 +1486,7 @@ describe("Publisher", () => {
   });
 
   it("records a failure when the send authorization cannot be stored", async () => {
-    const client = fakeClient();
+    const client = fakePublishingClient(vi.fn);
     vi.spyOn(repo, "authorizePostSend").mockRejectedValueOnce(
       new Error("disk full"),
     );
@@ -1571,7 +1512,7 @@ describe("Publisher", () => {
       return ids;
     }
 
-    function numbered(client: FakeClient): void {
+    function numbered(client: FakePublishingClient): void {
       client.post.mockImplementation(async (text) =>
         remotePost(text, "sent", {
           id: `buffer-${client.post.mock.calls.length}`,
@@ -1581,21 +1522,21 @@ describe("Publisher", () => {
 
     it("posts every accumulated article on its own, over consecutive ticks", async () => {
       const ids = await accumulate(12);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       numbered(client);
       const authorize = vi.spyOn(repo, "authorizePostSend");
       const publisher = new Publisher(repo, client, clock);
-      const opened = now;
+      const opened = testClock.now();
       await publisher.tick();
       // One bounded burst: ten operations, each verified and authorized.
       expect(client.post).toHaveBeenCalledTimes(10);
       expect(client.verifyAccount).toHaveBeenCalledTimes(10);
       expect(authorize).toHaveBeenCalledTimes(10);
       // The rest of the round is due at once, not an hour later.
-      expect((await state()).nextAt).toBe(now);
+      expect((await state()).nextAt).toBe(testClock.now());
       // News arriving during the round waits for the next one.
       const late = await add(0);
-      now += 60;
+      testClock.advance(60);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(12);
       expect(client.verifyAccount).toHaveBeenCalledTimes(12);
@@ -1614,10 +1555,10 @@ describe("Publisher", () => {
         expect((await repo.article(id)).reviewStatus).toBe("posted");
       expect((await repo.article(late)).reviewStatus).toBe("saved");
       expect((await state()).nextAt).toBe(opened + POST_INTERVAL_SECONDS);
-      now = opened + POST_INTERVAL_SECONDS - 1;
+      testClock.set(opened + POST_INTERVAL_SECONDS - 1);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(12);
-      now += 1;
+      testClock.advance(1);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(13);
       expect(linked(client.post.mock.calls[12]?.[0])).toEqual(["0"]);
@@ -1625,22 +1566,22 @@ describe("Publisher", () => {
 
     it("starts no operation 45 seconds into a tick", async () => {
       await accumulate(6);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
-        now += 10;
+        testClock.advance(10);
       });
       const publisher = new Publisher(repo, client, clock);
       await publisher.tick();
       // Operations start 0, 10, 20, 30 and 40 seconds in.
       expect(client.post).toHaveBeenCalledTimes(5);
-      now += 60;
+      testClock.advance(60);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(6);
     });
 
     it("waits for each confirmation, and continues the round once confirmed", async () => {
       await accumulate(4);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.post.mockImplementation(async (text) =>
         remotePost(
           text,
@@ -1648,18 +1589,18 @@ describe("Publisher", () => {
         ),
       );
       const publisher = new Publisher(repo, client, clock);
-      const submitted = now;
+      const submitted = testClock.now();
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(2);
       expect((await state()).posts.map((post) => post.status).sort()).toEqual([
         "posted",
         "submitted",
       ]);
-      now = submitted + 119;
+      testClock.set(submitted + 119);
       await publisher.tick();
       expect(client.getPost).not.toHaveBeenCalled();
       expect(client.post).toHaveBeenCalledTimes(2);
-      now = submitted + 120;
+      testClock.set(submitted + 120);
       await publisher.tick();
       expect(client.getPost).toHaveBeenCalledTimes(1);
       expect(client.post).toHaveBeenCalledTimes(4);
@@ -1670,7 +1611,7 @@ describe("Publisher", () => {
 
     it("stops the round at an uncertain send and never resumes it", async () => {
       const ids = await accumulate(5);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.post.mockImplementation(async (text) => {
         if (client.post.mock.calls.length === 3)
           throw new PostError("Buffer の登録結果が不明です", true);
@@ -1685,18 +1626,20 @@ describe("Publisher", () => {
         (await state()).posts.find((post) => post.articleId === unknown)
           ?.status,
       ).toBe("unknown");
-      now += 7200;
+      testClock.advance(7200);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(3);
       // After reconciliation, re-enabling waits a full hour for a new round.
       await repo.resolvePost(unknown, "not_posted");
       await repo.updateSettings({ autoPost: true });
-      expect((await state()).nextAt).toBe(now + POST_INTERVAL_SECONDS);
+      expect((await state()).nextAt).toBe(
+        testClock.now() + POST_INTERVAL_SECONDS,
+      );
       await publisher.tick();
-      now += POST_INTERVAL_SECONDS - 1;
+      testClock.advance(POST_INTERVAL_SECONDS - 1);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(3);
-      now += 1;
+      testClock.advance(1);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(6);
       expect(
@@ -1706,7 +1649,7 @@ describe("Publisher", () => {
 
     it("stops the round at a failed account check", async () => {
       await accumulate(4);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
         if (client.verifyAccount.mock.calls.length === 2)
           throw new PostError(
@@ -1724,20 +1667,20 @@ describe("Publisher", () => {
 
     it("discards the open round when posting is switched off and on", async () => {
       await accumulate(12);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const publisher = new Publisher(repo, client, clock);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(10);
       await repo.updateSettings({ autoPost: false });
       await repo.updateSettings({ autoPost: true });
-      const enabled = now;
+      const enabled = testClock.now();
       expect((await state()).nextAt).toBe(enabled + POST_INTERVAL_SECONDS);
       for (const minutes of [1, 30, 59]) {
-        now = enabled + minutes * 60;
+        testClock.set(enabled + minutes * 60);
         await publisher.tick();
       }
       expect(client.post).toHaveBeenCalledTimes(10);
-      now = enabled + POST_INTERVAL_SECONDS;
+      testClock.set(enabled + POST_INTERVAL_SECONDS);
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(12);
     });
@@ -1763,7 +1706,7 @@ describe("Publisher", () => {
           publishedAt: published(0),
         },
       ]);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementationOnce(async () => {
         await repo.review(dismissed, "dismissed");
       });
@@ -1782,7 +1725,7 @@ describe("Publisher", () => {
 
     it("sends each article once across concurrent publishers", async () => {
       const ids = await accumulate(5);
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       let active = 0;
       let overlap = 0;
       const pause = () => new Promise((resolve) => setImmediate(resolve));
@@ -1796,7 +1739,7 @@ describe("Publisher", () => {
         active -= 1;
         return remotePost(text);
       });
-      const other = fakeClient();
+      const other = fakePublishingClient(vi.fn);
       other.verifyAccount.mockImplementation(client.verifyAccount);
       other.post.mockImplementation(client.post);
       await Promise.all([
@@ -1823,11 +1766,11 @@ describe("Publisher", () => {
     }
 
     it("never sends when account verification ends after 23:00", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
-        now = jst(23, 0);
+        testClock.set(jst(23, 0));
       });
-      now = jst(22, 59, 30);
+      testClock.set(jst(22, 59, 30));
       await new Publisher(repo, client, clock).tick();
       expect(client.verifyAccount).toHaveBeenCalledTimes(1);
       expect(client.post).not.toHaveBeenCalled();
@@ -1838,18 +1781,18 @@ describe("Publisher", () => {
       expect((await repo.settings()).autoPost).toBe(true);
       expect((await repo.article(articleId)).reviewStatus).toBe("saved");
       client.verifyAccount.mockImplementation(async () => undefined);
-      now = jst(23, 30);
+      testClock.set(jst(23, 30));
       await new Publisher(repo, client, clock).tick();
       expect(client.verifyAccount).toHaveBeenCalledTimes(1);
-      now = jst(6, 0, 0, 1);
+      testClock.set(jst(6, 0, 0, 1));
       await new Publisher(repo, client, clock).tick();
       expect(client.post).toHaveBeenCalledTimes(1);
       expect((await repo.article(articleId)).reviewStatus).toBe("posted");
     });
 
     it("never starts a send from a tick timestamp taken before 23:00", async () => {
-      const client = fakeClient();
-      now = jst(23, 0, 1);
+      const client = fakePublishingClient(vi.fn);
+      testClock.set(jst(23, 0, 1));
       await new Publisher(repo, client, clock).tick(jst(22, 59, 59));
       expect(client.verifyAccount).not.toHaveBeenCalled();
       expect(client.post).not.toHaveBeenCalled();
@@ -1857,7 +1800,7 @@ describe("Publisher", () => {
     });
 
     it("rechecks the clock after the authorization snapshot is read", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.verifyAccount.mockImplementation(async () => {
         const original = repo.driver.batch.bind(repo.driver);
         vi.spyOn(repo.driver, "batch").mockImplementation(
@@ -1868,12 +1811,12 @@ describe("Publisher", () => {
                 sql.includes("SELECT id,data FROM news_articles WHERE id IN"),
               )
             )
-              now = jst(23);
+              testClock.set(jst(23));
             return result;
           },
         );
       });
-      now = jst(22, 59, 59);
+      testClock.set(jst(22, 59, 59));
       await new Publisher(repo, client, clock).tick();
       expect(client.post).not.toHaveBeenCalled();
       expect((await state()).posts).toEqual([]);
@@ -1882,17 +1825,17 @@ describe("Publisher", () => {
     });
 
     it("rechecks the clock when authorization returns to the sender", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       const original = repo.authorizePostSend.bind(repo);
       vi.spyOn(repo, "authorizePostSend").mockImplementationOnce(
         async (...args) => {
           const authorized = await original(...args);
           expect(authorized).toBe(true);
-          now = jst(23);
+          testClock.set(jst(23));
           return authorized;
         },
       );
-      now = jst(22, 59, 59);
+      testClock.set(jst(22, 59, 59));
       await new Publisher(repo, client, clock).tick();
       expect(client.post).not.toHaveBeenCalled();
       expect((await state()).posts).toEqual([]);
@@ -1901,14 +1844,14 @@ describe("Publisher", () => {
     });
 
     it("still confirms a submitted post outside the window", async () => {
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.post.mockImplementation(async (text) =>
         remotePost(text, "sending"),
       );
-      now = jst(22, 58);
+      testClock.set(jst(22, 58));
       await new Publisher(repo, client, clock).tick();
       expect((await state()).posts[0]?.status).toBe("submitted");
-      now = jst(23, 30);
+      testClock.set(jst(23, 30));
       await new Publisher(repo, client, clock).tick();
       expect(client.getPost).toHaveBeenCalledTimes(1);
       expect((await state()).posts[0]?.status).toBe("posted");
@@ -1918,7 +1861,7 @@ describe("Publisher", () => {
     });
 
     it("pauses an open round at 23:00 and rechecks its freshness at 06:00", async () => {
-      now = jst(22, 50);
+      testClock.set(jst(22, 50));
       async function saved(name: string, at: number): Promise<string> {
         await repo.ingest(SOURCE, [
           {
@@ -1936,27 +1879,27 @@ describe("Publisher", () => {
       const evening = await saved("evening", jst(20));
       // Fresh tonight, but more than 24 hours old at 06:00 tomorrow.
       const early = await saved("early", jst(5, 30));
-      const client = fakeClient();
+      const client = fakePublishingClient(vi.fn);
       client.post.mockImplementationOnce(async (text) =>
         remotePost(text, "sending"),
       );
       const publisher = new Publisher(repo, client, clock);
-      now = jst(22, 58);
+      testClock.set(jst(22, 58));
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(1);
       // Confirmation goes on after 23:00; the rest of the round does not.
-      now = jst(23, 0, 30);
+      testClock.set(jst(23, 0, 30));
       await publisher.tick();
       expect(client.getPost).toHaveBeenCalledTimes(1);
       expect((await repo.article(evening)).reviewStatus).toBe("posted");
       expect(client.post).toHaveBeenCalledTimes(1);
       expect((await state()).nextAt).toBe(jst(6, 0, 0, 1));
-      now = jst(23, 30);
+      testClock.set(jst(23, 30));
       const night = await saved("night", jst(23, 30));
-      now = jst(5, 59, 59, 1);
+      testClock.set(jst(5, 59, 59, 1));
       await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(1);
-      now = jst(6, 0, 0, 1);
+      testClock.set(jst(6, 0, 0, 1));
       await publisher.tick();
       // The round resumes with its still fresh article; the next round,
       // due since 06:00, then takes the news that arrived overnight.

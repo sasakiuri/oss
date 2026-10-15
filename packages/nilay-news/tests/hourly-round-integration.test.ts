@@ -7,21 +7,21 @@ import { BufferClient, Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 
+import { channel, limit, remotePost } from "./helpers/buffer.ts";
+import { fakeClock } from "./helpers/clock.ts";
+import { rssSource } from "./helpers/fixtures.ts";
 import { testRepository } from "./helpers/storage.ts";
 
-const SOURCE: SourceConfig = {
+const SOURCE: SourceConfig = rssSource({
   id: "round-fixture",
   name: "Round fixture",
   description: "個別投稿の検証",
-  url: "https://example.org/feed",
-  enabled: true,
-  kind: "rss",
-};
+});
 
 describe("hourly round through the real Buffer client", () => {
   it("sends all ten separately and reserves an arrival during sending for the next hour", async () => {
-    let now = Date.parse("2026-09-28T12:00:00+09:00") / 1000;
-    const { repo, close } = testRepository([SOURCE], () => now);
+    const testClock = fakeClock(Date.parse("2026-09-28T12:00:00+09:00") / 1000);
+    const { repo, close } = testRepository([SOURCE], () => testClock.now());
     try {
       await repo.initialize();
       async function add(index: number) {
@@ -31,7 +31,7 @@ describe("hourly round through the real Buffer client", () => {
             title: `鳥獣対策ニュース ${index}`,
             url,
             excerpt: "個別の記事",
-            publishedAt: new Date(now * 1000).toISOString(),
+            publishedAt: new Date(testClock.now() * 1000).toISOString(),
           },
         ]);
         const article = (await repo.articles()).find(
@@ -56,23 +56,9 @@ describe("hourly round through the real Buffer client", () => {
         if (request.query.startsWith("query(")) {
           verifications += 1;
           data = {
-            channel: {
-              id: "round-channel",
-              name: "NilayNews",
-              service: "twitter",
-              allowedActions: ["scheduleUpdates", "readUpdates"],
-              isDisconnected: false,
-              isLocked: false,
-              isQueuePaused: false,
-              linkShortening: { isEnabled: false },
-            },
+            channel: channel({ id: "round-channel", name: "NilayNews" }),
             dailyPostingLimits: [
-              {
-                channelId: "round-channel",
-                isAtLimit: false,
-                limit: 100,
-                scheduled: texts.length,
-              },
+              limit({ channelId: "round-channel", scheduled: texts.length }),
             ],
           };
         } else {
@@ -87,14 +73,11 @@ describe("hourly round through the real Buffer client", () => {
           data = {
             createPost: {
               __typename: "PostActionSuccess",
-              post: {
+              post: remotePost(text, "sent", {
                 id: `buffer-${texts.length}`,
                 channelId: "round-channel",
-                channelService: "twitter",
-                text,
-                status: "sent",
                 externalLink: `https://x.com/NilayNews/status/${texts.length}`,
-              },
+              }),
             },
           };
         }
@@ -108,12 +91,12 @@ describe("hourly round through the real Buffer client", () => {
       const publisher = new Publisher(
         repo,
         new BufferClient("fixture-key", "round-channel", transport),
-        () => now,
+        () => testClock.now(),
       );
-      now += 3599;
+      testClock.advance(3599);
       await publisher.tick();
       expect(texts).toHaveLength(0);
-      now += 1;
+      testClock.advance(1);
       await publisher.tick();
       expect(texts).toHaveLength(10);
       expect(verifications).toBe(10);
@@ -141,10 +124,10 @@ describe("hourly round through the real Buffer client", () => {
           (post) => post.status === "posted",
         ),
       ).toBe(true);
-      now += 3599;
+      testClock.advance(3599);
       await publisher.tick();
       expect(texts).toHaveLength(10);
-      now += 1;
+      testClock.advance(1);
       await publisher.tick();
       expect(texts).toHaveLength(11);
       expect(texts[10]).toContain("https://example.org/round/11");

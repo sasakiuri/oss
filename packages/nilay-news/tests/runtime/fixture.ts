@@ -11,16 +11,17 @@ import type { SourceConfig } from "../../src/sources/types.ts";
 import { createD1Repository } from "../../src/storage/d1.ts";
 import { isRecord, utf8 } from "../../src/text.ts";
 import { createHandlers, type Env } from "../../src/worker.ts";
+import { limit, channel, remotePost } from "../helpers/buffer.ts";
+import { fakeClock } from "../helpers/clock.ts";
+import { rssSource } from "../helpers/fixtures.ts";
+import { choiceWithRemainder } from "../helpers/jev.ts";
 
-const source: SourceConfig = {
+const source: SourceConfig = rssSource({
   id: "fixture",
   name: "Fixture",
   description: "Runtime test",
-  kind: "rss",
-  enabled: true,
-  url: "https://example.org/feed",
-};
-let now = 1_801_000_000;
+});
+const testClock = fakeClock(1_801_000_000);
 const calls: string[] = [];
 /** Set by `/fixture/classify`: a feed of 12 articles and a working Jev API. */
 let classify = false;
@@ -28,30 +29,30 @@ let duplicate = false;
 const feedItems = (count: number) =>
   Array.from({ length: count }, (_, index) => {
     const suffix = index ? String(index) : "";
-    return `<item><title>クマの出没と対策${suffix}</title><link>https://example.org/a${suffix}</link><description>市が対策を発表</description><pubDate>${new Date((now - index) * 1000).toUTCString()}</pubDate></item>`;
+    return `<item><title>クマの出没と対策${suffix}</title><link>https://example.org/a${suffix}</link><description>市が対策を発表</description><pubDate>${new Date((testClock.now() - index) * 1000).toUTCString()}</pubDate></item>`;
   }).join("");
-const choice = (value: string, names: string[]) => ({
-  type: "choice",
-  choice: value,
-  probabilities: Object.fromEntries(
-    names.map((name) => [
-      name,
-      name === value ? 0.9 : 0.1 / (names.length - 1),
-    ]),
-  ),
-});
 const irrelevant = JSON.stringify({
   answers: {
-    topic: choice("その他", [
-      "狩猟・猟銃",
-      "射撃競技",
-      "鳥獣被害・管理",
-      "ジビエ",
-      "制度・行政",
+    topic: choiceWithRemainder(
       "その他",
-    ]),
-    classification: choice("unrelated", Object.keys(REASONS)),
-    priority: choice("0", ["0", "1", "2", "3"]),
+      [
+        "狩猟・猟銃",
+        "射撃競技",
+        "鳥獣被害・管理",
+        "ジビエ",
+        "制度・行政",
+        "その他",
+      ],
+      0.9,
+      0.1,
+    ),
+    classification: choiceWithRemainder(
+      "unrelated",
+      Object.keys(REASONS),
+      0.9,
+      0.1,
+    ),
+    priority: choiceWithRemainder("0", ["0", "1", "2", "3"], 0.9, 0.1),
   },
 });
 const transport: FetchBytes = async (url, options) => {
@@ -76,35 +77,17 @@ const transport: FetchBytes = async (url, options) => {
         ? {
             createPost: {
               __typename: "PostActionSuccess",
-              post: {
+              post: remotePost(body.variables.input.text as string, "sent", {
                 id: "fixture-post",
                 channelId: "fixture-channel",
-                channelService: "twitter",
-                text: body.variables.input.text,
-                status: "sent",
-                externalLink: "https://x.com/NilayNews/status/123",
-              },
+              }),
             },
           }
         : {
             dailyPostingLimits: [
-              {
-                channelId: "fixture-channel",
-                isAtLimit: false,
-                limit: 100,
-                scheduled: 0,
-              },
+              limit({ channelId: "fixture-channel", scheduled: 0 }),
             ],
-            channel: {
-              id: "fixture-channel",
-              name: "NilayNews",
-              service: "twitter",
-              allowedActions: ["scheduleUpdates", "readUpdates"],
-              isDisconnected: false,
-              isLocked: false,
-              isQueuePaused: false,
-              linkShortening: { isEnabled: false },
-            },
+            channel: channel({ id: "fixture-channel", name: "NilayNews" }),
           },
     });
   } else throw new Error("Unexpected fixture HTTP request");
@@ -117,7 +100,7 @@ const handlers = createHandlers(
     control ??= new Access(
       Object.fromEntries(CONFIG_NAMES.map((name) => [name, env[name]])),
       {
-        clock: () => now,
+        clock: testClock.now,
         fetcher: async (url) => ({
           data: utf8((env as Env & { TEST_JWKS: string }).TEST_JWKS),
           url,
@@ -128,7 +111,9 @@ const handlers = createHandlers(
     return control;
   },
   async (env) => {
-    const repo = await createD1Repository(env.DB, [source], () => now);
+    const repo = await createD1Repository(env.DB, [source], () =>
+      testClock.now(),
+    );
     return new Application(
       repo,
       // Unless enabled by /fixture/classify, every classification request
@@ -147,12 +132,12 @@ const handlers = createHandlers(
         const response = relation
           ? JSON.stringify({
               answers: {
-                relation: choice(duplicate ? "duplicate" : "different", [
-                  "duplicate",
-                  "followup",
-                  "different",
-                  "uncertain",
-                ]),
+                relation: choiceWithRemainder(
+                  duplicate ? "duplicate" : "different",
+                  ["duplicate", "followup", "different", "uncertain"],
+                  0.9,
+                  0.1,
+                ),
               },
             })
           : irrelevant;
@@ -160,13 +145,11 @@ const handlers = createHandlers(
       }),
       new BufferClient("fixture-key", "fixture-channel", transport),
       {
-        clock: () => now,
+        clock: testClock.now,
         crawl: new CachedFetch(repo, [source], {
-          clock: () => now,
+          clock: testClock.now,
           transport,
-          sleep: async (milliseconds) => {
-            now += milliseconds / 1000;
-          },
+          sleep: testClock.sleep,
         }),
       },
     );
@@ -178,7 +161,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === "/fixture/advance") {
-      now += 3601;
+      testClock.advance(3601);
       return new Response("ok");
     }
     if (path === "/fixture/calls") return Response.json(calls);
