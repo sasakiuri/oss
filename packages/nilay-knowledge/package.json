@@ -144,7 +144,7 @@
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "vfile": "^6.0.3",
-    "vite": "6.4.3",
+    "vite": "6.4.4",
     "vitest": "4.1.11"
   },
   "description": "Nilay Knowledge website for shooting and hunting information",
