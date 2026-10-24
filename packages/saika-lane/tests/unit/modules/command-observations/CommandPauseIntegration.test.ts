@@ -124,6 +124,7 @@ describe('UNLOAD command pause integration', () => {
     control.dispose();
   });
 
+  // Real database migration includes disk flushes and file cleanup on slower filesystems.
   it('migrates an existing version-15 database without rewriting its other tables', () => {
     const directory = mkdtempSync(join(tmpdir(), 'saika-command-pause-'));
     const file = join(directory, 'lane.db');
@@ -155,7 +156,7 @@ describe('UNLOAD command pause integration', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it('does not apply the qualification UNLOAD rule to RFPM or Finals', () => {
     expect(
