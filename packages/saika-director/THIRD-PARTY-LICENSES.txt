@@ -109,9 +109,9 @@ SOFTWARE.
 
 The following npm packages may be included in this product:
 
- - @sasakiuri/saika-protocol@0.2.0
+ - @sasakiuri/saika-protocol@0.2.1
  - @sasakiuri/saika-rules@0.2.0
- - @sasakiuri/saika-updater@0.2.0
+ - @sasakiuri/saika-updater@0.2.1
 
 These packages each contain the following license:
 
