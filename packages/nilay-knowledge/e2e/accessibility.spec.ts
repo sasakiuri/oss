@@ -172,6 +172,9 @@ test('share popover dismisses when another control is clicked without stealing i
 for (const shortcut of ['Control+k', 'Meta+k']) {
   test(`search opens from a share link with ${shortcut} and restores a connected control`, async ({ page }) => {
     await page.goto('/');
+    const searchTrigger = page.getByRole('button', { name: '記事・ニュースを検索 Ctrl / ⌘ K', exact: true }).first();
+    // The header search boundary hydrates independently of the share popover.
+    await expect(searchTrigger).toBeEnabled();
     const share = page.getByRole('button', { name: 'SNSで共有', includeHidden: true });
     await share.click();
     const popover = page.getByRole('dialog', { name: '共有先', includeHidden: true });
@@ -184,9 +187,7 @@ for (const shortcut of ['Control+k', 'Meta+k']) {
     await expect(popover).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(search).not.toBeVisible();
-    await expect(
-      page.getByRole('button', { name: '記事・ニュースを検索 Ctrl / ⌘ K', exact: true }).first(),
-    ).toBeFocused();
+    await expect(searchTrigger).toBeFocused();
   });
 }
 
