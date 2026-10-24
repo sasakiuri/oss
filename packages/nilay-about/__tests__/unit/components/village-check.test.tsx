@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -50,5 +50,27 @@ describe('the village attractant check', () => {
     // The form is empty for the next inspection, compared with the one just saved.
     expect(screen.getByLabelText('点検日')).toHaveValue('');
     expect(screen.getByText('前回（2026-09-24）との比較')).toBeInTheDocument();
+  });
+
+  it('restores an empty draft and an inspection containing only the checked items', async () => {
+    const inspection = {
+      id: 'inspection-1',
+      date: '2026-09-24',
+      area: '北側',
+      results: { grave: { status: 'found', note: '北墓地' } },
+    };
+    window.localStorage.setItem(
+      VILLAGE_CHECK_STORAGE_KEY,
+      JSON.stringify({
+        state: { draft: { date: '', area: '', results: {} }, inspections: [inspection] },
+        version: 0,
+      }),
+    );
+
+    await act(async () => useVillageCheckStore.persist.rehydrate());
+
+    expect(useVillageCheckStore.getState().draft.results).toEqual({});
+    expect(useVillageCheckStore.getState().inspections).toEqual([inspection]);
+    expect(useStorageStatus.getState().discarded).toEqual([]);
   });
 });

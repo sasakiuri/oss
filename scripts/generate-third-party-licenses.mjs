@@ -214,6 +214,12 @@ const loadLicenseRecords = async (
     exclude: [`/^(?!(?:${productionIds.join("|")})$).+/`],
     replace: {
       doctrine: join(repositoryRoot, "node_modules", "doctrine", "LICENSE"),
+      dompurify: join(
+        repositoryRoot,
+        "node_modules",
+        "dompurify",
+        "LICENSE-MPL",
+      ),
       rc: join(repositoryRoot, "node_modules", "rc", "LICENSE.MIT"),
       "type-fest": join(
         repositoryRoot,
@@ -275,19 +281,32 @@ const loadLicenseRecords = async (
   for (const id of dependencyIds) {
     if (records.has(id)) continue;
     for (const directory of dependencyPaths.get(id) ?? []) {
-      const content = await readFirst(directory, [
-        "LICENSE",
-        "LICENSE.md",
-        "LICENSE.txt",
-        "LICENCE",
-        "LICENCE.md",
-        "COPYING",
-        "COPYING.md",
-        "COPYING.txt",
-        "license",
-        "license.md",
-        "license.txt",
-      ]);
+      const manifest = await readJson(join(directory, "package.json"));
+      if (normalizeDependencyId(`${manifest.name}@${manifest.version}`) !== id)
+        continue;
+      const replacement = options.replace[manifest.name];
+      let content = replacement
+        ? normalizeText(await readFile(replacement, "utf8"))
+        : await readFirst(directory, [
+            "LICENSE",
+            "License",
+            "LICENSE.md",
+            "LICENSE.txt",
+            "LICENCE",
+            "LICENCE.md",
+            "COPYING",
+            "COPYING.md",
+            "COPYING.txt",
+            "license",
+            "license.md",
+            "license.txt",
+          ]);
+      if (
+        !content &&
+        typeof manifest.license === "string" &&
+        !manifest.license.toUpperCase().startsWith("SEE LICENSE")
+      )
+        content = manifest.license.trim();
       if (!content) continue;
       const notice = await readFirst(directory, [
         "NOTICE",

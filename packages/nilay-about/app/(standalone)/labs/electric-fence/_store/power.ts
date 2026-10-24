@@ -41,7 +41,7 @@ export const powerSettingsSchema = z.object({
   testers: optionalNumber,
   mains: z.boolean(),
   solar: z.boolean(),
-  prices: z.record(z.enum(PRICE_IDS), optionalNumber),
+  prices: z.partialRecord(z.enum(PRICE_IDS), optionalNumber),
   subsidyPercent: optionalNumber,
 });
 export type PowerSettings = z.infer<typeof powerSettingsSchema>;
