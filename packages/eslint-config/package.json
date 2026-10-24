@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/eslint-config",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Shared ESLint configuration",
   "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "publishConfig": {
