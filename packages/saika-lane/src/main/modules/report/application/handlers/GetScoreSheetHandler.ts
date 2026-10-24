@@ -8,6 +8,8 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { ScoreSheetDto, ScoreSheetShotDto } from '../dto';
 
+const SIGHTING_SHOTS_PER_PRINT_SERIES = 10;
+
 /**
  * createGetScoreSheetHandler (score sheet retrieval handler factory)
  *
@@ -32,14 +34,18 @@ export function createGetScoreSheetHandler(
 
     // Score sheets normally use match shots. Before the match stage starts,
     // preparation shots are the only recorded shots, so include them instead.
-    const reportShots = session.matchShots.length > 0 ? session.matchShots : session.allShots;
+    const matchShots = session.matchShots;
+    const reportShots = matchShots.length > 0 ? matchShots : session.allShots;
 
-    // Group by series and assign sequential numbers within each series
+    // Sighting shots all have seriesNumber 0; split them into ten-shot print series.
+    // Match shots retain their recorded series boundaries.
     const seriesMap = new Map<number, (typeof reportShots)[number][]>();
-    for (const shot of reportShots) {
-      const shots = seriesMap.get(shot.seriesNumber) ?? [];
+    for (const [index, shot] of reportShots.entries()) {
+      const seriesNumber =
+        matchShots.length > 0 ? shot.seriesNumber : Math.floor(index / SIGHTING_SHOTS_PER_PRINT_SERIES) + 1;
+      const shots = seriesMap.get(seriesNumber) ?? [];
       shots.push(shot);
-      seriesMap.set(shot.seriesNumber, shots);
+      seriesMap.set(seriesNumber, shots);
     }
 
     const allShots: ScoreSheetShotDto[] = [];

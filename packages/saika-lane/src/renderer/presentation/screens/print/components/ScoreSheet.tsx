@@ -117,7 +117,7 @@ export function ScoreSheet({ data }: ScoreSheetProps) {
           const decimalScore = data.seriesScores[seriesIndex];
 
           return (
-            <div key={seriesIndex} className={`series-block${seriesIndex === 6 ? 'series-page-break' : ''}`}>
+            <div key={seriesIndex} className={`series-block ${seriesIndex === 6 ? 'series-page-break' : ''}`}>
               <div className="series-target">
                 <SeriesTargetCanvas shots={seriesShots} discipline={data.discipline} size={SERIES_TARGET_SIZE} />
               </div>

@@ -125,10 +125,93 @@ describe('createGetScoreSheetHandler', () => {
 
       expect(result.allShots).toHaveLength(2);
       expect(result.allShots.map((s) => s.shotNumber)).toEqual([1, 2]);
-      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([0, 0]);
+      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([1, 1]);
       expect(result.seriesScores).toEqual([185]);
       expect(result.totalScore).toBe(185);
       expect(result.totalIntegerScore).toBe(18);
+    });
+
+    it.each([
+      Discipline.beamPistol10m(),
+      Discipline.beamRifle10m(),
+      Discipline.airPistol10m(),
+      Discipline.airRifle10m(),
+    ])('should print sighting shots in ten-shot series for $value', async (discipline) => {
+      let session = Session.create(discipline);
+      const scores = [...Array<number>(10).fill(100), ...Array<number>(10).fill(90), 80];
+      for (const score of scores) {
+        session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(score), new Date());
+      }
+      vi.mocked(mockSessionRepo.findById).mockResolvedValue(session);
+
+      const result = await handler({ sessionId: session.id });
+
+      expect(result.allShots).toHaveLength(21);
+      expect(result.seriesScores).toEqual([1000, 900, 80]);
+      expect(result.totalScore).toBe(1980);
+      expect(result.totalIntegerScore).toBe(198);
+      for (const seriesNumber of [1, 2]) {
+        expect(
+          result.allShots.filter((shot) => shot.seriesNumber === seriesNumber).map((shot) => shot.shotNumber),
+        ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      }
+      expect(result.allShots[20]).toEqual({
+        shotNumber: 1,
+        value: 80,
+        integerValue: 8,
+        seriesNumber: 3,
+        x: 0.1,
+        y: 0.2,
+      });
+      expect(session.sightingShots.every((shot) => shot.seriesNumber === 0)).toBe(true);
+    });
+
+    it('should keep six ten-shot beam pistol match series and exclude sighting shots', async () => {
+      let session = Session.create(Discipline.beamPistol10m(), 'RING');
+      session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(100), new Date());
+      session = session.switchMode(Mode.match());
+      for (const score of [100, 90, 80, 70, 60, 50]) {
+        for (let i = 0; i < 10; i++) {
+          session = session.recordShot(new ImpactPoint(0.3, 0.4), new Score(score), new Date());
+        }
+      }
+      vi.mocked(mockSessionRepo.findById).mockResolvedValue(session);
+
+      const result = await handler({ sessionId: session.id });
+
+      expect(result.allShots).toHaveLength(60);
+      expect(result.seriesScores).toEqual([1000, 900, 800, 700, 600, 500]);
+      expect(result.totalScore).toBe(4500);
+      expect(result.totalIntegerScore).toBe(450);
+      for (const seriesNumber of [2, 3, 4, 5, 6, 7]) {
+        expect(
+          result.allShots.filter((shot) => shot.seriesNumber === seriesNumber).map((shot) => shot.shotNumber),
+        ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      }
+    });
+
+    it('should preserve five-shot and single-shot match series', async () => {
+      let session = Session.create(Discipline.beamPistol10m()).switchMode(Mode.match(), 5);
+      for (const score of [...Array<number>(5).fill(100), ...Array<number>(5).fill(90)]) {
+        session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(score), new Date());
+      }
+      session = session.resetSeries(1);
+      session = session.recordShot(null, new Score(0), new Date());
+      vi.mocked(mockSessionRepo.findById).mockResolvedValue(session);
+
+      const result = await handler({ sessionId: session.id });
+
+      expect(result.seriesScores).toEqual([500, 450, 0]);
+      expect(result.allShots.filter((shot) => shot.seriesNumber === 2)).toHaveLength(5);
+      expect(result.allShots.filter((shot) => shot.seriesNumber === 3)).toHaveLength(5);
+      expect(result.allShots[10]).toEqual({
+        shotNumber: 1,
+        value: 0,
+        integerValue: 0,
+        seriesNumber: 4,
+        x: null,
+        y: null,
+      });
     });
 
     it('should print sighting shots after switching to match when no match shots exist yet', async () => {
@@ -145,7 +228,7 @@ describe('createGetScoreSheetHandler', () => {
 
       expect(result.allShots).toHaveLength(2);
       expect(result.allShots.map((s) => s.shotNumber)).toEqual([1, 2]);
-      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([0, 0]);
+      expect(result.allShots.map((s) => s.seriesNumber)).toEqual([1, 1]);
       expect(result.seriesScores).toEqual([185]);
       expect(result.totalScore).toBe(185);
       expect(result.totalIntegerScore).toBe(18);
