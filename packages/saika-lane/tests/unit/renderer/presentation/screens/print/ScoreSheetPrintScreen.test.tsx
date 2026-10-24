@@ -3,7 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createGetScoreSheetHandler } from '@/main/modules/report/application/handlers/GetScoreSheetHandler';
+import { Discipline } from '@/main/modules/session/domain/Discipline';
+import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
+import { Score } from '@/main/modules/session/domain/Score';
+import { Session } from '@/main/modules/session/domain/Session';
 import { ScoreSheetPrintScreen } from '@/renderer/presentation/screens/print/ScoreSheetPrintScreen';
+
+import { createMockSessionRepository, createMockStorage } from '../../../../../helpers/mockDependencies';
 
 // ---------- reportService mock ----------
 
@@ -104,6 +111,42 @@ describe('ScoreSheetPrintScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('10m Air Rifle')).toBeInTheDocument();
     });
+  });
+
+  it('displays every sighting shot in its ten-shot series from the score sheet query', async () => {
+    let session = Session.create(Discipline.beamPistol10m(), 'RING');
+    const scores = [100, 90, 80, 70, 60, 50].flatMap((score) => Array<number>(10).fill(score));
+    scores.push(40);
+    for (const score of scores) {
+      session = session.recordShot(new ImpactPoint(0.1, 0.2), new Score(score), new Date());
+    }
+    const sessionRepo = createMockSessionRepository();
+    vi.mocked(sessionRepo.findById).mockResolvedValue(session);
+    const getScoreSheet = createGetScoreSheetHandler(sessionRepo, createMockStorage());
+    const data = await getScoreSheet({ sessionId: session.id });
+    expect(data.allShots).toHaveLength(61);
+    expect(data.seriesScores).toEqual([1000, 900, 800, 700, 600, 500, 40]);
+    mockGetScoreSheet.mockResolvedValue(data);
+    setSearchParams({ sessionId: session.id });
+
+    const { container } = render(<ScoreSheetPrintScreen />);
+    await screen.findByText('10m Beam Pistol');
+
+    const seriesBlocks = container.querySelectorAll('.series-block');
+    expect(seriesBlocks).toHaveLength(7);
+    const shotValues = (seriesIndex: number) =>
+      Array.from(seriesBlocks[seriesIndex]!.querySelectorAll('.shot-value'), (cell) => cell.textContent);
+    expect(shotValues(0)).toEqual(Array<string>(10).fill('10.0'));
+    expect(shotValues(1)).toEqual(Array<string>(10).fill('9.0'));
+    expect(shotValues(2)).toEqual(Array<string>(10).fill('8.0'));
+    expect(shotValues(3)).toEqual(Array<string>(10).fill('7.0'));
+    expect(shotValues(4)).toEqual(Array<string>(10).fill('6.0'));
+    expect(shotValues(5)).toEqual(Array<string>(10).fill('5.0'));
+    expect(shotValues(6)).toEqual(['4.0', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
+    expect(seriesBlocks[0]!.querySelector('.series-header')).toHaveTextContent('Series 1: 100(100.0)');
+    expect(seriesBlocks[1]!.querySelector('.series-header')).toHaveTextContent('Series 2: 90(90.0)');
+    expect(seriesBlocks[6]!.querySelector('.series-header')).toHaveTextContent('Series 7: 4(4.0)');
+    expect(seriesBlocks[6]).toHaveClass('series-page-break');
   });
 
   it('displays an error message on data retrieval failure', async () => {
