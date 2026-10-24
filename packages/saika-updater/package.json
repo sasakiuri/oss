@@ -19,18 +19,18 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/prettier-config": "*",
     "@sasakiuri/typescript-config": "*",
-    "@vitest/coverage-v8": "4.1.11",
-    "electron": "43.5.0",
+    "@vitest/coverage-v8": "4.1.12",
+    "electron": "43.8.3",
     "eslint": "^9",
     "prettier": "^3.6.2",
     "typescript": "5.7.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "prettier": "@sasakiuri/prettier-config"
 }

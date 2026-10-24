@@ -3,7 +3,11 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { storageKey, useElectricFenceStore } from '@/app/(standalone)/labs/electric-fence/_store';
-import { powerStorageKey, usePowerStore } from '@/app/(standalone)/labs/electric-fence/_store/power';
+import {
+  initialPowerSettings,
+  powerStorageKey,
+  usePowerStore,
+} from '@/app/(standalone)/labs/electric-fence/_store/power';
 import { ElectricFenceClient } from '@/app/(standalone)/labs/electric-fence/electric-fence-client';
 import { discardedSaveMessage } from '@/components/labs';
 import { useStorageStatus } from '@/lib/browser-storage';
@@ -178,6 +182,20 @@ describe('electric fence planner', () => {
     expect(screen.getByText(/合計 12,000 円/)).toBeInTheDocument();
     const saved = JSON.parse(window.localStorage.getItem(powerStorageKey) ?? 'null');
     expect(saved.state.settings).toMatchObject({ energizerW: 0.7888, prices: { wire: 10 } });
+  });
+
+  it.each([{}, { wire: 10 }])('restores saved power settings with partial prices %j', async (prices) => {
+    usePowerStore.setState(usePowerStore.getInitialState(), true);
+    window.localStorage.setItem(
+      powerStorageKey,
+      JSON.stringify({ state: { settings: { ...initialPowerSettings, energizerW: 0.7888, prices } }, version: 0 }),
+    );
+
+    await act(async () => usePowerStore.persist.rehydrate());
+
+    expect(usePowerStore.getState().energizerW).toBe(0.7888);
+    expect(usePowerStore.getState().prices).toEqual(prices);
+    expect(useStorageStatus.getState().discarded).toEqual([]);
   });
 
   it('requires an earth-leakage breaker only for a mains-fed fence', async () => {

@@ -71,7 +71,7 @@
     "lucide-react": "^0.562.0",
     "mermaid": "^11.17.2",
     "minisearch": "^7.2.0",
-    "next": "16.3.8",
+    "next": "16.4.3",
     "next-themes": "^0.4.6",
     "nuqs": "2.10.1",
     "pdfjs-dist": "6.3.289",
@@ -97,11 +97,11 @@
     "tailwind-merge": "^3.7.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@next/bundle-analyzer": "16.3.4",
+    "@next/bundle-analyzer": "16.4.3",
     "@playwright/test": "^1.63.0",
     "@sasakiuri/eslint-config": "*",
     "@sasakiuri/lighthouse-config": "*",
@@ -121,9 +121,9 @@
     "@types/react-dom": "^19.0.0",
     "@types/rss": "^0.0.32",
     "@vitejs/plugin-react": "4.3.4",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.4.3",
     "fast-check": "4.9.0",
     "jsdom": "25.0.1",
     "lighthouse": "^13.4.1",
@@ -144,8 +144,8 @@
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
     "vfile": "^6.0.3",
-    "vite": "6.4.3",
-    "vitest": "4.1.11"
+    "vite": "6.4.5",
+    "vitest": "4.1.12"
   },
   "description": "Nilay Knowledge website for shooting and hunting information",
   "repository": {

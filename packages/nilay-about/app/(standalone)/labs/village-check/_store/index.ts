@@ -11,7 +11,10 @@ export const AREA_MAX_LENGTH = 60;
 export const NOTE_MAX_LENGTH = 200;
 
 const itemResultSchema = z.object({ status: z.enum(ITEM_STATUSES), note: z.string().max(NOTE_MAX_LENGTH) });
-const resultsSchema = z.record(z.enum(VILLAGE_ITEM_IDS as [string, ...string[]]), itemResultSchema);
+const resultsSchema = z.record(
+  z.string().refine((id) => VILLAGE_ITEM_IDS.includes(id)),
+  itemResultSchema,
+);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const inspectionSchema = z.object({

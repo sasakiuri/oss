@@ -480,6 +480,62 @@ test("license version normalization preserves digit-prefixed scopes", (t) => {
   assert.doesNotMatch(report, /@1\/tools/);
 });
 
+test("production peers retain case-sensitive license files and declared SPDX identifiers", (t) => {
+  for (const licenseFile of ["License", null]) {
+    const options = licenseFixture(t);
+    const peerName = "fixture-production-peer";
+    const peerPath = join(options.root, "node_modules", peerName);
+    const rootManifest = JSON.parse(
+      readFileSync(join(options.root, "package.json"), "utf8"),
+    );
+    rootManifest.devDependencies = { [peerName]: "1.0.0" };
+    write(options.root, "package.json", rootManifest);
+    write(options.root, "node_modules/fixture-dependency/package.json", {
+      name: "fixture-dependency",
+      version: "1.0.0",
+      license: "MIT",
+      peerDependencies: { [peerName]: "^1.0.0" },
+    });
+    write(options.root, `node_modules/${peerName}/package.json`, {
+      name: peerName,
+      version: "1.0.0",
+      license: "MIT",
+    });
+    if (licenseFile)
+      write(
+        options.root,
+        `node_modules/${peerName}/${licenseFile}`,
+        "Peer license text.\n",
+      );
+    write(
+      options.root,
+      `node_modules/${peerName}/NOTICE`,
+      "Peer copyright notice.\n",
+    );
+    options.tree.dependencies["@example/consumer-app"].dependencies[peerName] =
+      {
+        name: peerName,
+        version: "1.0.0",
+        path: peerPath,
+      };
+    runTool(
+      "generate-third-party-licenses",
+      `assert.equal(await tool.generateLicenseReport({
+        repositoryRoot: options.root,
+        appDirectories: [options.appDirectory]
+      }), 0);`,
+      options,
+    );
+    const report = readFileSync(
+      join(options.root, options.appDirectory, "THIRD-PARTY-LICENSES.txt"),
+      "utf8",
+    );
+    assert.match(report, /fixture-production-peer@1\.0\.0/);
+    assert.match(report, /Peer copyright notice\./);
+    assert.match(report, licenseFile ? /Peer license text\./ : /\nMIT\n/);
+  }
+});
+
 test("unrelated linked tooling problems do not invalidate the workspace production closure", (t) => {
   const options = licenseFixture(t);
   const toolingRoot = fixture(t);
