@@ -9,6 +9,7 @@ let revision = 0;
 
 export function invalidateAthleteTargetControl(): void {
   revision += 1;
+  useCompetitionStore.setState({ athleteTargetControlPending: false });
 }
 
 function reportFailure(error: unknown): void {
@@ -28,11 +29,17 @@ async function load(
     stageIndex: number;
     seriesIndex: number;
   }) => Promise<CompetitionStateDto>,
+  selection = false,
 ): Promise<void> {
   const expected = useCompetitionStore.getState();
   const requestRevision = ++revision;
-  if (!expected.competitionId || expected.phase !== 'ACTIVE') return;
-  useCompetitionStore.setState({ athleteTargetControlPending: true });
+  if (!expected.competitionId || expected.phase !== 'ACTIVE') {
+    useCompetitionStore.setState({ athleteTargetControlPending: false });
+    return;
+  }
+  if (!selection && !expected.athleteTargetControlLoaded) {
+    useCompetitionStore.setState({ athleteTargetControlPending: true });
+  }
   try {
     const dto = await request({
       competitionId: expected.competitionId,
@@ -54,7 +61,12 @@ async function load(
       return;
     current.setAthleteTargetControl(dto.athleteTargetControl);
   } catch (error) {
-    if (requestRevision === revision) reportFailure(error);
+    if (requestRevision === revision) {
+      reportFailure(error);
+      if (selection) await refreshAthleteTargetControl();
+    }
+  } finally {
+    if (requestRevision === revision) useCompetitionStore.setState({ athleteTargetControlPending: false });
   }
 }
 
@@ -63,5 +75,5 @@ export function refreshAthleteTargetControl(): Promise<void> {
 }
 
 export function selectAthleteTargetMode(mode: 'SIGHTING' | 'MATCH'): Promise<void> {
-  return load((context) => competitionService.setAthleteTargetMode({ ...context, mode }));
+  return load((context) => competitionService.setAthleteTargetMode({ ...context, mode }), true);
 }

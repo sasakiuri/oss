@@ -118,6 +118,7 @@ export class StoredReserveLaneTransferState implements IReserveLaneTransferState
     if (retry && competition.phase === 'FINISHED') {
       currentCompetition.phase = sourceCompetition.phase;
       currentCompetition.finishedAt = sourceCompetition.finishedAt;
+      currentCompetition.athleteTargetMode = sourceCompetition.athleteTargetMode;
     }
     const currentSession = JSON.parse(serializeSession(session)) as { finishedAt: string | null };
     if (retry && session.finishedAt) currentSession.finishedAt = null;
@@ -195,7 +196,7 @@ function competitionData(value: CompetitionState) {
     currentStageIndex: value.currentStageIndex,
     currentSeriesIndex: value.currentSeriesIndex,
     seriesShotCount: value.seriesShotCount,
-    athleteTargetMode: null,
+    athleteTargetMode: value.athleteTargetMode,
     timerRemaining: value.timer.remainingSeconds,
     timerTotal: value.timer.totalSeconds,
     startedAt: value.startedAt,

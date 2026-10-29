@@ -3,7 +3,11 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAthleteTargetEvents } from '@/renderer/presentation/hooks/useAthleteTargetEvents';
-import { selectAthleteTargetMode } from '@/renderer/presentation/stores/athleteTargetControl';
+import { localProgressControls } from '@/renderer/presentation/policies/localProgressControls';
+import {
+  refreshAthleteTargetControl,
+  selectAthleteTargetMode,
+} from '@/renderer/presentation/stores/athleteTargetControl';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { competitionService } from '@/renderer/services/competitionService';
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
@@ -14,6 +18,7 @@ vi.mock('@/renderer/services/competitionService', () => ({
 const phase = vi.fn();
 const progress = vi.fn();
 const shot = vi.fn();
+const interruption = vi.fn();
 const unsubscribe = vi.fn();
 function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): CompetitionStateDto {
   return {
@@ -32,19 +37,28 @@ function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): Competition
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 beforeEach(() => {
   vi.clearAllMocks();
   useCompetitionStore.getState().resetCompetition();
   useCompetitionStore.setState({ competitionId: 'comp-1', phase: 'ACTIVE', stageIndex: 1, seriesIndex: 2 });
-  for (const subscribe of [phase, progress, shot]) subscribe.mockReturnValue(unsubscribe);
+  for (const subscribe of [phase, progress, shot, interruption]) subscribe.mockReturnValue(unsubscribe);
   Object.defineProperty(window, 'electronAPI', {
     configurable: true,
-    value: { on: { phaseChanged: phase, competitionProgressChanged: progress, shotRecorded: shot } },
+    value: {
+      on: {
+        phaseChanged: phase,
+        competitionProgressChanged: progress,
+        shotRecorded: shot,
+        competitionInterruptionChanged: interruption,
+      },
+    },
   });
   vi.mocked(competitionService.getCompetitionState).mockResolvedValue(dto());
 });
@@ -73,6 +87,108 @@ describe('athlete projection refresh', () => {
       phase.mock.calls[0]![0]({});
     });
     expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(calls + 1);
+    await act(async () => {
+      interruption.mock.calls[0]![0]({ competitionId: 'comp-1' });
+    });
+    expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(calls + 2);
+  });
+
+  it('blocks only the unloaded series and keeps ordinary controls available during later shot queries', async () => {
+    const initial = deferred<CompetitionStateDto>();
+    vi.mocked(competitionService.getCompetitionState).mockReturnValueOnce(initial.promise);
+    renderHook(() => useAthleteTargetEvents());
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(true);
+    await act(async () => {
+      initial.resolve({ ...dto(), athleteTargetControl: null });
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);
+    const next = deferred<CompetitionStateDto>();
+    vi.mocked(competitionService.getCompetitionState).mockReturnValueOnce(next.promise);
+    await act(async () => {
+      shot.mock.calls[0]![0]({ sessionId: 'session-1' });
+    });
+    const current = useCompetitionStore.getState();
+    expect(current.athleteTargetControlPending).toBe(false);
+    const membership = { membership: { competitionId: null, revision: 0 }, hydrated: true, hydrationFailed: false };
+    expect(localProgressControls(membership, 'match', current).allowed).toBe(true);
+    expect(localProgressControls(membership, 'sighting', current).allowed).toBe(true);
+    await act(async () => {
+      next.reject(new Error('query failed'));
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+    expect(localProgressControls(membership, 'match', useCompetitionStore.getState()).allowed).toBe(true);
+  });
+
+  it('clears pending when the latest initial query fails or its response is discarded', async () => {
+    vi.mocked(competitionService.getCompetitionState).mockRejectedValueOnce(new Error('query failed'));
+    await act(async () => {
+      await refreshAthleteTargetControl();
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+    const next = deferred<CompetitionStateDto>();
+    vi.mocked(competitionService.getCompetitionState).mockReturnValueOnce(next.promise);
+    const request = refreshAthleteTargetControl();
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(true);
+    await act(async () => {
+      next.resolve(dto(99));
+      await request;
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+    expect(useCompetitionStore.getState().athleteTargetControl).toBeNull();
+  });
+
+  it('does not clear pending from an older request while the new series query is running', async () => {
+    const old = deferred<CompetitionStateDto>();
+    const next = deferred<CompetitionStateDto>();
+    vi.mocked(competitionService.getCompetitionState)
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(next.promise);
+    renderHook(() => useAthleteTargetEvents());
+    await act(async () => {
+      useCompetitionStore.getState().advanceSeries(3);
+    });
+    await act(async () => {
+      old.resolve(dto());
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(true);
+    await act(async () => {
+      next.resolve(dto(3));
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+    expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);
+  });
+
+  it('refetches after a rejected selection so a newly reached cutoff disables Sighting', async () => {
+    await act(async () => {
+      renderHook(() => useAthleteTargetEvents());
+    });
+    vi.mocked(competitionService.setAthleteTargetMode).mockRejectedValueOnce(new Error('ATHLETE_SIGHTING_CLOSED'));
+    vi.mocked(competitionService.getCompetitionState).mockResolvedValue({
+      ...dto(),
+      seriesShotCount: 1,
+      athleteTargetControl: { sightingAllowed: false, matchAllowed: true, selected: null, effective: 'MATCH' },
+    });
+    await act(async () => {
+      await selectAthleteTargetMode('SIGHTING');
+    });
+    expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(2);
+    expect(useCompetitionStore.getState().athleteTargetControl).toMatchObject({
+      sightingAllowed: false,
+      effective: 'MATCH',
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+  });
+
+  it('preserves the loaded capability on same-position phase notifications', async () => {
+    await act(async () => {
+      renderHook(() => useAthleteTargetEvents());
+    });
+    const control = useCompetitionStore.getState().athleteTargetControl;
+    await act(async () => {
+      useCompetitionStore.getState().applyPhaseChange('ACTIVE', 1, 2, 'Match', true);
+    });
+    expect(useCompetitionStore.getState().athleteTargetControl).toBe(control);
+    expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);
   });
 
   it('discards a delayed query after a newer command response', async () => {
@@ -100,6 +216,6 @@ describe('athlete projection refresh', () => {
       pending.resolve(dto());
     });
     expect(useCompetitionStore.getState().athleteTargetControl).toBeNull();
-    expect(unsubscribe).toHaveBeenCalledTimes(3);
+    expect(unsubscribe).toHaveBeenCalledTimes(4);
   });
 });

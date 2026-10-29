@@ -123,7 +123,7 @@ describe('reserve Lane state transfer', () => {
     const source = await lane(sourceId, true),
       target = await lane(targetId, false);
     const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
-    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBeNull();
+    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBeUndefined();
     expect(bundle.summary).toMatchObject({ matchShots: 1, totalScoreX10: 100, remainingSeconds: 240 });
     await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
     expect(target.state().sessionId).toBe(target.original.id);
@@ -166,6 +166,15 @@ describe('reserve Lane state transfer', () => {
     expect(() => target.db.exec('DELETE FROM reserve_lane_transfer_events')).toThrow(/append-only/);
   });
 
+  it('retries source retirement against a snapshot without an athlete target-mode field', async () => {
+    const source = await lane(sourceId, true);
+    const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
+    expect(Object.hasOwn(JSON.parse(bundle.competitionJson), 'athleteTargetMode')).toBe(false);
+    await source.port.retireSource(bundle, false);
+    await expect(source.port.retireSource(bundle, true)).resolves.toBeUndefined();
+    expect(source.state().phase).toBe('FINISHED');
+  });
+
   it('requires a new athlete selection at the destination instead of carrying the source choice', async () => {
     const source = await lane(sourceId, true, R3P60);
     const target = await lane(targetId, false, R3P60);
@@ -178,7 +187,7 @@ describe('reserve Lane state transfer', () => {
       }),
     );
     const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
-    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBeNull();
+    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBe('SIGHTING');
     await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
     await source.service.execute(competitionId, { operation: 'RETIRE_SOURCE', id: request.id, digest: bundle.digest });
     await target.service.execute(competitionId, {
@@ -187,6 +196,7 @@ describe('reserve Lane state transfer', () => {
       digest: bundle.digest,
       sourceRetired: true,
     });
+    await expect(source.port.retireSource(bundle, true)).resolves.toBeUndefined();
     expect(target.state().athleteTargetMode).toBeNull();
     expect(target.state().currentSeriesIndex).toBe(2);
     expect(target.state().seriesShotCount).toBe(0);

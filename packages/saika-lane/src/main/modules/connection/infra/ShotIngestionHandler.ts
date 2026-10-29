@@ -174,27 +174,33 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
 
       const authorizedSighting =
         activeCompetition !== null && interruptionReader?.get(activeCompetition.id)?.status === 'SIGHTING';
-      const effectiveMode =
-        acceptedByShootOff || authorizedSighting
-          ? Mode.sighting()
-          : timedTargetDecision
-            ? timedTargetDecision.executionContext?.shotDisposition === 'ISOLATED' ||
-              timedTargetDecision.purpose === 'SIGHTING'
-              ? Mode.sighting()
-              : Mode.match()
-            : activeCompetition
-              ? Mode.fromValue(
-                  resolveCompetitionShotMode(
-                    activeCompetition.currentStageConfig,
-                    activeCompetition.currentSeriesConfig,
-                    shotData.mode,
-                    activeCompetition.seriesShotCount,
-                    activeCompetition.athleteTargetMode,
-                  ),
-                )
-              : shotData.mode !== undefined
-                ? Mode.fromValue(shotData.mode)
-                : undefined;
+      let athleteModeObserved = false;
+      let effectiveMode: Mode | undefined;
+      if (acceptedByShootOff || authorizedSighting) {
+        effectiveMode = Mode.sighting();
+      } else if (timedTargetDecision) {
+        effectiveMode =
+          timedTargetDecision.executionContext?.shotDisposition === 'ISOLATED' ||
+          timedTargetDecision.purpose === 'SIGHTING'
+            ? Mode.sighting()
+            : Mode.match();
+      } else if (activeCompetition) {
+        effectiveMode = Mode.fromValue(
+          resolveCompetitionShotMode(
+            activeCompetition.currentStageConfig,
+            activeCompetition.currentSeriesConfig,
+            shotData.mode,
+            activeCompetition.seriesShotCount,
+            activeCompetition.athleteTargetMode,
+          ),
+        );
+        athleteModeObserved =
+          activeCompetition.currentStageConfig.scored &&
+          activeCompetition.currentSeriesConfig.targetModeControl === 'ATHLETE' &&
+          activeCompetition.currentSeriesConfig.purpose !== 'POSITION_CHANGE_AND_SIGHTING';
+      } else if (shotData.mode !== undefined) {
+        effectiveMode = Mode.fromValue(shotData.mode);
+      }
 
       const targetProfileId = resolveTargetProfileId(activeCompetition, timedTargetDecision);
       const scoringGaugeProfileId = resolveScoringGaugeProfileId(activeCompetition);
@@ -212,6 +218,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
                 competitionId: activeCompetition.id,
                 stageIndex: activeCompetition.currentStageIndex,
                 seriesIndex: activeCompetition.currentSeriesIndex,
+                ...(athleteModeObserved ? { athleteModeObserved: true as const } : {}),
               },
             }
           : {}),

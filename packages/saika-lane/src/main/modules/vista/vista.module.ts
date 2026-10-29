@@ -172,6 +172,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
       eventBus.on('ShotRecorded', refreshSession),
       eventBus.on('SessionReset', refreshSession),
       eventBus.on('ModeSwitched', refreshSession),
+      eventBus.on('AthleteTargetModeChanged', refreshCompetition),
       eventBus.on('CompetitionStarted', refreshCompetition),
       eventBus.on('CompetitionFinished', refreshCompetition),
       eventBus.on('PhaseChanged', refreshCompetition),

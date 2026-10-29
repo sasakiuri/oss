@@ -219,6 +219,25 @@ describe('ShotIngestionHandler', () => {
     },
   );
 
+  it('does not treat independent shoot-off sighting as an ATHLETE mode observation', async () => {
+    const state = athleteCompetition();
+    competitionRepository.findActive = vi.fn().mockResolvedValue(state);
+    sessionRepository.findById = vi.fn().mockResolvedValue(buildSession());
+    deps.shootOffReader = { canAcceptShot: vi.fn().mockReturnValue(true), getState: vi.fn().mockReturnValue(null) };
+    await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+    expect(commandBus.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        mode: expect.objectContaining({ value: 'SIGHTING' }),
+        competitionContext: {
+          competitionId: state.id,
+          stageIndex: state.currentStageIndex,
+          seriesIndex: state.currentSeriesIndex,
+        },
+      }),
+    );
+  });
+
   it('forces shots in a Final position-change interval to SIGHTING even if the target reports MATCH', async () => {
     const competitionSession = buildSession();
     let activeCompetition = CompetitionState.create('competition-001', competitionSession.id, R3P_FINAL.config)

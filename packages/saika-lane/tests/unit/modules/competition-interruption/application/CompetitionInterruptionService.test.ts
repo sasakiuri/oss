@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SwitchModeInput } from '@/main/composition/tokens';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
@@ -10,6 +11,7 @@ import type { LaneInterruptionRecord } from '@/main/modules/competition-interrup
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
+import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
 import { createMockCommandBus, createMockEventBus } from '../../../../helpers/mockDependencies';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
@@ -104,6 +106,54 @@ describe('CompetitionInterruptionService', () => {
     expect(duplicatePause.status).toBe('RUNNING_MATCH');
     expect(timerService.pause).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['resume', 'resumeMatch', 'restoreActive'] as const)(
+    'reapplies the aggregate selection and cutoff through %s',
+    async (operation) => {
+      for (const [selection, count, expected] of [
+        [undefined, 0, 'MATCH'],
+        ['SIGHTING', 0, 'SIGHTING'],
+        ['MATCH', 0, 'MATCH'],
+        [undefined, 1, 'MATCH'],
+        ['MATCH', 1, 'MATCH'],
+      ] as const) {
+        let state = CompetitionState.reconstruct({ ...athleteCompetition(), id: COMPETITION_ID });
+        if (count) state = state.recordShotInSeries();
+        if (selection) state = selectAthlete(state, selection);
+        vi.mocked(competitionRepository.findById).mockResolvedValue(state);
+        vi.mocked(competitionRepository.findActive).mockResolvedValue(state);
+        stored = null;
+        vi.mocked(commandBus.execute).mockClear();
+        await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
+        const resume = {
+          competitionId: COMPETITION_ID,
+          interruptionId: INTERRUPTION_ID,
+          timerStartAt: new Date(),
+          authorizedRemainingSeconds: 240,
+          unlimitedSightingShots: operation === 'resumeMatch',
+        };
+        await service.resume(resume);
+        const resumedInput = vi.mocked(commandBus.execute).mock.lastCall![1] as SwitchModeInput;
+        expect(resumedInput.mode.value).toBe(operation === 'resumeMatch' ? 'SIGHTING' : expected);
+        if (operation !== 'resume') {
+          vi.mocked(commandBus.execute).mockClear();
+          if (operation === 'resumeMatch')
+            await service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID });
+          else await service.restoreActive();
+        }
+        expect(commandBus.execute).toHaveBeenCalledExactlyOnceWith(
+          expect.anything(),
+          expect.objectContaining({
+            sessionId: state.sessionId,
+            preserveSeries: true,
+            mode: expect.objectContaining({ value: expected }),
+          }),
+        );
+        expect(state.athleteTargetMode).toBe(selection);
+        expect(competitionRepository.save).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it('clears a completed timer override so later broadcast commands can proceed', async () => {
     await service.pause({

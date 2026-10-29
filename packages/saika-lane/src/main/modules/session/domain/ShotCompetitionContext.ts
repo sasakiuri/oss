@@ -5,6 +5,8 @@ export interface ShotCompetitionContext {
   readonly competitionId: string;
   readonly stageIndex: number;
   readonly seriesIndex: number;
+  /** Only normal ATHLETE classification may supply an observed target mode. */
+  readonly athleteModeObserved?: true;
 }
 
 export function parseShotCompetitionContext(value: unknown): ShotCompetitionContext {
@@ -16,12 +18,14 @@ export function parseShotCompetitionContext(value: unknown): ShotCompetitionCont
     !Number.isInteger(context.stageIndex) ||
     (context.stageIndex as number) < 0 ||
     !Number.isInteger(context.seriesIndex) ||
-    (context.seriesIndex as number) < 0
+    (context.seriesIndex as number) < 0 ||
+    (context.athleteModeObserved !== undefined && context.athleteModeObserved !== true)
   )
     throw new Error('Shot competition context is invalid');
   return Object.freeze({
     competitionId: context.competitionId,
     stageIndex: context.stageIndex as number,
     seriesIndex: context.seriesIndex as number,
+    ...(context.athleteModeObserved === true ? { athleteModeObserved: true as const } : {}),
   });
 }
