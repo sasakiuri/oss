@@ -61,9 +61,9 @@ export class BufferGraphQL {
     await this.options.observeQuota?.(quota);
   }
 
-  async checkRequestBudget(sending = false): Promise<void> {
-    const now = (this.options.clock ?? systemClock)();
+  async checkRequestBudget(sending = false): Promise<BufferQuota | undefined> {
     const quota = (await this.options.readQuota?.()) ?? this.quota;
+    const now = (this.options.clock ?? systemClock)();
     const retryAt = quotaPause(quota, now);
     if (retryAt !== null)
       throw new PostRateLimitError(
@@ -74,6 +74,7 @@ export class BufferGraphQL {
       const error = postingQuotaError(quota, now);
       if (error) throw new PostError(error);
     }
+    return quota ?? undefined;
   }
 
   async request(

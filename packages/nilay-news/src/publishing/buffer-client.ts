@@ -71,9 +71,16 @@ export class BufferClient implements PublishingClient {
       (previous.remainingPosts === null ||
         (previous.remainingPosts !== undefined && previous.remainingPosts > 0))
     ) {
-      await this.api.checkRequestBudget(true);
-      this.verification = previous;
-      return;
+      const quota = await this.api.checkRequestBudget(true);
+      const expiresAt = Math.min(
+        previous.expiresAt,
+        ...(quota?.api.windows.map((window) => window.resetAt) ?? []),
+      );
+      const checkedAt = this.clock();
+      if (checkedAt >= previous.observedAt && checkedAt < expiresAt) {
+        this.verification = { ...previous, expiresAt };
+        return;
+      }
     }
     const {
       data: { channel, dailyPostingLimits },
