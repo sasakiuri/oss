@@ -292,6 +292,7 @@ const loadLicenseRecords = async (
             "License",
             "LICENSE.md",
             "LICENSE.txt",
+            "LICENSE.MIT",
             "LICENCE",
             "LICENCE.md",
             "COPYING",
