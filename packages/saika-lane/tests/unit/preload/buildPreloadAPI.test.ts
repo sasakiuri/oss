@@ -56,6 +56,21 @@ describe('buildPreloadAPI', () => {
     });
   });
 
+  it('exposes the membership query and validates and unsubscribes membership events', async () => {
+    const snapshot = { competitionId: 'competition-1', revision: 2 };
+    mockInvoke.mockResolvedValueOnce({ success: true, data: snapshot });
+    await expect(api.mqtt.getDirectorMembership()).resolves.toEqual({ success: true, data: snapshot });
+    expect(mockInvoke).toHaveBeenCalledWith('mqtt:getDirectorMembership');
+    const listener = vi.fn();
+    const unsubscribe = api.on.directorMembershipChanged(listener);
+    expect(mockOn).toHaveBeenCalledWith('event:directorMembershipChanged', expect.any(Function));
+    const callback = mockOn.mock.calls.at(-1)![1];
+    callback({}, snapshot);
+    expect(listener).toHaveBeenCalledExactlyOnceWith(snapshot);
+    unsubscribe();
+    expect(mockRemoveListener).toHaveBeenCalledWith('event:directorMembershipChanged', callback);
+  });
+
   describe('competition namespace', () => {
     it('should expose all competition methods as functions', () => {
       expect(typeof api.competition.startCompetition).toBe('function');

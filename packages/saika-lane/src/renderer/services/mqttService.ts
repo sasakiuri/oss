@@ -6,6 +6,7 @@ import type {
   ConnectMqttInput,
   DeclareEstComplaintInput,
   DeclareQualificationMalfunctionInput,
+  DirectorMembershipDto,
   EstComplaintContextDto,
   EstComplaintSignalDto,
   LaneSafetyStateDto,
@@ -29,6 +30,10 @@ export const mqttService = {
   disconnectMqtt: createVoidCommandMethod(() => window.electronAPI.mqtt.disconnectMqtt()),
 
   getMqttStatus: createVoidServiceMethod<MqttStatus>(() => window.electronAPI.mqtt.getMqttStatus()),
+
+  getDirectorMembership: createVoidServiceMethod<DirectorMembershipDto>(() =>
+    window.electronAPI.mqtt.getDirectorMembership(),
+  ),
 
   getSafetyState: createVoidServiceMethod<LaneSafetyStateDto>(() => window.electronAPI.mqtt.getSafetyState()),
 

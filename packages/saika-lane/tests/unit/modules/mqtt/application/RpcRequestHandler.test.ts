@@ -280,4 +280,18 @@ describe('RpcRequestHandler', () => {
       expect(mockMqttClient.publish).not.toHaveBeenCalled();
     });
   });
+  it('propagates connected unsubscribe failures and permits a retry', async () => {
+    await handler.subscribe(COMPETITION_ID);
+    vi.mocked(mockMqttClient.unsubscribe).mockRejectedValueOnce(new Error('unsubscribe failed'));
+    await expect(handler.unsubscribe()).rejects.toThrow('unsubscribe failed');
+    await expect(handler.unsubscribe()).resolves.toBeUndefined();
+    expect(mockMqttClient.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('tolerates unsubscribe failures after transport disconnection', async () => {
+    await handler.subscribe(COMPETITION_ID);
+    vi.mocked(mockMqttClient.isConnected).mockReturnValue(false);
+    vi.mocked(mockMqttClient.unsubscribe).mockRejectedValueOnce(new Error('disconnected'));
+    await expect(handler.unsubscribe()).resolves.toBeUndefined();
+  });
 });

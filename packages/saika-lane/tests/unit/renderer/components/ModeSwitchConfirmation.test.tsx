@@ -9,6 +9,7 @@ import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
 import type { MainScreenProps } from '@/renderer/presentation/screens/MainScreen';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
 import { competitionService } from '@/renderer/services/competitionService';
@@ -109,6 +110,7 @@ function startCompetition(scored = false) {
 
 describe('Preparation and Match confirmation through App', () => {
   beforeEach(() => {
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
     vi.useFakeTimers();
     vi.clearAllMocks();
     useCompetitionStore.getState().resetCompetition();
@@ -435,4 +437,48 @@ describe('Preparation and Match confirmation through App', () => {
     });
     expectNoAction();
   });
+  it.each(['Preparation', 'Match'])('closes a pending %s confirmation when joining Director', async (label) => {
+    startCompetition();
+    render(<App />);
+    await click(label);
+    expect(screen.getByRole('dialog')).toBeVisible();
+    act(() => {
+      useDirectorMembershipStore.getState().applyChange({ competitionId: 'remote-1', revision: 1 });
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: label })).toBeDisabled();
+    await press('Enter', 'Enter');
+    expectNoAction();
+  });
+
+  it.each(['unknown', 'joined'])(
+    'locks progress through App while %s and preserves other shortcuts',
+    async (status) => {
+      startCompetition();
+      useDirectorMembershipStore.setState({
+        membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
+        hydrated: status === 'joined',
+      });
+      render(<App />);
+      for (const name of ['Preparation', 'Match', 'End Preparation'])
+        expect(screen.getByRole('button', { name })).toBeDisabled();
+      for (const code of ['Numpad1', 'Numpad2', 'Numpad3']) {
+        const event = new KeyboardEvent('keydown', { code, cancelable: true });
+        await act(async () => {
+          window.dispatchEvent(event);
+        });
+        expect(event.defaultPrevented).toBe(true);
+      }
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expectNoAction();
+      await press('Numpad6');
+      expect(onZoom).toHaveBeenCalledOnce();
+      await press('Numpad9');
+      expect(onPrint).toHaveBeenCalledOnce();
+      await press('F11');
+      expect(window.electronAPI.window.toggleFullscreen).toHaveBeenCalledOnce();
+      await press('NumpadDecimal');
+      expect(screen.getByLabelText('Settings open')).toHaveTextContent('true');
+    },
+  );
 });

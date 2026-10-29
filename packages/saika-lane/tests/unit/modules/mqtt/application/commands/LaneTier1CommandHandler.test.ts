@@ -26,12 +26,14 @@ import { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/command
 import { LaneTier1CommandHandler } from '@/main/modules/mqtt/application/commands/LaneTier1CommandHandler';
 import type { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
+import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { LaneSafetyStopState, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 import { createMockStorage } from '../../../../../helpers/mockDependencies';
 
@@ -105,6 +107,9 @@ describe('LaneTier1CommandHandler', () => {
   let safetyStopControl: ILaneSafetyStopControl;
   let safetyStatePublisher: LaneSafetyStatePublisher;
   let timedTargetControl: ITimedTargetControl;
+  let membership: DirectorMembership;
+  let eventBus: TypedEventBus;
+  let onChange: ReturnType<typeof vi.fn<(event: unknown) => void>>;
   let handler: LaneTier1CommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
@@ -151,6 +156,10 @@ describe('LaneTier1CommandHandler', () => {
       restore: vi.fn(),
       dispose: vi.fn(),
     } as unknown as ITimedTargetControl;
+    eventBus = new TypedEventBus();
+    onChange = vi.fn();
+    eventBus.on('DirectorMembershipChanged', onChange);
+    membership = new DirectorMembership(storage, eventBus);
     handler = new LaneTier1CommandHandler(
       mqttClient,
       guard,
@@ -159,7 +168,7 @@ describe('LaneTier1CommandHandler', () => {
       rpcHandler,
       competitionStateSubscriber,
       retainPublisher,
-      storage,
+      membership,
       () => LANE_ID,
       safetyStopControl,
       safetyStatePublisher,
@@ -219,6 +228,9 @@ describe('LaneTier1CommandHandler', () => {
       await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
 
       expect(handler.competitionId).toBe(COMPETITION_ID);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ competitionId: COMPETITION_ID, revision: 1 }),
+      );
     });
 
     it('sends done ACK on success', async () => {
@@ -401,6 +413,7 @@ describe('LaneTier1CommandHandler', () => {
 
       expect(handler.competitionId).toBeNull();
       expect(storage.set).not.toHaveBeenCalledWith('mqtt.competitionId', COMPETITION_ID);
+      expect(onChange).not.toHaveBeenCalled();
       expect(broadcastHandler.unsubscribeFromCompetition).toHaveBeenCalled();
       const acknowledgements = vi
         .mocked(mqttClient.publish)
@@ -451,5 +464,111 @@ describe('LaneTier1CommandHandler', () => {
       const publishCalls = (mqttClient.publish as ReturnType<typeof vi.fn>).mock.calls;
       expect(publishCalls[0]![0]).toBe(expectedAckTopic);
     });
+  });
+  it('does not emit another change for a duplicate join with a new command ID', async () => {
+    await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+    messageHandler(
+      `saika/lane/${LANE_ID}/command/join-competition`,
+      Buffer.from(
+        JSON.stringify(
+          buildCommand({
+            competitionId: COMPETITION_ID,
+            commandId: 'd4444444-4444-4444-a444-444444444444',
+          }),
+        ),
+      ),
+    );
+    await flushPromises();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(membership.snapshot).toEqual({ competitionId: COMPETITION_ID, revision: 1 });
+  });
+
+  it('exposes saved membership before connecting and emits when restoration fails', async () => {
+    storage.set('mqtt.competitionId', COMPETITION_ID);
+    expect(membership.snapshot).toEqual({ competitionId: COMPETITION_ID, revision: 0 });
+    vi.mocked(competitionStateSubscriber.subscribe).mockRejectedValueOnce(new Error('restore failed'));
+    await handler.subscribe();
+    expect(membership.snapshot).toEqual({ competitionId: null, revision: 1 });
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ competitionId: null, revision: 1 }));
+  });
+
+  it('retains membership without emitting on disconnect and successful restoration', async () => {
+    await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+    onChange.mockClear();
+    await handler.unsubscribe();
+    expect(membership.snapshot.competitionId).toBe(COMPETITION_ID);
+    await handler.subscribe();
+    expect(membership.snapshot.competitionId).toBe(COMPETITION_ID);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it.each(['retain', 'unsubscribe'])('keeps membership if leave %s cleanup fails', async (step) => {
+    await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+    onChange.mockClear();
+    if (step === 'retain')
+      vi.mocked(retainPublisher.clearCompetitionTopics).mockRejectedValueOnce(new Error('cleanup failed'));
+    else vi.mocked(perLaneHandler.unsubscribeFromCompetition).mockRejectedValueOnce(new Error('cleanup failed'));
+    messageHandler(
+      `saika/lane/${LANE_ID}/command/leave-competition`,
+      Buffer.from(
+        JSON.stringify(
+          buildCommand({
+            competitionId: COMPETITION_ID,
+            commandId: 'd4444444-4444-4444-a444-444444444444',
+          }),
+        ),
+      ),
+    );
+    await flushPromises();
+    expect(membership.snapshot).toEqual({ competitionId: COMPETITION_ID, revision: 1 });
+    expect(onChange).not.toHaveBeenCalled();
+    const acks = vi.mocked(mqttClient.publish).mock.calls.filter((call) => call[0].includes('/acknowledgement'));
+    expect(JSON.parse(acks.at(-1)![1]).status).toBe('error');
+  });
+
+  it('emits leave only after retained cleanup, unsubscription and durable removal', async () => {
+    await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+    onChange.mockClear();
+    let finishCleanup!: () => void;
+    vi.mocked(retainPublisher.clearCompetitionTopics).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCleanup = resolve;
+        }),
+    );
+    let finishUnsubscribe!: () => void;
+    vi.mocked(perLaneHandler.unsubscribeFromCompetition).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishUnsubscribe = resolve;
+        }),
+    );
+    messageHandler(
+      `saika/lane/${LANE_ID}/command/leave-competition`,
+      Buffer.from(
+        JSON.stringify(
+          buildCommand({
+            competitionId: COMPETITION_ID,
+            commandId: 'd4444444-4444-4444-a444-444444444444',
+          }),
+        ),
+      ),
+    );
+    await flushPromises();
+    expect(membership.snapshot.competitionId).toBe(COMPETITION_ID);
+    expect(onChange).not.toHaveBeenCalled();
+    finishCleanup();
+    await flushPromises();
+    expect(membership.snapshot.competitionId).toBe(COMPETITION_ID);
+    expect(onChange).not.toHaveBeenCalled();
+    let storedAtEvent: unknown = COMPETITION_ID;
+    onChange.mockImplementation(() => {
+      storedAtEvent = storage.get('mqtt.competitionId');
+    });
+    finishUnsubscribe();
+    await flushPromises();
+    expect(membership.snapshot).toEqual({ competitionId: null, revision: 2 });
+    expect(storedAtEvent).toBeUndefined();
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ competitionId: null, revision: 2 }));
   });
 });

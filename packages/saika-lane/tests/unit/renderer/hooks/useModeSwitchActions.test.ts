@@ -2,8 +2,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useAppKeyboardShortcuts } from '@/renderer/presentation/hooks/useAppKeyboardShortcuts';
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ShotDto } from '@/shared/ipc/contracts';
 
@@ -57,6 +59,7 @@ function setCompetitionState(overrides: Partial<{ competitionId: string | null; 
 
 describe('useModeSwitchActions (3-button model)', () => {
   beforeEach(() => {
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
     vi.clearAllMocks();
     useCompetitionStore.getState().resetCompetition();
     useSessionStore.getState().resetSession();
@@ -321,6 +324,7 @@ const shot: ShotDto = {
 
 describe('mode change confirmation rules', () => {
   beforeEach(() => {
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
     vi.clearAllMocks();
     useCompetitionStore.getState().resetCompetition();
     useSessionStore.getState().resetSession();
@@ -500,5 +504,106 @@ describe('mode change confirmation rules', () => {
     });
     expect(result.current.confirmation).toBeNull();
     expect(mockStartStage).not.toHaveBeenCalled();
+  });
+});
+
+describe('Director local progress lock', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCompetitionStore.getState().resetCompetition();
+    useSessionStore.getState().resetSession();
+    useSessionStore.getState().setSessionId('session-1');
+    setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE', scored: false });
+    useSessionStore.getState().addShot(shot);
+    useDirectorMembershipStore.getState().beginHydration();
+  });
+
+  it.each(
+    ['unknown', 'joined'].flatMap((status) =>
+      [
+        { phase: 'IDLE', scored: false },
+        { phase: 'ACTIVE', scored: false },
+        { phase: 'ACTIVE', scored: true },
+        { phase: 'SERIES_COMPLETE', scored: true },
+        { phase: 'SERIES_ENTERED', scored: true },
+        { phase: 'STAGE_ENTERED', scored: true },
+        { phase: 'FINISHED', scored: true },
+        { phase: 'IDLE', scored: false, competitionId: null },
+      ].map((state) => ({ status, ...state })),
+    ),
+  )(
+    'consumes all progress keys without actions or dialogs while $status in $phase / scored=$scored',
+    async ({ status, phase, scored, competitionId = 'comp-1' }) => {
+      setCompetitionState({ competitionId, phase, scored });
+      if (status === 'joined')
+        useDirectorMembershipStore.getState().completeHydration({ competitionId: 'remote-1', revision: 1 });
+      const onPrint = vi.fn();
+      const onToggleFullscreen = vi.fn();
+      const { result } = renderHook(() => {
+        const actions = useModeSwitchActions();
+        useAppKeyboardShortcuts({
+          screen: 'main',
+          onPreparationClick: actions.handlePreparationClick,
+          onMatchClick: actions.handleMatchClick,
+          onNextStageClick: actions.handleNextStageClick,
+          onPrint,
+          onToggleFullscreen,
+        });
+        return actions;
+      });
+      await act(async () => {
+        for (const code of ['Numpad1', 'Numpad2', 'Numpad3']) {
+          const event = new KeyboardEvent('keydown', { code, cancelable: true });
+          window.dispatchEvent(event);
+          expect(event.defaultPrevented).toBe(true);
+        }
+      });
+      expect(result.current.confirmation).toBeNull();
+      for (const action of [mockStartStage, mockEndStage, mockAdvanceStage, mockStartNextSeries, mockSwitchMode])
+        expect(action).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
+      await act(async () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Numpad9' }));
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F11' }));
+      });
+      expect(onPrint).toHaveBeenCalledOnce();
+      expect(onToggleFullscreen).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(['handlePreparationClick', 'handleMatchClick'] as const)(
+    'cancels a pending %s on join and does not revive it after leave',
+    async (action) => {
+      useDirectorMembershipStore.getState().completeHydration({ competitionId: null, revision: 0 });
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current[action]();
+      });
+      expect(result.current.confirmation).not.toBeNull();
+      await act(async () => {
+        useDirectorMembershipStore.getState().applyChange({ competitionId: 'remote-1', revision: 1 });
+        await result.current.confirm();
+        useDirectorMembershipStore.getState().applyChange({ competitionId: null, revision: 2 });
+        await result.current.confirm();
+      });
+      expect(result.current.confirmation).toBeNull();
+      for (const command of [mockStartStage, mockEndStage, mockAdvanceStage, mockStartNextSeries, mockSwitchMode])
+        expect(command).not.toHaveBeenCalled();
+    },
+  );
+
+  it('stops the remaining Match commands if join arrives during endStage', async () => {
+    useSessionStore.getState().setCurrentSeriesStartIndex(1);
+    useDirectorMembershipStore.getState().completeHydration({ competitionId: null, revision: 0 });
+    mockEndStage.mockImplementationOnce(async () => {
+      useDirectorMembershipStore.getState().applyChange({ competitionId: 'remote-1', revision: 1 });
+    });
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handleMatchClick();
+    });
+    expect(mockEndStage).toHaveBeenCalledOnce();
+    expect(mockAdvanceStage).not.toHaveBeenCalled();
+    expect(mockStartNextSeries).not.toHaveBeenCalled();
   });
 });

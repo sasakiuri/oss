@@ -32,6 +32,7 @@ import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber
 import { CompetitionShootOffShotPublisher } from './application/CompetitionShootOffShotPublisher';
 import { CompetitionShotPublisher } from './application/CompetitionShotPublisher';
 import { CompetitionStateSubscriber } from './application/CompetitionStateSubscriber';
+import { DirectorMembership } from './application/DirectorMembership';
 import { EstComplaintSignalPublisher, toEstComplaintSignalPayload } from './application/EstComplaintSignalPublisher';
 import { HardwareStatePublisher } from './application/HardwareStatePublisher';
 import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
@@ -130,6 +131,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     sessionRepository,
     database,
   }) {
+    const membership = new DirectorMembership(storage, eventBus);
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
     const idempotencyGuard = new CommandIdempotencyGuard();
@@ -372,7 +374,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       rpcHandler,
       competitionStateSubscriber,
       retainPublisher,
-      storage,
+      membership,
       getLaneId,
       safetyStopControl,
       safetyStatePublisher,
@@ -483,6 +485,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           laneId: currentLaneId,
         };
       },
+
+      getDirectorMembership: async () => membership.snapshot,
 
       getSafetyState: async () => toSafetyStateDto(safetyStopControl.getState()),
 

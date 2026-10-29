@@ -53,6 +53,11 @@ const MqttStatusSchema = z.object({
   laneId: z.string().optional(),
 });
 
+export const DirectorMembershipDtoSchema = z.object({
+  competitionId: z.string().min(1).nullable(),
+  revision: z.number().int().nonnegative(),
+});
+
 export const LaneSafetyStateDtoSchema = z.object({
   status: z.enum(['STOPPED', 'CLEAR']),
   safetyStopId: z.string().uuid().nullable(),
@@ -120,6 +125,9 @@ export const mqttContract = defineContract('mqtt', {
   }),
   getMqttStatus: query(queryResponseSchema(MqttStatusSchema), {
     channel: 'mqtt:getStatus',
+  }),
+  getDirectorMembership: query(queryResponseSchema(DirectorMembershipDtoSchema), {
+    channel: 'mqtt:getDirectorMembership',
   }),
   getSafetyState: query(queryResponseSchema(LaneSafetyStateDtoSchema), {
     channel: 'mqtt:getSafetyState',
@@ -192,3 +200,5 @@ export type DeclareEstComplaintInput = z.infer<typeof DeclareEstComplaintInputSc
 export type ClearEstComplaintSignalInput = z.infer<typeof ClearEstComplaintSignalInputSchema>;
 export type EstComplaintSignalDto = z.infer<typeof EstComplaintSignalPayloadSchema>;
 export type EstComplaintContextDto = z.infer<typeof EstComplaintSignalContextSchema>;
+
+export type DirectorMembershipDto = z.infer<typeof DirectorMembershipDtoSchema>;

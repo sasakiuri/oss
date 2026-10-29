@@ -95,12 +95,18 @@ describe('useEventSubscriptions', () => {
       configurable: true,
       writable: true,
       value: {
+        mqtt: {
+          getDirectorMembership: vi
+            .fn()
+            .mockResolvedValue({ success: true, data: { competitionId: null, revision: 0 } }),
+        },
         updates: {
           getUpdateState: vi.fn(),
           checkForUpdates: vi.fn(),
           quitAndInstall: vi.fn(),
         },
         on: {
+          directorMembershipChanged: vi.fn().mockReturnValue(vi.fn()),
           sessionStarted: mockOnSessionStarted,
           modeSwitched: mockOnModeSwitched,
           sessionReset: mockOnSessionReset,

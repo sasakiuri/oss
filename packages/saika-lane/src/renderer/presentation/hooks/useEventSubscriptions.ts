@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useConnectionEvents } from './useConnectionEvents';
+import { useDirectorMembershipEvents } from './useDirectorMembershipEvents';
 import { useFinalCueEvents } from './useFinalCueEvents';
 import { useLogEvents } from './useLogEvents';
 import { usePhaseEvents } from './usePhaseEvents';
@@ -15,6 +16,7 @@ import { useUpdateEvents } from './useUpdateEvents';
  * Call this exactly once at the root of the App component.
  */
 export function useEventSubscriptions(): void {
+  useDirectorMembershipEvents();
   useSessionEvents();
   useSafetyStopEvents();
   useFinalCueEvents();

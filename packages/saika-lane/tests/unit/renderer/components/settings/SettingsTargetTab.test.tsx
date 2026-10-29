@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsTargetTab } from '@/renderer/presentation/components/settings/SettingsTargetTab';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { settingsService } from '@/renderer/services/settingsService';
 
 // ============================================================
@@ -48,6 +49,7 @@ const mockSaveUserPreferences = vi.mocked(settingsService.saveUserPreferences);
 
 describe('SettingsTargetTab', () => {
   beforeEach(() => {
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
     vi.clearAllMocks();
     mockStartCompetition.mockResolvedValue({ competitionId: 'comp-1', sessionId: 'session-1' });
     mockStartStage.mockResolvedValue({ sessionId: 'session-1' });
@@ -169,5 +171,29 @@ describe('SettingsTargetTab', () => {
         expect(button).toBeDisabled();
       });
     });
+  });
+  it.each(['unknown', 'joined'])('disables competition type selection while %s', async (status) => {
+    useDirectorMembershipStore.setState({
+      membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
+      hydrated: status === 'joined',
+    });
+    render(<SettingsTargetTab />);
+    await screen.findByText('BR 60S Qualification');
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toBeDisabled();
+      expect(button).toHaveAccessibleDescription(
+        status === 'joined'
+          ? 'Competition progress is controlled by Director'
+          : 'Director membership is not yet available',
+      );
+      fireEvent.click(button);
+    }
+    expect(mockStartCompetition).not.toHaveBeenCalled();
+    expect(mockStartStage).not.toHaveBeenCalled();
+    expect(mockSaveUserPreferences).not.toHaveBeenCalled();
+    act(() => {
+      useDirectorMembershipStore.getState().completeHydration({ competitionId: null, revision: 2 });
+    });
+    expect(screen.getByText('BR 60S Qualification')).toBeEnabled();
   });
 });

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SideMenu, type SideMenuProps } from '@/renderer/presentation/components/SideMenu';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 
 vi.mock('@/renderer/presentation/components/RangeOfficerMenu', () => ({
   RangeOfficerMenu: () => <button aria-label="Range Officer" />,
@@ -37,6 +38,7 @@ function defaultProps(overrides: Partial<SideMenuProps> = {}): SideMenuProps {
 
 describe('SideMenu', () => {
   beforeEach(() => {
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
     mockPhase = 'IDLE';
     mockScored = false;
     mockCompetitionId = null;
@@ -137,6 +139,7 @@ describe('SideMenu', () => {
 
   describe('legacy mode (no competitionId)', () => {
     beforeEach(() => {
+      useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
       mockCompetitionId = null;
     });
 
@@ -165,6 +168,7 @@ describe('SideMenu', () => {
 
   describe('competition mode disable logic', () => {
     beforeEach(() => {
+      useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
       mockCompetitionId = 'comp-1';
     });
 
@@ -246,6 +250,7 @@ describe('SideMenu', () => {
 
   describe('active state display', () => {
     beforeEach(() => {
+      useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
       mockCompetitionId = 'comp-1';
     });
 
@@ -278,6 +283,7 @@ describe('SideMenu', () => {
 
   describe('Next Stage tooltip', () => {
     beforeEach(() => {
+      useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
       mockCompetitionId = 'comp-1';
     });
 
@@ -317,4 +323,48 @@ describe('SideMenu', () => {
       expect(screen.getByRole('button', { name: 'Print' })).toBeEnabled();
     });
   });
+});
+
+describe('Director membership menu controls', () => {
+  it.each(['unknown', 'joined'])(
+    'disables progress with an accessible reason while %s, preserving other controls',
+    async (status) => {
+      mockCompetitionId = 'comp-1';
+      mockPhase = 'SERIES_COMPLETE';
+      mockScored = false;
+      useDirectorMembershipStore.setState({
+        membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
+        hydrated: status === 'joined',
+      });
+      const props = defaultProps({ onPrintClick: vi.fn() });
+      const { rerender } = render(<SideMenu {...props} />);
+      const reason =
+        status === 'joined'
+          ? 'Competition progress is controlled by Director'
+          : 'Director membership is not yet available';
+      for (const label of ['Preparation', 'Match', 'Advance']) {
+        const button = screen.getByRole('button', { name: label });
+        expect(button).toBeDisabled();
+        expect(button).toHaveAccessibleDescription(reason);
+      }
+      const user = userEvent.setup();
+      for (const label of ['Zoom', 'Settings', 'Print', 'Range Officer'])
+        expect(screen.getByRole('button', { name: label })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: 'Zoom' }));
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      await user.click(screen.getByRole('button', { name: 'Print' }));
+      expect(props.onZoomClick).toHaveBeenCalledOnce();
+      expect(props.onSettingsClick).toHaveBeenCalledOnce();
+      expect(props.onPrintClick).toHaveBeenCalledOnce();
+      await user.click(screen.getByRole('button', { name: 'Preparation' }));
+      expect(props.onPreparationClick).not.toHaveBeenCalled();
+      act(() => {
+        useDirectorMembershipStore.getState().completeHydration({ competitionId: null, revision: 2 });
+      });
+      rerender(<SideMenu {...props} />);
+      expect(screen.getByRole('button', { name: 'Preparation' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Match' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Advance' })).toBeEnabled();
+    },
+  );
 });

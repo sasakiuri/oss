@@ -8,7 +8,7 @@ import { PHASE_VALUES } from '@/shared/types/Phase';
 import { defineEvent, defineEventContract } from '../defineContract';
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
 
-import { LaneSafetyStateDtoSchema } from './mqtt.contract';
+import { DirectorMembershipDtoSchema, LaneSafetyStateDtoSchema } from './mqtt.contract';
 import { AppUpdateStateSchema } from './updater.contract';
 
 // ============================================================
@@ -245,6 +245,9 @@ export const eventsContract = defineEventContract('events', {
   competitionFinished: defineEvent(CompetitionFinishedEventSchema, {
     channel: 'event:competitionFinished',
   }),
+  directorMembershipChanged: defineEvent(DirectorMembershipDtoSchema, {
+    channel: 'event:directorMembershipChanged',
+  }),
   mqttStatusChanged: defineEvent(MqttStatusChangedEventSchema, {
     channel: 'event:mqttStatusChanged',
   }),
@@ -283,3 +286,5 @@ export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinished
 export type MqttStatusChangedEventPayload = z.infer<typeof MqttStatusChangedEventSchema>;
 export type FullscreenChangedEventPayload = z.infer<typeof FullscreenChangedEventSchema>;
 export type UpdateStateChangedEventPayload = z.infer<typeof UpdateStateChangedEventSchema>;
+
+export type DirectorMembershipChangedEventPayload = z.infer<typeof DirectorMembershipDtoSchema>;

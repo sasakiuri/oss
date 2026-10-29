@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
 
+import { localProgressControls } from '../../policies/localProgressControls';
 import { useCompetitionStore } from '../../stores/competitionStore';
+import { useDirectorMembershipStore } from '../../stores/directorMembershipStore';
 
 interface CompetitionTypeItem {
   id: string;
@@ -12,6 +14,9 @@ interface CompetitionTypeItem {
 }
 
 export const SettingsTargetTab: React.FC = () => {
+  const membershipState = useDirectorMembershipStore();
+  const permission = localProgressControls(membershipState);
+  const reasonId = useId();
   const savedCompetitionTypeId = useCompetitionStore((s) => s.savedCompetitionTypeId);
   const [competitionTypes, setCompetitionTypes] = useState<CompetitionTypeItem[]>([]);
   const [isApplying, setIsApplying] = useState(false);
@@ -29,10 +34,11 @@ export const SettingsTargetTab: React.FC = () => {
   }, []);
 
   const handleSelectCompetitionType = async (competitionTypeId: string) => {
-    if (isApplying) return;
+    if (isApplying || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
     setIsApplying(true);
     try {
       const { competitionId } = await competitionService.startCompetition({ competitionTypeId });
+      if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
       await competitionService.startStage({ competitionId });
       try {
         await settingsService.saveUserPreferences({ competitionTypeId });
@@ -46,11 +52,17 @@ export const SettingsTargetTab: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2 p-4">
+      {permission.reason && (
+        <p id={reasonId} className="text-sm text-zinc-300">
+          {permission.reason}
+        </p>
+      )}
       {competitionTypes.map(({ id, name }) => (
         <button
           key={id}
           onClick={() => handleSelectCompetitionType(id)}
-          disabled={isApplying}
+          disabled={isApplying || !permission.allowed}
+          aria-describedby={permission.reason ? reasonId : undefined}
           className={`flex items-center justify-start rounded px-4 py-3 text-left text-sm font-medium transition-colors ${
             savedCompetitionTypeId === id
               ? 'bg-zinc-700 text-zinc-100 ring-2 ring-blue-400'

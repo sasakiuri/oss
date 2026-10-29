@@ -650,4 +650,18 @@ describe('PerLaneCommandHandler', () => {
       expect(ackPayload.error.code).toBe('MQTT_UNKNOWN_COMMAND_ACTION');
     });
   });
+  it('propagates connected unsubscribe failures and permits a retry', async () => {
+    await handler.subscribeToCompetition(COMPETITION_ID);
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('unsubscribe failed'));
+    await expect(handler.unsubscribeFromCompetition()).rejects.toThrow('unsubscribe failed');
+    await expect(handler.unsubscribeFromCompetition()).resolves.toBeUndefined();
+    expect(mqttClient.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('tolerates unsubscribe failures after transport disconnection', async () => {
+    await handler.subscribeToCompetition(COMPETITION_ID);
+    vi.mocked(mqttClient.isConnected).mockReturnValue(false);
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('disconnected'));
+    await expect(handler.unsubscribeFromCompetition()).resolves.toBeUndefined();
+  });
 });

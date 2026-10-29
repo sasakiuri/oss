@@ -36,15 +36,16 @@ export class CompetitionCueSubscriber {
     this.messageUnsubscribe = null;
     const topic = this.subscribedTopic;
     const competitionId = this.competitionId;
-    this.subscribedTopic = null;
-    this.competitionId = null;
     if (topic) {
       try {
         await this.mqttClient.unsubscribe(topic);
-      } catch {
+      } catch (error) {
+        if (this.mqttClient.isConnected()) throw error;
         // Ignore if already disconnected.
       }
     }
+    this.subscribedTopic = null;
+    this.competitionId = null;
     if (competitionId) this.emit(competitionId, null);
   }
 

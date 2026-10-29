@@ -94,4 +94,20 @@ describe('CompetitionCueSubscriber', () => {
 
     expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ aggregateId: COMPETITION_ID, cue: null }));
   });
+  it('propagates connected unsubscribe failures and permits a retry', async () => {
+    const subscriber = new CompetitionCueSubscriber(mqttClient, eventBus, () => LANE_ID);
+    await subscriber.subscribe(COMPETITION_ID);
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('unsubscribe failed'));
+    await expect(subscriber.unsubscribe()).rejects.toThrow('unsubscribe failed');
+    await expect(subscriber.unsubscribe()).resolves.toBeUndefined();
+    expect(mqttClient.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('tolerates unsubscribe failures after transport disconnection', async () => {
+    const subscriber = new CompetitionCueSubscriber(mqttClient, eventBus, () => LANE_ID);
+    await subscriber.subscribe(COMPETITION_ID);
+    vi.mocked(mqttClient.isConnected).mockReturnValue(false);
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('disconnected'));
+    await expect(subscriber.unsubscribe()).resolves.toBeUndefined();
+  });
 });
