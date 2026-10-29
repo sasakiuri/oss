@@ -131,10 +131,15 @@ export function useModeSwitchActions() {
     const { shots, currentSeriesStartIndex } = useSessionStore.getState();
     if (competitionId && phase !== 'FINISHED') {
       if (phase !== 'IDLE' && shots.length > 0) {
-        requestConfirmation('End this session and start over? The current session will be saved as finished.', prepare);
+        requestConfirmation(
+          phase === 'ACTIVE'
+            ? 'End this session and wait to start again? The current session will be saved as finished.'
+            : 'End this session and start the first stage again? The current session will be saved as finished.',
+          prepare,
+        );
         return;
       }
-    } else if (shots.length > currentSeriesStartIndex) {
+    } else if (phase !== 'FINISHED' && shots.length > currentSeriesStartIndex) {
       requestConfirmation('Start a new Preparation series?', prepare);
       return;
     }
@@ -150,7 +155,7 @@ export function useModeSwitchActions() {
         requestConfirmation('End preparation and start the match?', match);
         return;
       }
-    } else if (shots.length > currentSeriesStartIndex) {
+    } else if (phase !== 'FINISHED' && shots.length > currentSeriesStartIndex) {
       requestConfirmation('Start a new Match series?', match);
       return;
     }

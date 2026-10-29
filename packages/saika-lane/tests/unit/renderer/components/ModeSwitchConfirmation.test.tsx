@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -189,6 +190,100 @@ describe('Preparation and Match confirmation through App', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await press(code, 'Enter');
     expect(competitionService.startStage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['Enter', 'NumpadEnter'])(
+    'does not repeat Preparation after confirming with held %s, and allows a new press after keyup',
+    async (code) => {
+      vi.useRealTimers();
+      startCompetition();
+      vi.mocked(competitionService.startStage).mockImplementation(async () => {
+        useSessionStore.getState().clearSessionData();
+        useSessionStore.getState().setSessionId('session-2');
+        useCompetitionStore.getState().setPhase('IDLE', 0, 0, '', false);
+        return { sessionId: 'session-2' };
+      });
+      const user = userEvent.setup({
+        keyboardMap: [{ key: 'Enter', code }],
+      });
+      render(<App />);
+      const opener = screen.getByRole('button', { name: 'Preparation' });
+      await user.click(opener);
+      expect(screen.getByRole('dialog')).toBeVisible();
+
+      await user.keyboard(`[${code}>5]`);
+
+      expect(opener).toHaveFocus();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(useSessionStore.getState().shots).toEqual([]);
+      expect(competitionService.startStage).toHaveBeenCalledExactlyOnceWith({ competitionId: 'comp-1' });
+
+      // Releasing another key must not end suppression of the held Enter.
+      fireEvent.keyUp(opener, { code: 'Numpad9', key: '9' });
+      const repeat = new KeyboardEvent('keydown', {
+        code,
+        key: 'Enter',
+        repeat: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(opener, repeat);
+      expect(repeat.defaultPrevented).toBe(true);
+
+      await user.keyboard(`[/${code}][${code}]`);
+      expect(competitionService.startStage).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each(['Enter', 'NumpadEnter'])('does not re-enter Match while the confirming %s remains held', async (code) => {
+    vi.useRealTimers();
+    startCompetition();
+    vi.mocked(competitionService.endStage).mockImplementation(async () => {
+      useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 0, 0, 'Preparation', false);
+    });
+    vi.mocked(competitionService.advanceStage).mockImplementation(async () => {
+      useCompetitionStore.getState().setPhase('STAGE_ENTERED', 1, 0, 'Match', true);
+    });
+    let completeSeries!: () => void;
+    const seriesPending = new Promise<void>((resolve) => {
+      completeSeries = resolve;
+    });
+    vi.mocked(competitionService.startNextSeries).mockReturnValue(seriesPending);
+    const user = userEvent.setup({
+      keyboardMap: [{ key: 'Enter', code }],
+    });
+    render(<App />);
+    const opener = screen.getByRole('button', { name: 'Match' });
+    await user.click(opener);
+    expect(screen.getByRole('dialog')).toBeVisible();
+
+    try {
+      await user.keyboard(`[${code}>5]`);
+
+      expect(opener).toHaveFocus();
+      expect(opener).toBeEnabled();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(competitionService.endStage).toHaveBeenCalledExactlyOnceWith({ competitionId: 'comp-1' });
+      expect(competitionService.advanceStage).toHaveBeenCalledExactlyOnceWith({ competitionId: 'comp-1' });
+      expect(competitionService.startNextSeries).toHaveBeenCalledExactlyOnceWith({ competitionId: 'comp-1' });
+      await user.keyboard(`[/${code}]`);
+    } finally {
+      await act(async () => {
+        completeSeries();
+        await seriesPending;
+      });
+    }
+  });
+
+  it('removes the held-Enter capture on unmount', async () => {
+    startCompetition();
+    const { unmount } = render(<App />);
+    await click('Preparation');
+    await press('Enter', 'Enter');
+    unmount();
+    const repeat = new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, cancelable: true });
+    window.dispatchEvent(repeat);
+    expect(repeat.defaultPrevented).toBe(false);
   });
 
   it.each([
