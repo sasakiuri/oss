@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ShotDto } from '@/shared/ipc/contracts';
 
@@ -20,6 +21,7 @@ const createShotDto = (shotNumber: number, score: number, x = 0, y = 0, isRecord
 
 describe('SidePanel', () => {
   beforeEach(() => {
+    useCompetitionStore.getState().resetCompetition();
     useSessionStore.getState().resetSession();
     useSessionStore.getState().setLaneNumber(1);
   });
@@ -160,6 +162,27 @@ describe('SidePanel', () => {
   });
 
   describe('series score display (P6)', () => {
+    it('keeps all seven series totals after 61 sighting shots during preparation', () => {
+      useCompetitionStore.setState({ phase: 'ACTIVE', scored: false, shotsPerSeries: 10 });
+      useSessionStore.getState().setMode('SIGHTING');
+      useSessionStore.getState().setShots(Array.from({ length: 61 }, (_, i) => createShotDto(i + 1, 100, 0, 0, false)));
+      render(<SidePanel />);
+
+      const totals = within(screen.getByRole('region', { name: 'Series scores' }));
+      expect(totals.getAllByText('100.0')).toHaveLength(6);
+      expect(totals.getByText('10.0')).toBeInTheDocument();
+      expect(screen.getByText('Preparation')).toBeInTheDocument();
+    });
+
+    it.each(['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED', 'FINISHED'] as const)(
+      'omits the separate series-number label during %s',
+      (phase) => {
+        useCompetitionStore.setState({ phase, seriesIndex: 0 });
+        render(<SidePanel />);
+        expect(screen.queryByText(/^Series \d+$/)).not.toBeInTheDocument();
+      },
+    );
+
     it('displays seriesScores when they exist in MATCH mode', () => {
       useSessionStore.getState().setMode('MATCH');
       useSessionStore.getState().updateScores(2950, [1000, 985, 965]);

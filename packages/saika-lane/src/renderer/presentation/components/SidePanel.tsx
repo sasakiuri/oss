@@ -8,7 +8,6 @@ import { useSessionStore } from '../stores/sessionStore';
 import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
 import { DISCIPLINE_LABELS, calculateSeriesScores } from '../utils/scoreUtils';
 
-import { SeriesProgress } from './side-panel/SeriesProgress';
 import { SeriesScoreGrid } from './side-panel/SeriesScoreGrid';
 import { ShotHistory } from './side-panel/ShotHistory';
 import { TimerDisplay } from './side-panel/TimerDisplay';
@@ -109,9 +108,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
 
       {/* Series totals */}
       <div className="flex-shrink-0">
-        {/* Series progress (competition active only) */}
-        {phase !== 'IDLE' && <SeriesProgress />}
-
         {/* Series scores */}
         <SeriesScoreGrid scores={displaySeriesScores} acc={acc} />
 

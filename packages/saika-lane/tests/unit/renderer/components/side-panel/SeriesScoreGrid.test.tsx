@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { SeriesScoreGrid } from '@/renderer/presentation/components/side-panel/SeriesScoreGrid';
@@ -56,9 +56,70 @@ describe('SeriesScoreGrid', () => {
     expect(scrollContainer).toBeInTheDocument();
   });
 
-  it('has a fixed height (h-40)', () => {
-    const { container } = render(<SeriesScoreGrid scores={[]} acc="DECIMAL" />);
-    const panel = container.querySelector('.h-40');
-    expect(panel).toBeInTheDocument();
+  function mockViewport(viewport: HTMLElement, initialScrollHeight: number) {
+    let scrollHeight = initialScrollHeight;
+    let scrollTop = 0;
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, get: () => 100 },
+      scrollHeight: { configurable: true, get: () => scrollHeight },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = Math.max(0, Math.min(value, scrollHeight - 100));
+        },
+      },
+    });
+    return (height: number) => {
+      scrollHeight = height;
+    };
+  }
+
+  it('follows new rows after both the seventh and tenth series are added', () => {
+    const scores = Array.from({ length: 10 }, (_, i) => 1000 - i);
+    const { rerender } = render(<SeriesScoreGrid scores={scores.slice(0, 6)} acc="DECIMAL" />);
+    const viewport = screen.getByRole('region', { name: 'Series scores' });
+    const setScrollHeight = mockViewport(viewport, 100);
+
+    setScrollHeight(152);
+    rerender(<SeriesScoreGrid scores={scores.slice(0, 7)} acc="DECIMAL" />);
+    expect(viewport.scrollTop).toBe(52);
+    fireEvent.scroll(viewport);
+
+    setScrollHeight(204);
+    rerender(<SeriesScoreGrid scores={scores} acc="DECIMAL" />);
+    expect(viewport.scrollTop).toBe(104);
+  });
+
+  it('preserves an older row during updates and follows again after returning to the bottom', () => {
+    const scores = Array.from({ length: 16 }, (_, i) => 1000 - i);
+    const { rerender } = render(<SeriesScoreGrid scores={scores.slice(0, 10)} acc="DECIMAL" />);
+    const viewport = screen.getByRole('region', { name: 'Series scores' });
+    const setScrollHeight = mockViewport(viewport, 204);
+    fireEvent.scroll(viewport);
+
+    setScrollHeight(256);
+    rerender(<SeriesScoreGrid scores={scores.slice(0, 13)} acc="DECIMAL" />);
+    expect(viewport.scrollTop).toBe(0);
+
+    viewport.scrollTop = 156;
+    fireEvent.scroll(viewport);
+    setScrollHeight(308);
+    rerender(<SeriesScoreGrid scores={scores} acc="DECIMAL" />);
+    expect(viewport.scrollTop).toBe(208);
+  });
+
+  it('resumes following after the scores are cleared for a new session', () => {
+    const scores = Array.from({ length: 7 }, (_, i) => 1000 - i);
+    const { rerender } = render(<SeriesScoreGrid scores={scores} acc="DECIMAL" />);
+    const viewport = screen.getByRole('region', { name: 'Series scores' });
+    const setScrollHeight = mockViewport(viewport, 152);
+    fireEvent.scroll(viewport);
+
+    setScrollHeight(0);
+    rerender(<SeriesScoreGrid scores={[]} acc="DECIMAL" />);
+    setScrollHeight(152);
+    rerender(<SeriesScoreGrid scores={scores} acc="DECIMAL" />);
+    expect(viewport.scrollTop).toBe(52);
   });
 });
