@@ -45,6 +45,7 @@ const TimerDtoSchema = z.object({
 const CompetitionStateDtoSchema = z.object({
   athleteTargetControl: z
     .object({
+      officialSighting: z.boolean(),
       sightingAllowed: z.boolean(),
       matchAllowed: z.boolean(),
       selected: z.enum(['SIGHTING', 'MATCH']).nullable(),

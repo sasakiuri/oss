@@ -89,26 +89,28 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
         });
       });
 
-    const getCurrentMode = (): Mode => {
+    const getCachedMode = (): Mode | null => {
       try {
         return sessionContextCache.getContext().mode;
       } catch {
-        return Mode.sighting();
+        return null;
       }
     };
+    const getCurrentMode = (): Mode => getCachedMode() ?? Mode.sighting();
 
-    // Refresh only the cached projection on shot/progress notifications. Existing
-    // stage/initial-start sends use the same resolver and remain the only transition sends.
+    // Automatic series changes can change the target mode without a stage event.
+    // Send only a changed projection so repeated shot/progress notifications stay quiet.
     let competitionModeUpdates = Promise.resolve();
-    const refreshCompetitionMode = (send: boolean): void => {
+    const refreshCompetitionMode = (): void => {
       competitionModeUpdates = competitionModeUpdates
         .then(async () => {
+          const previousMode = getCachedMode();
           const mode = await sessionContextCache.bootstrap(
             sessionRepository,
             competitionRepository,
             competitionInterruptionControl,
           );
-          if (send && mode) await usbManager.sendMode(mode);
+          if (mode && mode.value !== previousMode?.value) await usbManager.sendMode(mode);
         })
         .catch((err: unknown) => {
           getLogger().warn('Failed to refresh competition target mode', 'main', {
@@ -299,15 +301,12 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       });
     });
 
-    eventBus.on('StageAdvanced', () => refreshCompetitionMode(true));
-    eventBus.on('PhaseChanged', (event) => {
-      refreshCompetitionMode(event.previousPhase === 'IDLE' && event.newPhase === 'ACTIVE');
-    });
+    eventBus.on('StageAdvanced', refreshCompetitionMode);
+    eventBus.on('PhaseChanged', refreshCompetitionMode);
     eventBus.on('ShotRecorded', (event) => {
-      if (event.shot.mode.isSighting() && event.shot.competitionContext?.athleteModeObserved)
-        refreshCompetitionMode(false);
+      if (event.shot.mode.isSighting() && event.shot.competitionContext?.athleteModeObserved) refreshCompetitionMode();
     });
-    eventBus.on('CompetitionProgressChanged', () => refreshCompetitionMode(false));
-    eventBus.on('SeriesCompleted', () => refreshCompetitionMode(false));
+    eventBus.on('CompetitionProgressChanged', refreshCompetitionMode);
+    eventBus.on('SeriesCompleted', refreshCompetitionMode);
   },
 };

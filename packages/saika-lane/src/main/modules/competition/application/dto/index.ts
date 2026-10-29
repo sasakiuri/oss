@@ -10,6 +10,7 @@ export interface TimerDto {
 
 export interface CompetitionStateDto {
   athleteTargetControl: {
+    officialSighting: boolean;
     sightingAllowed: boolean;
     matchAllowed: boolean;
     selected: 'SIGHTING' | 'MATCH' | null;

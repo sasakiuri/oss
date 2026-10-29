@@ -32,7 +32,13 @@ function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): Competition
     currentStageName: 'Match',
     scored: true,
     shotsPerSeries: 10,
-    athleteTargetControl: { sightingAllowed: true, matchAllowed: true, selected: null, effective },
+    athleteTargetControl: {
+      officialSighting: false,
+      sightingAllowed: true,
+      matchAllowed: true,
+      selected: null,
+      effective,
+    },
   };
 }
 function deferred<T>() {
@@ -194,7 +200,13 @@ describe('athlete projection refresh', () => {
     vi.mocked(competitionService.getCompetitionState).mockResolvedValue({
       ...dto(),
       seriesShotCount: 1,
-      athleteTargetControl: { sightingAllowed: false, matchAllowed: true, selected: null, effective: 'MATCH' },
+      athleteTargetControl: {
+        officialSighting: false,
+        sightingAllowed: false,
+        matchAllowed: true,
+        selected: null,
+        effective: 'MATCH',
+      },
     });
     await act(async () => {
       await selectAthleteTargetMode('SIGHTING');

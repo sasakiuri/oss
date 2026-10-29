@@ -23,6 +23,7 @@ vi.mock('@/renderer/services/competitionService', () => ({
 }));
 
 const control: NonNullable<CompetitionStateDto['athleteTargetControl']> = {
+  officialSighting: false,
   sightingAllowed: true,
   matchAllowed: true,
   selected: null,
@@ -247,6 +248,7 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
   it('keeps both athlete modes unavailable during official sighting', async () => {
     useCompetitionStore.getState().setAthleteTargetControl({
       ...control,
+      officialSighting: true,
       sightingAllowed: false,
       matchAllowed: false,
       selected: 'MATCH',
@@ -270,6 +272,20 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
     expect(competitionService.setAthleteTargetMode).not.toHaveBeenCalled();
     expect(restart).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('does not infer official sighting solely from two disallowed choices', () => {
+    useCompetitionStore.getState().setAthleteTargetControl({
+      ...control,
+      officialSighting: false,
+      sightingAllowed: false,
+      matchAllowed: false,
+    });
+    render(<Harness />);
+    expect(screen.getByRole('note')).not.toHaveTextContent('Official sighting is in progress');
+    expect(screen.getByRole('button', { name: 'Sighting' })).toHaveAccessibleDescription(
+      'Sighting is unavailable after the first Match shot of this series',
+    );
   });
 
   it('disables Match in the final sighting-only changeover', async () => {

@@ -8,6 +8,7 @@ import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTime
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
 import type { ICompetitionInterruptionRepository } from '@/main/modules/competition-interruption/domain/ICompetitionInterruptionRepository';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
@@ -120,6 +121,64 @@ describe('CompetitionInterruptionService', () => {
     });
     expect(duplicatePause.status).toBe('RUNNING_MATCH');
     expect(timerService.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['resume', 'resumeMatch', 'restoreActive'] as const)(
+    'restores SIGHTING in an unscored stage through %s',
+    async (operation) => {
+      await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
+      await service.resume({
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+        timerStartAt: new Date(),
+        authorizedRemainingSeconds: 240,
+        unlimitedSightingShots: operation === 'resumeMatch',
+      });
+      if (operation === 'resumeMatch')
+        await service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID });
+      if (operation === 'restoreActive') await service.restoreActive();
+      const expectedCalls = operation === 'resume' ? 1 : 2;
+      expect(commandBus.execute).toHaveBeenCalledTimes(expectedCalls);
+      expect(
+        vi.mocked(commandBus.execute).mock.calls.map(([, input]) => (input as SwitchModeInput).mode.value),
+      ).toEqual(Array(expectedCalls).fill('SIGHTING'));
+      expect(commandBus.execute).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ preserveSeries: true, mode: expect.objectContaining({ value: 'SIGHTING' }) }),
+      );
+    },
+  );
+
+  it('persists RUNNING_MATCH before switching mode so a concurrent refresh reads the resumed mode', async () => {
+    const competition = CompetitionState.create(COMPETITION_ID, 'session-1', BR60S.config)
+      .startStage()
+      .endStage()
+      .advanceToNextStage()
+      .startNextSeries();
+    vi.mocked(competitionRepository.findById).mockResolvedValue(competition);
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(competition);
+    await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
+    await service.resume({
+      competitionId: COMPETITION_ID,
+      interruptionId: INTERRUPTION_ID,
+      timerStartAt: new Date(),
+      authorizedRemainingSeconds: 240,
+      unlimitedSightingShots: true,
+    });
+    const cache = new SessionContextCache(eventBus);
+    await cache.bootstrap(sessions, competitionRepository, service);
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
+    vi.mocked(commandBus.execute).mockImplementationOnce(async (_token, input) => {
+      expect(repository.findByCompetitionId(COMPETITION_ID)?.status).toBe('RUNNING_MATCH');
+      await cache.bootstrap(sessions, competitionRepository, service);
+      expect(cache.getContext().mode.value).toBe('MATCH');
+      expect((input as SwitchModeInput).mode.value).toBe('MATCH');
+    });
+
+    await service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID });
+
+    expect(stored?.status).toBe('RUNNING_MATCH');
+    expect(cache.getContext().mode.value).toBe('MATCH');
   });
 
   it.each(['resume', 'resumeMatch', 'restoreActive'] as const)(

@@ -9,6 +9,7 @@ export interface CompetitionTargetMode {
   effective: ReportedShotMode;
   officialSighting: boolean;
   athleteTargetControl: {
+    officialSighting: boolean;
     sightingAllowed: boolean;
     matchAllowed: boolean;
     selected: ReportedShotMode | null;
@@ -47,6 +48,7 @@ export function resolveCompetitionTargetMode(
     athleteTargetControl:
       state.phase === 'ACTIVE' && series.targetModeControl === 'ATHLETE'
         ? {
+            officialSighting,
             sightingAllowed:
               !officialSighting &&
               resolveCompetitionShotMode(stage, series, 'SIGHTING', state.seriesShotCount, 'SIGHTING') === 'SIGHTING',

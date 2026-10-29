@@ -49,4 +49,35 @@ describe('competitionContract', () => {
     const result = schema.safeParse({ competitionId: 'comp-1' });
     expect(result.success).toBe(true);
   });
+
+  it.each(['getCompetitionState', 'setAthleteTargetMode'] as const)(
+    '%s transports explicit official sighting without inferring it from permissions',
+    (procedure) => {
+      const dto = {
+        id: 'comp-1',
+        sessionId: 'session-1',
+        phase: 'ACTIVE',
+        currentStageIndex: 1,
+        currentSeriesIndex: 2,
+        seriesShotCount: 0,
+        timer: { remainingSeconds: 240, totalSeconds: 600, formattedRemaining: '04:00', isExpired: false },
+        currentStageName: 'Match',
+        scored: true,
+        shotsPerSeries: 10,
+        athleteTargetControl: {
+          officialSighting: true,
+          sightingAllowed: false,
+          matchAllowed: false,
+          selected: 'MATCH',
+          effective: 'SIGHTING',
+        },
+      };
+      const schema = competitionContract.procedures[procedure].output;
+      expect(schema.parse({ success: true, data: dto })).toEqual({ success: true, data: dto });
+      const withoutFlag = { ...dto.athleteTargetControl, officialSighting: undefined };
+      expect(schema.safeParse({ success: true, data: { ...dto, athleteTargetControl: withoutFlag } }).success).toBe(
+        false,
+      );
+    },
+  );
 });

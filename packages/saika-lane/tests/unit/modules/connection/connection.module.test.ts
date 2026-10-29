@@ -14,8 +14,9 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 }));
 
 import { ConnectToTargetToken, DisconnectFromTargetToken, RecordShotToken } from '@/main/composition/tokens';
+import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { BR60S, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { connectionModule } from '@/main/modules/connection/connection.module';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
@@ -123,6 +124,14 @@ describe('connection.module', () => {
       vi.mocked(competitionRepository.findActive).mockResolvedValue(competition);
       vi.mocked(sessionRepository.findById).mockResolvedValue(session);
       return { competition, session };
+    }
+
+    async function registerWithStage(scored: boolean) {
+      persistStage(scored);
+      registerModule();
+      const provider = vi.mocked(usbManager.setSessionContextProvider).mock.calls[0]![0];
+      await vi.waitFor(() => expect(provider().mode.value).toBe(scored ? 'MATCH' : 'SIGHTING'));
+      return provider;
     }
 
     it('should register 2 command handlers', () => {
@@ -732,7 +741,7 @@ describe('connection.module', () => {
       });
     });
 
-    it('shares observed target mode with transition sends and refreshes the cutoff without a new send', async () => {
+    it('sends only a changed observed target mode, including the first-Match cutoff', async () => {
       let session = buildSession({ discipline: Discipline.rifle50m() });
       let competition = CompetitionState.reconstruct({ ...athleteCompetition(), sessionId: session.id });
       const context = {
@@ -759,7 +768,17 @@ describe('connection.module', () => {
         stageName: 'Match',
         scored: true,
       });
-      await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting()));
+      await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
+      expect(usbManager.sendMode).not.toHaveBeenCalled();
+      eventBus.emit({
+        type: 'ShotRecorded',
+        timestamp: Date.now(),
+        aggregateId: session.id,
+        shot: session.allShots.at(-1)!,
+        scoringMode: 'DECIMAL',
+      });
+      await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(3));
+      expect(usbManager.sendMode).not.toHaveBeenCalled();
       session = session.recordShot(null, new Score(100), new Date(), undefined, false, Mode.match(), {
         competitionContext: context,
       });
@@ -773,13 +792,79 @@ describe('connection.module', () => {
         shotCount: 1,
       });
       await vi.waitFor(() => expect(provider().mode.value).toBe('MATCH'));
-      expect(usbManager.sendMode).toHaveBeenCalledTimes(1);
+      expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.match());
+    });
+
+    it('sends Sighting at the automatic Final Standing changeover, without resending unchanged progress', async () => {
+      let session = buildSession({ discipline: Discipline.rifle50m() });
+      let competition = athleteCompetition(R3P_FINAL).withSessionId(session.id);
+      for (let i = 0; i < 8; i++) competition = competition.recordShotInSeries();
+      expect(competition.currentSeriesConfig).toMatchObject({ position: 'PRONE', targetModeControl: 'ATHLETE' });
+      vi.mocked(competitionRepository.findActive).mockImplementation(async () => competition);
+      vi.mocked(competitionRepository.save).mockImplementation(async (state) => {
+        competition = state;
+      });
+      vi.mocked(sessionRepository.findById).mockImplementation(async () => session);
+      registerModule();
+      const provider = vi.mocked(usbManager.setSessionContextProvider).mock.calls[0]![0];
+      await vi.waitFor(() => expect(provider().mode.value).toBe('MATCH'));
+      const recordProgress = createShotRecordedHandler({ competitionRepository, eventBus });
+      const fire = async () => {
+        session = session.recordShot(null, new Score(100), new Date(), undefined, false, Mode.match(), {
+          competitionContext: {
+            competitionId: competition.id,
+            stageIndex: competition.currentStageIndex,
+            seriesIndex: competition.currentSeriesIndex,
+            athleteModeObserved: true,
+          },
+        });
+        const event = {
+          type: 'ShotRecorded' as const,
+          aggregateId: session.id,
+          timestamp: Date.now(),
+          shot: session.allShots.at(-1)!,
+          scoringMode: 'DECIMAL' as const,
+        };
+        eventBus.emit(event);
+        await recordProgress(event);
+      };
+
+      await fire();
+      await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
+      expect(competition.seriesShotCount).toBe(9);
+      expect(usbManager.sendMode).not.toHaveBeenCalled();
+      await fire();
+      await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting()));
+      expect(competition.currentSeriesConfig).toMatchObject({
+        position: 'STANDING',
+        purpose: 'POSITION_CHANGE_AND_SIGHTING',
+        targetModeControl: 'ATHLETE',
+      });
+      expect(provider().mode.value).toBe('SIGHTING');
+      eventBus.emit({
+        type: 'CompetitionProgressChanged',
+        timestamp: Date.now(),
+        aggregateId: competition.id,
+        stageIndex: competition.currentStageIndex,
+        seriesIndex: competition.currentSeriesIndex,
+        shotCount: 0,
+      });
+      eventBus.emit({
+        type: 'CompetitionProgressChanged',
+        timestamp: Date.now(),
+        aggregateId: competition.id,
+        stageIndex: competition.currentStageIndex,
+        seriesIndex: competition.currentSeriesIndex,
+        shotCount: 0,
+      });
+      await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(5));
+      expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting());
     });
 
     describe('StageAdvanced listener', () => {
       it('sends the persisted scored-stage mode after StageAdvanced', async () => {
+        await registerWithStage(false);
         persistStage(true);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'StageAdvanced',
@@ -795,8 +880,8 @@ describe('connection.module', () => {
       });
 
       it('sends the persisted unscored-stage mode after StageAdvanced', async () => {
+        await registerWithStage(true);
         persistStage(false);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'StageAdvanced',
@@ -813,8 +898,8 @@ describe('connection.module', () => {
 
       it('should not propagate errors when sendMode fails', async () => {
         vi.mocked(usbManager.sendMode).mockRejectedValue(new Error('USB write failed'));
+        await registerWithStage(false);
         persistStage(true);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'StageAdvanced',
@@ -834,8 +919,8 @@ describe('connection.module', () => {
 
     describe('PhaseChanged listener (initial stage start)', () => {
       it('sends the persisted scored-stage mode on initial start', async () => {
+        await registerWithStage(false);
         persistStage(true);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'PhaseChanged',
@@ -853,8 +938,8 @@ describe('connection.module', () => {
       });
 
       it('sends the persisted unscored-stage mode on initial start', async () => {
+        await registerWithStage(true);
         persistStage(false);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'PhaseChanged',
@@ -871,8 +956,8 @@ describe('connection.module', () => {
         await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.sighting()));
       });
 
-      it('should not send mode when previousPhase is not IDLE', () => {
-        registerModule();
+      it('does not resend an unchanged mode on a noninitial phase event', async () => {
+        await registerWithStage(true);
 
         (eventBus.emit as Mock)({
           type: 'PhaseChanged',
@@ -886,11 +971,12 @@ describe('connection.module', () => {
           timestamp: Date.now(),
         });
 
+        await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
         expect(usbManager.sendMode).not.toHaveBeenCalled();
       });
 
-      it('should not send mode when newPhase is not ACTIVE', () => {
-        registerModule();
+      it('does not resend an unchanged mode on a non-ACTIVE phase event', async () => {
+        await registerWithStage(true);
 
         (eventBus.emit as Mock)({
           type: 'PhaseChanged',
@@ -904,13 +990,14 @@ describe('connection.module', () => {
           timestamp: Date.now(),
         });
 
+        await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
         expect(usbManager.sendMode).not.toHaveBeenCalled();
       });
 
       it('should not propagate errors when sendMode fails', async () => {
         vi.mocked(usbManager.sendMode).mockRejectedValue(new Error('USB write failed'));
+        await registerWithStage(false);
         persistStage(true);
-        registerModule();
 
         (eventBus.emit as Mock)({
           type: 'PhaseChanged',

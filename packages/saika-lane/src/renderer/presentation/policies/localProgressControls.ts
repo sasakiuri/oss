@@ -35,7 +35,7 @@ export function localProgressControls(
       allowed,
       reason: allowed
         ? undefined
-        : !control.sightingAllowed && !control.matchAllowed
+        : control.officialSighting
           ? 'Official sighting is in progress'
           : action === 'sighting'
             ? 'Sighting is unavailable after the first Match shot of this series'
