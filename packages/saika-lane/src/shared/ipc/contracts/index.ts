@@ -52,6 +52,7 @@ export type {
 export { competitionContract } from './competition.contract';
 export type {
   CompetitionIdInput,
+  SetAthleteTargetModeInput,
   CompetitionStateDto,
   CompetitionTypeDto,
   StartCompetitionInput,

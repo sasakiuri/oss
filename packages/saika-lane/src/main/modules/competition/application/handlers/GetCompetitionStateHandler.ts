@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 import type { GetCompetitionStateInput } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { QueryHandler } from '@/main/shared-infra/cqrs';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { CompetitionStateDto } from '../dto';
+import { toCompetitionStateDto } from '../toCompetitionStateDto';
 
 /**
  * createGetCompetitionStateHandler
@@ -14,6 +16,7 @@ import type { CompetitionStateDto } from '../dto';
  */
 export function createGetCompetitionStateHandler(
   competitionRepository: ICompetitionRepository,
+  sessionRepository: ISessionRepository,
 ): QueryHandler<GetCompetitionStateInput, CompetitionStateDto> {
   return async (input) => {
     const state = await competitionRepository.findById(input.competitionId);
@@ -21,24 +24,7 @@ export function createGetCompetitionStateHandler(
       throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
     }
 
-    return {
-      id: state.id,
-      sessionId: state.sessionId,
-      phase: state.phase,
-      currentStageIndex: state.currentStageIndex,
-      currentSeriesIndex: state.currentSeriesIndex,
-      seriesShotCount: state.seriesShotCount,
-      timer: {
-        remainingSeconds: state.timer.remainingSeconds,
-        totalSeconds: state.timer.totalSeconds,
-        formattedRemaining: state.timer.formattedRemaining,
-        isExpired: state.timer.isExpired,
-      },
-      currentStageName: state.currentStageConfig.name,
-      scored: state.currentStageConfig.scored,
-      shotsPerSeries: state.config.shotsPerSeries,
-      targetProfileId: state.currentStageConfig.targetProfileId ?? state.config.targetProfileId,
-      scoringGaugeProfileId: state.currentStageConfig.scoringGaugeProfileId ?? state.config.scoringGaugeProfileId,
-    };
+    const session = await sessionRepository.findById(state.sessionId);
+    return toCompetitionStateDto(state, session?.allShots);
   };
 }

@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MIT
+import { competitionService } from '@/renderer/services/competitionService';
+import type { CompetitionStateDto } from '@/shared/ipc/contracts';
+
+import { useCompetitionStore } from './competitionStore';
+import { useLogStore } from './logStore';
+
+let revision = 0;
+
+export function invalidateAthleteTargetControl(): void {
+  revision += 1;
+}
+
+function reportFailure(error: unknown): void {
+  useLogStore.getState().addEntry({
+    id: `athlete-target-error-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    level: 'error',
+    message: `Failed to update athlete target mode: ${error instanceof Error ? error.message : String(error)}`,
+    source: 'renderer',
+  });
+}
+
+/** Orders command/query responses against newer events and current competition coordinates. */
+async function load(
+  request: (context: {
+    competitionId: string;
+    stageIndex: number;
+    seriesIndex: number;
+  }) => Promise<CompetitionStateDto>,
+): Promise<void> {
+  const expected = useCompetitionStore.getState();
+  const requestRevision = ++revision;
+  if (!expected.competitionId || expected.phase !== 'ACTIVE') return;
+  useCompetitionStore.setState({ athleteTargetControlPending: true });
+  try {
+    const dto = await request({
+      competitionId: expected.competitionId,
+      stageIndex: expected.stageIndex,
+      seriesIndex: expected.seriesIndex,
+    });
+    const current = useCompetitionStore.getState();
+    if (
+      requestRevision !== revision ||
+      current.competitionId !== expected.competitionId ||
+      current.phase !== expected.phase ||
+      current.stageIndex !== expected.stageIndex ||
+      current.seriesIndex !== expected.seriesIndex ||
+      dto.id !== current.competitionId ||
+      dto.phase !== current.phase ||
+      dto.currentStageIndex !== current.stageIndex ||
+      dto.currentSeriesIndex !== current.seriesIndex
+    )
+      return;
+    current.setAthleteTargetControl(dto.athleteTargetControl);
+  } catch (error) {
+    if (requestRevision === revision) reportFailure(error);
+  }
+}
+
+export function refreshAthleteTargetControl(): Promise<void> {
+  return load(({ competitionId }) => competitionService.getCompetitionState({ competitionId }));
+}
+
+export function selectAthleteTargetMode(mode: 'SIGHTING' | 'MATCH'): Promise<void> {
+  return load((context) => competitionService.setAthleteTargetMode({ ...context, mode }));
+}

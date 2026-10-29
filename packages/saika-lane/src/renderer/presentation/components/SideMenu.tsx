@@ -47,8 +47,23 @@ export const SideMenu: React.FC<SideMenuProps> = ({
   const scored = useCompetitionStore((s) => s.scored);
   const competitionId = useCompetitionStore((s) => s.competitionId);
 
+  const athleteTargetControl = useCompetitionStore((s) => s.athleteTargetControl);
+  const athleteTargetControlPending = useCompetitionStore((s) => s.athleteTargetControlPending);
   const membershipState = useDirectorMembershipStore();
   const permission = localProgressControls(membershipState);
+  const sightingPermission = localProgressControls(membershipState, 'sighting', {
+    phase,
+    athleteTargetControl,
+    athleteTargetControlPending,
+  });
+  const matchPermission = localProgressControls(membershipState, 'match', {
+    phase,
+    athleteTargetControl,
+    athleteTargetControlPending,
+  });
+  const athlete = phase === 'ACTIVE' ? athleteTargetControl : null;
+  const sightingReasonId = useId();
+  const matchReasonId = useId();
   const reasonId = useId();
 
   const hasCompetition = competitionId !== null;
@@ -95,8 +110,10 @@ export const SideMenu: React.FC<SideMenuProps> = ({
   }
 
   // Derive active states from phase + scored
-  const preparationActive = hasCompetition && phase === 'ACTIVE' && !scored;
-  const matchActive = hasCompetition && phase === 'ACTIVE' && scored;
+  const preparationActive = athlete
+    ? athlete.effective === 'SIGHTING'
+    : hasCompetition && phase === 'ACTIVE' && !scored;
+  const matchActive = athlete ? athlete.effective === 'MATCH' : hasCompetition && phase === 'ACTIVE' && scored;
 
   return (
     <aside
@@ -109,15 +126,25 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           {permission.reason}
         </span>
       )}
+      {sightingPermission.reason && (
+        <span id={sightingReasonId} className="sr-only">
+          {sightingPermission.reason}
+        </span>
+      )}
+      {matchPermission.reason && (
+        <span id={matchReasonId} className="sr-only">
+          {matchPermission.reason}
+        </span>
+      )}
       {/* Top section - Main actions */}
       <div className="flex min-h-0 flex-col">
         <SideMenuButton icon={<ZoomIn size={30} />} label="Zoom" onClick={onZoomClick} />
         <SideMenuButton
           icon={<Target size={30} />}
-          label="Preparation"
+          label={athlete ? 'Sighting' : 'Preparation'}
           onClick={onPreparationClick}
-          disabled={!permission.allowed || preparationDisabled}
-          aria-describedby={permission.reason ? reasonId : undefined}
+          disabled={!sightingPermission.allowed || (!athlete && preparationDisabled)}
+          aria-describedby={sightingPermission.reason ? sightingReasonId : undefined}
           active={preparationActive}
           activeColor="#029863"
         />
@@ -125,8 +152,8 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<Target size={30} />}
           label="Match"
           onClick={onMatchClick}
-          disabled={!permission.allowed || matchDisabled}
-          aria-describedby={permission.reason ? reasonId : undefined}
+          disabled={!matchPermission.allowed || (!athlete && matchDisabled)}
+          aria-describedby={matchPermission.reason ? matchReasonId : undefined}
           active={matchActive}
           activeColor="#E54437"
         />

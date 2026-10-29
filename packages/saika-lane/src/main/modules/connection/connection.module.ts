@@ -268,6 +268,15 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       });
     });
 
+    eventBus.on('AthleteTargetModeChanged', (event) => {
+      usbManager.sendMode(event.newMode).catch((err: unknown) => {
+        getLogger().warn('sendMode failed on AthleteTargetModeChanged', 'main', {
+          mode: event.newMode.value,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
+    });
+
     // Subscribe to StageAdvanced events → send mode byte matching stage type
     eventBus.on('StageAdvanced', (event) => {
       const mode = event.scored ? Mode.match() : Mode.sighting();

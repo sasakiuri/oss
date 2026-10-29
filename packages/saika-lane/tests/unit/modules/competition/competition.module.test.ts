@@ -17,6 +17,7 @@ import {
   EndStageToken,
   FinishCompetitionToken,
   GetCompetitionStateToken,
+  SetAthleteTargetModeToken,
   GetCompetitionTypesToken,
   StartCompetitionToken,
   StartNextSeriesToken,
@@ -85,10 +86,10 @@ describe('competition.module', () => {
   });
 
   describe('register', () => {
-    it('should register 6 command handlers', () => {
+    it('should register 7 command handlers', () => {
       registerModule();
 
-      expect(commandBus.register).toHaveBeenCalledTimes(6);
+      expect(commandBus.register).toHaveBeenCalledTimes(7);
     });
 
     it('should register StartCompetition command handler', () => {
@@ -125,6 +126,15 @@ describe('competition.module', () => {
       registerModule();
 
       expect(commandBus.register).toHaveBeenCalledWith(FinishCompetitionToken, expect.any(Function));
+    });
+
+    it('routes the athlete IPC command through its dedicated CQRS handler', async () => {
+      registerModule();
+      expect(commandBus.register).toHaveBeenCalledWith(SetAthleteTargetModeToken, expect.any(Function));
+      const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as any;
+      const input = { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, mode: 'MATCH' };
+      await handlers.setAthleteTargetMode(input);
+      expect(commandBus.execute).toHaveBeenCalledWith(SetAthleteTargetModeToken, input);
     });
 
     it('should register 2 query handlers', () => {

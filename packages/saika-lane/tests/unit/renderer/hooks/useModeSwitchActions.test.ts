@@ -607,3 +607,35 @@ describe('Director local progress lock', () => {
     expect(mockStartNextSeries).not.toHaveBeenCalled();
   });
 });
+
+describe('confirmation context for athlete series changes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCompetitionStore.getState().resetCompetition();
+    useSessionStore.getState().resetSession();
+    useDirectorMembershipStore.setState({ membership: { competitionId: null, revision: 0 }, hydrated: true });
+    setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE', scored: true });
+    useSessionStore.getState().addShot(shot);
+  });
+
+  it.each(['series', 'athlete capability'])(
+    'cancels pending restart when %s changes while phase stays ACTIVE',
+    async (change) => {
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current.handlePreparationClick();
+      });
+      expect(result.current.confirmation).not.toBeNull();
+      await act(async () => {
+        if (change === 'series') useCompetitionStore.getState().advanceSeries(2);
+        else
+          useCompetitionStore
+            .getState()
+            .setAthleteTargetControl({ sightingAllowed: true, matchAllowed: true, selected: null, effective: 'MATCH' });
+        await result.current.confirm();
+      });
+      expect(result.current.confirmation).toBeNull();
+      expect(mockStartStage).not.toHaveBeenCalled();
+    },
+  );
+});

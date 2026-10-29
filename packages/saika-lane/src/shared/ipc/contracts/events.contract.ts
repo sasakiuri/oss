@@ -127,6 +127,13 @@ const PhaseChangedEventSchema = z.object({
   scoringGaugeProfileId: z.string().min(1).optional(),
 });
 
+const CompetitionProgressChangedEventSchema = z.object({
+  competitionId: z.string(),
+  stageIndex: z.number(),
+  seriesIndex: z.number(),
+  shotCount: z.number(),
+});
+
 const TimerTickEventSchema = z.object({
   remainingSeconds: z.number(),
   totalSeconds: z.number(),
@@ -218,6 +225,9 @@ export const eventsContract = defineEventContract('events', {
   phaseChanged: defineEvent(PhaseChangedEventSchema, {
     channel: 'event:phaseChanged',
   }),
+  competitionProgressChanged: defineEvent(CompetitionProgressChangedEventSchema, {
+    channel: 'event:competitionProgressChanged',
+  }),
   timerTick: defineEvent(TimerTickEventSchema, {
     channel: 'event:timerTick',
   }),
@@ -275,6 +285,7 @@ export type LogEntryDto = z.infer<typeof LogEntrySchema>;
 export type ConnectionStatus = z.infer<typeof ConnectionStatusSchema>;
 export type CompetitionStartedEventPayload = z.infer<typeof CompetitionStartedEventSchema>;
 export type PhaseChangedEventPayload = z.infer<typeof PhaseChangedEventSchema>;
+export type CompetitionProgressChangedEventPayload = z.infer<typeof CompetitionProgressChangedEventSchema>;
 export type TimerTickEventPayload = z.infer<typeof TimerTickEventSchema>;
 export type TimerExpiredEventPayload = z.infer<typeof TimerExpiredEventSchema>;
 export type SafetyStopChangedEventPayload = z.infer<typeof SafetyStopChangedEventSchema>;

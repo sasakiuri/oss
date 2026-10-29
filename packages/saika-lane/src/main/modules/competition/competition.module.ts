@@ -5,6 +5,7 @@ import {
   EndStageToken,
   FinishCompetitionToken,
   GetCompetitionStateToken,
+  SetAthleteTargetModeToken,
   GetCompetitionTypesToken,
   StartCompetitionToken,
   StartNextSeriesToken,
@@ -23,6 +24,7 @@ import { createEndStageHandler } from './application/handlers/EndStageHandler';
 import { createFinishCompetitionHandler } from './application/handlers/FinishCompetitionHandler';
 import { createGetCompetitionStateHandler } from './application/handlers/GetCompetitionStateHandler';
 import { createGetCompetitionTypesHandler } from './application/handlers/GetCompetitionTypesHandler';
+import { createSetAthleteTargetModeHandler } from './application/handlers/SetAthleteTargetModeHandler';
 import { createStartCompetitionHandler } from './application/handlers/StartCompetitionHandler';
 import { createStartNextSeriesHandler } from './application/handlers/StartNextSeriesHandler';
 import { createStartStageHandler } from './application/handlers/StartStageHandler';
@@ -54,7 +56,7 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     // 2. Instantiate SessionLifecycleService
     const sessionLifecycle = new SessionLifecycleService(sessionRepository, eventBus);
 
-    // 3. Register CQRS handlers (6 commands + 2 queries)
+    // 3. Register CQRS handlers (7 commands + 2 queries)
     commandBus.register(
       StartCompetitionToken,
       createStartCompetitionHandler(registry, competitionRepository, sessionRepository, eventBus),
@@ -70,7 +72,11 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
       createFinishCompetitionHandler(competitionRepository, sessionRepository, eventBus),
     );
     commandBus.register(EndStageToken, createEndStageHandler(competitionRepository, eventBus));
-    queryBus.register(GetCompetitionStateToken, createGetCompetitionStateHandler(competitionRepository));
+    commandBus.register(SetAthleteTargetModeToken, createSetAthleteTargetModeHandler(competitionRepository, eventBus));
+    queryBus.register(
+      GetCompetitionStateToken,
+      createGetCompetitionStateHandler(competitionRepository, sessionRepository),
+    );
     queryBus.register(GetCompetitionTypesToken, createGetCompetitionTypesHandler(registry));
 
     // 4. Register event listeners
@@ -115,6 +121,7 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
           competitionId: input.competitionId,
         });
       },
+      setAthleteTargetMode: async (input) => commandBus.execute(SetAthleteTargetModeToken, input),
       getCompetitionState: async (input) => {
         return await queryBus.execute(GetCompetitionStateToken, {
           competitionId: input.competitionId,

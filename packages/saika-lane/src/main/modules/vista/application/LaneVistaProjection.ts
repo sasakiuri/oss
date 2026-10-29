@@ -164,6 +164,8 @@ export function projectLaneVista(input: {
                     competition.currentStageConfig,
                     competition.currentSeriesConfig,
                     undefined,
+                    competition.seriesShotCount,
+                    competition.athleteTargetMode,
                   ) === 'MATCH'
                 ? 'match'
                 : 'sighting',

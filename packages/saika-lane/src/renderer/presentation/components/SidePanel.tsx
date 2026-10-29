@@ -3,11 +3,14 @@
 
 import React, { useMemo } from 'react';
 
+import { localProgressControls } from '../policies/localProgressControls';
 import { useCompetitionStore } from '../stores/competitionStore';
+import { useDirectorMembershipStore } from '../stores/directorMembershipStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
 import { DISCIPLINE_LABELS, calculateSeriesScores } from '../utils/scoreUtils';
 
+import { ModeIndicator } from './ModeIndicator';
 import { SeriesScoreGrid } from './side-panel/SeriesScoreGrid';
 import { ShotHistory } from './side-panel/ShotHistory';
 import { TimerDisplay } from './side-panel/TimerDisplay';
@@ -26,6 +29,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const totalScore = useSessionStore((s) => s.totalScore);
   const seriesScores = useSessionStore((s) => s.seriesScores);
   const phase = useCompetitionStore((s) => s.phase);
+  const athleteTargetControl = useCompetitionStore((s) => s.athleteTargetControl);
+  const scored = useCompetitionStore((s) => s.scored);
+  const scoreMode = scored ? 'MATCH' : mode;
+  const membership = useDirectorMembershipStore();
+  const targetModeContext = { phase, athleteTargetControl };
+  const targetModeReason =
+    athleteTargetControl &&
+    (localProgressControls(membership, 'sighting', targetModeContext).reason ??
+      localProgressControls(membership, 'match', targetModeContext).reason);
   const shotsPerSeries = useCompetitionStore((s) => s.shotsPerSeries);
   const acc = useCompetitionStore((s) => s.acc);
 
@@ -36,16 +48,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const recentShots = useMemo(() => displayShots.slice(-10).reverse(), [displayShots]);
 
   const scoringShots = useMemo(
-    () => (mode === 'SIGHTING' ? shots : shots.filter((shot) => shot.isRecorded)),
-    [mode, shots],
+    () => (scoreMode === 'SIGHTING' ? shots : shots.filter((shot) => shot.isRecorded)),
+    [scoreMode, shots],
   );
 
   const displayTotalScore = useMemo(
     () =>
-      mode === 'MATCH' && seriesScores.length > 0
+      scoreMode === 'MATCH' && seriesScores.length > 0
         ? totalScore
         : scoringShots.reduce((sum, shot) => sum + shot.score, 0),
-    [mode, seriesScores, totalScore, scoringShots],
+    [scoreMode, seriesScores, totalScore, scoringShots],
   );
 
   const averageScore = useMemo(
@@ -59,8 +71,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   );
 
   const displaySeriesScores = useMemo(
-    () => (mode === 'MATCH' && seriesScores.length > 0 ? seriesScores : calculatedSeriesScores),
-    [mode, seriesScores, calculatedSeriesScores],
+    () => (scoreMode === 'MATCH' && seriesScores.length > 0 ? seriesScores : calculatedSeriesScores),
+    [scoreMode, seriesScores, calculatedSeriesScores],
   );
 
   return (
@@ -91,6 +103,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
             )}
           </div>
         </div>
+
+        {phase === 'ACTIVE' && athleteTargetControl && (
+          <ModeIndicator mode={athleteTargetControl.effective} className="justify-center" />
+        )}
+
+        {phase === 'ACTIVE' && targetModeReason && (
+          <p role="note" className="px-3 pb-2 text-sm">
+            {targetModeReason}
+          </p>
+        )}
 
         {/* Total score */}
         <div className="flex h-16 flex-col items-center justify-center border-b border-zinc-500 px-2">

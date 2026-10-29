@@ -20,6 +20,13 @@ const StartCompetitionInputSchema = z.object({
   competitionTypeId: z.string(),
 });
 
+const SetAthleteTargetModeInputSchema = z.object({
+  competitionId: z.string(),
+  stageIndex: z.number().int().nonnegative(),
+  seriesIndex: z.number().int().nonnegative(),
+  mode: z.enum(['SIGHTING', 'MATCH']),
+});
+
 const CompetitionIdInputSchema = z.object({
   competitionId: z.string(),
 });
@@ -36,6 +43,14 @@ const TimerDtoSchema = z.object({
 });
 
 const CompetitionStateDtoSchema = z.object({
+  athleteTargetControl: z
+    .object({
+      sightingAllowed: z.boolean(),
+      matchAllowed: z.boolean(),
+      selected: z.enum(['SIGHTING', 'MATCH']).nullable(),
+      effective: z.enum(['SIGHTING', 'MATCH']),
+    })
+    .nullable(),
   id: z.string(),
   sessionId: z.string(),
   phase: z.enum(PHASE_VALUES),
@@ -86,6 +101,9 @@ export const competitionContract = defineContract('competition', {
   finishCompetition: command(CompetitionIdInputSchema, CommandResponseSchema, {
     channel: 'command:finishCompetition',
   }),
+  setAthleteTargetMode: command(SetAthleteTargetModeInputSchema, commandDataResponseSchema(CompetitionStateDtoSchema), {
+    channel: 'command:setAthleteTargetMode',
+  }),
   getCompetitionState: query(CompetitionIdInputSchema, queryResponseSchema(CompetitionStateDtoSchema), {
     channel: 'query:getCompetitionState',
   }),
@@ -99,6 +117,7 @@ export const competitionContract = defineContract('competition', {
 // ============================================================
 
 export type StartCompetitionInput = z.infer<typeof StartCompetitionInputSchema>;
+export type SetAthleteTargetModeInput = z.infer<typeof SetAthleteTargetModeInputSchema>;
 export type CompetitionIdInput = z.infer<typeof CompetitionIdInputSchema>;
 export type CompetitionStateDto = z.infer<typeof CompetitionStateDtoSchema>;
 export type CompetitionTypeDto = z.infer<typeof CompetitionTypeDtoSchema>;

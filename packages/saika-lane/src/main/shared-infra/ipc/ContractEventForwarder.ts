@@ -11,6 +11,7 @@ import type {
   CompetitionCueChangedEvent,
   CompetitionInterruptionChangedEvent,
   CompetitionStartedEvent,
+  CompetitionProgressChangedEvent,
   ConnectionEstablishedEvent,
   ConnectionLostEvent,
   ModeSwitchedEvent,
@@ -114,6 +115,17 @@ export class ContractEventForwarder {
       targetProfileId: event.targetProfileId,
       scoringGaugeProfileId: event.scoringGaugeProfileId,
     }));
+
+    this.forward<CompetitionProgressChangedEvent>(
+      'CompetitionProgressChanged',
+      eventsContract.channels.competitionProgressChanged,
+      (event) => ({
+        competitionId: event.aggregateId,
+        stageIndex: event.stageIndex,
+        seriesIndex: event.seriesIndex,
+        shotCount: event.shotCount,
+      }),
+    );
 
     // TimerTick → event:timerTick
     this.forward<TimerTickEvent>('TimerTick', eventsContract.channels.timerTick, (event) => ({

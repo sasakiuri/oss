@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { useAthleteTargetEvents } from './useAthleteTargetEvents';
 import { useConnectionEvents } from './useConnectionEvents';
 import { useDirectorMembershipEvents } from './useDirectorMembershipEvents';
 import { useFinalCueEvents } from './useFinalCueEvents';
@@ -23,6 +24,7 @@ export function useEventSubscriptions(): void {
   useConnectionEvents();
   useShotEvents();
   usePhaseEvents();
+  useAthleteTargetEvents();
   useTimerEvents();
   useLogEvents();
   useUpdateEvents();

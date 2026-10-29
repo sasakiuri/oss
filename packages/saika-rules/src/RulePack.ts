@@ -41,7 +41,11 @@ export interface RuleSeries {
   readonly position?: ShootingPosition;
   /** Defaults to MATCH. The transition purpose must use zero shots. */
   readonly purpose?: RuleSeriesPurpose;
-  /** Who may change the target between SIGHTING and MATCH while this series is current. */
+  /**
+   * Who may change the target between SIGHTING and MATCH while this series is current.
+   * ATHLETE permits SIGHTING until the first MATCH shot of that series, then MATCH only.
+   * POSITION_CHANGE_AND_SIGHTING permits SIGHTING only.
+   */
   readonly targetModeControl?: TargetModeControl;
   /** Dedicated 25m timing program. Applications must not substitute their generic series timer. */
   readonly timedTargetProgramId?: string;

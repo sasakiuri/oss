@@ -310,9 +310,9 @@ describe('ContractEventForwarder', () => {
   // start() — event forwarding verification
   // ============================
   describe('start()', () => {
-    it('subscribes to 20 events', () => {
+    it('subscribes to 21 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(20);
+      expect(eventBus.on).toHaveBeenCalledTimes(21);
     });
 
     it.each([null, 'competition-1'])(
@@ -335,6 +335,25 @@ describe('ContractEventForwarder', () => {
         );
       },
     );
+
+    it('forwards persisted same-phase competition progress with its identity', () => {
+      forwarder.start();
+      getFirstHandler(
+        eventBus,
+        'CompetitionProgressChanged',
+      )({
+        type: 'CompetitionProgressChanged',
+        aggregateId: 'comp-1',
+        timestamp: now,
+        stageIndex: 1,
+        seriesIndex: 2,
+        shotCount: 0,
+      });
+      expect(mainWindow.webContents.send).toHaveBeenCalledExactlyOnceWith(
+        eventsContract.channels.competitionProgressChanged,
+        { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, shotCount: 0 },
+      );
+    });
 
     it('forwards ShotRecorded to event:shotRecorded', () => {
       forwarder.start();
@@ -692,8 +711,8 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
       forwarder.start();
 
-      // Each start registers all 20 event subscriptions.
-      expect(eventBus.on).toHaveBeenCalledTimes(40);
+      // Each start registers all 21 event subscriptions.
+      expect(eventBus.on).toHaveBeenCalledTimes(42);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);
