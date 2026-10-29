@@ -260,7 +260,9 @@ export class BroadcastCommandHandler {
         command.timerStartAt === undefined &&
         command.timerDurationSeconds === undefined &&
         (interruption.status === 'SIGHTING' || interruption.status === 'RUNNING_MATCH') &&
-        (command.resumeOnly === true || state.currentSeriesIndex + 1 < state.currentStageConfig.series.length);
+        (state.phase === 'SERIES_ENTERED' ||
+          command.resumeOnly === true ||
+          state.currentSeriesIndex + 1 < state.currentStageConfig.series.length);
       if (
         !continuingStage &&
         action !== 'stop-shoot-off' &&

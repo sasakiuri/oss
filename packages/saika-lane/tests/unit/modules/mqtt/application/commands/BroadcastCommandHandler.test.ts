@@ -900,6 +900,19 @@ describe('BroadcastCommandHandler', () => {
         expect(commandBus.execute).toHaveBeenCalled();
       },
     );
+    it('retries the missing start of the final entered series after an official resume', async () => {
+      competitionState = createCompetitionState('SERIES_ENTERED', 1, 5);
+      vi.mocked(interruptionControl.get).mockReturnValue({
+        interruptionId: OTHER_LANE_ID,
+        status: 'RUNNING_MATCH',
+      } as ReturnType<ICompetitionInterruptionControl['get']>);
+      await sendMessage('advance-series', buildCommand({ stageIndex: 1, fromSeriesIndex: 4 }));
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+      expect(ack.status).toBe('done');
+      expect(commandBus.execute).toHaveBeenCalledOnce();
+      expect(vi.mocked(commandBus.execute).mock.calls[0]![0].name).toBe('StartNextSeries');
+    });
+
     it('accepts resumeOnly at an already-entered same-stage destination', async () => {
       competitionState = createCompetitionState('SERIES_ENTERED', 1, 1);
       vi.mocked(interruptionControl.get).mockReturnValue({
