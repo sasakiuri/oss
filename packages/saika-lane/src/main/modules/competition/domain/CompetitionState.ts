@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import { resolveCompetitionShotMode, type ReportedShotMode } from './CompetitionShotModePolicy';
+import type { ReportedShotMode } from './CompetitionShotModePolicy';
+import { resolveCompetitionTargetMode } from './CompetitionTargetModePolicy';
 import type { RoundConfig, SeriesDefinition, StageDefinition } from './CompetitionTypeDefinition';
 import type { Phase } from './Phase';
 import { Timer } from './Timer';
@@ -522,12 +524,15 @@ export class CompetitionState {
   }
 
   /** Selects a target mode without changing the session, progress or clock. */
-  selectAthleteTargetMode(input: {
-    competitionId: string;
-    stageIndex: number;
-    seriesIndex: number;
-    mode: ReportedShotMode;
-  }): CompetitionState {
+  selectAthleteTargetMode(
+    input: {
+      competitionId: string;
+      stageIndex: number;
+      seriesIndex: number;
+      mode: ReportedShotMode;
+    },
+    interruption: LaneInterruptionRecord | null = null,
+  ): CompetitionState {
     if (
       input.competitionId !== this.id ||
       input.stageIndex !== this.currentStageIndex ||
@@ -539,15 +544,10 @@ export class CompetitionState {
     if (this.currentSeriesConfig.targetModeControl !== 'ATHLETE') {
       throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_CONTROLLED');
     }
-    if (
-      resolveCompetitionShotMode(
-        this.currentStageConfig,
-        this.currentSeriesConfig,
-        input.mode,
-        this.seriesShotCount,
-        input.mode,
-      ) !== input.mode
-    ) {
+    const targetMode = resolveCompetitionTargetMode(this, [], interruption);
+    if (targetMode.officialSighting) throw ErrorCatalog.createError('ATHLETE_TARGET_OFFICIAL_SIGHTING');
+    const control = targetMode.athleteTargetControl!;
+    if (input.mode === 'SIGHTING' ? !control.sightingAllowed : !control.matchAllowed) {
       throw ErrorCatalog.createError(
         input.mode === 'SIGHTING' ? 'ATHLETE_SIGHTING_CLOSED' : 'ATHLETE_MATCH_UNAVAILABLE',
       );

@@ -2,27 +2,46 @@
 import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { RecordShotToken, SwitchModeToken, type SwitchModeInput } from '@/main/composition/tokens';
+import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
+import { createGetCompetitionStateHandler } from '@/main/modules/competition/application/handlers/GetCompetitionStateHandler';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import { AR60, R3P60 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { Timer } from '@/main/modules/competition/domain/Timer';
+import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
+import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
+import { createShotIngestionHandler } from '@/main/modules/connection/infra/ShotIngestionHandler';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
 import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
 import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import { LaneSafetyStopState } from '@/main/modules/safety-stop/domain/LaneSafetyStopState';
+import { createRecordShotHandler } from '@/main/modules/session/application/handlers/RecordShotHandler';
+import { createSwitchModeHandler } from '@/main/modules/session/application/handlers/SwitchModeHandler';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
+import type { ScoreDiscrepancyDetector } from '@/main/modules/session/domain/ScoreDiscrepancyDetector';
 import { Session } from '@/main/modules/session/domain/Session';
+import { ScoreCalculationServiceImpl } from '@/main/modules/session/infra/ScoreCalculationServiceImpl';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
-import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
+import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
 
 import { athleteCompetition, selectAthlete } from '../../../helpers/athleteCompetition';
+import { createMockShotObservationRepository } from '../../../helpers/mockDependencies';
+import { projectVistaTargetMode } from '../../../helpers/projectVistaTargetMode';
+
+vi.mock('@/main/shared-infra/logging/createLogger', () => ({
+  getLogger: () => ({ error: vi.fn(), debug: vi.fn(), warn: vi.fn(), info: vi.fn() }),
+}));
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const sourceId = '22222222-2222-4222-8222-222222222222';
@@ -101,6 +120,7 @@ async function lane(id: string, withShots: boolean, type: CompetitionTypeDefinit
   return {
     db,
     sessions,
+    competitions,
     port,
     journal,
     service: new ReserveLaneTransferService(journal, port, () => id),
@@ -199,6 +219,126 @@ describe('reserve Lane state transfer', () => {
     await expect(source.port.retireSource(bundle, true)).resolves.toBeUndefined();
     expect(target.state().athleteTargetMode).toBeNull();
     expect(target.state().currentSeriesIndex).toBe(2);
+    expect(target.state().seriesShotCount).toBe(0);
+  });
+
+  it('uses the transferred normal observation for resume, bootstrap and both displays without carrying the selection', async () => {
+    const source = await lane(sourceId, true, R3P60);
+    const target = await lane(targetId, false, R3P60);
+    const state = CompetitionState.reconstruct({
+      ...selectAthlete(athleteCompetition(), 'SIGHTING'),
+      id: competitionId,
+      sessionId: source.original.id,
+      timer: source.state().timer,
+    });
+    source.setState(state);
+    const sourceSession = source.original.recordShot(
+      null,
+      new Score(90),
+      new Date(),
+      undefined,
+      false,
+      Mode.sighting(),
+      {
+        competitionContext: {
+          competitionId,
+          stageIndex: state.currentStageIndex,
+          seriesIndex: state.currentSeriesIndex,
+          athleteModeObserved: true,
+        },
+      },
+    );
+    await source.sessions.save(sourceSession);
+    const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
+    await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
+    await source.service.execute(competitionId, { operation: 'RETIRE_SOURCE', id: request.id, digest: bundle.digest });
+    await target.service.execute(competitionId, {
+      operation: 'ACTIVATE_TARGET',
+      id: request.id,
+      digest: bundle.digest,
+      sourceRetired: true,
+    });
+    expect(target.state().athleteTargetMode).toBeNull();
+    const transferred = (await target.sessions.findById(sourceSession.id))!;
+    expect(transferred.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
+
+    const events = new TypedEventBus();
+    const commands = new CommandBus();
+    const sentModes: string[] = [];
+    commands.use({
+      execute: async (name, input, next) => {
+        if (name === 'SwitchMode') sentModes.push((input as SwitchModeInput).mode.value);
+        return next();
+      },
+    });
+    commands.register(SwitchModeToken, createSwitchModeHandler(target.sessions, events));
+    commands.register(
+      RecordShotToken,
+      createRecordShotHandler(target.sessions, new ScoreCalculationServiceImpl(), events, {
+        detect: vi.fn(),
+      } as unknown as ScoreDiscrepancyDetector),
+    );
+    events.on(
+      'ShotRecorded',
+      createShotRecordedHandler({ competitionRepository: target.competitions, eventBus: events }),
+    );
+    let record: LaneInterruptionRecord | null = null;
+    const interruptions = new CompetitionInterruptionService(
+      {
+        findByCompetitionId: () => record,
+        save: (next) => {
+          record = next;
+        },
+        delete: () => {
+          record = null;
+        },
+      },
+      target.competitions,
+      {
+        pause: async () => ({ remainingSeconds: 240, totalSeconds: 4500 }),
+        resumeAt: async () => undefined,
+      } as unknown as LaneTimerService,
+      commands,
+      events,
+      target.sessions,
+    );
+    await interruptions.pause({ competitionId, interruptionId: request.id, pausedAt: new Date() });
+    const cache = new SessionContextCache(events);
+    cache.subscribeEvents(vi.fn());
+    await cache.bootstrap(target.sessions, target.competitions, interruptions);
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
+    await interruptions.resume({
+      competitionId,
+      interruptionId: request.id,
+      timerStartAt: new Date(),
+      authorizedRemainingSeconds: 240,
+      unlimitedSightingShots: false,
+    });
+    expect(sentModes).toEqual(['SIGHTING']);
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
+    const projection = await createGetCompetitionStateHandler(
+      target.competitions,
+      target.sessions,
+      interruptions,
+    )({ competitionId });
+    expect(projection.athleteTargetControl).toMatchObject({ selected: null, effective: 'SIGHTING' });
+    expect(projectVistaTargetMode(target.state(), transferred, interruptions.get(competitionId))).toBe('sighting');
+    const restored = new SessionContextCache(new TypedEventBus());
+    await restored.bootstrap(target.sessions, target.competitions, interruptions);
+    expect(restored.getContext().mode.value).toBe('SIGHTING');
+
+    await createShotIngestionHandler({
+      commandBus: commands,
+      sessionRepository: target.sessions,
+      competitionRepository: target.competitions,
+      shotObservationRepository: createMockShotObservationRepository(),
+      interruptionReader: interruptions,
+    })({ x: 0, y: 0, score: 90, timestamp: new Date(), mode: cache.getContext().mode.value });
+    const after = (await target.sessions.findById(sourceSession.id))!;
+    expect(after.shotCount).toBe(sourceSession.shotCount + 1);
+    expect(after.allShots.at(-1)!.mode.value).toBe('SIGHTING');
+    expect(after.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
+    expect(after.totalScore).toBe(sourceSession.totalScore);
     expect(target.state().seriesShotCount).toBe(0);
   });
 

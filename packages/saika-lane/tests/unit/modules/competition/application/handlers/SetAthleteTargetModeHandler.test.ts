@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSetAthleteTargetModeHandler } from '@/main/modules/competition/application/handlers/SetAthleteTargetModeHandler';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 
 import { athleteCompetition } from '../../../../../helpers/athleteCompetition';
 import { createMockCompetitionRepository, createMockEventBus } from '../../../../../helpers/mockDependencies';
@@ -12,7 +13,7 @@ function rig(state = athleteCompetition()) {
   const repository = createMockCompetitionRepository();
   vi.mocked(repository.findActive).mockResolvedValue(state);
   const events = createMockEventBus();
-  const handler = createSetAthleteTargetModeHandler(repository, events);
+  const handler = createSetAthleteTargetModeHandler(repository, events, { get: () => null });
   const input = {
     competitionId: state.id,
     stageIndex: state.currentStageIndex,
@@ -90,6 +91,27 @@ describe('SetAthleteTargetMode', () => {
     expect(vi.mocked(r.repository.save).mock.calls[1]![0].timer).toBe(r.state.timer);
     await expect(r.handler(r.input)).rejects.toMatchObject({ code: 'ATHLETE_SIGHTING_CLOSED' });
   });
+
+  it.each(['SIGHTING', 'MATCH'] as const)(
+    'rejects %s while official sighting is authorized without sending or saving',
+    async (mode) => {
+      const r = rig();
+      const interruption = LaneInterruptionRecord.create({
+        competitionId: r.state.id,
+        interruptionId: 'interruption',
+        status: 'SIGHTING',
+        pausedAt: new Date(),
+        capturedAt: new Date(),
+        capturedRemainingSeconds: 600,
+        capturedTotalSeconds: 1000,
+        unlimitedSightingShots: true,
+      });
+      const handler = createSetAthleteTargetModeHandler(r.repository, r.events, { get: () => interruption });
+      await expect(handler({ ...r.input, mode })).rejects.toMatchObject({ code: 'ATHLETE_TARGET_OFFICIAL_SIGHTING' });
+      expect(r.repository.save).not.toHaveBeenCalled();
+      expect(r.events.emit).not.toHaveBeenCalled();
+    },
+  );
 
   it('emits no mode event when persistence fails', async () => {
     const r = rig();

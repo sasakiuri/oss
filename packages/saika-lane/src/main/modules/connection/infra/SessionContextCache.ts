@@ -4,8 +4,9 @@
  * Restores the saved session at startup and updates from session events.
  */
 
-import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
+import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -40,15 +41,13 @@ export class SessionContextCache {
   async bootstrap(
     sessionRepository: ISessionRepository,
     competitionRepository?: ICompetitionRepository,
-  ): Promise<void> {
-    const initialModeRevision = this.modeRevision;
-    const [activeCompetition, fallbackSession] = await Promise.all([
-      competitionRepository?.findActive() ?? Promise.resolve(null),
-      sessionRepository.findActive(),
-    ]);
+    interruptions?: Pick<ICompetitionInterruptionControl, 'get'>,
+  ): Promise<Mode | null> {
+    const initialModeRevision = ++this.modeRevision;
+    const activeCompetition = (await competitionRepository?.findActive()) ?? null;
     const activeSession = activeCompetition
       ? await sessionRepository.findById(activeCompetition.sessionId)
-      : fallbackSession;
+      : await sessionRepository.findActive();
 
     if (activeSession) {
       // An event may have populated a newer session while repository reads were
@@ -61,17 +60,17 @@ export class SessionContextCache {
       if (this.modeRevision === initialModeRevision) {
         this.cachedMode = activeCompetition
           ? Mode.fromValue(
-              resolveCompetitionShotMode(
-                activeCompetition.currentStageConfig,
-                activeCompetition.currentSeriesConfig,
-                undefined,
-                activeCompetition.seriesShotCount,
-                activeCompetition.athleteTargetMode,
-              ),
+              resolveCompetitionTargetMode(
+                activeCompetition,
+                activeSession.allShots,
+                interruptions?.get(activeCompetition.id) ?? null,
+              ).effective,
             )
           : activeSession.mode;
+        return this.cachedMode;
       }
     }
+    return null;
   }
 
   /**
@@ -80,11 +79,6 @@ export class SessionContextCache {
    * @param onSessionReset - Callback invoked when a session starts or resets
    */
   subscribeEvents(onSessionReset: () => void): void {
-    const updateCompetitionMode = (scored: boolean): void => {
-      this.cachedMode = scored ? Mode.match() : Mode.sighting();
-      this.modeRevision += 1;
-    };
-
     this.eventBus.on('SessionStarted', (event) => {
       this.cachedDiscipline = event.discipline;
       this.cachedMode = Mode.sighting();
@@ -100,14 +94,6 @@ export class SessionContextCache {
     this.eventBus.on('ModeSwitched', (event) => {
       this.cachedMode = event.newMode;
       this.modeRevision += 1;
-    });
-
-    this.eventBus.on('StageAdvanced', (event) => {
-      updateCompetitionMode(event.scored);
-    });
-
-    this.eventBus.on('PhaseChanged', (event) => {
-      updateCompetitionMode(event.scored);
     });
 
     this.eventBus.on('SessionReset', () => {

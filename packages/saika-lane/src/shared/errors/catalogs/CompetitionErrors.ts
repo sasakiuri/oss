@@ -2,6 +2,7 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type CompetitionErrorCode =
+  | 'ATHLETE_TARGET_OFFICIAL_SIGHTING'
   | 'ATHLETE_TARGET_CONTEXT_CHANGED'
   | 'ATHLETE_TARGET_NOT_ACTIVE'
   | 'ATHLETE_TARGET_NOT_CONTROLLED'
@@ -17,6 +18,15 @@ export type CompetitionErrorCode =
   | 'INVALID_TIMER_DURATION';
 
 export const COMPETITION_ERRORS: ReadonlyArray<[CompetitionErrorCode, ErrorDefinition]> = [
+  [
+    'ATHLETE_TARGET_OFFICIAL_SIGHTING',
+    {
+      code: 'ATHLETE_TARGET_OFFICIAL_SIGHTING',
+      message: 'Official sighting is in progress',
+      userMessage: 'Official sighting is in progress',
+      severity: 'warning',
+    },
+  ],
   [
     'ATHLETE_TARGET_CONTEXT_CHANGED',
     {

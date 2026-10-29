@@ -81,6 +81,7 @@ async function setup(type = BR60S) {
     } as unknown as LaneTimerService,
     commands,
     events,
+    sessions,
   );
   let progress = Promise.resolve();
   const recordProgress = createShotRecordedHandler({ competitionRepository: competitions, eventBus: events });
@@ -163,7 +164,7 @@ describe('competition shot acquisition and persistence', () => {
     expect(sighting.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBeUndefined();
     expect(rig.competition.seriesShotCount).toBe(0);
     await rig.interruption.resumeMatch({ competitionId: rig.competition.id, interruptionId });
-    const query = createGetCompetitionStateHandler(rig.competitions, rig.sessions);
+    const query = createGetCompetitionStateHandler(rig.competitions, rig.sessions, rig.interruption);
     expect(cache.getContext().mode.value).toBe('MATCH');
     expect((await query({ competitionId: rig.competition.id })).athleteTargetControl).toMatchObject({
       selected: null,
@@ -187,6 +188,7 @@ describe('competition shot acquisition and persistence', () => {
     await createSetAthleteTargetModeHandler(
       rig.competitions,
       rig.events,
+      rig.interruption,
     )({
       competitionId: rig.competition.id,
       stageIndex: rig.competition.currentStageIndex,

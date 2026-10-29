@@ -39,7 +39,7 @@ describe('createGetCompetitionStateHandler', () => {
     });
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
     vi.mocked(sessions.findById).mockImplementation(async () => session);
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions);
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions, { get: () => null });
     expect((await handler({ competitionId: state.id })).athleteTargetControl?.effective).toBe('MATCH');
     session = session.recordShot(null, new Score(100), new Date(), undefined, false, Mode.sighting(), {
       competitionContext: context,
@@ -61,7 +61,9 @@ describe('createGetCompetitionStateHandler', () => {
     const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository(), {
+      get: () => null,
+    });
     const dto = await handler({ competitionId: 'comp-1' });
 
     expect(dto.id).toBe('comp-1');
@@ -87,7 +89,9 @@ describe('createGetCompetitionStateHandler', () => {
     state = state.recordShotInSeries();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository(), {
+      get: () => null,
+    });
     const dto = await handler({ competitionId: 'comp-1' });
 
     expect(dto.currentStageIndex).toBe(1);
@@ -98,7 +102,9 @@ describe('createGetCompetitionStateHandler', () => {
   it('should throw an error for a non-existent competition ID', async () => {
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(null);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository(), {
+      get: () => null,
+    });
     await expect(handler({ competitionId: 'nonexistent' })).rejects.toThrow();
   });
 });

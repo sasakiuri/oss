@@ -8,8 +8,8 @@ import {
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
 
-import { resolveCompetitionDisplayMode } from '@/main/modules/competition/application/toCompetitionStateDto';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import type { Session } from '@/main/modules/session/domain/Session';
@@ -157,12 +157,10 @@ export function projectLaneVista(input: {
         mode:
           input.shootOffSeries !== null
             ? 'shoot-off'
-            : input.interruption?.status === 'SIGHTING' ||
-                (input.interruption?.status === 'RESUME_PENDING' && input.interruption.unlimitedSightingShots)
-              ? 'sighting'
-              : resolveCompetitionDisplayMode(competition, input.session.allShots) === 'MATCH'
-                ? 'match'
-                : 'sighting',
+            : resolveCompetitionTargetMode(competition, input.session.allShots, input.interruption).effective ===
+                'MATCH'
+              ? 'match'
+              : 'sighting',
         series: [...seriesTotals.values()].map((series) => ({
           ...series,
           total: unassignedMatchShots ? null : series.total,

@@ -106,6 +106,7 @@ function expectNoAction() {
 function startCompetition(scored = false) {
   useCompetitionStore.getState().setCompetitionId('comp-1');
   useCompetitionStore.getState().setPhase('ACTIVE', 0, 0, scored ? 'Match' : 'Preparation', scored);
+  useCompetitionStore.getState().setAthleteTargetControl(null);
 }
 
 describe('Preparation and Match confirmation through App', () => {

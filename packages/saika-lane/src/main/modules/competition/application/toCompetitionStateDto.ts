@@ -1,39 +1,20 @@
 // SPDX-License-Identifier: MIT
+import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 
-import { resolveCompetitionShotMode } from '../domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '../domain/CompetitionState';
+import { resolveCompetitionTargetMode } from '../domain/CompetitionTargetModePolicy';
 
 import type { CompetitionStateDto } from './dto';
 
-/** Only a normal ATHLETE observation can describe the device-controlled series mode. */
-export function resolveCompetitionDisplayMode(state: CompetitionState, shots: readonly Shot[] = []) {
-  const stage = state.currentStageConfig;
-  const series = state.currentSeriesConfig;
-  const observed = [...shots].reverse().find((shot) => {
-    const context = shot.competitionContext;
-    return (
-      context?.athleteModeObserved === true &&
-      context.competitionId === state.id &&
-      context.stageIndex === state.currentStageIndex &&
-      context.seriesIndex === state.currentSeriesIndex
-    );
-  });
-  return resolveCompetitionShotMode(
-    stage,
-    series,
-    observed?.mode.value,
-    state.seriesShotCount,
-    state.athleteTargetMode,
-  );
-}
-
 /** Projects the current series; prior positions never supply its observed mode. */
-export function toCompetitionStateDto(state: CompetitionState, shots: readonly Shot[] = []): CompetitionStateDto {
+export function toCompetitionStateDto(
+  state: CompetitionState,
+  shots: readonly Shot[] = [],
+  interruption: LaneInterruptionRecord | null = null,
+): CompetitionStateDto {
   const stage = state.currentStageConfig;
-  const series = state.currentSeriesConfig;
-  const resolve = (mode: 'SIGHTING' | 'MATCH' | undefined, selection = state.athleteTargetMode) =>
-    resolveCompetitionShotMode(stage, series, mode, state.seriesShotCount, selection);
+
   return {
     id: state.id,
     sessionId: state.sessionId,
@@ -52,14 +33,6 @@ export function toCompetitionStateDto(state: CompetitionState, shots: readonly S
     shotsPerSeries: state.config.shotsPerSeries,
     targetProfileId: stage.targetProfileId ?? state.config.targetProfileId,
     scoringGaugeProfileId: stage.scoringGaugeProfileId ?? state.config.scoringGaugeProfileId,
-    athleteTargetControl:
-      state.phase === 'ACTIVE' && series.targetModeControl === 'ATHLETE'
-        ? {
-            sightingAllowed: resolve('SIGHTING', 'SIGHTING') === 'SIGHTING',
-            matchAllowed: resolve('MATCH', 'MATCH') === 'MATCH',
-            selected: state.athleteTargetMode ?? null,
-            effective: resolveCompetitionDisplayMode(state, shots),
-          }
-        : null,
+    athleteTargetControl: resolveCompetitionTargetMode(state, shots, interruption).athleteTargetControl,
   };
 }

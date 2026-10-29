@@ -49,17 +49,21 @@ export const SideMenu: React.FC<SideMenuProps> = ({
 
   const athleteTargetControl = useCompetitionStore((s) => s.athleteTargetControl);
   const athleteTargetControlPending = useCompetitionStore((s) => s.athleteTargetControlPending);
+  const athleteTargetControlLoaded = useCompetitionStore((s) => s.athleteTargetControlLoaded);
+  const unavailable = phase === 'ACTIVE' && !athleteTargetControlLoaded;
   const membershipState = useDirectorMembershipStore();
   const permission = localProgressControls(membershipState);
   const sightingPermission = localProgressControls(membershipState, 'sighting', {
     phase,
     athleteTargetControl,
     athleteTargetControlPending,
+    athleteTargetControlLoaded,
   });
   const matchPermission = localProgressControls(membershipState, 'match', {
     phase,
     athleteTargetControl,
     athleteTargetControlPending,
+    athleteTargetControlLoaded,
   });
   const athlete = phase === 'ACTIVE' ? athleteTargetControl : null;
   const sightingReasonId = useId();
@@ -110,10 +114,10 @@ export const SideMenu: React.FC<SideMenuProps> = ({
   }
 
   // Derive active states from phase + scored
-  const preparationActive = athlete
-    ? athlete.effective === 'SIGHTING'
-    : hasCompetition && phase === 'ACTIVE' && !scored;
-  const matchActive = athlete ? athlete.effective === 'MATCH' : hasCompetition && phase === 'ACTIVE' && scored;
+  const preparationActive =
+    !unavailable && (athlete ? athlete.effective === 'SIGHTING' : hasCompetition && phase === 'ACTIVE' && !scored);
+  const matchActive =
+    !unavailable && (athlete ? athlete.effective === 'MATCH' : hasCompetition && phase === 'ACTIVE' && scored);
 
   return (
     <aside
@@ -143,6 +147,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<Target size={30} />}
           label={athlete ? 'Sighting' : 'Preparation'}
           onClick={onPreparationClick}
+          onDisabledClick={unavailable ? onPreparationClick : undefined}
           disabled={!sightingPermission.allowed || (!athlete && preparationDisabled)}
           disabledReason={sightingPermission.reason}
           aria-describedby={sightingPermission.reason ? sightingReasonId : undefined}
@@ -153,6 +158,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<Target size={30} />}
           label="Match"
           onClick={onMatchClick}
+          onDisabledClick={unavailable ? onMatchClick : undefined}
           disabled={!matchPermission.allowed || (!athlete && matchDisabled)}
           disabledReason={matchPermission.reason}
           aria-describedby={matchPermission.reason ? matchReasonId : undefined}

@@ -24,6 +24,7 @@ import {
   StartStageToken,
 } from '@/main/composition/tokens';
 import { competitionModule } from '@/main/modules/competition/competition.module';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { competitionContract } from '@/shared/ipc/contracts';
 
 import {
@@ -64,6 +65,7 @@ describe('competition.module', () => {
       competitionRepository,
       ipcRouter,
       timerService,
+      competitionInterruptionControl: { get: () => null } as unknown as ICompetitionInterruptionControl,
     });
   }
 
@@ -81,6 +83,7 @@ describe('competition.module', () => {
         'competitionRepository',
         'ipcRouter',
         'timerService',
+        'competitionInterruptionControl',
       ]);
     });
   });

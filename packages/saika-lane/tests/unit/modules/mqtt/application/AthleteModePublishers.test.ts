@@ -58,7 +58,7 @@ it('keeps all MQTT publishers silent on selection and retains only Match scores 
   expect(JSON.parse(publish.mock.calls.find(([topic]) => topic.endsWith('/state'))![1]).phase).toBe('MATCH');
   publish.mockClear();
 
-  const select = createSetAthleteTargetModeHandler(competitions, events);
+  const select = createSetAthleteTargetModeHandler(competitions, events, { get: () => null });
   const input = { ...context(), mode: 'SIGHTING' as const };
   const previousSession = session;
   await select(input);

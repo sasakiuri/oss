@@ -3,6 +3,7 @@
 
 import { RecordShotToken } from '@/main/composition/tokens';
 import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
+import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
@@ -172,8 +173,14 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         return;
       }
 
-      const authorizedSighting =
-        activeCompetition !== null && interruptionReader?.get(activeCompetition.id)?.status === 'SIGHTING';
+      const targetMode = activeCompetition
+        ? resolveCompetitionTargetMode(
+            activeCompetition,
+            activeSession.allShots,
+            interruptionReader?.get(activeCompetition.id) ?? null,
+          )
+        : null;
+      const authorizedSighting = targetMode?.officialSighting === true;
       let athleteModeObserved = false;
       let effectiveMode: Mode | undefined;
       if (acceptedByShootOff || authorizedSighting) {
