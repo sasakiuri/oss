@@ -119,6 +119,22 @@ describe("short-lived Buffer verification reuse", () => {
     expect(transport).toHaveBeenCalledTimes(2);
   });
 
+  it("does not stop for a window that resets while recording a fresh verification", async () => {
+    let now = 10000;
+    let observations = 0;
+    const transport = vi
+      .fn<FetchBytes>()
+      .mockResolvedValue(response(verified(), '"short";r=7;t=1'));
+    const client = new BufferClient("fixture-key", "channel-123", transport, {
+      clock: () => now,
+      observeQuota: async () => {
+        if (++observations === 2) now += 2;
+      },
+    });
+    await expect(client.verifyAccount()).resolves.toBeUndefined();
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
   it("counts scheduled and sent posts together and refreshes after consuming the last slot", async () => {
     const transport = vi
       .fn<FetchBytes>()

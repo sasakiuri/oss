@@ -128,7 +128,7 @@ export class BufferClient implements PublishingClient {
       dailyPostingLimits,
       quota,
     );
-    const error = postingQuotaError(quota);
+    const error = postingQuotaError(quota, this.clock());
     if (error) throw new PostError(error);
     this.verification = {
       observedAt: quota.observedAt,

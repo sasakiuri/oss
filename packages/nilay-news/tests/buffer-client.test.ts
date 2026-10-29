@@ -299,6 +299,7 @@ describe("BufferClient", () => {
     ["fractional", [{ ...LIMIT, scheduled: 1.5 }]],
     ["negative", [{ ...LIMIT, scheduled: -1 }]],
     ["text count", [{ ...LIMIT, limit: "100" }]],
+    ["null sent count", [{ ...LIMIT, sent: null }]],
     ["negative limit", [{ ...LIMIT, limit: -1 }]],
   ])("refuses a daily posting limit that is %s", async (_, limits) => {
     const transport = replying(
