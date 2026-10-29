@@ -2,10 +2,7 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type StorageErrorCode =
-  | 'STORAGE_READ_ERROR'
-  | 'STORAGE_WRITE_ERROR'
-  | 'STORAGE_DELETE_ERROR'
-  | 'REPOSITORY_ERROR';
+  'STORAGE_READ_ERROR' | 'STORAGE_WRITE_ERROR' | 'STORAGE_DELETE_ERROR' | 'REPOSITORY_ERROR';
 
 export const STORAGE_ERRORS: ReadonlyArray<[StorageErrorCode, ErrorDefinition]> = [
   [
