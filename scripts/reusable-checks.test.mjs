@@ -480,8 +480,8 @@ test("license version normalization preserves digit-prefixed scopes", (t) => {
   assert.doesNotMatch(report, /@1\/tools/);
 });
 
-test("production peers retain case-sensitive license files and declared SPDX identifiers", (t) => {
-  for (const licenseFile of ["License", null]) {
+test("license fallback retains case-sensitive files and declared SPDX identifiers", (t) => {
+  for (const licenseFile of ["License", "LICENSE.MIT", null]) {
     const options = licenseFixture(t);
     const peerName = "fixture-production-peer";
     const peerPath = join(options.root, "node_modules", peerName);
@@ -490,12 +490,7 @@ test("production peers retain case-sensitive license files and declared SPDX ide
     );
     rootManifest.devDependencies = { [peerName]: "1.0.0" };
     write(options.root, "package.json", rootManifest);
-    write(options.root, "node_modules/fixture-dependency/package.json", {
-      name: "fixture-dependency",
-      version: "1.0.0",
-      license: "MIT",
-      peerDependencies: { [peerName]: "^1.0.0" },
-    });
+    // npm includes this production dependency even when Arborist skips it as dev-only.
     write(options.root, `node_modules/${peerName}/package.json`, {
       name: peerName,
       version: "1.0.0",
