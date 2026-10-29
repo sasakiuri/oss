@@ -153,6 +153,12 @@ export interface QualificationRecoveryChangedEvent extends DomainEvent {
 
 // ── MQTT Events ──
 
+export interface DirectorMembershipChangedEvent extends DomainEvent {
+  readonly type: 'DirectorMembershipChanged';
+  readonly competitionId: string | null;
+  readonly revision: number;
+}
+
 export interface MqttConnectedEvent extends DomainEvent {
   readonly type: 'MqttConnected';
   readonly brokerUrl: string;
@@ -190,6 +196,7 @@ declare module './EventBus' {
     ShotObservationRouted: ShotObservationRoutedEvent;
     TimedTargetSequenceChanged: TimedTargetSequenceChangedEvent;
     QualificationRecoveryChanged: QualificationRecoveryChangedEvent;
+    DirectorMembershipChanged: DirectorMembershipChangedEvent;
     MqttConnected: MqttConnectedEvent;
     MqttDisconnected: MqttDisconnectedEvent;
     CompetitionCueChanged: CompetitionCueChangedEvent;

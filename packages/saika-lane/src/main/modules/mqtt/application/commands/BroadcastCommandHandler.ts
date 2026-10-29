@@ -149,7 +149,8 @@ export class BroadcastCommandHandler {
     if (this.subscribedTopic) {
       try {
         await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch {
+      } catch (error) {
+        if (this.mqttClient.isConnected()) throw error;
         // Ignore if already disconnected
       }
       this.subscribedTopic = null;

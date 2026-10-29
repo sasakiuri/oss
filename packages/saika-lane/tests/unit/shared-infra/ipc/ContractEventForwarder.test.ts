@@ -307,13 +307,34 @@ describe('ContractEventForwarder', () => {
   });
 
   // ============================
-  // start() — 18 event forward verification
+  // start() — event forwarding verification
   // ============================
   describe('start()', () => {
-    it('subscribes to 18 events', () => {
+    it('subscribes to 20 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(19);
+      expect(eventBus.on).toHaveBeenCalledTimes(20);
     });
+
+    it.each([null, 'competition-1'])(
+      'forwards Director membership %s independently of MQTT status',
+      (competitionId) => {
+        forwarder.start();
+        getFirstHandler(
+          eventBus,
+          'DirectorMembershipChanged',
+        )({
+          type: 'DirectorMembershipChanged',
+          timestamp: now,
+          aggregateId: competitionId ?? '',
+          competitionId,
+          revision: 2,
+        });
+        expect(mainWindow.webContents.send).toHaveBeenCalledExactlyOnceWith(
+          eventsContract.channels.directorMembershipChanged,
+          { competitionId, revision: 2 },
+        );
+      },
+    );
 
     it('forwards ShotRecorded to event:shotRecorded', () => {
       forwarder.start();
@@ -671,8 +692,8 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
       forwarder.start();
 
-      // on is called 36 times (18 x 2)
-      expect(eventBus.on).toHaveBeenCalledTimes(38);
+      // Each start registers all 20 event subscriptions.
+      expect(eventBus.on).toHaveBeenCalledTimes(40);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);

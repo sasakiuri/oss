@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCompetition } from '@/renderer/presentation/hooks/useCompetition';
 import { useSession } from '@/renderer/presentation/hooks/useSession';
+import { localProgressControls } from '@/renderer/presentation/policies/localProgressControls';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
 export interface ModeSwitchActions {
@@ -17,12 +19,15 @@ interface PendingConfirmation {
   competitionId: string | null;
   sessionId: string | null;
   phase: ReturnType<typeof useCompetitionStore.getState>['phase'];
+  membershipRevision: number | undefined;
   action: () => Promise<void>;
 }
 
 function isCurrentConfirmation(pending: PendingConfirmation): boolean {
   const { competitionId, phase } = useCompetitionStore.getState();
   return (
+    localProgressControls(useDirectorMembershipStore.getState()).allowed &&
+    useDirectorMembershipStore.getState().membership?.revision === pending.membershipRevision &&
     competitionId === pending.competitionId &&
     phase === pending.phase &&
     useSessionStore.getState().currentSessionId === pending.sessionId
@@ -48,10 +53,11 @@ export function useModeSwitchActions() {
   }, [cancelConfirmation]);
 
   const requestConfirmation = useCallback((message: string, action: () => Promise<void>) => {
-    if (pendingRef.current) return;
+    if (pendingRef.current || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
     const { competitionId, phase } = useCompetitionStore.getState();
     const pending = {
       message,
+      membershipRevision: useDirectorMembershipStore.getState().membership?.revision,
       competitionId,
       phase,
       sessionId: useSessionStore.getState().currentSessionId,
@@ -68,9 +74,11 @@ export function useModeSwitchActions() {
     };
     const unsubscribeCompetition = useCompetitionStore.subscribe(cancelIfChanged);
     const unsubscribeSession = useSessionStore.subscribe(cancelIfChanged);
+    const unsubscribeMembership = useDirectorMembershipStore.subscribe(cancelIfChanged);
     return () => {
       unsubscribeCompetition();
       unsubscribeSession();
+      unsubscribeMembership();
     };
   }, [cancelConfirmation]);
 
@@ -107,7 +115,9 @@ export function useModeSwitchActions() {
           const scored = useCompetitionStore.getState().scored;
           if (!scored) {
             await endStage(competitionId);
+            if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
             await advanceStage(competitionId);
+            if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
             await startNextSeries(competitionId);
           }
         } else if (phase === 'SERIES_COMPLETE' || phase === 'SERIES_ENTERED' || phase === 'STAGE_ENTERED') {
@@ -126,7 +136,7 @@ export function useModeSwitchActions() {
   }, [endStage, advanceStage, startNextSeries, switchMode]);
 
   const handlePreparationClick = useCallback(async () => {
-    if (pendingRef.current) return;
+    if (pendingRef.current || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
     const { competitionId, phase } = useCompetitionStore.getState();
     const { shots, currentSeriesStartIndex } = useSessionStore.getState();
     if (competitionId && phase !== 'FINISHED') {
@@ -147,7 +157,7 @@ export function useModeSwitchActions() {
   }, [prepare, requestConfirmation]);
 
   const handleMatchClick = useCallback(async () => {
-    if (pendingRef.current) return;
+    if (pendingRef.current || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
     const { competitionId, phase, scored } = useCompetitionStore.getState();
     const { shots, currentSeriesStartIndex } = useSessionStore.getState();
     if (competitionId && phase !== 'FINISHED') {
@@ -163,6 +173,7 @@ export function useModeSwitchActions() {
   }, [match, requestConfirmation]);
 
   const handleNextStageClick = useCallback(async () => {
+    if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
     const { competitionId, phase, scored } = useCompetitionStore.getState();
     if (!competitionId || phase === 'FINISHED') return;
 

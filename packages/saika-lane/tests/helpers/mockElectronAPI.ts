@@ -48,6 +48,9 @@ export interface MockedElectronAPI {
     getScoreSheet: ReturnType<typeof vi.fn>;
     openPrintWindow: ReturnType<typeof vi.fn>;
   };
+  mqtt: {
+    getDirectorMembership: ReturnType<typeof vi.fn>;
+  };
   timedTarget: {
     getTimingSettings: ReturnType<typeof vi.fn>;
     setTimingSettings: ReturnType<typeof vi.fn>;
@@ -87,6 +90,7 @@ export interface MockedElectronAPI {
     stageAdvanced: ReturnType<typeof vi.fn>;
     competitionFinished: ReturnType<typeof vi.fn>;
     mqttStatusChanged: ReturnType<typeof vi.fn>;
+    directorMembershipChanged: ReturnType<typeof vi.fn>;
     fullscreenChanged: ReturnType<typeof vi.fn>;
     updateStateChanged: ReturnType<typeof vi.fn>;
   };
@@ -161,6 +165,9 @@ export function createMockElectronAPI(): MockedElectronAPI {
       printReady: vi.fn().mockResolvedValue({ success: true }),
       getScoreSheet: vi.fn(),
       openPrintWindow: vi.fn(),
+    },
+    mqtt: {
+      getDirectorMembership: vi.fn().mockResolvedValue({ success: true, data: { competitionId: null, revision: 0 } }),
     },
     timedTarget: {
       getTimingSettings: vi.fn().mockResolvedValue({
@@ -239,6 +246,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       seriesCompleted: vi.fn().mockReturnValue(() => {}),
       stageAdvanced: vi.fn().mockReturnValue(() => {}),
       competitionFinished: vi.fn().mockReturnValue(() => {}),
+      directorMembershipChanged: vi.fn().mockReturnValue(() => {}),
       mqttStatusChanged: vi.fn().mockReturnValue(() => {}),
       fullscreenChanged: vi.fn().mockReturnValue(() => {}),
       updateStateChanged: vi.fn().mockReturnValue(() => {}),

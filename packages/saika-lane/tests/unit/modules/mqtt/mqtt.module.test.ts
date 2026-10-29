@@ -252,6 +252,38 @@ describe('mqtt.module', () => {
     ]);
   });
 
+  it('queries persisted membership before MQTT connects', async () => {
+    vi.mocked(storage.get).mockImplementation((key) => (key === 'mqtt.competitionId' ? 'competition-1' : undefined));
+    mqttModule.register({
+      eventBus,
+      ipcRouter,
+      storage,
+      settingsStore,
+      queryBus,
+      commandBus,
+      competitionRepository,
+      timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
+      safetyStopControl,
+      timedTargetControl,
+      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
+        connection: () => null,
+        hasActiveCompetition: async () => false,
+      }),
+      sessionRepository,
+      database,
+    });
+    const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
+      getDirectorMembership(): Promise<{ competitionId: string | null; revision: number }>;
+    };
+    await expect(handlers.getDirectorMembership()).resolves.toEqual({ competitionId: 'competition-1', revision: 0 });
+    expect(mockMqttClient.subscribeAsync).not.toHaveBeenCalled();
+  });
+
   it('should register without errors', () => {
     expect(() => {
       mqttModule.register({

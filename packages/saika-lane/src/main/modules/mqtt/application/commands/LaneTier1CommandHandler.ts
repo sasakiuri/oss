@@ -5,6 +5,7 @@ import type { ICompetitionShootOffControl } from '@/main/modules/competition-sho
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { CompetitionCueSubscriber } from '@/main/modules/mqtt/application/CompetitionCueSubscriber';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
+import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
@@ -24,7 +25,6 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
 import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
@@ -51,7 +51,6 @@ export class LaneTier1CommandHandler {
   private readonly processor: LaneCommandProcessor;
   private subscribedTopic: string | null = null;
   private messageUnsubscribe: (() => void) | null = null;
-  private currentCompetitionId: string | null = null;
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -61,7 +60,7 @@ export class LaneTier1CommandHandler {
     private readonly rpcHandler: RpcRequestHandler,
     private readonly competitionStateSubscriber: CompetitionStateSubscriber,
     private readonly retainPublisher: RetainPublisher,
-    private readonly storage: ILocalStorage,
+    private readonly membership: DirectorMembership,
     private readonly getLaneId: () => string,
     private readonly safetyStopControl?: ILaneSafetyStopControl,
     private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
@@ -98,15 +97,13 @@ export class LaneTier1CommandHandler {
 
     await this.mqttClient.subscribe(topic, 1);
 
-    const savedCompetitionId = this.currentCompetitionId ?? this.storage.get<string>('mqtt.competitionId') ?? null;
+    const savedCompetitionId = this.competitionId;
     if (savedCompetitionId) {
       try {
         await this.activateCompetitionSubscriptions(savedCompetitionId);
-        this.currentCompetitionId = savedCompetitionId;
       } catch (error) {
         await this.deactivateCompetitionSubscriptions();
-        this.currentCompetitionId = null;
-        this.storage.delete('mqtt.competitionId');
+        this.membership.setCompetitionId(null);
         getLogger().warn('[LaneTier1CommandHandler] Failed to restore competition membership', 'mqtt', {
           competitionId: savedCompetitionId,
           error: error instanceof Error ? error.message : String(error),
@@ -119,7 +116,7 @@ export class LaneTier1CommandHandler {
    * Unsubscribes
    */
   async unsubscribe(): Promise<void> {
-    if (this.currentCompetitionId) {
+    if (this.competitionId) {
       await this.deactivateCompetitionSubscriptions();
     }
     await this.unsubscribeTier1Topic();
@@ -143,7 +140,7 @@ export class LaneTier1CommandHandler {
    * Returns the competition ID currently joined
    */
   get competitionId(): string | null {
-    return this.currentCompetitionId;
+    return this.membership.snapshot.competitionId;
   }
 
   /**
@@ -187,13 +184,13 @@ export class LaneTier1CommandHandler {
       case 'join-competition': {
         const competitionId = command.competitionId as string;
 
-        if (this.currentCompetitionId === competitionId) {
+        if (this.competitionId === competitionId) {
           getLogger().info(`[LaneTier1CommandHandler] Already joined competition: ${competitionId}`, 'mqtt');
           return undefined;
         }
-        if (this.currentCompetitionId) {
+        if (this.competitionId) {
           throw ErrorCatalog.createError('MQTT_ALREADY_IN_COMPETITION', {
-            competitionId: this.currentCompetitionId,
+            competitionId: this.competitionId,
           });
         }
 
@@ -204,8 +201,7 @@ export class LaneTier1CommandHandler {
           throw error;
         }
 
-        this.currentCompetitionId = competitionId;
-        this.storage.set('mqtt.competitionId', competitionId);
+        this.membership.setCompetitionId(competitionId);
 
         getLogger().info(`[LaneTier1CommandHandler] Joined competition: ${competitionId}`, 'mqtt');
         return undefined;
@@ -214,12 +210,12 @@ export class LaneTier1CommandHandler {
       case 'leave-competition': {
         const competitionId = command.competitionId as string;
 
-        if (!this.currentCompetitionId) {
+        if (!this.competitionId) {
           throw ErrorCatalog.createError('MQTT_NOT_IN_COMPETITION');
         }
-        if (this.currentCompetitionId !== competitionId) {
+        if (this.competitionId !== competitionId) {
           throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
-            detail: `joined=${this.currentCompetitionId}, requested=${competitionId}`,
+            detail: `joined=${this.competitionId}, requested=${competitionId}`,
           });
         }
 
@@ -229,10 +225,12 @@ export class LaneTier1CommandHandler {
           this.competitionShootOffControl?.close(competitionId, shootOff.runId, shootOff.iteration);
         }
         await this.retainPublisher.clearCompetitionTopics(competitionId, this.getLaneId());
-        await this.deactivateCompetitionSubscriptions();
+        const cleanup = await this.deactivateCompetitionSubscriptions();
+        for (const result of cleanup) {
+          if (result.status === 'rejected') throw result.reason;
+        }
 
-        this.currentCompetitionId = null;
-        this.storage.delete('mqtt.competitionId');
+        this.membership.setCompetitionId(null);
 
         getLogger().info(`[LaneTier1CommandHandler] Left competition: ${competitionId}`, 'mqtt');
         return undefined;
@@ -300,8 +298,8 @@ export class LaneTier1CommandHandler {
     return this.safetyStopControl;
   }
 
-  private async deactivateCompetitionSubscriptions(): Promise<void> {
-    await Promise.allSettled([
+  private deactivateCompetitionSubscriptions() {
+    return Promise.allSettled([
       this.broadcastHandler.unsubscribeFromCompetition(),
       this.perLaneHandler.unsubscribeFromCompetition(),
       this.rpcHandler.unsubscribe(),

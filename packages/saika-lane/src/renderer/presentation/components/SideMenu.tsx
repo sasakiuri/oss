@@ -2,9 +2,11 @@
 /** Controls zoom, competition progress, official requests, printing, and settings. */
 
 import { Printer, Settings, TableProperties, Target, ZoomIn } from 'lucide-react';
-import React from 'react';
+import React, { useId } from 'react';
 
+import { localProgressControls } from '../policies/localProgressControls';
 import { useCompetitionStore } from '../stores/competitionStore';
+import { useDirectorMembershipStore } from '../stores/directorMembershipStore';
 
 import { RangeOfficerMenu } from './RangeOfficerMenu';
 import { SideMenuButton } from './SideMenuButton';
@@ -44,6 +46,10 @@ export const SideMenu: React.FC<SideMenuProps> = ({
   const phase = useCompetitionStore((s) => s.phase);
   const scored = useCompetitionStore((s) => s.scored);
   const competitionId = useCompetitionStore((s) => s.competitionId);
+
+  const membershipState = useDirectorMembershipStore();
+  const permission = localProgressControls(membershipState);
+  const reasonId = useId();
 
   const hasCompetition = competitionId !== null;
 
@@ -98,6 +104,11 @@ export const SideMenu: React.FC<SideMenuProps> = ({
       role="navigation"
       aria-label="Side Menu"
     >
+      {permission.reason && (
+        <span id={reasonId} className="sr-only">
+          {permission.reason}
+        </span>
+      )}
       {/* Top section - Main actions */}
       <div className="flex min-h-0 flex-col">
         <SideMenuButton icon={<ZoomIn size={30} />} label="Zoom" onClick={onZoomClick} />
@@ -105,7 +116,8 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<Target size={30} />}
           label="Preparation"
           onClick={onPreparationClick}
-          disabled={preparationDisabled}
+          disabled={!permission.allowed || preparationDisabled}
+          aria-describedby={permission.reason ? reasonId : undefined}
           active={preparationActive}
           activeColor="#029863"
         />
@@ -113,7 +125,8 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<Target size={30} />}
           label="Match"
           onClick={onMatchClick}
-          disabled={matchDisabled}
+          disabled={!permission.allowed || matchDisabled}
+          aria-describedby={permission.reason ? reasonId : undefined}
           active={matchActive}
           activeColor="#E54437"
         />
@@ -121,7 +134,8 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           icon={<TableProperties size={30} />}
           label={getNextStageTooltip(phase, scored)}
           onClick={onNextStageClick}
-          disabled={nextStageDisabled}
+          disabled={!permission.allowed || nextStageDisabled}
+          aria-describedby={permission.reason ? reasonId : undefined}
         />
       </div>
 

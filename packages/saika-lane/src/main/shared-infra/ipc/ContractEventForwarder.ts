@@ -14,6 +14,7 @@ import type {
   ConnectionEstablishedEvent,
   ConnectionLostEvent,
   ModeSwitchedEvent,
+  DirectorMembershipChangedEvent,
   MqttConnectedEvent,
   MqttDisconnectedEvent,
   PhaseChangedEvent,
@@ -192,6 +193,12 @@ export class ContractEventForwarder {
       (event) => ({
         sessionId: event.sessionId,
       }),
+    );
+
+    this.forward<DirectorMembershipChangedEvent>(
+      'DirectorMembershipChanged',
+      eventsContract.channels.directorMembershipChanged,
+      (event) => ({ competitionId: event.competitionId, revision: event.revision }),
     );
 
     // MqttConnected → event:mqttStatusChanged
