@@ -172,10 +172,11 @@ describe('SettingsTargetTab', () => {
       });
     });
   });
-  it.each(['unknown', 'joined'])('disables competition type selection while %s', async (status) => {
+  it.each(['unknown', 'joined', 'failed'])('disables competition type selection while %s', async (status) => {
     useDirectorMembershipStore.setState({
       membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
       hydrated: status === 'joined',
+      hydrationFailed: status === 'failed',
     });
     render(<SettingsTargetTab />);
     await screen.findByText('BR 60S Qualification');
@@ -184,7 +185,9 @@ describe('SettingsTargetTab', () => {
       expect(button).toHaveAccessibleDescription(
         status === 'joined'
           ? 'Competition progress is controlled by Director'
-          : 'Director membership is not yet available',
+          : status === 'failed'
+            ? 'Director membership could not be loaded'
+            : 'Director membership is not yet available',
       );
       fireEvent.click(button);
     }

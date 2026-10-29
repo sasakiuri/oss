@@ -36,7 +36,11 @@ describe('Director membership hydration', () => {
 
   it.each([null, 'competition-1'])('starts locked and hydrates membership %s', async (competitionId) => {
     renderHook(() => useDirectorMembershipEvents());
-    expect(localProgressControls(useDirectorMembershipStore.getState()).allowed).toBe(false);
+    expect(localProgressControls(useDirectorMembershipStore.getState())).toEqual({
+      allowed: false,
+      reason: 'Director membership is not yet available',
+    });
+    expect(useDirectorMembershipStore.getState().hydrationFailed).toBe(false);
     await act(async () => {
       resolveQuery({ competitionId, revision: 0 });
     });
@@ -84,10 +88,18 @@ describe('Director membership hydration', () => {
     await act(async () => {
       rejectQuery(new Error('Membership unavailable'));
     });
+    expect(useDirectorMembershipStore.getState().hydrationFailed).toBe(true);
+    expect(localProgressControls(useDirectorMembershipStore.getState())).toEqual({
+      allowed: false,
+      reason: 'Director membership could not be loaded',
+    });
     act(() => {
       push({ competitionId: null, revision: 2 });
     });
     expect(localProgressControls(useDirectorMembershipStore.getState()).allowed).toBe(false);
+    expect(localProgressControls(useDirectorMembershipStore.getState()).reason).toBe(
+      'Director membership could not be loaded',
+    );
     expect(useLogStore.getState().entries).toEqual([
       expect.objectContaining({
         level: 'error',
@@ -110,5 +122,36 @@ describe('Director membership hydration', () => {
       oldResolve({ competitionId: null, revision: 100 });
     });
     expect(useDirectorMembershipStore.getState().membership).toEqual({ competitionId: 'competition-2', revision: 0 });
+  });
+  it('clears the failure for a new hydration attempt and recovers on query success', async () => {
+    const { unmount } = renderHook(() => useDirectorMembershipEvents());
+    await act(async () => {
+      rejectQuery(new Error('Membership unavailable'));
+    });
+    expect(useDirectorMembershipStore.getState().hydrationFailed).toBe(true);
+    unmount();
+    renderHook(() => useDirectorMembershipEvents());
+    expect(useDirectorMembershipStore.getState().hydrationFailed).toBe(false);
+    expect(localProgressControls(useDirectorMembershipStore.getState()).reason).toBe(
+      'Director membership is not yet available',
+    );
+    await act(async () => {
+      resolveQuery({ competitionId: null, revision: 0 });
+    });
+    expect(localProgressControls(useDirectorMembershipStore.getState()).allowed).toBe(true);
+  });
+
+  it('ignores a query failure from an unmounted subscription', async () => {
+    const { unmount } = renderHook(() => useDirectorMembershipEvents());
+    const oldReject = rejectQuery;
+    unmount();
+    renderHook(() => useDirectorMembershipEvents());
+    await act(async () => {
+      resolveQuery({ competitionId: null, revision: 0 });
+      oldReject(new Error('Old query failed'));
+    });
+    expect(useDirectorMembershipStore.getState().hydrationFailed).toBe(false);
+    expect(localProgressControls(useDirectorMembershipStore.getState()).allowed).toBe(true);
+    expect(useLogStore.getState().entries).toEqual([]);
   });
 });

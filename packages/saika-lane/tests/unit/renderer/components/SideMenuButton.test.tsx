@@ -34,6 +34,25 @@ describe('SideMenuButton', () => {
       expect(screen.getByRole('button')).toHaveAttribute('title', 'Test Button');
     });
 
+    it('includes the disabled reason in the visible tooltip while retaining the button name', () => {
+      render(
+        <SideMenuButton
+          {...defaultProps({ disabled: true, disabledReason: 'Competition progress is controlled by Director' })}
+        />,
+      );
+      expect(screen.getByRole('button', { name: 'Test Button' })).toHaveAttribute(
+        'title',
+        'Test Button: Competition progress is controlled by Director',
+      );
+    });
+
+    it('keeps the ordinary tooltip when the button is enabled', () => {
+      render(
+        <SideMenuButton {...defaultProps({ disabledReason: 'Competition progress is controlled by Director' })} />,
+      );
+      expect(screen.getByRole('button')).toHaveAttribute('title', 'Test Button');
+    });
+
     it('should have type="button"', () => {
       render(<SideMenuButton {...defaultProps()} />);
 

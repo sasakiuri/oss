@@ -326,7 +326,7 @@ describe('SideMenu', () => {
 });
 
 describe('Director membership menu controls', () => {
-  it.each(['unknown', 'joined'])(
+  it.each(['unknown', 'joined', 'failed'])(
     'disables progress with an accessible reason while %s, preserving other controls',
     async (status) => {
       mockCompetitionId = 'comp-1';
@@ -335,17 +335,21 @@ describe('Director membership menu controls', () => {
       useDirectorMembershipStore.setState({
         membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
         hydrated: status === 'joined',
+        hydrationFailed: status === 'failed',
       });
       const props = defaultProps({ onPrintClick: vi.fn() });
       const { rerender } = render(<SideMenu {...props} />);
       const reason =
         status === 'joined'
           ? 'Competition progress is controlled by Director'
-          : 'Director membership is not yet available';
+          : status === 'failed'
+            ? 'Director membership could not be loaded'
+            : 'Director membership is not yet available';
       for (const label of ['Preparation', 'Match', 'Advance']) {
         const button = screen.getByRole('button', { name: label });
         expect(button).toBeDisabled();
         expect(button).toHaveAccessibleDescription(reason);
+        expect(button).toHaveAttribute('title', `${label}: ${reason}`);
       }
       const user = userEvent.setup();
       for (const label of ['Zoom', 'Settings', 'Print', 'Range Officer'])

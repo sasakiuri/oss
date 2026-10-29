@@ -20,6 +20,7 @@ export function useDirectorMembershipEvents(): void {
       },
       (error: unknown) => {
         if (!active) return;
+        store.failHydration();
         useLogStore.getState().addEntry({
           id: `director-membership-error-${Date.now()}`,
           timestamp: new Date().toISOString(),

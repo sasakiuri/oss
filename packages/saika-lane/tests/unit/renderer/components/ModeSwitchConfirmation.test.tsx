@@ -451,13 +451,14 @@ describe('Preparation and Match confirmation through App', () => {
     expectNoAction();
   });
 
-  it.each(['unknown', 'joined'])(
+  it.each(['unknown', 'joined', 'failed'])(
     'locks progress through App while %s and preserves other shortcuts',
     async (status) => {
       startCompetition();
       useDirectorMembershipStore.setState({
         membership: status === 'joined' ? { competitionId: 'remote-1', revision: 1 } : null,
         hydrated: status === 'joined',
+        hydrationFailed: status === 'failed',
       });
       render(<App />);
       for (const name of ['Preparation', 'Match', 'End Preparation'])

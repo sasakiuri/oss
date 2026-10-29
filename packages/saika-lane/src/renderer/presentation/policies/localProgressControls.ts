@@ -6,9 +6,11 @@ export function localProgressControls(
   {
     membership,
     hydrated,
+    hydrationFailed,
   }: {
     membership: DirectorMembershipDto | null;
     hydrated: boolean;
+    hydrationFailed: boolean;
   },
   action: 'progress' | 'sighting' | 'match' = 'progress',
   competition?: {
@@ -32,6 +34,7 @@ export function localProgressControls(
   if (competition?.phase === 'ACTIVE' && competition.athleteTargetControlPending && action !== 'progress') {
     return { allowed: false, reason: 'Target controls are loading' };
   }
+  if (hydrationFailed) return { allowed: false, reason: 'Director membership could not be loaded' };
   if (!hydrated || !membership) return { allowed: false, reason: 'Director membership is not yet available' };
   if (membership.competitionId !== null) {
     return { allowed: false, reason: 'Competition progress is controlled by Director' };

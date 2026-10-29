@@ -71,7 +71,14 @@ export class CompetitionStateSubscriber {
       getLogger().info(`[CompetitionStateSubscriber] Subscribed to ${topic}`, 'mqtt');
       return state;
     } catch (error) {
-      await this.unsubscribe();
+      try {
+        await this.unsubscribe();
+      } catch (cleanupError) {
+        getLogger().warn('[CompetitionStateSubscriber] Failed to clean up competition subscription', 'mqtt', {
+          competitionId,
+          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+        });
+      }
       throw error;
     }
   }

@@ -156,6 +156,10 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
     const sighting = screen.getByRole('button', { name: 'Sighting' });
     expect(sighting).toBeDisabled();
     expect(sighting).toHaveAccessibleDescription('Sighting is unavailable after the first Match shot of this series');
+    expect(sighting).toHaveAttribute(
+      'title',
+      'Sighting: Sighting is unavailable after the first Match shot of this series',
+    );
     expect(screen.getByRole('note')).toHaveTextContent(
       'Sighting is unavailable after the first Match shot of this series',
     );
@@ -187,6 +191,7 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
     const match = screen.getByRole('button', { name: 'Match' });
     expect(match).toBeDisabled();
     expect(match).toHaveAccessibleDescription('This position change allows Sighting only');
+    expect(match).toHaveAttribute('title', 'Match: This position change allows Sighting only');
     await act(async () => {
       fireEvent.keyDown(window, { code: 'Numpad2' });
     });
