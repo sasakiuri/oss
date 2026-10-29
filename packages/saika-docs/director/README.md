@@ -146,7 +146,10 @@ Athlete → Affiliation → Family name → Start # → ISSF ID → NOC → Gend
 ## 再接続・再起動したとき
 
 同じブローカーへ接続し、「Refresh」で競技・Lane・割当・残り時間を確認します。
-タイマーは元の終了予定時刻から復元されるため、再起動しても持ち時間は最初からには戻りません。
+Director のタイマーは元の終了予定時刻から復元されるため、再起動しても持ち時間は最初からには戻りません。
+
+Lane が再起動した場合、参加中の通常時計はシリーズ間も停止します。Lane 一覧の「Interrupted — official resume required」は案件の作成前にも表示されます。[中断の記録と再開](./OPERATIONS.md#中断の記録と再開) で案件作成 → Apply Lane STOP → 許可・再開の順に進めます。すでに停止中の案件は同じ案件で続行します。
+
 `timeout` は未実行を意味しないので、操作を連打せず Lane の状態と直前の ACK を確認してください。
 
 復旧の仕組みと外部ブローカーの保存条件は [Retain と復旧](./MQTT_CONTROL.md#retain-と復旧) を参照してください。
