@@ -18,6 +18,7 @@ import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-tran
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import type { ConnectMqttInput } from '@/shared/ipc/contracts';
 import { mqttContract } from '@/shared/ipc/contracts';
 import type { MqttSettings } from '@/shared/ipc/contracts/mqtt.contract';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
@@ -32,7 +33,6 @@ import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber
 import { CompetitionShootOffShotPublisher } from './application/CompetitionShootOffShotPublisher';
 import { CompetitionShotPublisher } from './application/CompetitionShotPublisher';
 import { CompetitionStateSubscriber } from './application/CompetitionStateSubscriber';
-import { DirectorMembership } from './application/DirectorMembership';
 import { EstComplaintSignalPublisher, toEstComplaintSignalPayload } from './application/EstComplaintSignalPublisher';
 import { HardwareStatePublisher } from './application/HardwareStatePublisher';
 import { LaneAssignmentPublisher } from './application/LaneAssignmentPublisher';
@@ -58,6 +58,8 @@ import { AthleteSchema } from './domain/MqttAssignmentSchemas';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
 type MqttDeps =
+  | 'membership'
+  | 'startup'
   | 'eventBus'
   | 'ipcRouter'
   | 'storage'
@@ -92,6 +94,8 @@ function mqttCredentialsFromEnvironment(
 export const mqttModule: ModuleDefinition<MqttDeps> = {
   name: 'mqtt',
   deps: [
+    'membership',
+    'startup',
     'eventBus',
     'ipcRouter',
     'storage',
@@ -112,6 +116,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'database',
   ] as const,
   register({
+    membership,
+    startup,
     eventBus,
     ipcRouter,
     storage,
@@ -131,7 +137,6 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     sessionRepository,
     database,
   }) {
-    const membership = new DirectorMembership(storage, eventBus);
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
     const idempotencyGuard = new CommandIdempotencyGuard();
@@ -384,80 +389,92 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       timedTargetControl,
     );
 
-    // IPC handlers
-    const handlers: InferHandlers<typeof mqttContract> = {
-      connectMqtt: async (input) => {
-        const logger = getLogger();
-        const currentLaneId = settingsStore.getLaneId();
-        const savedSettings = settingsStore.getMqttSettings();
-        const laneAlias = input.laneAlias ?? savedSettings?.laneAlias ?? '';
+    let inFlightConnect: Promise<void> | null = null;
+    const connect = async (input: ConnectMqttInput): Promise<void> => {
+      const logger = getLogger();
+      const currentLaneId = settingsStore.getLaneId();
+      const savedSettings = settingsStore.getMqttSettings();
+      const laneAlias = input.laneAlias ?? savedSettings?.laneAlias ?? '';
 
-        try {
-          if (mqttClient.isConnected()) {
-            hardwarePublisher.stopHeartbeat();
-            await hardwarePublisher.publishOfflineState();
-            await tier1Handler.unsubscribe();
-            await mqttClient.disconnect();
-          }
-
-          // Set Will message on MqttClientService before connecting
-          hardwarePublisher.setRuntimeLaneAlias(laneAlias);
-          mqttClient.setWill(hardwarePublisher.getWillTopic(), hardwarePublisher.getWillPayload(), 1, true);
-
-          await mqttClient.connect({
-            brokerUrl: input.brokerUrl,
-            clientId: `saika-lane-${currentLaneId}`,
-            ...(mqttCredentials ? { credentials: mqttCredentials } : {}),
-          });
-
-          // Register reconnect callbacks (must be after connect so onConnect/onDisconnect work)
-          retainPublisher.registerCallbacks(true);
-
-          // Publish initial state
-          hardwarePublisher.resumePublishing();
-          hardwarePublisher.publishState();
-          await safetyStatePublisher.publishCurrentState();
-          await rangeOfficerRequestPublisher.publishCurrentState();
-          await qualificationMalfunctionSignalPublisher.publishCurrentState();
-          await estComplaintSignalPublisher.publishCurrentState();
-          await timedTargetStatePublisher.publishCurrentState();
-          await qualificationRecoveryStatePublisher.publishCurrentState();
-          hardwarePublisher.startHeartbeat();
-
-          // Subscribe to Tier1 commands
-          await tier1Handler.subscribe();
-
-          // Save settings if autoConnect requested
-          if (input.autoConnect) {
-            const settings: MqttSettings = {
-              enabled: true,
-              brokerUrl: input.brokerUrl,
-              laneAlias,
-              autoConnect: true,
-              laneId: currentLaneId,
-            };
-            settingsStore.saveMqttSettings(settings);
-            hardwarePublisher.setRuntimeLaneAlias(null);
-          }
-
-          // Emit MqttConnected event for ContractEventForwarder
-          eventBus.emit({
-            type: 'MqttConnected',
-            timestamp: Date.now(),
-            aggregateId: currentLaneId,
-            brokerUrl: sanitizeBrokerUrl(input.brokerUrl),
-            laneId: currentLaneId,
-          });
-
-          logger.info(`[MQTT Module] Connected to ${sanitizeBrokerUrl(input.brokerUrl)}`, 'mqtt');
-        } catch (error) {
+      try {
+        if (mqttClient.isConnected()) {
           hardwarePublisher.stopHeartbeat();
-          await hardwarePublisher.publishOfflineState().catch(() => undefined);
-          await tier1Handler.unsubscribe().catch(() => undefined);
-          await mqttClient.disconnect().catch(() => undefined);
-          throw error;
+          await hardwarePublisher.publishOfflineState();
+          await tier1Handler.unsubscribe();
+          await mqttClient.disconnect();
         }
-      },
+
+        // Set Will message on MqttClientService before connecting
+        hardwarePublisher.setRuntimeLaneAlias(laneAlias);
+        mqttClient.setWill(hardwarePublisher.getWillTopic(), hardwarePublisher.getWillPayload(), 1, true);
+
+        await mqttClient.connect({
+          brokerUrl: input.brokerUrl,
+          clientId: `saika-lane-${currentLaneId}`,
+          ...(mqttCredentials ? { credentials: mqttCredentials } : {}),
+        });
+
+        // Register reconnect callbacks (must be after connect so onConnect/onDisconnect work)
+        retainPublisher.registerCallbacks(true);
+
+        // Publish initial state
+        hardwarePublisher.resumePublishing();
+        hardwarePublisher.publishState();
+        await safetyStatePublisher.publishCurrentState();
+        await rangeOfficerRequestPublisher.publishCurrentState();
+        await qualificationMalfunctionSignalPublisher.publishCurrentState();
+        await estComplaintSignalPublisher.publishCurrentState();
+        await timedTargetStatePublisher.publishCurrentState();
+        await qualificationRecoveryStatePublisher.publishCurrentState();
+        hardwarePublisher.startHeartbeat();
+
+        // Subscribe to Tier1 commands
+        await tier1Handler.subscribe();
+
+        // Save settings if autoConnect requested
+        if (input.autoConnect) {
+          const settings: MqttSettings = {
+            enabled: true,
+            brokerUrl: input.brokerUrl,
+            laneAlias,
+            autoConnect: true,
+            laneId: currentLaneId,
+          };
+          settingsStore.saveMqttSettings(settings);
+          hardwarePublisher.setRuntimeLaneAlias(null);
+        }
+
+        // Emit MqttConnected event for ContractEventForwarder
+        eventBus.emit({
+          type: 'MqttConnected',
+          timestamp: Date.now(),
+          aggregateId: currentLaneId,
+          brokerUrl: sanitizeBrokerUrl(input.brokerUrl),
+          laneId: currentLaneId,
+        });
+
+        await retainPublisher.republish();
+        logger.info(`[MQTT Module] Connected to ${sanitizeBrokerUrl(input.brokerUrl)}`, 'mqtt');
+      } catch (error) {
+        hardwarePublisher.stopHeartbeat();
+        await hardwarePublisher.publishOfflineState().catch(() => undefined);
+        await tier1Handler.unsubscribe().catch(() => undefined);
+        await mqttClient.disconnect().catch(() => undefined);
+        throw error;
+      }
+    };
+    const connectMqtt = (input: ConnectMqttInput): Promise<void> => {
+      inFlightConnect ??= connect(input).finally(() => {
+        inFlightConnect = null;
+      });
+      return inFlightConnect;
+    };
+    startup.afterReady(async () => {
+      const settings = settingsStore.getMqttSettings();
+      if (settings.enabled && settings.autoConnect && !mqttClient.isConnected()) await connectMqtt(settings);
+    });
+    const handlers: InferHandlers<typeof mqttContract> = {
+      connectMqtt,
 
       disconnectMqtt: async () => {
         hardwarePublisher.stopHeartbeat();

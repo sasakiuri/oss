@@ -250,7 +250,23 @@ export class BroadcastCommandHandler {
     const interruption = this.interruptionControl?.get(competitionId);
     if (interruption) {
       if (action === 'timer-expired') return;
-      if (action !== 'stop-shoot-off' && action !== 'cancel-timed-target' && action !== 'record-timed-target-unload') {
+      const state = action === 'advance-series' ? await this.requireCompetition(competitionId) : null;
+      const continuingStage =
+        state !== null &&
+        state.usesStageTimer &&
+        state.canUpdateTimer() &&
+        (state.phase === 'SERIES_COMPLETE' || state.phase === 'SERIES_ENTERED') &&
+        command.stageIndex === state.currentStageIndex &&
+        command.timerStartAt === undefined &&
+        command.timerDurationSeconds === undefined &&
+        (interruption.status === 'SIGHTING' || interruption.status === 'RUNNING_MATCH') &&
+        (command.resumeOnly === true || state.currentSeriesIndex + 1 < state.currentStageConfig.series.length);
+      if (
+        !continuingStage &&
+        action !== 'stop-shoot-off' &&
+        action !== 'cancel-timed-target' &&
+        action !== 'record-timed-target-unload'
+      ) {
         throw laneInterruptedError(interruption.interruptionId, action);
       }
     }

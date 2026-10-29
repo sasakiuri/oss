@@ -2,6 +2,7 @@
 /** Renderer bridge types inferred from the shared IPC contracts. */
 
 import type {
+  startupContract,
   competitionContract,
   connectionContract,
   AppUpdateStateDto,
@@ -70,6 +71,7 @@ export interface ElectronAPI {
 
   /** Competition management methods */
   readonly competition: CompetitionBridge;
+  readonly startup: InferBridge<typeof startupContract>;
 
   /**
    * Settings management methods

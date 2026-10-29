@@ -132,7 +132,22 @@ describe('CompetitionStateSubscriber', () => {
     expect(commandBus.execute).not.toHaveBeenCalled();
   });
 
+  it('rejects reattachment of finished A while a different B is active', async () => {
+    vi.mocked(competitionRepository.findById).mockResolvedValue({
+      ...matchingCompetition(),
+      phase: 'FINISHED',
+    } as CompetitionState);
+    vi.mocked(competitionRepository.findActive).mockResolvedValue({
+      ...matchingCompetition(),
+      id: 'different-run',
+    } as CompetitionState);
+    retainedPayload = JSON.stringify(validState({ phase: 'MATCH', startedAt: new Date().toISOString() }));
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toThrow();
+    expect(commandBus.execute).not.toHaveBeenCalled();
+  });
+
   it('accepts retained active timer metadata from the Director', async () => {
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(matchingCompetition());
     vi.mocked(competitionRepository.findById).mockResolvedValue(matchingCompetition());
     const timerStartAt = new Date().toISOString();
     retainedPayload = JSON.stringify(

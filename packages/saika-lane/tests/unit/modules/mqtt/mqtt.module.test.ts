@@ -5,6 +5,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import type {
   IQualificationRecoveryAdjudicationControl,
@@ -23,7 +24,7 @@ import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import { createMockSettingsStore } from '../../../helpers/mockDependencies';
+import { createMockStartup, createMockSettingsStore } from '../../../helpers/mockDependencies';
 
 const { mockMqttClient } = vi.hoisted(() => ({
   mockMqttClient: {
@@ -231,6 +232,8 @@ describe('mqtt.module', () => {
 
   it('should declare correct dependencies', () => {
     expect(mqttModule.deps).toEqual([
+      'membership',
+      'startup',
       'eventBus',
       'ipcRouter',
       'storage',
@@ -260,6 +263,8 @@ describe('mqtt.module', () => {
       storage,
       settingsStore,
       queryBus,
+      startup: createMockStartup(),
+      membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
       timerService,
@@ -292,6 +297,8 @@ describe('mqtt.module', () => {
         storage,
         settingsStore,
         queryBus,
+        startup: createMockStartup(),
+        membership: new DirectorMembership(storage, eventBus),
         commandBus,
         competitionRepository,
         timerService,
@@ -319,6 +326,8 @@ describe('mqtt.module', () => {
       storage,
       settingsStore,
       queryBus,
+      startup: createMockStartup(),
+      membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
       timerService,
@@ -348,6 +357,8 @@ describe('mqtt.module', () => {
       storage,
       settingsStore,
       queryBus,
+      startup: createMockStartup(),
+      membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
       timerService,
@@ -377,6 +388,8 @@ describe('mqtt.module', () => {
       storage,
       settingsStore,
       queryBus,
+      startup: createMockStartup(),
+      membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
       timerService,
@@ -398,6 +411,69 @@ describe('mqtt.module', () => {
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
   });
 
+  it.each([
+    [false, true],
+    [true, false],
+    [true, true],
+  ])(
+    'auto-connects after READY only when enabled=%s and autoConnect=%s, sharing a button connect',
+    async (enabled, autoConnect) => {
+      const startup = createMockStartup();
+      settingsStore.saveMqttSettings({
+        ...settingsStore.getMqttSettings(),
+        enabled: enabled!,
+        autoConnect: autoConnect!,
+        brokerUrl: 'mqtt://localhost:1883',
+      });
+      mockMqttClient.on.mockReset();
+      mqttModule.register({
+        eventBus,
+        ipcRouter,
+        storage,
+        settingsStore,
+        queryBus,
+        startup,
+        membership: new DirectorMembership(storage, eventBus),
+        commandBus,
+        competitionRepository,
+        timerService,
+        competitionInterruptionControl,
+        competitionShootOffControl,
+        qualificationRecoveryControl,
+        qualificationRecoveryAdjudicationControl,
+        qualificationRecoverySettlementControl,
+        safetyStopControl,
+        timedTargetControl,
+        timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
+          connection: () => null,
+          hasActiveCompetition: async () => false,
+        }),
+        sessionRepository,
+        database,
+      });
+      expect(mockMqttClient.on).not.toHaveBeenCalled();
+      const afterReady = vi.mocked(startup.afterReady).mock.calls[0]![0];
+      const automatic = afterReady();
+      expect(mockMqttClient.on.mock.calls.some(([event]) => event === 'connect')).toBe(enabled && autoConnect);
+      if (!enabled || !autoConnect) {
+        await automatic;
+        return;
+      }
+      const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
+        connectMqtt(input: { brokerUrl: string }): Promise<void>;
+        disconnectMqtt(): Promise<void>;
+      };
+      const manual = handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+      const connected = mockMqttClient.on.mock.calls.find(([event]) => event === 'connect')![1];
+      expect(mockMqttClient.on.mock.calls.filter(([event]) => event === 'connect')).toHaveLength(1);
+      mockMqttClient.connected = true;
+      connected();
+      await Promise.all([automatic, manual]);
+      expect(mockMqttClient.subscribeAsync).toHaveBeenCalledTimes(1);
+      await handlers.disconnectMqtt();
+    },
+  );
+
   it('should publish offline and close the client when initial subscription fails', async () => {
     let emittedInitialConnect = false;
     mockMqttClient.on.mockImplementation((event: string, handler: Function) => {
@@ -417,6 +493,8 @@ describe('mqtt.module', () => {
       storage,
       settingsStore,
       queryBus,
+      startup: createMockStartup(),
+      membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
       timerService,

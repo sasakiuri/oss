@@ -28,6 +28,12 @@ vi.mock('electron', () => ({
     return state.window;
   }),
 }));
+vi.mock('@/main/startup/restoreActiveRun', () => ({
+  ActiveRunStartup: class {
+    restore = vi.fn().mockResolvedValue({ status: 'READY' });
+  },
+}));
+
 vi.mock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
 vi.mock('@/main/shared-infra/logging', () => ({ getLogger: () => ({ debug: vi.fn() }) }));
 vi.mock('@/main/composition/createLaneApp', () => ({ createLaneApp: state.createLaneApp }));

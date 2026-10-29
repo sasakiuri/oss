@@ -150,6 +150,16 @@ export class CompetitionStateSubscriber {
 
     const existing = await this.competitionRepository.findById(state.competitionId);
     if (existing) {
+      const active = await this.competitionRepository.findActive();
+      if (
+        state.phase !== 'NOT_STARTED' &&
+        active?.id !== state.competitionId &&
+        !(existing.phase === 'FINISHED' && !active)
+      ) {
+        throw ErrorCatalog.createError('MQTT_COMPETITION_STATE_MISMATCH', {
+          detail: 'A different local competition is active',
+        });
+      }
       const totalSeries = existing.config.stages
         .filter((stage) => stage.scored)
         .flatMap((stage) => stage.series)

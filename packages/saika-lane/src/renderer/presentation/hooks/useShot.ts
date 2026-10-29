@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { calculateSeriesScores } from '@/renderer/presentation/utils/scoreUtils';
 import { sessionService } from '@/renderer/services/sessionService';
 import type { ShotDto } from '@/shared/ipc/contracts';
@@ -68,19 +68,24 @@ export function useShot(): UseShotResult {
     }
 
     setIsLoading(true);
-
+    let resetDuringQuery = false;
+    const unsubscribe = window.electronAPI.on.sessionReset(() => {
+      resetDuringQuery = true;
+    });
     try {
       const { shots: fetchedShots } = await sessionService.getShotHistory({
         sessionId: currentSessionId,
       });
 
-      // Update the entire shots array
-      setShots(fetchedShots);
-      // Recalculate scores
-      calculateScores(fetchedShots);
+      const current = useSessionStore.getState();
+      if (resetDuringQuery || current.currentSessionId !== currentSessionId) return;
+      const merged = mergeShots(fetchedShots, current.shots);
+      setShots(merged);
+      calculateScores(merged);
     } catch {
       // Shot history refresh failure — non-critical, will retry on next event
     } finally {
+      unsubscribe();
       setIsLoading(false);
     }
   }, [currentSessionId, setShots, calculateScores]);

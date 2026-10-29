@@ -4,6 +4,13 @@ import { create } from 'zustand';
 
 import type { Discipline, SessionMode, ShotDto } from '@/shared/ipc/contracts';
 
+/** Merge a history reply with live deliveries without duplicating shot IDs. */
+export function mergeShots(history: readonly ShotDto[], live: readonly ShotDto[]): ShotDto[] {
+  return [...new Map([...history, ...live].map((shot) => [shot.id, shot])).values()].sort(
+    (left, right) => left.shotNumber - right.shotNumber,
+  );
+}
+
 interface SessionState {
   /** Current session ID (null when no session is active) */
   currentSessionId: string | null;
@@ -103,7 +110,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
 
   addShot: (shot) => {
     set((state) => ({
-      shots: [...state.shots, shot], // Create a new array to preserve immutability
+      shots: mergeShots(state.shots, [shot]),
     }));
   },
 

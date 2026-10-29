@@ -886,6 +886,32 @@ describe('BroadcastCommandHandler', () => {
     });
   });
 
+  describe('resumed stage clock in a waiting phase', () => {
+    it.each(['SIGHTING', 'RUNNING_MATCH'] as const)(
+      'accepts same-stage advance-series after %s resume',
+      async (status) => {
+        competitionState = createCompetitionState('SERIES_COMPLETE', 1, 0);
+        vi.mocked(interruptionControl.get).mockReturnValue({ interruptionId: OTHER_LANE_ID, status } as ReturnType<
+          ICompetitionInterruptionControl['get']
+        >);
+        await sendMessage('advance-series', buildCommand({ stageIndex: 1, fromSeriesIndex: 0 }));
+        const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1] as string);
+        expect(ack.status).toBe('done');
+        expect(commandBus.execute).toHaveBeenCalled();
+      },
+    );
+    it('accepts resumeOnly at an already-entered same-stage destination', async () => {
+      competitionState = createCompetitionState('SERIES_ENTERED', 1, 1);
+      vi.mocked(interruptionControl.get).mockReturnValue({
+        interruptionId: OTHER_LANE_ID,
+        status: 'RUNNING_MATCH',
+      } as ReturnType<ICompetitionInterruptionControl['get']>);
+      await sendMessage('advance-series', buildCommand({ stageIndex: 1, fromSeriesIndex: 1, resumeOnly: true }));
+      expect(commandBus.execute).toHaveBeenCalledOnce();
+      expect(vi.mocked(commandBus.execute).mock.calls[0]![0].name).toBe('StartNextSeries');
+    });
+  });
+
   describe('active Lane interruption', () => {
     beforeEach(() => {
       vi.mocked(interruptionControl.get).mockReturnValue({

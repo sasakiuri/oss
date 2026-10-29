@@ -7,6 +7,8 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
+import { createMockStorage } from '../../../../helpers/mockDependencies';
+
 // createLogger mock
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -37,12 +39,46 @@ describe('LaneTimerService', () => {
       on: vi.fn(() => vi.fn()),
     };
 
-    timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus);
+    timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage());
   });
 
   afterEach(() => {
     timerService.stop();
     vi.useRealTimers();
+  });
+
+  it('persists only an armed deadline, never periodic ticks, and deletes it on stop', async () => {
+    const storage = createMockStorage();
+    timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, storage);
+    timerService.start('saved', 30, 60, 1);
+    const expiresAtMs = Date.now() + 30_000;
+    expect(storage.get('competitionClock')).toEqual({
+      competitionId: 'saved',
+      expiresAtMs,
+      totalSeconds: 60,
+      stageTimerIndex: 1,
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(storage.set).toHaveBeenCalledTimes(1);
+    expect(storage.get('competitionClock')).toMatchObject({ expiresAtMs });
+    timerService.stop();
+    expect(storage.get('competitionClock')).toBeUndefined();
+  });
+
+  it('discards a clock whose aggregate position is no longer eligible', () => {
+    const storage = createMockStorage();
+    const active = CompetitionState.create('saved', 'session', BR60S.config).startStage();
+    timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, storage);
+    for (const state of [null, active.finish(), active]) {
+      storage.set('competitionClock', {
+        competitionId: 'saved',
+        expiresAtMs: Date.now() + 1000,
+        totalSeconds: 60,
+        stageTimerIndex: 99,
+      });
+      expect(timerService.savedClock(state)).toBeNull();
+      expect(storage.get('competitionClock')).toBeUndefined();
+    }
   });
 
   describe('start()', () => {
@@ -81,7 +117,7 @@ describe('LaneTimerService', () => {
     });
 
     it('rejects a start when the injected execution gate is closed', () => {
-      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => false);
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), () => false);
 
       expect(() => timerService.start('comp-1', 600, 600)).toThrow('Lane execution gate');
       expect(vi.getTimerCount()).toBe(0);
@@ -206,7 +242,7 @@ describe('LaneTimerService', () => {
 
     it('rejects a pending absolute start if the execution gate closes while waiting', async () => {
       let permitted = true;
-      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), () => permitted);
       const fiveSecondsLater = new Date(Date.now() + 5_000).toISOString();
       const startPromise = timerService.startAt('comp-1', fiveSecondsLater, 60);
       permitted = false;
@@ -415,7 +451,7 @@ describe('LaneTimerService', () => {
 
     it('stops without expiring when the execution gate closes before a tick', async () => {
       let permitted = true;
-      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), () => permitted);
       timerService.start('comp-1', 1, 600);
       vi.clearAllMocks();
 
@@ -454,7 +490,7 @@ describe('LaneTimerService', () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(async () => firstSave);
-      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, () => permitted);
+      timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), () => permitted);
 
       const expiry = timerService.expire('comp-1');
       await Promise.resolve();

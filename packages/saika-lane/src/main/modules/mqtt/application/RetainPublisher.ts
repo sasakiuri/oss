@@ -30,7 +30,7 @@ export class RetainPublisher {
   private readonly assignmentPublisher: LaneAssignmentPublisher;
   private readonly competitionStatePublisher: LaneCompetitionStatePublisher;
   private readonly scorePublisher: LaneScorePublisher;
-  private disconnectedAt: Date | null = null;
+  private disconnectedAt: Date | null = new Date(0);
   private isInitialConnect = true;
 
   constructor(
@@ -67,7 +67,7 @@ export class RetainPublisher {
   registerCallbacks(initialConnectionAlreadyOccurred: boolean = false): void {
     this.isInitialConnect = !initialConnectionAlreadyOccurred;
     this.mqttClient.onDisconnect(() => {
-      this.disconnectedAt = new Date();
+      this.disconnectedAt ??= new Date();
     });
 
     this.mqttClient.onConnect(() => {

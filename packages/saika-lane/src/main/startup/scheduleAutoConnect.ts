@@ -2,23 +2,21 @@
 import { ConnectToTargetToken } from '@/main/composition/tokens';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
-import {
-  findTargetDeviceDefinition,
-  isBpt216DeviceId,
-  isDisagRedDotDeviceId,
-} from '@/main/modules/target/domain/targetDeviceDefinitions';
+import { findTargetDeviceDefinition } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus } from '@/main/shared-infra/cqrs';
 import { getLogger } from '@/main/shared-infra/logging';
+import type { StartupStateDto } from '@/shared/ipc/contracts/startup.contract';
 
 export function scheduleAutoConnect(
   settingsStore: IAppSettingsStore,
   usbManager: Pick<IUSBConnectionManager, 'listPorts'>,
   commandBus: CommandBus,
-  firstSessionStarted: Promise<void>,
+  ready: Promise<StartupStateDto>,
 ): void {
   void (async () => {
+    if ((await ready).status !== 'READY') return;
     const logger = getLogger();
     let settings = settingsStore.getConnectionSettings();
 
@@ -72,13 +70,6 @@ export function scheduleAutoConnect(
         error: err instanceof Error ? err.message : String(err),
       });
       return;
-    }
-
-    if (isBpt216DeviceId(settings.deviceId) || isDisagRedDotDeviceId(settings.deviceId)) {
-      logger.info('Auto-connect: waiting for the initial session before connecting the selected target.', 'main', {
-        deviceId: settings.deviceId,
-      });
-      await firstSessionStarted;
     }
 
     logger.info(`Auto-connect: attempting connection to ${settings.portName} (${settings.manufacturer})`, 'main');

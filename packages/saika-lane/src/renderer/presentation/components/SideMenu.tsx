@@ -52,15 +52,18 @@ export const SideMenu: React.FC<SideMenuProps> = ({
   const athleteTargetControlLoaded = useCompetitionStore((s) => s.athleteTargetControlLoaded);
   const unavailable = phase === 'ACTIVE' && !athleteTargetControlLoaded;
   const membershipState = useDirectorMembershipStore();
-  const permission = localProgressControls(membershipState);
+  const interruption = useCompetitionStore((s) => s.interruption);
+  const permission = localProgressControls(membershipState, 'progress', { phase, interruption, athleteTargetControl });
   const sightingPermission = localProgressControls(membershipState, 'sighting', {
     phase,
+    interruption,
     athleteTargetControl,
     athleteTargetControlPending,
     athleteTargetControlLoaded,
   });
   const matchPermission = localProgressControls(membershipState, 'match', {
     phase,
+    interruption,
     athleteTargetControl,
     athleteTargetControlPending,
     athleteTargetControlLoaded,

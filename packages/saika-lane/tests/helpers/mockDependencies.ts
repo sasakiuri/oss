@@ -303,3 +303,10 @@ export function createMockAdapterRegistry(): AdapterRegistry {
     getRegisteredDeviceIds: vi.fn(() => []),
   } as unknown as AdapterRegistry;
 }
+
+export function createMockStartup() {
+  return {
+    snapshot: vi.fn().mockResolvedValue({ status: 'READY' }),
+    afterReady: vi.fn(),
+  } as unknown as import('@/main/startup/restoreActiveRun').ActiveRunStartup;
+}

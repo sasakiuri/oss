@@ -32,6 +32,8 @@ function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): Competition
     currentStageName: 'Match',
     scored: true,
     shotsPerSeries: 10,
+    acc: 'DECIMAL',
+    interruption: null,
     athleteTargetControl: {
       officialSighting: false,
       sightingAllowed: true,
@@ -200,6 +202,8 @@ describe('athlete projection refresh', () => {
     vi.mocked(competitionService.getCompetitionState).mockResolvedValue({
       ...dto(),
       seriesShotCount: 1,
+      acc: 'DECIMAL',
+      interruption: null,
       athleteTargetControl: {
         officialSighting: false,
         sightingAllowed: false,

@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: MIT
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
+import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
+
+export interface SavedLaneClock {
+  competitionId: string;
+  expiresAtMs: number;
+  totalSeconds: number;
+  stageTimerIndex: number | null;
+}
 
 /** Ticks once per second with drift correction. Remaining time is kept in memory and persisted on expiry. */
 export class LaneTimerService {
+  private static readonly CLOCK_KEY = 'competitionClock';
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private expiresAtMs: number = 0;
   private competitionId: string | null = null;
@@ -24,6 +34,7 @@ export class LaneTimerService {
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
     private readonly eventBus: IEventBus,
+    private readonly storage: Pick<ILocalStorage, 'get' | 'set' | 'delete'>,
     private readonly isRunPermitted: () => boolean = () => true,
   ) {}
 
@@ -56,6 +67,7 @@ export class LaneTimerService {
   ): void {
     this.stop();
     this.assertRunPermitted();
+    this.storage.set(LaneTimerService.CLOCK_KEY, { competitionId, expiresAtMs, totalSeconds, stageTimerIndex });
     this.competitionId = competitionId;
     this.stageTimerIndex = stageTimerIndex;
     this.expiresAtMs = expiresAtMs;
@@ -200,6 +212,35 @@ export class LaneTimerService {
     this.expiresAtMs = 0;
     this.remainingSeconds = 0;
     this.totalSeconds = 0;
+    this.storage.delete(LaneTimerService.CLOCK_KEY);
+  }
+
+  /** The aggregate owns eligibility; a saved deadline never makes a finished clock runnable. */
+  savedClock(state: CompetitionState | null): SavedLaneClock | null {
+    const clock = this.storage.get<SavedLaneClock>(LaneTimerService.CLOCK_KEY);
+    if (!clock) return null;
+    if (
+      !state ||
+      clock.competitionId !== state.id ||
+      !state.canUpdateTimer() ||
+      state.timer.totalSeconds <= 0 ||
+      state.timer.isExpired ||
+      clock.stageTimerIndex !==
+        (state.currentStageConfig.scored && state.usesStageTimer ? state.currentStageIndex : null)
+    ) {
+      this.storage.delete(LaneTimerService.CLOCK_KEY);
+      return null;
+    }
+    if (!Number.isFinite(clock.expiresAtMs) || !Number.isInteger(clock.totalSeconds) || clock.totalSeconds <= 0) {
+      throw new Error('The saved competition clock is invalid');
+    }
+    return clock;
+  }
+
+  /** Re-arm the original deadline without subtracting elapsed time from a stale snapshot. */
+  async restore(clock: SavedLaneClock): Promise<void> {
+    this.startUntil(clock.competitionId, clock.expiresAtMs, clock.totalSeconds, clock.stageTimerIndex);
+    if (this.remainingSeconds === 0) await this.processTick();
   }
 
   /**
@@ -240,7 +281,7 @@ export class LaneTimerService {
     this.assertRunPermitted();
     const state = await this.competitionRepository.findById(competitionId);
     this.assertRunPermitted();
-    if (!state || state.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
+    if (!state || !state.canUpdateTimer()) throw new Error(`Competition ${competitionId} is not active`);
     await this.competitionRepository.save(state.replaceTimer(durationSeconds, durationSeconds));
     this.assertRunPermitted();
     await this.startAt(competitionId, absoluteTime, durationSeconds);

@@ -21,6 +21,7 @@ import { CompetitionState } from '@/main/modules/competition/domain/CompetitionS
 import { BR60S, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { connectionModule } from '@/main/modules/connection/connection.module';
 import { Connection } from '@/main/modules/connection/domain/Connection';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
@@ -88,6 +89,8 @@ describe('connection.module', () => {
         'adapterRegistry',
         'commandBus',
         'database',
+        'startup',
+        'sessionContextCache',
         'eventBus',
         'connectionRepository',
         'sessionRepository',
@@ -105,7 +108,18 @@ describe('connection.module', () => {
 
   describe('register', () => {
     function registerModule() {
+      const sessionContextCache = new SessionContextCache(eventBus);
+      const ready = sessionContextCache.bootstrap(sessionRepository, competitionRepository, {
+        get: getInterruption,
+      } as never);
       connectionModule.register({
+        sessionContextCache,
+        startup: {
+          snapshot: async () => {
+            await ready;
+            return { status: 'READY' };
+          },
+        },
         commandBus,
         database,
         eventBus,

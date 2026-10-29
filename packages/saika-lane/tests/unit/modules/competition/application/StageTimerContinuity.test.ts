@@ -34,7 +34,7 @@ async function setup(type = BR60S, emitStart = true) {
   } as unknown as ILocalStorage;
   const repository = new CompetitionRepositoryImpl(storage);
   const events = new TypedEventBus();
-  const timer = new LaneTimerService(repository, events);
+  const timer = new LaneTimerService(repository, events, storage);
   events.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository: repository, timerService: timer }));
   const state = CompetitionState.create('competition', 'session', type.config)
     .startStage()

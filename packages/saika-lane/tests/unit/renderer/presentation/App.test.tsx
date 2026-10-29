@@ -83,6 +83,17 @@ describe('App', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(window.electronAPI.startup.getStartupState).mockResolvedValue({
+      success: true,
+      data: {
+        status: 'READY',
+        error: null,
+        competitionId: null,
+        sessionId: null,
+        currentSeriesStartIndex: 0,
+        canFinish: false,
+      },
+    });
     vi.mocked(useSessionModule.useSession).mockReturnValue(defaultMockSession);
   });
 

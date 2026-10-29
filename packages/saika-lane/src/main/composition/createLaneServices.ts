@@ -16,7 +16,9 @@ import {
 } from '@/main/modules/competition-interruption';
 import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
+import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import {
   QualificationRecoveryAdjudicationService,
   QualificationRecoveryService,
@@ -46,13 +48,15 @@ import {
 } from '@/main/modules/timed-target';
 import { StoredTimingProfiles, TimingProfileService } from '@/main/modules/timing-profiles';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
-import { type IEventBus, TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger } from '@/main/shared-infra/logging';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
+import { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
 import { ConnectionSettingsSchema } from '@/shared/ipc/contracts';
 
 import type { ServiceRegistry } from './ModuleDefinition';
+import { StartCompetitionToken } from './tokens';
 
 export interface LaneApplicationPaths {
   userDataPath: string;
@@ -75,7 +79,8 @@ export function createLaneServices(
   const competitionShootOffControl = new LocalCompetitionShootOffControl(storage);
   settingsStore.getAll();
   const eventBus = new TypedEventBus();
-  const firstSessionStarted = waitForFirstSessionStart(eventBus);
+  const membership = new DirectorMembership(storage, eventBus);
+  const sessionContextCache = new SessionContextCache(eventBus);
   const db = createSqliteDb(join(userDataPath, 'saika-lane.db'));
   const sessionRepository = new SqliteSessionRepository(db);
   const connectionRepository = new ConnectionRepositoryImpl(storage);
@@ -108,6 +113,7 @@ export function createLaneServices(
   const timerService = new LaneTimerService(
     competitionRepository,
     eventBus,
+    storage,
     () => safetyStopControl?.isStopped() !== true && !reserveTransferJournal.pending(),
   );
   const competitionInterruptionRepository = new LocalCompetitionInterruptionRepository(storage);
@@ -176,6 +182,25 @@ export function createLaneServices(
     eventBus,
   );
 
+  const startup = new ActiveRunStartup({
+    competitions: competitionRepository,
+    sessions: sessionRepository,
+    membership,
+    timer: timerService,
+    safetyCompetitionId: () => safetyStopControl!.getState()?.timerSnapshot?.competitionId ?? null,
+    interruptions: competitionInterruptionControl,
+    safetyStopped: () => safetyStopControl!.isStopped(),
+    transferPending: () => reserveTransferJournal.pending(),
+    context: sessionContextCache,
+    createCompetition: () =>
+      commandBus.execute(StartCompetitionToken, {
+        competitionTypeId: settingsStore.getUserPreferences().competitionTypeId || 'BR60S',
+      }),
+    restoreIndependentWorkflows: () => {
+      timedTargetControl.restore();
+      qualificationRecoveryControl.restoreActive();
+    },
+  });
   const registry = {
     database: db,
     commandBus,
@@ -183,6 +208,9 @@ export function createLaneServices(
     eventBus,
     ipcRouter,
     storage,
+    membership,
+    sessionContextCache,
+    startup,
     settingsStore,
     usbManager: usbConnectionManager,
     sessionRepository,
@@ -202,16 +230,5 @@ export function createLaneServices(
     mainWindow,
     userDataPath,
   } satisfies ServiceRegistry;
-  return { registry, firstSessionStarted };
-}
-
-function waitForFirstSessionStart(eventBus: IEventBus): Promise<void> {
-  return new Promise((resolve) => {
-    let unsubscribe: (() => void) | null = null;
-    unsubscribe = eventBus.on('SessionStarted', () => {
-      unsubscribe?.();
-      unsubscribe = null;
-      resolve();
-    });
-  });
+  return { registry };
 }

@@ -15,7 +15,8 @@ interface CompetitionTypeItem {
 
 export const SettingsTargetTab: React.FC = () => {
   const membershipState = useDirectorMembershipStore();
-  const permission = localProgressControls(membershipState);
+  const competition = useCompetitionStore();
+  const permission = localProgressControls(membershipState, 'progress', competition);
   const reasonId = useId();
   const savedCompetitionTypeId = useCompetitionStore((s) => s.savedCompetitionTypeId);
   const [competitionTypes, setCompetitionTypes] = useState<CompetitionTypeItem[]>([]);
@@ -34,11 +35,19 @@ export const SettingsTargetTab: React.FC = () => {
   }, []);
 
   const handleSelectCompetitionType = async (competitionTypeId: string) => {
-    if (isApplying || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+    if (
+      isApplying ||
+      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
+    )
+      return;
     setIsApplying(true);
     try {
       const { competitionId } = await competitionService.startCompetition({ competitionTypeId });
-      if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+      if (
+        !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
+          .allowed
+      )
+        return;
       await competitionService.startStage({ competitionId });
       try {
         await settingsService.saveUserPreferences({ competitionTypeId });

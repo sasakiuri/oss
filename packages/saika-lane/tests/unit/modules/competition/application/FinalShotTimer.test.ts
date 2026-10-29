@@ -26,9 +26,10 @@ describe('Final single-shot timer lifecycle', () => {
   it.each([BR60S_FINAL, BP60_FINAL, AR60_FINAL, AP60_FINAL])(
     'starts, expires and resets each $id single-shot window through competition events',
     async (definition) => {
-      const repository = new CompetitionRepositoryImpl(createMockStorage());
+      const storage = createMockStorage();
+      const repository = new CompetitionRepositoryImpl(storage);
       const events = new TypedEventBus();
-      const timer = new LaneTimerService(repository, events);
+      const timer = new LaneTimerService(repository, events, storage);
       const lifecycle = new SessionLifecycleService(createMockSessionRepository(), events);
       const advance = createAdvanceStageHandler(repository, lifecycle, events);
       const start = createStartNextSeriesHandler(repository, events);

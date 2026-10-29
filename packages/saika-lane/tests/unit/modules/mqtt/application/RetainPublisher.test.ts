@@ -171,6 +171,19 @@ describe('RetainPublisher', () => {
     expect(mqttClient.onDisconnect).toHaveBeenCalled();
   });
 
+  it('replays the current session from the epoch on the first explicit connect publication', async () => {
+    const shot = createTestShot(new Date('2026-01-01T00:00:00Z'), 1);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(createMockSession([shot]) as never);
+    await retainPublisher.republish();
+    expect(hardwarePublisher.publishState).toHaveBeenCalled();
+    expect(competitionStatePublisher.publishCurrentState).toHaveBeenCalled();
+    expect(scorePublisher.publishCurrentScore).toHaveBeenCalled();
+    expect(assignmentPublisher.publishCurrentAssignment).toHaveBeenCalled();
+    expect((retainPublisher as unknown as { disconnectedAt: Date | null }).disconnectedAt).toBeNull();
+    const payload = JSON.parse(vi.mocked(mqttClient.publish).mock.lastCall![1] as string);
+    expect(payload).toMatchObject({ shotId: shot.id, timestamp: shot.timestamp.toISOString(), isReplay: true });
+  });
+
   it('should NOT republish on initial connect', () => {
     mqttClient._triggerConnect();
 

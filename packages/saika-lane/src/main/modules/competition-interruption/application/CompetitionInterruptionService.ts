@@ -7,6 +7,7 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type {
@@ -41,6 +42,19 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
   async pause(input: PauseLaneCompetitionInput): Promise<LaneInterruptionRecord> {
     const existing = this.repository.findByCompetitionId(input.competitionId);
     if (existing?.interruptionId === input.interruptionId) return existing;
+    if (existing?.restartHold) {
+      const adopted = LaneInterruptionRecord.create({
+        ...existing,
+        interruptionId: input.interruptionId,
+        resumeAt: undefined,
+        authorizedRemainingSeconds: undefined,
+        unlimitedSightingShots: undefined,
+        restartHold: false,
+      });
+      this.repository.save(adopted);
+      this.emit(adopted);
+      return adopted;
+    }
     if (existing && existing.status !== 'RUNNING_MATCH') {
       throw new Error(`Lane is already handling interruption ${existing.interruptionId}`);
     }
@@ -63,6 +77,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
 
   async resume(input: ResumeLaneCompetitionInput): Promise<LaneInterruptionRecord> {
     const current = this.requireMatching(input.competitionId, input.interruptionId);
+    if (current.restartHold) throw new Error('Apply an official Lane pause before resuming the saved run');
     if (current.status === 'SIGHTING' || current.status === 'RUNNING_MATCH') return current;
     if (current.status !== 'PAUSED' && current.status !== 'RESUME_PENDING') {
       throw new Error(`Cannot resume an interruption in status ${current.status}`);
@@ -94,7 +109,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       input.authorizedRemainingSeconds,
     );
     const afterResume = await this.competitionRepository.findById(input.competitionId);
-    if (!afterResume || afterResume.phase !== 'ACTIVE') {
+    if (!afterResume || !afterResume.canUpdateTimer()) {
       this.repository.delete(input.competitionId);
       throw new Error('The authorized Lane timer expired before the resume operation completed');
     }
@@ -118,6 +133,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
 
   async resumeMatch(input: ResumeLaneMatchInput): Promise<LaneInterruptionRecord> {
     const current = this.requireMatching(input.competitionId, input.interruptionId);
+    if (current.restartHold) throw new Error('Apply an official Lane pause before resuming the saved run');
     if (current.status === 'RUNNING_MATCH') return current;
     if (current.status !== 'SIGHTING') throw new Error('MATCH fire can only resume after authorized sighting shots');
 
@@ -144,65 +160,34 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     return applied;
   }
 
-  /** Restores a persisted pause or authorized per-Lane timer after process restart. */
-  async restoreActive(): Promise<LaneInterruptionRecord | null> {
-    const competition = await this.competitionRepository.findActive();
-    if (!competition || competition.phase !== 'ACTIVE') return null;
+  /** Stop the saved ordinary clock; an open official case keeps its identity. */
+  async holdAfterRestart(competition: CompetitionState, remainingSeconds: number, verified: boolean): Promise<void> {
     const current = this.repository.findByCompetitionId(competition.id);
-    if (!current) return null;
-
-    if (current.status === 'PAUSED') {
-      this.timerService.stop();
-      this.emit(current);
-      return current;
-    }
-
-    if (
-      current.resumeAt === null ||
-      current.authorizedRemainingSeconds === null ||
-      current.unlimitedSightingShots === null
-    ) {
-      throw new Error(`Interruption ${current.interruptionId} has incomplete resume state`);
-    }
-
-    const restoredStatus =
-      current.status === 'RESUME_PENDING'
-        ? current.unlimitedSightingShots
-          ? 'SIGHTING'
-          : 'RUNNING_MATCH'
-        : current.status;
-    await this.commandBus.execute(SwitchModeToken, {
-      sessionId: competition.sessionId,
-      preserveSeries: true,
-      mode: await this.resumedMode(competition, current),
+    const openCase = current?.status === 'PAUSED' || current?.status === 'RESUME_PENDING';
+    const captured = current?.status === 'PAUSED' ? current.capturedRemainingSeconds : remainingSeconds;
+    this.timerService.stop();
+    const record = LaneInterruptionRecord.create({
+      competitionId: competition.id,
+      interruptionId: openCase ? current.interruptionId : crypto.randomUUID(),
+      status: 'PAUSED',
+      pausedAt: openCase ? current.pausedAt : new Date(),
+      capturedAt: current?.status === 'PAUSED' ? current.capturedAt : new Date(),
+      capturedRemainingSeconds: captured,
+      capturedTotalSeconds:
+        current?.status === 'PAUSED' ? current.capturedTotalSeconds : competition.timer.totalSeconds,
+      restartHold: openCase ? current.restartHold : true,
     });
-    await this.timerService.resumeAt(
-      current.competitionId,
-      current.resumeAt.toISOString(),
-      current.authorizedRemainingSeconds,
-    );
-
-    const afterRestore = await this.competitionRepository.findById(current.competitionId);
-    if (!afterRestore || afterRestore.phase !== 'ACTIVE') {
-      this.repository.delete(current.competitionId);
-      return null;
+    // Save the hold before the timer snapshot, so an interrupted write cannot restart the clock.
+    this.repository.save(record);
+    await this.competitionRepository.save(competition.replaceTimer(captured, record.capturedTotalSeconds));
+    if (!verified && !openCase) {
+      // The official receives a capture, never an automatically awarded duration.
+      getLogger().warn(
+        'Saved clock deadline unavailable; the captured remaining time requires official verification',
+        'domain',
+      );
     }
-
-    const restored = LaneInterruptionRecord.create({
-      competitionId: current.competitionId,
-      interruptionId: current.interruptionId,
-      status: restoredStatus,
-      pausedAt: current.pausedAt,
-      capturedAt: current.capturedAt,
-      capturedRemainingSeconds: current.capturedRemainingSeconds,
-      capturedTotalSeconds: current.capturedTotalSeconds,
-      resumeAt: current.resumeAt,
-      authorizedRemainingSeconds: current.authorizedRemainingSeconds,
-      unlimitedSightingShots: current.unlimitedSightingShots,
-    });
-    this.repository.save(restored);
-    this.emit(restored);
-    return restored;
+    this.emit(record);
   }
 
   get(competitionId: string): LaneInterruptionRecord | null {
@@ -231,7 +216,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
   private async requireActiveCompetition(competitionId: string) {
     const competition = await this.competitionRepository.findById(competitionId);
     if (!competition) throw new Error(`Competition not found: ${competitionId}`);
-    if (competition.phase !== 'ACTIVE') throw new Error(`Competition ${competitionId} is not active`);
+    if (!competition.canUpdateTimer()) throw new Error(`Competition ${competitionId} is not active`);
     return competition;
   }
 

@@ -7,6 +7,7 @@ import { initializeLogger } from '@/main/shared-infra/logging';
 import { ModuleLoader } from '@/main/shared-infra/module';
 import { scheduleAutoConnect } from '@/main/startup/scheduleAutoConnect';
 import { bindMainWindow } from '@/main/window/bindMainWindow';
+import { startupContract } from '@/shared/ipc/contracts';
 
 import { bindCompetitionEvents } from './bindCompetitionEvents';
 import { createLaneServices, type LaneApplicationPaths } from './createLaneServices';
@@ -18,42 +19,29 @@ export function createLaneApp(mainWindow: BrowserWindow, paths: LaneApplicationP
   Menu.setApplicationMenu(null);
   logger.info('Application initializing...', 'main');
   logger.debug(`VITE_DEV_SERVER_URL: ${process.env.VITE_DEV_SERVER_URL}`, 'main');
-  const { registry, firstSessionStarted } = createLaneServices(mainWindow, paths);
-  const {
-    eventBus,
-    ipcRouter,
-    safetyStopControl,
-    timerService,
-    competitionInterruptionControl,
-    timedTargetControl,
-    qualificationRecoveryControl,
-    settingsStore,
-    usbManager,
-    commandBus,
-  } = registry;
+  const { registry } = createLaneServices(mainWindow, paths);
+  const { eventBus, ipcRouter, startup, timedTargetControl, settingsStore, usbManager, commandBus } = registry;
   const unbindCompetitionEvents = bindCompetitionEvents(eventBus, timedTargetControl);
   new ModuleLoader().load(laneModules, registry);
-  void (async () => {
-    if (safetyStopControl.isStopped()) {
-      timerService.stop();
-      logger.warn('[LaneSafetyStopService] Active safety latch restored; timer recovery remains blocked', 'domain', {
-        safetyStopId: safetyStopControl.getState()?.safetyStopId,
-      });
-      return;
-    }
-    await competitionInterruptionControl.restoreActive();
-  })().catch((error: unknown) => {
-    logger.error('[CompetitionInterruptionService] Failed to restore interruption state', 'domain', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+  const initialize = () => startup.restore();
+  const ready = initialize();
+  ipcRouter.register(startupContract, {
+    getStartupState: async () => {
+      await ready;
+      return startup.snapshot();
+    },
+    retryStartup: async () => {
+      const result = await initialize();
+      if (result.status === 'READY')
+        scheduleAutoConnect(settingsStore, usbManager, commandBus, Promise.resolve(result));
+      return result;
+    },
   });
 
   const appUpdater = bindMainWindow(mainWindow, ipcRouter);
   // 4. Forward domain events to renderer via contract-based channels
   const eventForwarder = new ContractEventForwarder(eventBus, mainWindow);
   eventForwarder.start();
-  timedTargetControl.restore();
-  qualificationRecoveryControl.restoreActive();
   mainWindow.once('closed', () => {
     unbindCompetitionEvents();
     eventForwarder.stop();
@@ -63,7 +51,7 @@ export function createLaneApp(mainWindow: BrowserWindow, paths: LaneApplicationP
   // Run renderer-load initialization from a single did-finish-load hook.
   mainWindow.webContents.once('did-finish-load', () => {
     focusStartupWindow(mainWindow);
-    scheduleAutoConnect(settingsStore, usbManager, commandBus, firstSessionStarted);
+    scheduleAutoConnect(settingsStore, usbManager, commandBus, ready);
     appUpdater.emitCurrentState();
     void appUpdater.checkForUpdates();
   });

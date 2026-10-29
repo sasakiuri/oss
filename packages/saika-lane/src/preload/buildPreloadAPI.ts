@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import {
+  startupContract,
   competitionContract,
   connectionContract,
   eventsContract,
@@ -37,6 +38,7 @@ export function buildPreloadAPI(): ElectronAPI {
   const hasNativeWindowFrame = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1';
 
   return {
+    startup: createBridgeNamespace(startupContract),
     platform: process.platform,
     hasNativeWindowFrame,
     appVersion: __APP_VERSION__,

@@ -32,6 +32,7 @@ export interface MockedElectronAPI {
     getAppSettings: ReturnType<typeof vi.fn>;
     getSettingsFileInfo: ReturnType<typeof vi.fn>;
   };
+  startup: { getStartupState: ReturnType<typeof vi.fn>; retryStartup: ReturnType<typeof vi.fn> };
   competition: {
     startCompetition: ReturnType<typeof vi.fn>;
     startStage: ReturnType<typeof vi.fn>;
@@ -152,6 +153,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       }),
       getSettingsFileInfo: vi.fn().mockResolvedValue({ success: true, data: { path: '/tmp/settings.json' } }),
     },
+    startup: { getStartupState: vi.fn(), retryStartup: vi.fn() },
     competition: {
       startCompetition: vi.fn(),
       startStage: vi.fn(),
