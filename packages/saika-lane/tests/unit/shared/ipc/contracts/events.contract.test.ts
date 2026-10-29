@@ -6,7 +6,7 @@ import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 describe('eventsContract', () => {
   it('has 23 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
-    expect(eventKeys).toHaveLength(23);
+    expect(eventKeys).toHaveLength(24);
   });
 
   it('all events have kind=event', () => {

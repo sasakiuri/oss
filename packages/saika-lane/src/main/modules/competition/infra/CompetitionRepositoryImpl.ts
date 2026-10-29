@@ -18,6 +18,7 @@ interface CompetitionStorageData {
   currentStageIndex: number;
   currentSeriesIndex: number;
   seriesShotCount: number;
+  athleteTargetMode?: CompetitionState['athleteTargetMode'];
   timerRemaining: number;
   timerTotal: number;
   startedAt: number | null;
@@ -151,6 +152,7 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
       currentStageIndex: state.currentStageIndex,
       currentSeriesIndex: state.currentSeriesIndex,
       seriesShotCount: state.seriesShotCount,
+      athleteTargetMode: state.athleteTargetMode,
       timerRemaining: state.timer.remainingSeconds,
       timerTotal: state.timer.totalSeconds,
       startedAt: state.startedAt,
@@ -167,6 +169,7 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
       currentStageIndex: data.currentStageIndex,
       currentSeriesIndex: data.currentSeriesIndex,
       seriesShotCount: data.seriesShotCount,
+      athleteTargetMode: data.athleteTargetMode,
       timer: Timer.reconstruct(data.timerRemaining, data.timerTotal),
       startedAt: data.startedAt,
       finishedAt: data.finishedAt,

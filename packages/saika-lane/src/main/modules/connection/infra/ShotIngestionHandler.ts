@@ -188,6 +188,8 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
                     activeCompetition.currentStageConfig,
                     activeCompetition.currentSeriesConfig,
                     shotData.mode,
+                    activeCompetition.seriesShotCount,
+                    activeCompetition.athleteTargetMode,
                   ),
                 )
               : shotData.mode !== undefined

@@ -12,9 +12,14 @@ export function resolveCompetitionShotMode(
   stage: StageDefinition,
   series: SeriesDefinition,
   reportedMode: ReportedShotMode | undefined,
+  seriesShotCount: number,
+  selection?: ReportedShotMode | null,
 ): ReportedShotMode {
   if (series.purpose === 'POSITION_CHANGE_AND_SIGHTING') return 'SIGHTING';
   if (!stage.scored) return 'SIGHTING';
-  if (series.targetModeControl === 'ATHLETE' && reportedMode !== undefined) return reportedMode;
+  if (series.targetModeControl === 'ATHLETE') {
+    if (seriesShotCount > 0) return 'MATCH';
+    return selection ?? reportedMode ?? 'MATCH';
+  }
   return 'MATCH';
 }

@@ -84,6 +84,20 @@ describe('buildPreloadAPI', () => {
     });
   });
 
+  it('exposes the athlete command and same-phase progress events through preload', async () => {
+    const input = { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, mode: 'SIGHTING' as const };
+    await api.competition.setAthleteTargetMode(input);
+    expect(mockInvoke).toHaveBeenCalledWith('command:setAthleteTargetMode', input);
+    const listener = vi.fn();
+    const unsubscribe = api.on.competitionProgressChanged(listener);
+    const callback = mockOn.mock.lastCall![1];
+    const progress = { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, shotCount: 0 };
+    callback({}, progress);
+    expect(listener).toHaveBeenCalledWith(progress);
+    unsubscribe();
+    expect(mockRemoveListener).toHaveBeenCalledWith('event:competitionProgressChanged', callback);
+  });
+
   describe('settings namespace', () => {
     it('should expose all settings methods as functions', () => {
       expect(typeof api.settings.saveConnectionSettings).toBe('function');

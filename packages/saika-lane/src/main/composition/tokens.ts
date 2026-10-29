@@ -157,6 +157,13 @@ export interface FinishCompetitionInput {
 }
 
 /** Input for the end stage command */
+export interface SetAthleteTargetModeInput {
+  competitionId: string;
+  stageIndex: number;
+  seriesIndex: number;
+  mode: 'SIGHTING' | 'MATCH';
+}
+
 export interface EndStageInput {
   competitionId: string;
 }
@@ -194,6 +201,10 @@ export const StartNextSeriesToken = defineCommand<StartNextSeriesInput>('StartNe
 export const AdvanceStageToken = defineCommand<AdvanceStageInput>('AdvanceStage');
 
 export const FinishCompetitionToken = defineCommand<FinishCompetitionInput>('FinishCompetition');
+
+export const SetAthleteTargetModeToken = defineCommand<SetAthleteTargetModeInput, CompetitionStateDto>(
+  'SetAthleteTargetMode',
+);
 
 export const EndStageToken = defineCommand<EndStageInput>('EndStage');
 

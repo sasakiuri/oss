@@ -2,6 +2,7 @@
 
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
+import { resolveCompetitionShotMode, type ReportedShotMode } from './CompetitionShotModePolicy';
 import type { RoundConfig, SeriesDefinition, StageDefinition } from './CompetitionTypeDefinition';
 import type { Phase } from './Phase';
 import { Timer } from './Timer';
@@ -14,6 +15,8 @@ interface CompetitionStateProps {
   readonly currentStageIndex: number;
   readonly currentSeriesIndex: number;
   readonly seriesShotCount: number;
+  /** Absent or null means the athlete has made no Lane selection in this series. */
+  readonly athleteTargetMode?: ReportedShotMode | null;
   readonly timer: Timer;
   readonly startedAt: number | null;
   readonly finishedAt: number | null;
@@ -28,6 +31,8 @@ export class CompetitionState {
   readonly currentStageIndex: number;
   readonly currentSeriesIndex: number;
   readonly seriesShotCount: number;
+  /** Absent or null means the athlete has made no Lane selection in this series. */
+  readonly athleteTargetMode?: ReportedShotMode | null;
   readonly timer: Timer;
   readonly startedAt: number | null;
   readonly finishedAt: number | null;
@@ -40,6 +45,7 @@ export class CompetitionState {
     this.currentStageIndex = props.currentStageIndex;
     this.currentSeriesIndex = props.currentSeriesIndex;
     this.seriesShotCount = props.seriesShotCount;
+    this.athleteTargetMode = props.athleteTargetMode;
     this.timer = props.timer;
     this.startedAt = props.startedAt;
     this.finishedAt = props.finishedAt;
@@ -59,6 +65,8 @@ export class CompetitionState {
       timer: this.timer,
       startedAt: this.startedAt,
       finishedAt: this.finishedAt,
+      // Every transition clears the series selection unless explicitly retained.
+      athleteTargetMode: undefined,
       ...overrides,
     });
   }
@@ -488,6 +496,7 @@ export class CompetitionState {
   tickTimerBy(seconds: number): CompetitionState {
     return this.with({
       timer: this.timer.tickBy(seconds),
+      athleteTargetMode: this.athleteTargetMode,
     });
   }
 
@@ -499,7 +508,10 @@ export class CompetitionState {
         detail: `Cannot replace timer from phase: ${this.phase}`,
       });
     }
-    return this.with({ timer: Timer.reconstruct(remainingSeconds, totalSeconds) });
+    return this.with({
+      timer: Timer.reconstruct(remainingSeconds, totalSeconds),
+      athleteTargetMode: this.athleteTargetMode,
+    });
   }
 
   /**
@@ -507,6 +519,40 @@ export class CompetitionState {
    */
   canAcceptShot(): boolean {
     return this.phase === 'ACTIVE' || this.phase === 'IDLE';
+  }
+
+  /** Selects a target mode without changing the session, progress or clock. */
+  selectAthleteTargetMode(input: {
+    competitionId: string;
+    stageIndex: number;
+    seriesIndex: number;
+    mode: ReportedShotMode;
+  }): CompetitionState {
+    if (
+      input.competitionId !== this.id ||
+      input.stageIndex !== this.currentStageIndex ||
+      input.seriesIndex !== this.currentSeriesIndex
+    ) {
+      throw ErrorCatalog.createError('ATHLETE_TARGET_CONTEXT_CHANGED');
+    }
+    if (this.phase !== 'ACTIVE') throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_ACTIVE');
+    if (this.currentSeriesConfig.targetModeControl !== 'ATHLETE') {
+      throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_CONTROLLED');
+    }
+    if (
+      resolveCompetitionShotMode(
+        this.currentStageConfig,
+        this.currentSeriesConfig,
+        input.mode,
+        this.seriesShotCount,
+        input.mode,
+      ) !== input.mode
+    ) {
+      throw ErrorCatalog.createError(
+        input.mode === 'SIGHTING' ? 'ATHLETE_SIGHTING_CLOSED' : 'ATHLETE_MATCH_UNAVAILABLE',
+      );
+    }
+    return this.with({ athleteTargetMode: input.mode });
   }
 
   // ── Guards ──

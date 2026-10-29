@@ -20,6 +20,7 @@ import {
 } from '@/main/modules/connection/infra/ShotIngestionHandler';
 import type { ShotData } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 
+import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
 import { buildSession } from '../../../../helpers/factories';
 import {
   createMockCommandBus,
@@ -196,6 +197,27 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({ mode: expect.objectContaining({ value: 'SIGHTING' }) }),
     );
   });
+
+  it.each([
+    [0, 'SIGHTING', 'MATCH', 'SIGHTING'],
+    [0, 'MATCH', 'SIGHTING', 'MATCH'],
+    [1, undefined, 'SIGHTING', 'MATCH'],
+    [1, 'MATCH', 'SIGHTING', 'MATCH'],
+  ] as const)(
+    'resolves count=%s selection=%s reported=%s to %s under the athlete cutoff',
+    async (count, selection, reported, expected) => {
+      let state = athleteCompetition();
+      if (count) state = state.recordShotInSeries();
+      if (selection) state = selectAthlete(state, selection);
+      competitionRepository.findActive = vi.fn().mockResolvedValue(state);
+      sessionRepository.findById = vi.fn().mockResolvedValue(buildSession());
+      await createShotIngestionHandler(deps)({ ...shotData, mode: reported });
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'RecordShot' }),
+        expect.objectContaining({ mode: expect.objectContaining({ value: expected }) }),
+      );
+    },
+  );
 
   it('forces shots in a Final position-change interval to SIGHTING even if the target reports MATCH', async () => {
     const competitionSession = buildSession();

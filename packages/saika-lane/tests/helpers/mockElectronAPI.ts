@@ -39,6 +39,7 @@ export interface MockedElectronAPI {
     startNextSeries: ReturnType<typeof vi.fn>;
     advanceStage: ReturnType<typeof vi.fn>;
     finishCompetition: ReturnType<typeof vi.fn>;
+    setAthleteTargetMode: ReturnType<typeof vi.fn>;
     getCompetitionState: ReturnType<typeof vi.fn>;
     getCompetitionTypes: ReturnType<typeof vi.fn>;
   };
@@ -79,6 +80,7 @@ export interface MockedElectronAPI {
     error: ReturnType<typeof vi.fn>;
     logMessage: ReturnType<typeof vi.fn>;
     competitionStarted: ReturnType<typeof vi.fn>;
+    competitionProgressChanged: ReturnType<typeof vi.fn>;
     phaseChanged: ReturnType<typeof vi.fn>;
     timerTick: ReturnType<typeof vi.fn>;
     timerExpired: ReturnType<typeof vi.fn>;
@@ -157,6 +159,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       startNextSeries: vi.fn(),
       advanceStage: vi.fn(),
       finishCompetition: vi.fn(),
+      setAthleteTargetMode: vi.fn(),
       getCompetitionState: vi.fn(),
       getCompetitionTypes: vi.fn(),
     },
@@ -236,6 +239,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
       error: vi.fn().mockReturnValue(() => {}),
       logMessage: vi.fn().mockReturnValue(() => {}),
       competitionStarted: vi.fn().mockReturnValue(() => {}),
+      competitionProgressChanged: vi.fn().mockReturnValue(() => {}),
       phaseChanged: vi.fn().mockReturnValue(() => {}),
       timerTick: vi.fn().mockReturnValue(() => {}),
       timerExpired: vi.fn().mockReturnValue(() => {}),

@@ -2,6 +2,11 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type CompetitionErrorCode =
+  | 'ATHLETE_TARGET_CONTEXT_CHANGED'
+  | 'ATHLETE_TARGET_NOT_ACTIVE'
+  | 'ATHLETE_TARGET_NOT_CONTROLLED'
+  | 'ATHLETE_SIGHTING_CLOSED'
+  | 'ATHLETE_MATCH_UNAVAILABLE'
   | 'UNKNOWN_COMPETITION_TYPE'
   | 'COMPETITION_NOT_FOUND'
   | 'INVALID_PHASE_TRANSITION'
@@ -12,6 +17,52 @@ export type CompetitionErrorCode =
   | 'INVALID_TIMER_DURATION';
 
 export const COMPETITION_ERRORS: ReadonlyArray<[CompetitionErrorCode, ErrorDefinition]> = [
+  [
+    'ATHLETE_TARGET_CONTEXT_CHANGED',
+    {
+      code: 'ATHLETE_TARGET_CONTEXT_CHANGED',
+      message: 'The competition series has changed',
+      userMessage: 'The competition series has changed',
+      severity: 'warning',
+    },
+  ],
+  [
+    'ATHLETE_TARGET_NOT_ACTIVE',
+    {
+      code: 'ATHLETE_TARGET_NOT_ACTIVE',
+      message: 'Athlete target mode requires an active series',
+      userMessage: 'Athlete target mode requires an active series',
+      severity: 'warning',
+    },
+  ],
+  [
+    'ATHLETE_TARGET_NOT_CONTROLLED',
+    {
+      code: 'ATHLETE_TARGET_NOT_CONTROLLED',
+      message: 'This series does not allow athlete target mode selection',
+      userMessage: 'This series does not allow athlete target mode selection',
+      severity: 'warning',
+    },
+  ],
+  [
+    'ATHLETE_SIGHTING_CLOSED',
+    {
+      code: 'ATHLETE_SIGHTING_CLOSED',
+      message: 'Sighting is unavailable after the first Match shot of this series',
+      userMessage: 'Sighting is unavailable after the first Match shot of this series',
+      severity: 'warning',
+    },
+  ],
+  [
+    'ATHLETE_MATCH_UNAVAILABLE',
+    {
+      code: 'ATHLETE_MATCH_UNAVAILABLE',
+      message: 'This position change allows Sighting only',
+      userMessage: 'This position change allows Sighting only',
+      severity: 'warning',
+    },
+  ],
+
   [
     'UNKNOWN_COMPETITION_TYPE',
     {

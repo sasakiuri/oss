@@ -9,6 +9,12 @@ export interface TimerDto {
 }
 
 export interface CompetitionStateDto {
+  athleteTargetControl: {
+    sightingAllowed: boolean;
+    matchAllowed: boolean;
+    selected: 'SIGHTING' | 'MATCH' | null;
+    effective: 'SIGHTING' | 'MATCH';
+  } | null;
   id: string;
   sessionId: string;
   phase: string;

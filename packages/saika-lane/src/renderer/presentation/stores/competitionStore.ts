@@ -2,12 +2,15 @@
 
 import { create } from 'zustand';
 
+import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 import type { Phase } from '@/shared/types/Phase';
 
 export type { Phase } from '@/shared/types/Phase';
 
 interface CompetitionState {
+  athleteTargetControl: CompetitionStateDto['athleteTargetControl'];
+  athleteTargetControlPending: boolean;
   phase: Phase;
   stageIndex: number;
   seriesIndex: number;
@@ -33,6 +36,7 @@ interface CompetitionState {
 }
 
 interface CompetitionActions {
+  setAthleteTargetControl: (control: CompetitionStateDto['athleteTargetControl']) => void;
   setPhase: (phase: Phase, stageIndex: number, seriesIndex: number, stageName: string, scored: boolean) => void;
   updateTimer: (remaining: number, total: number) => void;
   setTimerRunning: (running: boolean) => void;
@@ -61,6 +65,8 @@ interface CompetitionActions {
 }
 
 const initialState: CompetitionState = {
+  athleteTargetControl: null,
+  athleteTargetControlPending: false,
   phase: 'IDLE',
   stageIndex: 0,
   seriesIndex: 0,
@@ -82,8 +88,10 @@ const initialState: CompetitionState = {
 export const useCompetitionStore = create<CompetitionState & CompetitionActions>((set) => ({
   ...initialState,
 
+  setAthleteTargetControl: (athleteTargetControl) => set({ athleteTargetControl, athleteTargetControlPending: false }),
+
   setPhase: (phase, stageIndex, seriesIndex, stageName, scored) => {
-    set({ phase, stageIndex, seriesIndex, currentStageName: stageName, scored });
+    set({ phase, stageIndex, seriesIndex, currentStageName: stageName, scored, athleteTargetControl: null });
   },
 
   updateTimer: (remaining, total) => {
@@ -99,11 +107,11 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
   },
 
   advanceStage: (stageIndex, stageName, scored) => {
-    set({ stageIndex, currentStageName: stageName, scored, seriesIndex: 0 });
+    set({ stageIndex, currentStageName: stageName, scored, seriesIndex: 0, athleteTargetControl: null });
   },
 
   advanceSeries: (seriesIndex) => {
-    set({ seriesIndex });
+    set({ seriesIndex, athleteTargetControl: null });
   },
 
   setShotsPerSeries: (shots) => {
@@ -115,7 +123,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
   },
 
   setCompetitionId: (id) => {
-    set({ competitionId: id });
+    set({ competitionId: id, athleteTargetControl: null });
   },
 
   setSavedCompetitionTypeId: (id) => {
@@ -136,6 +144,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
 
   applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored, targetProfileId, scoringGaugeProfileId) => {
     set({
+      athleteTargetControl: null,
       phase,
       stageIndex,
       seriesIndex,

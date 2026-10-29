@@ -143,6 +143,7 @@ describe('competitionService', () => {
   describe('getCompetitionState', () => {
     it('success -> returns CompetitionStateDto', async () => {
       const stateDto = {
+        athleteTargetControl: null,
         id: 'comp-1',
         sessionId: 'sess-1',
         phase: 'ACTIVE' as const,

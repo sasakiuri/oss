@@ -4,6 +4,7 @@
  * Restores the saved session at startup and updates from session events.
  */
 
+import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -59,9 +60,15 @@ export class SessionContextCache {
       // unless a newer event already supplied the mode while bootstrap waited.
       if (this.modeRevision === initialModeRevision) {
         this.cachedMode = activeCompetition
-          ? activeCompetition.currentStageConfig.scored
-            ? Mode.match()
-            : Mode.sighting()
+          ? Mode.fromValue(
+              resolveCompetitionShotMode(
+                activeCompetition.currentStageConfig,
+                activeCompetition.currentSeriesConfig,
+                undefined,
+                activeCompetition.seriesShotCount,
+                activeCompetition.athleteTargetMode,
+              ),
+            )
           : activeSession.mode;
       }
     }
@@ -83,6 +90,11 @@ export class SessionContextCache {
       this.cachedMode = Mode.sighting();
       this.modeRevision += 1;
       onSessionReset();
+    });
+
+    this.eventBus.on('AthleteTargetModeChanged', (event) => {
+      this.cachedMode = event.newMode;
+      this.modeRevision += 1;
     });
 
     this.eventBus.on('ModeSwitched', (event) => {

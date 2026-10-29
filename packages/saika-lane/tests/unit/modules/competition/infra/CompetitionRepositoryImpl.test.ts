@@ -6,6 +6,8 @@ import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
+
 function createMockStorage(): ILocalStorage {
   const store = new Map<string, unknown>();
   return {
@@ -36,6 +38,14 @@ describe('CompetitionRepositoryImpl', () => {
   beforeEach(() => {
     storage = createMockStorage();
     repo = new CompetitionRepositoryImpl(storage);
+  });
+
+  it('round-trips an explicit athlete selection and defines absence as no Lane selection', async () => {
+    const state = selectAthlete(athleteCompetition(), 'SIGHTING');
+    await repo.save(state);
+    expect((await repo.findActive())?.athleteTargetMode).toBe('SIGHTING');
+    await repo.save(state.recordShotInSeries());
+    expect((await repo.findActive())?.athleteTargetMode).toBeUndefined();
   });
 
   describe('save()', () => {

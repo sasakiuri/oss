@@ -3,7 +3,8 @@ import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { AR60 } from '@/main/modules/competition/domain/competitionTypes';
+import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
+import { AR60, R3P60 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { Timer } from '@/main/modules/competition/domain/Timer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -21,6 +22,8 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
 
+import { athleteCompetition, selectAthlete } from '../../../helpers/athleteCompetition';
+
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const sourceId = '22222222-2222-4222-8222-222222222222';
 const targetId = '33333333-3333-4333-8333-333333333333';
@@ -36,11 +39,11 @@ const databases: Database.Database[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
-async function lane(id: string, withShots: boolean) {
+async function lane(id: string, withShots: boolean, type: CompetitionTypeDefinition = AR60) {
   const db = createSqliteDb(':memory:');
   databases.push(db);
   const sessions = new SqliteSessionRepository(db);
-  let session = Session.create(Discipline.airRifle10m()).resumeMode(Mode.match());
+  let session = Session.create(Discipline.fromValue(type.discipline)).resumeMode(Mode.match());
   if (withShots)
     session = session.recordShot(null, new Score(100), new Date(), new Score(100), false, undefined, {
       sourceObservationId: crypto.randomUUID(),
@@ -51,7 +54,7 @@ async function lane(id: string, withShots: boolean) {
   let state = CompetitionState.reconstruct({
     id: competitionId,
     sessionId: session.id,
-    config: AR60.config,
+    config: type.config,
     phase: 'ACTIVE',
     currentStageIndex: 1,
     currentSeriesIndex: 0,
@@ -102,6 +105,9 @@ async function lane(id: string, withShots: boolean) {
     journal,
     service: new ReserveLaneTransferService(journal, port, () => id),
     state: () => state,
+    setState: (updated: CompetitionState) => {
+      state = updated;
+    },
     original: session,
     clearStop: () => {
       stopped = false;
@@ -117,6 +123,7 @@ describe('reserve Lane state transfer', () => {
     const source = await lane(sourceId, true),
       target = await lane(targetId, false);
     const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
+    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBeNull();
     expect(bundle.summary).toMatchObject({ matchShots: 1, totalScoreX10: 100, remainingSeconds: 240 });
     await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
     expect(target.state().sessionId).toBe(target.original.id);
@@ -145,6 +152,7 @@ describe('reserve Lane state transfer', () => {
       phase: 'ACTIVE',
       currentStageIndex: 1,
       seriesShotCount: 1,
+      athleteTargetMode: null,
       timer: { remainingSeconds: 240 },
     });
     expect(target.pause).toHaveBeenCalledWith(expect.objectContaining({ interruptionId: request.id }));
@@ -156,6 +164,32 @@ describe('reserve Lane state transfer', () => {
     expect((await target.sessions.findById(source.original.id))!.shotCount).toBe(2);
     expect(target.pause).toHaveBeenCalledOnce();
     expect(() => target.db.exec('DELETE FROM reserve_lane_transfer_events')).toThrow(/append-only/);
+  });
+
+  it('requires a new athlete selection at the destination instead of carrying the source choice', async () => {
+    const source = await lane(sourceId, true, R3P60);
+    const target = await lane(targetId, false, R3P60);
+    source.setState(
+      CompetitionState.reconstruct({
+        ...selectAthlete(athleteCompetition(), 'SIGHTING'),
+        id: competitionId,
+        sessionId: source.original.id,
+        timer: source.state().timer,
+      }),
+    );
+    const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
+    expect(JSON.parse(bundle.competitionJson).athleteTargetMode).toBeNull();
+    await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
+    await source.service.execute(competitionId, { operation: 'RETIRE_SOURCE', id: request.id, digest: bundle.digest });
+    await target.service.execute(competitionId, {
+      operation: 'ACTIVATE_TARGET',
+      id: request.id,
+      digest: bundle.digest,
+      sourceRetired: true,
+    });
+    expect(target.state().athleteTargetMode).toBeNull();
+    expect(target.state().currentSeriesIndex).toBe(2);
+    expect(target.state().seriesShotCount).toBe(0);
   });
 
   it('rejects a changed source and a stale STOP instead of retiring newer evidence', async () => {

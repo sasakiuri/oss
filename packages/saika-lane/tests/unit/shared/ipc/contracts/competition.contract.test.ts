@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { competitionContract } from '@/shared/ipc/contracts/competition.contract';
 
 describe('competitionContract', () => {
-  it('has 6 commands and 2 queries', () => {
+  it('has 7 commands and 2 queries', () => {
     const procs = competitionContract.procedures;
     const commands = Object.values(procs).filter((p) => p.kind === 'command');
     const queries = Object.values(procs).filter((p) => p.kind === 'query');
 
-    expect(commands).toHaveLength(6);
+    expect(commands).toHaveLength(7);
     expect(queries).toHaveLength(2);
   });
 
@@ -28,6 +28,20 @@ describe('competitionContract', () => {
     const schema = competitionContract.procedures.startCompetition.input;
     const result = schema.safeParse({ competitionTypeId: 'BR60S' });
     expect(result.success).toBe(true);
+  });
+
+  it('requires current series coordinates and an explicit supported athlete mode', () => {
+    const schema = competitionContract.procedures.setAthleteTargetMode.input;
+    expect(schema.safeParse({ competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, mode: 'SIGHTING' }).success).toBe(
+      true,
+    );
+    expect(schema.safeParse({ competitionId: 'comp-1', mode: 'MATCH' }).success).toBe(false);
+    expect(schema.safeParse({ competitionId: 'comp-1', stageIndex: -1, seriesIndex: 2, mode: 'MATCH' }).success).toBe(
+      false,
+    );
+    expect(
+      schema.safeParse({ competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, mode: 'PREPARATION' }).success,
+    ).toBe(false);
   });
 
   it('getCompetitionState input schema accepts valid data', () => {

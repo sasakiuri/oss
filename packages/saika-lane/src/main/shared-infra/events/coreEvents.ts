@@ -91,6 +91,12 @@ export interface SeriesCompletedEvent extends DomainEvent {
   readonly shotCount: number;
 }
 
+/** A persisted athlete choice sent through the existing device mode path. */
+export interface AthleteTargetModeChangedEvent extends DomainEvent {
+  readonly type: 'AthleteTargetModeChanged';
+  readonly newMode: Mode;
+}
+
 /** Persisted shot-count progress before a series reaches completion. */
 export interface CompetitionProgressChangedEvent extends DomainEvent {
   readonly type: 'CompetitionProgressChanged';
@@ -180,6 +186,7 @@ declare module './EventBus' {
     SessionStarted: SessionStartedEvent;
     ShotRecorded: ShotRecordedEvent;
     ModeSwitched: ModeSwitchedEvent;
+    AthleteTargetModeChanged: AthleteTargetModeChangedEvent;
     SessionReset: SessionResetEvent;
     ConnectionEstablished: ConnectionEstablishedEvent;
     ConnectionLost: ConnectionLostEvent;

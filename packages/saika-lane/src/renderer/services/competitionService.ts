@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type {
   CompetitionIdInput,
+  SetAthleteTargetModeInput,
   CompetitionStateDto,
   CompetitionTypeDto,
   StartCompetitionInput,
@@ -30,6 +31,10 @@ export const competitionService = {
 
   finishCompetition: createCommandMethod<CompetitionIdInput>((input) =>
     window.electronAPI.competition.finishCompetition(input),
+  ),
+
+  setAthleteTargetMode: createServiceMethod<SetAthleteTargetModeInput, CompetitionStateDto>((input) =>
+    window.electronAPI.competition.setAthleteTargetMode(input),
   ),
 
   getCompetitionState: createServiceMethod<CompetitionIdInput, CompetitionStateDto>((input) =>

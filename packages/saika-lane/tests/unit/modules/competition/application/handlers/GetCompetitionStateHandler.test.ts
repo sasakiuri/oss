@@ -5,6 +5,12 @@ import { createGetCompetitionStateHandler } from '@/main/modules/competition/app
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import { Mode } from '@/main/modules/session/domain/Mode';
+import { Score } from '@/main/modules/session/domain/Score';
+
+import { athleteCompetition, selectAthlete } from '../../../../../helpers/athleteCompetition';
+import { buildSession } from '../../../../../helpers/factories';
+import { createMockSessionRepository } from '../../../../../helpers/mockDependencies';
 
 describe('createGetCompetitionStateHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -19,11 +25,42 @@ describe('createGetCompetitionStateHandler', () => {
     };
   });
 
+  it('projects only observations in the current series, then selection and cutoff take precedence', async () => {
+    const state = athleteCompetition();
+    const sessions = createMockSessionRepository();
+    const context = {
+      competitionId: state.id,
+      stageIndex: state.currentStageIndex,
+      seriesIndex: state.currentSeriesIndex,
+    };
+    let session = buildSession().recordShot(null, new Score(100), new Date(), undefined, false, Mode.sighting(), {
+      competitionContext: { ...context, seriesIndex: 0 },
+    });
+    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+    vi.mocked(sessions.findById).mockImplementation(async () => session);
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions);
+    expect((await handler({ competitionId: state.id })).athleteTargetControl?.effective).toBe('MATCH');
+    session = session.recordShot(null, new Score(100), new Date(), undefined, false, Mode.sighting(), {
+      competitionContext: context,
+    });
+    expect((await handler({ competitionId: state.id })).athleteTargetControl).toMatchObject({
+      selected: null,
+      effective: 'SIGHTING',
+    });
+    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(selectAthlete(state, 'MATCH'));
+    expect((await handler({ competitionId: state.id })).athleteTargetControl?.effective).toBe('MATCH');
+    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state.recordShotInSeries());
+    expect((await handler({ competitionId: state.id })).athleteTargetControl).toMatchObject({
+      sightingAllowed: false,
+      effective: 'MATCH',
+    });
+  });
+
   it('should return CompetitionStateDto', async () => {
     const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo);
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
     const dto = await handler({ competitionId: 'comp-1' });
 
     expect(dto.id).toBe('comp-1');
@@ -49,7 +86,7 @@ describe('createGetCompetitionStateHandler', () => {
     state = state.recordShotInSeries();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo);
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
     const dto = await handler({ competitionId: 'comp-1' });
 
     expect(dto.currentStageIndex).toBe(1);
@@ -60,7 +97,7 @@ describe('createGetCompetitionStateHandler', () => {
   it('should throw an error for a non-existent competition ID', async () => {
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(null);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo);
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository());
     await expect(handler({ competitionId: 'nonexistent' })).rejects.toThrow();
   });
 });

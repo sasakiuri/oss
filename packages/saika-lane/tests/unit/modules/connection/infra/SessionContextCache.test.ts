@@ -18,6 +18,7 @@ import { SessionContextCache } from '@/main/modules/connection/infra/SessionCont
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 
+import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
 import { buildSession } from '../../../../helpers/factories';
 import {
   createMockCompetitionRepository,
@@ -67,6 +68,25 @@ describe('SessionContextCache', () => {
       expect(context.discipline.value).toBe('AIR_PISTOL_10M');
       expect(context.mode.value).toBe('SIGHTING');
     });
+  });
+
+  it('restores the aggregate selection and consumes selections without rotating the session', async () => {
+    const session = buildSession();
+    const state = selectAthlete(athleteCompetition(), 'SIGHTING');
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(state);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+    await cache.bootstrap(sessionRepository, competitionRepository);
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
+    const reset = vi.fn();
+    cache.subscribeEvents(reset);
+    eventBus.emit({
+      type: 'AthleteTargetModeChanged',
+      aggregateId: state.id,
+      timestamp: Date.now(),
+      newMode: Mode.match(),
+    });
+    expect(cache.getContext().mode.value).toBe('MATCH');
+    expect(reset).not.toHaveBeenCalled();
   });
 
   describe('bootstrap', () => {

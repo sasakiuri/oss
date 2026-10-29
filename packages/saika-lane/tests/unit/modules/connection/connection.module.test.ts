@@ -552,51 +552,55 @@ describe('connection.module', () => {
         );
       });
 
-      it('restores the current session mode after automatic reconnect', async () => {
-        registerModule();
+      it.each(['ModeSwitched', 'AthleteTargetModeChanged'] as const)(
+        'restores the cached mode after automatic reconnect (%s)',
+        async (eventType) => {
+          registerModule();
 
-        (eventBus.emit as Mock)({
-          type: 'SessionStarted',
-          aggregateId: 'session-1',
-          discipline: { value: 'AIR_RIFLE_10M' },
-          timestamp: Date.now(),
-        });
-        (eventBus.emit as Mock)({
-          type: 'ModeSwitched',
-          aggregateId: 'session-1',
-          previousMode: Mode.sighting(),
-          newMode: Mode.match(),
-          timestamp: Date.now(),
-        });
-        vi.mocked(usbManager.sendMode).mockClear();
-
-        const activeConnection = Connection.create({
-          manufacturer: TargetManufacturer.kohto(),
-          portPath: '/dev/ttyUSB0',
-          baudRate: 9600,
-          deviceId: 'MT201',
-        }).connect();
-        const reconnectedConnection = Connection.create({
-          manufacturer: TargetManufacturer.kohto(),
-          portPath: '/dev/ttyUSB1',
-          baudRate: 9600,
-          deviceId: 'MT201',
-        }).connect();
-        vi.mocked(connectionRepository.findActive).mockResolvedValue(activeConnection);
-
-        const disconnectedCallback = vi
-          .mocked(usbManager.on)
-          .mock.calls.find((call) => call[0] === 'disconnected')?.[1] as (() => void) | undefined;
-        const connectedCallback = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'connected')?.[1] as
-          ((connection: Connection) => void) | undefined;
-
-        disconnectedCallback?.();
-        connectedCallback?.(reconnectedConnection);
-
-        await vi.waitFor(() => {
+          (eventBus.emit as Mock)({
+            type: 'SessionStarted',
+            aggregateId: 'session-1',
+            discipline: { value: 'AIR_RIFLE_10M' },
+            timestamp: Date.now(),
+          });
+          (eventBus.emit as Mock)({
+            type: eventType,
+            aggregateId: 'session-1',
+            previousMode: Mode.sighting(),
+            newMode: Mode.match(),
+            timestamp: Date.now(),
+          });
           expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.match());
-        });
-      });
+          vi.mocked(usbManager.sendMode).mockClear();
+
+          const activeConnection = Connection.create({
+            manufacturer: TargetManufacturer.kohto(),
+            portPath: '/dev/ttyUSB0',
+            baudRate: 9600,
+            deviceId: 'MT201',
+          }).connect();
+          const reconnectedConnection = Connection.create({
+            manufacturer: TargetManufacturer.kohto(),
+            portPath: '/dev/ttyUSB1',
+            baudRate: 9600,
+            deviceId: 'MT201',
+          }).connect();
+          vi.mocked(connectionRepository.findActive).mockResolvedValue(activeConnection);
+
+          const disconnectedCallback = vi
+            .mocked(usbManager.on)
+            .mock.calls.find((call) => call[0] === 'disconnected')?.[1] as (() => void) | undefined;
+          const connectedCallback = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'connected')?.[1] as
+            ((connection: Connection) => void) | undefined;
+
+          disconnectedCallback?.();
+          connectedCallback?.(reconnectedConnection);
+
+          await vi.waitFor(() => {
+            expect(usbManager.sendMode).toHaveBeenCalledWith(Mode.match());
+          });
+        },
+      );
 
       it('does not emit an unexpected ConnectionLost after the user manually disconnects during reconnect recovery', async () => {
         registerModule();

@@ -146,6 +146,7 @@ export class StoredReserveLaneTransferState implements IReserveLaneTransferState
     await this.sessions.save(session);
     const competition = CompetitionState.reconstruct({
       ...source,
+      athleteTargetMode: null,
       timer: Timer.reconstruct(source.timerRemaining, source.timerTotal),
     });
     await this.competitions.save(competition);
@@ -194,6 +195,7 @@ function competitionData(value: CompetitionState) {
     currentStageIndex: value.currentStageIndex,
     currentSeriesIndex: value.currentSeriesIndex,
     seriesShotCount: value.seriesShotCount,
+    athleteTargetMode: null,
     timerRemaining: value.timer.remainingSeconds,
     timerTotal: value.timer.totalSeconds,
     startedAt: value.startedAt,

@@ -114,6 +114,7 @@ describe('useEventSubscriptions', () => {
           shotReceived: mockOnShotReceived,
           shotRecorded: mockOnShotRecorded,
           competitionStarted: vi.fn().mockReturnValue(vi.fn()),
+          competitionProgressChanged: vi.fn().mockReturnValue(vi.fn()),
           phaseChanged: vi.fn().mockReturnValue(vi.fn()),
           timerTick: vi.fn().mockReturnValue(vi.fn()),
           timerExpired: vi.fn().mockReturnValue(vi.fn()),
@@ -146,7 +147,7 @@ describe('useEventSubscriptions', () => {
       expect(mockOnModeSwitched).toHaveBeenCalledTimes(1);
       expect(mockOnSessionReset).toHaveBeenCalledTimes(1);
       expect(mockOnConnectionStatusChanged).toHaveBeenCalledTimes(1);
-      expect(mockOnShotRecorded).toHaveBeenCalledTimes(1);
+      expect(mockOnShotRecorded).toHaveBeenCalledTimes(2);
       expect(mockOnCompetitionCueChanged).toHaveBeenCalledTimes(1);
       expect(mockOnUpdateStateChanged).toHaveBeenCalledTimes(1);
     });
@@ -176,7 +177,7 @@ describe('useEventSubscriptions', () => {
       expect(unsubModeSwitched).toHaveBeenCalledTimes(1);
       expect(unsubSessionReset).toHaveBeenCalledTimes(1);
       expect(unsubConnectionStatusChanged).toHaveBeenCalledTimes(1);
-      expect(unsubShotRecorded).toHaveBeenCalledTimes(1);
+      expect(unsubShotRecorded).toHaveBeenCalledTimes(2);
       expect(unsubCompetitionCueChanged).toHaveBeenCalledTimes(1);
       expect(unsubUpdateStateChanged).toHaveBeenCalledTimes(1);
     });
