@@ -171,6 +171,7 @@ describe("Publisher", () => {
       const publisher = new Publisher(repo, client, clock, jev);
       for (let tick = 0; tick < 10; tick += 1) await publisher.tick();
       expect(client.post).toHaveBeenCalledTimes(1);
+      expect(client.verifyAccount).toHaveBeenCalledTimes(1);
       expect((await state()).posts).toHaveLength(1);
       expect((await repo.article(articleId)).reviewStatus).toBe("posted");
       for (const id of ids.slice(1))
@@ -300,6 +301,7 @@ describe("Publisher", () => {
       const client = fakePublishingClient(vi.fn);
       const { jev } = reviewer("uncertain");
       await new Publisher(repo, client, clock, jev).tick();
+      expect(client.verifyAccount).not.toHaveBeenCalled();
       expect(client.post).not.toHaveBeenCalled();
       expect((await state()).posts).toEqual([]);
       expect(await repo.article(articleId)).toMatchObject({
@@ -316,6 +318,7 @@ describe("Publisher", () => {
       const { jev, transport } = reviewer();
       transport.mockRejectedValue(new UserError("Jev の利用上限です"));
       await new Publisher(repo, client, clock, jev).tick();
+      expect(client.verifyAccount).not.toHaveBeenCalled();
       expect(client.post).not.toHaveBeenCalled();
       expect((await repo.settings()).autoPost).toBe(false);
       expect((await state()).posts[0]).toMatchObject({
