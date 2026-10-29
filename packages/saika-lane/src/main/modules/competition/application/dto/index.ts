@@ -9,6 +9,14 @@ export interface TimerDto {
 }
 
 export interface CompetitionStateDto {
+  acc: 'RING' | 'DECIMAL';
+  interruption: {
+    interruptionId: string;
+    status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
+    remainingSeconds: number;
+    unlimitedSightingShots: boolean;
+    restartHold: boolean;
+  } | null;
   athleteTargetControl: {
     officialSighting: boolean;
     sightingAllowed: boolean;

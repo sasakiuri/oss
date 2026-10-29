@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { ConnectionWarningToast } from '@/renderer/presentation/components/ConnectionWarningToast';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
 import { FinalCommandCue } from '@/renderer/presentation/components/FinalCommandCue';
+import { FinishSavedRun } from '@/renderer/presentation/components/FinishSavedRun';
 import { SafetyStopOverlay } from '@/renderer/presentation/components/SafetyStopOverlay';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
@@ -20,6 +21,7 @@ import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useTitleBar } from '@/renderer/presentation/hooks/useTitleBar';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { usePrintStore } from '@/renderer/presentation/stores/printStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
@@ -29,6 +31,7 @@ import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zo
  */
 export interface MainScreenProps {
   modeSwitchActions: ModeSwitchActions;
+  onFinishSavedRun?: () => Promise<void>;
   /** Optional CSS class name */
   className?: string;
 }
@@ -38,7 +41,7 @@ const CURSOR_IDLE_TIMEOUT_MS = 5000;
 /**
  * MainScreen component
  */
-export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwitchActions }) => {
+export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwitchActions, onFinishSavedRun }) => {
   const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
   const { currentSessionId } = useSession();
   const { isPrinting, error: printError, dismissError } = usePrintStore();
@@ -48,6 +51,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
   const { status } = useConnectionStore();
   const isConnected = status === 'connected';
   const interruption = useCompetitionStore((state) => state.interruption);
+  const competitionId = useCompetitionStore((state) => state.competitionId);
+  const membership = useDirectorMembershipStore((state) => state.membership);
+  const stoppedStandalone =
+    membership?.competitionId === null &&
+    (interruption?.status === 'PAUSED' || interruption?.status === 'RESUME_PENDING');
   const targetProfileId = useCompetitionStore((state) => state.targetProfileId);
   const scoringGaugeProfileId = useCompetitionStore((state) => state.scoringGaugeProfileId);
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
@@ -144,7 +152,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
         <main className="relative flex flex-1 flex-col items-center justify-center overflow-auto bg-zinc-900">
           {interruption && interruption.status !== 'RUNNING_MATCH' && (
             <div
-              className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center ${
+              className={`absolute inset-0 z-20 flex items-center justify-center ${
                 interruption.status === 'SIGHTING' ? 'bg-amber-950/50' : 'bg-red-950/75'
               }`}
               role="status"
@@ -157,8 +165,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
                 <div className="mt-3 text-2xl font-semibold">
                   {interruption.status === 'SIGHTING'
                     ? 'Unlimited sighting shots authorized'
-                    : 'Range interruption — await Director instruction'}
+                    : stoppedStandalone
+                      ? 'Saved run is stopped. Finish it to start again.'
+                      : 'Range interruption — await Director instruction'}
                 </div>
+                {stoppedStandalone && competitionId && onFinishSavedRun && (
+                  <div className="mt-5">
+                    <FinishSavedRun competitionId={competitionId} onFinished={onFinishSavedRun} />
+                  </div>
+                )}
               </div>
             </div>
           )}

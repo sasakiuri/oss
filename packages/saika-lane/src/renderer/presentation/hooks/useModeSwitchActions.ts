@@ -34,7 +34,7 @@ interface PendingConfirmation {
 function isCurrentConfirmation(pending: PendingConfirmation): boolean {
   const { competitionId, phase } = useCompetitionStore.getState();
   return (
-    localProgressControls(useDirectorMembershipStore.getState()).allowed &&
+    localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed &&
     useDirectorMembershipStore.getState().membership?.revision === pending.membershipRevision &&
     useCompetitionStore.getState().stageIndex === pending.stageIndex &&
     useCompetitionStore.getState().seriesIndex === pending.seriesIndex &&
@@ -65,7 +65,11 @@ export function useModeSwitchActions() {
   }, [cancelConfirmation]);
 
   const requestConfirmation = useCallback((message: string, action: () => Promise<void>) => {
-    if (pendingRef.current || !localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+    if (
+      pendingRef.current ||
+      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
+    )
+      return;
     const { competitionId, phase } = useCompetitionStore.getState();
     const pending = {
       message,
@@ -131,9 +135,17 @@ export function useModeSwitchActions() {
           const scored = useCompetitionStore.getState().scored;
           if (!scored) {
             await endStage(competitionId);
-            if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+            if (
+              !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
+                .allowed
+            )
+              return;
             await advanceStage(competitionId);
-            if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+            if (
+              !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
+                .allowed
+            )
+              return;
             await startNextSeries(competitionId);
           }
         } else if (phase === 'SERIES_COMPLETE' || phase === 'SERIES_ENTERED' || phase === 'STAGE_ENTERED') {
@@ -207,7 +219,10 @@ export function useModeSwitchActions() {
   }, [match, requestConfirmation]);
 
   const handleNextStageClick = useCallback(async () => {
-    if (!localProgressControls(useDirectorMembershipStore.getState()).allowed) return;
+    if (
+      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
+    )
+      return;
     const { competitionId, phase, scored } = useCompetitionStore.getState();
     if (!competitionId || phase === 'FINISHED') return;
 

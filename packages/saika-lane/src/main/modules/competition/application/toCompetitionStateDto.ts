@@ -16,6 +16,16 @@ export function toCompetitionStateDto(
   const stage = state.currentStageConfig;
 
   return {
+    acc: state.config.acc,
+    interruption: interruption
+      ? {
+          interruptionId: interruption.interruptionId,
+          status: interruption.status,
+          remainingSeconds: interruption.authorizedRemainingSeconds ?? interruption.capturedRemainingSeconds,
+          unlimitedSightingShots: interruption.unlimitedSightingShots === true,
+          restartHold: interruption.restartHold,
+        }
+      : null,
     id: state.id,
     sessionId: state.sessionId,
     phase: state.phase,

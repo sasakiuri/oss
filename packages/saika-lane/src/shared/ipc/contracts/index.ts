@@ -123,3 +123,6 @@ export { AppUpdateStateSchema, updaterContract } from './updater.contract';
 export type { AppUpdateStateDto, AppUpdateStatus } from './updater.contract';
 
 export { vistaContract } from './vista.contract';
+
+export { startupContract } from './startup.contract';
+export type { StartupStateDto } from './startup.contract';

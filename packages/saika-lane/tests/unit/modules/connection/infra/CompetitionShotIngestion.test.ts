@@ -76,6 +76,7 @@ async function setup(type = BR60S) {
     },
     competitions,
     {
+      stop: vi.fn(),
       pause: async () => ({ remainingSeconds: 2100, totalSeconds: 2700 }),
       resumeAt: async () => undefined,
     } as unknown as LaneTimerService,
@@ -116,6 +117,16 @@ async function setup(type = BR60S) {
 }
 
 describe('competition shot acquisition and persistence', () => {
+  it('records ordinary MATCH shots during a restart hold without treating it as a safety interlock', async () => {
+    const rig = await setup();
+    await rig.interruption.holdAfterRestart(rig.competition, 2100, true);
+    const session = await rig.fire();
+    expect(rig.interruption.get(rig.competition.id)).toMatchObject({ status: 'PAUSED', restartHold: true });
+    expect(session.allShots).toHaveLength(1);
+    expect(session.allShots[0]!.mode.value).toBe('MATCH');
+    expect(session.totalScore).toBe(100);
+    expect(rig.competition.seriesShotCount).toBe(1);
+  });
   it('keeps authorized recovery sighting out of MATCH score and shot progress until explicit resume', async () => {
     const rig = await setup();
     await rig.fire();

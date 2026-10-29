@@ -18,6 +18,12 @@ const shared = vi.hoisted(() => {
   };
 });
 
+vi.mock('@/main/startup/restoreActiveRun', () => ({
+  ActiveRunStartup: class {
+    restore = vi.fn().mockResolvedValue({ status: 'READY' });
+  },
+}));
+
 vi.mock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
 
 vi.mock('electron', () => {

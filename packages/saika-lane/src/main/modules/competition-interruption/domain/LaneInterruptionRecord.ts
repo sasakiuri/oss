@@ -14,6 +14,7 @@ export interface LaneInterruptionRecordProps {
   authorizedRemainingSeconds?: number;
   unlimitedSightingShots?: boolean;
   updatedAt?: Date;
+  restartHold?: boolean;
 }
 
 /** Durable, independent state for one Lane interruption command sequence. */
@@ -30,6 +31,7 @@ export class LaneInterruptionRecord {
     readonly authorizedRemainingSeconds: number | null,
     readonly unlimitedSightingShots: boolean | null,
     readonly updatedAt: Date,
+    readonly restartHold: boolean,
   ) {
     Object.freeze(this);
   }
@@ -50,6 +52,7 @@ export class LaneInterruptionRecord {
         : nonNegativeInteger(props.authorizedRemainingSeconds, 'authorizedRemainingSeconds'),
       props.unlimitedSightingShots ?? null,
       validDate(props.updatedAt ?? new Date(), 'updatedAt'),
+      props.restartHold === true,
     );
   }
 
@@ -65,6 +68,7 @@ export class LaneInterruptionRecord {
     authorizedRemainingSeconds: number | null;
     unlimitedSightingShots: boolean | null;
     updatedAt: Date;
+    restartHold?: boolean;
   }): LaneInterruptionRecord {
     return LaneInterruptionRecord.create({
       ...props,

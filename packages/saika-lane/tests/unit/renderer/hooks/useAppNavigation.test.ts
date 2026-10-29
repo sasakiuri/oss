@@ -1,141 +1,146 @@
 // SPDX-License-Identifier: MIT
 import { act, renderHook } from '@testing-library/react';
-import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation';
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import type { StartupStateDto } from '@/shared/ipc/contracts';
 
-const mockSessionStore = { currentSessionId: null as string | null };
-vi.mock('@/renderer/presentation/stores/sessionStore', () => ({
-  useSessionStore: () => mockSessionStore,
-}));
+import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
 
-const mockCompetitionStoreState = { savedCompetitionTypeId: null as string | null };
-vi.mock('@/renderer/presentation/stores/competitionStore', () => ({
-  useCompetitionStore: {
-    getState: () => mockCompetitionStoreState,
+const ready: StartupStateDto = {
+  status: 'READY',
+  error: null,
+  competitionId: 'saved',
+  sessionId: 'session',
+  currentSeriesStartIndex: 10,
+  canFinish: true,
+};
+let api: ReturnType<typeof createMockElectronAPI>;
+const data = <T>(value: T) => ({ success: true, data: value });
+const competition = {
+  id: 'saved',
+  sessionId: 'session',
+  phase: 'SERIES_COMPLETE',
+  currentStageIndex: 1,
+  currentSeriesIndex: 0,
+  currentStageName: 'Match',
+  scored: true,
+  shotsPerSeries: 10,
+  acc: 'RING',
+  athleteTargetControl: null,
+  interruption: {
+    status: 'PAUSED',
+    interruptionId: 'hold',
+    remainingSeconds: 4000,
+    unlimitedSightingShots: false,
+    restartHold: true,
   },
-}));
+  timer: { remainingSeconds: 4000, totalSeconds: 4500, isExpired: false },
+};
 
-describe('useAppNavigation', () => {
-  let mockStartCompetition: Mock;
+beforeEach(() => {
+  vi.useFakeTimers();
+  useSessionStore.getState().resetSession();
+  useCompetitionStore.getState().resetCompetition();
+  api = createMockElectronAPI();
+  window.electronAPI = api as unknown as typeof window.electronAPI;
+  api.startup.getStartupState.mockResolvedValue(data(ready));
+  api.startup.retryStartup.mockResolvedValue(data(ready));
+  api.competition.getCompetitionState.mockResolvedValue(data(competition));
+  api.queries.getShotHistory.mockResolvedValue(data({ shots: [] }));
+  api.queries.getSessionScore.mockResolvedValue(
+    data({ discipline: 'AIR_RIFLE_10M', mode: 'MATCH', totalScore: 1000, seriesScores: [1000] }),
+  );
+});
+afterEach(() => vi.useRealTimers());
 
-  beforeEach(() => {
-    mockStartCompetition = vi.fn().mockResolvedValue({ competitionId: 'comp-1', sessionId: 'sess-1' });
-    mockSessionStore.currentSessionId = null;
-    mockCompetitionStoreState.savedCompetitionTypeId = null;
+it('keeps the minimum splash and hydrates the saved position without creating a run', async () => {
+  const { result } = renderHook(() => useAppNavigation());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1999);
   });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.clearAllMocks();
+  expect(result.current.screen).toBe('splash');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
   });
-
-  it('initial screen is splash', () => {
-    const { result } = renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-    expect(result.current.screen).toBe('splash');
+  expect(result.current.screen).toBe('main');
+  expect(useCompetitionStore.getState()).toMatchObject({
+    competitionId: 'saved',
+    phase: 'SERIES_COMPLETE',
+    stageIndex: 1,
+    acc: 'RING',
+    interruption: { status: 'PAUSED' },
+    isTimerRunning: false,
   });
-
-  describe('SplashScreen timer', () => {
-    it('transitions from splash to main (2-second timer)', async () => {
-      vi.useFakeTimers();
-
-      const { result } = renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      expect(result.current.screen).toBe('splash');
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(result.current.screen).toBe('main');
-    });
-
-    it('does not transition to main before 2 seconds', () => {
-      vi.useFakeTimers();
-
-      const { result } = renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      act(() => {
-        vi.advanceTimersByTime(1999);
-      });
-
-      expect(result.current.screen).toBe('splash');
-    });
+  expect(useSessionStore.getState()).toMatchObject({
+    currentSessionId: 'session',
+    discipline: 'AIR_RIFLE_10M',
+    currentSeriesStartIndex: 10,
   });
+  expect(api.competition.startCompetition).not.toHaveBeenCalled();
+});
 
-  describe('automatic session creation', () => {
-    it('creates a competition in IDLE state with saved competition type when no session exists', async () => {
-      vi.useFakeTimers();
-      mockCompetitionStoreState.savedCompetitionTypeId = 'BP60';
-
-      renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(mockStartCompetition).toHaveBeenCalledWith('BP60');
-    });
-
-    it('uses default BR60S when no saved competition type exists', async () => {
-      vi.useFakeTimers();
-      mockCompetitionStoreState.savedCompetitionTypeId = null;
-
-      renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(mockStartCompetition).toHaveBeenCalledWith('BR60S');
-    });
-
-    it('does not call startCompetition when an existing session exists', async () => {
-      vi.useFakeTimers();
-      mockSessionStore.currentSessionId = 'existing-session';
-
-      renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(mockStartCompetition).not.toHaveBeenCalled();
-    });
-
-    it('transitions to main even when startCompetition fails', async () => {
-      vi.useFakeTimers();
-      mockStartCompetition.mockRejectedValue(new Error('Failed'));
-
-      const { result } = renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      expect(result.current.screen).toBe('main');
-    });
-
-    it('does not call startStage (remains in IDLE state)', async () => {
-      vi.useFakeTimers();
-
-      renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-
-      // startCompetition only creates in IDLE state, no preparation auto-start
-      expect(mockStartCompetition).toHaveBeenCalledTimes(1);
-    });
+it('waits for main readiness even after two seconds', async () => {
+  let resolve!: (value: unknown) => void;
+  api.startup.getStartupState.mockImplementation(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  const { result } = renderHook(() => useAppNavigation());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3000);
   });
-
-  describe('return value', () => {
-    it('returns only screen', () => {
-      const { result } = renderHook(() => useAppNavigation({ startCompetition: mockStartCompetition }));
-
-      expect(result.current).toHaveProperty('screen');
-      expect(Object.keys(result.current)).toEqual(['screen']);
-    });
+  expect(result.current.screen).toBe('splash');
+  await act(async () => {
+    resolve(data(ready));
   });
+  expect(result.current.screen).toBe('main');
+});
+
+it('subscribes before queries and re-queries once when a phase event races hydration', async () => {
+  let phaseChanged!: () => void;
+  api.on.phaseChanged.mockImplementation((listener) => {
+    phaseChanged = listener;
+    return vi.fn();
+  });
+  api.competition.getCompetitionState
+    .mockImplementationOnce(async () => {
+      phaseChanged();
+      return data(competition);
+    })
+    .mockResolvedValue(data({ ...competition, phase: 'STAGE_COMPLETE' }));
+  const { result } = renderHook(() => useAppNavigation());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(result.current.screen).toBe('main');
+  expect(api.competition.getCompetitionState).toHaveBeenCalledTimes(2);
+  expect(useCompetitionStore.getState().phase).toBe('STAGE_COMPLETE');
+  expect(api.on.phaseChanged.mock.invocationCallOrder[0]).toBeLessThan(
+    api.startup.getStartupState.mock.invocationCallOrder[0]!,
+  );
+});
+
+it('shows ERROR and retries using main rather than renderer creation', async () => {
+  api.startup.getStartupState.mockResolvedValue(
+    data({ ...ready, status: 'ERROR', error: 'membership mismatch', canFinish: false }),
+  );
+  const { result } = renderHook(() => useAppNavigation());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(result.current.screen).toBe('recovery');
+  await act(async () => {
+    await result.current.retry();
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.screen).toBe('main');
+  expect(api.startup.retryStartup).toHaveBeenCalledTimes(1);
+  expect(api.competition.startCompetition).not.toHaveBeenCalled();
 });

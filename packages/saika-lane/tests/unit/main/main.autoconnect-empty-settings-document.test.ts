@@ -22,11 +22,17 @@ const shared = vi.hoisted(() => {
 });
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const userDataPath = join(packageRoot, '.tmp-autoconnect-empty-settings-document');
+const userDataPath = join(process.env.TMPDIR ?? packageRoot, '.tmp-autoconnect-empty-settings-document');
 const hasCreateMainWindowOptions = existsSync(join(packageRoot, 'src/main/createMainWindowOptions.ts'));
 const hasAppSettingsStore = existsSync(join(packageRoot, 'src/main/modules/settings/infra/AppSettingsStore.ts'));
 
 function setupMainModuleMocks(): void {
+  vi.doMock('@/main/startup/restoreActiveRun', () => ({
+    ActiveRunStartup: class {
+      restore = vi.fn().mockResolvedValue({ status: 'READY' });
+    },
+  }));
+
   vi.doMock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
 
   vi.doMock('electron', () => {

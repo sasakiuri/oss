@@ -25,6 +25,12 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const hasAppSettingsStore = existsSync(join(packageRoot, 'src/main/modules/settings/infra/AppSettingsStore.ts'));
 
 function setupMainModuleMocks(): void {
+  vi.doMock('@/main/startup/restoreActiveRun', () => ({
+    ActiveRunStartup: class {
+      restore = vi.fn().mockResolvedValue({ status: 'READY' });
+    },
+  }));
+
   vi.doMock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
 
   vi.doMock('electron', () => {

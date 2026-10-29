@@ -123,7 +123,7 @@ describe('CompetitionInterruptionService', () => {
     expect(timerService.pause).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['resume', 'resumeMatch', 'restoreActive'] as const)(
+  it.each(['resume', 'resumeMatch'] as const)(
     'restores SIGHTING in an unscored stage through %s',
     async (operation) => {
       await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
@@ -136,7 +136,6 @@ describe('CompetitionInterruptionService', () => {
       });
       if (operation === 'resumeMatch')
         await service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID });
-      if (operation === 'restoreActive') await service.restoreActive();
       const expectedCalls = operation === 'resume' ? 1 : 2;
       expect(commandBus.execute).toHaveBeenCalledTimes(expectedCalls);
       expect(
@@ -181,7 +180,7 @@ describe('CompetitionInterruptionService', () => {
     expect(cache.getContext().mode.value).toBe('MATCH');
   });
 
-  it.each(['resume', 'resumeMatch', 'restoreActive'] as const)(
+  it.each(['resume', 'resumeMatch'] as const)(
     'reapplies the aggregate selection and cutoff through %s',
     async (operation) => {
       for (const [selection, count, expected] of [
@@ -213,7 +212,6 @@ describe('CompetitionInterruptionService', () => {
           vi.mocked(commandBus.execute).mockClear();
           if (operation === 'resumeMatch')
             await service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID });
-          else await service.restoreActive();
         }
         expect(commandBus.execute).toHaveBeenCalledExactlyOnceWith(
           expect.anything(),
@@ -252,45 +250,97 @@ describe('CompetitionInterruptionService', () => {
     expect(service.get(COMPETITION_ID)).toBeNull();
   });
 
-  it('restores an authorized Lane timer and mode from durable state after restart', async () => {
-    await service.pause({
-      competitionId: COMPETITION_ID,
-      interruptionId: INTERRUPTION_ID,
-      pausedAt: new Date('2026-08-31T01:00:00.000Z'),
-    });
+  it('holds a previously running authorization under a fresh adoptable UUID', async () => {
+    await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
     await service.resume({
       competitionId: COMPETITION_ID,
       interruptionId: INTERRUPTION_ID,
-      timerStartAt: new Date('2026-08-31T01:10:00.000Z'),
+      timerStartAt: new Date(),
       authorizedRemainingSeconds: 540,
       unlimitedSightingShots: true,
     });
-
     vi.clearAllMocks();
-    const restartedEventBus = createMockEventBus();
-    const restarted = new CompetitionInterruptionService(
-      repository,
-      competitionRepository,
-      timerService,
-      commandBus,
-      restartedEventBus,
-      sessions,
-    );
-
-    const restored = await restarted.restoreActive();
-
-    expect(restored?.status).toBe('SIGHTING');
-    expect(timerService.resumeAt).toHaveBeenCalledWith(COMPETITION_ID, '2026-08-31T01:10:00.000Z', 540);
-    expect(commandBus.execute).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        sessionId: 'session-1',
-        preserveSeries: true,
-        mode: expect.objectContaining({ value: 'SIGHTING' }),
+    const active = (await competitionRepository.findById(COMPETITION_ID))!;
+    await service.holdAfterRestart(active, 430, true);
+    const held = service.get(COMPETITION_ID)!;
+    expect(held).toMatchObject({ status: 'PAUSED', restartHold: true, capturedRemainingSeconds: 430 });
+    expect(held.interruptionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(held.interruptionId).not.toBe(INTERRUPTION_ID);
+    expect(timerService.resumeAt).not.toHaveBeenCalled();
+    expect(commandBus.execute).not.toHaveBeenCalled();
+    await expect(
+      service.resume({
+        competitionId: COMPETITION_ID,
+        interruptionId: held.interruptionId,
+        timerStartAt: new Date(),
+        authorizedRemainingSeconds: 500,
+        unlimitedSightingShots: false,
       }),
-    );
-    expect(restartedEventBus.emit).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'CompetitionInterruptionChanged', status: 'SIGHTING' }),
-    );
+    ).rejects.toThrow('official Lane pause');
+    await expect(
+      service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: held.interruptionId }),
+    ).rejects.toThrow('official Lane pause');
+    // Repeated boots must not accidentally turn a Lane marker into an official grant.
+    await service.holdAfterRestart(active, 400, false);
+    expect(service.get(COMPETITION_ID)).toMatchObject({
+      interruptionId: held.interruptionId,
+      restartHold: true,
+      capturedRemainingSeconds: 430,
+    });
+    await service.pause({ competitionId: COMPETITION_ID, interruptionId: held.interruptionId, pausedAt: new Date() });
+    expect(service.get(COMPETITION_ID)?.restartHold).toBe(true);
+    const adopted = await service.pause({
+      competitionId: COMPETITION_ID,
+      interruptionId: INTERRUPTION_ID,
+      pausedAt: new Date(),
+    });
+    expect(adopted).toMatchObject({
+      interruptionId: INTERRUPTION_ID,
+      restartHold: false,
+      capturedRemainingSeconds: 430,
+    });
+    await expect(
+      service.resumeMatch({ competitionId: COMPETITION_ID, interruptionId: held.interruptionId }),
+    ).rejects.toThrow('does not match');
+    await expect(
+      service.pause({ competitionId: COMPETITION_ID, interruptionId: 'other-case', pausedAt: new Date() }),
+    ).rejects.toThrow('already handling');
+  });
+
+  it.each(['PAUSED', 'RESUME_PENDING'] as const)('keeps an open %s official case on restart', async (status) => {
+    await service.pause({ competitionId: COMPETITION_ID, interruptionId: INTERRUPTION_ID, pausedAt: new Date() });
+    let failure = Promise.resolve('PAUSED');
+    if (status === 'RESUME_PENDING') {
+      vi.mocked(timerService.resumeAt).mockRejectedValueOnce(new Error('interrupted'));
+      failure = service
+        .resume({
+          competitionId: COMPETITION_ID,
+          interruptionId: INTERRUPTION_ID,
+          timerStartAt: new Date(),
+          authorizedRemainingSeconds: 500,
+          unlimitedSightingShots: false,
+        })
+        .then(
+          () => 'unexpected success',
+          (error: Error) => error.message,
+        );
+    }
+    expect(await failure).toBe(status === 'RESUME_PENDING' ? 'interrupted' : 'PAUSED');
+    const active = (await competitionRepository.findById(COMPETITION_ID))!;
+    await service.holdAfterRestart(active, 200, true);
+    expect(service.get(COMPETITION_ID)).toMatchObject({
+      interruptionId: INTERRUPTION_ID,
+      status: 'PAUSED',
+      restartHold: false,
+    });
+    await expect(
+      service.resume({
+        competitionId: COMPETITION_ID,
+        interruptionId: INTERRUPTION_ID,
+        timerStartAt: new Date(),
+        authorizedRemainingSeconds: 300,
+        unlimitedSightingShots: false,
+      }),
+    ).resolves.toMatchObject({ status: 'RUNNING_MATCH' });
   });
 });

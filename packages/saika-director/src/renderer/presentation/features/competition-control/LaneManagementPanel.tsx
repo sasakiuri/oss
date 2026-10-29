@@ -300,6 +300,14 @@ export function LaneManagementPanel({
                           ' ',
                         )}
                       </span>
+                      {lane.competitionState?.interruption &&
+                        lane.competitionState.interruption.status !== 'RUNNING_MATCH' && (
+                          <span className="mt-1 block text-xs font-semibold text-vscode-warning">
+                            {lane.competitionState.interruption.status === 'SIGHTING'
+                              ? 'Official sighting'
+                              : 'Interrupted — official resume required'}
+                          </span>
+                        )}
                     </td>
                     <td className="px-3 py-2.5 text-vscode-text">
                       {lane.assignment?.athlete

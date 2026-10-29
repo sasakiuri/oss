@@ -17,11 +17,8 @@ export function useSavedSettingsRestore(): void {
     const loadSavedSettings = async () => {
       try {
         const prefs = await settingsService.getUserPreferences();
-        const { discipline, laneNumber } = prefs;
+        const { laneNumber } = prefs;
 
-        if (discipline) {
-          useSessionStore.getState().setDiscipline(discipline);
-        }
         if (laneNumber !== undefined) {
           useSessionStore.getState().setLaneNumber(laneNumber);
         }

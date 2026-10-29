@@ -20,6 +20,17 @@ const shared = vi.hoisted(() => {
   };
 });
 
+vi.mock('@/main/startup/restoreActiveRun', () => ({
+  ActiveRunStartup: class {
+    restore = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          shared.sessionStarted = () => resolve({ status: 'READY' });
+        }),
+    );
+  },
+}));
+
 vi.mock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
 
 vi.mock('electron', () => {
@@ -202,7 +213,7 @@ vi.mock('@/main/shared-infra/cqrs', () => ({
 vi.mock('@/main/shared-infra/events/TypedEventBus', () => ({
   TypedEventBus: class {
     on = vi.fn((event: string, callback: () => void) => {
-      if (event === 'SessionStarted') {
+      if (event === 'Unused') {
         shared.sessionStarted = callback;
       }
       return () => {
@@ -266,7 +277,7 @@ describe('main.ts auto-connect regression', () => {
   it.each([
     { manufacturer: 'KOHTO', deviceId: 'BPT216', baudRate: 115200 },
     { manufacturer: 'DISAG', deviceId: 'DISAG_KT_RDT_ZIE_1_RIFLE', baudRate: 9600 },
-  ])('waits for SessionStarted before auto-connecting $deviceId', async ({ manufacturer, deviceId, baudRate }) => {
+  ])('waits for READY before auto-connecting $deviceId', async ({ manufacturer, deviceId, baudRate }) => {
     shared.manufacturer = manufacturer;
     shared.deviceId = deviceId;
     await import('@/main/main');

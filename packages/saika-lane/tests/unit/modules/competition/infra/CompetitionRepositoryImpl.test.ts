@@ -49,6 +49,14 @@ describe('CompetitionRepositoryImpl', () => {
   });
 
   describe('save()', () => {
+    it('keeps active B when a delayed finish for A is saved', async () => {
+      const old = CompetitionState.create('old', 'old-session', BR60S.config);
+      const active = CompetitionState.create('current-run', 'new-session', BR60S.config);
+      await repo.save(old);
+      await repo.save(active);
+      await repo.save(old.finish());
+      expect((await repo.findActive())?.id).toBe(active.id);
+    });
     it('can save a CompetitionState', async () => {
       const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
       await repo.save(state);
@@ -69,7 +77,9 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('FINISHED state retains its session link and deletes the active key', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).finish();
+      const created = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      await repo.save(created);
+      const state = created.finish();
       await repo.save(state);
 
       expect(await repo.findById('comp-1')).toEqual(state);

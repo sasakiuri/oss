@@ -33,6 +33,9 @@ import { CompetitionTypeRegistry } from './domain/CompetitionTypeRegistry';
 import { ALL_COMPETITION_TYPES } from './domain/competitionTypes';
 
 type CompetitionDeps =
+  | 'membership'
+  | 'safetyStopControl'
+  | 'startup'
   | 'commandBus'
   | 'queryBus'
   | 'eventBus'
@@ -45,6 +48,9 @@ type CompetitionDeps =
 export const competitionModule: ModuleDefinition<CompetitionDeps> = {
   name: 'competition',
   deps: [
+    'membership',
+    'safetyStopControl',
+    'startup',
     'commandBus',
     'queryBus',
     'eventBus',
@@ -55,6 +61,9 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     'competitionInterruptionControl',
   ] as const,
   register({
+    membership,
+    safetyStopControl,
+    startup,
     commandBus,
     queryBus,
     eventBus,
@@ -108,35 +117,50 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     );
 
     // 5. Register IPC handlers
+    const requireLocalProgress = async () => {
+      const ready = await startup.snapshot();
+      const active = await competitionRepository.findActive();
+      const interruption = active ? competitionInterruptionControl.get(active.id) : null;
+      if (ready.status !== 'READY' || interruption?.status === 'PAUSED' || interruption?.status === 'RESUME_PENDING') {
+        throw new Error('Restore or finish the saved run before starting again');
+      }
+    };
     const competitionHandlers: InferHandlers<typeof competitionContract> = {
       startCompetition: async (input) => {
+        await requireLocalProgress();
         const result = await commandBus.execute(StartCompetitionToken, {
           competitionTypeId: input.competitionTypeId,
         });
         return { competitionId: result.competitionId, sessionId: result.sessionId };
       },
       startStage: async (input) => {
+        await requireLocalProgress();
         const result = await commandBus.execute(StartStageToken, {
           competitionId: input.competitionId,
         });
         return { sessionId: result.sessionId };
       },
       startNextSeries: async (input) => {
+        await requireLocalProgress();
         await commandBus.execute(StartNextSeriesToken, {
           competitionId: input.competitionId,
         });
       },
       advanceStage: async (input) => {
+        await requireLocalProgress();
         await commandBus.execute(AdvanceStageToken, {
           competitionId: input.competitionId,
         });
       },
       endStage: async (input) => {
+        await requireLocalProgress();
         await commandBus.execute(EndStageToken, {
           competitionId: input.competitionId,
         });
       },
       finishCompetition: async (input) => {
+        if (membership.snapshot.competitionId !== null || safetyStopControl.isStopped())
+          throw new Error('Clear Director membership and the safety stop before finishing the saved run');
         await commandBus.execute(FinishCompetitionToken, {
           competitionId: input.competitionId,
         });

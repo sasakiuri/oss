@@ -41,6 +41,8 @@ function dto(mode: 'SIGHTING' | 'MATCH'): CompetitionStateDto {
     currentStageName: 'Match',
     scored: true,
     shotsPerSeries: 10,
+    acc: 'DECIMAL',
+    interruption: null,
     athleteTargetControl: { ...control, selected: mode, effective: mode },
   };
 }
@@ -80,6 +82,8 @@ beforeEach(() => {
     currentStageName: 'Match',
     remainingSeconds: 600,
     totalSeconds: 1000,
+    acc: 'DECIMAL',
+    interruption: null,
     athleteTargetControl: control,
     athleteTargetControlLoaded: true,
   });
@@ -178,6 +182,8 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
 
   it('waits for the new series projection without falling back to a restart', async () => {
     useCompetitionStore.setState({
+      acc: 'DECIMAL',
+      interruption: null,
       athleteTargetControl: null,
       athleteTargetControlLoaded: false,
       athleteTargetControlPending: true,
@@ -219,6 +225,8 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
       expect(screen.getByRole('note')).toHaveTextContent('Target controls are unavailable');
       vi.mocked(competitionService.getCompetitionState).mockResolvedValue({
         ...dto('MATCH'),
+        acc: 'DECIMAL',
+        interruption: null,
         athleteTargetControl: control,
       });
       await act(async () => {

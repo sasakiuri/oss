@@ -64,6 +64,8 @@ describe('competitionContract', () => {
         currentStageName: 'Match',
         scored: true,
         shotsPerSeries: 10,
+        acc: 'DECIMAL',
+        interruption: null,
         athleteTargetControl: {
           officialSighting: true,
           sightingAllowed: false,

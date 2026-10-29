@@ -992,7 +992,7 @@ describe('Lane spectator source', () => {
     sessions.set(session.id, session);
     vi.mocked(options.sessions.findActive).mockResolvedValue(session);
     const events = new TypedEventBus();
-    const timer = new LaneTimerService(competitions, events);
+    const timer = new LaneTimerService(competitions, events, options.storage);
     events.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository: competitions, timerService: timer }));
     const source = new LaneVistaSource({ ...options, timer });
     try {

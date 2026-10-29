@@ -25,9 +25,12 @@ import {
 } from '@/main/composition/tokens';
 import { competitionModule } from '@/main/modules/competition/competition.module';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
+import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import { competitionContract } from '@/shared/ipc/contracts';
 
 import {
+  createMockStartup,
+  createMockStorage,
   createMockCommandBus,
   createMockCompetitionRepository,
   createMockEventBus,
@@ -58,6 +61,9 @@ describe('competition.module', () => {
 
   function registerModule() {
     competitionModule.register({
+      startup: createMockStartup(),
+      membership: new DirectorMembership(createMockStorage(), eventBus),
+      safetyStopControl: { isStopped: () => false } as import('@/main/modules/safety-stop').ILaneSafetyStopControl,
       commandBus,
       queryBus,
       eventBus,
@@ -76,6 +82,9 @@ describe('competition.module', () => {
 
     it('should declare correct dependencies', () => {
       expect(competitionModule.deps).toEqual([
+        'membership',
+        'safetyStopControl',
+        'startup',
         'commandBus',
         'queryBus',
         'eventBus',

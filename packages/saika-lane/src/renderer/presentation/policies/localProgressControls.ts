@@ -15,11 +15,20 @@ export function localProgressControls(
   action: 'progress' | 'sighting' | 'match' = 'progress',
   competition?: {
     phase: string;
+    interruption?: { status: string } | null;
     athleteTargetControl: CompetitionStateDto['athleteTargetControl'];
     athleteTargetControlPending?: boolean;
     athleteTargetControlLoaded?: boolean;
   },
 ): { allowed: boolean; reason: string | undefined } {
+  if (competition?.interruption?.status === 'PAUSED' || competition?.interruption?.status === 'RESUME_PENDING') {
+    return {
+      allowed: false,
+      reason: membership?.competitionId
+        ? 'Await Director instruction'
+        : 'Finish the stopped saved run before starting again',
+    };
+  }
   if (competition?.phase === 'ACTIVE' && !competition.athleteTargetControlLoaded && action !== 'progress') {
     return {
       allowed: false,

@@ -22,7 +22,8 @@ describe('useSavedSettingsRestore', () => {
     useSessionStore.getState().setLaneNumber(1);
   });
 
-  it('applies saved discipline to sessionStore', async () => {
+  it('does not overwrite the hydrated discipline with a saved preference', async () => {
+    useSessionStore.getState().setDiscipline('BEAM_RIFLE_10M');
     mockGetUserPreferences.mockResolvedValue({
       discipline: 'AIR_RIFLE_10M',
     });
@@ -30,7 +31,8 @@ describe('useSavedSettingsRestore', () => {
     renderHook(() => useSavedSettingsRestore());
 
     await waitFor(() => {
-      expect(useSessionStore.getState().discipline).toBe('AIR_RIFLE_10M');
+      expect(mockGetUserPreferences).toHaveBeenCalled();
+      expect(useSessionStore.getState().discipline).toBe('BEAM_RIFLE_10M');
     });
   });
 

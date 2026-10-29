@@ -11,13 +11,14 @@ import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 import { createConnectToTargetHandler } from './application/handlers/ConnectToTargetHandler';
 import { createDisconnectFromTargetHandler } from './application/handlers/DisconnectFromTargetHandler';
 import { createConnectionIpcHandlers } from './infra/ConnectionIpcHandlers';
-import { SessionContextCache } from './infra/SessionContextCache';
 import { createShotIngestionHandler } from './infra/ShotIngestionHandler';
 
 type ConnectionDeps =
   | 'adapterRegistry'
   | 'commandBus'
   | 'database'
+  | 'startup'
+  | 'sessionContextCache'
   | 'eventBus'
   | 'connectionRepository'
   | 'sessionRepository'
@@ -36,6 +37,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     'adapterRegistry',
     'commandBus',
     'database',
+    'startup',
+    'sessionContextCache',
     'eventBus',
     'connectionRepository',
     'sessionRepository',
@@ -52,6 +55,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     adapterRegistry,
     commandBus,
     database,
+    startup,
+    sessionContextCache,
     eventBus,
     connectionRepository,
     sessionRepository,
@@ -66,7 +71,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   }) {
     const shotObservationRepository = new SqliteShotObservationRepository(database);
     // Session context cache for synchronous access by USBDataPipeline
-    const sessionContextCache = new SessionContextCache(eventBus);
     usbManager.setSessionContextProvider(() => sessionContextCache.getContext());
 
     // Notify once a complete shot has been converted, before ingestion and persistence.
@@ -79,15 +83,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // Subscribe before the asynchronous bootstrap so a live event cannot be
     // missed or overwritten by an older persisted snapshot.
     sessionContextCache.subscribeEvents(() => usbManager.resetShotCounter());
-
-    // Bootstrap context from the persisted session and competition stage (app restart scenario)
-    const contextBootstrap = sessionContextCache
-      .bootstrap(sessionRepository, competitionRepository, competitionInterruptionControl)
-      .catch((err: unknown) => {
-        getLogger().warn('Session context bootstrap failed; cache will be populated by events', 'main', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
 
     const getCachedMode = (): Mode | null => {
       try {
@@ -165,7 +160,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     commandBus.register(ConnectToTargetToken, async (input) => {
       // The first connection after an app restart must not send the Session
       // row's stale SIGHTING mode before competition recovery has completed.
-      await contextBootstrap;
+      if ((await startup.snapshot()).status !== 'READY')
+        throw new Error('Restore the saved run before connecting the target');
       await competitionModeUpdates;
       await flushPendingUnexpectedDisconnect();
       await connectToTarget(input);
@@ -227,7 +223,8 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     usbManager.on('connected', (reconnectedConnection) => {
       void (async () => {
         try {
-          await contextBootstrap;
+          if ((await startup.snapshot()).status !== 'READY')
+            throw new Error('Restore the saved run before connecting the target');
           const disconnectedConnection = await takePendingUnexpectedDisconnect();
           if (!disconnectedConnection) {
             return;

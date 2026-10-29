@@ -9,7 +9,9 @@ import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTime
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
+import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type {
   IQualificationRecoveryAdjudicationControl,
@@ -27,6 +29,7 @@ import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import type { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 /** Flat record of all injectable services */
@@ -37,6 +40,9 @@ export interface ServiceRegistry {
   eventBus: IEventBus;
   ipcRouter: IpcRouter;
   storage: ILocalStorage;
+  membership: DirectorMembership;
+  sessionContextCache: SessionContextCache;
+  startup: ActiveRunStartup;
   settingsStore: IAppSettingsStore;
   usbManager: IUSBConnectionManager;
   sessionRepository: ISessionRepository;

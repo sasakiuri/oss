@@ -68,7 +68,9 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
           });
         } else {
           this.storage.setMany({ [key]: data, [historyKey]: nextLinks });
-          this.storage.delete(CompetitionRepositoryImpl.ACTIVE_KEY);
+          if (this.storage.get<string>(CompetitionRepositoryImpl.ACTIVE_KEY) === state.id) {
+            this.storage.delete(CompetitionRepositoryImpl.ACTIVE_KEY);
+          }
         }
       },
       'REPOSITORY_ERROR',
@@ -116,7 +118,9 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
       async () => {
         const activeId = this.storage.get<string>(CompetitionRepositoryImpl.ACTIVE_KEY);
         if (!activeId) return null;
-        return await this.findById(activeId);
+        const state = await this.findById(activeId);
+        if (!state) throw new Error(`The active competition ${activeId} is missing`);
+        return state;
       },
       'REPOSITORY_ERROR',
       { operation: 'findActive' },

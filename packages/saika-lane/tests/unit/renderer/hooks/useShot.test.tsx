@@ -28,6 +28,33 @@ describe('useShot', () => {
     vi.clearAllMocks();
   });
 
+  it('merges a delayed history reply with live shot IDs', async () => {
+    useSessionStore.getState().setSessionId('saved');
+    let resolve!: (history: { sessionId: string; shots: ShotDto[] }) => void;
+    mockGetShotHistory.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    const { result } = renderHook(() => useShot());
+    const shot: ShotDto = {
+      id: 'live',
+      shotNumber: 1,
+      x: 0,
+      y: 0,
+      score: 100,
+      innerTen: true,
+      mode: 'MATCH',
+      isRecorded: true,
+      timestamp: '2026-01-01T00:00:00Z',
+    };
+    act(() => useSessionStore.getState().addShot(shot));
+    await act(async () => resolve({ sessionId: 'saved', shots: [shot] }));
+    expect(result.current.shots).toEqual([shot]);
+    expect(useSessionStore.getState().totalScore).toBe(100);
+  });
+
   describe('initial state', () => {
     it('initializes with empty state', () => {
       const { result } = renderHook(() => useShot());

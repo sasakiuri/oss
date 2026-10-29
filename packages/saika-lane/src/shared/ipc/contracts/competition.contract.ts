@@ -43,6 +43,16 @@ const TimerDtoSchema = z.object({
 });
 
 const CompetitionStateDtoSchema = z.object({
+  acc: z.enum(['RING', 'DECIMAL']),
+  interruption: z
+    .object({
+      interruptionId: z.string(),
+      status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
+      remainingSeconds: z.number().nonnegative(),
+      unlimitedSightingShots: z.boolean(),
+      restartHold: z.boolean(),
+    })
+    .nullable(),
   athleteTargetControl: z
     .object({
       officialSighting: z.boolean(),
