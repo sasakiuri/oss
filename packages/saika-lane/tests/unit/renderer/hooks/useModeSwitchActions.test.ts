@@ -632,9 +632,13 @@ describe('confirmation context for athlete series changes', () => {
         else if (change === 'unloaded')
           useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlLoaded: false });
         else
-          useCompetitionStore
-            .getState()
-            .setAthleteTargetControl({ sightingAllowed: true, matchAllowed: true, selected: null, effective: 'MATCH' });
+          useCompetitionStore.getState().setAthleteTargetControl({
+            officialSighting: false,
+            sightingAllowed: true,
+            matchAllowed: true,
+            selected: null,
+            effective: 'MATCH',
+          });
         await result.current.confirm();
       });
       expect(result.current.confirmation).toBeNull();

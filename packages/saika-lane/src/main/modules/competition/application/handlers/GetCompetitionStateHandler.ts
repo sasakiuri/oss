@@ -27,6 +27,7 @@ export function createGetCompetitionStateHandler(
     }
 
     const session = await sessionRepository.findById(state.sessionId);
-    return toCompetitionStateDto(state, session?.allShots, interruptions.get(state.id));
+    if (!session) throw ErrorCatalog.createError('SESSION_NOT_FOUND');
+    return toCompetitionStateDto(state, session.allShots, interruptions.get(state.id));
   };
 }

@@ -61,7 +61,9 @@ describe('createGetCompetitionStateHandler', () => {
     const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository(), {
+    const sessions = createMockSessionRepository();
+    vi.mocked(sessions.findById).mockResolvedValue(buildSession());
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions, {
       get: () => null,
     });
     const dto = await handler({ competitionId: 'comp-1' });
@@ -89,7 +91,9 @@ describe('createGetCompetitionStateHandler', () => {
     state = state.recordShotInSeries();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
-    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, createMockSessionRepository(), {
+    const sessions = createMockSessionRepository();
+    vi.mocked(sessions.findById).mockResolvedValue(buildSession());
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions, {
       get: () => null,
     });
     const dto = await handler({ competitionId: 'comp-1' });
@@ -97,6 +101,17 @@ describe('createGetCompetitionStateHandler', () => {
     expect(dto.currentStageIndex).toBe(1);
     expect(dto.scored).toBe(true);
     expect(dto.seriesShotCount).toBe(1);
+  });
+
+  it('throws SESSION_NOT_FOUND instead of projecting empty observations for a missing session', async () => {
+    const state = athleteCompetition();
+    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+    const sessions = createMockSessionRepository();
+    const handler = createGetCompetitionStateHandler(mockCompetitionRepo, sessions, { get: () => null });
+
+    await expect(handler({ competitionId: state.id })).rejects.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+    expect(sessions.findById).toHaveBeenCalledWith(state.sessionId);
+    expect(sessions.findActive).not.toHaveBeenCalled();
   });
 
   it('should throw an error for a non-existent competition ID', async () => {

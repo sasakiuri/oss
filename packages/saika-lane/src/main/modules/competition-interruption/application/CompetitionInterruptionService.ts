@@ -134,12 +134,12 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       unlimitedSightingShots: current.unlimitedSightingShots ?? undefined,
     });
     const competition = await this.requireActiveCompetition(input.competitionId);
+    this.repository.save(applied);
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
       mode: await this.resumedMode(competition, applied),
       preserveSeries: true,
     });
-    this.repository.save(applied);
     this.emit(applied);
     return applied;
   }

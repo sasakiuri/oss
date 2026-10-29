@@ -14,6 +14,7 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S, P25, R3P60, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
+import { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import {
   createShotIngestionHandler,
   type ShotIngestionDeps,
@@ -197,6 +198,43 @@ describe('ShotIngestionHandler', () => {
       expect.objectContaining({ mode: expect.objectContaining({ value: 'SIGHTING' }) }),
     );
   });
+
+  it.each([
+    ['ACTIVE', true, 'SIGHTING'],
+    ['ACTIVE', false, 'MATCH'],
+    ['IDLE', true, 'MATCH'],
+  ] as const)(
+    'classifies a reported Match shot in %s with pending unlimited=%s as %s',
+    async (phase, unlimitedSightingShots, expected) => {
+      const session = buildSession();
+      const active = CompetitionState.create('competition-pending', session.id, BR60S.config)
+        .startStage()
+        .endStage()
+        .advanceToNextStage()
+        .startNextSeries();
+      const competition = CompetitionState.reconstruct({ ...active, phase });
+      const interruption = LaneInterruptionRecord.create({
+        competitionId: competition.id,
+        interruptionId: 'pending-interruption',
+        status: 'RESUME_PENDING',
+        unlimitedSightingShots,
+        pausedAt: new Date(),
+        capturedAt: new Date(),
+        capturedRemainingSeconds: 240,
+        capturedTotalSeconds: 600,
+      });
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(competition);
+      vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+      deps.interruptionReader = { get: () => interruption };
+
+      await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+
+      expect(commandBus.execute).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ name: 'RecordShot' }),
+        expect.objectContaining({ sessionId: session.id, mode: expect.objectContaining({ value: expected }) }),
+      );
+    },
+  );
 
   it.each([
     [0, 'SIGHTING', 'MATCH', 'SIGHTING'],

@@ -48,6 +48,7 @@ export class SessionContextCache {
     const activeSession = activeCompetition
       ? await sessionRepository.findById(activeCompetition.sessionId)
       : await sessionRepository.findActive();
+    if (activeCompetition && !activeSession) throw ErrorCatalog.createError('SESSION_NOT_FOUND');
 
     if (activeSession) {
       // An event may have populated a newer session while repository reads were

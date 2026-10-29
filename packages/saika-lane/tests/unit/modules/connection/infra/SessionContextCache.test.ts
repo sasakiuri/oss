@@ -90,6 +90,20 @@ describe('SessionContextCache', () => {
   });
 
   describe('bootstrap', () => {
+    it('throws SESSION_NOT_FOUND for a missing competition session without falling back to another session', async () => {
+      const competition = athleteCompetition();
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(competition);
+      vi.mocked(sessionRepository.findById).mockResolvedValue(null);
+      vi.mocked(sessionRepository.findActive).mockResolvedValue(buildSession());
+
+      await expect(cache.bootstrap(sessionRepository, competitionRepository)).rejects.toMatchObject({
+        code: 'SESSION_NOT_FOUND',
+      });
+      expect(sessionRepository.findById).toHaveBeenCalledWith(competition.sessionId);
+      expect(sessionRepository.findActive).not.toHaveBeenCalled();
+      expect(() => cache.getContext()).toThrow();
+    });
+
     it('should populate cache from active session', async () => {
       const session = buildSession({ discipline: Discipline.rifle50m() });
       sessionRepository.findActive = vi.fn().mockResolvedValue(session);
