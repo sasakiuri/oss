@@ -38,7 +38,7 @@ description: Saika Lane の標的接続、試射・本射、表示、印刷、Di
 ## 試射から本射へ進む（単独使用）
 
 試射を含む競技では、左側の状態表示とボタンを確認して進めます。
-左端のボタン名は、マウスを重ねると表示されます。
+左端のボタンにマウスを重ねると名前を表示します。参加状態や標的モードによる制限がある場合は、操作できない理由も表示します。
 
 1. 「Preparation」と表示されていれば試射中である。開始待ちの場合は左端の「Preparation」を押す。
 2. 試射を終えて本射を始めるときは「Match」を押す。
@@ -110,9 +110,11 @@ description: Saika Lane の標的接続、試射・本射、表示、印刷、Di
 ## Director と連携して使う
 
 競技の開始、試射・本射の切り替え、中断・再開は Director 担当者の指示に従います。
-Director の競技に参加すると、「Preparation」「Match」「Next Stage」（End Preparation / Advance を含む）が無効になります。「Settings」→「Target」の競技種別も選択できません。「Competition progress is controlled by Director」が操作できない理由です。テンキー `1` / `2` / `3` も確認画面を開かず、進行を変更しません。ただし、上記の三姿勢の対象シリーズでは Sighting / Match を選べます。
+Director の競技に参加すると、「Preparation」「Match」「Next Stage」（End Preparation / Advance を含む）が無効になります。「Settings」→「Target」の競技種別も選択できません。左端の無効な進行ボタンにマウスを重ねると「Competition progress is controlled by Director」と表示します。テンキー `1` / `2` / `3` も確認画面を開かず、進行を変更しません。ただし、上記の三姿勢の対象シリーズでは Sighting / Match を選べます。
 
-通信が切れても参加状態は続きます。Director からの離脱が成功すると単独操作に戻ります。起動直後の参加状態の確認中や照会失敗時も操作できません。照会エラーはログで確認してください。再接続時に参加状態の復元が失敗した場合は、参加状態を解除します。ズーム、全画面、印刷、役員への連絡、ほかの設定は通常どおり使えます。
+通信が切れても参加状態は続きます。Director の `leave-competition` 成功時、または再接続後の参加状態の復元失敗時にロックを解除します。Lane にローカルの解除操作はありません。
+
+起動直後の参加照会中は操作できません。照会に失敗すると「Director membership could not be loaded」と表示し、操作は無効のままです。詳細はログで確認してください。ズーム、全画面、印刷、役員への連絡、ほかの設定は通常どおり使えます。
 
 - 「STOP」：射撃を止め、射場役員の指示を待つ。
 - 「STOP / UNLOAD」：射場役員の指示に従って射撃停止・除弾する。Lane 画面に解除ボタンはない。

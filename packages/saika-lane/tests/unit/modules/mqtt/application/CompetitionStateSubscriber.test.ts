@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { warn } = vi.hoisted(() => ({ warn: vi.fn() }));
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
-  getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+  getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() }),
 }));
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
@@ -238,5 +239,23 @@ describe('CompetitionStateSubscriber', () => {
     vi.mocked(mqttClient.isConnected).mockReturnValue(false);
     vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('disconnected'));
     await expect(subscriber.unsubscribe()).resolves.toBeUndefined();
+  });
+  it.each([
+    { failure: 'mismatch', code: 'MQTT_COMPETITION_STATE_MISMATCH' },
+    { failure: 'timeout', code: 'MQTT_COMPETITION_STATE_TIMEOUT' },
+  ])('preserves the original $failure error and logs cleanup failures', async ({ failure, code }) => {
+    if (failure === 'mismatch') {
+      vi.mocked(competitionRepository.findById).mockResolvedValue(matchingCompetition());
+      retainedPayload = JSON.stringify(validState({ totalShots: 40 }));
+    } else retainedPayload = null;
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('cleanup failed'));
+    await expect(subscriber.subscribe(COMPETITION_ID)).rejects.toMatchObject({ code });
+    expect(warn).toHaveBeenCalledWith(
+      '[CompetitionStateSubscriber] Failed to clean up competition subscription',
+      'mqtt',
+      { competitionId: COMPETITION_ID, error: 'cleanup failed' },
+    );
+    await expect(subscriber.unsubscribe()).resolves.toBeUndefined();
+    expect(mqttClient.unsubscribe).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,4 +3,4 @@
 '@sasakiuri/saika-docs': patch
 ---
 
-Director の競技への参加中は、Lane の進行ボタン、テンキー操作、競技種別の選択を無効にします。参加状態を通信状態と分けて画面へ通知し、参加状態の変化で確認操作を取り消します。
+Disable Lane progress controls, progress shortcuts, and competition-type selection while joined to Director. Expose membership independently of connection status and cancel pending confirmations when membership changes.

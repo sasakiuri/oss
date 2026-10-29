@@ -144,6 +144,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           label={athlete ? 'Sighting' : 'Preparation'}
           onClick={onPreparationClick}
           disabled={!sightingPermission.allowed || (!athlete && preparationDisabled)}
+          disabledReason={sightingPermission.reason}
           aria-describedby={sightingPermission.reason ? sightingReasonId : undefined}
           active={preparationActive}
           activeColor="#029863"
@@ -153,6 +154,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           label="Match"
           onClick={onMatchClick}
           disabled={!matchPermission.allowed || (!athlete && matchDisabled)}
+          disabledReason={matchPermission.reason}
           aria-describedby={matchPermission.reason ? matchReasonId : undefined}
           active={matchActive}
           activeColor="#E54437"
@@ -162,6 +164,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
           label={getNextStageTooltip(phase, scored)}
           onClick={onNextStageClick}
           disabled={!permission.allowed || nextStageDisabled}
+          disabledReason={permission.reason}
           aria-describedby={permission.reason ? reasonId : undefined}
         />
       </div>
