@@ -284,6 +284,7 @@ describe('sessionStore', () => {
         innerTen: false,
       });
       updateScores(105, [105]);
+      useSessionStore.getState().setCurrentSeriesStartIndex(1);
 
       clearSessionData();
 
@@ -291,6 +292,7 @@ describe('sessionStore', () => {
       expect(state.currentSessionId).toBe('test-session-123');
       expect(state.mode).toBe('MATCH');
       expect(state.discipline).toBe('AIR_RIFLE_10M');
+      expect(state.currentSeriesStartIndex).toBe(0);
       expect(state.shots).toEqual([]);
       expect(state.seriesScores).toEqual([]);
       expect(state.totalScore).toBe(0);
@@ -317,6 +319,7 @@ describe('sessionStore', () => {
       });
       updateScores(105.5, [52.5, 53.0]);
 
+      useSessionStore.getState().setCurrentSeriesStartIndex(1);
       // Execute reset
       resetSession();
 
@@ -326,6 +329,7 @@ describe('sessionStore', () => {
       expect(state.mode).toBe('SIGHTING');
       expect(state.shots).toEqual([]);
       expect(state.preparationShotNumberResetIndices).toEqual([]);
+      expect(state.currentSeriesStartIndex).toBe(0);
       expect(state.seriesScores).toEqual([]);
       expect(state.totalScore).toBe(0);
     });

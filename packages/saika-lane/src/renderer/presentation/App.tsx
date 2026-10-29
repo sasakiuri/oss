@@ -3,6 +3,7 @@
 
 import { useCallback } from 'react';
 
+import { ModeSwitchConfirmation } from '@/renderer/presentation/components/ModeSwitchConfirmation';
 import { useAppKeyboardShortcuts } from '@/renderer/presentation/hooks/useAppKeyboardShortcuts';
 import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation';
 import { useCompetition } from '@/renderer/presentation/hooks/useCompetition';
@@ -33,7 +34,9 @@ function App() {
     startCompetition,
   });
 
-  const { handlePreparationClick, handleMatchClick, handleNextStageClick } = useModeSwitchActions();
+  const modeSwitchActions = useModeSwitchActions();
+  const { handlePreparationClick, handleMatchClick, handleNextStageClick, confirmation, confirm, cancelConfirmation } =
+    modeSwitchActions;
 
   const handlePrint = useCallback(async () => {
     if (!currentSessionId) return;
@@ -62,7 +65,16 @@ function App() {
       return <SplashScreen version={window.electronAPI.appVersion} />;
 
     case 'main':
-      return <MainScreen />;
+      return (
+        <>
+          <MainScreen modeSwitchActions={modeSwitchActions} />
+          <ModeSwitchConfirmation
+            message={confirmation?.message ?? null}
+            onConfirm={confirm}
+            onCancel={cancelConfirmation}
+          />
+        </>
+      );
 
     default:
       return <SplashScreen version={window.electronAPI.appVersion} />;

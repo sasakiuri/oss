@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
 
 import { useCompetitionStore } from '../stores/competitionStore';
+import { useSessionStore } from '../stores/sessionStore';
 
 /**
  * Applies stage, series and timer updates together from phaseChanged.
@@ -20,6 +21,16 @@ export function usePhaseEvents(): void {
 
   useEffect(() => {
     const unsubPhaseChanged = window.electronAPI.on.phaseChanged((data) => {
+      const previous = useCompetitionStore.getState();
+      if (
+        !data.scored &&
+        (data.stageIndex !== previous.stageIndex ||
+          previous.scored ||
+          (previous.phase === 'IDLE' && data.newPhase === 'ACTIVE'))
+      ) {
+        const session = useSessionStore.getState();
+        session.setCurrentSeriesStartIndex(session.shots.length);
+      }
       applyPhaseChange(
         data.newPhase,
         data.stageIndex,

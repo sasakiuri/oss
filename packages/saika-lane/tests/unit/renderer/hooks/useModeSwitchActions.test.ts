@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import type { ShotDto } from '@/shared/ipc/contracts';
 
 const mockSwitchMode = vi.fn().mockResolvedValue(undefined);
 const mockStartStage = vi.fn().mockResolvedValue({ sessionId: 'session-1' });
@@ -302,5 +303,194 @@ describe('useModeSwitchActions (3-button model)', () => {
         }),
       ).resolves.not.toThrow();
     });
+  });
+});
+
+const shot: ShotDto = {
+  id: 'shot-1',
+  shotNumber: 1,
+  seriesNumber: 0,
+  x: 0,
+  y: 0,
+  score: 100,
+  innerTen: false,
+  timestamp: '2026-10-29T00:00:00Z',
+  mode: 'SIGHTING',
+  isRecorded: false,
+};
+
+describe('mode change confirmation rules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCompetitionStore.getState().resetCompetition();
+    useSessionStore.getState().resetSession();
+    useSessionStore.getState().setSessionId('session-1');
+  });
+
+  it.each(['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'])(
+    'confirms Preparation in %s with shots in an earlier series',
+    async (phase) => {
+      setCompetitionState({ competitionId: 'comp-1', phase });
+      useSessionStore.getState().addShot(shot);
+      useSessionStore.getState().setCurrentSeriesStartIndex(1);
+      const { result } = renderHook(() => useModeSwitchActions());
+
+      await act(async () => {
+        await result.current.handlePreparationClick();
+      });
+      expect(result.current.confirmation?.message).toContain('saved as finished');
+      expect(mockStartStage).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
+
+      await act(async () => {
+        await result.current.confirm();
+      });
+      expect(mockStartStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([1]);
+      expect(result.current.confirmation).toBeNull();
+    },
+  );
+
+  it.each(['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'])(
+    'runs Preparation immediately in %s without shots',
+    async (phase) => {
+      setCompetitionState({ competitionId: 'comp-1', phase });
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current.handlePreparationClick();
+      });
+      expect(result.current.confirmation).toBeNull();
+      expect(mockStartStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+    },
+  );
+
+  it('starts IDLE immediately even if the session contains shots', async () => {
+    setCompetitionState({ competitionId: 'comp-1', phase: 'IDLE' });
+    useSessionStore.getState().addShot(shot);
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handlePreparationClick();
+    });
+    expect(result.current.confirmation).toBeNull();
+    expect(mockStartStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+  });
+
+  it('confirms Match when ending preparation with shots', async () => {
+    setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE', scored: false });
+    useSessionStore.getState().addShot(shot);
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handleMatchClick();
+    });
+    expect(result.current.confirmation?.message).toBe('End preparation and start the match?');
+    expect(mockEndStage).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.confirm();
+    });
+    expect(mockEndStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+    expect(mockAdvanceStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+    expect(mockStartNextSeries).toHaveBeenCalledExactlyOnceWith('comp-1');
+    expect(mockEndStage.mock.invocationCallOrder[0]).toBeLessThan(mockAdvanceStage.mock.invocationCallOrder[0]!);
+    expect(mockAdvanceStage.mock.invocationCallOrder[0]).toBeLessThan(mockStartNextSeries.mock.invocationCallOrder[0]!);
+  });
+
+  it('starts Match immediately when only an earlier preparation has shots', async () => {
+    setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE', scored: false });
+    useSessionStore.getState().addShot(shot);
+    useSessionStore.getState().setCurrentSeriesStartIndex(1);
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handleMatchClick();
+    });
+    expect(result.current.confirmation).toBeNull();
+    expect(mockEndStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+  });
+
+  it.each(['SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'])(
+    'starts the next series in %s without confirmation despite earlier shots',
+    async (phase) => {
+      setCompetitionState({ competitionId: 'comp-1', phase });
+      useSessionStore.getState().addShot(shot);
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current.handleMatchClick();
+      });
+      expect(result.current.confirmation).toBeNull();
+      expect(mockStartNextSeries).toHaveBeenCalledExactlyOnceWith('comp-1');
+      expect(mockEndStage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { phase: 'IDLE', scored: false },
+    { phase: 'ACTIVE', scored: true },
+  ])('leaves Match unchanged in $phase / scored=$scored with shots', async ({ phase, scored }) => {
+    setCompetitionState({ competitionId: 'comp-1', phase, scored });
+    useSessionStore.getState().addShot(shot);
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handleMatchClick();
+    });
+    expect(result.current.confirmation).toBeNull();
+    expect(mockStartNextSeries).not.toHaveBeenCalled();
+    expect(mockEndStage).not.toHaveBeenCalled();
+    expect(mockSwitchMode).not.toHaveBeenCalled();
+  });
+
+  it.each(['handlePreparationClick', 'handleMatchClick'] as const)(
+    '%s confirms only when the current series contains shots in the switchMode branch',
+    async (action) => {
+      useSessionStore.getState().addShot(shot);
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current[action]();
+      });
+      expect(result.current.confirmation?.message).toContain('Start a new');
+      expect(mockSwitchMode).not.toHaveBeenCalled();
+      act(() => {
+        result.current.cancelConfirmation();
+      });
+      useSessionStore.getState().setCurrentSeriesStartIndex(1);
+      await act(async () => {
+        await result.current[action]();
+      });
+      expect(result.current.confirmation).toBeNull();
+      expect(mockSwitchMode).toHaveBeenCalledExactlyOnceWith(
+        action === 'handlePreparationClick' ? 'SIGHTING' : 'MATCH',
+      );
+    },
+  );
+
+  it.each(['handlePreparationClick', 'handleMatchClick'] as const)(
+    '%s also confirms the switchMode branch in FINISHED',
+    async (action) => {
+      setCompetitionState({ competitionId: 'comp-1', phase: 'FINISHED' });
+      useSessionStore.getState().addShot(shot);
+      const { result } = renderHook(() => useModeSwitchActions());
+      await act(async () => {
+        await result.current[action]();
+      });
+      expect(result.current.confirmation?.message).toContain('Start a new');
+      expect(mockSwitchMode).not.toHaveBeenCalled();
+      await act(async () => {
+        await result.current.confirm();
+      });
+      expect(mockSwitchMode).toHaveBeenCalledExactlyOnceWith(
+        action === 'handlePreparationClick' ? 'SIGHTING' : 'MATCH',
+      );
+    },
+  );
+
+  it('rechecks state at confirmation before a render or effect can run', async () => {
+    setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE' });
+    useSessionStore.getState().addShot(shot);
+    const { result } = renderHook(() => useModeSwitchActions());
+    await act(async () => {
+      await result.current.handlePreparationClick();
+      useSessionStore.getState().setSessionId('session-2');
+      await result.current.confirm();
+    });
+    expect(result.current.confirmation).toBeNull();
+    expect(mockStartStage).not.toHaveBeenCalled();
   });
 });

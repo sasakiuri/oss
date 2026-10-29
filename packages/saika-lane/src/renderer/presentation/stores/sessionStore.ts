@@ -12,6 +12,8 @@ interface SessionState {
   discipline: Discipline | null;
   laneNumber: number;
   shots: ShotDto[];
+  /** First shot index of the current preparation or locally started series. */
+  currentSeriesStartIndex: number;
   /** Shot indices where Preparation display shot numbers are initialized */
   preparationShotNumberResetIndices: number[];
   seriesScores: number[];
@@ -36,6 +38,8 @@ interface SessionActions {
   addShot: (shot: ShotDto) => void;
 
   setShots: (shots: ShotDto[]) => void;
+
+  setCurrentSeriesStartIndex: (index: number) => void;
 
   /**
    * Mark the current shot position as a Preparation display shot number reset.
@@ -65,6 +69,7 @@ const initialState: SessionState = {
   discipline: null,
   laneNumber: 1,
   shots: [],
+  currentSeriesStartIndex: 0,
   preparationShotNumberResetIndices: [],
   seriesScores: [],
   totalScore: 0,
@@ -108,6 +113,8 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
     });
   },
 
+  setCurrentSeriesStartIndex: (currentSeriesStartIndex) => set({ currentSeriesStartIndex }),
+
   markPreparationShotNumberReset: () => {
     set((state) => {
       const resetIndex = state.shots.length;
@@ -136,6 +143,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   clearSessionData: () => {
     set({
       shots: [],
+      currentSeriesStartIndex: 0,
       preparationShotNumberResetIndices: [],
       seriesScores: [],
       totalScore: 0,
