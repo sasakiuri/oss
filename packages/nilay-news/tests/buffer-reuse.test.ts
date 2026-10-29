@@ -70,6 +70,55 @@ describe("short-lived Buffer verification reuse", () => {
     expect(transport).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    [44, 1],
+    [45, 2],
+  ])(
+    "checks verification age after a %i-second quota read",
+    async (elapsed, requests) => {
+      let now = 10000;
+      let reads = 0;
+      const transport = vi
+        .fn<FetchBytes>()
+        .mockResolvedValue(response(verified()));
+      const client = new BufferClient("fixture-key", "channel-123", transport, {
+        clock: () => now,
+        readQuota: async () => {
+          if (++reads === 2) now += elapsed;
+          return null;
+        },
+      });
+      await client.verifyAccount();
+      await client.verifyAccount(true);
+      expect(transport).toHaveBeenCalledTimes(requests);
+    },
+  );
+
+  it("refreshes if a newly observed API reset passes during the quota read", async () => {
+    let now = 10000;
+    let reads = 0;
+    const transport = vi
+      .fn<FetchBytes>()
+      .mockResolvedValue(response(verified()));
+    const client = new BufferClient("fixture-key", "channel-123", transport, {
+      clock: () => now,
+      readQuota: async () => {
+        if (++reads !== 2) return null;
+        now += 16;
+        return {
+          observedAt: 10010,
+          api: {
+            state: "known",
+            windows: [{ name: "new", remaining: 99, resetAt: 10015 }],
+          },
+        };
+      },
+    });
+    await client.verifyAccount();
+    await client.verifyAccount(true);
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
   it("counts scheduled and sent posts together and refreshes after consuming the last slot", async () => {
     const transport = vi
       .fn<FetchBytes>()
