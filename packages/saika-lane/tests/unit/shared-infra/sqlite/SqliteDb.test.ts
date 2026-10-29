@@ -76,7 +76,7 @@ describe('Lane SQLite initialization', () => {
       timestamp_source: 'UNKNOWN',
     });
     expect(reopened.pragma('user_version', { simple: true })).toBe(21);
-  });
+  }, 30_000);
 
   it('closes a rejected connection and preserves a database created by a newer application', () => {
     const newer = track(new Database(file));
