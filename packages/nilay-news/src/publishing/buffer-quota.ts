@@ -149,15 +149,32 @@ export function formatQuotaWait(seconds: number): string {
 }
 
 /** Leave room for the send, every confirmation, and one spare API request. */
-export function postingQuotaShortfall(
+function postingQuotaShortfall(
   quota: BufferQuota,
+  now?: number,
 ): { remaining: number; wait: number } | null {
   const low = quota.api.windows.filter(
-    ({ remaining }) => remaining < REQUEST_RESERVE,
+    ({ remaining, resetAt }) =>
+      remaining < REQUEST_RESERVE && (now === undefined || resetAt > now),
   );
   if (!low.length) return null;
   return {
     remaining: Math.min(...low.map((window) => window.remaining)),
-    wait: Math.max(...low.map((window) => window.resetAt - quota.observedAt)),
+    wait: Math.max(
+      ...low.map((window) => window.resetAt - (now ?? quota.observedAt)),
+    ),
   };
+}
+
+/** Reject new sends, without discarding a post already accepted by Buffer. */
+export function postingQuotaError(
+  quota: BufferQuota,
+  now?: number,
+): string | null {
+  if (quota.api.state === "malformed")
+    return "Buffer API の残り利用回数を確認できません。Buffer を確認してください";
+  const shortfall = postingQuotaShortfall(quota, now);
+  return shortfall
+    ? `Buffer API の残り利用回数が不足しています（残り ${shortfall.remaining} 回）。${formatQuotaWait(shortfall.wait)}後に再度有効にしてください`
+    : null;
 }

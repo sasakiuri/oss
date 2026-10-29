@@ -339,12 +339,12 @@ describe("real Worker, D1 and WebCrypto", () => {
         expect(posts.find((post) => post.articleId === article.id)?.text).toBe(
           article.postDraft,
         );
-      // Each send checks the account and compares with up to three earlier posts.
+      // Each send compares with earlier posts; each bounded burst checks the account once.
       expect(await calls()).toEqual([
         "query",
         ...Array.from({ length: 12 }, (_, index) => [
-          "query",
           ...Array.from({ length: Math.min(index, 3) }, () => "relation"),
+          ...(index % 10 === 0 ? ["query"] : []),
           "mutation",
         ]).flat(),
       ]);
@@ -400,6 +400,7 @@ describe("real Worker, D1 and WebCrypto", () => {
       ).json()) as string[];
       expect(calls.filter((call) => call === "mutation")).toHaveLength(1);
       expect(calls.filter((call) => call === "relation")).toHaveLength(11);
+      expect(calls.filter((call) => call === "query")).toHaveLength(2);
     } finally {
       await runtime.dispose();
     }
