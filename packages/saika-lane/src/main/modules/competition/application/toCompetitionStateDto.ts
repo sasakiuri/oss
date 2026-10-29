@@ -6,18 +6,32 @@ import type { CompetitionState } from '../domain/CompetitionState';
 
 import type { CompetitionStateDto } from './dto';
 
-/** Projects the current series; prior positions never supply its observed mode. */
-export function toCompetitionStateDto(state: CompetitionState, shots: readonly Shot[] = []): CompetitionStateDto {
+/** Only a normal ATHLETE observation can describe the device-controlled series mode. */
+export function resolveCompetitionDisplayMode(state: CompetitionState, shots: readonly Shot[] = []) {
   const stage = state.currentStageConfig;
   const series = state.currentSeriesConfig;
   const observed = [...shots].reverse().find((shot) => {
     const context = shot.competitionContext;
     return (
-      context?.competitionId === state.id &&
+      context?.athleteModeObserved === true &&
+      context.competitionId === state.id &&
       context.stageIndex === state.currentStageIndex &&
       context.seriesIndex === state.currentSeriesIndex
     );
   });
+  return resolveCompetitionShotMode(
+    stage,
+    series,
+    observed?.mode.value,
+    state.seriesShotCount,
+    state.athleteTargetMode,
+  );
+}
+
+/** Projects the current series; prior positions never supply its observed mode. */
+export function toCompetitionStateDto(state: CompetitionState, shots: readonly Shot[] = []): CompetitionStateDto {
+  const stage = state.currentStageConfig;
+  const series = state.currentSeriesConfig;
   const resolve = (mode: 'SIGHTING' | 'MATCH' | undefined, selection = state.athleteTargetMode) =>
     resolveCompetitionShotMode(stage, series, mode, state.seriesShotCount, selection);
   return {
@@ -44,7 +58,7 @@ export function toCompetitionStateDto(state: CompetitionState, shots: readonly S
             sightingAllowed: resolve('SIGHTING', 'SIGHTING') === 'SIGHTING',
             matchAllowed: resolve('MATCH', 'MATCH') === 'MATCH',
             selected: state.athleteTargetMode ?? null,
-            effective: resolve(observed?.mode.value),
+            effective: resolveCompetitionDisplayMode(state, shots),
           }
         : null,
   };

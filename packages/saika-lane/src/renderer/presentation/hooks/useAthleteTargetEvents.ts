@@ -32,6 +32,9 @@ export function useAthleteTargetEvents(): void {
       // also covers a newly activated session before renderer hydration finishes.
       if (event.sessionId) refresh();
     });
+    const unsubscribeInterruption = window.electronAPI.on.competitionInterruptionChanged((event) => {
+      if (event.competitionId === useCompetitionStore.getState().competitionId) refresh();
+    });
     refresh();
     return () => {
       invalidateAthleteTargetControl();
@@ -39,6 +42,7 @@ export function useAthleteTargetEvents(): void {
       unsubscribePhase();
       unsubscribeProgress();
       unsubscribeShot();
+      unsubscribeInterruption();
     };
   }, []);
 }

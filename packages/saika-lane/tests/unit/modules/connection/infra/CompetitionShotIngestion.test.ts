@@ -5,10 +5,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RecordShotToken, SwitchModeToken } from '@/main/composition/tokens';
 import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
+import { createGetCompetitionStateHandler } from '@/main/modules/competition/application/handlers/GetCompetitionStateHandler';
+import { createSetAthleteTargetModeHandler } from '@/main/modules/competition/application/handlers/SetAthleteTargetModeHandler';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { AR60_FINAL, BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { AR60_FINAL, BR60S, R3P60 } from '@/main/modules/competition/domain/competitionTypes';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionInterruptionService, type LaneInterruptionRecord } from '@/main/modules/competition-interruption';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { createShotIngestionHandler } from '@/main/modules/connection/infra/ShotIngestionHandler';
 import { resolveCompetitionShotPlacement } from '@/main/modules/mqtt/application/ShotCompetitionPlacement';
 import { createRecordShotHandler } from '@/main/modules/session/application/handlers/RecordShotHandler';
@@ -94,6 +97,8 @@ async function setup(type = BR60S) {
   return {
     sessions,
     session,
+    competitions,
+    events,
     interruption,
     get competition() {
       return competition;
@@ -132,6 +137,79 @@ describe('competition shot acquisition and persistence', () => {
     expect(resumed.allShots.at(-1)!.mode.value).toBe('MATCH');
     expect(resumed.totalScore).toBe(200);
     expect(rig.competition.seriesShotCount).toBe(2);
+  });
+
+  it('excludes authorized interruption shots from the observed ATHLETE mode after resuming Match', async () => {
+    const rig = await setup(R3P60);
+    for (let i = 0; i < 20; i++) rig.competition = rig.competition.recordShotInSeries();
+    const cache = new SessionContextCache(rig.events);
+    cache.subscribeEvents(vi.fn());
+    await cache.bootstrap(rig.sessions, rig.competitions);
+    const interruptionId = randomUUID();
+    await rig.interruption.pause({
+      competitionId: rig.competition.id,
+      interruptionId,
+      pausedAt: new Date(Date.now() - 6 * 60_000),
+    });
+    await rig.interruption.resume({
+      competitionId: rig.competition.id,
+      interruptionId,
+      timerStartAt: new Date(),
+      authorizedRemainingSeconds: 2100,
+      unlimitedSightingShots: true,
+    });
+    const sighting = await rig.fire('MATCH');
+    expect(sighting.allShots.at(-1)!.mode.value).toBe('SIGHTING');
+    expect(sighting.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBeUndefined();
+    expect(rig.competition.seriesShotCount).toBe(0);
+    await rig.interruption.resumeMatch({ competitionId: rig.competition.id, interruptionId });
+    const query = createGetCompetitionStateHandler(rig.competitions, rig.sessions);
+    expect(cache.getContext().mode.value).toBe('MATCH');
+    expect((await query({ competitionId: rig.competition.id })).athleteTargetControl).toMatchObject({
+      selected: null,
+      effective: 'MATCH',
+    });
+    const matched = await rig.fire('MATCH');
+    expect(matched.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
+    expect(rig.competition.seriesShotCount).toBe(1);
+    expect((await query({ competitionId: rig.competition.id })).athleteTargetControl).toMatchObject({
+      sightingAllowed: false,
+      effective: 'MATCH',
+    });
+  });
+
+  it('keeps a pre-cutoff Lane selection in the cache when interruption Match fire resumes', async () => {
+    const rig = await setup(R3P60);
+    for (let i = 0; i < 20; i++) rig.competition = rig.competition.recordShotInSeries();
+    const cache = new SessionContextCache(rig.events);
+    cache.subscribeEvents(vi.fn());
+    await cache.bootstrap(rig.sessions, rig.competitions);
+    await createSetAthleteTargetModeHandler(
+      rig.competitions,
+      rig.events,
+    )({
+      competitionId: rig.competition.id,
+      stageIndex: rig.competition.currentStageIndex,
+      seriesIndex: rig.competition.currentSeriesIndex,
+      mode: 'SIGHTING',
+    });
+    const interruptionId = randomUUID();
+    await rig.interruption.pause({ competitionId: rig.competition.id, interruptionId, pausedAt: new Date() });
+    await rig.interruption.resume({
+      competitionId: rig.competition.id,
+      interruptionId,
+      timerStartAt: new Date(),
+      authorizedRemainingSeconds: 2100,
+      unlimitedSightingShots: true,
+    });
+    await rig.interruption.resumeMatch({ competitionId: rig.competition.id, interruptionId });
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
+    expect(rig.competition.athleteTargetMode).toBe('SIGHTING');
+    const sighting = await rig.fire('MATCH');
+    expect(sighting.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
+    expect(sighting.allShots.at(-1)!.mode.value).toBe('SIGHTING');
+    expect(sighting.totalScore).toBe(0);
+    expect(rig.competition.seriesShotCount).toBe(0);
   });
 
   it('captures series positions before progress changes and retains incomplete boundaries after SQLite reload', async () => {

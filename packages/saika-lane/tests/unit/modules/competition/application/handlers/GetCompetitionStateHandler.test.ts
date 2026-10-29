@@ -32,6 +32,7 @@ describe('createGetCompetitionStateHandler', () => {
       competitionId: state.id,
       stageIndex: state.currentStageIndex,
       seriesIndex: state.currentSeriesIndex,
+      athleteModeObserved: true as const,
     };
     let session = buildSession().recordShot(null, new Score(100), new Date(), undefined, false, Mode.sighting(), {
       competitionContext: { ...context, seriesIndex: 0 },

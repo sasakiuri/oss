@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { describe, expect, it } from 'vitest';
 
+import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
 import { SessionStorageSchema, parseSessionStorageData } from '@/main/modules/session/infra/SessionStorageSchema';
 import { DomainError } from '@/shared/errors/DomainError';
 
@@ -31,6 +32,22 @@ describe('SessionStorageSchema', () => {
   it('should pass validation for valid session data', () => {
     const result = SessionStorageSchema.safeParse(validSessionData);
     expect(result.success).toBe(true);
+  });
+
+  it('preserves and validates the normal ATHLETE mode observation marker through storage parsing', () => {
+    const context = { competitionId: 'competition', stageIndex: 1, seriesIndex: 2, athleteModeObserved: true as const };
+    const data = {
+      ...validSessionData,
+      allShots: [{ ...validSessionData.allShots[0]!, score: 98, competitionContext: context }],
+    };
+    const restored = SessionFactory.fromStorageData(parseSessionStorageData(data));
+    expect(restored.allShots[0]!.competitionContext).toEqual(context);
+    expect(
+      SessionStorageSchema.safeParse({
+        ...data,
+        allShots: [{ ...data.allShots[0], competitionContext: { ...context, athleteModeObserved: 'true' } }],
+      }).success,
+    ).toBe(false);
   });
 
   it('should accept all discipline types', () => {

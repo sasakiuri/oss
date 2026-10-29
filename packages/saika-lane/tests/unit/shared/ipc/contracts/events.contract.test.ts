@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 
 describe('eventsContract', () => {
-  it('has 23 events', () => {
+  it('has 24 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
     expect(eventKeys).toHaveLength(24);
   });
