@@ -9,6 +9,57 @@ const stylelintRequire = createRequire(require.resolve("stylelint"));
 const micromatchPath = stylelintRequire.resolve("micromatch");
 const micromatch = stylelintRequire("micromatch");
 const braces = createRequire(micromatchPath)("braces");
+const docsRequire = createRequire(
+  new URL("../packages/saika-docs/package.json", import.meta.url),
+);
+const jestRequire = createRequire(docsRequire.resolve("jest-config"));
+const merge = jestRequire("deepmerge");
+const katex = createRequire(docsRequire.resolve("rehype-katex"))("katex");
+
+test("Jest globals merge nested settings and concatenate arrays without mutating inputs", () => {
+  const preset = { settings: { enabled: true, tags: ["preset"] } };
+  const project = { settings: { label: "project", tags: ["project"] } };
+  const merged = merge(preset, project);
+  assert.deepEqual(merged, {
+    settings: { enabled: true, label: "project", tags: ["preset", "project"] },
+  });
+  merged.settings.tags.push("later");
+  assert.deepEqual(preset.settings.tags, ["preset"]);
+  assert.deepEqual(project.settings.tags, ["project"]);
+});
+
+test("the Jest merge dependency rejects prototype poisoning in source and target objects", () => {
+  const payload = () =>
+    JSON.parse('{"__proto__":{"unexpectedFlag":true},"value":1}');
+  const results = [
+    merge(Object.create(null), payload()),
+    merge(payload(), {}),
+    merge(payload(), payload()),
+    ...[null, undefined, false, 0, ""].map(
+      (placeholder) =>
+        merge({ settings: placeholder }, { settings: payload() }).settings,
+    ),
+    merge({}, { settings: [payload()] }).settings[0],
+  ];
+  for (const result of results) {
+    assert.equal(result.value, 1);
+    assert.equal(Object.getPrototypeOf(result), Object.prototype);
+    assert.equal(Object.hasOwn(result, "__proto__"), false);
+    assert.equal(result.unexpectedFlag, undefined);
+  }
+  assert.equal(Object.prototype.unexpectedFlag, undefined);
+});
+
+test("KaTeX ignores inherited trust settings while preserving explicit trusted rendering", () => {
+  const expression = String.raw`\href{https://example.com/}{x}`;
+  const inherited = katex.renderToString(
+    expression,
+    Object.create({ trust: true }),
+  );
+  assert.doesNotMatch(inherited, /<a\b/);
+  assert.match(katex.renderToString(expression, { trust: true }), /<a\b/);
+  assert.match(katex.renderToString("x^2"), /class="katex"/);
+});
 
 test("glob and brace expansion retain ordinary file matching behavior", () => {
   assert.deepEqual(braces.expand("src/{app,lib}/{a,b}.js"), [
