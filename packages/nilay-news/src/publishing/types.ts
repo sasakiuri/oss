@@ -12,7 +12,8 @@ export interface BufferPost {
 /** Remote publishing operations required by the durable publication workflow. */
 export interface PublishingClient {
   readonly channel: string;
-  verifyAccount(): Promise<void>;
+  /** Reuse is allowed only after a successful verification in the same tick. */
+  verifyAccount(reuse?: boolean): Promise<void>;
   post(text: string): Promise<BufferPost>;
   getPost(id: string, text: string, channelId?: string): Promise<BufferPost>;
 }

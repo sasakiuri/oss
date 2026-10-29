@@ -17,6 +17,7 @@ import { utf8 } from "../src/text.ts";
 
 import {
   account,
+  limit,
   remotePost,
   fakePublishingClient,
   type FakePublishingClient,
@@ -295,6 +296,43 @@ describe("Publisher", () => {
       expect((await repo.article(articleId)).postScreening).toBeNull();
     });
 
+    it("refreshes verification after slow screening even when the step began within the tick budget", async () => {
+      await add(2);
+      const calls: string[] = [];
+      const base = bufferTransport(
+        calls,
+        account({}, [limit({ scheduled: 0, sent: 0 })]),
+      );
+      let sends = 0;
+      const transport: FetchBytes = async (...args) => {
+        const response = await base(...args);
+        if (calls.at(-1)?.includes("createPost") && ++sends === 1)
+          testClock.advance(44);
+        return response;
+      };
+      const { jev } = reviewer("different");
+      const relate = jev.relate.bind(jev);
+      vi.spyOn(jev, "relate").mockImplementation(async (...args) => {
+        const result = await relate(...args);
+        testClock.advance(2);
+        return result;
+      });
+      const client = new BufferClient("fixture-key", "channel-123", transport, {
+        clock,
+      });
+      await new Publisher(repo, client, clock, jev).tick();
+      expect(
+        calls.filter((query) => !query.includes("createPost")),
+      ).toHaveLength(2);
+      expect(
+        calls.filter((query) => query.includes("createPost")),
+      ).toHaveLength(2);
+      expect(
+        (await state()).posts.every((post) => post.status === "posted"),
+      ).toBe(true);
+      expect((await repo.settings()).autoPost).toBe(true);
+    });
+
     it("holds an uncertain match without sending or marking it as posted", async () => {
       const previous = await add(2);
       await repo.review(previous, "posted");
@@ -417,7 +455,10 @@ describe("Publisher", () => {
     });
   });
 
-  function bufferTransport(calls: string[]): FetchBytes {
+  function bufferTransport(
+    calls: string[],
+    verification = account({ name: "NilayNews" }),
+  ): FetchBytes {
     return async (url, options) => {
       const request = JSON.parse(new TextDecoder().decode(options?.body)) as {
         query: string;
@@ -431,7 +472,7 @@ describe("Publisher", () => {
               post: remotePost(request.variables.input.text, "sent"),
             },
           }
-        : account({ name: "NilayNews" }).data;
+        : verification.data;
       return {
         data: utf8(JSON.stringify({ data })),
         url,
@@ -988,6 +1029,35 @@ describe("Publisher", () => {
     expect((await repo.article(articleId)).reviewStatus).toBe("posted");
   });
 
+  it("stops a reused verification at the next send while preserving the accepted post", async () => {
+    await add(2);
+    const calls: string[] = [];
+    const base = bufferTransport(
+      calls,
+      account({}, [limit({ scheduled: 0, sent: 0 })]),
+    );
+    const transport: FetchBytes = async (...args) => ({
+      ...(await base(...args)),
+      rateLimit: calls.at(-1)?.includes("createPost")
+        ? '"requests";r=7;t=900'
+        : '"requests";r=99;t=900',
+    });
+    await new Publisher(
+      repo,
+      new BufferClient("fixture-key", "channel-123", transport, { clock }),
+      clock,
+    ).tick();
+    expect(calls).toHaveLength(2);
+    expect((await state()).posts.map((post) => post.status).sort()).toEqual([
+      "failed",
+      "posted",
+    ]);
+    expect(
+      (await state()).posts.find((post) => post.status === "failed")?.error,
+    ).toContain("残り 7 回");
+    expect((await repo.settings()).autoPost).toBe(false);
+  });
+
   it("records a failure when the send authorization cannot be stored", async () => {
     const client = fakePublishingClient(vi.fn);
     vi.spyOn(repo, "authorizePostSend").mockRejectedValueOnce(
@@ -1107,6 +1177,12 @@ describe("Publisher", () => {
       await publisher.tick();
       expect(client.getPost).toHaveBeenCalledTimes(1);
       expect(client.post).toHaveBeenCalledTimes(4);
+      expect(client.verifyAccount.mock.calls).toEqual([
+        [false],
+        [true],
+        [false],
+        [true],
+      ]);
       expect(
         (await state()).posts.every((post) => post.status === "posted"),
       ).toBe(true);

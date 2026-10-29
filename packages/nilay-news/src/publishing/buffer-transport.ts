@@ -6,7 +6,11 @@ import { FetchError } from "../net/http.ts";
 import type { FetchBytes } from "../net/types.ts";
 import { parseUtf8Json, isRecord, utf8 } from "../text.ts";
 
-import { quotaObservation, quotaPause } from "./buffer-quota.ts";
+import {
+  postingQuotaError,
+  quotaObservation,
+  quotaPause,
+} from "./buffer-quota.ts";
 import { PostError, PostRateLimitError } from "./errors.ts";
 
 const ENDPOINT = "https://api.buffer.com";
@@ -57,7 +61,7 @@ export class BufferGraphQL {
     await this.options.observeQuota?.(quota);
   }
 
-  private async checkRequestBudget(): Promise<void> {
+  async checkRequestBudget(sending = false): Promise<void> {
     const now = (this.options.clock ?? systemClock)();
     const quota = (await this.options.readQuota?.()) ?? this.quota;
     const retryAt = quotaPause(quota, now);
@@ -66,6 +70,10 @@ export class BufferGraphQL {
         retryAt - now,
         quota?.api.state === "limited",
       );
+    if (sending && quota) {
+      const error = postingQuotaError(quota, now);
+      if (error) throw new PostError(error);
+    }
   }
 
   async request(
@@ -73,7 +81,7 @@ export class BufferGraphQL {
     variables: object,
     mutation = false,
   ): Promise<{ data: Record<string, unknown>; quota: BufferQuota }> {
-    await this.checkRequestBudget();
+    await this.checkRequestBudget(mutation);
     let data: Uint8Array;
     let quota: BufferQuota;
     const requestOrder =

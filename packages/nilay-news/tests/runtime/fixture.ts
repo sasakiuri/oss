@@ -87,7 +87,7 @@ const transport: FetchBytes = async (url, options) => {
           }
         : {
             dailyPostingLimits: [
-              limit({ channelId: "fixture-channel", scheduled: 0 }),
+              limit({ channelId: "fixture-channel", scheduled: 0, sent: 0 }),
             ],
             channel: channel({ id: "fixture-channel", name: "NilayNews" }),
           },
@@ -145,7 +145,9 @@ const handlers = createHandlers(
           : irrelevant;
         return { data: utf8(response), url, contentType: "application/json" };
       }),
-      new BufferClient("fixture-key", "fixture-channel", transport),
+      new BufferClient("fixture-key", "fixture-channel", transport, {
+        clock: testClock.now,
+      }),
       {
         clock: testClock.now,
         crawl: new CachedFetch(repo, [source], {

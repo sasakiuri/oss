@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: MIT
 /** Buffer account verification and validated publication operations. */
-import type { BufferQuota } from "../domain.ts";
+import { clock as systemClock } from "../domain.ts";
+import type { BufferQuota, Clock } from "../domain.ts";
 import { fetchBytes } from "../net/http.ts";
 import type { FetchBytes } from "../net/types.ts";
 import { isRecord } from "../text.ts";
 
 import { validatePost } from "./buffer-post.ts";
-import { formatQuotaWait, postingQuotaShortfall } from "./buffer-quota.ts";
+import { postingQuotaError } from "./buffer-quota.ts";
 import { BufferGraphQL, type BufferClientOptions } from "./buffer-transport.ts";
 import { ACCOUNT } from "./draft.ts";
 import { PostError } from "./errors.ts";
 import type { BufferPost, PublishingClient } from "./types.ts";
 
 const POST_FIELDS = "id channelId channelService text status externalLink";
+/** Reuse is opt-in within a single tick, with an independent wall-clock expiry. */
+const ACCOUNT_REUSE_SECONDS = 45;
 const KNOWN_REJECTIONS = new Set([
   "NotFoundError",
   "UnauthorizedError",
@@ -23,6 +26,12 @@ const KNOWN_REJECTIONS = new Set([
 export class BufferClient implements PublishingClient {
   readonly channel: string;
   private readonly api: BufferGraphQL;
+  private readonly clock: Clock;
+  private verification?: {
+    observedAt: number;
+    expiresAt: number;
+    remainingPosts: number | null | undefined;
+  };
   readonly configured: boolean;
 
   constructor(
@@ -33,6 +42,7 @@ export class BufferClient implements PublishingClient {
   ) {
     this.channel = channel;
     this.configured = Boolean(key && channel);
+    this.clock = options.clock ?? systemClock;
     this.api = new BufferGraphQL(key, transport, options);
   }
 
@@ -49,7 +59,22 @@ export class BufferClient implements PublishingClient {
    * permissions, the channel's daily posting limit and, when Buffer reports
    * it, the remaining API request budget; all in one request.
    */
-  async verifyAccount(): Promise<void> {
+  async verifyAccount(reuse = false): Promise<void> {
+    const previous = this.verification;
+    this.verification = undefined;
+    const now = this.clock();
+    if (
+      reuse &&
+      previous &&
+      now >= previous.observedAt &&
+      now < previous.expiresAt &&
+      (previous.remainingPosts === null ||
+        (previous.remainingPosts !== undefined && previous.remainingPosts > 0))
+    ) {
+      await this.api.checkRequestBudget(true);
+      this.verification = previous;
+      return;
+    }
     const {
       data: { channel, dailyPostingLimits },
       quota,
@@ -92,24 +117,27 @@ export class BufferClient implements PublishingClient {
         "Buffer の Link Shortening を No Shortening に設定してください",
       );
     }
-    await this.checkDailyLimit(dailyPostingLimits, quota);
-    if (quota.api.state === "malformed")
-      throw new PostError(
-        "Buffer API の残り利用回数を確認できません。Buffer を確認してください",
-      );
-    const shortfall = postingQuotaShortfall(quota);
-    if (shortfall) {
-      throw new PostError(
-        `Buffer API の残り利用回数が不足しています（残り ${shortfall.remaining} 回）。${formatQuotaWait(shortfall.wait)}後に再度有効にしてください`,
-      );
-    }
+    const remainingPosts = await this.checkDailyLimit(
+      dailyPostingLimits,
+      quota,
+    );
+    const error = postingQuotaError(quota);
+    if (error) throw new PostError(error);
+    this.verification = {
+      observedAt: quota.observedAt,
+      expiresAt: Math.min(
+        quota.observedAt + ACCOUNT_REUSE_SECONDS,
+        ...quota.api.windows.map((window) => window.resetAt),
+      ),
+      remainingPosts,
+    };
   }
 
-  /** Buffer's current-day count for this channel must leave room for one post. */
+  /** Buffer's evaluated posting window must leave room for one more post. */
   private async checkDailyLimit(
     limits: unknown,
     quota: BufferQuota,
-  ): Promise<void> {
+  ): Promise<number | null | undefined> {
     const count = (value: unknown): value is number =>
       typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
     const limit: unknown =
@@ -138,39 +166,53 @@ export class BufferClient implements PublishingClient {
         atLimit: limit.isAtLimit,
       },
     });
+    const used = limit.scheduled + (limit.sent ?? 0);
     if (
       limit.isAtLimit ||
-      (typeof limit.limit === "number" && limit.scheduled >= limit.limit)
+      (typeof limit.limit === "number" && used >= limit.limit)
     ) {
       throw new PostError(
-        `Buffer のチャンネルが1日の投稿上限に達しています（${limit.scheduled}/${limit.limit} 件）。Buffer の上限がリセットされてから再度有効にしてください`,
+        `Buffer のチャンネルが1日の投稿上限に達しています（${used}/${limit.limit} 件）。Buffer の上限がリセットされてから再度有効にしてください`,
       );
     }
+    return limit.limit === null
+      ? null
+      : limit.sent === undefined
+        ? undefined
+        : limit.limit - used;
   }
 
   async post(text: string): Promise<BufferPost> {
-    const {
-      data: { createPost: result },
-    } = await this.request(
-      `mutation($input: CreatePostInput!) { createPost(input: $input) { __typename ... on PostActionSuccess { post { ${POST_FIELDS} } } } }`,
-      {
-        input: {
-          channelId: this.channel,
-          text,
-          schedulingType: "automatic",
-          mode: "shareNow",
+    try {
+      const {
+        data: { createPost: result },
+      } = await this.request(
+        `mutation($input: CreatePostInput!) { createPost(input: $input) { __typename ... on PostActionSuccess { post { ${POST_FIELDS} } } } }`,
+        {
+          input: {
+            channelId: this.channel,
+            text,
+            schedulingType: "automatic",
+            mode: "shareNow",
+          },
         },
-      },
-      true,
-    );
-    if (!isRecord(result) || result.__typename !== "PostActionSuccess") {
-      const kind = isRecord(result) ? result.__typename : undefined;
-      throw new PostError(
-        "Buffer に投稿を登録できません。Buffer の接続・権限・利用上限と投稿結果を確認してください",
-        !(typeof kind === "string" && KNOWN_REJECTIONS.has(kind)),
+        true,
       );
+      if (!isRecord(result) || result.__typename !== "PostActionSuccess") {
+        const kind = isRecord(result) ? result.__typename : undefined;
+        throw new PostError(
+          "Buffer に投稿を登録できません。Buffer の接続・権限・利用上限と投稿結果を確認してください",
+          !(typeof kind === "string" && KNOWN_REJECTIONS.has(kind)),
+        );
+      }
+      const post = validatePost(result.post, text, this.channel);
+      if (typeof this.verification?.remainingPosts === "number")
+        this.verification.remainingPosts -= 1;
+      return post;
+    } catch (error) {
+      this.verification = undefined;
+      throw error;
     }
-    return validatePost(result.post, text, this.channel);
   }
 
   /** Fetch a submitted post; it must match the id, text and the channel it was submitted to. */

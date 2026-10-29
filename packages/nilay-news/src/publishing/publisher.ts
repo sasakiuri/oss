@@ -18,6 +18,10 @@ const TICK_OPERATIONS = 10;
 /** A tick starts no further operation this many seconds after it started. */
 const TICK_SECONDS = 45;
 
+interface Burst {
+  verified: boolean;
+}
+
 export class Publisher {
   private readonly repository: NewsRepository;
   readonly client: PublishingClient;
@@ -56,13 +60,14 @@ export class Publisher {
       transport: this.urlTransport,
     });
     let at = Math.max(timestamp, started);
+    const burst: Burst = { verified: false };
     for (let operation = 0; operation < TICK_OPERATIONS; operation += 1) {
       if (operation > 0) {
         const now = this.clock();
         if (now - started >= TICK_SECONDS) return;
         at = Math.max(at, now);
       }
-      if (!(await this.step(at, resolver))) return;
+      if (!(await this.step(at, resolver, burst))) return;
     }
   }
 
@@ -76,6 +81,7 @@ export class Publisher {
   private async step(
     timestamp: number,
     resolver: GoogleNewsResolver,
+    burst: Burst,
   ): Promise<boolean> {
     const pending = await this.repository.claimPostCheck(timestamp);
     if (pending) return this.confirmation.check(pending);
@@ -100,7 +106,8 @@ export class Publisher {
         );
         return false;
       }
-      await this.client.verifyAccount();
+      await this.client.verifyAccount(burst.verified);
+      burst.verified = true;
       // Remote checks may be slow: recheck the claim, settings, article evidence,
       // eligibility and draft text right before sending.
       if (
