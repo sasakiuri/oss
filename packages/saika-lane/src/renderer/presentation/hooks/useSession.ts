@@ -56,10 +56,12 @@ export function useSession(): UseSessionResult {
       if (!currentSessionId) {
         throw new Error('Session has not been started');
       }
+      const seriesStartIndex = useSessionStore.getState().shots.length;
       await sessionService.switchMode({
         sessionId: currentSessionId,
         mode: targetMode,
       });
+      useSessionStore.getState().setCurrentSeriesStartIndex(seriesStartIndex);
       setMode(targetMode);
     },
     { errorMessage: 'An error occurred while switching mode' },

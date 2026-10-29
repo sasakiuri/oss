@@ -47,6 +47,12 @@ const filterProps = (props: Record<string, unknown>) => {
   return safe;
 };
 
+const modeSwitchActions = {
+  handlePreparationClick: vi.fn(),
+  handleMatchClick: vi.fn(),
+  handleNextStageClick: vi.fn(),
+};
+
 const setMockWindowChrome = (platform: string, hasNativeWindowFrame: boolean) => {
   (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).platform = platform;
   (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).hasNativeWindowFrame =
@@ -56,13 +62,6 @@ const setMockWindowChrome = (platform: string, hasNativeWindowFrame: boolean) =>
 // Mock hooks and stores
 vi.mock('@/renderer/presentation/hooks/useSession');
 vi.mock('@/renderer/presentation/hooks/useShot');
-vi.mock('@/renderer/presentation/hooks/useModeSwitchActions', () => ({
-  useModeSwitchActions: () => ({
-    handlePreparationClick: vi.fn(),
-    handleMatchClick: vi.fn(),
-    handleNextStageClick: vi.fn(),
-  }),
-}));
 vi.mock('@/renderer/presentation/stores/sessionStore', async () => {
   const actual = await vi.importActual<typeof import('@/renderer/presentation/stores/sessionStore')>(
     '@/renderer/presentation/stores/sessionStore',
@@ -200,7 +199,7 @@ describe('MainScreen', () => {
 
   describe('basic rendering', () => {
     it('renders MainScreen correctly', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       // Main components are displayed
       expect(screen.getByTestId('side-menu')).toBeInTheDocument();
@@ -209,19 +208,19 @@ describe('MainScreen', () => {
     });
 
     it('displays SideMenu', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByTestId('side-menu')).toBeInTheDocument();
     });
 
     it('displays SidePanel', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByTestId('side-panel')).toBeInTheDocument();
     });
 
     it('displays StatusBar', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const statusBar = screen.getByTestId('status-bar');
       expect(statusBar).toBeInTheDocument();
@@ -233,7 +232,7 @@ describe('MainScreen', () => {
         status: 'connected',
       } as ReturnType<typeof useConnectionStoreModule.useConnectionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const statusBar = screen.getByTestId('status-bar');
       expect(statusBar).toHaveTextContent('Connected');
@@ -242,7 +241,7 @@ describe('MainScreen', () => {
     it('opens connection settings from the disconnect toast action', () => {
       useConnectionNotificationStore.getState().showUnexpectedDisconnect('USB device disconnected unexpectedly');
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       fireEvent.click(screen.getByText('Open Connection Settings'));
 
@@ -254,7 +253,7 @@ describe('MainScreen', () => {
     it('shows custom window controls when the window is frameless', () => {
       setMockWindowChrome('linux', false);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByLabelText('Minimize')).toBeInTheDocument();
       expect(screen.getByLabelText('Maximize')).toBeInTheDocument();
@@ -264,7 +263,7 @@ describe('MainScreen', () => {
     it('hides custom window controls when using the native window frame', () => {
       setMockWindowChrome('linux', true);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.queryByLabelText('Minimize')).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Maximize')).not.toBeInTheDocument();
@@ -279,7 +278,7 @@ describe('MainScreen', () => {
         currentSessionId: null,
       });
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.queryByTestId('target-display')).not.toBeInTheDocument();
     });
@@ -290,7 +289,7 @@ describe('MainScreen', () => {
         currentSessionId: null,
       });
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByText('No session started')).toBeInTheDocument();
       expect(screen.getByText('Please select a discipline from Settings')).toBeInTheDocument();
@@ -306,7 +305,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByText('No session started')).toBeInTheDocument();
       expect(screen.queryByTestId('target-display')).not.toBeInTheDocument();
@@ -324,7 +323,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByTestId('target-display')).toBeInTheDocument();
     });
@@ -339,7 +338,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.queryByText('No session started')).not.toBeInTheDocument();
     });
@@ -372,7 +371,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const targetDisplay = screen.getByTestId('target-display');
       expect(targetDisplay).toHaveTextContent('1 shots');
@@ -388,7 +387,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByText(/AIR_RIFLE_10M/)).toBeInTheDocument();
     });
@@ -396,14 +395,14 @@ describe('MainScreen', () => {
 
   describe('custom className', () => {
     it('applies a custom className', () => {
-      const { container } = render(<MainScreen className="custom-class" />);
+      const { container } = render(<MainScreen className="custom-class" modeSwitchActions={modeSwitchActions} />);
 
       const mainScreen = container.firstChild as HTMLElement;
       expect(mainScreen).toHaveClass('custom-class');
     });
 
     it('coexists default classes with custom class', () => {
-      const { container } = render(<MainScreen className="custom-class" />);
+      const { container } = render(<MainScreen className="custom-class" modeSwitchActions={modeSwitchActions} />);
 
       const mainScreen = container.firstChild as HTMLElement;
       expect(mainScreen).toHaveClass('custom-class');
@@ -415,35 +414,35 @@ describe('MainScreen', () => {
 
   describe('layout', () => {
     it('has a vertical flex layout', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainScreen = container.firstChild as HTMLElement;
       expect(mainScreen).toHaveClass('flex', 'flex-col', 'h-screen');
     });
 
     it('has a dark mode background color', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainScreen = container.firstChild as HTMLElement;
       expect(mainScreen).toHaveClass('bg-zinc-900');
     });
 
     it('main content area has a horizontal flex layout', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainContent = container.querySelector('.flex.flex-1.overflow-hidden');
       expect(mainContent).toBeInTheDocument();
     });
 
     it('has a main tag', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainElement = container.querySelector('main');
       expect(mainElement).toBeInTheDocument();
     });
 
     it('main tag has flex-1 class', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainElement = container.querySelector('main');
       expect(mainElement).toHaveClass('flex-1');
@@ -452,21 +451,21 @@ describe('MainScreen', () => {
 
   describe('center content area', () => {
     it('has center-aligned styles', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const centerContent = container.querySelector('main');
       expect(centerContent).toHaveClass('flex', 'flex-col', 'items-center', 'justify-center');
     });
 
     it('is scrollable on overflow', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const centerContent = container.querySelector('main');
       expect(centerContent).toHaveClass('overflow-auto');
     });
 
     it('has a dark mode background color', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const centerContent = container.querySelector('main');
       expect(centerContent).toHaveClass('bg-zinc-900');
@@ -490,7 +489,7 @@ describe('MainScreen', () => {
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByTestId('target-display')).toBeInTheDocument();
       expect(screen.getByText(/0 shots/)).toBeInTheDocument();
@@ -524,7 +523,7 @@ describe('MainScreen', () => {
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByText(/60 shots/)).toBeInTheDocument();
     });
@@ -581,7 +580,7 @@ describe('MainScreen', () => {
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       // All shots (including sighting) are displayed
       expect(screen.getByText(/3 shots/)).toBeInTheDocument();
@@ -589,9 +588,9 @@ describe('MainScreen', () => {
   });
 
   describe('edge cases', () => {
-    it('can render without props', () => {
+    it('can render with mode switch actions', () => {
       expect(() => {
-        render(<MainScreen />);
+        render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       }).not.toThrow();
     });
 
@@ -604,7 +603,7 @@ describe('MainScreen', () => {
       });
 
       expect(() => {
-        render(<MainScreen />);
+        render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       }).not.toThrow();
     });
 
@@ -615,15 +614,15 @@ describe('MainScreen', () => {
       });
 
       expect(() => {
-        render(<MainScreen />);
+        render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       }).not.toThrow();
     });
 
     it('works correctly with multiple re-renders', () => {
-      const { rerender } = render(<MainScreen />);
+      const { rerender } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
-      rerender(<MainScreen />);
-      rerender(<MainScreen />);
+      rerender(<MainScreen modeSwitchActions={modeSwitchActions} />);
+      rerender(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.getByTestId('side-menu')).toBeInTheDocument();
       expect(screen.getByTestId('side-panel')).toBeInTheDocument();
@@ -633,7 +632,7 @@ describe('MainScreen', () => {
 
   describe('accessibility', () => {
     it('uses the main tag appropriately', () => {
-      const { container } = render(<MainScreen />);
+      const { container } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const mainElement = container.querySelector('main');
       expect(mainElement).toBeInTheDocument();
@@ -645,7 +644,7 @@ describe('MainScreen', () => {
         currentSessionId: null,
       });
 
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const message = screen.getByText('No session started');
       expect(message).toHaveClass('text-lg');
@@ -654,7 +653,7 @@ describe('MainScreen', () => {
 
   describe('keyboard shortcuts', () => {
     it('NumpadDecimal opens SettingsModal', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       // Initially closed
       expect(screen.getByTestId('settings-modal-closed')).toBeInTheDocument();
@@ -670,7 +669,7 @@ describe('MainScreen', () => {
     });
 
     it('initialTab is general when opened via NumpadDecimal', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       act(() => {
         fireEvent.keyDown(window, { code: 'NumpadDecimal' });
@@ -681,7 +680,7 @@ describe('MainScreen', () => {
     });
 
     it('pressing NumpadDecimal again closes the modal', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       // Open
       act(() => {
@@ -698,7 +697,7 @@ describe('MainScreen', () => {
     });
 
     it('ESC closes SettingsModal', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       // Open modal first with NumpadDecimal
       act(() => {
@@ -720,7 +719,7 @@ describe('MainScreen', () => {
       vi.useFakeTimers();
 
       try {
-        render(<MainScreen />);
+        render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
         act(() => {
           fireEvent.keyDown(window, { code: 'NumpadDecimal' });
@@ -742,8 +741,16 @@ describe('MainScreen', () => {
   });
 
   describe('SideMenu callbacks', () => {
+    it('passes the shared mode switch actions to SideMenu', () => {
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
+
+      expect(capturedSideMenuProps.onPreparationClick).toBe(modeSwitchActions.handlePreparationClick);
+      expect(capturedSideMenuProps.onMatchClick).toBe(modeSwitchActions.handleMatchClick);
+      expect(capturedSideMenuProps.onNextStageClick).toBe(modeSwitchActions.handleNextStageClick);
+    });
+
     it('onSettingsClick opens Settings with the general tab', () => {
-      render(<MainScreen />);
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       const onSettingsClick = capturedSideMenuProps.onSettingsClick as () => void;
       act(() => {
@@ -758,7 +765,7 @@ describe('MainScreen', () => {
   describe('state transitions', () => {
     it('correctly transitions from no session to session started', () => {
       // Initial: no session
-      const { rerender } = render(<MainScreen />);
+      const { rerender } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       expect(screen.getByText('No session started')).toBeInTheDocument();
       expect(screen.queryByTestId('target-display')).not.toBeInTheDocument();
 
@@ -771,7 +778,7 @@ describe('MainScreen', () => {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
-      rerender(<MainScreen />);
+      rerender(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       expect(screen.queryByText('No session started')).not.toBeInTheDocument();
       expect(screen.getByTestId('target-display')).toBeInTheDocument();
@@ -788,7 +795,7 @@ describe('MainScreen', () => {
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
 
       // Initial: no shots
-      const { rerender } = render(<MainScreen />);
+      const { rerender } = render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       let targetDisplay = screen.getByTestId('target-display');
       expect(targetDisplay).toHaveTextContent('0 shots');
 
@@ -810,7 +817,7 @@ describe('MainScreen', () => {
         ...defaultMockShot,
         shots: mockShots,
       });
-      rerender(<MainScreen />);
+      rerender(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
       targetDisplay = screen.getByTestId('target-display');
       expect(targetDisplay).toHaveTextContent('1 shots');

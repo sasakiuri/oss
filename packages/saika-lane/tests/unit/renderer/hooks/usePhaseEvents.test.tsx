@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { usePhaseEvents } from '@/renderer/presentation/hooks/usePhaseEvents';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import type { PhaseChangedEventPayload, ShotDto } from '@/shared/ipc/contracts';
 
 // Individual mock functions for each event
 const mockOnPhaseChanged = vi.fn();
@@ -15,6 +17,7 @@ const mockOnCompetitionFinished = vi.fn();
 describe('usePhaseEvents', () => {
   beforeEach(() => {
     useCompetitionStore.getState().resetCompetition();
+    useSessionStore.getState().resetSession();
     vi.clearAllMocks();
 
     // Default: return unsubscribe function
@@ -82,6 +85,65 @@ describe('usePhaseEvents', () => {
   });
 
   describe('phaseChanged event', () => {
+    it('tracks the current preparation separately from earlier shots across stage entry and start', () => {
+      const shot: ShotDto = {
+        id: 'shot-1',
+        shotNumber: 1,
+        x: 0,
+        y: 0,
+        score: 100,
+        innerTen: false,
+        timestamp: '2026-10-29T00:00:00Z',
+        mode: 'SIGHTING',
+        isRecorded: false,
+      };
+      useSessionStore.getState().addShot(shot);
+      useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 1, 0, 'Match', true);
+      renderHook(() => usePhaseEvents());
+      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: PhaseChangedEventPayload) => void;
+      const phase: PhaseChangedEventPayload = {
+        previousPhase: 'SERIES_COMPLETE',
+        newPhase: 'STAGE_ENTERED',
+        stageIndex: 2,
+        seriesIndex: 0,
+        stageName: 'Preparation',
+        scored: false,
+      };
+      callback(phase);
+      expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
+      callback({ ...phase, previousPhase: 'STAGE_ENTERED', newPhase: 'ACTIVE' });
+      useSessionStore.getState().addShot({ ...shot, id: 'shot-2', shotNumber: 2 });
+      callback({ ...phase, previousPhase: 'ACTIVE', newPhase: 'ACTIVE' });
+      expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
+      expect(useSessionStore.getState().shots).toHaveLength(2);
+    });
+
+    it('starts preparation after IDLE without counting earlier practice shots', () => {
+      useSessionStore.getState().addShot({
+        id: 'shot-1',
+        shotNumber: 1,
+        x: 0,
+        y: 0,
+        score: 100,
+        innerTen: false,
+        timestamp: '2026-10-29T00:00:00Z',
+        mode: 'SIGHTING',
+        isRecorded: false,
+      });
+      renderHook(() => usePhaseEvents());
+      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: PhaseChangedEventPayload) => void;
+      callback({
+        previousPhase: 'IDLE',
+        newPhase: 'ACTIVE',
+        stageIndex: 0,
+        seriesIndex: 0,
+        stageName: 'Preparation',
+        scored: false,
+      });
+      expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
+      expect(useSessionStore.getState().shots).toHaveLength(1);
+    });
+
     it('updates the store on phase change event', () => {
       renderHook(() => usePhaseEvents());
 

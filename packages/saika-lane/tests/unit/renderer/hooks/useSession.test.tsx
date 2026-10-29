@@ -6,6 +6,7 @@ import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { ServiceError } from '@/renderer/services/createServiceMethod';
 import { sessionService } from '@/renderer/services/sessionService';
+import type { ShotDto } from '@/shared/ipc/contracts';
 
 // Mock service modules
 vi.mock('@/renderer/services/sessionService', () => ({
@@ -150,6 +151,43 @@ describe('useSession', () => {
   });
 
   describe('switchMode', () => {
+    it.each(['SIGHTING', 'MATCH'] as const)('starts an empty %s series without discarding history', async (mode) => {
+      const shot: ShotDto = {
+        id: 'shot-1',
+        shotNumber: 1,
+        x: 0,
+        y: 0,
+        score: 100,
+        innerTen: false,
+        timestamp: '2026-10-29T00:00:00Z',
+        mode: 'SIGHTING',
+        isRecorded: false,
+      };
+      useSessionStore.getState().setSessionId('session-1');
+      useSessionStore.getState().addShot(shot);
+      mockSwitchMode.mockImplementationOnce(async () => {
+        useSessionStore.getState().addShot({ ...shot, id: 'shot-2', shotNumber: 2, mode });
+      });
+      const { result } = renderHook(() => useSession());
+      await act(async () => {
+        await result.current.switchMode(mode);
+      });
+      expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
+      expect(useSessionStore.getState().shots).toHaveLength(2);
+      expect(useSessionStore.getState().mode).toBe(mode);
+    });
+
+    it('keeps the current series boundary when switching fails', async () => {
+      useSessionStore.getState().setSessionId('session-1');
+      useSessionStore.getState().setCurrentSeriesStartIndex(2);
+      mockSwitchMode.mockRejectedValueOnce(new Error('Failed'));
+      const { result } = renderHook(() => useSession());
+      await act(async () => {
+        await expect(result.current.switchMode('MATCH')).rejects.toThrow('Failed');
+      });
+      expect(useSessionStore.getState().currentSeriesStartIndex).toBe(2);
+    });
+
     beforeEach(async () => {
       // Set up session started state before each test
       mockStartSession.mockResolvedValue({ sessionId: 'session-123' });

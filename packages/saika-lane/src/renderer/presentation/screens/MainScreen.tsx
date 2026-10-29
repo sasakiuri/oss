@@ -14,7 +14,7 @@ import { TimedTargetOverlay } from '@/renderer/presentation/components/TimedTarg
 import { TitleBar } from '@/renderer/presentation/components/TitleBar';
 import { useAutoHideCursor } from '@/renderer/presentation/hooks/useAutoHideCursor';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
-import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
+import type { ModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useTitleBar } from '@/renderer/presentation/hooks/useTitleBar';
@@ -28,6 +28,7 @@ import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zo
  * MainScreen component props
  */
 export interface MainScreenProps {
+  modeSwitchActions: ModeSwitchActions;
   /** Optional CSS class name */
   className?: string;
 }
@@ -37,7 +38,7 @@ const CURSOR_IDLE_TIMEOUT_MS = 5000;
 /**
  * MainScreen component
  */
-export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
+export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwitchActions }) => {
   const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
   const { currentSessionId } = useSession();
   const { isPrinting, error: printError, dismissError } = usePrintStore();
@@ -70,7 +71,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '' }) => {
 
   const { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose } = useTitleBar();
 
-  const { handlePreparationClick, handleMatchClick, handleNextStageClick } = useModeSwitchActions();
+  const { handlePreparationClick, handleMatchClick, handleNextStageClick } = modeSwitchActions;
 
   useAutoHideCursor(!isSettingsModalOpen, CURSOR_IDLE_TIMEOUT_MS);
 
