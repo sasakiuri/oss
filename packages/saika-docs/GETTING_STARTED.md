@@ -70,7 +70,7 @@ Lane 単独なら、そのまま同ガイドの試射・本射の手順へ進み
 1. Lane の「Settings」→「MQTT」で「Enable MQTT」をオンにする。
 2. 「Broker URL」に接続先を入力する。
 3. 「Lane Alias」に `Lane 1`、`Lane 2` のように、射座番号を含む重複しない名前を入力する。
-4. 次回起動時も接続するなら「Auto Connect」をオンにする。
+4. 次回起動時も接続するなら「Auto Connect」をオンにする。MQTT が有効で、保存済み競技の復元が完了すると接続する。復旧画面では手動の「Connect」を使う。
 5. 「Save Settings」を押し、「Connect」で接続する。`Status: connected` を確認する。
 6. Director の「Competition Control」→「Lanes」に各 Lane が表示されることを確認する。
 
