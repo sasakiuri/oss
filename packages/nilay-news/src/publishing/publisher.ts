@@ -86,12 +86,21 @@ export class Publisher {
     let sending = false;
     let post: BufferPost;
     try {
-      await this.client.verifyAccount();
       const screening = await screenPost(
         this.repository,
         attempt.articleId,
         this.jev,
       );
+      if (screening?.permitted === false) {
+        await this.repository.authorizePostSend(
+          attempt.articleId,
+          attempt.claimToken,
+          this.clock(),
+          screening,
+        );
+        return false;
+      }
+      await this.client.verifyAccount();
       // Remote checks may be slow: recheck the claim, settings, article evidence,
       // eligibility and draft text right before sending.
       if (
