@@ -327,29 +327,35 @@ describe('mode change confirmation rules', () => {
     useSessionStore.getState().setSessionId('session-1');
   });
 
-  it.each(['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'])(
-    'confirms Preparation in %s with shots in an earlier series',
-    async (phase) => {
-      setCompetitionState({ competitionId: 'comp-1', phase });
-      useSessionStore.getState().addShot(shot);
-      useSessionStore.getState().setCurrentSeriesStartIndex(1);
-      const { result } = renderHook(() => useModeSwitchActions());
-
-      await act(async () => {
-        await result.current.handlePreparationClick();
-      });
-      expect(result.current.confirmation?.message).toContain('saved as finished');
-      expect(mockStartStage).not.toHaveBeenCalled();
-      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
-
-      await act(async () => {
-        await result.current.confirm();
-      });
-      expect(mockStartStage).toHaveBeenCalledExactlyOnceWith('comp-1');
-      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([1]);
-      expect(result.current.confirmation).toBeNull();
+  it.each([
+    {
+      phase: 'ACTIVE',
+      message: 'End this session and wait to start again? The current session will be saved as finished.',
     },
-  );
+    ...['SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'].map((phase) => ({
+      phase,
+      message: 'End this session and start the first stage again? The current session will be saved as finished.',
+    })),
+  ])('confirms Preparation in $phase with shots in an earlier series', async ({ phase, message }) => {
+    setCompetitionState({ competitionId: 'comp-1', phase });
+    useSessionStore.getState().addShot(shot);
+    useSessionStore.getState().setCurrentSeriesStartIndex(1);
+    const { result } = renderHook(() => useModeSwitchActions());
+
+    await act(async () => {
+      await result.current.handlePreparationClick();
+    });
+    expect(result.current.confirmation?.message).toBe(message);
+    expect(mockStartStage).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
+
+    await act(async () => {
+      await result.current.confirm();
+    });
+    expect(mockStartStage).toHaveBeenCalledExactlyOnceWith('comp-1');
+    expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([1]);
+    expect(result.current.confirmation).toBeNull();
+  });
 
   it.each(['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED', 'STAGE_ENTERED'])(
     'runs Preparation immediately in %s without shots',
@@ -462,22 +468,24 @@ describe('mode change confirmation rules', () => {
   );
 
   it.each(['handlePreparationClick', 'handleMatchClick'] as const)(
-    '%s also confirms the switchMode branch in FINISHED',
+    '%s keeps FINISHED immediate without offering confirmation for a finished session',
     async (action) => {
       setCompetitionState({ competitionId: 'comp-1', phase: 'FINISHED' });
       useSessionStore.getState().addShot(shot);
+      mockSwitchMode.mockRejectedValueOnce(new Error('Session already finished'));
       const { result } = renderHook(() => useModeSwitchActions());
       await act(async () => {
         await result.current[action]();
       });
-      expect(result.current.confirmation?.message).toContain('Start a new');
-      expect(mockSwitchMode).not.toHaveBeenCalled();
-      await act(async () => {
-        await result.current.confirm();
-      });
+      expect(result.current.confirmation).toBeNull();
       expect(mockSwitchMode).toHaveBeenCalledExactlyOnceWith(
         action === 'handlePreparationClick' ? 'SIGHTING' : 'MATCH',
       );
+      expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
+      expect(mockStartStage).not.toHaveBeenCalled();
+      expect(mockEndStage).not.toHaveBeenCalled();
+      expect(mockAdvanceStage).not.toHaveBeenCalled();
+      expect(mockStartNextSeries).not.toHaveBeenCalled();
     },
   );
 
