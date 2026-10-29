@@ -15,6 +15,8 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 
 import { ConnectToTargetToken, DisconnectFromTargetToken, RecordShotToken } from '@/main/composition/tokens';
 import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
+import { createStartStageHandler } from '@/main/modules/competition/application/handlers/StartStageHandler';
+import { SessionLifecycleService } from '@/main/modules/competition/application/SessionLifecycleService';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { connectionModule } from '@/main/modules/connection/connection.module';
@@ -741,7 +743,7 @@ describe('connection.module', () => {
       });
     });
 
-    it('sends only a changed observed target mode, including the first-Match cutoff', async () => {
+    it('synchronizes observed mode at StageAdvanced and sends only changed shot/progress modes', async () => {
       let session = buildSession({ discipline: Discipline.rifle50m() });
       let competition = CompetitionState.reconstruct({ ...athleteCompetition(), sessionId: session.id });
       const context = {
@@ -769,7 +771,7 @@ describe('connection.module', () => {
         scored: true,
       });
       await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
-      expect(usbManager.sendMode).not.toHaveBeenCalled();
+      expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting());
       eventBus.emit({
         type: 'ShotRecorded',
         timestamp: Date.now(),
@@ -778,7 +780,7 @@ describe('connection.module', () => {
         scoringMode: 'DECIMAL',
       });
       await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(3));
-      expect(usbManager.sendMode).not.toHaveBeenCalled();
+      expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting());
       session = session.recordShot(null, new Score(100), new Date(), undefined, false, Mode.match(), {
         competitionContext: context,
       });
@@ -792,7 +794,7 @@ describe('connection.module', () => {
         shotCount: 1,
       });
       await vi.waitFor(() => expect(provider().mode.value).toBe('MATCH'));
-      expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.match());
+      expect(vi.mocked(usbManager.sendMode).mock.calls.map(([mode]) => mode.value)).toEqual(['SIGHTING', 'MATCH']);
     });
 
     it('sends Sighting at the automatic Final Standing changeover, without resending unchanged progress', async () => {
@@ -918,6 +920,55 @@ describe('connection.module', () => {
     });
 
     describe('PhaseChanged listener (initial stage start)', () => {
+      it('resynchronizes Sighting after a Preparation restart rotates the session and changes only the cache', async () => {
+        const persisted = persistStage(true);
+        let competition = persisted.competition;
+        const sessions = new Map([[persisted.session.id, persisted.session]]);
+        vi.mocked(sessionRepository.findById).mockImplementation(async (id) => sessions.get(id) ?? null);
+        vi.mocked(sessionRepository.save).mockImplementation(async (session) => {
+          sessions.set(session.id, session);
+        });
+        vi.mocked(competitionRepository.findActive).mockImplementation(async () => competition);
+        vi.mocked(competitionRepository.findById).mockImplementation(async () => competition);
+        vi.mocked(competitionRepository.save).mockImplementation(async (state) => {
+          competition = state;
+        });
+        let deviceMode = Mode.match();
+        vi.mocked(usbManager.sendMode).mockImplementation(async (mode) => {
+          deviceMode = mode;
+        });
+        registerModule();
+        const provider = vi.mocked(usbManager.setSessionContextProvider).mock.calls[0]![0];
+        await vi.waitFor(() => expect(provider().mode.value).toBe('MATCH'));
+        const startStage = createStartStageHandler(
+          competitionRepository,
+          new SessionLifecycleService(sessionRepository, eventBus),
+          eventBus,
+        );
+
+        const restarted = await startStage({ competitionId: competition.id });
+        await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(3));
+        expect(restarted.sessionId).not.toBe(persisted.session.id);
+        expect(competition.phase).toBe('IDLE');
+        expect(eventBus.emit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: 'SessionStarted',
+            aggregateId: restarted.sessionId,
+          }),
+        );
+        expect(provider().mode.value).toBe('SIGHTING');
+        expect(deviceMode.value).toBe('MATCH');
+        expect(usbManager.sendMode).not.toHaveBeenCalled();
+
+        await startStage({ competitionId: competition.id });
+        await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.sighting()));
+        expect(deviceMode.value).toBe('SIGHTING');
+        expect(provider().mode.value).toBe('SIGHTING');
+        expect(competition.phase).toBe('ACTIVE');
+        expect(competition.currentStageIndex).toBe(0);
+        expect(competition.sessionId).toBe(restarted.sessionId);
+      });
+
       it('sends the persisted scored-stage mode on initial start', async () => {
         await registerWithStage(false);
         persistStage(true);
