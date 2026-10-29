@@ -17,8 +17,20 @@ let mockScored = false;
 let mockCompetitionId: string | null = null;
 
 vi.mock('@/renderer/presentation/stores/competitionStore', () => ({
-  useCompetitionStore: (selector: (s: { phase: string; scored: boolean; competitionId: string | null }) => unknown) =>
-    selector({ phase: mockPhase, scored: mockScored, competitionId: mockCompetitionId }),
+  useCompetitionStore: (
+    selector: (s: {
+      phase: string;
+      scored: boolean;
+      competitionId: string | null;
+      athleteTargetControlLoaded: boolean;
+    }) => unknown,
+  ) =>
+    selector({
+      phase: mockPhase,
+      scored: mockScored,
+      competitionId: mockCompetitionId,
+      athleteTargetControlLoaded: true,
+    }),
 }));
 
 // ---------- helpers ----------

@@ -145,11 +145,11 @@ describe('SessionContextCache', () => {
       expect(eventBus.on).toHaveBeenCalledWith('ModeSwitched', expect.any(Function));
     });
 
-    it('should subscribe to competition stage and phase events', () => {
+    it('leaves repository-based stage and phase refresh to the connection module', () => {
       cache.subscribeEvents(vi.fn());
 
-      expect(eventBus.on).toHaveBeenCalledWith('StageAdvanced', expect.any(Function));
-      expect(eventBus.on).toHaveBeenCalledWith('PhaseChanged', expect.any(Function));
+      expect(eventBus.on).not.toHaveBeenCalledWith('StageAdvanced', expect.any(Function));
+      expect(eventBus.on).not.toHaveBeenCalledWith('PhaseChanged', expect.any(Function));
     });
 
     it('should subscribe to SessionReset event', () => {
@@ -211,7 +211,7 @@ describe('SessionContextCache', () => {
       expect(context.mode.value).toBe('MATCH');
     });
 
-    it('should update mode when the competition advances to a scored stage', () => {
+    it('restores the persisted scored stage without deriving mode from StageAdvanced metadata', async () => {
       cache.subscribeEvents(vi.fn());
       (eventBus.emit as Mock)({
         type: 'SessionStarted',
@@ -230,10 +230,21 @@ describe('SessionContextCache', () => {
         timestamp: Date.now(),
       });
 
+      expect(cache.getContext().mode.value).toBe('SIGHTING');
+      const session = buildSession();
+      vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(
+        CompetitionState.create('competition-1', session.id, BR60S.config)
+          .startStage()
+          .endStage()
+          .advanceToNextStage()
+          .startNextSeries(),
+      );
+      await cache.bootstrap(sessionRepository, competitionRepository);
       expect(cache.getContext().mode.value).toBe('MATCH');
     });
 
-    it('should derive mode from the active competition phase', () => {
+    it('restores changed competition context without deriving mode from phase metadata', async () => {
       cache.subscribeEvents(vi.fn());
       (eventBus.emit as Mock)({
         type: 'SessionStarted',
@@ -253,6 +264,15 @@ describe('SessionContextCache', () => {
         scored: true,
         timestamp: Date.now(),
       });
+      const session = buildSession();
+      const match = CompetitionState.create('competition-1', session.id, BR60S.config)
+        .startStage()
+        .endStage()
+        .advanceToNextStage()
+        .startNextSeries();
+      vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(match);
+      await cache.bootstrap(sessionRepository, competitionRepository);
       expect(cache.getContext().mode.value).toBe('MATCH');
 
       (eventBus.emit as Mock)({
@@ -266,6 +286,9 @@ describe('SessionContextCache', () => {
         scored: false,
         timestamp: Date.now(),
       });
+      expect(cache.getContext().mode.value).toBe('MATCH');
+      vi.mocked(competitionRepository.findActive).mockResolvedValue(match.resetToIdle());
+      await cache.bootstrap(sessionRepository, competitionRepository);
       expect(cache.getContext().mode.value).toBe('SIGHTING');
     });
 

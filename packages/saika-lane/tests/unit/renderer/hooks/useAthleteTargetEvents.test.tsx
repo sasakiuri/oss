@@ -137,6 +137,34 @@ describe('athlete projection refresh', () => {
     expect(useCompetitionStore.getState().athleteTargetControl).toBeNull();
   });
 
+  it('keeps failed controls unavailable and recovers on the next relevant notification', async () => {
+    vi.mocked(competitionService.getCompetitionState).mockRejectedValueOnce(new Error('unavailable'));
+    await act(async () => {
+      renderHook(() => useAthleteTargetEvents());
+    });
+    const membership = { membership: { competitionId: null, revision: 0 }, hydrated: true, hydrationFailed: false };
+    expect(useCompetitionStore.getState().athleteTargetControlPending).toBe(false);
+    expect(localProgressControls(membership, 'sighting', useCompetitionStore.getState()).allowed).toBe(false);
+    expect(localProgressControls(membership, 'match', useCompetitionStore.getState()).allowed).toBe(false);
+    vi.mocked(competitionService.getCompetitionState).mockResolvedValue(dto());
+    await act(async () => {
+      interruption.mock.calls[0]![0]({ competitionId: 'comp-1' });
+    });
+    expect(localProgressControls(membership, 'sighting', useCompetitionStore.getState()).allowed).toBe(true);
+    expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);
+  });
+
+  it('invalidates a cached ordinary capability when a latest response has different coordinates', async () => {
+    useCompetitionStore.getState().setAthleteTargetControl(null);
+    vi.mocked(competitionService.getCompetitionState).mockResolvedValueOnce(dto(99));
+    await act(async () => {
+      await refreshAthleteTargetControl();
+    });
+    expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(false);
+    const membership = { membership: { competitionId: null, revision: 0 }, hydrated: true, hydrationFailed: false };
+    expect(localProgressControls(membership, 'sighting', useCompetitionStore.getState()).allowed).toBe(false);
+  });
+
   it('does not clear pending from an older request while the new series query is running', async () => {
     const old = deferred<CompetitionStateDto>();
     const next = deferred<CompetitionStateDto>();

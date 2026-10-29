@@ -1,11 +1,13 @@
 import { SwitchModeToken } from '@/main/composition/tokens';
-import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type {
   ICompetitionInterruptionControl,
@@ -24,6 +26,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     private readonly timerService: LaneTimerService,
     private readonly commandBus: CommandBus,
     private readonly eventBus: IEventBus,
+    private readonly sessionRepository: ISessionRepository,
   ) {
     const clearCompletedInterruption = (event: { aggregateId: string }): void => {
       const current = this.repository.findByCompetitionId(event.aggregateId);
@@ -83,7 +86,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
       preserveSeries: true,
-      mode: this.resumedMode(competition, input.unlimitedSightingShots),
+      mode: await this.resumedMode(competition, pending),
     });
     await this.timerService.resumeAt(
       input.competitionId,
@@ -118,12 +121,6 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     if (current.status === 'RUNNING_MATCH') return current;
     if (current.status !== 'SIGHTING') throw new Error('MATCH fire can only resume after authorized sighting shots');
 
-    const competition = await this.requireActiveCompetition(input.competitionId);
-    await this.commandBus.execute(SwitchModeToken, {
-      sessionId: competition.sessionId,
-      mode: this.resumedMode(competition, false),
-      preserveSeries: true,
-    });
     const applied = LaneInterruptionRecord.create({
       competitionId: current.competitionId,
       interruptionId: current.interruptionId,
@@ -135,6 +132,12 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       resumeAt: current.resumeAt ?? undefined,
       authorizedRemainingSeconds: current.authorizedRemainingSeconds ?? undefined,
       unlimitedSightingShots: current.unlimitedSightingShots ?? undefined,
+    });
+    const competition = await this.requireActiveCompetition(input.competitionId);
+    await this.commandBus.execute(SwitchModeToken, {
+      sessionId: competition.sessionId,
+      mode: await this.resumedMode(competition, applied),
+      preserveSeries: true,
     });
     this.repository.save(applied);
     this.emit(applied);
@@ -171,7 +174,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
       preserveSeries: true,
-      mode: this.resumedMode(competition, restoredStatus === 'SIGHTING'),
+      mode: await this.resumedMode(competition, current),
     });
     await this.timerService.resumeAt(
       current.competitionId,
@@ -210,18 +213,10 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     this.repository.delete(competitionId);
   }
 
-  private resumedMode(competition: CompetitionState, authorizedSighting: boolean): Mode {
-    if (authorizedSighting) return Mode.sighting();
-    if (competition.currentSeriesConfig.targetModeControl !== 'ATHLETE') return Mode.match();
-    return Mode.fromValue(
-      resolveCompetitionShotMode(
-        competition.currentStageConfig,
-        competition.currentSeriesConfig,
-        undefined,
-        competition.seriesShotCount,
-        competition.athleteTargetMode,
-      ),
-    );
+  private async resumedMode(competition: CompetitionState, interruption: LaneInterruptionRecord): Promise<Mode> {
+    const session = await this.sessionRepository.findById(competition.sessionId);
+    if (!session) throw ErrorCatalog.createError('SESSION_NOT_FOUND');
+    return Mode.fromValue(resolveCompetitionTargetMode(competition, session.allShots, interruption).effective);
   }
 
   private requireMatching(competitionId: string, interruptionId: string): LaneInterruptionRecord {

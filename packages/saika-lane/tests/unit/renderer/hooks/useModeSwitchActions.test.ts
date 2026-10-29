@@ -55,6 +55,7 @@ function setCompetitionState(overrides: Partial<{ competitionId: string | null; 
   if (overrides.scored !== undefined) {
     state.advanceStage(0, '', overrides.scored);
   }
+  useCompetitionStore.getState().setAthleteTargetControl(null);
 }
 
 describe('useModeSwitchActions (3-button model)', () => {
@@ -618,7 +619,7 @@ describe('confirmation context for athlete series changes', () => {
     useSessionStore.getState().addShot(shot);
   });
 
-  it.each(['series', 'athlete capability'])(
+  it.each(['series', 'athlete capability', 'unloaded'])(
     'cancels pending restart when %s changes while phase stays ACTIVE',
     async (change) => {
       const { result } = renderHook(() => useModeSwitchActions());
@@ -628,6 +629,8 @@ describe('confirmation context for athlete series changes', () => {
       expect(result.current.confirmation).not.toBeNull();
       await act(async () => {
         if (change === 'series') useCompetitionStore.getState().advanceSeries(2);
+        else if (change === 'unloaded')
+          useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlLoaded: false });
         else
           useCompetitionStore
             .getState()

@@ -12,6 +12,8 @@ export interface SideMenuButtonProps {
   disabled?: boolean;
   /** Reason included in the tooltip while disabled */
   disabledReason?: string;
+  /** Requeries an unavailable capability without performing the disabled action. */
+  onDisabledClick?: () => void;
   /** Active state (for mode buttons) */
   active?: boolean;
   /** Color when active (hex value, e.g. '#029863'). When specified, acts as a mode button */
@@ -26,6 +28,7 @@ export const SideMenuButton: React.FC<SideMenuButtonProps> = ({
   onClick,
   disabled = false,
   disabledReason,
+  onDisabledClick,
   active = false,
   activeColor,
   'aria-haspopup': ariaHasPopup,
@@ -57,8 +60,9 @@ export const SideMenuButton: React.FC<SideMenuButtonProps> = ({
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={disabled ? onDisabledClick : onClick}
+      disabled={disabled && !onDisabledClick}
+      aria-disabled={disabled && onDisabledClick ? true : undefined}
       className={className}
       style={style}
       aria-label={label}

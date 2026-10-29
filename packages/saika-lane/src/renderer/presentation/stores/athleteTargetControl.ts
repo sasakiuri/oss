@@ -52,13 +52,18 @@ async function load(
       current.competitionId !== expected.competitionId ||
       current.phase !== expected.phase ||
       current.stageIndex !== expected.stageIndex ||
-      current.seriesIndex !== expected.seriesIndex ||
+      current.seriesIndex !== expected.seriesIndex
+    )
+      return;
+    if (
       dto.id !== current.competitionId ||
       dto.phase !== current.phase ||
       dto.currentStageIndex !== current.stageIndex ||
       dto.currentSeriesIndex !== current.seriesIndex
-    )
+    ) {
+      useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlLoaded: false });
       return;
+    }
     current.setAthleteTargetControl(dto.athleteTargetControl);
   } catch (error) {
     if (requestRevision === revision) {
@@ -72,6 +77,12 @@ async function load(
 
 export function refreshAthleteTargetControl(): Promise<void> {
   return load(({ competitionId }) => competitionService.getCompetitionState({ competitionId }));
+}
+
+export async function retryAthleteTargetControl(): Promise<void> {
+  const current = useCompetitionStore.getState();
+  if (current.phase === 'ACTIVE' && !current.athleteTargetControlLoaded && !current.athleteTargetControlPending)
+    await refreshAthleteTargetControl();
 }
 
 export function selectAthleteTargetMode(mode: 'SIGHTING' | 'MATCH'): Promise<void> {

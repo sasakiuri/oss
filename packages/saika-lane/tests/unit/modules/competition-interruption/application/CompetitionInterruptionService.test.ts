@@ -12,7 +12,12 @@ import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
-import { createMockCommandBus, createMockEventBus } from '../../../../helpers/mockDependencies';
+import { buildSession } from '../../../../helpers/factories';
+import {
+  createMockCommandBus,
+  createMockEventBus,
+  createMockSessionRepository,
+} from '../../../../helpers/mockDependencies';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const INTERRUPTION_ID = '22222222-2222-4222-8222-222222222222';
@@ -25,6 +30,7 @@ describe('CompetitionInterruptionService', () => {
   let commandBus: CommandBus;
   let eventBus: IEventBus;
   let service: CompetitionInterruptionService;
+  let sessions: ReturnType<typeof createMockSessionRepository>;
 
   beforeEach(() => {
     const activeCompetition = CompetitionState.create(COMPETITION_ID, 'session-1', BR60S.config).startStage();
@@ -53,7 +59,16 @@ describe('CompetitionInterruptionService', () => {
     commandBus = createMockCommandBus();
     vi.mocked(commandBus.execute).mockResolvedValue(undefined);
     eventBus = createMockEventBus();
-    service = new CompetitionInterruptionService(repository, competitionRepository, timerService, commandBus, eventBus);
+    sessions = createMockSessionRepository();
+    vi.mocked(sessions.findById).mockImplementation(async () => buildSession());
+    service = new CompetitionInterruptionService(
+      repository,
+      competitionRepository,
+      timerService,
+      commandBus,
+      eventBus,
+      sessions,
+    );
   });
 
   it('persists the exact Lane countdown when a pause is applied', async () => {
@@ -200,6 +215,7 @@ describe('CompetitionInterruptionService', () => {
       timerService,
       commandBus,
       restartedEventBus,
+      sessions,
     );
 
     const restored = await restarted.restoreActive();

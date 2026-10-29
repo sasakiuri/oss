@@ -30,12 +30,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const seriesScores = useSessionStore((s) => s.seriesScores);
   const phase = useCompetitionStore((s) => s.phase);
   const athleteTargetControl = useCompetitionStore((s) => s.athleteTargetControl);
+  const athleteTargetControlLoaded = useCompetitionStore((s) => s.athleteTargetControlLoaded);
+  const athleteTargetControlPending = useCompetitionStore((s) => s.athleteTargetControlPending);
   const scored = useCompetitionStore((s) => s.scored);
   const scoreMode = scored ? 'MATCH' : mode;
   const membership = useDirectorMembershipStore();
-  const targetModeContext = { phase, athleteTargetControl };
+  const targetModeContext = { phase, athleteTargetControl, athleteTargetControlLoaded, athleteTargetControlPending };
   const targetModeReason =
-    athleteTargetControl &&
+    (athleteTargetControl || (phase === 'ACTIVE' && !athleteTargetControlLoaded)) &&
     (localProgressControls(membership, 'sighting', targetModeContext).reason ??
       localProgressControls(membership, 'match', targetModeContext).reason);
   const shotsPerSeries = useCompetitionStore((s) => s.shotsPerSeries);

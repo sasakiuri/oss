@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompetition } from '@/renderer/presentation/hooks/useCompetition';
 import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { localProgressControls } from '@/renderer/presentation/policies/localProgressControls';
-import { selectAthleteTargetMode } from '@/renderer/presentation/stores/athleteTargetControl';
+import {
+  retryAthleteTargetControl,
+  selectAthleteTargetMode,
+} from '@/renderer/presentation/stores/athleteTargetControl';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
@@ -24,6 +27,7 @@ interface PendingConfirmation {
   stageIndex: number;
   seriesIndex: number;
   athleteControlled: boolean;
+  targetControlLoaded: boolean;
   action: () => Promise<void>;
 }
 
@@ -35,6 +39,7 @@ function isCurrentConfirmation(pending: PendingConfirmation): boolean {
     useCompetitionStore.getState().stageIndex === pending.stageIndex &&
     useCompetitionStore.getState().seriesIndex === pending.seriesIndex &&
     Boolean(useCompetitionStore.getState().athleteTargetControl) === pending.athleteControlled &&
+    useCompetitionStore.getState().athleteTargetControlLoaded === pending.targetControlLoaded &&
     competitionId === pending.competitionId &&
     phase === pending.phase &&
     useSessionStore.getState().currentSessionId === pending.sessionId
@@ -68,6 +73,7 @@ export function useModeSwitchActions() {
       stageIndex: useCompetitionStore.getState().stageIndex,
       seriesIndex: useCompetitionStore.getState().seriesIndex,
       athleteControlled: Boolean(useCompetitionStore.getState().athleteTargetControl),
+      targetControlLoaded: useCompetitionStore.getState().athleteTargetControlLoaded,
       competitionId,
       phase,
       sessionId: useSessionStore.getState().currentSessionId,
@@ -147,11 +153,11 @@ export function useModeSwitchActions() {
 
   const handlePreparationClick = useCallback(async () => {
     const competition = useCompetitionStore.getState();
-    if (
-      pendingRef.current ||
-      !localProgressControls(useDirectorMembershipStore.getState(), 'sighting', competition).allowed
-    )
+    if (pendingRef.current) return;
+    if (!localProgressControls(useDirectorMembershipStore.getState(), 'sighting', competition).allowed) {
+      await retryAthleteTargetControl();
       return;
+    }
     if (competition.phase === 'ACTIVE' && competition.athleteTargetControl) {
       await selectAthleteTargetMode('SIGHTING');
       return;
@@ -177,11 +183,11 @@ export function useModeSwitchActions() {
 
   const handleMatchClick = useCallback(async () => {
     const competition = useCompetitionStore.getState();
-    if (
-      pendingRef.current ||
-      !localProgressControls(useDirectorMembershipStore.getState(), 'match', competition).allowed
-    )
+    if (pendingRef.current) return;
+    if (!localProgressControls(useDirectorMembershipStore.getState(), 'match', competition).allowed) {
+      await retryAthleteTargetControl();
       return;
+    }
     if (competition.phase === 'ACTIVE' && competition.athleteTargetControl) {
       await selectAthleteTargetMode('MATCH');
       return;

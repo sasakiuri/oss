@@ -6,6 +6,7 @@ import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
 import { useAppKeyboardShortcuts } from '@/renderer/presentation/hooks/useAppKeyboardShortcuts';
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
+import { refreshAthleteTargetControl } from '@/renderer/presentation/stores/athleteTargetControl';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
@@ -79,6 +80,7 @@ beforeEach(() => {
     remainingSeconds: 600,
     totalSeconds: 1000,
     athleteTargetControl: control,
+    athleteTargetControlLoaded: true,
   });
   useSessionStore.setState({ currentSessionId: 'session-1', mode: 'SIGHTING' });
   useSessionStore.getState().addShot({
@@ -174,13 +176,98 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
   });
 
   it('waits for the new series projection without falling back to a restart', async () => {
-    useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlPending: true });
+    useCompetitionStore.setState({
+      athleteTargetControl: null,
+      athleteTargetControlLoaded: false,
+      athleteTargetControlPending: true,
+    });
     render(<Harness />);
-    expect(screen.getByRole('button', { name: 'Preparation' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Preparation' })).toHaveAttribute('aria-disabled', 'true');
     await act(async () => {
       fireEvent.keyDown(window, { code: 'Numpad1' });
       fireEvent.keyDown(window, { code: 'Numpad2' });
     });
+    expect(restart).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it.each(
+    ['mouse1', 'mouse2', 'key1', 'key2'].flatMap((input) =>
+      ['error', 'discarded'].map((failure) => ({ input, failure })),
+    ),
+  )(
+    'recovers an unloaded projection through $input after $failure without running a restart or selection',
+    async ({ input, failure }) => {
+      useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlLoaded: false });
+      if (failure === 'error')
+        vi.mocked(competitionService.getCompetitionState).mockRejectedValueOnce(new Error('query unavailable'));
+      else
+        vi.mocked(competitionService.getCompetitionState).mockResolvedValueOnce({
+          ...dto('MATCH'),
+          currentSeriesIndex: 99,
+        });
+      await refreshAthleteTargetControl();
+      render(<Harness />);
+      for (const name of ['Preparation', 'Match']) {
+        expect(screen.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+        expect(screen.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false');
+        expect(screen.getByRole('button', { name })).toHaveAccessibleDescription(
+          'Target controls are unavailable. Press either mode button to retry.',
+        );
+      }
+      expect(screen.getByRole('note')).toHaveTextContent('Target controls are unavailable');
+      vi.mocked(competitionService.getCompetitionState).mockResolvedValue({
+        ...dto('MATCH'),
+        athleteTargetControl: control,
+      });
+      await act(async () => {
+        if (input.startsWith('key')) fireEvent.keyDown(window, { code: input.endsWith('1') ? 'Numpad1' : 'Numpad2' });
+        else fireEvent.click(screen.getByRole('button', { name: input.endsWith('1') ? 'Preparation' : 'Match' }));
+      });
+      expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(2);
+      expect(screen.getByRole('button', { name: 'Sighting' })).toBeEnabled();
+      expect(restart).not.toHaveBeenCalled();
+      expect(switchMode).not.toHaveBeenCalled();
+      expect(competitionService.setAthleteTargetMode).not.toHaveBeenCalled();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await act(async () => {
+        if (input.startsWith('key')) fireEvent.keyDown(window, { code: input.endsWith('1') ? 'Numpad1' : 'Numpad2' });
+        else fireEvent.click(screen.getByRole('button', { name: input.endsWith('1') ? 'Sighting' : 'Match' }));
+      });
+      expect(competitionService.setAthleteTargetMode).toHaveBeenCalledExactlyOnceWith({
+        competitionId: 'comp-1',
+        stageIndex: 1,
+        seriesIndex: 2,
+        mode: input.endsWith('1') ? 'SIGHTING' : 'MATCH',
+      });
+      expect(restart).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps both athlete modes unavailable during official sighting', async () => {
+    useCompetitionStore.getState().setAthleteTargetControl({
+      ...control,
+      sightingAllowed: false,
+      matchAllowed: false,
+      selected: 'MATCH',
+      effective: 'SIGHTING',
+    });
+    render(<Harness />);
+    for (const label of ['Sighting', 'Match']) {
+      expect(screen.getByRole('button', { name: label })).toBeDisabled();
+      expect(screen.getByRole('button', { name: label })).toHaveAccessibleDescription(
+        'Official sighting is in progress',
+      );
+    }
+    expect(screen.getByRole('status', { name: 'Current Mode: Sighting' })).toBeVisible();
+    expect(screen.getByRole('note')).toHaveTextContent('Official sighting is in progress');
+    await act(async () => {
+      fireEvent.keyDown(window, { code: 'Numpad1' });
+      fireEvent.keyDown(window, { code: 'Numpad2' });
+      fireEvent.click(screen.getByRole('button', { name: 'Sighting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Match' }));
+    });
+    expect(competitionService.setAthleteTargetMode).not.toHaveBeenCalled();
     expect(restart).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

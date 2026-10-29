@@ -33,7 +33,14 @@ import { CompetitionTypeRegistry } from './domain/CompetitionTypeRegistry';
 import { ALL_COMPETITION_TYPES } from './domain/competitionTypes';
 
 type CompetitionDeps =
-  'commandBus' | 'queryBus' | 'eventBus' | 'sessionRepository' | 'competitionRepository' | 'ipcRouter' | 'timerService';
+  | 'commandBus'
+  | 'queryBus'
+  | 'eventBus'
+  | 'sessionRepository'
+  | 'competitionRepository'
+  | 'ipcRouter'
+  | 'timerService'
+  | 'competitionInterruptionControl';
 
 export const competitionModule: ModuleDefinition<CompetitionDeps> = {
   name: 'competition',
@@ -45,8 +52,18 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     'competitionRepository',
     'ipcRouter',
     'timerService',
+    'competitionInterruptionControl',
   ] as const,
-  register({ commandBus, queryBus, eventBus, sessionRepository, competitionRepository, ipcRouter, timerService }) {
+  register({
+    commandBus,
+    queryBus,
+    eventBus,
+    sessionRepository,
+    competitionRepository,
+    ipcRouter,
+    timerService,
+    competitionInterruptionControl,
+  }) {
     // 1. Register competition types in CompetitionTypeRegistry
     const registry = new CompetitionTypeRegistry();
     for (const typeDef of ALL_COMPETITION_TYPES) {
@@ -72,10 +89,13 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
       createFinishCompetitionHandler(competitionRepository, sessionRepository, eventBus),
     );
     commandBus.register(EndStageToken, createEndStageHandler(competitionRepository, eventBus));
-    commandBus.register(SetAthleteTargetModeToken, createSetAthleteTargetModeHandler(competitionRepository, eventBus));
+    commandBus.register(
+      SetAthleteTargetModeToken,
+      createSetAthleteTargetModeHandler(competitionRepository, eventBus, competitionInterruptionControl),
+    );
     queryBus.register(
       GetCompetitionStateToken,
-      createGetCompetitionStateHandler(competitionRepository, sessionRepository),
+      createGetCompetitionStateHandler(competitionRepository, sessionRepository, competitionInterruptionControl),
     );
     queryBus.register(GetCompetitionTypesToken, createGetCompetitionTypesHandler(registry));
 

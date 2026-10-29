@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { SetAthleteTargetModeInput } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -12,18 +13,20 @@ import { toCompetitionStateDto } from '../toCompetitionStateDto';
 export function createSetAthleteTargetModeHandler(
   competitions: ICompetitionRepository,
   events: IEventBus,
+  interruptions: Pick<ICompetitionInterruptionControl, 'get'>,
 ): CommandHandler<SetAthleteTargetModeInput, CompetitionStateDto> {
   return async (input) => {
     const state = await competitions.findActive();
     if (!state) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
-    const updated = state.selectAthleteTargetMode(input);
+    const updated = state.selectAthleteTargetMode(input, interruptions.get(state.id));
     await competitions.save(updated);
+    const projection = toCompetitionStateDto(updated, [], interruptions.get(updated.id));
     events.emit({
       type: 'AthleteTargetModeChanged',
       aggregateId: updated.id,
       timestamp: Date.now(),
-      newMode: Mode.fromValue(input.mode),
+      newMode: Mode.fromValue(projection.athleteTargetControl!.effective),
     });
-    return toCompetitionStateDto(updated);
+    return projection;
   };
 }

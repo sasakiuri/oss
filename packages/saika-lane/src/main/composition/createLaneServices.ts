@@ -117,6 +117,7 @@ export function createLaneServices(
     timerService,
     commandBus,
     eventBus,
+    sessionRepository,
   );
   safetyStopControl = new LaneSafetyStopService(
     new SqliteLaneSafetyStopRepository(db),

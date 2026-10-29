@@ -82,7 +82,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
 
     // Bootstrap context from the persisted session and competition stage (app restart scenario)
     const contextBootstrap = sessionContextCache
-      .bootstrap(sessionRepository, competitionRepository)
+      .bootstrap(sessionRepository, competitionRepository, competitionInterruptionControl)
       .catch((err: unknown) => {
         getLogger().warn('Session context bootstrap failed; cache will be populated by events', 'main', {
           err: err instanceof Error ? err.message : String(err),
@@ -95,6 +95,26 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       } catch {
         return Mode.sighting();
       }
+    };
+
+    // Refresh only the cached projection on shot/progress notifications. Existing
+    // stage/initial-start sends use the same resolver and remain the only transition sends.
+    let competitionModeUpdates = Promise.resolve();
+    const refreshCompetitionMode = (send: boolean): void => {
+      competitionModeUpdates = competitionModeUpdates
+        .then(async () => {
+          const mode = await sessionContextCache.bootstrap(
+            sessionRepository,
+            competitionRepository,
+            competitionInterruptionControl,
+          );
+          if (send && mode) await usbManager.sendMode(mode);
+        })
+        .catch((err: unknown) => {
+          getLogger().warn('Failed to refresh competition target mode', 'main', {
+            err: err instanceof Error ? err.message : String(err),
+          });
+        });
     };
 
     const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, getCurrentMode);
@@ -143,6 +163,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       // The first connection after an app restart must not send the Session
       // row's stale SIGHTING mode before competition recovery has completed.
       await contextBootstrap;
+      await competitionModeUpdates;
       await flushPendingUnexpectedDisconnect();
       await connectToTarget(input);
     });
@@ -221,6 +242,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
             deviceId: reconnectedConnection.deviceId,
           });
 
+          await competitionModeUpdates;
           usbManager.sendMode(getCurrentMode()).catch((err: unknown) => {
             getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
               err: err instanceof Error ? err.message : String(err),
@@ -277,28 +299,15 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       });
     });
 
-    // Subscribe to StageAdvanced events → send mode byte matching stage type
-    eventBus.on('StageAdvanced', (event) => {
-      const mode = event.scored ? Mode.match() : Mode.sighting();
-      usbManager.sendMode(mode).catch((err: unknown) => {
-        getLogger().warn('sendMode failed on StageAdvanced', 'main', {
-          scored: event.scored,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
-    });
-
-    // Subscribe to PhaseChanged for initial stage start (IDLE → ACTIVE)
-    // StageAdvanced does not fire on startStage(), only on advanceToNextStage()
+    eventBus.on('StageAdvanced', () => refreshCompetitionMode(true));
     eventBus.on('PhaseChanged', (event) => {
-      if (event.previousPhase !== 'IDLE' || event.newPhase !== 'ACTIVE') return;
-      const mode = event.scored ? Mode.match() : Mode.sighting();
-      usbManager.sendMode(mode).catch((err: unknown) => {
-        getLogger().warn('sendMode failed on initial PhaseChanged', 'main', {
-          scored: event.scored,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
+      refreshCompetitionMode(event.previousPhase === 'IDLE' && event.newPhase === 'ACTIVE');
     });
+    eventBus.on('ShotRecorded', (event) => {
+      if (event.shot.mode.isSighting() && event.shot.competitionContext?.athleteModeObserved)
+        refreshCompetitionMode(false);
+    });
+    eventBus.on('CompetitionProgressChanged', () => refreshCompetitionMode(false));
+    eventBus.on('SeriesCompleted', () => refreshCompetitionMode(false));
   },
 };
