@@ -110,10 +110,12 @@ describe('LaneTier1CommandHandler', () => {
   let membership: DirectorMembership;
   let eventBus: TypedEventBus;
   let onChange: ReturnType<typeof vi.fn<(event: unknown) => void>>;
+  let startupReady: boolean;
   let handler: LaneTier1CommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
   beforeEach(() => {
+    startupReady = true;
     mqttClient = createMockMqttClient();
     guard = new CommandIdempotencyGuard();
     broadcastHandler = createMockBroadcastHandler();
@@ -176,6 +178,7 @@ describe('LaneTier1CommandHandler', () => {
       shootOffControl,
       undefined,
       timedTargetControl,
+      () => startupReady,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -194,6 +197,37 @@ describe('LaneTier1CommandHandler', () => {
     messageHandler(topic, Buffer.from(JSON.stringify(payload)));
     await flushPromises();
   }
+
+  it('rejects join-competition while startup is ERROR', async () => {
+    startupReady = false;
+    await sendMessage('join-competition', buildCommand({ competitionId: COMPETITION_ID }));
+    expect(membership.snapshot.competitionId).toBeNull();
+    expect(competitionStateSubscriber.subscribe).not.toHaveBeenCalled();
+    const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+    expect(ack).toMatchObject({ status: 'error', error: { message: expect.stringContaining('not READY') } });
+  });
+
+  it.each(['leave-competition', 'probe-clock', 'activate-safety-stop', 'clear-safety-stop'])(
+    'continues to accept %s while startup is ERROR',
+    async (action) => {
+      startupReady = false;
+      if (action === 'leave-competition') membership.setCompetitionId(COMPETITION_ID);
+      await sendMessage(
+        action,
+        buildCommand({
+          competitionId: COMPETITION_ID,
+          directorSentAt: new Date().toISOString(),
+          safetyStopId: 'd4444444-4444-4444-a444-444444444444',
+          reason: 'Unsafe condition',
+          clearanceReason: 'Confirmed safe',
+          confirmedSafe: true,
+        }),
+      );
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+      expect(ack.status).toBe('done');
+      expect(membership.snapshot.competitionId).toBeNull();
+    },
+  );
 
   it('subscribes to tier1 command topic', async () => {
     await handler.subscribe();

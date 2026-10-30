@@ -96,10 +96,12 @@ describe('PerLaneCommandHandler', () => {
   let qualificationRecoveryStatePublisher: { publishCurrentState: Mock };
   let malfunctionFiringControl: IMalfunctionFiringControl;
   let safetyStopped: boolean;
+  let startupReady: boolean;
   let handler: PerLaneCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
   beforeEach(() => {
+    startupReady = true;
     mqttClient = createMockMqttClient();
     commandBus = createMockCommandBus();
     guard = new CommandIdempotencyGuard();
@@ -200,6 +202,9 @@ describe('PerLaneCommandHandler', () => {
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
       malfunctionFiringControl,
+      undefined,
+      undefined,
+      () => startupReady,
     );
 
     (mqttClient.onMessage as Mock).mockImplementation((h: (topic: string, payload: Buffer) => void) => {
@@ -236,6 +241,33 @@ describe('PerLaneCommandHandler', () => {
       `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/command/+`,
     );
   });
+
+  it.each(['assign-athlete', 'reset-session', 'pause-timer', 'resume-timer', 'resume-match'])(
+    'rejects %s with an error ACK without changing the run while startup is ERROR',
+    async (action) => {
+      startupReady = false;
+      await sendMessage(
+        action,
+        buildCommand({
+          athlete: null,
+          interruptionId: INTERRUPTION_ID,
+          pausedAt: new Date().toISOString(),
+          timerStartAt: new Date().toISOString(),
+          authorizedRemainingSeconds: 100,
+          unlimitedSightingShots: false,
+        }),
+      );
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      expect(competitionRepo.findById).not.toHaveBeenCalled();
+      expect(assignmentPublisher.assign).not.toHaveBeenCalled();
+      expect(interruptionControl.pause).not.toHaveBeenCalled();
+      expect(interruptionControl.resume).not.toHaveBeenCalled();
+      expect(interruptionControl.resumeMatch).not.toHaveBeenCalled();
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+      expect(ack).toMatchObject({ status: 'error', error: { message: expect.stringContaining('not READY') } });
+      expect(vi.mocked(mqttClient.publish).mock.calls).toHaveLength(1);
+    },
+  );
 
   describe('assign-athlete', () => {
     it('executes AssignAthlete command', async () => {

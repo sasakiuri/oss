@@ -15,7 +15,7 @@ const commandId = 'c3333333-3333-4333-a333-333333333333';
 const now = '2026-09-09T00:00:00.000Z';
 const command = { commandId, issuedBy: 'director', issuedAt: now, directorSentAt: now };
 
-function setup(policy = new CommandAuthorizationPolicy()) {
+function setup(policy = new CommandAuthorizationPolicy(), canExecute = () => true) {
   const publications: CommandAckPayload[] = [];
   const mqtt = {
     publish: vi.fn(async (_topic: string, payload: string) => {
@@ -23,7 +23,7 @@ function setup(policy = new CommandAuthorizationPolicy()) {
     }),
   };
   const guard = new CommandIdempotencyGuard();
-  const processor = new LaneCommandProcessor(mqtt, guard, policy, () => 'lane', 'test');
+  const processor = new LaneCommandProcessor(mqtt, guard, policy, () => 'lane', 'test', canExecute);
   const execute = vi.fn().mockResolvedValue(undefined);
   const request = {
     action: 'probe-clock',
@@ -41,6 +41,21 @@ describe('LaneCommandProcessor', () => {
     vi.setSystemTime(now);
   });
   afterEach(() => vi.useRealTimers());
+
+  it('rejects every unready delivery explicitly and permits the same command once READY', async () => {
+    let ready = false;
+    const { processor, request, guard, publications, execute } = setup(undefined, () => ready);
+    await processor.handle(request);
+    await processor.handle(request);
+    expect(execute).not.toHaveBeenCalled();
+    expect(guard.size).toBe(0);
+    expect(publications.map((ack) => ack.status)).toEqual(['error', 'error']);
+    expect(publications[0]?.error?.message).toContain('not READY');
+    ready = true;
+    await processor.handle(request);
+    expect(execute).toHaveBeenCalledOnce();
+    expect(publications.map((ack) => ack.status)).toEqual(['error', 'error', 'executing', 'done']);
+  });
 
   it('preserves receipt time, response data, and both authorization and command warnings', async () => {
     const { processor, mqtt, publications, execute, request } = setup(new CommandAuthorizationPolicy('ADVISORY'));

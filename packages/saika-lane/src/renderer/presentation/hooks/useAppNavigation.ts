@@ -82,10 +82,13 @@ export function useAppNavigation() {
         totalSeconds: competition.timer.totalSeconds,
         isTimerExpired: competition.timer.isExpired,
         isTimerRunning:
-          ['ACTIVE', 'SERIES_COMPLETE', 'SERIES_ENTERED'].includes(competition.phase) &&
-          competition.timer.totalSeconds > 0 &&
-          !competition.timer.isExpired &&
+          competition.timer.running === true &&
           !['PAUSED', 'RESUME_PENDING'].includes(competition.interruption?.status ?? ''),
+        waitingForDirector:
+          competition.phase === 'SERIES_COMPLETE' &&
+          competition.timer.running === false &&
+          !competition.timer.isExpired &&
+          !competition.interruption,
         interruption: competition.interruption,
         athleteTargetControl: competition.athleteTargetControl,
         athleteTargetControlLoaded: true,

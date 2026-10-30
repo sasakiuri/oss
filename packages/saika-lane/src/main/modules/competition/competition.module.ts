@@ -176,9 +176,10 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
       },
       setAthleteTargetMode: async (input) => commandBus.execute(SetAthleteTargetModeToken, input),
       getCompetitionState: async (input) => {
-        return await queryBus.execute(GetCompetitionStateToken, {
+        const state = await queryBus.execute(GetCompetitionStateToken, {
           competitionId: input.competitionId,
         });
+        return { ...state, timer: { ...state.timer, running: timerService.sample(state.id)?.running === true } };
       },
       getCompetitionTypes: async () => {
         return await queryBus.execute(GetCompetitionTypesToken, undefined);

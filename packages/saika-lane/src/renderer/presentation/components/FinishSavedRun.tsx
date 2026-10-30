@@ -39,11 +39,7 @@ export function FinishSavedRun({
       </button>
       {error && <p role="alert">{error}</p>}
       <ModeSwitchConfirmation
-        message={
-          confirming
-            ? 'Finish the saved run? Recorded shots will be preserved. Choose a competition type to start a new run.'
-            : null
-        }
+        message={confirming ? 'Finish the saved run? Recorded shots will be preserved.' : null}
         onConfirm={finish}
         onCancel={() => setConfirming(false)}
       />

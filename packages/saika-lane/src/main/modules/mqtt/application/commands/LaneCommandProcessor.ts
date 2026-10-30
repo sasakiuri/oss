@@ -39,6 +39,7 @@ export class LaneCommandProcessor {
     private readonly commandAuthorization: ICommandAuthorizationPolicy,
     private readonly getLaneId: () => string,
     private readonly logContext: string,
+    private readonly canExecute: (action: string) => boolean = () => true,
   ) {}
 
   async handle<Action extends string>(request: CommandRequest<Action>): Promise<void> {
@@ -82,14 +83,15 @@ export class LaneCommandProcessor {
       await this.publishAck(topic, { commandId, status: 'error', error });
       return;
     }
-    if (this.idempotencyGuard.check(commandId)) {
-      logger.info(`[${this.logContext}] Duplicate command skipped: ${commandId}`, 'mqtt');
-      return;
-    }
-
     try {
       const preparation = request.prepare?.(knownAction, command);
       if (preparation?.skip) return;
+      if (!this.canExecute(action))
+        throw new Error('Lane startup is not READY. Recover the saved run before issuing competition commands.');
+      if (this.idempotencyGuard.check(commandId)) {
+        logger.info(`[${this.logContext}] Duplicate command skipped: ${commandId}`, 'mqtt');
+        return;
+      }
       const warning = [authorization.warning, preparation?.warning].filter(Boolean).join('; ') || undefined;
       await this.publishAck(topic, { commandId, status: 'executing' });
       const data = await request.execute(knownAction, command, receivedAt);

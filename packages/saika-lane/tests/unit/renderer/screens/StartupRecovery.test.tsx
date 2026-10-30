@@ -11,7 +11,7 @@ import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
 
 vi.mock('@/renderer/presentation/components/SettingsModal', () => ({ SettingsModal: () => null }));
 vi.mock('@/renderer/services/competitionService', () => ({
-  competitionService: { getCompetitionTypes: vi.fn(), startCompetition: vi.fn() },
+  competitionService: { getCompetitionTypes: vi.fn(), startCompetition: vi.fn(), finishCompetition: vi.fn() },
 }));
 vi.mock('@/renderer/services/settingsService', () => ({ settingsService: { saveUserPreferences: vi.fn() } }));
 const state = {
@@ -41,6 +41,18 @@ it('requires confirmation to set aside an unreadable saved run', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
   await waitFor(() => expect(retry).toHaveBeenCalledOnce());
   expect(window.electronAPI.startup.setAsideSavedRun).toHaveBeenCalledOnce();
+});
+
+it('confirms Finish in recovery without promising a type picker before Retry creates the next run', async () => {
+  const retry = vi.fn().mockResolvedValue(undefined);
+  vi.mocked(competitionService.finishCompetition).mockResolvedValue(undefined);
+  render(<StartupRecovery state={{ ...state, competitionId: 'run', canFinish: true }} onRetry={retry} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Finish saved run' }));
+  expect(screen.getByText('Finish the saved run? Recorded shots will be preserved.')).toBeInTheDocument();
+  expect(competitionService.finishCompetition).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+  await waitFor(() => expect(retry).toHaveBeenCalledOnce());
+  expect(competitionService.finishCompetition).toHaveBeenCalledWith({ competitionId: 'run' });
 });
 
 it('creates only the operator-selected valid type after an unknown saved type', async () => {

@@ -110,6 +110,7 @@ export class BroadcastCommandHandler {
     private readonly shootOffControl?: ICompetitionShootOffControl,
     commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
     private readonly timedTargetControl?: ITimedTargetControl,
+    isReady: () => boolean = () => true,
   ) {
     this.processor = new LaneCommandProcessor(
       mqttClient,
@@ -117,6 +118,7 @@ export class BroadcastCommandHandler {
       commandAuthorization,
       getLaneId,
       'BroadcastCommandHandler',
+      isReady,
     );
   }
 

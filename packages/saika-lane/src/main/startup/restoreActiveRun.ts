@@ -188,17 +188,14 @@ export class ActiveRunStartup {
       const clockEligible = active.canUpdateTimer() && active.timer.totalSeconds > 0 && !active.timer.isExpired;
       const stageComplete =
         active.phase === 'SERIES_COMPLETE' && active.currentSeriesIndex + 1 >= active.currentStageConfig.series.length;
+      const officialPause =
+        !interruption?.restartHold && (interruption?.status === 'PAUSED' || interruption?.status === 'RESUME_PENDING');
       if (this.deps.safetyStopped() || this.deps.transferPending()) {
         timer.stop();
-      } else if (joined && stageComplete) {
-        interruptions.clear(active.id);
-      } else if (
-        joined &&
-        !timedSeries &&
-        !stageComplete &&
-        active.canUpdateTimer() &&
-        (clockEligible || interruption)
-      ) {
+      } else if (joined && stageComplete && !officialPause) {
+        if (interruption?.restartHold) interruptions.clear(active.id);
+        timer.stop();
+      } else if (joined && !timedSeries && active.canUpdateTimer() && (clockEligible || interruption)) {
         const remaining = clock
           ? Math.max(0, Math.ceil((clock.expiresAtMs - Date.now()) / 1000))
           : active.timer.remainingSeconds;

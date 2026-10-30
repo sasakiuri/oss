@@ -280,6 +280,7 @@ export function createMockPrintWindowService(): PrintWindowService {
 
 export function createMockTimerService(): LaneTimerService {
   return {
+    sample: vi.fn().mockReturnValue(null),
     start: vi.fn(),
     stop: vi.fn(),
     syncRemaining: vi.fn(),

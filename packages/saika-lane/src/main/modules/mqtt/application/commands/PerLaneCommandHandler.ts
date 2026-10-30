@@ -115,6 +115,7 @@ export class PerLaneCommandHandler {
     private readonly malfunctionFiringControl?: IMalfunctionFiringControl,
     private readonly reserveTransferControl?: IReserveLaneTransferControl,
     private readonly replayTransferredSession?: (competitionId: string) => Promise<void>,
+    isReady: () => boolean = () => true,
   ) {
     this.processor = new LaneCommandProcessor(
       mqttClient,
@@ -122,6 +123,7 @@ export class PerLaneCommandHandler {
       commandAuthorization,
       getLaneId,
       'PerLaneCommandHandler',
+      isReady,
     );
   }
 
