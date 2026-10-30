@@ -226,27 +226,45 @@ describe('forgotten position-change target switch', () => {
     expect(modeChanged).not.toHaveBeenCalled();
     expect(rig.state.athleteTargetMode).toBeUndefined();
     expect((await rig.read()).shotCount).toBe(20);
+    expect((await rig.control()).athleteTargetControl!.matchAllowed).toBe(false);
     await rig.select('SIGHTING');
     expect(rig.state.athleteTargetMode).toBe('SIGHTING');
+    expect((await rig.control()).athleteTargetControl!.matchAllowed).toBe(true);
+    expect(await rig.observations.findOutcomes(extras[0]!.observationId)).toHaveLength(1);
   });
 
-  it('recovers an unfinished reset when refreshing the cache for reconnect without adding evidence', async () => {
+  it('keeps a failed reset unswitched when caching and retries on the next Match observation', async () => {
     const rig = await setup();
     await enterProne(rig);
     vi.mocked(rig.competitions.save).mockRejectedValueOnce(new Error('Selection save failed'));
     await rig.fire();
-    const recovered = vi.fn();
-    rig.events.on('PositionExtraNullified', recovered);
-    const context = new SessionContextCache(rig.events, rig.observations);
+    const firstExtra = (await rig.observations.findBySessionAndOutcome(rig.session.id, 'NULLIFIED_POSITION_EXTRA'))[0]!;
+    expect((await rig.control()).athleteTargetControl).toMatchObject({
+      sightingAllowed: true,
+      matchAllowed: false,
+      matchUnavailableReason: 'SIGHTING_REQUIRED',
+    });
+    await expect(rig.select('MATCH')).rejects.toMatchObject({ code: 'ATHLETE_SIGHTING_REQUIRED' });
+    const notification = vi.fn();
+    rig.events.on('PositionExtraNullified', notification);
+    vi.mocked(rig.competitions.save).mockClear();
+    const context = new SessionContextCache(rig.events);
     await context.bootstrap(rig.sessions, rig.competitions);
-    expect(context.getContext().mode.value).toBe('SIGHTING');
+    expect(context.getContext().mode.value).toBe('MATCH');
+    expect(rig.competitions.save).not.toHaveBeenCalled();
+    expect(notification).not.toHaveBeenCalled();
+    expect(rig.state.athleteTargetMode).toBeUndefined();
+    await rig.fire();
     expect(rig.state.athleteTargetMode).toBe('SIGHTING');
-    expect(recovered).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ competitionId: rig.state.id }));
+    expect((await rig.read()).shotCount).toBe(20);
+    expect(rig.state.seriesShotCount).toBe(0);
     const extras = await rig.observations.findBySessionAndOutcome(rig.session.id, 'NULLIFIED_POSITION_EXTRA');
-    expect(extras).toHaveLength(1);
-    expect(await rig.observations.findOutcomes(extras[0]!.observationId)).toHaveLength(1);
-    await context.bootstrap(rig.sessions, rig.competitions);
-    expect(recovered).toHaveBeenCalledOnce();
+    expect(extras).toHaveLength(2);
+    expect(new Set(extras.map((extra) => extra.observationId)).size).toBe(2);
+    expect(await rig.observations.findOutcomes(firstExtra.observationId)).toHaveLength(1);
+    expect(await rig.observations.findOutcomes(extras[1]!.observationId)).toHaveLength(1);
+    expect(notification).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ competitionId: rig.state.id }));
+    expect(notification.mock.calls[0]![0].resetError).toBeUndefined();
   });
 
   it('awaits the last K2 progress before queued frames: one extra, then only sighters', async () => {
@@ -337,7 +355,7 @@ describe('forgotten position-change target switch', () => {
     const storage = createMockStorage();
     await new CompetitionRepositoryImpl(storage).save(rig.state);
     const restored = (await new CompetitionRepositoryImpl(storage).findActive())!;
-    const cache = new SessionContextCache(rig.events, rig.observations);
+    const cache = new SessionContextCache(rig.events);
     await cache.bootstrap(rig.sessions, new CompetitionRepositoryImpl(storage));
     expect(cache.getContext().mode.value).toBe('SIGHTING');
     expect(

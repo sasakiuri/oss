@@ -15,7 +15,6 @@ import {
   createMockCompetitionRepository,
   createMockEventBus,
   createMockSessionRepository,
-  createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 import { projectVistaTargetMode } from '../../../../helpers/projectVistaTargetMode';
 
@@ -155,7 +154,7 @@ describe('one target-mode policy across consumers', () => {
     expect(dto.athleteTargetControl).toEqual(domain.athleteTargetControl);
     expect(dto.athleteTargetControl?.officialSighting).toBe(domain.officialSighting);
     expect(projectVistaTargetMode(state, session, interruption)).toBe(mode === 'MATCH' ? 'match' : 'sighting');
-    const cache = new SessionContextCache(createMockEventBus(), createMockShotObservationRepository());
+    const cache = new SessionContextCache(createMockEventBus());
     await cache.bootstrap(sessions, competitions, interruptions);
     expect(cache.getContext().mode.value).toBe(mode);
   });

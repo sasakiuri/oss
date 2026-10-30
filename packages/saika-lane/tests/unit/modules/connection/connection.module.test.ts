@@ -39,7 +39,6 @@ import {
   createMockIpcRouter,
   createMockSessionRepository,
   createMockUSBManager,
-  createMockShotObservationRepository,
 } from '../../../helpers/mockDependencies';
 
 describe('connection.module', () => {
@@ -109,7 +108,7 @@ describe('connection.module', () => {
 
   describe('register', () => {
     function registerModule(readyForIntake = true) {
-      const sessionContextCache = new SessionContextCache(eventBus, createMockShotObservationRepository());
+      const sessionContextCache = new SessionContextCache(eventBus);
       const ready = sessionContextCache.bootstrap(sessionRepository, competitionRepository, {
         get: getInterruption,
       } as never);

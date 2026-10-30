@@ -34,7 +34,6 @@ import {
   createMockStorage,
   createMockSessionRepository,
   createMockCommandBus,
-  createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 
 describe('QualificationRecoveryService', () => {
@@ -168,7 +167,7 @@ describe('QualificationRecoveryService', () => {
       membership,
       timer,
       interruptions: restoredPauses,
-      context: new SessionContextCache(events, createMockShotObservationRepository()),
+      context: new SessionContextCache(events),
       safetyStopped: () => false,
       safetyCompetitionId: () => null,
       transferPending: () => false,
