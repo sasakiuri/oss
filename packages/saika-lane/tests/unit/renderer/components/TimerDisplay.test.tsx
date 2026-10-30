@@ -4,15 +4,59 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TimerDisplay } from '@/renderer/presentation/components/side-panel/TimerDisplay';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 
 describe('TimerDisplay', () => {
   beforeEach(() => {
     useCompetitionStore.getState().resetCompetition();
+    useDirectorMembershipStore.setState({ membership: { competitionId: 'run', revision: 1 } });
   });
 
   it('renders nothing during IDLE phase', () => {
     const { container } = render(<TimerDisplay />);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('shows Director waiting instead of the stale saved clock after the last series', () => {
+    useCompetitionStore.setState({
+      competitionId: 'run',
+      phase: 'SERIES_COMPLETE',
+      remainingSeconds: 4500,
+      totalSeconds: 4500,
+      isTimerRunning: false,
+      isTimerExpired: false,
+      waitingForDirector: true,
+    });
+    render(<TimerDisplay />);
+    expect(screen.getByText('Waiting for Director')).toBeInTheDocument();
+    expect(screen.queryByText('75:00')).not.toBeInTheDocument();
+  });
+
+  it('keeps a running stage clock visible between series', () => {
+    useCompetitionStore.setState({
+      competitionId: 'run',
+      phase: 'SERIES_COMPLETE',
+      remainingSeconds: 600,
+      totalSeconds: 4500,
+      isTimerRunning: true,
+    });
+    render(<TimerDisplay />);
+    expect(screen.getByText('10:00')).toBeInTheDocument();
+    expect(screen.queryByText('Waiting for Director')).not.toBeInTheDocument();
+  });
+
+  it('shows zero after Director expiry even when the aggregate had a stale clock', () => {
+    useCompetitionStore.setState({
+      competitionId: 'run',
+      phase: 'SERIES_COMPLETE',
+      remainingSeconds: 4500,
+      totalSeconds: 4500,
+      waitingForDirector: true,
+      isTimerExpired: true,
+    });
+    render(<TimerDisplay />);
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+    expect(screen.queryByText('Waiting for Director')).not.toBeInTheDocument();
   });
 
   it('displays the timer during ACTIVE phase (derived from remainingSeconds)', () => {

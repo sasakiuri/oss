@@ -68,6 +68,7 @@ export class LaneTier1CommandHandler {
     private readonly competitionShootOffControl?: ICompetitionShootOffControl,
     commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
     private readonly timedTargetControl?: ITimedTargetControl,
+    isReady: () => boolean = () => true,
   ) {
     this.processor = new LaneCommandProcessor(
       mqttClient,
@@ -75,6 +76,7 @@ export class LaneTier1CommandHandler {
       commandAuthorization,
       getLaneId,
       'LaneTier1CommandHandler',
+      (action) => action !== 'join-competition' || isReady(),
     );
   }
 

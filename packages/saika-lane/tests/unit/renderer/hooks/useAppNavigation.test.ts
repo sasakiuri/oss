@@ -101,6 +101,18 @@ it('waits for main readiness even after two seconds', async () => {
   expect(result.current.screen).toBe('main');
 });
 
+it.each([false, true])('hydrates the actual clock running state between series (running=%s)', async (running) => {
+  api.competition.getCompetitionState.mockResolvedValue(
+    data({ ...competition, interruption: null, timer: { ...competition.timer, running } }),
+  );
+  renderHook(() => useAppNavigation());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(useCompetitionStore.getState().isTimerRunning).toBe(running);
+  expect(useCompetitionStore.getState().waitingForDirector).toBe(!running);
+});
+
 it('subscribes before queries and re-queries once when a phase event races hydration', async () => {
   let phaseChanged!: () => void;
   api.on.phaseChanged.mockImplementation((listener) => {

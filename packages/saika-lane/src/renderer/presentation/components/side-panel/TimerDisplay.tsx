@@ -9,6 +9,7 @@
 import React from 'react';
 
 import { useCompetitionStore } from '../../stores/competitionStore';
+import { useDirectorMembershipStore } from '../../stores/directorMembershipStore';
 import { formatSeconds } from '../../utils/formatSeconds';
 
 const TIMER_WARNING_SECONDS = 60;
@@ -16,12 +17,25 @@ const TIMER_DANGER_SECONDS = 30;
 
 export const TimerDisplay: React.FC = () => {
   const phase = useCompetitionStore((s) => s.phase);
-  const remainingSeconds = useCompetitionStore((s) => s.remainingSeconds);
+  const remainingSeconds = useCompetitionStore((s) => (s.isTimerExpired ? 0 : s.remainingSeconds));
+  const isTimerExpired = useCompetitionStore((s) => s.isTimerExpired);
   const totalSeconds = useCompetitionStore((s) => s.totalSeconds);
   const interruption = useCompetitionStore((s) => s.interruption);
+  const waitingForDirector = useCompetitionStore((s) => s.waitingForDirector);
+  const competitionId = useCompetitionStore((s) => s.competitionId);
+  const membership = useDirectorMembershipStore((s) => s.membership);
   const formattedRemaining = formatSeconds(remainingSeconds);
 
   if (phase === 'IDLE') return null;
+  if (
+    phase === 'SERIES_COMPLETE' &&
+    competitionId !== null &&
+    membership?.competitionId === competitionId &&
+    waitingForDirector &&
+    !isTimerExpired &&
+    !interruption
+  )
+    return <p className="border-b border-zinc-500 px-2 py-3 text-center">Waiting for Director</p>;
 
   const progress = totalSeconds > 0 ? (remainingSeconds / totalSeconds) * 100 : 0;
 

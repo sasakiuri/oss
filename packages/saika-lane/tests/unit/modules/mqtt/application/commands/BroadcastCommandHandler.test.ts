@@ -110,10 +110,12 @@ describe('BroadcastCommandHandler', () => {
   let guard: CommandIdempotencyGuard;
   let interruptionControl: ICompetitionInterruptionControl;
   let shootOffControl: ICompetitionShootOffControl;
+  let startupReady: boolean;
   let handler: BroadcastCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
   beforeEach(() => {
+    startupReady = true;
     mqttClient = createMockMqttClient();
     commandBus = createMockCommandBus();
     timerService = createMockTimerService();
@@ -155,6 +157,9 @@ describe('BroadcastCommandHandler', () => {
       interruptionControl,
       undefined,
       shootOffControl,
+      undefined,
+      undefined,
+      () => startupReady,
     );
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
@@ -191,6 +196,40 @@ describe('BroadcastCommandHandler', () => {
     await handler.unsubscribeFromCompetition();
 
     expect(mqttClient.unsubscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/command/+`);
+  });
+
+  it.each([
+    'start-sighting',
+    'end-sighting',
+    'start-match',
+    'advance-series',
+    'finish-competition',
+    'timer-started',
+    'timer-expired',
+  ])('rejects %s with an error ACK before any mutation while startup is ERROR', async (action) => {
+    startupReady = false;
+    const now = new Date().toISOString();
+    await sendMessage(
+      action,
+      buildCommand({
+        timerStartAt: now,
+        timerDurationSeconds: 100,
+        timerScope: 'STAGE',
+        stageIndex: 1,
+        seriesIndex: null,
+        fromSeriesIndex: 0,
+        expiredAt: now,
+      }),
+    );
+    expect(commandBus.execute).not.toHaveBeenCalled();
+    expect(competitionRepository.findById).not.toHaveBeenCalled();
+    expect(timerService.startAt).not.toHaveBeenCalled();
+    expect(timerService.expire).not.toHaveBeenCalled();
+    expect(competitionStatePublisher.publishCurrentState).not.toHaveBeenCalled();
+    expect(scorePublisher.publishCurrentScore).not.toHaveBeenCalled();
+    const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+    expect(ack).toMatchObject({ status: 'error', error: { message: expect.stringContaining('not READY') } });
+    expect(vi.mocked(mqttClient.publish).mock.calls).toHaveLength(1);
   });
 
   describe('start-sighting', () => {

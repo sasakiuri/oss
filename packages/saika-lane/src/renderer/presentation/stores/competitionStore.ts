@@ -20,6 +20,7 @@ interface CompetitionState {
   remainingSeconds: number;
   totalSeconds: number;
   isTimerRunning: boolean;
+  waitingForDirector: boolean;
   isTimerExpired: boolean;
   shotsPerSeries: number;
   /** Scoring method (RING=integer score, DECIMAL=decimal score) */
@@ -78,6 +79,7 @@ const initialState: CompetitionState = {
   remainingSeconds: 0,
   totalSeconds: 0,
   isTimerRunning: false,
+  waitingForDirector: false,
   isTimerExpired: false,
   shotsPerSeries: 10,
   acc: 'DECIMAL',
@@ -96,6 +98,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
 
   setPhase: (phase, stageIndex, seriesIndex, stageName, scored) => {
     set((state) => ({
+      waitingForDirector: false,
       phase,
       stageIndex,
       seriesIndex,
@@ -171,6 +174,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
 
   applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored, targetProfileId, scoringGaugeProfileId) => {
     set((state) => ({
+      waitingForDirector: false,
       ...(state.phase !== phase || state.stageIndex !== stageIndex || state.seriesIndex !== seriesIndex
         ? { athleteTargetControl: null, athleteTargetControlLoaded: false }
         : {}),

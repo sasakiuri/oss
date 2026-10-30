@@ -206,11 +206,11 @@ Director は `probe-clock` の往復から時計差と不確かさを検査し�
 
 ## 切断・再接続とデータの保持
 
-MQTT の Auto Connect は enabled と autoConnect の両方が有効で、メイン側の競技復元が READY になってから開始します。同じ入力の手動 Connect は接続中の処理を共有します。接続先・別名・自動接続設定が異なる手動操作は、先の試行が終わるのを待ち、自分の入力で接続します。初回再送の失敗は MQTT 設定に表示し、手動 Connect で再試行できます。復元エラー時は自動接続せず、古い参加先から離脱したり、競技を終了したりするために手動接続を利用できます。
+MQTT の Auto Connect は enabled と autoConnect の両方が有効で、メイン側の競技復元が READY になってから開始します。同じ入力の手動 Connect は接続中の処理を共有します。接続先・別名・自動接続設定が異なる手動操作は、先の試行が終わるのを待ち、自分の入力で接続します。初回再送の失敗は MQTT 設定に表示し、手動 Connect で再試行できます。復元エラー時は自動接続しません。復旧画面から手動接続し、Director の leave-competition で参加状態を解除できます。ERROR 中の finish-competition は拒否します。
 
-再起動した参加 Lane の通常時計は次シリーズを開始できる待機フェーズも含めて PAUSED にします。最終シリーズ完了後は停止案件を作らず、Director の満了・終了を待ちます。新しい Director 案件の pause-timer で Lane の再起動停止を採用し、保存した残り時間を応答します。採用前の resume-timer / resume-match は拒否します。既存の PAUSED / RESUME_PENDING 案件は同じ ID で継続します。同一ステージの再開後 advance-series は時計を引き継ぎます。PAUSED は着弾の隔離を意味せず、安全停止だけが独立に隔離します。
+再起動した参加 Lane の通常時計は次シリーズを開始できる待機フェーズも含めて PAUSED にします。最終シリーズ完了後は Lane が作った再起動停止だけを解除し、新しい停止案件を作らず Director の満了・終了を待ちます。新しい Director 案件の pause-timer で Lane の再起動停止を採用し、保存した残り時間を応答します。採用前の resume-timer / resume-match は拒否します。既存の PAUSED / RESUME_PENDING 案件は同じ ID で継続します。同一ステージの再開後 advance-series は時計を引き継ぎます。PAUSED は着弾の隔離を意味せず、安全停止だけが独立に隔離します。
 
-ERROR の手動接続ではハードウェア・安全状態だけを発行し、競技状態・得点・着弾は再発行しません。READY へ復旧した後に保存状態を再送します。
+ERROR の手動接続ではハードウェア・安全状態を発行します。競技状態・得点・選手割当と、現在のセッションの通常着弾は再発行しません。Lane が保存済みの観測資料・予選復旧射・シュートオフ着弾の outbox は引き続き配送します。受け付けるコマンドは leave-competition、activate-safety-stop、clear-safety-stop、probe-clock です。join-competition と全ての競技別コマンドは、処理を実行せず復元未完了を示す error ACK を返します。参加を解除した後は Lane の Retry を使います。終了可能な保存競技は Lane で Finish saved run を確認し、読めない競技は Set aside saved run を確認して復旧できます。安全 STOP と保留中の予備射座移動は先に解消する必要があります。READY へ復旧した後に保存状態を再送し、接続済みの場合も通常の接続と同じように再開状態を照合します。
 
 参加先と active 競技が異なる場合は復旧エラーです。接続時の検査による参加復元失敗で古い参加状態が解除され、その後 Lane の Retry が使えます。進行中の別競技へ join して付け替えることはできません。従来どおり復元失敗・離脱は参加状態を解除します。解除後の停止済み競技は Lane の Finish saved run で明示的に終了でき、再接続だけで再開しません。
 

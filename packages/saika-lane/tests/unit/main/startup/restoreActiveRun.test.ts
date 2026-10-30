@@ -7,6 +7,7 @@ import { AR60, BR60S, P25 } from '@/main/modules/competition/domain/competitionT
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
+import { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import { LocalCompetitionInterruptionRepository } from '@/main/modules/competition-interruption/infra/LocalCompetitionInterruptionRepository';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
@@ -96,6 +97,7 @@ describe('active run startup', () => {
       expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
       expect(rig.interruptions.get(state.id)).toBeNull();
       expect(rig.timer.sample(state.id)).toBeNull();
+      expect(rig.storage.get('competitionClock')).toBeUndefined();
       await rig.timer.expire(state.id);
       expect((await rig.competitions.findById(state.id))!.timer.isExpired).toBe(true);
       await createFinishCompetitionHandler(
@@ -106,6 +108,80 @@ describe('active run startup', () => {
       expect((await rig.competitions.findById(state.id))!.phase).toBe('FINISHED');
     },
   );
+
+  it.each(['PAUSED', 'RESUME_PENDING'] as const)(
+    'keeps an official %s case after the joined final series and accepts its resume',
+    async (status) => {
+      const rig = await fixture(true);
+      let completed = rig.active;
+      for (let series = 0; series < 6; series++) {
+        for (let shot = 0; shot < 10; shot++) completed = completed.recordShotInSeries();
+        if (series < 5) completed = completed.advanceToNextStage().startNextSeries();
+      }
+      await rig.competitions.save(completed);
+      const record = LaneInterruptionRecord.create({
+        competitionId: completed.id,
+        interruptionId: 'official-case',
+        status,
+        pausedAt: new Date(),
+        capturedAt: new Date(),
+        capturedRemainingSeconds: 123,
+        capturedTotalSeconds: 4500,
+        ...(status === 'RESUME_PENDING'
+          ? { resumeAt: new Date(Date.now() + 3000), authorizedRemainingSeconds: 300 }
+          : {}),
+      });
+      new LocalCompetitionInterruptionRepository(rig.storage).save(record);
+      expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
+      expect(rig.interruptions.get(completed.id)).toMatchObject({
+        interruptionId: record.interruptionId,
+        status: 'PAUSED',
+        restartHold: false,
+      });
+      expect(rig.interruptions.get(completed.id)?.capturedRemainingSeconds).toBe(status === 'PAUSED' ? 123 : 4500);
+      expect((await rig.competitions.findById(completed.id))!.timer.remainingSeconds).toBe(
+        status === 'PAUSED' ? 123 : 4500,
+      );
+      await rig.interruptions.resume({
+        competitionId: completed.id,
+        interruptionId: record.interruptionId,
+        timerStartAt: new Date(),
+        authorizedRemainingSeconds: 200,
+        unlimitedSightingShots: false,
+      });
+      expect(rig.interruptions.get(completed.id)).toMatchObject({
+        interruptionId: record.interruptionId,
+        status: 'RUNNING_MATCH',
+      });
+      expect(rig.timer.sample(completed.id)?.running).toBe(true);
+      rig.timer.stop();
+    },
+  );
+
+  it('returns a timed series awaiting resume to the same official stop after restart', async () => {
+    const rig = await fixture(true, P25);
+    new LocalCompetitionInterruptionRepository(rig.storage).save(
+      LaneInterruptionRecord.create({
+        competitionId: rig.active.id,
+        interruptionId: 'timed-case',
+        status: 'RESUME_PENDING',
+        pausedAt: new Date(),
+        capturedAt: new Date(),
+        capturedRemainingSeconds: 20,
+        capturedTotalSeconds: 30,
+        resumeAt: new Date(Date.now() + 3000),
+        authorizedRemainingSeconds: 20,
+      }),
+    );
+    expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
+    expect(rig.interruptions.get(rig.active.id)).toMatchObject({
+      interruptionId: 'timed-case',
+      status: 'PAUSED',
+      resumeAt: null,
+      restartHold: false,
+    });
+    expect(rig.restoreIndependentWorkflows).toHaveBeenCalledOnce();
+  });
 
   it('returns READY snapshots without re-running workflows, stopping a live timer or auto-connecting again', async () => {
     const rig = await fixture(true);

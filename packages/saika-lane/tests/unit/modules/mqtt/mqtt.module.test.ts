@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import mqtt from 'mqtt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
@@ -7,6 +8,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import { MalfunctionFiringService } from '@/main/modules/malfunction-firing/application/MalfunctionFiringService';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import type {
@@ -22,6 +24,7 @@ import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timin
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -596,6 +599,34 @@ describe('mqtt.module', () => {
     expect(await handlers.getMqttStatus()).toMatchObject({ status: 'connected' });
     expect((await handlers.getMqttStatus()).error).toBeUndefined();
     await handlers.disconnectMqtt();
+  });
+
+  it('reconciles resume state on ERROR to READY with an existing MQTT connection', async () => {
+    eventBus = new TypedEventBus();
+    const startup = createMockStartup();
+    const ready = vi.spyOn(startup, 'isReady').mockReturnValue(false);
+    const restore = vi.spyOn(MalfunctionFiringService.prototype, 'restore');
+    mockMqttClient.on.mockReset().mockImplementation((event: string, callback: () => void) => {
+      if (event === 'connect')
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          callback();
+        }, 0);
+    });
+    const handlers = registerConnection(startup);
+    try {
+      await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+      expect(restore).not.toHaveBeenCalled();
+      const connections = vi.mocked(mqtt.connect).mock.calls.length;
+      ready.mockReturnValue(true);
+      await vi.mocked(startup.afterReady).mock.calls[0]![0]();
+      expect(restore).toHaveBeenCalledOnce();
+      expect(mqtt.connect).toHaveBeenCalledTimes(connections);
+      expect(await handlers.getMqttStatus()).toMatchObject({ status: 'connected' });
+    } finally {
+      restore.mockRestore();
+      await handlers.disconnectMqtt();
+    }
   });
 
   it('should publish offline and close the client when initial subscription fails', async () => {

@@ -352,6 +352,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionShootOffControl,
       commandAuthorization,
       timedTargetControl,
+      () => startup.isReady(),
     );
 
     const perLaneHandler = new PerLaneCommandHandler(
@@ -374,6 +375,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       malfunctionFiringControl,
       reserveTransferControl,
       (competitionId) => retainPublisher.replayTransferredSession(competitionId),
+      () => startup.isReady(),
     );
 
     const tier1Handler = new LaneTier1CommandHandler(
@@ -392,6 +394,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionShootOffControl,
       commandAuthorization,
       timedTargetControl,
+      () => startup.isReady(),
     );
 
     let lastConnectError: string | null = null;
@@ -496,6 +499,14 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       if (mqttClient.isConnected()) {
         try {
           await retainPublisher.republish();
+          lastConnectError = null;
+          eventBus.emit({
+            type: 'MqttConnected',
+            timestamp: Date.now(),
+            aggregateId: settingsStore.getLaneId(),
+            brokerUrl: sanitizeBrokerUrl(settings.brokerUrl),
+            laneId: settingsStore.getLaneId(),
+          });
         } catch (error) {
           lastConnectError = error instanceof Error ? error.message : String(error);
           eventBus.emit({

@@ -40,6 +40,7 @@ const TimerDtoSchema = z.object({
   totalSeconds: z.number(),
   formattedRemaining: z.string(),
   isExpired: z.boolean(),
+  running: z.boolean().optional(),
 });
 
 const CompetitionStateDtoSchema = z.object({

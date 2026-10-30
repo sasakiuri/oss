@@ -23,6 +23,7 @@ import {
   StartNextSeriesToken,
   StartStageToken,
 } from '@/main/composition/tokens';
+import type { CompetitionStateDto } from '@/main/modules/competition/application/dto';
 import { competitionModule } from '@/main/modules/competition/competition.module';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
@@ -98,6 +99,33 @@ describe('competition.module', () => {
   });
 
   describe('register', () => {
+    it.each([false, true])(
+      'projects the live timer status rather than inferring it from SERIES_COMPLETE (running=%s)',
+      async (running) => {
+        registerModule();
+        vi.mocked(queryBus.execute).mockResolvedValue({
+          id: 'run',
+          phase: 'SERIES_COMPLETE',
+          timer: { remainingSeconds: 4500, totalSeconds: 4500 },
+        });
+        vi.mocked(timerService.sample).mockReturnValue(
+          running
+            ? {
+                running: true,
+                remainingMs: 600000,
+                sampledAt: Date.now(),
+                generation: 1,
+              }
+            : null,
+        );
+        const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as {
+          getCompetitionState(input: {
+            competitionId: string;
+          }): Promise<CompetitionStateDto & { timer: { running: boolean } }>;
+        };
+        expect((await handlers.getCompetitionState({ competitionId: 'run' })).timer.running).toBe(running);
+      },
+    );
     it('should register 7 command handlers', () => {
       registerModule();
 
