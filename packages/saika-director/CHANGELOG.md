@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Require a Sighting switch before Match in athlete-controlled scored series. Nullify a forgotten-switch extra without consuming a score or shot slot, reset the Lane target to Sighting, and show the original device mode in review evidence.
+
+  Await persisted competition progress before announcing recorded shots. Preserve nullified observations in Director's append-only journal and require official review before result publication; Final deductions remain explicit Jury decisions.
+
+### Patch Changes
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`11f364e`](https://github.com/sasakiuri/oss/commit/11f364eb99ef0280571316aef76e6380fb8f5d09) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Limit reported-mode labels to series with a nullified extra and distinguish target observation evidence from official review. Clear reset notices after selection or progress, and format unscored device values using the event scoring method.
+
+  Preserve a single nullified outcome if the Sighting reset fails, show the failure, and require Sighting selection or another nullified Match observation to retry the reset. Require explicit policy inputs and share the scope and position-label rules.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`bc0a099`](https://github.com/sasakiuri/oss/commit/bc0a099bfd3b6331e06088fad170a09dbdebb57b) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Restore the saved Lane run, shots and original standalone clock deadline after a restart. Hold joined ordinary clocks for official adoption and resume, provide recovery and explicit finish paths, and reconnect and replay saved session data after startup readiness. Show retained interruption status in the Director lane table and document restart recovery.
+
+- Updated dependencies [[`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb), [`d3c0e9d`](https://github.com/sasakiuri/oss/commit/d3c0e9d8bbad61ddf59cfb9b004d4fe01fa5fcf3)]:
+  - @sasakiuri/saika-protocol@0.3.0
+  - @sasakiuri/saika-rules@0.2.1
+
 ## 0.4.1
 
 ### Patch Changes
