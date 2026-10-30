@@ -164,7 +164,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
         throw new Error('Restore the saved run before connecting the target');
       await competitionModeUpdates;
       await flushPendingUnexpectedDisconnect();
-      await sessionContextCache.bootstrap(sessionRepository, competitionRepository, competitionInterruptionControl);
       await connectToTarget(input);
     });
     const disconnectFromTarget = createDisconnectFromTargetHandler(connectionRepository, usbManager, eventBus);
@@ -247,7 +246,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
           });
 
           await competitionModeUpdates;
-          await sessionContextCache.bootstrap(sessionRepository, competitionRepository, competitionInterruptionControl);
           usbManager.sendMode(getCurrentMode()).catch((err: unknown) => {
             getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
               err: err instanceof Error ? err.message : String(err),

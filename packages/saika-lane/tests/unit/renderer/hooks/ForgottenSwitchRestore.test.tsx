@@ -51,7 +51,7 @@ function RestoredHistory() {
 }
 
 it.each([false, true])(
-  'restores and hydrates a switched series after X (reset save failed=%s)',
+  'restores and hydrates the saved switch requirement after X (reset save failed=%s)',
   async (resetFailed) => {
     vi.useFakeTimers();
     const db = createSqliteDb(':memory:');
@@ -101,6 +101,8 @@ it.each([false, true])(
     const restoredCompetitions = new CompetitionRepositoryImpl(storage);
     const restoredSessions = new SqliteSessionRepository(db);
     const restartEvents = new TypedEventBus();
+    const resetNotification = vi.fn();
+    restartEvents.on('PositionExtraNullified', resetNotification);
     const timer = new LaneTimerService(restoredCompetitions, restartEvents, storage);
     storage.set('competitionClock', {
       competitionId: active.id,
@@ -116,7 +118,7 @@ it.each([false, true])(
       restartEvents,
       restoredSessions,
     );
-    const context = new SessionContextCache(restartEvents, new SqliteShotObservationRepository(db));
+    const context = new SessionContextCache(restartEvents);
     const createCompetition = vi.fn();
     const startup = new ActiveRunStartup({
       competitions: restoredCompetitions,
@@ -161,15 +163,21 @@ it.each([false, true])(
       });
       expect(startup.isReady()).toBe(true);
       expect(createCompetition).not.toHaveBeenCalled();
-      expect(context.getContext().mode.value).toBe('SIGHTING');
+      expect(context.getContext().mode.value).toBe(resetFailed ? 'MATCH' : 'SIGHTING');
       expect(useCompetitionStore.getState()).toMatchObject({
         seriesIndex: 2,
-        athleteTargetControl: { selected: 'SIGHTING', effective: 'SIGHTING', matchAllowed: true },
+        athleteTargetControl: {
+          selected: resetFailed ? null : 'SIGHTING',
+          effective: resetFailed ? 'MATCH' : 'SIGHTING',
+          matchAllowed: !resetFailed,
+          matchUnavailableReason: resetFailed ? 'SIGHTING_REQUIRED' : null,
+        },
       });
       expect(useSessionStore.getState().nullifiedExtras).toHaveLength(1);
       const extra = (await observations.findBySessionAndOutcome(session.id, 'NULLIFIED_POSITION_EXTRA'))[0]!;
       expect(await observations.findOutcomes(extra.observationId)).toHaveLength(1);
-      expect((await restoredCompetitions.findActive())!.athleteTargetMode).toBe('SIGHTING');
+      expect((await restoredCompetitions.findActive())!.athleteTargetMode).toBe(resetFailed ? undefined : 'SIGHTING');
+      expect(resetNotification).not.toHaveBeenCalled();
       expect(screen.getByText(/Nullified extra — previous Kneeling position/)).toBeVisible();
       expect(screen.getByLabelText('No shot ordinal')).toHaveTextContent('—');
       expect(screen.getByText('Not scored · ISSF 6.10.4(c) / 7.7.3')).toBeVisible();
