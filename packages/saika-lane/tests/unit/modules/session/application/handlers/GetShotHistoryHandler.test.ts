@@ -14,6 +14,11 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
 import type { QueryHandler } from '@/main/shared-infra/cqrs';
 
+import {
+  createMockCompetitionRepository,
+  createMockShotObservationRepository,
+} from '../../../../../helpers/mockDependencies';
+
 describe('createGetShotHistoryHandler', () => {
   let handler: QueryHandler<GetShotHistoryInput, ShotHistoryDto>;
   let mockSessionRepo: ISessionRepository;
@@ -31,7 +36,11 @@ describe('createGetShotHistoryHandler', () => {
       findActive: vi.fn(),
     };
 
-    handler = createGetShotHistoryHandler(mockSessionRepo);
+    handler = createGetShotHistoryHandler(
+      mockSessionRepo,
+      createMockShotObservationRepository(),
+      createMockCompetitionRepository(),
+    );
   });
 
   describe('Success cases', () => {

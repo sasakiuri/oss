@@ -312,7 +312,7 @@ describe('ContractEventForwarder', () => {
   describe('start()', () => {
     it('subscribes to 21 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(21);
+      expect(eventBus.on).toHaveBeenCalledTimes(23);
     });
 
     it.each([null, 'competition-1'])(
@@ -355,6 +355,26 @@ describe('ContractEventForwarder', () => {
       );
     });
 
+    it('forwards nullification and progress failure through the UI channels', () => {
+      forwarder.start();
+      getFirstHandler(
+        eventBus,
+        'PositionExtraNullified',
+      )({ type: 'PositionExtraNullified', aggregateId: 'session-1', competitionId: 'comp-1', timestamp: now });
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.positionExtraNullified, {
+        sessionId: 'session-1',
+        competitionId: 'comp-1',
+      });
+      getFirstHandler(
+        eventBus,
+        'ShotRecordingFailed',
+      )({ type: 'ShotRecordingFailed', aggregateId: 'session-1', timestamp: now, message: 'Contact a Range Officer.' });
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith(
+        eventsContract.channels.error,
+        expect.objectContaining({ code: 'SHOT_PROGRESS_FAILED', userMessage: 'Contact a Range Officer.' }),
+      );
+    });
+
     it('forwards ShotRecorded to event:shotRecorded', () => {
       forwarder.start();
       const shot = createTestShot();
@@ -373,6 +393,8 @@ describe('ContractEventForwarder', () => {
           score: 98,
           innerTen: false,
           timestamp: '2026-02-18T10:00:00.000Z',
+          receivedAt: shot.receivedAt.toISOString(),
+          reportedMode: null,
           mode: 'MATCH',
           isRecorded: true,
         },
@@ -711,8 +733,8 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
       forwarder.start();
 
-      // Each start registers all 21 event subscriptions.
-      expect(eventBus.on).toHaveBeenCalledTimes(42);
+      // Each start registers all 23 event subscriptions.
+      expect(eventBus.on).toHaveBeenCalledTimes(46);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);

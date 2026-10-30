@@ -10,7 +10,11 @@ import {
   type ShotObservationOutcome,
   type ShotObservationOutcomeType,
 } from '../domain/ShotObservation';
-import { serializeShotObservationEvidence, type ShotObservationEvidence } from '../domain/ShotObservationEvidence';
+import {
+  parseShotObservationEvidence,
+  serializeShotObservationEvidence,
+  type ShotObservationEvidence,
+} from '../domain/ShotObservationEvidence';
 
 interface ObservationRow {
   id: string;
@@ -38,6 +42,20 @@ export class SqliteShotObservationRepository implements IShotObservationReposito
   private readonly insertOutcome: Database.Statement;
   private readonly selectObservation: Database.Statement;
   private readonly selectOutcomes: Database.Statement;
+
+  async findBySessionAndOutcome(
+    sessionId: string,
+    outcome: ShotObservationOutcomeType,
+  ): Promise<readonly ShotObservationEvidence[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT evidence.payload_json FROM shot_observation_outcomes AS outcome
+      JOIN shot_observation_evidence_outbox AS evidence ON evidence.outcome_id = outcome.id
+      WHERE outcome.session_id = ? AND outcome.outcome_type = ? ORDER BY evidence.created_at, evidence.rowid`,
+      )
+      .all(sessionId, outcome) as Array<{ payload_json: string }>;
+    return rows.map((row) => parseShotObservationEvidence(row.payload_json));
+  }
 
   constructor(private readonly db: Database.Database) {
     this.insertObservation = db.prepare(`

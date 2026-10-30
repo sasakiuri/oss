@@ -21,6 +21,7 @@ export interface CompetitionStateDto {
     officialSighting: boolean;
     sightingAllowed: boolean;
     matchAllowed: boolean;
+    matchUnavailableReason: 'SIGHTING_REQUIRED' | null;
     selected: 'SIGHTING' | 'MATCH' | null;
     effective: 'SIGHTING' | 'MATCH';
   } | null;

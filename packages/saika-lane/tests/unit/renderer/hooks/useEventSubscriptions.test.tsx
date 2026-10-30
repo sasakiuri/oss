@@ -113,6 +113,8 @@ describe('useEventSubscriptions', () => {
           connectionStatusChanged: mockOnConnectionStatusChanged,
           shotReceived: mockOnShotReceived,
           shotRecorded: mockOnShotRecorded,
+          positionExtraNullified: vi.fn(() => vi.fn()),
+          error: vi.fn(() => vi.fn()),
           competitionStarted: vi.fn().mockReturnValue(vi.fn()),
           competitionProgressChanged: vi.fn().mockReturnValue(vi.fn()),
           phaseChanged: vi.fn().mockReturnValue(vi.fn()),

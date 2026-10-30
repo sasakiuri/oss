@@ -31,6 +31,7 @@ export interface RecordShotInput {
   /** Local receipt time, distinct from the target-provided firing time. */
   receivedAt?: Date;
   deviceScore?: number;
+  reportedMode?: 'SIGHTING' | 'MATCH';
   /** Link to the immutable observation journal entry. */
   sourceObservationId?: string;
   /** Mode reported by the device (if omitted, the Session's mode is used) */

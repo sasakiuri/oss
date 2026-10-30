@@ -48,7 +48,9 @@ export function localProgressControls(
           ? 'Official sighting is in progress'
           : action === 'sighting'
             ? 'Sighting is unavailable after the first Match shot of this series'
-            : 'This position change allows Sighting only',
+            : control.matchUnavailableReason === 'SIGHTING_REQUIRED'
+              ? 'Switch to Sighting before selecting Match.'
+              : 'This position change allows Sighting only',
     };
   }
   if (hydrationFailed) return { allowed: false, reason: 'Director membership could not be loaded' };

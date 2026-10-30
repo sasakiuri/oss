@@ -2,6 +2,8 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type CompetitionErrorCode =
+  | 'ATHLETE_SIGHTING_REQUIRED'
+  | 'SHOT_PROGRESS_FAILED'
   | 'ATHLETE_TARGET_OFFICIAL_SIGHTING'
   | 'ATHLETE_TARGET_CONTEXT_CHANGED'
   | 'ATHLETE_TARGET_NOT_ACTIVE'
@@ -18,6 +20,24 @@ export type CompetitionErrorCode =
   | 'INVALID_TIMER_DURATION';
 
 export const COMPETITION_ERRORS: ReadonlyArray<[CompetitionErrorCode, ErrorDefinition]> = [
+  [
+    'ATHLETE_SIGHTING_REQUIRED',
+    {
+      code: 'ATHLETE_SIGHTING_REQUIRED',
+      message: 'Switch to Sighting before selecting Match.',
+      userMessage: 'Switch to Sighting before selecting Match.',
+      severity: 'warning',
+    },
+  ],
+  [
+    'SHOT_PROGRESS_FAILED',
+    {
+      code: 'SHOT_PROGRESS_FAILED',
+      message: 'The shot was saved, but competition progress failed. Contact a Range Officer.',
+      userMessage: 'The shot was saved, but competition progress failed. Contact a Range Officer.',
+      severity: 'error',
+    },
+  ],
   [
     'ATHLETE_TARGET_OFFICIAL_SIGHTING',
     {

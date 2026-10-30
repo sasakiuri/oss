@@ -132,6 +132,7 @@ export function buildPreloadAPI(): ElectronAPI {
     on: {
       shotReceived: events.shotReceived,
       shotRecorded: events.shotRecorded,
+      positionExtraNullified: events.positionExtraNullified,
       connectionStatusChanged: events.connectionStatusChanged,
       sessionStarted: events.sessionStarted,
       modeSwitched: events.modeSwitched,

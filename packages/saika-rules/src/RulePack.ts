@@ -43,7 +43,9 @@ export interface RuleSeries {
   readonly purpose?: RuleSeriesPurpose;
   /**
    * Who may change the target between SIGHTING and MATCH while this series is current.
-   * ATHLETE permits SIGHTING until the first MATCH shot of that series, then MATCH only.
+   * In a scored ATHLETE series, SIGHTING must be selected or observed before MATCH is allowed.
+   * A pre-switch MATCH observation is nullified and resets the selection to SIGHTING.
+   * SIGHTING remains available until the first MATCH shot of that series, then MATCH only.
    * POSITION_CHANGE_AND_SIGHTING permits SIGHTING only.
    */
   readonly targetModeControl?: TargetModeControl;

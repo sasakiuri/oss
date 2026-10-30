@@ -8,10 +8,12 @@ import type { CompetitionState } from './CompetitionState';
 export interface CompetitionTargetMode {
   effective: ReportedShotMode;
   officialSighting: boolean;
+  sightingRequired: boolean;
   athleteTargetControl: {
     officialSighting: boolean;
     sightingAllowed: boolean;
     matchAllowed: boolean;
+    matchUnavailableReason: 'SIGHTING_REQUIRED' | null;
     selected: ReportedShotMode | null;
     effective: ReportedShotMode;
   } | null;
@@ -30,7 +32,7 @@ export function resolveCompetitionTargetMode(
     interruption?.competitionId === state.id &&
     (interruption.status === 'SIGHTING' ||
       (interruption.status === 'RESUME_PENDING' && interruption.unlimitedSightingShots === true));
-  const observed = [...shots].reverse().find((shot) => {
+  const observations = shots.filter((shot) => {
     const context = shot.competitionContext;
     return (
       context?.athleteModeObserved === true &&
@@ -39,22 +41,43 @@ export function resolveCompetitionTargetMode(
       context.seriesIndex === state.currentSeriesIndex
     );
   });
+  const observed = observations.at(-1);
+  const sightingRequired =
+    state.phase === 'ACTIVE' &&
+    stage.scored &&
+    series.targetModeControl === 'ATHLETE' &&
+    series.purpose !== 'POSITION_CHANGE_AND_SIGHTING' &&
+    state.seriesShotCount === 0 &&
+    !officialSighting &&
+    state.athleteTargetMode == null &&
+    !observations.some((shot) => shot.mode.isSighting());
   const effective = officialSighting
     ? 'SIGHTING'
-    : resolveCompetitionShotMode(stage, series, observed?.mode.value, state.seriesShotCount, state.athleteTargetMode);
+    : resolveCompetitionShotMode(
+        stage,
+        series,
+        observed?.mode.value,
+        state.seriesShotCount,
+        state.athleteTargetMode,
+        sightingRequired,
+      ).mode;
   return {
     effective,
     officialSighting,
+    sightingRequired,
     athleteTargetControl:
       state.phase === 'ACTIVE' && series.targetModeControl === 'ATHLETE'
         ? {
             officialSighting,
             sightingAllowed:
               !officialSighting &&
-              resolveCompetitionShotMode(stage, series, 'SIGHTING', state.seriesShotCount, 'SIGHTING') === 'SIGHTING',
+              resolveCompetitionShotMode(stage, series, 'SIGHTING', state.seriesShotCount, 'SIGHTING').mode ===
+                'SIGHTING',
             matchAllowed:
               !officialSighting &&
-              resolveCompetitionShotMode(stage, series, 'MATCH', state.seriesShotCount, 'MATCH') === 'MATCH',
+              !sightingRequired &&
+              resolveCompetitionShotMode(stage, series, 'MATCH', state.seriesShotCount, 'MATCH').mode === 'MATCH',
+            matchUnavailableReason: sightingRequired ? 'SIGHTING_REQUIRED' : null,
             selected: state.athleteTargetMode ?? null,
             effective,
           }

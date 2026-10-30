@@ -16,7 +16,6 @@ import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import {
   createPhaseChangedHandler,
-  createShotRecordedHandler,
   createTimedTargetSequenceChangedHandler,
 } from './application/CompetitionEventHandlers';
 import { createAdvanceStageHandler } from './application/handlers/AdvanceStageHandler';
@@ -100,7 +99,12 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     commandBus.register(EndStageToken, createEndStageHandler(competitionRepository, eventBus));
     commandBus.register(
       SetAthleteTargetModeToken,
-      createSetAthleteTargetModeHandler(competitionRepository, eventBus, competitionInterruptionControl),
+      createSetAthleteTargetModeHandler(
+        competitionRepository,
+        eventBus,
+        competitionInterruptionControl,
+        sessionRepository,
+      ),
     );
     queryBus.register(
       GetCompetitionStateToken,
@@ -109,7 +113,6 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     queryBus.register(GetCompetitionTypesToken, createGetCompetitionTypesHandler(registry));
 
     // 4. Register event listeners
-    eventBus.on('ShotRecorded', createShotRecordedHandler({ competitionRepository, eventBus }));
     eventBus.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository, timerService }));
     eventBus.on(
       'TimedTargetSequenceChanged',

@@ -636,6 +636,7 @@ describe('confirmation context for athlete series changes', () => {
             officialSighting: false,
             sightingAllowed: true,
             matchAllowed: true,
+            matchUnavailableReason: null,
             selected: null,
             effective: 'MATCH',
           });

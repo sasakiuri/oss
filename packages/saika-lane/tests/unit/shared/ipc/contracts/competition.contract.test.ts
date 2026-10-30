@@ -70,6 +70,7 @@ describe('competitionContract', () => {
           officialSighting: true,
           sightingAllowed: false,
           matchAllowed: false,
+          matchUnavailableReason: null,
           selected: 'MATCH',
           effective: 'SIGHTING',
         },

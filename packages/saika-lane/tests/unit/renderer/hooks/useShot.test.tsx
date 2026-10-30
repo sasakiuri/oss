@@ -30,7 +30,7 @@ describe('useShot', () => {
 
   it('merges a delayed history reply with live shot IDs', async () => {
     useSessionStore.getState().setSessionId('saved');
-    let resolve!: (history: { sessionId: string; shots: ShotDto[] }) => void;
+    let resolve!: (history: { sessionId: string; shots: ShotDto[]; nullifiedExtras: [] }) => void;
     mockGetShotHistory.mockImplementationOnce(
       () =>
         new Promise((done) => {
@@ -50,7 +50,7 @@ describe('useShot', () => {
       timestamp: '2026-01-01T00:00:00Z',
     };
     act(() => useSessionStore.getState().addShot(shot));
-    await act(async () => resolve({ sessionId: 'saved', shots: [shot] }));
+    await act(async () => resolve({ sessionId: 'saved', nullifiedExtras: [], shots: [shot] }));
     expect(result.current.shots).toEqual([shot]);
     expect(useSessionStore.getState().totalScore).toBe(100);
   });
@@ -101,6 +101,7 @@ describe('useShot', () => {
       // Service returns unwrapped data directly
       mockGetShotHistory.mockResolvedValue({
         sessionId: 'session-123',
+        nullifiedExtras: [],
         shots: mockShots,
       });
 
@@ -124,7 +125,7 @@ describe('useShot', () => {
     });
 
     it('sets isLoading to true while fetching', async () => {
-      type ShotHistoryDto = { sessionId: string; shots: ShotDto[] };
+      type ShotHistoryDto = { sessionId: string; shots: ShotDto[]; nullifiedExtras: [] };
 
       let resolveGetShotHistory: (value: ShotHistoryDto) => void;
       const getShotHistoryPromise = new Promise<ShotHistoryDto>((resolve) => {
@@ -142,7 +143,7 @@ describe('useShot', () => {
       expect(result.current.isLoading).toBe(true);
 
       await act(async () => {
-        resolveGetShotHistory!({ sessionId: 'session-123', shots: [] });
+        resolveGetShotHistory!({ sessionId: 'session-123', nullifiedExtras: [], shots: [] });
         await getShotHistoryPromise;
       });
 
@@ -418,6 +419,7 @@ describe('useShot', () => {
       // Service returns unwrapped data directly
       mockGetShotHistory.mockResolvedValue({
         sessionId: 'session-new',
+        nullifiedExtras: [],
         shots: [
           {
             id: 'shot-1',
@@ -487,6 +489,7 @@ describe('useShot', () => {
 
       mockGetShotHistory.mockResolvedValue({
         sessionId: 'session-integration',
+        nullifiedExtras: [],
         shots: initialShots,
       });
 

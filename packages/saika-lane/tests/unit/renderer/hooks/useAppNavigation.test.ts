@@ -49,7 +49,7 @@ beforeEach(() => {
   api.startup.getStartupState.mockResolvedValue(data(ready));
   api.startup.retryStartup.mockResolvedValue(data(ready));
   api.competition.getCompetitionState.mockResolvedValue(data(competition));
-  api.queries.getShotHistory.mockResolvedValue(data({ shots: [] }));
+  api.queries.getShotHistory.mockResolvedValue(data({ shots: [], nullifiedExtras: [] }));
   api.queries.getSessionScore.mockResolvedValue(
     data({ discipline: 'AIR_RIFLE_10M', mode: 'MATCH', totalScore: 1000, seriesScores: [1000] }),
   );

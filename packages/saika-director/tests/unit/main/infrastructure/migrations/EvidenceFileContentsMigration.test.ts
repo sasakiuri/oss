@@ -9,6 +9,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
 import { allMigrations } from '@/main/infrastructure/database/migrations';
+import { migration022ShotObservationEvidence } from '@/main/infrastructure/database/migrations/022_shot_observation_evidence';
+import { migration035RangeSafetyStop } from '@/main/infrastructure/database/migrations/035_range_safety_stop';
+import { migration048TimedTargetObservationOutcome } from '@/main/infrastructure/database/migrations/048_timed_target_observation_outcome';
+import { migration078ShotTimingReviewOutcome } from '@/main/infrastructure/database/migrations/078_shot_timing_review_outcome';
 import { migration089EvidenceFileContents } from '@/main/infrastructure/database/migrations/089_evidence_file_contents';
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { SqliteEvidenceFileStore } from '@/main/modules/evidence-files';
@@ -28,6 +32,14 @@ describe('Evidence original database migration', () => {
     database.exec(`CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       INSERT INTO schema_meta VALUES ('version', '88');
       CREATE TABLE evidence_files (snapshot_json TEXT NOT NULL);`);
+    // The reopened database must also contain the observation schema already present at v88.
+    for (const migration of [
+      migration022ShotObservationEvidence,
+      migration035RangeSafetyStop,
+      migration048TimedTargetObservationOutcome,
+      migration078ShotTimingReviewOutcome,
+    ])
+      migration.up(database);
     await mkdir(join(directory, 'evidence-files'));
     return database;
   }
@@ -110,7 +122,7 @@ describe('Evidence original database migration', () => {
     directory = await mkdtemp(join(tmpdir(), 'saika-evidence-fresh-'));
     database = new Database(join(directory, 'saika.db'));
     new MigrationRunner(database).run(allMigrations);
-    expect(new MigrationRunner(database).getCurrentVersion()).toBe(89);
+    expect(new MigrationRunner(database).getCurrentVersion()).toBe(90);
     expect(database.prepare('SELECT COUNT(*) FROM evidence_file_contents').pluck().get()).toBe(0);
   });
 });

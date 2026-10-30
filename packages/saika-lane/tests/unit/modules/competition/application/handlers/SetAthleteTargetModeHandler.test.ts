@@ -5,22 +5,30 @@ import { createSetAthleteTargetModeHandler } from '@/main/modules/competition/ap
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
+import { Discipline } from '@/main/modules/session/domain/Discipline';
+import { Session } from '@/main/modules/session/domain/Session';
 
 import { athleteCompetition } from '../../../../../helpers/athleteCompetition';
-import { createMockCompetitionRepository, createMockEventBus } from '../../../../../helpers/mockDependencies';
+import {
+  createMockCompetitionRepository,
+  createMockEventBus,
+  createMockSessionRepository,
+} from '../../../../../helpers/mockDependencies';
 
 function rig(state = athleteCompetition()) {
   const repository = createMockCompetitionRepository();
   vi.mocked(repository.findActive).mockResolvedValue(state);
   const events = createMockEventBus();
-  const handler = createSetAthleteTargetModeHandler(repository, events, { get: () => null });
+  const sessions = createMockSessionRepository();
+  vi.mocked(sessions.findById).mockResolvedValue(Session.create(Discipline.rifle50m()));
+  const handler = createSetAthleteTargetModeHandler(repository, events, { get: () => null }, sessions);
   const input = {
     competitionId: state.id,
     stageIndex: state.currentStageIndex,
     seriesIndex: state.currentSeriesIndex,
     mode: 'SIGHTING' as const,
   };
-  return { state, repository, events, handler, input };
+  return { state, repository, events, sessions, handler, input };
 }
 
 describe('SetAthleteTargetMode', () => {
@@ -106,7 +114,12 @@ describe('SetAthleteTargetMode', () => {
         capturedTotalSeconds: 1000,
         unlimitedSightingShots: true,
       });
-      const handler = createSetAthleteTargetModeHandler(r.repository, r.events, { get: () => interruption });
+      const handler = createSetAthleteTargetModeHandler(
+        r.repository,
+        r.events,
+        { get: () => interruption },
+        r.sessions,
+      );
       await expect(handler({ ...r.input, mode })).rejects.toMatchObject({ code: 'ATHLETE_TARGET_OFFICIAL_SIGHTING' });
       expect(r.repository.save).not.toHaveBeenCalled();
       expect(r.events.emit).not.toHaveBeenCalled();

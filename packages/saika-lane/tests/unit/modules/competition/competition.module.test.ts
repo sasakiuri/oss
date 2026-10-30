@@ -174,10 +174,10 @@ describe('competition.module', () => {
       expect(ipcRouter.register).toHaveBeenCalledWith(competitionContract, expect.any(Object));
     });
 
-    it('should subscribe to ShotRecorded event', () => {
+    it('does not subscribe progress to the unawaited ShotRecorded event', () => {
       registerModule();
 
-      expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
+      expect(eventBus.on).not.toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
     });
 
     it('should subscribe to PhaseChanged event', () => {

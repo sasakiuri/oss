@@ -74,6 +74,7 @@ export interface MockedElectronAPI {
   on: {
     shotReceived: ReturnType<typeof vi.fn>;
     shotRecorded: ReturnType<typeof vi.fn>;
+    positionExtraNullified: ReturnType<typeof vi.fn>;
     connectionStatusChanged: ReturnType<typeof vi.fn>;
     sessionStarted: ReturnType<typeof vi.fn>;
     modeSwitched: ReturnType<typeof vi.fn>;
@@ -234,6 +235,7 @@ export function createMockElectronAPI(): MockedElectronAPI {
     on: {
       shotReceived: vi.fn().mockReturnValue(() => {}),
       shotRecorded: vi.fn().mockReturnValue(() => {}),
+      positionExtraNullified: vi.fn().mockReturnValue(() => {}),
       connectionStatusChanged: vi.fn().mockReturnValue(() => {}),
       sessionStarted: vi.fn().mockReturnValue(() => {}),
       modeSwitched: vi.fn().mockReturnValue(() => {}),

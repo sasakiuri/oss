@@ -81,11 +81,23 @@ const ShotDtoSchema = z.object({
   timestamp: z.string(),
   mode: z.string(),
   isRecorded: z.boolean(),
+  receivedAt: z.string().optional(),
+  reportedMode: SessionModeSchema.nullable().optional(),
+});
+
+const NullifiedExtraDtoSchema = z.object({
+  id: z.string(),
+  receivedAt: z.string(),
+  deviceScoreX10: z.number().nullable(),
+  reportedMode: SessionModeSchema.nullable(),
+  previousPosition: z.enum(['KNEELING', 'PRONE', 'STANDING']).nullable(),
+  detail: z.string().nullable(),
 });
 
 const ShotHistoryDtoSchema = z.object({
   sessionId: z.string(),
   shots: z.array(ShotDtoSchema),
+  nullifiedExtras: z.array(NullifiedExtraDtoSchema),
 });
 
 // ============================================================
@@ -131,6 +143,7 @@ export type GetSessionScoreInput = z.infer<typeof GetSessionScoreInputSchema>;
 export type GetShotHistoryInput = z.infer<typeof GetShotHistoryInputSchema>;
 export type SessionScoreDto = z.infer<typeof SessionScoreDtoSchema>;
 export type ShotDto = z.infer<typeof ShotDtoSchema>;
+export type NullifiedExtraDto = z.infer<typeof NullifiedExtraDtoSchema>;
 export type ShotHistoryDto = z.infer<typeof ShotHistoryDtoSchema>;
 export type StartSessionResponse = z.infer<typeof StartSessionResponseSchema>;
 export type Discipline = z.infer<typeof DisciplineSchema>;
