@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { mockMainServiceConstruction } from '../../helpers/mockMainServices';
+
 const shared = vi.hoisted(() => {
   const logger = {
     info: vi.fn(),
@@ -107,41 +109,11 @@ vi.mock('@/main/createMainWindowOptions', () => ({
   })),
 }));
 
-vi.mock('@/main/modules/competition/competition.module', () => ({
-  competitionModule: { name: 'competition', deps: [], register: vi.fn() },
-}));
-vi.mock('@/main/modules/competition/infra/CompetitionRepositoryImpl', () => ({
-  CompetitionRepositoryImpl: class {},
-}));
-vi.mock('@/main/modules/competition/infra/LaneTimerService', () => ({
-  LaneTimerService: class {},
-}));
-vi.mock('@/main/modules/connection/connection.module', () => ({
-  connectionModule: { name: 'connection', deps: [], register: vi.fn() },
-}));
-vi.mock('@/main/modules/connection/infra/ConnectionRepositoryImpl', () => ({
-  ConnectionRepositoryImpl: class {},
-}));
 vi.mock('@/main/modules/connection/infra/usb/USBConnectionManager', () => ({
   USBConnectionManager: class {
     on = vi.fn();
     listPorts = vi.fn().mockResolvedValue([]);
   },
-}));
-vi.mock('@/main/modules/mqtt/mqtt.module', () => ({
-  mqttModule: { name: 'mqtt', deps: [], register: vi.fn() },
-}));
-vi.mock('@/main/modules/report/infra/PrintWindowService', () => ({
-  PrintWindowService: class {},
-}));
-vi.mock('@/main/modules/report/report.module', () => ({
-  reportModule: { name: 'report', deps: [], register: vi.fn() },
-}));
-vi.mock('@/main/modules/session/infra/SqliteSessionRepository', () => ({
-  SqliteSessionRepository: class {},
-}));
-vi.mock('@/main/modules/session/session.module', () => ({
-  sessionModule: { name: 'session', deps: [], register: vi.fn() },
 }));
 vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
   AppSettingsStore: class {
@@ -174,19 +146,10 @@ vi.mock('@/main/modules/settings/infra/AppSettingsStore', () => ({
 vi.mock('@/main/modules/settings/infra/LocalStorageAdapter', () => ({
   LocalStorageAdapter: class {},
 }));
-vi.mock('@/main/modules/settings/settings.module', () => ({
-  settingsModule: { name: 'settings', deps: [], register: vi.fn() },
-}));
 vi.mock('@/main/modules/target/domain/TargetManufacturer', () => ({
   TargetManufacturer: {
     fromValue: vi.fn((value: string) => value),
   },
-}));
-vi.mock('@/main/modules/target/infra/AdapterRegistry', () => ({
-  AdapterRegistry: class {},
-}));
-vi.mock('@/main/modules/target/target.module', () => ({
-  targetModule: { name: 'target', deps: [], register: vi.fn() },
 }));
 vi.mock('@/main/resolveAutoConnectSettings', () => ({
   resolveAutoConnectSettings: vi.fn(() => null),
@@ -225,11 +188,6 @@ vi.mock('@/main/shared-infra/module', () => ({
   ModuleLoader: class {
     load = vi.fn();
   },
-}));
-vi.mock('@/main/shared-infra/sqlite/SqliteDb', () => ({
-  createSqliteDb: vi.fn(() => ({
-    prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => undefined), run: vi.fn() })),
-  })),
 }));
 vi.mock('@/main/updater/AppUpdater', () => ({
   AppUpdater: class {
@@ -270,6 +228,7 @@ vi.mock('@/shared/ipc/contracts', async () => {
 describe('main.ts updater close confirmation handling', () => {
   beforeEach(() => {
     vi.resetModules();
+    mockMainServiceConstruction();
     shared.beforeQuitForInstall = null;
     shared.closeHandler = null;
     shared.didFinishLoad = null;
