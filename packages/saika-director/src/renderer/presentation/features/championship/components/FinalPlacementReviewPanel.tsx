@@ -15,12 +15,7 @@ interface FinalPlacementReviewPanelProps {
 const inputClass =
   'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
-export function FinalPlacementReviewPanel({
-  eventId,
-  eventName,
-  onClose,
-  onChanged,
-}: FinalPlacementReviewPanelProps) {
+export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChanged }: FinalPlacementReviewPanelProps) {
   const [status, setStatus] = useState<FinalPlacementReviewStatusDto | null>(null);
   const [ranks, setRanks] = useState<Record<string, string>>({});
   const [ruleReference, setRuleReference] = useState('6.17');

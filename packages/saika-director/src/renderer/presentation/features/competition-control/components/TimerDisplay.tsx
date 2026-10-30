@@ -8,9 +8,11 @@ export function TimerDisplay() {
   if (!isRunning && remainingTime === 0) return null;
 
   return (
-    <div className={`flex items-center gap-1.5 font-mono text-base ${
-      isLow ? 'text-vscode-error animate-pulse' : 'text-vscode-text'
-    }`}>
+    <div
+      className={`flex items-center gap-1.5 font-mono text-base ${
+        isLow ? 'text-vscode-error animate-pulse' : 'text-vscode-text'
+      }`}
+    >
       <Clock size={14} />
       <span>{formatted}</span>
     </div>

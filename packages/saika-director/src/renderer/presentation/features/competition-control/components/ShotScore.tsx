@@ -12,11 +12,15 @@ export const ShotScore = memo(function ShotScore({ shotNumber, score }: ShotScor
   return (
     <div className="flex flex-col items-center">
       <span className="text-[9px] text-vscode-text-muted">{shotNumber}</span>
-      <span className={`text-base font-mono ${
-        score === undefined ? 'text-vscode-text-muted'
-        : isHighScore ? 'text-vscode-success font-bold'
-        : 'text-vscode-text'
-      }`}>
+      <span
+        className={`text-base font-mono ${
+          score === undefined
+            ? 'text-vscode-text-muted'
+            : isHighScore
+              ? 'text-vscode-success font-bold'
+              : 'text-vscode-text'
+        }`}
+      >
         {scoreText}
       </span>
     </div>
