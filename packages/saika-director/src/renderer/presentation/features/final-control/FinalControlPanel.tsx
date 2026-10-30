@@ -42,9 +42,7 @@ export function FinalControlPanel({
       lanes.map((lane) => ({
         laneId: lane.laneId,
         athleteName: lane.assignment?.athlete?.name || lane.laneAlias || lane.laneId.slice(0, 8),
-        ...(lane.assignment?.athlete?.startNumber
-          ? { finalStartNumber: lane.assignment.athlete.startNumber }
-          : {}),
+        ...(lane.assignment?.athlete?.startNumber ? { finalStartNumber: lane.assignment.athlete.startNumber } : {}),
         totalShotCount: lane.score?.competitionId === competitionId ? lane.score.totalShotCount : 0,
         totalScoreX10: lane.score?.competitionId === competitionId ? lane.score.totalScoreX10 : 0,
         finished: lane.competitionState?.competitionId === competitionId && lane.competitionState.phase === 'FINISHED',

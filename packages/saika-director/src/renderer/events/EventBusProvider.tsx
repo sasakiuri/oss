@@ -3,13 +3,7 @@ import type { EventBus } from './EventBus';
 
 const EventBusContext = createContext<EventBus | null>(null);
 
-export function EventBusProvider({
-  bus,
-  children,
-}: {
-  bus: EventBus;
-  children: React.ReactNode;
-}) {
+export function EventBusProvider({ bus, children }: { bus: EventBus; children: React.ReactNode }) {
   return <EventBusContext.Provider value={bus}>{children}</EventBusContext.Provider>;
 }
 
