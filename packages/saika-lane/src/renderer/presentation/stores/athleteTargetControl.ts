@@ -4,6 +4,7 @@ import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 
 import { useCompetitionStore } from './competitionStore';
 import { useLogStore } from './logStore';
+import { useSessionStore } from './sessionStore';
 
 let revision = 0;
 
@@ -47,6 +48,13 @@ async function load(
       seriesIndex: expected.seriesIndex,
     });
     const current = useCompetitionStore.getState();
+    if (
+      selection &&
+      current.competitionId === expected.competitionId &&
+      current.stageIndex === expected.stageIndex &&
+      current.seriesIndex === expected.seriesIndex
+    )
+      useSessionStore.setState({ nullificationMessage: null, targetResetError: null });
     if (
       requestRevision !== revision ||
       current.competitionId !== expected.competitionId ||

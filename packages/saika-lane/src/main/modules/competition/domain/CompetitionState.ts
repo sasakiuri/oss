@@ -4,7 +4,7 @@ import type { LaneInterruptionRecord } from '@/main/modules/competition-interrup
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import type { ReportedShotMode } from './CompetitionShotModePolicy';
+import { isAthleteTargetSwitchSeries, type ReportedShotMode } from './CompetitionShotModePolicy';
 import { resolveCompetitionTargetMode } from './CompetitionTargetModePolicy';
 import type { RoundConfig, SeriesDefinition, StageDefinition } from './CompetitionTypeDefinition';
 import type { Phase } from './Phase';
@@ -532,8 +532,8 @@ export class CompetitionState {
       seriesIndex: number;
       mode: ReportedShotMode;
     },
-    interruption: LaneInterruptionRecord | null = null,
-    shots: readonly Shot[] = [],
+    interruption: LaneInterruptionRecord | null,
+    shots: readonly Shot[],
   ): CompetitionState {
     if (
       input.competitionId !== this.id ||
@@ -573,11 +573,7 @@ export class CompetitionState {
     )
       throw ErrorCatalog.createError('ATHLETE_TARGET_CONTEXT_CHANGED');
     if (this.phase !== 'ACTIVE') throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_ACTIVE');
-    if (
-      !this.currentStageConfig.scored ||
-      this.currentSeriesConfig.targetModeControl !== 'ATHLETE' ||
-      this.currentSeriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING'
-    )
+    if (!isAthleteTargetSwitchSeries(this.currentStageConfig, this.currentSeriesConfig))
       throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_CONTROLLED');
     return this.with({ athleteTargetMode: 'SIGHTING' });
   }

@@ -48,7 +48,11 @@ export class ContractEventForwarder {
     this.forward<PositionExtraNullifiedEvent>(
       'PositionExtraNullified',
       eventsContract.channels.positionExtraNullified,
-      (event) => ({ sessionId: event.aggregateId, competitionId: event.competitionId }),
+      (event) => ({
+        sessionId: event.aggregateId,
+        competitionId: event.competitionId,
+        ...(event.resetError ? { resetError: event.resetError } : {}),
+      }),
     );
     this.forward<ShotRecordingFailedEvent>('ShotRecordingFailed', eventsContract.channels.error, (event) => ({
       code: 'SHOT_PROGRESS_FAILED',
@@ -277,6 +281,7 @@ export class ContractEventForwarder {
       mode: shot.mode.value,
       isRecorded: shot.mode.isMatch(),
       receivedAt: shot.receivedAt.toISOString(),
+      competitionContext: shot.competitionContext ?? null,
     };
   }
 }

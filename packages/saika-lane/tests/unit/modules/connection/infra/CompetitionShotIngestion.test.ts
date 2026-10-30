@@ -155,7 +155,7 @@ describe('competition shot acquisition and persistence', () => {
   it('retains the official Sighting selection without marking official shots as ordinary ATHLETE observations', async () => {
     const rig = await setup(R3P60);
     for (let i = 0; i < 20; i++) rig.competition = rig.competition.recordShotInSeries();
-    const cache = new SessionContextCache(rig.events);
+    const cache = new SessionContextCache(rig.events, createMockShotObservationRepository());
     cache.subscribeEvents(vi.fn());
     await cache.bootstrap(rig.sessions, rig.competitions);
     const interruptionId = randomUUID();
@@ -205,7 +205,7 @@ describe('competition shot acquisition and persistence', () => {
   it('keeps a pre-cutoff Lane selection in the cache when interruption Match fire resumes', async () => {
     const rig = await setup(R3P60);
     for (let i = 0; i < 20; i++) rig.competition = rig.competition.recordShotInSeries();
-    const cache = new SessionContextCache(rig.events);
+    const cache = new SessionContextCache(rig.events, createMockShotObservationRepository());
     cache.subscribeEvents(vi.fn());
     await cache.bootstrap(rig.sessions, rig.competitions);
     await createSetAthleteTargetModeHandler(

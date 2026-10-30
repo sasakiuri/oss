@@ -9,6 +9,7 @@ import { defineEvent, defineEventContract } from '../defineContract';
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
 
 import { DirectorMembershipDtoSchema, LaneSafetyStateDtoSchema } from './mqtt.contract';
+import { ShotCompetitionContextSchema } from './session.contract';
 import { AppUpdateStateSchema } from './updater.contract';
 
 // ============================================================
@@ -53,6 +54,7 @@ const ShotDtoSchema = z.object({
   isRecorded: z.boolean(),
   receivedAt: z.string().optional(),
   reportedMode: SessionModeSchema.nullable().optional(),
+  competitionContext: ShotCompetitionContextSchema.nullable().optional(),
 });
 
 const ShotRecordedEventSchema = z.object({
@@ -205,9 +207,12 @@ export const eventsContract = defineEventContract('events', {
   shotRecorded: defineEvent(ShotRecordedEventSchema, {
     channel: 'event:shotRecorded',
   }),
-  positionExtraNullified: defineEvent(z.object({ sessionId: z.string(), competitionId: z.string() }), {
-    channel: 'event:positionExtraNullified',
-  }),
+  positionExtraNullified: defineEvent(
+    z.object({ sessionId: z.string(), competitionId: z.string(), resetError: z.string().optional() }),
+    {
+      channel: 'event:positionExtraNullified',
+    },
+  ),
   connectionStatusChanged: defineEvent(ConnectionStatusChangedEventSchema, {
     channel: 'event:connectionStatusChanged',
   }),

@@ -18,6 +18,7 @@ import {
   createMockCommandBus,
   createMockEventBus,
   createMockSessionRepository,
+  createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -187,7 +188,7 @@ describe('CompetitionInterruptionService', () => {
       authorizedRemainingSeconds: 240,
       unlimitedSightingShots: true,
     });
-    const cache = new SessionContextCache(eventBus);
+    const cache = new SessionContextCache(eventBus, createMockShotObservationRepository());
     await cache.bootstrap(sessions, competitionRepository, service);
     expect(cache.getContext().mode.value).toBe('SIGHTING');
     vi.mocked(commandBus.execute).mockImplementationOnce(async (_token, input) => {

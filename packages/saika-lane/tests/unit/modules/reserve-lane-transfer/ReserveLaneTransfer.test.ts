@@ -305,7 +305,7 @@ describe('reserve Lane state transfer', () => {
       target.sessions,
     );
     await interruptions.pause({ competitionId, interruptionId: request.id, pausedAt: new Date() });
-    const cache = new SessionContextCache(events);
+    const cache = new SessionContextCache(events, createMockShotObservationRepository());
     cache.subscribeEvents(vi.fn());
     await cache.bootstrap(target.sessions, target.competitions, interruptions);
     expect(cache.getContext().mode.value).toBe('SIGHTING');
@@ -325,7 +325,7 @@ describe('reserve Lane state transfer', () => {
     )({ competitionId });
     expect(projection.athleteTargetControl).toMatchObject({ selected: null, effective: 'SIGHTING' });
     expect(projectVistaTargetMode(target.state(), transferred, interruptions.get(competitionId))).toBe('sighting');
-    const restored = new SessionContextCache(new TypedEventBus());
+    const restored = new SessionContextCache(new TypedEventBus(), createMockShotObservationRepository());
     await restored.bootstrap(target.sessions, target.competitions, interruptions);
     expect(restored.getContext().mode.value).toBe('SIGHTING');
 

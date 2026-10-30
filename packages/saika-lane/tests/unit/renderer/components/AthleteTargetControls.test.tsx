@@ -182,7 +182,8 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
         {
           id: 'extra',
           receivedAt: new Date().toISOString(),
-          previousPosition: 'KNEELING',
+          previousPositionLabel: 'previous Kneeling position',
+          competitionContext: { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2 },
           deviceScoreX10: 100,
           reportedMode: 'MATCH',
           detail: 'ISSF 6.10.4(c) / 7.7.3',
@@ -193,8 +194,23 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
     expect(screen.getByText(/Nullified extra — previous Kneeling position/)).toBeVisible();
     expect(screen.getByText('Not scored · ISSF 6.10.4(c) / 7.7.3')).toBeVisible();
     expect(screen.getByLabelText('No shot ordinal')).toHaveTextContent('—');
-    expect(screen.getByText(/Device mode: MATCH/)).toBeVisible();
+    expect(screen.getByText(/Reported mode: MATCH/)).toBeVisible();
     expect(screen.getByText('Extra shot nullified. Target reset to Sighting.')).toBeVisible();
+  });
+
+  it('clears the reset notice on the next successful selection', async () => {
+    useSessionStore.setState({
+      nullificationMessage: 'Extra shot nullified. Target reset to Sighting.',
+      targetResetError: 'Sighting reset failed.',
+    });
+    render(<Harness />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Sighting reset failed.');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Sighting' }));
+    });
+    expect(competitionService.setAthleteTargetMode).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Extra shot nullified. Target reset to Sighting.')).not.toBeInTheDocument();
   });
 
   it('keeps Numpad1 inert after the cutoff and shows why Sighting is disabled', async () => {

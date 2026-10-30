@@ -18,6 +18,7 @@ import {
   createMockEventBus,
   createMockSessionRepository,
   createMockStorage,
+  createMockShotObservationRepository,
 } from '../../../helpers/mockDependencies';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -69,7 +70,7 @@ async function fixture(joined = false, type = AR60) {
     transferPending: () => false,
     restoreIndependentWorkflows: vi.fn(),
     stopIndependentWorkflows: vi.fn(),
-    context: new SessionContextCache(events),
+    context: new SessionContextCache(events, createMockShotObservationRepository()),
   };
   return { ...deps, deps, storage, session, active, startup: new ActiveRunStartup(deps) };
 }

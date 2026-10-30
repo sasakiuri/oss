@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import React, { memo, useEffect, useRef } from 'react';
 
-import type { NullifiedExtraDto } from '@/shared/ipc/contracts';
+import type { NullifiedExtraDto, ShotDto } from '@/shared/ipc/contracts';
 
 import { toArrowDirection } from '../../utils/scoreUtils';
 
@@ -14,6 +14,7 @@ interface ShotHistoryItem {
   timestamp?: string;
   receivedAt?: string;
   reportedMode?: 'SIGHTING' | 'MATCH' | null;
+  competitionContext?: ShotDto['competitionContext'];
 }
 
 export interface ShotHistoryProps {
@@ -24,6 +25,18 @@ export interface ShotHistoryProps {
 
 export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedExtras = [], acc = 'DECIMAL' }) => {
   const historyRef = useRef<HTMLDivElement>(null);
+  const showReportedMode = (shot: ShotHistoryItem): boolean =>
+    nullifiedExtras.some((extra) => {
+      const context = shot.competitionContext;
+      return (
+        context != null &&
+        extra.competitionContext?.competitionId === context.competitionId &&
+        extra.competitionContext.stageIndex === context.stageIndex &&
+        extra.competitionContext.seriesIndex === context.seriesIndex
+      );
+    });
+  const formatScore = (score: number): string =>
+    acc === 'RING' ? String(Math.floor(score / 10)) : (score / 10).toFixed(1);
   const rows = [
     ...shots.map((shot) => ({ kind: 'shot' as const, value: shot, time: shot.receivedAt ?? shot.timestamp })),
     ...nullifiedExtras.map((extra) => ({ kind: 'extra' as const, value: extra, time: extra.receivedAt })),
@@ -42,20 +55,12 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedE
           row.kind === 'extra' ? (
             <div key={`extra-${row.value.id}`} className="border-b border-zinc-500 py-2 text-sm">
               <p>
-                <span aria-label="No shot ordinal">—</span> Nullified extra — previous{' '}
-                {row.value.previousPosition === 'KNEELING'
-                  ? 'Kneeling'
-                  : row.value.previousPosition === 'PRONE'
-                    ? 'Prone'
-                    : row.value.previousPosition === 'STANDING'
-                      ? 'Standing'
-                      : 'unknown'}{' '}
-                position
+                <span aria-label="No shot ordinal">—</span> Nullified extra — {row.value.previousPositionLabel}
               </p>
               <p>Not scored · ISSF 6.10.4(c) / 7.7.3</p>
               <p>
-                Device value: {row.value.deviceScoreX10 === null ? '—' : (row.value.deviceScoreX10 / 10).toFixed(1)} ·
-                Device mode: {row.value.reportedMode ?? 'Unknown'}
+                Device value: {row.value.deviceScoreX10 === null ? '—' : formatScore(row.value.deviceScoreX10)} ·
+                Reported mode: {row.value.reportedMode ?? 'Unknown'}
               </p>
             </div>
           ) : (
@@ -63,13 +68,15 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedE
               <div className="grid grid-cols-3 gap-1 text-4xl">
                 <span className="text-zinc-400">{row.value.shotNumber}</span>
                 <span className="text-right font-mono font-semibold tabular-nums text-zinc-100">
-                  {acc === 'RING' ? String(Math.floor(row.value.score / 10)) : (row.value.score / 10).toFixed(1)}
+                  {formatScore(row.value.score)}
                 </span>
                 <span className="text-right font-mono tabular-nums text-zinc-300">
                   {toArrowDirection(row.value.x, row.value.y)}
                 </span>
               </div>
-              {row.value.reportedMode && <p className="text-sm">Device mode: {row.value.reportedMode}</p>}
+              {showReportedMode(row.value) && row.value.reportedMode && (
+                <p className="text-sm">Reported mode: {row.value.reportedMode}</p>
+              )}
             </div>
           ),
         )}

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { _resetAudioPlaybackForTest } from '@/renderer/presentation/hooks/useAudioPlayback';
 import { useShotEvents } from '@/renderer/presentation/hooks/useShotEvents';
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ShotRecordedEventPayload } from '@/shared/ipc/contracts';
 
@@ -74,6 +75,7 @@ describe('useShotEvents', () => {
         on: {
           shotRecorded: mockOnShotRecorded,
           shotReceived: mockOnShotReceived,
+          competitionProgressChanged: vi.fn(() => vi.fn()),
           positionExtraNullified: vi.fn(() => vi.fn()),
           error: vi.fn(() => vi.fn()),
         },
@@ -107,6 +109,29 @@ describe('useShotEvents', () => {
       }),
     );
     expect(useSessionStore.getState().recordingError).toContain('Contact a Range Officer');
+  });
+
+  it('shows a reset failure without claiming Sighting success, then clears it after a successful reset', () => {
+    useSessionStore.getState().setSessionId('session');
+    renderHook(() => useShotEvents());
+    const notify = vi.mocked(window.electronAPI.on.positionExtraNullified).mock.calls[0]![0];
+    act(() => notify({ sessionId: 'session', competitionId: 'comp', resetError: 'The Sighting reset failed.' }));
+    expect(useSessionStore.getState().targetResetError).toBe('The Sighting reset failed.');
+    expect(useSessionStore.getState().nullificationMessage).toBeNull();
+    act(() => notify({ sessionId: 'session', competitionId: 'comp' }));
+    expect(useSessionStore.getState().targetResetError).toBeNull();
+    expect(useSessionStore.getState().nullificationMessage).toContain('Target reset to Sighting.');
+  });
+
+  it('clears the reset notice only on progress from the current competition', () => {
+    useCompetitionStore.setState({ competitionId: 'comp' });
+    useSessionStore.setState({ nullificationMessage: 'Extra shot nullified. Target reset to Sighting.' });
+    renderHook(() => useShotEvents());
+    const progress = vi.mocked(window.electronAPI.on.competitionProgressChanged).mock.calls[0]![0];
+    act(() => progress({ competitionId: 'other', stageIndex: 1, seriesIndex: 2, shotCount: 1 }));
+    expect(useSessionStore.getState().nullificationMessage).not.toBeNull();
+    act(() => progress({ competitionId: 'comp', stageIndex: 1, seriesIndex: 2, shotCount: 1 }));
+    expect(useSessionStore.getState().nullificationMessage).toBeNull();
   });
 
   describe('subscription registration', () => {

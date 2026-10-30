@@ -1,4 +1,5 @@
 import { SwitchModeToken } from '@/main/composition/tokens';
+import { isAthleteTargetSwitchSeries } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
@@ -102,10 +103,8 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     if (
       input.unlimitedSightingShots &&
       competition.phase === 'ACTIVE' &&
-      competition.currentStageConfig.scored &&
       competition.seriesShotCount === 0 &&
-      competition.currentSeriesConfig.targetModeControl === 'ATHLETE' &&
-      competition.currentSeriesConfig.purpose !== 'POSITION_CHANGE_AND_SIGHTING'
+      isAthleteTargetSwitchSeries(competition.currentStageConfig, competition.currentSeriesConfig)
     ) {
       competition = competition.resetAthleteTargetToSighting({
         competitionId: competition.id,
