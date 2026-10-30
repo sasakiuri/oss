@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { mockMainServiceConstruction } from '../../helpers/mockMainServices';
+
 const shared = vi.hoisted(() => {
   const logger = {
     info: vi.fn(),
@@ -25,6 +27,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const hasAppSettingsStore = existsSync(join(packageRoot, 'src/main/modules/settings/infra/AppSettingsStore.ts'));
 
 function setupMainModuleMocks(): void {
+  mockMainServiceConstruction();
   vi.doMock('@/main/startup/restoreActiveRun', () => ({
     ActiveRunStartup: class {
       callbacks: Array<() => Promise<void>> = [];
@@ -101,41 +104,11 @@ function setupMainModuleMocks(): void {
     ConnectToTargetToken: { name: 'ConnectToTarget' },
   }));
 
-  vi.doMock('@/main/modules/competition/competition.module', () => ({
-    competitionModule: { name: 'competition', deps: [], register: vi.fn() },
-  }));
-  vi.doMock('@/main/modules/competition/infra/CompetitionRepositoryImpl', () => ({
-    CompetitionRepositoryImpl: class {},
-  }));
-  vi.doMock('@/main/modules/competition/infra/LaneTimerService', () => ({
-    LaneTimerService: class {},
-  }));
-  vi.doMock('@/main/modules/connection/connection.module', () => ({
-    connectionModule: { name: 'connection', deps: [], register: vi.fn() },
-  }));
-  vi.doMock('@/main/modules/connection/infra/ConnectionRepositoryImpl', () => ({
-    ConnectionRepositoryImpl: class {},
-  }));
   vi.doMock('@/main/modules/connection/infra/usb/USBConnectionManager', () => ({
     USBConnectionManager: class {
       on = vi.fn();
       listPorts = shared.listPorts;
     },
-  }));
-  vi.doMock('@/main/modules/mqtt/mqtt.module', () => ({
-    mqttModule: { name: 'mqtt', deps: [], register: vi.fn() },
-  }));
-  vi.doMock('@/main/modules/report/infra/PrintWindowService', () => ({
-    PrintWindowService: class {},
-  }));
-  vi.doMock('@/main/modules/report/report.module', () => ({
-    reportModule: { name: 'report', deps: [], register: vi.fn() },
-  }));
-  vi.doMock('@/main/modules/session/infra/SqliteSessionRepository', () => ({
-    SqliteSessionRepository: class {},
-  }));
-  vi.doMock('@/main/modules/session/session.module', () => ({
-    sessionModule: { name: 'session', deps: [], register: vi.fn() },
   }));
   vi.doMock('@/main/modules/settings/infra/LocalStorageAdapter', () => ({
     LocalStorageAdapter: class {
@@ -198,19 +171,10 @@ function setupMainModuleMocks(): void {
       },
     }));
   }
-  vi.doMock('@/main/modules/settings/settings.module', () => ({
-    settingsModule: { name: 'settings', deps: [], register: vi.fn() },
-  }));
   vi.doMock('@/main/modules/target/domain/TargetManufacturer', () => ({
     TargetManufacturer: {
       fromValue: vi.fn((value: string) => value),
     },
-  }));
-  vi.doMock('@/main/modules/target/infra/AdapterRegistry', () => ({
-    AdapterRegistry: class {},
-  }));
-  vi.doMock('@/main/modules/target/target.module', () => ({
-    targetModule: { name: 'target', deps: [], register: vi.fn() },
   }));
   vi.doMock('@/main/shared-infra/cqrs', () => ({
     CommandBus: class {
@@ -246,11 +210,6 @@ function setupMainModuleMocks(): void {
     ModuleLoader: class {
       load = vi.fn();
     },
-  }));
-  vi.doMock('@/main/shared-infra/sqlite/SqliteDb', () => ({
-    createSqliteDb: vi.fn(() => ({
-      prepare: vi.fn(() => ({ all: vi.fn(() => []), get: vi.fn(() => undefined), run: vi.fn() })),
-    })),
   }));
   vi.doMock('@/shared/ipc/contracts', async () => {
     const actual = await vi.importActual<typeof import('@/shared/ipc/contracts')>('@/shared/ipc/contracts');
