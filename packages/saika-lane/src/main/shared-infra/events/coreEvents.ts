@@ -24,9 +24,20 @@ export interface SessionStartedEvent extends DomainEvent {
 export interface ShotRecordedEvent extends DomainEvent {
   readonly type: 'ShotRecorded';
   readonly shot: Shot;
+  readonly reportedMode?: 'SIGHTING' | 'MATCH';
   readonly scoringMode: 'RING' | 'DECIMAL';
   readonly rawScore?: number; // Only when RING mode and flooring occurs
   readonly acquisitionContext?: ShotAcquisitionContext;
+}
+
+export interface PositionExtraNullifiedEvent extends DomainEvent {
+  readonly type: 'PositionExtraNullified';
+  readonly competitionId: string;
+}
+
+export interface ShotRecordingFailedEvent extends DomainEvent {
+  readonly type: 'ShotRecordingFailed';
+  readonly message: string;
 }
 
 export interface ModeSwitchedEvent extends DomainEvent {
@@ -185,6 +196,8 @@ declare module './EventBus' {
   interface EventRegistry {
     SessionStarted: SessionStartedEvent;
     ShotRecorded: ShotRecordedEvent;
+    PositionExtraNullified: PositionExtraNullifiedEvent;
+    ShotRecordingFailed: ShotRecordingFailedEvent;
     ModeSwitched: ModeSwitchedEvent;
     AthleteTargetModeChanged: AthleteTargetModeChangedEvent;
     SessionReset: SessionResetEvent;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
+import type { Shot } from '@/main/modules/session/domain/Shot';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { ReportedShotMode } from './CompetitionShotModePolicy';
@@ -532,6 +533,7 @@ export class CompetitionState {
       mode: ReportedShotMode;
     },
     interruption: LaneInterruptionRecord | null = null,
+    shots: readonly Shot[] = [],
   ): CompetitionState {
     if (
       input.competitionId !== this.id ||
@@ -544,15 +546,40 @@ export class CompetitionState {
     if (this.currentSeriesConfig.targetModeControl !== 'ATHLETE') {
       throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_CONTROLLED');
     }
-    const targetMode = resolveCompetitionTargetMode(this, [], interruption);
+    const targetMode = resolveCompetitionTargetMode(this, shots, interruption);
     if (targetMode.officialSighting) throw ErrorCatalog.createError('ATHLETE_TARGET_OFFICIAL_SIGHTING');
     const control = targetMode.athleteTargetControl!;
+    if (input.mode === 'MATCH' && control.matchUnavailableReason === 'SIGHTING_REQUIRED') {
+      throw ErrorCatalog.createError('ATHLETE_SIGHTING_REQUIRED');
+    }
     if (input.mode === 'SIGHTING' ? !control.sightingAllowed : !control.matchAllowed) {
       throw ErrorCatalog.createError(
         input.mode === 'SIGHTING' ? 'ATHLETE_SIGHTING_CLOSED' : 'ATHLETE_MATCH_UNAVAILABLE',
       );
     }
     return this.with({ athleteTargetMode: input.mode });
+  }
+
+  /** Applies a commanded Sighting reset without changing progress, shots or the clock. */
+  resetAthleteTargetToSighting(input: {
+    competitionId: string;
+    stageIndex: number;
+    seriesIndex: number;
+  }): CompetitionState {
+    if (
+      input.competitionId !== this.id ||
+      input.stageIndex !== this.currentStageIndex ||
+      input.seriesIndex !== this.currentSeriesIndex
+    )
+      throw ErrorCatalog.createError('ATHLETE_TARGET_CONTEXT_CHANGED');
+    if (this.phase !== 'ACTIVE') throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_ACTIVE');
+    if (
+      !this.currentStageConfig.scored ||
+      this.currentSeriesConfig.targetModeControl !== 'ATHLETE' ||
+      this.currentSeriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING'
+    )
+      throw ErrorCatalog.createError('ATHLETE_TARGET_NOT_CONTROLLED');
+    return this.with({ athleteTargetMode: 'SIGHTING' });
   }
 
   // ── Guards ──

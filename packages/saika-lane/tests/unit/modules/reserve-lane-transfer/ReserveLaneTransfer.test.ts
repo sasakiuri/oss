@@ -274,13 +274,15 @@ describe('reserve Lane state transfer', () => {
     commands.register(SwitchModeToken, createSwitchModeHandler(target.sessions, events));
     commands.register(
       RecordShotToken,
-      createRecordShotHandler(target.sessions, new ScoreCalculationServiceImpl(), events, {
-        detect: vi.fn(),
-      } as unknown as ScoreDiscrepancyDetector),
-    );
-    events.on(
-      'ShotRecorded',
-      createShotRecordedHandler({ competitionRepository: target.competitions, eventBus: events }),
+      createRecordShotHandler(
+        target.sessions,
+        new ScoreCalculationServiceImpl(),
+        events,
+        {
+          detect: vi.fn(),
+        } as unknown as ScoreDiscrepancyDetector,
+        createShotRecordedHandler({ competitionRepository: target.competitions, eventBus: events }),
+      ),
     );
     let record: LaneInterruptionRecord | null = null;
     const interruptions = new CompetitionInterruptionService(
@@ -332,6 +334,7 @@ describe('reserve Lane state transfer', () => {
       sessionRepository: target.sessions,
       competitionRepository: target.competitions,
       shotObservationRepository: createMockShotObservationRepository(),
+      eventBus: events,
       interruptionReader: interruptions,
     })({ x: 0, y: 0, score: 90, timestamp: new Date(), mode: cache.getContext().mode.value });
     const after = (await target.sessions.findById(sourceSession.id))!;
@@ -340,6 +343,35 @@ describe('reserve Lane state transfer', () => {
     expect(after.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
     expect(after.totalScore).toBe(sourceSession.totalScore);
     expect(target.state().seriesShotCount).toBe(0);
+  });
+
+  it('clears an unfired Sighting selection on transfer so Match requires Sighting again', async () => {
+    const source = await lane(sourceId, true, R3P60),
+      target = await lane(targetId, false, R3P60);
+    source.setState(
+      selectAthlete(
+        CompetitionState.reconstruct({ ...athleteCompetition(), id: competitionId, sessionId: source.original.id }),
+        'SIGHTING',
+      ),
+    );
+    const bundle = await source.service.execute(competitionId, { operation: 'PREPARE_SOURCE', request });
+    await target.service.execute(competitionId, { operation: 'STAGE_TARGET', bundle });
+    await source.service.execute(competitionId, { operation: 'RETIRE_SOURCE', id: request.id, digest: bundle.digest });
+    await target.service.execute(competitionId, {
+      operation: 'ACTIVATE_TARGET',
+      id: request.id,
+      digest: bundle.digest,
+      sourceRetired: true,
+    });
+    const dto = await createGetCompetitionStateHandler(target.competitions, target.sessions, { get: () => null })({
+      competitionId,
+    });
+    expect(dto.athleteTargetControl).toMatchObject({
+      selected: null,
+      sightingAllowed: true,
+      matchAllowed: false,
+      matchUnavailableReason: 'SIGHTING_REQUIRED',
+    });
   });
 
   it('rejects a changed source and a stale STOP instead of retiring newer evidence', async () => {

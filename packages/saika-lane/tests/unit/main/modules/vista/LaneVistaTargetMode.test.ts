@@ -10,7 +10,7 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
 import { laneVistaDefinition, projectLaneVista } from '@/main/modules/vista/application/LaneVistaProjection';
 
-import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
+import { athleteCompetition } from '../../../../helpers/athleteCompetition';
 
 // The projection is independent of the source's supported-event registration gate.
 const definitionSession = Session.create(Discipline.airRifle10m());
@@ -56,7 +56,21 @@ describe('Lane and Vista target mode projection', () => {
     );
     expect(toCompetitionStateDto(state, session.allShots).athleteTargetControl?.effective).toBe('SIGHTING');
     expect(project(state, session)).toBe('sighting');
-    expect(project(selectAthlete(state, 'MATCH'), session)).toBe('match');
+    expect(
+      project(
+        state.selectAthleteTargetMode(
+          {
+            competitionId: state.id,
+            stageIndex: state.currentStageIndex,
+            seriesIndex: state.currentSeriesIndex,
+            mode: 'MATCH',
+          },
+          null,
+          session.allShots,
+        ),
+        session,
+      ),
+    ).toBe('match');
     expect(project(state.recordShotInSeries(), session)).toBe('match');
     const overrideOnly = Session.create(Discipline.rifle50m()).recordShot(
       null,

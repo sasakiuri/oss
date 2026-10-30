@@ -24,10 +24,19 @@ export function useShotEvents(): void {
     const unsubShot = window.electronAPI.on.shotRecorded((event) => {
       addShot(event.shot);
     });
+    const unsubExtra = window.electronAPI.on.positionExtraNullified((event) => {
+      if (event.sessionId === useSessionStore.getState().currentSessionId)
+        useSessionStore.setState({ nullificationMessage: 'Extra shot nullified. Target reset to Sighting.' });
+    });
+    const unsubError = window.electronAPI.on.error((event) => {
+      if (event.code === 'SHOT_PROGRESS_FAILED') useSessionStore.setState({ recordingError: event.userMessage });
+    });
 
     return () => {
       unsubSound();
       unsubShot();
+      unsubExtra();
+      unsubError();
     };
   }, [addShot, playShotSound]);
 }

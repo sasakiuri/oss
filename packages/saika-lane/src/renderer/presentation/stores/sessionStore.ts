@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 
-import type { Discipline, SessionMode, ShotDto } from '@/shared/ipc/contracts';
+import type { Discipline, SessionMode, ShotDto, NullifiedExtraDto } from '@/shared/ipc/contracts';
 
 /** Merge a history reply with live deliveries without duplicating shot IDs. */
 export function mergeShots(history: readonly ShotDto[], live: readonly ShotDto[]): ShotDto[] {
@@ -19,6 +19,9 @@ interface SessionState {
   discipline: Discipline | null;
   laneNumber: number;
   shots: ShotDto[];
+  nullifiedExtras: NullifiedExtraDto[];
+  recordingError: string | null;
+  nullificationMessage: string | null;
   /** First shot index of the current preparation or locally started series. */
   currentSeriesStartIndex: number;
   /** Shot indices where Preparation display shot numbers are initialized */
@@ -45,6 +48,7 @@ interface SessionActions {
   addShot: (shot: ShotDto) => void;
 
   setShots: (shots: ShotDto[]) => void;
+  setNullifiedExtras: (extras: NullifiedExtraDto[]) => void;
 
   setCurrentSeriesStartIndex: (index: number) => void;
 
@@ -76,6 +80,9 @@ const initialState: SessionState = {
   discipline: null,
   laneNumber: 1,
   shots: [],
+  nullifiedExtras: [],
+  recordingError: null,
+  nullificationMessage: null,
   currentSeriesStartIndex: 0,
   preparationShotNumberResetIndices: [],
   seriesScores: [],
@@ -89,7 +96,11 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   ...initialState,
 
   setSessionId: (sessionId) => {
-    set({ currentSessionId: sessionId });
+    set((state) =>
+      state.currentSessionId === sessionId
+        ? {}
+        : { currentSessionId: sessionId, nullifiedExtras: [], recordingError: null, nullificationMessage: null },
+    );
   },
 
   setMode: (mode) => {
@@ -119,6 +130,10 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
       shots: [...shots], // Create a new array to preserve immutability
     });
   },
+  setNullifiedExtras: (extras) =>
+    set((state) => ({
+      nullifiedExtras: [...new Map([...state.nullifiedExtras, ...extras].map((extra) => [extra.id, extra])).values()],
+    })),
 
   setCurrentSeriesStartIndex: (currentSeriesStartIndex) => set({ currentSeriesStartIndex }),
 
@@ -150,6 +165,9 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   clearSessionData: () => {
     set({
       shots: [],
+      nullifiedExtras: [],
+      recordingError: null,
+      nullificationMessage: null,
       currentSeriesStartIndex: 0,
       preparationShotNumberResetIndices: [],
       seriesScores: [],

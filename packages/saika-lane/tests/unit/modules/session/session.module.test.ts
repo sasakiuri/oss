@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/test-userData' },
@@ -14,6 +14,7 @@ import {
   SwitchModeToken,
 } from '@/main/composition/tokens';
 import { sessionModule } from '@/main/modules/session/session.module';
+import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { sessionContract } from '@/shared/ipc/contracts';
 
 import {
@@ -26,6 +27,8 @@ import {
 } from '../../../helpers/mockDependencies';
 
 describe('session.module', () => {
+  let database: ReturnType<typeof createSqliteDb>;
+  afterEach(() => database.close());
   let commandBus: ReturnType<typeof createMockCommandBus>;
   let queryBus: ReturnType<typeof createMockQueryBus>;
   let eventBus: ReturnType<typeof createMockEventBus>;
@@ -33,6 +36,7 @@ describe('session.module', () => {
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
 
   beforeEach(() => {
+    database = createSqliteDb(':memory:');
     commandBus = createMockCommandBus();
     queryBus = createMockQueryBus();
     eventBus = createMockEventBus();
@@ -54,6 +58,7 @@ describe('session.module', () => {
         'competitionRepository',
         'ipcRouter',
         'userDataPath',
+        'database',
       ]);
     });
   });
@@ -61,6 +66,7 @@ describe('session.module', () => {
   describe('register', () => {
     it('should register 4 command handlers', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -75,6 +81,7 @@ describe('session.module', () => {
 
     it('should register StartSession command handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -89,6 +96,7 @@ describe('session.module', () => {
 
     it('should register RecordShot command handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -103,6 +111,7 @@ describe('session.module', () => {
 
     it('should register SwitchMode command handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -117,6 +126,7 @@ describe('session.module', () => {
 
     it('should register ResetSession command handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -131,6 +141,7 @@ describe('session.module', () => {
 
     it('should register 2 query handlers', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -145,6 +156,7 @@ describe('session.module', () => {
 
     it('should register GetSessionScore query handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -159,6 +171,7 @@ describe('session.module', () => {
 
     it('should register GetShotHistory query handler', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,
@@ -173,6 +186,7 @@ describe('session.module', () => {
 
     it('should register IPC handlers with sessionContract', () => {
       sessionModule.register({
+        database,
         commandBus,
         queryBus,
         eventBus,

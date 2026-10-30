@@ -74,6 +74,8 @@ describe('useShotEvents', () => {
         on: {
           shotRecorded: mockOnShotRecorded,
           shotReceived: mockOnShotReceived,
+          positionExtraNullified: vi.fn(() => vi.fn()),
+          error: vi.fn(() => vi.fn()),
         },
       },
     });
@@ -86,6 +88,25 @@ describe('useShotEvents', () => {
     _resetAudioPlaybackForTest();
     Reflect.deleteProperty(window, 'electronAPI');
     vi.unstubAllGlobals();
+  });
+
+  it('shows a commanded reset only for the current session and persists progress errors', () => {
+    useSessionStore.getState().setSessionId('session');
+    renderHook(() => useShotEvents());
+    const nullified = vi.mocked(window.electronAPI.on.positionExtraNullified).mock.calls[0]![0];
+    act(() => nullified({ sessionId: 'other', competitionId: 'comp' }));
+    expect(useSessionStore.getState().nullificationMessage).toBeNull();
+    act(() => nullified({ sessionId: 'session', competitionId: 'comp' }));
+    expect(useSessionStore.getState().nullificationMessage).toBe('Extra shot nullified. Target reset to Sighting.');
+    act(() =>
+      vi.mocked(window.electronAPI.on.error).mock.calls[0]![0]({
+        code: 'SHOT_PROGRESS_FAILED',
+        userMessage: 'The shot was saved, but competition progress failed. Contact a Range Officer.',
+        message: 'Progress failed',
+        severity: 'error',
+      }),
+    );
+    expect(useSessionStore.getState().recordingError).toContain('Contact a Range Officer');
   });
 
   describe('subscription registration', () => {

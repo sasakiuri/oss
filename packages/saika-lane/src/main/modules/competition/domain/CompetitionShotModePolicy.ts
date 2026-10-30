@@ -14,12 +14,13 @@ export function resolveCompetitionShotMode(
   reportedMode: ReportedShotMode | undefined,
   seriesShotCount: number,
   selection?: ReportedShotMode | null,
-): ReportedShotMode {
-  if (series.purpose === 'POSITION_CHANGE_AND_SIGHTING') return 'SIGHTING';
-  if (!stage.scored) return 'SIGHTING';
+  sightingRequired = false,
+): { mode: ReportedShotMode; nullify: boolean } {
+  if (series.purpose === 'POSITION_CHANGE_AND_SIGHTING' || !stage.scored) return { mode: 'SIGHTING', nullify: false };
   if (series.targetModeControl === 'ATHLETE') {
-    if (seriesShotCount > 0) return 'MATCH';
-    return selection ?? reportedMode ?? 'MATCH';
+    if (seriesShotCount > 0) return { mode: 'MATCH', nullify: false };
+    const mode = selection ?? reportedMode ?? 'MATCH';
+    return { mode, nullify: sightingRequired && mode === 'MATCH' };
   }
-  return 'MATCH';
+  return { mode: 'MATCH', nullify: false };
 }

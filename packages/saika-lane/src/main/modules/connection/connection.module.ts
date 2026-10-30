@@ -183,6 +183,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
 
     // Register shot ingestion handler: USB data → RecordShot command
     const handleShotIngestion = createShotIngestionHandler({
+      eventBus,
       commandBus,
       sessionRepository,
       competitionRepository,

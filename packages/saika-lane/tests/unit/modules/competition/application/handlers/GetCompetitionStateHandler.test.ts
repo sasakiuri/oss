@@ -8,7 +8,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 
-import { athleteCompetition, selectAthlete } from '../../../../../helpers/athleteCompetition';
+import { athleteCompetition } from '../../../../../helpers/athleteCompetition';
 import { buildSession } from '../../../../../helpers/factories';
 import { createMockSessionRepository } from '../../../../../helpers/mockDependencies';
 
@@ -48,7 +48,18 @@ describe('createGetCompetitionStateHandler', () => {
       selected: null,
       effective: 'SIGHTING',
     });
-    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(selectAthlete(state, 'MATCH'));
+    vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(
+      state.selectAthleteTargetMode(
+        {
+          competitionId: state.id,
+          stageIndex: state.currentStageIndex,
+          seriesIndex: state.currentSeriesIndex,
+          mode: 'MATCH',
+        },
+        null,
+        session.allShots,
+      ),
+    );
     expect((await handler({ competitionId: state.id })).athleteTargetControl?.effective).toBe('MATCH');
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state.recordShotInSeries());
     expect((await handler({ competitionId: state.id })).athleteTargetControl).toMatchObject({

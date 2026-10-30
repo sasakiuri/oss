@@ -66,6 +66,7 @@ describe('MT-201 shot ingestion', () => {
         new ScoreCalculationServiceImpl(),
         events,
         new ScoreDiscrepancyDetector({ log: vi.fn() }),
+        async () => undefined,
       ),
     );
     const ingest = createShotIngestionHandler({
@@ -73,6 +74,7 @@ describe('MT-201 shot ingestion', () => {
       sessionRepository: sessions,
       competitionRepository: competitions,
       shotObservationRepository: observations,
+      eventBus: events,
     });
     const emitter = new USBEventEmitter();
     const pending: Promise<void>[] = [];

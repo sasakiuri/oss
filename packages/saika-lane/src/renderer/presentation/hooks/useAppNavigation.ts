@@ -41,6 +41,7 @@ export function useAppNavigation() {
       on.modeSwitched,
       on.sessionReset,
       on.shotRecorded,
+      on.positionExtraNullified,
     ].map((subscribe) => subscribe(markDirty));
     let splashTimer: ReturnType<typeof setTimeout>;
     const minimum = new Promise<void>((resolve) => {
@@ -63,6 +64,7 @@ export function useAppNavigation() {
           competition.athleteTargetControl?.effective ??
           (competition.interruption?.status === 'SIGHTING' ? 'SIGHTING' : competition.scored ? 'MATCH' : 'SIGHTING'),
         shots,
+        nullifiedExtras: history.nullifiedExtras,
         currentSeriesStartIndex: state.currentSeriesStartIndex,
         totalScore: score.totalScore,
         seriesScores: score.seriesScores,

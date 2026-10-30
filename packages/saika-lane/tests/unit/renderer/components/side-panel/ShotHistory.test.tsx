@@ -15,9 +15,30 @@ const createShot = (shotNumber: number, score: number, x = 0, y = 0) => ({
 describe('ShotHistory', () => {
   it('displays nothing when shots are empty', () => {
     const { container } = render(<ShotHistory shots={[]} />);
-    // Only an empty italic span
-    const italic = container.querySelector('.italic');
-    expect(italic).toBeInTheDocument();
+    expect(container.textContent).toBe('');
+  });
+
+  it('merges extras by receipt time, preserves ordinary ordinals and shows raw mode on later sighters', () => {
+    const shots = [{ ...createShot(21, 90), receivedAt: '2026-10-30T01:00:02Z', reportedMode: 'MATCH' as const }];
+    const { container } = render(
+      <ShotHistory
+        shots={shots}
+        nullifiedExtras={[
+          {
+            id: 'extra',
+            receivedAt: '2026-10-30T01:00:01Z',
+            reportedMode: 'MATCH',
+            deviceScoreX10: 100,
+            previousPosition: 'PRONE',
+            detail: 'ISSF 6.10.4(c) / 7.7.3',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/Nullified extra — previous Prone position/)).toBeVisible();
+    expect(screen.getByLabelText('No shot ordinal')).toHaveTextContent('—');
+    expect(screen.getAllByText(/Device mode: MATCH/)).toHaveLength(2);
+    expect(container.textContent!.indexOf('21')).toBeLessThan(container.textContent!.indexOf('Nullified extra'));
   });
 
   it('displays a single shot correctly', () => {

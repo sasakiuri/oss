@@ -24,6 +24,8 @@ import type {
   SessionResetEvent,
   SessionStartedEvent,
   ShotRecordedEvent,
+  PositionExtraNullifiedEvent,
+  ShotRecordingFailedEvent,
   StageAdvancedEvent,
   TimerExpiredEvent,
   TimerTickEvent,
@@ -43,10 +45,21 @@ export class ContractEventForwarder {
   ) {}
 
   start(): void {
+    this.forward<PositionExtraNullifiedEvent>(
+      'PositionExtraNullified',
+      eventsContract.channels.positionExtraNullified,
+      (event) => ({ sessionId: event.aggregateId, competitionId: event.competitionId }),
+    );
+    this.forward<ShotRecordingFailedEvent>('ShotRecordingFailed', eventsContract.channels.error, (event) => ({
+      code: 'SHOT_PROGRESS_FAILED',
+      message: event.message,
+      userMessage: event.message,
+      severity: 'error',
+    }));
     // ShotRecorded → event:shotRecorded
     this.forward<ShotRecordedEvent>('ShotRecorded', eventsContract.channels.shotRecorded, (event) => ({
       sessionId: event.aggregateId,
-      shot: this.transformShot(event.shot),
+      shot: { ...this.transformShot(event.shot), reportedMode: event.reportedMode ?? null },
     }));
 
     // ConnectionEstablished → event:connectionStatusChanged
@@ -260,6 +273,7 @@ export class ContractEventForwarder {
       timestamp: shot.timestamp.toISOString(),
       mode: shot.mode.value,
       isRecorded: shot.mode.isMatch(),
+      receivedAt: shot.receivedAt.toISOString(),
     };
   }
 }

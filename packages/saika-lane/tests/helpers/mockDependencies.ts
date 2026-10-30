@@ -83,6 +83,7 @@ export function createMockShotObservationRepository(): IShotObservationRepositor
     appendOutcomeWithEvidence: vi.fn().mockResolvedValue(undefined),
     findById: vi.fn().mockResolvedValue(null),
     findOutcomes: vi.fn().mockResolvedValue([]),
+    findBySessionAndOutcome: vi.fn().mockResolvedValue([]),
   };
 }
 

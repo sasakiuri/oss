@@ -97,7 +97,22 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     });
     this.repository.save(pending);
 
-    const competition = await this.requireActiveCompetition(input.competitionId);
+    let competition = await this.requireActiveCompetition(input.competitionId);
+    if (
+      input.unlimitedSightingShots &&
+      competition.phase === 'ACTIVE' &&
+      competition.currentStageConfig.scored &&
+      competition.seriesShotCount === 0 &&
+      competition.currentSeriesConfig.targetModeControl === 'ATHLETE' &&
+      competition.currentSeriesConfig.purpose !== 'POSITION_CHANGE_AND_SIGHTING'
+    ) {
+      competition = competition.resetAthleteTargetToSighting({
+        competitionId: competition.id,
+        stageIndex: competition.currentStageIndex,
+        seriesIndex: competition.currentSeriesIndex,
+      });
+      await this.competitionRepository.save(competition);
+    }
     await this.commandBus.execute(SwitchModeToken, {
       sessionId: competition.sessionId,
       preserveSeries: true,

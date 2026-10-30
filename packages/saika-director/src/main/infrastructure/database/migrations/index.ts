@@ -85,6 +85,7 @@ import { migration082EstBackupSources } from './082_est_backup_sources';
 import { migration083EstBackupCapturePlans } from './083_est_backup_capture_plans';
 import { migration084BackupCaptureReadiness } from './084_backup_capture_readiness';
 import { migration085OperationalSettingTemplates } from './085_operational_setting_templates';
+import { migration090NullifiedPositionExtra } from './090_nullified_position_extra';
 import type { Migration } from './Migration';
 
 export const allMigrations: Migration[] = [
@@ -175,4 +176,5 @@ export const allMigrations: Migration[] = [
   migration087FinalResultSourceCompetition,
   migration088VistaRankingScopes,
   migration089EvidenceFileContents,
+  migration090NullifiedPositionExtra,
 ];

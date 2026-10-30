@@ -10,7 +10,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
 /**
- * ShotRecorded event handler factory
+ * Awaited shot-progress hook factory
  *
  * Calls CompetitionState.recordShotInSeries() when a shot is recorded,
  * then announces persisted progress or completion of the series.
@@ -22,45 +22,36 @@ export function createShotRecordedHandler(deps: {
   const { competitionRepository, eventBus } = deps;
 
   return async (event) => {
-    try {
-      if (event?.acquisitionContext?.shotDisposition === 'ISOLATED') return;
-      const state = await competitionRepository.findActive();
-      if (!state || !state.canAcceptShot()) return;
+    if (event?.acquisitionContext?.shotDisposition === 'ISOLATED') return;
+    const state = await competitionRepository.findActive();
+    if (!state || !state.canAcceptShot()) return;
 
-      // In IDLE (training mode), shots are accepted but not tracked in competition series
-      if (state.phase !== 'ACTIVE') return;
-      if (state.currentStageConfig.scored && event?.shot.mode.isSighting()) return;
+    // In IDLE (training mode), shots are accepted but not tracked in competition series
+    if (state.phase !== 'ACTIVE') return;
+    if (state.currentStageConfig.scored && event?.shot.mode.isSighting()) return;
 
-      const newState = state.recordShotInSeries();
-      await competitionRepository.save(newState);
+    const newState = state.recordShotInSeries();
+    await competitionRepository.save(newState);
 
-      if (newState.phase === 'SERIES_COMPLETE') {
-        eventBus.emit({
-          type: 'SeriesCompleted',
-          timestamp: Date.now(),
-          aggregateId: newState.id,
-          stageIndex: newState.currentStageIndex,
-          seriesIndex: newState.currentSeriesIndex,
-          shotCount: newState.seriesShotCount,
-        });
-      } else {
-        // ShotRecorded listeners run concurrently with this save. Publish progress
-        // only after it completes so readers cannot observe the previous counter.
-        eventBus.emit({
-          type: 'CompetitionProgressChanged',
-          timestamp: Date.now(),
-          aggregateId: newState.id,
-          stageIndex: newState.currentStageIndex,
-          seriesIndex: newState.currentSeriesIndex,
-          shotCount: newState.seriesShotCount,
-        });
-      }
-    } catch (error) {
-      getLogger().error(
-        'Failed to record shot in competition',
-        'domain',
-        error instanceof Error ? { error: error.stack } : { error: String(error) },
-      );
+    if (newState.phase === 'SERIES_COMPLETE') {
+      eventBus.emit({
+        type: 'SeriesCompleted',
+        timestamp: Date.now(),
+        aggregateId: newState.id,
+        stageIndex: newState.currentStageIndex,
+        seriesIndex: newState.currentSeriesIndex,
+        shotCount: newState.seriesShotCount,
+      });
+    } else {
+      // Publish only after the authoritative counter has been saved.
+      eventBus.emit({
+        type: 'CompetitionProgressChanged',
+        timestamp: Date.now(),
+        aggregateId: newState.id,
+        stageIndex: newState.currentStageIndex,
+        seriesIndex: newState.currentSeriesIndex,
+        shotCount: newState.seriesShotCount,
+      });
     }
   };
 }

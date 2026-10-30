@@ -58,6 +58,7 @@ const CompetitionStateDtoSchema = z.object({
       officialSighting: z.boolean(),
       sightingAllowed: z.boolean(),
       matchAllowed: z.boolean(),
+      matchUnavailableReason: z.literal('SIGHTING_REQUIRED').nullable(),
       selected: z.enum(['SIGHTING', 'MATCH']).nullable(),
       effective: z.enum(['SIGHTING', 'MATCH']),
     })

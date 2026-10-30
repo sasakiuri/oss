@@ -8,9 +8,11 @@ import {
   StartSessionToken,
   SwitchModeToken,
 } from '@/main/composition/tokens';
+import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { sessionContract } from '@/shared/ipc/contracts';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
@@ -27,7 +29,14 @@ import { ScoreCalculationServiceImpl } from './infra/ScoreCalculationServiceImpl
 import { ShotLogService } from './infra/ShotLogService';
 
 type SessionDeps =
-  'commandBus' | 'queryBus' | 'eventBus' | 'sessionRepository' | 'competitionRepository' | 'ipcRouter' | 'userDataPath';
+  | 'commandBus'
+  | 'queryBus'
+  | 'eventBus'
+  | 'sessionRepository'
+  | 'competitionRepository'
+  | 'ipcRouter'
+  | 'userDataPath'
+  | 'database';
 
 export const sessionModule: ModuleDefinition<SessionDeps> = {
   name: 'session',
@@ -39,8 +48,18 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     'competitionRepository',
     'ipcRouter',
     'userDataPath',
+    'database',
   ] as const,
-  register({ commandBus, queryBus, eventBus, sessionRepository, competitionRepository, ipcRouter, userDataPath }) {
+  register({
+    commandBus,
+    queryBus,
+    eventBus,
+    sessionRepository,
+    competitionRepository,
+    ipcRouter,
+    userDataPath,
+    database,
+  }) {
     const scoreService = new ScoreCalculationServiceImpl();
     const discrepancyLogger = new CsvScoreDiscrepancyLogger();
     const discrepancyDetector = new ScoreDiscrepancyDetector(discrepancyLogger);
@@ -54,13 +73,26 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     commandBus.register(StartSessionToken, createStartSessionHandler(sessionRepository, eventBus));
     commandBus.register(
       RecordShotToken,
-      createRecordShotHandler(sessionRepository, scoreService, eventBus, discrepancyDetector),
+      createRecordShotHandler(
+        sessionRepository,
+        scoreService,
+        eventBus,
+        discrepancyDetector,
+        createShotRecordedHandler({ competitionRepository, eventBus }),
+      ),
     );
     commandBus.register(SwitchModeToken, createSwitchModeHandler(sessionRepository, eventBus));
     commandBus.register(ResetSessionToken, createResetSessionHandler(sessionRepository, eventBus));
 
     queryBus.register(GetSessionScoreToken, createGetSessionScoreHandler(sessionRepository));
-    queryBus.register(GetShotHistoryToken, createGetShotHistoryHandler(sessionRepository));
+    queryBus.register(
+      GetShotHistoryToken,
+      createGetShotHistoryHandler(
+        sessionRepository,
+        new SqliteShotObservationRepository(database),
+        competitionRepository,
+      ),
+    );
 
     // Register IPC handlers via IpcRouter
     const sessionHandlers: InferHandlers<typeof sessionContract> = {

@@ -192,8 +192,15 @@ describe('CompetitionInterruptionService', () => {
       ] as const) {
         let state = CompetitionState.reconstruct({ ...athleteCompetition(), id: COMPETITION_ID });
         if (count) state = state.recordShotInSeries();
-        if (selection) state = selectAthlete(state, selection);
-        vi.mocked(competitionRepository.findById).mockResolvedValue(state);
+        if (selection) {
+          if (selection === 'MATCH' && count === 0) state = selectAthlete(state, 'SIGHTING');
+          state = selectAthlete(state, selection);
+        }
+        vi.mocked(competitionRepository.findById).mockImplementation(async () => state);
+        vi.mocked(competitionRepository.save).mockClear();
+        vi.mocked(competitionRepository.save).mockImplementation(async (updated) => {
+          state = updated;
+        });
         vi.mocked(competitionRepository.findActive).mockResolvedValue(state);
         stored = null;
         vi.mocked(commandBus.execute).mockClear();
@@ -218,11 +225,13 @@ describe('CompetitionInterruptionService', () => {
           expect.objectContaining({
             sessionId: state.sessionId,
             preserveSeries: true,
-            mode: expect.objectContaining({ value: expected }),
+            mode: expect.objectContaining({
+              value: operation === 'resumeMatch' && count === 0 ? 'SIGHTING' : expected,
+            }),
           }),
         );
-        expect(state.athleteTargetMode).toBe(selection);
-        expect(competitionRepository.save).not.toHaveBeenCalled();
+        expect(state.athleteTargetMode).toBe(operation === 'resumeMatch' && count === 0 ? 'SIGHTING' : selection);
+        expect(competitionRepository.save).toHaveBeenCalledTimes(operation === 'resumeMatch' && count === 0 ? 1 : 0);
       }
     },
   );

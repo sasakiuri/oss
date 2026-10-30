@@ -73,12 +73,13 @@ export function useShot(): UseShotResult {
       resetDuringQuery = true;
     });
     try {
-      const { shots: fetchedShots } = await sessionService.getShotHistory({
+      const { shots: fetchedShots, nullifiedExtras } = await sessionService.getShotHistory({
         sessionId: currentSessionId,
       });
 
       const current = useSessionStore.getState();
       if (resetDuringQuery || current.currentSessionId !== currentSessionId) return;
+      current.setNullifiedExtras(nullifiedExtras);
       const merged = mergeShots(fetchedShots, current.shots);
       setShots(merged);
       calculateScores(merged);
@@ -107,6 +108,14 @@ export function useShot(): UseShotResult {
       void refreshShotHistory();
     }
   }, [currentSessionId, refreshShotHistory]);
+
+  useEffect(
+    () =>
+      window.electronAPI.on.positionExtraNullified((event) => {
+        if (event.sessionId === currentSessionId) void refreshShotHistory();
+      }),
+    [currentSessionId, refreshShotHistory],
+  );
 
   return {
     shots,

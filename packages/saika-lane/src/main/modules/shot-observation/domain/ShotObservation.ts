@@ -4,6 +4,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { parseShotTimestampSource, type ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 export const SHOT_OBSERVATION_OUTCOMES = [
+  'NULLIFIED_POSITION_EXTRA',
   'RECORDED',
   'REJECTED_COMPETITION_PHASE',
   'REJECTED_TIMED_TARGET_WINDOW',

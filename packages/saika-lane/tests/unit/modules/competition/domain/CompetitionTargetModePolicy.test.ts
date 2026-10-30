@@ -10,7 +10,7 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
 
-import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
+import { athleteCompetition } from '../../../../helpers/athleteCompetition';
 import {
   createMockCompetitionRepository,
   createMockEventBus,
@@ -114,7 +114,17 @@ describe('one target-mode policy across consumers', () => {
       },
     );
     state = state.withSessionId(session.id);
-    if (selection) state = selectAthlete(state, selection);
+    if (selection)
+      state = state.selectAthleteTargetMode(
+        {
+          competitionId: state.id,
+          stageIndex: state.currentStageIndex,
+          seriesIndex: state.currentSeriesIndex,
+          mode: selection,
+        },
+        null,
+        session.allShots,
+      );
     const interruption = status
       ? LaneInterruptionRecord.create({
           competitionId: state.id,

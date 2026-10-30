@@ -38,6 +38,7 @@ function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): Competition
       officialSighting: false,
       sightingAllowed: true,
       matchAllowed: true,
+      matchUnavailableReason: null,
       selected: null,
       effective,
     },
@@ -64,6 +65,7 @@ beforeEach(() => {
         phaseChanged: phase,
         competitionProgressChanged: progress,
         shotRecorded: shot,
+        positionExtraNullified: vi.fn(() => unsubscribe),
         competitionInterruptionChanged: interruption,
       },
     },
@@ -208,6 +210,7 @@ describe('athlete projection refresh', () => {
         officialSighting: false,
         sightingAllowed: false,
         matchAllowed: true,
+        matchUnavailableReason: null,
         selected: null,
         effective: 'MATCH',
       },
@@ -260,6 +263,6 @@ describe('athlete projection refresh', () => {
       pending.resolve(dto());
     });
     expect(useCompetitionStore.getState().athleteTargetControl).toBeNull();
-    expect(unsubscribe).toHaveBeenCalledTimes(4);
+    expect(unsubscribe).toHaveBeenCalledTimes(5);
   });
 });

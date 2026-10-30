@@ -51,6 +51,8 @@ const ShotDtoSchema = z.object({
   timestamp: z.string(),
   mode: z.string(),
   isRecorded: z.boolean(),
+  receivedAt: z.string().optional(),
+  reportedMode: SessionModeSchema.nullable().optional(),
 });
 
 const ShotRecordedEventSchema = z.object({
@@ -200,6 +202,9 @@ export const eventsContract = defineEventContract('events', {
   }),
   shotRecorded: defineEvent(ShotRecordedEventSchema, {
     channel: 'event:shotRecorded',
+  }),
+  positionExtraNullified: defineEvent(z.object({ sessionId: z.string(), competitionId: z.string() }), {
+    channel: 'event:positionExtraNullified',
   }),
   connectionStatusChanged: defineEvent(ConnectionStatusChangedEventSchema, {
     channel: 'event:connectionStatusChanged',

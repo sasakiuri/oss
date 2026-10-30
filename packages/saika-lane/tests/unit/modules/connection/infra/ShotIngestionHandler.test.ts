@@ -25,6 +25,7 @@ import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCo
 import { buildSession } from '../../../../helpers/factories';
 import {
   createMockCommandBus,
+  createMockEventBus,
   createMockCompetitionRepository,
   createMockSessionRepository,
   createMockShotObservationRepository,
@@ -43,7 +44,13 @@ describe('ShotIngestionHandler', () => {
     sessionRepository = createMockSessionRepository();
     competitionRepository = createMockCompetitionRepository();
     shotObservationRepository = createMockShotObservationRepository();
-    deps = { commandBus, sessionRepository, competitionRepository, shotObservationRepository };
+    deps = {
+      eventBus: createMockEventBus(),
+      commandBus,
+      sessionRepository,
+      competitionRepository,
+      shotObservationRepository,
+    };
 
     shotData = {
       x: 1.5,
@@ -246,7 +253,10 @@ describe('ShotIngestionHandler', () => {
     async (count, selection, reported, expected) => {
       let state = athleteCompetition();
       if (count) state = state.recordShotInSeries();
-      if (selection) state = selectAthlete(state, selection);
+      if (selection) {
+        if (selection === 'MATCH' && count === 0) state = selectAthlete(state, 'SIGHTING');
+        state = selectAthlete(state, selection);
+      }
       competitionRepository.findActive = vi.fn().mockResolvedValue(state);
       sessionRepository.findById = vi.fn().mockResolvedValue(buildSession());
       await createShotIngestionHandler(deps)({ ...shotData, mode: reported });

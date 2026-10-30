@@ -185,39 +185,21 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
     vi.mocked(mockRepo.save).mockRejectedValue(new Error('DB failure'));
 
-    await createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })();
-
+    await expect(
+      createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })(),
+    ).rejects.toThrow('DB failure');
     expect(mockEventBus.emit).not.toHaveBeenCalled();
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      'Failed to record shot in competition',
-      'domain',
-      expect.objectContaining({ error: expect.any(String) }),
-    );
   });
 
-  it('should log error and not throw exception on repository error', async () => {
-    vi.mocked(mockRepo.findActive).mockRejectedValue(new Error('DB failure'));
-
-    const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await expect(handler()).resolves.toBeUndefined();
-
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      'Failed to record shot in competition',
-      'domain',
-      expect.objectContaining({ error: expect.any(String) }),
-    );
-  });
-
-  it('should also log non-Error object errors', async () => {
-    vi.mocked(mockRepo.findActive).mockRejectedValue('string error');
-
-    const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await expect(handler()).resolves.toBeUndefined();
-
-    expect(mockLogger.error).toHaveBeenCalledWith('Failed to record shot in competition', 'domain', {
-      error: 'string error',
-    });
-  });
+  it.each([new Error('DB failure'), 'string error'])(
+    'propagates repository failure to the awaited caller: %s',
+    async (failure) => {
+      vi.mocked(mockRepo.findActive).mockRejectedValue(failure);
+      const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
+      await expect(handler()).rejects.toBe(failure);
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('createPhaseChangedHandler', () => {

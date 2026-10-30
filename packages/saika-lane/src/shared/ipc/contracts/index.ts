@@ -9,6 +9,7 @@ export type {
   SessionMode,
   SessionScoreDto,
   ShotDto,
+  NullifiedExtraDto,
   ShotHistoryDto,
   StartSessionInput,
   StartSessionResponse,

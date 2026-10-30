@@ -20,6 +20,7 @@ import {
 } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { ITimedTargetControl, TimedTargetShotDecision } from '@/main/modules/timed-target';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
+import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import {
   isScoringGaugeProfileId,
@@ -34,6 +35,7 @@ export interface ShotIngestionDeps {
   sessionRepository: ISessionRepository;
   competitionRepository: ICompetitionRepository;
   shotObservationRepository: IShotObservationRepository;
+  eventBus: IEventBus;
   interruptionReader?: Pick<ICompetitionInterruptionControl, 'get'>;
   safetyStopReader?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
   shootOffReader?: Pick<ICompetitionShootOffControl, 'canAcceptShot' | 'getState'>;
@@ -47,6 +49,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
     sessionRepository,
     competitionRepository,
     shotObservationRepository,
+    eventBus,
     safetyStopReader,
     interruptionReader,
     shootOffReader,
@@ -192,15 +195,55 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
             ? Mode.sighting()
             : Mode.match();
       } else if (activeCompetition) {
-        effectiveMode = Mode.fromValue(
-          resolveCompetitionShotMode(
-            activeCompetition.currentStageConfig,
-            activeCompetition.currentSeriesConfig,
-            shotData.mode,
-            activeCompetition.seriesShotCount,
-            activeCompetition.athleteTargetMode,
-          ),
+        const decision = resolveCompetitionShotMode(
+          activeCompetition.currentStageConfig,
+          activeCompetition.currentSeriesConfig,
+          shotData.mode,
+          activeCompetition.seriesShotCount,
+          activeCompetition.athleteTargetMode,
+          targetMode!.sightingRequired,
         );
+        if (decision.nullify) {
+          const previousPosition =
+            activeCompetition.currentStageConfig.series[activeCompetition.currentSeriesIndex - 1]?.position;
+          const positionLabel =
+            previousPosition === 'KNEELING'
+              ? 'Kneeling'
+              : previousPosition === 'PRONE'
+                ? 'Prone'
+                : previousPosition === 'STANDING'
+                  ? 'Standing'
+                  : 'unknown';
+          await finalizeObservation({
+            observationId: observation.id,
+            type: 'NULLIFIED_POSITION_EXTRA',
+            sessionId: activeSession.id,
+            detail: `Nullified extra — previous ${positionLabel} position · ISSF 6.10.4(c) / 7.7.3`,
+          });
+          // Re-read after journaling; a reset must never overwrite a newer clock or series.
+          const current = await competitionRepository.findById(activeCompetition.id);
+          if (!current) throw new Error('Competition disappeared before the Sighting reset');
+          const reset = current.resetAthleteTargetToSighting({
+            competitionId: activeCompetition.id,
+            stageIndex: activeCompetition.currentStageIndex,
+            seriesIndex: activeCompetition.currentSeriesIndex,
+          });
+          await competitionRepository.save(reset);
+          eventBus.emit({
+            type: 'AthleteTargetModeChanged',
+            aggregateId: reset.id,
+            timestamp: Date.now(),
+            newMode: Mode.sighting(),
+          });
+          eventBus.emit({
+            type: 'PositionExtraNullified',
+            aggregateId: activeSession.id,
+            timestamp: Date.now(),
+            competitionId: reset.id,
+          });
+          return;
+        }
+        effectiveMode = Mode.fromValue(decision.mode);
         athleteModeObserved =
           activeCompetition.currentStageConfig.scored &&
           activeCompetition.currentSeriesConfig.targetModeControl === 'ATHLETE' &&
@@ -218,6 +261,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         timestamp: shotData.timestamp,
         receivedAt: observation.receivedAt,
         deviceScore: shotData.score,
+        reportedMode: shotData.mode,
         sourceObservationId: observation.id,
         ...(activeCompetition
           ? {

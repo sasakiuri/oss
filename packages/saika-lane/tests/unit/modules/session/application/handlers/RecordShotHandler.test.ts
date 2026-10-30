@@ -65,7 +65,13 @@ describe('createRecordShotHandler', () => {
 
     testSession = Session.create(Discipline.airRifle10m());
 
-    handler = createRecordShotHandler(mockSessionRepository, mockScoreService, mockEventBus, mockDiscrepancyDetector);
+    handler = createRecordShotHandler(
+      mockSessionRepository,
+      mockScoreService,
+      mockEventBus,
+      mockDiscrepancyDetector,
+      vi.fn().mockResolvedValue(undefined),
+    );
   });
 
   describe('Success cases', () => {
@@ -354,6 +360,44 @@ describe('createRecordShotHandler', () => {
   });
 
   describe('Error cases', () => {
+    it('awaits progress before emitting a successful shot and exposes a saved-shot progress failure', async () => {
+      vi.mocked(mockSessionRepository.findById).mockResolvedValue(testSession);
+      vi.mocked(mockScoreService.calculateScore).mockReturnValue(new Score(100));
+      let finishProgress!: () => void;
+      const progress = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishProgress = resolve;
+          }),
+      );
+      const record = createRecordShotHandler(
+        mockSessionRepository,
+        mockScoreService,
+        mockEventBus,
+        mockDiscrepancyDetector,
+        progress,
+      );
+      const pending = record({ sessionId: testSession.id, impactPoint: null, timestamp: new Date() });
+      await vi.waitFor(() => expect(progress).toHaveBeenCalledOnce());
+      expect(mockSessionRepository.saveShot).toHaveBeenCalledOnce();
+      expect(mockEventBus.emit).not.toHaveBeenCalled();
+      finishProgress();
+      await pending;
+      expect(mockEventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'ShotRecorded' }));
+      vi.mocked(mockEventBus.emit).mockClear();
+      progress.mockRejectedValueOnce(new Error('Competition save failed'));
+      await expect(record({ sessionId: testSession.id, impactPoint: null, timestamp: new Date() })).rejects.toThrow(
+        'The shot was saved, but competition progress failed',
+      );
+      expect(mockEventBus.emit).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          type: 'ShotRecordingFailed',
+          aggregateId: testSession.id,
+          message: expect.stringContaining('Contact a Range Officer'),
+        }),
+      );
+    });
+
     it('should throw an error when session is not found', async () => {
       const impactPoint = new ImpactPoint(5.2, -3.8);
       (mockSessionRepository.findById as any).mockResolvedValue(null);

@@ -58,9 +58,15 @@ async function setup(type = BR60S) {
   const commands = new CommandBus();
   commands.register(
     RecordShotToken,
-    createRecordShotHandler(sessions, new ScoreCalculationServiceImpl(), events, {
-      detect: vi.fn(),
-    } as unknown as ScoreDiscrepancyDetector),
+    createRecordShotHandler(
+      sessions,
+      new ScoreCalculationServiceImpl(),
+      events,
+      {
+        detect: vi.fn(),
+      } as unknown as ScoreDiscrepancyDetector,
+      createShotRecordedHandler({ competitionRepository: competitions, eventBus: events }),
+    ),
   );
   commands.register(SwitchModeToken, createSwitchModeHandler(sessions, events));
   let record: LaneInterruptionRecord | null = null;
@@ -84,16 +90,12 @@ async function setup(type = BR60S) {
     events,
     sessions,
   );
-  let progress = Promise.resolve();
-  const recordProgress = createShotRecordedHandler({ competitionRepository: competitions, eventBus: events });
-  events.on('ShotRecorded', (event) => {
-    progress = recordProgress(event);
-  });
   const ingest = createShotIngestionHandler({
     commandBus: commands,
     sessionRepository: sessions,
     competitionRepository: competitions,
     shotObservationRepository: createMockShotObservationRepository(),
+    eventBus: events,
     interruptionReader: interruption,
   });
   return {
@@ -110,7 +112,6 @@ async function setup(type = BR60S) {
     },
     async fire(mode: 'MATCH' | 'SIGHTING' = 'MATCH') {
       await ingest({ x: 1, y: 1, score: 100, timestamp: new Date(), mode });
-      await progress;
       return (await sessions.findById(session.id))!;
     },
   };
@@ -151,7 +152,7 @@ describe('competition shot acquisition and persistence', () => {
     expect(rig.competition.seriesShotCount).toBe(2);
   });
 
-  it('excludes authorized interruption shots from the observed ATHLETE mode after resuming Match', async () => {
+  it('retains the official Sighting selection without marking official shots as ordinary ATHLETE observations', async () => {
     const rig = await setup(R3P60);
     for (let i = 0; i < 20; i++) rig.competition = rig.competition.recordShotInSeries();
     const cache = new SessionContextCache(rig.events);
@@ -176,10 +177,21 @@ describe('competition shot acquisition and persistence', () => {
     expect(rig.competition.seriesShotCount).toBe(0);
     await rig.interruption.resumeMatch({ competitionId: rig.competition.id, interruptionId });
     const query = createGetCompetitionStateHandler(rig.competitions, rig.sessions, rig.interruption);
-    expect(cache.getContext().mode.value).toBe('MATCH');
+    expect(cache.getContext().mode.value).toBe('SIGHTING');
     expect((await query({ competitionId: rig.competition.id })).athleteTargetControl).toMatchObject({
-      selected: null,
-      effective: 'MATCH',
+      selected: 'SIGHTING',
+      effective: 'SIGHTING',
+    });
+    await createSetAthleteTargetModeHandler(
+      rig.competitions,
+      rig.events,
+      rig.interruption,
+      rig.sessions,
+    )({
+      competitionId: rig.competition.id,
+      stageIndex: rig.competition.currentStageIndex,
+      seriesIndex: rig.competition.currentSeriesIndex,
+      mode: 'MATCH',
     });
     const matched = await rig.fire('MATCH');
     expect(matched.allShots.at(-1)!.competitionContext?.athleteModeObserved).toBe(true);
@@ -200,6 +212,7 @@ describe('competition shot acquisition and persistence', () => {
       rig.competitions,
       rig.events,
       rig.interruption,
+      rig.sessions,
     )({
       competitionId: rig.competition.id,
       stageIndex: rig.competition.currentStageIndex,

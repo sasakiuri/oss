@@ -27,6 +27,7 @@ export const ShotObservationEvidencePayloadSchema = z.object({
   outcomeId: z.string().uuid(),
   laneId: z.string().uuid(),
   outcome: z.enum([
+    'NULLIFIED_POSITION_EXTRA',
     'RECORDED',
     'REJECTED_COMPETITION_PHASE',
     'REJECTED_TIMED_TARGET_WINDOW',

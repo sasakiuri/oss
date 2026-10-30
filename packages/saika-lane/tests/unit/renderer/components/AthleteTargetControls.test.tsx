@@ -26,6 +26,7 @@ const control: NonNullable<CompetitionStateDto['athleteTargetControl']> = {
   officialSighting: false,
   sightingAllowed: true,
   matchAllowed: true,
+  matchUnavailableReason: null,
   selected: null,
   effective: 'MATCH',
 };
@@ -157,6 +158,45 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
     },
   );
 
+  it('requires Sighting before Match and keeps Numpad2 inert', async () => {
+    useCompetitionStore.setState({
+      athleteTargetControl: { ...control, matchAllowed: false, matchUnavailableReason: 'SIGHTING_REQUIRED' },
+    });
+    render(<Harness />);
+    const match = screen.getByRole('button', { name: 'Match' });
+    expect(match).toBeDisabled();
+    expect(match).toHaveAccessibleDescription('Switch to Sighting before selecting Match.');
+    expect(screen.getByRole('button', { name: 'Sighting' })).toBeEnabled();
+    await act(async () => {
+      fireEvent.keyDown(window, { code: 'Numpad2' });
+      fireEvent.click(match);
+    });
+    expect(competitionService.setAthleteTargetMode).not.toHaveBeenCalled();
+    expect(restart).not.toHaveBeenCalled();
+  });
+
+  it('displays an unnumbered extra and the commanded reset status alongside raw device modes', () => {
+    useSessionStore.setState({
+      nullificationMessage: 'Extra shot nullified. Target reset to Sighting.',
+      nullifiedExtras: [
+        {
+          id: 'extra',
+          receivedAt: new Date().toISOString(),
+          previousPosition: 'KNEELING',
+          deviceScoreX10: 100,
+          reportedMode: 'MATCH',
+          detail: 'ISSF 6.10.4(c) / 7.7.3',
+        },
+      ],
+    });
+    render(<Harness />);
+    expect(screen.getByText(/Nullified extra — previous Kneeling position/)).toBeVisible();
+    expect(screen.getByText('Not scored · ISSF 6.10.4(c) / 7.7.3')).toBeVisible();
+    expect(screen.getByLabelText('No shot ordinal')).toHaveTextContent('—');
+    expect(screen.getByText(/Device mode: MATCH/)).toBeVisible();
+    expect(screen.getByText('Extra shot nullified. Target reset to Sighting.')).toBeVisible();
+  });
+
   it('keeps Numpad1 inert after the cutoff and shows why Sighting is disabled', async () => {
     useCompetitionStore.setState({ athleteTargetControl: { ...control, sightingAllowed: false } });
     render(<Harness />);
@@ -259,6 +299,7 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
       officialSighting: true,
       sightingAllowed: false,
       matchAllowed: false,
+      matchUnavailableReason: null,
       selected: 'MATCH',
       effective: 'SIGHTING',
     });
@@ -288,6 +329,7 @@ describe.each([null, 'director-comp'])('athlete controls with Director membershi
       officialSighting: false,
       sightingAllowed: false,
       matchAllowed: false,
+      matchUnavailableReason: null,
     });
     render(<Harness />);
     expect(screen.getByRole('note')).not.toHaveTextContent('Official sighting is in progress');

@@ -5,6 +5,7 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { ScoreCalculationService } from '@/main/modules/session/domain/ScoreCalculationService';
 import type { ScoreDiscrepancyDetector } from '@/main/modules/session/domain/ScoreDiscrepancyDetector';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
+import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { DEFAULT_TARGET_SCORING_PROFILE_BY_DISCIPLINE, getTargetScoringProfile } from '@/shared/target';
@@ -14,6 +15,7 @@ export function createRecordShotHandler(
   scoreService: ScoreCalculationService,
   eventBus: IEventBus,
   discrepancyDetector: ScoreDiscrepancyDetector,
+  applyProgress: (event: ShotRecordedEvent) => Promise<void>,
 ): CommandHandler<RecordShotInput> {
   return async (input) => {
     // Retrieve the session
@@ -95,15 +97,29 @@ export function createRecordShotHandler(
       await sessionRepository.saveShot(updatedSession, recordedShot);
     }
 
-    // Emit ShotRecorded event
-    eventBus.emit({
+    const event: ShotRecordedEvent = {
       type: 'ShotRecorded',
       timestamp: Date.now(),
       aggregateId: updatedSession.id,
       shot: recordedShot,
+      reportedMode: input.reportedMode,
       scoringMode: session.scoringMode,
       rawScore: session.scoringMode === 'RING' && rawScore.value !== finalScore.value ? rawScore.value : undefined,
       ...(input.acquisitionContext ? { acquisitionContext: Object.freeze({ ...input.acquisitionContext }) } : {}),
-    });
+    };
+    try {
+      await applyProgress(event);
+    } catch (cause) {
+      // Preserve the saved evidence and make the partial failure visible; never announce success.
+      const error = ErrorCatalog.createError('SHOT_PROGRESS_FAILED');
+      eventBus.emit({
+        type: 'ShotRecordingFailed',
+        aggregateId: session.id,
+        timestamp: Date.now(),
+        message: error.message,
+      });
+      throw new Error(error.message, { cause });
+    }
+    eventBus.emit(event);
   };
 }
