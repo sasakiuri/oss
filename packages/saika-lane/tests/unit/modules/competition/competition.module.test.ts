@@ -59,9 +59,9 @@ describe('competition.module', () => {
     timerService = createMockTimerService();
   });
 
-  function registerModule() {
+  function registerModule(startup = createMockStartup()) {
     competitionModule.register({
-      startup: createMockStartup(),
+      startup,
       membership: new DirectorMembership(createMockStorage(), eventBus),
       safetyStopControl: { isStopped: () => false } as import('@/main/modules/safety-stop').ILaneSafetyStopControl,
       commandBus,
@@ -138,6 +138,26 @@ describe('competition.module', () => {
       registerModule();
 
       expect(commandBus.register).toHaveBeenCalledWith(FinishCompetitionToken, expect.any(Function));
+    });
+
+    it('permits the explicit existing creator for an unknown saved type only while no run is active', async () => {
+      const startup = createMockStartup();
+      vi.mocked(startup.snapshot).mockResolvedValue({
+        status: 'ERROR',
+        error: 'Unknown type',
+        competitionId: null,
+        sessionId: null,
+        canFinish: false,
+        currentSeriesStartIndex: 0,
+        canChooseType: true,
+      });
+      registerModule(startup);
+      vi.mocked(commandBus.execute).mockResolvedValue({ competitionId: 'new', sessionId: 'session' });
+      const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as {
+        startCompetition(input: { competitionTypeId: string }): Promise<unknown>;
+      };
+      await handlers.startCompetition({ competitionTypeId: 'AR60' });
+      expect(commandBus.execute).toHaveBeenCalledWith(StartCompetitionToken, { competitionTypeId: 'AR60' });
     });
 
     it('routes the athlete IPC command through its dedicated CQRS handler', async () => {

@@ -42,6 +42,7 @@ const MqttSettingsSchema = z.object({
 });
 
 const MqttStatusSchema = z.object({
+  error: z.string().optional(),
   status: z.union([z.literal('connected'), z.literal('disconnected'), z.literal('connecting')]),
   brokerUrl: z
     .string()

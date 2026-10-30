@@ -152,6 +152,7 @@ const CompetitionInterruptionChangedEventSchema = z.object({
   status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
   remainingSeconds: z.number().int().nonnegative(),
   unlimitedSightingShots: z.boolean(),
+  remainingTimeVerified: z.boolean().optional(),
 });
 
 const SafetyStopChangedEventSchema = LaneSafetyStateDtoSchema;
@@ -181,6 +182,7 @@ const CompetitionFinishedEventSchema = z.object({
 });
 
 const MqttStatusChangedEventSchema = z.object({
+  error: z.string().optional(),
   status: z.union([z.literal('connected'), z.literal('disconnected'), z.literal('connecting')]),
   brokerUrl: z.string().optional(),
   laneId: z.string().optional(),

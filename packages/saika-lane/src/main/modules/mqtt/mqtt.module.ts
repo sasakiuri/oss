@@ -203,6 +203,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       storage,
       competitionRepository,
       (competitionId) => competitionInterruptionControl.get(competitionId),
+      () => startup.isReady(),
     );
     const scorePublisher = new LaneScorePublisher(
       mqttClient,
@@ -210,6 +211,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       storage,
       competitionRepository,
       sessionRepository,
+      () => startup.isReady(),
     );
     new CompetitionShotPublisher(
       mqttClient,
@@ -264,7 +266,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           .findBySequenceId(runId)
           ?.acceptedShots.map((shot) => shot.observationId) ?? [],
     );
-    eventBus.on('MqttConnected', () => malfunctionFiringControl.restore());
+    eventBus.on('MqttConnected', (event) => {
+      if (startup.isReady() && !event.error) malfunctionFiringControl.restore();
+    });
     const qualificationMalfunctionContextSource = new LaneQualificationMalfunctionContextSource(
       competitionRepository,
       sessionRepository,
@@ -314,6 +318,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       (shotId) => qualificationRecoveryShotOutbox.hasShot(shotId),
       qualificationMalfunctionSignalPublisher,
       estComplaintSignalPublisher,
+      () => startup.isReady(),
     );
 
     // Initialize RPC handler
@@ -389,7 +394,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       timedTargetControl,
     );
 
-    let inFlightConnect: Promise<void> | null = null;
+    let lastConnectError: string | null = null;
+    let inFlightConnect: { key: string; promise: Promise<void> } | null = null;
     const connect = async (input: ConnectMqttInput): Promise<void> => {
       const logger = getLogger();
       const currentLaneId = settingsStore.getLaneId();
@@ -421,11 +427,13 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
         hardwarePublisher.resumePublishing();
         hardwarePublisher.publishState();
         await safetyStatePublisher.publishCurrentState();
-        await rangeOfficerRequestPublisher.publishCurrentState();
-        await qualificationMalfunctionSignalPublisher.publishCurrentState();
-        await estComplaintSignalPublisher.publishCurrentState();
-        await timedTargetStatePublisher.publishCurrentState();
-        await qualificationRecoveryStatePublisher.publishCurrentState();
+        if (startup.isReady()) {
+          await rangeOfficerRequestPublisher.publishCurrentState();
+          await qualificationMalfunctionSignalPublisher.publishCurrentState();
+          await estComplaintSignalPublisher.publishCurrentState();
+          await timedTargetStatePublisher.publishCurrentState();
+          await qualificationRecoveryStatePublisher.publishCurrentState();
+        }
         hardwarePublisher.startHeartbeat();
 
         // Subscribe to Tier1 commands
@@ -444,6 +452,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           hardwarePublisher.setRuntimeLaneAlias(null);
         }
 
+        await retainPublisher.republish();
+        lastConnectError = null;
         // Emit MqttConnected event for ContractEventForwarder
         eventBus.emit({
           type: 'MqttConnected',
@@ -453,30 +463,58 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           laneId: currentLaneId,
         });
 
-        await retainPublisher.republish();
         logger.info(`[MQTT Module] Connected to ${sanitizeBrokerUrl(input.brokerUrl)}`, 'mqtt');
       } catch (error) {
+        lastConnectError = error instanceof Error ? error.message : String(error);
         hardwarePublisher.stopHeartbeat();
         await hardwarePublisher.publishOfflineState().catch(() => undefined);
         await tier1Handler.unsubscribe().catch(() => undefined);
         await mqttClient.disconnect().catch(() => undefined);
+        eventBus.emit({ type: 'MqttDisconnected', timestamp: Date.now(), aggregateId: '', reason: lastConnectError });
         throw error;
       }
     };
     const connectMqtt = (input: ConnectMqttInput): Promise<void> => {
-      inFlightConnect ??= connect(input).finally(() => {
+      const normalized = {
+        brokerUrl: input.brokerUrl,
+        laneAlias: input.laneAlias ?? settingsStore.getMqttSettings().laneAlias,
+        autoConnect: input.autoConnect ?? false,
+      };
+      const key = JSON.stringify(normalized);
+      if (inFlightConnect) {
+        if (inFlightConnect.key === key) return inFlightConnect.promise;
+        return inFlightConnect.promise.catch(() => undefined).then(() => connectMqtt(normalized));
+      }
+      const promise = connect(normalized).finally(() => {
         inFlightConnect = null;
       });
-      return inFlightConnect;
+      inFlightConnect = { key, promise };
+      return promise;
     };
     startup.afterReady(async () => {
       const settings = settingsStore.getMqttSettings();
-      if (settings.enabled && settings.autoConnect && !mqttClient.isConnected()) await connectMqtt(settings);
+      if (mqttClient.isConnected()) {
+        try {
+          await retainPublisher.republish();
+        } catch (error) {
+          lastConnectError = error instanceof Error ? error.message : String(error);
+          eventBus.emit({
+            type: 'MqttConnected',
+            timestamp: Date.now(),
+            aggregateId: settingsStore.getLaneId(),
+            brokerUrl: sanitizeBrokerUrl(settings.brokerUrl),
+            laneId: settingsStore.getLaneId(),
+            error: lastConnectError,
+          });
+          throw error;
+        }
+      } else if (settings.enabled && settings.autoConnect) await connectMqtt(settings);
     });
     const handlers: InferHandlers<typeof mqttContract> = {
       connectMqtt,
 
       disconnectMqtt: async () => {
+        lastConnectError = null;
         hardwarePublisher.stopHeartbeat();
         // A graceful MQTT DISCONNECT does not trigger the broker Will. Publish
         // the same retained offline state explicitly before closing the socket.
@@ -500,6 +538,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           status: mqttClient.isConnected() ? ('connected' as const) : ('disconnected' as const),
           brokerUrl: settings?.brokerUrl,
           laneId: currentLaneId,
+          ...(lastConnectError ? { error: lastConnectError } : {}),
         };
       },
 

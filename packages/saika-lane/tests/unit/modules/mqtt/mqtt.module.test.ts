@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -24,6 +26,7 @@ import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { buildSession } from '../../../helpers/factories';
 import { createMockStartup, createMockSettingsStore } from '../../../helpers/mockDependencies';
 
 const { mockMqttClient } = vi.hoisted(() => ({
@@ -460,10 +463,10 @@ describe('mqtt.module', () => {
         return;
       }
       const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
-        connectMqtt(input: { brokerUrl: string }): Promise<void>;
+        connectMqtt(input: { brokerUrl: string; autoConnect?: boolean }): Promise<void>;
         disconnectMqtt(): Promise<void>;
       };
-      const manual = handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+      const manual = handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883', autoConnect: true });
       const connected = mockMqttClient.on.mock.calls.find(([event]) => event === 'connect')![1];
       expect(mockMqttClient.on.mock.calls.filter(([event]) => event === 'connect')).toHaveLength(1);
       mockMqttClient.connected = true;
@@ -473,6 +476,127 @@ describe('mqtt.module', () => {
       await handlers.disconnectMqtt();
     },
   );
+
+  function registerConnection(startup = createMockStartup()) {
+    mqttModule.register({
+      eventBus,
+      ipcRouter,
+      storage,
+      settingsStore,
+      queryBus,
+      startup,
+      membership: new DirectorMembership(storage, eventBus),
+      commandBus,
+      competitionRepository,
+      timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
+      safetyStopControl,
+      timedTargetControl,
+      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
+        connection: () => null,
+        hasActiveCompetition: async () => false,
+      }),
+      sessionRepository,
+      database,
+    });
+    return vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
+      connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;
+      disconnectMqtt(): Promise<void>;
+      getMqttStatus(): Promise<{ status: string; error?: string }>;
+    };
+  }
+
+  it('queues different manual settings behind an in-flight automatic connection', async () => {
+    const startup = createMockStartup();
+    settingsStore.saveMqttSettings({
+      ...settingsStore.getMqttSettings(),
+      enabled: true,
+      autoConnect: true,
+      brokerUrl: 'mqtt://auto:1883',
+      laneAlias: 'Auto Lane',
+    });
+    const save = vi.spyOn(settingsStore, 'saveMqttSettings');
+    mockMqttClient.on.mockReset();
+    const handlers = registerConnection(startup);
+    const automatic = vi.mocked(startup.afterReady).mock.calls[0]![0]();
+    const manual = handlers.connectMqtt({
+      brokerUrl: 'mqtt://manual:1883',
+      laneAlias: 'Manual Lane',
+      autoConnect: true,
+    });
+    expect(mockMqttClient.on.mock.calls.filter(([event]) => event === 'connect')).toHaveLength(1);
+    mockMqttClient.connected = true;
+    mockMqttClient.on.mock.calls.find(([event]) => event === 'connect')![1]();
+    await automatic;
+    await vi.waitFor(() =>
+      expect(mockMqttClient.on.mock.calls.filter(([event]) => event === 'connect')).toHaveLength(3),
+    );
+    mockMqttClient.connected = true;
+    mockMqttClient.on.mock.calls
+      .filter(([event]) => event === 'connect')
+      .at(-1)![1]();
+    await manual;
+    expect(save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ brokerUrl: 'mqtt://manual:1883', laneAlias: 'Manual Lane' }),
+    );
+    await handlers.disconnectMqtt();
+  });
+
+  it('publishes only hardware and safety states while startup is ERROR', async () => {
+    const startup = createMockStartup();
+    vi.spyOn(startup, 'isReady').mockReturnValue(false);
+    vi.mocked(competitionRepository.findActive).mockRejectedValue(new Error('Unreadable run'));
+    mockMqttClient.on.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'connect')
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          callback();
+        }, 0);
+    });
+    const handlers = registerConnection(startup);
+    await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+    const topics = mockMqttClient.publishAsync.mock.calls.map(([topic]) => topic as string);
+    expect(topics.length).toBeGreaterThan(0);
+    expect(topics.every((topic) => topic.includes('/hardware/state') || topic.includes('/safety/state'))).toBe(true);
+    expect(competitionRepository.findActive).not.toHaveBeenCalled();
+    await handlers.disconnectMqtt();
+  });
+
+  it('keeps a failed first republish visible and lets a manual connect retry it', async () => {
+    const session = buildSession();
+    const state = CompetitionState.create('11111111-1111-4111-8111-111111111111', session.id, BR60S.config);
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(state);
+    vi.mocked(competitionRepository.findById).mockResolvedValue(state);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+    let fail = true;
+    mockMqttClient.publishAsync.mockImplementation(async (topic: string) => {
+      if (fail && topic.endsWith('/score')) throw new Error('Initial score replay failed');
+    });
+    mockMqttClient.on.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'connect')
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          callback();
+        }, 0);
+    });
+    const handlers = registerConnection();
+    await expect(handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' })).rejects.toMatchObject({
+      code: 'MQTT_PUBLISH_FAILED',
+    });
+    expect(await handlers.getMqttStatus()).toMatchObject({
+      status: 'disconnected',
+      error: expect.stringContaining('/score'),
+    });
+    fail = false;
+    await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+    expect(await handlers.getMqttStatus()).toMatchObject({ status: 'connected' });
+    expect((await handlers.getMqttStatus()).error).toBeUndefined();
+    await handlers.disconnectMqtt();
+  });
 
   it('should publish offline and close the client when initial subscription fails', async () => {
     let emittedInitialConnect = false;

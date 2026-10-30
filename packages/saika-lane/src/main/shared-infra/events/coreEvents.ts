@@ -135,6 +135,7 @@ export interface CompetitionInterruptionChangedEvent extends DomainEvent {
   readonly status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
   readonly remainingSeconds: number;
   readonly unlimitedSightingShots: boolean;
+  remainingTimeVerified?: boolean;
 }
 
 export interface SafetyStopChangedEvent extends DomainEvent {
@@ -178,6 +179,7 @@ export interface DirectorMembershipChangedEvent extends DomainEvent {
 
 export interface MqttConnectedEvent extends DomainEvent {
   readonly type: 'MqttConnected';
+  readonly error?: string;
   readonly brokerUrl: string;
   readonly laneId: string;
 }

@@ -75,7 +75,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
 
     // Notify once a complete shot has been converted, before ingestion and persistence.
     usbManager.setOnShotDetected(() => {
-      if (!mainWindow.isDestroyed()) {
+      if (startup.isReady() && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(eventsContract.channels.shotReceived, {});
       }
     });
@@ -201,7 +201,9 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
         });
       },
     });
-    usbManager.on('data', handleShotIngestion);
+    usbManager.on('data', async (data) => {
+      if (startup.isReady()) await handleShotIngestion(data);
+    });
 
     usbManager.on('disconnected', () => {
       pendingUnexpectedDisconnect = (async () => {

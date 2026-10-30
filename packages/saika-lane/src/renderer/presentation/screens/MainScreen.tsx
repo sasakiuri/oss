@@ -169,6 +169,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
                       ? 'Saved run is stopped. Finish it to start again.'
                       : 'Range interruption — await Director instruction'}
                 </div>
+                {interruption.status !== 'SIGHTING' && interruption.remainingTimeVerified === false && (
+                  <p className="mt-4 text-xl" role="alert">
+                    Remaining time not verified — check the time before resuming
+                  </p>
+                )}
                 {stoppedStandalone && competitionId && onFinishSavedRun && (
                   <div className="mt-5">
                     <FinishSavedRun competitionId={competitionId} onFinished={onFinishSavedRun} />

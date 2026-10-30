@@ -20,6 +20,7 @@ interface StoredInterruptionRecord {
   unlimitedSightingShots: boolean | null;
   updatedAt: string;
   restartHold?: boolean;
+  remainingTimeVerified?: boolean;
 }
 
 export class LocalCompetitionInterruptionRepository implements ICompetitionInterruptionRepository {
@@ -54,6 +55,7 @@ export class LocalCompetitionInterruptionRepository implements ICompetitionInter
       unlimitedSightingShots: record.unlimitedSightingShots,
       updatedAt: record.updatedAt.toISOString(),
       restartHold: record.restartHold,
+      remainingTimeVerified: record.remainingTimeVerified,
     });
   }
 

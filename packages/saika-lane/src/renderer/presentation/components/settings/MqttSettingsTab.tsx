@@ -15,6 +15,15 @@ export const MqttSettingsTab: React.FC = () => {
   const [autoConnect, setAutoConnect] = useState(false);
   const [laneId, setLaneId] = useState('');
 
+  useEffect(
+    () =>
+      window.electronAPI.on.mqttStatusChanged((next) => {
+        setStatus(next.status);
+        setError(next.error ?? null);
+      }),
+    [setStatus, setError],
+  );
+
   // Load settings
   useEffect(() => {
     const controller = new AbortController();
@@ -35,6 +44,7 @@ export const MqttSettingsTab: React.FC = () => {
         setAutoConnect(loadedSettings.autoConnect);
         setLaneId(loadedSettings.laneId);
         setStatus(mqttStatus.status);
+        setError(mqttStatus.error ?? null);
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : String(err));

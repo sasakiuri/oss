@@ -161,6 +161,7 @@ export class ContractEventForwarder {
         status: event.status,
         remainingSeconds: event.remainingSeconds,
         unlimitedSightingShots: event.unlimitedSightingShots,
+        remainingTimeVerified: event.remainingTimeVerified,
       }),
     );
 
@@ -232,6 +233,7 @@ export class ContractEventForwarder {
       eventsContract.channels.mqttStatusChanged,
       (event): MqttStatusChangedEventPayload => ({
         status: 'connected',
+        ...(event.error ? { error: event.error } : {}),
         brokerUrl: event.brokerUrl,
         laneId: event.laneId,
       }),
@@ -241,8 +243,9 @@ export class ContractEventForwarder {
     this.forward<MqttDisconnectedEvent>(
       'MqttDisconnected',
       eventsContract.channels.mqttStatusChanged,
-      (): MqttStatusChangedEventPayload => ({
+      (event): MqttStatusChangedEventPayload => ({
         status: 'disconnected',
+        ...(event.reason ? { error: event.reason } : {}),
       }),
     );
   }

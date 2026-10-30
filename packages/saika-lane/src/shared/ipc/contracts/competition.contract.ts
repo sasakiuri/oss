@@ -51,6 +51,7 @@ const CompetitionStateDtoSchema = z.object({
       remainingSeconds: z.number().nonnegative(),
       unlimitedSightingShots: z.boolean(),
       restartHold: z.boolean(),
+      remainingTimeVerified: z.boolean().optional(),
     })
     .nullable(),
   athleteTargetControl: z

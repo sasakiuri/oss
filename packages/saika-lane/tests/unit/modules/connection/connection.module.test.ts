@@ -107,7 +107,7 @@ describe('connection.module', () => {
   });
 
   describe('register', () => {
-    function registerModule() {
+    function registerModule(readyForIntake = true) {
       const sessionContextCache = new SessionContextCache(eventBus);
       const ready = sessionContextCache.bootstrap(sessionRepository, competitionRepository, {
         get: getInterruption,
@@ -115,6 +115,7 @@ describe('connection.module', () => {
       connectionModule.register({
         sessionContextCache,
         startup: {
+          isReady: () => readyForIntake,
           snapshot: async () => {
             await ready;
             return { status: 'READY' };
@@ -149,6 +150,16 @@ describe('connection.module', () => {
       await vi.waitFor(() => expect(provider().mode.value).toBe(scored ? 'MATCH' : 'SIGHTING'));
       return provider;
     }
+
+    it('drops target data while startup is ERROR', async () => {
+      persistStage(true);
+      registerModule(false);
+      const data = vi.mocked(usbManager.on).mock.calls.find(([event]) => event === 'data')![1] as (
+        input: unknown,
+      ) => Promise<void>;
+      await data({ x: 0, y: 0, score: 100, mode: 'MATCH', timestamp: new Date() });
+      expect(commandBus.execute).not.toHaveBeenCalled();
+    });
 
     it('should register 2 command handlers', () => {
       registerModule();
@@ -407,17 +418,17 @@ describe('connection.module', () => {
         expect(mockWebContentsSend).not.toHaveBeenCalled();
       });
 
-      it('should register data handler directly as handleShotIngestion (no IPC in data handler)', () => {
+      it('routes valid data to ingestion without sending the detection IPC twice', async () => {
         registerModule();
 
         const dataHandler = vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === 'data')?.[1] as (
           data: unknown,
-        ) => void;
+        ) => Promise<void>;
 
         expect(dataHandler).toBeDefined();
 
         // Shot detection sends the IPC notification before data ingestion.
-        dataHandler({ x: 0, y: 0, score: 10 });
+        await dataHandler({ x: 0, y: 0, score: 10, timestamp: new Date() });
 
         expect(mockWebContentsSend).not.toHaveBeenCalled();
       });

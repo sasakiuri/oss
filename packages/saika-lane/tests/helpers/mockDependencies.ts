@@ -307,6 +307,7 @@ export function createMockAdapterRegistry(): AdapterRegistry {
 
 export function createMockStartup() {
   return {
+    isReady: () => true,
     snapshot: vi.fn().mockResolvedValue({ status: 'READY' }),
     afterReady: vi.fn(),
   } as unknown as import('@/main/startup/restoreActiveRun').ActiveRunStartup;

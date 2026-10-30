@@ -21,6 +21,7 @@ export class LaneCompetitionStatePublisher {
     storage: ILocalStorage,
     competitionRepository: ICompetitionRepository,
     private readonly getInterruption: (competitionId: string) => LaneInterruptionRecord | null = () => null,
+    private readonly canPublish: () => boolean = () => true,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -47,7 +48,7 @@ export class LaneCompetitionStatePublisher {
   }
 
   private async publishStateInternal(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
-    if (!this.mqttClient.isConnected()) return;
+    if (!this.mqttClient.isConnected() || !this.canPublish()) return;
 
     const competition = competitionId
       ? await this.competitionRepository.findById(competitionId)

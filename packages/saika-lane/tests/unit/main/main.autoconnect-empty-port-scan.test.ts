@@ -22,10 +22,16 @@ const shared = vi.hoisted(() => {
 
 vi.mock('@/main/startup/restoreActiveRun', () => ({
   ActiveRunStartup: class {
+    callbacks: Array<() => Promise<void>> = [];
+    afterReady = (callback: () => Promise<void>) => this.callbacks.push(callback);
+    snapshot = async () => ({ status: 'READY' });
     restore = vi.fn(
       () =>
         new Promise((resolve) => {
-          shared.sessionStarted = () => resolve({ status: 'READY' });
+          shared.sessionStarted = () => {
+            resolve({ status: 'READY' });
+            for (const callback of this.callbacks) void callback();
+          };
         }),
     );
   },
@@ -296,14 +302,16 @@ describe('main.ts auto-connect regression', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(shared.commandExecute).toHaveBeenCalledWith(
-      { name: 'ConnectToTarget' },
-      expect.objectContaining({
-        portName: 'COM9',
-        manufacturer,
-        deviceId,
-        baudRate,
-      }),
+    await vi.waitFor(() =>
+      expect(shared.commandExecute).toHaveBeenCalledWith(
+        { name: 'ConnectToTarget' },
+        expect.objectContaining({
+          portName: 'COM9',
+          manufacturer,
+          deviceId,
+          baudRate,
+        }),
+      ),
     );
   });
 });

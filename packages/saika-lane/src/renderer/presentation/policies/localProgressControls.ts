@@ -21,10 +21,15 @@ export function localProgressControls(
     athleteTargetControlLoaded?: boolean;
   },
 ): { allowed: boolean; reason: string | undefined } {
-  if (competition?.interruption?.status === 'PAUSED' || competition?.interruption?.status === 'RESUME_PENDING') {
+  if (
+    action === 'progress' &&
+    (competition?.interruption?.status === 'PAUSED' || competition?.interruption?.status === 'RESUME_PENDING')
+  ) {
+    if (hydrationFailed) return { allowed: false, reason: 'Director membership could not be loaded' };
+    if (!hydrated || !membership) return { allowed: false, reason: 'Director membership is not yet available' };
     return {
       allowed: false,
-      reason: membership?.competitionId
+      reason: membership.competitionId
         ? 'Await Director instruction'
         : 'Finish the stopped saved run before starting again',
     };
