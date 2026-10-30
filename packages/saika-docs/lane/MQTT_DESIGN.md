@@ -113,7 +113,7 @@ Lane の `state` はセッション ID、現在のステージ・シリーズ、
 
 本射ステージの ATHLETE シリーズ内の試射も、既存の `mode: SIGHTING`、`scored: true`、`isRecorded: false` で配信します。Lane のフェーズは MATCH を維持し、保持する本射得点と射数は増えません。試射の着弾形式は変わりません。最初の本射以降は Sighting を選べず、装置の Sighting 報告も Match として扱います。
 
-切り替え忘れで無効にした射撃は、既存の `shot-observation/evidence` の `outcome: NULLIFIED_POSITION_EXTRA` として配信します。`detail` は規則と前の姿勢の表示用説明です。`hardware/shot`、競技の `shot`、`score` の着弾にはせず、射順も付けません。Sighting へのリセット後に届くフレームは試射として配信し、観測資料の `reportedMode` には元の装置報告を残します。自動的な減点は行いません。Director の確認と公開保留は [成績ガイド](../director/RESULTS.md#結果を確認して公表する) を参照してください。
+切り替え忘れで無効にした射撃は、既存の `shot-observation/evidence` の `outcome: NULLIFIED_POSITION_EXTRA` として配信します。`detail` は規則と前の姿勢の表示用説明です。`hardware/shot`、競技の `shot`、`score` の着弾にはせず、射順も付けません。Sighting へのリセット後に届くフレームは試射として配信し、観測資料の `reportedMode` は受信処理のモードです。MT201 はフレームから読み取ります。ほかのアダプターは Lane の指示値を使うため、装置状態の証拠にはなりません。表示名は「Reported mode」です。自動的な減点は行いません。Director の確認と公開保留は [成績ガイド](../director/RESULTS.md#結果を確認して公表する) を参照してください。
 
 無効弾の資料は移動元 Lane の送信待ち記録に残り、予備射座への移動には含めません。移動元の再接続で配信しますが、再接続しなければ Director には届きません。移動先の Lane 履歴にも表示されません。
 
