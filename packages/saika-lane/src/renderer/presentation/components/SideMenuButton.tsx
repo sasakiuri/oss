@@ -12,7 +12,7 @@ export interface SideMenuButtonProps {
   disabled?: boolean;
   /** Reason included in the tooltip while disabled */
   disabledReason?: string;
-  /** Requeries an unavailable capability without performing the disabled action. */
+  /** Queries an unavailable capability again without performing the disabled action. */
   onDisabledClick?: () => void;
   /** Active state (for mode buttons) */
   active?: boolean;

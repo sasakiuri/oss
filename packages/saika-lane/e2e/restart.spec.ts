@@ -62,9 +62,9 @@ test('keeps standalone shots, session and series position after a process restar
     };
   });
   expect(after).toEqual(before);
-  await expect(restored.getByText('Series 1', { exact: true })).toBeVisible();
-  await expect(
-    restored.getByRole('complementary', { name: 'Side Panel' }).getByText('Match', { exact: true }),
-  ).toBeVisible();
+  const sidePanel = restored.getByRole('complementary', { name: 'Side Panel' });
+  await expect(sidePanel.getByRole('region', { name: 'Series scores' })).toBeVisible();
+  await expect(sidePanel.getByText('10.9', { exact: true })).toHaveCount(3);
+  await expect(sidePanel.getByText('Match', { exact: true })).toBeVisible();
   await expect(restored.getByText('No session started', { exact: true })).toHaveCount(0);
 });

@@ -217,7 +217,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
             detail: `Nullified extra — ${previousPositionLabel(activeCompetition.currentStageConfig, activeCompetition.currentSeriesIndex)} · ISSF 6.10.4(c) / 7.7.3`,
           });
           try {
-            // Re-read after journaling; a reset must never overwrite a newer clock or series.
+            // Re-read after the journal write; a reset must never overwrite a newer clock or series.
             const current = await competitionRepository.findById(activeCompetition.id);
             if (!current) throw new Error('Competition disappeared before the Sighting reset');
             const reset = current.resetAthleteTargetToSighting({
